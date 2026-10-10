@@ -12,7 +12,8 @@ part of 'change_source_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ChangeSourceState {
@@ -43,7 +44,9 @@ mixin _$ChangeSourceState {
   /// upstream values-zh/strings.xml:1457）
   String? get progressLastSourceName => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ChangeSourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ChangeSourceStateCopyWith<ChangeSourceState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -51,18 +54,20 @@ mixin _$ChangeSourceState {
 /// @nodoc
 abstract class $ChangeSourceStateCopyWith<$Res> {
   factory $ChangeSourceStateCopyWith(
-          ChangeSourceState value, $Res Function(ChangeSourceState) then) =
-      _$ChangeSourceStateCopyWithImpl<$Res, ChangeSourceState>;
+    ChangeSourceState value,
+    $Res Function(ChangeSourceState) then,
+  ) = _$ChangeSourceStateCopyWithImpl<$Res, ChangeSourceState>;
   @useResult
-  $Res call(
-      {List<SourceMatch> results,
-      bool isLoading,
-      String? error,
-      String? applyingUrl,
-      int? searchingCount,
-      int? progressFinished,
-      int? progressTotal,
-      String? progressLastSourceName});
+  $Res call({
+    List<SourceMatch> results,
+    bool isLoading,
+    String? error,
+    String? applyingUrl,
+    int? searchingCount,
+    int? progressFinished,
+    int? progressTotal,
+    String? progressLastSourceName,
+  });
 }
 
 /// @nodoc
@@ -75,6 +80,8 @@ class _$ChangeSourceStateCopyWithImpl<$Res, $Val extends ChangeSourceState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ChangeSourceState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -87,70 +94,78 @@ class _$ChangeSourceStateCopyWithImpl<$Res, $Val extends ChangeSourceState>
     Object? progressTotal = freezed,
     Object? progressLastSourceName = freezed,
   }) {
-    return _then(_value.copyWith(
-      results: null == results
-          ? _value.results
-          : results // ignore: cast_nullable_to_non_nullable
-              as List<SourceMatch>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      applyingUrl: freezed == applyingUrl
-          ? _value.applyingUrl
-          : applyingUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      searchingCount: freezed == searchingCount
-          ? _value.searchingCount
-          : searchingCount // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressFinished: freezed == progressFinished
-          ? _value.progressFinished
-          : progressFinished // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressTotal: freezed == progressTotal
-          ? _value.progressTotal
-          : progressTotal // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressLastSourceName: freezed == progressLastSourceName
-          ? _value.progressLastSourceName
-          : progressLastSourceName // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            results: null == results
+                ? _value.results
+                : results // ignore: cast_nullable_to_non_nullable
+                      as List<SourceMatch>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            applyingUrl: freezed == applyingUrl
+                ? _value.applyingUrl
+                : applyingUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            searchingCount: freezed == searchingCount
+                ? _value.searchingCount
+                : searchingCount // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            progressFinished: freezed == progressFinished
+                ? _value.progressFinished
+                : progressFinished // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            progressTotal: freezed == progressTotal
+                ? _value.progressTotal
+                : progressTotal // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            progressLastSourceName: freezed == progressLastSourceName
+                ? _value.progressLastSourceName
+                : progressLastSourceName // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$ChangeSourceStateImplCopyWith<$Res>
     implements $ChangeSourceStateCopyWith<$Res> {
-  factory _$$ChangeSourceStateImplCopyWith(_$ChangeSourceStateImpl value,
-          $Res Function(_$ChangeSourceStateImpl) then) =
-      __$$ChangeSourceStateImplCopyWithImpl<$Res>;
+  factory _$$ChangeSourceStateImplCopyWith(
+    _$ChangeSourceStateImpl value,
+    $Res Function(_$ChangeSourceStateImpl) then,
+  ) = __$$ChangeSourceStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<SourceMatch> results,
-      bool isLoading,
-      String? error,
-      String? applyingUrl,
-      int? searchingCount,
-      int? progressFinished,
-      int? progressTotal,
-      String? progressLastSourceName});
+  $Res call({
+    List<SourceMatch> results,
+    bool isLoading,
+    String? error,
+    String? applyingUrl,
+    int? searchingCount,
+    int? progressFinished,
+    int? progressTotal,
+    String? progressLastSourceName,
+  });
 }
 
 /// @nodoc
 class __$$ChangeSourceStateImplCopyWithImpl<$Res>
     extends _$ChangeSourceStateCopyWithImpl<$Res, _$ChangeSourceStateImpl>
     implements _$$ChangeSourceStateImplCopyWith<$Res> {
-  __$$ChangeSourceStateImplCopyWithImpl(_$ChangeSourceStateImpl _value,
-      $Res Function(_$ChangeSourceStateImpl) _then)
-      : super(_value, _then);
+  __$$ChangeSourceStateImplCopyWithImpl(
+    _$ChangeSourceStateImpl _value,
+    $Res Function(_$ChangeSourceStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ChangeSourceState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -163,56 +178,58 @@ class __$$ChangeSourceStateImplCopyWithImpl<$Res>
     Object? progressTotal = freezed,
     Object? progressLastSourceName = freezed,
   }) {
-    return _then(_$ChangeSourceStateImpl(
-      results: null == results
-          ? _value._results
-          : results // ignore: cast_nullable_to_non_nullable
-              as List<SourceMatch>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      applyingUrl: freezed == applyingUrl
-          ? _value.applyingUrl
-          : applyingUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      searchingCount: freezed == searchingCount
-          ? _value.searchingCount
-          : searchingCount // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressFinished: freezed == progressFinished
-          ? _value.progressFinished
-          : progressFinished // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressTotal: freezed == progressTotal
-          ? _value.progressTotal
-          : progressTotal // ignore: cast_nullable_to_non_nullable
-              as int?,
-      progressLastSourceName: freezed == progressLastSourceName
-          ? _value.progressLastSourceName
-          : progressLastSourceName // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$ChangeSourceStateImpl(
+        results: null == results
+            ? _value._results
+            : results // ignore: cast_nullable_to_non_nullable
+                  as List<SourceMatch>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        applyingUrl: freezed == applyingUrl
+            ? _value.applyingUrl
+            : applyingUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        searchingCount: freezed == searchingCount
+            ? _value.searchingCount
+            : searchingCount // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        progressFinished: freezed == progressFinished
+            ? _value.progressFinished
+            : progressFinished // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        progressTotal: freezed == progressTotal
+            ? _value.progressTotal
+            : progressTotal // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        progressLastSourceName: freezed == progressLastSourceName
+            ? _value.progressLastSourceName
+            : progressLastSourceName // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ChangeSourceStateImpl implements _ChangeSourceState {
-  const _$ChangeSourceStateImpl(
-      {final List<SourceMatch> results = const [],
-      this.isLoading = false,
-      this.error,
-      this.applyingUrl,
-      this.searchingCount,
-      this.progressFinished,
-      this.progressTotal,
-      this.progressLastSourceName})
-      : _results = results;
+  const _$ChangeSourceStateImpl({
+    final List<SourceMatch> results = const [],
+    this.isLoading = false,
+    this.error,
+    this.applyingUrl,
+    this.searchingCount,
+    this.progressFinished,
+    this.progressTotal,
+    this.progressLastSourceName,
+  }) : _results = results;
 
   /// 匹配到的候选书源列表（Rust 已按评分降序排序，UI 直接渲染）
   final List<SourceMatch> _results;
@@ -286,72 +303,80 @@ class _$ChangeSourceStateImpl implements _ChangeSourceState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_results),
-      isLoading,
-      error,
-      applyingUrl,
-      searchingCount,
-      progressFinished,
-      progressTotal,
-      progressLastSourceName);
+    runtimeType,
+    const DeepCollectionEquality().hash(_results),
+    isLoading,
+    error,
+    applyingUrl,
+    searchingCount,
+    progressFinished,
+    progressTotal,
+    progressLastSourceName,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ChangeSourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ChangeSourceStateImplCopyWith<_$ChangeSourceStateImpl> get copyWith =>
       __$$ChangeSourceStateImplCopyWithImpl<_$ChangeSourceStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _ChangeSourceState implements ChangeSourceState {
-  const factory _ChangeSourceState(
-      {final List<SourceMatch> results,
-      final bool isLoading,
-      final String? error,
-      final String? applyingUrl,
-      final int? searchingCount,
-      final int? progressFinished,
-      final int? progressTotal,
-      final String? progressLastSourceName}) = _$ChangeSourceStateImpl;
-
-  @override
+  const factory _ChangeSourceState({
+    final List<SourceMatch> results,
+    final bool isLoading,
+    final String? error,
+    final String? applyingUrl,
+    final int? searchingCount,
+    final int? progressFinished,
+    final int? progressTotal,
+    final String? progressLastSourceName,
+  }) = _$ChangeSourceStateImpl;
 
   /// 匹配到的候选书源列表（Rust 已按评分降序排序，UI 直接渲染）
-  List<SourceMatch> get results;
   @override
+  List<SourceMatch> get results;
 
   /// 是否正在搜索
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息
-  String? get error;
   @override
+  String? get error;
 
   /// 正在应用切换的书源 URL（null 表示无切换进行中）
-  String? get applyingUrl;
   @override
+  String? get applyingUrl;
 
   /// 本轮搜索的书源数量（仅 isLoading 时非 null；体检 U1 等待反馈，
   /// T6 流式 API 落地前暂以「源数量+时长」替代逐源 x/y 进度）
-  int? get searchingCount;
   @override
+  int? get searchingCount;
 
   /// 已完成书源数（T6 流式：批次 finished_count，搜索中非 null）
-  int? get progressFinished;
   @override
+  int? get progressFinished;
 
   /// 参与搜索的书源总数（T6 流式：批次 total_count，权威值来自 Rust）
-  int? get progressTotal;
   @override
+  int? get progressTotal;
 
   /// 最后完成的书源名（2026-09-24 换源感知等待：批次 source_name，
   /// 对齐上游 changeSourceProgress 进度串「结果 N，当前进度 M/K: 源名」，
   /// upstream values-zh/strings.xml:1457）
-  String? get progressLastSourceName;
   @override
-  @JsonKey(ignore: true)
+  String? get progressLastSourceName;
+
+  /// Create a copy of ChangeSourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ChangeSourceStateImplCopyWith<_$ChangeSourceStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

@@ -12,7 +12,8 @@ part of 'search_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$SearchState {
@@ -69,7 +70,9 @@ mixin _$SearchState {
   /// 抑制 play FAB 与滚动自动加载，直至新关键词搜索重置
   bool get isManualStop => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SearchState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $SearchStateCopyWith<SearchState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -77,25 +80,27 @@ mixin _$SearchState {
 /// @nodoc
 abstract class $SearchStateCopyWith<$Res> {
   factory $SearchStateCopyWith(
-          SearchState value, $Res Function(SearchState) then) =
-      _$SearchStateCopyWithImpl<$Res, SearchState>;
+    SearchState value,
+    $Res Function(SearchState) then,
+  ) = _$SearchStateCopyWithImpl<$Res, SearchState>;
   @useResult
-  $Res call(
-      {String keyword,
-      List<SearchResult> results,
-      bool isLoading,
-      int searchedCount,
-      int totalCount,
-      String? error,
-      List<SearchSourceFailure> failedSources,
-      Set<String> selectedSourceUrls,
-      Set<String> selectedGroups,
-      List<String> searchHistory,
-      String inputText,
-      int searchPage,
-      bool hasMore,
-      bool isPaused,
-      bool isManualStop});
+  $Res call({
+    String keyword,
+    List<SearchResult> results,
+    bool isLoading,
+    int searchedCount,
+    int totalCount,
+    String? error,
+    List<SearchSourceFailure> failedSources,
+    Set<String> selectedSourceUrls,
+    Set<String> selectedGroups,
+    List<String> searchHistory,
+    String inputText,
+    int searchPage,
+    bool hasMore,
+    bool isPaused,
+    bool isManualStop,
+  });
 }
 
 /// @nodoc
@@ -108,6 +113,8 @@ class _$SearchStateCopyWithImpl<$Res, $Val extends SearchState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of SearchState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -127,68 +134,71 @@ class _$SearchStateCopyWithImpl<$Res, $Val extends SearchState>
     Object? isPaused = null,
     Object? isManualStop = null,
   }) {
-    return _then(_value.copyWith(
-      keyword: null == keyword
-          ? _value.keyword
-          : keyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      results: null == results
-          ? _value.results
-          : results // ignore: cast_nullable_to_non_nullable
-              as List<SearchResult>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      searchedCount: null == searchedCount
-          ? _value.searchedCount
-          : searchedCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalCount: null == totalCount
-          ? _value.totalCount
-          : totalCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      failedSources: null == failedSources
-          ? _value.failedSources
-          : failedSources // ignore: cast_nullable_to_non_nullable
-              as List<SearchSourceFailure>,
-      selectedSourceUrls: null == selectedSourceUrls
-          ? _value.selectedSourceUrls
-          : selectedSourceUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      selectedGroups: null == selectedGroups
-          ? _value.selectedGroups
-          : selectedGroups // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      searchHistory: null == searchHistory
-          ? _value.searchHistory
-          : searchHistory // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      inputText: null == inputText
-          ? _value.inputText
-          : inputText // ignore: cast_nullable_to_non_nullable
-              as String,
-      searchPage: null == searchPage
-          ? _value.searchPage
-          : searchPage // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasMore: null == hasMore
-          ? _value.hasMore
-          : hasMore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isPaused: null == isPaused
-          ? _value.isPaused
-          : isPaused // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isManualStop: null == isManualStop
-          ? _value.isManualStop
-          : isManualStop // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            keyword: null == keyword
+                ? _value.keyword
+                : keyword // ignore: cast_nullable_to_non_nullable
+                      as String,
+            results: null == results
+                ? _value.results
+                : results // ignore: cast_nullable_to_non_nullable
+                      as List<SearchResult>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            searchedCount: null == searchedCount
+                ? _value.searchedCount
+                : searchedCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            totalCount: null == totalCount
+                ? _value.totalCount
+                : totalCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            failedSources: null == failedSources
+                ? _value.failedSources
+                : failedSources // ignore: cast_nullable_to_non_nullable
+                      as List<SearchSourceFailure>,
+            selectedSourceUrls: null == selectedSourceUrls
+                ? _value.selectedSourceUrls
+                : selectedSourceUrls // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+            selectedGroups: null == selectedGroups
+                ? _value.selectedGroups
+                : selectedGroups // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+            searchHistory: null == searchHistory
+                ? _value.searchHistory
+                : searchHistory // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            inputText: null == inputText
+                ? _value.inputText
+                : inputText // ignore: cast_nullable_to_non_nullable
+                      as String,
+            searchPage: null == searchPage
+                ? _value.searchPage
+                : searchPage // ignore: cast_nullable_to_non_nullable
+                      as int,
+            hasMore: null == hasMore
+                ? _value.hasMore
+                : hasMore // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isPaused: null == isPaused
+                ? _value.isPaused
+                : isPaused // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isManualStop: null == isManualStop
+                ? _value.isManualStop
+                : isManualStop // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -196,26 +206,28 @@ class _$SearchStateCopyWithImpl<$Res, $Val extends SearchState>
 abstract class _$$SearchStateImplCopyWith<$Res>
     implements $SearchStateCopyWith<$Res> {
   factory _$$SearchStateImplCopyWith(
-          _$SearchStateImpl value, $Res Function(_$SearchStateImpl) then) =
-      __$$SearchStateImplCopyWithImpl<$Res>;
+    _$SearchStateImpl value,
+    $Res Function(_$SearchStateImpl) then,
+  ) = __$$SearchStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String keyword,
-      List<SearchResult> results,
-      bool isLoading,
-      int searchedCount,
-      int totalCount,
-      String? error,
-      List<SearchSourceFailure> failedSources,
-      Set<String> selectedSourceUrls,
-      Set<String> selectedGroups,
-      List<String> searchHistory,
-      String inputText,
-      int searchPage,
-      bool hasMore,
-      bool isPaused,
-      bool isManualStop});
+  $Res call({
+    String keyword,
+    List<SearchResult> results,
+    bool isLoading,
+    int searchedCount,
+    int totalCount,
+    String? error,
+    List<SearchSourceFailure> failedSources,
+    Set<String> selectedSourceUrls,
+    Set<String> selectedGroups,
+    List<String> searchHistory,
+    String inputText,
+    int searchPage,
+    bool hasMore,
+    bool isPaused,
+    bool isManualStop,
+  });
 }
 
 /// @nodoc
@@ -223,9 +235,12 @@ class __$$SearchStateImplCopyWithImpl<$Res>
     extends _$SearchStateCopyWithImpl<$Res, _$SearchStateImpl>
     implements _$$SearchStateImplCopyWith<$Res> {
   __$$SearchStateImplCopyWithImpl(
-      _$SearchStateImpl _value, $Res Function(_$SearchStateImpl) _then)
-      : super(_value, _then);
+    _$SearchStateImpl _value,
+    $Res Function(_$SearchStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of SearchState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -245,96 +260,98 @@ class __$$SearchStateImplCopyWithImpl<$Res>
     Object? isPaused = null,
     Object? isManualStop = null,
   }) {
-    return _then(_$SearchStateImpl(
-      keyword: null == keyword
-          ? _value.keyword
-          : keyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      results: null == results
-          ? _value._results
-          : results // ignore: cast_nullable_to_non_nullable
-              as List<SearchResult>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      searchedCount: null == searchedCount
-          ? _value.searchedCount
-          : searchedCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalCount: null == totalCount
-          ? _value.totalCount
-          : totalCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      failedSources: null == failedSources
-          ? _value._failedSources
-          : failedSources // ignore: cast_nullable_to_non_nullable
-              as List<SearchSourceFailure>,
-      selectedSourceUrls: null == selectedSourceUrls
-          ? _value._selectedSourceUrls
-          : selectedSourceUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      selectedGroups: null == selectedGroups
-          ? _value._selectedGroups
-          : selectedGroups // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      searchHistory: null == searchHistory
-          ? _value._searchHistory
-          : searchHistory // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      inputText: null == inputText
-          ? _value.inputText
-          : inputText // ignore: cast_nullable_to_non_nullable
-              as String,
-      searchPage: null == searchPage
-          ? _value.searchPage
-          : searchPage // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasMore: null == hasMore
-          ? _value.hasMore
-          : hasMore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isPaused: null == isPaused
-          ? _value.isPaused
-          : isPaused // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isManualStop: null == isManualStop
-          ? _value.isManualStop
-          : isManualStop // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      _$SearchStateImpl(
+        keyword: null == keyword
+            ? _value.keyword
+            : keyword // ignore: cast_nullable_to_non_nullable
+                  as String,
+        results: null == results
+            ? _value._results
+            : results // ignore: cast_nullable_to_non_nullable
+                  as List<SearchResult>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        searchedCount: null == searchedCount
+            ? _value.searchedCount
+            : searchedCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalCount: null == totalCount
+            ? _value.totalCount
+            : totalCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        failedSources: null == failedSources
+            ? _value._failedSources
+            : failedSources // ignore: cast_nullable_to_non_nullable
+                  as List<SearchSourceFailure>,
+        selectedSourceUrls: null == selectedSourceUrls
+            ? _value._selectedSourceUrls
+            : selectedSourceUrls // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+        selectedGroups: null == selectedGroups
+            ? _value._selectedGroups
+            : selectedGroups // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+        searchHistory: null == searchHistory
+            ? _value._searchHistory
+            : searchHistory // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        inputText: null == inputText
+            ? _value.inputText
+            : inputText // ignore: cast_nullable_to_non_nullable
+                  as String,
+        searchPage: null == searchPage
+            ? _value.searchPage
+            : searchPage // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasMore: null == hasMore
+            ? _value.hasMore
+            : hasMore // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isPaused: null == isPaused
+            ? _value.isPaused
+            : isPaused // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isManualStop: null == isManualStop
+            ? _value.isManualStop
+            : isManualStop // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$SearchStateImpl implements _SearchState {
-  const _$SearchStateImpl(
-      {this.keyword = '',
-      final List<SearchResult> results = const [],
-      this.isLoading = false,
-      this.searchedCount = 0,
-      this.totalCount = 0,
-      this.error,
-      final List<SearchSourceFailure> failedSources =
-          const <SearchSourceFailure>[],
-      final Set<String> selectedSourceUrls = const <String>{},
-      final Set<String> selectedGroups = const <String>{},
-      final List<String> searchHistory = const [],
-      this.inputText = '',
-      this.searchPage = 1,
-      this.hasMore = false,
-      this.isPaused = false,
-      this.isManualStop = false})
-      : _results = results,
-        _failedSources = failedSources,
-        _selectedSourceUrls = selectedSourceUrls,
-        _selectedGroups = selectedGroups,
-        _searchHistory = searchHistory;
+  const _$SearchStateImpl({
+    this.keyword = '',
+    final List<SearchResult> results = const [],
+    this.isLoading = false,
+    this.searchedCount = 0,
+    this.totalCount = 0,
+    this.error,
+    final List<SearchSourceFailure> failedSources =
+        const <SearchSourceFailure>[],
+    final Set<String> selectedSourceUrls = const <String>{},
+    final Set<String> selectedGroups = const <String>{},
+    final List<String> searchHistory = const [],
+    this.inputText = '',
+    this.searchPage = 1,
+    this.hasMore = false,
+    this.isPaused = false,
+    this.isManualStop = false,
+  }) : _results = results,
+       _failedSources = failedSources,
+       _selectedSourceUrls = selectedSourceUrls,
+       _selectedGroups = selectedGroups,
+       _searchHistory = searchHistory;
 
   /// 当前搜索关键词
   @override
@@ -475,14 +492,22 @@ class _$SearchStateImpl implements _SearchState {
             (identical(other.totalCount, totalCount) ||
                 other.totalCount == totalCount) &&
             (identical(other.error, error) || other.error == error) &&
-            const DeepCollectionEquality()
-                .equals(other._failedSources, _failedSources) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedSourceUrls, _selectedSourceUrls) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedGroups, _selectedGroups) &&
-            const DeepCollectionEquality()
-                .equals(other._searchHistory, _searchHistory) &&
+            const DeepCollectionEquality().equals(
+              other._failedSources,
+              _failedSources,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._selectedSourceUrls,
+              _selectedSourceUrls,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._selectedGroups,
+              _selectedGroups,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._searchHistory,
+              _searchHistory,
+            ) &&
             (identical(other.inputText, inputText) ||
                 other.inputText == inputText) &&
             (identical(other.searchPage, searchPage) ||
@@ -496,24 +521,27 @@ class _$SearchStateImpl implements _SearchState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      keyword,
-      const DeepCollectionEquality().hash(_results),
-      isLoading,
-      searchedCount,
-      totalCount,
-      error,
-      const DeepCollectionEquality().hash(_failedSources),
-      const DeepCollectionEquality().hash(_selectedSourceUrls),
-      const DeepCollectionEquality().hash(_selectedGroups),
-      const DeepCollectionEquality().hash(_searchHistory),
-      inputText,
-      searchPage,
-      hasMore,
-      isPaused,
-      isManualStop);
+    runtimeType,
+    keyword,
+    const DeepCollectionEquality().hash(_results),
+    isLoading,
+    searchedCount,
+    totalCount,
+    error,
+    const DeepCollectionEquality().hash(_failedSources),
+    const DeepCollectionEquality().hash(_selectedSourceUrls),
+    const DeepCollectionEquality().hash(_selectedGroups),
+    const DeepCollectionEquality().hash(_searchHistory),
+    inputText,
+    searchPage,
+    hasMore,
+    isPaused,
+    isManualStop,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SearchState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$SearchStateImplCopyWith<_$SearchStateImpl> get copyWith =>
@@ -521,92 +549,95 @@ class _$SearchStateImpl implements _SearchState {
 }
 
 abstract class _SearchState implements SearchState {
-  const factory _SearchState(
-      {final String keyword,
-      final List<SearchResult> results,
-      final bool isLoading,
-      final int searchedCount,
-      final int totalCount,
-      final String? error,
-      final List<SearchSourceFailure> failedSources,
-      final Set<String> selectedSourceUrls,
-      final Set<String> selectedGroups,
-      final List<String> searchHistory,
-      final String inputText,
-      final int searchPage,
-      final bool hasMore,
-      final bool isPaused,
-      final bool isManualStop}) = _$SearchStateImpl;
-
-  @override
+  const factory _SearchState({
+    final String keyword,
+    final List<SearchResult> results,
+    final bool isLoading,
+    final int searchedCount,
+    final int totalCount,
+    final String? error,
+    final List<SearchSourceFailure> failedSources,
+    final Set<String> selectedSourceUrls,
+    final Set<String> selectedGroups,
+    final List<String> searchHistory,
+    final String inputText,
+    final int searchPage,
+    final bool hasMore,
+    final bool isPaused,
+    final bool isManualStop,
+  }) = _$SearchStateImpl;
 
   /// 当前搜索关键词
-  String get keyword;
   @override
+  String get keyword;
 
   /// 搜索结果列表（已按书名+作者聚合，对齐原版 mergeItems）
-  List<SearchResult> get results;
   @override
+  List<SearchResult> get results;
 
   /// 是否正在搜索
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 渐进搜索：已完成书源数（对齐原版 onSearchProgress searched）
-  int get searchedCount;
   @override
+  int get searchedCount;
 
   /// 渐进搜索：书源总数（对齐原版 onSearchProgress total）
-  int get totalCount;
   @override
+  int get totalCount;
 
   /// 错误信息
-  String? get error;
   @override
+  String? get error;
 
   /// 失败书源列表（队列④ P1-B：单源搜索失败原仅 AppLog 留痕、UI 不可见，
   /// 现累积于此并在搜索结果页顶部以非阻断横幅呈现；新关键词搜索 / 清空 /
   /// 页面重开时清空，同关键词续页按源名去重（最新错误优先））
-  List<SearchSourceFailure> get failedSources;
   @override
+  List<SearchSourceFailure> get failedSources;
 
   /// 精准搜索：选中的书源 URL
-  Set<String> get selectedSourceUrls;
   @override
+  Set<String> get selectedSourceUrls;
 
   /// 精准搜索：选中的分组
-  Set<String> get selectedGroups;
   @override
+  Set<String> get selectedGroups;
 
   /// 搜索历史（最近 20 条，经 BookApi 持久化至 Rust search_keywords 表）
   /// [审计修复 §4.5] 清理陈旧注释（实际已不走 SharedPreferences） — Qoder
-  List<String> get searchHistory;
   @override
+  List<String> get searchHistory;
 
   /// 输入框实时文本（用于联想过滤，区别于已提交的 [keyword]）
-  String get inputText;
   @override
+  String get inputText;
 
   /// 活动搜索会话的当前页码（批次B G-B-01：新关键词 → 重置为 1；
   /// 同关键词续页 → searchPage++，对齐原版 SearchModel.searchPage）
-  int get searchPage;
   @override
+  int get searchPage;
 
   /// 是否有下一页（批次B G-B-02：当前页非空批次的 OR，Rust 侧 has_more
   /// 累积字段；新搜索开始时乐观置 true，每批事件覆写）
-  bool get hasMore;
   @override
+  bool get hasMore;
 
   /// 软挂起态（批次B G-B-04：仅门控未派发书源，已派发任务继续；
   /// 对齐原版 repeatOnLifecycle(RESUMED) → viewModel.pause/resume）
-  bool get isPaused;
   @override
+  bool get isPaused;
 
   /// 用户手动停止了本次搜索（对齐原版 SearchActivity.isManualStopSearch）：
   /// 抑制 play FAB 与滚动自动加载，直至新关键词搜索重置
-  bool get isManualStop;
   @override
-  @JsonKey(ignore: true)
+  bool get isManualStop;
+
+  /// Create a copy of SearchState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SearchStateImplCopyWith<_$SearchStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

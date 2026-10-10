@@ -12,7 +12,8 @@ part of 'txt_toc_rules_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$TxtTocRulesState {
@@ -25,7 +26,9 @@ mixin _$TxtTocRulesState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of TxtTocRulesState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $TxtTocRulesStateCopyWith<TxtTocRulesState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -33,8 +36,9 @@ mixin _$TxtTocRulesState {
 /// @nodoc
 abstract class $TxtTocRulesStateCopyWith<$Res> {
   factory $TxtTocRulesStateCopyWith(
-          TxtTocRulesState value, $Res Function(TxtTocRulesState) then) =
-      _$TxtTocRulesStateCopyWithImpl<$Res, TxtTocRulesState>;
+    TxtTocRulesState value,
+    $Res Function(TxtTocRulesState) then,
+  ) = _$TxtTocRulesStateCopyWithImpl<$Res, TxtTocRulesState>;
   @useResult
   $Res call({List<TxtTocRule> rules, bool isLoading, String? error});
 }
@@ -49,6 +53,8 @@ class _$TxtTocRulesStateCopyWithImpl<$Res, $Val extends TxtTocRulesState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of TxtTocRulesState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -56,29 +62,33 @@ class _$TxtTocRulesStateCopyWithImpl<$Res, $Val extends TxtTocRulesState>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      rules: null == rules
-          ? _value.rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<TxtTocRule>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            rules: null == rules
+                ? _value.rules
+                : rules // ignore: cast_nullable_to_non_nullable
+                      as List<TxtTocRule>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$TxtTocRulesStateImplCopyWith<$Res>
     implements $TxtTocRulesStateCopyWith<$Res> {
-  factory _$$TxtTocRulesStateImplCopyWith(_$TxtTocRulesStateImpl value,
-          $Res Function(_$TxtTocRulesStateImpl) then) =
-      __$$TxtTocRulesStateImplCopyWithImpl<$Res>;
+  factory _$$TxtTocRulesStateImplCopyWith(
+    _$TxtTocRulesStateImpl value,
+    $Res Function(_$TxtTocRulesStateImpl) then,
+  ) = __$$TxtTocRulesStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<TxtTocRule> rules, bool isLoading, String? error});
@@ -88,10 +98,13 @@ abstract class _$$TxtTocRulesStateImplCopyWith<$Res>
 class __$$TxtTocRulesStateImplCopyWithImpl<$Res>
     extends _$TxtTocRulesStateCopyWithImpl<$Res, _$TxtTocRulesStateImpl>
     implements _$$TxtTocRulesStateImplCopyWith<$Res> {
-  __$$TxtTocRulesStateImplCopyWithImpl(_$TxtTocRulesStateImpl _value,
-      $Res Function(_$TxtTocRulesStateImpl) _then)
-      : super(_value, _then);
+  __$$TxtTocRulesStateImplCopyWithImpl(
+    _$TxtTocRulesStateImpl _value,
+    $Res Function(_$TxtTocRulesStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of TxtTocRulesState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -99,31 +112,33 @@ class __$$TxtTocRulesStateImplCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_$TxtTocRulesStateImpl(
-      rules: null == rules
-          ? _value._rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<TxtTocRule>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$TxtTocRulesStateImpl(
+        rules: null == rules
+            ? _value._rules
+            : rules // ignore: cast_nullable_to_non_nullable
+                  as List<TxtTocRule>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$TxtTocRulesStateImpl implements _TxtTocRulesState {
-  const _$TxtTocRulesStateImpl(
-      {final List<TxtTocRule> rules = const [],
-      this.isLoading = false,
-      this.error})
-      : _rules = rules;
+  const _$TxtTocRulesStateImpl({
+    final List<TxtTocRule> rules = const [],
+    this.isLoading = false,
+    this.error,
+  }) : _rules = rules;
 
   /// 规则列表（按 serialNumber 语义排序）
   final List<TxtTocRule> _rules;
@@ -163,37 +178,48 @@ class _$TxtTocRulesStateImpl implements _TxtTocRulesState {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType,
-      const DeepCollectionEquality().hash(_rules), isLoading, error);
+  int get hashCode => Object.hash(
+    runtimeType,
+    const DeepCollectionEquality().hash(_rules),
+    isLoading,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of TxtTocRulesState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$TxtTocRulesStateImplCopyWith<_$TxtTocRulesStateImpl> get copyWith =>
       __$$TxtTocRulesStateImplCopyWithImpl<_$TxtTocRulesStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _TxtTocRulesState implements TxtTocRulesState {
-  const factory _TxtTocRulesState(
-      {final List<TxtTocRule> rules,
-      final bool isLoading,
-      final String? error}) = _$TxtTocRulesStateImpl;
-
-  @override
+  const factory _TxtTocRulesState({
+    final List<TxtTocRule> rules,
+    final bool isLoading,
+    final String? error,
+  }) = _$TxtTocRulesStateImpl;
 
   /// 规则列表（按 serialNumber 语义排序）
-  List<TxtTocRule> get rules;
   @override
+  List<TxtTocRule> get rules;
 
   /// 正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of TxtTocRulesState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$TxtTocRulesStateImplCopyWith<_$TxtTocRulesStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

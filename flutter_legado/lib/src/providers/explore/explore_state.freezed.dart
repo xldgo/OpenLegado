@@ -12,7 +12,8 @@ part of 'explore_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ExploreState {
@@ -38,7 +39,9 @@ mixin _$ExploreState {
   /// 正在加载分类的书源 URL 集合
   Set<String> get loadingCategories => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ExploreState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ExploreStateCopyWith<ExploreState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -46,17 +49,19 @@ mixin _$ExploreState {
 /// @nodoc
 abstract class $ExploreStateCopyWith<$Res> {
   factory $ExploreStateCopyWith(
-          ExploreState value, $Res Function(ExploreState) then) =
-      _$ExploreStateCopyWithImpl<$Res, ExploreState>;
+    ExploreState value,
+    $Res Function(ExploreState) then,
+  ) = _$ExploreStateCopyWithImpl<$Res, ExploreState>;
   @useResult
-  $Res call(
-      {List<BookSource> bookSources,
-      bool isLoading,
-      String? error,
-      String searchKeyword,
-      String selectedGroup,
-      Map<String, List<ExploreCategory>> categoriesCache,
-      Set<String> loadingCategories});
+  $Res call({
+    List<BookSource> bookSources,
+    bool isLoading,
+    String? error,
+    String searchKeyword,
+    String selectedGroup,
+    Map<String, List<ExploreCategory>> categoriesCache,
+    Set<String> loadingCategories,
+  });
 }
 
 /// @nodoc
@@ -69,6 +74,8 @@ class _$ExploreStateCopyWithImpl<$Res, $Val extends ExploreState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ExploreState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -80,36 +87,39 @@ class _$ExploreStateCopyWithImpl<$Res, $Val extends ExploreState>
     Object? categoriesCache = null,
     Object? loadingCategories = null,
   }) {
-    return _then(_value.copyWith(
-      bookSources: null == bookSources
-          ? _value.bookSources
-          : bookSources // ignore: cast_nullable_to_non_nullable
-              as List<BookSource>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      searchKeyword: null == searchKeyword
-          ? _value.searchKeyword
-          : searchKeyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      selectedGroup: null == selectedGroup
-          ? _value.selectedGroup
-          : selectedGroup // ignore: cast_nullable_to_non_nullable
-              as String,
-      categoriesCache: null == categoriesCache
-          ? _value.categoriesCache
-          : categoriesCache // ignore: cast_nullable_to_non_nullable
-              as Map<String, List<ExploreCategory>>,
-      loadingCategories: null == loadingCategories
-          ? _value.loadingCategories
-          : loadingCategories // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            bookSources: null == bookSources
+                ? _value.bookSources
+                : bookSources // ignore: cast_nullable_to_non_nullable
+                      as List<BookSource>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            searchKeyword: null == searchKeyword
+                ? _value.searchKeyword
+                : searchKeyword // ignore: cast_nullable_to_non_nullable
+                      as String,
+            selectedGroup: null == selectedGroup
+                ? _value.selectedGroup
+                : selectedGroup // ignore: cast_nullable_to_non_nullable
+                      as String,
+            categoriesCache: null == categoriesCache
+                ? _value.categoriesCache
+                : categoriesCache // ignore: cast_nullable_to_non_nullable
+                      as Map<String, List<ExploreCategory>>,
+            loadingCategories: null == loadingCategories
+                ? _value.loadingCategories
+                : loadingCategories // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -117,18 +127,20 @@ class _$ExploreStateCopyWithImpl<$Res, $Val extends ExploreState>
 abstract class _$$ExploreStateImplCopyWith<$Res>
     implements $ExploreStateCopyWith<$Res> {
   factory _$$ExploreStateImplCopyWith(
-          _$ExploreStateImpl value, $Res Function(_$ExploreStateImpl) then) =
-      __$$ExploreStateImplCopyWithImpl<$Res>;
+    _$ExploreStateImpl value,
+    $Res Function(_$ExploreStateImpl) then,
+  ) = __$$ExploreStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<BookSource> bookSources,
-      bool isLoading,
-      String? error,
-      String searchKeyword,
-      String selectedGroup,
-      Map<String, List<ExploreCategory>> categoriesCache,
-      Set<String> loadingCategories});
+  $Res call({
+    List<BookSource> bookSources,
+    bool isLoading,
+    String? error,
+    String searchKeyword,
+    String selectedGroup,
+    Map<String, List<ExploreCategory>> categoriesCache,
+    Set<String> loadingCategories,
+  });
 }
 
 /// @nodoc
@@ -136,9 +148,12 @@ class __$$ExploreStateImplCopyWithImpl<$Res>
     extends _$ExploreStateCopyWithImpl<$Res, _$ExploreStateImpl>
     implements _$$ExploreStateImplCopyWith<$Res> {
   __$$ExploreStateImplCopyWithImpl(
-      _$ExploreStateImpl _value, $Res Function(_$ExploreStateImpl) _then)
-      : super(_value, _then);
+    _$ExploreStateImpl _value,
+    $Res Function(_$ExploreStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ExploreState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -150,54 +165,56 @@ class __$$ExploreStateImplCopyWithImpl<$Res>
     Object? categoriesCache = null,
     Object? loadingCategories = null,
   }) {
-    return _then(_$ExploreStateImpl(
-      bookSources: null == bookSources
-          ? _value._bookSources
-          : bookSources // ignore: cast_nullable_to_non_nullable
-              as List<BookSource>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      searchKeyword: null == searchKeyword
-          ? _value.searchKeyword
-          : searchKeyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      selectedGroup: null == selectedGroup
-          ? _value.selectedGroup
-          : selectedGroup // ignore: cast_nullable_to_non_nullable
-              as String,
-      categoriesCache: null == categoriesCache
-          ? _value._categoriesCache
-          : categoriesCache // ignore: cast_nullable_to_non_nullable
-              as Map<String, List<ExploreCategory>>,
-      loadingCategories: null == loadingCategories
-          ? _value._loadingCategories
-          : loadingCategories // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ));
+    return _then(
+      _$ExploreStateImpl(
+        bookSources: null == bookSources
+            ? _value._bookSources
+            : bookSources // ignore: cast_nullable_to_non_nullable
+                  as List<BookSource>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        searchKeyword: null == searchKeyword
+            ? _value.searchKeyword
+            : searchKeyword // ignore: cast_nullable_to_non_nullable
+                  as String,
+        selectedGroup: null == selectedGroup
+            ? _value.selectedGroup
+            : selectedGroup // ignore: cast_nullable_to_non_nullable
+                  as String,
+        categoriesCache: null == categoriesCache
+            ? _value._categoriesCache
+            : categoriesCache // ignore: cast_nullable_to_non_nullable
+                  as Map<String, List<ExploreCategory>>,
+        loadingCategories: null == loadingCategories
+            ? _value._loadingCategories
+            : loadingCategories // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ExploreStateImpl implements _ExploreState {
-  const _$ExploreStateImpl(
-      {final List<BookSource> bookSources = const [],
-      this.isLoading = false,
-      this.error,
-      this.searchKeyword = '',
-      this.selectedGroup = '',
-      final Map<String, List<ExploreCategory>> categoriesCache =
-          const <String, List<ExploreCategory>>{},
-      final Set<String> loadingCategories = const <String>{}})
-      : _bookSources = bookSources,
-        _categoriesCache = categoriesCache,
-        _loadingCategories = loadingCategories;
+  const _$ExploreStateImpl({
+    final List<BookSource> bookSources = const [],
+    this.isLoading = false,
+    this.error,
+    this.searchKeyword = '',
+    this.selectedGroup = '',
+    final Map<String, List<ExploreCategory>> categoriesCache =
+        const <String, List<ExploreCategory>>{},
+    final Set<String> loadingCategories = const <String>{},
+  }) : _bookSources = bookSources,
+       _categoriesCache = categoriesCache,
+       _loadingCategories = loadingCategories;
 
   /// 发现书源列表（已按 Android ExploreFragment 规则过滤：enabledExplore && exploreUrl 非空）
   final List<BookSource> _bookSources;
@@ -265,8 +282,10 @@ class _$ExploreStateImpl implements _ExploreState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$ExploreStateImpl &&
-            const DeepCollectionEquality()
-                .equals(other._bookSources, _bookSources) &&
+            const DeepCollectionEquality().equals(
+              other._bookSources,
+              _bookSources,
+            ) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.error, error) || other.error == error) &&
@@ -274,24 +293,31 @@ class _$ExploreStateImpl implements _ExploreState {
                 other.searchKeyword == searchKeyword) &&
             (identical(other.selectedGroup, selectedGroup) ||
                 other.selectedGroup == selectedGroup) &&
-            const DeepCollectionEquality()
-                .equals(other._categoriesCache, _categoriesCache) &&
-            const DeepCollectionEquality()
-                .equals(other._loadingCategories, _loadingCategories));
+            const DeepCollectionEquality().equals(
+              other._categoriesCache,
+              _categoriesCache,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._loadingCategories,
+              _loadingCategories,
+            ));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_bookSources),
-      isLoading,
-      error,
-      searchKeyword,
-      selectedGroup,
-      const DeepCollectionEquality().hash(_categoriesCache),
-      const DeepCollectionEquality().hash(_loadingCategories));
+    runtimeType,
+    const DeepCollectionEquality().hash(_bookSources),
+    isLoading,
+    error,
+    searchKeyword,
+    selectedGroup,
+    const DeepCollectionEquality().hash(_categoriesCache),
+    const DeepCollectionEquality().hash(_loadingCategories),
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ExploreState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ExploreStateImplCopyWith<_$ExploreStateImpl> get copyWith =>
@@ -299,45 +325,48 @@ class _$ExploreStateImpl implements _ExploreState {
 }
 
 abstract class _ExploreState implements ExploreState {
-  const factory _ExploreState(
-      {final List<BookSource> bookSources,
-      final bool isLoading,
-      final String? error,
-      final String searchKeyword,
-      final String selectedGroup,
-      final Map<String, List<ExploreCategory>> categoriesCache,
-      final Set<String> loadingCategories}) = _$ExploreStateImpl;
-
-  @override
+  const factory _ExploreState({
+    final List<BookSource> bookSources,
+    final bool isLoading,
+    final String? error,
+    final String searchKeyword,
+    final String selectedGroup,
+    final Map<String, List<ExploreCategory>> categoriesCache,
+    final Set<String> loadingCategories,
+  }) = _$ExploreStateImpl;
 
   /// 发现书源列表（已按 Android ExploreFragment 规则过滤：enabledExplore && exploreUrl 非空）
-  List<BookSource> get bookSources;
   @override
+  List<BookSource> get bookSources;
 
   /// 是否正在加载书源列表
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
+  String? get error;
 
   /// 展示层：实时搜索关键词
-  String get searchKeyword;
   @override
+  String get searchKeyword;
 
   /// 展示层：选中分组（空字符串表示全部）
-  String get selectedGroup;
   @override
+  String get selectedGroup;
 
   /// 分类缓存：sourceUrl → 解析出的分类列表（对齐 exploreParseUrl）
-  Map<String, List<ExploreCategory>> get categoriesCache;
   @override
+  Map<String, List<ExploreCategory>> get categoriesCache;
 
   /// 正在加载分类的书源 URL 集合
-  Set<String> get loadingCategories;
   @override
-  @JsonKey(ignore: true)
+  Set<String> get loadingCategories;
+
+  /// Create a copy of ExploreState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ExploreStateImplCopyWith<_$ExploreStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

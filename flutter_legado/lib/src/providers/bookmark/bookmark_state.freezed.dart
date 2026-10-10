@@ -12,7 +12,8 @@ part of 'bookmark_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$BookmarkState {
@@ -25,7 +26,9 @@ mixin _$BookmarkState {
   /// 错误信息（null 表示无错误）
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookmarkState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BookmarkStateCopyWith<BookmarkState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -33,8 +36,9 @@ mixin _$BookmarkState {
 /// @nodoc
 abstract class $BookmarkStateCopyWith<$Res> {
   factory $BookmarkStateCopyWith(
-          BookmarkState value, $Res Function(BookmarkState) then) =
-      _$BookmarkStateCopyWithImpl<$Res, BookmarkState>;
+    BookmarkState value,
+    $Res Function(BookmarkState) then,
+  ) = _$BookmarkStateCopyWithImpl<$Res, BookmarkState>;
   @useResult
   $Res call({List<Bookmark> bookmarks, bool isLoading, String? error});
 }
@@ -49,6 +53,8 @@ class _$BookmarkStateCopyWithImpl<$Res, $Val extends BookmarkState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BookmarkState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -56,20 +62,23 @@ class _$BookmarkStateCopyWithImpl<$Res, $Val extends BookmarkState>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      bookmarks: null == bookmarks
-          ? _value.bookmarks
-          : bookmarks // ignore: cast_nullable_to_non_nullable
-              as List<Bookmark>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            bookmarks: null == bookmarks
+                ? _value.bookmarks
+                : bookmarks // ignore: cast_nullable_to_non_nullable
+                      as List<Bookmark>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -77,8 +86,9 @@ class _$BookmarkStateCopyWithImpl<$Res, $Val extends BookmarkState>
 abstract class _$$BookmarkStateImplCopyWith<$Res>
     implements $BookmarkStateCopyWith<$Res> {
   factory _$$BookmarkStateImplCopyWith(
-          _$BookmarkStateImpl value, $Res Function(_$BookmarkStateImpl) then) =
-      __$$BookmarkStateImplCopyWithImpl<$Res>;
+    _$BookmarkStateImpl value,
+    $Res Function(_$BookmarkStateImpl) then,
+  ) = __$$BookmarkStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<Bookmark> bookmarks, bool isLoading, String? error});
@@ -89,9 +99,12 @@ class __$$BookmarkStateImplCopyWithImpl<$Res>
     extends _$BookmarkStateCopyWithImpl<$Res, _$BookmarkStateImpl>
     implements _$$BookmarkStateImplCopyWith<$Res> {
   __$$BookmarkStateImplCopyWithImpl(
-      _$BookmarkStateImpl _value, $Res Function(_$BookmarkStateImpl) _then)
-      : super(_value, _then);
+    _$BookmarkStateImpl _value,
+    $Res Function(_$BookmarkStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of BookmarkState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -99,31 +112,33 @@ class __$$BookmarkStateImplCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_$BookmarkStateImpl(
-      bookmarks: null == bookmarks
-          ? _value._bookmarks
-          : bookmarks // ignore: cast_nullable_to_non_nullable
-              as List<Bookmark>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$BookmarkStateImpl(
+        bookmarks: null == bookmarks
+            ? _value._bookmarks
+            : bookmarks // ignore: cast_nullable_to_non_nullable
+                  as List<Bookmark>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BookmarkStateImpl implements _BookmarkState {
-  const _$BookmarkStateImpl(
-      {final List<Bookmark> bookmarks = const [],
-      this.isLoading = false,
-      this.error})
-      : _bookmarks = bookmarks;
+  const _$BookmarkStateImpl({
+    final List<Bookmark> bookmarks = const [],
+    this.isLoading = false,
+    this.error,
+  }) : _bookmarks = bookmarks;
 
   /// 书签列表
   final List<Bookmark> _bookmarks;
@@ -156,18 +171,26 @@ class _$BookmarkStateImpl implements _BookmarkState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$BookmarkStateImpl &&
-            const DeepCollectionEquality()
-                .equals(other._bookmarks, _bookmarks) &&
+            const DeepCollectionEquality().equals(
+              other._bookmarks,
+              _bookmarks,
+            ) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.error, error) || other.error == error));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType,
-      const DeepCollectionEquality().hash(_bookmarks), isLoading, error);
+  int get hashCode => Object.hash(
+    runtimeType,
+    const DeepCollectionEquality().hash(_bookmarks),
+    isLoading,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookmarkState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BookmarkStateImplCopyWith<_$BookmarkStateImpl> get copyWith =>
@@ -175,25 +198,28 @@ class _$BookmarkStateImpl implements _BookmarkState {
 }
 
 abstract class _BookmarkState implements BookmarkState {
-  const factory _BookmarkState(
-      {final List<Bookmark> bookmarks,
-      final bool isLoading,
-      final String? error}) = _$BookmarkStateImpl;
-
-  @override
+  const factory _BookmarkState({
+    final List<Bookmark> bookmarks,
+    final bool isLoading,
+    final String? error,
+  }) = _$BookmarkStateImpl;
 
   /// 书签列表
-  List<Bookmark> get bookmarks;
   @override
+  List<Bookmark> get bookmarks;
 
   /// 是否正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of BookmarkState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BookmarkStateImplCopyWith<_$BookmarkStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

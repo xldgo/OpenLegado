@@ -22,6 +22,8 @@ set -euo pipefail
 # ========== 参数解析 ==========
 MODE="release"
 FEATURES="quickjs"
+# 与 Flutter 3.47 的 iOS 支持下限和宿主应用配置保持一致。
+export IPHONEOS_DEPLOYMENT_TARGET=15.0
 
 for arg in "$@"; do
     case "$arg" in
@@ -208,7 +210,7 @@ cat > "$DEVICE_FW_DIR/Info.plist" << EOF
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>MinimumOSVersion</key>
-    <string>12.0</string>
+    <string>15.0</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>iPhoneOS</string>
@@ -238,7 +240,7 @@ cat > "$SIM_FW_DIR/Info.plist" << EOF
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>MinimumOSVersion</key>
-    <string>12.0</string>
+    <string>15.0</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>iPhoneSimulator</string>

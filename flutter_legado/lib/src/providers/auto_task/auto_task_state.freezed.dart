@@ -12,7 +12,8 @@ part of 'auto_task_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$AutoTaskState {
@@ -25,7 +26,9 @@ mixin _$AutoTaskState {
   /// 错误信息（null 表示无错误）
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $AutoTaskStateCopyWith<AutoTaskState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -33,8 +36,9 @@ mixin _$AutoTaskState {
 /// @nodoc
 abstract class $AutoTaskStateCopyWith<$Res> {
   factory $AutoTaskStateCopyWith(
-          AutoTaskState value, $Res Function(AutoTaskState) then) =
-      _$AutoTaskStateCopyWithImpl<$Res, AutoTaskState>;
+    AutoTaskState value,
+    $Res Function(AutoTaskState) then,
+  ) = _$AutoTaskStateCopyWithImpl<$Res, AutoTaskState>;
   @useResult
   $Res call({List<AutoTask> tasks, bool isLoading, String? error});
 }
@@ -49,6 +53,8 @@ class _$AutoTaskStateCopyWithImpl<$Res, $Val extends AutoTaskState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -56,20 +62,23 @@ class _$AutoTaskStateCopyWithImpl<$Res, $Val extends AutoTaskState>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      tasks: null == tasks
-          ? _value.tasks
-          : tasks // ignore: cast_nullable_to_non_nullable
-              as List<AutoTask>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            tasks: null == tasks
+                ? _value.tasks
+                : tasks // ignore: cast_nullable_to_non_nullable
+                      as List<AutoTask>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -77,8 +86,9 @@ class _$AutoTaskStateCopyWithImpl<$Res, $Val extends AutoTaskState>
 abstract class _$$AutoTaskStateImplCopyWith<$Res>
     implements $AutoTaskStateCopyWith<$Res> {
   factory _$$AutoTaskStateImplCopyWith(
-          _$AutoTaskStateImpl value, $Res Function(_$AutoTaskStateImpl) then) =
-      __$$AutoTaskStateImplCopyWithImpl<$Res>;
+    _$AutoTaskStateImpl value,
+    $Res Function(_$AutoTaskStateImpl) then,
+  ) = __$$AutoTaskStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<AutoTask> tasks, bool isLoading, String? error});
@@ -89,9 +99,12 @@ class __$$AutoTaskStateImplCopyWithImpl<$Res>
     extends _$AutoTaskStateCopyWithImpl<$Res, _$AutoTaskStateImpl>
     implements _$$AutoTaskStateImplCopyWith<$Res> {
   __$$AutoTaskStateImplCopyWithImpl(
-      _$AutoTaskStateImpl _value, $Res Function(_$AutoTaskStateImpl) _then)
-      : super(_value, _then);
+    _$AutoTaskStateImpl _value,
+    $Res Function(_$AutoTaskStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -99,31 +112,33 @@ class __$$AutoTaskStateImplCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_$AutoTaskStateImpl(
-      tasks: null == tasks
-          ? _value._tasks
-          : tasks // ignore: cast_nullable_to_non_nullable
-              as List<AutoTask>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$AutoTaskStateImpl(
+        tasks: null == tasks
+            ? _value._tasks
+            : tasks // ignore: cast_nullable_to_non_nullable
+                  as List<AutoTask>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$AutoTaskStateImpl implements _AutoTaskState {
-  const _$AutoTaskStateImpl(
-      {final List<AutoTask> tasks = const [],
-      this.isLoading = false,
-      this.error})
-      : _tasks = tasks;
+  const _$AutoTaskStateImpl({
+    final List<AutoTask> tasks = const [],
+    this.isLoading = false,
+    this.error,
+  }) : _tasks = tasks;
 
   /// 定时任务列表
   final List<AutoTask> _tasks;
@@ -163,10 +178,16 @@ class _$AutoTaskStateImpl implements _AutoTaskState {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType,
-      const DeepCollectionEquality().hash(_tasks), isLoading, error);
+  int get hashCode => Object.hash(
+    runtimeType,
+    const DeepCollectionEquality().hash(_tasks),
+    isLoading,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$AutoTaskStateImplCopyWith<_$AutoTaskStateImpl> get copyWith =>
@@ -174,25 +195,28 @@ class _$AutoTaskStateImpl implements _AutoTaskState {
 }
 
 abstract class _AutoTaskState implements AutoTaskState {
-  const factory _AutoTaskState(
-      {final List<AutoTask> tasks,
-      final bool isLoading,
-      final String? error}) = _$AutoTaskStateImpl;
-
-  @override
+  const factory _AutoTaskState({
+    final List<AutoTask> tasks,
+    final bool isLoading,
+    final String? error,
+  }) = _$AutoTaskStateImpl;
 
   /// 定时任务列表
-  List<AutoTask> get tasks;
   @override
+  List<AutoTask> get tasks;
 
   /// 是否正在加载任务列表
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$AutoTaskStateImplCopyWith<_$AutoTaskStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

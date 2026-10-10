@@ -12,7 +12,8 @@ part of 'audio_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$AudioState {
@@ -58,7 +59,9 @@ mixin _$AudioState {
   /// 可选歌词/旁白（getAudioChapterMedia 返回）
   String? get lyric => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $AudioStateCopyWith<AudioState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -66,24 +69,26 @@ mixin _$AudioState {
 /// @nodoc
 abstract class $AudioStateCopyWith<$Res> {
   factory $AudioStateCopyWith(
-          AudioState value, $Res Function(AudioState) then) =
-      _$AudioStateCopyWithImpl<$Res, AudioState>;
+    AudioState value,
+    $Res Function(AudioState) then,
+  ) = _$AudioStateCopyWithImpl<$Res, AudioState>;
   @useResult
-  $Res call(
-      {PlayerState state,
-      AudioPlayMode mode,
-      TtsConfig config,
-      List<AudioChapter> chapters,
-      int currentIndex,
-      String? errorMessage,
-      String bookUrl,
-      String bookName,
-      bool isMediaSessionReady,
-      bool isStreamMode,
-      String mediaUrl,
-      int positionMs,
-      int durationMs,
-      String? lyric});
+  $Res call({
+    PlayerState state,
+    AudioPlayMode mode,
+    TtsConfig config,
+    List<AudioChapter> chapters,
+    int currentIndex,
+    String? errorMessage,
+    String bookUrl,
+    String bookName,
+    bool isMediaSessionReady,
+    bool isStreamMode,
+    String mediaUrl,
+    int positionMs,
+    int durationMs,
+    String? lyric,
+  });
 }
 
 /// @nodoc
@@ -96,6 +101,8 @@ class _$AudioStateCopyWithImpl<$Res, $Val extends AudioState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -114,64 +121,67 @@ class _$AudioStateCopyWithImpl<$Res, $Val extends AudioState>
     Object? durationMs = null,
     Object? lyric = freezed,
   }) {
-    return _then(_value.copyWith(
-      state: null == state
-          ? _value.state
-          : state // ignore: cast_nullable_to_non_nullable
-              as PlayerState,
-      mode: null == mode
-          ? _value.mode
-          : mode // ignore: cast_nullable_to_non_nullable
-              as AudioPlayMode,
-      config: null == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as TtsConfig,
-      chapters: null == chapters
-          ? _value.chapters
-          : chapters // ignore: cast_nullable_to_non_nullable
-              as List<AudioChapter>,
-      currentIndex: null == currentIndex
-          ? _value.currentIndex
-          : currentIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      isMediaSessionReady: null == isMediaSessionReady
-          ? _value.isMediaSessionReady
-          : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isStreamMode: null == isStreamMode
-          ? _value.isStreamMode
-          : isStreamMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      mediaUrl: null == mediaUrl
-          ? _value.mediaUrl
-          : mediaUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      positionMs: null == positionMs
-          ? _value.positionMs
-          : positionMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      durationMs: null == durationMs
-          ? _value.durationMs
-          : durationMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      lyric: freezed == lyric
-          ? _value.lyric
-          : lyric // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            state: null == state
+                ? _value.state
+                : state // ignore: cast_nullable_to_non_nullable
+                      as PlayerState,
+            mode: null == mode
+                ? _value.mode
+                : mode // ignore: cast_nullable_to_non_nullable
+                      as AudioPlayMode,
+            config: null == config
+                ? _value.config
+                : config // ignore: cast_nullable_to_non_nullable
+                      as TtsConfig,
+            chapters: null == chapters
+                ? _value.chapters
+                : chapters // ignore: cast_nullable_to_non_nullable
+                      as List<AudioChapter>,
+            currentIndex: null == currentIndex
+                ? _value.currentIndex
+                : currentIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
+            errorMessage: freezed == errorMessage
+                ? _value.errorMessage
+                : errorMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            bookUrl: null == bookUrl
+                ? _value.bookUrl
+                : bookUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            bookName: null == bookName
+                ? _value.bookName
+                : bookName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            isMediaSessionReady: null == isMediaSessionReady
+                ? _value.isMediaSessionReady
+                : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isStreamMode: null == isStreamMode
+                ? _value.isStreamMode
+                : isStreamMode // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            mediaUrl: null == mediaUrl
+                ? _value.mediaUrl
+                : mediaUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            positionMs: null == positionMs
+                ? _value.positionMs
+                : positionMs // ignore: cast_nullable_to_non_nullable
+                      as int,
+            durationMs: null == durationMs
+                ? _value.durationMs
+                : durationMs // ignore: cast_nullable_to_non_nullable
+                      as int,
+            lyric: freezed == lyric
+                ? _value.lyric
+                : lyric // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -179,25 +189,27 @@ class _$AudioStateCopyWithImpl<$Res, $Val extends AudioState>
 abstract class _$$AudioStateImplCopyWith<$Res>
     implements $AudioStateCopyWith<$Res> {
   factory _$$AudioStateImplCopyWith(
-          _$AudioStateImpl value, $Res Function(_$AudioStateImpl) then) =
-      __$$AudioStateImplCopyWithImpl<$Res>;
+    _$AudioStateImpl value,
+    $Res Function(_$AudioStateImpl) then,
+  ) = __$$AudioStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {PlayerState state,
-      AudioPlayMode mode,
-      TtsConfig config,
-      List<AudioChapter> chapters,
-      int currentIndex,
-      String? errorMessage,
-      String bookUrl,
-      String bookName,
-      bool isMediaSessionReady,
-      bool isStreamMode,
-      String mediaUrl,
-      int positionMs,
-      int durationMs,
-      String? lyric});
+  $Res call({
+    PlayerState state,
+    AudioPlayMode mode,
+    TtsConfig config,
+    List<AudioChapter> chapters,
+    int currentIndex,
+    String? errorMessage,
+    String bookUrl,
+    String bookName,
+    bool isMediaSessionReady,
+    bool isStreamMode,
+    String mediaUrl,
+    int positionMs,
+    int durationMs,
+    String? lyric,
+  });
 }
 
 /// @nodoc
@@ -205,9 +217,12 @@ class __$$AudioStateImplCopyWithImpl<$Res>
     extends _$AudioStateCopyWithImpl<$Res, _$AudioStateImpl>
     implements _$$AudioStateImplCopyWith<$Res> {
   __$$AudioStateImplCopyWithImpl(
-      _$AudioStateImpl _value, $Res Function(_$AudioStateImpl) _then)
-      : super(_value, _then);
+    _$AudioStateImpl _value,
+    $Res Function(_$AudioStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -226,86 +241,88 @@ class __$$AudioStateImplCopyWithImpl<$Res>
     Object? durationMs = null,
     Object? lyric = freezed,
   }) {
-    return _then(_$AudioStateImpl(
-      state: null == state
-          ? _value.state
-          : state // ignore: cast_nullable_to_non_nullable
-              as PlayerState,
-      mode: null == mode
-          ? _value.mode
-          : mode // ignore: cast_nullable_to_non_nullable
-              as AudioPlayMode,
-      config: null == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as TtsConfig,
-      chapters: null == chapters
-          ? _value._chapters
-          : chapters // ignore: cast_nullable_to_non_nullable
-              as List<AudioChapter>,
-      currentIndex: null == currentIndex
-          ? _value.currentIndex
-          : currentIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      isMediaSessionReady: null == isMediaSessionReady
-          ? _value.isMediaSessionReady
-          : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isStreamMode: null == isStreamMode
-          ? _value.isStreamMode
-          : isStreamMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      mediaUrl: null == mediaUrl
-          ? _value.mediaUrl
-          : mediaUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      positionMs: null == positionMs
-          ? _value.positionMs
-          : positionMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      durationMs: null == durationMs
-          ? _value.durationMs
-          : durationMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      lyric: freezed == lyric
-          ? _value.lyric
-          : lyric // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$AudioStateImpl(
+        state: null == state
+            ? _value.state
+            : state // ignore: cast_nullable_to_non_nullable
+                  as PlayerState,
+        mode: null == mode
+            ? _value.mode
+            : mode // ignore: cast_nullable_to_non_nullable
+                  as AudioPlayMode,
+        config: null == config
+            ? _value.config
+            : config // ignore: cast_nullable_to_non_nullable
+                  as TtsConfig,
+        chapters: null == chapters
+            ? _value._chapters
+            : chapters // ignore: cast_nullable_to_non_nullable
+                  as List<AudioChapter>,
+        currentIndex: null == currentIndex
+            ? _value.currentIndex
+            : currentIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        errorMessage: freezed == errorMessage
+            ? _value.errorMessage
+            : errorMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookUrl: null == bookUrl
+            ? _value.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookName: null == bookName
+            ? _value.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isMediaSessionReady: null == isMediaSessionReady
+            ? _value.isMediaSessionReady
+            : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isStreamMode: null == isStreamMode
+            ? _value.isStreamMode
+            : isStreamMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        mediaUrl: null == mediaUrl
+            ? _value.mediaUrl
+            : mediaUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        positionMs: null == positionMs
+            ? _value.positionMs
+            : positionMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durationMs: null == durationMs
+            ? _value.durationMs
+            : durationMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lyric: freezed == lyric
+            ? _value.lyric
+            : lyric // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$AudioStateImpl implements _AudioState {
-  const _$AudioStateImpl(
-      {this.state = PlayerState.idle,
-      this.mode = AudioPlayMode.sequential,
-      required this.config,
-      final List<AudioChapter> chapters = const <AudioChapter>[],
-      this.currentIndex = 0,
-      this.errorMessage,
-      this.bookUrl = '',
-      this.bookName = '',
-      this.isMediaSessionReady = false,
-      this.isStreamMode = false,
-      this.mediaUrl = '',
-      this.positionMs = 0,
-      this.durationMs = 0,
-      this.lyric})
-      : _chapters = chapters;
+  const _$AudioStateImpl({
+    this.state = PlayerState.idle,
+    this.mode = AudioPlayMode.sequential,
+    required this.config,
+    final List<AudioChapter> chapters = const <AudioChapter>[],
+    this.currentIndex = 0,
+    this.errorMessage,
+    this.bookUrl = '',
+    this.bookName = '',
+    this.isMediaSessionReady = false,
+    this.isStreamMode = false,
+    this.mediaUrl = '',
+    this.positionMs = 0,
+    this.durationMs = 0,
+    this.lyric,
+  }) : _chapters = chapters;
 
   /// 播放器状态机
   @override
@@ -417,23 +434,26 @@ class _$AudioStateImpl implements _AudioState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      state,
-      mode,
-      config,
-      const DeepCollectionEquality().hash(_chapters),
-      currentIndex,
-      errorMessage,
-      bookUrl,
-      bookName,
-      isMediaSessionReady,
-      isStreamMode,
-      mediaUrl,
-      positionMs,
-      durationMs,
-      lyric);
+    runtimeType,
+    state,
+    mode,
+    config,
+    const DeepCollectionEquality().hash(_chapters),
+    currentIndex,
+    errorMessage,
+    bookUrl,
+    bookName,
+    isMediaSessionReady,
+    isStreamMode,
+    mediaUrl,
+    positionMs,
+    durationMs,
+    lyric,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$AudioStateImplCopyWith<_$AudioStateImpl> get copyWith =>
@@ -441,80 +461,83 @@ class _$AudioStateImpl implements _AudioState {
 }
 
 abstract class _AudioState implements AudioState {
-  const factory _AudioState(
-      {final PlayerState state,
-      final AudioPlayMode mode,
-      required final TtsConfig config,
-      final List<AudioChapter> chapters,
-      final int currentIndex,
-      final String? errorMessage,
-      final String bookUrl,
-      final String bookName,
-      final bool isMediaSessionReady,
-      final bool isStreamMode,
-      final String mediaUrl,
-      final int positionMs,
-      final int durationMs,
-      final String? lyric}) = _$AudioStateImpl;
-
-  @override
+  const factory _AudioState({
+    final PlayerState state,
+    final AudioPlayMode mode,
+    required final TtsConfig config,
+    final List<AudioChapter> chapters,
+    final int currentIndex,
+    final String? errorMessage,
+    final String bookUrl,
+    final String bookName,
+    final bool isMediaSessionReady,
+    final bool isStreamMode,
+    final String mediaUrl,
+    final int positionMs,
+    final int durationMs,
+    final String? lyric,
+  }) = _$AudioStateImpl;
 
   /// 播放器状态机
-  PlayerState get state;
   @override
+  PlayerState get state;
 
   /// 播放模式
-  AudioPlayMode get mode;
   @override
+  AudioPlayMode get mode;
 
   /// TTS 配置（构造时由 Notifier 注入默认实例）
-  TtsConfig get config;
   @override
+  TtsConfig get config;
 
   /// 章节列表
-  List<AudioChapter> get chapters;
   @override
+  List<AudioChapter> get chapters;
 
   /// 当前章节索引
-  int get currentIndex;
   @override
+  int get currentIndex;
 
   /// 错误信息（null 表示无错误）
-  String? get errorMessage;
   @override
+  String? get errorMessage;
 
   /// 当前听书书籍 URL
-  String get bookUrl;
   @override
+  String get bookUrl;
 
   /// 当前听书书名
-  String get bookName;
   @override
+  String get bookName;
 
   /// 媒体会话是否已就绪（用于 UI 显示后台播放状态）
-  bool get isMediaSessionReady;
   @override
+  bool get isMediaSessionReady;
 
   /// 是否音频书流媒体模式（false = TTS 朗读）
-  bool get isStreamMode;
   @override
+  bool get isStreamMode;
 
   /// 当前可播媒体 URL（流媒体模式；TTS 为空）
-  String get mediaUrl;
   @override
+  String get mediaUrl;
 
   /// 流媒体播放进度（毫秒）
-  int get positionMs;
   @override
+  int get positionMs;
 
   /// 流媒体时长（毫秒；未知为 0）
-  int get durationMs;
   @override
+  int get durationMs;
 
   /// 可选歌词/旁白（getAudioChapterMedia 返回）
-  String? get lyric;
   @override
-  @JsonKey(ignore: true)
+  String? get lyric;
+
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$AudioStateImplCopyWith<_$AudioStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

@@ -12,7 +12,8 @@ part of 'book_source.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 BookSource _$BookSourceFromJson(Map<String, dynamic> json) {
   return _BookSource.fromJson(json);
@@ -53,11 +54,10 @@ mixin _$BookSource {
   @JsonKey(name: 'bookSourceComment')
   String? get bookSourceComment => throw _privateConstructorUsedError;
   @JsonKey(name: 'variableComment')
-  String? get variableComment =>
-      throw _privateConstructorUsedError; // 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
-// 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
-// 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
-// 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
+  String? get variableComment => throw _privateConstructorUsedError; // 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
+  // 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
+  // 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
+  // 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
   String get variable => throw _privateConstructorUsedError;
   @JsonKey(name: 'lastUpdateTime')
   int get lastUpdateTime => throw _privateConstructorUsedError;
@@ -89,8 +89,12 @@ mixin _$BookSource {
   @JsonKey(name: 'customButton')
   bool get customButton => throw _privateConstructorUsedError;
 
+  /// Serializes this BookSource to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BookSourceCopyWith<BookSource> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -98,44 +102,46 @@ mixin _$BookSource {
 /// @nodoc
 abstract class $BookSourceCopyWith<$Res> {
   factory $BookSourceCopyWith(
-          BookSource value, $Res Function(BookSource) then) =
-      _$BookSourceCopyWithImpl<$Res, BookSource>;
+    BookSource value,
+    $Res Function(BookSource) then,
+  ) = _$BookSourceCopyWithImpl<$Res, BookSource>;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
-      @JsonKey(name: 'bookSourceName') String bookSourceName,
-      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
-      @JsonKey(name: 'bookSourceType') int bookSourceType,
-      @JsonKey(name: 'bookUrlPattern') String? bookUrlPattern,
-      @JsonKey(name: 'customOrder') int customOrder,
-      bool enabled,
-      @JsonKey(name: 'enabledExplore') bool enabledExplore,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      String? header,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      @JsonKey(name: 'coverDecodeJs') String? coverDecodeJs,
-      @JsonKey(name: 'bookSourceComment') String? bookSourceComment,
-      @JsonKey(name: 'variableComment') String? variableComment,
-      String variable,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
-      @JsonKey(name: 'respondTime') int respondTime,
-      int weight,
-      @JsonKey(name: 'exploreUrl') String? exploreUrl,
-      @JsonKey(name: 'exploreScreen') String? exploreScreen,
-      @JsonKey(name: 'ruleExplore') ExploreRule? ruleExplore,
-      @JsonKey(name: 'searchUrl') String? searchUrl,
-      @JsonKey(name: 'ruleSearch') SearchRule? ruleSearch,
-      @JsonKey(name: 'ruleBookInfo') BookInfoRule? ruleBookInfo,
-      @JsonKey(name: 'ruleToc') TocRule? ruleToc,
-      @JsonKey(name: 'ruleContent') ContentRule? ruleContent,
-      @JsonKey(name: 'ruleReview') ReviewRule? ruleReview,
-      @JsonKey(name: 'mainJs') String? mainJs,
-      @JsonKey(name: 'eventListener') bool eventListener,
-      @JsonKey(name: 'customButton') bool customButton});
+  $Res call({
+    @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+    @JsonKey(name: 'bookSourceName') String bookSourceName,
+    @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+    @JsonKey(name: 'bookSourceType') int bookSourceType,
+    @JsonKey(name: 'bookUrlPattern') String? bookUrlPattern,
+    @JsonKey(name: 'customOrder') int customOrder,
+    bool enabled,
+    @JsonKey(name: 'enabledExplore') bool enabledExplore,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    String? header,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'coverDecodeJs') String? coverDecodeJs,
+    @JsonKey(name: 'bookSourceComment') String? bookSourceComment,
+    @JsonKey(name: 'variableComment') String? variableComment,
+    String variable,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'respondTime') int respondTime,
+    int weight,
+    @JsonKey(name: 'exploreUrl') String? exploreUrl,
+    @JsonKey(name: 'exploreScreen') String? exploreScreen,
+    @JsonKey(name: 'ruleExplore') ExploreRule? ruleExplore,
+    @JsonKey(name: 'searchUrl') String? searchUrl,
+    @JsonKey(name: 'ruleSearch') SearchRule? ruleSearch,
+    @JsonKey(name: 'ruleBookInfo') BookInfoRule? ruleBookInfo,
+    @JsonKey(name: 'ruleToc') TocRule? ruleToc,
+    @JsonKey(name: 'ruleContent') ContentRule? ruleContent,
+    @JsonKey(name: 'ruleReview') ReviewRule? ruleReview,
+    @JsonKey(name: 'mainJs') String? mainJs,
+    @JsonKey(name: 'eventListener') bool eventListener,
+    @JsonKey(name: 'customButton') bool customButton,
+  });
 
   $ExploreRuleCopyWith<$Res>? get ruleExplore;
   $SearchRuleCopyWith<$Res>? get ruleSearch;
@@ -155,6 +161,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -193,146 +201,151 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     Object? eventListener = null,
     Object? customButton = null,
   }) {
-    return _then(_value.copyWith(
-      bookSourceUrl: null == bookSourceUrl
-          ? _value.bookSourceUrl
-          : bookSourceUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceName: null == bookSourceName
-          ? _value.bookSourceName
-          : bookSourceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceGroup: freezed == bookSourceGroup
-          ? _value.bookSourceGroup
-          : bookSourceGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookSourceType: null == bookSourceType
-          ? _value.bookSourceType
-          : bookSourceType // ignore: cast_nullable_to_non_nullable
-              as int,
-      bookUrlPattern: freezed == bookUrlPattern
-          ? _value.bookUrlPattern
-          : bookUrlPattern // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      enabledExplore: null == enabledExplore
-          ? _value.enabledExplore
-          : enabledExplore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: freezed == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverDecodeJs: freezed == coverDecodeJs
-          ? _value.coverDecodeJs
-          : coverDecodeJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookSourceComment: freezed == bookSourceComment
-          ? _value.bookSourceComment
-          : bookSourceComment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variableComment: freezed == variableComment
-          ? _value.variableComment
-          : variableComment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variable: null == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      weight: null == weight
-          ? _value.weight
-          : weight // ignore: cast_nullable_to_non_nullable
-              as int,
-      exploreUrl: freezed == exploreUrl
-          ? _value.exploreUrl
-          : exploreUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      exploreScreen: freezed == exploreScreen
-          ? _value.exploreScreen
-          : exploreScreen // ignore: cast_nullable_to_non_nullable
-              as String?,
-      ruleExplore: freezed == ruleExplore
-          ? _value.ruleExplore
-          : ruleExplore // ignore: cast_nullable_to_non_nullable
-              as ExploreRule?,
-      searchUrl: freezed == searchUrl
-          ? _value.searchUrl
-          : searchUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      ruleSearch: freezed == ruleSearch
-          ? _value.ruleSearch
-          : ruleSearch // ignore: cast_nullable_to_non_nullable
-              as SearchRule?,
-      ruleBookInfo: freezed == ruleBookInfo
-          ? _value.ruleBookInfo
-          : ruleBookInfo // ignore: cast_nullable_to_non_nullable
-              as BookInfoRule?,
-      ruleToc: freezed == ruleToc
-          ? _value.ruleToc
-          : ruleToc // ignore: cast_nullable_to_non_nullable
-              as TocRule?,
-      ruleContent: freezed == ruleContent
-          ? _value.ruleContent
-          : ruleContent // ignore: cast_nullable_to_non_nullable
-              as ContentRule?,
-      ruleReview: freezed == ruleReview
-          ? _value.ruleReview
-          : ruleReview // ignore: cast_nullable_to_non_nullable
-              as ReviewRule?,
-      mainJs: freezed == mainJs
-          ? _value.mainJs
-          : mainJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      eventListener: null == eventListener
-          ? _value.eventListener
-          : eventListener // ignore: cast_nullable_to_non_nullable
-              as bool,
-      customButton: null == customButton
-          ? _value.customButton
-          : customButton // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            bookSourceUrl: null == bookSourceUrl
+                ? _value.bookSourceUrl
+                : bookSourceUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            bookSourceName: null == bookSourceName
+                ? _value.bookSourceName
+                : bookSourceName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            bookSourceGroup: freezed == bookSourceGroup
+                ? _value.bookSourceGroup
+                : bookSourceGroup // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            bookSourceType: null == bookSourceType
+                ? _value.bookSourceType
+                : bookSourceType // ignore: cast_nullable_to_non_nullable
+                      as int,
+            bookUrlPattern: freezed == bookUrlPattern
+                ? _value.bookUrlPattern
+                : bookUrlPattern // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            customOrder: null == customOrder
+                ? _value.customOrder
+                : customOrder // ignore: cast_nullable_to_non_nullable
+                      as int,
+            enabled: null == enabled
+                ? _value.enabled
+                : enabled // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            enabledExplore: null == enabledExplore
+                ? _value.enabledExplore
+                : enabledExplore // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            jsLib: freezed == jsLib
+                ? _value.jsLib
+                : jsLib // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            enabledCookieJar: freezed == enabledCookieJar
+                ? _value.enabledCookieJar
+                : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                      as bool?,
+            concurrentRate: freezed == concurrentRate
+                ? _value.concurrentRate
+                : concurrentRate // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            header: freezed == header
+                ? _value.header
+                : header // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            loginUrl: freezed == loginUrl
+                ? _value.loginUrl
+                : loginUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            loginUi: freezed == loginUi
+                ? _value.loginUi
+                : loginUi // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            loginCheckJs: freezed == loginCheckJs
+                ? _value.loginCheckJs
+                : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            coverDecodeJs: freezed == coverDecodeJs
+                ? _value.coverDecodeJs
+                : coverDecodeJs // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            bookSourceComment: freezed == bookSourceComment
+                ? _value.bookSourceComment
+                : bookSourceComment // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            variableComment: freezed == variableComment
+                ? _value.variableComment
+                : variableComment // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            variable: null == variable
+                ? _value.variable
+                : variable // ignore: cast_nullable_to_non_nullable
+                      as String,
+            lastUpdateTime: null == lastUpdateTime
+                ? _value.lastUpdateTime
+                : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            respondTime: null == respondTime
+                ? _value.respondTime
+                : respondTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            weight: null == weight
+                ? _value.weight
+                : weight // ignore: cast_nullable_to_non_nullable
+                      as int,
+            exploreUrl: freezed == exploreUrl
+                ? _value.exploreUrl
+                : exploreUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            exploreScreen: freezed == exploreScreen
+                ? _value.exploreScreen
+                : exploreScreen // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            ruleExplore: freezed == ruleExplore
+                ? _value.ruleExplore
+                : ruleExplore // ignore: cast_nullable_to_non_nullable
+                      as ExploreRule?,
+            searchUrl: freezed == searchUrl
+                ? _value.searchUrl
+                : searchUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            ruleSearch: freezed == ruleSearch
+                ? _value.ruleSearch
+                : ruleSearch // ignore: cast_nullable_to_non_nullable
+                      as SearchRule?,
+            ruleBookInfo: freezed == ruleBookInfo
+                ? _value.ruleBookInfo
+                : ruleBookInfo // ignore: cast_nullable_to_non_nullable
+                      as BookInfoRule?,
+            ruleToc: freezed == ruleToc
+                ? _value.ruleToc
+                : ruleToc // ignore: cast_nullable_to_non_nullable
+                      as TocRule?,
+            ruleContent: freezed == ruleContent
+                ? _value.ruleContent
+                : ruleContent // ignore: cast_nullable_to_non_nullable
+                      as ContentRule?,
+            ruleReview: freezed == ruleReview
+                ? _value.ruleReview
+                : ruleReview // ignore: cast_nullable_to_non_nullable
+                      as ReviewRule?,
+            mainJs: freezed == mainJs
+                ? _value.mainJs
+                : mainJs // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            eventListener: null == eventListener
+                ? _value.eventListener
+                : eventListener // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            customButton: null == customButton
+                ? _value.customButton
+                : customButton // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $ExploreRuleCopyWith<$Res>? get ruleExplore {
@@ -345,6 +358,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     });
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $SearchRuleCopyWith<$Res>? get ruleSearch {
@@ -357,6 +372,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     });
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $BookInfoRuleCopyWith<$Res>? get ruleBookInfo {
@@ -369,6 +386,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     });
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $TocRuleCopyWith<$Res>? get ruleToc {
@@ -381,6 +400,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     });
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $ContentRuleCopyWith<$Res>? get ruleContent {
@@ -393,6 +414,8 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
     });
   }
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $ReviewRuleCopyWith<$Res>? get ruleReview {
@@ -410,45 +433,47 @@ class _$BookSourceCopyWithImpl<$Res, $Val extends BookSource>
 abstract class _$$BookSourceImplCopyWith<$Res>
     implements $BookSourceCopyWith<$Res> {
   factory _$$BookSourceImplCopyWith(
-          _$BookSourceImpl value, $Res Function(_$BookSourceImpl) then) =
-      __$$BookSourceImplCopyWithImpl<$Res>;
+    _$BookSourceImpl value,
+    $Res Function(_$BookSourceImpl) then,
+  ) = __$$BookSourceImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
-      @JsonKey(name: 'bookSourceName') String bookSourceName,
-      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
-      @JsonKey(name: 'bookSourceType') int bookSourceType,
-      @JsonKey(name: 'bookUrlPattern') String? bookUrlPattern,
-      @JsonKey(name: 'customOrder') int customOrder,
-      bool enabled,
-      @JsonKey(name: 'enabledExplore') bool enabledExplore,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      String? header,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      @JsonKey(name: 'coverDecodeJs') String? coverDecodeJs,
-      @JsonKey(name: 'bookSourceComment') String? bookSourceComment,
-      @JsonKey(name: 'variableComment') String? variableComment,
-      String variable,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
-      @JsonKey(name: 'respondTime') int respondTime,
-      int weight,
-      @JsonKey(name: 'exploreUrl') String? exploreUrl,
-      @JsonKey(name: 'exploreScreen') String? exploreScreen,
-      @JsonKey(name: 'ruleExplore') ExploreRule? ruleExplore,
-      @JsonKey(name: 'searchUrl') String? searchUrl,
-      @JsonKey(name: 'ruleSearch') SearchRule? ruleSearch,
-      @JsonKey(name: 'ruleBookInfo') BookInfoRule? ruleBookInfo,
-      @JsonKey(name: 'ruleToc') TocRule? ruleToc,
-      @JsonKey(name: 'ruleContent') ContentRule? ruleContent,
-      @JsonKey(name: 'ruleReview') ReviewRule? ruleReview,
-      @JsonKey(name: 'mainJs') String? mainJs,
-      @JsonKey(name: 'eventListener') bool eventListener,
-      @JsonKey(name: 'customButton') bool customButton});
+  $Res call({
+    @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+    @JsonKey(name: 'bookSourceName') String bookSourceName,
+    @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+    @JsonKey(name: 'bookSourceType') int bookSourceType,
+    @JsonKey(name: 'bookUrlPattern') String? bookUrlPattern,
+    @JsonKey(name: 'customOrder') int customOrder,
+    bool enabled,
+    @JsonKey(name: 'enabledExplore') bool enabledExplore,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    String? header,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'coverDecodeJs') String? coverDecodeJs,
+    @JsonKey(name: 'bookSourceComment') String? bookSourceComment,
+    @JsonKey(name: 'variableComment') String? variableComment,
+    String variable,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'respondTime') int respondTime,
+    int weight,
+    @JsonKey(name: 'exploreUrl') String? exploreUrl,
+    @JsonKey(name: 'exploreScreen') String? exploreScreen,
+    @JsonKey(name: 'ruleExplore') ExploreRule? ruleExplore,
+    @JsonKey(name: 'searchUrl') String? searchUrl,
+    @JsonKey(name: 'ruleSearch') SearchRule? ruleSearch,
+    @JsonKey(name: 'ruleBookInfo') BookInfoRule? ruleBookInfo,
+    @JsonKey(name: 'ruleToc') TocRule? ruleToc,
+    @JsonKey(name: 'ruleContent') ContentRule? ruleContent,
+    @JsonKey(name: 'ruleReview') ReviewRule? ruleReview,
+    @JsonKey(name: 'mainJs') String? mainJs,
+    @JsonKey(name: 'eventListener') bool eventListener,
+    @JsonKey(name: 'customButton') bool customButton,
+  });
 
   @override
   $ExploreRuleCopyWith<$Res>? get ruleExplore;
@@ -469,9 +494,12 @@ class __$$BookSourceImplCopyWithImpl<$Res>
     extends _$BookSourceCopyWithImpl<$Res, _$BookSourceImpl>
     implements _$$BookSourceImplCopyWith<$Res> {
   __$$BookSourceImplCopyWithImpl(
-      _$BookSourceImpl _value, $Res Function(_$BookSourceImpl) _then)
-      : super(_value, _then);
+    _$BookSourceImpl _value,
+    $Res Function(_$BookSourceImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -510,185 +538,188 @@ class __$$BookSourceImplCopyWithImpl<$Res>
     Object? eventListener = null,
     Object? customButton = null,
   }) {
-    return _then(_$BookSourceImpl(
-      bookSourceUrl: null == bookSourceUrl
-          ? _value.bookSourceUrl
-          : bookSourceUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceName: null == bookSourceName
-          ? _value.bookSourceName
-          : bookSourceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceGroup: freezed == bookSourceGroup
-          ? _value.bookSourceGroup
-          : bookSourceGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookSourceType: null == bookSourceType
-          ? _value.bookSourceType
-          : bookSourceType // ignore: cast_nullable_to_non_nullable
-              as int,
-      bookUrlPattern: freezed == bookUrlPattern
-          ? _value.bookUrlPattern
-          : bookUrlPattern // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      enabledExplore: null == enabledExplore
-          ? _value.enabledExplore
-          : enabledExplore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: freezed == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverDecodeJs: freezed == coverDecodeJs
-          ? _value.coverDecodeJs
-          : coverDecodeJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookSourceComment: freezed == bookSourceComment
-          ? _value.bookSourceComment
-          : bookSourceComment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variableComment: freezed == variableComment
-          ? _value.variableComment
-          : variableComment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variable: null == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      weight: null == weight
-          ? _value.weight
-          : weight // ignore: cast_nullable_to_non_nullable
-              as int,
-      exploreUrl: freezed == exploreUrl
-          ? _value.exploreUrl
-          : exploreUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      exploreScreen: freezed == exploreScreen
-          ? _value.exploreScreen
-          : exploreScreen // ignore: cast_nullable_to_non_nullable
-              as String?,
-      ruleExplore: freezed == ruleExplore
-          ? _value.ruleExplore
-          : ruleExplore // ignore: cast_nullable_to_non_nullable
-              as ExploreRule?,
-      searchUrl: freezed == searchUrl
-          ? _value.searchUrl
-          : searchUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      ruleSearch: freezed == ruleSearch
-          ? _value.ruleSearch
-          : ruleSearch // ignore: cast_nullable_to_non_nullable
-              as SearchRule?,
-      ruleBookInfo: freezed == ruleBookInfo
-          ? _value.ruleBookInfo
-          : ruleBookInfo // ignore: cast_nullable_to_non_nullable
-              as BookInfoRule?,
-      ruleToc: freezed == ruleToc
-          ? _value.ruleToc
-          : ruleToc // ignore: cast_nullable_to_non_nullable
-              as TocRule?,
-      ruleContent: freezed == ruleContent
-          ? _value.ruleContent
-          : ruleContent // ignore: cast_nullable_to_non_nullable
-              as ContentRule?,
-      ruleReview: freezed == ruleReview
-          ? _value.ruleReview
-          : ruleReview // ignore: cast_nullable_to_non_nullable
-              as ReviewRule?,
-      mainJs: freezed == mainJs
-          ? _value.mainJs
-          : mainJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      eventListener: null == eventListener
-          ? _value.eventListener
-          : eventListener // ignore: cast_nullable_to_non_nullable
-              as bool,
-      customButton: null == customButton
-          ? _value.customButton
-          : customButton // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      _$BookSourceImpl(
+        bookSourceUrl: null == bookSourceUrl
+            ? _value.bookSourceUrl
+            : bookSourceUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceName: null == bookSourceName
+            ? _value.bookSourceName
+            : bookSourceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceGroup: freezed == bookSourceGroup
+            ? _value.bookSourceGroup
+            : bookSourceGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookSourceType: null == bookSourceType
+            ? _value.bookSourceType
+            : bookSourceType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        bookUrlPattern: freezed == bookUrlPattern
+            ? _value.bookUrlPattern
+            : bookUrlPattern // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customOrder: null == customOrder
+            ? _value.customOrder
+            : customOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enabled: null == enabled
+            ? _value.enabled
+            : enabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        enabledExplore: null == enabledExplore
+            ? _value.enabledExplore
+            : enabledExplore // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        jsLib: freezed == jsLib
+            ? _value.jsLib
+            : jsLib // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        enabledCookieJar: freezed == enabledCookieJar
+            ? _value.enabledCookieJar
+            : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                  as bool?,
+        concurrentRate: freezed == concurrentRate
+            ? _value.concurrentRate
+            : concurrentRate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        header: freezed == header
+            ? _value.header
+            : header // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUrl: freezed == loginUrl
+            ? _value.loginUrl
+            : loginUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUi: freezed == loginUi
+            ? _value.loginUi
+            : loginUi // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginCheckJs: freezed == loginCheckJs
+            ? _value.loginCheckJs
+            : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverDecodeJs: freezed == coverDecodeJs
+            ? _value.coverDecodeJs
+            : coverDecodeJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookSourceComment: freezed == bookSourceComment
+            ? _value.bookSourceComment
+            : bookSourceComment // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        variableComment: freezed == variableComment
+            ? _value.variableComment
+            : variableComment // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        variable: null == variable
+            ? _value.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String,
+        lastUpdateTime: null == lastUpdateTime
+            ? _value.lastUpdateTime
+            : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        respondTime: null == respondTime
+            ? _value.respondTime
+            : respondTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        weight: null == weight
+            ? _value.weight
+            : weight // ignore: cast_nullable_to_non_nullable
+                  as int,
+        exploreUrl: freezed == exploreUrl
+            ? _value.exploreUrl
+            : exploreUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        exploreScreen: freezed == exploreScreen
+            ? _value.exploreScreen
+            : exploreScreen // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        ruleExplore: freezed == ruleExplore
+            ? _value.ruleExplore
+            : ruleExplore // ignore: cast_nullable_to_non_nullable
+                  as ExploreRule?,
+        searchUrl: freezed == searchUrl
+            ? _value.searchUrl
+            : searchUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        ruleSearch: freezed == ruleSearch
+            ? _value.ruleSearch
+            : ruleSearch // ignore: cast_nullable_to_non_nullable
+                  as SearchRule?,
+        ruleBookInfo: freezed == ruleBookInfo
+            ? _value.ruleBookInfo
+            : ruleBookInfo // ignore: cast_nullable_to_non_nullable
+                  as BookInfoRule?,
+        ruleToc: freezed == ruleToc
+            ? _value.ruleToc
+            : ruleToc // ignore: cast_nullable_to_non_nullable
+                  as TocRule?,
+        ruleContent: freezed == ruleContent
+            ? _value.ruleContent
+            : ruleContent // ignore: cast_nullable_to_non_nullable
+                  as ContentRule?,
+        ruleReview: freezed == ruleReview
+            ? _value.ruleReview
+            : ruleReview // ignore: cast_nullable_to_non_nullable
+                  as ReviewRule?,
+        mainJs: freezed == mainJs
+            ? _value.mainJs
+            : mainJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        eventListener: null == eventListener
+            ? _value.eventListener
+            : eventListener // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        customButton: null == customButton
+            ? _value.customButton
+            : customButton // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$BookSourceImpl implements _BookSource {
-  const _$BookSourceImpl(
-      {@JsonKey(name: 'bookSourceUrl') this.bookSourceUrl = '',
-      @JsonKey(name: 'bookSourceName') this.bookSourceName = '',
-      @JsonKey(name: 'bookSourceGroup') this.bookSourceGroup,
-      @JsonKey(name: 'bookSourceType') this.bookSourceType = 0,
-      @JsonKey(name: 'bookUrlPattern') this.bookUrlPattern,
-      @JsonKey(name: 'customOrder') this.customOrder = 0,
-      this.enabled = true,
-      @JsonKey(name: 'enabledExplore') this.enabledExplore = true,
-      @JsonKey(name: 'jsLib') this.jsLib,
-      @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
-      @JsonKey(name: 'concurrentRate') this.concurrentRate,
-      this.header,
-      @JsonKey(name: 'loginUrl') this.loginUrl,
-      @JsonKey(name: 'loginUi') this.loginUi,
-      @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
-      @JsonKey(name: 'coverDecodeJs') this.coverDecodeJs,
-      @JsonKey(name: 'bookSourceComment') this.bookSourceComment,
-      @JsonKey(name: 'variableComment') this.variableComment,
-      this.variable = '',
-      @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
-      @JsonKey(name: 'respondTime') this.respondTime = 180000,
-      this.weight = 0,
-      @JsonKey(name: 'exploreUrl') this.exploreUrl,
-      @JsonKey(name: 'exploreScreen') this.exploreScreen,
-      @JsonKey(name: 'ruleExplore') this.ruleExplore,
-      @JsonKey(name: 'searchUrl') this.searchUrl,
-      @JsonKey(name: 'ruleSearch') this.ruleSearch,
-      @JsonKey(name: 'ruleBookInfo') this.ruleBookInfo,
-      @JsonKey(name: 'ruleToc') this.ruleToc,
-      @JsonKey(name: 'ruleContent') this.ruleContent,
-      @JsonKey(name: 'ruleReview') this.ruleReview,
-      @JsonKey(name: 'mainJs') this.mainJs,
-      @JsonKey(name: 'eventListener') this.eventListener = false,
-      @JsonKey(name: 'customButton') this.customButton = false});
+  const _$BookSourceImpl({
+    @JsonKey(name: 'bookSourceUrl') this.bookSourceUrl = '',
+    @JsonKey(name: 'bookSourceName') this.bookSourceName = '',
+    @JsonKey(name: 'bookSourceGroup') this.bookSourceGroup,
+    @JsonKey(name: 'bookSourceType') this.bookSourceType = 0,
+    @JsonKey(name: 'bookUrlPattern') this.bookUrlPattern,
+    @JsonKey(name: 'customOrder') this.customOrder = 0,
+    this.enabled = true,
+    @JsonKey(name: 'enabledExplore') this.enabledExplore = true,
+    @JsonKey(name: 'jsLib') this.jsLib,
+    @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
+    @JsonKey(name: 'concurrentRate') this.concurrentRate,
+    this.header,
+    @JsonKey(name: 'loginUrl') this.loginUrl,
+    @JsonKey(name: 'loginUi') this.loginUi,
+    @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
+    @JsonKey(name: 'coverDecodeJs') this.coverDecodeJs,
+    @JsonKey(name: 'bookSourceComment') this.bookSourceComment,
+    @JsonKey(name: 'variableComment') this.variableComment,
+    this.variable = '',
+    @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
+    @JsonKey(name: 'respondTime') this.respondTime = 180000,
+    this.weight = 0,
+    @JsonKey(name: 'exploreUrl') this.exploreUrl,
+    @JsonKey(name: 'exploreScreen') this.exploreScreen,
+    @JsonKey(name: 'ruleExplore') this.ruleExplore,
+    @JsonKey(name: 'searchUrl') this.searchUrl,
+    @JsonKey(name: 'ruleSearch') this.ruleSearch,
+    @JsonKey(name: 'ruleBookInfo') this.ruleBookInfo,
+    @JsonKey(name: 'ruleToc') this.ruleToc,
+    @JsonKey(name: 'ruleContent') this.ruleContent,
+    @JsonKey(name: 'ruleReview') this.ruleReview,
+    @JsonKey(name: 'mainJs') this.mainJs,
+    @JsonKey(name: 'eventListener') this.eventListener = false,
+    @JsonKey(name: 'customButton') this.customButton = false,
+  });
 
   factory _$BookSourceImpl.fromJson(Map<String, dynamic> json) =>
       _$$BookSourceImplFromJson(json);
@@ -746,10 +777,10 @@ class _$BookSourceImpl implements _BookSource {
   @override
   @JsonKey(name: 'variableComment')
   final String? variableComment;
-// 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
-// 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
-// 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
-// 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
+  // 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
+  // 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
+  // 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
+  // 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
   @override
   @JsonKey()
   final String variable;
@@ -872,47 +903,49 @@ class _$BookSourceImpl implements _BookSource {
                 other.customButton == customButton));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hashAll([
-        runtimeType,
-        bookSourceUrl,
-        bookSourceName,
-        bookSourceGroup,
-        bookSourceType,
-        bookUrlPattern,
-        customOrder,
-        enabled,
-        enabledExplore,
-        jsLib,
-        enabledCookieJar,
-        concurrentRate,
-        header,
-        loginUrl,
-        loginUi,
-        loginCheckJs,
-        coverDecodeJs,
-        bookSourceComment,
-        variableComment,
-        variable,
-        lastUpdateTime,
-        respondTime,
-        weight,
-        exploreUrl,
-        exploreScreen,
-        ruleExplore,
-        searchUrl,
-        ruleSearch,
-        ruleBookInfo,
-        ruleToc,
-        ruleContent,
-        ruleReview,
-        mainJs,
-        eventListener,
-        customButton
-      ]);
+    runtimeType,
+    bookSourceUrl,
+    bookSourceName,
+    bookSourceGroup,
+    bookSourceType,
+    bookUrlPattern,
+    customOrder,
+    enabled,
+    enabledExplore,
+    jsLib,
+    enabledCookieJar,
+    concurrentRate,
+    header,
+    loginUrl,
+    loginUi,
+    loginCheckJs,
+    coverDecodeJs,
+    bookSourceComment,
+    variableComment,
+    variable,
+    lastUpdateTime,
+    respondTime,
+    weight,
+    exploreUrl,
+    exploreScreen,
+    ruleExplore,
+    searchUrl,
+    ruleSearch,
+    ruleBookInfo,
+    ruleToc,
+    ruleContent,
+    ruleReview,
+    mainJs,
+    eventListener,
+    customButton,
+  ]);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BookSourceImplCopyWith<_$BookSourceImpl> get copyWith =>
@@ -920,49 +953,47 @@ class _$BookSourceImpl implements _BookSource {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$BookSourceImplToJson(
-      this,
-    );
+    return _$$BookSourceImplToJson(this);
   }
 }
 
 abstract class _BookSource implements BookSource {
-  const factory _BookSource(
-          {@JsonKey(name: 'bookSourceUrl') final String bookSourceUrl,
-          @JsonKey(name: 'bookSourceName') final String bookSourceName,
-          @JsonKey(name: 'bookSourceGroup') final String? bookSourceGroup,
-          @JsonKey(name: 'bookSourceType') final int bookSourceType,
-          @JsonKey(name: 'bookUrlPattern') final String? bookUrlPattern,
-          @JsonKey(name: 'customOrder') final int customOrder,
-          final bool enabled,
-          @JsonKey(name: 'enabledExplore') final bool enabledExplore,
-          @JsonKey(name: 'jsLib') final String? jsLib,
-          @JsonKey(name: 'enabledCookieJar') final bool? enabledCookieJar,
-          @JsonKey(name: 'concurrentRate') final String? concurrentRate,
-          final String? header,
-          @JsonKey(name: 'loginUrl') final String? loginUrl,
-          @JsonKey(name: 'loginUi') final String? loginUi,
-          @JsonKey(name: 'loginCheckJs') final String? loginCheckJs,
-          @JsonKey(name: 'coverDecodeJs') final String? coverDecodeJs,
-          @JsonKey(name: 'bookSourceComment') final String? bookSourceComment,
-          @JsonKey(name: 'variableComment') final String? variableComment,
-          final String variable,
-          @JsonKey(name: 'lastUpdateTime') final int lastUpdateTime,
-          @JsonKey(name: 'respondTime') final int respondTime,
-          final int weight,
-          @JsonKey(name: 'exploreUrl') final String? exploreUrl,
-          @JsonKey(name: 'exploreScreen') final String? exploreScreen,
-          @JsonKey(name: 'ruleExplore') final ExploreRule? ruleExplore,
-          @JsonKey(name: 'searchUrl') final String? searchUrl,
-          @JsonKey(name: 'ruleSearch') final SearchRule? ruleSearch,
-          @JsonKey(name: 'ruleBookInfo') final BookInfoRule? ruleBookInfo,
-          @JsonKey(name: 'ruleToc') final TocRule? ruleToc,
-          @JsonKey(name: 'ruleContent') final ContentRule? ruleContent,
-          @JsonKey(name: 'ruleReview') final ReviewRule? ruleReview,
-          @JsonKey(name: 'mainJs') final String? mainJs,
-          @JsonKey(name: 'eventListener') final bool eventListener,
-          @JsonKey(name: 'customButton') final bool customButton}) =
-      _$BookSourceImpl;
+  const factory _BookSource({
+    @JsonKey(name: 'bookSourceUrl') final String bookSourceUrl,
+    @JsonKey(name: 'bookSourceName') final String bookSourceName,
+    @JsonKey(name: 'bookSourceGroup') final String? bookSourceGroup,
+    @JsonKey(name: 'bookSourceType') final int bookSourceType,
+    @JsonKey(name: 'bookUrlPattern') final String? bookUrlPattern,
+    @JsonKey(name: 'customOrder') final int customOrder,
+    final bool enabled,
+    @JsonKey(name: 'enabledExplore') final bool enabledExplore,
+    @JsonKey(name: 'jsLib') final String? jsLib,
+    @JsonKey(name: 'enabledCookieJar') final bool? enabledCookieJar,
+    @JsonKey(name: 'concurrentRate') final String? concurrentRate,
+    final String? header,
+    @JsonKey(name: 'loginUrl') final String? loginUrl,
+    @JsonKey(name: 'loginUi') final String? loginUi,
+    @JsonKey(name: 'loginCheckJs') final String? loginCheckJs,
+    @JsonKey(name: 'coverDecodeJs') final String? coverDecodeJs,
+    @JsonKey(name: 'bookSourceComment') final String? bookSourceComment,
+    @JsonKey(name: 'variableComment') final String? variableComment,
+    final String variable,
+    @JsonKey(name: 'lastUpdateTime') final int lastUpdateTime,
+    @JsonKey(name: 'respondTime') final int respondTime,
+    final int weight,
+    @JsonKey(name: 'exploreUrl') final String? exploreUrl,
+    @JsonKey(name: 'exploreScreen') final String? exploreScreen,
+    @JsonKey(name: 'ruleExplore') final ExploreRule? ruleExplore,
+    @JsonKey(name: 'searchUrl') final String? searchUrl,
+    @JsonKey(name: 'ruleSearch') final SearchRule? ruleSearch,
+    @JsonKey(name: 'ruleBookInfo') final BookInfoRule? ruleBookInfo,
+    @JsonKey(name: 'ruleToc') final TocRule? ruleToc,
+    @JsonKey(name: 'ruleContent') final ContentRule? ruleContent,
+    @JsonKey(name: 'ruleReview') final ReviewRule? ruleReview,
+    @JsonKey(name: 'mainJs') final String? mainJs,
+    @JsonKey(name: 'eventListener') final bool eventListener,
+    @JsonKey(name: 'customButton') final bool customButton,
+  }) = _$BookSourceImpl;
 
   factory _BookSource.fromJson(Map<String, dynamic> json) =
       _$BookSourceImpl.fromJson;
@@ -1018,11 +1049,11 @@ abstract class _BookSource implements BookSource {
   String? get bookSourceComment;
   @override
   @JsonKey(name: 'variableComment')
-  String? get variableComment;
-  @override // 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
-// 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
-// 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
-// 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
+  String? get variableComment; // 书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）：
+  // 对齐原版 BookSource.variable 字段（Rust 书源查询接口自然带出）。
+  // 评审 C1：改 @Default('') 非空——String? 的 toJson 恒输出 "variable": null，
+  // 会击穿 Rust serde 解析；非空串 + Rust lenient_string 双侧双保险 — Qoder
+  @override
   String get variable;
   @override
   @JsonKey(name: 'lastUpdateTime')
@@ -1068,8 +1099,11 @@ abstract class _BookSource implements BookSource {
   @override
   @JsonKey(name: 'customButton')
   bool get customButton;
+
+  /// Create a copy of BookSource
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BookSourceImplCopyWith<_$BookSourceImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

@@ -12,7 +12,8 @@ part of 'cover_candidate.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 CoverCandidate _$CoverCandidateFromJson(Map<String, dynamic> json) {
   return _CoverCandidate.fromJson(json);
@@ -29,8 +30,12 @@ mixin _$CoverCandidate {
   /// 图片高度（像素，0 表示未知）
   int get height => throw _privateConstructorUsedError;
 
+  /// Serializes this CoverCandidate to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of CoverCandidate
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $CoverCandidateCopyWith<CoverCandidate> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -38,8 +43,9 @@ mixin _$CoverCandidate {
 /// @nodoc
 abstract class $CoverCandidateCopyWith<$Res> {
   factory $CoverCandidateCopyWith(
-          CoverCandidate value, $Res Function(CoverCandidate) then) =
-      _$CoverCandidateCopyWithImpl<$Res, CoverCandidate>;
+    CoverCandidate value,
+    $Res Function(CoverCandidate) then,
+  ) = _$CoverCandidateCopyWithImpl<$Res, CoverCandidate>;
   @useResult
   $Res call({String url, int width, int height});
 }
@@ -54,36 +60,38 @@ class _$CoverCandidateCopyWithImpl<$Res, $Val extends CoverCandidate>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of CoverCandidate
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? url = null,
-    Object? width = null,
-    Object? height = null,
-  }) {
-    return _then(_value.copyWith(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      width: null == width
-          ? _value.width
-          : width // ignore: cast_nullable_to_non_nullable
-              as int,
-      height: null == height
-          ? _value.height
-          : height // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  $Res call({Object? url = null, Object? width = null, Object? height = null}) {
+    return _then(
+      _value.copyWith(
+            url: null == url
+                ? _value.url
+                : url // ignore: cast_nullable_to_non_nullable
+                      as String,
+            width: null == width
+                ? _value.width
+                : width // ignore: cast_nullable_to_non_nullable
+                      as int,
+            height: null == height
+                ? _value.height
+                : height // ignore: cast_nullable_to_non_nullable
+                      as int,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$CoverCandidateImplCopyWith<$Res>
     implements $CoverCandidateCopyWith<$Res> {
-  factory _$$CoverCandidateImplCopyWith(_$CoverCandidateImpl value,
-          $Res Function(_$CoverCandidateImpl) then) =
-      __$$CoverCandidateImplCopyWithImpl<$Res>;
+  factory _$$CoverCandidateImplCopyWith(
+    _$CoverCandidateImpl value,
+    $Res Function(_$CoverCandidateImpl) then,
+  ) = __$$CoverCandidateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({String url, int width, int height});
@@ -94,30 +102,31 @@ class __$$CoverCandidateImplCopyWithImpl<$Res>
     extends _$CoverCandidateCopyWithImpl<$Res, _$CoverCandidateImpl>
     implements _$$CoverCandidateImplCopyWith<$Res> {
   __$$CoverCandidateImplCopyWithImpl(
-      _$CoverCandidateImpl _value, $Res Function(_$CoverCandidateImpl) _then)
-      : super(_value, _then);
+    _$CoverCandidateImpl _value,
+    $Res Function(_$CoverCandidateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of CoverCandidate
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? url = null,
-    Object? width = null,
-    Object? height = null,
-  }) {
-    return _then(_$CoverCandidateImpl(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      width: null == width
-          ? _value.width
-          : width // ignore: cast_nullable_to_non_nullable
-              as int,
-      height: null == height
-          ? _value.height
-          : height // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+  $Res call({Object? url = null, Object? width = null, Object? height = null}) {
+    return _then(
+      _$CoverCandidateImpl(
+        url: null == url
+            ? _value.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        width: null == width
+            ? _value.width
+            : width // ignore: cast_nullable_to_non_nullable
+                  as int,
+        height: null == height
+            ? _value.height
+            : height // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
   }
 }
 
@@ -159,48 +168,53 @@ class _$CoverCandidateImpl implements _CoverCandidate {
             (identical(other.height, height) || other.height == height));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(runtimeType, url, width, height);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of CoverCandidate
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$CoverCandidateImplCopyWith<_$CoverCandidateImpl> get copyWith =>
       __$$CoverCandidateImplCopyWithImpl<_$CoverCandidateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$CoverCandidateImplToJson(
-      this,
-    );
+    return _$$CoverCandidateImplToJson(this);
   }
 }
 
 abstract class _CoverCandidate implements CoverCandidate {
-  const factory _CoverCandidate(
-      {final String url,
-      final int width,
-      final int height}) = _$CoverCandidateImpl;
+  const factory _CoverCandidate({
+    final String url,
+    final int width,
+    final int height,
+  }) = _$CoverCandidateImpl;
 
   factory _CoverCandidate.fromJson(Map<String, dynamic> json) =
       _$CoverCandidateImpl.fromJson;
 
-  @override
-
   /// 封面图片 URL
-  String get url;
   @override
+  String get url;
 
   /// 图片宽度（像素，0 表示未知）
-  int get width;
   @override
+  int get width;
 
   /// 图片高度（像素，0 表示未知）
-  int get height;
   @override
-  @JsonKey(ignore: true)
+  int get height;
+
+  /// Create a copy of CoverCandidate
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$CoverCandidateImplCopyWith<_$CoverCandidateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

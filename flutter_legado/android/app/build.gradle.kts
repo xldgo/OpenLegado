@@ -39,8 +39,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        // 分 ABI 构建由 Flutter 的 splits 筛选架构，避免与 NDK 过滤器冲突。
+        if (project.findProperty("split-per-abi") != "true") {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            }
         }
     }
 

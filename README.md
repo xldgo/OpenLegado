@@ -32,8 +32,9 @@ Android 原版源码及其 Gradle 工程不随本仓库分发；语义对照或�
 ### 环境要求
 
 - Rust stable（见 `rust/rust-toolchain.toml`）
-- Flutter SDK >= 3.8.0
-- Android NDK r26+（交叉编译时需要）
+- Flutter SDK 3.47.7（随附 Dart 3.13.5）
+- iOS 15+、Android API 24+；iOS 构建需要 macOS / Xcode
+- Android Rust FFI 使用 NDK 27.0.12077973，Flutter Gradle 使用 SDK 默认 NDK 28.2.13676358
 
 ### 编译与测试
 
@@ -43,7 +44,7 @@ cd rust
 cargo test -p legado-ffi --features quickjs
 
 # Flutter
-cd flutter_legado
+cd ..\flutter_legado
 flutter pub get
 flutter analyze
 flutter test

@@ -12,7 +12,8 @@ part of 'source_login_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$SourceLoginState {
@@ -34,7 +35,9 @@ mixin _$SourceLoginState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $SourceLoginStateCopyWith<SourceLoginState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -42,16 +45,18 @@ mixin _$SourceLoginState {
 /// @nodoc
 abstract class $SourceLoginStateCopyWith<$Res> {
   factory $SourceLoginStateCopyWith(
-          SourceLoginState value, $Res Function(SourceLoginState) then) =
-      _$SourceLoginStateCopyWithImpl<$Res, SourceLoginState>;
+    SourceLoginState value,
+    $Res Function(SourceLoginState) then,
+  ) = _$SourceLoginStateCopyWithImpl<$Res, SourceLoginState>;
   @useResult
-  $Res call(
-      {String token,
-      List<LoginKeyValue> cookies,
-      List<LoginKeyValue> headers,
-      bool isLoading,
-      bool isSaving,
-      String? error});
+  $Res call({
+    String token,
+    List<LoginKeyValue> cookies,
+    List<LoginKeyValue> headers,
+    bool isLoading,
+    bool isSaving,
+    String? error,
+  });
 }
 
 /// @nodoc
@@ -64,6 +69,8 @@ class _$SourceLoginStateCopyWithImpl<$Res, $Val extends SourceLoginState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -74,60 +81,68 @@ class _$SourceLoginStateCopyWithImpl<$Res, $Val extends SourceLoginState>
     Object? isSaving = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookies: null == cookies
-          ? _value.cookies
-          : cookies // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      headers: null == headers
-          ? _value.headers
-          : headers // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSaving: null == isSaving
-          ? _value.isSaving
-          : isSaving // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            token: null == token
+                ? _value.token
+                : token // ignore: cast_nullable_to_non_nullable
+                      as String,
+            cookies: null == cookies
+                ? _value.cookies
+                : cookies // ignore: cast_nullable_to_non_nullable
+                      as List<LoginKeyValue>,
+            headers: null == headers
+                ? _value.headers
+                : headers // ignore: cast_nullable_to_non_nullable
+                      as List<LoginKeyValue>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isSaving: null == isSaving
+                ? _value.isSaving
+                : isSaving // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$SourceLoginStateImplCopyWith<$Res>
     implements $SourceLoginStateCopyWith<$Res> {
-  factory _$$SourceLoginStateImplCopyWith(_$SourceLoginStateImpl value,
-          $Res Function(_$SourceLoginStateImpl) then) =
-      __$$SourceLoginStateImplCopyWithImpl<$Res>;
+  factory _$$SourceLoginStateImplCopyWith(
+    _$SourceLoginStateImpl value,
+    $Res Function(_$SourceLoginStateImpl) then,
+  ) = __$$SourceLoginStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String token,
-      List<LoginKeyValue> cookies,
-      List<LoginKeyValue> headers,
-      bool isLoading,
-      bool isSaving,
-      String? error});
+  $Res call({
+    String token,
+    List<LoginKeyValue> cookies,
+    List<LoginKeyValue> headers,
+    bool isLoading,
+    bool isSaving,
+    String? error,
+  });
 }
 
 /// @nodoc
 class __$$SourceLoginStateImplCopyWithImpl<$Res>
     extends _$SourceLoginStateCopyWithImpl<$Res, _$SourceLoginStateImpl>
     implements _$$SourceLoginStateImplCopyWith<$Res> {
-  __$$SourceLoginStateImplCopyWithImpl(_$SourceLoginStateImpl _value,
-      $Res Function(_$SourceLoginStateImpl) _then)
-      : super(_value, _then);
+  __$$SourceLoginStateImplCopyWithImpl(
+    _$SourceLoginStateImpl _value,
+    $Res Function(_$SourceLoginStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -138,47 +153,49 @@ class __$$SourceLoginStateImplCopyWithImpl<$Res>
     Object? isSaving = null,
     Object? error = freezed,
   }) {
-    return _then(_$SourceLoginStateImpl(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookies: null == cookies
-          ? _value._cookies
-          : cookies // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      headers: null == headers
-          ? _value._headers
-          : headers // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSaving: null == isSaving
-          ? _value.isSaving
-          : isSaving // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$SourceLoginStateImpl(
+        token: null == token
+            ? _value.token
+            : token // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cookies: null == cookies
+            ? _value._cookies
+            : cookies // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        headers: null == headers
+            ? _value._headers
+            : headers // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isSaving: null == isSaving
+            ? _value.isSaving
+            : isSaving // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$SourceLoginStateImpl implements _SourceLoginState {
-  const _$SourceLoginStateImpl(
-      {this.token = '',
-      final List<LoginKeyValue> cookies = const [],
-      final List<LoginKeyValue> headers = const [],
-      this.isLoading = false,
-      this.isSaving = false,
-      this.error})
-      : _cookies = cookies,
-        _headers = headers;
+  const _$SourceLoginStateImpl({
+    this.token = '',
+    final List<LoginKeyValue> cookies = const [],
+    final List<LoginKeyValue> headers = const [],
+    this.isLoading = false,
+    this.isSaving = false,
+    this.error,
+  }) : _cookies = cookies,
+       _headers = headers;
 
   /// Bearer Token / API Key（可选）
   @override
@@ -245,57 +262,65 @@ class _$SourceLoginStateImpl implements _SourceLoginState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      token,
-      const DeepCollectionEquality().hash(_cookies),
-      const DeepCollectionEquality().hash(_headers),
-      isLoading,
-      isSaving,
-      error);
+    runtimeType,
+    token,
+    const DeepCollectionEquality().hash(_cookies),
+    const DeepCollectionEquality().hash(_headers),
+    isLoading,
+    isSaving,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$SourceLoginStateImplCopyWith<_$SourceLoginStateImpl> get copyWith =>
       __$$SourceLoginStateImplCopyWithImpl<_$SourceLoginStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _SourceLoginState implements SourceLoginState {
-  const factory _SourceLoginState(
-      {final String token,
-      final List<LoginKeyValue> cookies,
-      final List<LoginKeyValue> headers,
-      final bool isLoading,
-      final bool isSaving,
-      final String? error}) = _$SourceLoginStateImpl;
-
-  @override
+  const factory _SourceLoginState({
+    final String token,
+    final List<LoginKeyValue> cookies,
+    final List<LoginKeyValue> headers,
+    final bool isLoading,
+    final bool isSaving,
+    final String? error,
+  }) = _$SourceLoginStateImpl;
 
   /// Bearer Token / API Key（可选）
-  String get token;
   @override
+  String get token;
 
   /// Cookie 键值对列表
-  List<LoginKeyValue> get cookies;
   @override
+  List<LoginKeyValue> get cookies;
 
   /// Header 键值对列表
-  List<LoginKeyValue> get headers;
   @override
+  List<LoginKeyValue> get headers;
 
   /// 正在加载已保存的登录信息
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 正在保存
-  bool get isSaving;
   @override
+  bool get isSaving;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SourceLoginStateImplCopyWith<_$SourceLoginStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

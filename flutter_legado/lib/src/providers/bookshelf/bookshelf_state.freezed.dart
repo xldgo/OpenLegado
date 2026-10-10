@@ -12,7 +12,8 @@ part of 'bookshelf_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$BookshelfState {
@@ -43,7 +44,9 @@ mixin _$BookshelfState {
   /// 批量选中的书籍 URL 集合
   Set<String> get selectedUrls => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookshelfState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BookshelfStateCopyWith<BookshelfState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -51,19 +54,21 @@ mixin _$BookshelfState {
 /// @nodoc
 abstract class $BookshelfStateCopyWith<$Res> {
   factory $BookshelfStateCopyWith(
-          BookshelfState value, $Res Function(BookshelfState) then) =
-      _$BookshelfStateCopyWithImpl<$Res, BookshelfState>;
+    BookshelfState value,
+    $Res Function(BookshelfState) then,
+  ) = _$BookshelfStateCopyWithImpl<$Res, BookshelfState>;
   @useResult
-  $Res call(
-      {List<Book> books,
-      bool isLoading,
-      String? error,
-      bool isGridView,
-      GroupMode groupMode,
-      List<BookGroup> groups,
-      int selectedGroupIndex,
-      bool isBatchMode,
-      Set<String> selectedUrls});
+  $Res call({
+    List<Book> books,
+    bool isLoading,
+    String? error,
+    bool isGridView,
+    GroupMode groupMode,
+    List<BookGroup> groups,
+    int selectedGroupIndex,
+    bool isBatchMode,
+    Set<String> selectedUrls,
+  });
 }
 
 /// @nodoc
@@ -76,6 +81,8 @@ class _$BookshelfStateCopyWithImpl<$Res, $Val extends BookshelfState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BookshelfState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -89,65 +96,70 @@ class _$BookshelfStateCopyWithImpl<$Res, $Val extends BookshelfState>
     Object? isBatchMode = null,
     Object? selectedUrls = null,
   }) {
-    return _then(_value.copyWith(
-      books: null == books
-          ? _value.books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<Book>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      isGridView: null == isGridView
-          ? _value.isGridView
-          : isGridView // ignore: cast_nullable_to_non_nullable
-              as bool,
-      groupMode: null == groupMode
-          ? _value.groupMode
-          : groupMode // ignore: cast_nullable_to_non_nullable
-              as GroupMode,
-      groups: null == groups
-          ? _value.groups
-          : groups // ignore: cast_nullable_to_non_nullable
-              as List<BookGroup>,
-      selectedGroupIndex: null == selectedGroupIndex
-          ? _value.selectedGroupIndex
-          : selectedGroupIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      isBatchMode: null == isBatchMode
-          ? _value.isBatchMode
-          : isBatchMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      selectedUrls: null == selectedUrls
-          ? _value.selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            books: null == books
+                ? _value.books
+                : books // ignore: cast_nullable_to_non_nullable
+                      as List<Book>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            isGridView: null == isGridView
+                ? _value.isGridView
+                : isGridView // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            groupMode: null == groupMode
+                ? _value.groupMode
+                : groupMode // ignore: cast_nullable_to_non_nullable
+                      as GroupMode,
+            groups: null == groups
+                ? _value.groups
+                : groups // ignore: cast_nullable_to_non_nullable
+                      as List<BookGroup>,
+            selectedGroupIndex: null == selectedGroupIndex
+                ? _value.selectedGroupIndex
+                : selectedGroupIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
+            isBatchMode: null == isBatchMode
+                ? _value.isBatchMode
+                : isBatchMode // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            selectedUrls: null == selectedUrls
+                ? _value.selectedUrls
+                : selectedUrls // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$BookshelfStateImplCopyWith<$Res>
     implements $BookshelfStateCopyWith<$Res> {
-  factory _$$BookshelfStateImplCopyWith(_$BookshelfStateImpl value,
-          $Res Function(_$BookshelfStateImpl) then) =
-      __$$BookshelfStateImplCopyWithImpl<$Res>;
+  factory _$$BookshelfStateImplCopyWith(
+    _$BookshelfStateImpl value,
+    $Res Function(_$BookshelfStateImpl) then,
+  ) = __$$BookshelfStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<Book> books,
-      bool isLoading,
-      String? error,
-      bool isGridView,
-      GroupMode groupMode,
-      List<BookGroup> groups,
-      int selectedGroupIndex,
-      bool isBatchMode,
-      Set<String> selectedUrls});
+  $Res call({
+    List<Book> books,
+    bool isLoading,
+    String? error,
+    bool isGridView,
+    GroupMode groupMode,
+    List<BookGroup> groups,
+    int selectedGroupIndex,
+    bool isBatchMode,
+    Set<String> selectedUrls,
+  });
 }
 
 /// @nodoc
@@ -155,9 +167,12 @@ class __$$BookshelfStateImplCopyWithImpl<$Res>
     extends _$BookshelfStateCopyWithImpl<$Res, _$BookshelfStateImpl>
     implements _$$BookshelfStateImplCopyWith<$Res> {
   __$$BookshelfStateImplCopyWithImpl(
-      _$BookshelfStateImpl _value, $Res Function(_$BookshelfStateImpl) _then)
-      : super(_value, _then);
+    _$BookshelfStateImpl _value,
+    $Res Function(_$BookshelfStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of BookshelfState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -171,63 +186,65 @@ class __$$BookshelfStateImplCopyWithImpl<$Res>
     Object? isBatchMode = null,
     Object? selectedUrls = null,
   }) {
-    return _then(_$BookshelfStateImpl(
-      books: null == books
-          ? _value._books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<Book>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      isGridView: null == isGridView
-          ? _value.isGridView
-          : isGridView // ignore: cast_nullable_to_non_nullable
-              as bool,
-      groupMode: null == groupMode
-          ? _value.groupMode
-          : groupMode // ignore: cast_nullable_to_non_nullable
-              as GroupMode,
-      groups: null == groups
-          ? _value._groups
-          : groups // ignore: cast_nullable_to_non_nullable
-              as List<BookGroup>,
-      selectedGroupIndex: null == selectedGroupIndex
-          ? _value.selectedGroupIndex
-          : selectedGroupIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      isBatchMode: null == isBatchMode
-          ? _value.isBatchMode
-          : isBatchMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      selectedUrls: null == selectedUrls
-          ? _value._selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ));
+    return _then(
+      _$BookshelfStateImpl(
+        books: null == books
+            ? _value._books
+            : books // ignore: cast_nullable_to_non_nullable
+                  as List<Book>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        isGridView: null == isGridView
+            ? _value.isGridView
+            : isGridView // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        groupMode: null == groupMode
+            ? _value.groupMode
+            : groupMode // ignore: cast_nullable_to_non_nullable
+                  as GroupMode,
+        groups: null == groups
+            ? _value._groups
+            : groups // ignore: cast_nullable_to_non_nullable
+                  as List<BookGroup>,
+        selectedGroupIndex: null == selectedGroupIndex
+            ? _value.selectedGroupIndex
+            : selectedGroupIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isBatchMode: null == isBatchMode
+            ? _value.isBatchMode
+            : isBatchMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        selectedUrls: null == selectedUrls
+            ? _value._selectedUrls
+            : selectedUrls // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BookshelfStateImpl implements _BookshelfState {
-  const _$BookshelfStateImpl(
-      {final List<Book> books = const [],
-      this.isLoading = false,
-      this.error,
-      this.isGridView = false,
-      this.groupMode = GroupMode.none,
-      final List<BookGroup> groups = const [],
-      this.selectedGroupIndex = 0,
-      this.isBatchMode = false,
-      final Set<String> selectedUrls = const {}})
-      : _books = books,
-        _groups = groups,
-        _selectedUrls = selectedUrls;
+  const _$BookshelfStateImpl({
+    final List<Book> books = const [],
+    this.isLoading = false,
+    this.error,
+    this.isGridView = false,
+    this.groupMode = GroupMode.none,
+    final List<BookGroup> groups = const [],
+    this.selectedGroupIndex = 0,
+    this.isBatchMode = false,
+    final Set<String> selectedUrls = const {},
+  }) : _books = books,
+       _groups = groups,
+       _selectedUrls = selectedUrls;
 
   /// Rust 返回的书籍列表（已排序，UI 层不做排序）
   final List<Book> _books;
@@ -317,81 +334,91 @@ class _$BookshelfStateImpl implements _BookshelfState {
                 other.selectedGroupIndex == selectedGroupIndex) &&
             (identical(other.isBatchMode, isBatchMode) ||
                 other.isBatchMode == isBatchMode) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedUrls, _selectedUrls));
+            const DeepCollectionEquality().equals(
+              other._selectedUrls,
+              _selectedUrls,
+            ));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_books),
-      isLoading,
-      error,
-      isGridView,
-      groupMode,
-      const DeepCollectionEquality().hash(_groups),
-      selectedGroupIndex,
-      isBatchMode,
-      const DeepCollectionEquality().hash(_selectedUrls));
+    runtimeType,
+    const DeepCollectionEquality().hash(_books),
+    isLoading,
+    error,
+    isGridView,
+    groupMode,
+    const DeepCollectionEquality().hash(_groups),
+    selectedGroupIndex,
+    isBatchMode,
+    const DeepCollectionEquality().hash(_selectedUrls),
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookshelfState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BookshelfStateImplCopyWith<_$BookshelfStateImpl> get copyWith =>
       __$$BookshelfStateImplCopyWithImpl<_$BookshelfStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _BookshelfState implements BookshelfState {
-  const factory _BookshelfState(
-      {final List<Book> books,
-      final bool isLoading,
-      final String? error,
-      final bool isGridView,
-      final GroupMode groupMode,
-      final List<BookGroup> groups,
-      final int selectedGroupIndex,
-      final bool isBatchMode,
-      final Set<String> selectedUrls}) = _$BookshelfStateImpl;
-
-  @override
+  const factory _BookshelfState({
+    final List<Book> books,
+    final bool isLoading,
+    final String? error,
+    final bool isGridView,
+    final GroupMode groupMode,
+    final List<BookGroup> groups,
+    final int selectedGroupIndex,
+    final bool isBatchMode,
+    final Set<String> selectedUrls,
+  }) = _$BookshelfStateImpl;
 
   /// Rust 返回的书籍列表（已排序，UI 层不做排序）
-  List<Book> get books;
   @override
+  List<Book> get books;
 
   /// 是否正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
+  String? get error;
 
   /// 展示层：网格/列表视图模式
-  bool get isGridView;
   @override
+  bool get isGridView;
 
   /// 展示层：分组显示模式
-  GroupMode get groupMode;
   @override
+  GroupMode get groupMode;
 
   /// 书籍分组列表（对标原版 BookGroup，顶栏 Tab 数据源）
-  List<BookGroup> get groups;
   @override
+  List<BookGroup> get groups;
 
   /// 当前选中的分组 Tab 索引（对标原版 AppConfig.saveTabPosition）
-  int get selectedGroupIndex;
   @override
+  int get selectedGroupIndex;
 
   /// [UI_SYNC_REFACTOR T3] 批量选择模式（对齐参考 SelectionBottomBar 态）
-  bool get isBatchMode;
   @override
+  bool get isBatchMode;
 
   /// 批量选中的书籍 URL 集合
-  Set<String> get selectedUrls;
   @override
-  @JsonKey(ignore: true)
+  Set<String> get selectedUrls;
+
+  /// Create a copy of BookshelfState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BookshelfStateImplCopyWith<_$BookshelfStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

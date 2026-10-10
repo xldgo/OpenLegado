@@ -14,9 +14,9 @@ _$CoverCandidateImpl _$$CoverCandidateImplFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$$CoverCandidateImplToJson(
-        _$CoverCandidateImpl instance) =>
-    <String, dynamic>{
-      'url': instance.url,
-      'width': instance.width,
-      'height': instance.height,
-    };
+  _$CoverCandidateImpl instance,
+) => <String, dynamic>{
+  'url': instance.url,
+  'width': instance.width,
+  'height': instance.height,
+};

@@ -12,7 +12,8 @@ part of 'book.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 ReadConfig _$ReadConfigFromJson(Map<String, dynamic> json) {
   return _ReadConfig.fromJson(json);
@@ -68,8 +69,12 @@ mixin _$ReadConfig {
   @JsonKey(name: 'webtoonSidePaddingDp')
   int? get webtoonSidePaddingDp => throw _privateConstructorUsedError;
 
+  /// Serializes this ReadConfig to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of ReadConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ReadConfigCopyWith<ReadConfig> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -77,28 +82,30 @@ mixin _$ReadConfig {
 /// @nodoc
 abstract class $ReadConfigCopyWith<$Res> {
   factory $ReadConfigCopyWith(
-          ReadConfig value, $Res Function(ReadConfig) then) =
-      _$ReadConfigCopyWithImpl<$Res, ReadConfig>;
+    ReadConfig value,
+    $Res Function(ReadConfig) then,
+  ) = _$ReadConfigCopyWithImpl<$Res, ReadConfig>;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'reverseToc') bool reverseToc,
-      @JsonKey(name: 'pageAnim') int? pageAnim,
-      @JsonKey(name: 'reSegment') bool reSegment,
-      @JsonKey(name: 'imageStyle') String? imageStyle,
-      @JsonKey(name: 'useReplaceRule') bool? useReplaceRule,
-      @JsonKey(name: 'delTag') int delTag,
-      @JsonKey(name: 'ttsEngine') String? ttsEngine,
-      @JsonKey(name: 'splitLongChapter') bool splitLongChapter,
-      @JsonKey(name: 'readSimulating') bool readSimulating,
-      @JsonKey(name: 'startDate') String? startDate,
-      @JsonKey(name: 'startChapter') int? startChapter,
-      @JsonKey(name: 'dailyChapters') int dailyChapters,
-      @JsonKey(name: 'openCredits') int openCredits,
-      @JsonKey(name: 'closeCredits') int closeCredits,
-      @JsonKey(name: 'playMode') int playMode,
-      @JsonKey(name: 'playSpeed') double playSpeed,
-      @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
-      @JsonKey(name: 'webtoonSidePaddingDp') int? webtoonSidePaddingDp});
+  $Res call({
+    @JsonKey(name: 'reverseToc') bool reverseToc,
+    @JsonKey(name: 'pageAnim') int? pageAnim,
+    @JsonKey(name: 'reSegment') bool reSegment,
+    @JsonKey(name: 'imageStyle') String? imageStyle,
+    @JsonKey(name: 'useReplaceRule') bool? useReplaceRule,
+    @JsonKey(name: 'delTag') int delTag,
+    @JsonKey(name: 'ttsEngine') String? ttsEngine,
+    @JsonKey(name: 'splitLongChapter') bool splitLongChapter,
+    @JsonKey(name: 'readSimulating') bool readSimulating,
+    @JsonKey(name: 'startDate') String? startDate,
+    @JsonKey(name: 'startChapter') int? startChapter,
+    @JsonKey(name: 'dailyChapters') int dailyChapters,
+    @JsonKey(name: 'openCredits') int openCredits,
+    @JsonKey(name: 'closeCredits') int closeCredits,
+    @JsonKey(name: 'playMode') int playMode,
+    @JsonKey(name: 'playSpeed') double playSpeed,
+    @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
+    @JsonKey(name: 'webtoonSidePaddingDp') int? webtoonSidePaddingDp,
+  });
 }
 
 /// @nodoc
@@ -111,6 +118,8 @@ class _$ReadConfigCopyWithImpl<$Res, $Val extends ReadConfig>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ReadConfig
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -133,80 +142,83 @@ class _$ReadConfigCopyWithImpl<$Res, $Val extends ReadConfig>
     Object? mangaScrollMode = freezed,
     Object? webtoonSidePaddingDp = freezed,
   }) {
-    return _then(_value.copyWith(
-      reverseToc: null == reverseToc
-          ? _value.reverseToc
-          : reverseToc // ignore: cast_nullable_to_non_nullable
-              as bool,
-      pageAnim: freezed == pageAnim
-          ? _value.pageAnim
-          : pageAnim // ignore: cast_nullable_to_non_nullable
-              as int?,
-      reSegment: null == reSegment
-          ? _value.reSegment
-          : reSegment // ignore: cast_nullable_to_non_nullable
-              as bool,
-      imageStyle: freezed == imageStyle
-          ? _value.imageStyle
-          : imageStyle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      useReplaceRule: freezed == useReplaceRule
-          ? _value.useReplaceRule
-          : useReplaceRule // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      delTag: null == delTag
-          ? _value.delTag
-          : delTag // ignore: cast_nullable_to_non_nullable
-              as int,
-      ttsEngine: freezed == ttsEngine
-          ? _value.ttsEngine
-          : ttsEngine // ignore: cast_nullable_to_non_nullable
-              as String?,
-      splitLongChapter: null == splitLongChapter
-          ? _value.splitLongChapter
-          : splitLongChapter // ignore: cast_nullable_to_non_nullable
-              as bool,
-      readSimulating: null == readSimulating
-          ? _value.readSimulating
-          : readSimulating // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startDate: freezed == startDate
-          ? _value.startDate
-          : startDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      startChapter: freezed == startChapter
-          ? _value.startChapter
-          : startChapter // ignore: cast_nullable_to_non_nullable
-              as int?,
-      dailyChapters: null == dailyChapters
-          ? _value.dailyChapters
-          : dailyChapters // ignore: cast_nullable_to_non_nullable
-              as int,
-      openCredits: null == openCredits
-          ? _value.openCredits
-          : openCredits // ignore: cast_nullable_to_non_nullable
-              as int,
-      closeCredits: null == closeCredits
-          ? _value.closeCredits
-          : closeCredits // ignore: cast_nullable_to_non_nullable
-              as int,
-      playMode: null == playMode
-          ? _value.playMode
-          : playMode // ignore: cast_nullable_to_non_nullable
-              as int,
-      playSpeed: null == playSpeed
-          ? _value.playSpeed
-          : playSpeed // ignore: cast_nullable_to_non_nullable
-              as double,
-      mangaScrollMode: freezed == mangaScrollMode
-          ? _value.mangaScrollMode
-          : mangaScrollMode // ignore: cast_nullable_to_non_nullable
-              as int?,
-      webtoonSidePaddingDp: freezed == webtoonSidePaddingDp
-          ? _value.webtoonSidePaddingDp
-          : webtoonSidePaddingDp // ignore: cast_nullable_to_non_nullable
-              as int?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            reverseToc: null == reverseToc
+                ? _value.reverseToc
+                : reverseToc // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            pageAnim: freezed == pageAnim
+                ? _value.pageAnim
+                : pageAnim // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            reSegment: null == reSegment
+                ? _value.reSegment
+                : reSegment // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            imageStyle: freezed == imageStyle
+                ? _value.imageStyle
+                : imageStyle // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            useReplaceRule: freezed == useReplaceRule
+                ? _value.useReplaceRule
+                : useReplaceRule // ignore: cast_nullable_to_non_nullable
+                      as bool?,
+            delTag: null == delTag
+                ? _value.delTag
+                : delTag // ignore: cast_nullable_to_non_nullable
+                      as int,
+            ttsEngine: freezed == ttsEngine
+                ? _value.ttsEngine
+                : ttsEngine // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            splitLongChapter: null == splitLongChapter
+                ? _value.splitLongChapter
+                : splitLongChapter // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            readSimulating: null == readSimulating
+                ? _value.readSimulating
+                : readSimulating // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            startDate: freezed == startDate
+                ? _value.startDate
+                : startDate // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            startChapter: freezed == startChapter
+                ? _value.startChapter
+                : startChapter // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            dailyChapters: null == dailyChapters
+                ? _value.dailyChapters
+                : dailyChapters // ignore: cast_nullable_to_non_nullable
+                      as int,
+            openCredits: null == openCredits
+                ? _value.openCredits
+                : openCredits // ignore: cast_nullable_to_non_nullable
+                      as int,
+            closeCredits: null == closeCredits
+                ? _value.closeCredits
+                : closeCredits // ignore: cast_nullable_to_non_nullable
+                      as int,
+            playMode: null == playMode
+                ? _value.playMode
+                : playMode // ignore: cast_nullable_to_non_nullable
+                      as int,
+            playSpeed: null == playSpeed
+                ? _value.playSpeed
+                : playSpeed // ignore: cast_nullable_to_non_nullable
+                      as double,
+            mangaScrollMode: freezed == mangaScrollMode
+                ? _value.mangaScrollMode
+                : mangaScrollMode // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            webtoonSidePaddingDp: freezed == webtoonSidePaddingDp
+                ? _value.webtoonSidePaddingDp
+                : webtoonSidePaddingDp // ignore: cast_nullable_to_non_nullable
+                      as int?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -214,29 +226,31 @@ class _$ReadConfigCopyWithImpl<$Res, $Val extends ReadConfig>
 abstract class _$$ReadConfigImplCopyWith<$Res>
     implements $ReadConfigCopyWith<$Res> {
   factory _$$ReadConfigImplCopyWith(
-          _$ReadConfigImpl value, $Res Function(_$ReadConfigImpl) then) =
-      __$$ReadConfigImplCopyWithImpl<$Res>;
+    _$ReadConfigImpl value,
+    $Res Function(_$ReadConfigImpl) then,
+  ) = __$$ReadConfigImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {@JsonKey(name: 'reverseToc') bool reverseToc,
-      @JsonKey(name: 'pageAnim') int? pageAnim,
-      @JsonKey(name: 'reSegment') bool reSegment,
-      @JsonKey(name: 'imageStyle') String? imageStyle,
-      @JsonKey(name: 'useReplaceRule') bool? useReplaceRule,
-      @JsonKey(name: 'delTag') int delTag,
-      @JsonKey(name: 'ttsEngine') String? ttsEngine,
-      @JsonKey(name: 'splitLongChapter') bool splitLongChapter,
-      @JsonKey(name: 'readSimulating') bool readSimulating,
-      @JsonKey(name: 'startDate') String? startDate,
-      @JsonKey(name: 'startChapter') int? startChapter,
-      @JsonKey(name: 'dailyChapters') int dailyChapters,
-      @JsonKey(name: 'openCredits') int openCredits,
-      @JsonKey(name: 'closeCredits') int closeCredits,
-      @JsonKey(name: 'playMode') int playMode,
-      @JsonKey(name: 'playSpeed') double playSpeed,
-      @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
-      @JsonKey(name: 'webtoonSidePaddingDp') int? webtoonSidePaddingDp});
+  $Res call({
+    @JsonKey(name: 'reverseToc') bool reverseToc,
+    @JsonKey(name: 'pageAnim') int? pageAnim,
+    @JsonKey(name: 'reSegment') bool reSegment,
+    @JsonKey(name: 'imageStyle') String? imageStyle,
+    @JsonKey(name: 'useReplaceRule') bool? useReplaceRule,
+    @JsonKey(name: 'delTag') int delTag,
+    @JsonKey(name: 'ttsEngine') String? ttsEngine,
+    @JsonKey(name: 'splitLongChapter') bool splitLongChapter,
+    @JsonKey(name: 'readSimulating') bool readSimulating,
+    @JsonKey(name: 'startDate') String? startDate,
+    @JsonKey(name: 'startChapter') int? startChapter,
+    @JsonKey(name: 'dailyChapters') int dailyChapters,
+    @JsonKey(name: 'openCredits') int openCredits,
+    @JsonKey(name: 'closeCredits') int closeCredits,
+    @JsonKey(name: 'playMode') int playMode,
+    @JsonKey(name: 'playSpeed') double playSpeed,
+    @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
+    @JsonKey(name: 'webtoonSidePaddingDp') int? webtoonSidePaddingDp,
+  });
 }
 
 /// @nodoc
@@ -244,9 +258,12 @@ class __$$ReadConfigImplCopyWithImpl<$Res>
     extends _$ReadConfigCopyWithImpl<$Res, _$ReadConfigImpl>
     implements _$$ReadConfigImplCopyWith<$Res> {
   __$$ReadConfigImplCopyWithImpl(
-      _$ReadConfigImpl _value, $Res Function(_$ReadConfigImpl) _then)
-      : super(_value, _then);
+    _$ReadConfigImpl _value,
+    $Res Function(_$ReadConfigImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ReadConfig
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -269,105 +286,108 @@ class __$$ReadConfigImplCopyWithImpl<$Res>
     Object? mangaScrollMode = freezed,
     Object? webtoonSidePaddingDp = freezed,
   }) {
-    return _then(_$ReadConfigImpl(
-      reverseToc: null == reverseToc
-          ? _value.reverseToc
-          : reverseToc // ignore: cast_nullable_to_non_nullable
-              as bool,
-      pageAnim: freezed == pageAnim
-          ? _value.pageAnim
-          : pageAnim // ignore: cast_nullable_to_non_nullable
-              as int?,
-      reSegment: null == reSegment
-          ? _value.reSegment
-          : reSegment // ignore: cast_nullable_to_non_nullable
-              as bool,
-      imageStyle: freezed == imageStyle
-          ? _value.imageStyle
-          : imageStyle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      useReplaceRule: freezed == useReplaceRule
-          ? _value.useReplaceRule
-          : useReplaceRule // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      delTag: null == delTag
-          ? _value.delTag
-          : delTag // ignore: cast_nullable_to_non_nullable
-              as int,
-      ttsEngine: freezed == ttsEngine
-          ? _value.ttsEngine
-          : ttsEngine // ignore: cast_nullable_to_non_nullable
-              as String?,
-      splitLongChapter: null == splitLongChapter
-          ? _value.splitLongChapter
-          : splitLongChapter // ignore: cast_nullable_to_non_nullable
-              as bool,
-      readSimulating: null == readSimulating
-          ? _value.readSimulating
-          : readSimulating // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startDate: freezed == startDate
-          ? _value.startDate
-          : startDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      startChapter: freezed == startChapter
-          ? _value.startChapter
-          : startChapter // ignore: cast_nullable_to_non_nullable
-              as int?,
-      dailyChapters: null == dailyChapters
-          ? _value.dailyChapters
-          : dailyChapters // ignore: cast_nullable_to_non_nullable
-              as int,
-      openCredits: null == openCredits
-          ? _value.openCredits
-          : openCredits // ignore: cast_nullable_to_non_nullable
-              as int,
-      closeCredits: null == closeCredits
-          ? _value.closeCredits
-          : closeCredits // ignore: cast_nullable_to_non_nullable
-              as int,
-      playMode: null == playMode
-          ? _value.playMode
-          : playMode // ignore: cast_nullable_to_non_nullable
-              as int,
-      playSpeed: null == playSpeed
-          ? _value.playSpeed
-          : playSpeed // ignore: cast_nullable_to_non_nullable
-              as double,
-      mangaScrollMode: freezed == mangaScrollMode
-          ? _value.mangaScrollMode
-          : mangaScrollMode // ignore: cast_nullable_to_non_nullable
-              as int?,
-      webtoonSidePaddingDp: freezed == webtoonSidePaddingDp
-          ? _value.webtoonSidePaddingDp
-          : webtoonSidePaddingDp // ignore: cast_nullable_to_non_nullable
-              as int?,
-    ));
+    return _then(
+      _$ReadConfigImpl(
+        reverseToc: null == reverseToc
+            ? _value.reverseToc
+            : reverseToc // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        pageAnim: freezed == pageAnim
+            ? _value.pageAnim
+            : pageAnim // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        reSegment: null == reSegment
+            ? _value.reSegment
+            : reSegment // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        imageStyle: freezed == imageStyle
+            ? _value.imageStyle
+            : imageStyle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        useReplaceRule: freezed == useReplaceRule
+            ? _value.useReplaceRule
+            : useReplaceRule // ignore: cast_nullable_to_non_nullable
+                  as bool?,
+        delTag: null == delTag
+            ? _value.delTag
+            : delTag // ignore: cast_nullable_to_non_nullable
+                  as int,
+        ttsEngine: freezed == ttsEngine
+            ? _value.ttsEngine
+            : ttsEngine // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        splitLongChapter: null == splitLongChapter
+            ? _value.splitLongChapter
+            : splitLongChapter // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        readSimulating: null == readSimulating
+            ? _value.readSimulating
+            : readSimulating // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        startDate: freezed == startDate
+            ? _value.startDate
+            : startDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        startChapter: freezed == startChapter
+            ? _value.startChapter
+            : startChapter // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        dailyChapters: null == dailyChapters
+            ? _value.dailyChapters
+            : dailyChapters // ignore: cast_nullable_to_non_nullable
+                  as int,
+        openCredits: null == openCredits
+            ? _value.openCredits
+            : openCredits // ignore: cast_nullable_to_non_nullable
+                  as int,
+        closeCredits: null == closeCredits
+            ? _value.closeCredits
+            : closeCredits // ignore: cast_nullable_to_non_nullable
+                  as int,
+        playMode: null == playMode
+            ? _value.playMode
+            : playMode // ignore: cast_nullable_to_non_nullable
+                  as int,
+        playSpeed: null == playSpeed
+            ? _value.playSpeed
+            : playSpeed // ignore: cast_nullable_to_non_nullable
+                  as double,
+        mangaScrollMode: freezed == mangaScrollMode
+            ? _value.mangaScrollMode
+            : mangaScrollMode // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        webtoonSidePaddingDp: freezed == webtoonSidePaddingDp
+            ? _value.webtoonSidePaddingDp
+            : webtoonSidePaddingDp // ignore: cast_nullable_to_non_nullable
+                  as int?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$ReadConfigImpl implements _ReadConfig {
-  const _$ReadConfigImpl(
-      {@JsonKey(name: 'reverseToc') this.reverseToc = false,
-      @JsonKey(name: 'pageAnim') this.pageAnim,
-      @JsonKey(name: 'reSegment') this.reSegment = false,
-      @JsonKey(name: 'imageStyle') this.imageStyle,
-      @JsonKey(name: 'useReplaceRule') this.useReplaceRule,
-      @JsonKey(name: 'delTag') this.delTag = 0,
-      @JsonKey(name: 'ttsEngine') this.ttsEngine,
-      @JsonKey(name: 'splitLongChapter') this.splitLongChapter = true,
-      @JsonKey(name: 'readSimulating') this.readSimulating = false,
-      @JsonKey(name: 'startDate') this.startDate,
-      @JsonKey(name: 'startChapter') this.startChapter,
-      @JsonKey(name: 'dailyChapters') this.dailyChapters = 3,
-      @JsonKey(name: 'openCredits') this.openCredits = 0,
-      @JsonKey(name: 'closeCredits') this.closeCredits = 0,
-      @JsonKey(name: 'playMode') this.playMode = 0,
-      @JsonKey(name: 'playSpeed') this.playSpeed = 1.0,
-      @JsonKey(name: 'mangaScrollMode') this.mangaScrollMode,
-      @JsonKey(name: 'webtoonSidePaddingDp') this.webtoonSidePaddingDp});
+  const _$ReadConfigImpl({
+    @JsonKey(name: 'reverseToc') this.reverseToc = false,
+    @JsonKey(name: 'pageAnim') this.pageAnim,
+    @JsonKey(name: 'reSegment') this.reSegment = false,
+    @JsonKey(name: 'imageStyle') this.imageStyle,
+    @JsonKey(name: 'useReplaceRule') this.useReplaceRule,
+    @JsonKey(name: 'delTag') this.delTag = 0,
+    @JsonKey(name: 'ttsEngine') this.ttsEngine,
+    @JsonKey(name: 'splitLongChapter') this.splitLongChapter = true,
+    @JsonKey(name: 'readSimulating') this.readSimulating = false,
+    @JsonKey(name: 'startDate') this.startDate,
+    @JsonKey(name: 'startChapter') this.startChapter,
+    @JsonKey(name: 'dailyChapters') this.dailyChapters = 3,
+    @JsonKey(name: 'openCredits') this.openCredits = 0,
+    @JsonKey(name: 'closeCredits') this.closeCredits = 0,
+    @JsonKey(name: 'playMode') this.playMode = 0,
+    @JsonKey(name: 'playSpeed') this.playSpeed = 1.0,
+    @JsonKey(name: 'mangaScrollMode') this.mangaScrollMode,
+    @JsonKey(name: 'webtoonSidePaddingDp') this.webtoonSidePaddingDp,
+  });
 
   factory _$ReadConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$ReadConfigImplFromJson(json);
@@ -485,30 +505,33 @@ class _$ReadConfigImpl implements _ReadConfig {
                 other.webtoonSidePaddingDp == webtoonSidePaddingDp));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      reverseToc,
-      pageAnim,
-      reSegment,
-      imageStyle,
-      useReplaceRule,
-      delTag,
-      ttsEngine,
-      splitLongChapter,
-      readSimulating,
-      startDate,
-      startChapter,
-      dailyChapters,
-      openCredits,
-      closeCredits,
-      playMode,
-      playSpeed,
-      mangaScrollMode,
-      webtoonSidePaddingDp);
+    runtimeType,
+    reverseToc,
+    pageAnim,
+    reSegment,
+    imageStyle,
+    useReplaceRule,
+    delTag,
+    ttsEngine,
+    splitLongChapter,
+    readSimulating,
+    startDate,
+    startChapter,
+    dailyChapters,
+    openCredits,
+    closeCredits,
+    playMode,
+    playSpeed,
+    mangaScrollMode,
+    webtoonSidePaddingDp,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ReadConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ReadConfigImplCopyWith<_$ReadConfigImpl> get copyWith =>
@@ -516,33 +539,31 @@ class _$ReadConfigImpl implements _ReadConfig {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$ReadConfigImplToJson(
-      this,
-    );
+    return _$$ReadConfigImplToJson(this);
   }
 }
 
 abstract class _ReadConfig implements ReadConfig {
-  const factory _ReadConfig(
-      {@JsonKey(name: 'reverseToc') final bool reverseToc,
-      @JsonKey(name: 'pageAnim') final int? pageAnim,
-      @JsonKey(name: 'reSegment') final bool reSegment,
-      @JsonKey(name: 'imageStyle') final String? imageStyle,
-      @JsonKey(name: 'useReplaceRule') final bool? useReplaceRule,
-      @JsonKey(name: 'delTag') final int delTag,
-      @JsonKey(name: 'ttsEngine') final String? ttsEngine,
-      @JsonKey(name: 'splitLongChapter') final bool splitLongChapter,
-      @JsonKey(name: 'readSimulating') final bool readSimulating,
-      @JsonKey(name: 'startDate') final String? startDate,
-      @JsonKey(name: 'startChapter') final int? startChapter,
-      @JsonKey(name: 'dailyChapters') final int dailyChapters,
-      @JsonKey(name: 'openCredits') final int openCredits,
-      @JsonKey(name: 'closeCredits') final int closeCredits,
-      @JsonKey(name: 'playMode') final int playMode,
-      @JsonKey(name: 'playSpeed') final double playSpeed,
-      @JsonKey(name: 'mangaScrollMode') final int? mangaScrollMode,
-      @JsonKey(name: 'webtoonSidePaddingDp')
-      final int? webtoonSidePaddingDp}) = _$ReadConfigImpl;
+  const factory _ReadConfig({
+    @JsonKey(name: 'reverseToc') final bool reverseToc,
+    @JsonKey(name: 'pageAnim') final int? pageAnim,
+    @JsonKey(name: 'reSegment') final bool reSegment,
+    @JsonKey(name: 'imageStyle') final String? imageStyle,
+    @JsonKey(name: 'useReplaceRule') final bool? useReplaceRule,
+    @JsonKey(name: 'delTag') final int delTag,
+    @JsonKey(name: 'ttsEngine') final String? ttsEngine,
+    @JsonKey(name: 'splitLongChapter') final bool splitLongChapter,
+    @JsonKey(name: 'readSimulating') final bool readSimulating,
+    @JsonKey(name: 'startDate') final String? startDate,
+    @JsonKey(name: 'startChapter') final int? startChapter,
+    @JsonKey(name: 'dailyChapters') final int dailyChapters,
+    @JsonKey(name: 'openCredits') final int openCredits,
+    @JsonKey(name: 'closeCredits') final int closeCredits,
+    @JsonKey(name: 'playMode') final int playMode,
+    @JsonKey(name: 'playSpeed') final double playSpeed,
+    @JsonKey(name: 'mangaScrollMode') final int? mangaScrollMode,
+    @JsonKey(name: 'webtoonSidePaddingDp') final int? webtoonSidePaddingDp,
+  }) = _$ReadConfigImpl;
 
   factory _ReadConfig.fromJson(Map<String, dynamic> json) =
       _$ReadConfigImpl.fromJson;
@@ -595,14 +616,13 @@ abstract class _ReadConfig implements ReadConfig {
   @override
   @JsonKey(name: 'playSpeed')
   double get playSpeed;
-  @override
 
   /// [漫画设置作用域 2026-10-01] 书级翻页模式覆盖（null = 未覆盖，跟随
   /// 全局 [MangaConfigKeys.scrollMode]）。对齐参考版 `Book.ReadConfig.mangaScrollMode`
   /// 与 MangaReaderViewModel 有效值优先级 `book?.scrollMode ?: settings.scrollMode`。
+  @override
   @JsonKey(name: 'mangaScrollMode')
   int? get mangaScrollMode;
-  @override
 
   /// [漫画设置作用域 2026-10-01] 书级条漫侧边留白覆盖（null = 未覆盖，
   /// 跟随全局 [MangaConfigKeys.sidePadding]）。
@@ -610,10 +630,14 @@ abstract class _ReadConfig implements ReadConfig {
   /// 键名对齐参考版 `Book.ReadConfig.webtoonSidePaddingDp`，但数值沿用
   /// Flutter 既有百分比口径 0..45（每侧留白 = 视口宽 × p/100），与参考版
   /// 字段仅做作用域对齐，**不做 dp/百分比换算**（无明确换算规则前禁止混用单位）。
+  @override
   @JsonKey(name: 'webtoonSidePaddingDp')
   int? get webtoonSidePaddingDp;
+
+  /// Create a copy of ReadConfig
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ReadConfigImplCopyWith<_$ReadConfigImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -688,8 +712,12 @@ mixin _$Book {
   @JsonKey(name: 'originBookUrl')
   String get originBookUrl => throw _privateConstructorUsedError;
 
+  /// Serializes this Book to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BookCopyWith<Book> get copyWith => throw _privateConstructorUsedError;
 }
 
@@ -698,41 +726,42 @@ abstract class $BookCopyWith<$Res> {
   factory $BookCopyWith(Book value, $Res Function(Book) then) =
       _$BookCopyWithImpl<$Res, Book>;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'customTag') String? customTag,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      @JsonKey(name: 'customCoverUrl') String? customCoverUrl,
-      String? intro,
-      @JsonKey(name: 'customIntro') String? customIntro,
-      String? charset,
-      @JsonKey(name: 'type') int bookType,
-      int group,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'latestChapterTime') int latestChapterTime,
-      @JsonKey(name: 'lastCheckTime') int lastCheckTime,
-      @JsonKey(name: 'lastCheckCount') int lastCheckCount,
-      @JsonKey(name: 'totalChapterNum') int totalChapterNum,
-      @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
-      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
-      @JsonKey(name: 'durVolumeIndex') int durVolumeIndex,
-      @JsonKey(name: 'chapterInVolumeIndex') int chapterInVolumeIndex,
-      @JsonKey(name: 'durChapterPos') int durChapterPos,
-      @JsonKey(name: 'durChapterTime') int durChapterTime,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'canUpdate') bool canUpdate,
-      int order,
-      @JsonKey(name: 'originOrder') int originOrder,
-      String? variable,
-      @JsonKey(name: 'readConfig') ReadConfig? readConfig,
-      @JsonKey(name: 'syncTime') int syncTime,
-      @JsonKey(name: 'originBookUrl') String originBookUrl});
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'customTag') String? customTag,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    @JsonKey(name: 'customCoverUrl') String? customCoverUrl,
+    String? intro,
+    @JsonKey(name: 'customIntro') String? customIntro,
+    String? charset,
+    @JsonKey(name: 'type') int bookType,
+    int group,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'latestChapterTime') int latestChapterTime,
+    @JsonKey(name: 'lastCheckTime') int lastCheckTime,
+    @JsonKey(name: 'lastCheckCount') int lastCheckCount,
+    @JsonKey(name: 'totalChapterNum') int totalChapterNum,
+    @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+    @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+    @JsonKey(name: 'durVolumeIndex') int durVolumeIndex,
+    @JsonKey(name: 'chapterInVolumeIndex') int chapterInVolumeIndex,
+    @JsonKey(name: 'durChapterPos') int durChapterPos,
+    @JsonKey(name: 'durChapterTime') int durChapterTime,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'canUpdate') bool canUpdate,
+    int order,
+    @JsonKey(name: 'originOrder') int originOrder,
+    String? variable,
+    @JsonKey(name: 'readConfig') ReadConfig? readConfig,
+    @JsonKey(name: 'syncTime') int syncTime,
+    @JsonKey(name: 'originBookUrl') String originBookUrl,
+  });
 
   $ReadConfigCopyWith<$Res>? get readConfig;
 }
@@ -747,6 +776,8 @@ class _$BookCopyWithImpl<$Res, $Val extends Book>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -785,146 +816,151 @@ class _$BookCopyWithImpl<$Res, $Val extends Book>
     Object? syncTime = null,
     Object? originBookUrl = null,
   }) {
-    return _then(_value.copyWith(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customTag: freezed == customTag
-          ? _value.customTag
-          : customTag // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customCoverUrl: freezed == customCoverUrl
-          ? _value.customCoverUrl
-          : customCoverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customIntro: freezed == customIntro
-          ? _value.customIntro
-          : customIntro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      charset: freezed == charset
-          ? _value.charset
-          : charset // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as int,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTime: null == latestChapterTime
-          ? _value.latestChapterTime
-          : latestChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCheckTime: null == lastCheckTime
-          ? _value.lastCheckTime
-          : lastCheckTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCheckCount: null == lastCheckCount
-          ? _value.lastCheckCount
-          : lastCheckCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalChapterNum: null == totalChapterNum
-          ? _value.totalChapterNum
-          : totalChapterNum // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTitle: freezed == durChapterTitle
-          ? _value.durChapterTitle
-          : durChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      durChapterIndex: null == durChapterIndex
-          ? _value.durChapterIndex
-          : durChapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durVolumeIndex: null == durVolumeIndex
-          ? _value.durVolumeIndex
-          : durVolumeIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterInVolumeIndex: null == chapterInVolumeIndex
-          ? _value.chapterInVolumeIndex
-          : chapterInVolumeIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterPos: null == durChapterPos
-          ? _value.durChapterPos
-          : durChapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTime: null == durChapterTime
-          ? _value.durChapterTime
-          : durChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      canUpdate: null == canUpdate
-          ? _value.canUpdate
-          : canUpdate // ignore: cast_nullable_to_non_nullable
-              as bool,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readConfig: freezed == readConfig
-          ? _value.readConfig
-          : readConfig // ignore: cast_nullable_to_non_nullable
-              as ReadConfig?,
-      syncTime: null == syncTime
-          ? _value.syncTime
-          : syncTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      originBookUrl: null == originBookUrl
-          ? _value.originBookUrl
-          : originBookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            bookUrl: null == bookUrl
+                ? _value.bookUrl
+                : bookUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            tocUrl: null == tocUrl
+                ? _value.tocUrl
+                : tocUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            origin: null == origin
+                ? _value.origin
+                : origin // ignore: cast_nullable_to_non_nullable
+                      as String,
+            originName: null == originName
+                ? _value.originName
+                : originName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            name: null == name
+                ? _value.name
+                : name // ignore: cast_nullable_to_non_nullable
+                      as String,
+            author: null == author
+                ? _value.author
+                : author // ignore: cast_nullable_to_non_nullable
+                      as String,
+            kind: freezed == kind
+                ? _value.kind
+                : kind // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            customTag: freezed == customTag
+                ? _value.customTag
+                : customTag // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            coverUrl: freezed == coverUrl
+                ? _value.coverUrl
+                : coverUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            customCoverUrl: freezed == customCoverUrl
+                ? _value.customCoverUrl
+                : customCoverUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            intro: freezed == intro
+                ? _value.intro
+                : intro // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            customIntro: freezed == customIntro
+                ? _value.customIntro
+                : customIntro // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            charset: freezed == charset
+                ? _value.charset
+                : charset // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            bookType: null == bookType
+                ? _value.bookType
+                : bookType // ignore: cast_nullable_to_non_nullable
+                      as int,
+            group: null == group
+                ? _value.group
+                : group // ignore: cast_nullable_to_non_nullable
+                      as int,
+            latestChapterTitle: freezed == latestChapterTitle
+                ? _value.latestChapterTitle
+                : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            latestChapterTime: null == latestChapterTime
+                ? _value.latestChapterTime
+                : latestChapterTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            lastCheckTime: null == lastCheckTime
+                ? _value.lastCheckTime
+                : lastCheckTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            lastCheckCount: null == lastCheckCount
+                ? _value.lastCheckCount
+                : lastCheckCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            totalChapterNum: null == totalChapterNum
+                ? _value.totalChapterNum
+                : totalChapterNum // ignore: cast_nullable_to_non_nullable
+                      as int,
+            durChapterTitle: freezed == durChapterTitle
+                ? _value.durChapterTitle
+                : durChapterTitle // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            durChapterIndex: null == durChapterIndex
+                ? _value.durChapterIndex
+                : durChapterIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
+            durVolumeIndex: null == durVolumeIndex
+                ? _value.durVolumeIndex
+                : durVolumeIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
+            chapterInVolumeIndex: null == chapterInVolumeIndex
+                ? _value.chapterInVolumeIndex
+                : chapterInVolumeIndex // ignore: cast_nullable_to_non_nullable
+                      as int,
+            durChapterPos: null == durChapterPos
+                ? _value.durChapterPos
+                : durChapterPos // ignore: cast_nullable_to_non_nullable
+                      as int,
+            durChapterTime: null == durChapterTime
+                ? _value.durChapterTime
+                : durChapterTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            wordCount: freezed == wordCount
+                ? _value.wordCount
+                : wordCount // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            canUpdate: null == canUpdate
+                ? _value.canUpdate
+                : canUpdate // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            order: null == order
+                ? _value.order
+                : order // ignore: cast_nullable_to_non_nullable
+                      as int,
+            originOrder: null == originOrder
+                ? _value.originOrder
+                : originOrder // ignore: cast_nullable_to_non_nullable
+                      as int,
+            variable: freezed == variable
+                ? _value.variable
+                : variable // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            readConfig: freezed == readConfig
+                ? _value.readConfig
+                : readConfig // ignore: cast_nullable_to_non_nullable
+                      as ReadConfig?,
+            syncTime: null == syncTime
+                ? _value.syncTime
+                : syncTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+            originBookUrl: null == originBookUrl
+                ? _value.originBookUrl
+                : originBookUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $ReadConfigCopyWith<$Res>? get readConfig {
@@ -941,45 +977,47 @@ class _$BookCopyWithImpl<$Res, $Val extends Book>
 /// @nodoc
 abstract class _$$BookImplCopyWith<$Res> implements $BookCopyWith<$Res> {
   factory _$$BookImplCopyWith(
-          _$BookImpl value, $Res Function(_$BookImpl) then) =
-      __$$BookImplCopyWithImpl<$Res>;
+    _$BookImpl value,
+    $Res Function(_$BookImpl) then,
+  ) = __$$BookImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'customTag') String? customTag,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      @JsonKey(name: 'customCoverUrl') String? customCoverUrl,
-      String? intro,
-      @JsonKey(name: 'customIntro') String? customIntro,
-      String? charset,
-      @JsonKey(name: 'type') int bookType,
-      int group,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'latestChapterTime') int latestChapterTime,
-      @JsonKey(name: 'lastCheckTime') int lastCheckTime,
-      @JsonKey(name: 'lastCheckCount') int lastCheckCount,
-      @JsonKey(name: 'totalChapterNum') int totalChapterNum,
-      @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
-      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
-      @JsonKey(name: 'durVolumeIndex') int durVolumeIndex,
-      @JsonKey(name: 'chapterInVolumeIndex') int chapterInVolumeIndex,
-      @JsonKey(name: 'durChapterPos') int durChapterPos,
-      @JsonKey(name: 'durChapterTime') int durChapterTime,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'canUpdate') bool canUpdate,
-      int order,
-      @JsonKey(name: 'originOrder') int originOrder,
-      String? variable,
-      @JsonKey(name: 'readConfig') ReadConfig? readConfig,
-      @JsonKey(name: 'syncTime') int syncTime,
-      @JsonKey(name: 'originBookUrl') String originBookUrl});
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'customTag') String? customTag,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    @JsonKey(name: 'customCoverUrl') String? customCoverUrl,
+    String? intro,
+    @JsonKey(name: 'customIntro') String? customIntro,
+    String? charset,
+    @JsonKey(name: 'type') int bookType,
+    int group,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'latestChapterTime') int latestChapterTime,
+    @JsonKey(name: 'lastCheckTime') int lastCheckTime,
+    @JsonKey(name: 'lastCheckCount') int lastCheckCount,
+    @JsonKey(name: 'totalChapterNum') int totalChapterNum,
+    @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+    @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+    @JsonKey(name: 'durVolumeIndex') int durVolumeIndex,
+    @JsonKey(name: 'chapterInVolumeIndex') int chapterInVolumeIndex,
+    @JsonKey(name: 'durChapterPos') int durChapterPos,
+    @JsonKey(name: 'durChapterTime') int durChapterTime,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'canUpdate') bool canUpdate,
+    int order,
+    @JsonKey(name: 'originOrder') int originOrder,
+    String? variable,
+    @JsonKey(name: 'readConfig') ReadConfig? readConfig,
+    @JsonKey(name: 'syncTime') int syncTime,
+    @JsonKey(name: 'originBookUrl') String originBookUrl,
+  });
 
   @override
   $ReadConfigCopyWith<$Res>? get readConfig;
@@ -990,8 +1028,10 @@ class __$$BookImplCopyWithImpl<$Res>
     extends _$BookCopyWithImpl<$Res, _$BookImpl>
     implements _$$BookImplCopyWith<$Res> {
   __$$BookImplCopyWithImpl(_$BookImpl _value, $Res Function(_$BookImpl) _then)
-      : super(_value, _then);
+    : super(_value, _then);
 
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1030,185 +1070,188 @@ class __$$BookImplCopyWithImpl<$Res>
     Object? syncTime = null,
     Object? originBookUrl = null,
   }) {
-    return _then(_$BookImpl(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customTag: freezed == customTag
-          ? _value.customTag
-          : customTag // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customCoverUrl: freezed == customCoverUrl
-          ? _value.customCoverUrl
-          : customCoverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customIntro: freezed == customIntro
-          ? _value.customIntro
-          : customIntro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      charset: freezed == charset
-          ? _value.charset
-          : charset // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as int,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTime: null == latestChapterTime
-          ? _value.latestChapterTime
-          : latestChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCheckTime: null == lastCheckTime
-          ? _value.lastCheckTime
-          : lastCheckTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCheckCount: null == lastCheckCount
-          ? _value.lastCheckCount
-          : lastCheckCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalChapterNum: null == totalChapterNum
-          ? _value.totalChapterNum
-          : totalChapterNum // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTitle: freezed == durChapterTitle
-          ? _value.durChapterTitle
-          : durChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      durChapterIndex: null == durChapterIndex
-          ? _value.durChapterIndex
-          : durChapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durVolumeIndex: null == durVolumeIndex
-          ? _value.durVolumeIndex
-          : durVolumeIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterInVolumeIndex: null == chapterInVolumeIndex
-          ? _value.chapterInVolumeIndex
-          : chapterInVolumeIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterPos: null == durChapterPos
-          ? _value.durChapterPos
-          : durChapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTime: null == durChapterTime
-          ? _value.durChapterTime
-          : durChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      canUpdate: null == canUpdate
-          ? _value.canUpdate
-          : canUpdate // ignore: cast_nullable_to_non_nullable
-              as bool,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readConfig: freezed == readConfig
-          ? _value.readConfig
-          : readConfig // ignore: cast_nullable_to_non_nullable
-              as ReadConfig?,
-      syncTime: null == syncTime
-          ? _value.syncTime
-          : syncTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      originBookUrl: null == originBookUrl
-          ? _value.originBookUrl
-          : originBookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$BookImpl(
+        bookUrl: null == bookUrl
+            ? _value.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        tocUrl: null == tocUrl
+            ? _value.tocUrl
+            : tocUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _value.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _value.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _value.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _value.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: freezed == kind
+            ? _value.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customTag: freezed == customTag
+            ? _value.customTag
+            : customTag // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverUrl: freezed == coverUrl
+            ? _value.coverUrl
+            : coverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customCoverUrl: freezed == customCoverUrl
+            ? _value.customCoverUrl
+            : customCoverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        intro: freezed == intro
+            ? _value.intro
+            : intro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customIntro: freezed == customIntro
+            ? _value.customIntro
+            : customIntro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        charset: freezed == charset
+            ? _value.charset
+            : charset // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookType: null == bookType
+            ? _value.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        group: null == group
+            ? _value.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as int,
+        latestChapterTitle: freezed == latestChapterTitle
+            ? _value.latestChapterTitle
+            : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestChapterTime: null == latestChapterTime
+            ? _value.latestChapterTime
+            : latestChapterTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastCheckTime: null == lastCheckTime
+            ? _value.lastCheckTime
+            : lastCheckTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastCheckCount: null == lastCheckCount
+            ? _value.lastCheckCount
+            : lastCheckCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalChapterNum: null == totalChapterNum
+            ? _value.totalChapterNum
+            : totalChapterNum // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTitle: freezed == durChapterTitle
+            ? _value.durChapterTitle
+            : durChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        durChapterIndex: null == durChapterIndex
+            ? _value.durChapterIndex
+            : durChapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durVolumeIndex: null == durVolumeIndex
+            ? _value.durVolumeIndex
+            : durVolumeIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterInVolumeIndex: null == chapterInVolumeIndex
+            ? _value.chapterInVolumeIndex
+            : chapterInVolumeIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterPos: null == durChapterPos
+            ? _value.durChapterPos
+            : durChapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTime: null == durChapterTime
+            ? _value.durChapterTime
+            : durChapterTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        wordCount: freezed == wordCount
+            ? _value.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        canUpdate: null == canUpdate
+            ? _value.canUpdate
+            : canUpdate // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        order: null == order
+            ? _value.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        originOrder: null == originOrder
+            ? _value.originOrder
+            : originOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        variable: freezed == variable
+            ? _value.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        readConfig: freezed == readConfig
+            ? _value.readConfig
+            : readConfig // ignore: cast_nullable_to_non_nullable
+                  as ReadConfig?,
+        syncTime: null == syncTime
+            ? _value.syncTime
+            : syncTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        originBookUrl: null == originBookUrl
+            ? _value.originBookUrl
+            : originBookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$BookImpl implements _Book {
-  const _$BookImpl(
-      {@JsonKey(name: 'bookUrl') this.bookUrl = '',
-      @JsonKey(name: 'tocUrl') this.tocUrl = '',
-      this.origin = 'loc_book',
-      @JsonKey(name: 'originName') this.originName = '',
-      this.name = '',
-      this.author = '',
-      this.kind,
-      @JsonKey(name: 'customTag') this.customTag,
-      @JsonKey(name: 'coverUrl') this.coverUrl,
-      @JsonKey(name: 'customCoverUrl') this.customCoverUrl,
-      this.intro,
-      @JsonKey(name: 'customIntro') this.customIntro,
-      this.charset,
-      @JsonKey(name: 'type') this.bookType = 0,
-      this.group = 0,
-      @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
-      @JsonKey(name: 'latestChapterTime') this.latestChapterTime = 0,
-      @JsonKey(name: 'lastCheckTime') this.lastCheckTime = 0,
-      @JsonKey(name: 'lastCheckCount') this.lastCheckCount = 0,
-      @JsonKey(name: 'totalChapterNum') this.totalChapterNum = 0,
-      @JsonKey(name: 'durChapterTitle') this.durChapterTitle,
-      @JsonKey(name: 'durChapterIndex') this.durChapterIndex = 0,
-      @JsonKey(name: 'durVolumeIndex') this.durVolumeIndex = 0,
-      @JsonKey(name: 'chapterInVolumeIndex') this.chapterInVolumeIndex = 0,
-      @JsonKey(name: 'durChapterPos') this.durChapterPos = 0,
-      @JsonKey(name: 'durChapterTime') this.durChapterTime = 0,
-      @JsonKey(name: 'wordCount') this.wordCount,
-      @JsonKey(name: 'canUpdate') this.canUpdate = true,
-      this.order = 0,
-      @JsonKey(name: 'originOrder') this.originOrder = 0,
-      this.variable,
-      @JsonKey(name: 'readConfig') this.readConfig,
-      @JsonKey(name: 'syncTime') this.syncTime = 0,
-      @JsonKey(name: 'originBookUrl') this.originBookUrl = ''});
+  const _$BookImpl({
+    @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    @JsonKey(name: 'tocUrl') this.tocUrl = '',
+    this.origin = 'loc_book',
+    @JsonKey(name: 'originName') this.originName = '',
+    this.name = '',
+    this.author = '',
+    this.kind,
+    @JsonKey(name: 'customTag') this.customTag,
+    @JsonKey(name: 'coverUrl') this.coverUrl,
+    @JsonKey(name: 'customCoverUrl') this.customCoverUrl,
+    this.intro,
+    @JsonKey(name: 'customIntro') this.customIntro,
+    this.charset,
+    @JsonKey(name: 'type') this.bookType = 0,
+    this.group = 0,
+    @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
+    @JsonKey(name: 'latestChapterTime') this.latestChapterTime = 0,
+    @JsonKey(name: 'lastCheckTime') this.lastCheckTime = 0,
+    @JsonKey(name: 'lastCheckCount') this.lastCheckCount = 0,
+    @JsonKey(name: 'totalChapterNum') this.totalChapterNum = 0,
+    @JsonKey(name: 'durChapterTitle') this.durChapterTitle,
+    @JsonKey(name: 'durChapterIndex') this.durChapterIndex = 0,
+    @JsonKey(name: 'durVolumeIndex') this.durVolumeIndex = 0,
+    @JsonKey(name: 'chapterInVolumeIndex') this.chapterInVolumeIndex = 0,
+    @JsonKey(name: 'durChapterPos') this.durChapterPos = 0,
+    @JsonKey(name: 'durChapterTime') this.durChapterTime = 0,
+    @JsonKey(name: 'wordCount') this.wordCount,
+    @JsonKey(name: 'canUpdate') this.canUpdate = true,
+    this.order = 0,
+    @JsonKey(name: 'originOrder') this.originOrder = 0,
+    this.variable,
+    @JsonKey(name: 'readConfig') this.readConfig,
+    @JsonKey(name: 'syncTime') this.syncTime = 0,
+    @JsonKey(name: 'originBookUrl') this.originBookUrl = '',
+  });
 
   factory _$BookImpl.fromJson(Map<String, dynamic> json) =>
       _$$BookImplFromJson(json);
@@ -1386,47 +1429,49 @@ class _$BookImpl implements _Book {
                 other.originBookUrl == originBookUrl));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hashAll([
-        runtimeType,
-        bookUrl,
-        tocUrl,
-        origin,
-        originName,
-        name,
-        author,
-        kind,
-        customTag,
-        coverUrl,
-        customCoverUrl,
-        intro,
-        customIntro,
-        charset,
-        bookType,
-        group,
-        latestChapterTitle,
-        latestChapterTime,
-        lastCheckTime,
-        lastCheckCount,
-        totalChapterNum,
-        durChapterTitle,
-        durChapterIndex,
-        durVolumeIndex,
-        chapterInVolumeIndex,
-        durChapterPos,
-        durChapterTime,
-        wordCount,
-        canUpdate,
-        order,
-        originOrder,
-        variable,
-        readConfig,
-        syncTime,
-        originBookUrl
-      ]);
+    runtimeType,
+    bookUrl,
+    tocUrl,
+    origin,
+    originName,
+    name,
+    author,
+    kind,
+    customTag,
+    coverUrl,
+    customCoverUrl,
+    intro,
+    customIntro,
+    charset,
+    bookType,
+    group,
+    latestChapterTitle,
+    latestChapterTime,
+    lastCheckTime,
+    lastCheckCount,
+    totalChapterNum,
+    durChapterTitle,
+    durChapterIndex,
+    durVolumeIndex,
+    chapterInVolumeIndex,
+    durChapterPos,
+    durChapterTime,
+    wordCount,
+    canUpdate,
+    order,
+    originOrder,
+    variable,
+    readConfig,
+    syncTime,
+    originBookUrl,
+  ]);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BookImplCopyWith<_$BookImpl> get copyWith =>
@@ -1434,48 +1479,47 @@ class _$BookImpl implements _Book {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$BookImplToJson(
-      this,
-    );
+    return _$$BookImplToJson(this);
   }
 }
 
 abstract class _Book implements Book {
-  const factory _Book(
-      {@JsonKey(name: 'bookUrl') final String bookUrl,
-      @JsonKey(name: 'tocUrl') final String tocUrl,
-      final String origin,
-      @JsonKey(name: 'originName') final String originName,
-      final String name,
-      final String author,
-      final String? kind,
-      @JsonKey(name: 'customTag') final String? customTag,
-      @JsonKey(name: 'coverUrl') final String? coverUrl,
-      @JsonKey(name: 'customCoverUrl') final String? customCoverUrl,
-      final String? intro,
-      @JsonKey(name: 'customIntro') final String? customIntro,
-      final String? charset,
-      @JsonKey(name: 'type') final int bookType,
-      final int group,
-      @JsonKey(name: 'latestChapterTitle') final String? latestChapterTitle,
-      @JsonKey(name: 'latestChapterTime') final int latestChapterTime,
-      @JsonKey(name: 'lastCheckTime') final int lastCheckTime,
-      @JsonKey(name: 'lastCheckCount') final int lastCheckCount,
-      @JsonKey(name: 'totalChapterNum') final int totalChapterNum,
-      @JsonKey(name: 'durChapterTitle') final String? durChapterTitle,
-      @JsonKey(name: 'durChapterIndex') final int durChapterIndex,
-      @JsonKey(name: 'durVolumeIndex') final int durVolumeIndex,
-      @JsonKey(name: 'chapterInVolumeIndex') final int chapterInVolumeIndex,
-      @JsonKey(name: 'durChapterPos') final int durChapterPos,
-      @JsonKey(name: 'durChapterTime') final int durChapterTime,
-      @JsonKey(name: 'wordCount') final String? wordCount,
-      @JsonKey(name: 'canUpdate') final bool canUpdate,
-      final int order,
-      @JsonKey(name: 'originOrder') final int originOrder,
-      final String? variable,
-      @JsonKey(name: 'readConfig') final ReadConfig? readConfig,
-      @JsonKey(name: 'syncTime') final int syncTime,
-      @JsonKey(name: 'originBookUrl') final String originBookUrl}) = _$BookImpl;
+  const factory _Book({
+    @JsonKey(name: 'bookUrl') final String bookUrl,
+    @JsonKey(name: 'tocUrl') final String tocUrl,
+    final String origin,
+    @JsonKey(name: 'originName') final String originName,
+    final String name,
+    final String author,
+    final String? kind,
+    @JsonKey(name: 'customTag') final String? customTag,
+    @JsonKey(name: 'coverUrl') final String? coverUrl,
+    @JsonKey(name: 'customCoverUrl') final String? customCoverUrl,
+    final String? intro,
+    @JsonKey(name: 'customIntro') final String? customIntro,
+    final String? charset,
+    @JsonKey(name: 'type') final int bookType,
+    final int group,
+    @JsonKey(name: 'latestChapterTitle') final String? latestChapterTitle,
+    @JsonKey(name: 'latestChapterTime') final int latestChapterTime,
+    @JsonKey(name: 'lastCheckTime') final int lastCheckTime,
+    @JsonKey(name: 'lastCheckCount') final int lastCheckCount,
+    @JsonKey(name: 'totalChapterNum') final int totalChapterNum,
+    @JsonKey(name: 'durChapterTitle') final String? durChapterTitle,
+    @JsonKey(name: 'durChapterIndex') final int durChapterIndex,
+    @JsonKey(name: 'durVolumeIndex') final int durVolumeIndex,
+    @JsonKey(name: 'chapterInVolumeIndex') final int chapterInVolumeIndex,
+    @JsonKey(name: 'durChapterPos') final int durChapterPos,
+    @JsonKey(name: 'durChapterTime') final int durChapterTime,
+    @JsonKey(name: 'wordCount') final String? wordCount,
+    @JsonKey(name: 'canUpdate') final bool canUpdate,
+    final int order,
+    @JsonKey(name: 'originOrder') final int originOrder,
+    final String? variable,
+    @JsonKey(name: 'readConfig') final ReadConfig? readConfig,
+    @JsonKey(name: 'syncTime') final int syncTime,
+    @JsonKey(name: 'originBookUrl') final String originBookUrl,
+  }) = _$BookImpl;
 
   factory _Book.fromJson(Map<String, dynamic> json) = _$BookImpl.fromJson;
 
@@ -1569,15 +1613,18 @@ abstract class _Book implements Book {
   @override
   @JsonKey(name: 'syncTime')
   int get syncTime;
-  @override
 
   /// [P2-8] 当前书源下该书的详情页地址（换源事务写入；bookUrl 保持
   /// 稳定主键不变，换源后可能仍是旧源地址）。为空时「抓取书籍页」
   /// 路径回退 bookUrl（未换源书籍与存量库行为不变，向后兼容）。
+  @override
   @JsonKey(name: 'originBookUrl')
   String get originBookUrl;
+
+  /// Create a copy of Book
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BookImplCopyWith<_$BookImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

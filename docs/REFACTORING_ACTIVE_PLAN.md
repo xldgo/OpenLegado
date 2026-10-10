@@ -8,12 +8,41 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### CI-SETUP-20261010：Android 与 Java 环境 Action 升级（P2）
+
+- **状态**：已关闭（配置升级范围）；按用户要求 fixup 到之前的 Flutter 升级提交，保留 `[skip ci]`。
+- **范围与执行**：`android-release.yml` 的 `actions/setup-java` 从 v4 改为 v6；该文件与 `integration-smoke.yml` 共 2 处 `android-actions/setup-android` 从 v3 改为 v4。由主代理直接实施，不使用子代理。
+- **验证与交付**：官方新版支持现有 `distribution`、`java-version`、`packages` 输入；9 份 workflow 的 actionlint 与 `git diff --check` 通过。显式 Java 17 与 NDK 27.0.12077973 配置保持原值，Android 命令行工具使用新版 Action 默认值。修改压缩进 `chore/flutter-3.47.7` 的升级提交并推送；应用版本保持 `2.0.369+370`。
+- **证据与限制**：[升级记录](FLUTTER_3_47_UPGRADE_20261010.md)；本次跳过远端 CI，新版环境安装行为由后续正常构建验证。Dart 下限与 FRB 版本未在本批调整。
+
+编写者：Codex 主代理｜2026-10-10
+
+### CI-ARTIFACT-20261010：产物上传 Action 升级（P2）
+
+- **状态**：已关闭（配置升级范围）；按用户要求升级并跳过本次 CI。
+- **范围与执行**：当前升级分支中 `android-release.yml`、`ios-build.yml`、`ios-ci.yml` 共 6 处 `actions/upload-artifact` 从 v4 改为 v7；由主代理直接执行，不使用子代理。
+- **依据与验证**：[官方 v7 元数据](https://github.com/actions/upload-artifact/blob/v7/action.yml) 保留现有输入和 `artifact-id` 输出，默认 `archive: true`，现有产物名称、路径、保留时间与打包方式兼容；9 份 workflow 的 actionlint 及 `git diff --check` 通过，当前 workflow 未再使用旧版 upload-artifact。
+- **交付与限制**：提交信息附 `[skip ci]` 并推送当前分支；本次未运行远端 CI，v7 的实际上传行为由后续正常构建验证。应用版本保持 `2.0.369+370`。
+
+编写者：Codex 主代理｜2026-10-10
+
+### FLUTTER-SDK-20261010：Flutter 3.47.7 升级（P1）
+
+- **状态**：待真机回归与 FRB 生成复现；SDK 升级、提交推送及本轮 Actions 验证已完成，Android 三种 ABI APK、未签名 iOS IPA 和模拟器阅读测试通过。iOS 已有数据覆盖安装、16 KB 页设备运行及 FRB 固定版本独立再生成尚未验收，整轮 M1 不标为关闭。2026-10-10 用户授权先完成 SDK 升级，再推进工程化和渐进式重构。
+- **目标与范围**：固定 Flutter 3.47.7 / Dart 3.13.5，同步五份现有 Flutter workflow、iOS 15.0 平台目标，处理实际依赖与 API 兼容阻塞；验证代码生成、新 SDK 构建与真实 FFI。按用户追加要求将 Rust 工作区与 CI 改为 `stable`；`.fvmrc` 仅作本地配置并加入忽略规则。保留现有阅读行为、界面、数据库及 FRB 2.11.1 契约，不扩大到架构和设计系统重构。
+- **基线与执行**：从 `dev` 的 `e4c9a9764ae54481ceae7e44c2812335f51170ff` 创建 `chore/flutter-3.47.7`；应用版本 `2.0.369+370`。按用户要求不使用子代理；本地验证及审核后，用户已于 2026-10-10 授权提交、推送升级分支并运行 Actions 测试，远端结果回填本项及证据记录。用户已授权删除并已删除 FVM 缓存中的 Flutter 3.29.3，保留新 SDK。
+- **本地证据**：[SDK 升级验证记录](FLUTTER_3_47_UPGRADE_20261010.md)。精确恢复 lockfile、静态分析零问题、Dart 代码生成及重复生成摘要检查通过；Rust `stable` 新编译的 QuickJS FFI 库下，Flutter 全量 2239 项测试、Windows 集成冒烟 3 项通过，Windows 包内 DLL 与源产物 SHA256 一致；9 份 workflow 的 actionlint 与差异检查通过。修正了 Windows CMake 中 Rust 产物目录的作用域错误。
+- **远端验证**：升级及修正已推送至 `origin/chore/flutter-3.47.7`，应用修正提交至 `3afdf0c18`；Flutter CI、Rust stable 完整门禁、Integration Smoke、iOS 模拟器两项集成测试、Android 三种 ABI APK 及未签名 iOS IPA 均通过。实际失败已收敛：async-trait 补丁更新至 0.1.92、Android 分 ABI 配置冲突、iOS legacy 散文件与 plist 引用缺失。默认分支尚未登记 Android Release / iOS CI，在两个独立验证分支仅复用构建作业取得证据，未执行发布；运行链接和受测提交详见验证记录。
+- **验收与限制**：已可用的 iOS 版本作为回归基线。本机 Android cmdline-tools 缺失、Windows 无 Xcode 的构建限制已由远端补充证据；仓库未配置 iOS 签名素材，IPA 为未签名包。16 KB 页设备运行及已有 iOS 数据覆盖安装另附实际证据。FRB 绑定和契约保持原样，固定版本 FRB 重新生成的独立验证尚未执行；Dart 生成器保留 SDK/分析器语言版本差异警告。配置与 CI 通过不替代上述最终回归。
+
+编写者：Codex 主代理｜2026-10-10
+
 ### CI-AUTO-20261010：仓库自动化配置整理（P2）
 
-- **状态**：待复验；2026-10-10 配置修改、本地静态检查及触发/标签/评论情景通过，用户已明确要求提交本地 commit；Ruby 检查及远端服务验证仍待 CI。不使用子代理，提交授权不包含推送。
+- **状态**：待复验；2026-10-10 配置修改、本地静态检查及触发/标签/评论情景通过，用户已明确要求提交本地 commit；Ruby 检查及远端服务验证仍待 CI。不使用子代理，初次授权仅提交；后续已随用户授权的 SDK 升级分支推送其祖先提交。
 - **目标与范围**：Dependabot 监控 Actions、Rust、Flutter 和 Flutter Android；补齐当前工程标签与模板，并清理旧 `app/`、`modules/` 及根 Gradle 的无效路径分类；PR 自动审查按 `review` 标签启用；历史标签回填仅手动；stale 仅处理 Issue；统一发布分类。按用户追加要求核查同类旧路径，修正当前仓库元数据、发布/进度文档入口和 API 文档的失效源码链接，并按明确授权删除 8 个旧原版 Gradle 文件。修改限于上述文件、`.github/` 配置、三份仓库自动化 workflow、`package.json` 仓库链接、Podspec 首页及必要说明；现有辅助脚本、应用源码、现用 Rust/Flutter 依赖版本、Pod 构建字段和六份构建/发布 workflow 保持原状。
 - **执行与验收**：由 Codex 主代理直接实施和复核。检查 YAML/重复键、actionlint、标签正负例及审查触发/评论守卫；不调用 API 发布评论、添加标签、关闭 Issue 或触发付费审查，不运行应用构建。
-- **分支与交付**：基线 `06665408f`，当前 `dev`；用户已确认 Dependabot 普通版本更新 PR 指向 `dev`，安全更新仍按 GitHub 默认分支规则处理。按最新用户指令提交本地 commit，主题为 `chore(tool): 整理仓库自动化并清理旧 Gradle 构建文件`，正文关联本任务和证据报告；提交号由该条 Git 记录定位，不推送。
+- **分支与交付**：基线 `06665408f`，当时执行于 `dev`；用户已确认 Dependabot 普通版本更新 PR 指向 `dev`，安全更新仍按 GitHub 默认分支规则处理。按当时用户指令提交本地 `e4c9a9764`，主题为 `chore(tool): 整理仓库自动化并清理旧 Gradle 构建文件`，正文关联本任务和证据报告；当时未推送，后续已随用户授权的 SDK 升级分支作为祖先提交推送。
 - **旧 Gradle 清理**：用户已同意删除根 `build.gradle`、`settings.gradle`、`gradle.properties`、`gradlew`、`gradlew.bat`、`gradle/libs.versions.toml`、`gradle/wrapper/gradle-wrapper.jar`、`gradle/wrapper/gradle-wrapper.properties`。删除前确认目标无未提交修改，删除仅限这 8 个文件；原版测试说明同步为另备完整原版工程，Flutter Android 与原版语义探针材料继续保留。
 - **证据与限制**：[自动化配置与验证证据](CI_AUTOMATION_REVIEW_20261010.md)；9 份 workflow actionlint、16 份 YAML/重复键、14 个内容标签、18 个路径、10 个审查触发和 8 个模拟评论情景通过。旧路径清单已按当前配置、原版参考、保留脚本和历史记录分类；当前 workflow 的有效路径规则未再发现旧原版目录依赖，6 份含旧路径的脚本保持原状。没有运行远端写入、付费审查或清理；旧脚本自测依赖已清理规则，CI 改为当前工程的 Ruby 标签情景及旧脚本语法检查，本机无 Ruby，待远端 PR 补充运行证据。首次使用 `review` 与 stale 豁免需创建对应仓库标签。
 
@@ -21,7 +50,7 @@
 
 ### CI-WF-20261010：GitHub Actions 职责拆分（P1）
 
-- **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；手动 iOS CI 和 Android Release 完整打包尚未运行。
+- **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；后续 SDK 升级批次复用 iOS CI / Android Release 构建作业，模拟器阅读及完整 APK 打包校验也已通过，证据见 FLUTTER-SDK-20261010。
 - **目标**：iOS 模拟器验证拆为仅手动触发的 `ios-ci.yml`；`ios-build.yml` 保留设备包交付；Flutter 常规检查与 Android FFI 验证解耦；整理 Rust 检查和 Android 发布的 job 边界。按用户追加命名要求，将仅产出 Android APK 的 `flutter-release.yml` 重命名为 `android-release.yml`，显示名为 Android Release；旧任务证据中的名称保持历史记录。
 - **范围**：六份 CI/发布 workflow 与必要入口说明；按用户追加要求，另删除 `stale.yml` 中写死旧仓库名的单行限制，保持既有触发和 30+5 天清理规则。所有现有脚本保留，应用源码、依赖配置、模板和其他自动化不在本批范围。
 - **执行**：ci_topology 负责 iOS；ci_cleanup 负责 Rust/Flutter/FFI/Release；主代理复核、维护文档与提交；ci_review 完成提交前独立审查，无剩余阻塞项。

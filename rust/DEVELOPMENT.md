@@ -25,7 +25,7 @@ rustup install stable
 
 参考官方文档：https://flutter.dev/docs/get-started/install
 
-确保 Flutter SDK >= 3.11.5：
+项目使用 Flutter 3.47.7 / Dart 3.13.5。在 Flutter 目录中检查：
 ```bash
 flutter --version
 ```
@@ -33,7 +33,7 @@ flutter --version
 ### 3. 安装 flutter_rust_bridge CLI
 
 ```bash
-cargo install flutter_rust_bridge_codegen
+cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
 ```
 
 ### 4. 验证环境

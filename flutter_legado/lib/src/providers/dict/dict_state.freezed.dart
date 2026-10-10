@@ -12,7 +12,8 @@ part of 'dict_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$DictState {
@@ -31,7 +32,9 @@ mixin _$DictState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $DictStateCopyWith<DictState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -41,12 +44,13 @@ abstract class $DictStateCopyWith<$Res> {
   factory $DictStateCopyWith(DictState value, $Res Function(DictState) then) =
       _$DictStateCopyWithImpl<$Res, DictState>;
   @useResult
-  $Res call(
-      {List<DictRule> rules,
-      String? queriedWord,
-      DictEntry? result,
-      bool isLoading,
-      String? error});
+  $Res call({
+    List<DictRule> rules,
+    String? queriedWord,
+    DictEntry? result,
+    bool isLoading,
+    String? error,
+  });
 
   $DictEntryCopyWith<$Res>? get result;
 }
@@ -61,6 +65,8 @@ class _$DictStateCopyWithImpl<$Res, $Val extends DictState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -70,30 +76,35 @@ class _$DictStateCopyWithImpl<$Res, $Val extends DictState>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      rules: null == rules
-          ? _value.rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<DictRule>,
-      queriedWord: freezed == queriedWord
-          ? _value.queriedWord
-          : queriedWord // ignore: cast_nullable_to_non_nullable
-              as String?,
-      result: freezed == result
-          ? _value.result
-          : result // ignore: cast_nullable_to_non_nullable
-              as DictEntry?,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            rules: null == rules
+                ? _value.rules
+                : rules // ignore: cast_nullable_to_non_nullable
+                      as List<DictRule>,
+            queriedWord: freezed == queriedWord
+                ? _value.queriedWord
+                : queriedWord // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            result: freezed == result
+                ? _value.result
+                : result // ignore: cast_nullable_to_non_nullable
+                      as DictEntry?,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $DictEntryCopyWith<$Res>? get result {
@@ -111,16 +122,18 @@ class _$DictStateCopyWithImpl<$Res, $Val extends DictState>
 abstract class _$$DictStateImplCopyWith<$Res>
     implements $DictStateCopyWith<$Res> {
   factory _$$DictStateImplCopyWith(
-          _$DictStateImpl value, $Res Function(_$DictStateImpl) then) =
-      __$$DictStateImplCopyWithImpl<$Res>;
+    _$DictStateImpl value,
+    $Res Function(_$DictStateImpl) then,
+  ) = __$$DictStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<DictRule> rules,
-      String? queriedWord,
-      DictEntry? result,
-      bool isLoading,
-      String? error});
+  $Res call({
+    List<DictRule> rules,
+    String? queriedWord,
+    DictEntry? result,
+    bool isLoading,
+    String? error,
+  });
 
   @override
   $DictEntryCopyWith<$Res>? get result;
@@ -131,9 +144,12 @@ class __$$DictStateImplCopyWithImpl<$Res>
     extends _$DictStateCopyWithImpl<$Res, _$DictStateImpl>
     implements _$$DictStateImplCopyWith<$Res> {
   __$$DictStateImplCopyWithImpl(
-      _$DictStateImpl _value, $Res Function(_$DictStateImpl) _then)
-      : super(_value, _then);
+    _$DictStateImpl _value,
+    $Res Function(_$DictStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -143,41 +159,43 @@ class __$$DictStateImplCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
   }) {
-    return _then(_$DictStateImpl(
-      rules: null == rules
-          ? _value._rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<DictRule>,
-      queriedWord: freezed == queriedWord
-          ? _value.queriedWord
-          : queriedWord // ignore: cast_nullable_to_non_nullable
-              as String?,
-      result: freezed == result
-          ? _value.result
-          : result // ignore: cast_nullable_to_non_nullable
-              as DictEntry?,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$DictStateImpl(
+        rules: null == rules
+            ? _value._rules
+            : rules // ignore: cast_nullable_to_non_nullable
+                  as List<DictRule>,
+        queriedWord: freezed == queriedWord
+            ? _value.queriedWord
+            : queriedWord // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        result: freezed == result
+            ? _value.result
+            : result // ignore: cast_nullable_to_non_nullable
+                  as DictEntry?,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$DictStateImpl implements _DictState {
-  const _$DictStateImpl(
-      {final List<DictRule> rules = const [],
-      this.queriedWord,
-      this.result,
-      this.isLoading = false,
-      this.error})
-      : _rules = rules;
+  const _$DictStateImpl({
+    final List<DictRule> rules = const [],
+    this.queriedWord,
+    this.result,
+    this.isLoading = false,
+    this.error,
+  }) : _rules = rules;
 
   /// 在线词典规则列表
   final List<DictRule> _rules;
@@ -229,14 +247,17 @@ class _$DictStateImpl implements _DictState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_rules),
-      queriedWord,
-      result,
-      isLoading,
-      error);
+    runtimeType,
+    const DeepCollectionEquality().hash(_rules),
+    queriedWord,
+    result,
+    isLoading,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$DictStateImplCopyWith<_$DictStateImpl> get copyWith =>
@@ -244,35 +265,38 @@ class _$DictStateImpl implements _DictState {
 }
 
 abstract class _DictState implements DictState {
-  const factory _DictState(
-      {final List<DictRule> rules,
-      final String? queriedWord,
-      final DictEntry? result,
-      final bool isLoading,
-      final String? error}) = _$DictStateImpl;
-
-  @override
+  const factory _DictState({
+    final List<DictRule> rules,
+    final String? queriedWord,
+    final DictEntry? result,
+    final bool isLoading,
+    final String? error,
+  }) = _$DictStateImpl;
 
   /// 在线词典规则列表
-  List<DictRule> get rules;
   @override
+  List<DictRule> get rules;
 
   /// 当前查询的单词（null 表示尚未查询）
-  String? get queriedWord;
   @override
+  String? get queriedWord;
 
   /// 本地词典命中结果（null 表示未查询或未收录）
-  DictEntry? get result;
   @override
+  DictEntry? get result;
 
   /// 正在加载规则
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of DictState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$DictStateImplCopyWith<_$DictStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

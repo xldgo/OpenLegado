@@ -12,7 +12,8 @@ part of 'association_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$AssociationState {
@@ -34,7 +35,9 @@ mixin _$AssociationState {
   /// 最近一次导入结果
   ImportResult? get lastResult => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AssociationState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $AssociationStateCopyWith<AssociationState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -42,16 +45,18 @@ mixin _$AssociationState {
 /// @nodoc
 abstract class $AssociationStateCopyWith<$Res> {
   factory $AssociationStateCopyWith(
-          AssociationState value, $Res Function(AssociationState) then) =
-      _$AssociationStateCopyWithImpl<$Res, AssociationState>;
+    AssociationState value,
+    $Res Function(AssociationState) then,
+  ) = _$AssociationStateCopyWithImpl<$Res, AssociationState>;
   @useResult
-  $Res call(
-      {ImportType type,
-      String urlInput,
-      bool isLoading,
-      String? error,
-      List<AssociationItem> items,
-      ImportResult? lastResult});
+  $Res call({
+    ImportType type,
+    String urlInput,
+    bool isLoading,
+    String? error,
+    List<AssociationItem> items,
+    ImportResult? lastResult,
+  });
 }
 
 /// @nodoc
@@ -64,6 +69,8 @@ class _$AssociationStateCopyWithImpl<$Res, $Val extends AssociationState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of AssociationState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -74,60 +81,68 @@ class _$AssociationStateCopyWithImpl<$Res, $Val extends AssociationState>
     Object? items = null,
     Object? lastResult = freezed,
   }) {
-    return _then(_value.copyWith(
-      type: null == type
-          ? _value.type
-          : type // ignore: cast_nullable_to_non_nullable
-              as ImportType,
-      urlInput: null == urlInput
-          ? _value.urlInput
-          : urlInput // ignore: cast_nullable_to_non_nullable
-              as String,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      items: null == items
-          ? _value.items
-          : items // ignore: cast_nullable_to_non_nullable
-              as List<AssociationItem>,
-      lastResult: freezed == lastResult
-          ? _value.lastResult
-          : lastResult // ignore: cast_nullable_to_non_nullable
-              as ImportResult?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            type: null == type
+                ? _value.type
+                : type // ignore: cast_nullable_to_non_nullable
+                      as ImportType,
+            urlInput: null == urlInput
+                ? _value.urlInput
+                : urlInput // ignore: cast_nullable_to_non_nullable
+                      as String,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            items: null == items
+                ? _value.items
+                : items // ignore: cast_nullable_to_non_nullable
+                      as List<AssociationItem>,
+            lastResult: freezed == lastResult
+                ? _value.lastResult
+                : lastResult // ignore: cast_nullable_to_non_nullable
+                      as ImportResult?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$AssociationStateImplCopyWith<$Res>
     implements $AssociationStateCopyWith<$Res> {
-  factory _$$AssociationStateImplCopyWith(_$AssociationStateImpl value,
-          $Res Function(_$AssociationStateImpl) then) =
-      __$$AssociationStateImplCopyWithImpl<$Res>;
+  factory _$$AssociationStateImplCopyWith(
+    _$AssociationStateImpl value,
+    $Res Function(_$AssociationStateImpl) then,
+  ) = __$$AssociationStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {ImportType type,
-      String urlInput,
-      bool isLoading,
-      String? error,
-      List<AssociationItem> items,
-      ImportResult? lastResult});
+  $Res call({
+    ImportType type,
+    String urlInput,
+    bool isLoading,
+    String? error,
+    List<AssociationItem> items,
+    ImportResult? lastResult,
+  });
 }
 
 /// @nodoc
 class __$$AssociationStateImplCopyWithImpl<$Res>
     extends _$AssociationStateCopyWithImpl<$Res, _$AssociationStateImpl>
     implements _$$AssociationStateImplCopyWith<$Res> {
-  __$$AssociationStateImplCopyWithImpl(_$AssociationStateImpl _value,
-      $Res Function(_$AssociationStateImpl) _then)
-      : super(_value, _then);
+  __$$AssociationStateImplCopyWithImpl(
+    _$AssociationStateImpl _value,
+    $Res Function(_$AssociationStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of AssociationState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -138,46 +153,48 @@ class __$$AssociationStateImplCopyWithImpl<$Res>
     Object? items = null,
     Object? lastResult = freezed,
   }) {
-    return _then(_$AssociationStateImpl(
-      type: null == type
-          ? _value.type
-          : type // ignore: cast_nullable_to_non_nullable
-              as ImportType,
-      urlInput: null == urlInput
-          ? _value.urlInput
-          : urlInput // ignore: cast_nullable_to_non_nullable
-              as String,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      items: null == items
-          ? _value._items
-          : items // ignore: cast_nullable_to_non_nullable
-              as List<AssociationItem>,
-      lastResult: freezed == lastResult
-          ? _value.lastResult
-          : lastResult // ignore: cast_nullable_to_non_nullable
-              as ImportResult?,
-    ));
+    return _then(
+      _$AssociationStateImpl(
+        type: null == type
+            ? _value.type
+            : type // ignore: cast_nullable_to_non_nullable
+                  as ImportType,
+        urlInput: null == urlInput
+            ? _value.urlInput
+            : urlInput // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        items: null == items
+            ? _value._items
+            : items // ignore: cast_nullable_to_non_nullable
+                  as List<AssociationItem>,
+        lastResult: freezed == lastResult
+            ? _value.lastResult
+            : lastResult // ignore: cast_nullable_to_non_nullable
+                  as ImportResult?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$AssociationStateImpl implements _AssociationState {
-  const _$AssociationStateImpl(
-      {this.type = ImportType.bookSource,
-      this.urlInput = '',
-      this.isLoading = false,
-      this.error,
-      final List<AssociationItem> items = const [],
-      this.lastResult})
-      : _items = items;
+  const _$AssociationStateImpl({
+    this.type = ImportType.bookSource,
+    this.urlInput = '',
+    this.isLoading = false,
+    this.error,
+    final List<AssociationItem> items = const [],
+    this.lastResult,
+  }) : _items = items;
 
   /// 导入类型（由内容自动识别或深度链接指定）
   @override
@@ -236,52 +253,66 @@ class _$AssociationStateImpl implements _AssociationState {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, type, urlInput, isLoading, error,
-      const DeepCollectionEquality().hash(_items), lastResult);
+  int get hashCode => Object.hash(
+    runtimeType,
+    type,
+    urlInput,
+    isLoading,
+    error,
+    const DeepCollectionEquality().hash(_items),
+    lastResult,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AssociationState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$AssociationStateImplCopyWith<_$AssociationStateImpl> get copyWith =>
       __$$AssociationStateImplCopyWithImpl<_$AssociationStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _AssociationState implements AssociationState {
-  const factory _AssociationState(
-      {final ImportType type,
-      final String urlInput,
-      final bool isLoading,
-      final String? error,
-      final List<AssociationItem> items,
-      final ImportResult? lastResult}) = _$AssociationStateImpl;
-
-  @override
+  const factory _AssociationState({
+    final ImportType type,
+    final String urlInput,
+    final bool isLoading,
+    final String? error,
+    final List<AssociationItem> items,
+    final ImportResult? lastResult,
+  }) = _$AssociationStateImpl;
 
   /// 导入类型（由内容自动识别或深度链接指定）
-  ImportType get type;
   @override
+  ImportType get type;
 
   /// 内容地址输入
-  String get urlInput;
   @override
+  String get urlInput;
 
   /// 正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 错误消息（null = 无错误）
-  String? get error;
   @override
+  String? get error;
 
   /// 解析出的导入条目
-  List<AssociationItem> get items;
   @override
+  List<AssociationItem> get items;
 
   /// 最近一次导入结果
-  ImportResult? get lastResult;
   @override
-  @JsonKey(ignore: true)
+  ImportResult? get lastResult;
+
+  /// Create a copy of AssociationState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$AssociationStateImplCopyWith<_$AssociationStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

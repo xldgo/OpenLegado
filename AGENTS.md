@@ -20,7 +20,7 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 ## 验证命令
 
 - **Android 原版单元测试**：仅在另备的完整原版工程根目录执行 `.\gradlew.bat :app:testAppReleaseUnitTest`。本仓库不包含原版源码或其 Gradle 构建入口；旧 `test.yml` 已移除。
-- **Flutter**：在 `flutter_legado/` 下 `flutter analyze && flutter test`（CI：`.github/workflows/flutter-ci.yml`）
+- **Flutter**：SDK 3.47.7；在 `flutter_legado/` 下 `flutter analyze && flutter test`（CI：`.github/workflows/flutter-ci.yml`）
 - **Rust**：在 `rust/` 下 `cargo test`（CI：`.github/workflows/rust-ci.yml`）
 - **iOS**：`ios-ci.yml` 仅手动运行模拟器验证，不作为 PR 必需检查；`ios-build.yml` 保留设备 IPA 自动构建与手动入口。签名及诊断方法见 `docs/IOS_CI_SIGNING_SETUP.md`。
 - **CI 总览**：`.github/workflows/`（rust-ci / flutter-ci / integration-smoke / ios-ci / ios-build / android-release；仓库自动化保持独立）

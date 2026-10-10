@@ -23,13 +23,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: '1.97.1'
+          toolchain: stable
           targets: aarch64-linux-android,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
       - name: 设置 Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
       - name: 安装 Android NDK
@@ -73,7 +73,7 @@ jobs:
           CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
           AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
         run: |
-          rustup target add --toolchain 1.97.1 aarch64-linux-android x86_64-linux-android
+          rustup target add --toolchain stable aarch64-linux-android x86_64-linux-android
           NDK_SYS="$NDK_TOOLCHAIN/sysroot"
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
           cargo build --locked --target aarch64-linux-android -p legado-ffi --features quickjs
@@ -117,7 +117,7 @@ jobs:
       # ── Rust 工具链 ──
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: '1.97.1'
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
@@ -126,7 +126,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.44.8'
+          flutter-version: '3.47.7'
           cache: true
 
       # ── 构建 Rust FFI 动态库（带 quickjs feature）──

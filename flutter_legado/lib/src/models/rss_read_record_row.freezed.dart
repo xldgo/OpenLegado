@@ -12,7 +12,8 @@ part of 'rss_read_record_row.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 RssReadRecordRow _$RssReadRecordRowFromJson(Map<String, dynamic> json) {
   return _RssReadRecordRow.fromJson(json);
@@ -33,8 +34,12 @@ mixin _$RssReadRecordRow {
   @JsonKey(name: 'read_time')
   int get readTime => throw _privateConstructorUsedError;
 
+  /// Serializes this RssReadRecordRow to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of RssReadRecordRow
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $RssReadRecordRowCopyWith<RssReadRecordRow> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -42,14 +47,16 @@ mixin _$RssReadRecordRow {
 /// @nodoc
 abstract class $RssReadRecordRowCopyWith<$Res> {
   factory $RssReadRecordRowCopyWith(
-          RssReadRecordRow value, $Res Function(RssReadRecordRow) then) =
-      _$RssReadRecordRowCopyWithImpl<$Res, RssReadRecordRow>;
+    RssReadRecordRow value,
+    $Res Function(RssReadRecordRow) then,
+  ) = _$RssReadRecordRowCopyWithImpl<$Res, RssReadRecordRow>;
   @useResult
-  $Res call(
-      {String origin,
-      String title,
-      String? link,
-      @JsonKey(name: 'read_time') int readTime});
+  $Res call({
+    String origin,
+    String title,
+    String? link,
+    @JsonKey(name: 'read_time') int readTime,
+  });
 }
 
 /// @nodoc
@@ -62,6 +69,8 @@ class _$RssReadRecordRowCopyWithImpl<$Res, $Val extends RssReadRecordRow>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of RssReadRecordRow
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -70,50 +79,58 @@ class _$RssReadRecordRowCopyWithImpl<$Res, $Val extends RssReadRecordRow>
     Object? link = freezed,
     Object? readTime = null,
   }) {
-    return _then(_value.copyWith(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      link: freezed == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            origin: null == origin
+                ? _value.origin
+                : origin // ignore: cast_nullable_to_non_nullable
+                      as String,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            link: freezed == link
+                ? _value.link
+                : link // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            readTime: null == readTime
+                ? _value.readTime
+                : readTime // ignore: cast_nullable_to_non_nullable
+                      as int,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$RssReadRecordRowImplCopyWith<$Res>
     implements $RssReadRecordRowCopyWith<$Res> {
-  factory _$$RssReadRecordRowImplCopyWith(_$RssReadRecordRowImpl value,
-          $Res Function(_$RssReadRecordRowImpl) then) =
-      __$$RssReadRecordRowImplCopyWithImpl<$Res>;
+  factory _$$RssReadRecordRowImplCopyWith(
+    _$RssReadRecordRowImpl value,
+    $Res Function(_$RssReadRecordRowImpl) then,
+  ) = __$$RssReadRecordRowImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String origin,
-      String title,
-      String? link,
-      @JsonKey(name: 'read_time') int readTime});
+  $Res call({
+    String origin,
+    String title,
+    String? link,
+    @JsonKey(name: 'read_time') int readTime,
+  });
 }
 
 /// @nodoc
 class __$$RssReadRecordRowImplCopyWithImpl<$Res>
     extends _$RssReadRecordRowCopyWithImpl<$Res, _$RssReadRecordRowImpl>
     implements _$$RssReadRecordRowImplCopyWith<$Res> {
-  __$$RssReadRecordRowImplCopyWithImpl(_$RssReadRecordRowImpl _value,
-      $Res Function(_$RssReadRecordRowImpl) _then)
-      : super(_value, _then);
+  __$$RssReadRecordRowImplCopyWithImpl(
+    _$RssReadRecordRowImpl _value,
+    $Res Function(_$RssReadRecordRowImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of RssReadRecordRow
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -122,35 +139,38 @@ class __$$RssReadRecordRowImplCopyWithImpl<$Res>
     Object? link = freezed,
     Object? readTime = null,
   }) {
-    return _then(_$RssReadRecordRowImpl(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      link: freezed == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      _$RssReadRecordRowImpl(
+        origin: null == origin
+            ? _value.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        link: freezed == link
+            ? _value.link
+            : link // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        readTime: null == readTime
+            ? _value.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$RssReadRecordRowImpl implements _RssReadRecordRow {
-  const _$RssReadRecordRowImpl(
-      {this.origin = '',
-      this.title = '',
-      this.link,
-      @JsonKey(name: 'read_time') this.readTime = 0});
+  const _$RssReadRecordRowImpl({
+    this.origin = '',
+    this.title = '',
+    this.link,
+    @JsonKey(name: 'read_time') this.readTime = 0,
+  });
 
   factory _$RssReadRecordRowImpl.fromJson(Map<String, dynamic> json) =>
       _$$RssReadRecordRowImplFromJson(json);
@@ -191,54 +211,59 @@ class _$RssReadRecordRowImpl implements _RssReadRecordRow {
                 other.readTime == readTime));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(runtimeType, origin, title, link, readTime);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of RssReadRecordRow
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$RssReadRecordRowImplCopyWith<_$RssReadRecordRowImpl> get copyWith =>
       __$$RssReadRecordRowImplCopyWithImpl<_$RssReadRecordRowImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$RssReadRecordRowImplToJson(
-      this,
-    );
+    return _$$RssReadRecordRowImplToJson(this);
   }
 }
 
 abstract class _RssReadRecordRow implements RssReadRecordRow {
-  const factory _RssReadRecordRow(
-      {final String origin,
-      final String title,
-      final String? link,
-      @JsonKey(name: 'read_time') final int readTime}) = _$RssReadRecordRowImpl;
+  const factory _RssReadRecordRow({
+    final String origin,
+    final String title,
+    final String? link,
+    @JsonKey(name: 'read_time') final int readTime,
+  }) = _$RssReadRecordRowImpl;
 
   factory _RssReadRecordRow.fromJson(Map<String, dynamic> json) =
       _$RssReadRecordRowImpl.fromJson;
 
-  @override
-
   /// 来源 URL
-  String get origin;
   @override
+  String get origin;
 
   /// 文章标题
-  String get title;
   @override
+  String get title;
 
   /// 文章链接
-  String? get link;
   @override
+  String? get link;
 
   /// 阅读时间（Unix 毫秒）
+  @override
   @JsonKey(name: 'read_time')
   int get readTime;
+
+  /// Create a copy of RssReadRecordRow
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$RssReadRecordRowImplCopyWith<_$RssReadRecordRowImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

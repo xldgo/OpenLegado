@@ -12,7 +12,8 @@ part of 'bookshelf_manage_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$BookshelfManageState {
@@ -31,28 +32,34 @@ mixin _$BookshelfManageState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookshelfManageState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BookshelfManageStateCopyWith<BookshelfManageState> get copyWith =>
       throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $BookshelfManageStateCopyWith<$Res> {
-  factory $BookshelfManageStateCopyWith(BookshelfManageState value,
-          $Res Function(BookshelfManageState) then) =
-      _$BookshelfManageStateCopyWithImpl<$Res, BookshelfManageState>;
+  factory $BookshelfManageStateCopyWith(
+    BookshelfManageState value,
+    $Res Function(BookshelfManageState) then,
+  ) = _$BookshelfManageStateCopyWithImpl<$Res, BookshelfManageState>;
   @useResult
-  $Res call(
-      {List<Book> books,
-      Set<String> selectedUrls,
-      bool isLoading,
-      bool isBusy,
-      String? error});
+  $Res call({
+    List<Book> books,
+    Set<String> selectedUrls,
+    bool isLoading,
+    bool isBusy,
+    String? error,
+  });
 }
 
 /// @nodoc
-class _$BookshelfManageStateCopyWithImpl<$Res,
-        $Val extends BookshelfManageState>
+class _$BookshelfManageStateCopyWithImpl<
+  $Res,
+  $Val extends BookshelfManageState
+>
     implements $BookshelfManageStateCopyWith<$Res> {
   _$BookshelfManageStateCopyWithImpl(this._value, this._then);
 
@@ -61,6 +68,8 @@ class _$BookshelfManageStateCopyWithImpl<$Res,
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BookshelfManageState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -70,55 +79,63 @@ class _$BookshelfManageStateCopyWithImpl<$Res,
     Object? isBusy = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      books: null == books
-          ? _value.books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<Book>,
-      selectedUrls: null == selectedUrls
-          ? _value.selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isBusy: null == isBusy
-          ? _value.isBusy
-          : isBusy // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            books: null == books
+                ? _value.books
+                : books // ignore: cast_nullable_to_non_nullable
+                      as List<Book>,
+            selectedUrls: null == selectedUrls
+                ? _value.selectedUrls
+                : selectedUrls // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isBusy: null == isBusy
+                ? _value.isBusy
+                : isBusy // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$BookshelfManageStateImplCopyWith<$Res>
     implements $BookshelfManageStateCopyWith<$Res> {
-  factory _$$BookshelfManageStateImplCopyWith(_$BookshelfManageStateImpl value,
-          $Res Function(_$BookshelfManageStateImpl) then) =
-      __$$BookshelfManageStateImplCopyWithImpl<$Res>;
+  factory _$$BookshelfManageStateImplCopyWith(
+    _$BookshelfManageStateImpl value,
+    $Res Function(_$BookshelfManageStateImpl) then,
+  ) = __$$BookshelfManageStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<Book> books,
-      Set<String> selectedUrls,
-      bool isLoading,
-      bool isBusy,
-      String? error});
+  $Res call({
+    List<Book> books,
+    Set<String> selectedUrls,
+    bool isLoading,
+    bool isBusy,
+    String? error,
+  });
 }
 
 /// @nodoc
 class __$$BookshelfManageStateImplCopyWithImpl<$Res>
     extends _$BookshelfManageStateCopyWithImpl<$Res, _$BookshelfManageStateImpl>
     implements _$$BookshelfManageStateImplCopyWith<$Res> {
-  __$$BookshelfManageStateImplCopyWithImpl(_$BookshelfManageStateImpl _value,
-      $Res Function(_$BookshelfManageStateImpl) _then)
-      : super(_value, _then);
+  __$$BookshelfManageStateImplCopyWithImpl(
+    _$BookshelfManageStateImpl _value,
+    $Res Function(_$BookshelfManageStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of BookshelfManageState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -128,42 +145,44 @@ class __$$BookshelfManageStateImplCopyWithImpl<$Res>
     Object? isBusy = null,
     Object? error = freezed,
   }) {
-    return _then(_$BookshelfManageStateImpl(
-      books: null == books
-          ? _value._books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<Book>,
-      selectedUrls: null == selectedUrls
-          ? _value._selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isBusy: null == isBusy
-          ? _value.isBusy
-          : isBusy // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$BookshelfManageStateImpl(
+        books: null == books
+            ? _value._books
+            : books // ignore: cast_nullable_to_non_nullable
+                  as List<Book>,
+        selectedUrls: null == selectedUrls
+            ? _value._selectedUrls
+            : selectedUrls // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isBusy: null == isBusy
+            ? _value.isBusy
+            : isBusy // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BookshelfManageStateImpl implements _BookshelfManageState {
-  const _$BookshelfManageStateImpl(
-      {final List<Book> books = const [],
-      final Set<String> selectedUrls = const {},
-      this.isLoading = false,
-      this.isBusy = false,
-      this.error})
-      : _books = books,
-        _selectedUrls = selectedUrls;
+  const _$BookshelfManageStateImpl({
+    final List<Book> books = const [],
+    final Set<String> selectedUrls = const {},
+    this.isLoading = false,
+    this.isBusy = false,
+    this.error,
+  }) : _books = books,
+       _selectedUrls = selectedUrls;
 
   /// 书架书籍列表
   final List<Book> _books;
@@ -214,8 +233,10 @@ class _$BookshelfManageStateImpl implements _BookshelfManageState {
         (other.runtimeType == runtimeType &&
             other is _$BookshelfManageStateImpl &&
             const DeepCollectionEquality().equals(other._books, _books) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedUrls, _selectedUrls) &&
+            const DeepCollectionEquality().equals(
+              other._selectedUrls,
+              _selectedUrls,
+            ) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.isBusy, isBusy) || other.isBusy == isBusy) &&
@@ -224,52 +245,60 @@ class _$BookshelfManageStateImpl implements _BookshelfManageState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_books),
-      const DeepCollectionEquality().hash(_selectedUrls),
-      isLoading,
-      isBusy,
-      error);
+    runtimeType,
+    const DeepCollectionEquality().hash(_books),
+    const DeepCollectionEquality().hash(_selectedUrls),
+    isLoading,
+    isBusy,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BookshelfManageState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BookshelfManageStateImplCopyWith<_$BookshelfManageStateImpl>
-      get copyWith =>
-          __$$BookshelfManageStateImplCopyWithImpl<_$BookshelfManageStateImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$BookshelfManageStateImplCopyWithImpl<_$BookshelfManageStateImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _BookshelfManageState implements BookshelfManageState {
-  const factory _BookshelfManageState(
-      {final List<Book> books,
-      final Set<String> selectedUrls,
-      final bool isLoading,
-      final bool isBusy,
-      final String? error}) = _$BookshelfManageStateImpl;
-
-  @override
+  const factory _BookshelfManageState({
+    final List<Book> books,
+    final Set<String> selectedUrls,
+    final bool isLoading,
+    final bool isBusy,
+    final String? error,
+  }) = _$BookshelfManageStateImpl;
 
   /// 书架书籍列表
-  List<Book> get books;
   @override
+  List<Book> get books;
 
   /// 已勾选书籍的 bookUrl 集合
-  Set<String> get selectedUrls;
   @override
+  Set<String> get selectedUrls;
 
   /// 正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 正在执行批量操作
-  bool get isBusy;
   @override
+  bool get isBusy;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of BookshelfManageState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BookshelfManageStateImplCopyWith<_$BookshelfManageStateImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

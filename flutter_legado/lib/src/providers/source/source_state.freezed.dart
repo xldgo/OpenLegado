@@ -12,7 +12,8 @@ part of 'source_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$SourceState {
@@ -46,7 +47,9 @@ mixin _$SourceState {
   /// 最近一次导入结果
   ImportResult? get lastImportResult => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $SourceStateCopyWith<SourceState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -54,20 +57,22 @@ mixin _$SourceState {
 /// @nodoc
 abstract class $SourceStateCopyWith<$Res> {
   factory $SourceStateCopyWith(
-          SourceState value, $Res Function(SourceState) then) =
-      _$SourceStateCopyWithImpl<$Res, SourceState>;
+    SourceState value,
+    $Res Function(SourceState) then,
+  ) = _$SourceStateCopyWithImpl<$Res, SourceState>;
   @useResult
-  $Res call(
-      {List<BookSource> sources,
-      bool loading,
-      String? error,
-      String filterKeyword,
-      String? selectedGroup,
-      SourceSort sort,
-      bool sortAscending,
-      bool batchMode,
-      Set<String> selectedUrls,
-      ImportResult? lastImportResult});
+  $Res call({
+    List<BookSource> sources,
+    bool loading,
+    String? error,
+    String filterKeyword,
+    String? selectedGroup,
+    SourceSort sort,
+    bool sortAscending,
+    bool batchMode,
+    Set<String> selectedUrls,
+    ImportResult? lastImportResult,
+  });
 }
 
 /// @nodoc
@@ -80,6 +85,8 @@ class _$SourceStateCopyWithImpl<$Res, $Val extends SourceState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of SourceState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -94,48 +101,51 @@ class _$SourceStateCopyWithImpl<$Res, $Val extends SourceState>
     Object? selectedUrls = null,
     Object? lastImportResult = freezed,
   }) {
-    return _then(_value.copyWith(
-      sources: null == sources
-          ? _value.sources
-          : sources // ignore: cast_nullable_to_non_nullable
-              as List<BookSource>,
-      loading: null == loading
-          ? _value.loading
-          : loading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      filterKeyword: null == filterKeyword
-          ? _value.filterKeyword
-          : filterKeyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      selectedGroup: freezed == selectedGroup
-          ? _value.selectedGroup
-          : selectedGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as SourceSort,
-      sortAscending: null == sortAscending
-          ? _value.sortAscending
-          : sortAscending // ignore: cast_nullable_to_non_nullable
-              as bool,
-      batchMode: null == batchMode
-          ? _value.batchMode
-          : batchMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      selectedUrls: null == selectedUrls
-          ? _value.selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      lastImportResult: freezed == lastImportResult
-          ? _value.lastImportResult
-          : lastImportResult // ignore: cast_nullable_to_non_nullable
-              as ImportResult?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            sources: null == sources
+                ? _value.sources
+                : sources // ignore: cast_nullable_to_non_nullable
+                      as List<BookSource>,
+            loading: null == loading
+                ? _value.loading
+                : loading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            filterKeyword: null == filterKeyword
+                ? _value.filterKeyword
+                : filterKeyword // ignore: cast_nullable_to_non_nullable
+                      as String,
+            selectedGroup: freezed == selectedGroup
+                ? _value.selectedGroup
+                : selectedGroup // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            sort: null == sort
+                ? _value.sort
+                : sort // ignore: cast_nullable_to_non_nullable
+                      as SourceSort,
+            sortAscending: null == sortAscending
+                ? _value.sortAscending
+                : sortAscending // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            batchMode: null == batchMode
+                ? _value.batchMode
+                : batchMode // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            selectedUrls: null == selectedUrls
+                ? _value.selectedUrls
+                : selectedUrls // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
+            lastImportResult: freezed == lastImportResult
+                ? _value.lastImportResult
+                : lastImportResult // ignore: cast_nullable_to_non_nullable
+                      as ImportResult?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -143,21 +153,23 @@ class _$SourceStateCopyWithImpl<$Res, $Val extends SourceState>
 abstract class _$$SourceStateImplCopyWith<$Res>
     implements $SourceStateCopyWith<$Res> {
   factory _$$SourceStateImplCopyWith(
-          _$SourceStateImpl value, $Res Function(_$SourceStateImpl) then) =
-      __$$SourceStateImplCopyWithImpl<$Res>;
+    _$SourceStateImpl value,
+    $Res Function(_$SourceStateImpl) then,
+  ) = __$$SourceStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<BookSource> sources,
-      bool loading,
-      String? error,
-      String filterKeyword,
-      String? selectedGroup,
-      SourceSort sort,
-      bool sortAscending,
-      bool batchMode,
-      Set<String> selectedUrls,
-      ImportResult? lastImportResult});
+  $Res call({
+    List<BookSource> sources,
+    bool loading,
+    String? error,
+    String filterKeyword,
+    String? selectedGroup,
+    SourceSort sort,
+    bool sortAscending,
+    bool batchMode,
+    Set<String> selectedUrls,
+    ImportResult? lastImportResult,
+  });
 }
 
 /// @nodoc
@@ -165,9 +177,12 @@ class __$$SourceStateImplCopyWithImpl<$Res>
     extends _$SourceStateCopyWithImpl<$Res, _$SourceStateImpl>
     implements _$$SourceStateImplCopyWith<$Res> {
   __$$SourceStateImplCopyWithImpl(
-      _$SourceStateImpl _value, $Res Function(_$SourceStateImpl) _then)
-      : super(_value, _then);
+    _$SourceStateImpl _value,
+    $Res Function(_$SourceStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of SourceState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -182,67 +197,69 @@ class __$$SourceStateImplCopyWithImpl<$Res>
     Object? selectedUrls = null,
     Object? lastImportResult = freezed,
   }) {
-    return _then(_$SourceStateImpl(
-      sources: null == sources
-          ? _value._sources
-          : sources // ignore: cast_nullable_to_non_nullable
-              as List<BookSource>,
-      loading: null == loading
-          ? _value.loading
-          : loading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      filterKeyword: null == filterKeyword
-          ? _value.filterKeyword
-          : filterKeyword // ignore: cast_nullable_to_non_nullable
-              as String,
-      selectedGroup: freezed == selectedGroup
-          ? _value.selectedGroup
-          : selectedGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as SourceSort,
-      sortAscending: null == sortAscending
-          ? _value.sortAscending
-          : sortAscending // ignore: cast_nullable_to_non_nullable
-              as bool,
-      batchMode: null == batchMode
-          ? _value.batchMode
-          : batchMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      selectedUrls: null == selectedUrls
-          ? _value._selectedUrls
-          : selectedUrls // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-      lastImportResult: freezed == lastImportResult
-          ? _value.lastImportResult
-          : lastImportResult // ignore: cast_nullable_to_non_nullable
-              as ImportResult?,
-    ));
+    return _then(
+      _$SourceStateImpl(
+        sources: null == sources
+            ? _value._sources
+            : sources // ignore: cast_nullable_to_non_nullable
+                  as List<BookSource>,
+        loading: null == loading
+            ? _value.loading
+            : loading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        filterKeyword: null == filterKeyword
+            ? _value.filterKeyword
+            : filterKeyword // ignore: cast_nullable_to_non_nullable
+                  as String,
+        selectedGroup: freezed == selectedGroup
+            ? _value.selectedGroup
+            : selectedGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        sort: null == sort
+            ? _value.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as SourceSort,
+        sortAscending: null == sortAscending
+            ? _value.sortAscending
+            : sortAscending // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        batchMode: null == batchMode
+            ? _value.batchMode
+            : batchMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        selectedUrls: null == selectedUrls
+            ? _value._selectedUrls
+            : selectedUrls // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
+        lastImportResult: freezed == lastImportResult
+            ? _value.lastImportResult
+            : lastImportResult // ignore: cast_nullable_to_non_nullable
+                  as ImportResult?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$SourceStateImpl implements _SourceState {
-  const _$SourceStateImpl(
-      {final List<BookSource> sources = const [],
-      this.loading = false,
-      this.error,
-      this.filterKeyword = '',
-      this.selectedGroup,
-      this.sort = SourceSort.manual,
-      this.sortAscending = true,
-      this.batchMode = false,
-      final Set<String> selectedUrls = const <String>{},
-      this.lastImportResult})
-      : _sources = sources,
-        _selectedUrls = selectedUrls;
+  const _$SourceStateImpl({
+    final List<BookSource> sources = const [],
+    this.loading = false,
+    this.error,
+    this.filterKeyword = '',
+    this.selectedGroup,
+    this.sort = SourceSort.manual,
+    this.sortAscending = true,
+    this.batchMode = false,
+    final Set<String> selectedUrls = const <String>{},
+    this.lastImportResult,
+  }) : _sources = sources,
+       _selectedUrls = selectedUrls;
 
   /// 全部书源列表
   final List<BookSource> _sources;
@@ -327,27 +344,32 @@ class _$SourceStateImpl implements _SourceState {
                 other.sortAscending == sortAscending) &&
             (identical(other.batchMode, batchMode) ||
                 other.batchMode == batchMode) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedUrls, _selectedUrls) &&
+            const DeepCollectionEquality().equals(
+              other._selectedUrls,
+              _selectedUrls,
+            ) &&
             (identical(other.lastImportResult, lastImportResult) ||
                 other.lastImportResult == lastImportResult));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_sources),
-      loading,
-      error,
-      filterKeyword,
-      selectedGroup,
-      sort,
-      sortAscending,
-      batchMode,
-      const DeepCollectionEquality().hash(_selectedUrls),
-      lastImportResult);
+    runtimeType,
+    const DeepCollectionEquality().hash(_sources),
+    loading,
+    error,
+    filterKeyword,
+    selectedGroup,
+    sort,
+    sortAscending,
+    batchMode,
+    const DeepCollectionEquality().hash(_selectedUrls),
+    lastImportResult,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$SourceStateImplCopyWith<_$SourceStateImpl> get copyWith =>
@@ -355,60 +377,63 @@ class _$SourceStateImpl implements _SourceState {
 }
 
 abstract class _SourceState implements SourceState {
-  const factory _SourceState(
-      {final List<BookSource> sources,
-      final bool loading,
-      final String? error,
-      final String filterKeyword,
-      final String? selectedGroup,
-      final SourceSort sort,
-      final bool sortAscending,
-      final bool batchMode,
-      final Set<String> selectedUrls,
-      final ImportResult? lastImportResult}) = _$SourceStateImpl;
-
-  @override
+  const factory _SourceState({
+    final List<BookSource> sources,
+    final bool loading,
+    final String? error,
+    final String filterKeyword,
+    final String? selectedGroup,
+    final SourceSort sort,
+    final bool sortAscending,
+    final bool batchMode,
+    final Set<String> selectedUrls,
+    final ImportResult? lastImportResult,
+  }) = _$SourceStateImpl;
 
   /// 全部书源列表
-  List<BookSource> get sources;
   @override
+  List<BookSource> get sources;
 
   /// 是否正在加载
-  bool get loading;
   @override
+  bool get loading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
+  String? get error;
 
   /// 搜索过滤关键词
-  String get filterKeyword;
   @override
+  String get filterKeyword;
 
   /// 选中分组（null = 全部）
-  String? get selectedGroup;
   @override
+  String? get selectedGroup;
 
   /// 排序方式
-  SourceSort get sort;
   @override
+  SourceSort get sort;
 
   /// 是否升序
-  bool get sortAscending;
   @override
+  bool get sortAscending;
 
   /// 是否处于批量选择模式
-  bool get batchMode;
   @override
+  bool get batchMode;
 
   /// 批量选中的书源 URL 集合
-  Set<String> get selectedUrls;
   @override
+  Set<String> get selectedUrls;
 
   /// 最近一次导入结果
-  ImportResult? get lastImportResult;
   @override
-  @JsonKey(ignore: true)
+  ImportResult? get lastImportResult;
+
+  /// Create a copy of SourceState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SourceStateImplCopyWith<_$SourceStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

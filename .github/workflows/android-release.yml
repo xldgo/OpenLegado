@@ -21,7 +21,7 @@ jobs:
     outputs:
       artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     env:
-      FLUTTER_VERSION: '3.44.8'
+      FLUTTER_VERSION: '3.47.7'
 
     steps:
       - name: 检出源码
@@ -31,19 +31,19 @@ jobs:
       - name: 设置 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: '1.97.1'
+          toolchain: stable
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
       - name: 设置 Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
       - name: 设置 Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
       - name: 安装 Android NDK
@@ -93,7 +93,7 @@ jobs:
           CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
           AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
         run: |
-          rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          rustup target add --toolchain stable aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
           NDK_SYS="$NDK_TOOLCHAIN/sysroot"
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
           cargo build --locked --release --target aarch64-linux-android -p legado-ffi --features quickjs
@@ -188,7 +188,7 @@ jobs:
           PY
       - name: 上传 APK 构建产物
         id: upload-apk
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-apk/*-release.apk

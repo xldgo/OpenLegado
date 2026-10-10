@@ -12,7 +12,8 @@ part of 'explore_show_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ExploreShowState {
@@ -43,7 +44,9 @@ mixin _$ExploreShowState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ExploreShowStateCopyWith<ExploreShowState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -51,19 +54,21 @@ mixin _$ExploreShowState {
 /// @nodoc
 abstract class $ExploreShowStateCopyWith<$Res> {
   factory $ExploreShowStateCopyWith(
-          ExploreShowState value, $Res Function(ExploreShowState) then) =
-      _$ExploreShowStateCopyWithImpl<$Res, ExploreShowState>;
+    ExploreShowState value,
+    $Res Function(ExploreShowState) then,
+  ) = _$ExploreShowStateCopyWithImpl<$Res, ExploreShowState>;
   @useResult
-  $Res call(
-      {BookSource? source,
-      String categoryName,
-      String categoryUrl,
-      List<SearchBook> books,
-      int page,
-      int displayPage,
-      bool isLoading,
-      bool hasMore,
-      String? error});
+  $Res call({
+    BookSource? source,
+    String categoryName,
+    String categoryUrl,
+    List<SearchBook> books,
+    int page,
+    int displayPage,
+    bool isLoading,
+    bool hasMore,
+    String? error,
+  });
 
   $BookSourceCopyWith<$Res>? get source;
 }
@@ -78,6 +83,8 @@ class _$ExploreShowStateCopyWithImpl<$Res, $Val extends ExploreShowState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -91,46 +98,51 @@ class _$ExploreShowStateCopyWithImpl<$Res, $Val extends ExploreShowState>
     Object? hasMore = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      source: freezed == source
-          ? _value.source
-          : source // ignore: cast_nullable_to_non_nullable
-              as BookSource?,
-      categoryName: null == categoryName
-          ? _value.categoryName
-          : categoryName // ignore: cast_nullable_to_non_nullable
-              as String,
-      categoryUrl: null == categoryUrl
-          ? _value.categoryUrl
-          : categoryUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      books: null == books
-          ? _value.books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<SearchBook>,
-      page: null == page
-          ? _value.page
-          : page // ignore: cast_nullable_to_non_nullable
-              as int,
-      displayPage: null == displayPage
-          ? _value.displayPage
-          : displayPage // ignore: cast_nullable_to_non_nullable
-              as int,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      hasMore: null == hasMore
-          ? _value.hasMore
-          : hasMore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            source: freezed == source
+                ? _value.source
+                : source // ignore: cast_nullable_to_non_nullable
+                      as BookSource?,
+            categoryName: null == categoryName
+                ? _value.categoryName
+                : categoryName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            categoryUrl: null == categoryUrl
+                ? _value.categoryUrl
+                : categoryUrl // ignore: cast_nullable_to_non_nullable
+                      as String,
+            books: null == books
+                ? _value.books
+                : books // ignore: cast_nullable_to_non_nullable
+                      as List<SearchBook>,
+            page: null == page
+                ? _value.page
+                : page // ignore: cast_nullable_to_non_nullable
+                      as int,
+            displayPage: null == displayPage
+                ? _value.displayPage
+                : displayPage // ignore: cast_nullable_to_non_nullable
+                      as int,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            hasMore: null == hasMore
+                ? _value.hasMore
+                : hasMore // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $BookSourceCopyWith<$Res>? get source {
@@ -147,21 +159,23 @@ class _$ExploreShowStateCopyWithImpl<$Res, $Val extends ExploreShowState>
 /// @nodoc
 abstract class _$$ExploreShowStateImplCopyWith<$Res>
     implements $ExploreShowStateCopyWith<$Res> {
-  factory _$$ExploreShowStateImplCopyWith(_$ExploreShowStateImpl value,
-          $Res Function(_$ExploreShowStateImpl) then) =
-      __$$ExploreShowStateImplCopyWithImpl<$Res>;
+  factory _$$ExploreShowStateImplCopyWith(
+    _$ExploreShowStateImpl value,
+    $Res Function(_$ExploreShowStateImpl) then,
+  ) = __$$ExploreShowStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {BookSource? source,
-      String categoryName,
-      String categoryUrl,
-      List<SearchBook> books,
-      int page,
-      int displayPage,
-      bool isLoading,
-      bool hasMore,
-      String? error});
+  $Res call({
+    BookSource? source,
+    String categoryName,
+    String categoryUrl,
+    List<SearchBook> books,
+    int page,
+    int displayPage,
+    bool isLoading,
+    bool hasMore,
+    String? error,
+  });
 
   @override
   $BookSourceCopyWith<$Res>? get source;
@@ -171,10 +185,13 @@ abstract class _$$ExploreShowStateImplCopyWith<$Res>
 class __$$ExploreShowStateImplCopyWithImpl<$Res>
     extends _$ExploreShowStateCopyWithImpl<$Res, _$ExploreShowStateImpl>
     implements _$$ExploreShowStateImplCopyWith<$Res> {
-  __$$ExploreShowStateImplCopyWithImpl(_$ExploreShowStateImpl _value,
-      $Res Function(_$ExploreShowStateImpl) _then)
-      : super(_value, _then);
+  __$$ExploreShowStateImplCopyWithImpl(
+    _$ExploreShowStateImpl _value,
+    $Res Function(_$ExploreShowStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -188,61 +205,63 @@ class __$$ExploreShowStateImplCopyWithImpl<$Res>
     Object? hasMore = null,
     Object? error = freezed,
   }) {
-    return _then(_$ExploreShowStateImpl(
-      source: freezed == source
-          ? _value.source
-          : source // ignore: cast_nullable_to_non_nullable
-              as BookSource?,
-      categoryName: null == categoryName
-          ? _value.categoryName
-          : categoryName // ignore: cast_nullable_to_non_nullable
-              as String,
-      categoryUrl: null == categoryUrl
-          ? _value.categoryUrl
-          : categoryUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      books: null == books
-          ? _value._books
-          : books // ignore: cast_nullable_to_non_nullable
-              as List<SearchBook>,
-      page: null == page
-          ? _value.page
-          : page // ignore: cast_nullable_to_non_nullable
-              as int,
-      displayPage: null == displayPage
-          ? _value.displayPage
-          : displayPage // ignore: cast_nullable_to_non_nullable
-              as int,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      hasMore: null == hasMore
-          ? _value.hasMore
-          : hasMore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$ExploreShowStateImpl(
+        source: freezed == source
+            ? _value.source
+            : source // ignore: cast_nullable_to_non_nullable
+                  as BookSource?,
+        categoryName: null == categoryName
+            ? _value.categoryName
+            : categoryName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        categoryUrl: null == categoryUrl
+            ? _value.categoryUrl
+            : categoryUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        books: null == books
+            ? _value._books
+            : books // ignore: cast_nullable_to_non_nullable
+                  as List<SearchBook>,
+        page: null == page
+            ? _value.page
+            : page // ignore: cast_nullable_to_non_nullable
+                  as int,
+        displayPage: null == displayPage
+            ? _value.displayPage
+            : displayPage // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        hasMore: null == hasMore
+            ? _value.hasMore
+            : hasMore // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ExploreShowStateImpl implements _ExploreShowState {
-  const _$ExploreShowStateImpl(
-      {this.source,
-      this.categoryName = '',
-      this.categoryUrl = '',
-      final List<SearchBook> books = const [],
-      this.page = 1,
-      this.displayPage = 0,
-      this.isLoading = false,
-      this.hasMore = true,
-      this.error})
-      : _books = books;
+  const _$ExploreShowStateImpl({
+    this.source,
+    this.categoryName = '',
+    this.categoryUrl = '',
+    final List<SearchBook> books = const [],
+    this.page = 1,
+    this.displayPage = 0,
+    this.isLoading = false,
+    this.hasMore = true,
+    this.error,
+  }) : _books = books;
 
   /// 当前书源
   @override
@@ -321,75 +340,83 @@ class _$ExploreShowStateImpl implements _ExploreShowState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      source,
-      categoryName,
-      categoryUrl,
-      const DeepCollectionEquality().hash(_books),
-      page,
-      displayPage,
-      isLoading,
-      hasMore,
-      error);
+    runtimeType,
+    source,
+    categoryName,
+    categoryUrl,
+    const DeepCollectionEquality().hash(_books),
+    page,
+    displayPage,
+    isLoading,
+    hasMore,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ExploreShowStateImplCopyWith<_$ExploreShowStateImpl> get copyWith =>
       __$$ExploreShowStateImplCopyWithImpl<_$ExploreShowStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _ExploreShowState implements ExploreShowState {
-  const factory _ExploreShowState(
-      {final BookSource? source,
-      final String categoryName,
-      final String categoryUrl,
-      final List<SearchBook> books,
-      final int page,
-      final int displayPage,
-      final bool isLoading,
-      final bool hasMore,
-      final String? error}) = _$ExploreShowStateImpl;
-
-  @override
+  const factory _ExploreShowState({
+    final BookSource? source,
+    final String categoryName,
+    final String categoryUrl,
+    final List<SearchBook> books,
+    final int page,
+    final int displayPage,
+    final bool isLoading,
+    final bool hasMore,
+    final String? error,
+  }) = _$ExploreShowStateImpl;
 
   /// 当前书源
-  BookSource? get source;
   @override
+  BookSource? get source;
 
   /// 分类名称（用于标题显示）
-  String get categoryName;
   @override
+  String get categoryName;
 
   /// 分类 URL
-  String get categoryUrl;
   @override
+  String get categoryUrl;
 
   /// 已加载的书籍列表（累积去重）
-  List<SearchBook> get books;
   @override
+  List<SearchBook> get books;
 
   /// 下一待抓取页码（对标 Android ExplorePaginationState.nextPage）
-  int get page;
   @override
+  int get page;
 
   /// 当前展示页码（对标 Android pageLiveData，0 表示尚未完成首次加载）
-  int get displayPage;
   @override
+  int get displayPage;
 
   /// 是否正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 是否还有更多数据
-  bool get hasMore;
   @override
+  bool get hasMore;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of ExploreShowState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ExploreShowStateImplCopyWith<_$ExploreShowStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

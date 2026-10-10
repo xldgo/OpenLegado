@@ -12,7 +12,8 @@ part of 'replace_rule_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ReplaceRuleState {
@@ -25,7 +26,9 @@ mixin _$ReplaceRuleState {
   /// 错误信息（null 表示无错误）
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ReplaceRuleState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ReplaceRuleStateCopyWith<ReplaceRuleState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -33,8 +36,9 @@ mixin _$ReplaceRuleState {
 /// @nodoc
 abstract class $ReplaceRuleStateCopyWith<$Res> {
   factory $ReplaceRuleStateCopyWith(
-          ReplaceRuleState value, $Res Function(ReplaceRuleState) then) =
-      _$ReplaceRuleStateCopyWithImpl<$Res, ReplaceRuleState>;
+    ReplaceRuleState value,
+    $Res Function(ReplaceRuleState) then,
+  ) = _$ReplaceRuleStateCopyWithImpl<$Res, ReplaceRuleState>;
   @useResult
   $Res call({List<ReplaceRule> rules, bool loading, String? error});
 }
@@ -49,6 +53,8 @@ class _$ReplaceRuleStateCopyWithImpl<$Res, $Val extends ReplaceRuleState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ReplaceRuleState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -56,29 +62,33 @@ class _$ReplaceRuleStateCopyWithImpl<$Res, $Val extends ReplaceRuleState>
     Object? loading = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      rules: null == rules
-          ? _value.rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<ReplaceRule>,
-      loading: null == loading
-          ? _value.loading
-          : loading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            rules: null == rules
+                ? _value.rules
+                : rules // ignore: cast_nullable_to_non_nullable
+                      as List<ReplaceRule>,
+            loading: null == loading
+                ? _value.loading
+                : loading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$ReplaceRuleStateImplCopyWith<$Res>
     implements $ReplaceRuleStateCopyWith<$Res> {
-  factory _$$ReplaceRuleStateImplCopyWith(_$ReplaceRuleStateImpl value,
-          $Res Function(_$ReplaceRuleStateImpl) then) =
-      __$$ReplaceRuleStateImplCopyWithImpl<$Res>;
+  factory _$$ReplaceRuleStateImplCopyWith(
+    _$ReplaceRuleStateImpl value,
+    $Res Function(_$ReplaceRuleStateImpl) then,
+  ) = __$$ReplaceRuleStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<ReplaceRule> rules, bool loading, String? error});
@@ -88,10 +98,13 @@ abstract class _$$ReplaceRuleStateImplCopyWith<$Res>
 class __$$ReplaceRuleStateImplCopyWithImpl<$Res>
     extends _$ReplaceRuleStateCopyWithImpl<$Res, _$ReplaceRuleStateImpl>
     implements _$$ReplaceRuleStateImplCopyWith<$Res> {
-  __$$ReplaceRuleStateImplCopyWithImpl(_$ReplaceRuleStateImpl _value,
-      $Res Function(_$ReplaceRuleStateImpl) _then)
-      : super(_value, _then);
+  __$$ReplaceRuleStateImplCopyWithImpl(
+    _$ReplaceRuleStateImpl _value,
+    $Res Function(_$ReplaceRuleStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ReplaceRuleState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -99,31 +112,33 @@ class __$$ReplaceRuleStateImplCopyWithImpl<$Res>
     Object? loading = null,
     Object? error = freezed,
   }) {
-    return _then(_$ReplaceRuleStateImpl(
-      rules: null == rules
-          ? _value._rules
-          : rules // ignore: cast_nullable_to_non_nullable
-              as List<ReplaceRule>,
-      loading: null == loading
-          ? _value.loading
-          : loading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$ReplaceRuleStateImpl(
+        rules: null == rules
+            ? _value._rules
+            : rules // ignore: cast_nullable_to_non_nullable
+                  as List<ReplaceRule>,
+        loading: null == loading
+            ? _value.loading
+            : loading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ReplaceRuleStateImpl implements _ReplaceRuleState {
-  const _$ReplaceRuleStateImpl(
-      {final List<ReplaceRule> rules = const [],
-      this.loading = false,
-      this.error})
-      : _rules = rules;
+  const _$ReplaceRuleStateImpl({
+    final List<ReplaceRule> rules = const [],
+    this.loading = false,
+    this.error,
+  }) : _rules = rules;
 
   /// 替换规则列表
   final List<ReplaceRule> _rules;
@@ -163,36 +178,47 @@ class _$ReplaceRuleStateImpl implements _ReplaceRuleState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, const DeepCollectionEquality().hash(_rules), loading, error);
+    runtimeType,
+    const DeepCollectionEquality().hash(_rules),
+    loading,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ReplaceRuleState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ReplaceRuleStateImplCopyWith<_$ReplaceRuleStateImpl> get copyWith =>
       __$$ReplaceRuleStateImplCopyWithImpl<_$ReplaceRuleStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _ReplaceRuleState implements ReplaceRuleState {
-  const factory _ReplaceRuleState(
-      {final List<ReplaceRule> rules,
-      final bool loading,
-      final String? error}) = _$ReplaceRuleStateImpl;
-
-  @override
+  const factory _ReplaceRuleState({
+    final List<ReplaceRule> rules,
+    final bool loading,
+    final String? error,
+  }) = _$ReplaceRuleStateImpl;
 
   /// 替换规则列表
-  List<ReplaceRule> get rules;
   @override
+  List<ReplaceRule> get rules;
 
   /// 是否正在加载规则列表
-  bool get loading;
   @override
+  bool get loading;
 
   /// 错误信息（null 表示无错误）
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of ReplaceRuleState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ReplaceRuleStateImplCopyWith<_$ReplaceRuleStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

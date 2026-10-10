@@ -12,7 +12,8 @@ part of 'theme_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ThemeState {
@@ -25,7 +26,9 @@ mixin _$ThemeState {
   /// 内置 MD3 调色板 id（Md3Palettes.byId 消费；未知值回退默认 def）
   String get paletteId => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ThemeState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ThemeStateCopyWith<ThemeState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -33,8 +36,9 @@ mixin _$ThemeState {
 /// @nodoc
 abstract class $ThemeStateCopyWith<$Res> {
   factory $ThemeStateCopyWith(
-          ThemeState value, $Res Function(ThemeState) then) =
-      _$ThemeStateCopyWithImpl<$Res, ThemeState>;
+    ThemeState value,
+    $Res Function(ThemeState) then,
+  ) = _$ThemeStateCopyWithImpl<$Res, ThemeState>;
   @useResult
   $Res call({ThemeMode themeMode, int fontScaleRaw, String paletteId});
 }
@@ -49,6 +53,8 @@ class _$ThemeStateCopyWithImpl<$Res, $Val extends ThemeState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ThemeState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -56,20 +62,23 @@ class _$ThemeStateCopyWithImpl<$Res, $Val extends ThemeState>
     Object? fontScaleRaw = null,
     Object? paletteId = null,
   }) {
-    return _then(_value.copyWith(
-      themeMode: null == themeMode
-          ? _value.themeMode
-          : themeMode // ignore: cast_nullable_to_non_nullable
-              as ThemeMode,
-      fontScaleRaw: null == fontScaleRaw
-          ? _value.fontScaleRaw
-          : fontScaleRaw // ignore: cast_nullable_to_non_nullable
-              as int,
-      paletteId: null == paletteId
-          ? _value.paletteId
-          : paletteId // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            themeMode: null == themeMode
+                ? _value.themeMode
+                : themeMode // ignore: cast_nullable_to_non_nullable
+                      as ThemeMode,
+            fontScaleRaw: null == fontScaleRaw
+                ? _value.fontScaleRaw
+                : fontScaleRaw // ignore: cast_nullable_to_non_nullable
+                      as int,
+            paletteId: null == paletteId
+                ? _value.paletteId
+                : paletteId // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -77,8 +86,9 @@ class _$ThemeStateCopyWithImpl<$Res, $Val extends ThemeState>
 abstract class _$$ThemeStateImplCopyWith<$Res>
     implements $ThemeStateCopyWith<$Res> {
   factory _$$ThemeStateImplCopyWith(
-          _$ThemeStateImpl value, $Res Function(_$ThemeStateImpl) then) =
-      __$$ThemeStateImplCopyWithImpl<$Res>;
+    _$ThemeStateImpl value,
+    $Res Function(_$ThemeStateImpl) then,
+  ) = __$$ThemeStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({ThemeMode themeMode, int fontScaleRaw, String paletteId});
@@ -89,9 +99,12 @@ class __$$ThemeStateImplCopyWithImpl<$Res>
     extends _$ThemeStateCopyWithImpl<$Res, _$ThemeStateImpl>
     implements _$$ThemeStateImplCopyWith<$Res> {
   __$$ThemeStateImplCopyWithImpl(
-      _$ThemeStateImpl _value, $Res Function(_$ThemeStateImpl) _then)
-      : super(_value, _then);
+    _$ThemeStateImpl _value,
+    $Res Function(_$ThemeStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of ThemeState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -99,30 +112,33 @@ class __$$ThemeStateImplCopyWithImpl<$Res>
     Object? fontScaleRaw = null,
     Object? paletteId = null,
   }) {
-    return _then(_$ThemeStateImpl(
-      themeMode: null == themeMode
-          ? _value.themeMode
-          : themeMode // ignore: cast_nullable_to_non_nullable
-              as ThemeMode,
-      fontScaleRaw: null == fontScaleRaw
-          ? _value.fontScaleRaw
-          : fontScaleRaw // ignore: cast_nullable_to_non_nullable
-              as int,
-      paletteId: null == paletteId
-          ? _value.paletteId
-          : paletteId // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$ThemeStateImpl(
+        themeMode: null == themeMode
+            ? _value.themeMode
+            : themeMode // ignore: cast_nullable_to_non_nullable
+                  as ThemeMode,
+        fontScaleRaw: null == fontScaleRaw
+            ? _value.fontScaleRaw
+            : fontScaleRaw // ignore: cast_nullable_to_non_nullable
+                  as int,
+        paletteId: null == paletteId
+            ? _value.paletteId
+            : paletteId // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ThemeStateImpl implements _ThemeState {
-  const _$ThemeStateImpl(
-      {this.themeMode = ThemeMode.system,
-      this.fontScaleRaw = 0,
-      this.paletteId = 'def'});
+  const _$ThemeStateImpl({
+    this.themeMode = ThemeMode.system,
+    this.fontScaleRaw = 0,
+    this.paletteId = 'def',
+  });
 
   /// 主题模式（亮/暗/跟随系统）
   @override
@@ -161,7 +177,9 @@ class _$ThemeStateImpl implements _ThemeState {
   int get hashCode =>
       Object.hash(runtimeType, themeMode, fontScaleRaw, paletteId);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ThemeState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ThemeStateImplCopyWith<_$ThemeStateImpl> get copyWith =>
@@ -169,25 +187,28 @@ class _$ThemeStateImpl implements _ThemeState {
 }
 
 abstract class _ThemeState implements ThemeState {
-  const factory _ThemeState(
-      {final ThemeMode themeMode,
-      final int fontScaleRaw,
-      final String paletteId}) = _$ThemeStateImpl;
-
-  @override
+  const factory _ThemeState({
+    final ThemeMode themeMode,
+    final int fontScaleRaw,
+    final String paletteId,
+  }) = _$ThemeStateImpl;
 
   /// 主题模式（亮/暗/跟随系统）
-  ThemeMode get themeMode;
   @override
+  ThemeMode get themeMode;
 
   /// 字体缩放原始值（0 = 跟随系统；8~16 → 0.8x~1.6x）
-  int get fontScaleRaw;
   @override
+  int get fontScaleRaw;
 
   /// 内置 MD3 调色板 id（Md3Palettes.byId 消费；未知值回退默认 def）
-  String get paletteId;
   @override
-  @JsonKey(ignore: true)
+  String get paletteId;
+
+  /// Create a copy of ThemeState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ThemeStateImplCopyWith<_$ThemeStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

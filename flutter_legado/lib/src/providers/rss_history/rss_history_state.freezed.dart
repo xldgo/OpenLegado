@@ -12,7 +12,8 @@ part of 'rss_history_state.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$RssHistoryState {
@@ -28,7 +29,9 @@ mixin _$RssHistoryState {
   /// 错误信息
   String? get error => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of RssHistoryState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $RssHistoryStateCopyWith<RssHistoryState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -36,14 +39,16 @@ mixin _$RssHistoryState {
 /// @nodoc
 abstract class $RssHistoryStateCopyWith<$Res> {
   factory $RssHistoryStateCopyWith(
-          RssHistoryState value, $Res Function(RssHistoryState) then) =
-      _$RssHistoryStateCopyWithImpl<$Res, RssHistoryState>;
+    RssHistoryState value,
+    $Res Function(RssHistoryState) then,
+  ) = _$RssHistoryStateCopyWithImpl<$Res, RssHistoryState>;
   @useResult
-  $Res call(
-      {List<RssReadRecordRow> records,
-      bool isLoading,
-      bool isClearing,
-      String? error});
+  $Res call({
+    List<RssReadRecordRow> records,
+    bool isLoading,
+    bool isClearing,
+    String? error,
+  });
 }
 
 /// @nodoc
@@ -56,6 +61,8 @@ class _$RssHistoryStateCopyWithImpl<$Res, $Val extends RssHistoryState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of RssHistoryState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -64,40 +71,45 @@ class _$RssHistoryStateCopyWithImpl<$Res, $Val extends RssHistoryState>
     Object? isClearing = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      records: null == records
-          ? _value.records
-          : records // ignore: cast_nullable_to_non_nullable
-              as List<RssReadRecordRow>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isClearing: null == isClearing
-          ? _value.isClearing
-          : isClearing // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            records: null == records
+                ? _value.records
+                : records // ignore: cast_nullable_to_non_nullable
+                      as List<RssReadRecordRow>,
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isClearing: null == isClearing
+                ? _value.isClearing
+                : isClearing // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            error: freezed == error
+                ? _value.error
+                : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$RssHistoryStateImplCopyWith<$Res>
     implements $RssHistoryStateCopyWith<$Res> {
-  factory _$$RssHistoryStateImplCopyWith(_$RssHistoryStateImpl value,
-          $Res Function(_$RssHistoryStateImpl) then) =
-      __$$RssHistoryStateImplCopyWithImpl<$Res>;
+  factory _$$RssHistoryStateImplCopyWith(
+    _$RssHistoryStateImpl value,
+    $Res Function(_$RssHistoryStateImpl) then,
+  ) = __$$RssHistoryStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {List<RssReadRecordRow> records,
-      bool isLoading,
-      bool isClearing,
-      String? error});
+  $Res call({
+    List<RssReadRecordRow> records,
+    bool isLoading,
+    bool isClearing,
+    String? error,
+  });
 }
 
 /// @nodoc
@@ -105,9 +117,12 @@ class __$$RssHistoryStateImplCopyWithImpl<$Res>
     extends _$RssHistoryStateCopyWithImpl<$Res, _$RssHistoryStateImpl>
     implements _$$RssHistoryStateImplCopyWith<$Res> {
   __$$RssHistoryStateImplCopyWithImpl(
-      _$RssHistoryStateImpl _value, $Res Function(_$RssHistoryStateImpl) _then)
-      : super(_value, _then);
+    _$RssHistoryStateImpl _value,
+    $Res Function(_$RssHistoryStateImpl) _then,
+  ) : super(_value, _then);
 
+  /// Create a copy of RssHistoryState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -116,36 +131,38 @@ class __$$RssHistoryStateImplCopyWithImpl<$Res>
     Object? isClearing = null,
     Object? error = freezed,
   }) {
-    return _then(_$RssHistoryStateImpl(
-      records: null == records
-          ? _value._records
-          : records // ignore: cast_nullable_to_non_nullable
-              as List<RssReadRecordRow>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isClearing: null == isClearing
-          ? _value.isClearing
-          : isClearing // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$RssHistoryStateImpl(
+        records: null == records
+            ? _value._records
+            : records // ignore: cast_nullable_to_non_nullable
+                  as List<RssReadRecordRow>,
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isClearing: null == isClearing
+            ? _value.isClearing
+            : isClearing // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _value.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$RssHistoryStateImpl implements _RssHistoryState {
-  const _$RssHistoryStateImpl(
-      {final List<RssReadRecordRow> records = const [],
-      this.isLoading = false,
-      this.isClearing = false,
-      this.error})
-      : _records = records;
+  const _$RssHistoryStateImpl({
+    final List<RssReadRecordRow> records = const [],
+    this.isLoading = false,
+    this.isClearing = false,
+    this.error,
+  }) : _records = records;
 
   /// 已读记录列表（按阅读时间降序）
   final List<RssReadRecordRow> _records;
@@ -193,45 +210,53 @@ class _$RssHistoryStateImpl implements _RssHistoryState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_records),
-      isLoading,
-      isClearing,
-      error);
+    runtimeType,
+    const DeepCollectionEquality().hash(_records),
+    isLoading,
+    isClearing,
+    error,
+  );
 
-  @JsonKey(ignore: true)
+  /// Create a copy of RssHistoryState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$RssHistoryStateImplCopyWith<_$RssHistoryStateImpl> get copyWith =>
       __$$RssHistoryStateImplCopyWithImpl<_$RssHistoryStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _RssHistoryState implements RssHistoryState {
-  const factory _RssHistoryState(
-      {final List<RssReadRecordRow> records,
-      final bool isLoading,
-      final bool isClearing,
-      final String? error}) = _$RssHistoryStateImpl;
-
-  @override
+  const factory _RssHistoryState({
+    final List<RssReadRecordRow> records,
+    final bool isLoading,
+    final bool isClearing,
+    final String? error,
+  }) = _$RssHistoryStateImpl;
 
   /// 已读记录列表（按阅读时间降序）
-  List<RssReadRecordRow> get records;
   @override
+  List<RssReadRecordRow> get records;
 
   /// 正在加载
-  bool get isLoading;
   @override
+  bool get isLoading;
 
   /// 正在清空
-  bool get isClearing;
   @override
+  bool get isClearing;
 
   /// 错误信息
-  String? get error;
   @override
-  @JsonKey(ignore: true)
+  String? get error;
+
+  /// Create a copy of RssHistoryState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$RssHistoryStateImplCopyWith<_$RssHistoryStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
