@@ -17,7 +17,7 @@
 // - F6 prevChapter 的 -1 章内位置哨兵被持久化写入 DB。
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

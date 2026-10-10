@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'audio_state.dart';
@@ -9,93 +9,160 @@ part of 'audio_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$AudioState {
   /// 播放器状态机
-  PlayerState get state => throw _privateConstructorUsedError;
+  PlayerState get state;
 
   /// 播放模式
-  AudioPlayMode get mode => throw _privateConstructorUsedError;
+  AudioPlayMode get mode;
 
   /// TTS 配置（构造时由 Notifier 注入默认实例）
-  TtsConfig get config => throw _privateConstructorUsedError;
+  TtsConfig get config;
 
   /// 章节列表
-  List<AudioChapter> get chapters => throw _privateConstructorUsedError;
+  List<AudioChapter> get chapters;
 
   /// 当前章节索引
-  int get currentIndex => throw _privateConstructorUsedError;
+  int get currentIndex;
 
   /// 错误信息（null 表示无错误）
-  String? get errorMessage => throw _privateConstructorUsedError;
+  String? get errorMessage;
 
   /// 当前听书书籍 URL
-  String get bookUrl => throw _privateConstructorUsedError;
+  String get bookUrl;
 
   /// 当前听书书名
-  String get bookName => throw _privateConstructorUsedError;
+  String get bookName;
 
   /// 媒体会话是否已就绪（用于 UI 显示后台播放状态）
-  bool get isMediaSessionReady => throw _privateConstructorUsedError;
+  bool get isMediaSessionReady;
 
   /// 是否音频书流媒体模式（false = TTS 朗读）
-  bool get isStreamMode => throw _privateConstructorUsedError;
+  bool get isStreamMode;
 
   /// 当前可播媒体 URL（流媒体模式；TTS 为空）
-  String get mediaUrl => throw _privateConstructorUsedError;
+  String get mediaUrl;
 
   /// 流媒体播放进度（毫秒）
-  int get positionMs => throw _privateConstructorUsedError;
+  int get positionMs;
 
   /// 流媒体时长（毫秒；未知为 0）
-  int get durationMs => throw _privateConstructorUsedError;
+  int get durationMs;
 
   /// 可选歌词/旁白（getAudioChapterMedia 返回）
-  String? get lyric => throw _privateConstructorUsedError;
+  String? get lyric;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $AudioStateCopyWith<AudioState> get copyWith =>
-      throw _privateConstructorUsedError;
+      _$AudioStateCopyWithImpl<AudioState>(this as AudioState, _$identity);
+
+  @override
+  bool operator ==(Object other) {
+    final _this = this as AudioState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is AudioState &&
+            (identical(other.state, _this.state) ||
+                other.state == _this.state) &&
+            (identical(other.mode, _this.mode) || other.mode == _this.mode) &&
+            (identical(other.config, _this.config) ||
+                other.config == _this.config) &&
+            const DeepCollectionEquality().equals(
+              other.chapters,
+              _this.chapters,
+            ) &&
+            (identical(other.currentIndex, _this.currentIndex) ||
+                other.currentIndex == _this.currentIndex) &&
+            (identical(other.errorMessage, _this.errorMessage) ||
+                other.errorMessage == _this.errorMessage) &&
+            (identical(other.bookUrl, _this.bookUrl) ||
+                other.bookUrl == _this.bookUrl) &&
+            (identical(other.bookName, _this.bookName) ||
+                other.bookName == _this.bookName) &&
+            (identical(other.isMediaSessionReady, _this.isMediaSessionReady) ||
+                other.isMediaSessionReady == _this.isMediaSessionReady) &&
+            (identical(other.isStreamMode, _this.isStreamMode) ||
+                other.isStreamMode == _this.isStreamMode) &&
+            (identical(other.mediaUrl, _this.mediaUrl) ||
+                other.mediaUrl == _this.mediaUrl) &&
+            (identical(other.positionMs, _this.positionMs) ||
+                other.positionMs == _this.positionMs) &&
+            (identical(other.durationMs, _this.durationMs) ||
+                other.durationMs == _this.durationMs) &&
+            (identical(other.lyric, _this.lyric) ||
+                other.lyric == _this.lyric));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as AudioState;
+    return Object.hash(
+      runtimeType,
+      _this.state,
+      _this.mode,
+      _this.config,
+      const DeepCollectionEquality().hash(_this.chapters),
+      _this.currentIndex,
+      _this.errorMessage,
+      _this.bookUrl,
+      _this.bookName,
+      _this.isMediaSessionReady,
+      _this.isStreamMode,
+      _this.mediaUrl,
+      _this.positionMs,
+      _this.durationMs,
+      _this.lyric,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as AudioState;
+    return 'AudioState(state: ${_this.state}, mode: ${_this.mode}, config: ${_this.config}, chapters: ${_this.chapters}, currentIndex: ${_this.currentIndex}, errorMessage: ${_this.errorMessage}, bookUrl: ${_this.bookUrl}, bookName: ${_this.bookName}, isMediaSessionReady: ${_this.isMediaSessionReady}, isStreamMode: ${_this.isStreamMode}, mediaUrl: ${_this.mediaUrl}, positionMs: ${_this.positionMs}, durationMs: ${_this.durationMs}, lyric: ${_this.lyric})';
+  }
 }
 
 /// @nodoc
-abstract class $AudioStateCopyWith<$Res> {
+abstract mixin class $AudioStateCopyWith<$Res> {
   factory $AudioStateCopyWith(
-          AudioState value, $Res Function(AudioState) then) =
-      _$AudioStateCopyWithImpl<$Res, AudioState>;
+    AudioState value,
+    $Res Function(AudioState) _then,
+  ) = _$AudioStateCopyWithImpl;
   @useResult
-  $Res call(
-      {PlayerState state,
-      AudioPlayMode mode,
-      TtsConfig config,
-      List<AudioChapter> chapters,
-      int currentIndex,
-      String? errorMessage,
-      String bookUrl,
-      String bookName,
-      bool isMediaSessionReady,
-      bool isStreamMode,
-      String mediaUrl,
-      int positionMs,
-      int durationMs,
-      String? lyric});
+  $Res call({
+    PlayerState state,
+    AudioPlayMode mode,
+    TtsConfig config,
+    List<AudioChapter> chapters,
+    int currentIndex,
+    String? errorMessage,
+    String bookUrl,
+    String bookName,
+    bool isMediaSessionReady,
+    bool isStreamMode,
+    String mediaUrl,
+    int positionMs,
+    int durationMs,
+    String? lyric,
+  });
 }
 
 /// @nodoc
-class _$AudioStateCopyWithImpl<$Res, $Val extends AudioState>
-    implements $AudioStateCopyWith<$Res> {
-  _$AudioStateCopyWithImpl(this._value, this._then);
+class _$AudioStateCopyWithImpl<$Res> implements $AudioStateCopyWith<$Res> {
+  _$AudioStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final AudioState _self;
+  final $Res Function(AudioState) _then;
 
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -114,77 +181,164 @@ class _$AudioStateCopyWithImpl<$Res, $Val extends AudioState>
     Object? durationMs = null,
     Object? lyric = freezed,
   }) {
-    return _then(_value.copyWith(
-      state: null == state
-          ? _value.state
-          : state // ignore: cast_nullable_to_non_nullable
-              as PlayerState,
-      mode: null == mode
-          ? _value.mode
-          : mode // ignore: cast_nullable_to_non_nullable
-              as AudioPlayMode,
-      config: null == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as TtsConfig,
-      chapters: null == chapters
-          ? _value.chapters
-          : chapters // ignore: cast_nullable_to_non_nullable
-              as List<AudioChapter>,
-      currentIndex: null == currentIndex
-          ? _value.currentIndex
-          : currentIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      isMediaSessionReady: null == isMediaSessionReady
-          ? _value.isMediaSessionReady
-          : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isStreamMode: null == isStreamMode
-          ? _value.isStreamMode
-          : isStreamMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      mediaUrl: null == mediaUrl
-          ? _value.mediaUrl
-          : mediaUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      positionMs: null == positionMs
-          ? _value.positionMs
-          : positionMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      durationMs: null == durationMs
-          ? _value.durationMs
-          : durationMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      lyric: freezed == lyric
-          ? _value.lyric
-          : lyric // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      AudioState(
+        state: null == state
+            ? _self.state
+            : state // ignore: cast_nullable_to_non_nullable
+                  as PlayerState,
+        mode: null == mode
+            ? _self.mode
+            : mode // ignore: cast_nullable_to_non_nullable
+                  as AudioPlayMode,
+        config: null == config
+            ? _self.config
+            : config // ignore: cast_nullable_to_non_nullable
+                  as TtsConfig,
+        chapters: null == chapters
+            ? _self.chapters
+            : chapters // ignore: cast_nullable_to_non_nullable
+                  as List<AudioChapter>,
+        currentIndex: null == currentIndex
+            ? _self.currentIndex
+            : currentIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        errorMessage: freezed == errorMessage
+            ? _self.errorMessage
+            : errorMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isMediaSessionReady: null == isMediaSessionReady
+            ? _self.isMediaSessionReady
+            : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isStreamMode: null == isStreamMode
+            ? _self.isStreamMode
+            : isStreamMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        mediaUrl: null == mediaUrl
+            ? _self.mediaUrl
+            : mediaUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        positionMs: null == positionMs
+            ? _self.positionMs
+            : positionMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durationMs: null == durationMs
+            ? _self.durationMs
+            : durationMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lyric: freezed == lyric
+            ? _self.lyric
+            : lyric // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
-/// @nodoc
-abstract class _$$AudioStateImplCopyWith<$Res>
-    implements $AudioStateCopyWith<$Res> {
-  factory _$$AudioStateImplCopyWith(
-          _$AudioStateImpl value, $Res Function(_$AudioStateImpl) then) =
-      __$$AudioStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {PlayerState state,
+/// Adds pattern-matching-related methods to [AudioState].
+extension AudioStatePatterns on AudioState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_AudioState value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _AudioState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_AudioState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AudioState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_AudioState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AudioState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      PlayerState state,
       AudioPlayMode mode,
       TtsConfig config,
       List<AudioChapter> chapters,
@@ -197,115 +351,168 @@ abstract class _$$AudioStateImplCopyWith<$Res>
       String mediaUrl,
       int positionMs,
       int durationMs,
-      String? lyric});
-}
-
-/// @nodoc
-class __$$AudioStateImplCopyWithImpl<$Res>
-    extends _$AudioStateCopyWithImpl<$Res, _$AudioStateImpl>
-    implements _$$AudioStateImplCopyWith<$Res> {
-  __$$AudioStateImplCopyWithImpl(
-      _$AudioStateImpl _value, $Res Function(_$AudioStateImpl) _then)
-      : super(_value, _then);
-
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? state = null,
-    Object? mode = null,
-    Object? config = null,
-    Object? chapters = null,
-    Object? currentIndex = null,
-    Object? errorMessage = freezed,
-    Object? bookUrl = null,
-    Object? bookName = null,
-    Object? isMediaSessionReady = null,
-    Object? isStreamMode = null,
-    Object? mediaUrl = null,
-    Object? positionMs = null,
-    Object? durationMs = null,
-    Object? lyric = freezed,
+      String? lyric,
+    )?
+    $default, {
+    required TResult orElse(),
   }) {
-    return _then(_$AudioStateImpl(
-      state: null == state
-          ? _value.state
-          : state // ignore: cast_nullable_to_non_nullable
-              as PlayerState,
-      mode: null == mode
-          ? _value.mode
-          : mode // ignore: cast_nullable_to_non_nullable
-              as AudioPlayMode,
-      config: null == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as TtsConfig,
-      chapters: null == chapters
-          ? _value._chapters
-          : chapters // ignore: cast_nullable_to_non_nullable
-              as List<AudioChapter>,
-      currentIndex: null == currentIndex
-          ? _value.currentIndex
-          : currentIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      isMediaSessionReady: null == isMediaSessionReady
-          ? _value.isMediaSessionReady
-          : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isStreamMode: null == isStreamMode
-          ? _value.isStreamMode
-          : isStreamMode // ignore: cast_nullable_to_non_nullable
-              as bool,
-      mediaUrl: null == mediaUrl
-          ? _value.mediaUrl
-          : mediaUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      positionMs: null == positionMs
-          ? _value.positionMs
-          : positionMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      durationMs: null == durationMs
-          ? _value.durationMs
-          : durationMs // ignore: cast_nullable_to_non_nullable
-              as int,
-      lyric: freezed == lyric
-          ? _value.lyric
-          : lyric // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    final _that = this;
+    switch (_that) {
+      case _AudioState() when $default != null:
+        return $default(
+          _that.state,
+          _that.mode,
+          _that.config,
+          _that.chapters,
+          _that.currentIndex,
+          _that.errorMessage,
+          _that.bookUrl,
+          _that.bookName,
+          _that.isMediaSessionReady,
+          _that.isStreamMode,
+          _that.mediaUrl,
+          _that.positionMs,
+          _that.durationMs,
+          _that.lyric,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      PlayerState state,
+      AudioPlayMode mode,
+      TtsConfig config,
+      List<AudioChapter> chapters,
+      int currentIndex,
+      String? errorMessage,
+      String bookUrl,
+      String bookName,
+      bool isMediaSessionReady,
+      bool isStreamMode,
+      String mediaUrl,
+      int positionMs,
+      int durationMs,
+      String? lyric,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AudioState():
+        return $default(
+          _that.state,
+          _that.mode,
+          _that.config,
+          _that.chapters,
+          _that.currentIndex,
+          _that.errorMessage,
+          _that.bookUrl,
+          _that.bookName,
+          _that.isMediaSessionReady,
+          _that.isStreamMode,
+          _that.mediaUrl,
+          _that.positionMs,
+          _that.durationMs,
+          _that.lyric,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      PlayerState state,
+      AudioPlayMode mode,
+      TtsConfig config,
+      List<AudioChapter> chapters,
+      int currentIndex,
+      String? errorMessage,
+      String bookUrl,
+      String bookName,
+      bool isMediaSessionReady,
+      bool isStreamMode,
+      String mediaUrl,
+      int positionMs,
+      int durationMs,
+      String? lyric,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AudioState() when $default != null:
+        return $default(
+          _that.state,
+          _that.mode,
+          _that.config,
+          _that.chapters,
+          _that.currentIndex,
+          _that.errorMessage,
+          _that.bookUrl,
+          _that.bookName,
+          _that.isMediaSessionReady,
+          _that.isStreamMode,
+          _that.mediaUrl,
+          _that.positionMs,
+          _that.durationMs,
+          _that.lyric,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 
-class _$AudioStateImpl implements _AudioState {
-  const _$AudioStateImpl(
-      {this.state = PlayerState.idle,
-      this.mode = AudioPlayMode.sequential,
-      required this.config,
-      final List<AudioChapter> chapters = const <AudioChapter>[],
-      this.currentIndex = 0,
-      this.errorMessage,
-      this.bookUrl = '',
-      this.bookName = '',
-      this.isMediaSessionReady = false,
-      this.isStreamMode = false,
-      this.mediaUrl = '',
-      this.positionMs = 0,
-      this.durationMs = 0,
-      this.lyric})
-      : _chapters = chapters;
+class _AudioState implements AudioState {
+  const _AudioState({
+    this.state = PlayerState.idle,
+    this.mode = AudioPlayMode.sequential,
+    required this.config,
+    List<AudioChapter> chapters = const <AudioChapter>[],
+    this.currentIndex = 0,
+    this.errorMessage,
+    this.bookUrl = '',
+    this.bookName = '',
+    this.isMediaSessionReady = false,
+    this.isStreamMode = false,
+    this.mediaUrl = '',
+    this.positionMs = 0,
+    this.durationMs = 0,
+    this.lyric,
+  }) : _chapters = chapters;
 
   /// 播放器状态机
   @override
@@ -381,20 +588,23 @@ class _$AudioStateImpl implements _AudioState {
   @override
   final String? lyric;
 
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'AudioState(state: $state, mode: $mode, config: $config, chapters: $chapters, currentIndex: $currentIndex, errorMessage: $errorMessage, bookUrl: $bookUrl, bookName: $bookName, isMediaSessionReady: $isMediaSessionReady, isStreamMode: $isStreamMode, mediaUrl: $mediaUrl, positionMs: $positionMs, durationMs: $durationMs, lyric: $lyric)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$AudioStateCopyWith<_AudioState> get copyWith =>
+      __$AudioStateCopyWithImpl<_AudioState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$AudioStateImpl &&
+            other is _AudioState &&
             (identical(other.state, state) || other.state == state) &&
             (identical(other.mode, mode) || other.mode == mode) &&
             (identical(other.config, config) || other.config == config) &&
-            const DeepCollectionEquality().equals(other._chapters, _chapters) &&
+            const DeepCollectionEquality().equals(other.chapters, _chapters) &&
             (identical(other.currentIndex, currentIndex) ||
                 other.currentIndex == currentIndex) &&
             (identical(other.errorMessage, errorMessage) ||
@@ -416,7 +626,8 @@ class _$AudioStateImpl implements _AudioState {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       state,
       mode,
@@ -431,90 +642,129 @@ class _$AudioStateImpl implements _AudioState {
       mediaUrl,
       positionMs,
       durationMs,
-      lyric);
+      lyric,
+    );
+  }
 
-  @JsonKey(ignore: true)
   @override
-  @pragma('vm:prefer-inline')
-  _$$AudioStateImplCopyWith<_$AudioStateImpl> get copyWith =>
-      __$$AudioStateImplCopyWithImpl<_$AudioStateImpl>(this, _$identity);
+  String toString() {
+    return 'AudioState(state: $state, mode: $mode, config: $config, chapters: $chapters, currentIndex: $currentIndex, errorMessage: $errorMessage, bookUrl: $bookUrl, bookName: $bookName, isMediaSessionReady: $isMediaSessionReady, isStreamMode: $isStreamMode, mediaUrl: $mediaUrl, positionMs: $positionMs, durationMs: $durationMs, lyric: $lyric)';
+  }
 }
 
-abstract class _AudioState implements AudioState {
-  const factory _AudioState(
-      {final PlayerState state,
-      final AudioPlayMode mode,
-      required final TtsConfig config,
-      final List<AudioChapter> chapters,
-      final int currentIndex,
-      final String? errorMessage,
-      final String bookUrl,
-      final String bookName,
-      final bool isMediaSessionReady,
-      final bool isStreamMode,
-      final String mediaUrl,
-      final int positionMs,
-      final int durationMs,
-      final String? lyric}) = _$AudioStateImpl;
-
+/// @nodoc
+abstract mixin class _$AudioStateCopyWith<$Res>
+    implements $AudioStateCopyWith<$Res> {
+  factory _$AudioStateCopyWith(
+    _AudioState value,
+    $Res Function(_AudioState) _then,
+  ) = __$AudioStateCopyWithImpl;
   @override
+  @useResult
+  $Res call({
+    PlayerState state,
+    AudioPlayMode mode,
+    TtsConfig config,
+    List<AudioChapter> chapters,
+    int currentIndex,
+    String? errorMessage,
+    String bookUrl,
+    String bookName,
+    bool isMediaSessionReady,
+    bool isStreamMode,
+    String mediaUrl,
+    int positionMs,
+    int durationMs,
+    String? lyric,
+  });
+}
 
-  /// 播放器状态机
-  PlayerState get state;
-  @override
+/// @nodoc
+class __$AudioStateCopyWithImpl<$Res> implements _$AudioStateCopyWith<$Res> {
+  __$AudioStateCopyWithImpl(this._self, this._then);
 
-  /// 播放模式
-  AudioPlayMode get mode;
-  @override
+  final _AudioState _self;
+  final $Res Function(_AudioState) _then;
 
-  /// TTS 配置（构造时由 Notifier 注入默认实例）
-  TtsConfig get config;
+  /// Create a copy of AudioState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-
-  /// 章节列表
-  List<AudioChapter> get chapters;
-  @override
-
-  /// 当前章节索引
-  int get currentIndex;
-  @override
-
-  /// 错误信息（null 表示无错误）
-  String? get errorMessage;
-  @override
-
-  /// 当前听书书籍 URL
-  String get bookUrl;
-  @override
-
-  /// 当前听书书名
-  String get bookName;
-  @override
-
-  /// 媒体会话是否已就绪（用于 UI 显示后台播放状态）
-  bool get isMediaSessionReady;
-  @override
-
-  /// 是否音频书流媒体模式（false = TTS 朗读）
-  bool get isStreamMode;
-  @override
-
-  /// 当前可播媒体 URL（流媒体模式；TTS 为空）
-  String get mediaUrl;
-  @override
-
-  /// 流媒体播放进度（毫秒）
-  int get positionMs;
-  @override
-
-  /// 流媒体时长（毫秒；未知为 0）
-  int get durationMs;
-  @override
-
-  /// 可选歌词/旁白（getAudioChapterMedia 返回）
-  String? get lyric;
-  @override
-  @JsonKey(ignore: true)
-  _$$AudioStateImplCopyWith<_$AudioStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? state = null,
+    Object? mode = null,
+    Object? config = null,
+    Object? chapters = null,
+    Object? currentIndex = null,
+    Object? errorMessage = freezed,
+    Object? bookUrl = null,
+    Object? bookName = null,
+    Object? isMediaSessionReady = null,
+    Object? isStreamMode = null,
+    Object? mediaUrl = null,
+    Object? positionMs = null,
+    Object? durationMs = null,
+    Object? lyric = freezed,
+  }) {
+    return _then(
+      _AudioState(
+        state: null == state
+            ? _self.state
+            : state // ignore: cast_nullable_to_non_nullable
+                  as PlayerState,
+        mode: null == mode
+            ? _self.mode
+            : mode // ignore: cast_nullable_to_non_nullable
+                  as AudioPlayMode,
+        config: null == config
+            ? _self.config
+            : config // ignore: cast_nullable_to_non_nullable
+                  as TtsConfig,
+        chapters: null == chapters
+            ? _self._chapters
+            : chapters // ignore: cast_nullable_to_non_nullable
+                  as List<AudioChapter>,
+        currentIndex: null == currentIndex
+            ? _self.currentIndex
+            : currentIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        errorMessage: freezed == errorMessage
+            ? _self.errorMessage
+            : errorMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isMediaSessionReady: null == isMediaSessionReady
+            ? _self.isMediaSessionReady
+            : isMediaSessionReady // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isStreamMode: null == isStreamMode
+            ? _self.isStreamMode
+            : isStreamMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        mediaUrl: null == mediaUrl
+            ? _self.mediaUrl
+            : mediaUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        positionMs: null == positionMs
+            ? _self.positionMs
+            : positionMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durationMs: null == durationMs
+            ? _self.durationMs
+            : durationMs // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lyric: freezed == lyric
+            ? _self.lyric
+            : lyric // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
 }

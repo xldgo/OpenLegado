@@ -8,7 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider, ChangeNotifierProvider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/bridge_http.dart';
@@ -1930,18 +1930,18 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     }
     // iOS / 其他平台：现有 file_picker saveFile 路径
     try {
-      // [D1 修复] file_picker 8.x 在 Android/iOS 的 saveFile 必传 bytes
-      // （缺省抛 ArgumentError「Bytes are required on Android & iOS」，
-      // 旧代码漏传 → 保存恒失败且取消兜底分支永不可达）；取消时平台
-      // 返回 null → 下方文档目录兜底写入仍由本方落盘，语义不变
-      final path = await FilePicker.platform.saveFile(
+      // 新版插件负责写入 bytes 并返回 URI；页面不再次写入选中位置。
+      // 取消时返回 null，继续沿用文档目录兜底。
+      final path = await FilePicker.saveFile(
         dialogTitle: '保存图片',
         fileName: fileName,
         bytes: data.bytes,
       );
       if (path != null) {
-        final file = File(path)..writeAsBytesSync(data.bytes);
-        _showPageActionSnackBar('已保存: ${file.path}');
+        final location = path.scheme == 'file'
+            ? path.toFilePath()
+            : path.toString();
+        _showPageActionSnackBar('已保存: $location');
       } else {
         // 用户取消目录选择 → 兜底写应用文档目录
         final dir = await getApplicationDocumentsDirectory();
@@ -1954,7 +1954,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   }
 
   /// 分享图片（对齐参考版 ShareImage：临时文件 + 系统分享面板；
-  /// 先例 auto_task_screen shareXFiles）
+  /// 先例 auto_task_screen 的文件分享）
   Future<void> _sharePageImage(int index) async {
     final data = await _resolvePageImage(index);
     if (data == null) {
@@ -1967,7 +1967,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         '${dir.path}/manga-${DateTime.now().millisecondsSinceEpoch}${data.suffix}',
       );
       await file.writeAsBytes(data.bytes);
-      await Share.shareXFiles([XFile(file.path)], subject: '漫画图片');
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], subject: '漫画图片'),
+      );
     } catch (e) {
       _showPageActionSnackBar('分享失败: $e');
     }

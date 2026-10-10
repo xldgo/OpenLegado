@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide ChangeNotifierProvider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/book_api.dart';
 import '../providers.dart';

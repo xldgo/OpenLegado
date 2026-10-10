@@ -9,7 +9,7 @@ import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import '../services/bridge_http.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1003,7 +1003,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       final selectedSources =
           _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
       final json = jsonEncode(selectedSources.map((s) => s.toJson()).toList());
-      await Share.share(json, subject: '订阅源分享（${selectedSources.length} 个）');
+      await SharePlus.instance.share(
+        ShareParams(text: json, subject: '订阅源分享（${selectedSources.length} 个）'),
+      );
     } catch (e) {
       _toast('分享失败：$e');
     }
@@ -1082,9 +1084,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   /// 本地导入（对标原版 menu_import_local：txt/json 任选，解析层容错）
   Future<void> _importFromFile() async {
     try {
-      final picked = await FilePicker.platform.pickFiles();
-      if (picked == null || picked.files.isEmpty) return;
-      final path = picked.files.single.path;
+      final picked = await FilePicker.pickFile();
+      if (picked == null) return;
+      final path = picked.path;
       if (path == null) {
         _toast('无法获取文件路径');
         return;

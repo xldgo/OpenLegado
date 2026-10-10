@@ -12,7 +12,7 @@ part 'explore_state.freezed.dart';
 /// - [searchKeyword] / [selectedGroup]：展示层过滤条件（实时搜索 + 分组筛选）
 /// - [categoriesCache] / [loadingCategories]：分类解析缓存（对齐 exploreParseUrl）
 @freezed
-class ExploreState with _$ExploreState {
+abstract class ExploreState with _$ExploreState {
   const factory ExploreState({
     /// 发现书源列表（已按 Android ExploreFragment 规则过滤：enabledExplore && exploreUrl 非空）
     @Default([]) List<BookSource> bookSources,

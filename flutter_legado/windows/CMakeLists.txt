@@ -109,7 +109,8 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 
 # === Rust FFI Library ===
 # 自动复制 Rust FFI DLL 到构建输出目录，避免运行时找不到 legado_ffi.dll
-set(RUST_FFI_DIR "${PROJECT_DIR}/../rust/target")
+# PROJECT_DIR 只在 flutter/ 子目录定义，使用当前工程目录定位仓库产物。
+get_filename_component(RUST_FFI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target" ABSOLUTE)
 set(RUST_FFI_DLL_RELEASE "${RUST_FFI_DIR}/release/legado_ffi.dll")
 set(RUST_FFI_DLL_DEBUG "${RUST_FFI_DIR}/debug/legado_ffi.dll")
 

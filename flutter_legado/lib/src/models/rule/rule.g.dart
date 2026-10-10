@@ -6,8 +6,8 @@ part of 'rule.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$BookInfoRuleImpl _$$BookInfoRuleImplFromJson(Map<String, dynamic> json) =>
-    _$BookInfoRuleImpl(
+_BookInfoRule _$BookInfoRuleFromJson(Map<String, dynamic> json) =>
+    _BookInfoRule(
       init: json['init'] as String?,
       name: json['name'] as String?,
       author: json['author'] as String?,
@@ -22,7 +22,7 @@ _$BookInfoRuleImpl _$$BookInfoRuleImplFromJson(Map<String, dynamic> json) =>
       downloadUrls: json['downloadUrls'] as String?,
     );
 
-Map<String, dynamic> _$$BookInfoRuleImplToJson(_$BookInfoRuleImpl instance) =>
+Map<String, dynamic> _$BookInfoRuleToJson(_BookInfoRule instance) =>
     <String, dynamic>{
       'init': instance.init,
       'name': instance.name,
@@ -38,22 +38,21 @@ Map<String, dynamic> _$$BookInfoRuleImplToJson(_$BookInfoRuleImpl instance) =>
       'downloadUrls': instance.downloadUrls,
     };
 
-_$SearchRuleImpl _$$SearchRuleImplFromJson(Map<String, dynamic> json) =>
-    _$SearchRuleImpl(
-      checkKeyWord: json['checkKeyWord'] as String?,
-      bookList: json['bookList'] as String?,
-      name: json['name'] as String?,
-      author: json['author'] as String?,
-      intro: json['intro'] as String?,
-      kind: json['kind'] as String?,
-      lastChapter: json['lastChapter'] as String?,
-      updateTime: json['updateTime'] as String?,
-      bookUrl: json['bookUrl'] as String?,
-      coverUrl: json['coverUrl'] as String?,
-      wordCount: json['wordCount'] as String?,
-    );
+_SearchRule _$SearchRuleFromJson(Map<String, dynamic> json) => _SearchRule(
+  checkKeyWord: json['checkKeyWord'] as String?,
+  bookList: json['bookList'] as String?,
+  name: json['name'] as String?,
+  author: json['author'] as String?,
+  intro: json['intro'] as String?,
+  kind: json['kind'] as String?,
+  lastChapter: json['lastChapter'] as String?,
+  updateTime: json['updateTime'] as String?,
+  bookUrl: json['bookUrl'] as String?,
+  coverUrl: json['coverUrl'] as String?,
+  wordCount: json['wordCount'] as String?,
+);
 
-Map<String, dynamic> _$$SearchRuleImplToJson(_$SearchRuleImpl instance) =>
+Map<String, dynamic> _$SearchRuleToJson(_SearchRule instance) =>
     <String, dynamic>{
       'checkKeyWord': instance.checkKeyWord,
       'bookList': instance.bookList,
@@ -68,50 +67,47 @@ Map<String, dynamic> _$$SearchRuleImplToJson(_$SearchRuleImpl instance) =>
       'wordCount': instance.wordCount,
     };
 
-_$TocRuleImpl _$$TocRuleImplFromJson(Map<String, dynamic> json) =>
-    _$TocRuleImpl(
-      preUpdateJs: json['preUpdateJs'] as String?,
-      chapterList: json['chapterList'] as String?,
-      chapterName: json['chapterName'] as String?,
-      chapterUrl: json['chapterUrl'] as String?,
-      formatJs: json['formatJs'] as String?,
-      isVolume: json['isVolume'] as String?,
-      isVip: json['isVip'] as String?,
-      isPay: json['isPay'] as String?,
-      updateTime: json['updateTime'] as String?,
-      nextTocUrl: json['nextTocUrl'] as String?,
-    );
+_TocRule _$TocRuleFromJson(Map<String, dynamic> json) => _TocRule(
+  preUpdateJs: json['preUpdateJs'] as String?,
+  chapterList: json['chapterList'] as String?,
+  chapterName: json['chapterName'] as String?,
+  chapterUrl: json['chapterUrl'] as String?,
+  formatJs: json['formatJs'] as String?,
+  isVolume: json['isVolume'] as String?,
+  isVip: json['isVip'] as String?,
+  isPay: json['isPay'] as String?,
+  updateTime: json['updateTime'] as String?,
+  nextTocUrl: json['nextTocUrl'] as String?,
+);
 
-Map<String, dynamic> _$$TocRuleImplToJson(_$TocRuleImpl instance) =>
-    <String, dynamic>{
-      'preUpdateJs': instance.preUpdateJs,
-      'chapterList': instance.chapterList,
-      'chapterName': instance.chapterName,
-      'chapterUrl': instance.chapterUrl,
-      'formatJs': instance.formatJs,
-      'isVolume': instance.isVolume,
-      'isVip': instance.isVip,
-      'isPay': instance.isPay,
-      'updateTime': instance.updateTime,
-      'nextTocUrl': instance.nextTocUrl,
-    };
+Map<String, dynamic> _$TocRuleToJson(_TocRule instance) => <String, dynamic>{
+  'preUpdateJs': instance.preUpdateJs,
+  'chapterList': instance.chapterList,
+  'chapterName': instance.chapterName,
+  'chapterUrl': instance.chapterUrl,
+  'formatJs': instance.formatJs,
+  'isVolume': instance.isVolume,
+  'isVip': instance.isVip,
+  'isPay': instance.isPay,
+  'updateTime': instance.updateTime,
+  'nextTocUrl': instance.nextTocUrl,
+};
 
-_$ContentRuleImpl _$$ContentRuleImplFromJson(Map<String, dynamic> json) =>
-    _$ContentRuleImpl(
-      content: json['content'] as String?,
-      subContent: json['subContent'] as String?,
-      title: json['title'] as String?,
-      nextContentUrl: json['nextContentUrl'] as String?,
-      webJs: json['webJs'] as String?,
-      sourceRegex: json['sourceRegex'] as String?,
-      replaceRegex: json['replaceRegex'] as String?,
-      imageStyle: json['imageStyle'] as String?,
-      imageDecode: json['imageDecode'] as String?,
-      payAction: json['payAction'] as String?,
-      callBackJs: json['callBackJs'] as String?,
-    );
+_ContentRule _$ContentRuleFromJson(Map<String, dynamic> json) => _ContentRule(
+  content: json['content'] as String?,
+  subContent: json['subContent'] as String?,
+  title: json['title'] as String?,
+  nextContentUrl: json['nextContentUrl'] as String?,
+  webJs: json['webJs'] as String?,
+  sourceRegex: json['sourceRegex'] as String?,
+  replaceRegex: json['replaceRegex'] as String?,
+  imageStyle: json['imageStyle'] as String?,
+  imageDecode: json['imageDecode'] as String?,
+  payAction: json['payAction'] as String?,
+  callBackJs: json['callBackJs'] as String?,
+);
 
-Map<String, dynamic> _$$ContentRuleImplToJson(_$ContentRuleImpl instance) =>
+Map<String, dynamic> _$ContentRuleToJson(_ContentRule instance) =>
     <String, dynamic>{
       'content': instance.content,
       'subContent': instance.subContent,
@@ -126,21 +122,20 @@ Map<String, dynamic> _$$ContentRuleImplToJson(_$ContentRuleImpl instance) =>
       'callBackJs': instance.callBackJs,
     };
 
-_$ExploreRuleImpl _$$ExploreRuleImplFromJson(Map<String, dynamic> json) =>
-    _$ExploreRuleImpl(
-      bookList: json['bookList'] as String?,
-      name: json['name'] as String?,
-      author: json['author'] as String?,
-      intro: json['intro'] as String?,
-      kind: json['kind'] as String?,
-      lastChapter: json['lastChapter'] as String?,
-      updateTime: json['updateTime'] as String?,
-      bookUrl: json['bookUrl'] as String?,
-      coverUrl: json['coverUrl'] as String?,
-      wordCount: json['wordCount'] as String?,
-    );
+_ExploreRule _$ExploreRuleFromJson(Map<String, dynamic> json) => _ExploreRule(
+  bookList: json['bookList'] as String?,
+  name: json['name'] as String?,
+  author: json['author'] as String?,
+  intro: json['intro'] as String?,
+  kind: json['kind'] as String?,
+  lastChapter: json['lastChapter'] as String?,
+  updateTime: json['updateTime'] as String?,
+  bookUrl: json['bookUrl'] as String?,
+  coverUrl: json['coverUrl'] as String?,
+  wordCount: json['wordCount'] as String?,
+);
 
-Map<String, dynamic> _$$ExploreRuleImplToJson(_$ExploreRuleImpl instance) =>
+Map<String, dynamic> _$ExploreRuleToJson(_ExploreRule instance) =>
     <String, dynamic>{
       'bookList': instance.bookList,
       'name': instance.name,
@@ -154,41 +149,40 @@ Map<String, dynamic> _$$ExploreRuleImplToJson(_$ExploreRuleImpl instance) =>
       'wordCount': instance.wordCount,
     };
 
-_$ReviewRuleImpl _$$ReviewRuleImplFromJson(Map<String, dynamic> json) =>
-    _$ReviewRuleImpl(
-      reviewUrl: json['reviewUrl'] as String?,
-      avatarRule: json['avatarRule'] as String?,
-      contentRule: json['contentRule'] as String?,
-      postTimeRule: json['postTimeRule'] as String?,
-      reviewQuoteUrl: json['reviewQuoteUrl'] as String?,
-      voteUpUrl: json['voteUpUrl'] as String?,
-      voteDownUrl: json['voteDownUrl'] as String?,
-      postReviewUrl: json['postReviewUrl'] as String?,
-      postQuoteUrl: json['postQuoteUrl'] as String?,
-      deleteUrl: json['deleteUrl'] as String?,
-      enabled: json['enabled'] as bool? ?? false,
-      reviewSummaryUrl: json['reviewSummaryUrl'] as String?,
-      summaryListRule: json['summaryListRule'] as String?,
-      summaryParagraphIndexRule: json['summaryParagraphIndexRule'] as String?,
-      summaryParagraphDataRule: json['summaryParagraphDataRule'] as String?,
-      summaryCountRule: json['summaryCountRule'] as String?,
-      reviewDetailUrl: json['reviewDetailUrl'] as String?,
-      reviewDetailNextPageUrl: json['reviewDetailNextPageUrl'] as String?,
-      detailListRule: json['detailListRule'] as String?,
-      detailIdRule: json['detailIdRule'] as String?,
-      detailAvatarRule: json['detailAvatarRule'] as String?,
-      detailNameRule: json['detailNameRule'] as String?,
-      detailBadgeRule: json['detailBadgeRule'] as String?,
-      detailContentRule: json['detailContentRule'] as String?,
-      replyListRule: json['replyListRule'] as String?,
-      replyIdRule: json['replyIdRule'] as String?,
-      replyAvatarRule: json['replyAvatarRule'] as String?,
-      replyNameRule: json['replyNameRule'] as String?,
-      replyBadgeRule: json['replyBadgeRule'] as String?,
-      replyContentRule: json['replyContentRule'] as String?,
-    );
+_ReviewRule _$ReviewRuleFromJson(Map<String, dynamic> json) => _ReviewRule(
+  reviewUrl: json['reviewUrl'] as String?,
+  avatarRule: json['avatarRule'] as String?,
+  contentRule: json['contentRule'] as String?,
+  postTimeRule: json['postTimeRule'] as String?,
+  reviewQuoteUrl: json['reviewQuoteUrl'] as String?,
+  voteUpUrl: json['voteUpUrl'] as String?,
+  voteDownUrl: json['voteDownUrl'] as String?,
+  postReviewUrl: json['postReviewUrl'] as String?,
+  postQuoteUrl: json['postQuoteUrl'] as String?,
+  deleteUrl: json['deleteUrl'] as String?,
+  enabled: json['enabled'] as bool? ?? false,
+  reviewSummaryUrl: json['reviewSummaryUrl'] as String?,
+  summaryListRule: json['summaryListRule'] as String?,
+  summaryParagraphIndexRule: json['summaryParagraphIndexRule'] as String?,
+  summaryParagraphDataRule: json['summaryParagraphDataRule'] as String?,
+  summaryCountRule: json['summaryCountRule'] as String?,
+  reviewDetailUrl: json['reviewDetailUrl'] as String?,
+  reviewDetailNextPageUrl: json['reviewDetailNextPageUrl'] as String?,
+  detailListRule: json['detailListRule'] as String?,
+  detailIdRule: json['detailIdRule'] as String?,
+  detailAvatarRule: json['detailAvatarRule'] as String?,
+  detailNameRule: json['detailNameRule'] as String?,
+  detailBadgeRule: json['detailBadgeRule'] as String?,
+  detailContentRule: json['detailContentRule'] as String?,
+  replyListRule: json['replyListRule'] as String?,
+  replyIdRule: json['replyIdRule'] as String?,
+  replyAvatarRule: json['replyAvatarRule'] as String?,
+  replyNameRule: json['replyNameRule'] as String?,
+  replyBadgeRule: json['replyBadgeRule'] as String?,
+  replyContentRule: json['replyContentRule'] as String?,
+);
 
-Map<String, dynamic> _$$ReviewRuleImplToJson(_$ReviewRuleImpl instance) =>
+Map<String, dynamic> _$ReviewRuleToJson(_ReviewRule instance) =>
     <String, dynamic>{
       'reviewUrl': instance.reviewUrl,
       'avatarRule': instance.avatarRule,
@@ -222,8 +216,8 @@ Map<String, dynamic> _$$ReviewRuleImplToJson(_$ReviewRuleImpl instance) =>
       'replyContentRule': instance.replyContentRule,
     };
 
-_$FlexChildStyleImpl _$$FlexChildStyleImplFromJson(Map<String, dynamic> json) =>
-    _$FlexChildStyleImpl(
+_FlexChildStyle _$FlexChildStyleFromJson(Map<String, dynamic> json) =>
+    _FlexChildStyle(
       layoutFlexGrow: (json['layout_flexGrow'] as num?)?.toDouble() ?? 0,
       layoutFlexShrink: (json['layout_flexShrink'] as num?)?.toDouble() ?? 1.0,
       layoutAlignSelf: json['layout_alignSelf'] as String? ?? 'auto',
@@ -233,8 +227,7 @@ _$FlexChildStyleImpl _$$FlexChildStyleImplFromJson(Map<String, dynamic> json) =>
       layoutJustifySelf: json['layout_justifySelf'] as String? ?? 'auto',
     );
 
-Map<String, dynamic> _$$FlexChildStyleImplToJson(
-        _$FlexChildStyleImpl instance) =>
+Map<String, dynamic> _$FlexChildStyleToJson(_FlexChildStyle instance) =>
     <String, dynamic>{
       'layout_flexGrow': instance.layoutFlexGrow,
       'layout_flexShrink': instance.layoutFlexShrink,
@@ -244,22 +237,20 @@ Map<String, dynamic> _$$FlexChildStyleImplToJson(
       'layout_justifySelf': instance.layoutJustifySelf,
     };
 
-_$ExploreKindImpl _$$ExploreKindImplFromJson(Map<String, dynamic> json) =>
-    _$ExploreKindImpl(
-      title: json['title'] as String? ?? '',
-      url: json['url'] as String?,
-      type: json['type'] as String? ?? 'url',
-      action: json['action'] as String?,
-      chars:
-          (json['chars'] as List<dynamic>?)?.map((e) => e as String?).toList(),
-      defaultValue: json['default'] as String?,
-      viewName: json['viewName'] as String?,
-      style: json['style'] == null
-          ? null
-          : FlexChildStyle.fromJson(json['style'] as Map<String, dynamic>),
-    );
+_ExploreKind _$ExploreKindFromJson(Map<String, dynamic> json) => _ExploreKind(
+  title: json['title'] as String? ?? '',
+  url: json['url'] as String?,
+  type: json['type'] as String? ?? 'url',
+  action: json['action'] as String?,
+  chars: (json['chars'] as List<dynamic>?)?.map((e) => e as String?).toList(),
+  defaultValue: json['default'] as String?,
+  viewName: json['viewName'] as String?,
+  style: json['style'] == null
+      ? null
+      : FlexChildStyle.fromJson(json['style'] as Map<String, dynamic>),
+);
 
-Map<String, dynamic> _$$ExploreKindImplToJson(_$ExploreKindImpl instance) =>
+Map<String, dynamic> _$ExploreKindToJson(_ExploreKind instance) =>
     <String, dynamic>{
       'title': instance.title,
       'url': instance.url,
@@ -271,26 +262,24 @@ Map<String, dynamic> _$$ExploreKindImplToJson(_$ExploreKindImpl instance) =>
       'style': instance.style?.toJson(),
     };
 
-_$RowUiImpl _$$RowUiImplFromJson(Map<String, dynamic> json) => _$RowUiImpl(
-      name: json['name'] as String? ?? '',
-      type: json['type'] as String? ?? 'text',
-      action: json['action'] as String?,
-      chars:
-          (json['chars'] as List<dynamic>?)?.map((e) => e as String?).toList(),
-      defaultValue: json['default'] as String?,
-      viewName: json['viewName'] as String?,
-      style: json['style'] == null
-          ? null
-          : FlexChildStyle.fromJson(json['style'] as Map<String, dynamic>),
-    );
+_RowUi _$RowUiFromJson(Map<String, dynamic> json) => _RowUi(
+  name: json['name'] as String? ?? '',
+  type: json['type'] as String? ?? 'text',
+  action: json['action'] as String?,
+  chars: (json['chars'] as List<dynamic>?)?.map((e) => e as String?).toList(),
+  defaultValue: json['default'] as String?,
+  viewName: json['viewName'] as String?,
+  style: json['style'] == null
+      ? null
+      : FlexChildStyle.fromJson(json['style'] as Map<String, dynamic>),
+);
 
-Map<String, dynamic> _$$RowUiImplToJson(_$RowUiImpl instance) =>
-    <String, dynamic>{
-      'name': instance.name,
-      'type': instance.type,
-      'action': instance.action,
-      'chars': instance.chars,
-      'default': instance.defaultValue,
-      'viewName': instance.viewName,
-      'style': instance.style?.toJson(),
-    };
+Map<String, dynamic> _$RowUiToJson(_RowUi instance) => <String, dynamic>{
+  'name': instance.name,
+  'type': instance.type,
+  'action': instance.action,
+  'chars': instance.chars,
+  'default': instance.defaultValue,
+  'viewName': instance.viewName,
+  'style': instance.style?.toJson(),
+};

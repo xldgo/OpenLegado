@@ -21,7 +21,7 @@ jobs:
     outputs:
       artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     env:
-      FLUTTER_VERSION: '3.44.8'
+      FLUTTER_VERSION: '3.47.7'
 
     steps:
       - name: 检出源码
@@ -31,42 +31,39 @@ jobs:
       - name: 设置 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: '1.97.1'
+          toolchain: stable
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
       - name: 设置 Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
       - name: 设置 Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
       - name: 安装 Android NDK
         run: |
-          sdkmanager "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
-          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64" >> "$GITHUB_ENV"
+          sdkmanager "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64" >> "$GITHUB_ENV"
       - name: 配置 Android 链接器
         run: |
           mkdir -p "$HOME/.cargo"
           cat >> "$HOME/.cargo/config.toml" << EOF
           [target.aarch64-linux-android]
           linker = "$NDK_TOOLCHAIN/bin/aarch64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 
           [target.armv7-linux-androideabi]
           linker = "$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 
           [target.x86_64-linux-android]
           linker = "$NDK_TOOLCHAIN/bin/x86_64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
           EOF
       - name: 核对已提交的 FRB 版本与 hash
         working-directory: rust
@@ -79,9 +76,9 @@ jobs:
           rust_hash = re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', rust)
           if not dart_hash or not rust_hash or dart_hash[1] != rust_hash[1]:
               raise SystemExit('Dart/Rust FRB content hash 不一致或无法解析')
-          if "codegenVersion => '2.11.1'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1"' not in rust:
-              raise SystemExit('FRB 生成物版本必须为 2.11.1')
-          print(f'FRB 2.11.1 content hash: {dart_hash[1]}')
+          if "codegenVersion => '2.13.0'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0"' not in rust:
+              raise SystemExit('FRB 生成物版本必须为 2.13.0')
+          print(f'FRB 2.13.0 content hash: {dart_hash[1]}')
           PY
       - name: 构建 Android release FFI（三 ABI）
         working-directory: rust
@@ -93,7 +90,7 @@ jobs:
           CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
           AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
         run: |
-          rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          rustup target add --toolchain stable aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
           NDK_SYS="$NDK_TOOLCHAIN/sysroot"
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
           cargo build --locked --release --target aarch64-linux-android -p legado-ffi --features quickjs
@@ -102,6 +99,7 @@ jobs:
           # 保留 P2-24 已裁决的 armv7 无 QuickJS 降级，不尝试 32 位 rar。
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/arm-linux-androideabi"
           cargo build --locked --release --target armv7-linux-androideabi -p legado-ffi
+          python3 scripts/verify-android-elf.py target/aarch64-linux-android/release/liblegado_ffi.so target/armv7-linux-androideabi/release/liblegado_ffi.so target/x86_64-linux-android/release/liblegado_ffi.so
       - name: 复制本次 release 动态库并记录元数据
         working-directory: rust
         run: |
@@ -138,7 +136,7 @@ jobs:
       - name: 校验本次 Android release FFI
         working-directory: rust
         run: bash scripts/verify-ffi-android.sh release "aarch64,armv7,x86_64"
-      # 直接使用仓库中固定为 2.11.1 的生成物，禁止构建后重新生成绑定。
+      # 直接使用仓库中固定为 2.13.0 的生成物，禁止构建后重新生成绑定。
       - name: 设置 Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -188,7 +186,7 @@ jobs:
           PY
       - name: 上传 APK 构建产物
         id: upload-apk
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-apk/*-release.apk
@@ -213,7 +211,7 @@ jobs:
             exit 1
           fi
       - name: 下载本次构建的 APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           artifact-ids: ${{ needs.build.outputs.artifact_id }}
           path: release-apk

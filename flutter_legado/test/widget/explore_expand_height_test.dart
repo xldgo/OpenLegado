@@ -11,7 +11,7 @@
 // 断言展开区「实际渲染高度非零」——即 chips 真的占空间，而非仅存在于 widget 树。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

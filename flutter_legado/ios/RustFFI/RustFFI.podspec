@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'GPL-3.0' }
   s.author           = { 'LegadoTeam' => 'legado@legado.team' }
   s.source           = { :path => '.' }
-  s.ios.deployment_target = '13.0'
+  s.ios.deployment_target = '15.0'
   s.static_framework = true
   s.source_files     = 'RustFFI.h'
   s.public_header_files = 'RustFFI.h'

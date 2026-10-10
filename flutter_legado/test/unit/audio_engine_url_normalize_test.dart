@@ -10,7 +10,7 @@
 //    非 http(s) 形态不做猜测性截断；
 // 2) AudioNotifier 合成链路确实把归一后的裸 URL 传给 audioSpeak（mock 断言）。
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'misc.dart';
@@ -9,46 +9,40 @@ part of 'misc.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
-
-SearchBook _$SearchBookFromJson(Map<String, dynamic> json) {
-  return _SearchBook.fromJson(json);
-}
 
 /// @nodoc
 mixin _$SearchBook {
   @JsonKey(name: 'bookUrl')
-  String get bookUrl => throw _privateConstructorUsedError;
-  String get origin => throw _privateConstructorUsedError;
+  String get bookUrl;
+  String get origin;
   @JsonKey(name: 'originName')
-  String get originName => throw _privateConstructorUsedError;
+  String get originName;
   @JsonKey(name: 'type')
-  int get bookType => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get author => throw _privateConstructorUsedError;
-  String? get kind => throw _privateConstructorUsedError;
+  int get bookType;
+  String get name;
+  String get author;
+  String? get kind;
   @JsonKey(name: 'coverUrl')
-  String? get coverUrl => throw _privateConstructorUsedError;
-  String? get intro => throw _privateConstructorUsedError;
+  String? get coverUrl;
+  String? get intro;
   @JsonKey(name: 'wordCount')
-  String? get wordCount => throw _privateConstructorUsedError;
+  String? get wordCount;
   @JsonKey(name: 'latestChapterTitle')
-  String? get latestChapterTitle => throw _privateConstructorUsedError;
+  String? get latestChapterTitle;
   @JsonKey(name: 'tocUrl')
-  String get tocUrl => throw _privateConstructorUsedError;
-  int get time => throw _privateConstructorUsedError;
-  String? get variable => throw _privateConstructorUsedError;
+  String get tocUrl;
+  int get time;
+  String? get variable;
   @JsonKey(name: 'originOrder')
-  int get originOrder => throw _privateConstructorUsedError;
+  int get originOrder;
   @JsonKey(name: 'chapterWordCountText')
-  String? get chapterWordCountText => throw _privateConstructorUsedError;
+  String? get chapterWordCountText;
   @JsonKey(name: 'chapterWordCount')
-  int get chapterWordCount => throw _privateConstructorUsedError;
+  int get chapterWordCount;
   @JsonKey(name: 'respondTime')
-  int get respondTime => throw _privateConstructorUsedError;
+  int get respondTime;
 
   /// 跨源聚合 origins 集合（队列⑩a P1-1 项2，2026-09-22 加法式字段）
   ///
@@ -58,194 +52,140 @@ mixin _$SearchBook {
   /// 消费：非空时优先作为有效 origins，空时回退 `{origin}` 现行行为
   /// （对齐 Rust 聚合模块 effectiveOrigins 规则，见 docs/API_CONTRACT.md）。
   @JsonKey(name: 'origins')
-  List<String> get origins => throw _privateConstructorUsedError;
+  List<String> get origins;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $SearchBookCopyWith<SearchBook> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $SearchBookCopyWith<$Res> {
-  factory $SearchBookCopyWith(
-          SearchBook value, $Res Function(SearchBook) then) =
-      _$SearchBookCopyWithImpl<$Res, SearchBook>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      String? intro,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      int time,
-      String? variable,
-      @JsonKey(name: 'originOrder') int originOrder,
-      @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
-      @JsonKey(name: 'chapterWordCount') int chapterWordCount,
-      @JsonKey(name: 'respondTime') int respondTime,
-      @JsonKey(name: 'origins') List<String> origins});
-}
-
-/// @nodoc
-class _$SearchBookCopyWithImpl<$Res, $Val extends SearchBook>
-    implements $SearchBookCopyWith<$Res> {
-  _$SearchBookCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of SearchBook
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $SearchBookCopyWith<SearchBook> get copyWith =>
+      _$SearchBookCopyWithImpl<SearchBook>(this as SearchBook, _$identity);
+
+  /// Serializes this SearchBook to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookUrl = null,
-    Object? origin = null,
-    Object? originName = null,
-    Object? bookType = null,
-    Object? name = null,
-    Object? author = null,
-    Object? kind = freezed,
-    Object? coverUrl = freezed,
-    Object? intro = freezed,
-    Object? wordCount = freezed,
-    Object? latestChapterTitle = freezed,
-    Object? tocUrl = null,
-    Object? time = null,
-    Object? variable = freezed,
-    Object? originOrder = null,
-    Object? chapterWordCountText = freezed,
-    Object? chapterWordCount = null,
-    Object? respondTime = null,
-    Object? origins = null,
-  }) {
-    return _then(_value.copyWith(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterWordCountText: freezed == chapterWordCountText
-          ? _value.chapterWordCountText
-          : chapterWordCountText // ignore: cast_nullable_to_non_nullable
-              as String?,
-      chapterWordCount: null == chapterWordCount
-          ? _value.chapterWordCount
-          : chapterWordCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      origins: null == origins
-          ? _value.origins
-          : origins // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as SearchBook;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is SearchBook &&
+            (identical(other.bookUrl, _this.bookUrl) ||
+                other.bookUrl == _this.bookUrl) &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.originName, _this.originName) ||
+                other.originName == _this.originName) &&
+            (identical(other.bookType, _this.bookType) ||
+                other.bookType == _this.bookType) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.author, _this.author) ||
+                other.author == _this.author) &&
+            (identical(other.kind, _this.kind) || other.kind == _this.kind) &&
+            (identical(other.coverUrl, _this.coverUrl) ||
+                other.coverUrl == _this.coverUrl) &&
+            (identical(other.intro, _this.intro) ||
+                other.intro == _this.intro) &&
+            (identical(other.wordCount, _this.wordCount) ||
+                other.wordCount == _this.wordCount) &&
+            (identical(other.latestChapterTitle, _this.latestChapterTitle) ||
+                other.latestChapterTitle == _this.latestChapterTitle) &&
+            (identical(other.tocUrl, _this.tocUrl) ||
+                other.tocUrl == _this.tocUrl) &&
+            (identical(other.time, _this.time) || other.time == _this.time) &&
+            (identical(other.variable, _this.variable) ||
+                other.variable == _this.variable) &&
+            (identical(other.originOrder, _this.originOrder) ||
+                other.originOrder == _this.originOrder) &&
+            (identical(
+                  other.chapterWordCountText,
+                  _this.chapterWordCountText,
+                ) ||
+                other.chapterWordCountText == _this.chapterWordCountText) &&
+            (identical(other.chapterWordCount, _this.chapterWordCount) ||
+                other.chapterWordCount == _this.chapterWordCount) &&
+            (identical(other.respondTime, _this.respondTime) ||
+                other.respondTime == _this.respondTime) &&
+            const DeepCollectionEquality().equals(
+              other.origins,
+              _this.origins,
+            ));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as SearchBook;
+    return Object.hashAll([
+      runtimeType,
+      _this.bookUrl,
+      _this.origin,
+      _this.originName,
+      _this.bookType,
+      _this.name,
+      _this.author,
+      _this.kind,
+      _this.coverUrl,
+      _this.intro,
+      _this.wordCount,
+      _this.latestChapterTitle,
+      _this.tocUrl,
+      _this.time,
+      _this.variable,
+      _this.originOrder,
+      _this.chapterWordCountText,
+      _this.chapterWordCount,
+      _this.respondTime,
+      const DeepCollectionEquality().hash(_this.origins),
+    ]);
+  }
+
+  @override
+  String toString() {
+    final _this = this as SearchBook;
+    return 'SearchBook(bookUrl: ${_this.bookUrl}, origin: ${_this.origin}, originName: ${_this.originName}, bookType: ${_this.bookType}, name: ${_this.name}, author: ${_this.author}, kind: ${_this.kind}, coverUrl: ${_this.coverUrl}, intro: ${_this.intro}, wordCount: ${_this.wordCount}, latestChapterTitle: ${_this.latestChapterTitle}, tocUrl: ${_this.tocUrl}, time: ${_this.time}, variable: ${_this.variable}, originOrder: ${_this.originOrder}, chapterWordCountText: ${_this.chapterWordCountText}, chapterWordCount: ${_this.chapterWordCount}, respondTime: ${_this.respondTime}, origins: ${_this.origins})';
   }
 }
 
 /// @nodoc
-abstract class _$$SearchBookImplCopyWith<$Res>
-    implements $SearchBookCopyWith<$Res> {
-  factory _$$SearchBookImplCopyWith(
-          _$SearchBookImpl value, $Res Function(_$SearchBookImpl) then) =
-      __$$SearchBookImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $SearchBookCopyWith<$Res> {
+  factory $SearchBookCopyWith(
+    SearchBook value,
+    $Res Function(SearchBook) _then,
+  ) = _$SearchBookCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      String? intro,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      int time,
-      String? variable,
-      @JsonKey(name: 'originOrder') int originOrder,
-      @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
-      @JsonKey(name: 'chapterWordCount') int chapterWordCount,
-      @JsonKey(name: 'respondTime') int respondTime,
-      @JsonKey(name: 'origins') List<String> origins});
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    String? intro,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    int time,
+    String? variable,
+    @JsonKey(name: 'originOrder') int originOrder,
+    @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
+    @JsonKey(name: 'chapterWordCount') int chapterWordCount,
+    @JsonKey(name: 'respondTime') int respondTime,
+    @JsonKey(name: 'origins') List<String> origins,
+  });
 }
 
 /// @nodoc
-class __$$SearchBookImplCopyWithImpl<$Res>
-    extends _$SearchBookCopyWithImpl<$Res, _$SearchBookImpl>
-    implements _$$SearchBookImplCopyWith<$Res> {
-  __$$SearchBookImplCopyWithImpl(
-      _$SearchBookImpl _value, $Res Function(_$SearchBookImpl) _then)
-      : super(_value, _then);
+class _$SearchBookCopyWithImpl<$Res> implements $SearchBookCopyWith<$Res> {
+  _$SearchBookCopyWithImpl(this._self, this._then);
 
+  final SearchBook _self;
+  final $Res Function(SearchBook) _then;
+
+  /// Create a copy of SearchBook
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -269,114 +209,395 @@ class __$$SearchBookImplCopyWithImpl<$Res>
     Object? respondTime = null,
     Object? origins = null,
   }) {
-    return _then(_$SearchBookImpl(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterWordCountText: freezed == chapterWordCountText
-          ? _value.chapterWordCountText
-          : chapterWordCountText // ignore: cast_nullable_to_non_nullable
-              as String?,
-      chapterWordCount: null == chapterWordCount
-          ? _value.chapterWordCount
-          : chapterWordCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      origins: null == origins
-          ? _value._origins
-          : origins // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ));
+    return _then(
+      SearchBook(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: freezed == kind
+            ? _self.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverUrl: freezed == coverUrl
+            ? _self.coverUrl
+            : coverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        intro: freezed == intro
+            ? _self.intro
+            : intro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestChapterTitle: freezed == latestChapterTitle
+            ? _self.latestChapterTitle
+            : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tocUrl: null == tocUrl
+            ? _self.tocUrl
+            : tocUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        time: null == time
+            ? _self.time
+            : time // ignore: cast_nullable_to_non_nullable
+                  as int,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        originOrder: null == originOrder
+            ? _self.originOrder
+            : originOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterWordCountText: freezed == chapterWordCountText
+            ? _self.chapterWordCountText
+            : chapterWordCountText // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        chapterWordCount: null == chapterWordCount
+            ? _self.chapterWordCount
+            : chapterWordCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        respondTime: null == respondTime
+            ? _self.respondTime
+            : respondTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        origins: null == origins
+            ? _self.origins
+            : origins // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [SearchBook].
+extension SearchBookPatterns on SearchBook {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_SearchBook value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_SearchBook value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_SearchBook value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      int time,
+      String? variable,
+      @JsonKey(name: 'originOrder') int originOrder,
+      @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
+      @JsonKey(name: 'chapterWordCount') int chapterWordCount,
+      @JsonKey(name: 'respondTime') int respondTime,
+      @JsonKey(name: 'origins') List<String> origins,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.time,
+          _that.variable,
+          _that.originOrder,
+          _that.chapterWordCountText,
+          _that.chapterWordCount,
+          _that.respondTime,
+          _that.origins,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      int time,
+      String? variable,
+      @JsonKey(name: 'originOrder') int originOrder,
+      @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
+      @JsonKey(name: 'chapterWordCount') int chapterWordCount,
+      @JsonKey(name: 'respondTime') int respondTime,
+      @JsonKey(name: 'origins') List<String> origins,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook():
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.time,
+          _that.variable,
+          _that.originOrder,
+          _that.chapterWordCountText,
+          _that.chapterWordCount,
+          _that.respondTime,
+          _that.origins,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      int time,
+      String? variable,
+      @JsonKey(name: 'originOrder') int originOrder,
+      @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
+      @JsonKey(name: 'chapterWordCount') int chapterWordCount,
+      @JsonKey(name: 'respondTime') int respondTime,
+      @JsonKey(name: 'origins') List<String> origins,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchBook() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.time,
+          _that.variable,
+          _that.originOrder,
+          _that.chapterWordCountText,
+          _that.chapterWordCount,
+          _that.respondTime,
+          _that.origins,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$SearchBookImpl implements _SearchBook {
-  const _$SearchBookImpl(
-      {@JsonKey(name: 'bookUrl') this.bookUrl = '',
-      this.origin = '',
-      @JsonKey(name: 'originName') this.originName = '',
-      @JsonKey(name: 'type') this.bookType = 0,
-      this.name = '',
-      this.author = '',
-      this.kind,
-      @JsonKey(name: 'coverUrl') this.coverUrl,
-      this.intro,
-      @JsonKey(name: 'wordCount') this.wordCount,
-      @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
-      @JsonKey(name: 'tocUrl') this.tocUrl = '',
-      this.time = 0,
-      this.variable,
-      @JsonKey(name: 'originOrder') this.originOrder = 0,
-      @JsonKey(name: 'chapterWordCountText') this.chapterWordCountText,
-      @JsonKey(name: 'chapterWordCount') this.chapterWordCount = -1,
-      @JsonKey(name: 'respondTime') this.respondTime = -1,
-      @JsonKey(name: 'origins') final List<String> origins = const []})
-      : _origins = origins;
-
-  factory _$SearchBookImpl.fromJson(Map<String, dynamic> json) =>
-      _$$SearchBookImplFromJson(json);
+class _SearchBook implements SearchBook {
+  const _SearchBook({
+    @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    this.origin = '',
+    @JsonKey(name: 'originName') this.originName = '',
+    @JsonKey(name: 'type') this.bookType = 0,
+    this.name = '',
+    this.author = '',
+    this.kind,
+    @JsonKey(name: 'coverUrl') this.coverUrl,
+    this.intro,
+    @JsonKey(name: 'wordCount') this.wordCount,
+    @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
+    @JsonKey(name: 'tocUrl') this.tocUrl = '',
+    this.time = 0,
+    this.variable,
+    @JsonKey(name: 'originOrder') this.originOrder = 0,
+    @JsonKey(name: 'chapterWordCountText') this.chapterWordCountText,
+    @JsonKey(name: 'chapterWordCount') this.chapterWordCount = -1,
+    @JsonKey(name: 'respondTime') this.respondTime = -1,
+    @JsonKey(name: 'origins') List<String> origins = const [],
+  }) : _origins = origins;
+  factory _SearchBook.fromJson(Map<String, dynamic> json) =>
+      _$SearchBookFromJson(json);
 
   @override
   @JsonKey(name: 'bookUrl')
@@ -454,16 +675,24 @@ class _$SearchBookImpl implements _SearchBook {
     return EqualUnmodifiableListView(_origins);
   }
 
+  /// Create a copy of SearchBook
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'SearchBook(bookUrl: $bookUrl, origin: $origin, originName: $originName, bookType: $bookType, name: $name, author: $author, kind: $kind, coverUrl: $coverUrl, intro: $intro, wordCount: $wordCount, latestChapterTitle: $latestChapterTitle, tocUrl: $tocUrl, time: $time, variable: $variable, originOrder: $originOrder, chapterWordCountText: $chapterWordCountText, chapterWordCount: $chapterWordCount, respondTime: $respondTime, origins: $origins)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$SearchBookCopyWith<_SearchBook> get copyWith =>
+      __$SearchBookCopyWithImpl<_SearchBook>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$SearchBookToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$SearchBookImpl &&
+            other is _SearchBook &&
             (identical(other.bookUrl, bookUrl) || other.bookUrl == bookUrl) &&
             (identical(other.origin, origin) || other.origin == origin) &&
             (identical(other.originName, originName) ||
@@ -492,320 +721,325 @@ class _$SearchBookImpl implements _SearchBook {
                 other.chapterWordCount == chapterWordCount) &&
             (identical(other.respondTime, respondTime) ||
                 other.respondTime == respondTime) &&
-            const DeepCollectionEquality().equals(other._origins, _origins));
+            const DeepCollectionEquality().equals(other.origins, _origins));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hashAll([
-        runtimeType,
-        bookUrl,
-        origin,
-        originName,
-        bookType,
-        name,
-        author,
-        kind,
-        coverUrl,
-        intro,
-        wordCount,
-        latestChapterTitle,
-        tocUrl,
-        time,
-        variable,
-        originOrder,
-        chapterWordCountText,
-        chapterWordCount,
-        respondTime,
-        const DeepCollectionEquality().hash(_origins)
-      ]);
+  int get hashCode {
+    return Object.hashAll([
+      runtimeType,
+      bookUrl,
+      origin,
+      originName,
+      bookType,
+      name,
+      author,
+      kind,
+      coverUrl,
+      intro,
+      wordCount,
+      latestChapterTitle,
+      tocUrl,
+      time,
+      variable,
+      originOrder,
+      chapterWordCountText,
+      chapterWordCount,
+      respondTime,
+      const DeepCollectionEquality().hash(_origins),
+    ]);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'SearchBook(bookUrl: $bookUrl, origin: $origin, originName: $originName, bookType: $bookType, name: $name, author: $author, kind: $kind, coverUrl: $coverUrl, intro: $intro, wordCount: $wordCount, latestChapterTitle: $latestChapterTitle, tocUrl: $tocUrl, time: $time, variable: $variable, originOrder: $originOrder, chapterWordCountText: $chapterWordCountText, chapterWordCount: $chapterWordCount, respondTime: $respondTime, origins: $origins)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$SearchBookCopyWith<$Res>
+    implements $SearchBookCopyWith<$Res> {
+  factory _$SearchBookCopyWith(
+    _SearchBook value,
+    $Res Function(_SearchBook) _then,
+  ) = __$SearchBookCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    String? intro,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    int time,
+    String? variable,
+    @JsonKey(name: 'originOrder') int originOrder,
+    @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
+    @JsonKey(name: 'chapterWordCount') int chapterWordCount,
+    @JsonKey(name: 'respondTime') int respondTime,
+    @JsonKey(name: 'origins') List<String> origins,
+  });
+}
+
+/// @nodoc
+class __$SearchBookCopyWithImpl<$Res> implements _$SearchBookCopyWith<$Res> {
+  __$SearchBookCopyWithImpl(this._self, this._then);
+
+  final _SearchBook _self;
+  final $Res Function(_SearchBook) _then;
+
+  /// Create a copy of SearchBook
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$SearchBookImplCopyWith<_$SearchBookImpl> get copyWith =>
-      __$$SearchBookImplCopyWithImpl<_$SearchBookImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$SearchBookImplToJson(
-      this,
+  $Res call({
+    Object? bookUrl = null,
+    Object? origin = null,
+    Object? originName = null,
+    Object? bookType = null,
+    Object? name = null,
+    Object? author = null,
+    Object? kind = freezed,
+    Object? coverUrl = freezed,
+    Object? intro = freezed,
+    Object? wordCount = freezed,
+    Object? latestChapterTitle = freezed,
+    Object? tocUrl = null,
+    Object? time = null,
+    Object? variable = freezed,
+    Object? originOrder = null,
+    Object? chapterWordCountText = freezed,
+    Object? chapterWordCount = null,
+    Object? respondTime = null,
+    Object? origins = null,
+  }) {
+    return _then(
+      _SearchBook(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: freezed == kind
+            ? _self.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverUrl: freezed == coverUrl
+            ? _self.coverUrl
+            : coverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        intro: freezed == intro
+            ? _self.intro
+            : intro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestChapterTitle: freezed == latestChapterTitle
+            ? _self.latestChapterTitle
+            : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tocUrl: null == tocUrl
+            ? _self.tocUrl
+            : tocUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        time: null == time
+            ? _self.time
+            : time // ignore: cast_nullable_to_non_nullable
+                  as int,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        originOrder: null == originOrder
+            ? _self.originOrder
+            : originOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterWordCountText: freezed == chapterWordCountText
+            ? _self.chapterWordCountText
+            : chapterWordCountText // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        chapterWordCount: null == chapterWordCount
+            ? _self.chapterWordCount
+            : chapterWordCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        respondTime: null == respondTime
+            ? _self.respondTime
+            : respondTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        origins: null == origins
+            ? _self._origins
+            : origins // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+      ),
     );
   }
 }
 
-abstract class _SearchBook implements SearchBook {
-  const factory _SearchBook(
-      {@JsonKey(name: 'bookUrl') final String bookUrl,
-      final String origin,
-      @JsonKey(name: 'originName') final String originName,
-      @JsonKey(name: 'type') final int bookType,
-      final String name,
-      final String author,
-      final String? kind,
-      @JsonKey(name: 'coverUrl') final String? coverUrl,
-      final String? intro,
-      @JsonKey(name: 'wordCount') final String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') final String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') final String tocUrl,
-      final int time,
-      final String? variable,
-      @JsonKey(name: 'originOrder') final int originOrder,
-      @JsonKey(name: 'chapterWordCountText') final String? chapterWordCountText,
-      @JsonKey(name: 'chapterWordCount') final int chapterWordCount,
-      @JsonKey(name: 'respondTime') final int respondTime,
-      @JsonKey(name: 'origins') final List<String> origins}) = _$SearchBookImpl;
-
-  factory _SearchBook.fromJson(Map<String, dynamic> json) =
-      _$SearchBookImpl.fromJson;
-
-  @override
-  @JsonKey(name: 'bookUrl')
-  String get bookUrl;
-  @override
-  String get origin;
-  @override
-  @JsonKey(name: 'originName')
-  String get originName;
-  @override
-  @JsonKey(name: 'type')
-  int get bookType;
-  @override
-  String get name;
-  @override
-  String get author;
-  @override
-  String? get kind;
-  @override
-  @JsonKey(name: 'coverUrl')
-  String? get coverUrl;
-  @override
-  String? get intro;
-  @override
-  @JsonKey(name: 'wordCount')
-  String? get wordCount;
-  @override
-  @JsonKey(name: 'latestChapterTitle')
-  String? get latestChapterTitle;
-  @override
-  @JsonKey(name: 'tocUrl')
-  String get tocUrl;
-  @override
-  int get time;
-  @override
-  String? get variable;
-  @override
-  @JsonKey(name: 'originOrder')
-  int get originOrder;
-  @override
-  @JsonKey(name: 'chapterWordCountText')
-  String? get chapterWordCountText;
-  @override
-  @JsonKey(name: 'chapterWordCount')
-  int get chapterWordCount;
-  @override
-  @JsonKey(name: 'respondTime')
-  int get respondTime;
-  @override
-
-  /// 跨源聚合 origins 集合（队列⑩a P1-1 项2，2026-09-22 加法式字段）
-  ///
-  /// Rust 侧 `CoreSearchBook.origins`（serde default + 空时省略序列化）：
-  /// 由跨源聚合入口产出（同名同作者跨源合并后累加的 origins，首次出现序）；
-  /// 既有流式批次 / 解析路径不填充（缺省空数组）。`SearchResult.fromSearchBook`
-  /// 消费：非空时优先作为有效 origins，空时回退 `{origin}` 现行行为
-  /// （对齐 Rust 聚合模块 effectiveOrigins 规则，见 docs/API_CONTRACT.md）。
-  @JsonKey(name: 'origins')
-  List<String> get origins;
-  @override
-  @JsonKey(ignore: true)
-  _$$SearchBookImplCopyWith<_$SearchBookImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-ReplaceRule _$ReplaceRuleFromJson(Map<String, dynamic> json) {
-  return _ReplaceRule.fromJson(json);
-}
-
 /// @nodoc
 mixin _$ReplaceRule {
-  int get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String? get group => throw _privateConstructorUsedError;
-  String get pattern => throw _privateConstructorUsedError;
-  String get replacement => throw _privateConstructorUsedError;
-  String? get scope => throw _privateConstructorUsedError;
+  int get id;
+  String get name;
+  String? get group;
+  String get pattern;
+  String get replacement;
+  String? get scope;
   @JsonKey(name: 'scopeTitle')
-  bool get scopeTitle => throw _privateConstructorUsedError;
+  bool get scopeTitle;
   @JsonKey(name: 'scopeContent')
-  bool get scopeContent => throw _privateConstructorUsedError;
+  bool get scopeContent;
 
   /// 书源作用域开关（对齐原版 `ReplaceRule.scopeSource`，默认 false）：
   /// 书源导入时按源名/源 URL 匹配 scope 后对整源 JSON 应用替换
   @JsonKey(name: 'scopeSource')
-  bool get scopeSource => throw _privateConstructorUsedError;
+  bool get scopeSource;
   @JsonKey(name: 'excludeScope')
-  String? get excludeScope => throw _privateConstructorUsedError;
+  String? get excludeScope;
   @JsonKey(name: 'isEnabled')
-  bool get isEnabled => throw _privateConstructorUsedError;
+  bool get isEnabled;
   @JsonKey(name: 'isRegex')
-  bool get isRegex => throw _privateConstructorUsedError;
+  bool get isRegex;
   @JsonKey(name: 'timeoutMillisecond')
-  int get timeoutMillisecond => throw _privateConstructorUsedError;
+  int get timeoutMillisecond;
   @JsonKey(name: 'sortOrder')
-  int get order => throw _privateConstructorUsedError;
+  int get order;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ReplaceRuleCopyWith<ReplaceRule> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ReplaceRuleCopyWith<$Res> {
-  factory $ReplaceRuleCopyWith(
-          ReplaceRule value, $Res Function(ReplaceRule) then) =
-      _$ReplaceRuleCopyWithImpl<$Res, ReplaceRule>;
-  @useResult
-  $Res call(
-      {int id,
-      String name,
-      String? group,
-      String pattern,
-      String replacement,
-      String? scope,
-      @JsonKey(name: 'scopeTitle') bool scopeTitle,
-      @JsonKey(name: 'scopeContent') bool scopeContent,
-      @JsonKey(name: 'scopeSource') bool scopeSource,
-      @JsonKey(name: 'excludeScope') String? excludeScope,
-      @JsonKey(name: 'isEnabled') bool isEnabled,
-      @JsonKey(name: 'isRegex') bool isRegex,
-      @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
-      @JsonKey(name: 'sortOrder') int order});
-}
-
-/// @nodoc
-class _$ReplaceRuleCopyWithImpl<$Res, $Val extends ReplaceRule>
-    implements $ReplaceRuleCopyWith<$Res> {
-  _$ReplaceRuleCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of ReplaceRule
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $ReplaceRuleCopyWith<ReplaceRule> get copyWith =>
+      _$ReplaceRuleCopyWithImpl<ReplaceRule>(this as ReplaceRule, _$identity);
+
+  /// Serializes this ReplaceRule to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? group = freezed,
-    Object? pattern = null,
-    Object? replacement = null,
-    Object? scope = freezed,
-    Object? scopeTitle = null,
-    Object? scopeContent = null,
-    Object? scopeSource = null,
-    Object? excludeScope = freezed,
-    Object? isEnabled = null,
-    Object? isRegex = null,
-    Object? timeoutMillisecond = null,
-    Object? order = null,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      group: freezed == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String?,
-      pattern: null == pattern
-          ? _value.pattern
-          : pattern // ignore: cast_nullable_to_non_nullable
-              as String,
-      replacement: null == replacement
-          ? _value.replacement
-          : replacement // ignore: cast_nullable_to_non_nullable
-              as String,
-      scope: freezed == scope
-          ? _value.scope
-          : scope // ignore: cast_nullable_to_non_nullable
-              as String?,
-      scopeTitle: null == scopeTitle
-          ? _value.scopeTitle
-          : scopeTitle // ignore: cast_nullable_to_non_nullable
-              as bool,
-      scopeContent: null == scopeContent
-          ? _value.scopeContent
-          : scopeContent // ignore: cast_nullable_to_non_nullable
-              as bool,
-      scopeSource: null == scopeSource
-          ? _value.scopeSource
-          : scopeSource // ignore: cast_nullable_to_non_nullable
-              as bool,
-      excludeScope: freezed == excludeScope
-          ? _value.excludeScope
-          : excludeScope // ignore: cast_nullable_to_non_nullable
-              as String?,
-      isEnabled: null == isEnabled
-          ? _value.isEnabled
-          : isEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isRegex: null == isRegex
-          ? _value.isRegex
-          : isRegex // ignore: cast_nullable_to_non_nullable
-              as bool,
-      timeoutMillisecond: null == timeoutMillisecond
-          ? _value.timeoutMillisecond
-          : timeoutMillisecond // ignore: cast_nullable_to_non_nullable
-              as int,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as ReplaceRule;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is ReplaceRule &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.group, _this.group) ||
+                other.group == _this.group) &&
+            (identical(other.pattern, _this.pattern) ||
+                other.pattern == _this.pattern) &&
+            (identical(other.replacement, _this.replacement) ||
+                other.replacement == _this.replacement) &&
+            (identical(other.scope, _this.scope) ||
+                other.scope == _this.scope) &&
+            (identical(other.scopeTitle, _this.scopeTitle) ||
+                other.scopeTitle == _this.scopeTitle) &&
+            (identical(other.scopeContent, _this.scopeContent) ||
+                other.scopeContent == _this.scopeContent) &&
+            (identical(other.scopeSource, _this.scopeSource) ||
+                other.scopeSource == _this.scopeSource) &&
+            (identical(other.excludeScope, _this.excludeScope) ||
+                other.excludeScope == _this.excludeScope) &&
+            (identical(other.isEnabled, _this.isEnabled) ||
+                other.isEnabled == _this.isEnabled) &&
+            (identical(other.isRegex, _this.isRegex) ||
+                other.isRegex == _this.isRegex) &&
+            (identical(other.timeoutMillisecond, _this.timeoutMillisecond) ||
+                other.timeoutMillisecond == _this.timeoutMillisecond) &&
+            (identical(other.order, _this.order) ||
+                other.order == _this.order));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as ReplaceRule;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.name,
+      _this.group,
+      _this.pattern,
+      _this.replacement,
+      _this.scope,
+      _this.scopeTitle,
+      _this.scopeContent,
+      _this.scopeSource,
+      _this.excludeScope,
+      _this.isEnabled,
+      _this.isRegex,
+      _this.timeoutMillisecond,
+      _this.order,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as ReplaceRule;
+    return 'ReplaceRule(id: ${_this.id}, name: ${_this.name}, group: ${_this.group}, pattern: ${_this.pattern}, replacement: ${_this.replacement}, scope: ${_this.scope}, scopeTitle: ${_this.scopeTitle}, scopeContent: ${_this.scopeContent}, scopeSource: ${_this.scopeSource}, excludeScope: ${_this.excludeScope}, isEnabled: ${_this.isEnabled}, isRegex: ${_this.isRegex}, timeoutMillisecond: ${_this.timeoutMillisecond}, order: ${_this.order})';
   }
 }
 
 /// @nodoc
-abstract class _$$ReplaceRuleImplCopyWith<$Res>
-    implements $ReplaceRuleCopyWith<$Res> {
-  factory _$$ReplaceRuleImplCopyWith(
-          _$ReplaceRuleImpl value, $Res Function(_$ReplaceRuleImpl) then) =
-      __$$ReplaceRuleImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $ReplaceRuleCopyWith<$Res> {
+  factory $ReplaceRuleCopyWith(
+    ReplaceRule value,
+    $Res Function(ReplaceRule) _then,
+  ) = _$ReplaceRuleCopyWithImpl;
   @useResult
-  $Res call(
-      {int id,
-      String name,
-      String? group,
-      String pattern,
-      String replacement,
-      String? scope,
-      @JsonKey(name: 'scopeTitle') bool scopeTitle,
-      @JsonKey(name: 'scopeContent') bool scopeContent,
-      @JsonKey(name: 'scopeSource') bool scopeSource,
-      @JsonKey(name: 'excludeScope') String? excludeScope,
-      @JsonKey(name: 'isEnabled') bool isEnabled,
-      @JsonKey(name: 'isRegex') bool isRegex,
-      @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
-      @JsonKey(name: 'sortOrder') int order});
+  $Res call({
+    int id,
+    String name,
+    String? group,
+    String pattern,
+    String replacement,
+    String? scope,
+    @JsonKey(name: 'scopeTitle') bool scopeTitle,
+    @JsonKey(name: 'scopeContent') bool scopeContent,
+    @JsonKey(name: 'scopeSource') bool scopeSource,
+    @JsonKey(name: 'excludeScope') String? excludeScope,
+    @JsonKey(name: 'isEnabled') bool isEnabled,
+    @JsonKey(name: 'isRegex') bool isRegex,
+    @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
+    @JsonKey(name: 'sortOrder') int order,
+  });
 }
 
 /// @nodoc
-class __$$ReplaceRuleImplCopyWithImpl<$Res>
-    extends _$ReplaceRuleCopyWithImpl<$Res, _$ReplaceRuleImpl>
-    implements _$$ReplaceRuleImplCopyWith<$Res> {
-  __$$ReplaceRuleImplCopyWithImpl(
-      _$ReplaceRuleImpl _value, $Res Function(_$ReplaceRuleImpl) _then)
-      : super(_value, _then);
+class _$ReplaceRuleCopyWithImpl<$Res> implements $ReplaceRuleCopyWith<$Res> {
+  _$ReplaceRuleCopyWithImpl(this._self, this._then);
 
+  final ReplaceRule _self;
+  final $Res Function(ReplaceRule) _then;
+
+  /// Create a copy of ReplaceRule
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -824,88 +1058,340 @@ class __$$ReplaceRuleImplCopyWithImpl<$Res>
     Object? timeoutMillisecond = null,
     Object? order = null,
   }) {
-    return _then(_$ReplaceRuleImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      group: freezed == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String?,
-      pattern: null == pattern
-          ? _value.pattern
-          : pattern // ignore: cast_nullable_to_non_nullable
-              as String,
-      replacement: null == replacement
-          ? _value.replacement
-          : replacement // ignore: cast_nullable_to_non_nullable
-              as String,
-      scope: freezed == scope
-          ? _value.scope
-          : scope // ignore: cast_nullable_to_non_nullable
-              as String?,
-      scopeTitle: null == scopeTitle
-          ? _value.scopeTitle
-          : scopeTitle // ignore: cast_nullable_to_non_nullable
-              as bool,
-      scopeContent: null == scopeContent
-          ? _value.scopeContent
-          : scopeContent // ignore: cast_nullable_to_non_nullable
-              as bool,
-      scopeSource: null == scopeSource
-          ? _value.scopeSource
-          : scopeSource // ignore: cast_nullable_to_non_nullable
-              as bool,
-      excludeScope: freezed == excludeScope
-          ? _value.excludeScope
-          : excludeScope // ignore: cast_nullable_to_non_nullable
-              as String?,
-      isEnabled: null == isEnabled
-          ? _value.isEnabled
-          : isEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isRegex: null == isRegex
-          ? _value.isRegex
-          : isRegex // ignore: cast_nullable_to_non_nullable
-              as bool,
-      timeoutMillisecond: null == timeoutMillisecond
-          ? _value.timeoutMillisecond
-          : timeoutMillisecond // ignore: cast_nullable_to_non_nullable
-              as int,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      ReplaceRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        group: freezed == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        pattern: null == pattern
+            ? _self.pattern
+            : pattern // ignore: cast_nullable_to_non_nullable
+                  as String,
+        replacement: null == replacement
+            ? _self.replacement
+            : replacement // ignore: cast_nullable_to_non_nullable
+                  as String,
+        scope: freezed == scope
+            ? _self.scope
+            : scope // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        scopeTitle: null == scopeTitle
+            ? _self.scopeTitle
+            : scopeTitle // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        scopeContent: null == scopeContent
+            ? _self.scopeContent
+            : scopeContent // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        scopeSource: null == scopeSource
+            ? _self.scopeSource
+            : scopeSource // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        excludeScope: freezed == excludeScope
+            ? _self.excludeScope
+            : excludeScope // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isRegex: null == isRegex
+            ? _self.isRegex
+            : isRegex // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        timeoutMillisecond: null == timeoutMillisecond
+            ? _self.timeoutMillisecond
+            : timeoutMillisecond // ignore: cast_nullable_to_non_nullable
+                  as int,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [ReplaceRule].
+extension ReplaceRulePatterns on ReplaceRule {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_ReplaceRule value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_ReplaceRule value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_ReplaceRule value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String? group,
+      String pattern,
+      String replacement,
+      String? scope,
+      @JsonKey(name: 'scopeTitle') bool scopeTitle,
+      @JsonKey(name: 'scopeContent') bool scopeContent,
+      @JsonKey(name: 'scopeSource') bool scopeSource,
+      @JsonKey(name: 'excludeScope') String? excludeScope,
+      @JsonKey(name: 'isEnabled') bool isEnabled,
+      @JsonKey(name: 'isRegex') bool isRegex,
+      @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
+      @JsonKey(name: 'sortOrder') int order,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.group,
+          _that.pattern,
+          _that.replacement,
+          _that.scope,
+          _that.scopeTitle,
+          _that.scopeContent,
+          _that.scopeSource,
+          _that.excludeScope,
+          _that.isEnabled,
+          _that.isRegex,
+          _that.timeoutMillisecond,
+          _that.order,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String? group,
+      String pattern,
+      String replacement,
+      String? scope,
+      @JsonKey(name: 'scopeTitle') bool scopeTitle,
+      @JsonKey(name: 'scopeContent') bool scopeContent,
+      @JsonKey(name: 'scopeSource') bool scopeSource,
+      @JsonKey(name: 'excludeScope') String? excludeScope,
+      @JsonKey(name: 'isEnabled') bool isEnabled,
+      @JsonKey(name: 'isRegex') bool isRegex,
+      @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
+      @JsonKey(name: 'sortOrder') int order,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule():
+        return $default(
+          _that.id,
+          _that.name,
+          _that.group,
+          _that.pattern,
+          _that.replacement,
+          _that.scope,
+          _that.scopeTitle,
+          _that.scopeContent,
+          _that.scopeSource,
+          _that.excludeScope,
+          _that.isEnabled,
+          _that.isRegex,
+          _that.timeoutMillisecond,
+          _that.order,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      int id,
+      String name,
+      String? group,
+      String pattern,
+      String replacement,
+      String? scope,
+      @JsonKey(name: 'scopeTitle') bool scopeTitle,
+      @JsonKey(name: 'scopeContent') bool scopeContent,
+      @JsonKey(name: 'scopeSource') bool scopeSource,
+      @JsonKey(name: 'excludeScope') String? excludeScope,
+      @JsonKey(name: 'isEnabled') bool isEnabled,
+      @JsonKey(name: 'isRegex') bool isRegex,
+      @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
+      @JsonKey(name: 'sortOrder') int order,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.group,
+          _that.pattern,
+          _that.replacement,
+          _that.scope,
+          _that.scopeTitle,
+          _that.scopeContent,
+          _that.scopeSource,
+          _that.excludeScope,
+          _that.isEnabled,
+          _that.isRegex,
+          _that.timeoutMillisecond,
+          _that.order,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$ReplaceRuleImpl implements _ReplaceRule {
-  const _$ReplaceRuleImpl(
-      {this.id = 0,
-      this.name = '',
-      this.group,
-      this.pattern = '',
-      this.replacement = '',
-      this.scope,
-      @JsonKey(name: 'scopeTitle') this.scopeTitle = false,
-      @JsonKey(name: 'scopeContent') this.scopeContent = true,
-      @JsonKey(name: 'scopeSource') this.scopeSource = false,
-      @JsonKey(name: 'excludeScope') this.excludeScope,
-      @JsonKey(name: 'isEnabled') this.isEnabled = true,
-      @JsonKey(name: 'isRegex') this.isRegex = true,
-      @JsonKey(name: 'timeoutMillisecond') this.timeoutMillisecond = 3000,
-      @JsonKey(name: 'sortOrder') this.order = 0});
-
-  factory _$ReplaceRuleImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ReplaceRuleImplFromJson(json);
+class _ReplaceRule implements ReplaceRule {
+  const _ReplaceRule({
+    this.id = 0,
+    this.name = '',
+    this.group,
+    this.pattern = '',
+    this.replacement = '',
+    this.scope,
+    @JsonKey(name: 'scopeTitle') this.scopeTitle = false,
+    @JsonKey(name: 'scopeContent') this.scopeContent = true,
+    @JsonKey(name: 'scopeSource') this.scopeSource = false,
+    @JsonKey(name: 'excludeScope') this.excludeScope,
+    @JsonKey(name: 'isEnabled') this.isEnabled = true,
+    @JsonKey(name: 'isRegex') this.isRegex = true,
+    @JsonKey(name: 'timeoutMillisecond') this.timeoutMillisecond = 3000,
+    @JsonKey(name: 'sortOrder') this.order = 0,
+  });
+  factory _ReplaceRule.fromJson(Map<String, dynamic> json) =>
+      _$ReplaceRuleFromJson(json);
 
   @override
   @JsonKey()
@@ -951,16 +1437,24 @@ class _$ReplaceRuleImpl implements _ReplaceRule {
   @JsonKey(name: 'sortOrder')
   final int order;
 
+  /// Create a copy of ReplaceRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'ReplaceRule(id: $id, name: $name, group: $group, pattern: $pattern, replacement: $replacement, scope: $scope, scopeTitle: $scopeTitle, scopeContent: $scopeContent, scopeSource: $scopeSource, excludeScope: $excludeScope, isEnabled: $isEnabled, isRegex: $isRegex, timeoutMillisecond: $timeoutMillisecond, order: $order)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ReplaceRuleCopyWith<_ReplaceRule> get copyWith =>
+      __$ReplaceRuleCopyWithImpl<_ReplaceRule>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$ReplaceRuleToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ReplaceRuleImpl &&
+            other is _ReplaceRule &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.group, group) || other.group == group) &&
@@ -984,9 +1478,10 @@ class _$ReplaceRuleImpl implements _ReplaceRule {
             (identical(other.order, order) || other.order == order));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       id,
       name,
@@ -1001,257 +1496,259 @@ class _$ReplaceRuleImpl implements _ReplaceRule {
       isEnabled,
       isRegex,
       timeoutMillisecond,
-      order);
+      order,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'ReplaceRule(id: $id, name: $name, group: $group, pattern: $pattern, replacement: $replacement, scope: $scope, scopeTitle: $scopeTitle, scopeContent: $scopeContent, scopeSource: $scopeSource, excludeScope: $excludeScope, isEnabled: $isEnabled, isRegex: $isRegex, timeoutMillisecond: $timeoutMillisecond, order: $order)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$ReplaceRuleCopyWith<$Res>
+    implements $ReplaceRuleCopyWith<$Res> {
+  factory _$ReplaceRuleCopyWith(
+    _ReplaceRule value,
+    $Res Function(_ReplaceRule) _then,
+  ) = __$ReplaceRuleCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    int id,
+    String name,
+    String? group,
+    String pattern,
+    String replacement,
+    String? scope,
+    @JsonKey(name: 'scopeTitle') bool scopeTitle,
+    @JsonKey(name: 'scopeContent') bool scopeContent,
+    @JsonKey(name: 'scopeSource') bool scopeSource,
+    @JsonKey(name: 'excludeScope') String? excludeScope,
+    @JsonKey(name: 'isEnabled') bool isEnabled,
+    @JsonKey(name: 'isRegex') bool isRegex,
+    @JsonKey(name: 'timeoutMillisecond') int timeoutMillisecond,
+    @JsonKey(name: 'sortOrder') int order,
+  });
+}
+
+/// @nodoc
+class __$ReplaceRuleCopyWithImpl<$Res> implements _$ReplaceRuleCopyWith<$Res> {
+  __$ReplaceRuleCopyWithImpl(this._self, this._then);
+
+  final _ReplaceRule _self;
+  final $Res Function(_ReplaceRule) _then;
+
+  /// Create a copy of ReplaceRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$ReplaceRuleImplCopyWith<_$ReplaceRuleImpl> get copyWith =>
-      __$$ReplaceRuleImplCopyWithImpl<_$ReplaceRuleImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ReplaceRuleImplToJson(
-      this,
+  $Res call({
+    Object? id = null,
+    Object? name = null,
+    Object? group = freezed,
+    Object? pattern = null,
+    Object? replacement = null,
+    Object? scope = freezed,
+    Object? scopeTitle = null,
+    Object? scopeContent = null,
+    Object? scopeSource = null,
+    Object? excludeScope = freezed,
+    Object? isEnabled = null,
+    Object? isRegex = null,
+    Object? timeoutMillisecond = null,
+    Object? order = null,
+  }) {
+    return _then(
+      _ReplaceRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        group: freezed == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        pattern: null == pattern
+            ? _self.pattern
+            : pattern // ignore: cast_nullable_to_non_nullable
+                  as String,
+        replacement: null == replacement
+            ? _self.replacement
+            : replacement // ignore: cast_nullable_to_non_nullable
+                  as String,
+        scope: freezed == scope
+            ? _self.scope
+            : scope // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        scopeTitle: null == scopeTitle
+            ? _self.scopeTitle
+            : scopeTitle // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        scopeContent: null == scopeContent
+            ? _self.scopeContent
+            : scopeContent // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        scopeSource: null == scopeSource
+            ? _self.scopeSource
+            : scopeSource // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        excludeScope: freezed == excludeScope
+            ? _self.excludeScope
+            : excludeScope // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isRegex: null == isRegex
+            ? _self.isRegex
+            : isRegex // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        timeoutMillisecond: null == timeoutMillisecond
+            ? _self.timeoutMillisecond
+            : timeoutMillisecond // ignore: cast_nullable_to_non_nullable
+                  as int,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _ReplaceRule implements ReplaceRule {
-  const factory _ReplaceRule(
-      {final int id,
-      final String name,
-      final String? group,
-      final String pattern,
-      final String replacement,
-      final String? scope,
-      @JsonKey(name: 'scopeTitle') final bool scopeTitle,
-      @JsonKey(name: 'scopeContent') final bool scopeContent,
-      @JsonKey(name: 'scopeSource') final bool scopeSource,
-      @JsonKey(name: 'excludeScope') final String? excludeScope,
-      @JsonKey(name: 'isEnabled') final bool isEnabled,
-      @JsonKey(name: 'isRegex') final bool isRegex,
-      @JsonKey(name: 'timeoutMillisecond') final int timeoutMillisecond,
-      @JsonKey(name: 'sortOrder') final int order}) = _$ReplaceRuleImpl;
-
-  factory _ReplaceRule.fromJson(Map<String, dynamic> json) =
-      _$ReplaceRuleImpl.fromJson;
-
-  @override
-  int get id;
-  @override
-  String get name;
-  @override
-  String? get group;
-  @override
-  String get pattern;
-  @override
-  String get replacement;
-  @override
-  String? get scope;
-  @override
-  @JsonKey(name: 'scopeTitle')
-  bool get scopeTitle;
-  @override
-  @JsonKey(name: 'scopeContent')
-  bool get scopeContent;
-  @override
-
-  /// 书源作用域开关（对齐原版 `ReplaceRule.scopeSource`，默认 false）：
-  /// 书源导入时按源名/源 URL 匹配 scope 后对整源 JSON 应用替换
-  @JsonKey(name: 'scopeSource')
-  bool get scopeSource;
-  @override
-  @JsonKey(name: 'excludeScope')
-  String? get excludeScope;
-  @override
-  @JsonKey(name: 'isEnabled')
-  bool get isEnabled;
-  @override
-  @JsonKey(name: 'isRegex')
-  bool get isRegex;
-  @override
-  @JsonKey(name: 'timeoutMillisecond')
-  int get timeoutMillisecond;
-  @override
-  @JsonKey(name: 'sortOrder')
-  int get order;
-  @override
-  @JsonKey(ignore: true)
-  _$$ReplaceRuleImplCopyWith<_$ReplaceRuleImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-HttpTts _$HttpTtsFromJson(Map<String, dynamic> json) {
-  return _HttpTts.fromJson(json);
-}
-
 /// @nodoc
 mixin _$HttpTts {
-  int get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get url => throw _privateConstructorUsedError;
+  int get id;
+  String get name;
+  String get url;
   @JsonKey(name: 'contentType')
-  String? get contentType => throw _privateConstructorUsedError;
+  String? get contentType;
   @JsonKey(name: 'pauseDuration')
-  int get pauseDuration => throw _privateConstructorUsedError;
+  int get pauseDuration;
   @JsonKey(name: 'concurrentRate')
-  String? get concurrentRate => throw _privateConstructorUsedError;
+  String? get concurrentRate;
   @JsonKey(name: 'loginUrl')
-  String? get loginUrl => throw _privateConstructorUsedError;
+  String? get loginUrl;
   @JsonKey(name: 'loginUi')
-  String? get loginUi => throw _privateConstructorUsedError;
-  String? get header => throw _privateConstructorUsedError;
+  String? get loginUi;
+  String? get header;
   @JsonKey(name: 'jsLib')
-  String? get jsLib => throw _privateConstructorUsedError;
+  String? get jsLib;
   @JsonKey(name: 'enabledCookieJar')
-  bool? get enabledCookieJar => throw _privateConstructorUsedError;
+  bool? get enabledCookieJar;
   @JsonKey(name: 'loginCheckJs')
-  String? get loginCheckJs => throw _privateConstructorUsedError;
+  String? get loginCheckJs;
   @JsonKey(name: 'lastUpdateTime')
-  int get lastUpdateTime => throw _privateConstructorUsedError;
+  int get lastUpdateTime;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $HttpTtsCopyWith<HttpTts> get copyWith => throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $HttpTtsCopyWith<$Res> {
-  factory $HttpTtsCopyWith(HttpTts value, $Res Function(HttpTts) then) =
-      _$HttpTtsCopyWithImpl<$Res, HttpTts>;
-  @useResult
-  $Res call(
-      {int id,
-      String name,
-      String url,
-      @JsonKey(name: 'contentType') String? contentType,
-      @JsonKey(name: 'pauseDuration') int pauseDuration,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      String? header,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime});
-}
-
-/// @nodoc
-class _$HttpTtsCopyWithImpl<$Res, $Val extends HttpTts>
-    implements $HttpTtsCopyWith<$Res> {
-  _$HttpTtsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of HttpTts
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $HttpTtsCopyWith<HttpTts> get copyWith =>
+      _$HttpTtsCopyWithImpl<HttpTts>(this as HttpTts, _$identity);
+
+  /// Serializes this HttpTts to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? url = null,
-    Object? contentType = freezed,
-    Object? pauseDuration = null,
-    Object? concurrentRate = freezed,
-    Object? loginUrl = freezed,
-    Object? loginUi = freezed,
-    Object? header = freezed,
-    Object? jsLib = freezed,
-    Object? enabledCookieJar = freezed,
-    Object? loginCheckJs = freezed,
-    Object? lastUpdateTime = null,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      contentType: freezed == contentType
-          ? _value.contentType
-          : contentType // ignore: cast_nullable_to_non_nullable
-              as String?,
-      pauseDuration: null == pauseDuration
-          ? _value.pauseDuration
-          : pauseDuration // ignore: cast_nullable_to_non_nullable
-              as int,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: freezed == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as HttpTts;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is HttpTts &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.url, _this.url) || other.url == _this.url) &&
+            (identical(other.contentType, _this.contentType) ||
+                other.contentType == _this.contentType) &&
+            (identical(other.pauseDuration, _this.pauseDuration) ||
+                other.pauseDuration == _this.pauseDuration) &&
+            (identical(other.concurrentRate, _this.concurrentRate) ||
+                other.concurrentRate == _this.concurrentRate) &&
+            (identical(other.loginUrl, _this.loginUrl) ||
+                other.loginUrl == _this.loginUrl) &&
+            (identical(other.loginUi, _this.loginUi) ||
+                other.loginUi == _this.loginUi) &&
+            (identical(other.header, _this.header) ||
+                other.header == _this.header) &&
+            (identical(other.jsLib, _this.jsLib) ||
+                other.jsLib == _this.jsLib) &&
+            (identical(other.enabledCookieJar, _this.enabledCookieJar) ||
+                other.enabledCookieJar == _this.enabledCookieJar) &&
+            (identical(other.loginCheckJs, _this.loginCheckJs) ||
+                other.loginCheckJs == _this.loginCheckJs) &&
+            (identical(other.lastUpdateTime, _this.lastUpdateTime) ||
+                other.lastUpdateTime == _this.lastUpdateTime));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as HttpTts;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.name,
+      _this.url,
+      _this.contentType,
+      _this.pauseDuration,
+      _this.concurrentRate,
+      _this.loginUrl,
+      _this.loginUi,
+      _this.header,
+      _this.jsLib,
+      _this.enabledCookieJar,
+      _this.loginCheckJs,
+      _this.lastUpdateTime,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as HttpTts;
+    return 'HttpTts(id: ${_this.id}, name: ${_this.name}, url: ${_this.url}, contentType: ${_this.contentType}, pauseDuration: ${_this.pauseDuration}, concurrentRate: ${_this.concurrentRate}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, header: ${_this.header}, jsLib: ${_this.jsLib}, enabledCookieJar: ${_this.enabledCookieJar}, loginCheckJs: ${_this.loginCheckJs}, lastUpdateTime: ${_this.lastUpdateTime})';
   }
 }
 
 /// @nodoc
-abstract class _$$HttpTtsImplCopyWith<$Res> implements $HttpTtsCopyWith<$Res> {
-  factory _$$HttpTtsImplCopyWith(
-          _$HttpTtsImpl value, $Res Function(_$HttpTtsImpl) then) =
-      __$$HttpTtsImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $HttpTtsCopyWith<$Res> {
+  factory $HttpTtsCopyWith(HttpTts value, $Res Function(HttpTts) _then) =
+      _$HttpTtsCopyWithImpl;
   @useResult
-  $Res call(
-      {int id,
-      String name,
-      String url,
-      @JsonKey(name: 'contentType') String? contentType,
-      @JsonKey(name: 'pauseDuration') int pauseDuration,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      String? header,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime});
+  $Res call({
+    int id,
+    String name,
+    String url,
+    @JsonKey(name: 'contentType') String? contentType,
+    @JsonKey(name: 'pauseDuration') int pauseDuration,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    String? header,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+  });
 }
 
 /// @nodoc
-class __$$HttpTtsImplCopyWithImpl<$Res>
-    extends _$HttpTtsCopyWithImpl<$Res, _$HttpTtsImpl>
-    implements _$$HttpTtsImplCopyWith<$Res> {
-  __$$HttpTtsImplCopyWithImpl(
-      _$HttpTtsImpl _value, $Res Function(_$HttpTtsImpl) _then)
-      : super(_value, _then);
+class _$HttpTtsCopyWithImpl<$Res> implements $HttpTtsCopyWith<$Res> {
+  _$HttpTtsCopyWithImpl(this._self, this._then);
 
+  final HttpTts _self;
+  final $Res Function(HttpTts) _then;
+
+  /// Create a copy of HttpTts
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1269,83 +1766,329 @@ class __$$HttpTtsImplCopyWithImpl<$Res>
     Object? loginCheckJs = freezed,
     Object? lastUpdateTime = null,
   }) {
-    return _then(_$HttpTtsImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      contentType: freezed == contentType
-          ? _value.contentType
-          : contentType // ignore: cast_nullable_to_non_nullable
-              as String?,
-      pauseDuration: null == pauseDuration
-          ? _value.pauseDuration
-          : pauseDuration // ignore: cast_nullable_to_non_nullable
-              as int,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: freezed == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      HttpTts(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        contentType: freezed == contentType
+            ? _self.contentType
+            : contentType // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        pauseDuration: null == pauseDuration
+            ? _self.pauseDuration
+            : pauseDuration // ignore: cast_nullable_to_non_nullable
+                  as int,
+        concurrentRate: freezed == concurrentRate
+            ? _self.concurrentRate
+            : concurrentRate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUrl: freezed == loginUrl
+            ? _self.loginUrl
+            : loginUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUi: freezed == loginUi
+            ? _self.loginUi
+            : loginUi // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        header: freezed == header
+            ? _self.header
+            : header // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        jsLib: freezed == jsLib
+            ? _self.jsLib
+            : jsLib // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        enabledCookieJar: freezed == enabledCookieJar
+            ? _self.enabledCookieJar
+            : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                  as bool?,
+        loginCheckJs: freezed == loginCheckJs
+            ? _self.loginCheckJs
+            : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastUpdateTime: null == lastUpdateTime
+            ? _self.lastUpdateTime
+            : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [HttpTts].
+extension HttpTtsPatterns on HttpTts {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_HttpTts value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_HttpTts value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_HttpTts value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String url,
+      @JsonKey(name: 'contentType') String? contentType,
+      @JsonKey(name: 'pauseDuration') int pauseDuration,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.url,
+          _that.contentType,
+          _that.pauseDuration,
+          _that.concurrentRate,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.header,
+          _that.jsLib,
+          _that.enabledCookieJar,
+          _that.loginCheckJs,
+          _that.lastUpdateTime,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String url,
+      @JsonKey(name: 'contentType') String? contentType,
+      @JsonKey(name: 'pauseDuration') int pauseDuration,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts():
+        return $default(
+          _that.id,
+          _that.name,
+          _that.url,
+          _that.contentType,
+          _that.pauseDuration,
+          _that.concurrentRate,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.header,
+          _that.jsLib,
+          _that.enabledCookieJar,
+          _that.loginCheckJs,
+          _that.lastUpdateTime,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      int id,
+      String name,
+      String url,
+      @JsonKey(name: 'contentType') String? contentType,
+      @JsonKey(name: 'pauseDuration') int pauseDuration,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _HttpTts() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.url,
+          _that.contentType,
+          _that.pauseDuration,
+          _that.concurrentRate,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.header,
+          _that.jsLib,
+          _that.enabledCookieJar,
+          _that.loginCheckJs,
+          _that.lastUpdateTime,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$HttpTtsImpl implements _HttpTts {
-  const _$HttpTtsImpl(
-      {this.id = 0,
-      this.name = '',
-      this.url = '',
-      @JsonKey(name: 'contentType') this.contentType,
-      @JsonKey(name: 'pauseDuration') this.pauseDuration = 0,
-      @JsonKey(name: 'concurrentRate') this.concurrentRate,
-      @JsonKey(name: 'loginUrl') this.loginUrl,
-      @JsonKey(name: 'loginUi') this.loginUi,
-      this.header,
-      @JsonKey(name: 'jsLib') this.jsLib,
-      @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
-      @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
-      @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0});
-
-  factory _$HttpTtsImpl.fromJson(Map<String, dynamic> json) =>
-      _$$HttpTtsImplFromJson(json);
+class _HttpTts implements HttpTts {
+  const _HttpTts({
+    this.id = 0,
+    this.name = '',
+    this.url = '',
+    @JsonKey(name: 'contentType') this.contentType,
+    @JsonKey(name: 'pauseDuration') this.pauseDuration = 0,
+    @JsonKey(name: 'concurrentRate') this.concurrentRate,
+    @JsonKey(name: 'loginUrl') this.loginUrl,
+    @JsonKey(name: 'loginUi') this.loginUi,
+    this.header,
+    @JsonKey(name: 'jsLib') this.jsLib,
+    @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
+    @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
+    @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
+  });
+  factory _HttpTts.fromJson(Map<String, dynamic> json) =>
+      _$HttpTtsFromJson(json);
 
   @override
   @JsonKey()
@@ -1386,16 +2129,24 @@ class _$HttpTtsImpl implements _HttpTts {
   @JsonKey(name: 'lastUpdateTime')
   final int lastUpdateTime;
 
+  /// Create a copy of HttpTts
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, lastUpdateTime: $lastUpdateTime)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$HttpTtsCopyWith<_HttpTts> get copyWith =>
+      __$HttpTtsCopyWithImpl<_HttpTts>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$HttpTtsToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$HttpTtsImpl &&
+            other is _HttpTts &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.url, url) || other.url == url) &&
@@ -1418,9 +2169,10 @@ class _$HttpTtsImpl implements _HttpTts {
                 other.lastUpdateTime == lastUpdateTime));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       id,
       name,
@@ -1434,219 +2186,228 @@ class _$HttpTtsImpl implements _HttpTts {
       jsLib,
       enabledCookieJar,
       loginCheckJs,
-      lastUpdateTime);
+      lastUpdateTime,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, lastUpdateTime: $lastUpdateTime)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$HttpTtsCopyWith<$Res> implements $HttpTtsCopyWith<$Res> {
+  factory _$HttpTtsCopyWith(_HttpTts value, $Res Function(_HttpTts) _then) =
+      __$HttpTtsCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    int id,
+    String name,
+    String url,
+    @JsonKey(name: 'contentType') String? contentType,
+    @JsonKey(name: 'pauseDuration') int pauseDuration,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    String? header,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+  });
+}
+
+/// @nodoc
+class __$HttpTtsCopyWithImpl<$Res> implements _$HttpTtsCopyWith<$Res> {
+  __$HttpTtsCopyWithImpl(this._self, this._then);
+
+  final _HttpTts _self;
+  final $Res Function(_HttpTts) _then;
+
+  /// Create a copy of HttpTts
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$HttpTtsImplCopyWith<_$HttpTtsImpl> get copyWith =>
-      __$$HttpTtsImplCopyWithImpl<_$HttpTtsImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$HttpTtsImplToJson(
-      this,
+  $Res call({
+    Object? id = null,
+    Object? name = null,
+    Object? url = null,
+    Object? contentType = freezed,
+    Object? pauseDuration = null,
+    Object? concurrentRate = freezed,
+    Object? loginUrl = freezed,
+    Object? loginUi = freezed,
+    Object? header = freezed,
+    Object? jsLib = freezed,
+    Object? enabledCookieJar = freezed,
+    Object? loginCheckJs = freezed,
+    Object? lastUpdateTime = null,
+  }) {
+    return _then(
+      _HttpTts(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        contentType: freezed == contentType
+            ? _self.contentType
+            : contentType // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        pauseDuration: null == pauseDuration
+            ? _self.pauseDuration
+            : pauseDuration // ignore: cast_nullable_to_non_nullable
+                  as int,
+        concurrentRate: freezed == concurrentRate
+            ? _self.concurrentRate
+            : concurrentRate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUrl: freezed == loginUrl
+            ? _self.loginUrl
+            : loginUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUi: freezed == loginUi
+            ? _self.loginUi
+            : loginUi // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        header: freezed == header
+            ? _self.header
+            : header // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        jsLib: freezed == jsLib
+            ? _self.jsLib
+            : jsLib // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        enabledCookieJar: freezed == enabledCookieJar
+            ? _self.enabledCookieJar
+            : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                  as bool?,
+        loginCheckJs: freezed == loginCheckJs
+            ? _self.loginCheckJs
+            : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastUpdateTime: null == lastUpdateTime
+            ? _self.lastUpdateTime
+            : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _HttpTts implements HttpTts {
-  const factory _HttpTts(
-          {final int id,
-          final String name,
-          final String url,
-          @JsonKey(name: 'contentType') final String? contentType,
-          @JsonKey(name: 'pauseDuration') final int pauseDuration,
-          @JsonKey(name: 'concurrentRate') final String? concurrentRate,
-          @JsonKey(name: 'loginUrl') final String? loginUrl,
-          @JsonKey(name: 'loginUi') final String? loginUi,
-          final String? header,
-          @JsonKey(name: 'jsLib') final String? jsLib,
-          @JsonKey(name: 'enabledCookieJar') final bool? enabledCookieJar,
-          @JsonKey(name: 'loginCheckJs') final String? loginCheckJs,
-          @JsonKey(name: 'lastUpdateTime') final int lastUpdateTime}) =
-      _$HttpTtsImpl;
-
-  factory _HttpTts.fromJson(Map<String, dynamic> json) = _$HttpTtsImpl.fromJson;
-
-  @override
-  int get id;
-  @override
-  String get name;
-  @override
-  String get url;
-  @override
-  @JsonKey(name: 'contentType')
-  String? get contentType;
-  @override
-  @JsonKey(name: 'pauseDuration')
-  int get pauseDuration;
-  @override
-  @JsonKey(name: 'concurrentRate')
-  String? get concurrentRate;
-  @override
-  @JsonKey(name: 'loginUrl')
-  String? get loginUrl;
-  @override
-  @JsonKey(name: 'loginUi')
-  String? get loginUi;
-  @override
-  String? get header;
-  @override
-  @JsonKey(name: 'jsLib')
-  String? get jsLib;
-  @override
-  @JsonKey(name: 'enabledCookieJar')
-  bool? get enabledCookieJar;
-  @override
-  @JsonKey(name: 'loginCheckJs')
-  String? get loginCheckJs;
-  @override
-  @JsonKey(name: 'lastUpdateTime')
-  int get lastUpdateTime;
-  @override
-  @JsonKey(ignore: true)
-  _$$HttpTtsImplCopyWith<_$HttpTtsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-Bookmark _$BookmarkFromJson(Map<String, dynamic> json) {
-  return _Bookmark.fromJson(json);
-}
-
 /// @nodoc
 mixin _$Bookmark {
-  int get id => throw _privateConstructorUsedError;
-  int get time => throw _privateConstructorUsedError;
+  int get id;
+  int get time;
   @JsonKey(name: 'bookName')
-  String get bookName => throw _privateConstructorUsedError;
+  String get bookName;
   @JsonKey(name: 'bookAuthor')
-  String get bookAuthor => throw _privateConstructorUsedError;
+  String get bookAuthor;
   @JsonKey(name: 'chapterIndex')
-  int get chapterIndex => throw _privateConstructorUsedError;
+  int get chapterIndex;
   @JsonKey(name: 'chapterPos')
-  int get chapterPos => throw _privateConstructorUsedError;
+  int get chapterPos;
   @JsonKey(name: 'chapterName')
-  String get chapterName => throw _privateConstructorUsedError;
+  String get chapterName;
   @JsonKey(name: 'bookText')
-  String get bookText => throw _privateConstructorUsedError;
-  String get content => throw _privateConstructorUsedError;
+  String get bookText;
+  String get content;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookmarkCopyWith<Bookmark> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookmarkCopyWith<$Res> {
-  factory $BookmarkCopyWith(Bookmark value, $Res Function(Bookmark) then) =
-      _$BookmarkCopyWithImpl<$Res, Bookmark>;
-  @useResult
-  $Res call(
-      {int id,
-      int time,
-      @JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'bookAuthor') String bookAuthor,
-      @JsonKey(name: 'chapterIndex') int chapterIndex,
-      @JsonKey(name: 'chapterPos') int chapterPos,
-      @JsonKey(name: 'chapterName') String chapterName,
-      @JsonKey(name: 'bookText') String bookText,
-      String content});
-}
-
-/// @nodoc
-class _$BookmarkCopyWithImpl<$Res, $Val extends Bookmark>
-    implements $BookmarkCopyWith<$Res> {
-  _$BookmarkCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of Bookmark
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookmarkCopyWith<Bookmark> get copyWith =>
+      _$BookmarkCopyWithImpl<Bookmark>(this as Bookmark, _$identity);
+
+  /// Serializes this Bookmark to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? time = null,
-    Object? bookName = null,
-    Object? bookAuthor = null,
-    Object? chapterIndex = null,
-    Object? chapterPos = null,
-    Object? chapterName = null,
-    Object? bookText = null,
-    Object? content = null,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookAuthor: null == bookAuthor
-          ? _value.bookAuthor
-          : bookAuthor // ignore: cast_nullable_to_non_nullable
-              as String,
-      chapterIndex: null == chapterIndex
-          ? _value.chapterIndex
-          : chapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterPos: null == chapterPos
-          ? _value.chapterPos
-          : chapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterName: null == chapterName
-          ? _value.chapterName
-          : chapterName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookText: null == bookText
-          ? _value.bookText
-          : bookText // ignore: cast_nullable_to_non_nullable
-              as String,
-      content: null == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as Bookmark;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is Bookmark &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.time, _this.time) || other.time == _this.time) &&
+            (identical(other.bookName, _this.bookName) ||
+                other.bookName == _this.bookName) &&
+            (identical(other.bookAuthor, _this.bookAuthor) ||
+                other.bookAuthor == _this.bookAuthor) &&
+            (identical(other.chapterIndex, _this.chapterIndex) ||
+                other.chapterIndex == _this.chapterIndex) &&
+            (identical(other.chapterPos, _this.chapterPos) ||
+                other.chapterPos == _this.chapterPos) &&
+            (identical(other.chapterName, _this.chapterName) ||
+                other.chapterName == _this.chapterName) &&
+            (identical(other.bookText, _this.bookText) ||
+                other.bookText == _this.bookText) &&
+            (identical(other.content, _this.content) ||
+                other.content == _this.content));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as Bookmark;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.time,
+      _this.bookName,
+      _this.bookAuthor,
+      _this.chapterIndex,
+      _this.chapterPos,
+      _this.chapterName,
+      _this.bookText,
+      _this.content,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as Bookmark;
+    return 'Bookmark(id: ${_this.id}, time: ${_this.time}, bookName: ${_this.bookName}, bookAuthor: ${_this.bookAuthor}, chapterIndex: ${_this.chapterIndex}, chapterPos: ${_this.chapterPos}, chapterName: ${_this.chapterName}, bookText: ${_this.bookText}, content: ${_this.content})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookmarkImplCopyWith<$Res>
-    implements $BookmarkCopyWith<$Res> {
-  factory _$$BookmarkImplCopyWith(
-          _$BookmarkImpl value, $Res Function(_$BookmarkImpl) then) =
-      __$$BookmarkImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookmarkCopyWith<$Res> {
+  factory $BookmarkCopyWith(Bookmark value, $Res Function(Bookmark) _then) =
+      _$BookmarkCopyWithImpl;
   @useResult
-  $Res call(
-      {int id,
-      int time,
-      @JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'bookAuthor') String bookAuthor,
-      @JsonKey(name: 'chapterIndex') int chapterIndex,
-      @JsonKey(name: 'chapterPos') int chapterPos,
-      @JsonKey(name: 'chapterName') String chapterName,
-      @JsonKey(name: 'bookText') String bookText,
-      String content});
+  $Res call({
+    int id,
+    int time,
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'bookAuthor') String bookAuthor,
+    @JsonKey(name: 'chapterIndex') int chapterIndex,
+    @JsonKey(name: 'chapterPos') int chapterPos,
+    @JsonKey(name: 'chapterName') String chapterName,
+    @JsonKey(name: 'bookText') String bookText,
+    String content,
+  });
 }
 
 /// @nodoc
-class __$$BookmarkImplCopyWithImpl<$Res>
-    extends _$BookmarkCopyWithImpl<$Res, _$BookmarkImpl>
-    implements _$$BookmarkImplCopyWith<$Res> {
-  __$$BookmarkImplCopyWithImpl(
-      _$BookmarkImpl _value, $Res Function(_$BookmarkImpl) _then)
-      : super(_value, _then);
+class _$BookmarkCopyWithImpl<$Res> implements $BookmarkCopyWith<$Res> {
+  _$BookmarkCopyWithImpl(this._self, this._then);
 
+  final Bookmark _self;
+  final $Res Function(Bookmark) _then;
+
+  /// Create a copy of Bookmark
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1660,63 +2421,285 @@ class __$$BookmarkImplCopyWithImpl<$Res>
     Object? bookText = null,
     Object? content = null,
   }) {
-    return _then(_$BookmarkImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookAuthor: null == bookAuthor
-          ? _value.bookAuthor
-          : bookAuthor // ignore: cast_nullable_to_non_nullable
-              as String,
-      chapterIndex: null == chapterIndex
-          ? _value.chapterIndex
-          : chapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterPos: null == chapterPos
-          ? _value.chapterPos
-          : chapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterName: null == chapterName
-          ? _value.chapterName
-          : chapterName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookText: null == bookText
-          ? _value.bookText
-          : bookText // ignore: cast_nullable_to_non_nullable
-              as String,
-      content: null == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      Bookmark(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        time: null == time
+            ? _self.time
+            : time // ignore: cast_nullable_to_non_nullable
+                  as int,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookAuthor: null == bookAuthor
+            ? _self.bookAuthor
+            : bookAuthor // ignore: cast_nullable_to_non_nullable
+                  as String,
+        chapterIndex: null == chapterIndex
+            ? _self.chapterIndex
+            : chapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterPos: null == chapterPos
+            ? _self.chapterPos
+            : chapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterName: null == chapterName
+            ? _self.chapterName
+            : chapterName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookText: null == bookText
+            ? _self.bookText
+            : bookText // ignore: cast_nullable_to_non_nullable
+                  as String,
+        content: null == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [Bookmark].
+extension BookmarkPatterns on Bookmark {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_Bookmark value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_Bookmark value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_Bookmark value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      int id,
+      int time,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'bookAuthor') String bookAuthor,
+      @JsonKey(name: 'chapterIndex') int chapterIndex,
+      @JsonKey(name: 'chapterPos') int chapterPos,
+      @JsonKey(name: 'chapterName') String chapterName,
+      @JsonKey(name: 'bookText') String bookText,
+      String content,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark() when $default != null:
+        return $default(
+          _that.id,
+          _that.time,
+          _that.bookName,
+          _that.bookAuthor,
+          _that.chapterIndex,
+          _that.chapterPos,
+          _that.chapterName,
+          _that.bookText,
+          _that.content,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      int id,
+      int time,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'bookAuthor') String bookAuthor,
+      @JsonKey(name: 'chapterIndex') int chapterIndex,
+      @JsonKey(name: 'chapterPos') int chapterPos,
+      @JsonKey(name: 'chapterName') String chapterName,
+      @JsonKey(name: 'bookText') String bookText,
+      String content,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark():
+        return $default(
+          _that.id,
+          _that.time,
+          _that.bookName,
+          _that.bookAuthor,
+          _that.chapterIndex,
+          _that.chapterPos,
+          _that.chapterName,
+          _that.bookText,
+          _that.content,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      int id,
+      int time,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'bookAuthor') String bookAuthor,
+      @JsonKey(name: 'chapterIndex') int chapterIndex,
+      @JsonKey(name: 'chapterPos') int chapterPos,
+      @JsonKey(name: 'chapterName') String chapterName,
+      @JsonKey(name: 'bookText') String bookText,
+      String content,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Bookmark() when $default != null:
+        return $default(
+          _that.id,
+          _that.time,
+          _that.bookName,
+          _that.bookAuthor,
+          _that.chapterIndex,
+          _that.chapterPos,
+          _that.chapterName,
+          _that.bookText,
+          _that.content,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookmarkImpl implements _Bookmark {
-  const _$BookmarkImpl(
-      {this.id = 0,
-      this.time = 0,
-      @JsonKey(name: 'bookName') this.bookName = '',
-      @JsonKey(name: 'bookAuthor') this.bookAuthor = '',
-      @JsonKey(name: 'chapterIndex') this.chapterIndex = 0,
-      @JsonKey(name: 'chapterPos') this.chapterPos = 0,
-      @JsonKey(name: 'chapterName') this.chapterName = '',
-      @JsonKey(name: 'bookText') this.bookText = '',
-      this.content = ''});
-
-  factory _$BookmarkImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookmarkImplFromJson(json);
+class _Bookmark implements Bookmark {
+  const _Bookmark({
+    this.id = 0,
+    this.time = 0,
+    @JsonKey(name: 'bookName') this.bookName = '',
+    @JsonKey(name: 'bookAuthor') this.bookAuthor = '',
+    @JsonKey(name: 'chapterIndex') this.chapterIndex = 0,
+    @JsonKey(name: 'chapterPos') this.chapterPos = 0,
+    @JsonKey(name: 'chapterName') this.chapterName = '',
+    @JsonKey(name: 'bookText') this.bookText = '',
+    this.content = '',
+  });
+  factory _Bookmark.fromJson(Map<String, dynamic> json) =>
+      _$BookmarkFromJson(json);
 
   @override
   @JsonKey()
@@ -1746,16 +2729,24 @@ class _$BookmarkImpl implements _Bookmark {
   @JsonKey()
   final String content;
 
+  /// Create a copy of Bookmark
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'Bookmark(id: $id, time: $time, bookName: $bookName, bookAuthor: $bookAuthor, chapterIndex: $chapterIndex, chapterPos: $chapterPos, chapterName: $chapterName, bookText: $bookText, content: $content)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookmarkCopyWith<_Bookmark> get copyWith =>
+      __$BookmarkCopyWithImpl<_Bookmark>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookmarkToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookmarkImpl &&
+            other is _Bookmark &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.time, time) || other.time == time) &&
             (identical(other.bookName, bookName) ||
@@ -1773,198 +2764,213 @@ class _$BookmarkImpl implements _Bookmark {
             (identical(other.content, content) || other.content == content));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, time, bookName, bookAuthor,
-      chapterIndex, chapterPos, chapterName, bookText, content);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BookmarkImplCopyWith<_$BookmarkImpl> get copyWith =>
-      __$$BookmarkImplCopyWithImpl<_$BookmarkImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookmarkImplToJson(
-      this,
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      id,
+      time,
+      bookName,
+      bookAuthor,
+      chapterIndex,
+      chapterPos,
+      chapterName,
+      bookText,
+      content,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Bookmark(id: $id, time: $time, bookName: $bookName, bookAuthor: $bookAuthor, chapterIndex: $chapterIndex, chapterPos: $chapterPos, chapterName: $chapterName, bookText: $bookText, content: $content)';
   }
 }
 
-abstract class _Bookmark implements Bookmark {
-  const factory _Bookmark(
-      {final int id,
-      final int time,
-      @JsonKey(name: 'bookName') final String bookName,
-      @JsonKey(name: 'bookAuthor') final String bookAuthor,
-      @JsonKey(name: 'chapterIndex') final int chapterIndex,
-      @JsonKey(name: 'chapterPos') final int chapterPos,
-      @JsonKey(name: 'chapterName') final String chapterName,
-      @JsonKey(name: 'bookText') final String bookText,
-      final String content}) = _$BookmarkImpl;
-
-  factory _Bookmark.fromJson(Map<String, dynamic> json) =
-      _$BookmarkImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$BookmarkCopyWith<$Res>
+    implements $BookmarkCopyWith<$Res> {
+  factory _$BookmarkCopyWith(_Bookmark value, $Res Function(_Bookmark) _then) =
+      __$BookmarkCopyWithImpl;
   @override
-  int get id;
-  @override
-  int get time;
-  @override
-  @JsonKey(name: 'bookName')
-  String get bookName;
-  @override
-  @JsonKey(name: 'bookAuthor')
-  String get bookAuthor;
-  @override
-  @JsonKey(name: 'chapterIndex')
-  int get chapterIndex;
-  @override
-  @JsonKey(name: 'chapterPos')
-  int get chapterPos;
-  @override
-  @JsonKey(name: 'chapterName')
-  String get chapterName;
-  @override
-  @JsonKey(name: 'bookText')
-  String get bookText;
-  @override
-  String get content;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookmarkImplCopyWith<_$BookmarkImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    int id,
+    int time,
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'bookAuthor') String bookAuthor,
+    @JsonKey(name: 'chapterIndex') int chapterIndex,
+    @JsonKey(name: 'chapterPos') int chapterPos,
+    @JsonKey(name: 'chapterName') String chapterName,
+    @JsonKey(name: 'bookText') String bookText,
+    String content,
+  });
 }
 
-BookGroup _$BookGroupFromJson(Map<String, dynamic> json) {
-  return _BookGroup.fromJson(json);
+/// @nodoc
+class __$BookmarkCopyWithImpl<$Res> implements _$BookmarkCopyWith<$Res> {
+  __$BookmarkCopyWithImpl(this._self, this._then);
+
+  final _Bookmark _self;
+  final $Res Function(_Bookmark) _then;
+
+  /// Create a copy of Bookmark
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? id = null,
+    Object? time = null,
+    Object? bookName = null,
+    Object? bookAuthor = null,
+    Object? chapterIndex = null,
+    Object? chapterPos = null,
+    Object? chapterName = null,
+    Object? bookText = null,
+    Object? content = null,
+  }) {
+    return _then(
+      _Bookmark(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        time: null == time
+            ? _self.time
+            : time // ignore: cast_nullable_to_non_nullable
+                  as int,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookAuthor: null == bookAuthor
+            ? _self.bookAuthor
+            : bookAuthor // ignore: cast_nullable_to_non_nullable
+                  as String,
+        chapterIndex: null == chapterIndex
+            ? _self.chapterIndex
+            : chapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterPos: null == chapterPos
+            ? _self.chapterPos
+            : chapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterName: null == chapterName
+            ? _self.chapterName
+            : chapterName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookText: null == bookText
+            ? _self.bookText
+            : bookText // ignore: cast_nullable_to_non_nullable
+                  as String,
+        content: null == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$BookGroup {
   @JsonKey(name: 'groupId')
-  int get groupId => throw _privateConstructorUsedError;
+  int get groupId;
   @JsonKey(name: 'groupName')
-  String get groupName => throw _privateConstructorUsedError;
-  String? get cover => throw _privateConstructorUsedError;
-  int get order => throw _privateConstructorUsedError;
+  String get groupName;
+  String? get cover;
+  int get order;
   @JsonKey(name: 'enableRefresh')
-  bool get enableRefresh => throw _privateConstructorUsedError;
-  bool get show => throw _privateConstructorUsedError;
+  bool get enableRefresh;
+  bool get show;
   @JsonKey(name: 'bookSort')
-  int get bookSort => throw _privateConstructorUsedError;
+  int get bookSort;
   @JsonKey(name: 'onlyUpdateRead')
-  bool get onlyUpdateRead => throw _privateConstructorUsedError;
+  bool get onlyUpdateRead;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookGroupCopyWith<BookGroup> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookGroupCopyWith<$Res> {
-  factory $BookGroupCopyWith(BookGroup value, $Res Function(BookGroup) then) =
-      _$BookGroupCopyWithImpl<$Res, BookGroup>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'groupId') int groupId,
-      @JsonKey(name: 'groupName') String groupName,
-      String? cover,
-      int order,
-      @JsonKey(name: 'enableRefresh') bool enableRefresh,
-      bool show,
-      @JsonKey(name: 'bookSort') int bookSort,
-      @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead});
-}
-
-/// @nodoc
-class _$BookGroupCopyWithImpl<$Res, $Val extends BookGroup>
-    implements $BookGroupCopyWith<$Res> {
-  _$BookGroupCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookGroup
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookGroupCopyWith<BookGroup> get copyWith =>
+      _$BookGroupCopyWithImpl<BookGroup>(this as BookGroup, _$identity);
+
+  /// Serializes this BookGroup to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? groupId = null,
-    Object? groupName = null,
-    Object? cover = freezed,
-    Object? order = null,
-    Object? enableRefresh = null,
-    Object? show = null,
-    Object? bookSort = null,
-    Object? onlyUpdateRead = null,
-  }) {
-    return _then(_value.copyWith(
-      groupId: null == groupId
-          ? _value.groupId
-          : groupId // ignore: cast_nullable_to_non_nullable
-              as int,
-      groupName: null == groupName
-          ? _value.groupName
-          : groupName // ignore: cast_nullable_to_non_nullable
-              as String,
-      cover: freezed == cover
-          ? _value.cover
-          : cover // ignore: cast_nullable_to_non_nullable
-              as String?,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      enableRefresh: null == enableRefresh
-          ? _value.enableRefresh
-          : enableRefresh // ignore: cast_nullable_to_non_nullable
-              as bool,
-      show: null == show
-          ? _value.show
-          : show // ignore: cast_nullable_to_non_nullable
-              as bool,
-      bookSort: null == bookSort
-          ? _value.bookSort
-          : bookSort // ignore: cast_nullable_to_non_nullable
-              as int,
-      onlyUpdateRead: null == onlyUpdateRead
-          ? _value.onlyUpdateRead
-          : onlyUpdateRead // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookGroup;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookGroup &&
+            (identical(other.groupId, _this.groupId) ||
+                other.groupId == _this.groupId) &&
+            (identical(other.groupName, _this.groupName) ||
+                other.groupName == _this.groupName) &&
+            (identical(other.cover, _this.cover) ||
+                other.cover == _this.cover) &&
+            (identical(other.order, _this.order) ||
+                other.order == _this.order) &&
+            (identical(other.enableRefresh, _this.enableRefresh) ||
+                other.enableRefresh == _this.enableRefresh) &&
+            (identical(other.show, _this.show) || other.show == _this.show) &&
+            (identical(other.bookSort, _this.bookSort) ||
+                other.bookSort == _this.bookSort) &&
+            (identical(other.onlyUpdateRead, _this.onlyUpdateRead) ||
+                other.onlyUpdateRead == _this.onlyUpdateRead));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookGroup;
+    return Object.hash(
+      runtimeType,
+      _this.groupId,
+      _this.groupName,
+      _this.cover,
+      _this.order,
+      _this.enableRefresh,
+      _this.show,
+      _this.bookSort,
+      _this.onlyUpdateRead,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookGroup;
+    return 'BookGroup(groupId: ${_this.groupId}, groupName: ${_this.groupName}, cover: ${_this.cover}, order: ${_this.order}, enableRefresh: ${_this.enableRefresh}, show: ${_this.show}, bookSort: ${_this.bookSort}, onlyUpdateRead: ${_this.onlyUpdateRead})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookGroupImplCopyWith<$Res>
-    implements $BookGroupCopyWith<$Res> {
-  factory _$$BookGroupImplCopyWith(
-          _$BookGroupImpl value, $Res Function(_$BookGroupImpl) then) =
-      __$$BookGroupImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookGroupCopyWith<$Res> {
+  factory $BookGroupCopyWith(BookGroup value, $Res Function(BookGroup) _then) =
+      _$BookGroupCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'groupId') int groupId,
-      @JsonKey(name: 'groupName') String groupName,
-      String? cover,
-      int order,
-      @JsonKey(name: 'enableRefresh') bool enableRefresh,
-      bool show,
-      @JsonKey(name: 'bookSort') int bookSort,
-      @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead});
+  $Res call({
+    @JsonKey(name: 'groupId') int groupId,
+    @JsonKey(name: 'groupName') String groupName,
+    String? cover,
+    int order,
+    @JsonKey(name: 'enableRefresh') bool enableRefresh,
+    bool show,
+    @JsonKey(name: 'bookSort') int bookSort,
+    @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead,
+  });
 }
 
 /// @nodoc
-class __$$BookGroupImplCopyWithImpl<$Res>
-    extends _$BookGroupCopyWithImpl<$Res, _$BookGroupImpl>
-    implements _$$BookGroupImplCopyWith<$Res> {
-  __$$BookGroupImplCopyWithImpl(
-      _$BookGroupImpl _value, $Res Function(_$BookGroupImpl) _then)
-      : super(_value, _then);
+class _$BookGroupCopyWithImpl<$Res> implements $BookGroupCopyWith<$Res> {
+  _$BookGroupCopyWithImpl(this._self, this._then);
 
+  final BookGroup _self;
+  final $Res Function(BookGroup) _then;
+
+  /// Create a copy of BookGroup
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1977,58 +2983,274 @@ class __$$BookGroupImplCopyWithImpl<$Res>
     Object? bookSort = null,
     Object? onlyUpdateRead = null,
   }) {
-    return _then(_$BookGroupImpl(
-      groupId: null == groupId
-          ? _value.groupId
-          : groupId // ignore: cast_nullable_to_non_nullable
-              as int,
-      groupName: null == groupName
-          ? _value.groupName
-          : groupName // ignore: cast_nullable_to_non_nullable
-              as String,
-      cover: freezed == cover
-          ? _value.cover
-          : cover // ignore: cast_nullable_to_non_nullable
-              as String?,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      enableRefresh: null == enableRefresh
-          ? _value.enableRefresh
-          : enableRefresh // ignore: cast_nullable_to_non_nullable
-              as bool,
-      show: null == show
-          ? _value.show
-          : show // ignore: cast_nullable_to_non_nullable
-              as bool,
-      bookSort: null == bookSort
-          ? _value.bookSort
-          : bookSort // ignore: cast_nullable_to_non_nullable
-              as int,
-      onlyUpdateRead: null == onlyUpdateRead
-          ? _value.onlyUpdateRead
-          : onlyUpdateRead // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      BookGroup(
+        groupId: null == groupId
+            ? _self.groupId
+            : groupId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        groupName: null == groupName
+            ? _self.groupName
+            : groupName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cover: freezed == cover
+            ? _self.cover
+            : cover // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enableRefresh: null == enableRefresh
+            ? _self.enableRefresh
+            : enableRefresh // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        show: null == show
+            ? _self.show
+            : show // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        bookSort: null == bookSort
+            ? _self.bookSort
+            : bookSort // ignore: cast_nullable_to_non_nullable
+                  as int,
+        onlyUpdateRead: null == onlyUpdateRead
+            ? _self.onlyUpdateRead
+            : onlyUpdateRead // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookGroup].
+extension BookGroupPatterns on BookGroup {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookGroup value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookGroup value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookGroup value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'groupId') int groupId,
+      @JsonKey(name: 'groupName') String groupName,
+      String? cover,
+      int order,
+      @JsonKey(name: 'enableRefresh') bool enableRefresh,
+      bool show,
+      @JsonKey(name: 'bookSort') int bookSort,
+      @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup() when $default != null:
+        return $default(
+          _that.groupId,
+          _that.groupName,
+          _that.cover,
+          _that.order,
+          _that.enableRefresh,
+          _that.show,
+          _that.bookSort,
+          _that.onlyUpdateRead,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'groupId') int groupId,
+      @JsonKey(name: 'groupName') String groupName,
+      String? cover,
+      int order,
+      @JsonKey(name: 'enableRefresh') bool enableRefresh,
+      bool show,
+      @JsonKey(name: 'bookSort') int bookSort,
+      @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup():
+        return $default(
+          _that.groupId,
+          _that.groupName,
+          _that.cover,
+          _that.order,
+          _that.enableRefresh,
+          _that.show,
+          _that.bookSort,
+          _that.onlyUpdateRead,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'groupId') int groupId,
+      @JsonKey(name: 'groupName') String groupName,
+      String? cover,
+      int order,
+      @JsonKey(name: 'enableRefresh') bool enableRefresh,
+      bool show,
+      @JsonKey(name: 'bookSort') int bookSort,
+      @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookGroup() when $default != null:
+        return $default(
+          _that.groupId,
+          _that.groupName,
+          _that.cover,
+          _that.order,
+          _that.enableRefresh,
+          _that.show,
+          _that.bookSort,
+          _that.onlyUpdateRead,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookGroupImpl implements _BookGroup {
-  const _$BookGroupImpl(
-      {@JsonKey(name: 'groupId') this.groupId = 1,
-      @JsonKey(name: 'groupName') this.groupName = '',
-      this.cover,
-      this.order = 0,
-      @JsonKey(name: 'enableRefresh') this.enableRefresh = true,
-      this.show = true,
-      @JsonKey(name: 'bookSort') this.bookSort = -1,
-      @JsonKey(name: 'onlyUpdateRead') this.onlyUpdateRead = false});
-
-  factory _$BookGroupImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookGroupImplFromJson(json);
+class _BookGroup implements BookGroup {
+  const _BookGroup({
+    @JsonKey(name: 'groupId') this.groupId = 1,
+    @JsonKey(name: 'groupName') this.groupName = '',
+    this.cover,
+    this.order = 0,
+    @JsonKey(name: 'enableRefresh') this.enableRefresh = true,
+    this.show = true,
+    @JsonKey(name: 'bookSort') this.bookSort = -1,
+    @JsonKey(name: 'onlyUpdateRead') this.onlyUpdateRead = false,
+  });
+  factory _BookGroup.fromJson(Map<String, dynamic> json) =>
+      _$BookGroupFromJson(json);
 
   @override
   @JsonKey(name: 'groupId')
@@ -2054,16 +3276,24 @@ class _$BookGroupImpl implements _BookGroup {
   @JsonKey(name: 'onlyUpdateRead')
   final bool onlyUpdateRead;
 
+  /// Create a copy of BookGroup
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookGroup(groupId: $groupId, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookGroupCopyWith<_BookGroup> get copyWith =>
+      __$BookGroupCopyWithImpl<_BookGroup>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookGroupToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookGroupImpl &&
+            other is _BookGroup &&
             (identical(other.groupId, groupId) || other.groupId == groupId) &&
             (identical(other.groupName, groupName) ||
                 other.groupName == groupName) &&
@@ -2078,282 +3308,267 @@ class _$BookGroupImpl implements _BookGroup {
                 other.onlyUpdateRead == onlyUpdateRead));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, groupId, groupName, cover, order,
-      enableRefresh, show, bookSort, onlyUpdateRead);
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      groupId,
+      groupName,
+      cover,
+      order,
+      enableRefresh,
+      show,
+      bookSort,
+      onlyUpdateRead,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'BookGroup(groupId: $groupId, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$BookGroupCopyWith<$Res>
+    implements $BookGroupCopyWith<$Res> {
+  factory _$BookGroupCopyWith(
+    _BookGroup value,
+    $Res Function(_BookGroup) _then,
+  ) = __$BookGroupCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'groupId') int groupId,
+    @JsonKey(name: 'groupName') String groupName,
+    String? cover,
+    int order,
+    @JsonKey(name: 'enableRefresh') bool enableRefresh,
+    bool show,
+    @JsonKey(name: 'bookSort') int bookSort,
+    @JsonKey(name: 'onlyUpdateRead') bool onlyUpdateRead,
+  });
+}
+
+/// @nodoc
+class __$BookGroupCopyWithImpl<$Res> implements _$BookGroupCopyWith<$Res> {
+  __$BookGroupCopyWithImpl(this._self, this._then);
+
+  final _BookGroup _self;
+  final $Res Function(_BookGroup) _then;
+
+  /// Create a copy of BookGroup
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$BookGroupImplCopyWith<_$BookGroupImpl> get copyWith =>
-      __$$BookGroupImplCopyWithImpl<_$BookGroupImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookGroupImplToJson(
-      this,
+  $Res call({
+    Object? groupId = null,
+    Object? groupName = null,
+    Object? cover = freezed,
+    Object? order = null,
+    Object? enableRefresh = null,
+    Object? show = null,
+    Object? bookSort = null,
+    Object? onlyUpdateRead = null,
+  }) {
+    return _then(
+      _BookGroup(
+        groupId: null == groupId
+            ? _self.groupId
+            : groupId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        groupName: null == groupName
+            ? _self.groupName
+            : groupName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cover: freezed == cover
+            ? _self.cover
+            : cover // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enableRefresh: null == enableRefresh
+            ? _self.enableRefresh
+            : enableRefresh // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        show: null == show
+            ? _self.show
+            : show // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        bookSort: null == bookSort
+            ? _self.bookSort
+            : bookSort // ignore: cast_nullable_to_non_nullable
+                  as int,
+        onlyUpdateRead: null == onlyUpdateRead
+            ? _self.onlyUpdateRead
+            : onlyUpdateRead // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
     );
   }
 }
 
-abstract class _BookGroup implements BookGroup {
-  const factory _BookGroup(
-          {@JsonKey(name: 'groupId') final int groupId,
-          @JsonKey(name: 'groupName') final String groupName,
-          final String? cover,
-          final int order,
-          @JsonKey(name: 'enableRefresh') final bool enableRefresh,
-          final bool show,
-          @JsonKey(name: 'bookSort') final int bookSort,
-          @JsonKey(name: 'onlyUpdateRead') final bool onlyUpdateRead}) =
-      _$BookGroupImpl;
-
-  factory _BookGroup.fromJson(Map<String, dynamic> json) =
-      _$BookGroupImpl.fromJson;
-
-  @override
-  @JsonKey(name: 'groupId')
-  int get groupId;
-  @override
-  @JsonKey(name: 'groupName')
-  String get groupName;
-  @override
-  String? get cover;
-  @override
-  int get order;
-  @override
-  @JsonKey(name: 'enableRefresh')
-  bool get enableRefresh;
-  @override
-  bool get show;
-  @override
-  @JsonKey(name: 'bookSort')
-  int get bookSort;
-  @override
-  @JsonKey(name: 'onlyUpdateRead')
-  bool get onlyUpdateRead;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookGroupImplCopyWith<_$BookGroupImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-AutoTaskRule _$AutoTaskRuleFromJson(Map<String, dynamic> json) {
-  return _AutoTaskRule.fromJson(json);
-}
-
 /// @nodoc
 mixin _$AutoTaskRule {
-  String get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  bool get enable => throw _privateConstructorUsedError;
-  String? get cron => throw _privateConstructorUsedError;
+  String get id;
+  String get name;
+  bool get enable;
+  String? get cron;
   @JsonKey(name: 'loginUrl')
-  String? get loginUrl => throw _privateConstructorUsedError;
+  String? get loginUrl;
   @JsonKey(name: 'loginUi')
-  String? get loginUi => throw _privateConstructorUsedError;
+  String? get loginUi;
   @JsonKey(name: 'loginCheckJs')
-  String? get loginCheckJs => throw _privateConstructorUsedError;
-  String? get comment => throw _privateConstructorUsedError;
-  String get script => throw _privateConstructorUsedError;
-  String? get header => throw _privateConstructorUsedError;
+  String? get loginCheckJs;
+  String? get comment;
+  String get script;
+  String? get header;
   @JsonKey(name: 'jsLib')
-  String? get jsLib => throw _privateConstructorUsedError;
+  String? get jsLib;
   @JsonKey(name: 'concurrentRate')
-  String? get concurrentRate => throw _privateConstructorUsedError;
+  String? get concurrentRate;
   @JsonKey(name: 'enabledCookieJar')
-  bool get enabledCookieJar => throw _privateConstructorUsedError;
+  bool get enabledCookieJar;
   @JsonKey(name: 'customOrder')
-  int get customOrder => throw _privateConstructorUsedError;
+  int get customOrder;
   @JsonKey(name: 'lastRunAt')
-  int get lastRunAt => throw _privateConstructorUsedError;
+  int get lastRunAt;
   @JsonKey(name: 'lastResult')
-  String? get lastResult => throw _privateConstructorUsedError;
+  String? get lastResult;
   @JsonKey(name: 'lastError')
-  String? get lastError => throw _privateConstructorUsedError;
+  String? get lastError;
   @JsonKey(name: 'lastLog')
-  String? get lastLog => throw _privateConstructorUsedError;
+  String? get lastLog;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $AutoTaskRuleCopyWith<AutoTaskRule> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $AutoTaskRuleCopyWith<$Res> {
-  factory $AutoTaskRuleCopyWith(
-          AutoTaskRule value, $Res Function(AutoTaskRule) then) =
-      _$AutoTaskRuleCopyWithImpl<$Res, AutoTaskRule>;
-  @useResult
-  $Res call(
-      {String id,
-      String name,
-      bool enable,
-      String? cron,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      String? comment,
-      String script,
-      String? header,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
-      @JsonKey(name: 'customOrder') int customOrder,
-      @JsonKey(name: 'lastRunAt') int lastRunAt,
-      @JsonKey(name: 'lastResult') String? lastResult,
-      @JsonKey(name: 'lastError') String? lastError,
-      @JsonKey(name: 'lastLog') String? lastLog});
-}
-
-/// @nodoc
-class _$AutoTaskRuleCopyWithImpl<$Res, $Val extends AutoTaskRule>
-    implements $AutoTaskRuleCopyWith<$Res> {
-  _$AutoTaskRuleCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of AutoTaskRule
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $AutoTaskRuleCopyWith<AutoTaskRule> get copyWith =>
+      _$AutoTaskRuleCopyWithImpl<AutoTaskRule>(
+        this as AutoTaskRule,
+        _$identity,
+      );
+
+  /// Serializes this AutoTaskRule to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? enable = null,
-    Object? cron = freezed,
-    Object? loginUrl = freezed,
-    Object? loginUi = freezed,
-    Object? loginCheckJs = freezed,
-    Object? comment = freezed,
-    Object? script = null,
-    Object? header = freezed,
-    Object? jsLib = freezed,
-    Object? concurrentRate = freezed,
-    Object? enabledCookieJar = null,
-    Object? customOrder = null,
-    Object? lastRunAt = null,
-    Object? lastResult = freezed,
-    Object? lastError = freezed,
-    Object? lastLog = freezed,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      enable: null == enable
-          ? _value.enable
-          : enable // ignore: cast_nullable_to_non_nullable
-              as bool,
-      cron: freezed == cron
-          ? _value.cron
-          : cron // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      comment: freezed == comment
-          ? _value.comment
-          : comment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      script: null == script
-          ? _value.script
-          : script // ignore: cast_nullable_to_non_nullable
-              as String,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: null == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRunAt: null == lastRunAt
-          ? _value.lastRunAt
-          : lastRunAt // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastResult: freezed == lastResult
-          ? _value.lastResult
-          : lastResult // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastError: freezed == lastError
-          ? _value.lastError
-          : lastError // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastLog: freezed == lastLog
-          ? _value.lastLog
-          : lastLog // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as AutoTaskRule;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is AutoTaskRule &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.enable, _this.enable) ||
+                other.enable == _this.enable) &&
+            (identical(other.cron, _this.cron) || other.cron == _this.cron) &&
+            (identical(other.loginUrl, _this.loginUrl) ||
+                other.loginUrl == _this.loginUrl) &&
+            (identical(other.loginUi, _this.loginUi) ||
+                other.loginUi == _this.loginUi) &&
+            (identical(other.loginCheckJs, _this.loginCheckJs) ||
+                other.loginCheckJs == _this.loginCheckJs) &&
+            (identical(other.comment, _this.comment) ||
+                other.comment == _this.comment) &&
+            (identical(other.script, _this.script) ||
+                other.script == _this.script) &&
+            (identical(other.header, _this.header) ||
+                other.header == _this.header) &&
+            (identical(other.jsLib, _this.jsLib) ||
+                other.jsLib == _this.jsLib) &&
+            (identical(other.concurrentRate, _this.concurrentRate) ||
+                other.concurrentRate == _this.concurrentRate) &&
+            (identical(other.enabledCookieJar, _this.enabledCookieJar) ||
+                other.enabledCookieJar == _this.enabledCookieJar) &&
+            (identical(other.customOrder, _this.customOrder) ||
+                other.customOrder == _this.customOrder) &&
+            (identical(other.lastRunAt, _this.lastRunAt) ||
+                other.lastRunAt == _this.lastRunAt) &&
+            (identical(other.lastResult, _this.lastResult) ||
+                other.lastResult == _this.lastResult) &&
+            (identical(other.lastError, _this.lastError) ||
+                other.lastError == _this.lastError) &&
+            (identical(other.lastLog, _this.lastLog) ||
+                other.lastLog == _this.lastLog));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as AutoTaskRule;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.name,
+      _this.enable,
+      _this.cron,
+      _this.loginUrl,
+      _this.loginUi,
+      _this.loginCheckJs,
+      _this.comment,
+      _this.script,
+      _this.header,
+      _this.jsLib,
+      _this.concurrentRate,
+      _this.enabledCookieJar,
+      _this.customOrder,
+      _this.lastRunAt,
+      _this.lastResult,
+      _this.lastError,
+      _this.lastLog,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as AutoTaskRule;
+    return 'AutoTaskRule(id: ${_this.id}, name: ${_this.name}, enable: ${_this.enable}, cron: ${_this.cron}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, loginCheckJs: ${_this.loginCheckJs}, comment: ${_this.comment}, script: ${_this.script}, header: ${_this.header}, jsLib: ${_this.jsLib}, concurrentRate: ${_this.concurrentRate}, enabledCookieJar: ${_this.enabledCookieJar}, customOrder: ${_this.customOrder}, lastRunAt: ${_this.lastRunAt}, lastResult: ${_this.lastResult}, lastError: ${_this.lastError}, lastLog: ${_this.lastLog})';
   }
 }
 
 /// @nodoc
-abstract class _$$AutoTaskRuleImplCopyWith<$Res>
-    implements $AutoTaskRuleCopyWith<$Res> {
-  factory _$$AutoTaskRuleImplCopyWith(
-          _$AutoTaskRuleImpl value, $Res Function(_$AutoTaskRuleImpl) then) =
-      __$$AutoTaskRuleImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $AutoTaskRuleCopyWith<$Res> {
+  factory $AutoTaskRuleCopyWith(
+    AutoTaskRule value,
+    $Res Function(AutoTaskRule) _then,
+  ) = _$AutoTaskRuleCopyWithImpl;
   @useResult
-  $Res call(
-      {String id,
-      String name,
-      bool enable,
-      String? cron,
-      @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
-      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
-      String? comment,
-      String script,
-      String? header,
-      @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'concurrentRate') String? concurrentRate,
-      @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
-      @JsonKey(name: 'customOrder') int customOrder,
-      @JsonKey(name: 'lastRunAt') int lastRunAt,
-      @JsonKey(name: 'lastResult') String? lastResult,
-      @JsonKey(name: 'lastError') String? lastError,
-      @JsonKey(name: 'lastLog') String? lastLog});
+  $Res call({
+    String id,
+    String name,
+    bool enable,
+    String? cron,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    String? comment,
+    String script,
+    String? header,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
+    @JsonKey(name: 'customOrder') int customOrder,
+    @JsonKey(name: 'lastRunAt') int lastRunAt,
+    @JsonKey(name: 'lastResult') String? lastResult,
+    @JsonKey(name: 'lastError') String? lastError,
+    @JsonKey(name: 'lastLog') String? lastLog,
+  });
 }
 
 /// @nodoc
-class __$$AutoTaskRuleImplCopyWithImpl<$Res>
-    extends _$AutoTaskRuleCopyWithImpl<$Res, _$AutoTaskRuleImpl>
-    implements _$$AutoTaskRuleImplCopyWith<$Res> {
-  __$$AutoTaskRuleImplCopyWithImpl(
-      _$AutoTaskRuleImpl _value, $Res Function(_$AutoTaskRuleImpl) _then)
-      : super(_value, _then);
+class _$AutoTaskRuleCopyWithImpl<$Res> implements $AutoTaskRuleCopyWith<$Res> {
+  _$AutoTaskRuleCopyWithImpl(this._self, this._then);
 
+  final AutoTaskRule _self;
+  final $Res Function(AutoTaskRule) _then;
+
+  /// Create a copy of AutoTaskRule
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -2376,108 +3591,384 @@ class __$$AutoTaskRuleImplCopyWithImpl<$Res>
     Object? lastError = freezed,
     Object? lastLog = freezed,
   }) {
-    return _then(_$AutoTaskRuleImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      enable: null == enable
-          ? _value.enable
-          : enable // ignore: cast_nullable_to_non_nullable
-              as bool,
-      cron: freezed == cron
-          ? _value.cron
-          : cron // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUrl: freezed == loginUrl
-          ? _value.loginUrl
-          : loginUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginUi: freezed == loginUi
-          ? _value.loginUi
-          : loginUi // ignore: cast_nullable_to_non_nullable
-              as String?,
-      loginCheckJs: freezed == loginCheckJs
-          ? _value.loginCheckJs
-          : loginCheckJs // ignore: cast_nullable_to_non_nullable
-              as String?,
-      comment: freezed == comment
-          ? _value.comment
-          : comment // ignore: cast_nullable_to_non_nullable
-              as String?,
-      script: null == script
-          ? _value.script
-          : script // ignore: cast_nullable_to_non_nullable
-              as String,
-      header: freezed == header
-          ? _value.header
-          : header // ignore: cast_nullable_to_non_nullable
-              as String?,
-      jsLib: freezed == jsLib
-          ? _value.jsLib
-          : jsLib // ignore: cast_nullable_to_non_nullable
-              as String?,
-      concurrentRate: freezed == concurrentRate
-          ? _value.concurrentRate
-          : concurrentRate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      enabledCookieJar: null == enabledCookieJar
-          ? _value.enabledCookieJar
-          : enabledCookieJar // ignore: cast_nullable_to_non_nullable
-              as bool,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRunAt: null == lastRunAt
-          ? _value.lastRunAt
-          : lastRunAt // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastResult: freezed == lastResult
-          ? _value.lastResult
-          : lastResult // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastError: freezed == lastError
-          ? _value.lastError
-          : lastError // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastLog: freezed == lastLog
-          ? _value.lastLog
-          : lastLog // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      AutoTaskRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        enable: null == enable
+            ? _self.enable
+            : enable // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        cron: freezed == cron
+            ? _self.cron
+            : cron // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUrl: freezed == loginUrl
+            ? _self.loginUrl
+            : loginUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUi: freezed == loginUi
+            ? _self.loginUi
+            : loginUi // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginCheckJs: freezed == loginCheckJs
+            ? _self.loginCheckJs
+            : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        comment: freezed == comment
+            ? _self.comment
+            : comment // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        script: null == script
+            ? _self.script
+            : script // ignore: cast_nullable_to_non_nullable
+                  as String,
+        header: freezed == header
+            ? _self.header
+            : header // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        jsLib: freezed == jsLib
+            ? _self.jsLib
+            : jsLib // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        concurrentRate: freezed == concurrentRate
+            ? _self.concurrentRate
+            : concurrentRate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        enabledCookieJar: null == enabledCookieJar
+            ? _self.enabledCookieJar
+            : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        customOrder: null == customOrder
+            ? _self.customOrder
+            : customOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRunAt: null == lastRunAt
+            ? _self.lastRunAt
+            : lastRunAt // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastResult: freezed == lastResult
+            ? _self.lastResult
+            : lastResult // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastError: freezed == lastError
+            ? _self.lastError
+            : lastError // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastLog: freezed == lastLog
+            ? _self.lastLog
+            : lastLog // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [AutoTaskRule].
+extension AutoTaskRulePatterns on AutoTaskRule {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_AutoTaskRule value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_AutoTaskRule value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_AutoTaskRule value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String id,
+      String name,
+      bool enable,
+      String? cron,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      String? comment,
+      String script,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
+      @JsonKey(name: 'customOrder') int customOrder,
+      @JsonKey(name: 'lastRunAt') int lastRunAt,
+      @JsonKey(name: 'lastResult') String? lastResult,
+      @JsonKey(name: 'lastError') String? lastError,
+      @JsonKey(name: 'lastLog') String? lastLog,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.enable,
+          _that.cron,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.loginCheckJs,
+          _that.comment,
+          _that.script,
+          _that.header,
+          _that.jsLib,
+          _that.concurrentRate,
+          _that.enabledCookieJar,
+          _that.customOrder,
+          _that.lastRunAt,
+          _that.lastResult,
+          _that.lastError,
+          _that.lastLog,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String id,
+      String name,
+      bool enable,
+      String? cron,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      String? comment,
+      String script,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
+      @JsonKey(name: 'customOrder') int customOrder,
+      @JsonKey(name: 'lastRunAt') int lastRunAt,
+      @JsonKey(name: 'lastResult') String? lastResult,
+      @JsonKey(name: 'lastError') String? lastError,
+      @JsonKey(name: 'lastLog') String? lastLog,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule():
+        return $default(
+          _that.id,
+          _that.name,
+          _that.enable,
+          _that.cron,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.loginCheckJs,
+          _that.comment,
+          _that.script,
+          _that.header,
+          _that.jsLib,
+          _that.concurrentRate,
+          _that.enabledCookieJar,
+          _that.customOrder,
+          _that.lastRunAt,
+          _that.lastResult,
+          _that.lastError,
+          _that.lastLog,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String id,
+      String name,
+      bool enable,
+      String? cron,
+      @JsonKey(name: 'loginUrl') String? loginUrl,
+      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      String? comment,
+      String script,
+      String? header,
+      @JsonKey(name: 'jsLib') String? jsLib,
+      @JsonKey(name: 'concurrentRate') String? concurrentRate,
+      @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
+      @JsonKey(name: 'customOrder') int customOrder,
+      @JsonKey(name: 'lastRunAt') int lastRunAt,
+      @JsonKey(name: 'lastResult') String? lastResult,
+      @JsonKey(name: 'lastError') String? lastError,
+      @JsonKey(name: 'lastLog') String? lastLog,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.enable,
+          _that.cron,
+          _that.loginUrl,
+          _that.loginUi,
+          _that.loginCheckJs,
+          _that.comment,
+          _that.script,
+          _that.header,
+          _that.jsLib,
+          _that.concurrentRate,
+          _that.enabledCookieJar,
+          _that.customOrder,
+          _that.lastRunAt,
+          _that.lastResult,
+          _that.lastError,
+          _that.lastLog,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$AutoTaskRuleImpl implements _AutoTaskRule {
-  const _$AutoTaskRuleImpl(
-      {this.id = '',
-      this.name = '',
-      this.enable = true,
-      this.cron,
-      @JsonKey(name: 'loginUrl') this.loginUrl,
-      @JsonKey(name: 'loginUi') this.loginUi,
-      @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
-      this.comment,
-      this.script = '',
-      this.header,
-      @JsonKey(name: 'jsLib') this.jsLib,
-      @JsonKey(name: 'concurrentRate') this.concurrentRate,
-      @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar = true,
-      @JsonKey(name: 'customOrder') this.customOrder = 0,
-      @JsonKey(name: 'lastRunAt') this.lastRunAt = 0,
-      @JsonKey(name: 'lastResult') this.lastResult,
-      @JsonKey(name: 'lastError') this.lastError,
-      @JsonKey(name: 'lastLog') this.lastLog});
-
-  factory _$AutoTaskRuleImpl.fromJson(Map<String, dynamic> json) =>
-      _$$AutoTaskRuleImplFromJson(json);
+class _AutoTaskRule implements AutoTaskRule {
+  const _AutoTaskRule({
+    this.id = '',
+    this.name = '',
+    this.enable = true,
+    this.cron,
+    @JsonKey(name: 'loginUrl') this.loginUrl,
+    @JsonKey(name: 'loginUi') this.loginUi,
+    @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
+    this.comment,
+    this.script = '',
+    this.header,
+    @JsonKey(name: 'jsLib') this.jsLib,
+    @JsonKey(name: 'concurrentRate') this.concurrentRate,
+    @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar = true,
+    @JsonKey(name: 'customOrder') this.customOrder = 0,
+    @JsonKey(name: 'lastRunAt') this.lastRunAt = 0,
+    @JsonKey(name: 'lastResult') this.lastResult,
+    @JsonKey(name: 'lastError') this.lastError,
+    @JsonKey(name: 'lastLog') this.lastLog,
+  });
+  factory _AutoTaskRule.fromJson(Map<String, dynamic> json) =>
+      _$AutoTaskRuleFromJson(json);
 
   @override
   @JsonKey()
@@ -2531,16 +4022,24 @@ class _$AutoTaskRuleImpl implements _AutoTaskRule {
   @JsonKey(name: 'lastLog')
   final String? lastLog;
 
+  /// Create a copy of AutoTaskRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'AutoTaskRule(id: $id, name: $name, enable: $enable, cron: $cron, loginUrl: $loginUrl, loginUi: $loginUi, loginCheckJs: $loginCheckJs, comment: $comment, script: $script, header: $header, jsLib: $jsLib, concurrentRate: $concurrentRate, enabledCookieJar: $enabledCookieJar, customOrder: $customOrder, lastRunAt: $lastRunAt, lastResult: $lastResult, lastError: $lastError, lastLog: $lastLog)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$AutoTaskRuleCopyWith<_AutoTaskRule> get copyWith =>
+      __$AutoTaskRuleCopyWithImpl<_AutoTaskRule>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$AutoTaskRuleToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$AutoTaskRuleImpl &&
+            other is _AutoTaskRule &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.enable, enable) || other.enable == enable) &&
@@ -2569,9 +4068,10 @@ class _$AutoTaskRuleImpl implements _AutoTaskRule {
             (identical(other.lastLog, lastLog) || other.lastLog == lastLog));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       id,
       name,
@@ -2590,274 +4090,285 @@ class _$AutoTaskRuleImpl implements _AutoTaskRule {
       lastRunAt,
       lastResult,
       lastError,
-      lastLog);
+      lastLog,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'AutoTaskRule(id: $id, name: $name, enable: $enable, cron: $cron, loginUrl: $loginUrl, loginUi: $loginUi, loginCheckJs: $loginCheckJs, comment: $comment, script: $script, header: $header, jsLib: $jsLib, concurrentRate: $concurrentRate, enabledCookieJar: $enabledCookieJar, customOrder: $customOrder, lastRunAt: $lastRunAt, lastResult: $lastResult, lastError: $lastError, lastLog: $lastLog)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$AutoTaskRuleCopyWith<$Res>
+    implements $AutoTaskRuleCopyWith<$Res> {
+  factory _$AutoTaskRuleCopyWith(
+    _AutoTaskRule value,
+    $Res Function(_AutoTaskRule) _then,
+  ) = __$AutoTaskRuleCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String id,
+    String name,
+    bool enable,
+    String? cron,
+    @JsonKey(name: 'loginUrl') String? loginUrl,
+    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    String? comment,
+    String script,
+    String? header,
+    @JsonKey(name: 'jsLib') String? jsLib,
+    @JsonKey(name: 'concurrentRate') String? concurrentRate,
+    @JsonKey(name: 'enabledCookieJar') bool enabledCookieJar,
+    @JsonKey(name: 'customOrder') int customOrder,
+    @JsonKey(name: 'lastRunAt') int lastRunAt,
+    @JsonKey(name: 'lastResult') String? lastResult,
+    @JsonKey(name: 'lastError') String? lastError,
+    @JsonKey(name: 'lastLog') String? lastLog,
+  });
+}
+
+/// @nodoc
+class __$AutoTaskRuleCopyWithImpl<$Res>
+    implements _$AutoTaskRuleCopyWith<$Res> {
+  __$AutoTaskRuleCopyWithImpl(this._self, this._then);
+
+  final _AutoTaskRule _self;
+  final $Res Function(_AutoTaskRule) _then;
+
+  /// Create a copy of AutoTaskRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$AutoTaskRuleImplCopyWith<_$AutoTaskRuleImpl> get copyWith =>
-      __$$AutoTaskRuleImplCopyWithImpl<_$AutoTaskRuleImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$AutoTaskRuleImplToJson(
-      this,
+  $Res call({
+    Object? id = null,
+    Object? name = null,
+    Object? enable = null,
+    Object? cron = freezed,
+    Object? loginUrl = freezed,
+    Object? loginUi = freezed,
+    Object? loginCheckJs = freezed,
+    Object? comment = freezed,
+    Object? script = null,
+    Object? header = freezed,
+    Object? jsLib = freezed,
+    Object? concurrentRate = freezed,
+    Object? enabledCookieJar = null,
+    Object? customOrder = null,
+    Object? lastRunAt = null,
+    Object? lastResult = freezed,
+    Object? lastError = freezed,
+    Object? lastLog = freezed,
+  }) {
+    return _then(
+      _AutoTaskRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        enable: null == enable
+            ? _self.enable
+            : enable // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        cron: freezed == cron
+            ? _self.cron
+            : cron // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUrl: freezed == loginUrl
+            ? _self.loginUrl
+            : loginUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginUi: freezed == loginUi
+            ? _self.loginUi
+            : loginUi // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        loginCheckJs: freezed == loginCheckJs
+            ? _self.loginCheckJs
+            : loginCheckJs // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        comment: freezed == comment
+            ? _self.comment
+            : comment // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        script: null == script
+            ? _self.script
+            : script // ignore: cast_nullable_to_non_nullable
+                  as String,
+        header: freezed == header
+            ? _self.header
+            : header // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        jsLib: freezed == jsLib
+            ? _self.jsLib
+            : jsLib // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        concurrentRate: freezed == concurrentRate
+            ? _self.concurrentRate
+            : concurrentRate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        enabledCookieJar: null == enabledCookieJar
+            ? _self.enabledCookieJar
+            : enabledCookieJar // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        customOrder: null == customOrder
+            ? _self.customOrder
+            : customOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRunAt: null == lastRunAt
+            ? _self.lastRunAt
+            : lastRunAt // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastResult: freezed == lastResult
+            ? _self.lastResult
+            : lastResult // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastError: freezed == lastError
+            ? _self.lastError
+            : lastError // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastLog: freezed == lastLog
+            ? _self.lastLog
+            : lastLog // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
     );
   }
 }
 
-abstract class _AutoTaskRule implements AutoTaskRule {
-  const factory _AutoTaskRule(
-      {final String id,
-      final String name,
-      final bool enable,
-      final String? cron,
-      @JsonKey(name: 'loginUrl') final String? loginUrl,
-      @JsonKey(name: 'loginUi') final String? loginUi,
-      @JsonKey(name: 'loginCheckJs') final String? loginCheckJs,
-      final String? comment,
-      final String script,
-      final String? header,
-      @JsonKey(name: 'jsLib') final String? jsLib,
-      @JsonKey(name: 'concurrentRate') final String? concurrentRate,
-      @JsonKey(name: 'enabledCookieJar') final bool enabledCookieJar,
-      @JsonKey(name: 'customOrder') final int customOrder,
-      @JsonKey(name: 'lastRunAt') final int lastRunAt,
-      @JsonKey(name: 'lastResult') final String? lastResult,
-      @JsonKey(name: 'lastError') final String? lastError,
-      @JsonKey(name: 'lastLog') final String? lastLog}) = _$AutoTaskRuleImpl;
-
-  factory _AutoTaskRule.fromJson(Map<String, dynamic> json) =
-      _$AutoTaskRuleImpl.fromJson;
-
-  @override
-  String get id;
-  @override
-  String get name;
-  @override
-  bool get enable;
-  @override
-  String? get cron;
-  @override
-  @JsonKey(name: 'loginUrl')
-  String? get loginUrl;
-  @override
-  @JsonKey(name: 'loginUi')
-  String? get loginUi;
-  @override
-  @JsonKey(name: 'loginCheckJs')
-  String? get loginCheckJs;
-  @override
-  String? get comment;
-  @override
-  String get script;
-  @override
-  String? get header;
-  @override
-  @JsonKey(name: 'jsLib')
-  String? get jsLib;
-  @override
-  @JsonKey(name: 'concurrentRate')
-  String? get concurrentRate;
-  @override
-  @JsonKey(name: 'enabledCookieJar')
-  bool get enabledCookieJar;
-  @override
-  @JsonKey(name: 'customOrder')
-  int get customOrder;
-  @override
-  @JsonKey(name: 'lastRunAt')
-  int get lastRunAt;
-  @override
-  @JsonKey(name: 'lastResult')
-  String? get lastResult;
-  @override
-  @JsonKey(name: 'lastError')
-  String? get lastError;
-  @override
-  @JsonKey(name: 'lastLog')
-  String? get lastLog;
-  @override
-  @JsonKey(ignore: true)
-  _$$AutoTaskRuleImplCopyWith<_$AutoTaskRuleImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-RssArticle _$RssArticleFromJson(Map<String, dynamic> json) {
-  return _RssArticle.fromJson(json);
-}
-
 /// @nodoc
 mixin _$RssArticle {
-  String get origin => throw _privateConstructorUsedError;
-  String get sort => throw _privateConstructorUsedError;
-  String get title => throw _privateConstructorUsedError;
-  int get order => throw _privateConstructorUsedError;
-  String get link => throw _privateConstructorUsedError;
+  String get origin;
+  String get sort;
+  String get title;
+  int get order;
+  String get link;
   @JsonKey(name: 'pubDate')
-  String? get pubDate => throw _privateConstructorUsedError;
-  String? get description => throw _privateConstructorUsedError;
-  String? get content => throw _privateConstructorUsedError;
-  String? get image => throw _privateConstructorUsedError;
-  String get group => throw _privateConstructorUsedError;
-  bool get read => throw _privateConstructorUsedError;
-  String? get variable => throw _privateConstructorUsedError;
+  String? get pubDate;
+  String? get description;
+  String? get content;
+  String? get image;
+  String get group;
+  bool get read;
+  String? get variable;
   @JsonKey(name: 'type')
-  int get articleType => throw _privateConstructorUsedError;
+  int get articleType;
   @JsonKey(name: 'durPos')
-  int get durPos => throw _privateConstructorUsedError;
+  int get durPos;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $RssArticleCopyWith<RssArticle> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $RssArticleCopyWith<$Res> {
-  factory $RssArticleCopyWith(
-          RssArticle value, $Res Function(RssArticle) then) =
-      _$RssArticleCopyWithImpl<$Res, RssArticle>;
-  @useResult
-  $Res call(
-      {String origin,
-      String sort,
-      String title,
-      int order,
-      String link,
-      @JsonKey(name: 'pubDate') String? pubDate,
-      String? description,
-      String? content,
-      String? image,
-      String group,
-      bool read,
-      String? variable,
-      @JsonKey(name: 'type') int articleType,
-      @JsonKey(name: 'durPos') int durPos});
-}
-
-/// @nodoc
-class _$RssArticleCopyWithImpl<$Res, $Val extends RssArticle>
-    implements $RssArticleCopyWith<$Res> {
-  _$RssArticleCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of RssArticle
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $RssArticleCopyWith<RssArticle> get copyWith =>
+      _$RssArticleCopyWithImpl<RssArticle>(this as RssArticle, _$identity);
+
+  /// Serializes this RssArticle to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? origin = null,
-    Object? sort = null,
-    Object? title = null,
-    Object? order = null,
-    Object? link = null,
-    Object? pubDate = freezed,
-    Object? description = freezed,
-    Object? content = freezed,
-    Object? image = freezed,
-    Object? group = null,
-    Object? read = null,
-    Object? variable = freezed,
-    Object? articleType = null,
-    Object? durPos = null,
-  }) {
-    return _then(_value.copyWith(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      link: null == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      description: freezed == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String?,
-      content: freezed == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String?,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String,
-      read: null == read
-          ? _value.read
-          : read // ignore: cast_nullable_to_non_nullable
-              as bool,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      articleType: null == articleType
-          ? _value.articleType
-          : articleType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as RssArticle;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is RssArticle &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.sort, _this.sort) || other.sort == _this.sort) &&
+            (identical(other.title, _this.title) ||
+                other.title == _this.title) &&
+            (identical(other.order, _this.order) ||
+                other.order == _this.order) &&
+            (identical(other.link, _this.link) || other.link == _this.link) &&
+            (identical(other.pubDate, _this.pubDate) ||
+                other.pubDate == _this.pubDate) &&
+            (identical(other.description, _this.description) ||
+                other.description == _this.description) &&
+            (identical(other.content, _this.content) ||
+                other.content == _this.content) &&
+            (identical(other.image, _this.image) ||
+                other.image == _this.image) &&
+            (identical(other.group, _this.group) ||
+                other.group == _this.group) &&
+            (identical(other.read, _this.read) || other.read == _this.read) &&
+            (identical(other.variable, _this.variable) ||
+                other.variable == _this.variable) &&
+            (identical(other.articleType, _this.articleType) ||
+                other.articleType == _this.articleType) &&
+            (identical(other.durPos, _this.durPos) ||
+                other.durPos == _this.durPos));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as RssArticle;
+    return Object.hash(
+      runtimeType,
+      _this.origin,
+      _this.sort,
+      _this.title,
+      _this.order,
+      _this.link,
+      _this.pubDate,
+      _this.description,
+      _this.content,
+      _this.image,
+      _this.group,
+      _this.read,
+      _this.variable,
+      _this.articleType,
+      _this.durPos,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as RssArticle;
+    return 'RssArticle(origin: ${_this.origin}, sort: ${_this.sort}, title: ${_this.title}, order: ${_this.order}, link: ${_this.link}, pubDate: ${_this.pubDate}, description: ${_this.description}, content: ${_this.content}, image: ${_this.image}, group: ${_this.group}, read: ${_this.read}, variable: ${_this.variable}, articleType: ${_this.articleType}, durPos: ${_this.durPos})';
   }
 }
 
 /// @nodoc
-abstract class _$$RssArticleImplCopyWith<$Res>
-    implements $RssArticleCopyWith<$Res> {
-  factory _$$RssArticleImplCopyWith(
-          _$RssArticleImpl value, $Res Function(_$RssArticleImpl) then) =
-      __$$RssArticleImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $RssArticleCopyWith<$Res> {
+  factory $RssArticleCopyWith(
+    RssArticle value,
+    $Res Function(RssArticle) _then,
+  ) = _$RssArticleCopyWithImpl;
   @useResult
-  $Res call(
-      {String origin,
-      String sort,
-      String title,
-      int order,
-      String link,
-      @JsonKey(name: 'pubDate') String? pubDate,
-      String? description,
-      String? content,
-      String? image,
-      String group,
-      bool read,
-      String? variable,
-      @JsonKey(name: 'type') int articleType,
-      @JsonKey(name: 'durPos') int durPos});
+  $Res call({
+    String origin,
+    String sort,
+    String title,
+    int order,
+    String link,
+    @JsonKey(name: 'pubDate') String? pubDate,
+    String? description,
+    String? content,
+    String? image,
+    String group,
+    bool read,
+    String? variable,
+    @JsonKey(name: 'type') int articleType,
+    @JsonKey(name: 'durPos') int durPos,
+  });
 }
 
 /// @nodoc
-class __$$RssArticleImplCopyWithImpl<$Res>
-    extends _$RssArticleCopyWithImpl<$Res, _$RssArticleImpl>
-    implements _$$RssArticleImplCopyWith<$Res> {
-  __$$RssArticleImplCopyWithImpl(
-      _$RssArticleImpl _value, $Res Function(_$RssArticleImpl) _then)
-      : super(_value, _then);
+class _$RssArticleCopyWithImpl<$Res> implements $RssArticleCopyWith<$Res> {
+  _$RssArticleCopyWithImpl(this._self, this._then);
 
+  final RssArticle _self;
+  final $Res Function(RssArticle) _then;
+
+  /// Create a copy of RssArticle
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -2876,88 +4387,340 @@ class __$$RssArticleImplCopyWithImpl<$Res>
     Object? articleType = null,
     Object? durPos = null,
   }) {
-    return _then(_$RssArticleImpl(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      order: null == order
-          ? _value.order
-          : order // ignore: cast_nullable_to_non_nullable
-              as int,
-      link: null == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      description: freezed == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String?,
-      content: freezed == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String?,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String,
-      read: null == read
-          ? _value.read
-          : read // ignore: cast_nullable_to_non_nullable
-              as bool,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      articleType: null == articleType
-          ? _value.articleType
-          : articleType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      RssArticle(
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        link: null == link
+            ? _self.link
+            : link // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        description: freezed == description
+            ? _self.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        content: freezed == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        group: null == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String,
+        read: null == read
+            ? _self.read
+            : read // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        articleType: null == articleType
+            ? _self.articleType
+            : articleType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [RssArticle].
+extension RssArticlePatterns on RssArticle {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_RssArticle value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_RssArticle value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_RssArticle value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String origin,
+      String sort,
+      String title,
+      int order,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      bool read,
+      String? variable,
+      @JsonKey(name: 'type') int articleType,
+      @JsonKey(name: 'durPos') int durPos,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle() when $default != null:
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.order,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.read,
+          _that.variable,
+          _that.articleType,
+          _that.durPos,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String origin,
+      String sort,
+      String title,
+      int order,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      bool read,
+      String? variable,
+      @JsonKey(name: 'type') int articleType,
+      @JsonKey(name: 'durPos') int durPos,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle():
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.order,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.read,
+          _that.variable,
+          _that.articleType,
+          _that.durPos,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String origin,
+      String sort,
+      String title,
+      int order,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      bool read,
+      String? variable,
+      @JsonKey(name: 'type') int articleType,
+      @JsonKey(name: 'durPos') int durPos,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssArticle() when $default != null:
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.order,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.read,
+          _that.variable,
+          _that.articleType,
+          _that.durPos,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$RssArticleImpl implements _RssArticle {
-  const _$RssArticleImpl(
-      {this.origin = '',
-      this.sort = '',
-      this.title = '',
-      this.order = 0,
-      this.link = '',
-      @JsonKey(name: 'pubDate') this.pubDate,
-      this.description,
-      this.content,
-      this.image,
-      this.group = '默认分组',
-      this.read = false,
-      this.variable,
-      @JsonKey(name: 'type') this.articleType = 0,
-      @JsonKey(name: 'durPos') this.durPos = 0});
-
-  factory _$RssArticleImpl.fromJson(Map<String, dynamic> json) =>
-      _$$RssArticleImplFromJson(json);
+class _RssArticle implements RssArticle {
+  const _RssArticle({
+    this.origin = '',
+    this.sort = '',
+    this.title = '',
+    this.order = 0,
+    this.link = '',
+    @JsonKey(name: 'pubDate') this.pubDate,
+    this.description,
+    this.content,
+    this.image,
+    this.group = '默认分组',
+    this.read = false,
+    this.variable,
+    @JsonKey(name: 'type') this.articleType = 0,
+    @JsonKey(name: 'durPos') this.durPos = 0,
+  });
+  factory _RssArticle.fromJson(Map<String, dynamic> json) =>
+      _$RssArticleFromJson(json);
 
   @override
   @JsonKey()
@@ -2998,16 +4761,24 @@ class _$RssArticleImpl implements _RssArticle {
   @JsonKey(name: 'durPos')
   final int durPos;
 
+  /// Create a copy of RssArticle
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'RssArticle(origin: $origin, sort: $sort, title: $title, order: $order, link: $link, pubDate: $pubDate, description: $description, content: $content, image: $image, group: $group, read: $read, variable: $variable, articleType: $articleType, durPos: $durPos)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$RssArticleCopyWith<_RssArticle> get copyWith =>
+      __$RssArticleCopyWithImpl<_RssArticle>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$RssArticleToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$RssArticleImpl &&
+            other is _RssArticle &&
             (identical(other.origin, origin) || other.origin == origin) &&
             (identical(other.sort, sort) || other.sort == sort) &&
             (identical(other.title, title) || other.title == title) &&
@@ -3027,9 +4798,10 @@ class _$RssArticleImpl implements _RssArticle {
             (identical(other.durPos, durPos) || other.durPos == durPos));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       origin,
       sort,
@@ -3044,244 +4816,255 @@ class _$RssArticleImpl implements _RssArticle {
       read,
       variable,
       articleType,
-      durPos);
+      durPos,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'RssArticle(origin: $origin, sort: $sort, title: $title, order: $order, link: $link, pubDate: $pubDate, description: $description, content: $content, image: $image, group: $group, read: $read, variable: $variable, articleType: $articleType, durPos: $durPos)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$RssArticleCopyWith<$Res>
+    implements $RssArticleCopyWith<$Res> {
+  factory _$RssArticleCopyWith(
+    _RssArticle value,
+    $Res Function(_RssArticle) _then,
+  ) = __$RssArticleCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String origin,
+    String sort,
+    String title,
+    int order,
+    String link,
+    @JsonKey(name: 'pubDate') String? pubDate,
+    String? description,
+    String? content,
+    String? image,
+    String group,
+    bool read,
+    String? variable,
+    @JsonKey(name: 'type') int articleType,
+    @JsonKey(name: 'durPos') int durPos,
+  });
+}
+
+/// @nodoc
+class __$RssArticleCopyWithImpl<$Res> implements _$RssArticleCopyWith<$Res> {
+  __$RssArticleCopyWithImpl(this._self, this._then);
+
+  final _RssArticle _self;
+  final $Res Function(_RssArticle) _then;
+
+  /// Create a copy of RssArticle
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$RssArticleImplCopyWith<_$RssArticleImpl> get copyWith =>
-      __$$RssArticleImplCopyWithImpl<_$RssArticleImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$RssArticleImplToJson(
-      this,
+  $Res call({
+    Object? origin = null,
+    Object? sort = null,
+    Object? title = null,
+    Object? order = null,
+    Object? link = null,
+    Object? pubDate = freezed,
+    Object? description = freezed,
+    Object? content = freezed,
+    Object? image = freezed,
+    Object? group = null,
+    Object? read = null,
+    Object? variable = freezed,
+    Object? articleType = null,
+    Object? durPos = null,
+  }) {
+    return _then(
+      _RssArticle(
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        order: null == order
+            ? _self.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        link: null == link
+            ? _self.link
+            : link // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        description: freezed == description
+            ? _self.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        content: freezed == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        group: null == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String,
+        read: null == read
+            ? _self.read
+            : read // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        articleType: null == articleType
+            ? _self.articleType
+            : articleType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _RssArticle implements RssArticle {
-  const factory _RssArticle(
-      {final String origin,
-      final String sort,
-      final String title,
-      final int order,
-      final String link,
-      @JsonKey(name: 'pubDate') final String? pubDate,
-      final String? description,
-      final String? content,
-      final String? image,
-      final String group,
-      final bool read,
-      final String? variable,
-      @JsonKey(name: 'type') final int articleType,
-      @JsonKey(name: 'durPos') final int durPos}) = _$RssArticleImpl;
-
-  factory _RssArticle.fromJson(Map<String, dynamic> json) =
-      _$RssArticleImpl.fromJson;
-
-  @override
-  String get origin;
-  @override
-  String get sort;
-  @override
-  String get title;
-  @override
-  int get order;
-  @override
-  String get link;
-  @override
-  @JsonKey(name: 'pubDate')
-  String? get pubDate;
-  @override
-  String? get description;
-  @override
-  String? get content;
-  @override
-  String? get image;
-  @override
-  String get group;
-  @override
-  bool get read;
-  @override
-  String? get variable;
-  @override
-  @JsonKey(name: 'type')
-  int get articleType;
-  @override
-  @JsonKey(name: 'durPos')
-  int get durPos;
-  @override
-  @JsonKey(ignore: true)
-  _$$RssArticleImplCopyWith<_$RssArticleImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-RssStar _$RssStarFromJson(Map<String, dynamic> json) {
-  return _RssStar.fromJson(json);
-}
-
 /// @nodoc
 mixin _$RssStar {
-  String get origin => throw _privateConstructorUsedError;
-  String get sort => throw _privateConstructorUsedError;
-  String get title => throw _privateConstructorUsedError;
+  String get origin;
+  String get sort;
+  String get title;
   @JsonKey(name: 'starTime')
-  int get starTime => throw _privateConstructorUsedError;
-  String get link => throw _privateConstructorUsedError;
+  int get starTime;
+  String get link;
   @JsonKey(name: 'pubDate')
-  String? get pubDate => throw _privateConstructorUsedError;
-  String? get description => throw _privateConstructorUsedError;
-  String? get content => throw _privateConstructorUsedError;
-  String? get image => throw _privateConstructorUsedError;
-  String get group => throw _privateConstructorUsedError;
-  String? get variable => throw _privateConstructorUsedError;
+  String? get pubDate;
+  String? get description;
+  String? get content;
+  String? get image;
+  String get group;
+  String? get variable;
   @JsonKey(name: 'type')
-  int get starType => throw _privateConstructorUsedError;
+  int get starType;
   @JsonKey(name: 'durPos')
-  int get durPos => throw _privateConstructorUsedError;
+  int get durPos;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $RssStarCopyWith<RssStar> get copyWith => throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $RssStarCopyWith<$Res> {
-  factory $RssStarCopyWith(RssStar value, $Res Function(RssStar) then) =
-      _$RssStarCopyWithImpl<$Res, RssStar>;
-  @useResult
-  $Res call(
-      {String origin,
-      String sort,
-      String title,
-      @JsonKey(name: 'starTime') int starTime,
-      String link,
-      @JsonKey(name: 'pubDate') String? pubDate,
-      String? description,
-      String? content,
-      String? image,
-      String group,
-      String? variable,
-      @JsonKey(name: 'type') int starType,
-      @JsonKey(name: 'durPos') int durPos});
-}
-
-/// @nodoc
-class _$RssStarCopyWithImpl<$Res, $Val extends RssStar>
-    implements $RssStarCopyWith<$Res> {
-  _$RssStarCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of RssStar
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $RssStarCopyWith<RssStar> get copyWith =>
+      _$RssStarCopyWithImpl<RssStar>(this as RssStar, _$identity);
+
+  /// Serializes this RssStar to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? origin = null,
-    Object? sort = null,
-    Object? title = null,
-    Object? starTime = null,
-    Object? link = null,
-    Object? pubDate = freezed,
-    Object? description = freezed,
-    Object? content = freezed,
-    Object? image = freezed,
-    Object? group = null,
-    Object? variable = freezed,
-    Object? starType = null,
-    Object? durPos = null,
-  }) {
-    return _then(_value.copyWith(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      starTime: null == starTime
-          ? _value.starTime
-          : starTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      link: null == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      description: freezed == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String?,
-      content: freezed == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String?,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      starType: null == starType
-          ? _value.starType
-          : starType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as RssStar;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is RssStar &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.sort, _this.sort) || other.sort == _this.sort) &&
+            (identical(other.title, _this.title) ||
+                other.title == _this.title) &&
+            (identical(other.starTime, _this.starTime) ||
+                other.starTime == _this.starTime) &&
+            (identical(other.link, _this.link) || other.link == _this.link) &&
+            (identical(other.pubDate, _this.pubDate) ||
+                other.pubDate == _this.pubDate) &&
+            (identical(other.description, _this.description) ||
+                other.description == _this.description) &&
+            (identical(other.content, _this.content) ||
+                other.content == _this.content) &&
+            (identical(other.image, _this.image) ||
+                other.image == _this.image) &&
+            (identical(other.group, _this.group) ||
+                other.group == _this.group) &&
+            (identical(other.variable, _this.variable) ||
+                other.variable == _this.variable) &&
+            (identical(other.starType, _this.starType) ||
+                other.starType == _this.starType) &&
+            (identical(other.durPos, _this.durPos) ||
+                other.durPos == _this.durPos));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as RssStar;
+    return Object.hash(
+      runtimeType,
+      _this.origin,
+      _this.sort,
+      _this.title,
+      _this.starTime,
+      _this.link,
+      _this.pubDate,
+      _this.description,
+      _this.content,
+      _this.image,
+      _this.group,
+      _this.variable,
+      _this.starType,
+      _this.durPos,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as RssStar;
+    return 'RssStar(origin: ${_this.origin}, sort: ${_this.sort}, title: ${_this.title}, starTime: ${_this.starTime}, link: ${_this.link}, pubDate: ${_this.pubDate}, description: ${_this.description}, content: ${_this.content}, image: ${_this.image}, group: ${_this.group}, variable: ${_this.variable}, starType: ${_this.starType}, durPos: ${_this.durPos})';
   }
 }
 
 /// @nodoc
-abstract class _$$RssStarImplCopyWith<$Res> implements $RssStarCopyWith<$Res> {
-  factory _$$RssStarImplCopyWith(
-          _$RssStarImpl value, $Res Function(_$RssStarImpl) then) =
-      __$$RssStarImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $RssStarCopyWith<$Res> {
+  factory $RssStarCopyWith(RssStar value, $Res Function(RssStar) _then) =
+      _$RssStarCopyWithImpl;
   @useResult
-  $Res call(
-      {String origin,
-      String sort,
-      String title,
-      @JsonKey(name: 'starTime') int starTime,
-      String link,
-      @JsonKey(name: 'pubDate') String? pubDate,
-      String? description,
-      String? content,
-      String? image,
-      String group,
-      String? variable,
-      @JsonKey(name: 'type') int starType,
-      @JsonKey(name: 'durPos') int durPos});
+  $Res call({
+    String origin,
+    String sort,
+    String title,
+    @JsonKey(name: 'starTime') int starTime,
+    String link,
+    @JsonKey(name: 'pubDate') String? pubDate,
+    String? description,
+    String? content,
+    String? image,
+    String group,
+    String? variable,
+    @JsonKey(name: 'type') int starType,
+    @JsonKey(name: 'durPos') int durPos,
+  });
 }
 
 /// @nodoc
-class __$$RssStarImplCopyWithImpl<$Res>
-    extends _$RssStarCopyWithImpl<$Res, _$RssStarImpl>
-    implements _$$RssStarImplCopyWith<$Res> {
-  __$$RssStarImplCopyWithImpl(
-      _$RssStarImpl _value, $Res Function(_$RssStarImpl) _then)
-      : super(_value, _then);
+class _$RssStarCopyWithImpl<$Res> implements $RssStarCopyWith<$Res> {
+  _$RssStarCopyWithImpl(this._self, this._then);
 
+  final RssStar _self;
+  final $Res Function(RssStar) _then;
+
+  /// Create a copy of RssStar
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -3299,83 +5082,329 @@ class __$$RssStarImplCopyWithImpl<$Res>
     Object? starType = null,
     Object? durPos = null,
   }) {
-    return _then(_$RssStarImpl(
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      starTime: null == starTime
-          ? _value.starTime
-          : starTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      link: null == link
-          ? _value.link
-          : link // ignore: cast_nullable_to_non_nullable
-              as String,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-      description: freezed == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String?,
-      content: freezed == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as String?,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      group: null == group
-          ? _value.group
-          : group // ignore: cast_nullable_to_non_nullable
-              as String,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      starType: null == starType
-          ? _value.starType
-          : starType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      RssStar(
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        starTime: null == starTime
+            ? _self.starTime
+            : starTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        link: null == link
+            ? _self.link
+            : link // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        description: freezed == description
+            ? _self.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        content: freezed == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        group: null == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        starType: null == starType
+            ? _self.starType
+            : starType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [RssStar].
+extension RssStarPatterns on RssStar {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_RssStar value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_RssStar value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_RssStar value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String origin,
+      String sort,
+      String title,
+      @JsonKey(name: 'starTime') int starTime,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      String? variable,
+      @JsonKey(name: 'type') int starType,
+      @JsonKey(name: 'durPos') int durPos,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar() when $default != null:
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.starTime,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.variable,
+          _that.starType,
+          _that.durPos,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String origin,
+      String sort,
+      String title,
+      @JsonKey(name: 'starTime') int starTime,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      String? variable,
+      @JsonKey(name: 'type') int starType,
+      @JsonKey(name: 'durPos') int durPos,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar():
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.starTime,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.variable,
+          _that.starType,
+          _that.durPos,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String origin,
+      String sort,
+      String title,
+      @JsonKey(name: 'starTime') int starTime,
+      String link,
+      @JsonKey(name: 'pubDate') String? pubDate,
+      String? description,
+      String? content,
+      String? image,
+      String group,
+      String? variable,
+      @JsonKey(name: 'type') int starType,
+      @JsonKey(name: 'durPos') int durPos,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssStar() when $default != null:
+        return $default(
+          _that.origin,
+          _that.sort,
+          _that.title,
+          _that.starTime,
+          _that.link,
+          _that.pubDate,
+          _that.description,
+          _that.content,
+          _that.image,
+          _that.group,
+          _that.variable,
+          _that.starType,
+          _that.durPos,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$RssStarImpl implements _RssStar {
-  const _$RssStarImpl(
-      {this.origin = '',
-      this.sort = '',
-      this.title = '',
-      @JsonKey(name: 'starTime') this.starTime = 0,
-      this.link = '',
-      @JsonKey(name: 'pubDate') this.pubDate,
-      this.description,
-      this.content,
-      this.image,
-      this.group = '默认分组',
-      this.variable,
-      @JsonKey(name: 'type') this.starType = 0,
-      @JsonKey(name: 'durPos') this.durPos = 0});
-
-  factory _$RssStarImpl.fromJson(Map<String, dynamic> json) =>
-      _$$RssStarImplFromJson(json);
+class _RssStar implements RssStar {
+  const _RssStar({
+    this.origin = '',
+    this.sort = '',
+    this.title = '',
+    @JsonKey(name: 'starTime') this.starTime = 0,
+    this.link = '',
+    @JsonKey(name: 'pubDate') this.pubDate,
+    this.description,
+    this.content,
+    this.image,
+    this.group = '默认分组',
+    this.variable,
+    @JsonKey(name: 'type') this.starType = 0,
+    @JsonKey(name: 'durPos') this.durPos = 0,
+  });
+  factory _RssStar.fromJson(Map<String, dynamic> json) =>
+      _$RssStarFromJson(json);
 
   @override
   @JsonKey()
@@ -3413,16 +5442,24 @@ class _$RssStarImpl implements _RssStar {
   @JsonKey(name: 'durPos')
   final int durPos;
 
+  /// Create a copy of RssStar
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'RssStar(origin: $origin, sort: $sort, title: $title, starTime: $starTime, link: $link, pubDate: $pubDate, description: $description, content: $content, image: $image, group: $group, variable: $variable, starType: $starType, durPos: $durPos)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$RssStarCopyWith<_RssStar> get copyWith =>
+      __$RssStarCopyWithImpl<_RssStar>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$RssStarToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$RssStarImpl &&
+            other is _RssStar &&
             (identical(other.origin, origin) || other.origin == origin) &&
             (identical(other.sort, sort) || other.sort == sort) &&
             (identical(other.title, title) || other.title == title) &&
@@ -3442,9 +5479,10 @@ class _$RssStarImpl implements _RssStar {
             (identical(other.durPos, durPos) || other.durPos == durPos));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       origin,
       sort,
@@ -3458,171 +5496,361 @@ class _$RssStarImpl implements _RssStar {
       group,
       variable,
       starType,
-      durPos);
+      durPos,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'RssStar(origin: $origin, sort: $sort, title: $title, starTime: $starTime, link: $link, pubDate: $pubDate, description: $description, content: $content, image: $image, group: $group, variable: $variable, starType: $starType, durPos: $durPos)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$RssStarCopyWith<$Res> implements $RssStarCopyWith<$Res> {
+  factory _$RssStarCopyWith(_RssStar value, $Res Function(_RssStar) _then) =
+      __$RssStarCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String origin,
+    String sort,
+    String title,
+    @JsonKey(name: 'starTime') int starTime,
+    String link,
+    @JsonKey(name: 'pubDate') String? pubDate,
+    String? description,
+    String? content,
+    String? image,
+    String group,
+    String? variable,
+    @JsonKey(name: 'type') int starType,
+    @JsonKey(name: 'durPos') int durPos,
+  });
+}
+
+/// @nodoc
+class __$RssStarCopyWithImpl<$Res> implements _$RssStarCopyWith<$Res> {
+  __$RssStarCopyWithImpl(this._self, this._then);
+
+  final _RssStar _self;
+  final $Res Function(_RssStar) _then;
+
+  /// Create a copy of RssStar
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$RssStarImplCopyWith<_$RssStarImpl> get copyWith =>
-      __$$RssStarImplCopyWithImpl<_$RssStarImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$RssStarImplToJson(
-      this,
+  $Res call({
+    Object? origin = null,
+    Object? sort = null,
+    Object? title = null,
+    Object? starTime = null,
+    Object? link = null,
+    Object? pubDate = freezed,
+    Object? description = freezed,
+    Object? content = freezed,
+    Object? image = freezed,
+    Object? group = null,
+    Object? variable = freezed,
+    Object? starType = null,
+    Object? durPos = null,
+  }) {
+    return _then(
+      _RssStar(
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        starTime: null == starTime
+            ? _self.starTime
+            : starTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        link: null == link
+            ? _self.link
+            : link // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        description: freezed == description
+            ? _self.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        content: freezed == content
+            ? _self.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        group: null == group
+            ? _self.group
+            : group // ignore: cast_nullable_to_non_nullable
+                  as String,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        starType: null == starType
+            ? _self.starType
+            : starType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _RssStar implements RssStar {
-  const factory _RssStar(
-      {final String origin,
-      final String sort,
-      final String title,
-      @JsonKey(name: 'starTime') final int starTime,
-      final String link,
-      @JsonKey(name: 'pubDate') final String? pubDate,
-      final String? description,
-      final String? content,
-      final String? image,
-      final String group,
-      final String? variable,
-      @JsonKey(name: 'type') final int starType,
-      @JsonKey(name: 'durPos') final int durPos}) = _$RssStarImpl;
-
-  factory _RssStar.fromJson(Map<String, dynamic> json) = _$RssStarImpl.fromJson;
-
-  @override
-  String get origin;
-  @override
-  String get sort;
-  @override
-  String get title;
-  @override
-  @JsonKey(name: 'starTime')
-  int get starTime;
-  @override
-  String get link;
-  @override
-  @JsonKey(name: 'pubDate')
-  String? get pubDate;
-  @override
-  String? get description;
-  @override
-  String? get content;
-  @override
-  String? get image;
-  @override
-  String get group;
-  @override
-  String? get variable;
-  @override
-  @JsonKey(name: 'type')
-  int get starType;
-  @override
-  @JsonKey(name: 'durPos')
-  int get durPos;
-  @override
-  @JsonKey(ignore: true)
-  _$$RssStarImplCopyWith<_$RssStarImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-Cookie _$CookieFromJson(Map<String, dynamic> json) {
-  return _Cookie.fromJson(json);
-}
-
 /// @nodoc
 mixin _$Cookie {
-  String get url => throw _privateConstructorUsedError;
-  String get cookie => throw _privateConstructorUsedError;
+  String get url;
+  String get cookie;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $CookieCopyWith<Cookie> get copyWith => throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $CookieCopyWith<$Res> {
-  factory $CookieCopyWith(Cookie value, $Res Function(Cookie) then) =
-      _$CookieCopyWithImpl<$Res, Cookie>;
-  @useResult
-  $Res call({String url, String cookie});
-}
-
-/// @nodoc
-class _$CookieCopyWithImpl<$Res, $Val extends Cookie>
-    implements $CookieCopyWith<$Res> {
-  _$CookieCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of Cookie
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $CookieCopyWith<Cookie> get copyWith =>
+      _$CookieCopyWithImpl<Cookie>(this as Cookie, _$identity);
+
+  /// Serializes this Cookie to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? url = null,
-    Object? cookie = null,
-  }) {
-    return _then(_value.copyWith(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookie: null == cookie
-          ? _value.cookie
-          : cookie // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as Cookie;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is Cookie &&
+            (identical(other.url, _this.url) || other.url == _this.url) &&
+            (identical(other.cookie, _this.cookie) ||
+                other.cookie == _this.cookie));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as Cookie;
+    return Object.hash(runtimeType, _this.url, _this.cookie);
+  }
+
+  @override
+  String toString() {
+    final _this = this as Cookie;
+    return 'Cookie(url: ${_this.url}, cookie: ${_this.cookie})';
   }
 }
 
 /// @nodoc
-abstract class _$$CookieImplCopyWith<$Res> implements $CookieCopyWith<$Res> {
-  factory _$$CookieImplCopyWith(
-          _$CookieImpl value, $Res Function(_$CookieImpl) then) =
-      __$$CookieImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $CookieCopyWith<$Res> {
+  factory $CookieCopyWith(Cookie value, $Res Function(Cookie) _then) =
+      _$CookieCopyWithImpl;
   @useResult
   $Res call({String url, String cookie});
 }
 
 /// @nodoc
-class __$$CookieImplCopyWithImpl<$Res>
-    extends _$CookieCopyWithImpl<$Res, _$CookieImpl>
-    implements _$$CookieImplCopyWith<$Res> {
-  __$$CookieImplCopyWithImpl(
-      _$CookieImpl _value, $Res Function(_$CookieImpl) _then)
-      : super(_value, _then);
+class _$CookieCopyWithImpl<$Res> implements $CookieCopyWith<$Res> {
+  _$CookieCopyWithImpl(this._self, this._then);
 
+  final Cookie _self;
+  final $Res Function(Cookie) _then;
+
+  /// Create a copy of Cookie
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? url = null,
-    Object? cookie = null,
+  $Res call({Object? url = null, Object? cookie = null}) {
+    return _then(
+      Cookie(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cookie: null == cookie
+            ? _self.cookie
+            : cookie // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [Cookie].
+extension CookiePatterns on Cookie {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_Cookie value)? $default, {
+    required TResult orElse(),
   }) {
-    return _then(_$CookieImpl(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookie: null == cookie
-          ? _value.cookie
-          : cookie // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    final _that = this;
+    switch (_that) {
+      case _Cookie() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_Cookie value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cookie():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_Cookie value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cookie() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(String url, String cookie)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Cookie() when $default != null:
+        return $default(_that.url, _that.cookie);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(String url, String cookie) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cookie():
+        return $default(_that.url, _that.cookie);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(String url, String cookie)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cookie() when $default != null:
+        return $default(_that.url, _that.cookie);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$CookieImpl implements _Cookie {
-  const _$CookieImpl({this.url = '', this.cookie = ''});
-
-  factory _$CookieImpl.fromJson(Map<String, dynamic> json) =>
-      _$$CookieImplFromJson(json);
+class _Cookie implements Cookie {
+  const _Cookie({this.url = '', this.cookie = ''});
+  factory _Cookie.fromJson(Map<String, dynamic> json) => _$CookieFromJson(json);
 
   @override
   @JsonKey()
@@ -3631,128 +5859,136 @@ class _$CookieImpl implements _Cookie {
   @JsonKey()
   final String cookie;
 
+  /// Create a copy of Cookie
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'Cookie(url: $url, cookie: $cookie)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$CookieCopyWith<_Cookie> get copyWith =>
+      __$CookieCopyWithImpl<_Cookie>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$CookieToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$CookieImpl &&
+            other is _Cookie &&
             (identical(other.url, url) || other.url == url) &&
             (identical(other.cookie, cookie) || other.cookie == cookie));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, url, cookie);
+  int get hashCode {
+    return Object.hash(runtimeType, url, cookie);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'Cookie(url: $url, cookie: $cookie)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$CookieCopyWith<$Res> implements $CookieCopyWith<$Res> {
+  factory _$CookieCopyWith(_Cookie value, $Res Function(_Cookie) _then) =
+      __$CookieCopyWithImpl;
+  @override
+  @useResult
+  $Res call({String url, String cookie});
+}
+
+/// @nodoc
+class __$CookieCopyWithImpl<$Res> implements _$CookieCopyWith<$Res> {
+  __$CookieCopyWithImpl(this._self, this._then);
+
+  final _Cookie _self;
+  final $Res Function(_Cookie) _then;
+
+  /// Create a copy of Cookie
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$CookieImplCopyWith<_$CookieImpl> get copyWith =>
-      __$$CookieImplCopyWithImpl<_$CookieImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$CookieImplToJson(
-      this,
+  $Res call({Object? url = null, Object? cookie = null}) {
+    return _then(
+      _Cookie(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cookie: null == cookie
+            ? _self.cookie
+            : cookie // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
     );
   }
 }
 
-abstract class _Cookie implements Cookie {
-  const factory _Cookie({final String url, final String cookie}) = _$CookieImpl;
-
-  factory _Cookie.fromJson(Map<String, dynamic> json) = _$CookieImpl.fromJson;
-
-  @override
-  String get url;
-  @override
-  String get cookie;
-  @override
-  @JsonKey(ignore: true)
-  _$$CookieImplCopyWith<_$CookieImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-Cache _$CacheFromJson(Map<String, dynamic> json) {
-  return _Cache.fromJson(json);
-}
-
 /// @nodoc
 mixin _$Cache {
-  String get key => throw _privateConstructorUsedError;
-  String? get value => throw _privateConstructorUsedError;
-  int get deadline => throw _privateConstructorUsedError;
+  String get key;
+  String? get value;
+  int get deadline;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $CacheCopyWith<Cache> get copyWith => throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $CacheCopyWith<$Res> {
-  factory $CacheCopyWith(Cache value, $Res Function(Cache) then) =
-      _$CacheCopyWithImpl<$Res, Cache>;
-  @useResult
-  $Res call({String key, String? value, int deadline});
-}
-
-/// @nodoc
-class _$CacheCopyWithImpl<$Res, $Val extends Cache>
-    implements $CacheCopyWith<$Res> {
-  _$CacheCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of Cache
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $CacheCopyWith<Cache> get copyWith =>
+      _$CacheCopyWithImpl<Cache>(this as Cache, _$identity);
+
+  /// Serializes this Cache to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? key = null,
-    Object? value = freezed,
-    Object? deadline = null,
-  }) {
-    return _then(_value.copyWith(
-      key: null == key
-          ? _value.key
-          : key // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: freezed == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String?,
-      deadline: null == deadline
-          ? _value.deadline
-          : deadline // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as Cache;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is Cache &&
+            (identical(other.key, _this.key) || other.key == _this.key) &&
+            (identical(other.value, _this.value) ||
+                other.value == _this.value) &&
+            (identical(other.deadline, _this.deadline) ||
+                other.deadline == _this.deadline));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as Cache;
+    return Object.hash(runtimeType, _this.key, _this.value, _this.deadline);
+  }
+
+  @override
+  String toString() {
+    final _this = this as Cache;
+    return 'Cache(key: ${_this.key}, value: ${_this.value}, deadline: ${_this.deadline})';
   }
 }
 
 /// @nodoc
-abstract class _$$CacheImplCopyWith<$Res> implements $CacheCopyWith<$Res> {
-  factory _$$CacheImplCopyWith(
-          _$CacheImpl value, $Res Function(_$CacheImpl) then) =
-      __$$CacheImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $CacheCopyWith<$Res> {
+  factory $CacheCopyWith(Cache value, $Res Function(Cache) _then) =
+      _$CacheCopyWithImpl;
   @useResult
   $Res call({String key, String? value, int deadline});
 }
 
 /// @nodoc
-class __$$CacheImplCopyWithImpl<$Res>
-    extends _$CacheCopyWithImpl<$Res, _$CacheImpl>
-    implements _$$CacheImplCopyWith<$Res> {
-  __$$CacheImplCopyWithImpl(
-      _$CacheImpl _value, $Res Function(_$CacheImpl) _then)
-      : super(_value, _then);
+class _$CacheCopyWithImpl<$Res> implements $CacheCopyWith<$Res> {
+  _$CacheCopyWithImpl(this._self, this._then);
 
+  final Cache _self;
+  final $Res Function(Cache) _then;
+
+  /// Create a copy of Cache
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -3760,30 +5996,187 @@ class __$$CacheImplCopyWithImpl<$Res>
     Object? value = freezed,
     Object? deadline = null,
   }) {
-    return _then(_$CacheImpl(
-      key: null == key
-          ? _value.key
-          : key // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: freezed == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String?,
-      deadline: null == deadline
-          ? _value.deadline
-          : deadline // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      Cache(
+        key: null == key
+            ? _self.key
+            : key // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: freezed == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        deadline: null == deadline
+            ? _self.deadline
+            : deadline // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [Cache].
+extension CachePatterns on Cache {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_Cache value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Cache() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_Cache value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cache():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_Cache value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cache() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(String key, String? value, int deadline)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Cache() when $default != null:
+        return $default(_that.key, _that.value, _that.deadline);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(String key, String? value, int deadline) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cache():
+        return $default(_that.key, _that.value, _that.deadline);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(String key, String? value, int deadline)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Cache() when $default != null:
+        return $default(_that.key, _that.value, _that.deadline);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$CacheImpl implements _Cache {
-  const _$CacheImpl({this.key = '', this.value, this.deadline = 0});
-
-  factory _$CacheImpl.fromJson(Map<String, dynamic> json) =>
-      _$$CacheImplFromJson(json);
+class _Cache implements Cache {
+  const _Cache({this.key = '', this.value, this.deadline = 0});
+  factory _Cache.fromJson(Map<String, dynamic> json) => _$CacheFromJson(json);
 
   @override
   @JsonKey()
@@ -3794,162 +6187,168 @@ class _$CacheImpl implements _Cache {
   @JsonKey()
   final int deadline;
 
+  /// Create a copy of Cache
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'Cache(key: $key, value: $value, deadline: $deadline)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$CacheCopyWith<_Cache> get copyWith =>
+      __$CacheCopyWithImpl<_Cache>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$CacheToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$CacheImpl &&
+            other is _Cache &&
             (identical(other.key, key) || other.key == key) &&
             (identical(other.value, value) || other.value == value) &&
             (identical(other.deadline, deadline) ||
                 other.deadline == deadline));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, key, value, deadline);
+  int get hashCode {
+    return Object.hash(runtimeType, key, value, deadline);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'Cache(key: $key, value: $value, deadline: $deadline)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$CacheCopyWith<$Res> implements $CacheCopyWith<$Res> {
+  factory _$CacheCopyWith(_Cache value, $Res Function(_Cache) _then) =
+      __$CacheCopyWithImpl;
+  @override
+  @useResult
+  $Res call({String key, String? value, int deadline});
+}
+
+/// @nodoc
+class __$CacheCopyWithImpl<$Res> implements _$CacheCopyWith<$Res> {
+  __$CacheCopyWithImpl(this._self, this._then);
+
+  final _Cache _self;
+  final $Res Function(_Cache) _then;
+
+  /// Create a copy of Cache
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$CacheImplCopyWith<_$CacheImpl> get copyWith =>
-      __$$CacheImplCopyWithImpl<_$CacheImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$CacheImplToJson(
-      this,
+  $Res call({
+    Object? key = null,
+    Object? value = freezed,
+    Object? deadline = null,
+  }) {
+    return _then(
+      _Cache(
+        key: null == key
+            ? _self.key
+            : key // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: freezed == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        deadline: null == deadline
+            ? _self.deadline
+            : deadline // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _Cache implements Cache {
-  const factory _Cache(
-      {final String key,
-      final String? value,
-      final int deadline}) = _$CacheImpl;
-
-  factory _Cache.fromJson(Map<String, dynamic> json) = _$CacheImpl.fromJson;
-
-  @override
-  String get key;
-  @override
-  String? get value;
-  @override
-  int get deadline;
-  @override
-  @JsonKey(ignore: true)
-  _$$CacheImplCopyWith<_$CacheImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-DictRule _$DictRuleFromJson(Map<String, dynamic> json) {
-  return _DictRule.fromJson(json);
-}
-
 /// @nodoc
 mixin _$DictRule {
-  String get name => throw _privateConstructorUsedError;
+  String get name;
   @JsonKey(name: 'urlRule')
-  String get urlRule => throw _privateConstructorUsedError;
+  String get urlRule;
   @JsonKey(name: 'showRule')
-  String get showRule => throw _privateConstructorUsedError;
-  bool get enabled => throw _privateConstructorUsedError;
+  String get showRule;
+  bool get enabled;
   @JsonKey(name: 'sortNumber')
-  int get sortNumber => throw _privateConstructorUsedError;
+  int get sortNumber;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $DictRuleCopyWith<DictRule> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $DictRuleCopyWith<$Res> {
-  factory $DictRuleCopyWith(DictRule value, $Res Function(DictRule) then) =
-      _$DictRuleCopyWithImpl<$Res, DictRule>;
-  @useResult
-  $Res call(
-      {String name,
-      @JsonKey(name: 'urlRule') String urlRule,
-      @JsonKey(name: 'showRule') String showRule,
-      bool enabled,
-      @JsonKey(name: 'sortNumber') int sortNumber});
-}
-
-/// @nodoc
-class _$DictRuleCopyWithImpl<$Res, $Val extends DictRule>
-    implements $DictRuleCopyWith<$Res> {
-  _$DictRuleCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of DictRule
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $DictRuleCopyWith<DictRule> get copyWith =>
+      _$DictRuleCopyWithImpl<DictRule>(this as DictRule, _$identity);
+
+  /// Serializes this DictRule to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? name = null,
-    Object? urlRule = null,
-    Object? showRule = null,
-    Object? enabled = null,
-    Object? sortNumber = null,
-  }) {
-    return _then(_value.copyWith(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      urlRule: null == urlRule
-          ? _value.urlRule
-          : urlRule // ignore: cast_nullable_to_non_nullable
-              as String,
-      showRule: null == showRule
-          ? _value.showRule
-          : showRule // ignore: cast_nullable_to_non_nullable
-              as String,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      sortNumber: null == sortNumber
-          ? _value.sortNumber
-          : sortNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as DictRule;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is DictRule &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.urlRule, _this.urlRule) ||
+                other.urlRule == _this.urlRule) &&
+            (identical(other.showRule, _this.showRule) ||
+                other.showRule == _this.showRule) &&
+            (identical(other.enabled, _this.enabled) ||
+                other.enabled == _this.enabled) &&
+            (identical(other.sortNumber, _this.sortNumber) ||
+                other.sortNumber == _this.sortNumber));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as DictRule;
+    return Object.hash(
+      runtimeType,
+      _this.name,
+      _this.urlRule,
+      _this.showRule,
+      _this.enabled,
+      _this.sortNumber,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as DictRule;
+    return 'DictRule(name: ${_this.name}, urlRule: ${_this.urlRule}, showRule: ${_this.showRule}, enabled: ${_this.enabled}, sortNumber: ${_this.sortNumber})';
   }
 }
 
 /// @nodoc
-abstract class _$$DictRuleImplCopyWith<$Res>
-    implements $DictRuleCopyWith<$Res> {
-  factory _$$DictRuleImplCopyWith(
-          _$DictRuleImpl value, $Res Function(_$DictRuleImpl) then) =
-      __$$DictRuleImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $DictRuleCopyWith<$Res> {
+  factory $DictRuleCopyWith(DictRule value, $Res Function(DictRule) _then) =
+      _$DictRuleCopyWithImpl;
   @useResult
-  $Res call(
-      {String name,
-      @JsonKey(name: 'urlRule') String urlRule,
-      @JsonKey(name: 'showRule') String showRule,
-      bool enabled,
-      @JsonKey(name: 'sortNumber') int sortNumber});
+  $Res call({
+    String name,
+    @JsonKey(name: 'urlRule') String urlRule,
+    @JsonKey(name: 'showRule') String showRule,
+    bool enabled,
+    @JsonKey(name: 'sortNumber') int sortNumber,
+  });
 }
 
 /// @nodoc
-class __$$DictRuleImplCopyWithImpl<$Res>
-    extends _$DictRuleCopyWithImpl<$Res, _$DictRuleImpl>
-    implements _$$DictRuleImplCopyWith<$Res> {
-  __$$DictRuleImplCopyWithImpl(
-      _$DictRuleImpl _value, $Res Function(_$DictRuleImpl) _then)
-      : super(_value, _then);
+class _$DictRuleCopyWithImpl<$Res> implements $DictRuleCopyWith<$Res> {
+  _$DictRuleCopyWithImpl(this._self, this._then);
 
+  final DictRule _self;
+  final $Res Function(DictRule) _then;
+
+  /// Create a copy of DictRule
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -3959,43 +6358,241 @@ class __$$DictRuleImplCopyWithImpl<$Res>
     Object? enabled = null,
     Object? sortNumber = null,
   }) {
-    return _then(_$DictRuleImpl(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      urlRule: null == urlRule
-          ? _value.urlRule
-          : urlRule // ignore: cast_nullable_to_non_nullable
-              as String,
-      showRule: null == showRule
-          ? _value.showRule
-          : showRule // ignore: cast_nullable_to_non_nullable
-              as String,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      sortNumber: null == sortNumber
-          ? _value.sortNumber
-          : sortNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      DictRule(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        urlRule: null == urlRule
+            ? _self.urlRule
+            : urlRule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        showRule: null == showRule
+            ? _self.showRule
+            : showRule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        enabled: null == enabled
+            ? _self.enabled
+            : enabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        sortNumber: null == sortNumber
+            ? _self.sortNumber
+            : sortNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [DictRule].
+extension DictRulePatterns on DictRule {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_DictRule value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_DictRule value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_DictRule value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String name,
+      @JsonKey(name: 'urlRule') String urlRule,
+      @JsonKey(name: 'showRule') String showRule,
+      bool enabled,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule() when $default != null:
+        return $default(
+          _that.name,
+          _that.urlRule,
+          _that.showRule,
+          _that.enabled,
+          _that.sortNumber,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String name,
+      @JsonKey(name: 'urlRule') String urlRule,
+      @JsonKey(name: 'showRule') String showRule,
+      bool enabled,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule():
+        return $default(
+          _that.name,
+          _that.urlRule,
+          _that.showRule,
+          _that.enabled,
+          _that.sortNumber,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String name,
+      @JsonKey(name: 'urlRule') String urlRule,
+      @JsonKey(name: 'showRule') String showRule,
+      bool enabled,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictRule() when $default != null:
+        return $default(
+          _that.name,
+          _that.urlRule,
+          _that.showRule,
+          _that.enabled,
+          _that.sortNumber,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$DictRuleImpl implements _DictRule {
-  const _$DictRuleImpl(
-      {this.name = '',
-      @JsonKey(name: 'urlRule') this.urlRule = '',
-      @JsonKey(name: 'showRule') this.showRule = '',
-      this.enabled = true,
-      @JsonKey(name: 'sortNumber') this.sortNumber = 0});
-
-  factory _$DictRuleImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DictRuleImplFromJson(json);
+class _DictRule implements DictRule {
+  const _DictRule({
+    this.name = '',
+    @JsonKey(name: 'urlRule') this.urlRule = '',
+    @JsonKey(name: 'showRule') this.showRule = '',
+    this.enabled = true,
+    @JsonKey(name: 'sortNumber') this.sortNumber = 0,
+  });
+  factory _DictRule.fromJson(Map<String, dynamic> json) =>
+      _$DictRuleFromJson(json);
 
   @override
   @JsonKey()
@@ -4013,16 +6610,24 @@ class _$DictRuleImpl implements _DictRule {
   @JsonKey(name: 'sortNumber')
   final int sortNumber;
 
+  /// Create a copy of DictRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'DictRule(name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$DictRuleCopyWith<_DictRule> get copyWith =>
+      __$DictRuleCopyWithImpl<_DictRule>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$DictRuleToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$DictRuleImpl &&
+            other is _DictRule &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.urlRule, urlRule) || other.urlRule == urlRule) &&
             (identical(other.showRule, showRule) ||
@@ -4032,154 +6637,166 @@ class _$DictRuleImpl implements _DictRule {
                 other.sortNumber == sortNumber));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, name, urlRule, showRule, enabled, sortNumber);
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      name,
+      urlRule,
+      showRule,
+      enabled,
+      sortNumber,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'DictRule(name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$DictRuleCopyWith<$Res>
+    implements $DictRuleCopyWith<$Res> {
+  factory _$DictRuleCopyWith(_DictRule value, $Res Function(_DictRule) _then) =
+      __$DictRuleCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String name,
+    @JsonKey(name: 'urlRule') String urlRule,
+    @JsonKey(name: 'showRule') String showRule,
+    bool enabled,
+    @JsonKey(name: 'sortNumber') int sortNumber,
+  });
+}
+
+/// @nodoc
+class __$DictRuleCopyWithImpl<$Res> implements _$DictRuleCopyWith<$Res> {
+  __$DictRuleCopyWithImpl(this._self, this._then);
+
+  final _DictRule _self;
+  final $Res Function(_DictRule) _then;
+
+  /// Create a copy of DictRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$DictRuleImplCopyWith<_$DictRuleImpl> get copyWith =>
-      __$$DictRuleImplCopyWithImpl<_$DictRuleImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DictRuleImplToJson(
-      this,
+  $Res call({
+    Object? name = null,
+    Object? urlRule = null,
+    Object? showRule = null,
+    Object? enabled = null,
+    Object? sortNumber = null,
+  }) {
+    return _then(
+      _DictRule(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        urlRule: null == urlRule
+            ? _self.urlRule
+            : urlRule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        showRule: null == showRule
+            ? _self.showRule
+            : showRule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        enabled: null == enabled
+            ? _self.enabled
+            : enabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        sortNumber: null == sortNumber
+            ? _self.sortNumber
+            : sortNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _DictRule implements DictRule {
-  const factory _DictRule(
-      {final String name,
-      @JsonKey(name: 'urlRule') final String urlRule,
-      @JsonKey(name: 'showRule') final String showRule,
-      final bool enabled,
-      @JsonKey(name: 'sortNumber') final int sortNumber}) = _$DictRuleImpl;
-
-  factory _DictRule.fromJson(Map<String, dynamic> json) =
-      _$DictRuleImpl.fromJson;
-
-  @override
-  String get name;
-  @override
-  @JsonKey(name: 'urlRule')
-  String get urlRule;
-  @override
-  @JsonKey(name: 'showRule')
-  String get showRule;
-  @override
-  bool get enabled;
-  @override
-  @JsonKey(name: 'sortNumber')
-  int get sortNumber;
-  @override
-  @JsonKey(ignore: true)
-  _$$DictRuleImplCopyWith<_$DictRuleImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-Server _$ServerFromJson(Map<String, dynamic> json) {
-  return _Server.fromJson(json);
-}
-
 /// @nodoc
 mixin _$Server {
-  int get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
+  int get id;
+  String get name;
   @JsonKey(name: 'type')
-  String get serverType => throw _privateConstructorUsedError;
-  String? get config => throw _privateConstructorUsedError;
+  String get serverType;
+  String? get config;
   @JsonKey(name: 'sortNumber')
-  int get sortNumber => throw _privateConstructorUsedError;
+  int get sortNumber;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ServerCopyWith<Server> get copyWith => throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ServerCopyWith<$Res> {
-  factory $ServerCopyWith(Server value, $Res Function(Server) then) =
-      _$ServerCopyWithImpl<$Res, Server>;
-  @useResult
-  $Res call(
-      {int id,
-      String name,
-      @JsonKey(name: 'type') String serverType,
-      String? config,
-      @JsonKey(name: 'sortNumber') int sortNumber});
-}
-
-/// @nodoc
-class _$ServerCopyWithImpl<$Res, $Val extends Server>
-    implements $ServerCopyWith<$Res> {
-  _$ServerCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of Server
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $ServerCopyWith<Server> get copyWith =>
+      _$ServerCopyWithImpl<Server>(this as Server, _$identity);
+
+  /// Serializes this Server to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? serverType = null,
-    Object? config = freezed,
-    Object? sortNumber = null,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      serverType: null == serverType
-          ? _value.serverType
-          : serverType // ignore: cast_nullable_to_non_nullable
-              as String,
-      config: freezed == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as String?,
-      sortNumber: null == sortNumber
-          ? _value.sortNumber
-          : sortNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as Server;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is Server &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.serverType, _this.serverType) ||
+                other.serverType == _this.serverType) &&
+            (identical(other.config, _this.config) ||
+                other.config == _this.config) &&
+            (identical(other.sortNumber, _this.sortNumber) ||
+                other.sortNumber == _this.sortNumber));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as Server;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.name,
+      _this.serverType,
+      _this.config,
+      _this.sortNumber,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as Server;
+    return 'Server(id: ${_this.id}, name: ${_this.name}, serverType: ${_this.serverType}, config: ${_this.config}, sortNumber: ${_this.sortNumber})';
   }
 }
 
 /// @nodoc
-abstract class _$$ServerImplCopyWith<$Res> implements $ServerCopyWith<$Res> {
-  factory _$$ServerImplCopyWith(
-          _$ServerImpl value, $Res Function(_$ServerImpl) then) =
-      __$$ServerImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $ServerCopyWith<$Res> {
+  factory $ServerCopyWith(Server value, $Res Function(Server) _then) =
+      _$ServerCopyWithImpl;
   @useResult
-  $Res call(
-      {int id,
-      String name,
-      @JsonKey(name: 'type') String serverType,
-      String? config,
-      @JsonKey(name: 'sortNumber') int sortNumber});
+  $Res call({
+    int id,
+    String name,
+    @JsonKey(name: 'type') String serverType,
+    String? config,
+    @JsonKey(name: 'sortNumber') int sortNumber,
+  });
 }
 
 /// @nodoc
-class __$$ServerImplCopyWithImpl<$Res>
-    extends _$ServerCopyWithImpl<$Res, _$ServerImpl>
-    implements _$$ServerImplCopyWith<$Res> {
-  __$$ServerImplCopyWithImpl(
-      _$ServerImpl _value, $Res Function(_$ServerImpl) _then)
-      : super(_value, _then);
+class _$ServerCopyWithImpl<$Res> implements $ServerCopyWith<$Res> {
+  _$ServerCopyWithImpl(this._self, this._then);
 
+  final Server _self;
+  final $Res Function(Server) _then;
+
+  /// Create a copy of Server
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -4189,43 +6806,240 @@ class __$$ServerImplCopyWithImpl<$Res>
     Object? config = freezed,
     Object? sortNumber = null,
   }) {
-    return _then(_$ServerImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      serverType: null == serverType
-          ? _value.serverType
-          : serverType // ignore: cast_nullable_to_non_nullable
-              as String,
-      config: freezed == config
-          ? _value.config
-          : config // ignore: cast_nullable_to_non_nullable
-              as String?,
-      sortNumber: null == sortNumber
-          ? _value.sortNumber
-          : sortNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      Server(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        serverType: null == serverType
+            ? _self.serverType
+            : serverType // ignore: cast_nullable_to_non_nullable
+                  as String,
+        config: freezed == config
+            ? _self.config
+            : config // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        sortNumber: null == sortNumber
+            ? _self.sortNumber
+            : sortNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [Server].
+extension ServerPatterns on Server {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_Server value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Server() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_Server value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Server():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_Server value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Server() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      @JsonKey(name: 'type') String serverType,
+      String? config,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _Server() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.serverType,
+          _that.config,
+          _that.sortNumber,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      @JsonKey(name: 'type') String serverType,
+      String? config,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Server():
+        return $default(
+          _that.id,
+          _that.name,
+          _that.serverType,
+          _that.config,
+          _that.sortNumber,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      int id,
+      String name,
+      @JsonKey(name: 'type') String serverType,
+      String? config,
+      @JsonKey(name: 'sortNumber') int sortNumber,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _Server() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.serverType,
+          _that.config,
+          _that.sortNumber,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$ServerImpl implements _Server {
-  const _$ServerImpl(
-      {this.id = 0,
-      this.name = '',
-      @JsonKey(name: 'type') this.serverType = 'WEBDAV',
-      this.config,
-      @JsonKey(name: 'sortNumber') this.sortNumber = 0});
-
-  factory _$ServerImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ServerImplFromJson(json);
+class _Server implements Server {
+  const _Server({
+    this.id = 0,
+    this.name = '',
+    @JsonKey(name: 'type') this.serverType = 'WEBDAV',
+    this.config,
+    @JsonKey(name: 'sortNumber') this.sortNumber = 0,
+  });
+  factory _Server.fromJson(Map<String, dynamic> json) => _$ServerFromJson(json);
 
   @override
   @JsonKey()
@@ -4242,16 +7056,24 @@ class _$ServerImpl implements _Server {
   @JsonKey(name: 'sortNumber')
   final int sortNumber;
 
+  /// Create a copy of Server
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'Server(id: $id, name: $name, serverType: $serverType, config: $config, sortNumber: $sortNumber)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ServerCopyWith<_Server> get copyWith =>
+      __$ServerCopyWithImpl<_Server>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$ServerToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ServerImpl &&
+            other is _Server &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.serverType, serverType) ||
@@ -4261,131 +7083,143 @@ class _$ServerImpl implements _Server {
                 other.sortNumber == sortNumber));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, name, serverType, config, sortNumber);
+  int get hashCode {
+    return Object.hash(runtimeType, id, name, serverType, config, sortNumber);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'Server(id: $id, name: $name, serverType: $serverType, config: $config, sortNumber: $sortNumber)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$ServerCopyWith<$Res> implements $ServerCopyWith<$Res> {
+  factory _$ServerCopyWith(_Server value, $Res Function(_Server) _then) =
+      __$ServerCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    int id,
+    String name,
+    @JsonKey(name: 'type') String serverType,
+    String? config,
+    @JsonKey(name: 'sortNumber') int sortNumber,
+  });
+}
+
+/// @nodoc
+class __$ServerCopyWithImpl<$Res> implements _$ServerCopyWith<$Res> {
+  __$ServerCopyWithImpl(this._self, this._then);
+
+  final _Server _self;
+  final $Res Function(_Server) _then;
+
+  /// Create a copy of Server
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$ServerImplCopyWith<_$ServerImpl> get copyWith =>
-      __$$ServerImplCopyWithImpl<_$ServerImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ServerImplToJson(
-      this,
+  $Res call({
+    Object? id = null,
+    Object? name = null,
+    Object? serverType = null,
+    Object? config = freezed,
+    Object? sortNumber = null,
+  }) {
+    return _then(
+      _Server(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        serverType: null == serverType
+            ? _self.serverType
+            : serverType // ignore: cast_nullable_to_non_nullable
+                  as String,
+        config: freezed == config
+            ? _self.config
+            : config // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        sortNumber: null == sortNumber
+            ? _self.sortNumber
+            : sortNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _Server implements Server {
-  const factory _Server(
-      {final int id,
-      final String name,
-      @JsonKey(name: 'type') final String serverType,
-      final String? config,
-      @JsonKey(name: 'sortNumber') final int sortNumber}) = _$ServerImpl;
-
-  factory _Server.fromJson(Map<String, dynamic> json) = _$ServerImpl.fromJson;
-
-  @override
-  int get id;
-  @override
-  String get name;
-  @override
-  @JsonKey(name: 'type')
-  String get serverType;
-  @override
-  String? get config;
-  @override
-  @JsonKey(name: 'sortNumber')
-  int get sortNumber;
-  @override
-  @JsonKey(ignore: true)
-  _$$ServerImplCopyWith<_$ServerImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-WebDavConfig _$WebDavConfigFromJson(Map<String, dynamic> json) {
-  return _WebDavConfig.fromJson(json);
-}
-
 /// @nodoc
 mixin _$WebDavConfig {
-  String get url => throw _privateConstructorUsedError;
-  String get username => throw _privateConstructorUsedError;
-  String get password => throw _privateConstructorUsedError;
+  String get url;
+  String get username;
+  String get password;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $WebDavConfigCopyWith<WebDavConfig> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $WebDavConfigCopyWith<$Res> {
-  factory $WebDavConfigCopyWith(
-          WebDavConfig value, $Res Function(WebDavConfig) then) =
-      _$WebDavConfigCopyWithImpl<$Res, WebDavConfig>;
-  @useResult
-  $Res call({String url, String username, String password});
-}
-
-/// @nodoc
-class _$WebDavConfigCopyWithImpl<$Res, $Val extends WebDavConfig>
-    implements $WebDavConfigCopyWith<$Res> {
-  _$WebDavConfigCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of WebDavConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $WebDavConfigCopyWith<WebDavConfig> get copyWith =>
+      _$WebDavConfigCopyWithImpl<WebDavConfig>(
+        this as WebDavConfig,
+        _$identity,
+      );
+
+  /// Serializes this WebDavConfig to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? url = null,
-    Object? username = null,
-    Object? password = null,
-  }) {
-    return _then(_value.copyWith(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      username: null == username
-          ? _value.username
-          : username // ignore: cast_nullable_to_non_nullable
-              as String,
-      password: null == password
-          ? _value.password
-          : password // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as WebDavConfig;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is WebDavConfig &&
+            (identical(other.url, _this.url) || other.url == _this.url) &&
+            (identical(other.username, _this.username) ||
+                other.username == _this.username) &&
+            (identical(other.password, _this.password) ||
+                other.password == _this.password));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as WebDavConfig;
+    return Object.hash(runtimeType, _this.url, _this.username, _this.password);
+  }
+
+  @override
+  String toString() {
+    final _this = this as WebDavConfig;
+    return 'WebDavConfig(url: ${_this.url}, username: ${_this.username}, password: ${_this.password})';
   }
 }
 
 /// @nodoc
-abstract class _$$WebDavConfigImplCopyWith<$Res>
-    implements $WebDavConfigCopyWith<$Res> {
-  factory _$$WebDavConfigImplCopyWith(
-          _$WebDavConfigImpl value, $Res Function(_$WebDavConfigImpl) then) =
-      __$$WebDavConfigImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $WebDavConfigCopyWith<$Res> {
+  factory $WebDavConfigCopyWith(
+    WebDavConfig value,
+    $Res Function(WebDavConfig) _then,
+  ) = _$WebDavConfigCopyWithImpl;
   @useResult
   $Res call({String url, String username, String password});
 }
 
 /// @nodoc
-class __$$WebDavConfigImplCopyWithImpl<$Res>
-    extends _$WebDavConfigCopyWithImpl<$Res, _$WebDavConfigImpl>
-    implements _$$WebDavConfigImplCopyWith<$Res> {
-  __$$WebDavConfigImplCopyWithImpl(
-      _$WebDavConfigImpl _value, $Res Function(_$WebDavConfigImpl) _then)
-      : super(_value, _then);
+class _$WebDavConfigCopyWithImpl<$Res> implements $WebDavConfigCopyWith<$Res> {
+  _$WebDavConfigCopyWithImpl(this._self, this._then);
 
+  final WebDavConfig _self;
+  final $Res Function(WebDavConfig) _then;
+
+  /// Create a copy of WebDavConfig
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -4393,31 +7227,188 @@ class __$$WebDavConfigImplCopyWithImpl<$Res>
     Object? username = null,
     Object? password = null,
   }) {
-    return _then(_$WebDavConfigImpl(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      username: null == username
-          ? _value.username
-          : username // ignore: cast_nullable_to_non_nullable
-              as String,
-      password: null == password
-          ? _value.password
-          : password // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      WebDavConfig(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        username: null == username
+            ? _self.username
+            : username // ignore: cast_nullable_to_non_nullable
+                  as String,
+        password: null == password
+            ? _self.password
+            : password // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [WebDavConfig].
+extension WebDavConfigPatterns on WebDavConfig {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_WebDavConfig value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_WebDavConfig value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_WebDavConfig value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(String url, String username, String password)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig() when $default != null:
+        return $default(_that.url, _that.username, _that.password);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(String url, String username, String password) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig():
+        return $default(_that.url, _that.username, _that.password);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(String url, String username, String password)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _WebDavConfig() when $default != null:
+        return $default(_that.url, _that.username, _that.password);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$WebDavConfigImpl implements _WebDavConfig {
-  const _$WebDavConfigImpl(
-      {this.url = '', this.username = '', this.password = ''});
-
-  factory _$WebDavConfigImpl.fromJson(Map<String, dynamic> json) =>
-      _$$WebDavConfigImplFromJson(json);
+class _WebDavConfig implements WebDavConfig {
+  const _WebDavConfig({this.url = '', this.username = '', this.password = ''});
+  factory _WebDavConfig.fromJson(Map<String, dynamic> json) =>
+      _$WebDavConfigFromJson(json);
 
   @override
   @JsonKey()
@@ -4429,16 +7420,24 @@ class _$WebDavConfigImpl implements _WebDavConfig {
   @JsonKey()
   final String password;
 
+  /// Create a copy of WebDavConfig
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'WebDavConfig(url: $url, username: $username, password: $password)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$WebDavConfigCopyWith<_WebDavConfig> get copyWith =>
+      __$WebDavConfigCopyWithImpl<_WebDavConfig>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$WebDavConfigToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$WebDavConfigImpl &&
+            other is _WebDavConfig &&
             (identical(other.url, url) || other.url == url) &&
             (identical(other.username, username) ||
                 other.username == username) &&
@@ -4446,229 +7445,209 @@ class _$WebDavConfigImpl implements _WebDavConfig {
                 other.password == password));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, url, username, password);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$WebDavConfigImplCopyWith<_$WebDavConfigImpl> get copyWith =>
-      __$$WebDavConfigImplCopyWithImpl<_$WebDavConfigImpl>(this, _$identity);
+  int get hashCode {
+    return Object.hash(runtimeType, url, username, password);
+  }
 
   @override
-  Map<String, dynamic> toJson() {
-    return _$$WebDavConfigImplToJson(
-      this,
-    );
+  String toString() {
+    return 'WebDavConfig(url: $url, username: $username, password: $password)';
   }
 }
 
-abstract class _WebDavConfig implements WebDavConfig {
-  const factory _WebDavConfig(
-      {final String url,
-      final String username,
-      final String password}) = _$WebDavConfigImpl;
-
-  factory _WebDavConfig.fromJson(Map<String, dynamic> json) =
-      _$WebDavConfigImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$WebDavConfigCopyWith<$Res>
+    implements $WebDavConfigCopyWith<$Res> {
+  factory _$WebDavConfigCopyWith(
+    _WebDavConfig value,
+    $Res Function(_WebDavConfig) _then,
+  ) = __$WebDavConfigCopyWithImpl;
   @override
-  String get url;
-  @override
-  String get username;
-  @override
-  String get password;
-  @override
-  @JsonKey(ignore: true)
-  _$$WebDavConfigImplCopyWith<_$WebDavConfigImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({String url, String username, String password});
 }
 
-BookSourcePart _$BookSourcePartFromJson(Map<String, dynamic> json) {
-  return _BookSourcePart.fromJson(json);
+/// @nodoc
+class __$WebDavConfigCopyWithImpl<$Res>
+    implements _$WebDavConfigCopyWith<$Res> {
+  __$WebDavConfigCopyWithImpl(this._self, this._then);
+
+  final _WebDavConfig _self;
+  final $Res Function(_WebDavConfig) _then;
+
+  /// Create a copy of WebDavConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? url = null,
+    Object? username = null,
+    Object? password = null,
+  }) {
+    return _then(
+      _WebDavConfig(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        username: null == username
+            ? _self.username
+            : username // ignore: cast_nullable_to_non_nullable
+                  as String,
+        password: null == password
+            ? _self.password
+            : password // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$BookSourcePart {
   @JsonKey(name: 'bookSourceUrl')
-  String get bookSourceUrl => throw _privateConstructorUsedError;
+  String get bookSourceUrl;
   @JsonKey(name: 'bookSourceName')
-  String get bookSourceName => throw _privateConstructorUsedError;
+  String get bookSourceName;
   @JsonKey(name: 'bookSourceGroup')
-  String? get bookSourceGroup => throw _privateConstructorUsedError;
+  String? get bookSourceGroup;
   @JsonKey(name: 'customOrder')
-  int get customOrder => throw _privateConstructorUsedError;
-  bool get enabled => throw _privateConstructorUsedError;
+  int get customOrder;
+  bool get enabled;
   @JsonKey(name: 'enabledExplore')
-  bool get enabledExplore => throw _privateConstructorUsedError;
+  bool get enabledExplore;
   @JsonKey(name: 'hasLoginUrl')
-  bool get hasLoginUrl => throw _privateConstructorUsedError;
+  bool get hasLoginUrl;
   @JsonKey(name: 'lastUpdateTime')
-  int get lastUpdateTime => throw _privateConstructorUsedError;
+  int get lastUpdateTime;
   @JsonKey(name: 'respondTime')
-  int get respondTime => throw _privateConstructorUsedError;
-  int get weight => throw _privateConstructorUsedError;
+  int get respondTime;
+  int get weight;
   @JsonKey(name: 'hasExploreUrl')
-  bool get hasExploreUrl => throw _privateConstructorUsedError;
+  bool get hasExploreUrl;
   @JsonKey(name: 'eventListener')
-  bool get eventListener => throw _privateConstructorUsedError;
+  bool get eventListener;
   @JsonKey(name: 'bookSourceType')
-  int get bookSourceType => throw _privateConstructorUsedError;
+  int get bookSourceType;
   @JsonKey(name: 'hasJs')
-  bool get hasJs => throw _privateConstructorUsedError;
+  bool get hasJs;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookSourcePartCopyWith<BookSourcePart> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookSourcePartCopyWith<$Res> {
-  factory $BookSourcePartCopyWith(
-          BookSourcePart value, $Res Function(BookSourcePart) then) =
-      _$BookSourcePartCopyWithImpl<$Res, BookSourcePart>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
-      @JsonKey(name: 'bookSourceName') String bookSourceName,
-      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
-      @JsonKey(name: 'customOrder') int customOrder,
-      bool enabled,
-      @JsonKey(name: 'enabledExplore') bool enabledExplore,
-      @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
-      @JsonKey(name: 'respondTime') int respondTime,
-      int weight,
-      @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
-      @JsonKey(name: 'eventListener') bool eventListener,
-      @JsonKey(name: 'bookSourceType') int bookSourceType,
-      @JsonKey(name: 'hasJs') bool hasJs});
-}
-
-/// @nodoc
-class _$BookSourcePartCopyWithImpl<$Res, $Val extends BookSourcePart>
-    implements $BookSourcePartCopyWith<$Res> {
-  _$BookSourcePartCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookSourcePart
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookSourcePartCopyWith<BookSourcePart> get copyWith =>
+      _$BookSourcePartCopyWithImpl<BookSourcePart>(
+        this as BookSourcePart,
+        _$identity,
+      );
+
+  /// Serializes this BookSourcePart to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookSourceUrl = null,
-    Object? bookSourceName = null,
-    Object? bookSourceGroup = freezed,
-    Object? customOrder = null,
-    Object? enabled = null,
-    Object? enabledExplore = null,
-    Object? hasLoginUrl = null,
-    Object? lastUpdateTime = null,
-    Object? respondTime = null,
-    Object? weight = null,
-    Object? hasExploreUrl = null,
-    Object? eventListener = null,
-    Object? bookSourceType = null,
-    Object? hasJs = null,
-  }) {
-    return _then(_value.copyWith(
-      bookSourceUrl: null == bookSourceUrl
-          ? _value.bookSourceUrl
-          : bookSourceUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceName: null == bookSourceName
-          ? _value.bookSourceName
-          : bookSourceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceGroup: freezed == bookSourceGroup
-          ? _value.bookSourceGroup
-          : bookSourceGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      enabledExplore: null == enabledExplore
-          ? _value.enabledExplore
-          : enabledExplore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      hasLoginUrl: null == hasLoginUrl
-          ? _value.hasLoginUrl
-          : hasLoginUrl // ignore: cast_nullable_to_non_nullable
-              as bool,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      weight: null == weight
-          ? _value.weight
-          : weight // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasExploreUrl: null == hasExploreUrl
-          ? _value.hasExploreUrl
-          : hasExploreUrl // ignore: cast_nullable_to_non_nullable
-              as bool,
-      eventListener: null == eventListener
-          ? _value.eventListener
-          : eventListener // ignore: cast_nullable_to_non_nullable
-              as bool,
-      bookSourceType: null == bookSourceType
-          ? _value.bookSourceType
-          : bookSourceType // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasJs: null == hasJs
-          ? _value.hasJs
-          : hasJs // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookSourcePart;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookSourcePart &&
+            (identical(other.bookSourceUrl, _this.bookSourceUrl) ||
+                other.bookSourceUrl == _this.bookSourceUrl) &&
+            (identical(other.bookSourceName, _this.bookSourceName) ||
+                other.bookSourceName == _this.bookSourceName) &&
+            (identical(other.bookSourceGroup, _this.bookSourceGroup) ||
+                other.bookSourceGroup == _this.bookSourceGroup) &&
+            (identical(other.customOrder, _this.customOrder) ||
+                other.customOrder == _this.customOrder) &&
+            (identical(other.enabled, _this.enabled) ||
+                other.enabled == _this.enabled) &&
+            (identical(other.enabledExplore, _this.enabledExplore) ||
+                other.enabledExplore == _this.enabledExplore) &&
+            (identical(other.hasLoginUrl, _this.hasLoginUrl) ||
+                other.hasLoginUrl == _this.hasLoginUrl) &&
+            (identical(other.lastUpdateTime, _this.lastUpdateTime) ||
+                other.lastUpdateTime == _this.lastUpdateTime) &&
+            (identical(other.respondTime, _this.respondTime) ||
+                other.respondTime == _this.respondTime) &&
+            (identical(other.weight, _this.weight) ||
+                other.weight == _this.weight) &&
+            (identical(other.hasExploreUrl, _this.hasExploreUrl) ||
+                other.hasExploreUrl == _this.hasExploreUrl) &&
+            (identical(other.eventListener, _this.eventListener) ||
+                other.eventListener == _this.eventListener) &&
+            (identical(other.bookSourceType, _this.bookSourceType) ||
+                other.bookSourceType == _this.bookSourceType) &&
+            (identical(other.hasJs, _this.hasJs) ||
+                other.hasJs == _this.hasJs));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookSourcePart;
+    return Object.hash(
+      runtimeType,
+      _this.bookSourceUrl,
+      _this.bookSourceName,
+      _this.bookSourceGroup,
+      _this.customOrder,
+      _this.enabled,
+      _this.enabledExplore,
+      _this.hasLoginUrl,
+      _this.lastUpdateTime,
+      _this.respondTime,
+      _this.weight,
+      _this.hasExploreUrl,
+      _this.eventListener,
+      _this.bookSourceType,
+      _this.hasJs,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookSourcePart;
+    return 'BookSourcePart(bookSourceUrl: ${_this.bookSourceUrl}, bookSourceName: ${_this.bookSourceName}, bookSourceGroup: ${_this.bookSourceGroup}, customOrder: ${_this.customOrder}, enabled: ${_this.enabled}, enabledExplore: ${_this.enabledExplore}, hasLoginUrl: ${_this.hasLoginUrl}, lastUpdateTime: ${_this.lastUpdateTime}, respondTime: ${_this.respondTime}, weight: ${_this.weight}, hasExploreUrl: ${_this.hasExploreUrl}, eventListener: ${_this.eventListener}, bookSourceType: ${_this.bookSourceType}, hasJs: ${_this.hasJs})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookSourcePartImplCopyWith<$Res>
-    implements $BookSourcePartCopyWith<$Res> {
-  factory _$$BookSourcePartImplCopyWith(_$BookSourcePartImpl value,
-          $Res Function(_$BookSourcePartImpl) then) =
-      __$$BookSourcePartImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookSourcePartCopyWith<$Res> {
+  factory $BookSourcePartCopyWith(
+    BookSourcePart value,
+    $Res Function(BookSourcePart) _then,
+  ) = _$BookSourcePartCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
-      @JsonKey(name: 'bookSourceName') String bookSourceName,
-      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
-      @JsonKey(name: 'customOrder') int customOrder,
-      bool enabled,
-      @JsonKey(name: 'enabledExplore') bool enabledExplore,
-      @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
-      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
-      @JsonKey(name: 'respondTime') int respondTime,
-      int weight,
-      @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
-      @JsonKey(name: 'eventListener') bool eventListener,
-      @JsonKey(name: 'bookSourceType') int bookSourceType,
-      @JsonKey(name: 'hasJs') bool hasJs});
+  $Res call({
+    @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+    @JsonKey(name: 'bookSourceName') String bookSourceName,
+    @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+    @JsonKey(name: 'customOrder') int customOrder,
+    bool enabled,
+    @JsonKey(name: 'enabledExplore') bool enabledExplore,
+    @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'respondTime') int respondTime,
+    int weight,
+    @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
+    @JsonKey(name: 'eventListener') bool eventListener,
+    @JsonKey(name: 'bookSourceType') int bookSourceType,
+    @JsonKey(name: 'hasJs') bool hasJs,
+  });
 }
 
 /// @nodoc
-class __$$BookSourcePartImplCopyWithImpl<$Res>
-    extends _$BookSourcePartCopyWithImpl<$Res, _$BookSourcePartImpl>
-    implements _$$BookSourcePartImplCopyWith<$Res> {
-  __$$BookSourcePartImplCopyWithImpl(
-      _$BookSourcePartImpl _value, $Res Function(_$BookSourcePartImpl) _then)
-      : super(_value, _then);
+class _$BookSourcePartCopyWithImpl<$Res>
+    implements $BookSourcePartCopyWith<$Res> {
+  _$BookSourcePartCopyWithImpl(this._self, this._then);
 
+  final BookSourcePart _self;
+  final $Res Function(BookSourcePart) _then;
+
+  /// Create a copy of BookSourcePart
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -4687,88 +7666,340 @@ class __$$BookSourcePartImplCopyWithImpl<$Res>
     Object? bookSourceType = null,
     Object? hasJs = null,
   }) {
-    return _then(_$BookSourcePartImpl(
-      bookSourceUrl: null == bookSourceUrl
-          ? _value.bookSourceUrl
-          : bookSourceUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceName: null == bookSourceName
-          ? _value.bookSourceName
-          : bookSourceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookSourceGroup: freezed == bookSourceGroup
-          ? _value.bookSourceGroup
-          : bookSourceGroup // ignore: cast_nullable_to_non_nullable
-              as String?,
-      customOrder: null == customOrder
-          ? _value.customOrder
-          : customOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      enabled: null == enabled
-          ? _value.enabled
-          : enabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      enabledExplore: null == enabledExplore
-          ? _value.enabledExplore
-          : enabledExplore // ignore: cast_nullable_to_non_nullable
-              as bool,
-      hasLoginUrl: null == hasLoginUrl
-          ? _value.hasLoginUrl
-          : hasLoginUrl // ignore: cast_nullable_to_non_nullable
-              as bool,
-      lastUpdateTime: null == lastUpdateTime
-          ? _value.lastUpdateTime
-          : lastUpdateTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      respondTime: null == respondTime
-          ? _value.respondTime
-          : respondTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      weight: null == weight
-          ? _value.weight
-          : weight // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasExploreUrl: null == hasExploreUrl
-          ? _value.hasExploreUrl
-          : hasExploreUrl // ignore: cast_nullable_to_non_nullable
-              as bool,
-      eventListener: null == eventListener
-          ? _value.eventListener
-          : eventListener // ignore: cast_nullable_to_non_nullable
-              as bool,
-      bookSourceType: null == bookSourceType
-          ? _value.bookSourceType
-          : bookSourceType // ignore: cast_nullable_to_non_nullable
-              as int,
-      hasJs: null == hasJs
-          ? _value.hasJs
-          : hasJs // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      BookSourcePart(
+        bookSourceUrl: null == bookSourceUrl
+            ? _self.bookSourceUrl
+            : bookSourceUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceName: null == bookSourceName
+            ? _self.bookSourceName
+            : bookSourceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceGroup: freezed == bookSourceGroup
+            ? _self.bookSourceGroup
+            : bookSourceGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customOrder: null == customOrder
+            ? _self.customOrder
+            : customOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enabled: null == enabled
+            ? _self.enabled
+            : enabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        enabledExplore: null == enabledExplore
+            ? _self.enabledExplore
+            : enabledExplore // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        hasLoginUrl: null == hasLoginUrl
+            ? _self.hasLoginUrl
+            : hasLoginUrl // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        lastUpdateTime: null == lastUpdateTime
+            ? _self.lastUpdateTime
+            : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        respondTime: null == respondTime
+            ? _self.respondTime
+            : respondTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        weight: null == weight
+            ? _self.weight
+            : weight // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasExploreUrl: null == hasExploreUrl
+            ? _self.hasExploreUrl
+            : hasExploreUrl // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        eventListener: null == eventListener
+            ? _self.eventListener
+            : eventListener // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        bookSourceType: null == bookSourceType
+            ? _self.bookSourceType
+            : bookSourceType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasJs: null == hasJs
+            ? _self.hasJs
+            : hasJs // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookSourcePart].
+extension BookSourcePartPatterns on BookSourcePart {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookSourcePart value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookSourcePart value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookSourcePart value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+      @JsonKey(name: 'bookSourceName') String bookSourceName,
+      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+      @JsonKey(name: 'customOrder') int customOrder,
+      bool enabled,
+      @JsonKey(name: 'enabledExplore') bool enabledExplore,
+      @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'respondTime') int respondTime,
+      int weight,
+      @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
+      @JsonKey(name: 'eventListener') bool eventListener,
+      @JsonKey(name: 'bookSourceType') int bookSourceType,
+      @JsonKey(name: 'hasJs') bool hasJs,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart() when $default != null:
+        return $default(
+          _that.bookSourceUrl,
+          _that.bookSourceName,
+          _that.bookSourceGroup,
+          _that.customOrder,
+          _that.enabled,
+          _that.enabledExplore,
+          _that.hasLoginUrl,
+          _that.lastUpdateTime,
+          _that.respondTime,
+          _that.weight,
+          _that.hasExploreUrl,
+          _that.eventListener,
+          _that.bookSourceType,
+          _that.hasJs,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+      @JsonKey(name: 'bookSourceName') String bookSourceName,
+      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+      @JsonKey(name: 'customOrder') int customOrder,
+      bool enabled,
+      @JsonKey(name: 'enabledExplore') bool enabledExplore,
+      @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'respondTime') int respondTime,
+      int weight,
+      @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
+      @JsonKey(name: 'eventListener') bool eventListener,
+      @JsonKey(name: 'bookSourceType') int bookSourceType,
+      @JsonKey(name: 'hasJs') bool hasJs,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart():
+        return $default(
+          _that.bookSourceUrl,
+          _that.bookSourceName,
+          _that.bookSourceGroup,
+          _that.customOrder,
+          _that.enabled,
+          _that.enabledExplore,
+          _that.hasLoginUrl,
+          _that.lastUpdateTime,
+          _that.respondTime,
+          _that.weight,
+          _that.hasExploreUrl,
+          _that.eventListener,
+          _that.bookSourceType,
+          _that.hasJs,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+      @JsonKey(name: 'bookSourceName') String bookSourceName,
+      @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+      @JsonKey(name: 'customOrder') int customOrder,
+      bool enabled,
+      @JsonKey(name: 'enabledExplore') bool enabledExplore,
+      @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
+      @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'respondTime') int respondTime,
+      int weight,
+      @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
+      @JsonKey(name: 'eventListener') bool eventListener,
+      @JsonKey(name: 'bookSourceType') int bookSourceType,
+      @JsonKey(name: 'hasJs') bool hasJs,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookSourcePart() when $default != null:
+        return $default(
+          _that.bookSourceUrl,
+          _that.bookSourceName,
+          _that.bookSourceGroup,
+          _that.customOrder,
+          _that.enabled,
+          _that.enabledExplore,
+          _that.hasLoginUrl,
+          _that.lastUpdateTime,
+          _that.respondTime,
+          _that.weight,
+          _that.hasExploreUrl,
+          _that.eventListener,
+          _that.bookSourceType,
+          _that.hasJs,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookSourcePartImpl implements _BookSourcePart {
-  const _$BookSourcePartImpl(
-      {@JsonKey(name: 'bookSourceUrl') this.bookSourceUrl = '',
-      @JsonKey(name: 'bookSourceName') this.bookSourceName = '',
-      @JsonKey(name: 'bookSourceGroup') this.bookSourceGroup,
-      @JsonKey(name: 'customOrder') this.customOrder = 0,
-      this.enabled = true,
-      @JsonKey(name: 'enabledExplore') this.enabledExplore = true,
-      @JsonKey(name: 'hasLoginUrl') this.hasLoginUrl = false,
-      @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
-      @JsonKey(name: 'respondTime') this.respondTime = 180000,
-      this.weight = 0,
-      @JsonKey(name: 'hasExploreUrl') this.hasExploreUrl = false,
-      @JsonKey(name: 'eventListener') this.eventListener = false,
-      @JsonKey(name: 'bookSourceType') this.bookSourceType = 0,
-      @JsonKey(name: 'hasJs') this.hasJs = false});
-
-  factory _$BookSourcePartImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookSourcePartImplFromJson(json);
+class _BookSourcePart implements BookSourcePart {
+  const _BookSourcePart({
+    @JsonKey(name: 'bookSourceUrl') this.bookSourceUrl = '',
+    @JsonKey(name: 'bookSourceName') this.bookSourceName = '',
+    @JsonKey(name: 'bookSourceGroup') this.bookSourceGroup,
+    @JsonKey(name: 'customOrder') this.customOrder = 0,
+    this.enabled = true,
+    @JsonKey(name: 'enabledExplore') this.enabledExplore = true,
+    @JsonKey(name: 'hasLoginUrl') this.hasLoginUrl = false,
+    @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
+    @JsonKey(name: 'respondTime') this.respondTime = 180000,
+    this.weight = 0,
+    @JsonKey(name: 'hasExploreUrl') this.hasExploreUrl = false,
+    @JsonKey(name: 'eventListener') this.eventListener = false,
+    @JsonKey(name: 'bookSourceType') this.bookSourceType = 0,
+    @JsonKey(name: 'hasJs') this.hasJs = false,
+  });
+  factory _BookSourcePart.fromJson(Map<String, dynamic> json) =>
+      _$BookSourcePartFromJson(json);
 
   @override
   @JsonKey(name: 'bookSourceUrl')
@@ -4813,16 +8044,24 @@ class _$BookSourcePartImpl implements _BookSourcePart {
   @JsonKey(name: 'hasJs')
   final bool hasJs;
 
+  /// Create a copy of BookSourcePart
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookSourcePart(bookSourceUrl: $bookSourceUrl, bookSourceName: $bookSourceName, bookSourceGroup: $bookSourceGroup, customOrder: $customOrder, enabled: $enabled, enabledExplore: $enabledExplore, hasLoginUrl: $hasLoginUrl, lastUpdateTime: $lastUpdateTime, respondTime: $respondTime, weight: $weight, hasExploreUrl: $hasExploreUrl, eventListener: $eventListener, bookSourceType: $bookSourceType, hasJs: $hasJs)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookSourcePartCopyWith<_BookSourcePart> get copyWith =>
+      __$BookSourcePartCopyWithImpl<_BookSourcePart>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookSourcePartToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookSourcePartImpl &&
+            other is _BookSourcePart &&
             (identical(other.bookSourceUrl, bookSourceUrl) ||
                 other.bookSourceUrl == bookSourceUrl) &&
             (identical(other.bookSourceName, bookSourceName) ||
@@ -4850,9 +8089,10 @@ class _$BookSourcePartImpl implements _BookSourcePart {
             (identical(other.hasJs, hasJs) || other.hasJs == hasJs));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       bookSourceUrl,
       bookSourceName,
@@ -4867,170 +8107,205 @@ class _$BookSourcePartImpl implements _BookSourcePart {
       hasExploreUrl,
       eventListener,
       bookSourceType,
-      hasJs);
+      hasJs,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'BookSourcePart(bookSourceUrl: $bookSourceUrl, bookSourceName: $bookSourceName, bookSourceGroup: $bookSourceGroup, customOrder: $customOrder, enabled: $enabled, enabledExplore: $enabledExplore, hasLoginUrl: $hasLoginUrl, lastUpdateTime: $lastUpdateTime, respondTime: $respondTime, weight: $weight, hasExploreUrl: $hasExploreUrl, eventListener: $eventListener, bookSourceType: $bookSourceType, hasJs: $hasJs)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$BookSourcePartCopyWith<$Res>
+    implements $BookSourcePartCopyWith<$Res> {
+  factory _$BookSourcePartCopyWith(
+    _BookSourcePart value,
+    $Res Function(_BookSourcePart) _then,
+  ) = __$BookSourcePartCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
+    @JsonKey(name: 'bookSourceName') String bookSourceName,
+    @JsonKey(name: 'bookSourceGroup') String? bookSourceGroup,
+    @JsonKey(name: 'customOrder') int customOrder,
+    bool enabled,
+    @JsonKey(name: 'enabledExplore') bool enabledExplore,
+    @JsonKey(name: 'hasLoginUrl') bool hasLoginUrl,
+    @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'respondTime') int respondTime,
+    int weight,
+    @JsonKey(name: 'hasExploreUrl') bool hasExploreUrl,
+    @JsonKey(name: 'eventListener') bool eventListener,
+    @JsonKey(name: 'bookSourceType') int bookSourceType,
+    @JsonKey(name: 'hasJs') bool hasJs,
+  });
+}
+
+/// @nodoc
+class __$BookSourcePartCopyWithImpl<$Res>
+    implements _$BookSourcePartCopyWith<$Res> {
+  __$BookSourcePartCopyWithImpl(this._self, this._then);
+
+  final _BookSourcePart _self;
+  final $Res Function(_BookSourcePart) _then;
+
+  /// Create a copy of BookSourcePart
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$BookSourcePartImplCopyWith<_$BookSourcePartImpl> get copyWith =>
-      __$$BookSourcePartImplCopyWithImpl<_$BookSourcePartImpl>(
-          this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookSourcePartImplToJson(
-      this,
+  $Res call({
+    Object? bookSourceUrl = null,
+    Object? bookSourceName = null,
+    Object? bookSourceGroup = freezed,
+    Object? customOrder = null,
+    Object? enabled = null,
+    Object? enabledExplore = null,
+    Object? hasLoginUrl = null,
+    Object? lastUpdateTime = null,
+    Object? respondTime = null,
+    Object? weight = null,
+    Object? hasExploreUrl = null,
+    Object? eventListener = null,
+    Object? bookSourceType = null,
+    Object? hasJs = null,
+  }) {
+    return _then(
+      _BookSourcePart(
+        bookSourceUrl: null == bookSourceUrl
+            ? _self.bookSourceUrl
+            : bookSourceUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceName: null == bookSourceName
+            ? _self.bookSourceName
+            : bookSourceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookSourceGroup: freezed == bookSourceGroup
+            ? _self.bookSourceGroup
+            : bookSourceGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        customOrder: null == customOrder
+            ? _self.customOrder
+            : customOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enabled: null == enabled
+            ? _self.enabled
+            : enabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        enabledExplore: null == enabledExplore
+            ? _self.enabledExplore
+            : enabledExplore // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        hasLoginUrl: null == hasLoginUrl
+            ? _self.hasLoginUrl
+            : hasLoginUrl // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        lastUpdateTime: null == lastUpdateTime
+            ? _self.lastUpdateTime
+            : lastUpdateTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        respondTime: null == respondTime
+            ? _self.respondTime
+            : respondTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        weight: null == weight
+            ? _self.weight
+            : weight // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasExploreUrl: null == hasExploreUrl
+            ? _self.hasExploreUrl
+            : hasExploreUrl // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        eventListener: null == eventListener
+            ? _self.eventListener
+            : eventListener // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        bookSourceType: null == bookSourceType
+            ? _self.bookSourceType
+            : bookSourceType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasJs: null == hasJs
+            ? _self.hasJs
+            : hasJs // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
     );
   }
 }
 
-abstract class _BookSourcePart implements BookSourcePart {
-  const factory _BookSourcePart(
-      {@JsonKey(name: 'bookSourceUrl') final String bookSourceUrl,
-      @JsonKey(name: 'bookSourceName') final String bookSourceName,
-      @JsonKey(name: 'bookSourceGroup') final String? bookSourceGroup,
-      @JsonKey(name: 'customOrder') final int customOrder,
-      final bool enabled,
-      @JsonKey(name: 'enabledExplore') final bool enabledExplore,
-      @JsonKey(name: 'hasLoginUrl') final bool hasLoginUrl,
-      @JsonKey(name: 'lastUpdateTime') final int lastUpdateTime,
-      @JsonKey(name: 'respondTime') final int respondTime,
-      final int weight,
-      @JsonKey(name: 'hasExploreUrl') final bool hasExploreUrl,
-      @JsonKey(name: 'eventListener') final bool eventListener,
-      @JsonKey(name: 'bookSourceType') final int bookSourceType,
-      @JsonKey(name: 'hasJs') final bool hasJs}) = _$BookSourcePartImpl;
-
-  factory _BookSourcePart.fromJson(Map<String, dynamic> json) =
-      _$BookSourcePartImpl.fromJson;
-
-  @override
-  @JsonKey(name: 'bookSourceUrl')
-  String get bookSourceUrl;
-  @override
-  @JsonKey(name: 'bookSourceName')
-  String get bookSourceName;
-  @override
-  @JsonKey(name: 'bookSourceGroup')
-  String? get bookSourceGroup;
-  @override
-  @JsonKey(name: 'customOrder')
-  int get customOrder;
-  @override
-  bool get enabled;
-  @override
-  @JsonKey(name: 'enabledExplore')
-  bool get enabledExplore;
-  @override
-  @JsonKey(name: 'hasLoginUrl')
-  bool get hasLoginUrl;
-  @override
-  @JsonKey(name: 'lastUpdateTime')
-  int get lastUpdateTime;
-  @override
-  @JsonKey(name: 'respondTime')
-  int get respondTime;
-  @override
-  int get weight;
-  @override
-  @JsonKey(name: 'hasExploreUrl')
-  bool get hasExploreUrl;
-  @override
-  @JsonKey(name: 'eventListener')
-  bool get eventListener;
-  @override
-  @JsonKey(name: 'bookSourceType')
-  int get bookSourceType;
-  @override
-  @JsonKey(name: 'hasJs')
-  bool get hasJs;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookSourcePartImplCopyWith<_$BookSourcePartImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-SearchKeyword _$SearchKeywordFromJson(Map<String, dynamic> json) {
-  return _SearchKeyword.fromJson(json);
-}
-
 /// @nodoc
 mixin _$SearchKeyword {
-  String get word => throw _privateConstructorUsedError;
-  int get usage => throw _privateConstructorUsedError;
+  String get word;
+  int get usage;
   @JsonKey(name: 'lastUseTime')
-  int get lastUseTime => throw _privateConstructorUsedError;
+  int get lastUseTime;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $SearchKeywordCopyWith<SearchKeyword> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $SearchKeywordCopyWith<$Res> {
-  factory $SearchKeywordCopyWith(
-          SearchKeyword value, $Res Function(SearchKeyword) then) =
-      _$SearchKeywordCopyWithImpl<$Res, SearchKeyword>;
-  @useResult
-  $Res call(
-      {String word, int usage, @JsonKey(name: 'lastUseTime') int lastUseTime});
-}
-
-/// @nodoc
-class _$SearchKeywordCopyWithImpl<$Res, $Val extends SearchKeyword>
-    implements $SearchKeywordCopyWith<$Res> {
-  _$SearchKeywordCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of SearchKeyword
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $SearchKeywordCopyWith<SearchKeyword> get copyWith =>
+      _$SearchKeywordCopyWithImpl<SearchKeyword>(
+        this as SearchKeyword,
+        _$identity,
+      );
+
+  /// Serializes this SearchKeyword to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? word = null,
-    Object? usage = null,
-    Object? lastUseTime = null,
-  }) {
-    return _then(_value.copyWith(
-      word: null == word
-          ? _value.word
-          : word // ignore: cast_nullable_to_non_nullable
-              as String,
-      usage: null == usage
-          ? _value.usage
-          : usage // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastUseTime: null == lastUseTime
-          ? _value.lastUseTime
-          : lastUseTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as SearchKeyword;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is SearchKeyword &&
+            (identical(other.word, _this.word) || other.word == _this.word) &&
+            (identical(other.usage, _this.usage) ||
+                other.usage == _this.usage) &&
+            (identical(other.lastUseTime, _this.lastUseTime) ||
+                other.lastUseTime == _this.lastUseTime));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as SearchKeyword;
+    return Object.hash(runtimeType, _this.word, _this.usage, _this.lastUseTime);
+  }
+
+  @override
+  String toString() {
+    final _this = this as SearchKeyword;
+    return 'SearchKeyword(word: ${_this.word}, usage: ${_this.usage}, lastUseTime: ${_this.lastUseTime})';
   }
 }
 
 /// @nodoc
-abstract class _$$SearchKeywordImplCopyWith<$Res>
-    implements $SearchKeywordCopyWith<$Res> {
-  factory _$$SearchKeywordImplCopyWith(
-          _$SearchKeywordImpl value, $Res Function(_$SearchKeywordImpl) then) =
-      __$$SearchKeywordImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $SearchKeywordCopyWith<$Res> {
+  factory $SearchKeywordCopyWith(
+    SearchKeyword value,
+    $Res Function(SearchKeyword) _then,
+  ) = _$SearchKeywordCopyWithImpl;
   @useResult
-  $Res call(
-      {String word, int usage, @JsonKey(name: 'lastUseTime') int lastUseTime});
+  $Res call({
+    String word,
+    int usage,
+    @JsonKey(name: 'lastUseTime') int lastUseTime,
+  });
 }
 
 /// @nodoc
-class __$$SearchKeywordImplCopyWithImpl<$Res>
-    extends _$SearchKeywordCopyWithImpl<$Res, _$SearchKeywordImpl>
-    implements _$$SearchKeywordImplCopyWith<$Res> {
-  __$$SearchKeywordImplCopyWithImpl(
-      _$SearchKeywordImpl _value, $Res Function(_$SearchKeywordImpl) _then)
-      : super(_value, _then);
+class _$SearchKeywordCopyWithImpl<$Res>
+    implements $SearchKeywordCopyWith<$Res> {
+  _$SearchKeywordCopyWithImpl(this._self, this._then);
 
+  final SearchKeyword _self;
+  final $Res Function(SearchKeyword) _then;
+
+  /// Create a copy of SearchKeyword
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -5038,33 +8313,207 @@ class __$$SearchKeywordImplCopyWithImpl<$Res>
     Object? usage = null,
     Object? lastUseTime = null,
   }) {
-    return _then(_$SearchKeywordImpl(
-      word: null == word
-          ? _value.word
-          : word // ignore: cast_nullable_to_non_nullable
-              as String,
-      usage: null == usage
-          ? _value.usage
-          : usage // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastUseTime: null == lastUseTime
-          ? _value.lastUseTime
-          : lastUseTime // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      SearchKeyword(
+        word: null == word
+            ? _self.word
+            : word // ignore: cast_nullable_to_non_nullable
+                  as String,
+        usage: null == usage
+            ? _self.usage
+            : usage // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastUseTime: null == lastUseTime
+            ? _self.lastUseTime
+            : lastUseTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [SearchKeyword].
+extension SearchKeywordPatterns on SearchKeyword {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_SearchKeyword value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_SearchKeyword value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_SearchKeyword value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String word,
+      int usage,
+      @JsonKey(name: 'lastUseTime') int lastUseTime,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword() when $default != null:
+        return $default(_that.word, _that.usage, _that.lastUseTime);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String word,
+      int usage,
+      @JsonKey(name: 'lastUseTime') int lastUseTime,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword():
+        return $default(_that.word, _that.usage, _that.lastUseTime);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String word,
+      int usage,
+      @JsonKey(name: 'lastUseTime') int lastUseTime,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SearchKeyword() when $default != null:
+        return $default(_that.word, _that.usage, _that.lastUseTime);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$SearchKeywordImpl implements _SearchKeyword {
-  const _$SearchKeywordImpl(
-      {this.word = '',
-      this.usage = 1,
-      @JsonKey(name: 'lastUseTime') this.lastUseTime = 0});
-
-  factory _$SearchKeywordImpl.fromJson(Map<String, dynamic> json) =>
-      _$$SearchKeywordImplFromJson(json);
+class _SearchKeyword implements SearchKeyword {
+  const _SearchKeyword({
+    this.word = '',
+    this.usage = 1,
+    @JsonKey(name: 'lastUseTime') this.lastUseTime = 0,
+  });
+  factory _SearchKeyword.fromJson(Map<String, dynamic> json) =>
+      _$SearchKeywordFromJson(json);
 
   @override
   @JsonKey()
@@ -5076,180 +8525,184 @@ class _$SearchKeywordImpl implements _SearchKeyword {
   @JsonKey(name: 'lastUseTime')
   final int lastUseTime;
 
+  /// Create a copy of SearchKeyword
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'SearchKeyword(word: $word, usage: $usage, lastUseTime: $lastUseTime)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$SearchKeywordCopyWith<_SearchKeyword> get copyWith =>
+      __$SearchKeywordCopyWithImpl<_SearchKeyword>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$SearchKeywordToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$SearchKeywordImpl &&
+            other is _SearchKeyword &&
             (identical(other.word, word) || other.word == word) &&
             (identical(other.usage, usage) || other.usage == usage) &&
             (identical(other.lastUseTime, lastUseTime) ||
                 other.lastUseTime == lastUseTime));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, word, usage, lastUseTime);
+  int get hashCode {
+    return Object.hash(runtimeType, word, usage, lastUseTime);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'SearchKeyword(word: $word, usage: $usage, lastUseTime: $lastUseTime)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$SearchKeywordCopyWith<$Res>
+    implements $SearchKeywordCopyWith<$Res> {
+  factory _$SearchKeywordCopyWith(
+    _SearchKeyword value,
+    $Res Function(_SearchKeyword) _then,
+  ) = __$SearchKeywordCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String word,
+    int usage,
+    @JsonKey(name: 'lastUseTime') int lastUseTime,
+  });
+}
+
+/// @nodoc
+class __$SearchKeywordCopyWithImpl<$Res>
+    implements _$SearchKeywordCopyWith<$Res> {
+  __$SearchKeywordCopyWithImpl(this._self, this._then);
+
+  final _SearchKeyword _self;
+  final $Res Function(_SearchKeyword) _then;
+
+  /// Create a copy of SearchKeyword
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$SearchKeywordImplCopyWith<_$SearchKeywordImpl> get copyWith =>
-      __$$SearchKeywordImplCopyWithImpl<_$SearchKeywordImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$SearchKeywordImplToJson(
-      this,
+  $Res call({
+    Object? word = null,
+    Object? usage = null,
+    Object? lastUseTime = null,
+  }) {
+    return _then(
+      _SearchKeyword(
+        word: null == word
+            ? _self.word
+            : word // ignore: cast_nullable_to_non_nullable
+                  as String,
+        usage: null == usage
+            ? _self.usage
+            : usage // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastUseTime: null == lastUseTime
+            ? _self.lastUseTime
+            : lastUseTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _SearchKeyword implements SearchKeyword {
-  const factory _SearchKeyword(
-          {final String word,
-          final int usage,
-          @JsonKey(name: 'lastUseTime') final int lastUseTime}) =
-      _$SearchKeywordImpl;
-
-  factory _SearchKeyword.fromJson(Map<String, dynamic> json) =
-      _$SearchKeywordImpl.fromJson;
-
-  @override
-  String get word;
-  @override
-  int get usage;
-  @override
-  @JsonKey(name: 'lastUseTime')
-  int get lastUseTime;
-  @override
-  @JsonKey(ignore: true)
-  _$$SearchKeywordImplCopyWith<_$SearchKeywordImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-TxtTocRule _$TxtTocRuleFromJson(Map<String, dynamic> json) {
-  return _TxtTocRule.fromJson(json);
-}
-
 /// @nodoc
 mixin _$TxtTocRule {
-  int get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get rule => throw _privateConstructorUsedError;
-  String get replacement => throw _privateConstructorUsedError;
-  String? get example => throw _privateConstructorUsedError;
+  int get id;
+  String get name;
+  String get rule;
+  String get replacement;
+  String? get example;
   @JsonKey(name: 'serialNumber')
-  int get serialNumber => throw _privateConstructorUsedError;
-  bool get enable => throw _privateConstructorUsedError;
+  int get serialNumber;
+  bool get enable;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $TxtTocRuleCopyWith<TxtTocRule> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $TxtTocRuleCopyWith<$Res> {
-  factory $TxtTocRuleCopyWith(
-          TxtTocRule value, $Res Function(TxtTocRule) then) =
-      _$TxtTocRuleCopyWithImpl<$Res, TxtTocRule>;
-  @useResult
-  $Res call(
-      {int id,
-      String name,
-      String rule,
-      String replacement,
-      String? example,
-      @JsonKey(name: 'serialNumber') int serialNumber,
-      bool enable});
-}
-
-/// @nodoc
-class _$TxtTocRuleCopyWithImpl<$Res, $Val extends TxtTocRule>
-    implements $TxtTocRuleCopyWith<$Res> {
-  _$TxtTocRuleCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of TxtTocRule
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $TxtTocRuleCopyWith<TxtTocRule> get copyWith =>
+      _$TxtTocRuleCopyWithImpl<TxtTocRule>(this as TxtTocRule, _$identity);
+
+  /// Serializes this TxtTocRule to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? rule = null,
-    Object? replacement = null,
-    Object? example = freezed,
-    Object? serialNumber = null,
-    Object? enable = null,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      rule: null == rule
-          ? _value.rule
-          : rule // ignore: cast_nullable_to_non_nullable
-              as String,
-      replacement: null == replacement
-          ? _value.replacement
-          : replacement // ignore: cast_nullable_to_non_nullable
-              as String,
-      example: freezed == example
-          ? _value.example
-          : example // ignore: cast_nullable_to_non_nullable
-              as String?,
-      serialNumber: null == serialNumber
-          ? _value.serialNumber
-          : serialNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-      enable: null == enable
-          ? _value.enable
-          : enable // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as TxtTocRule;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is TxtTocRule &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.rule, _this.rule) || other.rule == _this.rule) &&
+            (identical(other.replacement, _this.replacement) ||
+                other.replacement == _this.replacement) &&
+            (identical(other.example, _this.example) ||
+                other.example == _this.example) &&
+            (identical(other.serialNumber, _this.serialNumber) ||
+                other.serialNumber == _this.serialNumber) &&
+            (identical(other.enable, _this.enable) ||
+                other.enable == _this.enable));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as TxtTocRule;
+    return Object.hash(
+      runtimeType,
+      _this.id,
+      _this.name,
+      _this.rule,
+      _this.replacement,
+      _this.example,
+      _this.serialNumber,
+      _this.enable,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as TxtTocRule;
+    return 'TxtTocRule(id: ${_this.id}, name: ${_this.name}, rule: ${_this.rule}, replacement: ${_this.replacement}, example: ${_this.example}, serialNumber: ${_this.serialNumber}, enable: ${_this.enable})';
   }
 }
 
 /// @nodoc
-abstract class _$$TxtTocRuleImplCopyWith<$Res>
-    implements $TxtTocRuleCopyWith<$Res> {
-  factory _$$TxtTocRuleImplCopyWith(
-          _$TxtTocRuleImpl value, $Res Function(_$TxtTocRuleImpl) then) =
-      __$$TxtTocRuleImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $TxtTocRuleCopyWith<$Res> {
+  factory $TxtTocRuleCopyWith(
+    TxtTocRule value,
+    $Res Function(TxtTocRule) _then,
+  ) = _$TxtTocRuleCopyWithImpl;
   @useResult
-  $Res call(
-      {int id,
-      String name,
-      String rule,
-      String replacement,
-      String? example,
-      @JsonKey(name: 'serialNumber') int serialNumber,
-      bool enable});
+  $Res call({
+    int id,
+    String name,
+    String rule,
+    String replacement,
+    String? example,
+    @JsonKey(name: 'serialNumber') int serialNumber,
+    bool enable,
+  });
 }
 
 /// @nodoc
-class __$$TxtTocRuleImplCopyWithImpl<$Res>
-    extends _$TxtTocRuleCopyWithImpl<$Res, _$TxtTocRuleImpl>
-    implements _$$TxtTocRuleImplCopyWith<$Res> {
-  __$$TxtTocRuleImplCopyWithImpl(
-      _$TxtTocRuleImpl _value, $Res Function(_$TxtTocRuleImpl) _then)
-      : super(_value, _then);
+class _$TxtTocRuleCopyWithImpl<$Res> implements $TxtTocRuleCopyWith<$Res> {
+  _$TxtTocRuleCopyWithImpl(this._self, this._then);
 
+  final TxtTocRule _self;
+  final $Res Function(TxtTocRule) _then;
+
+  /// Create a copy of TxtTocRule
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -5261,53 +8714,263 @@ class __$$TxtTocRuleImplCopyWithImpl<$Res>
     Object? serialNumber = null,
     Object? enable = null,
   }) {
-    return _then(_$TxtTocRuleImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      rule: null == rule
-          ? _value.rule
-          : rule // ignore: cast_nullable_to_non_nullable
-              as String,
-      replacement: null == replacement
-          ? _value.replacement
-          : replacement // ignore: cast_nullable_to_non_nullable
-              as String,
-      example: freezed == example
-          ? _value.example
-          : example // ignore: cast_nullable_to_non_nullable
-              as String?,
-      serialNumber: null == serialNumber
-          ? _value.serialNumber
-          : serialNumber // ignore: cast_nullable_to_non_nullable
-              as int,
-      enable: null == enable
-          ? _value.enable
-          : enable // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      TxtTocRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        rule: null == rule
+            ? _self.rule
+            : rule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        replacement: null == replacement
+            ? _self.replacement
+            : replacement // ignore: cast_nullable_to_non_nullable
+                  as String,
+        example: freezed == example
+            ? _self.example
+            : example // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        serialNumber: null == serialNumber
+            ? _self.serialNumber
+            : serialNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enable: null == enable
+            ? _self.enable
+            : enable // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [TxtTocRule].
+extension TxtTocRulePatterns on TxtTocRule {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_TxtTocRule value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_TxtTocRule value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_TxtTocRule value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String rule,
+      String replacement,
+      String? example,
+      @JsonKey(name: 'serialNumber') int serialNumber,
+      bool enable,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.rule,
+          _that.replacement,
+          _that.example,
+          _that.serialNumber,
+          _that.enable,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      int id,
+      String name,
+      String rule,
+      String replacement,
+      String? example,
+      @JsonKey(name: 'serialNumber') int serialNumber,
+      bool enable,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule():
+        return $default(
+          _that.id,
+          _that.name,
+          _that.rule,
+          _that.replacement,
+          _that.example,
+          _that.serialNumber,
+          _that.enable,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      int id,
+      String name,
+      String rule,
+      String replacement,
+      String? example,
+      @JsonKey(name: 'serialNumber') int serialNumber,
+      bool enable,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _TxtTocRule() when $default != null:
+        return $default(
+          _that.id,
+          _that.name,
+          _that.rule,
+          _that.replacement,
+          _that.example,
+          _that.serialNumber,
+          _that.enable,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$TxtTocRuleImpl implements _TxtTocRule {
-  const _$TxtTocRuleImpl(
-      {this.id = 0,
-      this.name = '',
-      this.rule = '',
-      this.replacement = '',
-      this.example,
-      @JsonKey(name: 'serialNumber') this.serialNumber = -1,
-      this.enable = true});
-
-  factory _$TxtTocRuleImpl.fromJson(Map<String, dynamic> json) =>
-      _$$TxtTocRuleImplFromJson(json);
+class _TxtTocRule implements TxtTocRule {
+  const _TxtTocRule({
+    this.id = 0,
+    this.name = '',
+    this.rule = '',
+    this.replacement = '',
+    this.example,
+    @JsonKey(name: 'serialNumber') this.serialNumber = -1,
+    this.enable = true,
+  });
+  factory _TxtTocRule.fromJson(Map<String, dynamic> json) =>
+      _$TxtTocRuleFromJson(json);
 
   @override
   @JsonKey()
@@ -5330,16 +8993,24 @@ class _$TxtTocRuleImpl implements _TxtTocRule {
   @JsonKey()
   final bool enable;
 
+  /// Create a copy of TxtTocRule
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'TxtTocRule(id: $id, name: $name, rule: $rule, replacement: $replacement, example: $example, serialNumber: $serialNumber, enable: $enable)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$TxtTocRuleCopyWith<_TxtTocRule> get copyWith =>
+      __$TxtTocRuleCopyWithImpl<_TxtTocRule>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$TxtTocRuleToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$TxtTocRuleImpl &&
+            other is _TxtTocRule &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.rule, rule) || other.rule == rule) &&
@@ -5351,146 +9022,181 @@ class _$TxtTocRuleImpl implements _TxtTocRule {
             (identical(other.enable, enable) || other.enable == enable));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, id, name, rule, replacement, example, serialNumber, enable);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$TxtTocRuleImplCopyWith<_$TxtTocRuleImpl> get copyWith =>
-      __$$TxtTocRuleImplCopyWithImpl<_$TxtTocRuleImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$TxtTocRuleImplToJson(
-      this,
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      id,
+      name,
+      rule,
+      replacement,
+      example,
+      serialNumber,
+      enable,
     );
+  }
+
+  @override
+  String toString() {
+    return 'TxtTocRule(id: $id, name: $name, rule: $rule, replacement: $replacement, example: $example, serialNumber: $serialNumber, enable: $enable)';
   }
 }
 
-abstract class _TxtTocRule implements TxtTocRule {
-  const factory _TxtTocRule(
-      {final int id,
-      final String name,
-      final String rule,
-      final String replacement,
-      final String? example,
-      @JsonKey(name: 'serialNumber') final int serialNumber,
-      final bool enable}) = _$TxtTocRuleImpl;
-
-  factory _TxtTocRule.fromJson(Map<String, dynamic> json) =
-      _$TxtTocRuleImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$TxtTocRuleCopyWith<$Res>
+    implements $TxtTocRuleCopyWith<$Res> {
+  factory _$TxtTocRuleCopyWith(
+    _TxtTocRule value,
+    $Res Function(_TxtTocRule) _then,
+  ) = __$TxtTocRuleCopyWithImpl;
   @override
-  int get id;
-  @override
-  String get name;
-  @override
-  String get rule;
-  @override
-  String get replacement;
-  @override
-  String? get example;
-  @override
-  @JsonKey(name: 'serialNumber')
-  int get serialNumber;
-  @override
-  bool get enable;
-  @override
-  @JsonKey(ignore: true)
-  _$$TxtTocRuleImplCopyWith<_$TxtTocRuleImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    int id,
+    String name,
+    String rule,
+    String replacement,
+    String? example,
+    @JsonKey(name: 'serialNumber') int serialNumber,
+    bool enable,
+  });
 }
 
-BookChapterReview _$BookChapterReviewFromJson(Map<String, dynamic> json) {
-  return _BookChapterReview.fromJson(json);
+/// @nodoc
+class __$TxtTocRuleCopyWithImpl<$Res> implements _$TxtTocRuleCopyWith<$Res> {
+  __$TxtTocRuleCopyWithImpl(this._self, this._then);
+
+  final _TxtTocRule _self;
+  final $Res Function(_TxtTocRule) _then;
+
+  /// Create a copy of TxtTocRule
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? id = null,
+    Object? name = null,
+    Object? rule = null,
+    Object? replacement = null,
+    Object? example = freezed,
+    Object? serialNumber = null,
+    Object? enable = null,
+  }) {
+    return _then(
+      _TxtTocRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        rule: null == rule
+            ? _self.rule
+            : rule // ignore: cast_nullable_to_non_nullable
+                  as String,
+        replacement: null == replacement
+            ? _self.replacement
+            : replacement // ignore: cast_nullable_to_non_nullable
+                  as String,
+        example: freezed == example
+            ? _self.example
+            : example // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        serialNumber: null == serialNumber
+            ? _self.serialNumber
+            : serialNumber // ignore: cast_nullable_to_non_nullable
+                  as int,
+        enable: null == enable
+            ? _self.enable
+            : enable // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$BookChapterReview {
   @JsonKey(name: 'bookId')
-  int get bookId => throw _privateConstructorUsedError;
+  int get bookId;
   @JsonKey(name: 'chapterId')
-  int get chapterId => throw _privateConstructorUsedError;
+  int get chapterId;
   @JsonKey(name: 'summaryUrl')
-  String get summaryUrl => throw _privateConstructorUsedError;
+  String get summaryUrl;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookChapterReviewCopyWith<BookChapterReview> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookChapterReviewCopyWith<$Res> {
-  factory $BookChapterReviewCopyWith(
-          BookChapterReview value, $Res Function(BookChapterReview) then) =
-      _$BookChapterReviewCopyWithImpl<$Res, BookChapterReview>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookId') int bookId,
-      @JsonKey(name: 'chapterId') int chapterId,
-      @JsonKey(name: 'summaryUrl') String summaryUrl});
-}
-
-/// @nodoc
-class _$BookChapterReviewCopyWithImpl<$Res, $Val extends BookChapterReview>
-    implements $BookChapterReviewCopyWith<$Res> {
-  _$BookChapterReviewCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookChapterReview
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookChapterReviewCopyWith<BookChapterReview> get copyWith =>
+      _$BookChapterReviewCopyWithImpl<BookChapterReview>(
+        this as BookChapterReview,
+        _$identity,
+      );
+
+  /// Serializes this BookChapterReview to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookId = null,
-    Object? chapterId = null,
-    Object? summaryUrl = null,
-  }) {
-    return _then(_value.copyWith(
-      bookId: null == bookId
-          ? _value.bookId
-          : bookId // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterId: null == chapterId
-          ? _value.chapterId
-          : chapterId // ignore: cast_nullable_to_non_nullable
-              as int,
-      summaryUrl: null == summaryUrl
-          ? _value.summaryUrl
-          : summaryUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookChapterReview;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookChapterReview &&
+            (identical(other.bookId, _this.bookId) ||
+                other.bookId == _this.bookId) &&
+            (identical(other.chapterId, _this.chapterId) ||
+                other.chapterId == _this.chapterId) &&
+            (identical(other.summaryUrl, _this.summaryUrl) ||
+                other.summaryUrl == _this.summaryUrl));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookChapterReview;
+    return Object.hash(
+      runtimeType,
+      _this.bookId,
+      _this.chapterId,
+      _this.summaryUrl,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookChapterReview;
+    return 'BookChapterReview(bookId: ${_this.bookId}, chapterId: ${_this.chapterId}, summaryUrl: ${_this.summaryUrl})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookChapterReviewImplCopyWith<$Res>
-    implements $BookChapterReviewCopyWith<$Res> {
-  factory _$$BookChapterReviewImplCopyWith(_$BookChapterReviewImpl value,
-          $Res Function(_$BookChapterReviewImpl) then) =
-      __$$BookChapterReviewImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookChapterReviewCopyWith<$Res> {
+  factory $BookChapterReviewCopyWith(
+    BookChapterReview value,
+    $Res Function(BookChapterReview) _then,
+  ) = _$BookChapterReviewCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookId') int bookId,
-      @JsonKey(name: 'chapterId') int chapterId,
-      @JsonKey(name: 'summaryUrl') String summaryUrl});
+  $Res call({
+    @JsonKey(name: 'bookId') int bookId,
+    @JsonKey(name: 'chapterId') int chapterId,
+    @JsonKey(name: 'summaryUrl') String summaryUrl,
+  });
 }
 
 /// @nodoc
-class __$$BookChapterReviewImplCopyWithImpl<$Res>
-    extends _$BookChapterReviewCopyWithImpl<$Res, _$BookChapterReviewImpl>
-    implements _$$BookChapterReviewImplCopyWith<$Res> {
-  __$$BookChapterReviewImplCopyWithImpl(_$BookChapterReviewImpl _value,
-      $Res Function(_$BookChapterReviewImpl) _then)
-      : super(_value, _then);
+class _$BookChapterReviewCopyWithImpl<$Res>
+    implements $BookChapterReviewCopyWith<$Res> {
+  _$BookChapterReviewCopyWithImpl(this._self, this._then);
 
+  final BookChapterReview _self;
+  final $Res Function(BookChapterReview) _then;
+
+  /// Create a copy of BookChapterReview
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -5498,33 +9204,207 @@ class __$$BookChapterReviewImplCopyWithImpl<$Res>
     Object? chapterId = null,
     Object? summaryUrl = null,
   }) {
-    return _then(_$BookChapterReviewImpl(
-      bookId: null == bookId
-          ? _value.bookId
-          : bookId // ignore: cast_nullable_to_non_nullable
-              as int,
-      chapterId: null == chapterId
-          ? _value.chapterId
-          : chapterId // ignore: cast_nullable_to_non_nullable
-              as int,
-      summaryUrl: null == summaryUrl
-          ? _value.summaryUrl
-          : summaryUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      BookChapterReview(
+        bookId: null == bookId
+            ? _self.bookId
+            : bookId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterId: null == chapterId
+            ? _self.chapterId
+            : chapterId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        summaryUrl: null == summaryUrl
+            ? _self.summaryUrl
+            : summaryUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookChapterReview].
+extension BookChapterReviewPatterns on BookChapterReview {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookChapterReview value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookChapterReview value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookChapterReview value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookId') int bookId,
+      @JsonKey(name: 'chapterId') int chapterId,
+      @JsonKey(name: 'summaryUrl') String summaryUrl,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview() when $default != null:
+        return $default(_that.bookId, _that.chapterId, _that.summaryUrl);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookId') int bookId,
+      @JsonKey(name: 'chapterId') int chapterId,
+      @JsonKey(name: 'summaryUrl') String summaryUrl,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview():
+        return $default(_that.bookId, _that.chapterId, _that.summaryUrl);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookId') int bookId,
+      @JsonKey(name: 'chapterId') int chapterId,
+      @JsonKey(name: 'summaryUrl') String summaryUrl,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapterReview() when $default != null:
+        return $default(_that.bookId, _that.chapterId, _that.summaryUrl);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookChapterReviewImpl implements _BookChapterReview {
-  const _$BookChapterReviewImpl(
-      {@JsonKey(name: 'bookId') this.bookId = 0,
-      @JsonKey(name: 'chapterId') this.chapterId = 0,
-      @JsonKey(name: 'summaryUrl') this.summaryUrl = ''});
-
-  factory _$BookChapterReviewImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookChapterReviewImplFromJson(json);
+class _BookChapterReview implements BookChapterReview {
+  const _BookChapterReview({
+    @JsonKey(name: 'bookId') this.bookId = 0,
+    @JsonKey(name: 'chapterId') this.chapterId = 0,
+    @JsonKey(name: 'summaryUrl') this.summaryUrl = '',
+  });
+  factory _BookChapterReview.fromJson(Map<String, dynamic> json) =>
+      _$BookChapterReviewFromJson(json);
 
   @override
   @JsonKey(name: 'bookId')
@@ -5536,16 +9416,24 @@ class _$BookChapterReviewImpl implements _BookChapterReview {
   @JsonKey(name: 'summaryUrl')
   final String summaryUrl;
 
+  /// Create a copy of BookChapterReview
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookChapterReview(bookId: $bookId, chapterId: $chapterId, summaryUrl: $summaryUrl)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookChapterReviewCopyWith<_BookChapterReview> get copyWith =>
+      __$BookChapterReviewCopyWithImpl<_BookChapterReview>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookChapterReviewToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookChapterReviewImpl &&
+            other is _BookChapterReview &&
             (identical(other.bookId, bookId) || other.bookId == bookId) &&
             (identical(other.chapterId, chapterId) ||
                 other.chapterId == chapterId) &&
@@ -5553,144 +9441,152 @@ class _$BookChapterReviewImpl implements _BookChapterReview {
                 other.summaryUrl == summaryUrl));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, bookId, chapterId, summaryUrl);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BookChapterReviewImplCopyWith<_$BookChapterReviewImpl> get copyWith =>
-      __$$BookChapterReviewImplCopyWithImpl<_$BookChapterReviewImpl>(
-          this, _$identity);
+  int get hashCode {
+    return Object.hash(runtimeType, bookId, chapterId, summaryUrl);
+  }
 
   @override
-  Map<String, dynamic> toJson() {
-    return _$$BookChapterReviewImplToJson(
-      this,
-    );
+  String toString() {
+    return 'BookChapterReview(bookId: $bookId, chapterId: $chapterId, summaryUrl: $summaryUrl)';
   }
 }
 
-abstract class _BookChapterReview implements BookChapterReview {
-  const factory _BookChapterReview(
-          {@JsonKey(name: 'bookId') final int bookId,
-          @JsonKey(name: 'chapterId') final int chapterId,
-          @JsonKey(name: 'summaryUrl') final String summaryUrl}) =
-      _$BookChapterReviewImpl;
-
-  factory _BookChapterReview.fromJson(Map<String, dynamic> json) =
-      _$BookChapterReviewImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$BookChapterReviewCopyWith<$Res>
+    implements $BookChapterReviewCopyWith<$Res> {
+  factory _$BookChapterReviewCopyWith(
+    _BookChapterReview value,
+    $Res Function(_BookChapterReview) _then,
+  ) = __$BookChapterReviewCopyWithImpl;
   @override
-  @JsonKey(name: 'bookId')
-  int get bookId;
-  @override
-  @JsonKey(name: 'chapterId')
-  int get chapterId;
-  @override
-  @JsonKey(name: 'summaryUrl')
-  String get summaryUrl;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookChapterReviewImplCopyWith<_$BookChapterReviewImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookId') int bookId,
+    @JsonKey(name: 'chapterId') int chapterId,
+    @JsonKey(name: 'summaryUrl') String summaryUrl,
+  });
 }
 
-KeyboardAssist _$KeyboardAssistFromJson(Map<String, dynamic> json) {
-  return _KeyboardAssist.fromJson(json);
+/// @nodoc
+class __$BookChapterReviewCopyWithImpl<$Res>
+    implements _$BookChapterReviewCopyWith<$Res> {
+  __$BookChapterReviewCopyWithImpl(this._self, this._then);
+
+  final _BookChapterReview _self;
+  final $Res Function(_BookChapterReview) _then;
+
+  /// Create a copy of BookChapterReview
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? bookId = null,
+    Object? chapterId = null,
+    Object? summaryUrl = null,
+  }) {
+    return _then(
+      _BookChapterReview(
+        bookId: null == bookId
+            ? _self.bookId
+            : bookId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterId: null == chapterId
+            ? _self.chapterId
+            : chapterId // ignore: cast_nullable_to_non_nullable
+                  as int,
+        summaryUrl: null == summaryUrl
+            ? _self.summaryUrl
+            : summaryUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$KeyboardAssist {
   @JsonKey(name: 'type')
-  int get assistType => throw _privateConstructorUsedError;
-  String get key => throw _privateConstructorUsedError;
-  String get value => throw _privateConstructorUsedError;
+  int get assistType;
+  String get key;
+  String get value;
   @JsonKey(name: 'serialNo')
-  int get serialNo => throw _privateConstructorUsedError;
+  int get serialNo;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $KeyboardAssistCopyWith<KeyboardAssist> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $KeyboardAssistCopyWith<$Res> {
-  factory $KeyboardAssistCopyWith(
-          KeyboardAssist value, $Res Function(KeyboardAssist) then) =
-      _$KeyboardAssistCopyWithImpl<$Res, KeyboardAssist>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'type') int assistType,
-      String key,
-      String value,
-      @JsonKey(name: 'serialNo') int serialNo});
-}
-
-/// @nodoc
-class _$KeyboardAssistCopyWithImpl<$Res, $Val extends KeyboardAssist>
-    implements $KeyboardAssistCopyWith<$Res> {
-  _$KeyboardAssistCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of KeyboardAssist
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $KeyboardAssistCopyWith<KeyboardAssist> get copyWith =>
+      _$KeyboardAssistCopyWithImpl<KeyboardAssist>(
+        this as KeyboardAssist,
+        _$identity,
+      );
+
+  /// Serializes this KeyboardAssist to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? assistType = null,
-    Object? key = null,
-    Object? value = null,
-    Object? serialNo = null,
-  }) {
-    return _then(_value.copyWith(
-      assistType: null == assistType
-          ? _value.assistType
-          : assistType // ignore: cast_nullable_to_non_nullable
-              as int,
-      key: null == key
-          ? _value.key
-          : key // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: null == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String,
-      serialNo: null == serialNo
-          ? _value.serialNo
-          : serialNo // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as KeyboardAssist;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is KeyboardAssist &&
+            (identical(other.assistType, _this.assistType) ||
+                other.assistType == _this.assistType) &&
+            (identical(other.key, _this.key) || other.key == _this.key) &&
+            (identical(other.value, _this.value) ||
+                other.value == _this.value) &&
+            (identical(other.serialNo, _this.serialNo) ||
+                other.serialNo == _this.serialNo));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as KeyboardAssist;
+    return Object.hash(
+      runtimeType,
+      _this.assistType,
+      _this.key,
+      _this.value,
+      _this.serialNo,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as KeyboardAssist;
+    return 'KeyboardAssist(assistType: ${_this.assistType}, key: ${_this.key}, value: ${_this.value}, serialNo: ${_this.serialNo})';
   }
 }
 
 /// @nodoc
-abstract class _$$KeyboardAssistImplCopyWith<$Res>
-    implements $KeyboardAssistCopyWith<$Res> {
-  factory _$$KeyboardAssistImplCopyWith(_$KeyboardAssistImpl value,
-          $Res Function(_$KeyboardAssistImpl) then) =
-      __$$KeyboardAssistImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $KeyboardAssistCopyWith<$Res> {
+  factory $KeyboardAssistCopyWith(
+    KeyboardAssist value,
+    $Res Function(KeyboardAssist) _then,
+  ) = _$KeyboardAssistCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'type') int assistType,
-      String key,
-      String value,
-      @JsonKey(name: 'serialNo') int serialNo});
+  $Res call({
+    @JsonKey(name: 'type') int assistType,
+    String key,
+    String value,
+    @JsonKey(name: 'serialNo') int serialNo,
+  });
 }
 
 /// @nodoc
-class __$$KeyboardAssistImplCopyWithImpl<$Res>
-    extends _$KeyboardAssistCopyWithImpl<$Res, _$KeyboardAssistImpl>
-    implements _$$KeyboardAssistImplCopyWith<$Res> {
-  __$$KeyboardAssistImplCopyWithImpl(
-      _$KeyboardAssistImpl _value, $Res Function(_$KeyboardAssistImpl) _then)
-      : super(_value, _then);
+class _$KeyboardAssistCopyWithImpl<$Res>
+    implements $KeyboardAssistCopyWith<$Res> {
+  _$KeyboardAssistCopyWithImpl(this._self, this._then);
 
+  final KeyboardAssist _self;
+  final $Res Function(KeyboardAssist) _then;
+
+  /// Create a copy of KeyboardAssist
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -5699,38 +9595,230 @@ class __$$KeyboardAssistImplCopyWithImpl<$Res>
     Object? value = null,
     Object? serialNo = null,
   }) {
-    return _then(_$KeyboardAssistImpl(
-      assistType: null == assistType
-          ? _value.assistType
-          : assistType // ignore: cast_nullable_to_non_nullable
-              as int,
-      key: null == key
-          ? _value.key
-          : key // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: null == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String,
-      serialNo: null == serialNo
-          ? _value.serialNo
-          : serialNo // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      KeyboardAssist(
+        assistType: null == assistType
+            ? _self.assistType
+            : assistType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        key: null == key
+            ? _self.key
+            : key // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: null == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String,
+        serialNo: null == serialNo
+            ? _self.serialNo
+            : serialNo // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [KeyboardAssist].
+extension KeyboardAssistPatterns on KeyboardAssist {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_KeyboardAssist value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_KeyboardAssist value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_KeyboardAssist value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'type') int assistType,
+      String key,
+      String value,
+      @JsonKey(name: 'serialNo') int serialNo,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist() when $default != null:
+        return $default(
+          _that.assistType,
+          _that.key,
+          _that.value,
+          _that.serialNo,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'type') int assistType,
+      String key,
+      String value,
+      @JsonKey(name: 'serialNo') int serialNo,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist():
+        return $default(
+          _that.assistType,
+          _that.key,
+          _that.value,
+          _that.serialNo,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'type') int assistType,
+      String key,
+      String value,
+      @JsonKey(name: 'serialNo') int serialNo,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _KeyboardAssist() when $default != null:
+        return $default(
+          _that.assistType,
+          _that.key,
+          _that.value,
+          _that.serialNo,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$KeyboardAssistImpl implements _KeyboardAssist {
-  const _$KeyboardAssistImpl(
-      {@JsonKey(name: 'type') this.assistType = 0,
-      this.key = '',
-      this.value = '',
-      @JsonKey(name: 'serialNo') this.serialNo = 0});
-
-  factory _$KeyboardAssistImpl.fromJson(Map<String, dynamic> json) =>
-      _$$KeyboardAssistImplFromJson(json);
+class _KeyboardAssist implements KeyboardAssist {
+  const _KeyboardAssist({
+    @JsonKey(name: 'type') this.assistType = 0,
+    this.key = '',
+    this.value = '',
+    @JsonKey(name: 'serialNo') this.serialNo = 0,
+  });
+  factory _KeyboardAssist.fromJson(Map<String, dynamic> json) =>
+      _$KeyboardAssistFromJson(json);
 
   @override
   @JsonKey(name: 'type')
@@ -5745,16 +9833,24 @@ class _$KeyboardAssistImpl implements _KeyboardAssist {
   @JsonKey(name: 'serialNo')
   final int serialNo;
 
+  /// Create a copy of KeyboardAssist
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'KeyboardAssist(assistType: $assistType, key: $key, value: $value, serialNo: $serialNo)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$KeyboardAssistCopyWith<_KeyboardAssist> get copyWith =>
+      __$KeyboardAssistCopyWithImpl<_KeyboardAssist>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$KeyboardAssistToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$KeyboardAssistImpl &&
+            other is _KeyboardAssist &&
             (identical(other.assistType, assistType) ||
                 other.assistType == assistType) &&
             (identical(other.key, key) || other.key == key) &&
@@ -5763,148 +9859,157 @@ class _$KeyboardAssistImpl implements _KeyboardAssist {
                 other.serialNo == serialNo));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, assistType, key, value, serialNo);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$KeyboardAssistImplCopyWith<_$KeyboardAssistImpl> get copyWith =>
-      __$$KeyboardAssistImplCopyWithImpl<_$KeyboardAssistImpl>(
-          this, _$identity);
+  int get hashCode {
+    return Object.hash(runtimeType, assistType, key, value, serialNo);
+  }
 
   @override
-  Map<String, dynamic> toJson() {
-    return _$$KeyboardAssistImplToJson(
-      this,
-    );
+  String toString() {
+    return 'KeyboardAssist(assistType: $assistType, key: $key, value: $value, serialNo: $serialNo)';
   }
 }
 
-abstract class _KeyboardAssist implements KeyboardAssist {
-  const factory _KeyboardAssist(
-      {@JsonKey(name: 'type') final int assistType,
-      final String key,
-      final String value,
-      @JsonKey(name: 'serialNo') final int serialNo}) = _$KeyboardAssistImpl;
-
-  factory _KeyboardAssist.fromJson(Map<String, dynamic> json) =
-      _$KeyboardAssistImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$KeyboardAssistCopyWith<$Res>
+    implements $KeyboardAssistCopyWith<$Res> {
+  factory _$KeyboardAssistCopyWith(
+    _KeyboardAssist value,
+    $Res Function(_KeyboardAssist) _then,
+  ) = __$KeyboardAssistCopyWithImpl;
   @override
-  @JsonKey(name: 'type')
-  int get assistType;
-  @override
-  String get key;
-  @override
-  String get value;
-  @override
-  @JsonKey(name: 'serialNo')
-  int get serialNo;
-  @override
-  @JsonKey(ignore: true)
-  _$$KeyboardAssistImplCopyWith<_$KeyboardAssistImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    @JsonKey(name: 'type') int assistType,
+    String key,
+    String value,
+    @JsonKey(name: 'serialNo') int serialNo,
+  });
 }
 
-ReadRecord _$ReadRecordFromJson(Map<String, dynamic> json) {
-  return _ReadRecord.fromJson(json);
+/// @nodoc
+class __$KeyboardAssistCopyWithImpl<$Res>
+    implements _$KeyboardAssistCopyWith<$Res> {
+  __$KeyboardAssistCopyWithImpl(this._self, this._then);
+
+  final _KeyboardAssist _self;
+  final $Res Function(_KeyboardAssist) _then;
+
+  /// Create a copy of KeyboardAssist
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? assistType = null,
+    Object? key = null,
+    Object? value = null,
+    Object? serialNo = null,
+  }) {
+    return _then(
+      _KeyboardAssist(
+        assistType: null == assistType
+            ? _self.assistType
+            : assistType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        key: null == key
+            ? _self.key
+            : key // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: null == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String,
+        serialNo: null == serialNo
+            ? _self.serialNo
+            : serialNo // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$ReadRecord {
   @JsonKey(name: 'deviceId')
-  String get deviceId => throw _privateConstructorUsedError;
+  String get deviceId;
   @JsonKey(name: 'bookName')
-  String get bookName => throw _privateConstructorUsedError;
+  String get bookName;
   @JsonKey(name: 'readTime')
-  int get readTime => throw _privateConstructorUsedError;
+  int get readTime;
   @JsonKey(name: 'lastRead')
-  int get lastRead => throw _privateConstructorUsedError;
+  int get lastRead;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ReadRecordCopyWith<ReadRecord> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ReadRecordCopyWith<$Res> {
-  factory $ReadRecordCopyWith(
-          ReadRecord value, $Res Function(ReadRecord) then) =
-      _$ReadRecordCopyWithImpl<$Res, ReadRecord>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'deviceId') String deviceId,
-      @JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'readTime') int readTime,
-      @JsonKey(name: 'lastRead') int lastRead});
-}
-
-/// @nodoc
-class _$ReadRecordCopyWithImpl<$Res, $Val extends ReadRecord>
-    implements $ReadRecordCopyWith<$Res> {
-  _$ReadRecordCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of ReadRecord
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $ReadRecordCopyWith<ReadRecord> get copyWith =>
+      _$ReadRecordCopyWithImpl<ReadRecord>(this as ReadRecord, _$identity);
+
+  /// Serializes this ReadRecord to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? deviceId = null,
-    Object? bookName = null,
-    Object? readTime = null,
-    Object? lastRead = null,
-  }) {
-    return _then(_value.copyWith(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRead: null == lastRead
-          ? _value.lastRead
-          : lastRead // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as ReadRecord;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is ReadRecord &&
+            (identical(other.deviceId, _this.deviceId) ||
+                other.deviceId == _this.deviceId) &&
+            (identical(other.bookName, _this.bookName) ||
+                other.bookName == _this.bookName) &&
+            (identical(other.readTime, _this.readTime) ||
+                other.readTime == _this.readTime) &&
+            (identical(other.lastRead, _this.lastRead) ||
+                other.lastRead == _this.lastRead));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as ReadRecord;
+    return Object.hash(
+      runtimeType,
+      _this.deviceId,
+      _this.bookName,
+      _this.readTime,
+      _this.lastRead,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as ReadRecord;
+    return 'ReadRecord(deviceId: ${_this.deviceId}, bookName: ${_this.bookName}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
   }
 }
 
 /// @nodoc
-abstract class _$$ReadRecordImplCopyWith<$Res>
-    implements $ReadRecordCopyWith<$Res> {
-  factory _$$ReadRecordImplCopyWith(
-          _$ReadRecordImpl value, $Res Function(_$ReadRecordImpl) then) =
-      __$$ReadRecordImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $ReadRecordCopyWith<$Res> {
+  factory $ReadRecordCopyWith(
+    ReadRecord value,
+    $Res Function(ReadRecord) _then,
+  ) = _$ReadRecordCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'deviceId') String deviceId,
-      @JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'readTime') int readTime,
-      @JsonKey(name: 'lastRead') int lastRead});
+  $Res call({
+    @JsonKey(name: 'deviceId') String deviceId,
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'readTime') int readTime,
+    @JsonKey(name: 'lastRead') int lastRead,
+  });
 }
 
 /// @nodoc
-class __$$ReadRecordImplCopyWithImpl<$Res>
-    extends _$ReadRecordCopyWithImpl<$Res, _$ReadRecordImpl>
-    implements _$$ReadRecordImplCopyWith<$Res> {
-  __$$ReadRecordImplCopyWithImpl(
-      _$ReadRecordImpl _value, $Res Function(_$ReadRecordImpl) _then)
-      : super(_value, _then);
+class _$ReadRecordCopyWithImpl<$Res> implements $ReadRecordCopyWith<$Res> {
+  _$ReadRecordCopyWithImpl(this._self, this._then);
 
+  final ReadRecord _self;
+  final $Res Function(ReadRecord) _then;
+
+  /// Create a copy of ReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -5913,38 +10018,230 @@ class __$$ReadRecordImplCopyWithImpl<$Res>
     Object? readTime = null,
     Object? lastRead = null,
   }) {
-    return _then(_$ReadRecordImpl(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRead: null == lastRead
-          ? _value.lastRead
-          : lastRead // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      ReadRecord(
+        deviceId: null == deviceId
+            ? _self.deviceId
+            : deviceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        readTime: null == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRead: null == lastRead
+            ? _self.lastRead
+            : lastRead // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [ReadRecord].
+extension ReadRecordPatterns on ReadRecord {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_ReadRecord value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_ReadRecord value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_ReadRecord value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'deviceId') String deviceId,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord() when $default != null:
+        return $default(
+          _that.deviceId,
+          _that.bookName,
+          _that.readTime,
+          _that.lastRead,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'deviceId') String deviceId,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord():
+        return $default(
+          _that.deviceId,
+          _that.bookName,
+          _that.readTime,
+          _that.lastRead,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'deviceId') String deviceId,
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecord() when $default != null:
+        return $default(
+          _that.deviceId,
+          _that.bookName,
+          _that.readTime,
+          _that.lastRead,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$ReadRecordImpl implements _ReadRecord {
-  const _$ReadRecordImpl(
-      {@JsonKey(name: 'deviceId') this.deviceId = '',
-      @JsonKey(name: 'bookName') this.bookName = '',
-      @JsonKey(name: 'readTime') this.readTime = 0,
-      @JsonKey(name: 'lastRead') this.lastRead = 0});
-
-  factory _$ReadRecordImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ReadRecordImplFromJson(json);
+class _ReadRecord implements ReadRecord {
+  const _ReadRecord({
+    @JsonKey(name: 'deviceId') this.deviceId = '',
+    @JsonKey(name: 'bookName') this.bookName = '',
+    @JsonKey(name: 'readTime') this.readTime = 0,
+    @JsonKey(name: 'lastRead') this.lastRead = 0,
+  });
+  factory _ReadRecord.fromJson(Map<String, dynamic> json) =>
+      _$ReadRecordFromJson(json);
 
   @override
   @JsonKey(name: 'deviceId')
@@ -5959,16 +10256,24 @@ class _$ReadRecordImpl implements _ReadRecord {
   @JsonKey(name: 'lastRead')
   final int lastRead;
 
+  /// Create a copy of ReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ReadRecordCopyWith<_ReadRecord> get copyWith =>
+      __$ReadRecordCopyWithImpl<_ReadRecord>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$ReadRecordToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ReadRecordImpl &&
+            other is _ReadRecord &&
             (identical(other.deviceId, deviceId) ||
                 other.deviceId == deviceId) &&
             (identical(other.bookName, bookName) ||
@@ -5979,197 +10284,188 @@ class _$ReadRecordImpl implements _ReadRecord {
                 other.lastRead == lastRead));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, deviceId, bookName, readTime, lastRead);
+  int get hashCode {
+    return Object.hash(runtimeType, deviceId, bookName, readTime, lastRead);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$ReadRecordCopyWith<$Res>
+    implements $ReadRecordCopyWith<$Res> {
+  factory _$ReadRecordCopyWith(
+    _ReadRecord value,
+    $Res Function(_ReadRecord) _then,
+  ) = __$ReadRecordCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'deviceId') String deviceId,
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'readTime') int readTime,
+    @JsonKey(name: 'lastRead') int lastRead,
+  });
+}
+
+/// @nodoc
+class __$ReadRecordCopyWithImpl<$Res> implements _$ReadRecordCopyWith<$Res> {
+  __$ReadRecordCopyWithImpl(this._self, this._then);
+
+  final _ReadRecord _self;
+  final $Res Function(_ReadRecord) _then;
+
+  /// Create a copy of ReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$ReadRecordImplCopyWith<_$ReadRecordImpl> get copyWith =>
-      __$$ReadRecordImplCopyWithImpl<_$ReadRecordImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ReadRecordImplToJson(
-      this,
+  $Res call({
+    Object? deviceId = null,
+    Object? bookName = null,
+    Object? readTime = null,
+    Object? lastRead = null,
+  }) {
+    return _then(
+      _ReadRecord(
+        deviceId: null == deviceId
+            ? _self.deviceId
+            : deviceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        readTime: null == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRead: null == lastRead
+            ? _self.lastRead
+            : lastRead // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _ReadRecord implements ReadRecord {
-  const factory _ReadRecord(
-      {@JsonKey(name: 'deviceId') final String deviceId,
-      @JsonKey(name: 'bookName') final String bookName,
-      @JsonKey(name: 'readTime') final int readTime,
-      @JsonKey(name: 'lastRead') final int lastRead}) = _$ReadRecordImpl;
-
-  factory _ReadRecord.fromJson(Map<String, dynamic> json) =
-      _$ReadRecordImpl.fromJson;
-
-  @override
-  @JsonKey(name: 'deviceId')
-  String get deviceId;
-  @override
-  @JsonKey(name: 'bookName')
-  String get bookName;
-  @override
-  @JsonKey(name: 'readTime')
-  int get readTime;
-  @override
-  @JsonKey(name: 'lastRead')
-  int get lastRead;
-  @override
-  @JsonKey(ignore: true)
-  _$$ReadRecordImplCopyWith<_$ReadRecordImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-RssReadRecord _$RssReadRecordFromJson(Map<String, dynamic> json) {
-  return _RssReadRecord.fromJson(json);
-}
-
 /// @nodoc
 mixin _$RssReadRecord {
-  String get record => throw _privateConstructorUsedError;
-  String? get title => throw _privateConstructorUsedError;
+  String get record;
+  String? get title;
   @JsonKey(name: 'readTime')
-  int? get readTime => throw _privateConstructorUsedError;
-  bool get read => throw _privateConstructorUsedError;
-  String get origin => throw _privateConstructorUsedError;
-  String get sort => throw _privateConstructorUsedError;
-  String? get image => throw _privateConstructorUsedError;
+  int? get readTime;
+  bool get read;
+  String get origin;
+  String get sort;
+  String? get image;
   @JsonKey(name: 'type')
-  int get recordType => throw _privateConstructorUsedError;
+  int get recordType;
   @JsonKey(name: 'durPos')
-  int get durPos => throw _privateConstructorUsedError;
+  int get durPos;
   @JsonKey(name: 'pubDate')
-  String? get pubDate => throw _privateConstructorUsedError;
+  String? get pubDate;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $RssReadRecordCopyWith<RssReadRecord> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $RssReadRecordCopyWith<$Res> {
-  factory $RssReadRecordCopyWith(
-          RssReadRecord value, $Res Function(RssReadRecord) then) =
-      _$RssReadRecordCopyWithImpl<$Res, RssReadRecord>;
-  @useResult
-  $Res call(
-      {String record,
-      String? title,
-      @JsonKey(name: 'readTime') int? readTime,
-      bool read,
-      String origin,
-      String sort,
-      String? image,
-      @JsonKey(name: 'type') int recordType,
-      @JsonKey(name: 'durPos') int durPos,
-      @JsonKey(name: 'pubDate') String? pubDate});
-}
-
-/// @nodoc
-class _$RssReadRecordCopyWithImpl<$Res, $Val extends RssReadRecord>
-    implements $RssReadRecordCopyWith<$Res> {
-  _$RssReadRecordCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of RssReadRecord
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $RssReadRecordCopyWith<RssReadRecord> get copyWith =>
+      _$RssReadRecordCopyWithImpl<RssReadRecord>(
+        this as RssReadRecord,
+        _$identity,
+      );
+
+  /// Serializes this RssReadRecord to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? record = null,
-    Object? title = freezed,
-    Object? readTime = freezed,
-    Object? read = null,
-    Object? origin = null,
-    Object? sort = null,
-    Object? image = freezed,
-    Object? recordType = null,
-    Object? durPos = null,
-    Object? pubDate = freezed,
-  }) {
-    return _then(_value.copyWith(
-      record: null == record
-          ? _value.record
-          : record // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: freezed == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readTime: freezed == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int?,
-      read: null == read
-          ? _value.read
-          : read // ignore: cast_nullable_to_non_nullable
-              as bool,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      recordType: null == recordType
-          ? _value.recordType
-          : recordType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as RssReadRecord;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is RssReadRecord &&
+            (identical(other.record, _this.record) ||
+                other.record == _this.record) &&
+            (identical(other.title, _this.title) ||
+                other.title == _this.title) &&
+            (identical(other.readTime, _this.readTime) ||
+                other.readTime == _this.readTime) &&
+            (identical(other.read, _this.read) || other.read == _this.read) &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.sort, _this.sort) || other.sort == _this.sort) &&
+            (identical(other.image, _this.image) ||
+                other.image == _this.image) &&
+            (identical(other.recordType, _this.recordType) ||
+                other.recordType == _this.recordType) &&
+            (identical(other.durPos, _this.durPos) ||
+                other.durPos == _this.durPos) &&
+            (identical(other.pubDate, _this.pubDate) ||
+                other.pubDate == _this.pubDate));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as RssReadRecord;
+    return Object.hash(
+      runtimeType,
+      _this.record,
+      _this.title,
+      _this.readTime,
+      _this.read,
+      _this.origin,
+      _this.sort,
+      _this.image,
+      _this.recordType,
+      _this.durPos,
+      _this.pubDate,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as RssReadRecord;
+    return 'RssReadRecord(record: ${_this.record}, title: ${_this.title}, readTime: ${_this.readTime}, read: ${_this.read}, origin: ${_this.origin}, sort: ${_this.sort}, image: ${_this.image}, recordType: ${_this.recordType}, durPos: ${_this.durPos}, pubDate: ${_this.pubDate})';
   }
 }
 
 /// @nodoc
-abstract class _$$RssReadRecordImplCopyWith<$Res>
-    implements $RssReadRecordCopyWith<$Res> {
-  factory _$$RssReadRecordImplCopyWith(
-          _$RssReadRecordImpl value, $Res Function(_$RssReadRecordImpl) then) =
-      __$$RssReadRecordImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $RssReadRecordCopyWith<$Res> {
+  factory $RssReadRecordCopyWith(
+    RssReadRecord value,
+    $Res Function(RssReadRecord) _then,
+  ) = _$RssReadRecordCopyWithImpl;
   @useResult
-  $Res call(
-      {String record,
-      String? title,
-      @JsonKey(name: 'readTime') int? readTime,
-      bool read,
-      String origin,
-      String sort,
-      String? image,
-      @JsonKey(name: 'type') int recordType,
-      @JsonKey(name: 'durPos') int durPos,
-      @JsonKey(name: 'pubDate') String? pubDate});
+  $Res call({
+    String record,
+    String? title,
+    @JsonKey(name: 'readTime') int? readTime,
+    bool read,
+    String origin,
+    String sort,
+    String? image,
+    @JsonKey(name: 'type') int recordType,
+    @JsonKey(name: 'durPos') int durPos,
+    @JsonKey(name: 'pubDate') String? pubDate,
+  });
 }
 
 /// @nodoc
-class __$$RssReadRecordImplCopyWithImpl<$Res>
-    extends _$RssReadRecordCopyWithImpl<$Res, _$RssReadRecordImpl>
-    implements _$$RssReadRecordImplCopyWith<$Res> {
-  __$$RssReadRecordImplCopyWithImpl(
-      _$RssReadRecordImpl _value, $Res Function(_$RssReadRecordImpl) _then)
-      : super(_value, _then);
+class _$RssReadRecordCopyWithImpl<$Res>
+    implements $RssReadRecordCopyWith<$Res> {
+  _$RssReadRecordCopyWithImpl(this._self, this._then);
 
+  final RssReadRecord _self;
+  final $Res Function(RssReadRecord) _then;
+
+  /// Create a copy of RssReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -6184,68 +10480,296 @@ class __$$RssReadRecordImplCopyWithImpl<$Res>
     Object? durPos = null,
     Object? pubDate = freezed,
   }) {
-    return _then(_$RssReadRecordImpl(
-      record: null == record
-          ? _value.record
-          : record // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: freezed == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String?,
-      readTime: freezed == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int?,
-      read: null == read
-          ? _value.read
-          : read // ignore: cast_nullable_to_non_nullable
-              as bool,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      sort: null == sort
-          ? _value.sort
-          : sort // ignore: cast_nullable_to_non_nullable
-              as String,
-      image: freezed == image
-          ? _value.image
-          : image // ignore: cast_nullable_to_non_nullable
-              as String?,
-      recordType: null == recordType
-          ? _value.recordType
-          : recordType // ignore: cast_nullable_to_non_nullable
-              as int,
-      durPos: null == durPos
-          ? _value.durPos
-          : durPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      pubDate: freezed == pubDate
-          ? _value.pubDate
-          : pubDate // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      RssReadRecord(
+        record: null == record
+            ? _self.record
+            : record // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: freezed == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        readTime: freezed == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        read: null == read
+            ? _self.read
+            : read // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        recordType: null == recordType
+            ? _self.recordType
+            : recordType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [RssReadRecord].
+extension RssReadRecordPatterns on RssReadRecord {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_RssReadRecord value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_RssReadRecord value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_RssReadRecord value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String record,
+      String? title,
+      @JsonKey(name: 'readTime') int? readTime,
+      bool read,
+      String origin,
+      String sort,
+      String? image,
+      @JsonKey(name: 'type') int recordType,
+      @JsonKey(name: 'durPos') int durPos,
+      @JsonKey(name: 'pubDate') String? pubDate,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord() when $default != null:
+        return $default(
+          _that.record,
+          _that.title,
+          _that.readTime,
+          _that.read,
+          _that.origin,
+          _that.sort,
+          _that.image,
+          _that.recordType,
+          _that.durPos,
+          _that.pubDate,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String record,
+      String? title,
+      @JsonKey(name: 'readTime') int? readTime,
+      bool read,
+      String origin,
+      String sort,
+      String? image,
+      @JsonKey(name: 'type') int recordType,
+      @JsonKey(name: 'durPos') int durPos,
+      @JsonKey(name: 'pubDate') String? pubDate,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord():
+        return $default(
+          _that.record,
+          _that.title,
+          _that.readTime,
+          _that.read,
+          _that.origin,
+          _that.sort,
+          _that.image,
+          _that.recordType,
+          _that.durPos,
+          _that.pubDate,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String record,
+      String? title,
+      @JsonKey(name: 'readTime') int? readTime,
+      bool read,
+      String origin,
+      String sort,
+      String? image,
+      @JsonKey(name: 'type') int recordType,
+      @JsonKey(name: 'durPos') int durPos,
+      @JsonKey(name: 'pubDate') String? pubDate,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssReadRecord() when $default != null:
+        return $default(
+          _that.record,
+          _that.title,
+          _that.readTime,
+          _that.read,
+          _that.origin,
+          _that.sort,
+          _that.image,
+          _that.recordType,
+          _that.durPos,
+          _that.pubDate,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$RssReadRecordImpl implements _RssReadRecord {
-  const _$RssReadRecordImpl(
-      {this.record = '',
-      this.title,
-      @JsonKey(name: 'readTime') this.readTime,
-      this.read = true,
-      this.origin = '',
-      this.sort = '',
-      this.image,
-      @JsonKey(name: 'type') this.recordType = 0,
-      @JsonKey(name: 'durPos') this.durPos = 0,
-      @JsonKey(name: 'pubDate') this.pubDate});
-
-  factory _$RssReadRecordImpl.fromJson(Map<String, dynamic> json) =>
-      _$$RssReadRecordImplFromJson(json);
+class _RssReadRecord implements RssReadRecord {
+  const _RssReadRecord({
+    this.record = '',
+    this.title,
+    @JsonKey(name: 'readTime') this.readTime,
+    this.read = true,
+    this.origin = '',
+    this.sort = '',
+    this.image,
+    @JsonKey(name: 'type') this.recordType = 0,
+    @JsonKey(name: 'durPos') this.durPos = 0,
+    @JsonKey(name: 'pubDate') this.pubDate,
+  });
+  factory _RssReadRecord.fromJson(Map<String, dynamic> json) =>
+      _$RssReadRecordFromJson(json);
 
   @override
   @JsonKey()
@@ -6276,16 +10800,24 @@ class _$RssReadRecordImpl implements _RssReadRecord {
   @JsonKey(name: 'pubDate')
   final String? pubDate;
 
+  /// Create a copy of RssReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'RssReadRecord(record: $record, title: $title, readTime: $readTime, read: $read, origin: $origin, sort: $sort, image: $image, recordType: $recordType, durPos: $durPos, pubDate: $pubDate)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$RssReadRecordCopyWith<_RssReadRecord> get copyWith =>
+      __$RssReadRecordCopyWithImpl<_RssReadRecord>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$RssReadRecordToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$RssReadRecordImpl &&
+            other is _RssReadRecord &&
             (identical(other.record, record) || other.record == record) &&
             (identical(other.title, title) || other.title == title) &&
             (identical(other.readTime, readTime) ||
@@ -6300,183 +10832,217 @@ class _$RssReadRecordImpl implements _RssReadRecord {
             (identical(other.pubDate, pubDate) || other.pubDate == pubDate));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, record, title, readTime, read,
-      origin, sort, image, recordType, durPos, pubDate);
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      record,
+      title,
+      readTime,
+      read,
+      origin,
+      sort,
+      image,
+      recordType,
+      durPos,
+      pubDate,
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'RssReadRecord(record: $record, title: $title, readTime: $readTime, read: $read, origin: $origin, sort: $sort, image: $image, recordType: $recordType, durPos: $durPos, pubDate: $pubDate)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$RssReadRecordCopyWith<$Res>
+    implements $RssReadRecordCopyWith<$Res> {
+  factory _$RssReadRecordCopyWith(
+    _RssReadRecord value,
+    $Res Function(_RssReadRecord) _then,
+  ) = __$RssReadRecordCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String record,
+    String? title,
+    @JsonKey(name: 'readTime') int? readTime,
+    bool read,
+    String origin,
+    String sort,
+    String? image,
+    @JsonKey(name: 'type') int recordType,
+    @JsonKey(name: 'durPos') int durPos,
+    @JsonKey(name: 'pubDate') String? pubDate,
+  });
+}
+
+/// @nodoc
+class __$RssReadRecordCopyWithImpl<$Res>
+    implements _$RssReadRecordCopyWith<$Res> {
+  __$RssReadRecordCopyWithImpl(this._self, this._then);
+
+  final _RssReadRecord _self;
+  final $Res Function(_RssReadRecord) _then;
+
+  /// Create a copy of RssReadRecord
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$RssReadRecordImplCopyWith<_$RssReadRecordImpl> get copyWith =>
-      __$$RssReadRecordImplCopyWithImpl<_$RssReadRecordImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$RssReadRecordImplToJson(
-      this,
+  $Res call({
+    Object? record = null,
+    Object? title = freezed,
+    Object? readTime = freezed,
+    Object? read = null,
+    Object? origin = null,
+    Object? sort = null,
+    Object? image = freezed,
+    Object? recordType = null,
+    Object? durPos = null,
+    Object? pubDate = freezed,
+  }) {
+    return _then(
+      _RssReadRecord(
+        record: null == record
+            ? _self.record
+            : record // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: freezed == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        readTime: freezed == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        read: null == read
+            ? _self.read
+            : read // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sort: null == sort
+            ? _self.sort
+            : sort // ignore: cast_nullable_to_non_nullable
+                  as String,
+        image: freezed == image
+            ? _self.image
+            : image // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        recordType: null == recordType
+            ? _self.recordType
+            : recordType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durPos: null == durPos
+            ? _self.durPos
+            : durPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        pubDate: freezed == pubDate
+            ? _self.pubDate
+            : pubDate // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
     );
   }
 }
 
-abstract class _RssReadRecord implements RssReadRecord {
-  const factory _RssReadRecord(
-      {final String record,
-      final String? title,
-      @JsonKey(name: 'readTime') final int? readTime,
-      final bool read,
-      final String origin,
-      final String sort,
-      final String? image,
-      @JsonKey(name: 'type') final int recordType,
-      @JsonKey(name: 'durPos') final int durPos,
-      @JsonKey(name: 'pubDate') final String? pubDate}) = _$RssReadRecordImpl;
-
-  factory _RssReadRecord.fromJson(Map<String, dynamic> json) =
-      _$RssReadRecordImpl.fromJson;
-
-  @override
-  String get record;
-  @override
-  String? get title;
-  @override
-  @JsonKey(name: 'readTime')
-  int? get readTime;
-  @override
-  bool get read;
-  @override
-  String get origin;
-  @override
-  String get sort;
-  @override
-  String? get image;
-  @override
-  @JsonKey(name: 'type')
-  int get recordType;
-  @override
-  @JsonKey(name: 'durPos')
-  int get durPos;
-  @override
-  @JsonKey(name: 'pubDate')
-  String? get pubDate;
-  @override
-  @JsonKey(ignore: true)
-  _$$RssReadRecordImplCopyWith<_$RssReadRecordImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-BookProgress _$BookProgressFromJson(Map<String, dynamic> json) {
-  return _BookProgress.fromJson(json);
-}
-
 /// @nodoc
 mixin _$BookProgress {
-  String get name => throw _privateConstructorUsedError;
-  String get author => throw _privateConstructorUsedError;
+  String get name;
+  String get author;
   @JsonKey(name: 'durChapterIndex')
-  int get durChapterIndex => throw _privateConstructorUsedError;
+  int get durChapterIndex;
   @JsonKey(name: 'durChapterPos')
-  int get durChapterPos => throw _privateConstructorUsedError;
+  int get durChapterPos;
   @JsonKey(name: 'durChapterTime')
-  int get durChapterTime => throw _privateConstructorUsedError;
+  int get durChapterTime;
   @JsonKey(name: 'durChapterTitle')
-  String? get durChapterTitle => throw _privateConstructorUsedError;
+  String? get durChapterTitle;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookProgressCopyWith<BookProgress> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookProgressCopyWith<$Res> {
-  factory $BookProgressCopyWith(
-          BookProgress value, $Res Function(BookProgress) then) =
-      _$BookProgressCopyWithImpl<$Res, BookProgress>;
-  @useResult
-  $Res call(
-      {String name,
-      String author,
-      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
-      @JsonKey(name: 'durChapterPos') int durChapterPos,
-      @JsonKey(name: 'durChapterTime') int durChapterTime,
-      @JsonKey(name: 'durChapterTitle') String? durChapterTitle});
-}
-
-/// @nodoc
-class _$BookProgressCopyWithImpl<$Res, $Val extends BookProgress>
-    implements $BookProgressCopyWith<$Res> {
-  _$BookProgressCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookProgress
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookProgressCopyWith<BookProgress> get copyWith =>
+      _$BookProgressCopyWithImpl<BookProgress>(
+        this as BookProgress,
+        _$identity,
+      );
+
+  /// Serializes this BookProgress to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? name = null,
-    Object? author = null,
-    Object? durChapterIndex = null,
-    Object? durChapterPos = null,
-    Object? durChapterTime = null,
-    Object? durChapterTitle = freezed,
-  }) {
-    return _then(_value.copyWith(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      durChapterIndex: null == durChapterIndex
-          ? _value.durChapterIndex
-          : durChapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterPos: null == durChapterPos
-          ? _value.durChapterPos
-          : durChapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTime: null == durChapterTime
-          ? _value.durChapterTime
-          : durChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTitle: freezed == durChapterTitle
-          ? _value.durChapterTitle
-          : durChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookProgress;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookProgress &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.author, _this.author) ||
+                other.author == _this.author) &&
+            (identical(other.durChapterIndex, _this.durChapterIndex) ||
+                other.durChapterIndex == _this.durChapterIndex) &&
+            (identical(other.durChapterPos, _this.durChapterPos) ||
+                other.durChapterPos == _this.durChapterPos) &&
+            (identical(other.durChapterTime, _this.durChapterTime) ||
+                other.durChapterTime == _this.durChapterTime) &&
+            (identical(other.durChapterTitle, _this.durChapterTitle) ||
+                other.durChapterTitle == _this.durChapterTitle));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookProgress;
+    return Object.hash(
+      runtimeType,
+      _this.name,
+      _this.author,
+      _this.durChapterIndex,
+      _this.durChapterPos,
+      _this.durChapterTime,
+      _this.durChapterTitle,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookProgress;
+    return 'BookProgress(name: ${_this.name}, author: ${_this.author}, durChapterIndex: ${_this.durChapterIndex}, durChapterPos: ${_this.durChapterPos}, durChapterTime: ${_this.durChapterTime}, durChapterTitle: ${_this.durChapterTitle})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookProgressImplCopyWith<$Res>
-    implements $BookProgressCopyWith<$Res> {
-  factory _$$BookProgressImplCopyWith(
-          _$BookProgressImpl value, $Res Function(_$BookProgressImpl) then) =
-      __$$BookProgressImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookProgressCopyWith<$Res> {
+  factory $BookProgressCopyWith(
+    BookProgress value,
+    $Res Function(BookProgress) _then,
+  ) = _$BookProgressCopyWithImpl;
   @useResult
-  $Res call(
-      {String name,
-      String author,
-      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
-      @JsonKey(name: 'durChapterPos') int durChapterPos,
-      @JsonKey(name: 'durChapterTime') int durChapterTime,
-      @JsonKey(name: 'durChapterTitle') String? durChapterTitle});
+  $Res call({
+    String name,
+    String author,
+    @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+    @JsonKey(name: 'durChapterPos') int durChapterPos,
+    @JsonKey(name: 'durChapterTime') int durChapterTime,
+    @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+  });
 }
 
 /// @nodoc
-class __$$BookProgressImplCopyWithImpl<$Res>
-    extends _$BookProgressCopyWithImpl<$Res, _$BookProgressImpl>
-    implements _$$BookProgressImplCopyWith<$Res> {
-  __$$BookProgressImplCopyWithImpl(
-      _$BookProgressImpl _value, $Res Function(_$BookProgressImpl) _then)
-      : super(_value, _then);
+class _$BookProgressCopyWithImpl<$Res> implements $BookProgressCopyWith<$Res> {
+  _$BookProgressCopyWithImpl(this._self, this._then);
 
+  final BookProgress _self;
+  final $Res Function(BookProgress) _then;
+
+  /// Create a copy of BookProgress
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -6487,48 +11053,252 @@ class __$$BookProgressImplCopyWithImpl<$Res>
     Object? durChapterTime = null,
     Object? durChapterTitle = freezed,
   }) {
-    return _then(_$BookProgressImpl(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      durChapterIndex: null == durChapterIndex
-          ? _value.durChapterIndex
-          : durChapterIndex // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterPos: null == durChapterPos
-          ? _value.durChapterPos
-          : durChapterPos // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTime: null == durChapterTime
-          ? _value.durChapterTime
-          : durChapterTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      durChapterTitle: freezed == durChapterTitle
-          ? _value.durChapterTitle
-          : durChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      BookProgress(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        durChapterIndex: null == durChapterIndex
+            ? _self.durChapterIndex
+            : durChapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterPos: null == durChapterPos
+            ? _self.durChapterPos
+            : durChapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTime: null == durChapterTime
+            ? _self.durChapterTime
+            : durChapterTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTitle: freezed == durChapterTitle
+            ? _self.durChapterTitle
+            : durChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookProgress].
+extension BookProgressPatterns on BookProgress {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookProgress value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookProgress value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookProgress value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String name,
+      String author,
+      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+      @JsonKey(name: 'durChapterPos') int durChapterPos,
+      @JsonKey(name: 'durChapterTime') int durChapterTime,
+      @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress() when $default != null:
+        return $default(
+          _that.name,
+          _that.author,
+          _that.durChapterIndex,
+          _that.durChapterPos,
+          _that.durChapterTime,
+          _that.durChapterTitle,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String name,
+      String author,
+      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+      @JsonKey(name: 'durChapterPos') int durChapterPos,
+      @JsonKey(name: 'durChapterTime') int durChapterTime,
+      @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress():
+        return $default(
+          _that.name,
+          _that.author,
+          _that.durChapterIndex,
+          _that.durChapterPos,
+          _that.durChapterTime,
+          _that.durChapterTitle,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String name,
+      String author,
+      @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+      @JsonKey(name: 'durChapterPos') int durChapterPos,
+      @JsonKey(name: 'durChapterTime') int durChapterTime,
+      @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookProgress() when $default != null:
+        return $default(
+          _that.name,
+          _that.author,
+          _that.durChapterIndex,
+          _that.durChapterPos,
+          _that.durChapterTime,
+          _that.durChapterTitle,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookProgressImpl implements _BookProgress {
-  const _$BookProgressImpl(
-      {this.name = '',
-      this.author = '',
-      @JsonKey(name: 'durChapterIndex') this.durChapterIndex = 0,
-      @JsonKey(name: 'durChapterPos') this.durChapterPos = 0,
-      @JsonKey(name: 'durChapterTime') this.durChapterTime = 0,
-      @JsonKey(name: 'durChapterTitle') this.durChapterTitle});
-
-  factory _$BookProgressImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookProgressImplFromJson(json);
+class _BookProgress implements BookProgress {
+  const _BookProgress({
+    this.name = '',
+    this.author = '',
+    @JsonKey(name: 'durChapterIndex') this.durChapterIndex = 0,
+    @JsonKey(name: 'durChapterPos') this.durChapterPos = 0,
+    @JsonKey(name: 'durChapterTime') this.durChapterTime = 0,
+    @JsonKey(name: 'durChapterTitle') this.durChapterTitle,
+  });
+  factory _BookProgress.fromJson(Map<String, dynamic> json) =>
+      _$BookProgressFromJson(json);
 
   @override
   @JsonKey()
@@ -6549,16 +11319,24 @@ class _$BookProgressImpl implements _BookProgress {
   @JsonKey(name: 'durChapterTitle')
   final String? durChapterTitle;
 
+  /// Create a copy of BookProgress
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookProgress(name: $name, author: $author, durChapterIndex: $durChapterIndex, durChapterPos: $durChapterPos, durChapterTime: $durChapterTime, durChapterTitle: $durChapterTitle)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookProgressCopyWith<_BookProgress> get copyWith =>
+      __$BookProgressCopyWithImpl<_BookProgress>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookProgressToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookProgressImpl &&
+            other is _BookProgress &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.author, author) || other.author == author) &&
             (identical(other.durChapterIndex, durChapterIndex) ||
@@ -6571,232 +11349,224 @@ class _$BookProgressImpl implements _BookProgress {
                 other.durChapterTitle == durChapterTitle));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, name, author, durChapterIndex,
-      durChapterPos, durChapterTime, durChapterTitle);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BookProgressImplCopyWith<_$BookProgressImpl> get copyWith =>
-      __$$BookProgressImplCopyWithImpl<_$BookProgressImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookProgressImplToJson(
-      this,
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      name,
+      author,
+      durChapterIndex,
+      durChapterPos,
+      durChapterTime,
+      durChapterTitle,
     );
+  }
+
+  @override
+  String toString() {
+    return 'BookProgress(name: $name, author: $author, durChapterIndex: $durChapterIndex, durChapterPos: $durChapterPos, durChapterTime: $durChapterTime, durChapterTitle: $durChapterTitle)';
   }
 }
 
-abstract class _BookProgress implements BookProgress {
-  const factory _BookProgress(
-          {final String name,
-          final String author,
-          @JsonKey(name: 'durChapterIndex') final int durChapterIndex,
-          @JsonKey(name: 'durChapterPos') final int durChapterPos,
-          @JsonKey(name: 'durChapterTime') final int durChapterTime,
-          @JsonKey(name: 'durChapterTitle') final String? durChapterTitle}) =
-      _$BookProgressImpl;
-
-  factory _BookProgress.fromJson(Map<String, dynamic> json) =
-      _$BookProgressImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$BookProgressCopyWith<$Res>
+    implements $BookProgressCopyWith<$Res> {
+  factory _$BookProgressCopyWith(
+    _BookProgress value,
+    $Res Function(_BookProgress) _then,
+  ) = __$BookProgressCopyWithImpl;
   @override
-  String get name;
-  @override
-  String get author;
-  @override
-  @JsonKey(name: 'durChapterIndex')
-  int get durChapterIndex;
-  @override
-  @JsonKey(name: 'durChapterPos')
-  int get durChapterPos;
-  @override
-  @JsonKey(name: 'durChapterTime')
-  int get durChapterTime;
-  @override
-  @JsonKey(name: 'durChapterTitle')
-  String? get durChapterTitle;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookProgressImplCopyWith<_$BookProgressImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    String name,
+    String author,
+    @JsonKey(name: 'durChapterIndex') int durChapterIndex,
+    @JsonKey(name: 'durChapterPos') int durChapterPos,
+    @JsonKey(name: 'durChapterTime') int durChapterTime,
+    @JsonKey(name: 'durChapterTitle') String? durChapterTitle,
+  });
 }
 
-ReplaceBook _$ReplaceBookFromJson(Map<String, dynamic> json) {
-  return _ReplaceBook.fromJson(json);
+/// @nodoc
+class __$BookProgressCopyWithImpl<$Res>
+    implements _$BookProgressCopyWith<$Res> {
+  __$BookProgressCopyWithImpl(this._self, this._then);
+
+  final _BookProgress _self;
+  final $Res Function(_BookProgress) _then;
+
+  /// Create a copy of BookProgress
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? name = null,
+    Object? author = null,
+    Object? durChapterIndex = null,
+    Object? durChapterPos = null,
+    Object? durChapterTime = null,
+    Object? durChapterTitle = freezed,
+  }) {
+    return _then(
+      _BookProgress(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        durChapterIndex: null == durChapterIndex
+            ? _self.durChapterIndex
+            : durChapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterPos: null == durChapterPos
+            ? _self.durChapterPos
+            : durChapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTime: null == durChapterTime
+            ? _self.durChapterTime
+            : durChapterTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        durChapterTitle: freezed == durChapterTitle
+            ? _self.durChapterTitle
+            : durChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$ReplaceBook {
   @JsonKey(name: 'bookUrl')
-  String get bookUrl => throw _privateConstructorUsedError;
-  String get origin => throw _privateConstructorUsedError;
+  String get bookUrl;
+  String get origin;
   @JsonKey(name: 'originName')
-  String get originName => throw _privateConstructorUsedError;
+  String get originName;
   @JsonKey(name: 'type')
-  int get bookType => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get author => throw _privateConstructorUsedError;
-  String? get kind => throw _privateConstructorUsedError;
+  int get bookType;
+  String get name;
+  String get author;
+  String? get kind;
   @JsonKey(name: 'coverUrl')
-  String? get coverUrl => throw _privateConstructorUsedError;
-  String? get intro => throw _privateConstructorUsedError;
+  String? get coverUrl;
+  String? get intro;
   @JsonKey(name: 'wordCount')
-  String? get wordCount => throw _privateConstructorUsedError;
+  String? get wordCount;
   @JsonKey(name: 'latestChapterTitle')
-  String? get latestChapterTitle => throw _privateConstructorUsedError;
+  String? get latestChapterTitle;
   @JsonKey(name: 'tocUrl')
-  String get tocUrl => throw _privateConstructorUsedError;
+  String get tocUrl;
   @JsonKey(name: 'originOrder')
-  int get originOrder => throw _privateConstructorUsedError;
+  int get originOrder;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ReplaceBookCopyWith<ReplaceBook> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ReplaceBookCopyWith<$Res> {
-  factory $ReplaceBookCopyWith(
-          ReplaceBook value, $Res Function(ReplaceBook) then) =
-      _$ReplaceBookCopyWithImpl<$Res, ReplaceBook>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      String? intro,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      @JsonKey(name: 'originOrder') int originOrder});
-}
-
-/// @nodoc
-class _$ReplaceBookCopyWithImpl<$Res, $Val extends ReplaceBook>
-    implements $ReplaceBookCopyWith<$Res> {
-  _$ReplaceBookCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of ReplaceBook
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $ReplaceBookCopyWith<ReplaceBook> get copyWith =>
+      _$ReplaceBookCopyWithImpl<ReplaceBook>(this as ReplaceBook, _$identity);
+
+  /// Serializes this ReplaceBook to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookUrl = null,
-    Object? origin = null,
-    Object? originName = null,
-    Object? bookType = null,
-    Object? name = null,
-    Object? author = null,
-    Object? kind = freezed,
-    Object? coverUrl = freezed,
-    Object? intro = freezed,
-    Object? wordCount = freezed,
-    Object? latestChapterTitle = freezed,
-    Object? tocUrl = null,
-    Object? originOrder = null,
-  }) {
-    return _then(_value.copyWith(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as ReplaceBook;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is ReplaceBook &&
+            (identical(other.bookUrl, _this.bookUrl) ||
+                other.bookUrl == _this.bookUrl) &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.originName, _this.originName) ||
+                other.originName == _this.originName) &&
+            (identical(other.bookType, _this.bookType) ||
+                other.bookType == _this.bookType) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.author, _this.author) ||
+                other.author == _this.author) &&
+            (identical(other.kind, _this.kind) || other.kind == _this.kind) &&
+            (identical(other.coverUrl, _this.coverUrl) ||
+                other.coverUrl == _this.coverUrl) &&
+            (identical(other.intro, _this.intro) ||
+                other.intro == _this.intro) &&
+            (identical(other.wordCount, _this.wordCount) ||
+                other.wordCount == _this.wordCount) &&
+            (identical(other.latestChapterTitle, _this.latestChapterTitle) ||
+                other.latestChapterTitle == _this.latestChapterTitle) &&
+            (identical(other.tocUrl, _this.tocUrl) ||
+                other.tocUrl == _this.tocUrl) &&
+            (identical(other.originOrder, _this.originOrder) ||
+                other.originOrder == _this.originOrder));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as ReplaceBook;
+    return Object.hash(
+      runtimeType,
+      _this.bookUrl,
+      _this.origin,
+      _this.originName,
+      _this.bookType,
+      _this.name,
+      _this.author,
+      _this.kind,
+      _this.coverUrl,
+      _this.intro,
+      _this.wordCount,
+      _this.latestChapterTitle,
+      _this.tocUrl,
+      _this.originOrder,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as ReplaceBook;
+    return 'ReplaceBook(bookUrl: ${_this.bookUrl}, origin: ${_this.origin}, originName: ${_this.originName}, bookType: ${_this.bookType}, name: ${_this.name}, author: ${_this.author}, kind: ${_this.kind}, coverUrl: ${_this.coverUrl}, intro: ${_this.intro}, wordCount: ${_this.wordCount}, latestChapterTitle: ${_this.latestChapterTitle}, tocUrl: ${_this.tocUrl}, originOrder: ${_this.originOrder})';
   }
 }
 
 /// @nodoc
-abstract class _$$ReplaceBookImplCopyWith<$Res>
-    implements $ReplaceBookCopyWith<$Res> {
-  factory _$$ReplaceBookImplCopyWith(
-          _$ReplaceBookImpl value, $Res Function(_$ReplaceBookImpl) then) =
-      __$$ReplaceBookImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $ReplaceBookCopyWith<$Res> {
+  factory $ReplaceBookCopyWith(
+    ReplaceBook value,
+    $Res Function(ReplaceBook) _then,
+  ) = _$ReplaceBookCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType,
-      String name,
-      String author,
-      String? kind,
-      @JsonKey(name: 'coverUrl') String? coverUrl,
-      String? intro,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') String tocUrl,
-      @JsonKey(name: 'originOrder') int originOrder});
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    String? intro,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    @JsonKey(name: 'originOrder') int originOrder,
+  });
 }
 
 /// @nodoc
-class __$$ReplaceBookImplCopyWithImpl<$Res>
-    extends _$ReplaceBookCopyWithImpl<$Res, _$ReplaceBookImpl>
-    implements _$$ReplaceBookImplCopyWith<$Res> {
-  __$$ReplaceBookImplCopyWithImpl(
-      _$ReplaceBookImpl _value, $Res Function(_$ReplaceBookImpl) _then)
-      : super(_value, _then);
+class _$ReplaceBookCopyWithImpl<$Res> implements $ReplaceBookCopyWith<$Res> {
+  _$ReplaceBookCopyWithImpl(this._self, this._then);
 
+  final ReplaceBook _self;
+  final $Res Function(ReplaceBook) _then;
+
+  /// Create a copy of ReplaceBook
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -6814,83 +11584,329 @@ class __$$ReplaceBookImplCopyWithImpl<$Res>
     Object? tocUrl = null,
     Object? originOrder = null,
   }) {
-    return _then(_$ReplaceBookImpl(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      author: null == author
-          ? _value.author
-          : author // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: freezed == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as String?,
-      coverUrl: freezed == coverUrl
-          ? _value.coverUrl
-          : coverUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      intro: freezed == intro
-          ? _value.intro
-          : intro // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latestChapterTitle: freezed == latestChapterTitle
-          ? _value.latestChapterTitle
-          : latestChapterTitle // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tocUrl: null == tocUrl
-          ? _value.tocUrl
-          : tocUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      originOrder: null == originOrder
-          ? _value.originOrder
-          : originOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      ReplaceBook(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: freezed == kind
+            ? _self.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverUrl: freezed == coverUrl
+            ? _self.coverUrl
+            : coverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        intro: freezed == intro
+            ? _self.intro
+            : intro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestChapterTitle: freezed == latestChapterTitle
+            ? _self.latestChapterTitle
+            : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tocUrl: null == tocUrl
+            ? _self.tocUrl
+            : tocUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originOrder: null == originOrder
+            ? _self.originOrder
+            : originOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [ReplaceBook].
+extension ReplaceBookPatterns on ReplaceBook {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_ReplaceBook value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_ReplaceBook value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_ReplaceBook value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      @JsonKey(name: 'originOrder') int originOrder,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.originOrder,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      @JsonKey(name: 'originOrder') int originOrder,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook():
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.originOrder,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+      String name,
+      String author,
+      String? kind,
+      @JsonKey(name: 'coverUrl') String? coverUrl,
+      String? intro,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+      @JsonKey(name: 'tocUrl') String tocUrl,
+      @JsonKey(name: 'originOrder') int originOrder,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReplaceBook() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+          _that.name,
+          _that.author,
+          _that.kind,
+          _that.coverUrl,
+          _that.intro,
+          _that.wordCount,
+          _that.latestChapterTitle,
+          _that.tocUrl,
+          _that.originOrder,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$ReplaceBookImpl implements _ReplaceBook {
-  const _$ReplaceBookImpl(
-      {@JsonKey(name: 'bookUrl') this.bookUrl = '',
-      this.origin = '',
-      @JsonKey(name: 'originName') this.originName = '',
-      @JsonKey(name: 'type') this.bookType = 0,
-      this.name = '',
-      this.author = '',
-      this.kind,
-      @JsonKey(name: 'coverUrl') this.coverUrl,
-      this.intro,
-      @JsonKey(name: 'wordCount') this.wordCount,
-      @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
-      @JsonKey(name: 'tocUrl') this.tocUrl = '',
-      @JsonKey(name: 'originOrder') this.originOrder = 0});
-
-  factory _$ReplaceBookImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ReplaceBookImplFromJson(json);
+class _ReplaceBook implements ReplaceBook {
+  const _ReplaceBook({
+    @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    this.origin = '',
+    @JsonKey(name: 'originName') this.originName = '',
+    @JsonKey(name: 'type') this.bookType = 0,
+    this.name = '',
+    this.author = '',
+    this.kind,
+    @JsonKey(name: 'coverUrl') this.coverUrl,
+    this.intro,
+    @JsonKey(name: 'wordCount') this.wordCount,
+    @JsonKey(name: 'latestChapterTitle') this.latestChapterTitle,
+    @JsonKey(name: 'tocUrl') this.tocUrl = '',
+    @JsonKey(name: 'originOrder') this.originOrder = 0,
+  });
+  factory _ReplaceBook.fromJson(Map<String, dynamic> json) =>
+      _$ReplaceBookFromJson(json);
 
   @override
   @JsonKey(name: 'bookUrl')
@@ -6930,16 +11946,24 @@ class _$ReplaceBookImpl implements _ReplaceBook {
   @JsonKey(name: 'originOrder')
   final int originOrder;
 
+  /// Create a copy of ReplaceBook
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'ReplaceBook(bookUrl: $bookUrl, origin: $origin, originName: $originName, bookType: $bookType, name: $name, author: $author, kind: $kind, coverUrl: $coverUrl, intro: $intro, wordCount: $wordCount, latestChapterTitle: $latestChapterTitle, tocUrl: $tocUrl, originOrder: $originOrder)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ReplaceBookCopyWith<_ReplaceBook> get copyWith =>
+      __$ReplaceBookCopyWithImpl<_ReplaceBook>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$ReplaceBookToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ReplaceBookImpl &&
+            other is _ReplaceBook &&
             (identical(other.bookUrl, bookUrl) || other.bookUrl == bookUrl) &&
             (identical(other.origin, origin) || other.origin == origin) &&
             (identical(other.originName, originName) ||
@@ -6961,9 +11985,10 @@ class _$ReplaceBookImpl implements _ReplaceBook {
                 other.originOrder == originOrder));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       bookUrl,
       origin,
@@ -6977,184 +12002,215 @@ class _$ReplaceBookImpl implements _ReplaceBook {
       wordCount,
       latestChapterTitle,
       tocUrl,
-      originOrder);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$ReplaceBookImplCopyWith<_$ReplaceBookImpl> get copyWith =>
-      __$$ReplaceBookImplCopyWithImpl<_$ReplaceBookImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ReplaceBookImplToJson(
-      this,
+      originOrder,
     );
+  }
+
+  @override
+  String toString() {
+    return 'ReplaceBook(bookUrl: $bookUrl, origin: $origin, originName: $originName, bookType: $bookType, name: $name, author: $author, kind: $kind, coverUrl: $coverUrl, intro: $intro, wordCount: $wordCount, latestChapterTitle: $latestChapterTitle, tocUrl: $tocUrl, originOrder: $originOrder)';
   }
 }
 
-abstract class _ReplaceBook implements ReplaceBook {
-  const factory _ReplaceBook(
-      {@JsonKey(name: 'bookUrl') final String bookUrl,
-      final String origin,
-      @JsonKey(name: 'originName') final String originName,
-      @JsonKey(name: 'type') final int bookType,
-      final String name,
-      final String author,
-      final String? kind,
-      @JsonKey(name: 'coverUrl') final String? coverUrl,
-      final String? intro,
-      @JsonKey(name: 'wordCount') final String? wordCount,
-      @JsonKey(name: 'latestChapterTitle') final String? latestChapterTitle,
-      @JsonKey(name: 'tocUrl') final String tocUrl,
-      @JsonKey(name: 'originOrder') final int originOrder}) = _$ReplaceBookImpl;
-
-  factory _ReplaceBook.fromJson(Map<String, dynamic> json) =
-      _$ReplaceBookImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$ReplaceBookCopyWith<$Res>
+    implements $ReplaceBookCopyWith<$Res> {
+  factory _$ReplaceBookCopyWith(
+    _ReplaceBook value,
+    $Res Function(_ReplaceBook) _then,
+  ) = __$ReplaceBookCopyWithImpl;
   @override
-  @JsonKey(name: 'bookUrl')
-  String get bookUrl;
-  @override
-  String get origin;
-  @override
-  @JsonKey(name: 'originName')
-  String get originName;
-  @override
-  @JsonKey(name: 'type')
-  int get bookType;
-  @override
-  String get name;
-  @override
-  String get author;
-  @override
-  String? get kind;
-  @override
-  @JsonKey(name: 'coverUrl')
-  String? get coverUrl;
-  @override
-  String? get intro;
-  @override
-  @JsonKey(name: 'wordCount')
-  String? get wordCount;
-  @override
-  @JsonKey(name: 'latestChapterTitle')
-  String? get latestChapterTitle;
-  @override
-  @JsonKey(name: 'tocUrl')
-  String get tocUrl;
-  @override
-  @JsonKey(name: 'originOrder')
-  int get originOrder;
-  @override
-  @JsonKey(ignore: true)
-  _$$ReplaceBookImplCopyWith<_$ReplaceBookImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+    String name,
+    String author,
+    String? kind,
+    @JsonKey(name: 'coverUrl') String? coverUrl,
+    String? intro,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    @JsonKey(name: 'latestChapterTitle') String? latestChapterTitle,
+    @JsonKey(name: 'tocUrl') String tocUrl,
+    @JsonKey(name: 'originOrder') int originOrder,
+  });
 }
 
-BookCacheInfo _$BookCacheInfoFromJson(Map<String, dynamic> json) {
-  return _BookCacheInfo.fromJson(json);
+/// @nodoc
+class __$ReplaceBookCopyWithImpl<$Res> implements _$ReplaceBookCopyWith<$Res> {
+  __$ReplaceBookCopyWithImpl(this._self, this._then);
+
+  final _ReplaceBook _self;
+  final $Res Function(_ReplaceBook) _then;
+
+  /// Create a copy of ReplaceBook
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? bookUrl = null,
+    Object? origin = null,
+    Object? originName = null,
+    Object? bookType = null,
+    Object? name = null,
+    Object? author = null,
+    Object? kind = freezed,
+    Object? coverUrl = freezed,
+    Object? intro = freezed,
+    Object? wordCount = freezed,
+    Object? latestChapterTitle = freezed,
+    Object? tocUrl = null,
+    Object? originOrder = null,
+  }) {
+    return _then(
+      _ReplaceBook(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: freezed == kind
+            ? _self.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverUrl: freezed == coverUrl
+            ? _self.coverUrl
+            : coverUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        intro: freezed == intro
+            ? _self.intro
+            : intro // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestChapterTitle: freezed == latestChapterTitle
+            ? _self.latestChapterTitle
+            : latestChapterTitle // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tocUrl: null == tocUrl
+            ? _self.tocUrl
+            : tocUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originOrder: null == originOrder
+            ? _self.originOrder
+            : originOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$BookCacheInfo {
   @JsonKey(name: 'bookUrl')
-  String get bookUrl => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get origin => throw _privateConstructorUsedError;
+  String get bookUrl;
+  String get name;
+  String get origin;
   @JsonKey(name: 'originName')
-  String get originName => throw _privateConstructorUsedError;
+  String get originName;
   @JsonKey(name: 'type')
-  int get bookType => throw _privateConstructorUsedError;
+  int get bookType;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookCacheInfoCopyWith<BookCacheInfo> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookCacheInfoCopyWith<$Res> {
-  factory $BookCacheInfoCopyWith(
-          BookCacheInfo value, $Res Function(BookCacheInfo) then) =
-      _$BookCacheInfoCopyWithImpl<$Res, BookCacheInfo>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String name,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType});
-}
-
-/// @nodoc
-class _$BookCacheInfoCopyWithImpl<$Res, $Val extends BookCacheInfo>
-    implements $BookCacheInfoCopyWith<$Res> {
-  _$BookCacheInfoCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookCacheInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookCacheInfoCopyWith<BookCacheInfo> get copyWith =>
+      _$BookCacheInfoCopyWithImpl<BookCacheInfo>(
+        this as BookCacheInfo,
+        _$identity,
+      );
+
+  /// Serializes this BookCacheInfo to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookUrl = null,
-    Object? name = null,
-    Object? origin = null,
-    Object? originName = null,
-    Object? bookType = null,
-  }) {
-    return _then(_value.copyWith(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookCacheInfo;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookCacheInfo &&
+            (identical(other.bookUrl, _this.bookUrl) ||
+                other.bookUrl == _this.bookUrl) &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.origin, _this.origin) ||
+                other.origin == _this.origin) &&
+            (identical(other.originName, _this.originName) ||
+                other.originName == _this.originName) &&
+            (identical(other.bookType, _this.bookType) ||
+                other.bookType == _this.bookType));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookCacheInfo;
+    return Object.hash(
+      runtimeType,
+      _this.bookUrl,
+      _this.name,
+      _this.origin,
+      _this.originName,
+      _this.bookType,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookCacheInfo;
+    return 'BookCacheInfo(bookUrl: ${_this.bookUrl}, name: ${_this.name}, origin: ${_this.origin}, originName: ${_this.originName}, bookType: ${_this.bookType})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookCacheInfoImplCopyWith<$Res>
-    implements $BookCacheInfoCopyWith<$Res> {
-  factory _$$BookCacheInfoImplCopyWith(
-          _$BookCacheInfoImpl value, $Res Function(_$BookCacheInfoImpl) then) =
-      __$$BookCacheInfoImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookCacheInfoCopyWith<$Res> {
+  factory $BookCacheInfoCopyWith(
+    BookCacheInfo value,
+    $Res Function(BookCacheInfo) _then,
+  ) = _$BookCacheInfoCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookUrl') String bookUrl,
-      String name,
-      String origin,
-      @JsonKey(name: 'originName') String originName,
-      @JsonKey(name: 'type') int bookType});
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String name,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+  });
 }
 
 /// @nodoc
-class __$$BookCacheInfoImplCopyWithImpl<$Res>
-    extends _$BookCacheInfoCopyWithImpl<$Res, _$BookCacheInfoImpl>
-    implements _$$BookCacheInfoImplCopyWith<$Res> {
-  __$$BookCacheInfoImplCopyWithImpl(
-      _$BookCacheInfoImpl _value, $Res Function(_$BookCacheInfoImpl) _then)
-      : super(_value, _then);
+class _$BookCacheInfoCopyWithImpl<$Res>
+    implements $BookCacheInfoCopyWith<$Res> {
+  _$BookCacheInfoCopyWithImpl(this._self, this._then);
 
+  final BookCacheInfo _self;
+  final $Res Function(BookCacheInfo) _then;
+
+  /// Create a copy of BookCacheInfo
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -7164,43 +12220,241 @@ class __$$BookCacheInfoImplCopyWithImpl<$Res>
     Object? originName = null,
     Object? bookType = null,
   }) {
-    return _then(_$BookCacheInfoImpl(
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as String,
-      originName: null == originName
-          ? _value.originName
-          : originName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookType: null == bookType
-          ? _value.bookType
-          : bookType // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      BookCacheInfo(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookCacheInfo].
+extension BookCacheInfoPatterns on BookCacheInfo {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookCacheInfo value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookCacheInfo value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookCacheInfo value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String name,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.name,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String name,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo():
+        return $default(
+          _that.bookUrl,
+          _that.name,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      String name,
+      String origin,
+      @JsonKey(name: 'originName') String originName,
+      @JsonKey(name: 'type') int bookType,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookCacheInfo() when $default != null:
+        return $default(
+          _that.bookUrl,
+          _that.name,
+          _that.origin,
+          _that.originName,
+          _that.bookType,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookCacheInfoImpl implements _BookCacheInfo {
-  const _$BookCacheInfoImpl(
-      {@JsonKey(name: 'bookUrl') this.bookUrl = '',
-      this.name = '',
-      this.origin = '',
-      @JsonKey(name: 'originName') this.originName = '',
-      @JsonKey(name: 'type') this.bookType = 0});
-
-  factory _$BookCacheInfoImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookCacheInfoImplFromJson(json);
+class _BookCacheInfo implements BookCacheInfo {
+  const _BookCacheInfo({
+    @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    this.name = '',
+    this.origin = '',
+    @JsonKey(name: 'originName') this.originName = '',
+    @JsonKey(name: 'type') this.bookType = 0,
+  });
+  factory _BookCacheInfo.fromJson(Map<String, dynamic> json) =>
+      _$BookCacheInfoFromJson(json);
 
   @override
   @JsonKey(name: 'bookUrl')
@@ -7218,16 +12472,24 @@ class _$BookCacheInfoImpl implements _BookCacheInfo {
   @JsonKey(name: 'type')
   final int bookType;
 
+  /// Create a copy of BookCacheInfo
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookCacheInfo(bookUrl: $bookUrl, name: $name, origin: $origin, originName: $originName, bookType: $bookType)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookCacheInfoCopyWith<_BookCacheInfo> get copyWith =>
+      __$BookCacheInfoCopyWithImpl<_BookCacheInfo>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookCacheInfoToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookCacheInfoImpl &&
+            other is _BookCacheInfo &&
             (identical(other.bookUrl, bookUrl) || other.bookUrl == bookUrl) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.origin, origin) || other.origin == origin) &&
@@ -7237,142 +12499,168 @@ class _$BookCacheInfoImpl implements _BookCacheInfo {
                 other.bookType == bookType));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, bookUrl, name, origin, originName, bookType);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BookCacheInfoImplCopyWith<_$BookCacheInfoImpl> get copyWith =>
-      __$$BookCacheInfoImplCopyWithImpl<_$BookCacheInfoImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookCacheInfoImplToJson(
-      this,
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      bookUrl,
+      name,
+      origin,
+      originName,
+      bookType,
     );
+  }
+
+  @override
+  String toString() {
+    return 'BookCacheInfo(bookUrl: $bookUrl, name: $name, origin: $origin, originName: $originName, bookType: $bookType)';
   }
 }
 
-abstract class _BookCacheInfo implements BookCacheInfo {
-  const factory _BookCacheInfo(
-      {@JsonKey(name: 'bookUrl') final String bookUrl,
-      final String name,
-      final String origin,
-      @JsonKey(name: 'originName') final String originName,
-      @JsonKey(name: 'type') final int bookType}) = _$BookCacheInfoImpl;
-
-  factory _BookCacheInfo.fromJson(Map<String, dynamic> json) =
-      _$BookCacheInfoImpl.fromJson;
-
+/// @nodoc
+abstract mixin class _$BookCacheInfoCopyWith<$Res>
+    implements $BookCacheInfoCopyWith<$Res> {
+  factory _$BookCacheInfoCopyWith(
+    _BookCacheInfo value,
+    $Res Function(_BookCacheInfo) _then,
+  ) = __$BookCacheInfoCopyWithImpl;
   @override
-  @JsonKey(name: 'bookUrl')
-  String get bookUrl;
-  @override
-  String get name;
-  @override
-  String get origin;
-  @override
-  @JsonKey(name: 'originName')
-  String get originName;
-  @override
-  @JsonKey(name: 'type')
-  int get bookType;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookCacheInfoImplCopyWith<_$BookCacheInfoImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    String name,
+    String origin,
+    @JsonKey(name: 'originName') String originName,
+    @JsonKey(name: 'type') int bookType,
+  });
 }
 
-ReadRecordShow _$ReadRecordShowFromJson(Map<String, dynamic> json) {
-  return _ReadRecordShow.fromJson(json);
+/// @nodoc
+class __$BookCacheInfoCopyWithImpl<$Res>
+    implements _$BookCacheInfoCopyWith<$Res> {
+  __$BookCacheInfoCopyWithImpl(this._self, this._then);
+
+  final _BookCacheInfo _self;
+  final $Res Function(_BookCacheInfo) _then;
+
+  /// Create a copy of BookCacheInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? bookUrl = null,
+    Object? name = null,
+    Object? origin = null,
+    Object? originName = null,
+    Object? bookType = null,
+  }) {
+    return _then(
+      _BookCacheInfo(
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _self.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as String,
+        originName: null == originName
+            ? _self.originName
+            : originName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookType: null == bookType
+            ? _self.bookType
+            : bookType // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
 }
 
 /// @nodoc
 mixin _$ReadRecordShow {
   @JsonKey(name: 'bookName')
-  String get bookName => throw _privateConstructorUsedError;
+  String get bookName;
   @JsonKey(name: 'readTime')
-  int get readTime => throw _privateConstructorUsedError;
+  int get readTime;
   @JsonKey(name: 'lastRead')
-  int get lastRead => throw _privateConstructorUsedError;
+  int get lastRead;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ReadRecordShowCopyWith<ReadRecordShow> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ReadRecordShowCopyWith<$Res> {
-  factory $ReadRecordShowCopyWith(
-          ReadRecordShow value, $Res Function(ReadRecordShow) then) =
-      _$ReadRecordShowCopyWithImpl<$Res, ReadRecordShow>;
-  @useResult
-  $Res call(
-      {@JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'readTime') int readTime,
-      @JsonKey(name: 'lastRead') int lastRead});
-}
-
-/// @nodoc
-class _$ReadRecordShowCopyWithImpl<$Res, $Val extends ReadRecordShow>
-    implements $ReadRecordShowCopyWith<$Res> {
-  _$ReadRecordShowCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of ReadRecordShow
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $ReadRecordShowCopyWith<ReadRecordShow> get copyWith =>
+      _$ReadRecordShowCopyWithImpl<ReadRecordShow>(
+        this as ReadRecordShow,
+        _$identity,
+      );
+
+  /// Serializes this ReadRecordShow to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? bookName = null,
-    Object? readTime = null,
-    Object? lastRead = null,
-  }) {
-    return _then(_value.copyWith(
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRead: null == lastRead
-          ? _value.lastRead
-          : lastRead // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as ReadRecordShow;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is ReadRecordShow &&
+            (identical(other.bookName, _this.bookName) ||
+                other.bookName == _this.bookName) &&
+            (identical(other.readTime, _this.readTime) ||
+                other.readTime == _this.readTime) &&
+            (identical(other.lastRead, _this.lastRead) ||
+                other.lastRead == _this.lastRead));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as ReadRecordShow;
+    return Object.hash(
+      runtimeType,
+      _this.bookName,
+      _this.readTime,
+      _this.lastRead,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as ReadRecordShow;
+    return 'ReadRecordShow(bookName: ${_this.bookName}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
   }
 }
 
 /// @nodoc
-abstract class _$$ReadRecordShowImplCopyWith<$Res>
-    implements $ReadRecordShowCopyWith<$Res> {
-  factory _$$ReadRecordShowImplCopyWith(_$ReadRecordShowImpl value,
-          $Res Function(_$ReadRecordShowImpl) then) =
-      __$$ReadRecordShowImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $ReadRecordShowCopyWith<$Res> {
+  factory $ReadRecordShowCopyWith(
+    ReadRecordShow value,
+    $Res Function(ReadRecordShow) _then,
+  ) = _$ReadRecordShowCopyWithImpl;
   @useResult
-  $Res call(
-      {@JsonKey(name: 'bookName') String bookName,
-      @JsonKey(name: 'readTime') int readTime,
-      @JsonKey(name: 'lastRead') int lastRead});
+  $Res call({
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'readTime') int readTime,
+    @JsonKey(name: 'lastRead') int lastRead,
+  });
 }
 
 /// @nodoc
-class __$$ReadRecordShowImplCopyWithImpl<$Res>
-    extends _$ReadRecordShowCopyWithImpl<$Res, _$ReadRecordShowImpl>
-    implements _$$ReadRecordShowImplCopyWith<$Res> {
-  __$$ReadRecordShowImplCopyWithImpl(
-      _$ReadRecordShowImpl _value, $Res Function(_$ReadRecordShowImpl) _then)
-      : super(_value, _then);
+class _$ReadRecordShowCopyWithImpl<$Res>
+    implements $ReadRecordShowCopyWith<$Res> {
+  _$ReadRecordShowCopyWithImpl(this._self, this._then);
 
+  final ReadRecordShow _self;
+  final $Res Function(ReadRecordShow) _then;
+
+  /// Create a copy of ReadRecordShow
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -7380,33 +12668,207 @@ class __$$ReadRecordShowImplCopyWithImpl<$Res>
     Object? readTime = null,
     Object? lastRead = null,
   }) {
-    return _then(_$ReadRecordShowImpl(
-      bookName: null == bookName
-          ? _value.bookName
-          : bookName // ignore: cast_nullable_to_non_nullable
-              as String,
-      readTime: null == readTime
-          ? _value.readTime
-          : readTime // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastRead: null == lastRead
-          ? _value.lastRead
-          : lastRead // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
+    return _then(
+      ReadRecordShow(
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        readTime: null == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRead: null == lastRead
+            ? _self.lastRead
+            : lastRead // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [ReadRecordShow].
+extension ReadRecordShowPatterns on ReadRecordShow {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_ReadRecordShow value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_ReadRecordShow value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_ReadRecordShow value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow() when $default != null:
+        return $default(_that.bookName, _that.readTime, _that.lastRead);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow():
+        return $default(_that.bookName, _that.readTime, _that.lastRead);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      @JsonKey(name: 'bookName') String bookName,
+      @JsonKey(name: 'readTime') int readTime,
+      @JsonKey(name: 'lastRead') int lastRead,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReadRecordShow() when $default != null:
+        return $default(_that.bookName, _that.readTime, _that.lastRead);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$ReadRecordShowImpl implements _ReadRecordShow {
-  const _$ReadRecordShowImpl(
-      {@JsonKey(name: 'bookName') this.bookName = '',
-      @JsonKey(name: 'readTime') this.readTime = 0,
-      @JsonKey(name: 'lastRead') this.lastRead = 0});
-
-  factory _$ReadRecordShowImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ReadRecordShowImplFromJson(json);
+class _ReadRecordShow implements ReadRecordShow {
+  const _ReadRecordShow({
+    @JsonKey(name: 'bookName') this.bookName = '',
+    @JsonKey(name: 'readTime') this.readTime = 0,
+    @JsonKey(name: 'lastRead') this.lastRead = 0,
+  });
+  factory _ReadRecordShow.fromJson(Map<String, dynamic> json) =>
+      _$ReadRecordShowFromJson(json);
 
   @override
   @JsonKey(name: 'bookName')
@@ -7418,16 +12880,24 @@ class _$ReadRecordShowImpl implements _ReadRecordShow {
   @JsonKey(name: 'lastRead')
   final int lastRead;
 
+  /// Create a copy of ReadRecordShow
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'ReadRecordShow(bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ReadRecordShowCopyWith<_ReadRecordShow> get copyWith =>
+      __$ReadRecordShowCopyWithImpl<_ReadRecordShow>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$ReadRecordShowToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ReadRecordShowImpl &&
+            other is _ReadRecordShow &&
             (identical(other.bookName, bookName) ||
                 other.bookName == bookName) &&
             (identical(other.readTime, readTime) ||
@@ -7436,126 +12906,137 @@ class _$ReadRecordShowImpl implements _ReadRecordShow {
                 other.lastRead == lastRead));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, bookName, readTime, lastRead);
+  int get hashCode {
+    return Object.hash(runtimeType, bookName, readTime, lastRead);
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'ReadRecordShow(bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$ReadRecordShowCopyWith<$Res>
+    implements $ReadRecordShowCopyWith<$Res> {
+  factory _$ReadRecordShowCopyWith(
+    _ReadRecordShow value,
+    $Res Function(_ReadRecordShow) _then,
+  ) = __$ReadRecordShowCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'bookName') String bookName,
+    @JsonKey(name: 'readTime') int readTime,
+    @JsonKey(name: 'lastRead') int lastRead,
+  });
+}
+
+/// @nodoc
+class __$ReadRecordShowCopyWithImpl<$Res>
+    implements _$ReadRecordShowCopyWith<$Res> {
+  __$ReadRecordShowCopyWithImpl(this._self, this._then);
+
+  final _ReadRecordShow _self;
+  final $Res Function(_ReadRecordShow) _then;
+
+  /// Create a copy of ReadRecordShow
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$ReadRecordShowImplCopyWith<_$ReadRecordShowImpl> get copyWith =>
-      __$$ReadRecordShowImplCopyWithImpl<_$ReadRecordShowImpl>(
-          this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ReadRecordShowImplToJson(
-      this,
+  $Res call({
+    Object? bookName = null,
+    Object? readTime = null,
+    Object? lastRead = null,
+  }) {
+    return _then(
+      _ReadRecordShow(
+        bookName: null == bookName
+            ? _self.bookName
+            : bookName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        readTime: null == readTime
+            ? _self.readTime
+            : readTime // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastRead: null == lastRead
+            ? _self.lastRead
+            : lastRead // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 }
 
-abstract class _ReadRecordShow implements ReadRecordShow {
-  const factory _ReadRecordShow(
-      {@JsonKey(name: 'bookName') final String bookName,
-      @JsonKey(name: 'readTime') final int readTime,
-      @JsonKey(name: 'lastRead') final int lastRead}) = _$ReadRecordShowImpl;
-
-  factory _ReadRecordShow.fromJson(Map<String, dynamic> json) =
-      _$ReadRecordShowImpl.fromJson;
-
-  @override
-  @JsonKey(name: 'bookName')
-  String get bookName;
-  @override
-  @JsonKey(name: 'readTime')
-  int get readTime;
-  @override
-  @JsonKey(name: 'lastRead')
-  int get lastRead;
-  @override
-  @JsonKey(ignore: true)
-  _$$ReadRecordShowImplCopyWith<_$ReadRecordShowImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-DictEntry _$DictEntryFromJson(Map<String, dynamic> json) {
-  return _DictEntry.fromJson(json);
-}
-
 /// @nodoc
 mixin _$DictEntry {
-  String get word => throw _privateConstructorUsedError;
-  String get phonetic => throw _privateConstructorUsedError;
-  List<String> get definitions => throw _privateConstructorUsedError;
+  String get word;
+  String get phonetic;
+  List<String> get definitions;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $DictEntryCopyWith<DictEntry> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $DictEntryCopyWith<$Res> {
-  factory $DictEntryCopyWith(DictEntry value, $Res Function(DictEntry) then) =
-      _$DictEntryCopyWithImpl<$Res, DictEntry>;
-  @useResult
-  $Res call({String word, String phonetic, List<String> definitions});
-}
-
-/// @nodoc
-class _$DictEntryCopyWithImpl<$Res, $Val extends DictEntry>
-    implements $DictEntryCopyWith<$Res> {
-  _$DictEntryCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of DictEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $DictEntryCopyWith<DictEntry> get copyWith =>
+      _$DictEntryCopyWithImpl<DictEntry>(this as DictEntry, _$identity);
+
+  /// Serializes this DictEntry to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? word = null,
-    Object? phonetic = null,
-    Object? definitions = null,
-  }) {
-    return _then(_value.copyWith(
-      word: null == word
-          ? _value.word
-          : word // ignore: cast_nullable_to_non_nullable
-              as String,
-      phonetic: null == phonetic
-          ? _value.phonetic
-          : phonetic // ignore: cast_nullable_to_non_nullable
-              as String,
-      definitions: null == definitions
-          ? _value.definitions
-          : definitions // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as DictEntry;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is DictEntry &&
+            (identical(other.word, _this.word) || other.word == _this.word) &&
+            (identical(other.phonetic, _this.phonetic) ||
+                other.phonetic == _this.phonetic) &&
+            const DeepCollectionEquality().equals(
+              other.definitions,
+              _this.definitions,
+            ));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as DictEntry;
+    return Object.hash(
+      runtimeType,
+      _this.word,
+      _this.phonetic,
+      const DeepCollectionEquality().hash(_this.definitions),
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as DictEntry;
+    return 'DictEntry(word: ${_this.word}, phonetic: ${_this.phonetic}, definitions: ${_this.definitions})';
   }
 }
 
 /// @nodoc
-abstract class _$$DictEntryImplCopyWith<$Res>
-    implements $DictEntryCopyWith<$Res> {
-  factory _$$DictEntryImplCopyWith(
-          _$DictEntryImpl value, $Res Function(_$DictEntryImpl) then) =
-      __$$DictEntryImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $DictEntryCopyWith<$Res> {
+  factory $DictEntryCopyWith(DictEntry value, $Res Function(DictEntry) _then) =
+      _$DictEntryCopyWithImpl;
   @useResult
   $Res call({String word, String phonetic, List<String> definitions});
 }
 
 /// @nodoc
-class __$$DictEntryImplCopyWithImpl<$Res>
-    extends _$DictEntryCopyWithImpl<$Res, _$DictEntryImpl>
-    implements _$$DictEntryImplCopyWith<$Res> {
-  __$$DictEntryImplCopyWithImpl(
-      _$DictEntryImpl _value, $Res Function(_$DictEntryImpl) _then)
-      : super(_value, _then);
+class _$DictEntryCopyWithImpl<$Res> implements $DictEntryCopyWith<$Res> {
+  _$DictEntryCopyWithImpl(this._self, this._then);
 
+  final DictEntry _self;
+  final $Res Function(DictEntry) _then;
+
+  /// Create a copy of DictEntry
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -7563,34 +13044,195 @@ class __$$DictEntryImplCopyWithImpl<$Res>
     Object? phonetic = null,
     Object? definitions = null,
   }) {
-    return _then(_$DictEntryImpl(
-      word: null == word
-          ? _value.word
-          : word // ignore: cast_nullable_to_non_nullable
-              as String,
-      phonetic: null == phonetic
-          ? _value.phonetic
-          : phonetic // ignore: cast_nullable_to_non_nullable
-              as String,
-      definitions: null == definitions
-          ? _value._definitions
-          : definitions // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ));
+    return _then(
+      DictEntry(
+        word: null == word
+            ? _self.word
+            : word // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phonetic: null == phonetic
+            ? _self.phonetic
+            : phonetic // ignore: cast_nullable_to_non_nullable
+                  as String,
+        definitions: null == definitions
+            ? _self.definitions
+            : definitions // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [DictEntry].
+extension DictEntryPatterns on DictEntry {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_DictEntry value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_DictEntry value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_DictEntry value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(String word, String phonetic, List<String> definitions)?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry() when $default != null:
+        return $default(_that.word, _that.phonetic, _that.definitions);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(String word, String phonetic, List<String> definitions)
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry():
+        return $default(_that.word, _that.phonetic, _that.definitions);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(String word, String phonetic, List<String> definitions)?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _DictEntry() when $default != null:
+        return $default(_that.word, _that.phonetic, _that.definitions);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$DictEntryImpl implements _DictEntry {
-  const _$DictEntryImpl(
-      {this.word = '',
-      this.phonetic = '',
-      final List<String> definitions = const []})
-      : _definitions = definitions;
-
-  factory _$DictEntryImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DictEntryImplFromJson(json);
+class _DictEntry implements DictEntry {
+  const _DictEntry({
+    this.word = '',
+    this.phonetic = '',
+    List<String> definitions = const [],
+  }) : _definitions = definitions;
+  factory _DictEntry.fromJson(Map<String, dynamic> json) =>
+      _$DictEntryFromJson(json);
 
   @override
   @JsonKey()
@@ -7607,161 +13249,341 @@ class _$DictEntryImpl implements _DictEntry {
     return EqualUnmodifiableListView(_definitions);
   }
 
+  /// Create a copy of DictEntry
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'DictEntry(word: $word, phonetic: $phonetic, definitions: $definitions)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$DictEntryCopyWith<_DictEntry> get copyWith =>
+      __$DictEntryCopyWithImpl<_DictEntry>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$DictEntryToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$DictEntryImpl &&
+            other is _DictEntry &&
             (identical(other.word, word) || other.word == word) &&
             (identical(other.phonetic, phonetic) ||
                 other.phonetic == phonetic) &&
-            const DeepCollectionEquality()
-                .equals(other._definitions, _definitions));
+            const DeepCollectionEquality().equals(
+              other.definitions,
+              _definitions,
+            ));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, word, phonetic,
-      const DeepCollectionEquality().hash(_definitions));
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      word,
+      phonetic,
+      const DeepCollectionEquality().hash(_definitions),
+    );
+  }
 
-  @JsonKey(ignore: true)
+  @override
+  String toString() {
+    return 'DictEntry(word: $word, phonetic: $phonetic, definitions: $definitions)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$DictEntryCopyWith<$Res>
+    implements $DictEntryCopyWith<$Res> {
+  factory _$DictEntryCopyWith(
+    _DictEntry value,
+    $Res Function(_DictEntry) _then,
+  ) = __$DictEntryCopyWithImpl;
+  @override
+  @useResult
+  $Res call({String word, String phonetic, List<String> definitions});
+}
+
+/// @nodoc
+class __$DictEntryCopyWithImpl<$Res> implements _$DictEntryCopyWith<$Res> {
+  __$DictEntryCopyWithImpl(this._self, this._then);
+
+  final _DictEntry _self;
+  final $Res Function(_DictEntry) _then;
+
+  /// Create a copy of DictEntry
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  _$$DictEntryImplCopyWith<_$DictEntryImpl> get copyWith =>
-      __$$DictEntryImplCopyWithImpl<_$DictEntryImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DictEntryImplToJson(
-      this,
+  $Res call({
+    Object? word = null,
+    Object? phonetic = null,
+    Object? definitions = null,
+  }) {
+    return _then(
+      _DictEntry(
+        word: null == word
+            ? _self.word
+            : word // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phonetic: null == phonetic
+            ? _self.phonetic
+            : phonetic // ignore: cast_nullable_to_non_nullable
+                  as String,
+        definitions: null == definitions
+            ? _self._definitions
+            : definitions // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+      ),
     );
   }
 }
 
-abstract class _DictEntry implements DictEntry {
-  const factory _DictEntry(
-      {final String word,
-      final String phonetic,
-      final List<String> definitions}) = _$DictEntryImpl;
-
-  factory _DictEntry.fromJson(Map<String, dynamic> json) =
-      _$DictEntryImpl.fromJson;
-
-  @override
-  String get word;
-  @override
-  String get phonetic;
-  @override
-  List<String> get definitions;
-  @override
-  @JsonKey(ignore: true)
-  _$$DictEntryImplCopyWith<_$DictEntryImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-LoginKeyValue _$LoginKeyValueFromJson(Map<String, dynamic> json) {
-  return _LoginKeyValue.fromJson(json);
-}
-
 /// @nodoc
 mixin _$LoginKeyValue {
-  String get name => throw _privateConstructorUsedError;
-  String get value => throw _privateConstructorUsedError;
+  String get name;
+  String get value;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $LoginKeyValueCopyWith<LoginKeyValue> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $LoginKeyValueCopyWith<$Res> {
-  factory $LoginKeyValueCopyWith(
-          LoginKeyValue value, $Res Function(LoginKeyValue) then) =
-      _$LoginKeyValueCopyWithImpl<$Res, LoginKeyValue>;
-  @useResult
-  $Res call({String name, String value});
-}
-
-/// @nodoc
-class _$LoginKeyValueCopyWithImpl<$Res, $Val extends LoginKeyValue>
-    implements $LoginKeyValueCopyWith<$Res> {
-  _$LoginKeyValueCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of LoginKeyValue
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $LoginKeyValueCopyWith<LoginKeyValue> get copyWith =>
+      _$LoginKeyValueCopyWithImpl<LoginKeyValue>(
+        this as LoginKeyValue,
+        _$identity,
+      );
+
+  /// Serializes this LoginKeyValue to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? name = null,
-    Object? value = null,
-  }) {
-    return _then(_value.copyWith(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: null == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as LoginKeyValue;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is LoginKeyValue &&
+            (identical(other.name, _this.name) || other.name == _this.name) &&
+            (identical(other.value, _this.value) ||
+                other.value == _this.value));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as LoginKeyValue;
+    return Object.hash(runtimeType, _this.name, _this.value);
+  }
+
+  @override
+  String toString() {
+    final _this = this as LoginKeyValue;
+    return 'LoginKeyValue(name: ${_this.name}, value: ${_this.value})';
   }
 }
 
 /// @nodoc
-abstract class _$$LoginKeyValueImplCopyWith<$Res>
-    implements $LoginKeyValueCopyWith<$Res> {
-  factory _$$LoginKeyValueImplCopyWith(
-          _$LoginKeyValueImpl value, $Res Function(_$LoginKeyValueImpl) then) =
-      __$$LoginKeyValueImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $LoginKeyValueCopyWith<$Res> {
+  factory $LoginKeyValueCopyWith(
+    LoginKeyValue value,
+    $Res Function(LoginKeyValue) _then,
+  ) = _$LoginKeyValueCopyWithImpl;
   @useResult
   $Res call({String name, String value});
 }
 
 /// @nodoc
-class __$$LoginKeyValueImplCopyWithImpl<$Res>
-    extends _$LoginKeyValueCopyWithImpl<$Res, _$LoginKeyValueImpl>
-    implements _$$LoginKeyValueImplCopyWith<$Res> {
-  __$$LoginKeyValueImplCopyWithImpl(
-      _$LoginKeyValueImpl _value, $Res Function(_$LoginKeyValueImpl) _then)
-      : super(_value, _then);
+class _$LoginKeyValueCopyWithImpl<$Res>
+    implements $LoginKeyValueCopyWith<$Res> {
+  _$LoginKeyValueCopyWithImpl(this._self, this._then);
 
+  final LoginKeyValue _self;
+  final $Res Function(LoginKeyValue) _then;
+
+  /// Create a copy of LoginKeyValue
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? name = null,
-    Object? value = null,
+  $Res call({Object? name = null, Object? value = null}) {
+    return _then(
+      LoginKeyValue(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: null == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [LoginKeyValue].
+extension LoginKeyValuePatterns on LoginKeyValue {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_LoginKeyValue value)? $default, {
+    required TResult orElse(),
   }) {
-    return _then(_$LoginKeyValueImpl(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      value: null == value
-          ? _value.value
-          : value // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_LoginKeyValue value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_LoginKeyValue value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(String name, String value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue() when $default != null:
+        return $default(_that.name, _that.value);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(String name, String value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue():
+        return $default(_that.name, _that.value);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(String name, String value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _LoginKeyValue() when $default != null:
+        return $default(_that.name, _that.value);
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$LoginKeyValueImpl implements _LoginKeyValue {
-  const _$LoginKeyValueImpl({this.name = '', this.value = ''});
-
-  factory _$LoginKeyValueImpl.fromJson(Map<String, dynamic> json) =>
-      _$$LoginKeyValueImplFromJson(json);
+class _LoginKeyValue implements LoginKeyValue {
+  const _LoginKeyValue({this.name = '', this.value = ''});
+  factory _LoginKeyValue.fromJson(Map<String, dynamic> json) =>
+      _$LoginKeyValueFromJson(json);
 
   @override
   @JsonKey()
@@ -7770,51 +13592,76 @@ class _$LoginKeyValueImpl implements _LoginKeyValue {
   @JsonKey()
   final String value;
 
+  /// Create a copy of LoginKeyValue
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'LoginKeyValue(name: $name, value: $value)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$LoginKeyValueCopyWith<_LoginKeyValue> get copyWith =>
+      __$LoginKeyValueCopyWithImpl<_LoginKeyValue>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$LoginKeyValueToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$LoginKeyValueImpl &&
+            other is _LoginKeyValue &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.value, value) || other.value == value));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, name, value);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$LoginKeyValueImplCopyWith<_$LoginKeyValueImpl> get copyWith =>
-      __$$LoginKeyValueImplCopyWithImpl<_$LoginKeyValueImpl>(this, _$identity);
+  int get hashCode {
+    return Object.hash(runtimeType, name, value);
+  }
 
   @override
-  Map<String, dynamic> toJson() {
-    return _$$LoginKeyValueImplToJson(
-      this,
-    );
+  String toString() {
+    return 'LoginKeyValue(name: $name, value: $value)';
   }
 }
 
-abstract class _LoginKeyValue implements LoginKeyValue {
-  const factory _LoginKeyValue({final String name, final String value}) =
-      _$LoginKeyValueImpl;
+/// @nodoc
+abstract mixin class _$LoginKeyValueCopyWith<$Res>
+    implements $LoginKeyValueCopyWith<$Res> {
+  factory _$LoginKeyValueCopyWith(
+    _LoginKeyValue value,
+    $Res Function(_LoginKeyValue) _then,
+  ) = __$LoginKeyValueCopyWithImpl;
+  @override
+  @useResult
+  $Res call({String name, String value});
+}
 
-  factory _LoginKeyValue.fromJson(Map<String, dynamic> json) =
-      _$LoginKeyValueImpl.fromJson;
+/// @nodoc
+class __$LoginKeyValueCopyWithImpl<$Res>
+    implements _$LoginKeyValueCopyWith<$Res> {
+  __$LoginKeyValueCopyWithImpl(this._self, this._then);
 
+  final _LoginKeyValue _self;
+  final $Res Function(_LoginKeyValue) _then;
+
+  /// Create a copy of LoginKeyValue
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String get name;
-  @override
-  String get value;
-  @override
-  @JsonKey(ignore: true)
-  _$$LoginKeyValueImplCopyWith<_$LoginKeyValueImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({Object? name = null, Object? value = null}) {
+    return _then(
+      _LoginKeyValue(
+        name: null == name
+            ? _self.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: null == value
+            ? _self.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
 }

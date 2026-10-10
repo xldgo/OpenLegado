@@ -15,7 +15,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -526,7 +526,7 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
     final text = _selectedText;
     _close();
     try {
-      await Share.share(text);
+      await SharePlus.instance.share(ShareParams(text: text));
     } catch (e) {
       _toast('分享失败：$e');
     }
@@ -624,7 +624,7 @@ class ReaderSelectionToolbar extends ConsumerWidget {
       (Icons.share_outlined, '分享', () async {
         onDismiss();
         try {
-          await Share.share(text);
+          await SharePlus.instance.share(ShareParams(text: text));
         } catch (_) {}
       }),
       (Icons.open_in_browser_outlined, '浏览器', () async {

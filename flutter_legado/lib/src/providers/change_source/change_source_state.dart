@@ -9,7 +9,7 @@ part 'change_source_state.freezed.dart';
 /// 由 [ChangeSourceNotifier] 维护，对标原 change_source_screen 内部字段
 /// （_results/_isSearching/_error/_applyingUrl）迁移至 Riverpod 后的表达。
 @freezed
-class ChangeSourceState with _$ChangeSourceState {
+abstract class ChangeSourceState with _$ChangeSourceState {
   const factory ChangeSourceState({
     /// 匹配到的候选书源列表（Rust 已按评分降序排序，UI 直接渲染）
     @Default([]) List<SourceMatch> results,

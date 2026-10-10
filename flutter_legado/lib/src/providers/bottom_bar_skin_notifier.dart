@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../services/bottom_bar_skin_service.dart';
 
@@ -43,12 +43,15 @@ class BottomBarSkinNotifier extends Notifier<BottomBarSkinState> {
   }
 
   Future<void> reload() async {
+    if (!ref.mounted) return;
     state = state.copyWith(loading: true, clearError: true);
     try {
       final skins = await _service.list();
       final active = await _service.getActive();
+      if (!ref.mounted) return;
       state = BottomBarSkinState(skins: skins, active: active);
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(loading: false, error: '$e');
     }
   }

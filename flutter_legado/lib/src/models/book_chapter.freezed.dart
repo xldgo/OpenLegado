@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'book_chapter.dart';
@@ -9,217 +9,158 @@ part of 'book_chapter.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
-
-BookChapter _$BookChapterFromJson(Map<String, dynamic> json) {
-  return _BookChapter.fromJson(json);
-}
 
 /// @nodoc
 mixin _$BookChapter {
-  String get url => throw _privateConstructorUsedError;
-  String get title => throw _privateConstructorUsedError;
+  String get url;
+  String get title;
   @JsonKey(name: 'isVolume')
-  bool get isVolume => throw _privateConstructorUsedError;
+  bool get isVolume;
   @JsonKey(name: 'baseUrl')
-  String get baseUrl => throw _privateConstructorUsedError;
+  String get baseUrl;
   @JsonKey(name: 'bookUrl')
-  String get bookUrl => throw _privateConstructorUsedError;
-  int get index => throw _privateConstructorUsedError;
+  String get bookUrl;
+  int get index;
   @JsonKey(name: 'isVip')
-  bool get isVip => throw _privateConstructorUsedError;
+  bool get isVip;
   @JsonKey(name: 'isPay')
-  bool get isPay => throw _privateConstructorUsedError;
+  bool get isPay;
   @JsonKey(name: 'resourceUrl')
-  String? get resourceUrl => throw _privateConstructorUsedError;
-  String? get tag => throw _privateConstructorUsedError;
+  String? get resourceUrl;
+  String? get tag;
   @JsonKey(name: 'wordCount')
-  String? get wordCount => throw _privateConstructorUsedError;
-  int? get start => throw _privateConstructorUsedError;
-  int? get end => throw _privateConstructorUsedError;
+  String? get wordCount;
+  int? get start;
+  int? get end;
   @JsonKey(name: 'startFragmentId')
-  String? get startFragmentId => throw _privateConstructorUsedError;
+  String? get startFragmentId;
   @JsonKey(name: 'endFragmentId')
-  String? get endFragmentId => throw _privateConstructorUsedError;
-  String? get variable => throw _privateConstructorUsedError;
+  String? get endFragmentId;
+  String? get variable;
   @JsonKey(name: 'imgUrl')
-  String? get imgUrl => throw _privateConstructorUsedError;
+  String? get imgUrl;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $BookChapterCopyWith<BookChapter> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BookChapterCopyWith<$Res> {
-  factory $BookChapterCopyWith(
-          BookChapter value, $Res Function(BookChapter) then) =
-      _$BookChapterCopyWithImpl<$Res, BookChapter>;
-  @useResult
-  $Res call(
-      {String url,
-      String title,
-      @JsonKey(name: 'isVolume') bool isVolume,
-      @JsonKey(name: 'baseUrl') String baseUrl,
-      @JsonKey(name: 'bookUrl') String bookUrl,
-      int index,
-      @JsonKey(name: 'isVip') bool isVip,
-      @JsonKey(name: 'isPay') bool isPay,
-      @JsonKey(name: 'resourceUrl') String? resourceUrl,
-      String? tag,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      int? start,
-      int? end,
-      @JsonKey(name: 'startFragmentId') String? startFragmentId,
-      @JsonKey(name: 'endFragmentId') String? endFragmentId,
-      String? variable,
-      @JsonKey(name: 'imgUrl') String? imgUrl});
-}
-
-/// @nodoc
-class _$BookChapterCopyWithImpl<$Res, $Val extends BookChapter>
-    implements $BookChapterCopyWith<$Res> {
-  _$BookChapterCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
+  /// Create a copy of BookChapter
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @pragma('vm:prefer-inline')
+  $BookChapterCopyWith<BookChapter> get copyWith =>
+      _$BookChapterCopyWithImpl<BookChapter>(this as BookChapter, _$identity);
+
+  /// Serializes this BookChapter to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? url = null,
-    Object? title = null,
-    Object? isVolume = null,
-    Object? baseUrl = null,
-    Object? bookUrl = null,
-    Object? index = null,
-    Object? isVip = null,
-    Object? isPay = null,
-    Object? resourceUrl = freezed,
-    Object? tag = freezed,
-    Object? wordCount = freezed,
-    Object? start = freezed,
-    Object? end = freezed,
-    Object? startFragmentId = freezed,
-    Object? endFragmentId = freezed,
-    Object? variable = freezed,
-    Object? imgUrl = freezed,
-  }) {
-    return _then(_value.copyWith(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      isVolume: null == isVolume
-          ? _value.isVolume
-          : isVolume // ignore: cast_nullable_to_non_nullable
-              as bool,
-      baseUrl: null == baseUrl
-          ? _value.baseUrl
-          : baseUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      index: null == index
-          ? _value.index
-          : index // ignore: cast_nullable_to_non_nullable
-              as int,
-      isVip: null == isVip
-          ? _value.isVip
-          : isVip // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isPay: null == isPay
-          ? _value.isPay
-          : isPay // ignore: cast_nullable_to_non_nullable
-              as bool,
-      resourceUrl: freezed == resourceUrl
-          ? _value.resourceUrl
-          : resourceUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tag: freezed == tag
-          ? _value.tag
-          : tag // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      start: freezed == start
-          ? _value.start
-          : start // ignore: cast_nullable_to_non_nullable
-              as int?,
-      end: freezed == end
-          ? _value.end
-          : end // ignore: cast_nullable_to_non_nullable
-              as int?,
-      startFragmentId: freezed == startFragmentId
-          ? _value.startFragmentId
-          : startFragmentId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      endFragmentId: freezed == endFragmentId
-          ? _value.endFragmentId
-          : endFragmentId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      imgUrl: freezed == imgUrl
-          ? _value.imgUrl
-          : imgUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+  bool operator ==(Object other) {
+    final _this = this as BookChapter;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is BookChapter &&
+            (identical(other.url, _this.url) || other.url == _this.url) &&
+            (identical(other.title, _this.title) ||
+                other.title == _this.title) &&
+            (identical(other.isVolume, _this.isVolume) ||
+                other.isVolume == _this.isVolume) &&
+            (identical(other.baseUrl, _this.baseUrl) ||
+                other.baseUrl == _this.baseUrl) &&
+            (identical(other.bookUrl, _this.bookUrl) ||
+                other.bookUrl == _this.bookUrl) &&
+            (identical(other.index, _this.index) ||
+                other.index == _this.index) &&
+            (identical(other.isVip, _this.isVip) ||
+                other.isVip == _this.isVip) &&
+            (identical(other.isPay, _this.isPay) ||
+                other.isPay == _this.isPay) &&
+            (identical(other.resourceUrl, _this.resourceUrl) ||
+                other.resourceUrl == _this.resourceUrl) &&
+            (identical(other.tag, _this.tag) || other.tag == _this.tag) &&
+            (identical(other.wordCount, _this.wordCount) ||
+                other.wordCount == _this.wordCount) &&
+            (identical(other.start, _this.start) ||
+                other.start == _this.start) &&
+            (identical(other.end, _this.end) || other.end == _this.end) &&
+            (identical(other.startFragmentId, _this.startFragmentId) ||
+                other.startFragmentId == _this.startFragmentId) &&
+            (identical(other.endFragmentId, _this.endFragmentId) ||
+                other.endFragmentId == _this.endFragmentId) &&
+            (identical(other.variable, _this.variable) ||
+                other.variable == _this.variable) &&
+            (identical(other.imgUrl, _this.imgUrl) ||
+                other.imgUrl == _this.imgUrl));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode {
+    final _this = this as BookChapter;
+    return Object.hash(
+      runtimeType,
+      _this.url,
+      _this.title,
+      _this.isVolume,
+      _this.baseUrl,
+      _this.bookUrl,
+      _this.index,
+      _this.isVip,
+      _this.isPay,
+      _this.resourceUrl,
+      _this.tag,
+      _this.wordCount,
+      _this.start,
+      _this.end,
+      _this.startFragmentId,
+      _this.endFragmentId,
+      _this.variable,
+      _this.imgUrl,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as BookChapter;
+    return 'BookChapter(url: ${_this.url}, title: ${_this.title}, isVolume: ${_this.isVolume}, baseUrl: ${_this.baseUrl}, bookUrl: ${_this.bookUrl}, index: ${_this.index}, isVip: ${_this.isVip}, isPay: ${_this.isPay}, resourceUrl: ${_this.resourceUrl}, tag: ${_this.tag}, wordCount: ${_this.wordCount}, start: ${_this.start}, end: ${_this.end}, startFragmentId: ${_this.startFragmentId}, endFragmentId: ${_this.endFragmentId}, variable: ${_this.variable}, imgUrl: ${_this.imgUrl})';
   }
 }
 
 /// @nodoc
-abstract class _$$BookChapterImplCopyWith<$Res>
-    implements $BookChapterCopyWith<$Res> {
-  factory _$$BookChapterImplCopyWith(
-          _$BookChapterImpl value, $Res Function(_$BookChapterImpl) then) =
-      __$$BookChapterImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $BookChapterCopyWith<$Res> {
+  factory $BookChapterCopyWith(
+    BookChapter value,
+    $Res Function(BookChapter) _then,
+  ) = _$BookChapterCopyWithImpl;
   @useResult
-  $Res call(
-      {String url,
-      String title,
-      @JsonKey(name: 'isVolume') bool isVolume,
-      @JsonKey(name: 'baseUrl') String baseUrl,
-      @JsonKey(name: 'bookUrl') String bookUrl,
-      int index,
-      @JsonKey(name: 'isVip') bool isVip,
-      @JsonKey(name: 'isPay') bool isPay,
-      @JsonKey(name: 'resourceUrl') String? resourceUrl,
-      String? tag,
-      @JsonKey(name: 'wordCount') String? wordCount,
-      int? start,
-      int? end,
-      @JsonKey(name: 'startFragmentId') String? startFragmentId,
-      @JsonKey(name: 'endFragmentId') String? endFragmentId,
-      String? variable,
-      @JsonKey(name: 'imgUrl') String? imgUrl});
+  $Res call({
+    String url,
+    String title,
+    @JsonKey(name: 'isVolume') bool isVolume,
+    @JsonKey(name: 'baseUrl') String baseUrl,
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    int index,
+    @JsonKey(name: 'isVip') bool isVip,
+    @JsonKey(name: 'isPay') bool isPay,
+    @JsonKey(name: 'resourceUrl') String? resourceUrl,
+    String? tag,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    int? start,
+    int? end,
+    @JsonKey(name: 'startFragmentId') String? startFragmentId,
+    @JsonKey(name: 'endFragmentId') String? endFragmentId,
+    String? variable,
+    @JsonKey(name: 'imgUrl') String? imgUrl,
+  });
 }
 
 /// @nodoc
-class __$$BookChapterImplCopyWithImpl<$Res>
-    extends _$BookChapterCopyWithImpl<$Res, _$BookChapterImpl>
-    implements _$$BookChapterImplCopyWith<$Res> {
-  __$$BookChapterImplCopyWithImpl(
-      _$BookChapterImpl _value, $Res Function(_$BookChapterImpl) _then)
-      : super(_value, _then);
+class _$BookChapterCopyWithImpl<$Res> implements $BookChapterCopyWith<$Res> {
+  _$BookChapterCopyWithImpl(this._self, this._then);
 
+  final BookChapter _self;
+  final $Res Function(BookChapter) _then;
+
+  /// Create a copy of BookChapter
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -241,103 +182,373 @@ class __$$BookChapterImplCopyWithImpl<$Res>
     Object? variable = freezed,
     Object? imgUrl = freezed,
   }) {
-    return _then(_$BookChapterImpl(
-      url: null == url
-          ? _value.url
-          : url // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      isVolume: null == isVolume
-          ? _value.isVolume
-          : isVolume // ignore: cast_nullable_to_non_nullable
-              as bool,
-      baseUrl: null == baseUrl
-          ? _value.baseUrl
-          : baseUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      bookUrl: null == bookUrl
-          ? _value.bookUrl
-          : bookUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      index: null == index
-          ? _value.index
-          : index // ignore: cast_nullable_to_non_nullable
-              as int,
-      isVip: null == isVip
-          ? _value.isVip
-          : isVip // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isPay: null == isPay
-          ? _value.isPay
-          : isPay // ignore: cast_nullable_to_non_nullable
-              as bool,
-      resourceUrl: freezed == resourceUrl
-          ? _value.resourceUrl
-          : resourceUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tag: freezed == tag
-          ? _value.tag
-          : tag // ignore: cast_nullable_to_non_nullable
-              as String?,
-      wordCount: freezed == wordCount
-          ? _value.wordCount
-          : wordCount // ignore: cast_nullable_to_non_nullable
-              as String?,
-      start: freezed == start
-          ? _value.start
-          : start // ignore: cast_nullable_to_non_nullable
-              as int?,
-      end: freezed == end
-          ? _value.end
-          : end // ignore: cast_nullable_to_non_nullable
-              as int?,
-      startFragmentId: freezed == startFragmentId
-          ? _value.startFragmentId
-          : startFragmentId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      endFragmentId: freezed == endFragmentId
-          ? _value.endFragmentId
-          : endFragmentId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      variable: freezed == variable
-          ? _value.variable
-          : variable // ignore: cast_nullable_to_non_nullable
-              as String?,
-      imgUrl: freezed == imgUrl
-          ? _value.imgUrl
-          : imgUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      BookChapter(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isVolume: null == isVolume
+            ? _self.isVolume
+            : isVolume // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        baseUrl: null == baseUrl
+            ? _self.baseUrl
+            : baseUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        index: null == index
+            ? _self.index
+            : index // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isVip: null == isVip
+            ? _self.isVip
+            : isVip // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isPay: null == isPay
+            ? _self.isPay
+            : isPay // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        resourceUrl: freezed == resourceUrl
+            ? _self.resourceUrl
+            : resourceUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tag: freezed == tag
+            ? _self.tag
+            : tag // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        start: freezed == start
+            ? _self.start
+            : start // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        end: freezed == end
+            ? _self.end
+            : end // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        startFragmentId: freezed == startFragmentId
+            ? _self.startFragmentId
+            : startFragmentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        endFragmentId: freezed == endFragmentId
+            ? _self.endFragmentId
+            : endFragmentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        imgUrl: freezed == imgUrl
+            ? _self.imgUrl
+            : imgUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+}
+
+/// Adds pattern-matching-related methods to [BookChapter].
+extension BookChapterPatterns on BookChapter {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_BookChapter value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_BookChapter value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_BookChapter value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String url,
+      String title,
+      @JsonKey(name: 'isVolume') bool isVolume,
+      @JsonKey(name: 'baseUrl') String baseUrl,
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      int index,
+      @JsonKey(name: 'isVip') bool isVip,
+      @JsonKey(name: 'isPay') bool isPay,
+      @JsonKey(name: 'resourceUrl') String? resourceUrl,
+      String? tag,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      int? start,
+      int? end,
+      @JsonKey(name: 'startFragmentId') String? startFragmentId,
+      @JsonKey(name: 'endFragmentId') String? endFragmentId,
+      String? variable,
+      @JsonKey(name: 'imgUrl') String? imgUrl,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter() when $default != null:
+        return $default(
+          _that.url,
+          _that.title,
+          _that.isVolume,
+          _that.baseUrl,
+          _that.bookUrl,
+          _that.index,
+          _that.isVip,
+          _that.isPay,
+          _that.resourceUrl,
+          _that.tag,
+          _that.wordCount,
+          _that.start,
+          _that.end,
+          _that.startFragmentId,
+          _that.endFragmentId,
+          _that.variable,
+          _that.imgUrl,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String url,
+      String title,
+      @JsonKey(name: 'isVolume') bool isVolume,
+      @JsonKey(name: 'baseUrl') String baseUrl,
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      int index,
+      @JsonKey(name: 'isVip') bool isVip,
+      @JsonKey(name: 'isPay') bool isPay,
+      @JsonKey(name: 'resourceUrl') String? resourceUrl,
+      String? tag,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      int? start,
+      int? end,
+      @JsonKey(name: 'startFragmentId') String? startFragmentId,
+      @JsonKey(name: 'endFragmentId') String? endFragmentId,
+      String? variable,
+      @JsonKey(name: 'imgUrl') String? imgUrl,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter():
+        return $default(
+          _that.url,
+          _that.title,
+          _that.isVolume,
+          _that.baseUrl,
+          _that.bookUrl,
+          _that.index,
+          _that.isVip,
+          _that.isPay,
+          _that.resourceUrl,
+          _that.tag,
+          _that.wordCount,
+          _that.start,
+          _that.end,
+          _that.startFragmentId,
+          _that.endFragmentId,
+          _that.variable,
+          _that.imgUrl,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String url,
+      String title,
+      @JsonKey(name: 'isVolume') bool isVolume,
+      @JsonKey(name: 'baseUrl') String baseUrl,
+      @JsonKey(name: 'bookUrl') String bookUrl,
+      int index,
+      @JsonKey(name: 'isVip') bool isVip,
+      @JsonKey(name: 'isPay') bool isPay,
+      @JsonKey(name: 'resourceUrl') String? resourceUrl,
+      String? tag,
+      @JsonKey(name: 'wordCount') String? wordCount,
+      int? start,
+      int? end,
+      @JsonKey(name: 'startFragmentId') String? startFragmentId,
+      @JsonKey(name: 'endFragmentId') String? endFragmentId,
+      String? variable,
+      @JsonKey(name: 'imgUrl') String? imgUrl,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _BookChapter() when $default != null:
+        return $default(
+          _that.url,
+          _that.title,
+          _that.isVolume,
+          _that.baseUrl,
+          _that.bookUrl,
+          _that.index,
+          _that.isVip,
+          _that.isPay,
+          _that.resourceUrl,
+          _that.tag,
+          _that.wordCount,
+          _that.start,
+          _that.end,
+          _that.startFragmentId,
+          _that.endFragmentId,
+          _that.variable,
+          _that.imgUrl,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$BookChapterImpl implements _BookChapter {
-  const _$BookChapterImpl(
-      {this.url = '',
-      this.title = '',
-      @JsonKey(name: 'isVolume') this.isVolume = false,
-      @JsonKey(name: 'baseUrl') this.baseUrl = '',
-      @JsonKey(name: 'bookUrl') this.bookUrl = '',
-      this.index = 0,
-      @JsonKey(name: 'isVip') this.isVip = false,
-      @JsonKey(name: 'isPay') this.isPay = false,
-      @JsonKey(name: 'resourceUrl') this.resourceUrl,
-      this.tag,
-      @JsonKey(name: 'wordCount') this.wordCount,
-      this.start,
-      this.end,
-      @JsonKey(name: 'startFragmentId') this.startFragmentId,
-      @JsonKey(name: 'endFragmentId') this.endFragmentId,
-      this.variable,
-      @JsonKey(name: 'imgUrl') this.imgUrl});
-
-  factory _$BookChapterImpl.fromJson(Map<String, dynamic> json) =>
-      _$$BookChapterImplFromJson(json);
+class _BookChapter implements BookChapter {
+  const _BookChapter({
+    this.url = '',
+    this.title = '',
+    @JsonKey(name: 'isVolume') this.isVolume = false,
+    @JsonKey(name: 'baseUrl') this.baseUrl = '',
+    @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    this.index = 0,
+    @JsonKey(name: 'isVip') this.isVip = false,
+    @JsonKey(name: 'isPay') this.isPay = false,
+    @JsonKey(name: 'resourceUrl') this.resourceUrl,
+    this.tag,
+    @JsonKey(name: 'wordCount') this.wordCount,
+    this.start,
+    this.end,
+    @JsonKey(name: 'startFragmentId') this.startFragmentId,
+    @JsonKey(name: 'endFragmentId') this.endFragmentId,
+    this.variable,
+    @JsonKey(name: 'imgUrl') this.imgUrl,
+  });
+  factory _BookChapter.fromJson(Map<String, dynamic> json) =>
+      _$BookChapterFromJson(json);
 
   @override
   @JsonKey()
@@ -387,16 +598,24 @@ class _$BookChapterImpl implements _BookChapter {
   @JsonKey(name: 'imgUrl')
   final String? imgUrl;
 
+  /// Create a copy of BookChapter
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'BookChapter(url: $url, title: $title, isVolume: $isVolume, baseUrl: $baseUrl, bookUrl: $bookUrl, index: $index, isVip: $isVip, isPay: $isPay, resourceUrl: $resourceUrl, tag: $tag, wordCount: $wordCount, start: $start, end: $end, startFragmentId: $startFragmentId, endFragmentId: $endFragmentId, variable: $variable, imgUrl: $imgUrl)';
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$BookChapterCopyWith<_BookChapter> get copyWith =>
+      __$BookChapterCopyWithImpl<_BookChapter>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$BookChapterToJson(this);
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$BookChapterImpl &&
+            other is _BookChapter &&
             (identical(other.url, url) || other.url == url) &&
             (identical(other.title, title) || other.title == title) &&
             (identical(other.isVolume, isVolume) ||
@@ -422,9 +641,10 @@ class _$BookChapterImpl implements _BookChapter {
             (identical(other.imgUrl, imgUrl) || other.imgUrl == imgUrl));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       url,
       title,
@@ -442,91 +662,147 @@ class _$BookChapterImpl implements _BookChapter {
       startFragmentId,
       endFragmentId,
       variable,
-      imgUrl);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BookChapterImplCopyWith<_$BookChapterImpl> get copyWith =>
-      __$$BookChapterImplCopyWithImpl<_$BookChapterImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$BookChapterImplToJson(
-      this,
+      imgUrl,
     );
+  }
+
+  @override
+  String toString() {
+    return 'BookChapter(url: $url, title: $title, isVolume: $isVolume, baseUrl: $baseUrl, bookUrl: $bookUrl, index: $index, isVip: $isVip, isPay: $isPay, resourceUrl: $resourceUrl, tag: $tag, wordCount: $wordCount, start: $start, end: $end, startFragmentId: $startFragmentId, endFragmentId: $endFragmentId, variable: $variable, imgUrl: $imgUrl)';
   }
 }
 
-abstract class _BookChapter implements BookChapter {
-  const factory _BookChapter(
-      {final String url,
-      final String title,
-      @JsonKey(name: 'isVolume') final bool isVolume,
-      @JsonKey(name: 'baseUrl') final String baseUrl,
-      @JsonKey(name: 'bookUrl') final String bookUrl,
-      final int index,
-      @JsonKey(name: 'isVip') final bool isVip,
-      @JsonKey(name: 'isPay') final bool isPay,
-      @JsonKey(name: 'resourceUrl') final String? resourceUrl,
-      final String? tag,
-      @JsonKey(name: 'wordCount') final String? wordCount,
-      final int? start,
-      final int? end,
-      @JsonKey(name: 'startFragmentId') final String? startFragmentId,
-      @JsonKey(name: 'endFragmentId') final String? endFragmentId,
-      final String? variable,
-      @JsonKey(name: 'imgUrl') final String? imgUrl}) = _$BookChapterImpl;
+/// @nodoc
+abstract mixin class _$BookChapterCopyWith<$Res>
+    implements $BookChapterCopyWith<$Res> {
+  factory _$BookChapterCopyWith(
+    _BookChapter value,
+    $Res Function(_BookChapter) _then,
+  ) = __$BookChapterCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    String url,
+    String title,
+    @JsonKey(name: 'isVolume') bool isVolume,
+    @JsonKey(name: 'baseUrl') String baseUrl,
+    @JsonKey(name: 'bookUrl') String bookUrl,
+    int index,
+    @JsonKey(name: 'isVip') bool isVip,
+    @JsonKey(name: 'isPay') bool isPay,
+    @JsonKey(name: 'resourceUrl') String? resourceUrl,
+    String? tag,
+    @JsonKey(name: 'wordCount') String? wordCount,
+    int? start,
+    int? end,
+    @JsonKey(name: 'startFragmentId') String? startFragmentId,
+    @JsonKey(name: 'endFragmentId') String? endFragmentId,
+    String? variable,
+    @JsonKey(name: 'imgUrl') String? imgUrl,
+  });
+}
 
-  factory _BookChapter.fromJson(Map<String, dynamic> json) =
-      _$BookChapterImpl.fromJson;
+/// @nodoc
+class __$BookChapterCopyWithImpl<$Res> implements _$BookChapterCopyWith<$Res> {
+  __$BookChapterCopyWithImpl(this._self, this._then);
 
+  final _BookChapter _self;
+  final $Res Function(_BookChapter) _then;
+
+  /// Create a copy of BookChapter
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String get url;
-  @override
-  String get title;
-  @override
-  @JsonKey(name: 'isVolume')
-  bool get isVolume;
-  @override
-  @JsonKey(name: 'baseUrl')
-  String get baseUrl;
-  @override
-  @JsonKey(name: 'bookUrl')
-  String get bookUrl;
-  @override
-  int get index;
-  @override
-  @JsonKey(name: 'isVip')
-  bool get isVip;
-  @override
-  @JsonKey(name: 'isPay')
-  bool get isPay;
-  @override
-  @JsonKey(name: 'resourceUrl')
-  String? get resourceUrl;
-  @override
-  String? get tag;
-  @override
-  @JsonKey(name: 'wordCount')
-  String? get wordCount;
-  @override
-  int? get start;
-  @override
-  int? get end;
-  @override
-  @JsonKey(name: 'startFragmentId')
-  String? get startFragmentId;
-  @override
-  @JsonKey(name: 'endFragmentId')
-  String? get endFragmentId;
-  @override
-  String? get variable;
-  @override
-  @JsonKey(name: 'imgUrl')
-  String? get imgUrl;
-  @override
-  @JsonKey(ignore: true)
-  _$$BookChapterImplCopyWith<_$BookChapterImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? url = null,
+    Object? title = null,
+    Object? isVolume = null,
+    Object? baseUrl = null,
+    Object? bookUrl = null,
+    Object? index = null,
+    Object? isVip = null,
+    Object? isPay = null,
+    Object? resourceUrl = freezed,
+    Object? tag = freezed,
+    Object? wordCount = freezed,
+    Object? start = freezed,
+    Object? end = freezed,
+    Object? startFragmentId = freezed,
+    Object? endFragmentId = freezed,
+    Object? variable = freezed,
+    Object? imgUrl = freezed,
+  }) {
+    return _then(
+      _BookChapter(
+        url: null == url
+            ? _self.url
+            : url // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _self.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isVolume: null == isVolume
+            ? _self.isVolume
+            : isVolume // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        baseUrl: null == baseUrl
+            ? _self.baseUrl
+            : baseUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        bookUrl: null == bookUrl
+            ? _self.bookUrl
+            : bookUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        index: null == index
+            ? _self.index
+            : index // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isVip: null == isVip
+            ? _self.isVip
+            : isVip // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isPay: null == isPay
+            ? _self.isPay
+            : isPay // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        resourceUrl: freezed == resourceUrl
+            ? _self.resourceUrl
+            : resourceUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tag: freezed == tag
+            ? _self.tag
+            : tag // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        wordCount: freezed == wordCount
+            ? _self.wordCount
+            : wordCount // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        start: freezed == start
+            ? _self.start
+            : start // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        end: freezed == end
+            ? _self.end
+            : end // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        startFragmentId: freezed == startFragmentId
+            ? _self.startFragmentId
+            : startFragmentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        endFragmentId: freezed == endFragmentId
+            ? _self.endFragmentId
+            : endFragmentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        variable: freezed == variable
+            ? _self.variable
+            : variable // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        imgUrl: freezed == imgUrl
+            ? _self.imgUrl
+            : imgUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
 }

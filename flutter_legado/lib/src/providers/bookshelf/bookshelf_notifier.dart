@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -23,6 +23,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   BookshelfState build() {
     // 延迟到 build() 返回后执行（state 初始化完成后才能访问）
     Future.microtask(() {
+      if (!ref.mounted) return;
       _loadSettings();
       _loadBooks();
       _loadGroups();
@@ -34,6 +35,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   // [红线清理 2.0.260 | 台账 1-3] 统计行/最近阅读行移除后，偏好仅剩布局
   Future<void> _loadSettings() async {
     final isGridView = await _settings.getBookshelfLayout();
+    if (!ref.mounted) return;
     state = state.copyWith(isGridView: isGridView);
   }
 
@@ -45,10 +47,12 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     try {
       final api = ref.read(bookApiProvider);
       final books = await api.getBooks();
+      if (!ref.mounted) return;
       state = state.copyWith(books: books, isLoading: false);
       // [P4-2b V4] 书籍就绪后重推视频聚合分组（对齐原版 IdVideo 动态显隐）
       _applyVideoGroup();
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(error: _mapError(e), isLoading: false);
     }
   }
@@ -91,6 +95,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     try {
       final api = ref.read(bookApiProvider);
       final groups = await api.getBookGroups();
+      if (!ref.mounted) return;
       final visible = groups.where((g) => g.show).toList()
         ..sort((a, b) => a.order.compareTo(b.order));
       // 对标原版 upGroup：始终保证「全部」组存在并置顶；
@@ -105,6 +110,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       final hasAll = visible.any((g) => g.groupId == BookGroupId.all);
       final list = hasAll ? visible : [allGroup, ...visible];
       final lastIndex = await _settings.getBookshelfTabPosition();
+      if (!ref.mounted) return;
       state = state.copyWith(
         groups: list,
         selectedGroupIndex: lastIndex.clamp(0, list.length - 1),
@@ -113,6 +119,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       _applyVideoGroup();
     } catch (e) {
       // 分组加载失败不阻断书架展示
+      if (!ref.mounted) return;
       state = state.copyWith(error: _mapError(e));
     }
   }

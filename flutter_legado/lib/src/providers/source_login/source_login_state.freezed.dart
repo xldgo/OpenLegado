@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'source_login_state.dart';
@@ -9,61 +9,111 @@ part of 'source_login_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$SourceLoginState {
   /// Bearer Token / API Key（可选）
-  String get token => throw _privateConstructorUsedError;
+  String get token;
 
   /// Cookie 键值对列表
-  List<LoginKeyValue> get cookies => throw _privateConstructorUsedError;
+  List<LoginKeyValue> get cookies;
 
   /// Header 键值对列表
-  List<LoginKeyValue> get headers => throw _privateConstructorUsedError;
+  List<LoginKeyValue> get headers;
 
   /// 正在加载已保存的登录信息
-  bool get isLoading => throw _privateConstructorUsedError;
+  bool get isLoading;
 
   /// 正在保存
-  bool get isSaving => throw _privateConstructorUsedError;
+  bool get isSaving;
 
   /// 错误信息
-  String? get error => throw _privateConstructorUsedError;
+  String? get error;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $SourceLoginStateCopyWith<SourceLoginState> get copyWith =>
-      throw _privateConstructorUsedError;
+      _$SourceLoginStateCopyWithImpl<SourceLoginState>(
+        this as SourceLoginState,
+        _$identity,
+      );
+
+  @override
+  bool operator ==(Object other) {
+    final _this = this as SourceLoginState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is SourceLoginState &&
+            (identical(other.token, _this.token) ||
+                other.token == _this.token) &&
+            const DeepCollectionEquality().equals(
+              other.cookies,
+              _this.cookies,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other.headers,
+              _this.headers,
+            ) &&
+            (identical(other.isLoading, _this.isLoading) ||
+                other.isLoading == _this.isLoading) &&
+            (identical(other.isSaving, _this.isSaving) ||
+                other.isSaving == _this.isSaving) &&
+            (identical(other.error, _this.error) ||
+                other.error == _this.error));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as SourceLoginState;
+    return Object.hash(
+      runtimeType,
+      _this.token,
+      const DeepCollectionEquality().hash(_this.cookies),
+      const DeepCollectionEquality().hash(_this.headers),
+      _this.isLoading,
+      _this.isSaving,
+      _this.error,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as SourceLoginState;
+    return 'SourceLoginState(token: ${_this.token}, cookies: ${_this.cookies}, headers: ${_this.headers}, isLoading: ${_this.isLoading}, isSaving: ${_this.isSaving}, error: ${_this.error})';
+  }
 }
 
 /// @nodoc
-abstract class $SourceLoginStateCopyWith<$Res> {
+abstract mixin class $SourceLoginStateCopyWith<$Res> {
   factory $SourceLoginStateCopyWith(
-          SourceLoginState value, $Res Function(SourceLoginState) then) =
-      _$SourceLoginStateCopyWithImpl<$Res, SourceLoginState>;
+    SourceLoginState value,
+    $Res Function(SourceLoginState) _then,
+  ) = _$SourceLoginStateCopyWithImpl;
   @useResult
-  $Res call(
-      {String token,
-      List<LoginKeyValue> cookies,
-      List<LoginKeyValue> headers,
-      bool isLoading,
-      bool isSaving,
-      String? error});
+  $Res call({
+    String token,
+    List<LoginKeyValue> cookies,
+    List<LoginKeyValue> headers,
+    bool isLoading,
+    bool isSaving,
+    String? error,
+  });
 }
 
 /// @nodoc
-class _$SourceLoginStateCopyWithImpl<$Res, $Val extends SourceLoginState>
+class _$SourceLoginStateCopyWithImpl<$Res>
     implements $SourceLoginStateCopyWith<$Res> {
-  _$SourceLoginStateCopyWithImpl(this._value, this._then);
+  _$SourceLoginStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final SourceLoginState _self;
+  final $Res Function(SourceLoginState) _then;
 
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -74,111 +124,251 @@ class _$SourceLoginStateCopyWithImpl<$Res, $Val extends SourceLoginState>
     Object? isSaving = null,
     Object? error = freezed,
   }) {
-    return _then(_value.copyWith(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookies: null == cookies
-          ? _value.cookies
-          : cookies // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      headers: null == headers
-          ? _value.headers
-          : headers // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSaving: null == isSaving
-          ? _value.isSaving
-          : isSaving // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      SourceLoginState(
+        token: null == token
+            ? _self.token
+            : token // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cookies: null == cookies
+            ? _self.cookies
+            : cookies // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        headers: null == headers
+            ? _self.headers
+            : headers // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        isLoading: null == isLoading
+            ? _self.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isSaving: null == isSaving
+            ? _self.isSaving
+            : isSaving // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
-/// @nodoc
-abstract class _$$SourceLoginStateImplCopyWith<$Res>
-    implements $SourceLoginStateCopyWith<$Res> {
-  factory _$$SourceLoginStateImplCopyWith(_$SourceLoginStateImpl value,
-          $Res Function(_$SourceLoginStateImpl) then) =
-      __$$SourceLoginStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {String token,
+/// Adds pattern-matching-related methods to [SourceLoginState].
+extension SourceLoginStatePatterns on SourceLoginState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_SourceLoginState value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_SourceLoginState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_SourceLoginState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      String token,
       List<LoginKeyValue> cookies,
       List<LoginKeyValue> headers,
       bool isLoading,
       bool isSaving,
-      String? error});
-}
-
-/// @nodoc
-class __$$SourceLoginStateImplCopyWithImpl<$Res>
-    extends _$SourceLoginStateCopyWithImpl<$Res, _$SourceLoginStateImpl>
-    implements _$$SourceLoginStateImplCopyWith<$Res> {
-  __$$SourceLoginStateImplCopyWithImpl(_$SourceLoginStateImpl _value,
-      $Res Function(_$SourceLoginStateImpl) _then)
-      : super(_value, _then);
-
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? token = null,
-    Object? cookies = null,
-    Object? headers = null,
-    Object? isLoading = null,
-    Object? isSaving = null,
-    Object? error = freezed,
+      String? error,
+    )?
+    $default, {
+    required TResult orElse(),
   }) {
-    return _then(_$SourceLoginStateImpl(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
-              as String,
-      cookies: null == cookies
-          ? _value._cookies
-          : cookies // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      headers: null == headers
-          ? _value._headers
-          : headers // ignore: cast_nullable_to_non_nullable
-              as List<LoginKeyValue>,
-      isLoading: null == isLoading
-          ? _value.isLoading
-          : isLoading // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSaving: null == isSaving
-          ? _value.isSaving
-          : isSaving // ignore: cast_nullable_to_non_nullable
-              as bool,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState() when $default != null:
+        return $default(
+          _that.token,
+          _that.cookies,
+          _that.headers,
+          _that.isLoading,
+          _that.isSaving,
+          _that.error,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      String token,
+      List<LoginKeyValue> cookies,
+      List<LoginKeyValue> headers,
+      bool isLoading,
+      bool isSaving,
+      String? error,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState():
+        return $default(
+          _that.token,
+          _that.cookies,
+          _that.headers,
+          _that.isLoading,
+          _that.isSaving,
+          _that.error,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      String token,
+      List<LoginKeyValue> cookies,
+      List<LoginKeyValue> headers,
+      bool isLoading,
+      bool isSaving,
+      String? error,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SourceLoginState() when $default != null:
+        return $default(
+          _that.token,
+          _that.cookies,
+          _that.headers,
+          _that.isLoading,
+          _that.isSaving,
+          _that.error,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 
-class _$SourceLoginStateImpl implements _SourceLoginState {
-  const _$SourceLoginStateImpl(
-      {this.token = '',
-      final List<LoginKeyValue> cookies = const [],
-      final List<LoginKeyValue> headers = const [],
-      this.isLoading = false,
-      this.isSaving = false,
-      this.error})
-      : _cookies = cookies,
-        _headers = headers;
+class _SourceLoginState implements SourceLoginState {
+  const _SourceLoginState({
+    this.token = '',
+    List<LoginKeyValue> cookies = const [],
+    List<LoginKeyValue> headers = const [],
+    this.isLoading = false,
+    this.isSaving = false,
+    this.error,
+  }) : _cookies = cookies,
+       _headers = headers;
 
   /// Bearer Token / API Key（可选）
   @override
@@ -223,19 +413,22 @@ class _$SourceLoginStateImpl implements _SourceLoginState {
   @override
   final String? error;
 
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'SourceLoginState(token: $token, cookies: $cookies, headers: $headers, isLoading: $isLoading, isSaving: $isSaving, error: $error)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$SourceLoginStateCopyWith<_SourceLoginState> get copyWith =>
+      __$SourceLoginStateCopyWithImpl<_SourceLoginState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$SourceLoginStateImpl &&
+            other is _SourceLoginState &&
             (identical(other.token, token) || other.token == token) &&
-            const DeepCollectionEquality().equals(other._cookies, _cookies) &&
-            const DeepCollectionEquality().equals(other._headers, _headers) &&
+            const DeepCollectionEquality().equals(other.cookies, _cookies) &&
+            const DeepCollectionEquality().equals(other.headers, _headers) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.isSaving, isSaving) ||
@@ -244,58 +437,90 @@ class _$SourceLoginStateImpl implements _SourceLoginState {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       token,
       const DeepCollectionEquality().hash(_cookies),
       const DeepCollectionEquality().hash(_headers),
       isLoading,
       isSaving,
-      error);
+      error,
+    );
+  }
 
-  @JsonKey(ignore: true)
   @override
-  @pragma('vm:prefer-inline')
-  _$$SourceLoginStateImplCopyWith<_$SourceLoginStateImpl> get copyWith =>
-      __$$SourceLoginStateImplCopyWithImpl<_$SourceLoginStateImpl>(
-          this, _$identity);
+  String toString() {
+    return 'SourceLoginState(token: $token, cookies: $cookies, headers: $headers, isLoading: $isLoading, isSaving: $isSaving, error: $error)';
+  }
 }
 
-abstract class _SourceLoginState implements SourceLoginState {
-  const factory _SourceLoginState(
-      {final String token,
-      final List<LoginKeyValue> cookies,
-      final List<LoginKeyValue> headers,
-      final bool isLoading,
-      final bool isSaving,
-      final String? error}) = _$SourceLoginStateImpl;
-
+/// @nodoc
+abstract mixin class _$SourceLoginStateCopyWith<$Res>
+    implements $SourceLoginStateCopyWith<$Res> {
+  factory _$SourceLoginStateCopyWith(
+    _SourceLoginState value,
+    $Res Function(_SourceLoginState) _then,
+  ) = __$SourceLoginStateCopyWithImpl;
   @override
+  @useResult
+  $Res call({
+    String token,
+    List<LoginKeyValue> cookies,
+    List<LoginKeyValue> headers,
+    bool isLoading,
+    bool isSaving,
+    String? error,
+  });
+}
 
-  /// Bearer Token / API Key（可选）
-  String get token;
-  @override
+/// @nodoc
+class __$SourceLoginStateCopyWithImpl<$Res>
+    implements _$SourceLoginStateCopyWith<$Res> {
+  __$SourceLoginStateCopyWithImpl(this._self, this._then);
 
-  /// Cookie 键值对列表
-  List<LoginKeyValue> get cookies;
-  @override
+  final _SourceLoginState _self;
+  final $Res Function(_SourceLoginState) _then;
 
-  /// Header 键值对列表
-  List<LoginKeyValue> get headers;
+  /// Create a copy of SourceLoginState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-
-  /// 正在加载已保存的登录信息
-  bool get isLoading;
-  @override
-
-  /// 正在保存
-  bool get isSaving;
-  @override
-
-  /// 错误信息
-  String? get error;
-  @override
-  @JsonKey(ignore: true)
-  _$$SourceLoginStateImplCopyWith<_$SourceLoginStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? token = null,
+    Object? cookies = null,
+    Object? headers = null,
+    Object? isLoading = null,
+    Object? isSaving = null,
+    Object? error = freezed,
+  }) {
+    return _then(
+      _SourceLoginState(
+        token: null == token
+            ? _self.token
+            : token // ignore: cast_nullable_to_non_nullable
+                  as String,
+        cookies: null == cookies
+            ? _self._cookies
+            : cookies // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        headers: null == headers
+            ? _self._headers
+            : headers // ignore: cast_nullable_to_non_nullable
+                  as List<LoginKeyValue>,
+        isLoading: null == isLoading
+            ? _self.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isSaving: null == isSaving
+            ? _self.isSaving
+            : isSaving // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
 }

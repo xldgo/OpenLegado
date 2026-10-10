@@ -2,7 +2,7 @@
 //
 // — Composer + UI ｜ 2026-08-14
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../constants/pref_keys.dart';
 import '../../services/settings_service.dart';

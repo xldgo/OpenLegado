@@ -9,7 +9,7 @@ part 'search_state.freezed.dart';
 /// 对标原 SearchProvider 字段，迁移至 Riverpod 后由 [SearchNotifier] 维护。
 /// 展示层派生属性（hasResults/isEmpty/hasFilter）以 extension 表达。
 @freezed
-class SearchState with _$SearchState {
+abstract class SearchState with _$SearchState {
   const factory SearchState({
     /// 当前搜索关键词
     @Default('') String keyword,

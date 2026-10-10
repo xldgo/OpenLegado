@@ -13,13 +13,15 @@
 /// 修复前（['epub','txt','mobi','pdf','umd']）本用例必红。
 library;
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart' show XFile;
 
 import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -28,52 +30,61 @@ import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
 
 import '../mocks/mocks.dart';
 
-/// 记录 pickFiles 实参的 FilePicker 桩；返回 null = 用户取消，
+/// 记录 pickFiles 实参的平台桩；返回空列表 = 用户取消，
 /// 不进入 importLocalBook/FFI 链路（本用例只钉白名单，不测导入）。
-class _RecordingFilePicker extends FilePicker {
+class _RecordingFilePicker extends FilePickerPlatform {
+  _RecordingFilePicker({this.files = const []});
+  final List<PlatformFile> files;
   int pickCalls = 0;
   FileType? capturedType;
   List<String>? capturedAllowedExtensions;
-  bool? capturedAllowMultiple;
 
   @override
-  Future<FilePickerResult?> pickFiles({
+  Future<List<PlatformFile>> pickFiles({
     String? dialogTitle,
     String? initialDirectory,
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
-    bool allowCompression = true,
-    int compressionQuality = 30,
-    bool allowMultiple = false,
-    bool withData = false,
-    bool withReadStream = false,
-    bool lockParentWindow = false,
-    bool readSequential = false,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
   }) async {
     pickCalls++;
     capturedType = type;
     capturedAllowedExtensions = allowedExtensions;
-    capturedAllowMultiple = allowMultiple;
-    return null;
+    return files;
   }
 }
 
-/// 注入 FilePicker 平台桩并登记恢复（同 reader_comic_click_actions_test
-/// 现有桩模式；宿主若未初始化则回退 [FilePickerIO]）
-void _useFakeFilePicker(FilePicker fake) {
-  FilePicker? original;
-  var initialized = false;
-  try {
-    original = FilePicker.platform;
-    initialized = true;
-  } catch (_) {
-    // late 未初始化（测试宿主 registrant 无本平台分支）
-  }
-  FilePicker.platform = fake;
-  addTearDown(
-    () => FilePicker.platform = initialized ? original! : FilePickerIO(),
-  );
+/// 本地选择结果桩，路径与数据读取委托 XFile。
+final class _PickedFile extends PlatformFile {
+  _PickedFile(String path) : xFile = XFile(path);
+  @override
+  final XFile xFile;
+  @override
+  String get name => xFile.name;
+  @override
+  Uri get uri => Uri.file(xFile.path);
+  @override
+  int? lengthSync() => null;
+  @override
+  Future<int?> length() => xFile.length();
+  @override
+  Future<Uint8List> readAsBytes() => xFile.readAsBytes();
+  @override
+  Stream<Uint8List> readAsByteStream() =>
+      xFile.openRead().map(Uint8List.fromList);
+}
+
+/// 注入新版 FilePicker 平台桩并登记恢复。
+void _useFakeFilePicker(FilePickerPlatform fake) {
+  final original = FilePickerPlatform.instance;
+  FilePickerPlatform.instance = fake;
+  addTearDown(() => FilePickerPlatform.instance = original);
 }
 
 void main() {
@@ -100,6 +111,30 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('多选列表中的每本本地书都进入原有导入链路', (tester) async {
+    final files = [
+      _PickedFile('/books/first.txt'),
+      _PickedFile('/books/second.cbz'),
+    ];
+    final fake = _RecordingFilePicker(files: files);
+    _useFakeFilePicker(fake);
+    when(() => api.importLocalBook(any())).thenAnswer(
+      (call) async =>
+          Book(bookUrl: call.positionalArguments.single as String, name: '本地书'),
+    );
+    await pumpShelf(tester);
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.addLocalBook));
+    await tester.pumpAndSettle();
+
+    expect(fake.pickCalls, 1);
+    for (final file in files) {
+      verify(() => api.importLocalBook(file.path!)).called(1);
+    }
+    expect(find.textContaining('已导入 2 本书籍'), findsOneWidget);
+  });
+
   testWidgets('书架「更多 → 添加本地」白名单与导入页一致且含 cbz', (tester) async {
     final fake = _RecordingFilePicker();
     _useFakeFilePicker(fake);
@@ -121,7 +156,6 @@ void main() {
     expect(fake.pickCalls, 1, reason: '「添加本地」应触发一次文件选择');
     // Windows 测试宿主 Platform.isIOS=false → 走 Android custom 白名单分支
     expect(fake.capturedType, FileType.custom);
-    expect(fake.capturedAllowMultiple, isTrue);
 
     final exts = fake.capturedAllowedExtensions;
     expect(exts, isNotNull, reason: 'custom 分支必须携带 allowedExtensions');

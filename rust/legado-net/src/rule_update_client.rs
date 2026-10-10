@@ -62,9 +62,9 @@ pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String
         (sub.url.clone(), false)
     };
 
-    let client = reqwest::Client::builder()
+    let client = crate::tls::client_builder()
         .timeout(std::time::Duration::from_secs(30))
-        .danger_accept_invalid_certs(true)
+        .tls_danger_accept_invalid_certs(true)
         .dns_resolver(crate::custom_hosts::resolver())
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;

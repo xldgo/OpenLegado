@@ -5,7 +5,7 @@
 // - compact（<840dp）：单栏列表（保持安卓原版行为，无右栏占位）
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

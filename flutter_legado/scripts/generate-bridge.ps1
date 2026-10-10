@@ -1,4 +1,4 @@
-# generate-bridge.ps1 — 运行 flutter_rust_bridge 代码生成 (Windows)
+﻿# generate-bridge.ps1 — 运行 flutter_rust_bridge 代码生成 (Windows)
 # 用法: .\generate-bridge.ps1
 
 $ErrorActionPreference = "Stop"
@@ -12,10 +12,22 @@ Write-Host "=== flutter_rust_bridge Code Generation ===" -ForegroundColor Cyan
 Write-Host "Working dir: $(Get-Location)"
 Write-Host ""
 
-# 检查 flutter_rust_bridge_codegen 是否已安装
+# 从已固定的 Dart runtime 版本读取生成器要求。
+$Pubspec = Get-Content (Join-Path $FlutterDir "pubspec.yaml") -Raw
+$FrbVersionMatch = [regex]::Match($Pubspec, '(?m)^  flutter_rust_bridge:\s*(\d+\.\d+\.\d+)\s*$')
+if (-not $FrbVersionMatch.Success) {
+    throw "pubspec.yaml 必须精确固定 flutter_rust_bridge 版本"
+}
+$FrbVersion = $FrbVersionMatch.Groups[1].Value
+
+# 检查 flutter_rust_bridge_codegen 是否已安装且与 runtime 配对。
 if (-not (Get-Command flutter_rust_bridge_codegen -ErrorAction SilentlyContinue)) {
-    Write-Error "flutter_rust_bridge_codegen not found.`nInstall it with:`n  cargo install flutter_rust_bridge_codegen"
+    Write-Error "缺少 FRB 生成器，请运行：cargo install flutter_rust_bridge_codegen --version $FrbVersion --locked"
     exit 1
+}
+$CodegenVersion = flutter_rust_bridge_codegen --version
+if ($LASTEXITCODE -ne 0 -or "$CodegenVersion".Trim() -ne "flutter_rust_bridge_codegen $FrbVersion") {
+    throw "FRB 生成器版本必须为 $FrbVersion，请运行：cargo install flutter_rust_bridge_codegen --version $FrbVersion --locked"
 }
 
 Write-Host ">> Running codegen..." -ForegroundColor Yellow
@@ -35,7 +47,7 @@ $RustDir = Join-Path (Split-Path -Parent $FlutterDir) "rust"
 Stop-Process -Name "flutter_legado" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 Push-Location $RustDir
-cargo build -p legado-ffi
+cargo build --locked -p legado-ffi --features quickjs
 $rustExit = $LASTEXITCODE
 Pop-Location
 if ($rustExit -ne 0) {

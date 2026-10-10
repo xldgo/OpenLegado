@@ -9,7 +9,7 @@
 // 其所有平台通道调用均为静默 no-op（与原测试使用真实单例的行为一致），
 // 故此处无需 override audioServiceProvider。
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

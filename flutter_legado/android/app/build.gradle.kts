@@ -6,6 +6,7 @@ plugins {
 }
 
 import org.gradle.api.GradleException
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
@@ -18,12 +19,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // flutter_local_notifications 18.x AAR 元数据要求消费者启用 core library desugaring
+        // 通知插件要求消费者启用 core library desugaring。
         isCoreLibraryDesugaringEnabled = true
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     sourceSets {
@@ -39,8 +36,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        // 分 ABI 构建由 Flutter 的 splits 筛选架构，避免与 NDK 过滤器冲突。
+        if (project.findProperty("split-per-abi") != "true") {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            }
         }
     }
 
@@ -50,6 +50,12 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -63,9 +69,9 @@ dependencies {
     // [V-B3] 视频悬浮窗服务自建播放器（VideoPlayService）：
     // Flutter video_player 的纹理归 Flutter 引擎渲染面，无法进入系统 overlay，
     // 故原生 side 直接使用 Media3 ExoPlayer + SurfaceView（对齐原版 GSYVideoPlayer 形态）。
-    // 版本与工程解析图一致（与 video_player_android 2.9.5 声明的 1.9.2 完全一致）。
+    // 版本与工程解析图一致（与 video_player_android 2.12.2 声明的 1.9.2 完全一致）。
     implementation("androidx.media3:media3-exoplayer:1.9.2")
-    // core library desugaring（flutter_local_notifications 18.x 强制要求，AGP 8.11）
+    // 通知插件的 core library desugaring 依赖。
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // [P1-2] 本地 JVM 单测（StorageBridge bytes 参数解析回归）：
     // ./gradlew :app:testDebugUnitTest --tests "io.legado.flutter.StorageBridgeBytesArgumentTest"

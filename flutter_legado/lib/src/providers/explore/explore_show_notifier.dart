@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -19,10 +19,13 @@ export 'explore_show_state.dart';
 /// - 调用 BookApi.exploreFetchBooks → 接收纯数据 → 累积去重更新 State
 /// - 管理分页状态（page/displayPage/hasMore/loading/error）
 /// - 禁止包含业务计算（书籍抓取/解析由 Rust 完成）
-class ExploreShowNotifier
-    extends AutoDisposeFamilyNotifier<ExploreShowState, ExploreShowArgs> {
+class ExploreShowNotifier extends Notifier<ExploreShowState> {
+  ExploreShowNotifier(this.arg);
+
+  final ExploreShowArgs arg;
+
   @override
-  ExploreShowState build(ExploreShowArgs arg) {
+  ExploreShowState build() {
     // 延迟到 build() 返回后执行首次加载
     Future.microtask(() => fetchBooks());
     return ExploreShowState(
@@ -37,6 +40,7 @@ class ExploreShowNotifier
   /// [prepend] 为 true 时将新页插入列表头部（上滑加载上一页）；
   /// [replace] 为 true 时替换整表（跳页后首次加载）。
   Future<void> fetchBooks({bool prepend = false, bool replace = false}) async {
+    if (!ref.mounted) return;
     if (state.isLoading || !state.hasMore) return;
     final source = state.source;
     if (source == null || state.categoryUrl.isEmpty) return;
@@ -51,6 +55,7 @@ class ExploreShowNotifier
         state.categoryUrl,
         fetchPage,
       );
+      if (!ref.mounted) return;
 
       final merged = _mergeBooks(
         state.books,
@@ -70,6 +75,7 @@ class ExploreShowNotifier
         page: noNew ? fetchPage : fetchPage + 1,
       );
     } catch (e) {
+      if (!ref.mounted) return;
       // 错误后保留 hasMore，使「点击重试」可用（对齐原版 fail() 不清 hasMore，
       // 可滚动/点击重试）— 发现页修复 C1
       final mapped = _mapError(e);
@@ -180,7 +186,7 @@ class ExploreShowNotifier
 /// final state = ref.watch(exploreShowNotifierProvider(args));
 /// ref.read(exploreShowNotifierProvider(args).notifier).loadMore();
 /// ```
-final exploreShowNotifierProvider = AutoDisposeNotifierProviderFamily<
+final exploreShowNotifierProvider = NotifierProvider.autoDispose.family<
     ExploreShowNotifier, ExploreShowState, ExploreShowArgs>(
   ExploreShowNotifier.new,
 );

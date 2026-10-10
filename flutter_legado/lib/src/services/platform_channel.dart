@@ -261,7 +261,7 @@ class PlatformChannel {
       requestSoundPermission: false,
     );
     await _iosNotifications.initialize(
-      const InitializationSettings(iOS: darwin),
+      settings: const InitializationSettings(iOS: darwin),
     );
     await _iosNotifications
         .resolvePlatformSpecificImplementation<
@@ -275,7 +275,12 @@ class PlatformChannel {
     const details = NotificationDetails(
       iOS: DarwinNotificationDetails(presentAlert: true, presentSound: false),
     );
-    await _iosNotifications.show(id, title, body, details);
+    await _iosNotifications.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
   }
 
   /// 显示下载进度通知
@@ -317,7 +322,7 @@ class PlatformChannel {
       if (id == null) {
         await _iosNotifications.cancelAll();
       } else {
-        await _iosNotifications.cancel(id);
+        await _iosNotifications.cancel(id: id);
       }
       return;
     }

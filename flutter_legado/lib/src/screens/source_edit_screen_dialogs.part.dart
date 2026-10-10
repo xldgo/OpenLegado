@@ -106,9 +106,11 @@ class _QrShareDialog extends StatelessWidget {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/legado_source_qr.png');
       await file.writeAsBytes(imageData.buffer.asUint8List());
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
-        subject: title,
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'image/png')],
+          subject: title,
+        ),
       );
     } catch (e) {
       if (context.mounted) {

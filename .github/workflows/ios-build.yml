@@ -26,7 +26,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 90
     env:
-      FLUTTER_VERSION: '3.44.8'
+      FLUTTER_VERSION: '3.47.7'
       # 缺少证书时产出未签名包；存在证书时签名失败必须使作业变红。
       # 配置入口见 docs/IOS_CI_SIGNING_SETUP.md。
       IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
@@ -52,8 +52,7 @@ jobs:
       # rustup toolchain install --target 在镜像预装工具链上可能静默漏装目标 std，
       # 显式补装并留诊断（首跑 E0463 can not find core 根因）
       - name: 确认工作区设备目标
-        # rust/rust-toolchain.toml 锁定 1.97.1：cargo 在 rust/ 下运行时会切换到
-        # 该工具链，target 必须装进它而非 stable——working-directory 触发 toml 解析
+        # 在工作区内解析 rust-toolchain.toml，确认 stable 工具链具备设备目标。
         working-directory: rust
         run: |
           rustup target add aarch64-apple-ios
@@ -70,18 +69,14 @@ jobs:
         working-directory: flutter_legado
         run: flutter pub get
 
-      # 设备静态库只使用 iphoneos SDK，最低系统版本与 App 的 13.0 对齐。
+      # 设备静态库只使用 iphoneos SDK，最低系统版本与 App 的 15.0 对齐。
       - name: 构建设备 Rust 静态库
         working-directory: rust
         run: |
           set -euo pipefail
           export SDKROOT=$(xcrun --sdk iphoneos --show-sdk-path)
-          # [视角F E1] rustc 对 apple 目标默认取 SDK 默认最低 iOS 版本（如 18.5），
-          # 与 App 的 13.0（Runner.xcodeproj / Podfile platform :ios, '13.0'）
-          # 不匹配时，链接期报 "object file ... built for newer 'iOS' version
-          # (18.5) than being linked (13.0)"；显式钉 13.0 使静态库对象文件
-          # 最低版本与 App 对齐
-          export IPHONEOS_DEPLOYMENT_TARGET=13.0
+          # 显式固定最低版本，避免 Apple SDK 默认目标高于 App，导致链接版本不匹配。
+          export IPHONEOS_DEPLOYMENT_TARGET=15.0
           cargo rustc --release --target aarch64-apple-ios -p legado-ffi --lib --crate-type staticlib --features quickjs
           mkdir -p ../flutter_legado/ios/RustFFI
           cp target/aarch64-apple-ios/release/liblegado_ffi.a \
@@ -142,7 +137,9 @@ jobs:
           set -euo pipefail
           APP=flutter_legado/build/ios/iphoneos/Runner.app
           ASSETS=flutter_legado/ios/Runner/Assets.xcassets
+          # 显式复制四种 legacy 尺寸，保证各 SDK 构建的资源完整。
           for N in 1 2 3 4 5 6; do
+            cp "$ASSETS/launcher${N}.appiconset/launcher${N}_120.png" "$APP/launcher${N}60x60@2x.png"
             cp "$ASSETS/launcher${N}.appiconset/launcher${N}_76.png"  "$APP/launcher${N}76x76@1x.png"
             cp "$ASSETS/launcher${N}.appiconset/launcher${N}_152.png" "$APP/launcher${N}76x76@2x.png"
             cp "$ASSETS/launcher${N}.appiconset/launcher${N}_180.png" "$APP/launcher${N}60x60@3x.png"
@@ -178,6 +175,9 @@ jobs:
               for name, entry in alt.items():
                   if isinstance(entry, dict) and "CFBundleIconName" in entry:
                       del entry["CFBundleIconName"]
+                      # 移除资产目录引用后，显式指向前一步复制的 legacy 散文件。
+                      size = "76x76" if section == "CFBundleIcons~ipad" else "60x60"
+                      entry["CFBundleIconFiles"] = [f"{name}{size}"]
                       stripped += 1
           with open(p, "wb") as f:
               plistlib.dump(d, f)
@@ -326,7 +326,7 @@ jobs:
           ls -lh "$IPA_NAME"
 
       - name: 上传设备 IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.artifact_name }}
           path: ${{ steps.package.outputs.ipa_path }}
@@ -339,7 +339,7 @@ jobs:
 
       - name: 上传设备构建失败日志
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-device-build-log
           path: flutter_legado/ios_device_build.log
@@ -377,7 +377,7 @@ jobs:
       - name: 上传图标 car 诊断产物
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-device-assets-car
           path: flutter_legado/build/ios/iphoneos/Runner.app/Assets.car
@@ -398,7 +398,7 @@ jobs:
       - name: 上传设备 plist 诊断产物
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-device-info-plist
           path: flutter_legado/build/ios/device-plist/

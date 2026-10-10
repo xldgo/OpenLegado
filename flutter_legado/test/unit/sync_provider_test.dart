@@ -4,8 +4,9 @@
 // 初始状态/配置管理（saveConfig/loadConfig/toggle/setter）/真实同步操作
 // （backupToWebDav/restoreFromWebDav）/lastSyncTimeLabel/SyncStatus 枚举。
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_legado/src/services/settings_service.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -175,8 +176,18 @@ void main() {
     test('loadConfig 触发状态变更通知', () async {
       var notified = false;
       container.listen(syncNotifierProvider, (_, _) => notified = true);
+      await SettingsService().setWebDavUrl('https://changed.com');
       await readNotifier().loadConfig();
       expect(notified, isTrue);
+      expect(readState().webDavUrl, 'https://changed.com');
+    });
+
+    test('loadConfig 相同配置不重复通知', () async {
+      await readNotifier().loadConfig();
+      var notified = false;
+      container.listen(syncNotifierProvider, (_, _) => notified = true);
+      await readNotifier().loadConfig();
+      expect(notified, isFalse);
     });
 
     test('toggleAutoSync 开启/关闭自动同步', () async {

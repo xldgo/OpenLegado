@@ -9,7 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../l10n/app_strings.dart';
@@ -153,7 +153,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _pickBackupPath() async {
-    final picked = await FilePicker.platform.getDirectoryPath(
+    final picked = await FilePicker.getDirectoryPath(
       dialogTitle: '选择备份路径',
     );
     if (picked == null) return;
@@ -167,7 +167,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       final api = ref.read(bookApiProvider);
       var dirPath = _backupPath;
       if (dirPath.isEmpty) {
-        final picked = await FilePicker.platform.getDirectoryPath();
+        final picked = await FilePicker.getDirectoryPath();
         if (picked == null) return;
         dirPath = picked;
         await CrashLogService.instance.setBackupPath(dirPath);
@@ -218,11 +218,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   Future<void> _doRestoreFromLocal() async {
     await _runWithProgress('恢复中…', () async {
       final api = ref.read(bookApiProvider);
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['json', 'zip'],
       );
-      final backupPath = result?.files.single.path;
+      final backupPath = result?.path;
       if (backupPath == null) return;
 
       var pathToRestore = backupPath;
@@ -260,7 +260,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
   Future<void> _doImportOldData() async {
     await _runWithProgress('导入中…', () async {
-      final dirPath = await FilePicker.platform.getDirectoryPath(
+      final dirPath = await FilePicker.getDirectoryPath(
         dialogTitle: '选择旧版备份目录',
       );
       if (dirPath == null) return;

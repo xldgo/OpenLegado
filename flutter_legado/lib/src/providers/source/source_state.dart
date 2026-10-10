@@ -58,7 +58,7 @@ abstract final class SourceSpecialGroup {
 /// - [batchMode] / [selectedUrls]：批量选择模式
 /// - [lastImportResult]：最近一次导入结果
 @freezed
-class SourceState with _$SourceState {
+abstract class SourceState with _$SourceState {
   const factory SourceState({
     /// 全部书源列表
     @Default([]) List<BookSource> sources,

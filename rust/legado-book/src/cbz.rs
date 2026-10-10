@@ -51,9 +51,11 @@ impl CbzFile {
             if entry.is_dir() {
                 continue;
             }
-            let name = entry.name();
-            if is_image_entry(name) {
-                images.push(name.to_string());
+            let name = entry
+                .name()
+                .map_err(|e| LegadoError::BookParse(format!("CBZ 条目名称解析失败: {e}")))?;
+            if is_image_entry(&name) {
+                images.push(name.into_owned());
             }
         }
         images.sort_by(|a, b| natural_cmp(a, b));

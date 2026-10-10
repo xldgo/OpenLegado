@@ -8,7 +8,7 @@
 /// - 导入：importSources/importFromJson/importFromUrl/importFromFile
 library;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

@@ -60,7 +60,10 @@ pub fn import_zip_file(zip_path: &str, output_dir: &str) -> LegadoResult<Vec<Str
             continue;
         }
 
-        let entry_name = entry.name().to_string();
+        let entry_name = entry
+            .name()
+            .map_err(|e| LegadoError::BookParse(format!("ZIP 条目名称解析失败: {e}")))?
+            .into_owned();
         let base_name = file_base_name(&entry_name);
 
         // 跳过隐藏文件
@@ -206,7 +209,10 @@ pub fn list_zip_book_files(zip_path: &str) -> LegadoResult<Vec<String>> {
             continue;
         }
 
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| LegadoError::BookParse(format!("ZIP 条目名称解析失败: {e}")))?
+            .into_owned();
         let base_name = file_base_name(&name);
         if !base_name.starts_with('.') && is_book_file(base_name) {
             book_files.push(base_name.to_string());

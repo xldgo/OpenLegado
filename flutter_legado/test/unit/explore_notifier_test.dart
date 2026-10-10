@@ -3,7 +3,7 @@
 // 覆盖：初始状态/loadBookSources 过滤/分组收集/搜索过滤/分组过滤/
 // uninstallSource/refresh/loadCategories（exploreParseUrl 缓存）
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

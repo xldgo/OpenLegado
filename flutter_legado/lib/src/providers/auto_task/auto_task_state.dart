@@ -155,7 +155,7 @@ class AutoTask {
 /// - [isLoading]：列表加载状态
 /// - [error]：错误信息（null 表示无错误或连接类错误静默）
 @freezed
-class AutoTaskState with _$AutoTaskState {
+abstract class AutoTaskState with _$AutoTaskState {
   const factory AutoTaskState({
     /// 定时任务列表
     @Default([]) List<AutoTask> tasks,

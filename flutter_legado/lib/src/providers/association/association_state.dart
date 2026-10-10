@@ -56,7 +56,7 @@ class AssociationItem {
 
 /// 关联导入状态
 @freezed
-class AssociationState with _$AssociationState {
+abstract class AssociationState with _$AssociationState {
   const factory AssociationState({
     /// 导入类型（由内容自动识别或深度链接指定）
     @Default(ImportType.bookSource) ImportType type,

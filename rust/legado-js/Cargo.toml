@@ -29,7 +29,7 @@ hex      = { version = "0.4", optional = true }
 rsa       = { version = "0.9", features = ["pem", "hazmat"], optional = true }
 signature = { version = "2", optional = true }
 rand_core = { version = "0.6", features = ["getrandom"], optional = true }
-lru      = { version = "0.12" }
+lru      = { version = "0.18.5" }
 percent-encoding = { version = "2", optional = true }
 
 # 新增：字符串、JSON、正则、时间、UUID 工具
@@ -43,7 +43,7 @@ uuid          = { version = "1", features = ["v4"], optional = true }
 url           = { version = "2", optional = true }
 
 # 解压缩（ZIP / 7z / RAR）
-zip           = { version = "2", optional = true }
+zip           = { version = "9.0.1", optional = true }
 sevenz-rust2  = { version = "0.12", optional = true }
 # 纯 Rust RAR4/RAR5 解压（含加密档案），无 C 依赖
 rar           = { version = "0.4", optional = true }
@@ -55,7 +55,7 @@ flate2        = { version = "1", optional = true }
 futures       = { version = "0.3", optional = true }
 
 # HTML 解析（java.getElement/getString 桥：漫画源目录/正文规则依赖）
-scraper       = { version = "0.22", optional = true }
+scraper       = { version = "0.27", optional = true }
 
 # tokio 运行时桥接（用于在 JS 线程中调用 legado-net 异步 API）
 tokio         = { version = "1", features = ["rt-multi-thread", "sync"], optional = true }

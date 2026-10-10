@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'sync_state.dart';
@@ -9,80 +9,139 @@ part of 'sync_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$SyncState {
   /// 同步状态
-  SyncStatus get status => throw _privateConstructorUsedError;
+  SyncStatus get status;
 
   /// 上次同步时间（null 表示从未同步）
-  DateTime? get lastSyncTime => throw _privateConstructorUsedError;
+  DateTime? get lastSyncTime;
 
   /// 错误信息（null 表示无错误）
-  String? get error => throw _privateConstructorUsedError;
+  String? get error;
 
   /// 是否自动同步
-  bool get autoSync =>
-      throw _privateConstructorUsedError; // ===== WebDAV 配置 =====
+  bool get autoSync;
+
   /// WebDAV 服务器地址
-  String get webDavUrl => throw _privateConstructorUsedError;
+  String get webDavUrl;
 
   /// WebDAV 账号
-  String get webDavUsername => throw _privateConstructorUsedError;
+  String get webDavUsername;
 
   /// WebDAV 密码
-  String get webDavPassword => throw _privateConstructorUsedError;
+  String get webDavPassword;
 
   /// 远端子目录
-  String get remoteDir => throw _privateConstructorUsedError;
+  String get remoteDir;
 
   /// 设备名
-  String get deviceName => throw _privateConstructorUsedError;
+  String get deviceName;
 
   /// 同步书籍进度
-  bool get syncBookProgress => throw _privateConstructorUsedError;
+  bool get syncBookProgress;
 
   /// 同步书籍进度增强
-  bool get syncBookProgressPlus => throw _privateConstructorUsedError;
+  bool get syncBookProgressPlus;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of SyncState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $SyncStateCopyWith<SyncState> get copyWith =>
-      throw _privateConstructorUsedError;
+      _$SyncStateCopyWithImpl<SyncState>(this as SyncState, _$identity);
+
+  @override
+  bool operator ==(Object other) {
+    final _this = this as SyncState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is SyncState &&
+            (identical(other.status, _this.status) ||
+                other.status == _this.status) &&
+            (identical(other.lastSyncTime, _this.lastSyncTime) ||
+                other.lastSyncTime == _this.lastSyncTime) &&
+            (identical(other.error, _this.error) ||
+                other.error == _this.error) &&
+            (identical(other.autoSync, _this.autoSync) ||
+                other.autoSync == _this.autoSync) &&
+            (identical(other.webDavUrl, _this.webDavUrl) ||
+                other.webDavUrl == _this.webDavUrl) &&
+            (identical(other.webDavUsername, _this.webDavUsername) ||
+                other.webDavUsername == _this.webDavUsername) &&
+            (identical(other.webDavPassword, _this.webDavPassword) ||
+                other.webDavPassword == _this.webDavPassword) &&
+            (identical(other.remoteDir, _this.remoteDir) ||
+                other.remoteDir == _this.remoteDir) &&
+            (identical(other.deviceName, _this.deviceName) ||
+                other.deviceName == _this.deviceName) &&
+            (identical(other.syncBookProgress, _this.syncBookProgress) ||
+                other.syncBookProgress == _this.syncBookProgress) &&
+            (identical(
+                  other.syncBookProgressPlus,
+                  _this.syncBookProgressPlus,
+                ) ||
+                other.syncBookProgressPlus == _this.syncBookProgressPlus));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as SyncState;
+    return Object.hash(
+      runtimeType,
+      _this.status,
+      _this.lastSyncTime,
+      _this.error,
+      _this.autoSync,
+      _this.webDavUrl,
+      _this.webDavUsername,
+      _this.webDavPassword,
+      _this.remoteDir,
+      _this.deviceName,
+      _this.syncBookProgress,
+      _this.syncBookProgressPlus,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as SyncState;
+    return 'SyncState(status: ${_this.status}, lastSyncTime: ${_this.lastSyncTime}, error: ${_this.error}, autoSync: ${_this.autoSync}, webDavUrl: ${_this.webDavUrl}, webDavUsername: ${_this.webDavUsername}, webDavPassword: ${_this.webDavPassword}, remoteDir: ${_this.remoteDir}, deviceName: ${_this.deviceName}, syncBookProgress: ${_this.syncBookProgress}, syncBookProgressPlus: ${_this.syncBookProgressPlus})';
+  }
 }
 
 /// @nodoc
-abstract class $SyncStateCopyWith<$Res> {
-  factory $SyncStateCopyWith(SyncState value, $Res Function(SyncState) then) =
-      _$SyncStateCopyWithImpl<$Res, SyncState>;
+abstract mixin class $SyncStateCopyWith<$Res> {
+  factory $SyncStateCopyWith(SyncState value, $Res Function(SyncState) _then) =
+      _$SyncStateCopyWithImpl;
   @useResult
-  $Res call(
-      {SyncStatus status,
-      DateTime? lastSyncTime,
-      String? error,
-      bool autoSync,
-      String webDavUrl,
-      String webDavUsername,
-      String webDavPassword,
-      String remoteDir,
-      String deviceName,
-      bool syncBookProgress,
-      bool syncBookProgressPlus});
+  $Res call({
+    SyncStatus status,
+    DateTime? lastSyncTime,
+    String? error,
+    bool autoSync,
+    String webDavUrl,
+    String webDavUsername,
+    String webDavPassword,
+    String remoteDir,
+    String deviceName,
+    bool syncBookProgress,
+    bool syncBookProgressPlus,
+  });
 }
 
 /// @nodoc
-class _$SyncStateCopyWithImpl<$Res, $Val extends SyncState>
-    implements $SyncStateCopyWith<$Res> {
-  _$SyncStateCopyWithImpl(this._value, this._then);
+class _$SyncStateCopyWithImpl<$Res> implements $SyncStateCopyWith<$Res> {
+  _$SyncStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final SyncState _self;
+  final $Res Function(SyncState) _then;
 
+  /// Create a copy of SyncState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -98,65 +157,152 @@ class _$SyncStateCopyWithImpl<$Res, $Val extends SyncState>
     Object? syncBookProgress = null,
     Object? syncBookProgressPlus = null,
   }) {
-    return _then(_value.copyWith(
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as SyncStatus,
-      lastSyncTime: freezed == lastSyncTime
-          ? _value.lastSyncTime
-          : lastSyncTime // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      autoSync: null == autoSync
-          ? _value.autoSync
-          : autoSync // ignore: cast_nullable_to_non_nullable
-              as bool,
-      webDavUrl: null == webDavUrl
-          ? _value.webDavUrl
-          : webDavUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      webDavUsername: null == webDavUsername
-          ? _value.webDavUsername
-          : webDavUsername // ignore: cast_nullable_to_non_nullable
-              as String,
-      webDavPassword: null == webDavPassword
-          ? _value.webDavPassword
-          : webDavPassword // ignore: cast_nullable_to_non_nullable
-              as String,
-      remoteDir: null == remoteDir
-          ? _value.remoteDir
-          : remoteDir // ignore: cast_nullable_to_non_nullable
-              as String,
-      deviceName: null == deviceName
-          ? _value.deviceName
-          : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      syncBookProgress: null == syncBookProgress
-          ? _value.syncBookProgress
-          : syncBookProgress // ignore: cast_nullable_to_non_nullable
-              as bool,
-      syncBookProgressPlus: null == syncBookProgressPlus
-          ? _value.syncBookProgressPlus
-          : syncBookProgressPlus // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      SyncState(
+        status: null == status
+            ? _self.status
+            : status // ignore: cast_nullable_to_non_nullable
+                  as SyncStatus,
+        lastSyncTime: freezed == lastSyncTime
+            ? _self.lastSyncTime
+            : lastSyncTime // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        autoSync: null == autoSync
+            ? _self.autoSync
+            : autoSync // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        webDavUrl: null == webDavUrl
+            ? _self.webDavUrl
+            : webDavUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        webDavUsername: null == webDavUsername
+            ? _self.webDavUsername
+            : webDavUsername // ignore: cast_nullable_to_non_nullable
+                  as String,
+        webDavPassword: null == webDavPassword
+            ? _self.webDavPassword
+            : webDavPassword // ignore: cast_nullable_to_non_nullable
+                  as String,
+        remoteDir: null == remoteDir
+            ? _self.remoteDir
+            : remoteDir // ignore: cast_nullable_to_non_nullable
+                  as String,
+        deviceName: null == deviceName
+            ? _self.deviceName
+            : deviceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        syncBookProgress: null == syncBookProgress
+            ? _self.syncBookProgress
+            : syncBookProgress // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        syncBookProgressPlus: null == syncBookProgressPlus
+            ? _self.syncBookProgressPlus
+            : syncBookProgressPlus // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
   }
 }
 
-/// @nodoc
-abstract class _$$SyncStateImplCopyWith<$Res>
-    implements $SyncStateCopyWith<$Res> {
-  factory _$$SyncStateImplCopyWith(
-          _$SyncStateImpl value, $Res Function(_$SyncStateImpl) then) =
-      __$$SyncStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {SyncStatus status,
+/// Adds pattern-matching-related methods to [SyncState].
+extension SyncStatePatterns on SyncState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_SyncState value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _SyncState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_SyncState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SyncState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_SyncState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SyncState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      SyncStatus status,
       DateTime? lastSyncTime,
       String? error,
       bool autoSync,
@@ -166,96 +312,150 @@ abstract class _$$SyncStateImplCopyWith<$Res>
       String remoteDir,
       String deviceName,
       bool syncBookProgress,
-      bool syncBookProgressPlus});
-}
-
-/// @nodoc
-class __$$SyncStateImplCopyWithImpl<$Res>
-    extends _$SyncStateCopyWithImpl<$Res, _$SyncStateImpl>
-    implements _$$SyncStateImplCopyWith<$Res> {
-  __$$SyncStateImplCopyWithImpl(
-      _$SyncStateImpl _value, $Res Function(_$SyncStateImpl) _then)
-      : super(_value, _then);
-
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? status = null,
-    Object? lastSyncTime = freezed,
-    Object? error = freezed,
-    Object? autoSync = null,
-    Object? webDavUrl = null,
-    Object? webDavUsername = null,
-    Object? webDavPassword = null,
-    Object? remoteDir = null,
-    Object? deviceName = null,
-    Object? syncBookProgress = null,
-    Object? syncBookProgressPlus = null,
+      bool syncBookProgressPlus,
+    )?
+    $default, {
+    required TResult orElse(),
   }) {
-    return _then(_$SyncStateImpl(
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as SyncStatus,
-      lastSyncTime: freezed == lastSyncTime
-          ? _value.lastSyncTime
-          : lastSyncTime // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      error: freezed == error
-          ? _value.error
-          : error // ignore: cast_nullable_to_non_nullable
-              as String?,
-      autoSync: null == autoSync
-          ? _value.autoSync
-          : autoSync // ignore: cast_nullable_to_non_nullable
-              as bool,
-      webDavUrl: null == webDavUrl
-          ? _value.webDavUrl
-          : webDavUrl // ignore: cast_nullable_to_non_nullable
-              as String,
-      webDavUsername: null == webDavUsername
-          ? _value.webDavUsername
-          : webDavUsername // ignore: cast_nullable_to_non_nullable
-              as String,
-      webDavPassword: null == webDavPassword
-          ? _value.webDavPassword
-          : webDavPassword // ignore: cast_nullable_to_non_nullable
-              as String,
-      remoteDir: null == remoteDir
-          ? _value.remoteDir
-          : remoteDir // ignore: cast_nullable_to_non_nullable
-              as String,
-      deviceName: null == deviceName
-          ? _value.deviceName
-          : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      syncBookProgress: null == syncBookProgress
-          ? _value.syncBookProgress
-          : syncBookProgress // ignore: cast_nullable_to_non_nullable
-              as bool,
-      syncBookProgressPlus: null == syncBookProgressPlus
-          ? _value.syncBookProgressPlus
-          : syncBookProgressPlus // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    final _that = this;
+    switch (_that) {
+      case _SyncState() when $default != null:
+        return $default(
+          _that.status,
+          _that.lastSyncTime,
+          _that.error,
+          _that.autoSync,
+          _that.webDavUrl,
+          _that.webDavUsername,
+          _that.webDavPassword,
+          _that.remoteDir,
+          _that.deviceName,
+          _that.syncBookProgress,
+          _that.syncBookProgressPlus,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      SyncStatus status,
+      DateTime? lastSyncTime,
+      String? error,
+      bool autoSync,
+      String webDavUrl,
+      String webDavUsername,
+      String webDavPassword,
+      String remoteDir,
+      String deviceName,
+      bool syncBookProgress,
+      bool syncBookProgressPlus,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SyncState():
+        return $default(
+          _that.status,
+          _that.lastSyncTime,
+          _that.error,
+          _that.autoSync,
+          _that.webDavUrl,
+          _that.webDavUsername,
+          _that.webDavPassword,
+          _that.remoteDir,
+          _that.deviceName,
+          _that.syncBookProgress,
+          _that.syncBookProgressPlus,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      SyncStatus status,
+      DateTime? lastSyncTime,
+      String? error,
+      bool autoSync,
+      String webDavUrl,
+      String webDavUsername,
+      String webDavPassword,
+      String remoteDir,
+      String deviceName,
+      bool syncBookProgress,
+      bool syncBookProgressPlus,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _SyncState() when $default != null:
+        return $default(
+          _that.status,
+          _that.lastSyncTime,
+          _that.error,
+          _that.autoSync,
+          _that.webDavUrl,
+          _that.webDavUsername,
+          _that.webDavPassword,
+          _that.remoteDir,
+          _that.deviceName,
+          _that.syncBookProgress,
+          _that.syncBookProgressPlus,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 
-class _$SyncStateImpl implements _SyncState {
-  const _$SyncStateImpl(
-      {this.status = SyncStatus.idle,
-      this.lastSyncTime,
-      this.error,
-      this.autoSync = false,
-      this.webDavUrl = '',
-      this.webDavUsername = '',
-      this.webDavPassword = '',
-      this.remoteDir = '/legado/',
-      this.deviceName = '',
-      this.syncBookProgress = true,
-      this.syncBookProgressPlus = false});
+class _SyncState implements SyncState {
+  const _SyncState({
+    this.status = SyncStatus.idle,
+    this.lastSyncTime,
+    this.error,
+    this.autoSync = false,
+    this.webDavUrl = '',
+    this.webDavUsername = '',
+    this.webDavPassword = '',
+    this.remoteDir = '/legado/',
+    this.deviceName = '',
+    this.syncBookProgress = true,
+    this.syncBookProgressPlus = false,
+  });
 
   /// 同步状态
   @override
@@ -274,7 +474,7 @@ class _$SyncStateImpl implements _SyncState {
   @override
   @JsonKey()
   final bool autoSync;
-// ===== WebDAV 配置 =====
+
   /// WebDAV 服务器地址
   @override
   @JsonKey()
@@ -310,16 +510,19 @@ class _$SyncStateImpl implements _SyncState {
   @JsonKey()
   final bool syncBookProgressPlus;
 
+  /// Create a copy of SyncState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'SyncState(status: $status, lastSyncTime: $lastSyncTime, error: $error, autoSync: $autoSync, webDavUrl: $webDavUrl, webDavUsername: $webDavUsername, webDavPassword: $webDavPassword, remoteDir: $remoteDir, deviceName: $deviceName, syncBookProgress: $syncBookProgress, syncBookProgressPlus: $syncBookProgressPlus)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$SyncStateCopyWith<_SyncState> get copyWith =>
+      __$SyncStateCopyWithImpl<_SyncState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$SyncStateImpl &&
+            other is _SyncState &&
             (identical(other.status, status) || other.status == status) &&
             (identical(other.lastSyncTime, lastSyncTime) ||
                 other.lastSyncTime == lastSyncTime) &&
@@ -343,7 +546,8 @@ class _$SyncStateImpl implements _SyncState {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    return Object.hash(
       runtimeType,
       status,
       lastSyncTime,
@@ -355,74 +559,111 @@ class _$SyncStateImpl implements _SyncState {
       remoteDir,
       deviceName,
       syncBookProgress,
-      syncBookProgressPlus);
+      syncBookProgressPlus,
+    );
+  }
 
-  @JsonKey(ignore: true)
   @override
-  @pragma('vm:prefer-inline')
-  _$$SyncStateImplCopyWith<_$SyncStateImpl> get copyWith =>
-      __$$SyncStateImplCopyWithImpl<_$SyncStateImpl>(this, _$identity);
+  String toString() {
+    return 'SyncState(status: $status, lastSyncTime: $lastSyncTime, error: $error, autoSync: $autoSync, webDavUrl: $webDavUrl, webDavUsername: $webDavUsername, webDavPassword: $webDavPassword, remoteDir: $remoteDir, deviceName: $deviceName, syncBookProgress: $syncBookProgress, syncBookProgressPlus: $syncBookProgressPlus)';
+  }
 }
 
-abstract class _SyncState implements SyncState {
-  const factory _SyncState(
-      {final SyncStatus status,
-      final DateTime? lastSyncTime,
-      final String? error,
-      final bool autoSync,
-      final String webDavUrl,
-      final String webDavUsername,
-      final String webDavPassword,
-      final String remoteDir,
-      final String deviceName,
-      final bool syncBookProgress,
-      final bool syncBookProgressPlus}) = _$SyncStateImpl;
-
+/// @nodoc
+abstract mixin class _$SyncStateCopyWith<$Res>
+    implements $SyncStateCopyWith<$Res> {
+  factory _$SyncStateCopyWith(
+    _SyncState value,
+    $Res Function(_SyncState) _then,
+  ) = __$SyncStateCopyWithImpl;
   @override
+  @useResult
+  $Res call({
+    SyncStatus status,
+    DateTime? lastSyncTime,
+    String? error,
+    bool autoSync,
+    String webDavUrl,
+    String webDavUsername,
+    String webDavPassword,
+    String remoteDir,
+    String deviceName,
+    bool syncBookProgress,
+    bool syncBookProgressPlus,
+  });
+}
 
-  /// 同步状态
-  SyncStatus get status;
-  @override
+/// @nodoc
+class __$SyncStateCopyWithImpl<$Res> implements _$SyncStateCopyWith<$Res> {
+  __$SyncStateCopyWithImpl(this._self, this._then);
 
-  /// 上次同步时间（null 表示从未同步）
-  DateTime? get lastSyncTime;
-  @override
+  final _SyncState _self;
+  final $Res Function(_SyncState) _then;
 
-  /// 错误信息（null 表示无错误）
-  String? get error;
+  /// Create a copy of SyncState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-
-  /// 是否自动同步
-  bool get autoSync;
-  @override // ===== WebDAV 配置 =====
-  /// WebDAV 服务器地址
-  String get webDavUrl;
-  @override
-
-  /// WebDAV 账号
-  String get webDavUsername;
-  @override
-
-  /// WebDAV 密码
-  String get webDavPassword;
-  @override
-
-  /// 远端子目录
-  String get remoteDir;
-  @override
-
-  /// 设备名
-  String get deviceName;
-  @override
-
-  /// 同步书籍进度
-  bool get syncBookProgress;
-  @override
-
-  /// 同步书籍进度增强
-  bool get syncBookProgressPlus;
-  @override
-  @JsonKey(ignore: true)
-  _$$SyncStateImplCopyWith<_$SyncStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? status = null,
+    Object? lastSyncTime = freezed,
+    Object? error = freezed,
+    Object? autoSync = null,
+    Object? webDavUrl = null,
+    Object? webDavUsername = null,
+    Object? webDavPassword = null,
+    Object? remoteDir = null,
+    Object? deviceName = null,
+    Object? syncBookProgress = null,
+    Object? syncBookProgressPlus = null,
+  }) {
+    return _then(
+      _SyncState(
+        status: null == status
+            ? _self.status
+            : status // ignore: cast_nullable_to_non_nullable
+                  as SyncStatus,
+        lastSyncTime: freezed == lastSyncTime
+            ? _self.lastSyncTime
+            : lastSyncTime // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        autoSync: null == autoSync
+            ? _self.autoSync
+            : autoSync // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        webDavUrl: null == webDavUrl
+            ? _self.webDavUrl
+            : webDavUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        webDavUsername: null == webDavUsername
+            ? _self.webDavUsername
+            : webDavUsername // ignore: cast_nullable_to_non_nullable
+                  as String,
+        webDavPassword: null == webDavPassword
+            ? _self.webDavPassword
+            : webDavPassword // ignore: cast_nullable_to_non_nullable
+                  as String,
+        remoteDir: null == remoteDir
+            ? _self.remoteDir
+            : remoteDir // ignore: cast_nullable_to_non_nullable
+                  as String,
+        deviceName: null == deviceName
+            ? _self.deviceName
+            : deviceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        syncBookProgress: null == syncBookProgress
+            ? _self.syncBookProgress
+            : syncBookProgress // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        syncBookProgressPlus: null == syncBookProgressPlus
+            ? _self.syncBookProgressPlus
+            : syncBookProgressPlus // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
 }

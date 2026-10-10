@@ -157,11 +157,12 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
   /// 图库导入：[PARITY A1] 参考版扫码页右上图库按钮——选中本地二维码
   /// 图片后本地解码（zxing2），无需相机即可导入
   Future<void> _pickFromGallery() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFile(
       dialogTitle: '选择二维码图片',
       type: FileType.image,
+      compressionQuality: Platform.isAndroid ? 30 : 0,
     );
-    final path = picked?.files.singleOrNull?.path;
+    final path = picked?.path;
     if (!mounted) return;
     if (path == null) return; // 用户取消
     setState(() => _picking = true);

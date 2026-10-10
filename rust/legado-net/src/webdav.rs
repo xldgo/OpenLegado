@@ -35,10 +35,10 @@ pub struct WebDavClient {
 
 impl WebDavClient {
     pub fn new(config: WebDavConfig) -> Self {
-        let client = reqwest::Client::builder()
+        let client = crate::tls::client_builder()
             .dns_resolver(crate::custom_hosts::resolver())
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+            .unwrap_or_else(|_| crate::tls::client());
         Self { config, client }
     }
 

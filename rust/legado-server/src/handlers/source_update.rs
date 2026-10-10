@@ -160,9 +160,9 @@ pub async fn check_updates(State(state): State<Arc<AppState>>) -> Result<Json<Va
     // 回环仓库（本地测试服务）不经系统/环境变量代理路由：reqwest 默认客户端
     // 在 HTTP_PROXY 存在时连 127.0.0.1 也走代理，死代理环境下回环流量会被
     // 劫持（P2-17 约定 cda70a0c54）。真实仓库集合沿用默认客户端，生产行为不变。
-    let builder = reqwest::Client::builder()
+    let builder = legado_net::tls::client_builder()
         .timeout(std::time::Duration::from_secs(30))
-        .danger_accept_invalid_certs(true)
+        .tls_danger_accept_invalid_certs(true)
         .dns_resolver(legado_net::custom_hosts::resolver());
     let client = (if repos.iter().all(|r| is_loopback_repo_url(&r.url)) {
         builder.no_proxy()
@@ -203,9 +203,9 @@ pub async fn execute_update(
     State(state): State<Arc<AppState>>,
     Json(req): Json<UpdateRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let client = reqwest::Client::builder()
+    let client = legado_net::tls::client_builder()
         .timeout(std::time::Duration::from_secs(60))
-        .danger_accept_invalid_certs(true)
+        .tls_danger_accept_invalid_certs(true)
         .dns_resolver(legado_net::custom_hosts::resolver())
         .build()
         .map_err(|e| legado_core::LegadoError::Network(format!("创建 HTTP 客户端失败: {e}")))?;

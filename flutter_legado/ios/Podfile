@@ -1,5 +1,5 @@
 # iOS CocoaPods 配置（Flutter 标准模板 + RustFFI 本地静态库 pod）
-platform :ios, '13.0'
+platform :ios, '15.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 

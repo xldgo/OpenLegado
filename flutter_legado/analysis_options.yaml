@@ -14,6 +14,13 @@ analyzer:
     - "**/*.freezed.dart"
     - "**/*.g.dart"
     - "lib/src/bridge/**"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     invalid_annotation_target: ignore
 

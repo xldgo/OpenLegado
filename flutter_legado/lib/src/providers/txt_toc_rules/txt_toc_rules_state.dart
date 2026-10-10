@@ -8,7 +8,7 @@ part 'txt_toc_rules_state.freezed.dart';
 ///
 /// 由 [TxtTocRulesNotifier] 经 BookApi.getConfig/setConfig 持久化到 Rust 配置库。
 @freezed
-class TxtTocRulesState with _$TxtTocRulesState {
+abstract class TxtTocRulesState with _$TxtTocRulesState {
   const factory TxtTocRulesState({
     /// 规则列表（按 serialNumber 语义排序）
     @Default([]) List<TxtTocRule> rules,

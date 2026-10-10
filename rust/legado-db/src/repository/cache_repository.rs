@@ -108,11 +108,12 @@ impl<'a> CacheRepository<'a> {
 
     /// 获取缓存总数
     pub fn count(&self) -> LegadoResult<usize> {
-        let count: usize = self
+        let count: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM caches", [], |row| row.get(0))
             .map_err(|e| LegadoError::Database(format!("查询缓存数量失败: {e}")))?;
-        Ok(count)
+        usize::try_from(count)
+            .map_err(|e| LegadoError::Database(format!("缓存数量超出可表示范围: {e}")))
     }
 
     /// 判断 key 是否存在（不考虑过期）

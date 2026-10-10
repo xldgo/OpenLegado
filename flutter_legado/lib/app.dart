@@ -4,7 +4,7 @@ import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import 'src/models/models.dart';
 import 'src/providers/providers.dart';
@@ -233,7 +233,16 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
     AutoTaskScheduler.instance.attach(ref.read(bookApiProvider));
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      DeepLinkService.instance.attach(PlatformBridgeService.navigatorKey);
+      // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。
+      LegadoApp.scheduleFloatReturnNavigation(
+        watcher: _topRouteWatcher,
+        navigator: () => mounted
+            ? PlatformBridgeService.navigatorKey.currentState
+            : null,
+        push: (_) => DeepLinkService.instance
+            .attach(PlatformBridgeService.navigatorKey),
+        onTimeout: () => debugPrint('[DeepLink] 等待欢迎页退出超时'),
+      );
     });
     // [V-B3] 视频悬浮窗：注册原生事件处理与回全屏导航后 attach
     // （attach 会拉取冷启动经 MainActivity Intent 带回的播放状态）

@@ -69,7 +69,7 @@ pub async fn speak(
     }
 
     // 使用 reqwest 发送请求获取音频字节
-    let client = reqwest::Client::new();
+    let client = legado_net::tls::client();
     let response = client
         .get(&url)
         .send()
@@ -206,7 +206,7 @@ pub async fn synthesize_by_id(
     let url = engine_url.replace("{speakText}", &encoded_text);
 
     // 发送 HTTP 请求获取音频
-    let client = reqwest::Client::new();
+    let client = legado_net::tls::client();
     let response = client
         .get(&url)
         .send()

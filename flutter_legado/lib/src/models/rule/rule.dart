@@ -7,7 +7,7 @@ part 'rule.g.dart';
 
 /// 书籍详情页规则
 @freezed
-class BookInfoRule with _$BookInfoRule {
+abstract class BookInfoRule with _$BookInfoRule {
   const factory BookInfoRule({
     String? init,
     String? name,
@@ -31,7 +31,7 @@ class BookInfoRule with _$BookInfoRule {
 
 /// 搜索结果处理规则
 @freezed
-class SearchRule with _$SearchRule {
+abstract class SearchRule with _$SearchRule {
   const factory SearchRule({
     @JsonKey(name: 'checkKeyWord') String? checkKeyWord,
     @JsonKey(name: 'bookList') String? bookList,
@@ -54,7 +54,7 @@ class SearchRule with _$SearchRule {
 
 /// 目录页规则
 @freezed
-class TocRule with _$TocRule {
+abstract class TocRule with _$TocRule {
   const factory TocRule({
     @JsonKey(name: 'preUpdateJs') String? preUpdateJs,
     @JsonKey(name: 'chapterList') String? chapterList,
@@ -76,7 +76,7 @@ class TocRule with _$TocRule {
 
 /// 正文处理规则
 @freezed
-class ContentRule with _$ContentRule {
+abstract class ContentRule with _$ContentRule {
   const factory ContentRule({
     String? content,
     @JsonKey(name: 'subContent') String? subContent,
@@ -99,7 +99,7 @@ class ContentRule with _$ContentRule {
 
 /// 发现结果规则
 @freezed
-class ExploreRule with _$ExploreRule {
+abstract class ExploreRule with _$ExploreRule {
   const factory ExploreRule({
     @JsonKey(name: 'bookList') String? bookList,
     String? name,
@@ -121,7 +121,7 @@ class ExploreRule with _$ExploreRule {
 
 /// 段评规则
 @freezed
-class ReviewRule with _$ReviewRule {
+abstract class ReviewRule with _$ReviewRule {
   const factory ReviewRule({
     @JsonKey(name: 'reviewUrl') String? reviewUrl,
     @JsonKey(name: 'avatarRule') String? avatarRule,
@@ -163,7 +163,7 @@ class ReviewRule with _$ReviewRule {
 
 /// Flexbox 子元素样式
 @freezed
-class FlexChildStyle with _$FlexChildStyle {
+abstract class FlexChildStyle with _$FlexChildStyle {
   const factory FlexChildStyle({
     @Default(0) @JsonKey(name: 'layout_flexGrow') double layoutFlexGrow,
     @Default(1.0) @JsonKey(name: 'layout_flexShrink') double layoutFlexShrink,
@@ -181,7 +181,7 @@ class FlexChildStyle with _$FlexChildStyle {
 
 /// 发现分类
 @freezed
-class ExploreKind with _$ExploreKind {
+abstract class ExploreKind with _$ExploreKind {
   const factory ExploreKind({
     @Default('') String title,
     String? url,
@@ -201,7 +201,7 @@ class ExploreKind with _$ExploreKind {
 
 /// 登录表单行UI
 @freezed
-class RowUi with _$RowUi {
+abstract class RowUi with _$RowUi {
   const factory RowUi({
     @Default('') String name,
     @Default('text') String type,

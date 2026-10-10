@@ -6,33 +6,31 @@ part of 'misc.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$SearchBookImpl _$$SearchBookImplFromJson(Map<String, dynamic> json) =>
-    _$SearchBookImpl(
-      bookUrl: json['bookUrl'] as String? ?? '',
-      origin: json['origin'] as String? ?? '',
-      originName: json['originName'] as String? ?? '',
-      bookType: (json['type'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      author: json['author'] as String? ?? '',
-      kind: json['kind'] as String?,
-      coverUrl: json['coverUrl'] as String?,
-      intro: json['intro'] as String?,
-      wordCount: json['wordCount'] as String?,
-      latestChapterTitle: json['latestChapterTitle'] as String?,
-      tocUrl: json['tocUrl'] as String? ?? '',
-      time: (json['time'] as num?)?.toInt() ?? 0,
-      variable: json['variable'] as String?,
-      originOrder: (json['originOrder'] as num?)?.toInt() ?? 0,
-      chapterWordCountText: json['chapterWordCountText'] as String?,
-      chapterWordCount: (json['chapterWordCount'] as num?)?.toInt() ?? -1,
-      respondTime: (json['respondTime'] as num?)?.toInt() ?? -1,
-      origins: (json['origins'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
-    );
+_SearchBook _$SearchBookFromJson(Map<String, dynamic> json) => _SearchBook(
+  bookUrl: json['bookUrl'] as String? ?? '',
+  origin: json['origin'] as String? ?? '',
+  originName: json['originName'] as String? ?? '',
+  bookType: (json['type'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  author: json['author'] as String? ?? '',
+  kind: json['kind'] as String?,
+  coverUrl: json['coverUrl'] as String?,
+  intro: json['intro'] as String?,
+  wordCount: json['wordCount'] as String?,
+  latestChapterTitle: json['latestChapterTitle'] as String?,
+  tocUrl: json['tocUrl'] as String? ?? '',
+  time: (json['time'] as num?)?.toInt() ?? 0,
+  variable: json['variable'] as String?,
+  originOrder: (json['originOrder'] as num?)?.toInt() ?? 0,
+  chapterWordCountText: json['chapterWordCountText'] as String?,
+  chapterWordCount: (json['chapterWordCount'] as num?)?.toInt() ?? -1,
+  respondTime: (json['respondTime'] as num?)?.toInt() ?? -1,
+  origins:
+      (json['origins'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+);
 
-Map<String, dynamic> _$$SearchBookImplToJson(_$SearchBookImpl instance) =>
+Map<String, dynamic> _$SearchBookToJson(_SearchBook instance) =>
     <String, dynamic>{
       'bookUrl': instance.bookUrl,
       'origin': instance.origin,
@@ -55,25 +53,24 @@ Map<String, dynamic> _$$SearchBookImplToJson(_$SearchBookImpl instance) =>
       'origins': instance.origins,
     };
 
-_$ReplaceRuleImpl _$$ReplaceRuleImplFromJson(Map<String, dynamic> json) =>
-    _$ReplaceRuleImpl(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      group: json['group'] as String?,
-      pattern: json['pattern'] as String? ?? '',
-      replacement: json['replacement'] as String? ?? '',
-      scope: json['scope'] as String?,
-      scopeTitle: json['scopeTitle'] as bool? ?? false,
-      scopeContent: json['scopeContent'] as bool? ?? true,
-      scopeSource: json['scopeSource'] as bool? ?? false,
-      excludeScope: json['excludeScope'] as String?,
-      isEnabled: json['isEnabled'] as bool? ?? true,
-      isRegex: json['isRegex'] as bool? ?? true,
-      timeoutMillisecond: (json['timeoutMillisecond'] as num?)?.toInt() ?? 3000,
-      order: (json['sortOrder'] as num?)?.toInt() ?? 0,
-    );
+_ReplaceRule _$ReplaceRuleFromJson(Map<String, dynamic> json) => _ReplaceRule(
+  id: (json['id'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  group: json['group'] as String?,
+  pattern: json['pattern'] as String? ?? '',
+  replacement: json['replacement'] as String? ?? '',
+  scope: json['scope'] as String?,
+  scopeTitle: json['scopeTitle'] as bool? ?? false,
+  scopeContent: json['scopeContent'] as bool? ?? true,
+  scopeSource: json['scopeSource'] as bool? ?? false,
+  excludeScope: json['excludeScope'] as String?,
+  isEnabled: json['isEnabled'] as bool? ?? true,
+  isRegex: json['isRegex'] as bool? ?? true,
+  timeoutMillisecond: (json['timeoutMillisecond'] as num?)?.toInt() ?? 3000,
+  order: (json['sortOrder'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$ReplaceRuleImplToJson(_$ReplaceRuleImpl instance) =>
+Map<String, dynamic> _$ReplaceRuleToJson(_ReplaceRule instance) =>
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
@@ -91,79 +88,74 @@ Map<String, dynamic> _$$ReplaceRuleImplToJson(_$ReplaceRuleImpl instance) =>
       'sortOrder': instance.order,
     };
 
-_$HttpTtsImpl _$$HttpTtsImplFromJson(Map<String, dynamic> json) =>
-    _$HttpTtsImpl(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      url: json['url'] as String? ?? '',
-      contentType: json['contentType'] as String?,
-      pauseDuration: (json['pauseDuration'] as num?)?.toInt() ?? 0,
-      concurrentRate: json['concurrentRate'] as String?,
-      loginUrl: json['loginUrl'] as String?,
-      loginUi: json['loginUi'] as String?,
-      header: json['header'] as String?,
-      jsLib: json['jsLib'] as String?,
-      enabledCookieJar: json['enabledCookieJar'] as bool?,
-      loginCheckJs: json['loginCheckJs'] as String?,
-      lastUpdateTime: (json['lastUpdateTime'] as num?)?.toInt() ?? 0,
-    );
+_HttpTts _$HttpTtsFromJson(Map<String, dynamic> json) => _HttpTts(
+  id: (json['id'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  url: json['url'] as String? ?? '',
+  contentType: json['contentType'] as String?,
+  pauseDuration: (json['pauseDuration'] as num?)?.toInt() ?? 0,
+  concurrentRate: json['concurrentRate'] as String?,
+  loginUrl: json['loginUrl'] as String?,
+  loginUi: json['loginUi'] as String?,
+  header: json['header'] as String?,
+  jsLib: json['jsLib'] as String?,
+  enabledCookieJar: json['enabledCookieJar'] as bool?,
+  loginCheckJs: json['loginCheckJs'] as String?,
+  lastUpdateTime: (json['lastUpdateTime'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$HttpTtsImplToJson(_$HttpTtsImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'name': instance.name,
-      'url': instance.url,
-      'contentType': instance.contentType,
-      'pauseDuration': instance.pauseDuration,
-      'concurrentRate': instance.concurrentRate,
-      'loginUrl': instance.loginUrl,
-      'loginUi': instance.loginUi,
-      'header': instance.header,
-      'jsLib': instance.jsLib,
-      'enabledCookieJar': instance.enabledCookieJar,
-      'loginCheckJs': instance.loginCheckJs,
-      'lastUpdateTime': instance.lastUpdateTime,
-    };
+Map<String, dynamic> _$HttpTtsToJson(_HttpTts instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'url': instance.url,
+  'contentType': instance.contentType,
+  'pauseDuration': instance.pauseDuration,
+  'concurrentRate': instance.concurrentRate,
+  'loginUrl': instance.loginUrl,
+  'loginUi': instance.loginUi,
+  'header': instance.header,
+  'jsLib': instance.jsLib,
+  'enabledCookieJar': instance.enabledCookieJar,
+  'loginCheckJs': instance.loginCheckJs,
+  'lastUpdateTime': instance.lastUpdateTime,
+};
 
-_$BookmarkImpl _$$BookmarkImplFromJson(Map<String, dynamic> json) =>
-    _$BookmarkImpl(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      time: (json['time'] as num?)?.toInt() ?? 0,
-      bookName: json['bookName'] as String? ?? '',
-      bookAuthor: json['bookAuthor'] as String? ?? '',
-      chapterIndex: (json['chapterIndex'] as num?)?.toInt() ?? 0,
-      chapterPos: (json['chapterPos'] as num?)?.toInt() ?? 0,
-      chapterName: json['chapterName'] as String? ?? '',
-      bookText: json['bookText'] as String? ?? '',
-      content: json['content'] as String? ?? '',
-    );
+_Bookmark _$BookmarkFromJson(Map<String, dynamic> json) => _Bookmark(
+  id: (json['id'] as num?)?.toInt() ?? 0,
+  time: (json['time'] as num?)?.toInt() ?? 0,
+  bookName: json['bookName'] as String? ?? '',
+  bookAuthor: json['bookAuthor'] as String? ?? '',
+  chapterIndex: (json['chapterIndex'] as num?)?.toInt() ?? 0,
+  chapterPos: (json['chapterPos'] as num?)?.toInt() ?? 0,
+  chapterName: json['chapterName'] as String? ?? '',
+  bookText: json['bookText'] as String? ?? '',
+  content: json['content'] as String? ?? '',
+);
 
-Map<String, dynamic> _$$BookmarkImplToJson(_$BookmarkImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'time': instance.time,
-      'bookName': instance.bookName,
-      'bookAuthor': instance.bookAuthor,
-      'chapterIndex': instance.chapterIndex,
-      'chapterPos': instance.chapterPos,
-      'chapterName': instance.chapterName,
-      'bookText': instance.bookText,
-      'content': instance.content,
-    };
+Map<String, dynamic> _$BookmarkToJson(_Bookmark instance) => <String, dynamic>{
+  'id': instance.id,
+  'time': instance.time,
+  'bookName': instance.bookName,
+  'bookAuthor': instance.bookAuthor,
+  'chapterIndex': instance.chapterIndex,
+  'chapterPos': instance.chapterPos,
+  'chapterName': instance.chapterName,
+  'bookText': instance.bookText,
+  'content': instance.content,
+};
 
-_$BookGroupImpl _$$BookGroupImplFromJson(Map<String, dynamic> json) =>
-    _$BookGroupImpl(
-      groupId: (json['groupId'] as num?)?.toInt() ?? 1,
-      groupName: json['groupName'] as String? ?? '',
-      cover: json['cover'] as String?,
-      order: (json['order'] as num?)?.toInt() ?? 0,
-      enableRefresh: json['enableRefresh'] as bool? ?? true,
-      show: json['show'] as bool? ?? true,
-      bookSort: (json['bookSort'] as num?)?.toInt() ?? -1,
-      onlyUpdateRead: json['onlyUpdateRead'] as bool? ?? false,
-    );
+_BookGroup _$BookGroupFromJson(Map<String, dynamic> json) => _BookGroup(
+  groupId: (json['groupId'] as num?)?.toInt() ?? 1,
+  groupName: json['groupName'] as String? ?? '',
+  cover: json['cover'] as String?,
+  order: (json['order'] as num?)?.toInt() ?? 0,
+  enableRefresh: json['enableRefresh'] as bool? ?? true,
+  show: json['show'] as bool? ?? true,
+  bookSort: (json['bookSort'] as num?)?.toInt() ?? -1,
+  onlyUpdateRead: json['onlyUpdateRead'] as bool? ?? false,
+);
 
-Map<String, dynamic> _$$BookGroupImplToJson(_$BookGroupImpl instance) =>
+Map<String, dynamic> _$BookGroupToJson(_BookGroup instance) =>
     <String, dynamic>{
       'groupId': instance.groupId,
       'groupName': instance.groupName,
@@ -175,8 +167,8 @@ Map<String, dynamic> _$$BookGroupImplToJson(_$BookGroupImpl instance) =>
       'onlyUpdateRead': instance.onlyUpdateRead,
     };
 
-_$AutoTaskRuleImpl _$$AutoTaskRuleImplFromJson(Map<String, dynamic> json) =>
-    _$AutoTaskRuleImpl(
+_AutoTaskRule _$AutoTaskRuleFromJson(Map<String, dynamic> json) =>
+    _AutoTaskRule(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       enable: json['enable'] as bool? ?? true,
@@ -197,7 +189,7 @@ _$AutoTaskRuleImpl _$$AutoTaskRuleImplFromJson(Map<String, dynamic> json) =>
       lastLog: json['lastLog'] as String?,
     );
 
-Map<String, dynamic> _$$AutoTaskRuleImplToJson(_$AutoTaskRuleImpl instance) =>
+Map<String, dynamic> _$AutoTaskRuleToJson(_AutoTaskRule instance) =>
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
@@ -219,25 +211,24 @@ Map<String, dynamic> _$$AutoTaskRuleImplToJson(_$AutoTaskRuleImpl instance) =>
       'lastLog': instance.lastLog,
     };
 
-_$RssArticleImpl _$$RssArticleImplFromJson(Map<String, dynamic> json) =>
-    _$RssArticleImpl(
-      origin: json['origin'] as String? ?? '',
-      sort: json['sort'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      order: (json['order'] as num?)?.toInt() ?? 0,
-      link: json['link'] as String? ?? '',
-      pubDate: json['pubDate'] as String?,
-      description: json['description'] as String?,
-      content: json['content'] as String?,
-      image: json['image'] as String?,
-      group: json['group'] as String? ?? '默认分组',
-      read: json['read'] as bool? ?? false,
-      variable: json['variable'] as String?,
-      articleType: (json['type'] as num?)?.toInt() ?? 0,
-      durPos: (json['durPos'] as num?)?.toInt() ?? 0,
-    );
+_RssArticle _$RssArticleFromJson(Map<String, dynamic> json) => _RssArticle(
+  origin: json['origin'] as String? ?? '',
+  sort: json['sort'] as String? ?? '',
+  title: json['title'] as String? ?? '',
+  order: (json['order'] as num?)?.toInt() ?? 0,
+  link: json['link'] as String? ?? '',
+  pubDate: json['pubDate'] as String?,
+  description: json['description'] as String?,
+  content: json['content'] as String?,
+  image: json['image'] as String?,
+  group: json['group'] as String? ?? '默认分组',
+  read: json['read'] as bool? ?? false,
+  variable: json['variable'] as String?,
+  articleType: (json['type'] as num?)?.toInt() ?? 0,
+  durPos: (json['durPos'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$RssArticleImplToJson(_$RssArticleImpl instance) =>
+Map<String, dynamic> _$RssArticleToJson(_RssArticle instance) =>
     <String, dynamic>{
       'origin': instance.origin,
       'sort': instance.sort,
@@ -255,115 +246,108 @@ Map<String, dynamic> _$$RssArticleImplToJson(_$RssArticleImpl instance) =>
       'durPos': instance.durPos,
     };
 
-_$RssStarImpl _$$RssStarImplFromJson(Map<String, dynamic> json) =>
-    _$RssStarImpl(
-      origin: json['origin'] as String? ?? '',
-      sort: json['sort'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      starTime: (json['starTime'] as num?)?.toInt() ?? 0,
-      link: json['link'] as String? ?? '',
-      pubDate: json['pubDate'] as String?,
-      description: json['description'] as String?,
-      content: json['content'] as String?,
-      image: json['image'] as String?,
-      group: json['group'] as String? ?? '默认分组',
-      variable: json['variable'] as String?,
-      starType: (json['type'] as num?)?.toInt() ?? 0,
-      durPos: (json['durPos'] as num?)?.toInt() ?? 0,
-    );
+_RssStar _$RssStarFromJson(Map<String, dynamic> json) => _RssStar(
+  origin: json['origin'] as String? ?? '',
+  sort: json['sort'] as String? ?? '',
+  title: json['title'] as String? ?? '',
+  starTime: (json['starTime'] as num?)?.toInt() ?? 0,
+  link: json['link'] as String? ?? '',
+  pubDate: json['pubDate'] as String?,
+  description: json['description'] as String?,
+  content: json['content'] as String?,
+  image: json['image'] as String?,
+  group: json['group'] as String? ?? '默认分组',
+  variable: json['variable'] as String?,
+  starType: (json['type'] as num?)?.toInt() ?? 0,
+  durPos: (json['durPos'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$RssStarImplToJson(_$RssStarImpl instance) =>
-    <String, dynamic>{
-      'origin': instance.origin,
-      'sort': instance.sort,
-      'title': instance.title,
-      'starTime': instance.starTime,
-      'link': instance.link,
-      'pubDate': instance.pubDate,
-      'description': instance.description,
-      'content': instance.content,
-      'image': instance.image,
-      'group': instance.group,
-      'variable': instance.variable,
-      'type': instance.starType,
-      'durPos': instance.durPos,
-    };
+Map<String, dynamic> _$RssStarToJson(_RssStar instance) => <String, dynamic>{
+  'origin': instance.origin,
+  'sort': instance.sort,
+  'title': instance.title,
+  'starTime': instance.starTime,
+  'link': instance.link,
+  'pubDate': instance.pubDate,
+  'description': instance.description,
+  'content': instance.content,
+  'image': instance.image,
+  'group': instance.group,
+  'variable': instance.variable,
+  'type': instance.starType,
+  'durPos': instance.durPos,
+};
 
-_$CookieImpl _$$CookieImplFromJson(Map<String, dynamic> json) => _$CookieImpl(
-      url: json['url'] as String? ?? '',
-      cookie: json['cookie'] as String? ?? '',
-    );
+_Cookie _$CookieFromJson(Map<String, dynamic> json) => _Cookie(
+  url: json['url'] as String? ?? '',
+  cookie: json['cookie'] as String? ?? '',
+);
 
-Map<String, dynamic> _$$CookieImplToJson(_$CookieImpl instance) =>
-    <String, dynamic>{
-      'url': instance.url,
-      'cookie': instance.cookie,
-    };
+Map<String, dynamic> _$CookieToJson(_Cookie instance) => <String, dynamic>{
+  'url': instance.url,
+  'cookie': instance.cookie,
+};
 
-_$CacheImpl _$$CacheImplFromJson(Map<String, dynamic> json) => _$CacheImpl(
-      key: json['key'] as String? ?? '',
-      value: json['value'] as String?,
-      deadline: (json['deadline'] as num?)?.toInt() ?? 0,
-    );
+_Cache _$CacheFromJson(Map<String, dynamic> json) => _Cache(
+  key: json['key'] as String? ?? '',
+  value: json['value'] as String?,
+  deadline: (json['deadline'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$CacheImplToJson(_$CacheImpl instance) =>
-    <String, dynamic>{
-      'key': instance.key,
-      'value': instance.value,
-      'deadline': instance.deadline,
-    };
+Map<String, dynamic> _$CacheToJson(_Cache instance) => <String, dynamic>{
+  'key': instance.key,
+  'value': instance.value,
+  'deadline': instance.deadline,
+};
 
-_$DictRuleImpl _$$DictRuleImplFromJson(Map<String, dynamic> json) =>
-    _$DictRuleImpl(
-      name: json['name'] as String? ?? '',
-      urlRule: json['urlRule'] as String? ?? '',
-      showRule: json['showRule'] as String? ?? '',
-      enabled: json['enabled'] as bool? ?? true,
-      sortNumber: (json['sortNumber'] as num?)?.toInt() ?? 0,
-    );
+_DictRule _$DictRuleFromJson(Map<String, dynamic> json) => _DictRule(
+  name: json['name'] as String? ?? '',
+  urlRule: json['urlRule'] as String? ?? '',
+  showRule: json['showRule'] as String? ?? '',
+  enabled: json['enabled'] as bool? ?? true,
+  sortNumber: (json['sortNumber'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$DictRuleImplToJson(_$DictRuleImpl instance) =>
-    <String, dynamic>{
-      'name': instance.name,
-      'urlRule': instance.urlRule,
-      'showRule': instance.showRule,
-      'enabled': instance.enabled,
-      'sortNumber': instance.sortNumber,
-    };
+Map<String, dynamic> _$DictRuleToJson(_DictRule instance) => <String, dynamic>{
+  'name': instance.name,
+  'urlRule': instance.urlRule,
+  'showRule': instance.showRule,
+  'enabled': instance.enabled,
+  'sortNumber': instance.sortNumber,
+};
 
-_$ServerImpl _$$ServerImplFromJson(Map<String, dynamic> json) => _$ServerImpl(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      serverType: json['type'] as String? ?? 'WEBDAV',
-      config: json['config'] as String?,
-      sortNumber: (json['sortNumber'] as num?)?.toInt() ?? 0,
-    );
+_Server _$ServerFromJson(Map<String, dynamic> json) => _Server(
+  id: (json['id'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  serverType: json['type'] as String? ?? 'WEBDAV',
+  config: json['config'] as String?,
+  sortNumber: (json['sortNumber'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$ServerImplToJson(_$ServerImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'name': instance.name,
-      'type': instance.serverType,
-      'config': instance.config,
-      'sortNumber': instance.sortNumber,
-    };
+Map<String, dynamic> _$ServerToJson(_Server instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'type': instance.serverType,
+  'config': instance.config,
+  'sortNumber': instance.sortNumber,
+};
 
-_$WebDavConfigImpl _$$WebDavConfigImplFromJson(Map<String, dynamic> json) =>
-    _$WebDavConfigImpl(
+_WebDavConfig _$WebDavConfigFromJson(Map<String, dynamic> json) =>
+    _WebDavConfig(
       url: json['url'] as String? ?? '',
       username: json['username'] as String? ?? '',
       password: json['password'] as String? ?? '',
     );
 
-Map<String, dynamic> _$$WebDavConfigImplToJson(_$WebDavConfigImpl instance) =>
+Map<String, dynamic> _$WebDavConfigToJson(_WebDavConfig instance) =>
     <String, dynamic>{
       'url': instance.url,
       'username': instance.username,
       'password': instance.password,
     };
 
-_$BookSourcePartImpl _$$BookSourcePartImplFromJson(Map<String, dynamic> json) =>
-    _$BookSourcePartImpl(
+_BookSourcePart _$BookSourcePartFromJson(Map<String, dynamic> json) =>
+    _BookSourcePart(
       bookSourceUrl: json['bookSourceUrl'] as String? ?? '',
       bookSourceName: json['bookSourceName'] as String? ?? '',
       bookSourceGroup: json['bookSourceGroup'] as String?,
@@ -380,8 +364,7 @@ _$BookSourcePartImpl _$$BookSourcePartImplFromJson(Map<String, dynamic> json) =>
       hasJs: json['hasJs'] as bool? ?? false,
     );
 
-Map<String, dynamic> _$$BookSourcePartImplToJson(
-        _$BookSourcePartImpl instance) =>
+Map<String, dynamic> _$BookSourcePartToJson(_BookSourcePart instance) =>
     <String, dynamic>{
       'bookSourceUrl': instance.bookSourceUrl,
       'bookSourceName': instance.bookSourceName,
@@ -399,32 +382,31 @@ Map<String, dynamic> _$$BookSourcePartImplToJson(
       'hasJs': instance.hasJs,
     };
 
-_$SearchKeywordImpl _$$SearchKeywordImplFromJson(Map<String, dynamic> json) =>
-    _$SearchKeywordImpl(
+_SearchKeyword _$SearchKeywordFromJson(Map<String, dynamic> json) =>
+    _SearchKeyword(
       word: json['word'] as String? ?? '',
       usage: (json['usage'] as num?)?.toInt() ?? 1,
       lastUseTime: (json['lastUseTime'] as num?)?.toInt() ?? 0,
     );
 
-Map<String, dynamic> _$$SearchKeywordImplToJson(_$SearchKeywordImpl instance) =>
+Map<String, dynamic> _$SearchKeywordToJson(_SearchKeyword instance) =>
     <String, dynamic>{
       'word': instance.word,
       'usage': instance.usage,
       'lastUseTime': instance.lastUseTime,
     };
 
-_$TxtTocRuleImpl _$$TxtTocRuleImplFromJson(Map<String, dynamic> json) =>
-    _$TxtTocRuleImpl(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      rule: json['rule'] as String? ?? '',
-      replacement: json['replacement'] as String? ?? '',
-      example: json['example'] as String?,
-      serialNumber: (json['serialNumber'] as num?)?.toInt() ?? -1,
-      enable: json['enable'] as bool? ?? true,
-    );
+_TxtTocRule _$TxtTocRuleFromJson(Map<String, dynamic> json) => _TxtTocRule(
+  id: (json['id'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  rule: json['rule'] as String? ?? '',
+  replacement: json['replacement'] as String? ?? '',
+  example: json['example'] as String?,
+  serialNumber: (json['serialNumber'] as num?)?.toInt() ?? -1,
+  enable: json['enable'] as bool? ?? true,
+);
 
-Map<String, dynamic> _$$TxtTocRuleImplToJson(_$TxtTocRuleImpl instance) =>
+Map<String, dynamic> _$TxtTocRuleToJson(_TxtTocRule instance) =>
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
@@ -435,32 +417,29 @@ Map<String, dynamic> _$$TxtTocRuleImplToJson(_$TxtTocRuleImpl instance) =>
       'enable': instance.enable,
     };
 
-_$BookChapterReviewImpl _$$BookChapterReviewImplFromJson(
-        Map<String, dynamic> json) =>
-    _$BookChapterReviewImpl(
+_BookChapterReview _$BookChapterReviewFromJson(Map<String, dynamic> json) =>
+    _BookChapterReview(
       bookId: (json['bookId'] as num?)?.toInt() ?? 0,
       chapterId: (json['chapterId'] as num?)?.toInt() ?? 0,
       summaryUrl: json['summaryUrl'] as String? ?? '',
     );
 
-Map<String, dynamic> _$$BookChapterReviewImplToJson(
-        _$BookChapterReviewImpl instance) =>
+Map<String, dynamic> _$BookChapterReviewToJson(_BookChapterReview instance) =>
     <String, dynamic>{
       'bookId': instance.bookId,
       'chapterId': instance.chapterId,
       'summaryUrl': instance.summaryUrl,
     };
 
-_$KeyboardAssistImpl _$$KeyboardAssistImplFromJson(Map<String, dynamic> json) =>
-    _$KeyboardAssistImpl(
+_KeyboardAssist _$KeyboardAssistFromJson(Map<String, dynamic> json) =>
+    _KeyboardAssist(
       assistType: (json['type'] as num?)?.toInt() ?? 0,
       key: json['key'] as String? ?? '',
       value: json['value'] as String? ?? '',
       serialNo: (json['serialNo'] as num?)?.toInt() ?? 0,
     );
 
-Map<String, dynamic> _$$KeyboardAssistImplToJson(
-        _$KeyboardAssistImpl instance) =>
+Map<String, dynamic> _$KeyboardAssistToJson(_KeyboardAssist instance) =>
     <String, dynamic>{
       'type': instance.assistType,
       'key': instance.key,
@@ -468,15 +447,14 @@ Map<String, dynamic> _$$KeyboardAssistImplToJson(
       'serialNo': instance.serialNo,
     };
 
-_$ReadRecordImpl _$$ReadRecordImplFromJson(Map<String, dynamic> json) =>
-    _$ReadRecordImpl(
-      deviceId: json['deviceId'] as String? ?? '',
-      bookName: json['bookName'] as String? ?? '',
-      readTime: (json['readTime'] as num?)?.toInt() ?? 0,
-      lastRead: (json['lastRead'] as num?)?.toInt() ?? 0,
-    );
+_ReadRecord _$ReadRecordFromJson(Map<String, dynamic> json) => _ReadRecord(
+  deviceId: json['deviceId'] as String? ?? '',
+  bookName: json['bookName'] as String? ?? '',
+  readTime: (json['readTime'] as num?)?.toInt() ?? 0,
+  lastRead: (json['lastRead'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$ReadRecordImplToJson(_$ReadRecordImpl instance) =>
+Map<String, dynamic> _$ReadRecordToJson(_ReadRecord instance) =>
     <String, dynamic>{
       'deviceId': instance.deviceId,
       'bookName': instance.bookName,
@@ -484,8 +462,8 @@ Map<String, dynamic> _$$ReadRecordImplToJson(_$ReadRecordImpl instance) =>
       'lastRead': instance.lastRead,
     };
 
-_$RssReadRecordImpl _$$RssReadRecordImplFromJson(Map<String, dynamic> json) =>
-    _$RssReadRecordImpl(
+_RssReadRecord _$RssReadRecordFromJson(Map<String, dynamic> json) =>
+    _RssReadRecord(
       record: json['record'] as String? ?? '',
       title: json['title'] as String?,
       readTime: (json['readTime'] as num?)?.toInt(),
@@ -498,7 +476,7 @@ _$RssReadRecordImpl _$$RssReadRecordImplFromJson(Map<String, dynamic> json) =>
       pubDate: json['pubDate'] as String?,
     );
 
-Map<String, dynamic> _$$RssReadRecordImplToJson(_$RssReadRecordImpl instance) =>
+Map<String, dynamic> _$RssReadRecordToJson(_RssReadRecord instance) =>
     <String, dynamic>{
       'record': instance.record,
       'title': instance.title,
@@ -512,8 +490,8 @@ Map<String, dynamic> _$$RssReadRecordImplToJson(_$RssReadRecordImpl instance) =>
       'pubDate': instance.pubDate,
     };
 
-_$BookProgressImpl _$$BookProgressImplFromJson(Map<String, dynamic> json) =>
-    _$BookProgressImpl(
+_BookProgress _$BookProgressFromJson(Map<String, dynamic> json) =>
+    _BookProgress(
       name: json['name'] as String? ?? '',
       author: json['author'] as String? ?? '',
       durChapterIndex: (json['durChapterIndex'] as num?)?.toInt() ?? 0,
@@ -522,7 +500,7 @@ _$BookProgressImpl _$$BookProgressImplFromJson(Map<String, dynamic> json) =>
       durChapterTitle: json['durChapterTitle'] as String?,
     );
 
-Map<String, dynamic> _$$BookProgressImplToJson(_$BookProgressImpl instance) =>
+Map<String, dynamic> _$BookProgressToJson(_BookProgress instance) =>
     <String, dynamic>{
       'name': instance.name,
       'author': instance.author,
@@ -532,24 +510,23 @@ Map<String, dynamic> _$$BookProgressImplToJson(_$BookProgressImpl instance) =>
       'durChapterTitle': instance.durChapterTitle,
     };
 
-_$ReplaceBookImpl _$$ReplaceBookImplFromJson(Map<String, dynamic> json) =>
-    _$ReplaceBookImpl(
-      bookUrl: json['bookUrl'] as String? ?? '',
-      origin: json['origin'] as String? ?? '',
-      originName: json['originName'] as String? ?? '',
-      bookType: (json['type'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      author: json['author'] as String? ?? '',
-      kind: json['kind'] as String?,
-      coverUrl: json['coverUrl'] as String?,
-      intro: json['intro'] as String?,
-      wordCount: json['wordCount'] as String?,
-      latestChapterTitle: json['latestChapterTitle'] as String?,
-      tocUrl: json['tocUrl'] as String? ?? '',
-      originOrder: (json['originOrder'] as num?)?.toInt() ?? 0,
-    );
+_ReplaceBook _$ReplaceBookFromJson(Map<String, dynamic> json) => _ReplaceBook(
+  bookUrl: json['bookUrl'] as String? ?? '',
+  origin: json['origin'] as String? ?? '',
+  originName: json['originName'] as String? ?? '',
+  bookType: (json['type'] as num?)?.toInt() ?? 0,
+  name: json['name'] as String? ?? '',
+  author: json['author'] as String? ?? '',
+  kind: json['kind'] as String?,
+  coverUrl: json['coverUrl'] as String?,
+  intro: json['intro'] as String?,
+  wordCount: json['wordCount'] as String?,
+  latestChapterTitle: json['latestChapterTitle'] as String?,
+  tocUrl: json['tocUrl'] as String? ?? '',
+  originOrder: (json['originOrder'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$ReplaceBookImplToJson(_$ReplaceBookImpl instance) =>
+Map<String, dynamic> _$ReplaceBookToJson(_ReplaceBook instance) =>
     <String, dynamic>{
       'bookUrl': instance.bookUrl,
       'origin': instance.origin,
@@ -566,8 +543,8 @@ Map<String, dynamic> _$$ReplaceBookImplToJson(_$ReplaceBookImpl instance) =>
       'originOrder': instance.originOrder,
     };
 
-_$BookCacheInfoImpl _$$BookCacheInfoImplFromJson(Map<String, dynamic> json) =>
-    _$BookCacheInfoImpl(
+_BookCacheInfo _$BookCacheInfoFromJson(Map<String, dynamic> json) =>
+    _BookCacheInfo(
       bookUrl: json['bookUrl'] as String? ?? '',
       name: json['name'] as String? ?? '',
       origin: json['origin'] as String? ?? '',
@@ -575,7 +552,7 @@ _$BookCacheInfoImpl _$$BookCacheInfoImplFromJson(Map<String, dynamic> json) =>
       bookType: (json['type'] as num?)?.toInt() ?? 0,
     );
 
-Map<String, dynamic> _$$BookCacheInfoImplToJson(_$BookCacheInfoImpl instance) =>
+Map<String, dynamic> _$BookCacheInfoToJson(_BookCacheInfo instance) =>
     <String, dynamic>{
       'bookUrl': instance.bookUrl,
       'name': instance.name,
@@ -584,46 +561,42 @@ Map<String, dynamic> _$$BookCacheInfoImplToJson(_$BookCacheInfoImpl instance) =>
       'type': instance.bookType,
     };
 
-_$ReadRecordShowImpl _$$ReadRecordShowImplFromJson(Map<String, dynamic> json) =>
-    _$ReadRecordShowImpl(
+_ReadRecordShow _$ReadRecordShowFromJson(Map<String, dynamic> json) =>
+    _ReadRecordShow(
       bookName: json['bookName'] as String? ?? '',
       readTime: (json['readTime'] as num?)?.toInt() ?? 0,
       lastRead: (json['lastRead'] as num?)?.toInt() ?? 0,
     );
 
-Map<String, dynamic> _$$ReadRecordShowImplToJson(
-        _$ReadRecordShowImpl instance) =>
+Map<String, dynamic> _$ReadRecordShowToJson(_ReadRecordShow instance) =>
     <String, dynamic>{
       'bookName': instance.bookName,
       'readTime': instance.readTime,
       'lastRead': instance.lastRead,
     };
 
-_$DictEntryImpl _$$DictEntryImplFromJson(Map<String, dynamic> json) =>
-    _$DictEntryImpl(
-      word: json['word'] as String? ?? '',
-      phonetic: json['phonetic'] as String? ?? '',
-      definitions: (json['definitions'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
-    );
+_DictEntry _$DictEntryFromJson(Map<String, dynamic> json) => _DictEntry(
+  word: json['word'] as String? ?? '',
+  phonetic: json['phonetic'] as String? ?? '',
+  definitions:
+      (json['definitions'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
+);
 
-Map<String, dynamic> _$$DictEntryImplToJson(_$DictEntryImpl instance) =>
+Map<String, dynamic> _$DictEntryToJson(_DictEntry instance) =>
     <String, dynamic>{
       'word': instance.word,
       'phonetic': instance.phonetic,
       'definitions': instance.definitions,
     };
 
-_$LoginKeyValueImpl _$$LoginKeyValueImplFromJson(Map<String, dynamic> json) =>
-    _$LoginKeyValueImpl(
+_LoginKeyValue _$LoginKeyValueFromJson(Map<String, dynamic> json) =>
+    _LoginKeyValue(
       name: json['name'] as String? ?? '',
       value: json['value'] as String? ?? '',
     );
 
-Map<String, dynamic> _$$LoginKeyValueImplToJson(_$LoginKeyValueImpl instance) =>
-    <String, dynamic>{
-      'name': instance.name,
-      'value': instance.value,
-    };
+Map<String, dynamic> _$LoginKeyValueToJson(_LoginKeyValue instance) =>
+    <String, dynamic>{'name': instance.name, 'value': instance.value};

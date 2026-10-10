@@ -1,7 +1,7 @@
 /// FRB StreamSink 生成链路真实 DLL 运行时验证（P1-1）
 ///
 /// 绕过 Mock 层直接加载 rust/target/debug/legado_ffi.dll，验证
-/// flutter_rust_bridge 2.11.1 生成的 5 个 StreamSink 流 API 在真实
+/// 当前固定版本 flutter_rust_bridge 生成的 5 个 StreamSink 流 API 在真实
 /// wire 链路上的订阅、事件接收、正常结束与取消路径：
 ///
 /// - crateFfiFfiSourceCheckStream / crateFfiFfiSourceCheckCancel
@@ -12,7 +12,7 @@
 ///
 /// 同时作为 UnimplementedError 分支不可达性的运行时证据：所有流均由
 /// Dart 侧创建 sink 后经 sse_encode_StreamSink_String_Sse 单向传入
-/// Rust（frb_generated.dart L3394/L6969/L7342/L8218/L8760），解码方向
+/// Rust，解码方向
 /// （dco_decode/sse_decode_StreamSink_String_Sse）在全部链路中无调用点；
 /// 若该分支可达，下列测试将全部抛出 UnimplementedError。
 ///

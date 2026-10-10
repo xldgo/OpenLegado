@@ -1,6 +1,7 @@
 import AVFAudio
 import Flutter
 import UIKit
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -8,6 +9,8 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // 按通知插件接线要求，将前台通知呈现交由 FlutterAppDelegate 分发。
+    UNUserNotificationCenter.current().delegate = self
     // [iOS 轨 P2-B] 后台听书：音频会话设为 playback（配合 Info.plist
     // UIBackgroundModes=audio，静音开关不影响朗读、退后台继续播放；
     // 不加 mixWithOthers——对齐 Android 音频焦点独占语义）。

@@ -48,7 +48,7 @@ impl SslConfig {
     /// 将 SSL 配置应用到 `reqwest::ClientBuilder`
     pub fn apply(&self, builder: ClientBuilder) -> ClientBuilder {
         let mut builder = if !self.verify {
-            builder.danger_accept_invalid_certs(true)
+            builder.tls_danger_accept_invalid_certs(true)
         } else {
             builder
         };
@@ -56,7 +56,7 @@ impl SslConfig {
         // 添加自定义 CA 证书
         if let Some(ref pem) = self.custom_ca {
             if let Ok(cert) = reqwest::Certificate::from_pem(pem.as_bytes()) {
-                builder = builder.add_root_certificate(cert);
+                builder = builder.tls_certs_merge([cert]);
             } else {
                 log::warn!("SslConfig: failed to parse custom CA PEM, ignoring");
             }

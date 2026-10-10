@@ -361,9 +361,11 @@ extension _SourceActions on _SourceScreenState {
           : 'bookSource_${DateTime.now().millisecondsSinceEpoch}.json';
       final file = File('${dir.path}/$name');
       await file.writeAsString(json);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
-        text: '书源分享（${state.selectedCount} 个）',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          text: '书源分享（${state.selectedCount} 个）',
+        ),
       );
     } catch (e) {
       if (context.mounted) {
@@ -402,10 +404,10 @@ extension _SourceActions on _SourceScreenState {
   Future<void> _importFromFile(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final picked = await FilePicker.platform.pickFiles();
-      if (picked == null || picked.files.isEmpty) return;
+      final picked = await FilePicker.pickFile();
+      if (picked == null) return;
 
-      final path = picked.files.single.path;
+      final path = picked.path;
       if (path == null) {
         messenger.showSnackBar(
           const SnackBar(content: Text('无法获取文件路径')),

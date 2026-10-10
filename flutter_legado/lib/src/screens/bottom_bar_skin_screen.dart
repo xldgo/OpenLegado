@@ -1,4 +1,5 @@
 ﻿import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../providers/bottom_bar_skin_notifier.dart';
@@ -153,11 +154,11 @@ class BottomBarSkinScreen extends ConsumerWidget {
     BuildContext context,
     BottomBarSkinNotifier notifier,
   ) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['zip'],
     );
-    final path = result?.files.single.path;
+    final path = result?.path;
     if (path == null) return;
     final zip = File(path);
     String? sessionId;
@@ -252,26 +253,32 @@ class BottomBarSkinScreen extends ConsumerWidget {
   Future<void> _exportSkin(BuildContext context, String name) async {
     try {
       final bytes = await BottomBarSkinService.instance.buildZipBytes(name);
-      final savePath = await FilePicker.platform.saveFile(
+      final savePath = await FilePicker.saveFile(
         dialogTitle: '导出底栏皮肤',
         fileName: '$name.zip',
+        bytes: Uint8List.fromList(bytes),
+        mimeType: 'application/zip',
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
       if (savePath != null) {
-        await File(savePath).writeAsBytes(bytes, flush: true);
+        final location = savePath.scheme == 'file'
+            ? savePath.toFilePath()
+            : savePath.toString();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已导出到: $savePath')),
+            SnackBar(content: Text('已导出到: $location')),
           );
         }
         return;
       }
       // 平台无保存对话框时走分享
       final file = await BottomBarSkinService.instance.cacheShareZip(name);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/zip')],
-        subject: name,
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/zip')],
+          subject: name,
+        ),
       );
     } catch (e) {
       if (context.mounted) {
@@ -286,9 +293,11 @@ class BottomBarSkinScreen extends ConsumerWidget {
   Future<void> _shareSkin(BuildContext context, String name) async {
     try {
       final file = await BottomBarSkinService.instance.cacheShareZip(name);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/zip')],
-        subject: name,
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/zip')],
+          subject: name,
+        ),
       );
     } catch (e) {
       if (context.mounted) {

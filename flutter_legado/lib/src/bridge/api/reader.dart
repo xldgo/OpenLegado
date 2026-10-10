@@ -5,6 +5,7 @@
 
 import '../frb_generated.dart';
 import '../lib.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// 章节列表响应（包含章节概要信息）

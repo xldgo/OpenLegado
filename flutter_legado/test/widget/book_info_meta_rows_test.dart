@@ -6,12 +6,18 @@
 // - 无「🏷️ 标签行」（参考 08 无此行；kind 信息即 chips 行逐项，
 //   原标签行的点击搜索/长按 JS 回调手势迁至 kind chip，功能不丢）
 // - chips 行无章数 chip（章数由「共 N 章」行承载）
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// ignore: depend_on_referenced_packages
+import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
+// ignore: depend_on_referenced_packages
+import 'package:share_plus_platform_interface/method_channel/method_channel_share.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
@@ -36,15 +42,19 @@ void main() {
   late MockRustApi mockApi;
   late ProviderContainer container;
 
-  setUpAll(registerFallbacks);
+  setUpAll(() {
+    registerFallbacks();
+    // 固定方法通道实现，测试不打开宿主系统分享面板。
+    final original = SharePlatform.instance;
+    SharePlatform.instance = MethodChannelShare();
+    addTearDown(() => SharePlatform.instance = original);
+  });
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
-      ],
+      overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
     addTearDown(container.dispose);
   });
@@ -65,22 +75,56 @@ void main() {
 
   void stubBook(Book book, [List<BookChapter> chapters = const []]) {
     when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(any()))
-        .thenAnswer((_) async => chapters);
+    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
-    when(() => mockApi.sourceCallBackBtn(
-          event: any(named: 'event'),
-          bookUrl: any(named: 'bookUrl'),
-          result: any(named: 'result'),
-          bookType: any(named: 'bookType'),
-        )).thenAnswer((_) async => {
-          'invoked': false,
-          'jsTrue': false,
-          'actions': <dynamic>[],
-        });
+    when(
+      () => mockApi.sourceCallBackBtn(
+        event: any(named: 'event'),
+        bookUrl: any(named: 'bookUrl'),
+        result: any(named: 'result'),
+        bookType: any(named: 'bookType'),
+      ),
+    ).thenAnswer(
+      (_) async => {'invoked': false, 'jsTrue': false, 'actions': <dynamic>[]},
+    );
   }
 
   group('book_info_meta_rows', () {
+    testWidgets('书籍分享经新接口传递原 URL 和 JSON', (tester) async {
+      const book = Book(
+        bookUrl: 'https://src.com/book/share',
+        name: '分享书籍',
+        author: '作者',
+      );
+      stubBook(book);
+      await loadGroups(const []);
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('dev.fluttercommunity.plus/share');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return 'dev.fluttercommunity.plus/share/unavailable';
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('分享'));
+      await tester.pumpAndSettle();
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'share');
+      expect(
+        (calls.single.arguments as Map)['text'],
+        '${book.bookUrl}#${jsonEncode(book.toJson())}',
+      );
+    });
+
     testWidgets('无独立「目录：」/「分组：」行、无「🏷️ 标签行」，'
         'kind 信息以 chips 行呈现，章数由「共 N 章」行承载', (tester) async {
       final book = Book(
@@ -92,8 +136,7 @@ void main() {
         totalChapterNum: 711,
       );
       stubBook(book, [
-        BookChapter(
-            bookUrl: book.bookUrl, index: 0, title: '引子 穿越的唐家三少'),
+        BookChapter(bookUrl: book.bookUrl, index: 0, title: '引子 穿越的唐家三少'),
       ]);
       await loadGroups(const []);
 
@@ -144,8 +187,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('分组 chip：无分组时不显示（不显「未分组」，kind chip 不丢）',
-        (tester) async {
+    testWidgets('分组 chip：无分组时不显示（不显「未分组」，kind chip 不丢）', (tester) async {
       final ungroupedBook = Book(
         bookUrl: 'https://src.com/book/g2',
         name: '无分组书',
@@ -197,16 +239,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('kind chip 点击进搜索页（原 🏷️ 行逐 tag 搜索入口迁移）',
-        (tester) async {
+    testWidgets('kind chip 点击进搜索页（原 🏷️ 行逐 tag 搜索入口迁移）', (tester) async {
       final pushed = <String>[];
       final observer = _PushedRouteObserver(pushed);
       final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
         ..remove('/');
-      routes[AppRoutes.search] = (_) => const Scaffold(
-            key: Key('search-stub'),
-            body: Text('搜索页'),
-          );
+      routes[AppRoutes.search] = (_) =>
+          const Scaffold(key: Key('search-stub'), body: Text('搜索页'));
       final book = Book(
         bookUrl: 'https://src.com/book/kindtap',
         name: '点tag书',
@@ -216,24 +255,23 @@ void main() {
       stubBook(book, const []);
       await loadGroups(const []);
 
-      await tester.pumpWidget(UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: BookInfoScreen(book: book),
-          routes: routes,
-          navigatorObservers: [observer],
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: BookInfoScreen(book: book),
+            routes: routes,
+            navigatorObservers: [observer],
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // 点击 kind chip → push 搜索页（_openSearch：event=clickBookLabel）
       await tester.tap(find.text('奇幻'));
       await tester.pumpAndSettle();
       expect(pushed, contains(AppRoutes.search));
-      expect(
-        find.byKey(const Key('search-stub')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('search-stub')), findsOneWidget);
 
       // 返回详情页（同 Navigator pop；re-pump 会复用 NavigatorState，
       // 已 push 的搜索页仍在栈顶，故用 pop 恢复 chip 行可见）
@@ -246,12 +284,14 @@ void main() {
       // 原 🏷️ 行长按入口迁移，功能不丢）
       await tester.longPress(find.text('武侠'));
       await tester.pumpAndSettle();
-      verify(() => mockApi.sourceCallBackBtn(
-            event: 'longClickBookLabel',
-            bookUrl: book.bookUrl,
-            result: '武侠',
-            bookType: 0,
-          )).called(1);
+      verify(
+        () => mockApi.sourceCallBackBtn(
+          event: 'longClickBookLabel',
+          bookUrl: book.bookUrl,
+          result: '武侠',
+          bookType: 0,
+        ),
+      ).called(1);
       expect(tester.takeException(), isNull);
     });
   });

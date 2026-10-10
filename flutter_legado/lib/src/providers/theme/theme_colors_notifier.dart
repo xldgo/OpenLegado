@@ -5,7 +5,7 @@
 // 即时生效 — Qoder
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/pref_keys.dart';

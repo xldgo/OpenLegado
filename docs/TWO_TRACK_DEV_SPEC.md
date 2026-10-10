@@ -56,6 +56,12 @@ Legado Flutter 重构采用 **Rust 核心引擎 + Flutter 跨平台 UI** 架构�
 - 产物 `frb_generated.dart` 与 `frb_generated.rs` **必须由同一次 codegen 生成并一次性提交**。
 - 禁止手改 `frb_generated*` 任何内容（包括 content hash），codegen 会覆盖手改。
 
+FRB Dart runtime、Rust runtime 与 codegen 当前精确配对为 2.13.0。
+生成入口从 `pubspec.yaml` 读取版本并检查已安装 codegen；生成后以
+`cargo build --locked -p legado-ffi --features quickjs` 重建原生库。
+Flutter 为 3.47.7，包声明的 Dart 最低版本为 3.13；环境检查须核对实际版本，
+不依赖开发者个人的 FVM 配置。
+
 ### 3.2 已知坑：content hash 不匹配
 
 每次 codegen 会重新计算双侧 content hash。若 codegen 后未重编译 Rust DLL/.so，旧二进制中嵌入的 hash 与新生成的 Dart 侧 hash 不一致，启动即报：

@@ -8,12 +8,122 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### DEV-INTEGRATION-20261011：升级分支合入 dev（P2）
+
+- **状态**：待复验；升级分支已无冲突合入本地 dev，远端 CI 结果待回填。
+- **授权与范围**：用户要求合并到 dev 且不跳过 CI；从本地 dev `e4c9a9764` 合入 `feature/rust-dependency-upgrades` 的 `9907fe101`，保留 Flutter、FRB、依赖、AGP 9、RELRO 与 NDK 28 的既有提交，不改写历史。
+- **执行与边界**：在独立 worktree 操作，不使用子代理；主工作区的未提交 iOS 工具整理保持原样。合并提交不包含跳过 CI 标记，正常推送 dev；iOS 模拟器和 Android Release 保持现有手动/标签入口。
+- **验收**：合并差异检查与 workflow 语法检查通过；以本次 dev 合并提交的 Rust CI、Flutter CI、Integration Smoke 和 iOS Build 结果确认远端门禁，不能沿用旧提交的 CI 作为本次通过依据。
+
+编写者：Codex｜2026-10-11
+
+### RUST-DEPS-20261011：Rust 依赖与产物下载 Action 升级（P2）
+
+- **状态**：已交付（八项依赖、Action 与 x86_64 定向验证范围）；实现位于 `feature/rust-dependency-upgrades`，按用户要求合为一个提交。
+- **授权与基线**：用户授权升级 download-artifact 和前轮核查的 Rust 库，Flutter 依赖暂不处理；从 `2caf25afe` 在原 worktree 创建 `feature/rust-dependency-upgrades`，不使用子代理。
+- **范围**：download-artifact v8；rusqlite/r2d2_sqlite、reqwest、zip、scraper/ego-tree、lru、md5 的兼容升级与必要调用适配。PDF 的 genpdf/image 因上游类型依赖配套保留；FRB 2.13.0、Rust stable、Flutter 与应用版本保持。
+- **验收与交付**：复用已有数据库、网络、解析、压缩与缓存测试，补齐迁移导致的真实行为回归；只构建 Android x86_64 并按需做 MuMu FFI 冒烟，保留用户数据。一个提交，带 `[skip ci]`，不运行整套 CI；方法与结果回填专题记录。
+- **结果与证据**：基础模块 1,889 项、QuickJS 定向 61 项，共 1,950 项 Rust 测试通过；一次 NDK 28 x86_64 QuickJS 编译、复制/strip/包内来源与 LOAD/RELRO 校验、MuMu 三项真实 FFI 均通过。正常 APK 已恢复，未卸载或清除数据。actionlint 与差异检查通过；Flutter 依赖及生成物无差异。方法和日志入口见 [升级记录](RUST_DEPENDENCY_UPGRADE_20261011.md)。
+- **边界**：保留 genpdf/image 的既有配套版本，其他 Android ABI、16 KB 设备、iOS、工作区全量门禁与服务端全量行为不在本批已验证范围。TLS 本地 HTTPS 回归通过，不声称 Android 全部线上书源已复验。
+
+编写者：Codex｜2026-10-11
+
+### ANDROID-NDK28-20261011：Android NDK 版本统一（P2）
+
+- **状态**：已交付（版本统一与 x86_64 定向验证范围）；其余 ABI 和 16 KB 设备运行由后续平台构建补充。
+- **授权与基线**：用户同意 Rust 构建和 CI 升至 NDK 28.2.13676358，与 Flutter 3.47.7 默认值一致；从 `8c5a4ceaf` 在现有 `feature/rust-android-relro` worktree 执行。应用版本保持 `2.0.369+370`，Rust stable、FRB 2.13.0 保持。
+- **范围与验收**：两个现有 Android workflow、PS 默认 NDK 查找及当前开发说明；保留显式 SDK 路径配置、16 KB 参数和 ELF 门禁。只编译 x86_64，检查复制/包内库来源和 ELF，再运行 MuMu 三项真实 FFI；测试后恢复正常应用，不清除数据。
+- **边界**：不使用子代理、不编译其他 ABI、不运行全套 CI；不改变 FFI 契约、业务、数据库、签名或第三方预编译库。提交带 `[skip ci]`，iOS 与 16 KB 设备测试保持原限制。
+- **验收**：已安装的 NDK r28c / Clang 19.0.1 成功编译 x86_64 release QuickJS 库，未复用旧库；复制、strip、包内来源与 LOAD/RELRO 校验通过，MuMu 三项真实 FFI 通过。默认/显式 NDK 路径与 workflow 检查通过；恢复先前正常 APK并保留数据，应用源码、版本和锁文件不变。
+- **证据**：[Android 原生工具链记录](ANDROID_RELRO_20261011.md)，本项只维护当前状态。
+
+编写者：Codex｜2026-10-11
+
+### ANDROID-RELRO-20261011：Rust Android 16 KB RELRO 修复（P1）
+
+- **状态**：已交付（源码修复与 x86_64 定向验证范围）；与 AGP 迁移分开提交。其余 ABI 和 16 KB 设备运行由后续正常平台构建补充。
+- **授权与基线**：用户同意单独修复，从 `1325e1e58` 创建 `feature/rust-android-relro`；在 AGP worktree 执行，不使用子代理、不运行全套 CI。应用版本保持 `2.0.369+370`，Rust stable、NDK 27、FRB 2.13.0 保持。
+- **范围**：仓库 Cargo 配置统一 `max-page-size` 与 `common-page-size`；本地 Android 脚本与两个现有 workflow 共用 ELF 校验，拒绝 RELRO 未对齐的旧库。按用户追加要求只重建 x86_64，检查测试 APK 来源与页对齐，并在 MuMu 验证真实 FFI；停止其余本地 ABI 编译。
+- **边界**：不改变 FFI 契约、业务功能、数据库、签名、CI 拓扑或第三方二进制。MuMu 为 4 KB 页；第三方库的 RELRO 风险另行核查，不能据此宣称整包已通过 16 KB 设备运行。
+- **验收**：NDK 27 最小编译对照与 16 项 ELF 门禁正反例通过；实际 x86_64 新库、strip 后库及测试 APK 内库的 LOAD/RELRO 与来源校验通过，MuMu 3 项真实 FFI 测试通过。测试后恢复先前 AGP 正常 APK，未卸载或清除数据；应用源码、pubspec 版本和锁文件保持。
+- **方法与证据**：[Rust Android RELRO 修复记录](ANDROID_RELRO_20261011.md)；状态只维护于本项。
+
+编写者：Codex｜2026-10-11
+
+### AGP9-MIGRATION-20261010：Flutter Android 构建链迁移（P2）
+
+- **状态**：AGP 9 兼容模式已交付（2026-10-11）；插件准备、配置、宿主编译、debug/release APK 与 MuMu 定向回归通过。内置 Kotlin 等待 TTS 上游适配，新 DSL 另行迁移；iOS 模拟器仍暂缓。Rust 16 KB RELRO 转入用户授权的独立修复。
+- **基线与工作区**：从依赖升级提交 `bdea9b155` 创建 `feature/ui-agp9-migration`，worktree 为 `E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree`；主 checkout 保留原分支与配置。Flutter 3.47.7、FRB 2.13.0、Rust stable、应用版本 `2.0.369+370` 保持。
+- **实施顺序**：按包适配偏好存储/外链/WebView 的 Android 实现 → 候选 AGP 9.2.1 / Gradle 9.4.1 的旧 Kotlin/旧 DSL 兼容模式 → 原生构建及打包校验 → 单独评估 app_links 7.2.2 → 第三方条件满足后迁移内置 Kotlin。Java 17、Rust NDK 保持；不直接启用 newDsl。
+- **已确认风险**：锁定插件中仍有显式 KGP 应用；TTS 最新稳定版尚未移除旧接线；Flutter 3.47.7 仍使用旧 DSL，工具模板 Gradle 9.3.1 也不能代替 9.4.1 的实际验证。源码核查不是编译证据。
+- **实施记录**：`shared_preferences_android` 已从 2.4.23 更新到 2.4.28，仅变更对应锁定项；精确依赖恢复、定向分析和偏好读写/阅读配置迁移/恢复过滤共 55 项 Dart 测试通过。Android 原生偏好数据兼容仍待构建与设备验证。
+- **外链准备**：`url_launcher_android` 从 6.3.30 更新到 6.3.33，仅变更对应锁定项；16 个调用文件与来源登录页面测试分析零问题，既有页面测试 1 项通过；保留原 LaunchMode，系统外链启动待原生验证。
+- **WebView 准备**：`webview_flutter_android` 从 4.12.0 更新到 4.14.1，仅变更对应锁定项；6 个调用文件及登录相关测试分析零问题，登录信息与请求头 13 项测试通过。三项插件准备合计 69 项定向测试；Android Cookie、JS 与页面导航仍待原生验证。
+- **构建配置**：AGP 9.2.1 / Gradle 9.4.1，wrapper 记录官方 SHA-256；依据 Flutter 检查与 Kotlin 官方兼容表将 KGP 配套更新为 2.4.21。实际错误证明旧 `kotlinOptions.jvmTarget` 不再可用，已改为顶层 `compilerOptions` 并保持 JVM 17。Java 17 下 Flutter 配置建议与全部插件的 Gradle help 均通过；保留 builtInKotlin=false / newDsl=false。
+- **原生与设备验证（2026-10-11）**：当前 Rust stable 1.99.0 / NDK 27 的三 ABI release 库构建与来源校验通过；64 位启用 QuickJS，armv7 因既有 RAR 32 位编译限制按原策略禁用 QuickJS。debug APK、24 项宿主 JVM 测试、MuMu 安装冷启动、3 项真实 FFI 测试及离线搜索→阅读→翻章均通过。三 ABI release 的包名、版本、签名、ZIP 对齐、Rust 来源与 64 位 LOAD 对齐通过。MuMu 为 Android 15 / API 35、x86_64、4 KB 页；iOS 和 16 KB 设备运行未验证。
+- **应用链接**：app_links 7.2.2 与必需的 Linux/Web 实现已升级，生成 Linux 注册文件同步替换 gtk。定向分析及链接解析/欢迎页门控共 10 项测试通过。真实设备发现旧、新版都重复处理深链；按官方要求关闭 Android 默认处理，并复用既有欢迎页门控注册初始链接，最终 MuMu 冷/热启动、重复去重、关闭后重开与 yuedu 入口均通过。Android 保留自定义 MethodChannel；iOS 的 app_links 事件流及其他桌面端未实测。
+- **新增风险（2026-10-11）**：既有 Rust 参数只有 `max-page-size=16384`，LOAD 段对齐通过，但实际 RELRO 末尾未按 16 KB 对齐；已在独立任务 `ANDROID-RELRO-20261011` 修复并通过 x86_64 定向验证。部分第三方库也有非零余数，尚待核查。不能以 MuMu 或 ZIP/LOAD 通过宣称 16 KB 整包运行兼容，证据见迁移方案与独立修复记录。
+- **提交整理与限制**：用户要求压缩历史，之前依赖升级合为 `1805569d6`，本次三项实现合为 `d035e2702`；文件树相同并已精确 lease 推送，跳过 CI。后续按阶段定向验证，提交带 `[skip ci]`；不使用子代理，不运行全套 CI；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
+- **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
+
+编写者：Codex 主代理｜2026-10-10
+
+### DEPS-UPGRADE-20261010：Flutter 依赖逐项升级与停维护包替换（P1）
+
+- **状态**：已交付（用户批准的依赖升级与本地定向验证范围）。2026-10-10 用户同意最后四个插件一起升级，兼容组适配与定向回归通过。保持不使用子代理、不运行整套 CI；Android APK 与 iOS 模拟器验证暂缓，原生平台行为尚未验收。
+- **范围与基线**：从 FRB 升级提交 `c3bc6c406` 创建 `feature/ui-dependency-upgrades`。逐项评估并升级已审计的直接依赖，替换停维护的 Markdown/封面取色包；Rust、FRB、数据库和现有阅读界面保持。Flutter 固定 3.47.7，Dart 下限 3.13，应用版本保持 `2.0.369+370`。
+- **实施与验收**：每项先核对实际调用及新版约束，再更新锁文件和必要兼容代码；只运行对应静态分析、已有相关测试及确有必要的回归用例。每项单独提交，使用 `[skip ci]`，不新增 CI 流程；原生构建/真机验证按用户要求暂缓，不能用 Mock 通过宣称原生可用。相互冲突的直接依赖先说明约束，再以最小兼容组处理。
+- **顺序与进度**：18 项直接依赖已升级或替换，其中前 14 项独立提交，最后四项按用户授权作为兼容组交付；版本与验证范围见升级记录。取色保留原算法，Riverpod 已适配 family、同值通知与销毁语义；媒体播放保留 Media3 1.9.2 和现有焦点处理。文件选择/分享迁移新 API，设备标识和应用版本语义保持；必需的 win32 更新为 6.4.0，宿主 AGP 配套更新为 8.12.1。应用链接更高版本待 AGP 9 构建链另行验证，material_color_utilities 保留 Flutter SDK 固定的 0.13.0。未全量更新传递依赖。
+- **证据**：[依赖升级记录](DEPENDENCY_UPGRADES_20261010.md)，按每项实际结果回填；网络使用用户指定的进程内代理 `127.0.0.1:7897`，不修改全局配置。
+
+编写者：Codex｜2026-10-10
+
+### FRB-UPGRADE-20261010：FRB 2.13.0 与 Dart 语言下限升级（P1）
+
+- **状态**：已交付（当前用户认可的验证范围）；实现提交 `c3bc6c406`，远端常规门禁通过。2026-10-10 用户要求暂停一次性的 Android APK/iOS 模拟器验证，已取消该运行，不作为本轮阻塞项。
+- **范围与基线**：从 `f9829708d` 创建 `feature/rust-frb-2.13.0`。Dart 下限提高为 `>=3.13.0 <4.0.0`；FRB Dart/Rust runtime 与 codegen 固定为 2.13.0，同步锁文件、双方生成物、现有生成入口和有效文档/CI 检查。应用版本保持 `2.0.369+370`，Rust 继续使用 stable。
+- **契约与边界**：已先更新 [API 契约](API_CONTRACT.md) 的升级范围；业务接口、JSON、事件流、数据格式与阅读界面保持既有行为。沿用 CocoaPods RustFFI 与手动原生构建方式。
+- **生成链兼容**：实际编译确认 Freezed 2.5.8 的生成参数不兼容 Dart 3.13；按用户追加要求升级至 Freezed 4.0.2、build_runner 2.16.2、JSON 生成器 6.14.1，并配套注解包与 analyzer 14.5.0。64 个工厂类仅补 abstract 声明，移除未使用且阻塞新版 analyzer 的旧 Riverpod 生成/lint 依赖，运行库仍为 2.6.1；其他插件升级建议只作为审计记录，不新增当前任务。
+- **验收**：依赖可锁定恢复；两条生成链可执行，重复生成无额外差异；导出方法与原有契约一致；静态分析、真实 FFI 及 Windows/Android/iOS 构建通过。常规门禁以 CI 为准，平台限制与未验收项如实登记。
+- **证据**：[升级记录](FRB_2_13_UPGRADE_20261010.md)；本机生成及 DLL 构建成功，284 个桥接函数签名不变，模型/契约/真实 FFI 共 32 项通过；同一实现提交的 Flutter CI、Rust CI、Integration Smoke 与 iOS Build 全部成功。一次性平台验证在用户要求暂停前完成 Android 三 ABI release FFI 编译/复制/校验，但 APK 与模拟器测试未完成；不声明真机安装通过。
+
+编写者：Codex 主代理｜2026-10-10
+
+### CI-SETUP-20261010：Android 与 Java 环境 Action 升级（P2）
+
+- **状态**：已关闭（配置升级范围）；按用户要求 fixup 到之前的 Flutter 升级提交，保留 `[skip ci]`。
+- **范围与执行**：`android-release.yml` 的 `actions/setup-java` 从 v4 改为 v6；该文件与 `integration-smoke.yml` 共 2 处 `android-actions/setup-android` 从 v3 改为 v4。由主代理直接实施，不使用子代理。
+- **验证与交付**：官方新版支持现有 `distribution`、`java-version`、`packages` 输入；9 份 workflow 的 actionlint 与 `git diff --check` 通过。显式 Java 17 与 NDK 27.0.12077973 配置保持原值，Android 命令行工具使用新版 Action 默认值。修改压缩进 `chore/flutter-3.47.7` 的升级提交并推送；应用版本保持 `2.0.369+370`。
+- **证据与限制**：[升级记录](FLUTTER_3_47_UPGRADE_20261010.md)；本次跳过远端 CI，新版环境安装行为由后续正常构建验证。Dart 下限与 FRB 版本未在本批调整。
+
+编写者：Codex 主代理｜2026-10-10
+
+### CI-ARTIFACT-20261010：产物上传 Action 升级（P2）
+
+- **状态**：已关闭（配置升级范围）；按用户要求升级并跳过本次 CI。
+- **范围与执行**：当前升级分支中 `android-release.yml`、`ios-build.yml`、`ios-ci.yml` 共 6 处 `actions/upload-artifact` 从 v4 改为 v7；由主代理直接执行，不使用子代理。
+- **依据与验证**：[官方 v7 元数据](https://github.com/actions/upload-artifact/blob/v7/action.yml) 保留现有输入和 `artifact-id` 输出，默认 `archive: true`，现有产物名称、路径、保留时间与打包方式兼容；9 份 workflow 的 actionlint 及 `git diff --check` 通过，当前 workflow 未再使用旧版 upload-artifact。
+- **交付与限制**：提交信息附 `[skip ci]` 并推送当前分支；本次未运行远端 CI，v7 的实际上传行为由后续正常构建验证。应用版本保持 `2.0.369+370`。
+
+编写者：Codex 主代理｜2026-10-10
+
+### FLUTTER-SDK-20261010：Flutter 3.47.7 升级（P1）
+
+- **状态**：已关闭（SDK 升级范围，2026-10-10 用户确认）；SDK 升级、提交推送及本轮 Actions 验证已完成，Android 三种 ABI APK、未签名 iOS IPA 和模拟器阅读测试通过。FRB 升级与生成复现转入 `FRB-UPGRADE-20261010`；iOS 已有数据覆盖安装和 16 KB 页设备运行仍需后续平台维护补充实际证据。
+- **目标与范围**：固定 Flutter 3.47.7 / Dart 3.13.5，同步五份现有 Flutter workflow、iOS 15.0 平台目标，处理实际依赖与 API 兼容阻塞；验证代码生成、新 SDK 构建与真实 FFI。按用户追加要求将 Rust 工作区与 CI 改为 `stable`；`.fvmrc` 仅作本地配置并加入忽略规则。保留现有阅读行为、界面、数据库及 FRB 2.11.1 契约，不扩大到架构和设计系统重构。
+- **基线与执行**：从 `dev` 的 `e4c9a9764ae54481ceae7e44c2812335f51170ff` 创建 `chore/flutter-3.47.7`；应用版本 `2.0.369+370`。按用户要求不使用子代理；本地验证及审核后，用户已于 2026-10-10 授权提交、推送升级分支并运行 Actions 测试，远端结果回填本项及证据记录。用户已授权删除并已删除 FVM 缓存中的 Flutter 3.29.3，保留新 SDK。
+- **本地证据**：[SDK 升级验证记录](FLUTTER_3_47_UPGRADE_20261010.md)。精确恢复 lockfile、静态分析零问题、Dart 代码生成及重复生成摘要检查通过；Rust `stable` 新编译的 QuickJS FFI 库下，Flutter 全量 2239 项测试、Windows 集成冒烟 3 项通过，Windows 包内 DLL 与源产物 SHA256 一致；9 份 workflow 的 actionlint 与差异检查通过。修正了 Windows CMake 中 Rust 产物目录的作用域错误。
+- **远端验证**：升级及修正已推送至 `origin/chore/flutter-3.47.7`，应用修正提交至 `3afdf0c18`；Flutter CI、Rust stable 完整门禁、Integration Smoke、iOS 模拟器两项集成测试、Android 三种 ABI APK 及未签名 iOS IPA 均通过。实际失败已收敛：async-trait 补丁更新至 0.1.92、Android 分 ABI 配置冲突、iOS legacy 散文件与 plist 引用缺失。默认分支尚未登记 Android Release / iOS CI，在两个独立验证分支仅复用构建作业取得证据，未执行发布；运行链接和受测提交详见验证记录。
+- **验收与限制**：已可用的 iOS 版本作为回归基线。本机 Android cmdline-tools 缺失、Windows 无 Xcode 的构建限制已由远端补充证据；仓库未配置 iOS 签名素材，IPA 为未签名包。16 KB 页设备运行及已有 iOS 数据覆盖安装另附实际证据。FRB 绑定和契约保持原样，固定版本 FRB 重新生成的独立验证尚未执行；Dart 生成器保留 SDK/分析器语言版本差异警告。配置与 CI 通过不替代上述最终回归。
+
+编写者：Codex 主代理｜2026-10-10
+
 ### CI-AUTO-20261010：仓库自动化配置整理（P2）
 
-- **状态**：待复验；2026-10-10 配置修改、本地静态检查及触发/标签/评论情景通过，用户已明确要求提交本地 commit；Ruby 检查及远端服务验证仍待 CI。不使用子代理，提交授权不包含推送。
+- **状态**：待复验；2026-10-10 配置修改、本地静态检查及触发/标签/评论情景通过，用户已明确要求提交本地 commit；Ruby 检查及远端服务验证仍待 CI。不使用子代理，初次授权仅提交；后续已随用户授权的 SDK 升级分支推送其祖先提交。
 - **目标与范围**：Dependabot 监控 Actions、Rust、Flutter 和 Flutter Android；补齐当前工程标签与模板，并清理旧 `app/`、`modules/` 及根 Gradle 的无效路径分类；PR 自动审查按 `review` 标签启用；历史标签回填仅手动；stale 仅处理 Issue；统一发布分类。按用户追加要求核查同类旧路径，修正当前仓库元数据、发布/进度文档入口和 API 文档的失效源码链接，并按明确授权删除 8 个旧原版 Gradle 文件。修改限于上述文件、`.github/` 配置、三份仓库自动化 workflow、`package.json` 仓库链接、Podspec 首页及必要说明；现有辅助脚本、应用源码、现用 Rust/Flutter 依赖版本、Pod 构建字段和六份构建/发布 workflow 保持原状。
 - **执行与验收**：由 Codex 主代理直接实施和复核。检查 YAML/重复键、actionlint、标签正负例及审查触发/评论守卫；不调用 API 发布评论、添加标签、关闭 Issue 或触发付费审查，不运行应用构建。
-- **分支与交付**：基线 `06665408f`，当前 `dev`；用户已确认 Dependabot 普通版本更新 PR 指向 `dev`，安全更新仍按 GitHub 默认分支规则处理。按最新用户指令提交本地 commit，主题为 `chore(tool): 整理仓库自动化并清理旧 Gradle 构建文件`，正文关联本任务和证据报告；提交号由该条 Git 记录定位，不推送。
+- **分支与交付**：基线 `06665408f`，当时执行于 `dev`；用户已确认 Dependabot 普通版本更新 PR 指向 `dev`，安全更新仍按 GitHub 默认分支规则处理。按当时用户指令提交本地 `e4c9a9764`，主题为 `chore(tool): 整理仓库自动化并清理旧 Gradle 构建文件`，正文关联本任务和证据报告；当时未推送，后续已随用户授权的 SDK 升级分支作为祖先提交推送。
 - **旧 Gradle 清理**：用户已同意删除根 `build.gradle`、`settings.gradle`、`gradle.properties`、`gradlew`、`gradlew.bat`、`gradle/libs.versions.toml`、`gradle/wrapper/gradle-wrapper.jar`、`gradle/wrapper/gradle-wrapper.properties`。删除前确认目标无未提交修改，删除仅限这 8 个文件；原版测试说明同步为另备完整原版工程，Flutter Android 与原版语义探针材料继续保留。
 - **证据与限制**：[自动化配置与验证证据](CI_AUTOMATION_REVIEW_20261010.md)；9 份 workflow actionlint、16 份 YAML/重复键、14 个内容标签、18 个路径、10 个审查触发和 8 个模拟评论情景通过。旧路径清单已按当前配置、原版参考、保留脚本和历史记录分类；当前 workflow 的有效路径规则未再发现旧原版目录依赖，6 份含旧路径的脚本保持原状。没有运行远端写入、付费审查或清理；旧脚本自测依赖已清理规则，CI 改为当前工程的 Ruby 标签情景及旧脚本语法检查，本机无 Ruby，待远端 PR 补充运行证据。首次使用 `review` 与 stale 豁免需创建对应仓库标签。
 
@@ -21,7 +131,7 @@
 
 ### CI-WF-20261010：GitHub Actions 职责拆分（P1）
 
-- **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；手动 iOS CI 和 Android Release 完整打包尚未运行。
+- **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；后续 SDK 升级批次复用 iOS CI / Android Release 构建作业，模拟器阅读及完整 APK 打包校验也已通过，证据见 FLUTTER-SDK-20261010。
 - **目标**：iOS 模拟器验证拆为仅手动触发的 `ios-ci.yml`；`ios-build.yml` 保留设备包交付；Flutter 常规检查与 Android FFI 验证解耦；整理 Rust 检查和 Android 发布的 job 边界。按用户追加命名要求，将仅产出 Android APK 的 `flutter-release.yml` 重命名为 `android-release.yml`，显示名为 Android Release；旧任务证据中的名称保持历史记录。
 - **范围**：六份 CI/发布 workflow 与必要入口说明；按用户追加要求，另删除 `stale.yml` 中写死旧仓库名的单行限制，保持既有触发和 30+5 天清理规则。所有现有脚本保留，应用源码、依赖配置、模板和其他自动化不在本批范围。
 - **执行**：ci_topology 负责 iOS；ci_cleanup 负责 Rust/Flutter/FFI/Release；主代理复核、维护文档与提交；ci_review 完成提交前独立审查，无剩余阻塞项。

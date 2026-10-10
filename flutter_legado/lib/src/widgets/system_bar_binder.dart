@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../providers/theme/system_bar_notifier.dart';
 import '../providers/theme/theme_colors_notifier.dart';

@@ -3,6 +3,10 @@
 targets:
   $default:
     builders:
+      # 由生成器格式化，避免新模板输出行尾空格；不手工修改生成文件。
+      freezed:
+        options:
+          format: true
       json_serializable:
         options:
           explicit_to_json: true

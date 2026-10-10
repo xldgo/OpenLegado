@@ -152,6 +152,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   BookApi? _apiCache;
 
+  // Riverpod 3 销毁回调不能再访问 Ref/state；只供退出保存使用。
+  AudioState? _stateForDispose;
+
   static const double _kCharsPerSecond = 5.0;
   static const Duration _kMinParagraphDuration = Duration(milliseconds: 800);
   static const Duration _kMaxParagraphDuration = Duration(seconds: 90);
@@ -266,6 +269,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   @override
   AudioState build() {
+    _apiCache = ref.read(bookApiProvider);
+    final initialState = AudioState(config: TtsConfig());
+    _stateForDispose = initialState;
+    listenSelf((previous, next) => _stateForDispose = next);
     _audioService = ref.read(audioServiceProvider);
     _streamPlayer = ref.read(streamAudioPlayerProvider);
     // 完成回调按当前模式分发：音频书 → 下一章；TTS → 下一段
@@ -315,7 +322,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       unawaited(_streamPlayer.dispose());
       _audioService.dispose();
     });
-    return AudioState(config: TtsConfig());
+    return initialState;
   }
 
   Future<void> initMediaSession({String bookName = ''}) async {
@@ -1609,8 +1616,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 容器销毁时尽力写一次进度（onDispose 内调用，任何异常不得影响销毁）
   void _saveStreamProgressOnDispose() {
     try {
-      final s = state;
-      if (!s.isStreamMode || s.bookUrl.isEmpty) return;
+      final s = _stateForDispose;
+      if (s == null || !s.isStreamMode || s.bookUrl.isEmpty) return;
       final key = '${s.bookUrl}:${s.currentIndex}';
       final playerPos = _streamPlayer.position.inMilliseconds;
       final position = (key == _lastProgressSaveKey && playerPos > 0)
@@ -1620,7 +1627,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (key == _lastProgressSaveKey && position == _lastProgressSavedPosMs) {
         return;
       }
-      final api = _api;
+      final api = _apiCache;
+      if (api == null) return;
       unawaited(
         api.saveAudioProgress(s.bookUrl, s.currentIndex, position).catchError(
           (Object e) {

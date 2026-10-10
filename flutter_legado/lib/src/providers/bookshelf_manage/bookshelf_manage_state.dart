@@ -10,7 +10,7 @@ part 'bookshelf_manage_state.freezed.dart';
 /// 批量删除/移动分组/置顶分别经 `deleteBook`/`setBookGroup`/`topBook` 契约
 ///（对标安卓原版 BookshelfManageActivity，REFACTORING_REMAINING_PLAN §4.3 P2-2）。
 @freezed
-class BookshelfManageState with _$BookshelfManageState {
+abstract class BookshelfManageState with _$BookshelfManageState {
   const factory BookshelfManageState({
     /// 书架书籍列表
     @Default([]) List<Book> books,

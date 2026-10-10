@@ -17,7 +17,6 @@ use std::sync::{Arc, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use reqwest::redirect::Policy;
-use reqwest::ClientBuilder;
 
 use legado_core::{LegadoError, LegadoResult};
 
@@ -216,7 +215,7 @@ impl LegadoClient {
         cookie_persistence: Option<Arc<dyn CookiePersistence>>,
         existing: Option<Arc<RwLock<CookieStore>>>,
     ) -> LegadoResult<Self> {
-        let mut builder = ClientBuilder::new()
+        let mut builder = crate::tls::client_builder()
             .connect_timeout(config.connect_timeout)
             .timeout(config.read_timeout)
             .user_agent(&config.user_agent)
@@ -226,7 +225,7 @@ impl LegadoClient {
         if let Some(ref ssl) = config.ssl {
             builder = ssl.apply(builder);
         } else if config.accept_invalid_certs {
-            builder = builder.danger_accept_invalid_certs(true);
+            builder = builder.tls_danger_accept_invalid_certs(true);
         }
 
         // 重定向策略（P2-19）：跟随链显式放宽到 20 跳，对齐上游 OkHttp

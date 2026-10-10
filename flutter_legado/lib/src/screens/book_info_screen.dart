@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_strings.dart';
@@ -229,7 +229,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             final invoked = r['invoked'] == true;
             final jsTrue = r['jsTrue'] == true;
             if (!invoked || !jsTrue) {
-              await Share.share(shareStr);
+              await SharePlus.instance.share(ShareParams(text: shareStr));
             }
           } catch (e) {
             // [审计修复 §4.1] 不再静默吞异常，向用户提示 — Qoder

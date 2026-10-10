@@ -1,8 +1,10 @@
-﻿import 'package:file_picker/file_picker.dart';
+﻿import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 
@@ -102,11 +104,12 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
     );
     if (!mounted || action == null) return;
     if (action == 'select') {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.image,
         dialogTitle: '选择欢迎页背景',
+        compressionQuality: Platform.isAndroid ? 30 : 0,
       );
-      final path = result?.files.single.path;
+      final path = result?.path;
       if (path == null || !mounted) return;
       setState(() {
         if (dark) {

@@ -11,7 +11,7 @@ part 'rss_read_record_row.g.dart';
 /// `RssReadRecordRow`，serde 默认 snake_case）；待 §4.2 P0-2 v96→97
 /// 迁移对齐 Room v95 全列后扩展字段。
 @freezed
-class RssReadRecordRow with _$RssReadRecordRow {
+abstract class RssReadRecordRow with _$RssReadRecordRow {
   const factory RssReadRecordRow({
     /// 来源 URL
     @Default('') String origin,

@@ -7,7 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -611,11 +611,11 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   /// 导入本地任务文件（txt/json，对标 menu_import_local）
   Future<void> _importLocal(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['txt', 'json'],
       );
-      final path = result?.files.single.path;
+      final path = result?.path;
       if (path == null) return;
       final raw = await File(path).readAsString();
       if (context.mounted) {
@@ -784,20 +784,26 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     final json = jsonEncode(tasks.map((t) => t.toJson()).toList());
     try {
       // 优先让用户选择保存位置（桌面/移动端支持）
-      final savePath = await FilePicker.platform.saveFile(
+      final savePath = await FilePicker.saveFile(
         dialogTitle: '导出定时任务',
         fileName: 'exportAutoTask.json',
+        bytes: utf8.encode(json),
+        mimeType: 'application/json',
       );
       if (savePath != null) {
-        await File(savePath).writeAsString(json);
-        if (context.mounted) _snack(context, '已导出到: $savePath');
+        final location = savePath.scheme == 'file'
+            ? savePath.toFilePath()
+            : savePath.toString();
+        if (context.mounted) _snack(context, '已导出到: $location');
         return;
       }
       // 平台不支持保存对话框：写入文档目录并走系统分享
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/exportAutoTask.json');
       await file.writeAsString(json);
-      await Share.shareXFiles([XFile(file.path)], subject: '导出定时任务');
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], subject: '导出定时任务'),
+      );
     } catch (e) {
       if (context.mounted) _snack(context, '导出失败: $e');
     }

@@ -5,7 +5,7 @@ part 'rss_source.g.dart';
 
 /// RSS源实体
 @freezed
-class RssSource with _$RssSource {
+abstract class RssSource with _$RssSource {
   const factory RssSource({
     @Default('') @JsonKey(name: 'sourceUrl') String sourceUrl,
     @Default('') @JsonKey(name: 'sourceName') String sourceName,

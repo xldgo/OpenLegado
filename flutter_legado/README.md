@@ -82,7 +82,7 @@ flutter_legado/
 ### 1. Flutter SDK
 
 ```bash
-flutter --version   # 确保 SDK >= 3.11.5
+flutter --version   # 确认 Flutter 3.47.7 / Dart 3.13.5
 flutter pub get     # 安装依赖
 ```
 
@@ -96,7 +96,7 @@ cargo check         # 验证 Rust 侧可编译
 ### 3. flutter_rust_bridge_codegen
 
 ```bash
-cargo install flutter_rust_bridge_codegen
+cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 ```
 
 ### 4. 生成 Bridge 代码
@@ -110,8 +110,7 @@ cargo install flutter_rust_bridge_codegen
 # Windows PowerShell
 .\scripts\generate-bridge.ps1
 
-# 或直接使用 Makefile
-make gen
+# 两个脚本均核对 FRB 版本，并在生成后重建带 QuickJS 的原生库。
 ```
 
 ---
@@ -230,7 +229,7 @@ flutter pub run build_runner build --delete-conflicting-outputs
 | UI 框架 | Flutter 3.x |
 | 状态管理 | Provider |
 | 数据模型 | freezed + json_serializable |
-| FFI 桥接 | flutter_rust_bridge 2.12.0 |
+| FFI 桥接 | flutter_rust_bridge 2.13.0 |
 | 路由 | Navigator 1.0（命名路由） |
 | 原生通道 | MethodChannel (platform_channel.dart) |
 
