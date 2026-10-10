@@ -15,7 +15,6 @@ jobs:
   stale:
 
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'ZhangGHGitHub/LegadoTeamFlutter' }}
     permissions:
       issues: write
 

@@ -106,4 +106,12 @@ L2 的广义嵌入 Python AST 检查计为 10 段，包含其额外识别的嵌�
 | integration-smoke.yml | `88bae3220bf76d3cad22277c829f2f1442adda03e24bebf34e8bbe9af5664ca8` |
 | android-release.yml | `36b485732e5d5a0e9de2c7e30ff804252203d1332f251a1df5332bd71d76116e` |
 
+## 7. 用户追加的 stale 限定移除审查
+
+基于工程提交 `2301a2e183439d49942176f814dcb7fd3004e5c3`，仅审查 `.github/workflows/stale.yml` 删除 `github.repository == 'ZhangGHGitHub/LegadoTeamFlutter'` 的一行 job 条件。独立读取 diff 并解析修改前后 YAML：删除旧映射中的该 `if` 后，两份结构完全相同；schedule `30 1 1/5 * *`、手动入口、`issues: write`、`actions/stale@v11`、30 天标记加 5 天关闭和每轮 100 次操作参数均未变化。行为改变限定为不再按旧仓库名称跳过 job，符合本次用户追加要求。
+
+独立复验：§4 的六文件 actionlint 命令末尾追加 `.github/workflows/stale.yml`，七份受影响 workflow 检查退出码 0；stale YAML 解析/结构对照与 `git diff --check -- .github/workflows/stale.yml` 均退出码 0。此追加审查没有重跑原 111 个守卫情景，没有触发 stale workflow、实际自动清理或关闭 issue/PR，运行时行为仍未实测。结论：该单行改动静态审查通过，没有新增提交前阻塞。
+
+stale 最终工作区原始字节 SHA256：`29be44b9cc9dfe609bfd575ba69a59bf2e4ed48c6891d1fe8fa5d8d542c82cdb`。原核心六份工作流审查与快照保留。
+
 编写者：Codex ci_review（独立 code-reviewer）｜2026-10-10
