@@ -10,7 +10,7 @@ enum SyncStatus { idle, syncing, success, error }
 /// 对齐 Android 原版 BackupConfigFragment 的 WebDAV 设置组
 /// （服务器地址/账号/密码/子目录/设备名/同步书籍进度）。
 @freezed
-class SyncState with _$SyncState {
+abstract class SyncState with _$SyncState {
   const factory SyncState({
     /// 同步状态
     @Default(SyncStatus.idle) SyncStatus status,

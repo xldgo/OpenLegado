@@ -10,7 +10,7 @@ part 'cover_candidate.g.dart';
 /// 数据先行驱动该模型；交付后将 Notifier 内 Mock 切换为 `searchCover` 调用即可，
 /// 模型字段即为冻结契约。
 @freezed
-class CoverCandidate with _$CoverCandidate {
+abstract class CoverCandidate with _$CoverCandidate {
   const factory CoverCandidate({
     /// 封面图片 URL
     @Default('') String url,

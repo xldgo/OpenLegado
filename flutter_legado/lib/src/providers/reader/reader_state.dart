@@ -133,7 +133,7 @@ Brightness themeBrightnessFor(ThemeMode mode, Brightness platformBrightness) {
 /// 文本解析/净化/替换全部由 Rust 在 getChapterContent 内部完成，
 /// UI 侧拿到的 [chapterContent] 已是最终渲染文本。
 @freezed
-class ReaderState with _$ReaderState {
+abstract class ReaderState with _$ReaderState {
   const factory ReaderState({
     /// 当前阅读的书籍
     Book? currentBook,

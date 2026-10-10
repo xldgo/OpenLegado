@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'rss_state.dart';
@@ -9,46 +9,91 @@ part of 'rss_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
 
 /// @nodoc
 mixin _$RssState {
   /// 全部 RSS 源列表
-  List<RssSource> get sources => throw _privateConstructorUsedError;
+  List<RssSource> get sources;
 
   /// 当前选中源的文章列表
-  List<RssFeedArticle> get articles => throw _privateConstructorUsedError;
+  List<RssFeedArticle> get articles;
 
   /// 当前选中的源（null 表示未选中）
-  RssSource? get selectedSource => throw _privateConstructorUsedError;
+  RssSource? get selectedSource;
 
   /// 是否正在加载源列表
-  bool get isLoadingSources => throw _privateConstructorUsedError;
+  bool get isLoadingSources;
 
   /// 是否正在加载文章列表
-  bool get isLoadingArticles => throw _privateConstructorUsedError;
+  bool get isLoadingArticles;
 
   /// 错误信息（null 表示无错误）
-  String? get error => throw _privateConstructorUsedError;
+  String? get error;
 
   /// 当前选中的分组筛选；null 表示「全部」
-  String? get selectedGroup => throw _privateConstructorUsedError;
+  String? get selectedGroup;
 
   /// Create a copy of RssState
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $RssStateCopyWith<RssState> get copyWith =>
-      throw _privateConstructorUsedError;
+      _$RssStateCopyWithImpl<RssState>(this as RssState, _$identity);
+
+  @override
+  bool operator ==(Object other) {
+    final _this = this as RssState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is RssState &&
+            const DeepCollectionEquality().equals(
+              other.sources,
+              _this.sources,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other.articles,
+              _this.articles,
+            ) &&
+            (identical(other.selectedSource, _this.selectedSource) ||
+                other.selectedSource == _this.selectedSource) &&
+            (identical(other.isLoadingSources, _this.isLoadingSources) ||
+                other.isLoadingSources == _this.isLoadingSources) &&
+            (identical(other.isLoadingArticles, _this.isLoadingArticles) ||
+                other.isLoadingArticles == _this.isLoadingArticles) &&
+            (identical(other.error, _this.error) ||
+                other.error == _this.error) &&
+            (identical(other.selectedGroup, _this.selectedGroup) ||
+                other.selectedGroup == _this.selectedGroup));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as RssState;
+    return Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(_this.sources),
+      const DeepCollectionEquality().hash(_this.articles),
+      _this.selectedSource,
+      _this.isLoadingSources,
+      _this.isLoadingArticles,
+      _this.error,
+      _this.selectedGroup,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as RssState;
+    return 'RssState(sources: ${_this.sources}, articles: ${_this.articles}, selectedSource: ${_this.selectedSource}, isLoadingSources: ${_this.isLoadingSources}, isLoadingArticles: ${_this.isLoadingArticles}, error: ${_this.error}, selectedGroup: ${_this.selectedGroup})';
+  }
 }
 
 /// @nodoc
-abstract class $RssStateCopyWith<$Res> {
-  factory $RssStateCopyWith(RssState value, $Res Function(RssState) then) =
-      _$RssStateCopyWithImpl<$Res, RssState>;
+abstract mixin class $RssStateCopyWith<$Res> {
+  factory $RssStateCopyWith(RssState value, $Res Function(RssState) _then) =
+      _$RssStateCopyWithImpl;
   @useResult
   $Res call({
     List<RssSource> sources,
@@ -64,14 +109,11 @@ abstract class $RssStateCopyWith<$Res> {
 }
 
 /// @nodoc
-class _$RssStateCopyWithImpl<$Res, $Val extends RssState>
-    implements $RssStateCopyWith<$Res> {
-  _$RssStateCopyWithImpl(this._value, this._then);
+class _$RssStateCopyWithImpl<$Res> implements $RssStateCopyWith<$Res> {
+  _$RssStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final RssState _self;
+  final $Res Function(RssState) _then;
 
   /// Create a copy of RssState
   /// with the given fields replaced by the non-null parameter values.
@@ -87,37 +129,36 @@ class _$RssStateCopyWithImpl<$Res, $Val extends RssState>
     Object? selectedGroup = freezed,
   }) {
     return _then(
-      _value.copyWith(
-            sources: null == sources
-                ? _value.sources
-                : sources // ignore: cast_nullable_to_non_nullable
-                      as List<RssSource>,
-            articles: null == articles
-                ? _value.articles
-                : articles // ignore: cast_nullable_to_non_nullable
-                      as List<RssFeedArticle>,
-            selectedSource: freezed == selectedSource
-                ? _value.selectedSource
-                : selectedSource // ignore: cast_nullable_to_non_nullable
-                      as RssSource?,
-            isLoadingSources: null == isLoadingSources
-                ? _value.isLoadingSources
-                : isLoadingSources // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            isLoadingArticles: null == isLoadingArticles
-                ? _value.isLoadingArticles
-                : isLoadingArticles // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            error: freezed == error
-                ? _value.error
-                : error // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            selectedGroup: freezed == selectedGroup
-                ? _value.selectedGroup
-                : selectedGroup // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
+      RssState(
+        sources: null == sources
+            ? _self.sources
+            : sources // ignore: cast_nullable_to_non_nullable
+                  as List<RssSource>,
+        articles: null == articles
+            ? _self.articles
+            : articles // ignore: cast_nullable_to_non_nullable
+                  as List<RssFeedArticle>,
+        selectedSource: freezed == selectedSource
+            ? _self.selectedSource
+            : selectedSource // ignore: cast_nullable_to_non_nullable
+                  as RssSource?,
+        isLoadingSources: null == isLoadingSources
+            ? _self.isLoadingSources
+            : isLoadingSources // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isLoadingArticles: null == isLoadingArticles
+            ? _self.isLoadingArticles
+            : isLoadingArticles // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        selectedGroup: freezed == selectedGroup
+            ? _self.selectedGroup
+            : selectedGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
     );
   }
 
@@ -126,102 +167,230 @@ class _$RssStateCopyWithImpl<$Res, $Val extends RssState>
   @override
   @pragma('vm:prefer-inline')
   $RssSourceCopyWith<$Res>? get selectedSource {
-    if (_value.selectedSource == null) {
+    if (_self.selectedSource == null) {
       return null;
     }
 
-    return $RssSourceCopyWith<$Res>(_value.selectedSource!, (value) {
-      return _then(_value.copyWith(selectedSource: value) as $Val);
+    return $RssSourceCopyWith<$Res>(_self.selectedSource!, (value) {
+      return _then(_self.copyWith(selectedSource: value));
     });
   }
 }
 
-/// @nodoc
-abstract class _$$RssStateImplCopyWith<$Res>
-    implements $RssStateCopyWith<$Res> {
-  factory _$$RssStateImplCopyWith(
-    _$RssStateImpl value,
-    $Res Function(_$RssStateImpl) then,
-  ) = __$$RssStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({
-    List<RssSource> sources,
-    List<RssFeedArticle> articles,
-    RssSource? selectedSource,
-    bool isLoadingSources,
-    bool isLoadingArticles,
-    String? error,
-    String? selectedGroup,
-  });
+/// Adds pattern-matching-related methods to [RssState].
+extension RssStatePatterns on RssState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
 
-  @override
-  $RssSourceCopyWith<$Res>? get selectedSource;
-}
-
-/// @nodoc
-class __$$RssStateImplCopyWithImpl<$Res>
-    extends _$RssStateCopyWithImpl<$Res, _$RssStateImpl>
-    implements _$$RssStateImplCopyWith<$Res> {
-  __$$RssStateImplCopyWithImpl(
-    _$RssStateImpl _value,
-    $Res Function(_$RssStateImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of RssState
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? sources = null,
-    Object? articles = null,
-    Object? selectedSource = freezed,
-    Object? isLoadingSources = null,
-    Object? isLoadingArticles = null,
-    Object? error = freezed,
-    Object? selectedGroup = freezed,
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_RssState value)? $default, {
+    required TResult orElse(),
   }) {
-    return _then(
-      _$RssStateImpl(
-        sources: null == sources
-            ? _value._sources
-            : sources // ignore: cast_nullable_to_non_nullable
-                  as List<RssSource>,
-        articles: null == articles
-            ? _value._articles
-            : articles // ignore: cast_nullable_to_non_nullable
-                  as List<RssFeedArticle>,
-        selectedSource: freezed == selectedSource
-            ? _value.selectedSource
-            : selectedSource // ignore: cast_nullable_to_non_nullable
-                  as RssSource?,
-        isLoadingSources: null == isLoadingSources
-            ? _value.isLoadingSources
-            : isLoadingSources // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        isLoadingArticles: null == isLoadingArticles
-            ? _value.isLoadingArticles
-            : isLoadingArticles // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        error: freezed == error
-            ? _value.error
-            : error // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        selectedGroup: freezed == selectedGroup
-            ? _value.selectedGroup
-            : selectedGroup // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    final _that = this;
+    switch (_that) {
+      case _RssState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_RssState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_RssState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      List<RssSource> sources,
+      List<RssFeedArticle> articles,
+      RssSource? selectedSource,
+      bool isLoadingSources,
+      bool isLoadingArticles,
+      String? error,
+      String? selectedGroup,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _RssState() when $default != null:
+        return $default(
+          _that.sources,
+          _that.articles,
+          _that.selectedSource,
+          _that.isLoadingSources,
+          _that.isLoadingArticles,
+          _that.error,
+          _that.selectedGroup,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      List<RssSource> sources,
+      List<RssFeedArticle> articles,
+      RssSource? selectedSource,
+      bool isLoadingSources,
+      bool isLoadingArticles,
+      String? error,
+      String? selectedGroup,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssState():
+        return $default(
+          _that.sources,
+          _that.articles,
+          _that.selectedSource,
+          _that.isLoadingSources,
+          _that.isLoadingArticles,
+          _that.error,
+          _that.selectedGroup,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      List<RssSource> sources,
+      List<RssFeedArticle> articles,
+      RssSource? selectedSource,
+      bool isLoadingSources,
+      bool isLoadingArticles,
+      String? error,
+      String? selectedGroup,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _RssState() when $default != null:
+        return $default(
+          _that.sources,
+          _that.articles,
+          _that.selectedSource,
+          _that.isLoadingSources,
+          _that.isLoadingArticles,
+          _that.error,
+          _that.selectedGroup,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 
-class _$RssStateImpl implements _RssState {
-  const _$RssStateImpl({
-    final List<RssSource> sources = const [],
-    final List<RssFeedArticle> articles = const [],
+class _RssState implements RssState {
+  const _RssState({
+    List<RssSource> sources = const [],
+    List<RssFeedArticle> articles = const [],
     this.selectedSource,
     this.isLoadingSources = false,
     this.isLoadingArticles = false,
@@ -276,18 +445,21 @@ class _$RssStateImpl implements _RssState {
   @override
   final String? selectedGroup;
 
+  /// Create a copy of RssState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'RssState(sources: $sources, articles: $articles, selectedSource: $selectedSource, isLoadingSources: $isLoadingSources, isLoadingArticles: $isLoadingArticles, error: $error, selectedGroup: $selectedGroup)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$RssStateCopyWith<_RssState> get copyWith =>
+      __$RssStateCopyWithImpl<_RssState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$RssStateImpl &&
-            const DeepCollectionEquality().equals(other._sources, _sources) &&
-            const DeepCollectionEquality().equals(other._articles, _articles) &&
+            other is _RssState &&
+            const DeepCollectionEquality().equals(other.sources, _sources) &&
+            const DeepCollectionEquality().equals(other.articles, _articles) &&
             (identical(other.selectedSource, selectedSource) ||
                 other.selectedSource == selectedSource) &&
             (identical(other.isLoadingSources, isLoadingSources) ||
@@ -300,69 +472,111 @@ class _$RssStateImpl implements _RssState {
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    const DeepCollectionEquality().hash(_sources),
-    const DeepCollectionEquality().hash(_articles),
-    selectedSource,
-    isLoadingSources,
-    isLoadingArticles,
-    error,
-    selectedGroup,
-  );
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(_sources),
+      const DeepCollectionEquality().hash(_articles),
+      selectedSource,
+      isLoadingSources,
+      isLoadingArticles,
+      error,
+      selectedGroup,
+    );
+  }
 
-  /// Create a copy of RssState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  @pragma('vm:prefer-inline')
-  _$$RssStateImplCopyWith<_$RssStateImpl> get copyWith =>
-      __$$RssStateImplCopyWithImpl<_$RssStateImpl>(this, _$identity);
+  String toString() {
+    return 'RssState(sources: $sources, articles: $articles, selectedSource: $selectedSource, isLoadingSources: $isLoadingSources, isLoadingArticles: $isLoadingArticles, error: $error, selectedGroup: $selectedGroup)';
+  }
 }
 
-abstract class _RssState implements RssState {
-  const factory _RssState({
-    final List<RssSource> sources,
-    final List<RssFeedArticle> articles,
-    final RssSource? selectedSource,
-    final bool isLoadingSources,
-    final bool isLoadingArticles,
-    final String? error,
-    final String? selectedGroup,
-  }) = _$RssStateImpl;
-
-  /// 全部 RSS 源列表
+/// @nodoc
+abstract mixin class _$RssStateCopyWith<$Res>
+    implements $RssStateCopyWith<$Res> {
+  factory _$RssStateCopyWith(_RssState value, $Res Function(_RssState) _then) =
+      __$RssStateCopyWithImpl;
   @override
-  List<RssSource> get sources;
+  @useResult
+  $Res call({
+    List<RssSource> sources,
+    List<RssFeedArticle> articles,
+    RssSource? selectedSource,
+    bool isLoadingSources,
+    bool isLoadingArticles,
+    String? error,
+    String? selectedGroup,
+  });
 
-  /// 当前选中源的文章列表
   @override
-  List<RssFeedArticle> get articles;
+  $RssSourceCopyWith<$Res>? get selectedSource;
+}
 
-  /// 当前选中的源（null 表示未选中）
-  @override
-  RssSource? get selectedSource;
+/// @nodoc
+class __$RssStateCopyWithImpl<$Res> implements _$RssStateCopyWith<$Res> {
+  __$RssStateCopyWithImpl(this._self, this._then);
 
-  /// 是否正在加载源列表
-  @override
-  bool get isLoadingSources;
-
-  /// 是否正在加载文章列表
-  @override
-  bool get isLoadingArticles;
-
-  /// 错误信息（null 表示无错误）
-  @override
-  String? get error;
-
-  /// 当前选中的分组筛选；null 表示「全部」
-  @override
-  String? get selectedGroup;
+  final _RssState _self;
+  final $Res Function(_RssState) _then;
 
   /// Create a copy of RssState
   /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$RssStateImplCopyWith<_$RssStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? sources = null,
+    Object? articles = null,
+    Object? selectedSource = freezed,
+    Object? isLoadingSources = null,
+    Object? isLoadingArticles = null,
+    Object? error = freezed,
+    Object? selectedGroup = freezed,
+  }) {
+    return _then(
+      _RssState(
+        sources: null == sources
+            ? _self._sources
+            : sources // ignore: cast_nullable_to_non_nullable
+                  as List<RssSource>,
+        articles: null == articles
+            ? _self._articles
+            : articles // ignore: cast_nullable_to_non_nullable
+                  as List<RssFeedArticle>,
+        selectedSource: freezed == selectedSource
+            ? _self.selectedSource
+            : selectedSource // ignore: cast_nullable_to_non_nullable
+                  as RssSource?,
+        isLoadingSources: null == isLoadingSources
+            ? _self.isLoadingSources
+            : isLoadingSources // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isLoadingArticles: null == isLoadingArticles
+            ? _self.isLoadingArticles
+            : isLoadingArticles // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        selectedGroup: freezed == selectedGroup
+            ? _self.selectedGroup
+            : selectedGroup // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+
+  /// Create a copy of RssState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $RssSourceCopyWith<$Res>? get selectedSource {
+    if (_self.selectedSource == null) {
+      return null;
+    }
+
+    return $RssSourceCopyWith<$Res>(_self.selectedSource!, (value) {
+      return _then(_self.copyWith(selectedSource: value));
+    });
+  }
 }

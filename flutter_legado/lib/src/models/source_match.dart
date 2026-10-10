@@ -9,7 +9,7 @@ part 'source_match.g.dart';
 /// `SourceMatcher::rank_candidates` 已完成评分与排序（按 [score] 降序），
 /// UI 侧直接按返回顺序渲染，不再重排（对齐 UI_RESTRUCTURE_PLAN.md §0.2/§0.3）。
 @freezed
-class SourceMatch with _$SourceMatch {
+abstract class SourceMatch with _$SourceMatch {
   const factory SourceMatch({
     /// 书源 URL
     @Default('') @JsonKey(name: 'source_url') String sourceUrl,

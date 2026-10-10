@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'reader_state.dart';
@@ -9,72 +9,136 @@ part of 'reader_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
 
 /// @nodoc
 mixin _$ReaderState {
   /// 当前阅读的书籍
-  Book? get currentBook => throw _privateConstructorUsedError;
+  Book? get currentBook;
 
   /// 章节目录列表（Rust 返回，已排序）
-  List<BookChapter> get chapters => throw _privateConstructorUsedError;
+  List<BookChapter> get chapters;
 
   /// 当前章节索引
-  int get currentChapterIndex => throw _privateConstructorUsedError;
+  int get currentChapterIndex;
 
   /// 当前章节内阅读位置
-  int get currentChapterPos => throw _privateConstructorUsedError;
+  int get currentChapterPos;
 
   /// 当前章节正文（Rust 已完成净化/替换的最终文本）
-  String get chapterContent => throw _privateConstructorUsedError;
+  String get chapterContent;
 
   /// 是否正在加载
-  bool get isLoading => throw _privateConstructorUsedError;
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error => throw _privateConstructorUsedError;
+  String? get error;
 
   /// 工具栏是否显示
-  bool get showControls =>
-      throw _privateConstructorUsedError; // ===== 阅读设置 =====
+  bool get showControls;
+
   /// 字体大小
   /// [C2 R1] 默认字号对齐参考（参考 ~20-22sp/行 ~14 字；原版 ReadBookConfig
   /// textSize=20sp）：18.0 → 20.0
-  double get fontSize => throw _privateConstructorUsedError;
+  double get fontSize;
 
   /// 行高倍数
   /// [C2 R2] 默认行距对齐参考（参考 ~1.7，原版 lineSpacingExtra=12）：1.6 → 1.7
-  double get lineHeight => throw _privateConstructorUsedError;
+  double get lineHeight;
 
   /// 背景色
-  Color get backgroundColor => throw _privateConstructorUsedError;
+  Color get backgroundColor;
 
   /// 翻页模式
-  PageTurnMode get pageTurnMode =>
-      throw _privateConstructorUsedError; // ===== 跨章节连续分页 =====
+  PageTurnMode get pageTurnMode;
+
   /// 全局页索引（跨章节连续编号，从 0 开始）
-  int get globalPageIndex => throw _privateConstructorUsedError;
+  int get globalPageIndex;
 
   /// 全局总页数（所有章节页数之和）
-  int get totalPages => throw _privateConstructorUsedError;
+  int get totalPages;
 
   /// Create a copy of ReaderState
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $ReaderStateCopyWith<ReaderState> get copyWith =>
-      throw _privateConstructorUsedError;
+      _$ReaderStateCopyWithImpl<ReaderState>(this as ReaderState, _$identity);
+
+  @override
+  bool operator ==(Object other) {
+    final _this = this as ReaderState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is ReaderState &&
+            (identical(other.currentBook, _this.currentBook) ||
+                other.currentBook == _this.currentBook) &&
+            const DeepCollectionEquality().equals(
+              other.chapters,
+              _this.chapters,
+            ) &&
+            (identical(other.currentChapterIndex, _this.currentChapterIndex) ||
+                other.currentChapterIndex == _this.currentChapterIndex) &&
+            (identical(other.currentChapterPos, _this.currentChapterPos) ||
+                other.currentChapterPos == _this.currentChapterPos) &&
+            (identical(other.chapterContent, _this.chapterContent) ||
+                other.chapterContent == _this.chapterContent) &&
+            (identical(other.isLoading, _this.isLoading) ||
+                other.isLoading == _this.isLoading) &&
+            (identical(other.error, _this.error) ||
+                other.error == _this.error) &&
+            (identical(other.showControls, _this.showControls) ||
+                other.showControls == _this.showControls) &&
+            (identical(other.fontSize, _this.fontSize) ||
+                other.fontSize == _this.fontSize) &&
+            (identical(other.lineHeight, _this.lineHeight) ||
+                other.lineHeight == _this.lineHeight) &&
+            (identical(other.backgroundColor, _this.backgroundColor) ||
+                other.backgroundColor == _this.backgroundColor) &&
+            (identical(other.pageTurnMode, _this.pageTurnMode) ||
+                other.pageTurnMode == _this.pageTurnMode) &&
+            (identical(other.globalPageIndex, _this.globalPageIndex) ||
+                other.globalPageIndex == _this.globalPageIndex) &&
+            (identical(other.totalPages, _this.totalPages) ||
+                other.totalPages == _this.totalPages));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as ReaderState;
+    return Object.hash(
+      runtimeType,
+      _this.currentBook,
+      const DeepCollectionEquality().hash(_this.chapters),
+      _this.currentChapterIndex,
+      _this.currentChapterPos,
+      _this.chapterContent,
+      _this.isLoading,
+      _this.error,
+      _this.showControls,
+      _this.fontSize,
+      _this.lineHeight,
+      _this.backgroundColor,
+      _this.pageTurnMode,
+      _this.globalPageIndex,
+      _this.totalPages,
+    );
+  }
+
+  @override
+  String toString() {
+    final _this = this as ReaderState;
+    return 'ReaderState(currentBook: ${_this.currentBook}, chapters: ${_this.chapters}, currentChapterIndex: ${_this.currentChapterIndex}, currentChapterPos: ${_this.currentChapterPos}, chapterContent: ${_this.chapterContent}, isLoading: ${_this.isLoading}, error: ${_this.error}, showControls: ${_this.showControls}, fontSize: ${_this.fontSize}, lineHeight: ${_this.lineHeight}, backgroundColor: ${_this.backgroundColor}, pageTurnMode: ${_this.pageTurnMode}, globalPageIndex: ${_this.globalPageIndex}, totalPages: ${_this.totalPages})';
+  }
 }
 
 /// @nodoc
-abstract class $ReaderStateCopyWith<$Res> {
+abstract mixin class $ReaderStateCopyWith<$Res> {
   factory $ReaderStateCopyWith(
     ReaderState value,
-    $Res Function(ReaderState) then,
-  ) = _$ReaderStateCopyWithImpl<$Res, ReaderState>;
+    $Res Function(ReaderState) _then,
+  ) = _$ReaderStateCopyWithImpl;
   @useResult
   $Res call({
     Book? currentBook,
@@ -97,14 +161,11 @@ abstract class $ReaderStateCopyWith<$Res> {
 }
 
 /// @nodoc
-class _$ReaderStateCopyWithImpl<$Res, $Val extends ReaderState>
-    implements $ReaderStateCopyWith<$Res> {
-  _$ReaderStateCopyWithImpl(this._value, this._then);
+class _$ReaderStateCopyWithImpl<$Res> implements $ReaderStateCopyWith<$Res> {
+  _$ReaderStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final ReaderState _self;
+  final $Res Function(ReaderState) _then;
 
   /// Create a copy of ReaderState
   /// with the given fields replaced by the non-null parameter values.
@@ -127,65 +188,64 @@ class _$ReaderStateCopyWithImpl<$Res, $Val extends ReaderState>
     Object? totalPages = null,
   }) {
     return _then(
-      _value.copyWith(
-            currentBook: freezed == currentBook
-                ? _value.currentBook
-                : currentBook // ignore: cast_nullable_to_non_nullable
-                      as Book?,
-            chapters: null == chapters
-                ? _value.chapters
-                : chapters // ignore: cast_nullable_to_non_nullable
-                      as List<BookChapter>,
-            currentChapterIndex: null == currentChapterIndex
-                ? _value.currentChapterIndex
-                : currentChapterIndex // ignore: cast_nullable_to_non_nullable
-                      as int,
-            currentChapterPos: null == currentChapterPos
-                ? _value.currentChapterPos
-                : currentChapterPos // ignore: cast_nullable_to_non_nullable
-                      as int,
-            chapterContent: null == chapterContent
-                ? _value.chapterContent
-                : chapterContent // ignore: cast_nullable_to_non_nullable
-                      as String,
-            isLoading: null == isLoading
-                ? _value.isLoading
-                : isLoading // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            error: freezed == error
-                ? _value.error
-                : error // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            showControls: null == showControls
-                ? _value.showControls
-                : showControls // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            fontSize: null == fontSize
-                ? _value.fontSize
-                : fontSize // ignore: cast_nullable_to_non_nullable
-                      as double,
-            lineHeight: null == lineHeight
-                ? _value.lineHeight
-                : lineHeight // ignore: cast_nullable_to_non_nullable
-                      as double,
-            backgroundColor: null == backgroundColor
-                ? _value.backgroundColor
-                : backgroundColor // ignore: cast_nullable_to_non_nullable
-                      as Color,
-            pageTurnMode: null == pageTurnMode
-                ? _value.pageTurnMode
-                : pageTurnMode // ignore: cast_nullable_to_non_nullable
-                      as PageTurnMode,
-            globalPageIndex: null == globalPageIndex
-                ? _value.globalPageIndex
-                : globalPageIndex // ignore: cast_nullable_to_non_nullable
-                      as int,
-            totalPages: null == totalPages
-                ? _value.totalPages
-                : totalPages // ignore: cast_nullable_to_non_nullable
-                      as int,
-          )
-          as $Val,
+      ReaderState(
+        currentBook: freezed == currentBook
+            ? _self.currentBook
+            : currentBook // ignore: cast_nullable_to_non_nullable
+                  as Book?,
+        chapters: null == chapters
+            ? _self.chapters
+            : chapters // ignore: cast_nullable_to_non_nullable
+                  as List<BookChapter>,
+        currentChapterIndex: null == currentChapterIndex
+            ? _self.currentChapterIndex
+            : currentChapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        currentChapterPos: null == currentChapterPos
+            ? _self.currentChapterPos
+            : currentChapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterContent: null == chapterContent
+            ? _self.chapterContent
+            : chapterContent // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isLoading: null == isLoading
+            ? _self.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        showControls: null == showControls
+            ? _self.showControls
+            : showControls // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        fontSize: null == fontSize
+            ? _self.fontSize
+            : fontSize // ignore: cast_nullable_to_non_nullable
+                  as double,
+        lineHeight: null == lineHeight
+            ? _self.lineHeight
+            : lineHeight // ignore: cast_nullable_to_non_nullable
+                  as double,
+        backgroundColor: null == backgroundColor
+            ? _self.backgroundColor
+            : backgroundColor // ignore: cast_nullable_to_non_nullable
+                  as Color,
+        pageTurnMode: null == pageTurnMode
+            ? _self.pageTurnMode
+            : pageTurnMode // ignore: cast_nullable_to_non_nullable
+                  as PageTurnMode,
+        globalPageIndex: null == globalPageIndex
+            ? _self.globalPageIndex
+            : globalPageIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalPages: null == totalPages
+            ? _self.totalPages
+            : totalPages // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
     );
   }
 
@@ -194,144 +254,272 @@ class _$ReaderStateCopyWithImpl<$Res, $Val extends ReaderState>
   @override
   @pragma('vm:prefer-inline')
   $BookCopyWith<$Res>? get currentBook {
-    if (_value.currentBook == null) {
+    if (_self.currentBook == null) {
       return null;
     }
 
-    return $BookCopyWith<$Res>(_value.currentBook!, (value) {
-      return _then(_value.copyWith(currentBook: value) as $Val);
+    return $BookCopyWith<$Res>(_self.currentBook!, (value) {
+      return _then(_self.copyWith(currentBook: value));
     });
   }
 }
 
-/// @nodoc
-abstract class _$$ReaderStateImplCopyWith<$Res>
-    implements $ReaderStateCopyWith<$Res> {
-  factory _$$ReaderStateImplCopyWith(
-    _$ReaderStateImpl value,
-    $Res Function(_$ReaderStateImpl) then,
-  ) = __$$ReaderStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({
-    Book? currentBook,
-    List<BookChapter> chapters,
-    int currentChapterIndex,
-    int currentChapterPos,
-    String chapterContent,
-    bool isLoading,
-    String? error,
-    bool showControls,
-    double fontSize,
-    double lineHeight,
-    Color backgroundColor,
-    PageTurnMode pageTurnMode,
-    int globalPageIndex,
-    int totalPages,
-  });
+/// Adds pattern-matching-related methods to [ReaderState].
+extension ReaderStatePatterns on ReaderState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
 
-  @override
-  $BookCopyWith<$Res>? get currentBook;
-}
-
-/// @nodoc
-class __$$ReaderStateImplCopyWithImpl<$Res>
-    extends _$ReaderStateCopyWithImpl<$Res, _$ReaderStateImpl>
-    implements _$$ReaderStateImplCopyWith<$Res> {
-  __$$ReaderStateImplCopyWithImpl(
-    _$ReaderStateImpl _value,
-    $Res Function(_$ReaderStateImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of ReaderState
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? currentBook = freezed,
-    Object? chapters = null,
-    Object? currentChapterIndex = null,
-    Object? currentChapterPos = null,
-    Object? chapterContent = null,
-    Object? isLoading = null,
-    Object? error = freezed,
-    Object? showControls = null,
-    Object? fontSize = null,
-    Object? lineHeight = null,
-    Object? backgroundColor = null,
-    Object? pageTurnMode = null,
-    Object? globalPageIndex = null,
-    Object? totalPages = null,
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_ReaderState value)? $default, {
+    required TResult orElse(),
   }) {
-    return _then(
-      _$ReaderStateImpl(
-        currentBook: freezed == currentBook
-            ? _value.currentBook
-            : currentBook // ignore: cast_nullable_to_non_nullable
-                  as Book?,
-        chapters: null == chapters
-            ? _value._chapters
-            : chapters // ignore: cast_nullable_to_non_nullable
-                  as List<BookChapter>,
-        currentChapterIndex: null == currentChapterIndex
-            ? _value.currentChapterIndex
-            : currentChapterIndex // ignore: cast_nullable_to_non_nullable
-                  as int,
-        currentChapterPos: null == currentChapterPos
-            ? _value.currentChapterPos
-            : currentChapterPos // ignore: cast_nullable_to_non_nullable
-                  as int,
-        chapterContent: null == chapterContent
-            ? _value.chapterContent
-            : chapterContent // ignore: cast_nullable_to_non_nullable
-                  as String,
-        isLoading: null == isLoading
-            ? _value.isLoading
-            : isLoading // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        error: freezed == error
-            ? _value.error
-            : error // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        showControls: null == showControls
-            ? _value.showControls
-            : showControls // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        fontSize: null == fontSize
-            ? _value.fontSize
-            : fontSize // ignore: cast_nullable_to_non_nullable
-                  as double,
-        lineHeight: null == lineHeight
-            ? _value.lineHeight
-            : lineHeight // ignore: cast_nullable_to_non_nullable
-                  as double,
-        backgroundColor: null == backgroundColor
-            ? _value.backgroundColor
-            : backgroundColor // ignore: cast_nullable_to_non_nullable
-                  as Color,
-        pageTurnMode: null == pageTurnMode
-            ? _value.pageTurnMode
-            : pageTurnMode // ignore: cast_nullable_to_non_nullable
-                  as PageTurnMode,
-        globalPageIndex: null == globalPageIndex
-            ? _value.globalPageIndex
-            : globalPageIndex // ignore: cast_nullable_to_non_nullable
-                  as int,
-        totalPages: null == totalPages
-            ? _value.totalPages
-            : totalPages // ignore: cast_nullable_to_non_nullable
-                  as int,
-      ),
-    );
+    final _that = this;
+    switch (_that) {
+      case _ReaderState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_ReaderState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReaderState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_ReaderState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReaderState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+      Book? currentBook,
+      List<BookChapter> chapters,
+      int currentChapterIndex,
+      int currentChapterPos,
+      String chapterContent,
+      bool isLoading,
+      String? error,
+      bool showControls,
+      double fontSize,
+      double lineHeight,
+      Color backgroundColor,
+      PageTurnMode pageTurnMode,
+      int globalPageIndex,
+      int totalPages,
+    )?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _ReaderState() when $default != null:
+        return $default(
+          _that.currentBook,
+          _that.chapters,
+          _that.currentChapterIndex,
+          _that.currentChapterPos,
+          _that.chapterContent,
+          _that.isLoading,
+          _that.error,
+          _that.showControls,
+          _that.fontSize,
+          _that.lineHeight,
+          _that.backgroundColor,
+          _that.pageTurnMode,
+          _that.globalPageIndex,
+          _that.totalPages,
+        );
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+      Book? currentBook,
+      List<BookChapter> chapters,
+      int currentChapterIndex,
+      int currentChapterPos,
+      String chapterContent,
+      bool isLoading,
+      String? error,
+      bool showControls,
+      double fontSize,
+      double lineHeight,
+      Color backgroundColor,
+      PageTurnMode pageTurnMode,
+      int globalPageIndex,
+      int totalPages,
+    )
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReaderState():
+        return $default(
+          _that.currentBook,
+          _that.chapters,
+          _that.currentChapterIndex,
+          _that.currentChapterPos,
+          _that.chapterContent,
+          _that.isLoading,
+          _that.error,
+          _that.showControls,
+          _that.fontSize,
+          _that.lineHeight,
+          _that.backgroundColor,
+          _that.pageTurnMode,
+          _that.globalPageIndex,
+          _that.totalPages,
+        );
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+      Book? currentBook,
+      List<BookChapter> chapters,
+      int currentChapterIndex,
+      int currentChapterPos,
+      String chapterContent,
+      bool isLoading,
+      String? error,
+      bool showControls,
+      double fontSize,
+      double lineHeight,
+      Color backgroundColor,
+      PageTurnMode pageTurnMode,
+      int globalPageIndex,
+      int totalPages,
+    )?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _ReaderState() when $default != null:
+        return $default(
+          _that.currentBook,
+          _that.chapters,
+          _that.currentChapterIndex,
+          _that.currentChapterPos,
+          _that.chapterContent,
+          _that.isLoading,
+          _that.error,
+          _that.showControls,
+          _that.fontSize,
+          _that.lineHeight,
+          _that.backgroundColor,
+          _that.pageTurnMode,
+          _that.globalPageIndex,
+          _that.totalPages,
+        );
+      case _:
+        return null;
+    }
   }
 }
 
 /// @nodoc
 
-class _$ReaderStateImpl implements _ReaderState {
-  const _$ReaderStateImpl({
+class _ReaderState implements ReaderState {
+  const _ReaderState({
     this.currentBook,
-    final List<BookChapter> chapters = const [],
+    List<BookChapter> chapters = const [],
     this.currentChapterIndex = 0,
     this.currentChapterPos = 0,
     this.chapterContent = '',
@@ -390,7 +578,7 @@ class _$ReaderStateImpl implements _ReaderState {
   @override
   @JsonKey()
   final bool showControls;
-  // ===== 阅读设置 =====
+
   /// 字体大小
   /// [C2 R1] 默认字号对齐参考（参考 ~20-22sp/行 ~14 字；原版 ReadBookConfig
   /// textSize=20sp）：18.0 → 20.0
@@ -413,7 +601,7 @@ class _$ReaderStateImpl implements _ReaderState {
   @override
   @JsonKey()
   final PageTurnMode pageTurnMode;
-  // ===== 跨章节连续分页 =====
+
   /// 全局页索引（跨章节连续编号，从 0 开始）
   @override
   @JsonKey()
@@ -424,19 +612,22 @@ class _$ReaderStateImpl implements _ReaderState {
   @JsonKey()
   final int totalPages;
 
+  /// Create a copy of ReaderState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'ReaderState(currentBook: $currentBook, chapters: $chapters, currentChapterIndex: $currentChapterIndex, currentChapterPos: $currentChapterPos, chapterContent: $chapterContent, isLoading: $isLoading, error: $error, showControls: $showControls, fontSize: $fontSize, lineHeight: $lineHeight, backgroundColor: $backgroundColor, pageTurnMode: $pageTurnMode, globalPageIndex: $globalPageIndex, totalPages: $totalPages)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$ReaderStateCopyWith<_ReaderState> get copyWith =>
+      __$ReaderStateCopyWithImpl<_ReaderState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ReaderStateImpl &&
+            other is _ReaderState &&
             (identical(other.currentBook, currentBook) ||
                 other.currentBook == currentBook) &&
-            const DeepCollectionEquality().equals(other._chapters, _chapters) &&
+            const DeepCollectionEquality().equals(other.chapters, _chapters) &&
             (identical(other.currentChapterIndex, currentChapterIndex) ||
                 other.currentChapterIndex == currentChapterIndex) &&
             (identical(other.currentChapterPos, currentChapterPos) ||
@@ -463,112 +654,162 @@ class _$ReaderStateImpl implements _ReaderState {
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    currentBook,
-    const DeepCollectionEquality().hash(_chapters),
-    currentChapterIndex,
-    currentChapterPos,
-    chapterContent,
-    isLoading,
-    error,
-    showControls,
-    fontSize,
-    lineHeight,
-    backgroundColor,
-    pageTurnMode,
-    globalPageIndex,
-    totalPages,
-  );
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      currentBook,
+      const DeepCollectionEquality().hash(_chapters),
+      currentChapterIndex,
+      currentChapterPos,
+      chapterContent,
+      isLoading,
+      error,
+      showControls,
+      fontSize,
+      lineHeight,
+      backgroundColor,
+      pageTurnMode,
+      globalPageIndex,
+      totalPages,
+    );
+  }
 
-  /// Create a copy of ReaderState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  @pragma('vm:prefer-inline')
-  _$$ReaderStateImplCopyWith<_$ReaderStateImpl> get copyWith =>
-      __$$ReaderStateImplCopyWithImpl<_$ReaderStateImpl>(this, _$identity);
+  String toString() {
+    return 'ReaderState(currentBook: $currentBook, chapters: $chapters, currentChapterIndex: $currentChapterIndex, currentChapterPos: $currentChapterPos, chapterContent: $chapterContent, isLoading: $isLoading, error: $error, showControls: $showControls, fontSize: $fontSize, lineHeight: $lineHeight, backgroundColor: $backgroundColor, pageTurnMode: $pageTurnMode, globalPageIndex: $globalPageIndex, totalPages: $totalPages)';
+  }
 }
 
-abstract class _ReaderState implements ReaderState {
-  const factory _ReaderState({
-    final Book? currentBook,
-    final List<BookChapter> chapters,
-    final int currentChapterIndex,
-    final int currentChapterPos,
-    final String chapterContent,
-    final bool isLoading,
-    final String? error,
-    final bool showControls,
-    final double fontSize,
-    final double lineHeight,
-    final Color backgroundColor,
-    final PageTurnMode pageTurnMode,
-    final int globalPageIndex,
-    final int totalPages,
-  }) = _$ReaderStateImpl;
+/// @nodoc
+abstract mixin class _$ReaderStateCopyWith<$Res>
+    implements $ReaderStateCopyWith<$Res> {
+  factory _$ReaderStateCopyWith(
+    _ReaderState value,
+    $Res Function(_ReaderState) _then,
+  ) = __$ReaderStateCopyWithImpl;
+  @override
+  @useResult
+  $Res call({
+    Book? currentBook,
+    List<BookChapter> chapters,
+    int currentChapterIndex,
+    int currentChapterPos,
+    String chapterContent,
+    bool isLoading,
+    String? error,
+    bool showControls,
+    double fontSize,
+    double lineHeight,
+    Color backgroundColor,
+    PageTurnMode pageTurnMode,
+    int globalPageIndex,
+    int totalPages,
+  });
 
-  /// 当前阅读的书籍
   @override
-  Book? get currentBook;
+  $BookCopyWith<$Res>? get currentBook;
+}
 
-  /// 章节目录列表（Rust 返回，已排序）
-  @override
-  List<BookChapter> get chapters;
+/// @nodoc
+class __$ReaderStateCopyWithImpl<$Res> implements _$ReaderStateCopyWith<$Res> {
+  __$ReaderStateCopyWithImpl(this._self, this._then);
 
-  /// 当前章节索引
-  @override
-  int get currentChapterIndex;
-
-  /// 当前章节内阅读位置
-  @override
-  int get currentChapterPos;
-
-  /// 当前章节正文（Rust 已完成净化/替换的最终文本）
-  @override
-  String get chapterContent;
-
-  /// 是否正在加载
-  @override
-  bool get isLoading;
-
-  /// 错误信息（null 表示无错误）
-  @override
-  String? get error;
-
-  /// 工具栏是否显示
-  @override
-  bool get showControls; // ===== 阅读设置 =====
-  /// 字体大小
-  /// [C2 R1] 默认字号对齐参考（参考 ~20-22sp/行 ~14 字；原版 ReadBookConfig
-  /// textSize=20sp）：18.0 → 20.0
-  @override
-  double get fontSize;
-
-  /// 行高倍数
-  /// [C2 R2] 默认行距对齐参考（参考 ~1.7，原版 lineSpacingExtra=12）：1.6 → 1.7
-  @override
-  double get lineHeight;
-
-  /// 背景色
-  @override
-  Color get backgroundColor;
-
-  /// 翻页模式
-  @override
-  PageTurnMode get pageTurnMode; // ===== 跨章节连续分页 =====
-  /// 全局页索引（跨章节连续编号，从 0 开始）
-  @override
-  int get globalPageIndex;
-
-  /// 全局总页数（所有章节页数之和）
-  @override
-  int get totalPages;
+  final _ReaderState _self;
+  final $Res Function(_ReaderState) _then;
 
   /// Create a copy of ReaderState
   /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$ReaderStateImplCopyWith<_$ReaderStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? currentBook = freezed,
+    Object? chapters = null,
+    Object? currentChapterIndex = null,
+    Object? currentChapterPos = null,
+    Object? chapterContent = null,
+    Object? isLoading = null,
+    Object? error = freezed,
+    Object? showControls = null,
+    Object? fontSize = null,
+    Object? lineHeight = null,
+    Object? backgroundColor = null,
+    Object? pageTurnMode = null,
+    Object? globalPageIndex = null,
+    Object? totalPages = null,
+  }) {
+    return _then(
+      _ReaderState(
+        currentBook: freezed == currentBook
+            ? _self.currentBook
+            : currentBook // ignore: cast_nullable_to_non_nullable
+                  as Book?,
+        chapters: null == chapters
+            ? _self._chapters
+            : chapters // ignore: cast_nullable_to_non_nullable
+                  as List<BookChapter>,
+        currentChapterIndex: null == currentChapterIndex
+            ? _self.currentChapterIndex
+            : currentChapterIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        currentChapterPos: null == currentChapterPos
+            ? _self.currentChapterPos
+            : currentChapterPos // ignore: cast_nullable_to_non_nullable
+                  as int,
+        chapterContent: null == chapterContent
+            ? _self.chapterContent
+            : chapterContent // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isLoading: null == isLoading
+            ? _self.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        showControls: null == showControls
+            ? _self.showControls
+            : showControls // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        fontSize: null == fontSize
+            ? _self.fontSize
+            : fontSize // ignore: cast_nullable_to_non_nullable
+                  as double,
+        lineHeight: null == lineHeight
+            ? _self.lineHeight
+            : lineHeight // ignore: cast_nullable_to_non_nullable
+                  as double,
+        backgroundColor: null == backgroundColor
+            ? _self.backgroundColor
+            : backgroundColor // ignore: cast_nullable_to_non_nullable
+                  as Color,
+        pageTurnMode: null == pageTurnMode
+            ? _self.pageTurnMode
+            : pageTurnMode // ignore: cast_nullable_to_non_nullable
+                  as PageTurnMode,
+        globalPageIndex: null == globalPageIndex
+            ? _self.globalPageIndex
+            : globalPageIndex // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalPages: null == totalPages
+            ? _self.totalPages
+            : totalPages // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+
+  /// Create a copy of ReaderState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $BookCopyWith<$Res>? get currentBook {
+    if (_self.currentBook == null) {
+      return null;
+    }
+
+    return $BookCopyWith<$Res>(_self.currentBook!, (value) {
+      return _then(_self.copyWith(currentBook: value));
+    });
+  }
 }

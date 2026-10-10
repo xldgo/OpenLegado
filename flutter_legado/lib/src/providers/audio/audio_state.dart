@@ -92,7 +92,7 @@ class AudioChapter {
 /// - [isStreamMode] / [mediaUrl] / [positionMs] / [durationMs] / [lyric]：
 ///   音频书流媒体路径（对齐 P0-2 getAudioChapterMedia + video_player）
 @freezed
-class AudioState with _$AudioState {
+abstract class AudioState with _$AudioState {
   const factory AudioState({
     /// 播放器状态机
     @Default(PlayerState.idle) PlayerState state,

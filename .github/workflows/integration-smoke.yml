@@ -61,9 +61,9 @@ jobs:
           rust_hash = re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', rust)
           if not dart_hash or not rust_hash or dart_hash[1] != rust_hash[1]:
               raise SystemExit('Dart/Rust FRB content hash 不一致或无法解析')
-          if "codegenVersion => '2.11.1'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1"' not in rust:
-              raise SystemExit('FRB 生成物版本必须为 2.11.1')
-          print(f'FRB 2.11.1 content hash: {dart_hash[1]}')
+          if "codegenVersion => '2.13.0'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0"' not in rust:
+              raise SystemExit('FRB 生成物版本必须为 2.13.0')
+          print(f'FRB 2.13.0 content hash: {dart_hash[1]}')
           PY
       - name: 构建 Android debug FFI（arm64 与 x86_64，quickjs）
         working-directory: rust

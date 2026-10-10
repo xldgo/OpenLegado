@@ -16,7 +16,7 @@ class BookSourceType {
 
 /// 书源实体
 @freezed
-class BookSource with _$BookSource {
+abstract class BookSource with _$BookSource {
   const factory BookSource({
     @Default('') @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
     @Default('') @JsonKey(name: 'bookSourceName') String bookSourceName,

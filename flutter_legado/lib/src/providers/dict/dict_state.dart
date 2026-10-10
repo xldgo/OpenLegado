@@ -9,7 +9,7 @@ part 'dict_state.freezed.dart';
 /// 由 [DictNotifier] 管理：在线词典规则经 BookApi.getConfig/setConfig 持久化，
 /// 词典查询经 BookApi.dictLookup 委托 Rust FFI dict_lookup；本状态仅承载规则与查询结果。
 @freezed
-class DictState with _$DictState {
+abstract class DictState with _$DictState {
   const factory DictState({
     /// 在线词典规则列表
     @Default([]) List<DictRule> rules,

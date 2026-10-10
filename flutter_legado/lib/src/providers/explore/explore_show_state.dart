@@ -43,7 +43,7 @@ class ExploreShowArgs {
 /// - [books]：累积的书籍列表（对标 Android books LinkedHashSet 去重）
 /// - [page] / [displayPage] / [isLoading] / [hasMore] / [error]：分页加载状态
 @freezed
-class ExploreShowState with _$ExploreShowState {
+abstract class ExploreShowState with _$ExploreShowState {
   const factory ExploreShowState({
     /// 当前书源
     BookSource? source,

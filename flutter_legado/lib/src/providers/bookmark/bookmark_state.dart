@@ -11,7 +11,7 @@ part 'bookmark_state.freezed.dart';
 /// - [isLoading]：API 调用加载态
 /// - [error]：错误信息（null 表示无错误）
 @freezed
-class BookmarkState with _$BookmarkState {
+abstract class BookmarkState with _$BookmarkState {
   const factory BookmarkState({
     /// 书签列表
     @Default([]) List<Bookmark> bookmarks,

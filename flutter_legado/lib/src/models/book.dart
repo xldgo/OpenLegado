@@ -25,7 +25,7 @@ class BookType {
 
 /// 阅读配置
 @freezed
-class ReadConfig with _$ReadConfig {
+abstract class ReadConfig with _$ReadConfig {
   const factory ReadConfig({
     @Default(false) @JsonKey(name: 'reverseToc') bool reverseToc,
     @JsonKey(name: 'pageAnim') int? pageAnim,
@@ -62,7 +62,7 @@ class ReadConfig with _$ReadConfig {
 
 /// 书籍实体
 @freezed
-class Book with _$Book {
+abstract class Book with _$Book {
   const factory Book({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
     @Default('') @JsonKey(name: 'tocUrl') String tocUrl,

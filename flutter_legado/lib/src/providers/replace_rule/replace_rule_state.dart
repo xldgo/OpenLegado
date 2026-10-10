@@ -11,7 +11,7 @@ part 'replace_rule_state.freezed.dart';
 /// - [loading]：列表加载状态
 /// - [error]：错误信息（null 表示无错误）
 @freezed
-class ReplaceRuleState with _$ReplaceRuleState {
+abstract class ReplaceRuleState with _$ReplaceRuleState {
   const factory ReplaceRuleState({
     /// 替换规则列表
     @Default([]) List<ReplaceRule> rules,

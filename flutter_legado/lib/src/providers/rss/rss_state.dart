@@ -18,7 +18,7 @@ final RegExp _splitGroupRegex = RegExp(r'[,;，；]');
 /// - [error]：错误信息（null 表示无错误）
 /// - [selectedGroup]：当前选中的分组筛选（null 表示「全部」）
 @freezed
-class RssState with _$RssState {
+abstract class RssState with _$RssState {
   const factory RssState({
     /// 全部 RSS 源列表
     @Default([]) List<RssSource> sources,

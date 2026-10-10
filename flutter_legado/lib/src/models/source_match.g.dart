@@ -6,24 +6,23 @@ part of 'source_match.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$SourceMatchImpl _$$SourceMatchImplFromJson(Map<String, dynamic> json) =>
-    _$SourceMatchImpl(
-      sourceUrl: json['source_url'] as String? ?? '',
-      sourceName: json['source_name'] as String? ?? '',
-      bookUrl: json['book_url'] as String? ?? '',
-      bookName: json['book_name'] as String? ?? '',
-      author: json['author'] as String? ?? '',
-      latestChapter: json['latest_chapter'] as String?,
-      wordCount: json['word_count'] as String?,
-      score: (json['score'] as num?)?.toDouble() ?? 0.0,
-      chapterWordCountText: json['chapter_word_count_text'] as String?,
-      chapterWordCount: (json['chapter_word_count'] as num?)?.toInt() ?? -1,
-      respondTime: (json['respond_time'] as num?)?.toInt() ?? -1,
-      originOrder: (json['origin_order'] as num?)?.toInt() ?? 0,
-      bookScore: (json['book_score'] as num?)?.toInt() ?? 0,
-    );
+_SourceMatch _$SourceMatchFromJson(Map<String, dynamic> json) => _SourceMatch(
+  sourceUrl: json['source_url'] as String? ?? '',
+  sourceName: json['source_name'] as String? ?? '',
+  bookUrl: json['book_url'] as String? ?? '',
+  bookName: json['book_name'] as String? ?? '',
+  author: json['author'] as String? ?? '',
+  latestChapter: json['latest_chapter'] as String?,
+  wordCount: json['word_count'] as String?,
+  score: (json['score'] as num?)?.toDouble() ?? 0.0,
+  chapterWordCountText: json['chapter_word_count_text'] as String?,
+  chapterWordCount: (json['chapter_word_count'] as num?)?.toInt() ?? -1,
+  respondTime: (json['respond_time'] as num?)?.toInt() ?? -1,
+  originOrder: (json['origin_order'] as num?)?.toInt() ?? 0,
+  bookScore: (json['book_score'] as num?)?.toInt() ?? 0,
+);
 
-Map<String, dynamic> _$$SourceMatchImplToJson(_$SourceMatchImpl instance) =>
+Map<String, dynamic> _$SourceMatchToJson(_SourceMatch instance) =>
     <String, dynamic>{
       'source_url': instance.sourceUrl,
       'source_name': instance.sourceName,

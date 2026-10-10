@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'auto_task_state.dart';
@@ -9,99 +9,78 @@ part of 'auto_task_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
 
 /// @nodoc
 mixin _$AutoTaskState {
   /// 定时任务列表
-  List<AutoTask> get tasks => throw _privateConstructorUsedError;
+  List<AutoTask> get tasks;
 
   /// 是否正在加载任务列表
-  bool get isLoading => throw _privateConstructorUsedError;
+  bool get isLoading;
 
   /// 错误信息（null 表示无错误）
-  String? get error => throw _privateConstructorUsedError;
+  String? get error;
 
   /// Create a copy of AutoTaskState
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  $AutoTaskStateCopyWith<AutoTaskState> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $AutoTaskStateCopyWith<$Res> {
-  factory $AutoTaskStateCopyWith(
-    AutoTaskState value,
-    $Res Function(AutoTaskState) then,
-  ) = _$AutoTaskStateCopyWithImpl<$Res, AutoTaskState>;
-  @useResult
-  $Res call({List<AutoTask> tasks, bool isLoading, String? error});
-}
-
-/// @nodoc
-class _$AutoTaskStateCopyWithImpl<$Res, $Val extends AutoTaskState>
-    implements $AutoTaskStateCopyWith<$Res> {
-  _$AutoTaskStateCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of AutoTaskState
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
+  $AutoTaskStateCopyWith<AutoTaskState> get copyWith =>
+      _$AutoTaskStateCopyWithImpl<AutoTaskState>(
+        this as AutoTaskState,
+        _$identity,
+      );
+
   @override
-  $Res call({
-    Object? tasks = null,
-    Object? isLoading = null,
-    Object? error = freezed,
-  }) {
-    return _then(
-      _value.copyWith(
-            tasks: null == tasks
-                ? _value.tasks
-                : tasks // ignore: cast_nullable_to_non_nullable
-                      as List<AutoTask>,
-            isLoading: null == isLoading
-                ? _value.isLoading
-                : isLoading // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            error: freezed == error
-                ? _value.error
-                : error // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
+  bool operator ==(Object other) {
+    final _this = this as AutoTaskState;
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is AutoTaskState &&
+            const DeepCollectionEquality().equals(other.tasks, _this.tasks) &&
+            (identical(other.isLoading, _this.isLoading) ||
+                other.isLoading == _this.isLoading) &&
+            (identical(other.error, _this.error) ||
+                other.error == _this.error));
+  }
+
+  @override
+  int get hashCode {
+    final _this = this as AutoTaskState;
+    return Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(_this.tasks),
+      _this.isLoading,
+      _this.error,
     );
+  }
+
+  @override
+  String toString() {
+    final _this = this as AutoTaskState;
+    return 'AutoTaskState(tasks: ${_this.tasks}, isLoading: ${_this.isLoading}, error: ${_this.error})';
   }
 }
 
 /// @nodoc
-abstract class _$$AutoTaskStateImplCopyWith<$Res>
-    implements $AutoTaskStateCopyWith<$Res> {
-  factory _$$AutoTaskStateImplCopyWith(
-    _$AutoTaskStateImpl value,
-    $Res Function(_$AutoTaskStateImpl) then,
-  ) = __$$AutoTaskStateImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $AutoTaskStateCopyWith<$Res> {
+  factory $AutoTaskStateCopyWith(
+    AutoTaskState value,
+    $Res Function(AutoTaskState) _then,
+  ) = _$AutoTaskStateCopyWithImpl;
   @useResult
   $Res call({List<AutoTask> tasks, bool isLoading, String? error});
 }
 
 /// @nodoc
-class __$$AutoTaskStateImplCopyWithImpl<$Res>
-    extends _$AutoTaskStateCopyWithImpl<$Res, _$AutoTaskStateImpl>
-    implements _$$AutoTaskStateImplCopyWith<$Res> {
-  __$$AutoTaskStateImplCopyWithImpl(
-    _$AutoTaskStateImpl _value,
-    $Res Function(_$AutoTaskStateImpl) _then,
-  ) : super(_value, _then);
+class _$AutoTaskStateCopyWithImpl<$Res>
+    implements $AutoTaskStateCopyWith<$Res> {
+  _$AutoTaskStateCopyWithImpl(this._self, this._then);
+
+  final AutoTaskState _self;
+  final $Res Function(AutoTaskState) _then;
 
   /// Create a copy of AutoTaskState
   /// with the given fields replaced by the non-null parameter values.
@@ -113,17 +92,17 @@ class __$$AutoTaskStateImplCopyWithImpl<$Res>
     Object? error = freezed,
   }) {
     return _then(
-      _$AutoTaskStateImpl(
+      AutoTaskState(
         tasks: null == tasks
-            ? _value._tasks
+            ? _self.tasks
             : tasks // ignore: cast_nullable_to_non_nullable
                   as List<AutoTask>,
         isLoading: null == isLoading
-            ? _value.isLoading
+            ? _self.isLoading
             : isLoading // ignore: cast_nullable_to_non_nullable
                   as bool,
         error: freezed == error
-            ? _value.error
+            ? _self.error
             : error // ignore: cast_nullable_to_non_nullable
                   as String?,
       ),
@@ -131,11 +110,171 @@ class __$$AutoTaskStateImplCopyWithImpl<$Res>
   }
 }
 
+/// Adds pattern-matching-related methods to [AutoTaskState].
+extension AutoTaskStatePatterns on AutoTaskState {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_AutoTaskState value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_AutoTaskState value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_AutoTaskState value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(List<AutoTask> tasks, bool isLoading, String? error)?
+    $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState() when $default != null:
+        return $default(_that.tasks, _that.isLoading, _that.error);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(List<AutoTask> tasks, bool isLoading, String? error)
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState():
+        return $default(_that.tasks, _that.isLoading, _that.error);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(List<AutoTask> tasks, bool isLoading, String? error)?
+    $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _AutoTaskState() when $default != null:
+        return $default(_that.tasks, _that.isLoading, _that.error);
+      case _:
+        return null;
+    }
+  }
+}
+
 /// @nodoc
 
-class _$AutoTaskStateImpl implements _AutoTaskState {
-  const _$AutoTaskStateImpl({
-    final List<AutoTask> tasks = const [],
+class _AutoTaskState implements AutoTaskState {
+  const _AutoTaskState({
+    List<AutoTask> tasks = const [],
     this.isLoading = false,
     this.error,
   }) : _tasks = tasks;
@@ -161,62 +300,85 @@ class _$AutoTaskStateImpl implements _AutoTaskState {
   @override
   final String? error;
 
+  /// Create a copy of AutoTaskState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  String toString() {
-    return 'AutoTaskState(tasks: $tasks, isLoading: $isLoading, error: $error)';
-  }
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$AutoTaskStateCopyWith<_AutoTaskState> get copyWith =>
+      __$AutoTaskStateCopyWithImpl<_AutoTaskState>(this, _$identity);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$AutoTaskStateImpl &&
-            const DeepCollectionEquality().equals(other._tasks, _tasks) &&
+            other is _AutoTaskState &&
+            const DeepCollectionEquality().equals(other.tasks, _tasks) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.error, error) || other.error == error));
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    const DeepCollectionEquality().hash(_tasks),
-    isLoading,
-    error,
-  );
+  int get hashCode {
+    return Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(_tasks),
+      isLoading,
+      error,
+    );
+  }
 
-  /// Create a copy of AutoTaskState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  @pragma('vm:prefer-inline')
-  _$$AutoTaskStateImplCopyWith<_$AutoTaskStateImpl> get copyWith =>
-      __$$AutoTaskStateImplCopyWithImpl<_$AutoTaskStateImpl>(this, _$identity);
+  String toString() {
+    return 'AutoTaskState(tasks: $tasks, isLoading: $isLoading, error: $error)';
+  }
 }
 
-abstract class _AutoTaskState implements AutoTaskState {
-  const factory _AutoTaskState({
-    final List<AutoTask> tasks,
-    final bool isLoading,
-    final String? error,
-  }) = _$AutoTaskStateImpl;
-
-  /// 定时任务列表
+/// @nodoc
+abstract mixin class _$AutoTaskStateCopyWith<$Res>
+    implements $AutoTaskStateCopyWith<$Res> {
+  factory _$AutoTaskStateCopyWith(
+    _AutoTaskState value,
+    $Res Function(_AutoTaskState) _then,
+  ) = __$AutoTaskStateCopyWithImpl;
   @override
-  List<AutoTask> get tasks;
+  @useResult
+  $Res call({List<AutoTask> tasks, bool isLoading, String? error});
+}
 
-  /// 是否正在加载任务列表
-  @override
-  bool get isLoading;
+/// @nodoc
+class __$AutoTaskStateCopyWithImpl<$Res>
+    implements _$AutoTaskStateCopyWith<$Res> {
+  __$AutoTaskStateCopyWithImpl(this._self, this._then);
 
-  /// 错误信息（null 表示无错误）
-  @override
-  String? get error;
+  final _AutoTaskState _self;
+  final $Res Function(_AutoTaskState) _then;
 
   /// Create a copy of AutoTaskState
   /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$AutoTaskStateImplCopyWith<_$AutoTaskStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? tasks = null,
+    Object? isLoading = null,
+    Object? error = freezed,
+  }) {
+    return _then(
+      _AutoTaskState(
+        tasks: null == tasks
+            ? _self._tasks
+            : tasks // ignore: cast_nullable_to_non_nullable
+                  as List<AutoTask>,
+        isLoading: null == isLoading
+            ? _self.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        error: freezed == error
+            ? _self.error
+            : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
 }

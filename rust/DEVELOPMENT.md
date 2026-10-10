@@ -33,7 +33,7 @@ flutter --version
 ### 3. 安装 flutter_rust_bridge CLI
 
 ```bash
-cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
+cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 ```
 
 ### 4. 验证环境
@@ -580,9 +580,9 @@ rustup toolchain install stable
 
 ### Q: flutter_rust_bridge_codegen 报错
 
-**A**: 确保版本匹配（当前使用 2.12.0）：
+**A**: 确保版本匹配（当前使用 2.13.0）：
 ```bash
-cargo install flutter_rust_bridge_codegen --version 2.12.0
+cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 ```
 
 ### Q: 测试全部通过但 CI 失败

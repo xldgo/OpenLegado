@@ -9,7 +9,7 @@ part 'misc.g.dart';
 
 /// 搜索结果书籍
 @freezed
-class SearchBook with _$SearchBook {
+abstract class SearchBook with _$SearchBook {
   const factory SearchBook({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
     @Default('') String origin,
@@ -134,7 +134,7 @@ class ExploreCategory {
 
 /// 替换规则
 @freezed
-class ReplaceRule with _$ReplaceRule {
+abstract class ReplaceRule with _$ReplaceRule {
   const factory ReplaceRule({
     @Default(0) int id,
     @Default('') String name,
@@ -162,7 +162,7 @@ class ReplaceRule with _$ReplaceRule {
 
 /// 在线朗读引擎
 @freezed
-class HttpTts with _$HttpTts {
+abstract class HttpTts with _$HttpTts {
   const factory HttpTts({
     @Default(0) int id,
     @Default('') String name,
@@ -187,7 +187,7 @@ class HttpTts with _$HttpTts {
 
 /// 书签
 @freezed
-class Bookmark with _$Bookmark {
+abstract class Bookmark with _$Bookmark {
   const factory Bookmark({
     @Default(0) int id,
     @Default(0) int time,
@@ -208,7 +208,7 @@ class Bookmark with _$Bookmark {
 
 /// 书籍分组
 @freezed
-class BookGroup with _$BookGroup {
+abstract class BookGroup with _$BookGroup {
   const factory BookGroup({
     @Default(1) @JsonKey(name: 'groupId') int groupId,
     @Default('') @JsonKey(name: 'groupName') String groupName,
@@ -228,7 +228,7 @@ class BookGroup with _$BookGroup {
 
 /// 自动任务规则
 @freezed
-class AutoTaskRule with _$AutoTaskRule {
+abstract class AutoTaskRule with _$AutoTaskRule {
   const factory AutoTaskRule({
     @Default('') String id,
     @Default('') String name,
@@ -258,7 +258,7 @@ class AutoTaskRule with _$AutoTaskRule {
 
 /// RSS文章
 @freezed
-class RssArticle with _$RssArticle {
+abstract class RssArticle with _$RssArticle {
   const factory RssArticle({
     @Default('') String origin,
     @Default('') String sort,
@@ -284,7 +284,7 @@ class RssArticle with _$RssArticle {
 
 /// RSS收藏
 @freezed
-class RssStar with _$RssStar {
+abstract class RssStar with _$RssStar {
   const factory RssStar({
     @Default('') String origin,
     @Default('') String sort,
@@ -309,7 +309,7 @@ class RssStar with _$RssStar {
 
 /// Cookie存储
 @freezed
-class Cookie with _$Cookie {
+abstract class Cookie with _$Cookie {
   const factory Cookie({
     @Default('') String url,
     @Default('') String cookie,
@@ -323,7 +323,7 @@ class Cookie with _$Cookie {
 
 /// 缓存
 @freezed
-class Cache with _$Cache {
+abstract class Cache with _$Cache {
   const factory Cache({
     @Default('') String key,
     String? value,
@@ -337,7 +337,7 @@ class Cache with _$Cache {
 
 /// 字典规则
 @freezed
-class DictRule with _$DictRule {
+abstract class DictRule with _$DictRule {
   const factory DictRule({
     @Default('') String name,
     @Default('') @JsonKey(name: 'urlRule') String urlRule,
@@ -360,7 +360,7 @@ extension DictRuleUrl on DictRule {
 
 /// 服务器
 @freezed
-class Server with _$Server {
+abstract class Server with _$Server {
   const factory Server({
     @Default(0) int id,
     @Default('') String name,
@@ -375,7 +375,7 @@ class Server with _$Server {
 
 /// WebDav配置
 @freezed
-class WebDavConfig with _$WebDavConfig {
+abstract class WebDavConfig with _$WebDavConfig {
   const factory WebDavConfig({
     @Default('') String url,
     @Default('') String username,
@@ -390,7 +390,7 @@ class WebDavConfig with _$WebDavConfig {
 
 /// 书源部分信息（数据库视图）
 @freezed
-class BookSourcePart with _$BookSourcePart {
+abstract class BookSourcePart with _$BookSourcePart {
   const factory BookSourcePart({
     @Default('') @JsonKey(name: 'bookSourceUrl') String bookSourceUrl,
     @Default('') @JsonKey(name: 'bookSourceName') String bookSourceName,
@@ -416,7 +416,7 @@ class BookSourcePart with _$BookSourcePart {
 
 /// 搜索关键词
 @freezed
-class SearchKeyword with _$SearchKeyword {
+abstract class SearchKeyword with _$SearchKeyword {
   const factory SearchKeyword({
     @Default('') String word,
     @Default(1) int usage,
@@ -436,7 +436,7 @@ class SearchKeyword with _$SearchKeyword {
 
 /// TXT目录规则
 @freezed
-class TxtTocRule with _$TxtTocRule {
+abstract class TxtTocRule with _$TxtTocRule {
   const factory TxtTocRule({
     @Default(0) int id,
     @Default('') String name,
@@ -455,7 +455,7 @@ class TxtTocRule with _$TxtTocRule {
 
 /// 章节段评关联
 @freezed
-class BookChapterReview with _$BookChapterReview {
+abstract class BookChapterReview with _$BookChapterReview {
   const factory BookChapterReview({
     @Default(0) @JsonKey(name: 'bookId') int bookId,
     @Default(0) @JsonKey(name: 'chapterId') int chapterId,
@@ -470,7 +470,7 @@ class BookChapterReview with _$BookChapterReview {
 
 /// 键盘辅助
 @freezed
-class KeyboardAssist with _$KeyboardAssist {
+abstract class KeyboardAssist with _$KeyboardAssist {
   const factory KeyboardAssist({
     @Default(0) @JsonKey(name: 'type') int assistType,
     @Default('') String key,
@@ -486,7 +486,7 @@ class KeyboardAssist with _$KeyboardAssist {
 
 /// 阅读记录
 @freezed
-class ReadRecord with _$ReadRecord {
+abstract class ReadRecord with _$ReadRecord {
   const factory ReadRecord({
     @Default('') @JsonKey(name: 'deviceId') String deviceId,
     @Default('') @JsonKey(name: 'bookName') String bookName,
@@ -502,7 +502,7 @@ class ReadRecord with _$ReadRecord {
 
 /// RSS阅读记录
 @freezed
-class RssReadRecord with _$RssReadRecord {
+abstract class RssReadRecord with _$RssReadRecord {
   const factory RssReadRecord({
     @Default('') String record,
     String? title,
@@ -524,7 +524,7 @@ class RssReadRecord with _$RssReadRecord {
 
 /// 书籍阅读进度
 @freezed
-class BookProgress with _$BookProgress {
+abstract class BookProgress with _$BookProgress {
   const factory BookProgress({
     @Default('') String name,
     @Default('') String author,
@@ -542,7 +542,7 @@ class BookProgress with _$BookProgress {
 
 /// 替换规则作用范围书籍
 @freezed
-class ReplaceBook with _$ReplaceBook {
+abstract class ReplaceBook with _$ReplaceBook {
   const factory ReplaceBook({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
     @Default('') String origin,
@@ -567,7 +567,7 @@ class ReplaceBook with _$ReplaceBook {
 
 /// 书籍缓存信息
 @freezed
-class BookCacheInfo with _$BookCacheInfo {
+abstract class BookCacheInfo with _$BookCacheInfo {
   const factory BookCacheInfo({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
     @Default('') String name,
@@ -584,7 +584,7 @@ class BookCacheInfo with _$BookCacheInfo {
 
 /// 阅读记录展示
 @freezed
-class ReadRecordShow with _$ReadRecordShow {
+abstract class ReadRecordShow with _$ReadRecordShow {
   const factory ReadRecordShow({
     @Default('') @JsonKey(name: 'bookName') String bookName,
     @Default(0) @JsonKey(name: 'readTime') int readTime,
@@ -599,7 +599,7 @@ class ReadRecordShow with _$ReadRecordShow {
 
 /// 词典条目（本地内置词典释义）
 @freezed
-class DictEntry with _$DictEntry {
+abstract class DictEntry with _$DictEntry {
   const factory DictEntry({
     @Default('') String word,
     @Default('') String phonetic,
@@ -614,7 +614,7 @@ class DictEntry with _$DictEntry {
 
 /// 书源登录键值对（Cookie / Header）
 @freezed
-class LoginKeyValue with _$LoginKeyValue {
+abstract class LoginKeyValue with _$LoginKeyValue {
   const factory LoginKeyValue({
     @Default('') String name,
     @Default('') String value,

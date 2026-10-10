@@ -24,7 +24,7 @@ class BookGroupId {
 /// - [isLoading] / [error]：API 调用状态
 /// - [isGridView] / [groupMode]：展示层变换，仅改变呈现形式
 @freezed
-class BookshelfState with _$BookshelfState {
+abstract class BookshelfState with _$BookshelfState {
   const factory BookshelfState({
     /// Rust 返回的书籍列表（已排序，UI 层不做排序）
     @Default([]) List<Book> books,

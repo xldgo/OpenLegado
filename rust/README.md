@@ -168,7 +168,7 @@ flutter_rust_bridge_codegen generate
 | JS 引擎 | rquickjs（可选 feature） |
 | 书籍格式 | zip + quick-xml + encoding_rs |
 | 数据库 | rusqlite（bundled SQLite） |
-| FFI 框架 | flutter_rust_bridge 2.12.0 |
+| FFI 框架 | flutter_rust_bridge 2.13.0 |
 
 ---
 

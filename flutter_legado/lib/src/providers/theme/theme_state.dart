@@ -12,7 +12,7 @@ part 'theme_state.freezed.dart';
 ///   阶段D 2.0.270 起默认 def「默认」；与用户自定义 themeConfigList 并存，
 ///   自定义已应用色优先 — 第九节）
 @freezed
-class ThemeState with _$ThemeState {
+abstract class ThemeState with _$ThemeState {
   const factory ThemeState({
     /// 主题模式（亮/暗/跟随系统）
     @Default(ThemeMode.system) ThemeMode themeMode,

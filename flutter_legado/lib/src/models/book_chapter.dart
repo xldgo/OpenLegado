@@ -5,7 +5,7 @@ part 'book_chapter.g.dart';
 
 /// 章节实体
 @freezed
-class BookChapter with _$BookChapter {
+abstract class BookChapter with _$BookChapter {
   const factory BookChapter({
     @Default('') String url,
     @Default('') String title,
