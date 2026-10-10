@@ -8,6 +8,17 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### ANDROID-RELRO-20261011：Rust Android 16 KB RELRO 修复（P1）
+
+- **状态**：已交付（源码修复与 x86_64 定向验证范围）；与 AGP 迁移分开提交。其余 ABI 和 16 KB 设备运行由后续正常平台构建补充。
+- **授权与基线**：用户同意单独修复，从 `1325e1e58` 创建 `feature/rust-android-relro`；在 AGP worktree 执行，不使用子代理、不运行全套 CI。应用版本保持 `2.0.369+370`，Rust stable、NDK 27、FRB 2.13.0 保持。
+- **范围**：仓库 Cargo 配置统一 `max-page-size` 与 `common-page-size`；本地 Android 脚本与两个现有 workflow 共用 ELF 校验，拒绝 RELRO 未对齐的旧库。按用户追加要求只重建 x86_64，检查测试 APK 来源与页对齐，并在 MuMu 验证真实 FFI；停止其余本地 ABI 编译。
+- **边界**：不改变 FFI 契约、业务功能、数据库、签名、CI 拓扑或第三方二进制。MuMu 为 4 KB 页；第三方库的 RELRO 风险另行核查，不能据此宣称整包已通过 16 KB 设备运行。
+- **验收**：NDK 27 最小编译对照与 16 项 ELF 门禁正反例通过；实际 x86_64 新库、strip 后库及测试 APK 内库的 LOAD/RELRO 与来源校验通过，MuMu 3 项真实 FFI 测试通过。测试后恢复先前 AGP 正常 APK，未卸载或清除数据；应用源码、pubspec 版本和锁文件保持。
+- **方法与证据**：[Rust Android RELRO 修复记录](ANDROID_RELRO_20261011.md)；状态只维护于本项。
+
+编写者：Codex｜2026-10-11
+
 ### AGP9-MIGRATION-20261010：Flutter Android 构建链迁移（P2）
 
 - **状态**：AGP 9 兼容模式已交付（2026-10-11）；插件准备、配置、宿主编译、debug/release APK 与 MuMu 定向回归通过。内置 Kotlin 等待 TTS 上游适配，新 DSL 另行迁移；iOS 模拟器仍暂缓。Rust 16 KB RELRO 转入用户授权的独立修复。
@@ -20,7 +31,7 @@
 - **构建配置**：AGP 9.2.1 / Gradle 9.4.1，wrapper 记录官方 SHA-256；依据 Flutter 检查与 Kotlin 官方兼容表将 KGP 配套更新为 2.4.21。实际错误证明旧 `kotlinOptions.jvmTarget` 不再可用，已改为顶层 `compilerOptions` 并保持 JVM 17。Java 17 下 Flutter 配置建议与全部插件的 Gradle help 均通过；保留 builtInKotlin=false / newDsl=false。
 - **原生与设备验证（2026-10-11）**：当前 Rust stable 1.99.0 / NDK 27 的三 ABI release 库构建与来源校验通过；64 位启用 QuickJS，armv7 因既有 RAR 32 位编译限制按原策略禁用 QuickJS。debug APK、24 项宿主 JVM 测试、MuMu 安装冷启动、3 项真实 FFI 测试及离线搜索→阅读→翻章均通过。三 ABI release 的包名、版本、签名、ZIP 对齐、Rust 来源与 64 位 LOAD 对齐通过。MuMu 为 Android 15 / API 35、x86_64、4 KB 页；iOS 和 16 KB 设备运行未验证。
 - **应用链接**：app_links 7.2.2 与必需的 Linux/Web 实现已升级，生成 Linux 注册文件同步替换 gtk。定向分析及链接解析/欢迎页门控共 10 项测试通过。真实设备发现旧、新版都重复处理深链；按官方要求关闭 Android 默认处理，并复用既有欢迎页门控注册初始链接，最终 MuMu 冷/热启动、重复去重、关闭后重开与 yuedu 入口均通过。Android 保留自定义 MethodChannel；iOS 的 app_links 事件流及其他桌面端未实测。
-- **新增风险（2026-10-11）**：既有 Rust 参数只有 `max-page-size=16384`，LOAD 段对齐通过，但实际 RELRO 末尾未按 16 KB 对齐；部分第三方库也有非零余数，尚待核查。用户已批准 AGP 迁移后单独修复 Rust 参数并分开提交，进入 `ANDROID-RELRO-20261011`。不能以 MuMu 或 ZIP/LOAD 通过宣称 16 KB 整包运行兼容，证据见迁移方案。
+- **新增风险（2026-10-11）**：既有 Rust 参数只有 `max-page-size=16384`，LOAD 段对齐通过，但实际 RELRO 末尾未按 16 KB 对齐；已在独立任务 `ANDROID-RELRO-20261011` 修复并通过 x86_64 定向验证。部分第三方库也有非零余数，尚待核查。不能以 MuMu 或 ZIP/LOAD 通过宣称 16 KB 整包运行兼容，证据见迁移方案与独立修复记录。
 - **提交整理与限制**：用户要求压缩历史，之前依赖升级合为 `1805569d6`，本次三项实现合为 `d035e2702`；文件树相同并已精确 lease 推送，跳过 CI。后续按阶段定向验证，提交带 `[skip ci]`；不使用子代理，不运行全套 CI；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
 - **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
 

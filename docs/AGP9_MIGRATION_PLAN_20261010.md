@@ -254,6 +254,10 @@ Android 官方新增说明指出，NDK 27 及以下未设置相应链接参数�
 
 来源：[Android 16 KB RELRO 检查与编译要求](https://developer.android.com/guide/practices/page-sizes#relro)。
 
+用户授权的独立修复已补齐参数，并按追加要求仅在本地验证 x86_64 新库、测试 APK
+及 MuMu 真实 FFI；其余 ABI 由后续平台构建验证。方法与证据见
+[Rust Android RELRO 修复记录](ANDROID_RELRO_20261011.md)，当前状态只维护于 Active 计划。
+
 ### app_links 7.2.2 与最终设备回归（2026-10-11）
 
 - AGP 真实构建通过后解除版本上限，改用 `^7.2.2`。新版要求 Linux 1.0.4 / Web 1.0.5，移除无调用方的传递包 gtk；Linux 注册文件由 Flutter 同步生成，其他包未升级。

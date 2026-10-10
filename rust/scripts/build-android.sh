@@ -5,6 +5,10 @@
 set -e
 
 MODE=${1:-release}
+case "$MODE" in
+    release|debug) ;;
+    *) echo "构建模式只能是 release 或 debug" >&2; exit 1 ;;
+esac
 TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android")
 
 # 检查 Android NDK
@@ -40,6 +44,8 @@ for target in "${TARGETS[@]}"; do
     else
         cargo build --target "$target" -p legado-ffi --features quickjs
     fi
+    # 参数由仓库 Cargo 配置统一提供，复制前同时检查 LOAD 与 RELRO。
+    python3 scripts/verify-android-elf.py "target/$target/$MODE/liblegado_ffi.so"
 done
 
 # 复制到 Flutter jniLibs

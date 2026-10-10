@@ -44,11 +44,9 @@ jobs:
           cat >> "$HOME/.cargo/config.toml" << EOF
           [target.aarch64-linux-android]
           linker = "$NDK_TOOLCHAIN/bin/aarch64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 
           [target.x86_64-linux-android]
           linker = "$NDK_TOOLCHAIN/bin/x86_64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
           EOF
       - name: 核对已提交的 FRB 版本与 hash
         working-directory: rust
@@ -79,6 +77,7 @@ jobs:
           cargo build --locked --target aarch64-linux-android -p legado-ffi --features quickjs
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/x86_64-linux-android"
           cargo build --locked --target x86_64-linux-android -p legado-ffi --features quickjs
+          python3 scripts/verify-android-elf.py target/aarch64-linux-android/debug/liblegado_ffi.so target/x86_64-linux-android/debug/liblegado_ffi.so
       - name: 复制本次构建的动态库并记录元数据
         working-directory: rust
         run: |

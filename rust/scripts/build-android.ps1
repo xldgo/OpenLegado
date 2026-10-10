@@ -108,7 +108,9 @@ function Find-SyncedSoInTarget {
     foreach ($m in @($PreferredMode, "release", "debug")) {
         $candidate = Join-Path $RustDir "target\$Triple\$m\liblegado_ffi.so"
         if ((Test-Path $candidate) -and (Test-SoEmbedsHash -SoPath $candidate -Hash $Hash)) {
-            return $candidate
+            # FRB hash 相同的旧库也可能使用了错误的页对齐参数，复用前独立校验。
+            & python (Join-Path $PSScriptRoot "verify-android-elf.py") --quiet $candidate
+            if ($LASTEXITCODE -eq 0) { return $candidate }
         }
     }
     return $null
@@ -255,6 +257,11 @@ foreach ($key in $SelectedKeys) {
         exit 1
     }
 
+    & python (Join-Path $PSScriptRoot "verify-android-elf.py") $srcFile
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Android 动态库的 16 KB ELF 校验失败：$triple"
+        exit 1
+    }
     $BuiltSo[$key] = $srcFile
     Write-Host "   OK" -ForegroundColor Green
 }
