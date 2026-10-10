@@ -2,20 +2,22 @@ name: PR Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-
-concurrency:
-  group: pr-code-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [opened, labeled, synchronize, reopened, ready_for_review]
 
 jobs:
   review:
     if: >-
-      ${{ !github.event.pull_request.draft &&
+      ${{ contains(github.event.pull_request.labels.*.name, 'review') &&
+          (github.event.action != 'labeled' || github.event.label.name == 'review') &&
+          !github.event.pull_request.draft &&
           github.event.pull_request.user.type != 'Bot' &&
-          github.event.pull_request.user.login != 'mgz0227' &&
           github.event.pull_request.head.repo.full_name == github.repository }}
+    # 仅通过条件的审查作业参与并发，其他标签事件不取消进行中的审查。
+    concurrency:
+      group: pr-code-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -37,7 +39,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.CODE_REVIEW_API_KEY }}
           responses-api-endpoint: ${{ secrets.CODE_REVIEW_API_ENDPOINT }}
-          permission-profile: ":read-only"
+          sandbox: read-only
           codex-args: '["--ephemeral"]'
           prompt-file: .github/codex/prompts/review.md
 
@@ -45,6 +47,7 @@ jobs:
     needs: review
     if: ${{ needs.review.outputs.final_message != '' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       issues: write
       pull-requests: write
@@ -59,6 +62,18 @@ jobs:
             const marker = '<!-- codex-pr-review -->';
             const body = `${marker}\n## Codex 自动代码审查\n\n${process.env.REVIEW_BODY}`;
             const issue_number = context.payload.pull_request.number;
+            const { data: pull } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issue_number,
+            });
+            // 审查期间更新提交、转为草稿或移除标签后，不发布过期结果。
+            if (pull.state !== 'open' || pull.draft ||
+                pull.head.sha !== context.payload.pull_request.head.sha ||
+                !pull.labels.some(label => label.name.toLowerCase() === 'review')) {
+              core.info('PR 状态已变化，跳过本次审查评论。');
+              return;
+            }
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,

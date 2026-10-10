@@ -11,15 +11,15 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 
 | 路径 | 内容 |
 |---|---|
-| `app/` | Kotlin Android 主模块（约 1000 个 .kt 源文件），含 `app/src/main/java/io/legado/app/` |
-| `modules/book/`、`modules/rhino/`、`modules/web/` | Android 子模块（书源、Rhino JS 引擎、Web 辅助） |
+| `app/`（另备原版工程） | Kotlin Android 原版参考模块；本仓库不分发，语义对照时另备完整原版工程 |
+| `modules/book/`、`modules/rhino/`、`modules/web/`（另备原版工程） | Android 原版参考子模块（书源、Rhino JS 引擎、Web 辅助）；本仓库不分发 |
 | `flutter_legado/` | Flutter UI（Windows 构建主模块），`lib/` 为 Dart 源码 |
-| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-ffi / legado-js / legado-net / legado-parser / legado-server） |
+| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-fetcher / legado-ffi / legado-js / legado-net / legado-parser / legado-server） |
 | `docs/` | 项目文档（计划、报告、规范、API 契约） |
 
 ## 验证命令
 
-- **Android 原版单元测试**：`./gradlew :app:testAppReleaseUnitTest`（本地参考工程；旧 `test.yml` 已随原版源码停止上传而移除）
+- **Android 原版单元测试**：仅在另备的完整原版工程根目录执行 `.\gradlew.bat :app:testAppReleaseUnitTest`。本仓库不包含原版源码或其 Gradle 构建入口；旧 `test.yml` 已移除。
 - **Flutter**：在 `flutter_legado/` 下 `flutter analyze && flutter test`（CI：`.github/workflows/flutter-ci.yml`）
 - **Rust**：在 `rust/` 下 `cargo test`（CI：`.github/workflows/rust-ci.yml`）
 - **iOS**：`ios-ci.yml` 仅手动运行模拟器验证，不作为 PR 必需检查；`ios-build.yml` 保留设备 IPA 自动构建与手动入口。签名及诊断方法见 `docs/IOS_CI_SIGNING_SETUP.md`。
@@ -75,7 +75,7 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
   - **端点时效性（2026-09-27 补充）**：本节及历史文档所载端点/IP/端口（含 `192.168.1.19:5555`、`192.168.100.63:5555`、`127.0.0.1:16384/16416` 等）均为**记录时点的历史事实**，会随宿主网段（NAT 子网漂移）与实例运行状态变化；每次设备任务前必须以 `MuMuManager.exe info -v all` 与 adb 实测探测为准，**不得把固定端点或旧设备可用记录当作当前可用保证**。
 - **完成定义（DoD，2026-09-17 新增）**：判定「完成」的依据是**证据**，不是执行步骤：
   1. 代码改动须附「多代理协作规则」路由表中对应的证据，并在提交正文写明来源（CI 运行链接 / QA 报告路径 / 审查结论 / 截图路径）；
-  2. **CI 能覆盖的验证不重复派角色**（`flutter analyze && flutter test`、`cargo test`、`./gradlew :app:testAppReleaseUnitTest` 一律以 CI 结果为准），角色只用于 CI 覆盖不到的场景（实机冒烟、UI 交互、跨模块手动复现）；
+  2. **CI 能覆盖的验证不重复派角色**（`flutter analyze && flutter test`、`cargo test` 以 CI 结果为准），角色只用于 CI 覆盖不到的场景（实机冒烟、UI 交互、跨模块手动复现）；Android 原版 Gradle 测试仅在另备的完整原版工程内运行，不属本仓库 CI 覆盖；
   3. **高风险改动**（跨模块 / FFI 契约 / 公共 API / 大范围重构）必须在提交前取得 `code-reviewer` 结论；一般小修不强制派审查；
   4. 子代理自述（无独立证据）不构成验收依据。
 - 汇报纪律：确认问题彻底解决后才能汇报完成，如实汇报，不得夸大进度或完成度
@@ -118,3 +118,5 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 修订：Codex ｜ 2026-09-27（移除已停用 Agent 工具的配置说明，将 Agent 路由改为按职责描述）
 修订：Legado 项目维护组 ｜ 2026-09-27（**文档与重构流程统一**：通用开发规范入口迁移至 `docs/DEVELOPMENT_CONVENTIONS.md`（原 `.qoder/rules/legado-dev-conventions.md`）；移除 UI_FIX_PLAN.md 当前入口，视觉入口指向 `docs/SCREEN_1TO1_PARITY_SPEC_20260914.md` 并补台账路由；新增设备端点时效性与实时探测要求）
 修订：Codex 主代理 ｜ 2026-10-10（更新 CI 路由：iOS CI 仅手动验证，iOS Build 负责设备包；移除已删除旧 Android workflow 的入口引用）
+修订：Codex 主代理 ｜ 2026-10-10（旧路径核查：明确 Android 原版目录仅为本地参考，不再将原版 Gradle 测试列为当前 CI 覆盖；补齐 Rust 工作区模块）
+修订：Codex 主代理 ｜ 2026-10-10（按用户授权删除 8 个旧原版 Gradle 文件，原版构建与测试改为另备完整工程）

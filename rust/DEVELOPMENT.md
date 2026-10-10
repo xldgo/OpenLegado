@@ -720,8 +720,11 @@ git commit -m "perf: 优化引擎池化内存占用"
    git tag -a v4.0.0-beta -m "Release v4.0.0-beta"
 
 6. 推送
-   git push origin main --tags
+   git push origin HEAD
+   git push origin v4.0.0-beta
 ```
+
+推送前须审核发布提交；以上 tag 为示例，应替换为本次版本。Android 发布入口为 [android-release.yml](../.github/workflows/android-release.yml)，手动运行仅生成 APK 工件。
 
 ### CHANGELOG 维护规则
 
@@ -743,7 +746,8 @@ git commit -m "perf: 优化引擎池化内存占用"
 
 | 分支 | 用途 |
 |------|------|
-| `main` | 主干，始终保持可构建状态 |
+| `master` | 当前默认分支，始终保持可构建状态 |
+| `dev` | 开发集成分支，Dependabot 普通版本更新的目标分支 |
 | `feature/*` | 功能开发分支 |
 | `fix/*` | Bug 修复分支 |
 | `release/*` | 发布准备分支（版本号递增、CHANGELOG 定稿） |
@@ -753,8 +757,10 @@ git commit -m "perf: 优化引擎池化内存占用"
 ## 项目相关链接
 
 - [Rust README](./README.md) — 架构与 Crate 详细说明
-- [进度跟踪](./PROGRESS.md) — 任务完成状态
+- [当前任务与进度](../docs/REFACTORING_ACTIVE_PLAN.md) — 唯一开放任务入口；[PROGRESS.md](./PROGRESS.md) 仅作历史参考
 - [更新日志](../CHANGELOG.md) — 版本历史记录
 - [Flutter 客户端](../flutter_legado/README.md) — UI 层文档
 - [上游 Legado 项目](https://github.com/gedoor/legado) — Kotlin 原版
-- [本项目仓库](https://github.com/ZhangGHGitHub/LegadoTeamFlutter) — Rust+Flutter 版
+- [本项目仓库](https://github.com/xldgo/OpenLegado) — Rust+Flutter 版
+
+修订者：Codex 主代理｜2026-10-10（修正仓库、发布与当前进度入口）

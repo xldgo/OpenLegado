@@ -72,9 +72,10 @@
 | [VERSION_CONTROL.md](VERSION_CONTROL.md) | 项目版本控制记录 |
 | [TWO_TRACK_DEV_SPEC.md](TWO_TRACK_DEV_SPEC.md) | 双轨协作开发规范（UI 轨与 Rust 轨分离开发） |
 | [API_CONTRACT.md](API_CONTRACT.md) | BookApi 接口契约文档（UI 轨与 Rust 轨唯一接口基准） |
-| [api.md](api.md) | 阅读 API 接口文档 |
+| [api.md](api.md) | 阅读 Web API 说明及 Android 原版 Content Provider 参考；FFI 契约另见 API_CONTRACT.md |
 | [IOS_CI_SIGNING_SETUP.md](IOS_CI_SIGNING_SETUP.md) | iOS Build 签名与 IPA 交付；手动 iOS CI、诊断入口、真机安装与排障方法 |
 | [CI_WORKFLOW_REVIEW_20261010.md](CI_WORKFLOW_REVIEW_20261010.md) | 工作流拆分的独立审查与静态验证证据；当前进度仍以 Active 计划为准 |
+| [CI_AUTOMATION_REVIEW_20261010.md](CI_AUTOMATION_REVIEW_20261010.md) | Dependabot、标签、按标签启用的 PR 审查与 Issue 清理配置，以及旧路径核查、8 个旧 Gradle 文件删除清单和本地验证证据 |
 
 ## 📁 文档存放规范
 
@@ -85,4 +86,4 @@
 3. **根目录例外**：`README.md`、`CHANGELOG.md`、`LICENSE` 按社区惯例保留在项目根目录。
 4. **引用路径**：跨目录引用文档时使用正确的相对路径（如 `docs/` 内文档引用 `rust/` 下文档应写为 `../rust/xxx.md`）。
 
-修订者：Codex 主代理｜2026-10-10（同步 CI 工作流说明与审查证据入口）
+修订者：Codex 主代理｜2026-10-10（同步 CI 工作流说明、旧路径核查与验证证据入口）

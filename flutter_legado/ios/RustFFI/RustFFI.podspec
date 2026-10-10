@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary          = 'Rust FFI 静态库（legado-ffi）iOS 静态链接'
   s.description      = 'liblegado_ffi.a 由 .github/workflows/ios-build.yml 预编译并放置到本目录；' \
                        '通过 -force_load 保证 Dart FFI（DynamicLibrary.process）运行时可查 FRB PDE 分发器符号。'
-  s.homepage         = 'https://github.com/ZhangGHGitHub/LegadoTeamFlutter'
+  s.homepage         = 'https://github.com/xldgo/OpenLegado'
   s.license          = { :type => 'GPL-3.0' }
   s.author           = { 'LegadoTeam' => 'legado@legado.team' }
   s.source           = { :path => '.' }

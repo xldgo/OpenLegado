@@ -102,18 +102,18 @@ legado/
 │   ├── legado-server/           # HTTP 服务：axum REST + WS + MCP
 │   ├── Cargo.toml               # Workspace 配置
 │   ├── DEVELOPMENT.md           # Rust 端详细开发文档
-│   └── PROGRESS.md              # 任务进度跟踪
+│   └── PROGRESS.md              # 历史任务记录；当前进度见 docs/REFACTORING_ACTIVE_PLAN.md
 ├── flutter_legado/              # Flutter 跨平台 UI
 │   ├── lib/                     # Dart 源码
 │   ├── test/                    # Flutter 测试（24 个文件）
 │   ├── scripts/                 # 构建/代码生成脚本
 │   └── pubspec.yaml             # Flutter 依赖配置
-├── app/                         # 原 Android Kotlin 版（历史代码）
-├── modules/                     # 原 Android 模块（历史代码）
 ├── .github/workflows/           # CI/CD 工作流
 ├── CHANGELOG.md                 # 版本更新日志
 └── DEVELOPMENT.md               # 本文件
 ```
+
+Android 原版源码及其 Gradle 构建文件不随本仓库分发；需要原版测试时另备完整工程。Flutter Android 使用 `flutter_legado/android/` 内的独立 Gradle 配置。
 
 ---
 
@@ -286,15 +286,17 @@ git commit -m "perf: 优化引擎池化内存占用"
 2. 更新 `CHANGELOG.md`
 3. 递增版本号（Cargo.toml + pubspec.yaml）
 4. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-5. `git push origin main --tags`
+5. 先推送已审核的发布提交（`git push origin HEAD`），再只推送本次 tag（`git push origin vX.Y.Z`）；Android 发布入口为 [android-release.yml](../.github/workflows/android-release.yml)。
 
 ---
 
 ## 相关链接
 
 - [Rust 端详细开发文档](../rust/DEVELOPMENT.md) — 架构设计、代码结构、调试技巧
-- [任务进度跟踪](../rust/PROGRESS.md) — 148 个任务完成状态
+- [当前任务与进度](REFACTORING_ACTIVE_PLAN.md) — 唯一开放任务入口；旧 Rust 任务记录仅作历史参考
 - [更新日志](../CHANGELOG.md) — 版本历史记录
 - [Flutter 客户端](../flutter_legado/README.md) — UI 层文档
 - [上游 Legado 项目](https://github.com/gedoor/legado) — Kotlin 原版
-- [本项目仓库](https://github.com/ZhangGHGitHub/LegadoTeamFlutter) — Rust+Flutter 版
+- [本项目仓库](https://github.com/xldgo/OpenLegado) — Rust+Flutter 版
+
+修订者：Codex 主代理｜2026-10-10（修正仓库、发布与当前进度入口；同步旧 Gradle 文件删除范围）

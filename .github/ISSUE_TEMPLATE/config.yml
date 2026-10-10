@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 简繁转化
-    url: https://github.com/liuyueyi/quick-chinese-transfer/issues/new
-    about: 简繁转化问题请优先到quick-chinese-transfer反馈
-  - name: 常见问题 / Wiki
+  - name: 项目说明与使用文档
+    url: https://github.com/xldgo/OpenLegado#readme
+    about: Rust 与 Flutter 版本的使用、构建及问题反馈请先查看当前项目说明。
+  - name: Android 原版参考 Wiki
     url: https://github.com/gedoor/legado/wiki
-    about: Read wiki if your are new here.
+    about: 原版阅读的使用参考；本项目问题请使用上方的问题模板反馈。

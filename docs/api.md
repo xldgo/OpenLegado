@@ -1,6 +1,8 @@
-# 阅读[API](/app/src/main/java/io/legado/app/api/controller)
+# 阅读 API
 
-## 对于[Web](/app/src/main/java/io/legado/app/web/)的配置
+> 本文中的 Kotlin 实体与 Content Provider 源码链接指向 Android 原版上游，仅作兼容语义参考；原版 `app/` 不在本仓库 Git 跟踪范围。Rust/Flutter FFI 接口以 [API_CONTRACT.md](API_CONTRACT.md) 为准。
+
+## Web 配置
 
 您需要先在设置中启用"Web 服务"。
 
@@ -18,7 +20,7 @@
 #### 插入单个书源
 
 请求BODY内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)
 
 ```
 URL = http://127.0.0.1:1234/saveBookSource
@@ -45,7 +47,7 @@ X-Legado-Token = 设置中配置的令牌（访问令牌保护开启时）
 #### 插入多个书源or订阅源
 
 请求BODY内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
 
 ```
 URL = http://127.0.0.1:1234/saveBookSources
@@ -72,7 +74,7 @@ Method = GET
 #### 删除多个书源or订阅源
 
 请求BODY内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
 
 ```
 URL = http://127.0.0.1:1234/deleteBookSources
@@ -154,7 +156,7 @@ Method = GET
 #### 替换规则管理
 
 请求BODY内容为`JSON`字符串，  
-替换规则参考[这个文件](/app/src/main/java/io/legado/app/data/entities/ReplaceRule.kt)。
+替换规则参考[Android 原版 ReplaceRule.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/ReplaceRule.kt)。
 
 ##### 删除
 
@@ -193,7 +195,7 @@ Message = { key: [String] }
 #### 插入书籍
 
 请求BODY内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/Book.kt)。
+格式参考[Android 原版 Book.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/Book.kt)。
 
 ```
 URL = http://127.0.0.1:1234/saveBook
@@ -251,14 +253,14 @@ Method = GET
 #### 保存书籍进度
 
 请求BODY内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookProgress.kt)。
+格式参考[Android 原版 BookProgress.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookProgress.kt)。
 
 ```
 URL = http://127.0.0.1:1234/saveBookProgress
 Method = POST
 ```
 
-### [Content Provider](/app/src/main/java/io/legado/app/api/ReaderProvider.kt)
+### [Android 原版 Content Provider](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/api/ReaderProvider.kt)
 
 
 * 需声明`io.legado.READ_WRITE`权限
@@ -268,7 +270,7 @@ Method = POST
 #### 插入单个书源or订阅源
 
 创建`Key="json"`的`ContentValues`，内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)
 
 ```
 URL = content://providerHost/bookSource/insert
@@ -279,7 +281,7 @@ Method = insert
 #### 插入多个书源or订阅源
 
 创建`Key="json"`的`ContentValues`，内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
 
 ```
 URL = content://providerHost/bookSources/insert
@@ -312,7 +314,7 @@ Method = query
 #### 删除多个书源or订阅源
 
 创建`Key="json"`的`ContentValues`，内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
+格式参考[Android 原版 BookSource.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/BookSource.kt)，**为数组格式**。
 
 ```
 URL = content://providerHost/bookSources/delete
@@ -323,7 +325,7 @@ Method = delete
 #### 插入书籍
 
 创建`Key="json"`的`ContentValues`，内容为`JSON`字符串，  
-格式参考[这个文件](/app/src/main/java/io/legado/app/data/entities/Book.kt)。
+格式参考[Android 原版 Book.kt](https://github.com/LegadoTeam/legado/blob/master/app/src/main/java/io/legado/app/data/entities/Book.kt)。
 
 ```
 URL = content://providerHost/book/insert
@@ -366,3 +368,5 @@ Method = query
 URL = content://providerHost/book/cover/query?path=xxxx
 Method = query
 ```
+
+修订者：Codex 主代理｜2026-10-10（修复原版源码参考链接，不改接口定义）

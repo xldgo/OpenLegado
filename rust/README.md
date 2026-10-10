@@ -202,7 +202,7 @@ rust/
 
 ## 项目进度（截至 2026-08-01）
 
-> 完整进度跟踪文档见 [PROGRESS.md](./PROGRESS.md)
+> 当前任务与进度以 [Active 计划](../docs/REFACTORING_ACTIVE_PLAN.md) 为准；[PROGRESS.md](./PROGRESS.md) 保存历史任务记录。
 
 ### 当前状态：148/148 原子任务已完成，Rust 1409 测试默认通过 / Flutter 952 通过（2026-08-02 实测，Phase 5.4 去重 bookshelf_provider_test 后）
 
@@ -234,7 +234,7 @@ rust/
 ### 已完成（原“远期优化”列表，已全部实现）
 - ✅ 端到端流程跑通（书源导入→搜索→阅读→书签→替换规则全链路可用）
 - ✅ 阅读器深度实现（仿真翻页动画 + 段评弹窗 + 漫画模式）
-- ✅ CI 自动发布（flutter-release.yml，push tag 触发）
+- ✅ Android 自动发布（[android-release.yml](../.github/workflows/android-release.yml)，推送 `v*` tag 触发；手动运行仅生成 APK 工件）
 - ✅ 视频播放（video_player + 播放控制 + 全屏 + 手势，Task #145）
 - ✅ 漫画阅读（纵向滚动 + 双指缩放 + 图片预加载 + 进度保存，Task #146）
 - ✅ QUIC 接入主网络链路（可选 QUIC + fallback HTTP/2，Task #43）
@@ -258,3 +258,5 @@ rust/
 > 详细实现见 `legado-js/src/sandbox.rs` 模块文档。
 
 > 详细开发指南见 [DEVELOPMENT.md](./DEVELOPMENT.md)
+
+修订者：Codex 主代理｜2026-10-10（修正 Android 发布入口与当前进度路由）

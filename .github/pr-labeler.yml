@@ -1,59 +1,107 @@
 'platform: android':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/**'
-          - 'modules/book/**'
-          - 'modules/rhino/**'
+          - 'flutter_legado/android/**'
+'platform: ios':
+  - changed-files:
+      - any-glob-to-any-file: 'flutter_legado/ios/**'
+'platform: windows':
+  - changed-files:
+      - any-glob-to-any-file: 'flutter_legado/windows/**'
 'platform: web':
   - changed-files:
-      - any-glob-to-any-file: 'modules/web/**'
+      - any-glob-to-any-file:
+          - 'rust/legado-server/web-dist/**'
+          - 'rust/assets/web/**'
+'platform: shared':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'flutter_legado/lib/**'
+          - 'flutter_legado/test/**'
+          - 'flutter_legado/integration_test/**'
+          - 'flutter_legado/pubspec.*'
+          - 'rust/legado-*/src/**'
+          - 'rust/legado-*/tests/**'
+          - 'rust/legado-*/Cargo.toml'
+          - 'rust/Cargo.toml'
+          - 'rust/Cargo.lock'
 
 'area: reader':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/ui/book/read/**'
-          - 'app/src/main/java/io/legado/app/model/ReadBook*'
-          - 'app/src/main/java/io/legado/app/help/book/BookHelp.kt'
+          - 'flutter_legado/lib/src/screens/reader_screen.dart'
+          - 'flutter_legado/lib/src/screens/reader_config*'
+          - 'flutter_legado/lib/src/screens/toc_screen.dart'
+          - 'flutter_legado/lib/src/widgets/reader/**'
+          - 'flutter_legado/lib/src/providers/reader/**'
+          - 'flutter_legado/lib/src/bridge/api/reader.dart'
+          - 'rust/legado-core/src/reader*'
 'area: manga':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/ui/book/manga/**'
-          - 'app/src/main/java/io/legado/app/model/ReadManga*'
+          - 'flutter_legado/lib/src/screens/reader_comic_screen.dart'
+          - 'flutter_legado/lib/src/screens/reader_comic/**'
 'area: audio':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/ui/book/audio/**'
-          - 'app/src/main/java/io/legado/app/model/AudioPlay.kt'
-          - 'app/src/main/java/io/legado/app/service/ReadAloudService.kt'
+          - 'flutter_legado/lib/src/screens/audio*'
+          - 'flutter_legado/lib/src/screens/read_aloud*'
+          - 'flutter_legado/lib/src/providers/audio/**'
+          - 'flutter_legado/lib/src/services/stream_audio_player.dart'
 'area: bookshelf':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/ui/main/**'
-          - 'app/src/main/java/io/legado/app/ui/book/group/**'
-          - 'app/src/main/java/io/legado/app/ui/book/manage/**'
+          - 'flutter_legado/lib/src/screens/home_screen.dart'
+          - 'flutter_legado/lib/src/screens/home_tab_screen.dart'
+          - 'flutter_legado/lib/src/screens/bookshelf*'
+          - 'flutter_legado/lib/src/screens/book_group*'
+          - 'flutter_legado/lib/src/screens/book_manage*'
+          - 'flutter_legado/lib/src/providers/bookshelf*/**'
 'area: book source':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/ui/book/source/**'
-          - 'app/src/main/java/io/legado/app/model/analyzeRule/**'
-          - 'app/src/main/java/io/legado/app/model/webBook/**'
-          - 'app/src/main/java/io/legado/app/data/entities/BookSource.kt'
+          - 'flutter_legado/lib/src/screens/source*'
+          - 'flutter_legado/lib/src/screens/search*'
+          - 'flutter_legado/lib/src/providers/source*/**'
+          - 'flutter_legado/lib/src/providers/search/**'
+          - 'rust/legado-fetcher/**'
+          - 'rust/legado-parser/**'
 'area: web':
   - changed-files:
-      - any-glob-to-any-file: 'modules/web/**'
+      - any-glob-to-any-file:
+          - 'rust/legado-server/**'
+          - 'rust/assets/web/**'
 'area: data':
   - changed-files:
       - any-glob-to-any-file:
-          - 'app/src/main/java/io/legado/app/data/**'
-          - 'app/schemas/**'
+          - 'rust/legado-db/**'
+          - 'flutter_legado/lib/src/screens/backup*'
+          - 'flutter_legado/lib/src/screens/restore*'
+          - 'flutter_legado/lib/src/screens/webdav_settings_screen.dart'
+          - 'flutter_legado/lib/src/providers/sync/**'
+          - 'flutter_legado/lib/src/services/backup*'
+          - 'flutter_legado/lib/src/services/local_book_store.dart'
+'area: ffi':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'rust/legado-ffi/**'
+          - 'flutter_legado/lib/src/bridge/**'
+          - 'flutter_legado/flutter_rust_bridge.yaml'
 'area: build':
   - changed-files:
       - any-glob-to-any-file:
-          - '**/*.gradle'
-          - '**/*.gradle.kts'
-          - 'gradle/**'
-          - 'gradle.properties'
-          - 'settings.gradle'
+          - 'flutter_legado/android/**/*.gradle'
+          - 'flutter_legado/android/**/*.gradle.kts'
+          - 'flutter_legado/android/gradle.properties'
+          - '**/pubspec.yaml'
+          - '**/pubspec.lock'
+          - '**/Cargo.toml'
+          - 'rust/Cargo.lock'
+          - 'rust/rust-toolchain.toml'
+          - 'rust/.cargo/**'
+          - 'rust/scripts/**'
+          - 'flutter_legado/android/gradle/**'
+          - 'flutter_legado/ios/Podfile*'
 'area: automation':
   - changed-files:
       - any-glob-to-any-file: '.github/**'
@@ -61,25 +109,35 @@
 documentation:
   - changed-files:
       - any-glob-to-any-file:
-          - 'README*.md'
-          - 'docs/**'
-          - 'app/src/main/assets/help/**'
+          - '**/*.md'
 tests:
   - changed-files:
       - any-glob-to-any-file:
-          - '**/src/test/**'
-          - '**/src/androidTest/**'
-          - 'modules/web/tests/**'
+          - 'flutter_legado/android/app/src/test/**'
+          - 'flutter_legado/android/app/src/androidTest/**'
           - '.github/scripts/test-*'
+          - 'flutter_legado/test/**'
+          - 'flutter_legado/integration_test/**'
+          - 'rust/legado-*/tests/**'
+dart:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.dart'
+rust:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.rs'
+          - 'rust/**/Cargo.toml'
+          - 'rust/Cargo.lock'
 kotlin:
   - changed-files:
-      - any-glob-to-any-file: '**/*.kt'
+      - any-glob-to-any-file: 'flutter_legado/android/**/*.kt'
 java:
   - changed-files:
-      - any-glob-to-any-file: '**/*.java'
+      - any-glob-to-any-file:
+          - 'flutter_legado/android/**/*.java'
+          - 'docs/**/*.java'
 javascript:
   - changed-files:
       - any-glob-to-any-file:
-          - 'modules/web/**/*.js'
-          - 'modules/web/**/*.ts'
-          - 'modules/web/**/*.vue'
+          - 'rust/**/*.js'
+          - '.github/scripts/**/*.js'

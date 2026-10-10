@@ -1,8 +1,6 @@
-name: Triage labels
+name: Triage Labels
 
 on:
-  schedule:
-    - cron: '17 3 * * 1'
   workflow_dispatch:
   issues:
     types: [opened, edited]
@@ -15,6 +13,8 @@ on:
       - '.github/pull_request_template.md'
       - '.github/scripts/backfill-labels.rb'
       - '.github/workflows/triage-labels.yml'
+      - '.github/dependabot.yml'
+      - '.github/release.yml'
   pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review]
 
@@ -25,8 +25,11 @@ jobs:
   validate:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Parse triage configuration
         run: >-
           ruby -e "require 'yaml'; ARGV.each { |file| YAML.load_file(file); puts \"validated #{file}\" }"
@@ -35,14 +38,48 @@ jobs:
           .github/issue-labeler.yml
           .github/pr-labeler.yml
           .github/workflows/triage-labels.yml
-      - name: Check historical label backfill
+          .github/dependabot.yml
+          .github/release.yml
+      - name: 验证当前标签规则及回填脚本语法
         run: |
           ruby -c .github/scripts/backfill-labels.rb
-          ruby .github/scripts/backfill-labels.rb --self-test
+          ruby - <<'RUBY'
+          require 'yaml'
+          path_rules = YAML.safe_load_file('.github/pr-labeler.yml', aliases: false)
+          cases = {
+            'flutter_legado/lib/src/screens/reader_comic/manga_menu.dart' => ['area: manga', 'dart'],
+            'flutter_legado/android/app/src/test/kotlin/io/legado/flutter/StorageBridgeBytesArgumentTest.kt' => ['platform: android', 'tests', 'kotlin'],
+            'rust/legado-ffi/tests/search.rs' => ['area: ffi', 'tests', 'rust'],
+            'flutter_legado/ios/Runner/AppDelegate.swift' => ['platform: ios'],
+            'flutter_legado/windows/runner/main.cpp' => ['platform: windows']
+          }
+          match_paths = lambda do |file|
+            path_rules.filter_map do |label, rules|
+              globs = rules.flat_map { |rule| rule.fetch('changed-files').flat_map { |item| Array(item.fetch('any-glob-to-any-file')) } }
+              label if globs.any? { |glob| File.fnmatch?(glob, file, File::FNM_DOTMATCH) }
+            end
+          end
+          cases.each do |file, expected|
+            missing = expected - match_paths.call(file)
+            abort("标签缺失：#{file} #{missing}") unless missing.empty?
+          end
+          old_path = 'app/src/main/java/io/legado/app/ui/book/manga/ReadMangaActivity.kt'
+          abort('旧 Android 路径仍匹配模块标签') unless match_paths.call(old_path).empty?
+          content_rules = YAML.safe_load_file('.github/issue-labeler.yml', aliases: false)
+          patterns = content_rules.fetch('area: web').map do |pattern|
+            match = pattern.match(%r{\A/(.*)/([im]*)\z}m)
+            flags = (match[2].include?('i') ? Regexp::IGNORECASE : 0) | (match[2].include?('m') ? Regexp::MULTILINE : 0)
+            Regexp.new(match[1], flags)
+          end
+          abort('设备名误匹配 Web') if patterns.any? { |pattern| pattern.match?('iPhone 上的 Safari') }
+          abort('Web 关键词未匹配') unless patterns.any? { |pattern| pattern.match?('Web 服务失败') }
+          puts '当前标签规则验证通过'
+          RUBY
 
   content-labels:
     if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       issues: write
@@ -58,8 +95,11 @@ jobs:
   changed-file-labels:
     if: github.event_name == 'pull_request_target' && github.event.action != 'edited'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
+      # 新平台及语言标签首次匹配时需要创建仓库标签。
+      issues: write
       pull-requests: write
     steps:
       - uses: actions/labeler@v7
@@ -68,14 +108,17 @@ jobs:
           repo-token: ${{ github.token }}
 
   backfill-labels:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Label existing open issues and pull requests
         env:
           GH_TOKEN: ${{ github.token }}

@@ -8,6 +8,17 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### CI-AUTO-20261010：仓库自动化配置整理（P2）
+
+- **状态**：待复验；2026-10-10 配置修改、本地静态检查及触发/标签/评论情景通过，用户已明确要求提交本地 commit；Ruby 检查及远端服务验证仍待 CI。不使用子代理，提交授权不包含推送。
+- **目标与范围**：Dependabot 监控 Actions、Rust、Flutter 和 Flutter Android；补齐当前工程标签与模板，并清理旧 `app/`、`modules/` 及根 Gradle 的无效路径分类；PR 自动审查按 `review` 标签启用；历史标签回填仅手动；stale 仅处理 Issue；统一发布分类。按用户追加要求核查同类旧路径，修正当前仓库元数据、发布/进度文档入口和 API 文档的失效源码链接，并按明确授权删除 8 个旧原版 Gradle 文件。修改限于上述文件、`.github/` 配置、三份仓库自动化 workflow、`package.json` 仓库链接、Podspec 首页及必要说明；现有辅助脚本、应用源码、现用 Rust/Flutter 依赖版本、Pod 构建字段和六份构建/发布 workflow 保持原状。
+- **执行与验收**：由 Codex 主代理直接实施和复核。检查 YAML/重复键、actionlint、标签正负例及审查触发/评论守卫；不调用 API 发布评论、添加标签、关闭 Issue 或触发付费审查，不运行应用构建。
+- **分支与交付**：基线 `06665408f`，当前 `dev`；用户已确认 Dependabot 普通版本更新 PR 指向 `dev`，安全更新仍按 GitHub 默认分支规则处理。按最新用户指令提交本地 commit，主题为 `chore(tool): 整理仓库自动化并清理旧 Gradle 构建文件`，正文关联本任务和证据报告；提交号由该条 Git 记录定位，不推送。
+- **旧 Gradle 清理**：用户已同意删除根 `build.gradle`、`settings.gradle`、`gradle.properties`、`gradlew`、`gradlew.bat`、`gradle/libs.versions.toml`、`gradle/wrapper/gradle-wrapper.jar`、`gradle/wrapper/gradle-wrapper.properties`。删除前确认目标无未提交修改，删除仅限这 8 个文件；原版测试说明同步为另备完整原版工程，Flutter Android 与原版语义探针材料继续保留。
+- **证据与限制**：[自动化配置与验证证据](CI_AUTOMATION_REVIEW_20261010.md)；9 份 workflow actionlint、16 份 YAML/重复键、14 个内容标签、18 个路径、10 个审查触发和 8 个模拟评论情景通过。旧路径清单已按当前配置、原版参考、保留脚本和历史记录分类；当前 workflow 的有效路径规则未再发现旧原版目录依赖，6 份含旧路径的脚本保持原状。没有运行远端写入、付费审查或清理；旧脚本自测依赖已清理规则，CI 改为当前工程的 Ruby 标签情景及旧脚本语法检查，本机无 Ruby，待远端 PR 补充运行证据。首次使用 `review` 与 stale 豁免需创建对应仓库标签。
+
+编写者：Codex 主代理｜2026-10-10
+
 ### CI-WF-20261010：GitHub Actions 职责拆分（P1）
 
 - **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；手动 iOS CI 和 Android Release 完整打包尚未运行。

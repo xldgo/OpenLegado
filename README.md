@@ -20,10 +20,10 @@ Legado（阅读）是一款免费开源的小说阅读器，正在从 Android �
 │   ├── legado-ffi/     # FFI 出口（flutter_rust_bridge）
 │   └── legado-server/  # HTTP 服务（axum）
 ├── flutter_legado/     # Flutter UI 层（62 个 Screen 页面）
-├── app/                # [旧] Android 原生 Kotlin 代码
-├── modules/            # [旧] Android 子模块（rhino/web/book）
 └── CHANGELOG.md        # 更新日志
 ```
+
+Android 原版源码及其 Gradle 工程不随本仓库分发；语义对照或原版测试需另备完整原版工程。当前 Android 构建入口在 `flutter_legado/android/`。
 
 ---
 
@@ -63,8 +63,13 @@ flutter test
 | [iOS CI](.github/workflows/ios-ci.yml) | **仅手动**运行模拟器编译、图标状态检查和离线搜索阅读测试，不作为 PR 必需检查 |
 | [iOS Build](.github/workflows/ios-build.yml) | 保留设备 IPA 自动构建与手动入口；签名配置见 [iOS 构建说明](docs/IOS_CI_SIGNING_SETUP.md) |
 | [Android Release](.github/workflows/android-release.yml) | 手动运行只生成 Android APK 工件，`v*` tag 触发构建并发布 |
+| [PR Code Review](.github/workflows/pr-review.yml) | 同仓库非草稿、非机器人 PR 添加 `review` 标签后审查；保留标签时随提交更新重审 |
+| [Triage Labels](.github/workflows/triage-labels.yml) | 自动按内容与路径打标签；历史 Issue/PR 标签回填仅手动运行 |
+| [Stale Issues](.github/workflows/stale.yml) | 按 30+5 天参数清理 Issue；豁免 `confirmed`、`in-progress` 标签，不自动处理 PR |
 
-标签、自动审查和其他仓库自动化保留独立入口。工作流与现有脚本的当前进度、审查及验证证据统一记录于 [Active 计划](docs/REFACTORING_ACTIVE_PLAN.md)。
+[Dependabot](.github/dependabot.yml) 每周检查 Actions、Rust Cargo 和 Flutter pub，每月检查 Flutter Android Gradle；普通版本更新 PR 指向 `dev`，小版本更新分组，FRB 由专项配套升级。安全更新仍针对默认分支，不新增自动合并规则。首次使用自动审查与 stale 豁免前，请在仓库创建 `review`、`confirmed`、`in-progress` 标签；新平台和语言的路径标签由标签工作流按需创建。
+
+工作流与现有脚本的当前进度、审查及验证证据统一记录于 [Active 计划](docs/REFACTORING_ACTIVE_PLAN.md)，自动化配置与检查方法见 [自动化整理证据](docs/CI_AUTOMATION_REVIEW_20261010.md)。Dependabot 配置和默认分支上的定时/Issue 自动化需在用户审核、提交并进入默认分支后生效。
 
 编写者：Codex 主代理｜2026-10-10
 
@@ -94,3 +99,5 @@ flutter test
 ## 致谢
 
 基于 [gedoor/legado](https://github.com/gedoor/legado) 开源项目。
+
+修订者：Codex 主代理｜2026-10-10（同步仓库自动化说明，清理旧 Gradle 入口并明确原版参考范围）
