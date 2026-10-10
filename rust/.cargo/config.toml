@@ -10,7 +10,7 @@
 #
 # crates.io 镜像同理：仅在 CI 或开发者本机 config 中配置，避免绑定单一镜像源。
 
-# NDK 27 的 LOAD 与 RELRO 均须 16 KB 对齐；本地和 CI 共用此参数。
+# Android Rust 库显式设置 LOAD 与 RELRO 的 16 KB 对齐；本地和 CI 共用此参数。
 # 来源：https://developer.android.com/guide/practices/page-sizes
 [target.aarch64-linux-android]
 rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,-z,common-page-size=16384"]

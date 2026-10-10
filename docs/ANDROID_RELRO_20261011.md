@@ -45,6 +45,33 @@ RELRO 虚拟地址加内存长度的末尾必须按 16 KB 对齐。
 `native-x86-relro.log`、`native-x86-elf.log`、`apk-ffi-relro-native.log`、
 `mumu-ffi-relro.log` 和 `mumu-relro-restore.log`。这些是临时证据，不是工程配置入口。
 
+## NDK 28 统一与定向验证
+
+后续任务 `ANDROID-NDK28-20261011` 从 `8c5a4ceaf` 开始；用户同意将 Rust 与 Flutter
+统一至 `28.2.13676358`（r28c），只验证一个 ABI，跳过 CI。
+两个现有 Android workflow 的安装/链接路径已更新；PS 默认选择 28.2，不因本机存在
+27/29 而改用其他版本，仍保留显式 `ANDROID_NDK_HOME` 路径。Flutter 3.47.7 的默认值已
+核对为同一版本。显式页对齐参数和 ELF 门禁保留，历史 NDK 27 证据不改写。
+
+- 已安装 NDK r28c / Clang 19.0.1 的 x86_64 release QuickJS 构建成功，未降级或复用旧库。
+  首次沙箱不能执行 SDK 编译器，旧库回退结果被拒绝作为证据；授权执行同一工具链后通过。
+- NDK 默认选择/显式路径两项探测、PS 语法、两份 workflow actionlint 和差异检查通过。
+- 当前源码指纹为 `ffdf692dd5dde538ba93aa5b762a3c3b90061aa1b1268c7c2d2154ed4c0a5f74`。
+  原始库 SHA-256 为 `16872422cc5e33a4c21a36cf5e19fd842d51c04020be39398ada3fbb2e9532e4`，
+  打包库为 `a910fa754a645f587a5be67879c67c1b014564c111903c375e35de2d3620bf15`。
+  复制与包内库均与 Cargo 原产物经同一 NDK 28 strip 后的摘要一致；四个 LOAD 为 16384，
+  RELRO 末尾按 16 KB 对齐。
+- 单份 FFI 测试 APK SHA-256 为
+  `ecccc16e36b50c8b3c10944096ea77072c713fa780a906e9cf2771080d5ab5ed`；沿用 Debug 宿主、
+  release Rust 库和临时 versionCode 4370，pubspec 不变。MuMu 三项真实 FFI 均通过。
+  测试后恢复先前 AGP 正常 APK，冷启动及当前 PID 崩溃检查通过，未卸载或清除数据。
+  测试包中的其他旧 ABI 不属于本次验收，未生成正式多 ABI 发布包。
+
+本地证据：`.tmp_agp9_tools/ndk28-selection.log`、`ndk28-compiler.log`、
+`native-x86-ndk28.log`、`native-x86-ndk28-prepare.log`、`ndk28-ffi-verify.log`、
+`apk-ffi-ndk28-native.log`、`mumu-ffi-ndk28.log` 和 `mumu-ndk28-restore.log`。
+当前状态只维护于 Active 计划。
+
 ## 平台限制与回退
 
 MuMu 的实测页大小是 4096；设备 FFI 通过只证明该环境可运行。

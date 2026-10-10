@@ -31,7 +31,7 @@ Gradle wrapper 启动脚本与 JAR 也未纳入当前仓库，先通过 Flutter 
 | `android.builtInKotlin` | false | 第一阶段 false；所有相关插件适配后改为 true |
 | `android.newDsl` | false | Flutter 3.47.7 阶段继续显式 false |
 | Flutter Gradle NDK | SDK 默认 28.2.13676358 | 保持 SDK 默认 |
-| Rust Android NDK | 27.0.12077973 | 保持，独立验证 `.so` 与 APK 打包 |
+| Rust Android NDK | 27.0.12077973 | AGP 阶段保持；后续用户同意统一至 28.2.13676358，见 ANDROID-NDK28-20261011 |
 | Android SDK 目标 | 使用 Flutter 默认值 | 记录实际值，不因 AGP 支持更高 API 而额外提高 |
 
 AGP 9.2 的官方兼容表要求 Gradle 至少 9.4.1、JDK 17；9.2.1 为该系列补丁版本。
@@ -127,17 +127,15 @@ Set-Location (Join-Path $agp9Root 'flutter_legado/android')
 ```
 
 APK/JVM 构建需要当前 worktree 的 native 库。
-原生构建前明确把 `ANDROID_NDK_HOME` 设置为本机 27.0.12077973 的安装目录；
-本地脚本自动探测会选择最新目录，不能依赖该探测来保证 NDK 版本。
+原生构建前把 `ANDROID_NDK_HOME` 设置为本机 28.2.13676358 的安装目录；
+当前 PS 默认查找该版本，显式路径仍由开发者配置。以下命令已按后续 NDK/RELRO 修复更新；
+第 8 节的 NDK 27 结果保留为当时的实际证据。
 用户最初暂缓 Android APK/iOS 模拟器测试；随后确认安装 MuMu 并允许必要的设备测试，Android 验证恢复，iOS 模拟器仍暂缓。以下为 Android 验证路线：
 
 ```powershell
 $agp9Root = 'E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree'
 
-# 当前进程：沿用 Android Release 对三个 Rust target 的 16 KB 链接参数。
-$env:CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS = '-C link-arg=-Wl,-z,max-page-size=16384'
-$env:CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS = '-C link-arg=-Wl,-z,max-page-size=16384'
-$env:CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS = '-C link-arg=-Wl,-z,max-page-size=16384'
+# 页对齐参数由仓库 rust/.cargo/config.toml 提供，无需设置额外 Rustflags。
 
 # 仓库根目录：只构建，不安装；debug 最低 ABI 集为 arm64-v8a / x86_64。
 Set-Location $agp9Root

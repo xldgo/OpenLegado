@@ -89,9 +89,9 @@ cargo clippy --all-targets -- -D warnings
 
 ### 前置准备
 
-1. 安装 Android NDK，设置环境变量：
+1. 安装 Android NDK 28.2.13676358（r28c），按本机路径设置环境变量：
    ```bash
-   export ANDROID_NDK_HOME=$HOME/Android/Sdk/ndk/<version>
+   export ANDROID_NDK_HOME=$HOME/Android/Sdk/ndk/28.2.13676358
    ```
 
 2. 安装 Rust Android targets：
@@ -99,7 +99,9 @@ cargo clippy --all-targets -- -D warnings
    rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
    ```
 
-3. 配置 Cargo linker（`.cargo/config.toml` 已包含）。
+3. Linux/macOS 在本机 Cargo 配置中设置该 NDK 的 linker 路径；Windows 脚本按 NDK 路径自动设置。
+   仓库 `.cargo/config.toml` 只维护共同的页对齐参数。Windows 未指定 `ANDROID_NDK_HOME` 时，
+   默认查找 28.2.13676358，不选择其他已安装版本。
 
 ### 使用构建脚本
 

@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$AndroidNdkVersion = "28.2.13676358"
 
 $AllTargets = @{
     "aarch64" = @{
@@ -44,12 +45,14 @@ function Find-Ndk {
         "D:\Android\ndk",
         "$env:LOCALAPPDATA\Android\Sdk\ndk",
         "$env:ANDROID_HOME\ndk",
+        "$env:ANDROID_SDK_ROOT\ndk",
         "C:\Android\ndk"
     )
     foreach ($base in $candidates) {
         if (Test-Path $base) {
-            $latest = Get-ChildItem $base -Directory | Sort-Object Name -Descending | Select-Object -First 1
-            if ($latest) { return $latest.FullName }
+            # 多版本并存时选择项目版本，避免自动升级到另一个编译器。
+            $preferred = Join-Path $base $AndroidNdkVersion
+            if (Test-Path -LiteralPath $preferred -PathType Container) { return $preferred }
         }
     }
     return $null
@@ -119,7 +122,7 @@ function Find-SyncedSoInTarget {
 $NdkPath = Find-Ndk
 if (-not $NdkPath) {
     Write-Error @"
-Android NDK not found! Please either:
+Android NDK $AndroidNdkVersion not found! Please either:
   1. Set ANDROID_NDK_HOME environment variable
   2. Install NDK via Android Studio SDK Manager
   3. Place NDK in D:\Android\ndk\<version>

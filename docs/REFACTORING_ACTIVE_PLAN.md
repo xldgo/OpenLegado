@@ -8,6 +8,17 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### ANDROID-NDK28-20261011：Android NDK 版本统一（P2）
+
+- **状态**：已交付（版本统一与 x86_64 定向验证范围）；其余 ABI 和 16 KB 设备运行由后续平台构建补充。
+- **授权与基线**：用户同意 Rust 构建和 CI 升至 NDK 28.2.13676358，与 Flutter 3.47.7 默认值一致；从 `8c5a4ceaf` 在现有 `feature/rust-android-relro` worktree 执行。应用版本保持 `2.0.369+370`，Rust stable、FRB 2.13.0 保持。
+- **范围与验收**：两个现有 Android workflow、PS 默认 NDK 查找及当前开发说明；保留显式 SDK 路径配置、16 KB 参数和 ELF 门禁。只编译 x86_64，检查复制/包内库来源和 ELF，再运行 MuMu 三项真实 FFI；测试后恢复正常应用，不清除数据。
+- **边界**：不使用子代理、不编译其他 ABI、不运行全套 CI；不改变 FFI 契约、业务、数据库、签名或第三方预编译库。提交带 `[skip ci]`，iOS 与 16 KB 设备测试保持原限制。
+- **验收**：已安装的 NDK r28c / Clang 19.0.1 成功编译 x86_64 release QuickJS 库，未复用旧库；复制、strip、包内来源与 LOAD/RELRO 校验通过，MuMu 三项真实 FFI 通过。默认/显式 NDK 路径与 workflow 检查通过；恢复先前正常 APK并保留数据，应用源码、版本和锁文件不变。
+- **证据**：[Android 原生工具链记录](ANDROID_RELRO_20261011.md)，本项只维护当前状态。
+
+编写者：Codex｜2026-10-11
+
 ### ANDROID-RELRO-20261011：Rust Android 16 KB RELRO 修复（P1）
 
 - **状态**：已交付（源码修复与 x86_64 定向验证范围）；与 AGP 迁移分开提交。其余 ABI 和 16 KB 设备运行由后续正常平台构建补充。
