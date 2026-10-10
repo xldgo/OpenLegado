@@ -32,8 +32,17 @@ async fn https_fixture() -> (SocketAddr, String, JoinHandle<bool>) {
         let Ok(mut stream) = TlsAcceptor::from(Arc::new(config)).accept(stream).await else {
             return false;
         };
-        let mut request = [0; 4096];
-        stream.read(&mut request).await.unwrap();
+        let mut request = Vec::new();
+        let mut buffer = [0; 1024];
+        // TLS 读取可能分段，收齐请求头后再响应，并拒绝提前关闭的连接。
+        loop {
+            let count = stream.read(&mut buffer).await.unwrap();
+            assert!(count > 0, "TLS 客户端在请求头完整前关闭连接");
+            request.extend_from_slice(&buffer[..count]);
+            if request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
+                break;
+            }
+        }
         stream
             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
             .await

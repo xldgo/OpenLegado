@@ -10,10 +10,13 @@
 
 ### DEV-INTEGRATION-20261011：升级分支合入 dev（P2）
 
-- **状态**：待复验；升级分支已无冲突合入本地 dev，远端 CI 结果待回填。
+- **状态**：待复验；已无冲突合入并推送 dev `24d4882a7`，Flutter CI 与 Integration Smoke 通过，Rust CI 与 iOS Build 的失败已定点修复，等待修复提交的远端结果。
 - **授权与范围**：用户要求合并到 dev 且不跳过 CI；从本地 dev `e4c9a9764` 合入 `feature/rust-dependency-upgrades` 的 `9907fe101`，保留 Flutter、FRB、依赖、AGP 9、RELRO 与 NDK 28 的既有提交，不改写历史。
 - **执行与边界**：在独立 worktree 操作，不使用子代理；主工作区的未提交 iOS 工具整理保持原样。合并提交不包含跳过 CI 标记，正常推送 dev；iOS 模拟器和 Android Release 保持现有手动/标签入口。
 - **验收**：合并差异检查与 workflow 语法检查通过；以本次 dev 合并提交的 Rust CI、Flutter CI、Integration Smoke 和 iOS Build 结果确认远端门禁，不能沿用旧提交的 CI 作为本次通过依据。
+- **失败根因与修复**：[Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38077340368) 的测试、安全审计和格式检查通过，但新增 TLS 测试未处理读取字节数，被 `clippy::unused_io_amount` 拒绝；改为按实际长度累积完整请求头。[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38077340316) 默认使用 Xcode 16.4，缺少设备信息插件引用的 `isiOSAppOnVision` API；设备和模拟器 workflow 统一显式选择 Xcode 26.1.1，并在构建前打印工具与 SDK 版本。
+- **版本依据与边界**：[device_info_plus 13.3.0](https://pub.dev/packages/device_info_plus/versions/13.3.0) 声明 Xcode 最低 26.1.1；[失败时的 macOS 15 ARM64 镜像清单](https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md) 已安装该版本，但默认仍为 16.4。本次只修复测试和 CI 环境，保留 iOS 最低系统版本 15.0、依赖锁文件、签名和应用版本，不手动触发模拟器验证。
+- **本地定向验证**：Rust 格式检查、TLS 测试的 Clippy（`-D warnings`）、四项真实 HTTPS 回归、actionlint 与差异检查通过。完整工作区与 Apple 编译由修复提交的正常 CI 复验，本机不重复构建 Android 应用。
 
 编写者：Codex｜2026-10-11
 
