@@ -10,7 +10,7 @@
 
 ### CI-WF-20261010：GitHub Actions 职责拆分（P1）
 
-- **状态**：待复验；2026-10-10 用户确认执行，workflow 整理、静态验证和独立审查已通过，远端平台构建证据待补。
+- **状态**：已交付；workflow 整理、静态验证和独立审查通过，修复后的自动 Integration Smoke 已通过；手动 iOS CI 和 Android Release 完整打包尚未运行。
 - **目标**：iOS 模拟器验证拆为仅手动触发的 `ios-ci.yml`；`ios-build.yml` 保留设备包交付；Flutter 常规检查与 Android FFI 验证解耦；整理 Rust 检查和 Android 发布的 job 边界。按用户追加命名要求，将仅产出 Android APK 的 `flutter-release.yml` 重命名为 `android-release.yml`，显示名为 Android Release；旧任务证据中的名称保持历史记录。
 - **范围**：六份 CI/发布 workflow 与必要入口说明；按用户追加要求，另删除 `stale.yml` 中写死旧仓库名的单行限制，保持既有触发和 30+5 天清理规则。所有现有脚本保留，应用源码、依赖配置、模板和其他自动化不在本批范围。
 - **执行**：ci_topology 负责 iOS；ci_cleanup 负责 Rust/Flutter/FFI/Release；主代理复核、维护文档与提交；ci_review 完成提交前独立审查，无剩余阻塞项。
@@ -19,6 +19,7 @@
 - **提交与限制**：工程提交 `2301a2e18`，起点 `a3302a0cc84b6892ea6833b8923836b166b45a36`；按用户要求从当前 HEAD 创建并切换 `dev`，已推送至 `origin/dev`。HTTPS 凭据缺少 workflow scope 的首次推送失败已通过既有 SSH 身份解决，未改认证配置。stale 单行追加调整通过独立审查，随本轮交付记录单独提交；签名素材和必需检查配置尚未核实，新手动 iOS CI 进入默认分支后再按需运行。
 - **首轮远端复验**：[Flutter CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497488)、[Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497519)、[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38024497525) 及 [Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38024497493) 的 Windows FFI 均已通过。Android 原生编译通过，但复制步骤失败；用户提供实际日志为“aarch64-linux-android 动态库未嵌入当前 FRB hash”，对应新增四字节扫描误报。本机真实 ARM64 最小编译已证实合法整数可拆成 mov/movk 指令，不能以连续四字节判定。已改为复制 SHA256 与包内库经同一 NDK strip 正规化后的摘要比较，最终实际守卫已接受合法 strip、拒绝旧库/运行时代码差异与 strip 失败，修后远端复验待补。未自动触发仅手动的 iOS CI 或仅标签/手动的 Android Release。
 - **图标口径**：注入 PNG 与强制旧式声明为历史兼容尝试，尚无解决真机 `-54` 的证据。本批保持包内容一致，旧探针转手动诊断；移除补丁需另批对照验证。
+- **修复后远端证据**：提交 `8e086b99f20e4584bfb8ed5380757d7a988de0bc` 已推送至 `origin/dev`，[Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38026442739) 终态为成功。Android 双 ABI 编译、复制摘要与现有 FFI 校验通过，Windows DLL 编译与真实 FFI 冒烟通过，首次 Android hash 扫描误报已取得实际修复证据。Flutter/Rust/iOS Build 的成功证据来自首轮工程提交，不声明其在修复提交上重新运行。Android Release 的 APK strip 守卫仍只有最终 fixture 证据，完整 APK、真机签名安装及手动 iOS 模拟器验证保持未实测口径。
 
 编写者：Codex 主代理｜2026-10-10
 

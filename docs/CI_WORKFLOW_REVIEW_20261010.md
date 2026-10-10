@@ -4,7 +4,7 @@
 
 ## 1. 结论与范围
 
-**最新结论：最终守卫代码静态审查与最小真实 ARM fixture 复核通过，没有剩余提交前代码阻塞；修复后 CI 及 Android Release 完整打包仍待复验。** 首次实际 CI 中 Android 复制/meta 步骤失败，用户日志已确认本批主代理引入的连续四字节 FRB hash 扫描误报；该逻辑现已改为复制完整性及 strip 正规化 SHA256 校验。发布单独重跑的工件 ID 问题此前已修复。前一轮 111 个合成 fixture 是旧版本快照，不能作为最终代码通过或旧扫描正确性的证据，见 §8。
+**最新结论：最终守卫代码静态审查与最小真实 ARM fixture 复核通过，没有剩余提交前代码阻塞；修复后 Integration Smoke 实际通过，Android Release 完整打包尚未运行。** 首次实际 CI 中 Android 复制/meta 步骤失败，用户日志已确认本批主代理引入的连续四字节 FRB hash 扫描误报；该逻辑现已改为复制完整性及 strip 正规化 SHA256 校验。发布单独重跑的工件 ID 问题此前已修复。前一轮 111 个合成 fixture 是旧版本快照，不能作为最终代码通过或旧扫描正确性的证据，见 §8；修复后的实际 CI 证据见 §9。
 
 - 基线：`a3302a0cc84b6892ea6833b8923836b166b45a36`。
 - 审查对象：`.github/workflows/` 下的 `ios-ci.yml`、`ios-build.yml`、`rust-ci.yml`、`flutter-ci.yml`、`integration-smoke.yml`、`android-release.yml` 最终工作区文件；发布工作流按用户要求由 `flutter-release.yml` 重命名。
@@ -159,3 +159,14 @@ Integration debug 改为本次非空 target 产物的复制前后 SHA256 一致�
 **此轮关闭的是误判守卫的实现与独立最小验证；修复后 Integration Android 与首轮 Android Release 完整打包仍需远端证据，不能报告已发布或平台全部通过。**
 
 编写者：Codex ci_review（独立 code-reviewer）｜2026-10-10
+
+## 9. 修复提交的实际 CI 证据
+
+主代理通过公开 GitHub Actions API 复核提交 `8e086b99f20e4584bfb8ed5380757d7a988de0bc` 的 [Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38026442739)：`status=completed`、`conclusion=success`、`head_sha` 与修复提交一致。此前 §8 的“修复后 Integration 待复验”为当时的证据边界，现由该实际运行补齐。
+
+- [Android 作业](https://github.com/xldgo/OpenLegado/actions/runs/38026442739/job/114138175099) 成功：双 ABI 原生编译、复制和 SHA256 元数据、既有 FFI 校验通过。
+- [Windows 作业](https://github.com/xldgo/OpenLegado/actions/runs/38026442739/job/114138174924) 成功：DLL 编译及真实 FFI 冒烟通过。
+
+本次没有运行 Android Release 的完整 APK 打包、手动 iOS CI 或真机签名安装，不能将 Integration 的成功当作这些专项通过的证据。Flutter/Rust/iOS Build 的首轮成功仍关联工程提交 `2301a2e18`。
+
+补充编写者：Codex 主代理｜2026-10-10
