@@ -10,10 +10,13 @@
 
 ### AGP9-MIGRATION-20261010：Flutter Android 构建链迁移（P2）
 
-- **状态**：实施中（计划已交付，构建配置与 APK 验证尚未开始）；用户于 2026-10-10 要求使用 worktree 制定迁移计划。本轮仅交付隔离工作区、源码核查和方案。
+- **状态**：实施中；用户于 2026-10-10 批准开始迁移，先进行插件准备与 AGP 9 兼容模式配置检查；APK 验证继续暂缓。
 - **基线与工作区**：从依赖升级提交 `bdea9b155` 创建 `feature/ui-agp9-migration`，worktree 为 `E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree`；主 checkout 保留原分支与配置。Flutter 3.47.7、FRB 2.13.0、Rust stable、应用版本 `2.0.369+370` 保持。
 - **实施顺序**：按包适配偏好存储/外链/WebView 的 Android 实现 → 候选 AGP 9.2.1 / Gradle 9.4.1 的旧 Kotlin/旧 DSL 兼容模式 → 原生构建及打包校验 → 单独评估 app_links 7.2.2 → 第三方条件满足后迁移内置 Kotlin。Java 17、Rust NDK 保持；不直接启用 newDsl。
 - **已确认风险**：锁定插件中仍有显式 KGP 应用；TTS 最新稳定版尚未移除旧接线；Flutter 3.47.7 仍使用旧 DSL，工具模板 Gradle 9.3.1 也不能代替 9.4.1 的实际验证。源码核查不是编译证据。
+- **实施记录**：`shared_preferences_android` 已从 2.4.23 更新到 2.4.28，仅变更对应锁定项；精确依赖恢复、定向分析和偏好读写/阅读配置迁移/恢复过滤共 55 项 Dart 测试通过。Android 原生偏好数据兼容仍待构建与设备验证。
+- **外链准备**：`url_launcher_android` 从 6.3.30 更新到 6.3.33，仅变更对应锁定项；16 个调用文件与来源登录页面测试分析零问题，既有页面测试 1 项通过；保留原 LaunchMode，系统外链启动待原生验证。
+- **WebView 准备**：`webview_flutter_android` 从 4.12.0 更新到 4.14.1，仅变更对应锁定项；6 个调用文件及登录相关测试分析零问题，登录信息与请求头 13 项测试通过。三项插件准备合计 69 项定向测试；Android Cookie、JS 与页面导航仍待原生验证。
 - **验收与限制**：按阶段独立提交、定向验证、带 `[skip ci]`；不使用子代理，不运行全套 CI。Android APK 与 iOS 模拟器验证按用户要求暂缓，恢复前不能关闭原生构建验收；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
 - **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
 

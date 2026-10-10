@@ -2,7 +2,7 @@
 
 任务编号：`AGP9-MIGRATION-20261010`。状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)。
 本文以 `bdea9b1558d5e4ebcb56a2d7ac838f7a9ded5095` 为基线，记录迁移范围、源码核查、实施顺序和验收要求。
-本轮交付为独立 worktree 和计划；未修改构建配置，未执行 Gradle、APK 构建或 Actions。
+初次交付为独立 worktree 和计划；2026-10-10 用户批准开始实施。实际结果见第 8 节，任务状态见 Active 计划。
 
 ## 1. 工作区与范围
 
@@ -178,4 +178,28 @@ APK ZIP 对齐、ELF 段对齐与 16 KB 设备实际运行分别记录，不能�
 - 内置 Kotlin 另行验收；newDsl 迁移另行排期。设备与 iOS 专属验收缺能力时保留待办。
 - 本轮文档校验与 worktree 创建只关闭计划交付范围，不构成 AGP 9 构建通过。
 
-编写者：Codex 主代理｜2026-10-10
+## 8. 实施证据（2026-10-10）
+
+### 偏好存储 Android 实现
+
+- 锁定项 `shared_preferences_android`：2.4.23 → 2.4.28，其他依赖未变。
+- `flutter pub get --enforce-lockfile` 成功；工作树单独生成依赖配置。
+- 对 `settings_service.dart` 和下列三个测试文件执行 `dart analyze`，零问题。
+- `settings_service_test.dart`、`reader_pref_migration_test.dart`、`restore_ignore_prefs_test.dart` 共 55 项通过。
+- 本地输出：工作树 `.tmp_agp9_tools/preferences-tests.log`。这些测试使用 Mock，未验证 Android 原生旧数据读取。
+
+### 外部链接 Android 实现
+
+- 锁定项 `url_launcher_android`：6.3.30 → 6.3.33，其他依赖未变。
+- 精确依赖恢复成功；对 16 个 `url_launcher` 调用文件及 `source_login_screen_test.dart` 定向分析，零问题。
+- 来源登录页面既有 Widget 测试 1 项通过，输出为工作树 `.tmp_agp9_tools/url-tests.log`。
+- 未改动 URI 和 LaunchMode；页面测试未调用 Android 的 Intent，外链实际启动待原生验证。
+
+### WebView Android 实现
+
+- 锁定项 `webview_flutter_android`：4.12.0 → 4.14.1，其他依赖未变。
+- 精确依赖恢复成功；6 个 `webview_flutter` 调用文件及下列测试文件分析零问题。
+- `source_login_test.dart` 与 `webview_login_header_test.dart` 共 13 项通过，输出为工作树 `.tmp_agp9_tools/webview-tests.log`。
+- 这些测试覆盖应用侧登录信息与请求头解析；Android Cookie、JS 执行、页面导航及登录回调仍待原生验证。
+
+编写者：Codex｜2026-10-10
