@@ -108,7 +108,10 @@ impl UmdParser {
             let mut file = archive
                 .by_index(i)
                 .map_err(|e| LegadoError::BookParse(e.to_string()))?;
-            let name = file.name().to_string();
+            let name = file
+                .name()
+                .map_err(|e| LegadoError::BookParse(format!("UMD 条目名称解析失败: {e}")))?
+                .into_owned();
             let lower = name.to_lowercase();
 
             if lower.ends_with(".html") || lower.ends_with(".htm") {

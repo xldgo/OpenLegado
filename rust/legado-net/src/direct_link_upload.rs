@@ -52,7 +52,7 @@ impl DirectLinkUploader {
             return Err("下载地址规则未配置".to_string());
         }
 
-        let client = reqwest::Client::new();
+        let client = crate::tls::client();
         let resp = client
             .post(&rule.upload_url)
             .body(content.to_string())

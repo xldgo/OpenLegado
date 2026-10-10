@@ -14,10 +14,10 @@ cbc = { workspace = true }
 ecb = { workspace = true }
 des = { workspace = true }
 base64 = { workspace = true }
-md5 = "0.7"
+md5 = "0.8.1"
 regex = "1"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
-lru = "0.12"
+lru = "0.18.5"
 # Java 正则方言支持（lookbehind / backreference / 原子组等 regex crate 不支持的语法）
 fancy-regex = "0.19.0"
 

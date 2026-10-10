@@ -148,7 +148,7 @@ pub async fn speak(
         url = append_query(&url, "volume", &volume.to_string());
     }
 
-    let client = reqwest::Client::new();
+    let client = legado_net::tls::client();
     let response = client.get(&url).send().await.map_err(|e| {
         ApiError(LegadoError::Network(format!(
             "Audio TTS request failed: {}",

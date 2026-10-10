@@ -112,7 +112,7 @@ impl RemoteBookManager {
     /// 使用 WebDAV PROPFIND 列出指定路径下的文件，
     /// 过滤出书籍文件和目录。
     pub async fn get_remote_book_list(&self, path: &str) -> Result<Vec<RemoteBook>, String> {
-        let client = reqwest::Client::new();
+        let client = crate::tls::client();
         let propfind_body = r#"<?xml version="1.0" encoding="utf-8"?>
 <D:propfind xmlns:D="DAV:">
   <D:prop>
@@ -149,7 +149,7 @@ impl RemoteBookManager {
 
     /// 下载远程书籍（对应 Kotlin downloadRemoteBook）
     pub async fn download_remote_book(&self, remote_book: &RemoteBook) -> Result<Vec<u8>, String> {
-        let client = reqwest::Client::new();
+        let client = crate::tls::client();
         let resp = client
             .get(&remote_book.path)
             .basic_auth(&self.username, Some(&self.password))
@@ -174,7 +174,7 @@ impl RemoteBookManager {
         remote_name: &str,
     ) -> Result<String, String> {
         let put_url = format!("{}/{}", self.root_book_url, remote_name);
-        let client = reqwest::Client::new();
+        let client = crate::tls::client();
         let resp = client
             .put(&put_url)
             .basic_auth(&self.username, Some(&self.password))
@@ -192,7 +192,7 @@ impl RemoteBookManager {
 
     /// 删除远程书籍（对应 Kotlin delete）
     pub async fn delete_remote_book(&self, remote_book_url: &str) -> Result<(), String> {
-        let client = reqwest::Client::new();
+        let client = crate::tls::client();
         let resp = client
             .delete(remote_book_url)
             .basic_auth(&self.username, Some(&self.password))

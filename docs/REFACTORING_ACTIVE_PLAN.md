@@ -8,6 +8,17 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### RUST-DEPS-20261011：Rust 依赖与产物下载 Action 升级（P2）
+
+- **状态**：已交付（八项依赖、Action 与 x86_64 定向验证范围）；实现位于 `feature/rust-dependency-upgrades`，按用户要求合为一个提交。
+- **授权与基线**：用户授权升级 download-artifact 和前轮核查的 Rust 库，Flutter 依赖暂不处理；从 `2caf25afe` 在原 worktree 创建 `feature/rust-dependency-upgrades`，不使用子代理。
+- **范围**：download-artifact v8；rusqlite/r2d2_sqlite、reqwest、zip、scraper/ego-tree、lru、md5 的兼容升级与必要调用适配。PDF 的 genpdf/image 因上游类型依赖配套保留；FRB 2.13.0、Rust stable、Flutter 与应用版本保持。
+- **验收与交付**：复用已有数据库、网络、解析、压缩与缓存测试，补齐迁移导致的真实行为回归；只构建 Android x86_64 并按需做 MuMu FFI 冒烟，保留用户数据。一个提交，带 `[skip ci]`，不运行整套 CI；方法与结果回填专题记录。
+- **结果与证据**：基础模块 1,889 项、QuickJS 定向 61 项，共 1,950 项 Rust 测试通过；一次 NDK 28 x86_64 QuickJS 编译、复制/strip/包内来源与 LOAD/RELRO 校验、MuMu 三项真实 FFI 均通过。正常 APK 已恢复，未卸载或清除数据。actionlint 与差异检查通过；Flutter 依赖及生成物无差异。方法和日志入口见 [升级记录](RUST_DEPENDENCY_UPGRADE_20261011.md)。
+- **边界**：保留 genpdf/image 的既有配套版本，其他 Android ABI、16 KB 设备、iOS、工作区全量门禁与服务端全量行为不在本批已验证范围。TLS 本地 HTTPS 回归通过，不声称 Android 全部线上书源已复验。
+
+编写者：Codex｜2026-10-11
+
 ### ANDROID-NDK28-20261011：Android NDK 版本统一（P2）
 
 - **状态**：已交付（版本统一与 x86_64 定向验证范围）；其余 ABI 和 16 KB 设备运行由后续平台构建补充。
