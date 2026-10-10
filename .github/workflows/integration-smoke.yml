@@ -3,19 +3,116 @@
 name: Integration Smoke
 on:
   push:
-    paths: ['rust/**', 'flutter_legado/**', '.github/workflows/integration-smoke.yml']
+    paths: ['rust/**', 'flutter_legado/**', '.github/workflows/integration-smoke.yml', '.github/workflows/flutter-ci.yml', '.github/workflows/android-release.yml']
   pull_request:
-    paths: ['rust/**', 'flutter_legado/**', '.github/workflows/integration-smoke.yml']
+    paths: ['rust/**', 'flutter_legado/**', '.github/workflows/integration-smoke.yml', '.github/workflows/flutter-ci.yml', '.github/workflows/android-release.yml']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  android-ffi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: 安装 Android NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64" >> "$GITHUB_ENV"
+      - name: 配置 Android 链接器
+        run: |
+          mkdir -p "$HOME/.cargo"
+          cat >> "$HOME/.cargo/config.toml" << EOF
+          [target.aarch64-linux-android]
+          linker = "$NDK_TOOLCHAIN/bin/aarch64-linux-android21-clang"
+          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+          [target.x86_64-linux-android]
+          linker = "$NDK_TOOLCHAIN/bin/x86_64-linux-android21-clang"
+          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+          EOF
+      - name: 核对已提交的 FRB 版本与 hash
+        working-directory: rust
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          dart = pathlib.Path('../flutter_legado/lib/src/bridge/frb_generated.dart').read_text()
+          rust = pathlib.Path('legado-ffi/src/frb_generated.rs').read_text()
+          dart_hash = re.search(r'rustContentHash\s*=>\s*(-?\d+)', dart)
+          rust_hash = re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', rust)
+          if not dart_hash or not rust_hash or dart_hash[1] != rust_hash[1]:
+              raise SystemExit('Dart/Rust FRB content hash 不一致或无法解析')
+          if "codegenVersion => '2.11.1'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1"' not in rust:
+              raise SystemExit('FRB 生成物版本必须为 2.11.1')
+          print(f'FRB 2.11.1 content hash: {dart_hash[1]}')
+          PY
+      - name: 构建 Android debug FFI（arm64 与 x86_64，quickjs）
+        working-directory: rust
+        env:
+          CC_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/aarch64-linux-android21-clang
+          AR_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
+          CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
+          AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
+        run: |
+          rustup target add --toolchain 1.97.1 aarch64-linux-android x86_64-linux-android
+          NDK_SYS="$NDK_TOOLCHAIN/sysroot"
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
+          cargo build --locked --target aarch64-linux-android -p legado-ffi --features quickjs
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/x86_64-linux-android"
+          cargo build --locked --target x86_64-linux-android -p legado-ffi --features quickjs
+      - name: 复制本次构建的动态库并记录元数据
+        working-directory: rust
+        run: |
+          source scripts/rust-fingerprint.sh
+          RUST_FP="$(rust_fingerprint "$PWD")"
+          export RUST_FP
+          python3 - <<'PY'
+          import datetime, json, os, pathlib, re, shutil, struct
+          root = pathlib.Path('../flutter_legado/android/app/src/main/jniLibs')
+          content_hash = int(re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', pathlib.Path('legado-ffi/src/frb_generated.rs').read_text())[1])
+          for target, abi in [('aarch64-linux-android', 'arm64-v8a'), ('x86_64-linux-android', 'x86_64')]:
+              source = pathlib.Path('target') / target / 'debug/liblegado_ffi.so'
+              if struct.pack('<i', content_hash) not in source.read_bytes():
+                  raise SystemExit(f'{target} 动态库未嵌入当前 FRB hash')
+              destination = root / abi / source.name
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, destination)
+              metadata = {'contentHash': content_hash, 'mode': 'debug', 'quickjs': True, 'rustFingerprint': os.environ['RUST_FP'], 'builtAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+              destination.with_suffix('.so.meta').write_text(json.dumps(metadata, separators=(',', ':')))
+          PY
+      - name: 校验本次 Android debug FFI
+        working-directory: rust
+        run: bash scripts/verify-ffi-android.sh debug "aarch64,x86_64"
+
   ffi-smoke:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
       # ── Rust 工具链 ──
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
@@ -24,6 +121,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.8'
+          cache: true
 
       # ── 构建 Rust FFI 动态库（带 quickjs feature）──
       - name: 构建 legado-ffi DLL (quickjs)

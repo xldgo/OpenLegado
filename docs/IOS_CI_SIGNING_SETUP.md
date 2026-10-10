@@ -1,20 +1,27 @@
-# iOS CI 签名脚手架配置与真机安装指南
+# iOS Build 签名配置与 IPA 交付指南
 
 > 编写者：Legado 项目维护组 ｜ 2026-09-27
 > 关联任务：P2-26（iOS CI 签名改造，脚手架阶段）｜ 关联工作流：`.github/workflows/ios-build.yml`
-> 状态：**暂缓（待外部测试能力，2026-09-27 验证口径）**——当前缺少本地 Mac、Apple 设备与可授权测试者，恢复真机测试时再按 §二 准备素材（**当前不要求申请 Apple Developer Program**）；文中标「待用户素材」的部分到恢复时才需演练。
+> 修订：Codex 主代理｜2026-10-10。本文维护构建与签名方法；素材、平台验收及任务状态以 [Active 计划](REFACTORING_ACTIVE_PLAN.md) 为准，不从签名配置推断真机验收已完成。
+
+## 工作流入口
+
+- `ios-build.yml` 负责设备构建与 IPA 交付，保留自动构建和手动入口。手动可开启 `diagnostics`，采集历史图标排障信息；默认关闭诊断。
+- `ios-ci.yml` 仅通过 Actions 页面手动运行，负责模拟器编译、FFI 符号检查及现有图标状态、离线搜索阅读测试，不配置签名 secrets，也不作为 PR 必需检查。
+- 两条链路分别构建设备与模拟器静态库，不互相覆盖或传递 `.a`。模拟器结果不能替代设备包或真机验证。
+- PNG 注入与旧式图标声明转换暂时保留，以保持交付包内容一致；它们是历史兼容尝试，不代表已解决真机换图标 `-54`。证据见 [图标限制报告](IOS_ICON_SWITCH_LIMITATION_20260903.md)。
 
 ## 一、目标与非目标
 
 **目标**：
 
-- CI 能按需产出**开发签名 / Ad-hoc 签名 ipa**，供真机侧载安装验收。
-- 签名材料缺失时 CI **保持全绿**，自动回落既有的未签名产物链路（`legado-ios-unsigned-ipa` artifact）。
+- iOS Build 能按需产出**开发签名 / Ad-hoc 签名 ipa**，供真机侧载安装验收。
+- 签名材料缺失时保留未签名产物链路（`legado-ios-unsigned-ipa` artifact），其他构建和完整性检查仍必须通过。
 
 **非目标（P2-26 裁决口径，2026-09-27 已入档）**：
 
 - 不做 TestFlight / App Store 上架路径（不配置 App Store Connect、不做公证/notarization、不加 hardened runtime）。
-- iOS 真机验收当前**暂缓（待外部测试能力）**：缺少本地 Mac、Apple 设备与可授权测试者，不安排 Agent 自行真机验收；本轮交付的「脚手架 + 文档」为**未来恢复真机测试的预留入口**，恢复时无需重做。当前验证以 Android MuMu 为唯一真机验收平台（详见 Active 计划 §一「验证口径」）。
+- 不安排 Agent 自行真机验收，不以编译、签名或模拟器通过关闭真机问题；实际验收范围与证据统一登记在 Active 计划。
 
 ## 二、素材清单（待用户素材）
 
@@ -52,23 +59,22 @@
 2. **App ID**：Identifiers → App IDs → 「+」→ Bundle ID 填 `io.legado.flutterLegado`。
 3. **描述文件**：Profiles → 「+」→ Ad Hoc（或 Development）→ 勾选上一步 App ID → Ad-hoc 需勾选目标真机 UDID（设备 UDID 获取：Xcode → Window → Devices and Simulators → 连机后选中设备查看 Identifier）→ Generate 下载 .mobileprovision。
 
-## 四、CI 两态行为说明
+## 四、设备构建两态行为说明
 
-`ios-build.yml` 的签名步骤以 `if: env.IOS_P12_BASE64 != ''` 门控，两态均能跑通、CI 均保持全绿：
+`ios-build.yml` 的签名步骤以 `if: env.IOS_P12_BASE64 != ''` 门控；无素材时允许输出未签名包，构建、包完整性或适用签名校验失败仍须报红：
 
-### 态 A：无签名 secrets（当前默认态）
+### 态 A：无签名 secrets
 
-- 跳过 `Prepare signing materials` / `Sign modified Runner.app` / `Package signed IPA` / `Upload signed IPA` 四个步骤。
-- 走既有未签名链路：`flutter build ios --release --no-codesign` → 图标注入/plist 剥离（-54 修复）→ `app-unsigned.ipa` → artifact **`legado-ios-unsigned-ipa`**。
-- 额外输出一行 warning：`未配置签名 secrets（IOS_P12_BASE64 为空），产出未签名 ipa（P2-26 脚手架模式）`。
+- 跳过签名材料准备和重签步骤。
+- 走未签名链路：`flutter build ios --release --no-codesign` → 历史图标兼容处理与包完整性校验 → `app-unsigned.ipa` → artifact **`legado-ios-unsigned-ipa`**。
+- 额外输出未配置签名证书的 warning，提示本次产物为未签名 IPA。
 - 未签名 ipa 仅可作构建产物取证，**不能直接装真机**。
 
 ### 态 B：配置签名 secrets 后
 
 1. **Prepare signing materials**：base64 解码 P12/描述文件 → 创建临时 keychain（随机密码，挂进 user keychain 搜索链）→ 导入 P12 → 描述文件安装至 `~/Library/MobileDevice/Provisioning Profiles/`（按 profile UUID 命名）→ 从 profile 本身提取 `application-identifier` 生成签名 entitlements（自洽，无需单独维护 TEAM_ID secret）→ 预埋 `embedded.mobileprovision`。
-2. **Sign modified Runner.app**：先签嵌套代码对象（`Frameworks/*.framework`），再带 entitlements 重签顶层 bundle，`codesign -v --strict` 验证。注意：此处对**最终修改版 Runner.app**（图标注入/plist 剥离完成后）直接 codesign 重签，而非 `flutter build ipa`——后者会重新 archive 丢弃上述 in-place 修复（-54 回归修复）。
-3. **Package / Upload signed IPA**：复用 Payload 打包 `app-signed.ipa` → artifact **`legado-ios-signed-ipa`**（retention 14 天）。
-   - 注：既有 `Package unsigned IPA` 步骤无条件执行，故态 B 下 `legado-ios-unsigned-ipa` 内容也已是签名 app（产物名沿用既有链路）；**下载签名包请用 `legado-ios-signed-ipa`**。
+2. **Sign modified Runner.app**：先签嵌套代码对象（`Frameworks/*.framework`），再带 entitlements 重签顶层 bundle，`codesign -v --strict` 验证。对**最终修改版 Runner.app**直接重签，避免重新 archive 覆盖已完成的包处理；签名后不再修改包内容。
+3. **打包与上传**：生成 `app-signed.ipa` → artifact **`legado-ios-signed-ipa`**（retention 14 天）；此态只输出签名包，不再重复输出内容相同的 unsigned 工件。
 4. 无 secrets 路径不引用任何签名产物（`if-no-files-found: error` 仅作用于条件满足的上传步），两态互不干扰。
 
 ## 五、真机安装与信任流程
@@ -99,6 +105,6 @@
 
 | 本文小节 | `ios-build.yml` 对应步骤 |
 | --- | --- |
-| §四 态 B | `Prepare signing materials (keychain + mobileprovision)` / `Sign modified Runner.app (ad-hoc/development)` / `Package signed IPA` / `Upload signed IPA`（均 `if: env.IOS_P12_BASE64 != ''`） |
-| §四 态 A | 既有 `Build iOS (device, no codesign)` → `Package unsigned IPA` → `Upload unsigned IPA` + `Note unsigned fallback (no signing secrets)`（`if: env.IOS_P12_BASE64 == ''` 输出 warning） |
+| §四 态 B | 签名材料准备、最终包重签仅在 `env.IOS_P12_BASE64 != ''` 时执行；打包上传选择 signed 名称 |
+| §四 态 A | 设备无签名构建 → 包完整性校验 → 打包上传选择 unsigned 名称，并提示需要安装端重签 |
 | §三 secrets 映射 | job 级 `env`（`IOS_P12_BASE64` / `IOS_P12_PASSWORD` / `IOS_PROFILE_BASE64` / `IOS_EXPORT_METHOD`） |

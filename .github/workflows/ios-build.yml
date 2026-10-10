@@ -1,5 +1,6 @@
 name: iOS Build
 
+# 自动构建设备验收包；模拟器测试移至仅手动触发的 ios-ci.yml。
 on:
   push:
     paths:
@@ -7,6 +8,14 @@ on:
       - 'rust/**'
       - '.github/workflows/ios-build.yml'
   workflow_dispatch:
+    inputs:
+      diagnostics:
+        description: '启用历史图标探针及完整 car/plist 诊断上传'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: ios-build-${{ github.ref }}
@@ -18,53 +27,54 @@ jobs:
     timeout-minutes: 90
     env:
       FLUTTER_VERSION: '3.44.8'
-      # P2-26 条件签名脚手架：secrets 缺失时映射为空串（CI 保持全绿、回落未签名产物）；
-      # 素材清单与两态行为说明见 docs/IOS_CI_SIGNING_SETUP.md
+      # 缺少证书时产出未签名包；存在证书时签名失败必须使作业变红。
+      # 配置入口见 docs/IOS_CI_SIGNING_SETUP.md。
       IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
       IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
       IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
       IOS_EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Rust (iOS targets)
+      - name: 安装 Rust 设备工具链
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-ios
 
-      - name: Rust cache
+      - name: 缓存 Rust 构建
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
 
       # rustup toolchain install --target 在镜像预装工具链上可能静默漏装目标 std，
       # 显式补装并留诊断（首跑 E0463 can not find core 根因）
-      - name: Ensure Rust iOS targets
+      - name: 确认工作区设备目标
         # rust/rust-toolchain.toml 锁定 1.97.1：cargo 在 rust/ 下运行时会切换到
         # 该工具链，target 必须装进它而非 stable——working-directory 触发 toml 解析
         working-directory: rust
         run: |
-          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+          rustup target add aarch64-apple-ios
           rustup target list --installed
 
-      - name: Setup Flutter
+      - name: 安装 Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
-      - name: Flutter pub get
+      - name: 安装 Flutter 依赖
         working-directory: flutter_legado
         run: flutter pub get
 
-      # ── Rust FFI 静态库（真机 + 模拟器分开构建，不可 lipo 混合）──
-      # rquickjs-sys 对 iOS 无预置绑定，apple 目标走 bindgen 运行时生成，
-      # 需要对应 SDK 的 sysroot（SDKROOT 逐 target 注入）
-      - name: Build Rust FFI (iOS device)
+      # 设备静态库只使用 iphoneos SDK，最低系统版本与 App 的 13.0 对齐。
+      - name: 构建设备 Rust 静态库
         working-directory: rust
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           export SDKROOT=$(xcrun --sdk iphoneos --show-sdk-path)
           # [视角F E1] rustc 对 apple 目标默认取 SDK 默认最低 iOS 版本（如 18.5），
           # 与 App 的 13.0（Runner.xcodeproj / Podfile platform :ios, '13.0'）
@@ -77,73 +87,33 @@ jobs:
           cp target/aarch64-apple-ios/release/liblegado_ffi.a \
              ../flutter_legado/ios/RustFFI/libliblegado_ffi.a
 
-      - name: Build Rust FFI (iOS simulator)
-        working-directory: rust
-        run: |
-          set -euxo pipefail
-          export SDKROOT=$(xcrun --sdk iphonesimulator --show-sdk-path)
-          # [视角F E1] 同设备步：钉 13.0，避免静态库对象文件最低版本
-          # （SDK 默认 18.5）高于 App 链接版本（13.0）
-          export IPHONEOS_DEPLOYMENT_TARGET=13.0
-          # bindgen 把 rust 三元组 aarch64-apple-ios-sim 原样传 clang（无效），
-          # 追加合法的 -simulator 三元组覆盖（clang 取最后一个 --target）
-          export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-apple-ios-simulator -isysroot $SDKROOT"
-          cargo rustc --release --target aarch64-apple-ios-sim -p legado-ffi --lib --crate-type staticlib --features quickjs
-          cp target/aarch64-apple-ios-sim/release/liblegado_ffi.a \
-             /tmp/liblegado_ffi_sim.a
-
-      # ── 真机未签名 ipa ──
-      - name: CocoaPods install
+      - name: 安装设备 CocoaPods 依赖
         working-directory: flutter_legado/ios
         run: |
           pod install --repo-update
 
-      - name: Build iOS (device, no codesign)
+      - name: 构建设备应用（未签名）
         working-directory: flutter_legado
         run: |
           set -o pipefail
           flutter build ios --release --no-codesign --verbose 2>&1 | tee ios_device_build.log
 
-      # 防"真机 Rust 引擎初始化失败"回归：FRB 2.11 采用 PDE 分发器架构，
-      # Dart 侧运行时 dlsym 查找固定符号 frb_pde_ffi_dispatcher_primary /
-      # frb_init_frb_dart_api_dl（并非逐函数的 wire__* 符号）。Release 设备构建
-      # 默认 strip 会剥掉符号表导致查不到——必须校验真实符号存在。
-      # 注意：Apple strings 不扫描 Mach-O __LINKEDIT，须用 nm；iOS 二进制无法在
-      # macOS 宿主上 dlopen（平台不兼容），dlopen/dlsym 测试不适用。
-      - name: Verify Rust PDE symbols in device binary
+      # FRB 运行时需要从设备二进制查找分发器；缺符号必须阻止交付。
+      - name: 校验设备 PDE 符号
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           BIN=flutter_legado/build/ios/iphoneos/Runner.app/Runner
-          echo "== 诊断：文件与 symtab =="
-          ls -lh "$BIN"
-          nm "$BIN" 2>&1 | head -3 || true
-          TOTAL=$(nm "$BIN" 2>/dev/null | wc -l || true)
-          echo "symtab total: $TOTAL"
           COUNT=$(nm -g "$BIN" 2>/dev/null | grep -c "frb_pde_ffi_dispatcher_primary" || true)
-          echo "PDE dispatcher symbols (nm -g): $COUNT"
+          echo "设备 PDE 符号数：$COUNT"
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::设备二进制缺少 FRB PDE 分发器符号——dlsym 运行时查找必然失败；检查 DEAD_CODE_STRIPPING / STRIP_INSTALLED_PRODUCT 是否生效"
+            echo "::error::设备二进制缺少 FRB PDE 分发器符号"
             exit 1
           fi
 
-      # 防「真机换图标 OSStatus -54」回归：CFBundleAlternateIcons 条目经
-      # CFBundleIconName 声明变体图标，系统按 Assets.car 中 appiconset 名
-      # （launcher1.appiconset…）解析——与主图标 AppIcon.appiconset 同一条
-      # 已验证可用的解析路径（无扩展名 CFBundleIconFiles 条目不走该路径，
-      # 2.0.138 真机复测 -54 已证）。appiconset 未编入 car 或文件名错配时
-      # setAlternateIconName 真机失败（Carbon fNotFoundErr = -54）。
-      # actool 默认只把 --app-icon 指定的主 appiconset 编入 Assets.car，变体
-      # appiconset 会被静默跳过（2.0.140 CI 实证：槽位结构合法仍 0/6）；
-      # Runner.xcodeproj 须声明 ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES +
-      # INCLUDE_ALL_APPICON_ASSETS=YES（业界标准接线，expo-quick-actions 同款）。
-      # 模拟器集成测试断言 altIconNames == launcher1~6（已安装 plist 声明结构）；
-      # 此处先做确定性文件名核查，再对设备构建 Assets.car 做静态校验。
-      # Xcode 16.4 的 car 名称表并非总是可按纯 ASCII grep，故先用 AppIcon（主图标，
-      # 已知必在）标定：可 grep（ASCII/UTF-16 任一编码）→ 严格逐一校验 6 个 appiconset 名；
-      # 不可 grep → 回退尺寸门禁（全目录压缩后 >500KB），避免误报。
-      - name: Validate appiconset Contents.json filenames
+      # 检查源码引用的图标文件和资产编译警告，不宣称换图标运行时已可用。
+      - name: 校验图标资产引用文件
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           cd flutter_legado/ios/Runner/Assets.xcassets
           FAIL=0
           for D in launcher1.appiconset launcher2.appiconset launcher3.appiconset launcher4.appiconset launcher5.appiconset launcher6.appiconset; do
@@ -153,74 +123,23 @@ jobs:
           done
           [ "$FAIL" -eq 0 ] || exit 1
 
-      # appiconset 槽位结构合法是编入 car 的必要（非充分）条件：actool 判定
-      # 含未分配槽位图像（如 legacy iPhone 1x 槽）时会告警并跳过对应图像/整组
-      # （2.0.139 CI 失败暴露了该缺陷；仅修复槽位仍不够，还须下方注释的
-      # ALTERNATE_APPICON_NAMES 构建设置）。此处直接门禁该警告，
-      # 确保任何槽位模型错配在构建期即暴露，不流入真机验收。
-      - name: Verify no unassigned appiconset warnings in actool log
+      - name: 校验图标资产编译警告
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           LOG=flutter_legado/ios_device_build.log
           if grep -q "unassigned children" "$LOG"; then
-            echo "::error::actool 报告 appiconset 存在未分配槽位图像——变体图标不会被编入 Assets.car，真机换图标将报 OSStatus -54"
+            echo "::error::actool 报告 appiconset 存在未分配槽位图像——图标资产没有完整编入产物"
             grep -n "unassigned children" "$LOG" | head -10
             exit 1
           fi
           echo "actool 无 unassigned children 警告（appiconset 槽位结构合法）"
 
-      - name: Verify alternate icon appiconsets in Assets.car
+      # 保留历史交付包的散文件注入和纯 legacy 转换，避免拆分时改变包形状。
+      # 这些尝试未解决当时用户设备的 -54；收口证据见
+      # docs/IOS_ICON_SWITCH_LIMITATION_20260903.md，后续独立对照验证后再清理。
+      - name: 保留设备图标散文件兼容处理
         run: |
-          set -euxo pipefail
-          CAR=flutter_legado/build/ios/iphoneos/Runner.app/Assets.car
-          ls -lh "$CAR"
-          STR_ASCII=$(strings "$CAR" 2>/dev/null || true)
-          STR_UTF16=$(strings -el "$CAR" 2>/dev/null || true)
-          probe() { case "$STR_ASCII" in *"$1"*) return 0 ;; esac; case "$STR_UTF16" in *"$1"*) return 0 ;; esac; return 1; }
-          if probe "AppIcon"; then
-            echo "car 名称表可 grep（ASCII/UTF-16）——严格校验 6 个 appiconset 名"
-            FOUND=0
-            for I in 1 2 3 4 5 6; do
-              N="launcher${I}"
-              if probe "$N"; then FOUND=$((FOUND+1)); else echo "missing: $N"; fi
-            done
-            echo "appiconsets found in Assets.car: $FOUND/6"
-            [ "$FOUND" -eq 6 ] || { echo "::error::Assets.car 缺少变体图标 appiconset——真机换图标将报 OSStatus -54"; exit 1; }
-          else
-            echo "AppIcon 名两种编码均不可 grep——car 名称表存储方式不同，回退尺寸门禁"
-            SIZE=$(wc -c < "$CAR")
-            [ "$SIZE" -ge 400000 ] || { echo "::error::Assets.car 仅 ${SIZE} 字节（全目录应 >500KB）——变体图标 appiconset 未编入"; exit 1; }
-            echo "尺寸门禁通过: $SIZE 字节（此分支静态校验降级，最终权威 = 真机验收）"
-          fi
-
-      # 上传设备 Assets.car 供离线格式分析（约 600KB，失败时也上传以便排查）
-      - name: Upload device Assets.car
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-device-assets-car
-          path: flutter_legado/build/ios/iphoneos/Runner.app/Assets.car
-
-      # 第六轮（-54 复发，iOS 17.5 真机）：universal app 的 legacy 图标路径缺口。
-      # Xcode 只把 CFBundleIconFiles 中 76x76 尺寸的变体编为 iPad idiom 散文件
-      # （launcherN76x76@2x~ipad.png），iPhone idiom 下该 base name 解析不到任何
-      # 文件；若 LaunchServices 校验/回退 legacy 路径，每个变体图标注册即失效
-      # → setAlternateIconName 报 Carbon fNotFoundErr（-54）。标准 capacitor/expo
-      # 应用是纯 iPhone target、无 76x76 iPad 尺寸，故不存在此错位。
-      # 修复：打包前为每个 launcher 补 76x76@1x/@2x 非 ipad 散文件（源图取
-      # appiconset 内 ipad 槽位），使 CFBundleIconFiles 全部条目在 iPhone 可解析，
-      # 同时保留 iPad 支持。car 现代路径（CFBundleIconName）不受影响。
-      # 第七轮（真机实证：散文件12/12 仍 -54 → H2 legacy 缺口证伪）：
-      # car 由 Xcode 16.4/SDK 18 actool 编译，本地取证发现其内无 PNG 签名
-      # （图像记录为非 PNG 编码）——iOS 17.5 LaunchServices 若解不开该 car，
-      # CFBundleIconName→car 的变体校验必然 fNotFoundErr（-54），与散文件无关。
-      # 本批：① Assets.xcassets 新增常规 imageset probe_image（第七轮 H3 判定
-      # 探针，app 内 UIImage(named:) 读取验证）；② 顺手补齐 60x60 @3x 散文件
-      # （此前 bundle 根只有 @2x，缩放完整性缺口一并关闭）。
-      - name: Inject iPhone-resolvable loose icon files (76x76 + 60x60@3x)
-        run: |
-          set -euxo pipefail
+          set -euo pipefail
           APP=flutter_legado/build/ios/iphoneos/Runner.app
           ASSETS=flutter_legado/ios/Runner/Assets.xcassets
           for N in 1 2 3 4 5 6; do
@@ -233,21 +152,11 @@ jobs:
           echo "== 注入后 bundle 根散文件 =="
           ls -l "$APP"/launcher*{60x60,76x76}*.png "$APP"/AppIcon*.png
 
-      # 第八轮（真机实证：散文件12/12 仍 -54 → H2 legacy 缺口证伪；GitHub 调研）：
-      # 社区实证结构（tastelessjolt/flutter_dynamic_icon 123★、chandrabezzo fork、
-      # capacitor/expo legacy 路径）为纯 legacy——CFBundleIconFiles + bundle 根散文件，
-      # 完全不出现 CFBundleIconName。本 app 是结构性离群者：Xcode 为每个备选自动生成
-      # 双路径（现代 CFBundleIconName→car + legacy CFBundleIconFiles），LaunchServices
-      # 若优先按现代路径解析、而 iOS 17.5 解不开 Xcode 16.4/SDK 18 编的 car →
-      # fNotFoundErr (-54)，与散文件是否齐全无关。
-      # 修复：打包前从所有 CFBundleAlternateIcons 条目剥离 CFBundleIconName（CFBundleIcons
-      # 与 ~ipad 两节），强制走与社区实证结构一致的纯 legacy 解析路径；散文件 12/12 已
-      # 注入（下方门禁保证可解析）。主图标不受影响。
-      - name: Strip CFBundleIconName from alternate icons (force legacy path)
+      - name: 保留设备图标 legacy 声明处理
         run: |
           set -euo pipefail
           APP=flutter_legado/build/ios/iphoneos/Runner.app
-          # 门禁：打包前 12 个 base name 散文件必须全部可解析（纯 legacy 路径前提）
+          # 门禁：打包前 24 个指定散文件必须全部存在（纯 legacy 路径前提）
           for N in 1 2 3 4 5 6; do
             for B in "launcher${N}60x60@2x" "launcher${N}60x60@3x" "launcher${N}76x76@1x" "launcher${N}76x76@2x"; do
               [ -f "$APP/$B.png" ] || { echo "::error::missing $B.png (legacy 散文件不齐)"; exit 1; }
@@ -277,56 +186,46 @@ jobs:
           if stripped != 12:
               print(f"::warning::expected 12 (6 alternates x 2 sections), got {stripped}")
           PY
-          # 验证：最终 plist 备选条目无 CFBundleIconName 残留，legacy 键完整
-          python3 - "$APP/Info.plist" <<'PY'
-          import plistlib, sys
-          d = plistlib.load(open(sys.argv[1], "rb"))
-          for section in ("CFBundleIcons", "CFBundleIcons~ipad"):
-              alt = (d.get(section) or {}).get("CFBundleAlternateIcons") or {}
-              for name in sorted(alt):
-                  e = alt[name]
-                  print(f"{section}/{name}: iconFiles={e.get('CFBundleIconFiles')} iconName={'MISSING' if 'CFBundleIconName' not in e else e['CFBundleIconName']}")
-          PY
 
-      # 导出最终设备 Info.plist 工件（「最终包图标声明」链接的永久门禁）：
-      # 第四轮 -54 取证证明 CI 构建产物本身完整（car 6/6 appiconset +
-      # CFBundleIconName 声明 + Xcode 自动注入的 bundle 根散文件双路径），
-      # 真机失败复发时可直接比对最终 plist，无需下载解包 IPA。
-      # 第八轮：移至剥离步之后——工件反映「最终包图标声明」（剥离后状态）。
-      - name: Export device Info.plist (icon section)
-        if: always()
-        continue-on-error: true
+      - name: 校验最终图标声明及资源
         run: |
           set -euo pipefail
-          PL=flutter_legado/build/ios/iphoneos/Runner.app/Info.plist
-          OUT=flutter_legado/build/ios/device-plist
-          mkdir -p "$OUT"
-          cp "$PL" "$OUT/Info.plist"
-          python3 -c 'import plistlib,json,sys; d=plistlib.load(open(sys.argv[1],"rb")); print(json.dumps({k:v for k,v in d.items() if "Icon" in k}, indent=2))' "$PL" > "$OUT/icon-section.json"
+          python3 - flutter_legado/build/ios/iphoneos/Runner.app <<'PY'
+          import pathlib, plistlib, sys
+          app = pathlib.Path(sys.argv[1])
+          with (app / "Info.plist").open("rb") as file:
+              data = plistlib.load(file)
+          expected = {f"launcher{index}" for index in range(1, 7)}
+          for section in ("CFBundleIcons", "CFBundleIcons~ipad"):
+              icons = data.get(section)
+              if section == "CFBundleIcons~ipad" and icons is None:
+                  continue
+              assert isinstance(icons, dict), f"缺少图标声明：{section}"
+              alternates = icons.get("CFBundleAlternateIcons")
+              assert isinstance(alternates, dict) and set(alternates) == expected, f"备选图标声明不完整：{section}"
+              for name, entry in alternates.items():
+                  assert isinstance(entry, dict) and "CFBundleIconName" not in entry, f"legacy 转换未完成：{section}/{name}"
+                  files = entry.get("CFBundleIconFiles")
+                  assert isinstance(files, list) and files, f"缺少图标文件引用：{section}/{name}"
+                  for filename in files:
+                      assert isinstance(filename, str) and filename, f"图标文件引用无效：{name}"
+                      base = filename.removesuffix(".png")
+                      suffixes = (".png", "@2x.png", "@3x.png", "~ipad.png", "@2x~ipad.png", "@3x~ipad.png")
+                      assert any((app / (base + suffix)).is_file() for suffix in suffixes), f"图标资源缺失：{section}/{name}/{filename}"
+          print("最终 plist 可解析，六个备选图标及引用资源完整；运行时能力仍须真机验证")
+          PY
 
-      - name: Upload device Info.plist
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-device-info-plist
-          path: flutter_legado/build/ios/device-plist/
-
-      # ── P2-26 条件签名脚手架（Apple Developer 素材待用户提供）──
-      # 无 secrets → 以下签名步骤整体跳过，回落既有未签名链路（CI 全绿）；
-      # 有 secrets → 临时 keychain 导入 P12 + 安装 mobileprovision + 对最终
-      # 修改版 Runner.app 重签。注意：不用 flutter build ipa——它会从源码
-      # 重新 archive，丢弃上方 in-place 图标注入/plist 剥离修改（-54 回归
-      # 修复），最终包必须包含这些修改，故改为直接 codesign 重签。
-      # 素材与排障见 docs/IOS_CI_SIGNING_SETUP.md。
-      - name: Prepare signing materials (keychain + mobileprovision)
+      # 直接重签最终修改版 Runner.app，保持图标兼容处理的交付结果。
+      # 不使用重新 archive 的 flutter build ipa，以免覆盖上述包内修改。
+      - name: 准备设备签名材料
         if: env.IOS_P12_BASE64 != ''
         working-directory: flutter_legado
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           WORK=build/ios/signing
           mkdir -p "$WORK"
           KEYCHAIN="$HOME/Library/Keychains/legado_ci.keychain"
+          # 此步不启用 shell 跟踪，避免随机 keychain 密码写入日志。
           KEYCHAIN_PASS="$(openssl rand -hex 16)"
           # 1) P12 → 临时 keychain（并挂进 user keychain 搜索链，供 codesign 发现）
           security delete-keychain "$KEYCHAIN" 2>/dev/null || true
@@ -378,11 +277,11 @@ jobs:
             echo '</plist>'
           } > "$WORK/SigningEntitlements.plist"
 
-      - name: Sign modified Runner.app (ad-hoc/development)
+      - name: 签名最终设备应用
         if: env.IOS_P12_BASE64 != ''
         working-directory: flutter_legado
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           WORK=build/ios/signing
           KEYCHAIN="$HOME/Library/Keychains/legado_ci.keychain"
           IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -m1 -oE '"[^"]+"' | tr -d '"')"
@@ -400,15 +299,45 @@ jobs:
           codesign -v --strict --verbose=2 "$APP"
           echo "signed Runner.app with: $IDENTITY"
 
-      - name: Package unsigned IPA
+      - name: 打包并校验设备 IPA
+        id: package
         working-directory: flutter_legado/build/ios/iphoneos
         run: |
+          set -euo pipefail
+          if [ -n "$IOS_P12_BASE64" ]; then
+            IPA_NAME=app-signed.ipa
+            ARTIFACT_NAME=legado-ios-signed-ipa
+          else
+            IPA_NAME=app-unsigned.ipa
+            ARTIFACT_NAME=legado-ios-unsigned-ipa
+          fi
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -qry app-unsigned.ipa Payload
-          ls -lh app-unsigned.ipa
+          zip -qry "$IPA_NAME" Payload
+          unzip -tq "$IPA_NAME"
+          python3 - "$IPA_NAME" <<'PY'
+          import plistlib, sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              plistlib.loads(archive.read("Payload/Runner.app/Info.plist"))
+              assert archive.getinfo("Payload/Runner.app/Runner").file_size > 0, "IPA 中缺少有效 Runner 二进制"
+          PY
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "ipa_path=flutter_legado/build/ios/iphoneos/$IPA_NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$IPA_NAME"
 
-      - name: Upload device build log (on failure)
+      - name: 上传设备 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.ipa_path }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: 说明未签名产物
+        if: env.IOS_P12_BASE64 == ''
+        run: echo "::warning::未配置签名证书，产出未签名 IPA；配置方法见 docs/IOS_CI_SIGNING_SETUP.md"
+
+      - name: 上传设备构建失败日志
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -417,157 +346,61 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Upload unsigned IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: legado-ios-unsigned-ipa
-          path: flutter_legado/build/ios/iphoneos/app-unsigned.ipa
-          retention-days: 14
-          if-no-files-found: error
-
-      # 有 secrets 时：复用上一打包步已复制进 Payload/ 的（已重签）Runner.app，
-      # 另产一份签名 ipa。注：此时 "unsigned" 命名的 ipa 内容同为已签名 app
-      # （打包步无条件执行、产物名沿用既有链路），下载签名包请用
-      # legado-ios-signed-ipa artifact。
-      - name: Package signed IPA
-        if: env.IOS_P12_BASE64 != ''
-        working-directory: flutter_legado/build/ios/iphoneos
+      # car 名称扫描和大小阈值是历史启发式探针，仅显式手动诊断时运行。
+      # 诊断失败不能替代上述资源、PDE、签名和 IPA 的硬校验。
+      - name: 诊断图标 car 名称与大小
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
+        continue-on-error: true
         run: |
-          set -euxo pipefail
-          zip -qry app-signed.ipa Payload
-          ls -lh app-signed.ipa
-
-      - name: Upload signed IPA
-        if: env.IOS_P12_BASE64 != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: legado-ios-signed-ipa
-          path: flutter_legado/build/ios/iphoneos/app-signed.ipa
-          retention-days: 14
-          if-no-files-found: error
-
-      - name: Note unsigned fallback (no signing secrets)
-        if: env.IOS_P12_BASE64 == ''
-        run: echo "::warning::未配置签名 secrets（IOS_P12_BASE64 为空），产出未签名 ipa（P2-26 脚手架模式），配置方法见 docs/IOS_CI_SIGNING_SETUP.md"
-
-      # ── 模拟器冒烟（启动到首屏 + 截图回传）──
-      - name: Build iOS (simulator)
-        working-directory: flutter_legado
-        run: |
-          cp /tmp/liblegado_ffi_sim.a ios/RustFFI/libliblegado_ffi.a
-          # pod install 只在设备构建前跑过一次，ios/Pods/RustFFI/ 里仍是设备 .a；
-          # 换入模拟器 .a 后必须重新 pod install，否则 vendored_libraries 引用过期
-          # 设备库导致平台错配、RustFFI 未被真正链接（Runner 退化成 153K 桩）
-          cd ios && pod install --repo-update && cd ..
-          flutter build ios --simulator --debug
-
-      # Flutter DEBUG iOS 构建把主体代码放在 Runner.debug.dylib（Runner 只是
-      # 加载桩，约 150K）——校验须覆盖两者之一含 PDE 符号即可。
-      - name: Verify Rust PDE symbols in simulator binary
-        run: |
-          set -euxo pipefail
-          APPDIR=flutter_legado/build/ios/iphonesimulator/Runner.app
-          echo "== 诊断：候选文件 =="
-          ls -lh "$APPDIR"/Runner "$APPDIR"/Runner.debug.dylib 2>/dev/null || true
-          OK=0
-          for F in "$APPDIR/Runner" "$APPDIR/Runner.debug.dylib"; do
-            [ -f "$F" ] || continue
-            C=$(nm -g "$F" 2>/dev/null | grep -c "frb_pde_ffi_dispatcher_primary" || true)
-            echo "$(basename "$F"): PDE symbols = $C (symtab total $(nm "$F" 2>/dev/null | wc -l))"
-            [ "$C" -ge 1 ] && OK=1
-          done
-          if [ "$OK" != "1" ]; then
-            echo "::error::模拟器构建产物缺少 FRB PDE 分发器符号（Runner 与 Runner.debug.dylib 均无）"
-            exit 1
+          set -euo pipefail
+          CAR=flutter_legado/build/ios/iphoneos/Runner.app/Assets.car
+          ls -lh "$CAR"
+          STR_ASCII=$(strings "$CAR" 2>/dev/null || true)
+          STR_UTF16=$(strings -el "$CAR" 2>/dev/null || true)
+          probe() { case "$STR_ASCII" in *"$1"*) return 0 ;; esac; case "$STR_UTF16" in *"$1"*) return 0 ;; esac; return 1; }
+          if probe "AppIcon"; then
+            echo "car 名称表可 grep（ASCII/UTF-16）——严格校验 6 个 appiconset 名"
+            FOUND=0
+            for I in 1 2 3 4 5 6; do
+              N="launcher${I}"
+              if probe "$N"; then FOUND=$((FOUND+1)); else echo "missing: $N"; fi
+            done
+            echo "appiconsets found in Assets.car: $FOUND/6"
+            [ "$FOUND" -eq 6 ] || { echo "::warning::Assets.car 缺少变体图标 appiconset"; exit 1; }
+          else
+            echo "AppIcon 名两种编码均不可 grep——car 名称表存储方式不同，回退尺寸门禁"
+            SIZE=$(wc -c < "$CAR")
+            [ "$SIZE" -ge 400000 ] || { echo "::warning::Assets.car 仅 ${SIZE} 字节（全目录应 >500KB）——变体图标 appiconset 未编入"; exit 1; }
+            echo "尺寸门禁通过: $SIZE 字节（此分支静态校验降级，最终权威 = 真机验收）"
           fi
 
-      # ── 换图标集成测试（Bug1：iOS 运行时取证 + 回归门禁）──
-      # 此时 ios/RustFFI/ 中是模拟器 .a 且 pod install 已完成，flutter test
-      # 会自行构建测试宿主 app 并在指定模拟器上运行。注意 flutter test -d <UDID>
-      # 要求模拟器已 boot（devices available 只是设备定义），故此处先自举启动；
-      # 后续「Boot simulator and launch app」步骤的 boot 幂等，不受影响。
-      # 门禁 = status 同步方法（通道接线 + Info.plist 变体声明）；真实 set
-      # 仅取证——模拟器 setAlternateIconName completion 不回调（已知限制），
-      # 测试内带超时守护只记录结果，不断言。
-      - name: Run launcher icon integration test (iOS simulator)
-        working-directory: flutter_legado
-        run: |
-          set -euxo pipefail
-          UDID=$(xcrun simctl list devices available | grep -m1 -oE '[0-9A-F-]{36}')
-          echo "Integration test simulator: $UDID"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          flutter test integration_test/launcher_icon_ios_test.dart -d "$UDID"
-
-      - name: Upload simulator Runner.app (on failure)
-        if: failure()
+      - name: 上传图标 car 诊断产物
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ios-sim-runner-app
-          path: flutter_legado/build/ios/iphonesimulator/Runner.app
+          name: ios-device-assets-car
+          path: flutter_legado/build/ios/iphoneos/Runner.app/Assets.car
           retention-days: 7
           if-no-files-found: ignore
 
-      # ── 搜索→进书→翻章 e2e（核心阅读链路，离线本地书源）──
-      # 设计：测试进程内 HttpServer（127.0.0.1 loopback 随机端口）提供
-      # 「搜索页（恒定 2 条结果）/ 书页（3 章目录）/ 章节正文页（唯一标记）」，
-      # 导入本地书源（纯 CSS 规则，无 JS/JVM 依赖）后走真实 Rust FFI 的
-      # 搜索流 / webbook_chapters 目录解析 / get_chapter_content_full 正文链。
-      # 零外网依赖、断言确定（结果计数==2、章节标记互斥），
-      # 复用上方图标测试的 UDID 自举模式（boot 幂等）。
-      # 门禁决策：硬门禁（不加 continue-on-error）——e2e 价值在于核心链路
-      # 损坏时让 CI 变红；离线设计已消除传统 flaky 来源（外网不稳定）。
-      - name: Run search-read e2e (iOS simulator)
-        working-directory: flutter_legado
+      - name: 导出设备 plist 诊断产物
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
+        continue-on-error: true
         run: |
-          set -euxo pipefail
-          UDID=$(xcrun simctl list devices available | grep -m1 -oE '[0-9A-F-]{36}')
-          echo "E2E test simulator: $UDID"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          flutter test integration_test/e2e_search_read_ios_test.dart -d "$UDID"
+          set -euo pipefail
+          PL=flutter_legado/build/ios/iphoneos/Runner.app/Info.plist
+          OUT=flutter_legado/build/ios/device-plist
+          mkdir -p "$OUT"
+          cp "$PL" "$OUT/Info.plist"
+          python3 -c 'import plistlib,json,sys; d=plistlib.load(open(sys.argv[1],"rb")); print(json.dumps({k:v for k,v in d.items() if "Icon" in k}, indent=2))' "$PL" > "$OUT/icon-section.json"
 
-      - name: Upload e2e simulator Runner.app (on failure)
-        if: failure()
+      - name: 上传设备 plist 诊断产物
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ios-e2e-runner-app
-          path: flutter_legado/build/ios/iphonesimulator/Runner.app
+          name: ios-device-info-plist
+          path: flutter_legado/build/ios/device-plist/
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Boot simulator and launch app
-        run: |
-          set -euxo pipefail
-          UDID=$(xcrun simctl list devices available | grep -m1 -oE '[0-9A-F-]{36}')
-          echo "UDID=$UDID" >> $GITHUB_ENV
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" flutter_legado/build/ios/iphonesimulator/Runner.app
-          xcrun simctl launch "$UDID" io.legado.flutterLegado
-          sleep 25
-          xcrun simctl io "$UDID" screenshot smoke_home.png || true
-          # 进程存活检查（启动 25 秒后仍未退出 = 未崩溃）
-          xcrun simctl spawn "$UDID" launchctl list | grep -i flutter || true
-
-      - name: Collect simulator logs
-        if: always()
-        run: |
-          UDID=${{ env.UDID }}
-          if [ -n "$UDID" ]; then
-            xcrun simctl spawn "$UDID" log show --last 3m \
-              --predicate 'processImagePath CONTAINS "Runner"' \
-              > sim_runner.log || true
-            grep -iE "fatal|crash|rust|panicked" sim_runner.log | head -40 > sim_errors.log || true
-          fi
-
-      - name: Upload smoke evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-smoke-evidence
-          path: |
-            smoke_home.png
-            sim_runner.log
-            sim_errors.log
-          retention-days: 14
-          if-no-files-found: warn

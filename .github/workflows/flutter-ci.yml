@@ -2,96 +2,28 @@ name: Flutter CI
 on:
   workflow_dispatch:
   push:
-    paths: ['flutter_legado/**', 'rust/**']
+    paths: ['flutter_legado/**', 'rust/**', '.github/workflows/flutter-ci.yml']
   pull_request:
-    paths: ['flutter_legado/**', 'rust/**']
+    paths: ['flutter_legado/**', 'rust/**', '.github/workflows/flutter-ci.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  android-ffi-sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,x86_64-linux-android
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      # [2026-09-19 修] 不显式给出 packages 时，setup-android@v3 会去安装它默认列表里的
-      # `tools` 包；新版 SDK 仓库已移除该包 → `Warning: Failed to find package 'tools'`
-      # → sdkmanager exit 1 → 本作业失败，连带下游 analyze/test 作业长期被 skip（Flutter
-      # 门禁形同虚设）。runner 镜像自带 SDK + cmdline-tools，这里只需 platform-tools；
-      # NDK 由下一步 sdkmanager 显式安装。
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools'
-      - name: Install Android NDK
-        run: |
-          sdkmanager "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> $GITHUB_ENV
-          # cc-rs 新版读 ANDROID_NDK_ROOT 定位 NDK 编译器（ring 等 C 依赖需要）
-          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> $GITHUB_ENV
-          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
-      - name: Configure Cargo for Android
-        run: |
-          mkdir -p ${HOME}/.cargo
-          cat >> ${HOME}/.cargo/config.toml << 'EOF'
-          [target.aarch64-linux-android]
-          linker = "${{ env.NDK_TOOLCHAIN }}/bin/aarch64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
-
-          [target.x86_64-linux-android]
-          linker = "${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang"
-          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
-          EOF
-      - name: Build Rust FFI for Android (debug, aarch64+x86_64)
-        working-directory: rust
-        env:
-          CC_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/aarch64-linux-android21-clang
-          AR_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
-          CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
-          AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
-        run: |
-          # rust/rust-toolchain.toml 锁定 1.97.1：target 必须装进该工具链
-          # （dtolnay action 的 targets 装的是 stable，与本工作区编译无关）
-          rustup target add aarch64-linux-android x86_64-linux-android
-          # rquickjs-sys 在 CI 走 bindgen 运行时生成：NDK bionic sysroot +
-          # 三元组专属 asm 头目录（clang 不会自动加 usr/include/<triple>）
-          NDK_SYS="${{ env.NDK_TOOLCHAIN }}/sysroot"
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
-          cargo build --target aarch64-linux-android -p legado-ffi --features quickjs
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/x86_64-linux-android"
-          cargo build --target x86_64-linux-android -p legado-ffi --features quickjs
-      - name: Copy .so to jniLibs with meta
-        working-directory: rust
-        run: |
-          JNILIBS="../flutter_legado/android/app/src/main/jniLibs"
-          mkdir -p "$JNILIBS/arm64-v8a" "$JNILIBS/x86_64"
-          cp target/aarch64-linux-android/debug/liblegado_ffi.so "$JNILIBS/arm64-v8a/"
-          cp target/x86_64-linux-android/debug/liblegado_ffi.so "$JNILIBS/x86_64/"
-          HASH=$(grep -oP 'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*\K-?\d+' legado-ffi/src/frb_generated.rs | head -1)
-          for abi in arm64-v8a x86_64; do
-            python3 -c "import json,datetime; json.dump({'contentHash': int('$HASH'), 'mode': 'debug', 'builtAt': datetime.datetime.now().isoformat()}, open('$JNILIBS/$abi/liblegado_ffi.so.meta','w'), separators=(',',':'))"
-          done
-      - name: Verify FFI content hash sync
-        working-directory: rust
-        run: |
-          chmod +x scripts/verify-ffi-android.sh
-          ./scripts/verify-ffi-android.sh debug "aarch64,x86_64"
-          # 体检§三.10+§8.3:扩展校验范围——release 模式全 ABI。v7a 已裁决(P2-24 关闭,
-          # 2026-09-27):维持无 JS 降级(rar 无法 32 位编译),quickjs:false 为既定目标态
-          # 而非待决策项;此处校验失败仍仅告警(见体检§一.1/§8.3),由构建侧按降级口径处理
-          ./scripts/verify-ffi-android.sh release "aarch64,armv7,x86_64" || echo "::warning::release/v7a FFI 校验未通过(见体检§一.1/§8.3),v7a 按 P2-24 无 JS 降级口径处理"
-
   analyze:
     runs-on: ubuntu-latest
-    needs: android-ffi-sync
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.8'
+          cache: true
       - name: Flutter pub get
         working-directory: flutter_legado
         run: flutter pub get

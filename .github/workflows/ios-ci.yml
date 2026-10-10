@@ -1,0 +1,146 @@
+name: iOS CI
+
+# 模拟器验证按需运行，不作为所有 PR 的必需检查。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      FLUTTER_VERSION: '3.44.8'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 Rust 模拟器工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+
+      - name: 缓存 Rust 构建
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      # 在工作区内补装目标，确保使用 rust-toolchain.toml 锁定的工具链。
+      - name: 确认工作区模拟器目标
+        working-directory: rust
+        run: |
+          rustup target add aarch64-apple-ios-sim
+          rustup target list --installed
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 安装 Flutter 依赖
+        working-directory: flutter_legado
+        run: flutter pub get
+
+      - name: 构建模拟器 Rust 静态库
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          export SDKROOT=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          export IPHONEOS_DEPLOYMENT_TARGET=13.0
+          # bindgen 使用 clang 可识别的模拟器三元组，避免原始 Rust 三元组失效。
+          export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-apple-ios-simulator -isysroot $SDKROOT"
+          cargo rustc --release --target aarch64-apple-ios-sim -p legado-ffi --lib --crate-type staticlib --features quickjs
+          mkdir -p ../flutter_legado/ios/RustFFI
+          cp target/aarch64-apple-ios-sim/release/liblegado_ffi.a \
+             ../flutter_legado/ios/RustFFI/libliblegado_ffi.a
+
+      - name: 安装模拟器 CocoaPods 依赖
+        working-directory: flutter_legado/ios
+        run: pod install --repo-update
+
+      - name: 构建模拟器应用
+        working-directory: flutter_legado
+        run: |
+          set -euo pipefail
+          flutter build ios --simulator --debug 2>&1 | tee ios_simulator_build.log
+
+      # Debug 主体可能位于 Runner.debug.dylib，不能只检查 Runner 加载桩。
+      - name: 校验模拟器 PDE 符号
+        run: |
+          set -euo pipefail
+          APPDIR=flutter_legado/build/ios/iphonesimulator/Runner.app
+          OK=0
+          for F in "$APPDIR/Runner" "$APPDIR/Runner.debug.dylib"; do
+            [ -f "$F" ] || continue
+            C=$(nm -g "$F" 2>/dev/null | grep -c "frb_pde_ffi_dispatcher_primary" || true)
+            echo "$(basename "$F"): PDE 符号数 = $C"
+            [ "$C" -ge 1 ] && OK=1
+          done
+          if [ "$OK" != "1" ]; then
+            echo "::error::模拟器构建缺少 FRB PDE 分发器符号"
+            exit 1
+          fi
+
+      - name: 选择并启动测试模拟器
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(device["udid"] for group in devices.values() for device in group if device.get("isAvailable") and device["name"].startswith("iPhone")))')
+          # 测试前保存设备标识，失败路径也能收集同一模拟器的日志。
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      # 校验通道接线和已安装声明；真实切图标仍是测试内的非断言取证。
+      - name: 运行图标状态集成测试
+        working-directory: flutter_legado
+        run: |
+          set -euo pipefail
+          flutter test integration_test/launcher_icon_ios_test.dart -d "$UDID" 2>&1 | tee ios_launcher_icon_test.log
+
+      # 搜索、进书和翻章走本地回环书源，保持原测试断言，失败必须使作业变红。
+      - name: 运行离线搜索阅读测试
+        working-directory: flutter_legado
+        run: |
+          set -euo pipefail
+          flutter test integration_test/e2e_search_read_ios_test.dart -d "$UDID" 2>&1 | tee ios_search_read_test.log
+
+      # Flutter 集成测试会覆写 Runner.app；不将测试宿主重新启动当作生产首屏验收。
+      - name: 收集模拟器测试证据
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p ios-ci-evidence
+          git rev-parse HEAD > ios-ci-evidence/commit.txt
+          if [ -n "${UDID:-}" ]; then
+            xcrun simctl spawn "$UDID" log show --last 10m \
+              --predicate 'processImagePath CONTAINS "Runner"' \
+              > ios-ci-evidence/sim_runner.log || true
+            grep -iE "fatal|crash|rust|panicked" ios-ci-evidence/sim_runner.log \
+              | head -40 > ios-ci-evidence/sim_errors.log || true
+          fi
+
+      - name: 上传模拟器测试证据
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ci-evidence
+          path: |
+            ios-ci-evidence/
+            flutter_legado/ios_simulator_build.log
+            flutter_legado/ios_launcher_icon_test.log
+            flutter_legado/ios_search_read_test.log
+            flutter_legado/build/ios/iphonesimulator/Runner.app/
+          retention-days: 7
+          if-no-files-found: warn

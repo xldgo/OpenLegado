@@ -1,0 +1,204 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.event_name }}-${{ github.ref }}
+  # 手动构建可取消旧任务，标签发布保持完整上传。
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
+    env:
+      FLUTTER_VERSION: '3.44.8'
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: 设置 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: 设置 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: 安装 Android NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64" >> "$GITHUB_ENV"
+      - name: 配置 Android 链接器
+        run: |
+          mkdir -p "$HOME/.cargo"
+          cat >> "$HOME/.cargo/config.toml" << EOF
+          [target.aarch64-linux-android]
+          linker = "$NDK_TOOLCHAIN/bin/aarch64-linux-android21-clang"
+          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+          [target.armv7-linux-androideabi]
+          linker = "$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
+          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+          [target.x86_64-linux-android]
+          linker = "$NDK_TOOLCHAIN/bin/x86_64-linux-android21-clang"
+          rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+          EOF
+      - name: 核对已提交的 FRB 版本与 hash
+        working-directory: rust
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          dart = pathlib.Path('../flutter_legado/lib/src/bridge/frb_generated.dart').read_text()
+          rust = pathlib.Path('legado-ffi/src/frb_generated.rs').read_text()
+          dart_hash = re.search(r'rustContentHash\s*=>\s*(-?\d+)', dart)
+          rust_hash = re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', rust)
+          if not dart_hash or not rust_hash or dart_hash[1] != rust_hash[1]:
+              raise SystemExit('Dart/Rust FRB content hash 不一致或无法解析')
+          if "codegenVersion => '2.11.1'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1"' not in rust:
+              raise SystemExit('FRB 生成物版本必须为 2.11.1')
+          print(f'FRB 2.11.1 content hash: {dart_hash[1]}')
+          PY
+      - name: 构建 Android release FFI（三 ABI）
+        working-directory: rust
+        env:
+          CC_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/aarch64-linux-android21-clang
+          AR_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
+          CC_armv7_linux_androideabi: ${{ env.NDK_TOOLCHAIN }}/bin/armv7a-linux-androideabi21-clang
+          AR_armv7_linux_androideabi: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
+          CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
+          AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
+        run: |
+          rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          NDK_SYS="$NDK_TOOLCHAIN/sysroot"
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
+          cargo build --locked --release --target aarch64-linux-android -p legado-ffi --features quickjs
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/x86_64-linux-android"
+          cargo build --locked --release --target x86_64-linux-android -p legado-ffi --features quickjs
+          # 保留 P2-24 已裁决的 armv7 无 QuickJS 降级，不尝试 32 位 rar。
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/arm-linux-androideabi"
+          cargo build --locked --release --target armv7-linux-androideabi -p legado-ffi
+      - name: 复制本次 release 动态库并记录元数据
+        working-directory: rust
+        run: |
+          source scripts/rust-fingerprint.sh
+          RUST_FP="$(rust_fingerprint "$PWD")"
+          export RUST_FP
+          python3 - <<'PY'
+          import datetime, json, os, pathlib, re, shutil, struct
+          root = pathlib.Path('../flutter_legado/android/app/src/main/jniLibs')
+          content_hash = int(re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', pathlib.Path('legado-ffi/src/frb_generated.rs').read_text())[1])
+          targets = [('aarch64-linux-android', 'arm64-v8a', True), ('armv7-linux-androideabi', 'armeabi-v7a', False), ('x86_64-linux-android', 'x86_64', True)]
+          for target, abi, quickjs in targets:
+              source = pathlib.Path('target') / target / 'release/liblegado_ffi.so'
+              if struct.pack('<i', content_hash) not in source.read_bytes():
+                  raise SystemExit(f'{target} 动态库未嵌入当前 FRB hash')
+              destination = root / abi / source.name
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, destination)
+              metadata = {'contentHash': content_hash, 'mode': 'release', 'quickjs': quickjs, 'rustFingerprint': os.environ['RUST_FP'], 'builtAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+              destination.with_suffix('.so.meta').write_text(json.dumps(metadata, separators=(',', ':')))
+          PY
+      - name: 校验本次 Android release FFI
+        working-directory: rust
+        run: bash scripts/verify-ffi-android.sh release "aarch64,armv7,x86_64"
+      # 直接使用仓库中固定为 2.11.1 的生成物，禁止构建后重新生成绑定。
+      - name: 设置 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Flutter pub get
+        working-directory: flutter_legado
+        run: flutter pub get
+      - name: 构建与本次 Rust 动态库对应的 release APK
+        working-directory: flutter_legado
+        run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
+      - name: 核对 APK 内的 Rust 动态库并收集产物
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, shutil, struct, zipfile
+          content_hash = int(re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', pathlib.Path('rust/legado-ffi/src/frb_generated.rs').read_text())[1])
+          output = pathlib.Path('release-apk')
+          output.mkdir(exist_ok=True)
+          for abi in ['arm64-v8a', 'armeabi-v7a', 'x86_64']:
+              apk = pathlib.Path('flutter_legado/build/app/outputs/flutter-apk') / f'app-{abi}-release.apk'
+              with zipfile.ZipFile(apk) as archive:
+                  library = archive.read(f'lib/{abi}/liblegado_ffi.so')
+              if struct.pack('<i', content_hash) not in library:
+                  raise SystemExit(f'{apk.name} 缺少当前 Rust FFI hash')
+              shutil.copyfile(apk, output / apk.name)
+              print(f'已核对并收集 {apk.name}')
+          PY
+      - name: 上传 APK 构建产物
+        id: upload-apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-apk/*-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # 仅重跑 publish 时沿用成功 build 的产物 ID，不使用新的 run_attempt 推测名称。
+      - name: 核对构建产物 ID
+        env:
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+        run: |
+          if [[ ! "$ARTIFACT_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::成功构建未提供有效的 APK 产物 ID"
+            exit 1
+          fi
+      - name: 下载本次构建的 APK
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: release-apk
+          merge-multiple: true
+      - name: 创建标签 Release 并上传 APK
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Android Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            Flutter + Rust 自动构建版本
+            Tag: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: release-apk/*-release.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

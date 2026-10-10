@@ -1,7 +1,7 @@
 # Legado — Rust + Flutter 跨平台阅读器
 
-[![Rust CI](https://github.com/ZhangGHGitHub/LegadoTeamFlutter/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/ZhangGHGitHub/LegadoTeamFlutter/actions/workflows/rust-ci.yml)
-[![Flutter CI](https://github.com/ZhangGHGitHub/LegadoTeamFlutter/actions/workflows/flutter-ci.yml/badge.svg)](https://github.com/ZhangGHGitHub/LegadoTeamFlutter/actions/workflows/flutter-ci.yml)
+[![Rust CI](https://github.com/xldgo/OpenLegado/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/xldgo/OpenLegado/actions/workflows/rust-ci.yml)
+[![Flutter CI](https://github.com/xldgo/OpenLegado/actions/workflows/flutter-ci.yml/badge.svg)](https://github.com/xldgo/OpenLegado/actions/workflows/flutter-ci.yml)
 
 Legado（阅读）是一款免费开源的小说阅读器，正在从 Android 原生 Kotlin 架构迁移为 **Rust 核心引擎 + Flutter UI** 的跨平台架构。
 
@@ -50,6 +50,23 @@ flutter test
 ```
 
 详细开发指南见 [rust/DEVELOPMENT.md](rust/DEVELOPMENT.md) 与 [AGENTS.md](AGENTS.md)。
+
+---
+
+## GitHub Actions
+
+| 工作流 | 职责与触发 |
+| --- | --- |
+| [Rust CI](.github/workflows/rust-ci.yml) | 自动执行质量检查、默认/QuickJS 测试与依赖审计 |
+| [Flutter CI](.github/workflows/flutter-ci.yml) | 自动执行 Dart 分析与测试，不等待 Android 原生构建 |
+| [Integration Smoke](.github/workflows/integration-smoke.yml) | Windows 真实 FFI 冒烟与 Android FFI 构建校验，可自动或手动执行 |
+| [iOS CI](.github/workflows/ios-ci.yml) | **仅手动**运行模拟器编译、图标状态检查和离线搜索阅读测试，不作为 PR 必需检查 |
+| [iOS Build](.github/workflows/ios-build.yml) | 保留设备 IPA 自动构建与手动入口；签名配置见 [iOS 构建说明](docs/IOS_CI_SIGNING_SETUP.md) |
+| [Android Release](.github/workflows/android-release.yml) | 手动运行只生成 Android APK 工件，`v*` tag 触发构建并发布 |
+
+标签、自动审查和其他仓库自动化保留独立入口。工作流与现有脚本的当前进度、审查及验证证据统一记录于 [Active 计划](docs/REFACTORING_ACTIVE_PLAN.md)。
+
+编写者：Codex 主代理｜2026-10-10
 
 ---
 

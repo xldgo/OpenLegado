@@ -19,10 +19,11 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 
 ## 验证命令
 
-- **Android 单元测试**：`./gradlew :app:testAppReleaseUnitTest`（CI：`.github/workflows/test.yml`）
+- **Android 原版单元测试**：`./gradlew :app:testAppReleaseUnitTest`（本地参考工程；旧 `test.yml` 已随原版源码停止上传而移除）
 - **Flutter**：在 `flutter_legado/` 下 `flutter analyze && flutter test`（CI：`.github/workflows/flutter-ci.yml`）
 - **Rust**：在 `rust/` 下 `cargo test`（CI：`.github/workflows/rust-ci.yml`）
-- **CI 总览**：`.github/workflows/`（test / rust-ci / flutter-ci / release / BetaRelease / web 等）
+- **iOS**：`ios-ci.yml` 仅手动运行模拟器验证，不作为 PR 必需检查；`ios-build.yml` 保留设备 IPA 自动构建与手动入口。签名及诊断方法见 `docs/IOS_CI_SIGNING_SETUP.md`。
+- **CI 总览**：`.github/workflows/`（rust-ci / flutter-ci / integration-smoke / ios-ci / ios-build / android-release；仓库自动化保持独立）
 
 ## 规范与文档路由（改动前必读）
 
@@ -116,3 +117,4 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 修订：ZCode ｜ 2026-09-23（**MuMu 实操补充入档**：实例↔端点映射会漂（须先 `MuMuManager info -v all` 判定在线实例；index 0 的 adb 端口 16384 与 `emulator-5554` 是同一 guest 的两条路径）、多屏逻辑 display id 会变（输入 `input -d`、截图 `exec-out screencap -d`）、`run-as sqlite3` 种子须装 debug 变体、语义文本在 `content-desc`）
 修订：Codex ｜ 2026-09-27（移除已停用 Agent 工具的配置说明，将 Agent 路由改为按职责描述）
 修订：Legado 项目维护组 ｜ 2026-09-27（**文档与重构流程统一**：通用开发规范入口迁移至 `docs/DEVELOPMENT_CONVENTIONS.md`（原 `.qoder/rules/legado-dev-conventions.md`）；移除 UI_FIX_PLAN.md 当前入口，视觉入口指向 `docs/SCREEN_1TO1_PARITY_SPEC_20260914.md` 并补台账路由；新增设备端点时效性与实时探测要求）
+修订：Codex 主代理 ｜ 2026-10-10（更新 CI 路由：iOS CI 仅手动验证，iOS Build 负责设备包；移除已删除旧 Android workflow 的入口引用）
