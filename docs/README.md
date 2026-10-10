@@ -52,6 +52,7 @@
 | --- | --- |
 | [REFACTORING_ACTIVE_PLAN.md](REFACTORING_ACTIVE_PLAN.md) | 当前唯一后续重构执行计划与开放项台账 |
 | [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md) | Agent 派发、实施、验证与关闭的统一流程 |
+| [AGP9_MIGRATION_PLAN_20261010.md](AGP9_MIGRATION_PLAN_20261010.md) | Android AGP 9 / Gradle / Kotlin 迁移方案、插件核查与验收条件；状态只维护于 Active 计划 |
 | [REFACTORING_ROADMAP_PROPOSAL_20260927.md](REFACTORING_ROADMAP_PROPOSAL_20260927.md) | 源码对账与排期建议的**历史草案**，仅供阶段 0 核验查阅；不得据此派发任务 |
 | [READING_FLOW_DEFECT_HUNT_PLAN_20260924.md](READING_FLOW_DEFECT_HUNT_PLAN_20260924.md) | 阅读主流程缺陷发现与取证方法；开放状态以 Active 计划为准 |
 | [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md) | 参考版视觉一比一规范 |

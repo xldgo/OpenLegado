@@ -8,6 +8,17 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### AGP9-MIGRATION-20261010：Flutter Android 构建链迁移（P2）
+
+- **状态**：实施中（计划已交付，构建配置与 APK 验证尚未开始）；用户于 2026-10-10 要求使用 worktree 制定迁移计划。本轮仅交付隔离工作区、源码核查和方案。
+- **基线与工作区**：从依赖升级提交 `bdea9b155` 创建 `feature/ui-agp9-migration`，worktree 为 `E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree`；主 checkout 保留原分支与配置。Flutter 3.47.7、FRB 2.13.0、Rust stable、应用版本 `2.0.369+370` 保持。
+- **实施顺序**：按包适配偏好存储/外链/WebView 的 Android 实现 → 候选 AGP 9.2.1 / Gradle 9.4.1 的旧 Kotlin/旧 DSL 兼容模式 → 原生构建及打包校验 → 单独评估 app_links 7.2.2 → 第三方条件满足后迁移内置 Kotlin。Java 17、Rust NDK 保持；不直接启用 newDsl。
+- **已确认风险**：锁定插件中仍有显式 KGP 应用；TTS 最新稳定版尚未移除旧接线；Flutter 3.47.7 仍使用旧 DSL，工具模板 Gradle 9.3.1 也不能代替 9.4.1 的实际验证。源码核查不是编译证据。
+- **验收与限制**：按阶段独立提交、定向验证、带 `[skip ci]`；不使用子代理，不运行全套 CI。Android APK 与 iOS 模拟器验证按用户要求暂缓，恢复前不能关闭原生构建验收；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
+- **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
+
+编写者：Codex 主代理｜2026-10-10
+
 ### DEPS-UPGRADE-20261010：Flutter 依赖逐项升级与停维护包替换（P1）
 
 - **状态**：已交付（用户批准的依赖升级与本地定向验证范围）。2026-10-10 用户同意最后四个插件一起升级，兼容组适配与定向回归通过。保持不使用子代理、不运行整套 CI；Android APK 与 iOS 模拟器验证暂缓，原生平台行为尚未验收。
