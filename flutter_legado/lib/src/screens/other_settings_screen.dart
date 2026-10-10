@@ -24,7 +24,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../bridge/ffi.dart';
@@ -663,7 +663,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     // 异步对话框/文件选择器返回后先检查 mounted，再 setState/持久化
     if (!mounted) return;
     if (action == 'select') {
-      final dir = await FilePicker.platform.getDirectoryPath(
+      final dir = await FilePicker.getDirectoryPath(
         dialogTitle: '选择默认书籍保存位置',
       );
       if (dir == null || !mounted) return;

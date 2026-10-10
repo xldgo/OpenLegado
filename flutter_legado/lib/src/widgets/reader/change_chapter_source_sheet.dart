@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';

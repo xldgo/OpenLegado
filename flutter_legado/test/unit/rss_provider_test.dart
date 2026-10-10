@@ -7,7 +7,7 @@
 // 使用 ProviderContainer + bookApiProvider.overrideWithValue(mockApi)。
 // 原「触发通知」测试点改为通过 container.listen 断言状态变更会触发监听。
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

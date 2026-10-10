@@ -5,8 +5,10 @@
 //
 // 注意：exploreShowNotifierProvider 为 autoDispose family，
 // 必须用 container.listen 维持订阅，否则 read 后实例立即被销毁。
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -71,6 +73,30 @@ void main() {
       ),
     );
   }
+
+  group('ExploreShowNotifier 页面销毁', () {
+    for (final fails in [false, true]) {
+      test('销毁后丢弃迟到的${fails ? '错误' : '结果'}', () async {
+        final pending = Completer<List<SearchBook>>();
+        when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+            .thenAnswer((_) => pending.future);
+
+        final subscription = spawn();
+        await pumpInit();
+        subscription.close();
+        await container.pump();
+        expect(container.exists(exploreShowNotifierProvider(args)), isFalse);
+
+        if (fails) {
+          pending.completeError(Exception('请求迟到失败'));
+        } else {
+          pending.complete(makeBooks(1));
+        }
+        await pumpInit();
+        expect(container.exists(exploreShowNotifierProvider(args)), isFalse);
+      });
+    }
+  });
 
   group('ExploreShowNotifier 初始状态', () {
     test('由 args 初始化书源/分类信息', () async {

@@ -339,32 +339,39 @@ List<String> mockClipboard(WidgetTester tester) {
 // （FilePickerIO.saveFile：bytes == null → 抛 ArgumentError
 // 「Bytes are required on Android & iOS when saving a file.」）。
 // 旧 _savePageImage 漏传 bytes → 保存恒失败、取消兜底分支永不可达。
-// 桩经 FilePicker.platform / PathProviderPlatform.instance 平台注入：
+// 桩经 FilePickerPlatform.instance / PathProviderPlatform.instance 平台注入：
 // ① 断言 saveFile 收到 bytes（D1 回归）；② 取消（返回 null）时
 // 兜底写应用文档目录落盘。
 // =====================================================================
 
 /// [D1 修复] FilePicker 桩：记录 saveFile 实参，返回固定 [result]
 /// （非 null = 用户选中路径；null = 用户取消保存对话框）
-class _FakeFilePicker extends FilePicker {
+class _FakeFilePicker extends FilePickerPlatform {
   _FakeFilePicker(this.result);
   final String? result;
   Uint8List? capturedBytes;
   String? capturedFileName;
 
   @override
-  Future<String?> saveFile({
+  Future<Uri?> saveFile({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
     String? dialogTitle,
-    String? fileName,
     String? initialDirectory,
-    FileType type = FileType.any,
-    List<String>? allowedExtensions,
-    Uint8List? bytes,
-    bool lockParentWindow = false,
+    Function(FilePickerStatus)? onFileSaving,
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
   }) async {
     capturedBytes = bytes;
     capturedFileName = fileName;
-    return result;
+    final location = result;
+    if (location == null) return null;
+    final uri = location.contains('://') ? Uri.parse(location) : Uri.file(location);
+    // 新版插件负责写入；页面只消费 URI，不能重复写入 content URI。
+    if (uri.scheme == 'file') File.fromUri(uri).writeAsBytesSync(bytes);
+    return uri;
   }
 }
 
@@ -377,19 +384,11 @@ class _FakePathProvider extends PathProviderPlatform {
   Future<String?> getApplicationDocumentsPath() async => docDir;
 }
 
-/// 注入 FilePicker 平台桩并登记恢复（原实例为 registrant 初始化值；
-/// 若宿主未初始化则恢复为 FilePickerIO，不影响后续用例）
+/// 注入新版 FilePicker 平台桩并登记恢复。
 void _useFakeFilePicker(_FakeFilePicker fake) {
-  FilePicker? original;
-  var initialized = false;
-  try {
-    original = FilePicker.platform;
-    initialized = true;
-  } catch (_) {
-    // late 未初始化（测试宿主 registrant 无本平台分支）
-  }
-  FilePicker.platform = fake;
-  addTearDown(() => FilePicker.platform = initialized ? original! : FilePickerIO());
+  final original = FilePickerPlatform.instance;
+  FilePickerPlatform.instance = fake;
+  addTearDown(() => FilePickerPlatform.instance = original);
 }
 
 void main() {
@@ -1146,6 +1145,24 @@ void main() {
   // 触发路径：默认 mangaLongClickSaveImage=true → 长按直接存图。
   // =====================================================================
   group('[D1 修复] 保存图片 bytes 传入与取消兜底', () {
+    testWidgets('保存返回 content URI 时不重复写文件', (tester) async {
+      const savedUri = 'content://documents/images/manga.png';
+      final fake = _FakeFilePicker(savedUri);
+      _useFakeFilePicker(fake);
+      final api = _buildApi(progressCalls: <List<int>>[]);
+      final container = ProviderContainer(
+        overrides: [bookApiProvider.overrideWithValue(api)],
+      );
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, api, container);
+      await tester.longPressAt(const Offset(400, 100));
+      await tester.pumpAndSettle();
+
+      expect(fake.capturedBytes, isNotNull);
+      expect(find.textContaining('已保存: $savedUri'), findsOneWidget);
+      expect(find.textContaining('保存图片失败'), findsNothing);
+    });
+
     testWidgets('成功路径：saveFile 收到 bytes，选中路径落盘', (tester) async {
       // 真实 IO 事件在 fake-async 测试体里须经 runAsync 转动
       //（先例 _settleImageDecode 注释：真实事件循环只有 runAsync 可等）

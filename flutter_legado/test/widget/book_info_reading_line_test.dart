@@ -10,7 +10,7 @@
 //   未读（dci==0 且 pos==0）/ 已读 N 章（N=dci+1）/ 已读完（dci+1==total）
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

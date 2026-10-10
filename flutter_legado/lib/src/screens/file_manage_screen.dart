@@ -136,7 +136,7 @@ class _FileManageScreenState extends State<FileManageScreen> {
   Future<void> _openFile(File file) async {
     // 原版用 openFileUri 打开文件；Flutter 跨平台以系统分享面板替代
     try {
-      await Share.shareXFiles([XFile(file.path)]);
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

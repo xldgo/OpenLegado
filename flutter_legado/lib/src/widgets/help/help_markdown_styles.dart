@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 /// 帮助 Markdown 分隔线色
 /// [UI_MD3_ALIGNMENT_PLAN.md Batch B B9] 走 tonal outlineVariant

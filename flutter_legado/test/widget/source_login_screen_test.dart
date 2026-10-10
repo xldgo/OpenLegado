@@ -5,7 +5,7 @@
 // 登录页 TabBar 须显式 tabAlignment: fill（2026-08-14 登录红屏修复）。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

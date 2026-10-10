@@ -15,7 +15,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../bridge/ffi.dart';
 import '../constants/pref_keys.dart';
@@ -1487,15 +1487,14 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         'bottomBackground': colors.bottomBackgroundNight,
       },
     };
-    final path = await FilePicker.platform.saveFile(
-      dialogTitle: '导出主题',
-      fileName: 'legado_theme.json',
-    );
-    if (path == null || !mounted) return;
     try {
-      await File(path).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(payload),
+      final path = await FilePicker.saveFile(
+        dialogTitle: '导出主题',
+        fileName: 'legado_theme.json',
+        bytes: utf8.encode(const JsonEncoder.withIndent('  ').convert(payload)),
+        mimeType: 'application/json',
       );
+      if (path == null || !mounted) return;
       _toast('主题已导出');
     } catch (e) {
       debugPrint('ThemeConfigScreen._exportTheme 写入异常: $e');
@@ -1505,12 +1504,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   /// 导入主题 JSON 并应用（日/夜颜色组 + paletteId + 主题模式）
   Future<void> _importTheme() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       dialogTitle: '导入主题',
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    final path = result?.files.single.path;
+    final path = result?.path;
     if (path == null || !mounted) return;
     dynamic decoded;
     try {
@@ -1605,11 +1604,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     // 异步对话框/文件选择器返回后先检查 mounted，再 setState/持久化
     if (!mounted) return;
     if (action == 'select') {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.image,
         dialogTitle: '选择背景图片',
+        compressionQuality: Platform.isAndroid ? 30 : 0,
       );
-      final path = result?.files.single.path;
+      final path = result?.path;
       if (path == null || !mounted) return;
       setState(() {
         if (isNight) {

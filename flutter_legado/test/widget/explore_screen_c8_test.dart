@@ -9,7 +9,7 @@
 //    通栏 URL 项（如排行榜，basis>=1）→ 保留全宽行；点击链路不变）
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';

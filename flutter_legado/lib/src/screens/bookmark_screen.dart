@@ -4,7 +4,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../models/models.dart';
 import '../providers/bookmark/bookmark_notifier.dart';

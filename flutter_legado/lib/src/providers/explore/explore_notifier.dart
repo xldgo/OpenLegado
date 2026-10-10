@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -41,10 +41,12 @@ class ExploreNotifier extends Notifier<ExploreState> {
   ///
   /// 对齐 Android ExploreFragment：仅保留启用发现且 exploreUrl 非空的书源
   Future<void> _loadBookSources() async {
+    if (!ref.mounted) return;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final api = ref.read(bookApiProvider);
       final sources = await api.getBookSources();
+      if (!ref.mounted) return;
       final exploreSources = sources
           .where((s) =>
               s.enabledExplore &&
@@ -52,6 +54,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
           .toList();
       state = state.copyWith(bookSources: exploreSources, isLoading: false);
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         error: '加载书源失败：${_mapError(e)}',
         isLoading: false,

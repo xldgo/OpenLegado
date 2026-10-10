@@ -595,9 +595,11 @@ extension _SourceEditActions on _SourceEditScreenState {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/bookSource_share.json');
       await file.writeAsString(json);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
-        text: '书源分享',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          text: '书源分享',
+        ),
       );
     } catch (e) {
       if (!mounted) return;

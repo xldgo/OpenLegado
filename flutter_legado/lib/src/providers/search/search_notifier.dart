@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -92,6 +92,7 @@ class SearchNotifier extends Notifier<SearchState> {
     // 延迟到 build() 返回后加载历史 + 恢复搜索范围（对齐原版 AppConfig.searchScope）
     Future.microtask(() async {
       await loadHistory();
+      if (!ref.mounted) return;
       await _restoreSearchScope();
     });
     return const SearchState();
@@ -101,8 +102,10 @@ class SearchNotifier extends Notifier<SearchState> {
 
   /// 加载搜索历史（经 BookApi.getSearchHistory 从 Rust 读取，取关键词列表）
   Future<void> loadHistory() async {
+    if (!ref.mounted) return;
     try {
       final keywords = await ref.read(bookApiProvider).getSearchHistory();
+      if (!ref.mounted) return;
       state = state.copyWith(
         searchHistory: keywords.map((k) => k.word).toList(),
       );
@@ -563,6 +566,7 @@ class SearchNotifier extends Notifier<SearchState> {
     try {
       final api = ref.read(bookApiProvider);
       final scope = (await api.getConfig('searchScope'))?.trim() ?? '';
+      if (!ref.mounted) return;
       if (scope.isEmpty) return;
       // 单书源格式 name::url —— 原版不持久化到下次，此处忽略
       if (scope.contains('::')) return;

@@ -13,7 +13,7 @@
 // 既有 `BookGroupId.video` 分支完成（bookshelf_state.dart:81-82）。
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

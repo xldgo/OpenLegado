@@ -4,7 +4,7 @@ import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import 'src/models/models.dart';
 import 'src/providers/providers.dart';

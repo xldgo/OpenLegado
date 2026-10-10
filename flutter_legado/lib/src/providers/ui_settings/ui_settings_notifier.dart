@@ -3,7 +3,7 @@
 // PreferKey，经 SharedPreferences 透存（Rust 不解释），改动即时全局生效。
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../constants/pref_keys.dart';
 import '../../services/settings_service.dart';
@@ -279,7 +279,8 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
   }
 
   Future<void> _load() async {
-    state = UiSettingsState(
+    if (!ref.mounted) return;
+    final loaded = UiSettingsState(
       topBarButtonStyle: TopBarButtonStyle.fromName(
         await _settings.getStringPref(PrefKeys.topBarButtonStyle),
       ),
@@ -386,6 +387,8 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
         defaultValue: false,
       ),
     );
+    if (!ref.mounted) return;
+    state = loaded;
     _sync();
   }
 

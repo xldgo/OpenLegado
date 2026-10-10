@@ -348,7 +348,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// 选择导出目录
   Future<void> _pickExportPath() async {
-    final dir = await FilePicker.platform.getDirectoryPath(
+    final dir = await FilePicker.getDirectoryPath(
       dialogTitle: '选择导出目录',
     );
     if (!mounted) return;

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../bridge/ffi.dart' show BridgeError;
@@ -841,9 +841,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // · zip/rar/7z 为压缩包格式，走导入页解压导入链路（_archiveFormats），
     //   不属于整本导入白名单。
     final result = Platform.isIOS
-        ? await FilePicker.platform.pickFiles(
-            type: FileType.any, allowMultiple: true)
-        : await FilePicker.platform.pickFiles(
+        ? await FilePicker.pickFiles(type: FileType.any)
+        : await FilePicker.pickFiles(
             type: FileType.custom,
             allowedExtensions: const [
               'epub',
@@ -855,9 +854,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               'umd',
               'cbz',
             ],
-            allowMultiple: true,
           );
-    if (result == null || result.files.isEmpty) return;
+    if (result.isEmpty) return;
 
     var successCount = 0;
     final failures = <String>[];
@@ -865,7 +863,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // （如「不支持 LZMA 压缩格式」「该 MOBI 文件已加密」），须透传给用户；
     // 详情最多展示 3 条，避免 SnackBar 溢出
     final failureDetails = <String>[];
-    for (final file in result.files) {
+    for (final file in result) {
       final path = file.path;
       if (path == null) {
         failures.add(file.name);
@@ -926,7 +924,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         'umd',
         'cbz',
       };
-      final pickedExts = result.files
+      final pickedExts = result
           .map((f) => f.name.split('.').last.toLowerCase())
           .where((e) => e.isNotEmpty)
           .toSet();
@@ -1090,13 +1088,17 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             })
         .toList();
     final json = const JsonEncoder.withIndent('  ').convert(data);
-    await Share.shareXFiles([
-      XFile.fromData(
-        utf8.encode(json),
-        name: 'bookshelf.json',
-        mimeType: 'application/json',
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile.fromData(
+            utf8.encode(json),
+            name: 'bookshelf.json',
+            mimeType: 'application/json',
+          ),
+        ],
       ),
-    ]);
+    );
   }
 
   // ===== [UI-fix v2.0.2 | 2026-08-06] 更新目录 / 添加网址 / 导入书单 — Qoder =====
@@ -1313,14 +1315,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               alignment: Alignment.centerLeft,
               child: TextButton(
                 onPressed: () async {
-                  final picked = await FilePicker.platform.pickFiles(
+                  final picked = await FilePicker.pickFile(
                     type: FileType.custom,
                     allowedExtensions: const ['txt', 'json'],
                   );
-                  final path =
-                      picked == null || picked.files.isEmpty
-                          ? null
-                          : picked.files.first.path;
+                  final path = picked?.path;
                   if (path != null) {
                     try {
                       ctrl.text = await File(path).readAsString();

@@ -18,7 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../models/models.dart';
 import '../providers/explore/explore_notifier.dart';

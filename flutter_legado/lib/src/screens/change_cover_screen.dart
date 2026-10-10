@@ -7,7 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../models/models.dart';
 import '../providers/change_cover/change_cover_notifier.dart';
@@ -79,8 +79,11 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
 
   /// 从本地相册 / 文件选择封面
   Future<void> _pickLocal() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    final path = result?.files.single.path;
+    final result = await FilePicker.pickFile(
+      type: FileType.image,
+      compressionQuality: Platform.isAndroid ? 30 : 0,
+    );
+    final path = result?.path;
     if (path == null || !mounted) return;
     setState(() => _selectedUrl = path);
     ScaffoldMessenger.of(context).showSnackBar(

@@ -134,7 +134,7 @@ class BookmarkExport {
     String content,
     String? initialDirectory,
   ) async {
-    final dir = await FilePicker.platform.getDirectoryPath(
+    final dir = await FilePicker.getDirectoryPath(
       dialogTitle: '选择书签导出目录',
       initialDirectory:
           (initialDirectory != null && initialDirectory.isNotEmpty)

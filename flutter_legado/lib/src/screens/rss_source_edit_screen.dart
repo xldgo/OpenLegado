@@ -6,7 +6,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../models/models.dart';
@@ -411,8 +411,12 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         await _fullscreenCodeEdit();
       case 'share':
         final json = jsonEncode(_buildSource().toJson());
-        await Share.share(json,
-            subject: '订阅源分享：${_ctrls['sourceName']!.text.trim()}');
+        await SharePlus.instance.share(
+          ShareParams(
+            text: json,
+            subject: '订阅源分享：${_ctrls['sourceName']!.text.trim()}',
+          ),
+        );
       case 'help':
         _showHelpSheet();
     }

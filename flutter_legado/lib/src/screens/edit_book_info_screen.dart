@@ -2,7 +2,7 @@
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider, ChangeNotifierProvider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';

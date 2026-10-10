@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../services/settings_service.dart';
 import 'theme_state.dart';
@@ -38,11 +38,12 @@ class ThemeNotifier extends Notifier<ThemeState> {
   /// [expectedGeneration]：装配本次加载时的代数快照；加载完成时代数已
   /// 变化说明期间发生了用户设置动作，本次加载结果作废（内存状态为准）。
   Future<void> load({int? expectedGeneration}) async {
+    if (!ref.mounted) return;
     final generation = expectedGeneration ?? _mutationGeneration;
     final themeMode = await _settings.getThemeMode();
     final fontScaleRaw = await _settings.getFontScale();
     final paletteId = await _settings.getPaletteId();
-    if (generation != _mutationGeneration) {
+    if (!ref.mounted || generation != _mutationGeneration) {
       return;
     }
     state = state.copyWith(

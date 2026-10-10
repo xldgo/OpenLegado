@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
@@ -72,6 +72,8 @@ void main() {
     // （主题/书架/书源/RSS/阅读统计/同步/书签/替换规则/定时任务/阅读器/搜索/发现等）
     runApp(
       ProviderScope(
+        // 保留原有手动重试行为，避免 Riverpod 3 自动重试引入额外请求。
+        retry: (retryCount, error) => null,
         child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),
       ),
     );

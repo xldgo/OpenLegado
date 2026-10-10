@@ -7,7 +7,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -419,9 +419,11 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/bookSource.json');
       await file.writeAsString(const JsonEncoder.withIndent('  ').convert(used));
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
-        text: '导出 ${used.length} 个在用书源',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          text: '导出 ${used.length} 个在用书源',
+        ),
       );
     } catch (e) {
       if (!mounted) return;

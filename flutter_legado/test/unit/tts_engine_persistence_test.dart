@@ -13,7 +13,7 @@
 // 本文件钉住：书级优先/全局回退/书级+全局并存取书级/清书级回退/写库字段
 // 保留（copyWith 不丢既有 readConfig 字段）/全局键持久化与重启读回。
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

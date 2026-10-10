@@ -8,7 +8,7 @@
 // 整页编辑器字段/保存/剪贴板等用例见 replace_rule_edit_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';

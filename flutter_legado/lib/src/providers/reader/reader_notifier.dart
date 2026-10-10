@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart'
     show Brightness, ThemeMode, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -119,6 +119,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// 从 SharedPreferences 加载持久化的阅读设置
   Future<void> _loadSettings() async {
+    if (!ref.mounted) return;
     final fontSize = await _settings.getFontSize();
     final lineHeight = await _settings.getLineHeight();
     // [M1 深色态默认修复] 可空读取：null = 从未设置（与显式选 0 区分）
@@ -142,6 +143,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       storedBgIndex: bgIndex,
       customBgColor: customBgColor,
     );
+    if (!ref.mounted) return;
 
     state = state.copyWith(
       fontSize: fontSize,
@@ -180,6 +182,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       storedBgIndex: null,
       customBgColor: null,
     );
+    if (!ref.mounted) return;
     if (resolved != state.backgroundColor) {
       state = state.copyWith(backgroundColor: resolved);
     }

@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
@@ -129,13 +129,11 @@ class _AssociationImportDialogState
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       dialogTitle: '选择导入文件',
       type: FileType.any,
-      allowedExtensions: ['json', 'txt'],
     );
-    if (result == null || result.paths.isEmpty) return;
-    final path = result.paths.first;
+    final path = result?.path;
     if (path == null) return;
     final notifier = ref.read(associationNotifierProvider.notifier);
     _lastLoad = () => notifier.loadFromFile(path);

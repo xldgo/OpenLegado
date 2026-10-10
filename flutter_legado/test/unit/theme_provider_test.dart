@@ -8,7 +8,7 @@
 // 测试中先经 pumpInit() 等待自动加载完成，再执行动作与断言，避免加载覆盖动作结果。
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

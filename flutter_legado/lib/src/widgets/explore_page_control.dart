@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 
 import '../providers/explore/explore_show_notifier.dart';
 import 'md3_picker_sheet.dart';

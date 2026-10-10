@@ -8,7 +8,7 @@ import '../widgets/md3_fast_scroller.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider, ChangeNotifierProvider;
+    hide Provider;
 import '../services/bridge_http.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -469,7 +469,9 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     final json = const JsonEncoder.withIndent('  ')
         .convert(rules.map((r) => r.toJson()).toList());
     try {
-      await Share.share(json, subject: 'Legado 替换规则');
+      await SharePlus.instance.share(
+        ShareParams(text: json, subject: 'Legado 替换规则'),
+      );
       if (mounted) _exitBatch();
     } catch (e) {
       if (mounted) {
@@ -583,9 +585,9 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
   Future<void> _importFromFile() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final picked = await FilePicker.platform.pickFiles();
-      if (picked == null || picked.files.isEmpty) return;
-      final path = picked.files.single.path;
+      final picked = await FilePicker.pickFile();
+      if (picked == null) return;
+      final path = picked.path;
       if (path == null) {
         messenger.showSnackBar(
           const SnackBar(content: Text('无法获取文件路径')),

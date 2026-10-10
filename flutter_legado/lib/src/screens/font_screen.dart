@@ -176,19 +176,16 @@ class _FontScreenState extends State<FontScreen> {
   }
 
   Future<void> _importFont() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['ttf', 'otf'],
     );
-    if (result == null || result.files.isEmpty) return;
-    final picked = result.files.first;
-    final bytes = picked.bytes;
-    final path = picked.path;
-    if (bytes == null && path == null) return;
+    if (result == null || !mounted) return;
+    final picked = result;
 
     setState(() => _importing = true);
     try {
-      final data = bytes ?? await File(path!).readAsBytes();
+      final data = await picked.readAsBytes();
       final name = (picked.name.split('.').first).replaceAll(' ', '');
       final family = 'Custom_$name';
 
