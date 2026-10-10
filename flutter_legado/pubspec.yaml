@@ -44,7 +44,7 @@ dependencies:
   device_info_plus: ^13.3.0
   screen_brightness: ^2.0.0
   flutter_local_notifications: ^22.3.1
-  # 7.1 起声明 AGP 9；当前保留 AGP 8，后续原生构建迁移再解除上限。
+  # 7.1 起声明 AGP 9；当前仍待完整原生构建验收，之后再解除上限。
   app_links: '>=7.0.0 <7.1.0'
   palette_generator_plus: ^1.0.0
   dynamic_color: ^2.1.0

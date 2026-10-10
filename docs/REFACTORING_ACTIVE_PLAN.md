@@ -10,14 +10,16 @@
 
 ### AGP9-MIGRATION-20261010：Flutter Android 构建链迁移（P2）
 
-- **状态**：实施中；用户于 2026-10-10 批准开始迁移，先进行插件准备与 AGP 9 兼容模式配置检查；APK 验证继续暂缓。
+- **状态**：实施中；插件准备与 AGP 9 兼容模式配置检查已通过。用户于 2026-10-10 确认已安装 MuMu 并允许必要的设备测试，Android 原生构建与设备验证恢复；iOS 模拟器仍暂缓。
 - **基线与工作区**：从依赖升级提交 `bdea9b155` 创建 `feature/ui-agp9-migration`，worktree 为 `E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree`；主 checkout 保留原分支与配置。Flutter 3.47.7、FRB 2.13.0、Rust stable、应用版本 `2.0.369+370` 保持。
 - **实施顺序**：按包适配偏好存储/外链/WebView 的 Android 实现 → 候选 AGP 9.2.1 / Gradle 9.4.1 的旧 Kotlin/旧 DSL 兼容模式 → 原生构建及打包校验 → 单独评估 app_links 7.2.2 → 第三方条件满足后迁移内置 Kotlin。Java 17、Rust NDK 保持；不直接启用 newDsl。
 - **已确认风险**：锁定插件中仍有显式 KGP 应用；TTS 最新稳定版尚未移除旧接线；Flutter 3.47.7 仍使用旧 DSL，工具模板 Gradle 9.3.1 也不能代替 9.4.1 的实际验证。源码核查不是编译证据。
 - **实施记录**：`shared_preferences_android` 已从 2.4.23 更新到 2.4.28，仅变更对应锁定项；精确依赖恢复、定向分析和偏好读写/阅读配置迁移/恢复过滤共 55 项 Dart 测试通过。Android 原生偏好数据兼容仍待构建与设备验证。
 - **外链准备**：`url_launcher_android` 从 6.3.30 更新到 6.3.33，仅变更对应锁定项；16 个调用文件与来源登录页面测试分析零问题，既有页面测试 1 项通过；保留原 LaunchMode，系统外链启动待原生验证。
 - **WebView 准备**：`webview_flutter_android` 从 4.12.0 更新到 4.14.1，仅变更对应锁定项；6 个调用文件及登录相关测试分析零问题，登录信息与请求头 13 项测试通过。三项插件准备合计 69 项定向测试；Android Cookie、JS 与页面导航仍待原生验证。
-- **验收与限制**：按阶段独立提交、定向验证、带 `[skip ci]`；不使用子代理，不运行全套 CI。Android APK 与 iOS 模拟器验证按用户要求暂缓，恢复前不能关闭原生构建验收；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
+- **构建配置**：AGP 9.2.1 / Gradle 9.4.1，wrapper 记录官方 SHA-256；依据 Flutter 检查与 Kotlin 官方兼容表将 KGP 配套更新为 2.4.21。实际错误证明旧 `kotlinOptions.jvmTarget` 不再可用，已改为顶层 `compilerOptions` 并保持 JVM 17。Java 17 下 Flutter 配置建议与全部插件的 Gradle help 均通过；保留 builtInKotlin=false / newDsl=false。
+- **设备准备**：实时探测 MuMu 安装位于 `C:\Program Files\NetEase\MuMu`，实例 index 0，Android 15 / API 35；adb `127.0.0.1:16384` 已连接且为 device，x86_64 可用于测试。正在以当前 Rust stable 与 NDK 27 构建三 ABI 原生库；尚不宣称 APK 或设备冒烟通过。
+- **提交整理与限制**：用户要求压缩历史，之前依赖升级合为 `1805569d6`，本次三项实现合为 `d035e2702`；文件树相同并已精确 lease 推送，跳过 CI。后续按阶段定向验证，提交带 `[skip ci]`；不使用子代理，不运行全套 CI；不修改阅读行为、数据库、FFI 契约、签名及 CI 拓扑。
 - **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
 
 编写者：Codex 主代理｜2026-10-10

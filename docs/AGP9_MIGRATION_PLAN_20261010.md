@@ -27,7 +27,7 @@ Gradle wrapper 启动脚本与 JAR 也未纳入当前仓库，先通过 Flutter 
 | AGP | 8.12.1 | 候选 9.2.1，配置和真实构建通过后固定 |
 | Gradle wrapper | 8.14 | 配套 9.4.1；设置官方分发包 SHA-256 |
 | Java / JVM target | 17 / 17 | 保持 |
-| Kotlin Android 插件 | 2.2.20 | 第一阶段保留；内置 Kotlin 阶段再移除宿主显式应用 |
+| Kotlin Android 插件 | 2.2.20 | 实际配套更新为 2.4.21；内置 Kotlin 阶段再移除宿主显式应用 |
 | `android.builtInKotlin` | false | 第一阶段 false；所有相关插件适配后改为 true |
 | `android.newDsl` | false | Flutter 3.47.7 阶段继续显式 false |
 | Flutter Gradle NDK | SDK 默认 28.2.13676358 | 保持 SDK 默认 |
@@ -100,8 +100,8 @@ TTS 若仍无稳定版适配，应保留第一阶段成果，把内置 Kotlin �
 
 阶段 B 不同时移除宿主 KGP。若出现 Kotlin 元数据或插件 classpath 冲突，依据实际错误
 单独调整必要的 KGP 组合，不用全局 force 掩盖冲突。
-阶段 E 才从 app 插件块移除 `kotlin-android`，
-把 `android.kotlinOptions` 移至顶层 `kotlin.compilerOptions`，保持 JVM target 17。
+阶段 E 才从 app 插件块移除 `kotlin-android`。
+宿主 `android.kotlinOptions` 已因 KGP 2.4.21 的实际错误在阶段 B 提前改为顶层 `kotlin.compilerOptions`，保持 JVM target 17。
 确认没有旧插件仍需要宿主 KGP 声明后，再清理 settings 中的显式 KGP 版本。
 内置模式的 Kotlin 编译器由 AGP 配套依赖提供，记录实际版本，不另强行统一插件 stdlib。
 接线依据：[Flutter 插件迁移说明](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors)。
@@ -129,7 +129,7 @@ Set-Location (Join-Path $agp9Root 'flutter_legado/android')
 APK/JVM 构建需要当前 worktree 的 native 库。
 原生构建前明确把 `ANDROID_NDK_HOME` 设置为本机 27.0.12077973 的安装目录；
 本地脚本自动探测会选择最新目录，不能依赖该探测来保证 NDK 版本。
-用户已暂缓 Android APK/iOS 模拟器测试；以下是恢复验证后的执行路线，本轮不运行：
+用户最初暂缓 Android APK/iOS 模拟器测试；随后确认安装 MuMu 并允许必要的设备测试，Android 验证恢复，iOS 模拟器仍暂缓。以下为 Android 验证路线：
 
 ```powershell
 $agp9Root = 'E:\code\workspace\OpenLegado\.tmp_agp9_migration\worktree'
@@ -201,5 +201,25 @@ APK ZIP 对齐、ELF 段对齐与 16 KB 设备实际运行分别记录，不能�
 - 精确依赖恢复成功；6 个 `webview_flutter` 调用文件及下列测试文件分析零问题。
 - `source_login_test.dart` 与 `webview_login_header_test.dart` 共 13 项通过，输出为工作树 `.tmp_agp9_tools/webview-tests.log`。
 - 这些测试覆盖应用侧登录信息与请求头解析；Android Cookie、JS 执行、页面导航及登录回调仍待原生验证。
+
+### AGP / Gradle / Kotlin 兼容模式
+
+- AGP 9.2.1 / Gradle 9.4.1 配置通过；wrapper 的 `distributionSha256Sum` 来自官方 `.sha256` 文件，为 `708d2c6ecc97ca9a11838ef64a6c2301151b8dd10387e22dc1a12c30557cab5b`。
+- 原 KGP 2.2.20 触发 Flutter 的 Gradle 不兼容提示；官方表列出其完整支持范围止于 Gradle 8.14。2.4.20–2.4.21 覆盖 Gradle 9.4.1 与 AGP 9.2.1，配套采用补丁版 2.4.21。
+- KGP 更新后的首次配置失败明确指向旧 `kotlinOptions.jvmTarget` 的错误级弃用；仅将宿主 JVM 目标配置改为顶层 `compilerOptions`，保持 17。没有禁止警告、跳过兼容校验或改共享 Pub 缓存。
+- Java 17.0.20.1 下 `flutter analyze --suggestions` 显示四项工具兼容；最终 `gradlew.bat help --warning-mode all` 成功，日志为工作树 `.tmp_agp9_tools/gradle-help-final.log`。
+- Flutter 自带 Gradle 插件与第三方旧 DSL 的弃用警告仍存在；当前 TTS 为明确的内置 Kotlin 待适配项，兼容模式下可配置。
+- 本机缺少对应 Java 17 与 Rust NDK 27，分别在工作树忽略目录下载并核对官方校验后解压；进程内选择，不改变全局 Java 设置。Flutter Gradle 自动补装 SDK 默认 NDK 28.2，Rust 构建仍明确使用 NDK 27.0.12077973。
+- 原构建脚本无 UTF-8 BOM，Windows PowerShell 5.1 解析失败；改用本机已有 PowerShell 7 执行，不修改脚本内容或编码。
+
+来源：[Gradle 分发包校验值](https://services.gradle.org/distributions/gradle-9.4.1-all.zip.sha256)、
+[Kotlin 官方兼容表](https://kotlinlang.org/docs/gradle-configure-project.html#apply-the-plugin)。
+
+### 提交与设备准备
+
+- 用户要求将之前的依赖升级提交压缩为 `1805569d6`，本次三项 Android 实现压缩为 `d035e2702`；新旧文件树摘要完全相同，两条分支使用精确 `force-with-lease` 原子推送。
+- 主 checkout 的 CI 工作区修改及暂存区未被覆盖；迁移 worktree 的计划提交同步重建祖先关系。
+- MuMu 实时探测：新安装路径 `C:\Program Files\NetEase\MuMu`，index 0，Android 15 / API 35，adb `127.0.0.1:16384` 为 device；支持 x86_64。本记录只是当前连接证据，后续仍需重新探测。
+- Android 构建与设备验证按用户最新授权恢复，实际结果后续回填；iOS 模拟器继续暂缓。
 
 编写者：Codex｜2026-10-10
