@@ -222,4 +222,49 @@ APK ZIP 对齐、ELF 段对齐与 16 KB 设备实际运行分别记录，不能�
 - MuMu 实时探测：新安装路径 `C:\Program Files\NetEase\MuMu`，index 0，Android 15 / API 35，adb `127.0.0.1:16384` 为 device；支持 x86_64。本记录只是当前连接证据，后续仍需重新探测。
 - Android 构建与设备验证按用户最新授权恢复，实际结果后续回填；iOS 模拟器继续暂缓。
 
-编写者：Codex｜2026-10-10
+### 原生库与本地环境
+
+- 本机 Rust stable 实际为 1.99.0；明确使用 NDK 27.0.12077973，为三个 target 设置 16 KB 链接参数。aarch64 与 x86_64 的 release 库启用 QuickJS，当前源码指纹及 FRB 契约校验通过。
+- armv7 启用 QuickJS 时，`rar 0.4.0` 的 `nom::take(u64)` 在 32 位平台缺少 `ToUsize` 实现。既有脚本按 Android Release 的策略降级为不启用 QuickJS，构建成功。本轮不修改 Rust 依赖或解析器；32 位包不具备本次 64 位包的 JS 能力。
+- 对打包副本使用 NDK 27 的 `llvm-strip --strip-unneeded`，保留 Cargo 原产物；三 ABI 的 ELF 加载段均为 16384 对齐。包内库还须与 Cargo 原产物经同一工具正规化后核对 SHA-256，不能用 FRB hash 代替来源验证。
+- 首次 Android 宿主编译失败来自 Kotlin 增量缓存：C 盘 Pub 源码与 E 盘工程不能转换相对路径。为该工作区设置 E 盘独立 `PUB_CACHE`，复用当前锁定包，移除该插件失败的增量缓存后，原 `:android_file_picker:compileDebugKotlin` 成功。保持增量编译，不修改全局 Pub/Gradle 设置或插件源码。
+- 本机 PowerShell 7 用于执行无 BOM 的原生脚本；Java、代理、Pub 缓存与官方 Flutter 资产源均为进程设置。新 worktree 执行依赖恢复后需要使用相同环境，不依赖其他 checkout 的生成配置。
+- 当前 MuMu 为 4 KB 页环境。APK ZIP/ELF 对齐检查与 MuMu 启动不能代替 16 KB 页设备的运行验证。
+- 本地日志位于工作树 `.tmp_agp9_tools/native-release.log`、`android-file-picker-kotlin-final.log`；产物校验使用同目录 `verify-native-apks.py`。日志与工具为忽略的验证材料，不写入提交正文。
+
+### Android 编译与首轮冒烟（2026-10-11）
+
+- `flutter build apk --debug --no-pub` 成功，全部原生插件完成编译；首次构建自动补装 Android SDK 36 与 CMake 3.22.1。APK 中三 ABI 的 Rust 库均与当前 Cargo 原产物经 NDK 27 strip 正规化后的摘要一致。
+- `:app:testDebugUnitTest` 成功，四类既有宿主测试共 24 项，失败/错误/跳过均为零。覆盖存储参数、媒体 Session、通知文本与视频逻辑，不等同听书或通知权限的真实设备验收。
+- MuMu 上运行既有 `emulator_smoke_test.ps1 -Device 127.0.0.1:16384 -SkipBuild`，6 项检查通过：在线、APK 存在、安装、版本、进程和崩溃检查。UI 转储已显示书架与搜索入口；未使用历史端点。
+- 日志：工作树 `.tmp_agp9_tools/apk-debug.log`、`apk-debug-native-check.log`、`android-jvm-tests.log`、`mumu-smoke.log`；JVM 原始 XML 在 `flutter_legado/build/app/test-results/testDebugUnitTest/`。
+- 真实 FFI 的三个测试全部通过：初始化、版本读取与数据库查询。现有平台无关的离线搜索阅读测试也在 MuMu 通过：本地 HTTP 书源导入、两条搜索结果、章节目录、第一章正文及 UI 点击翻到第二章。分别使用 `ffi_smoke_test.dart` 与 `e2e_search_read_ios_test.dart`；文件名含 iOS 不代表本次运行了 iOS。
+- 设备测试日志为工作树 `.tmp_agp9_tools/mumu-ffi-smoke.log` 和 `mumu-reading-e2e.log`。阅读样本只含 CSS，未覆盖实际 JS 书源、WebView 登录、后台 TTS 与通知权限。
+- 三 ABI release APK 构建成功，原生库正规化摘要、包名、签名、版本与 ZIP 对齐通过；64 位包内所有 `.so` 的 LOAD 段满足 16 KB 对齐。app 版本仍为 `2.0.369+370`，ABI split 使用 Flutter 既有规则生成 versionCode 1370 / 2370 / 4370。
+- 集成测试后的首次 release 使用 `--no-pub`，遗留了测试插件注册，导致 `IntegrationTestPlugin` 找不到；恢复正常 `flutter build apk --release --split-per-abi` 流程后生成文件正确过滤 dev 插件，构建成功。不手改注册文件，lockfile 未变化。
+- 最终日志为工作树 `.tmp_agp9_tools/apk-release-final.log`、`apk-release-native-check.log`、`apk-release-package-check.log`，清单/签名/ELF 原始报告为 `android-package-report.json`。RELRO 结果单独登记，不由前述校验推导兼容。
+
+### 新发现的 RELRO 对齐风险（2026-10-11）
+
+NDK 27 构建出的 Rust 库虽有 16 KB LOAD 对齐，但 `GNU_RELRO` 虚拟地址加内存长度的末尾模 16384 仍非零：aarch64 为 `0x1000`、x86_64 为 `0x3000`、armv7 为 `0x1000`。该项是直接读取本次 ELF 程序头所得，不是设备运行失败的推断。
+
+Android 官方新增说明指出，NDK 27 及以下未设置相应链接参数的 RELRO 保护区可能在 16 KB 环境导致段错误。现有 CI/本地设置只指定 `max-page-size`，LOAD/ZIP 检查不能证明 RELRO 合规；本轮 MuMu 为 4 KB，不能排除该风险。最终包中部分 Flutter/JNI/AndroidX 等第三方库也有非零 RELRO 余数，须作为待核查项记录，不能单靠 Rust 修复宣称整包运行兼容。
+
+用户于 2026-10-11 确认：AGP 迁移后单独修复 Rust 原生链接参数，分开提交。实际状态维护于 Active 计划。
+
+来源：[Android 16 KB RELRO 检查与编译要求](https://developer.android.com/guide/practices/page-sizes#relro)。
+
+### app_links 7.2.2 与最终设备回归（2026-10-11）
+
+- AGP 真实构建通过后解除版本上限，改用 `^7.2.2`。新版要求 Linux 1.0.4 / Web 1.0.5，移除无调用方的传递包 gtk；Linux 注册文件由 Flutter 同步生成，其他包未升级。
+- 精确依赖恢复成功；链接服务、解析器、导入页面和测试定向分析零问题。5 项解析测试通过；后续连同欢迎页导航门控测试共 10 项通过，不重复计数为额外覆盖。
+- MuMu 暴露旧、新 app_links 在重复热启动链接时关闭弹窗。相同 release 模式的 7.0.0 基线与 7.2.2 均复现；Flutter Android embedding 源码证实 `onNewIntent` 额外发送默认 `pushRouteInformation`，与现有 MethodChannel 重复处理。
+- 按 Flutter 与插件官方接线要求，在 MainActivity 清单设置 `flutter_deeplinking_enabled=false`。关闭重复处理后，冷启动还暴露欢迎页的 `pushReplacementNamed` 会替换初始弹窗；复用已经测试的欢迎页门控，等待主页就绪后 attach 深链，不重写导入业务、导航体系或页面。
+- 最终 release APK 在 MuMu 通过冷启动、热启动、重复去重、关闭后再次打开及 yuedu 入口。检查每次新生成的 UI XML；MuMu uiautomator 写出后返回 139，记录该工具退出，并按应用 PID 检查崩溃，避免混淆工具和应用。无 src 测试只打开弹窗，不请求外网或写入书源。
+- 三 ABI 最终包已重新构建并核对 Rust 来源、清单/版本/签名/ZIP 与 LOAD 对齐。用户版本保持 `2.0.369+370`；测试结束安装正常 release 包，未清空应用数据。Android 走原自定义通道，iOS 的插件事件流与 Linux/Web/Windows 运行仍未验收。
+- 日志：工作树 `.tmp_agp9_tools/app-links-analysis.log`、`deep-link-startup-tests.log`、`mumu-deep-links-baseline.log`、`mumu-deep-links-agp9-final.log`、`apk-release-agp9-final.log`、`apk-release-agp9-final-native.log`、`apk-release-agp9-final-package.log`。提交不含这些本地日志正文。
+
+来源：[Flutter 默认深链处理退出说明](https://docs.flutter.dev/ui/navigation/deep-linking#migrating-from-plugin-based-deep-linking)、
+[app_links Android 接线](https://github.com/llfbandit/app_links/blob/main/doc/README_android.md)。
+
+编写者：Codex｜2026-10-10；补充构建与设备证据｜2026-10-11
