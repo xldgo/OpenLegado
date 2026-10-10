@@ -86,18 +86,23 @@ jobs:
           RUST_FP="$(rust_fingerprint "$PWD")"
           export RUST_FP
           python3 - <<'PY'
-          import datetime, json, os, pathlib, re, shutil, struct
+          import datetime, hashlib, json, os, pathlib, re, shutil
           root = pathlib.Path('../flutter_legado/android/app/src/main/jniLibs')
           content_hash = int(re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', pathlib.Path('legado-ffi/src/frb_generated.rs').read_text())[1])
           for target, abi in [('aarch64-linux-android', 'arm64-v8a'), ('x86_64-linux-android', 'x86_64')]:
               source = pathlib.Path('target') / target / 'debug/liblegado_ffi.so'
-              if struct.pack('<i', content_hash) not in source.read_bytes():
-                  raise SystemExit(f'{target} 动态库未嵌入当前 FRB hash')
+              source_bytes = source.read_bytes()
+              if not source_bytes:
+                  raise SystemExit(f'{target} 本次构建的动态库为空')
+              binary_sha256 = hashlib.sha256(source_bytes).hexdigest()
               destination = root / abi / source.name
               destination.parent.mkdir(parents=True, exist_ok=True)
               shutil.copyfile(source, destination)
-              metadata = {'contentHash': content_hash, 'mode': 'debug', 'quickjs': True, 'rustFingerprint': os.environ['RUST_FP'], 'builtAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+              if hashlib.sha256(destination.read_bytes()).hexdigest() != binary_sha256:
+                  raise SystemExit(f'{abi} 复制后的动态库与本次构建产物不一致')
+              metadata = {'contentHash': content_hash, 'mode': 'debug', 'quickjs': True, 'rustFingerprint': os.environ['RUST_FP'], 'binarySha256': binary_sha256, 'builtAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
               destination.with_suffix('.so.meta').write_text(json.dumps(metadata, separators=(',', ':')))
+              print(f'已复制 {abi} 本次动态库，SHA256={binary_sha256}')
           PY
       - name: 校验本次 Android debug FFI
         working-directory: rust

@@ -17,7 +17,7 @@
 - **验收**：workflow 解析与 actionlint 通过，默认/QuickJS 及现有集成测试覆盖不减少；手动 iOS CI 不作为 PR 必需检查；设备 IPA、图标兼容处理和签名链路保持；手动 Android Release 只构建、不发布。
 - **证据**：[独立审查报告](CI_WORKFLOW_REVIEW_20261010.md)；actionlint 1.7.12、YAML/重复键、内嵌 Bash/Python 检查与关键正负例通过。Rust 汇总覆盖 64 种状态组合；发布任务通过构建产物 ID 取包，已验证仅重跑发布时的工件关联。
 - **提交与限制**：工程提交 `2301a2e18`，起点 `a3302a0cc84b6892ea6833b8923836b166b45a36`；按用户要求从当前 HEAD 创建并切换 `dev`，已推送至 `origin/dev`。HTTPS 凭据缺少 workflow scope 的首次推送失败已通过既有 SSH 身份解决，未改认证配置。stale 单行追加调整通过独立审查，随本轮交付记录单独提交；签名素材和必需检查配置尚未核实，新手动 iOS CI 进入默认分支后再按需运行。
-- **远端复验（2026-10-10 12:41 香港时间快照）**：[Flutter CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497488) 已通过；[Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497519) 的质量与审计通过、测试运行中；[Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38024497493) 的 Android 原生编译通过，但复制库/元数据步骤失败待查因，Windows 后续测试仍在运行；[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38024497525) 仍在设备编译。未自动触发仅手动的 iOS CI 或仅标签/手动的 Android Release。静态验证不能替代尚未完成的平台构建证据。
+- **首轮远端复验**：[Flutter CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497488)、[Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38024497519)、[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38024497525) 及 [Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38024497493) 的 Windows FFI 均已通过。Android 原生编译通过，但复制步骤失败；用户提供实际日志为“aarch64-linux-android 动态库未嵌入当前 FRB hash”，对应新增四字节扫描误报。本机真实 ARM64 最小编译已证实合法整数可拆成 mov/movk 指令，不能以连续四字节判定。已改为复制 SHA256 与包内库经同一 NDK strip 正规化后的摘要比较，最终实际守卫已接受合法 strip、拒绝旧库/运行时代码差异与 strip 失败，修后远端复验待补。未自动触发仅手动的 iOS CI 或仅标签/手动的 Android Release。
 - **图标口径**：注入 PNG 与强制旧式声明为历史兼容尝试，尚无解决真机 `-54` 的证据。本批保持包内容一致，旧探针转手动诊断；移除补丁需另批对照验证。
 
 编写者：Codex 主代理｜2026-10-10
