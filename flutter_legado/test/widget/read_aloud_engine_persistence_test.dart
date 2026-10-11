@@ -10,8 +10,8 @@
 //    SpeakEngineDialog.kt:315-326 的 upTts），初始选中 = 有效引擎
 //    （书级优先、空则全局回退）；底部「书」/「全局」按钮触发持久化。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -149,11 +149,13 @@ void main() {
 
     testWidgets('「全局」按钮：先清书级再写全局 config 键', (tester) async {
       await pumpBar(tester);
-      readNotifier().bindBook(const Book(
-        bookUrl: bookUrl,
-        name: '书',
-        readConfig: ReadConfig(ttsEngine: urlA),
-      ));
+      readNotifier().bindBook(
+        const Book(
+          bookUrl: bookUrl,
+          name: '书',
+          readConfig: ReadConfig(ttsEngine: urlA),
+        ),
+      );
       await openEngineDialog(tester);
 
       await tester.tap(find.widgetWithText(TextButton, '全局'));
@@ -206,22 +208,34 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('不支持系统 TTS 的平台仍显示 HTTP 空列表提示', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        when(() => api.getHttpTts()).thenAnswer((_) async => []);
+        await pumpScreen(tester);
+        expect(find.text('暂无朗读引擎'), findsOneWidget);
+        expect(find.text('系统 TTS'), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     testWidgets('初始选中 = 有效引擎（书级优先）；行点击只改选中态不落库', (tester) async {
-      readNotifier().bindBook(const Book(
-        bookUrl: bookUrl,
-        name: '书',
-        readConfig: ReadConfig(ttsEngine: urlA),
-      ));
+      readNotifier().bindBook(
+        const Book(
+          bookUrl: bookUrl,
+          name: '书',
+          readConfig: ReadConfig(ttsEngine: urlA),
+        ),
+      );
       await pumpScreen(tester);
 
       // 书级引擎甲高亮（radio checked），行点击不产生写库
       expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-      expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+      // 两个 HTTP 选项加内置系统选项，只有书级引擎处于选中状态。
+      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
       final checkedTile = tester.widget<ListTile>(
-        find.ancestor(
-          of: find.text('引擎甲'),
-          matching: find.byType(ListTile),
-        ),
+        find.ancestor(of: find.text('引擎甲'), matching: find.byType(ListTile)),
       );
       expect(checkedTile.selected, isTrue);
 
@@ -230,18 +244,14 @@ void main() {
 
       expect(savedBooks, isEmpty);
       final switched = tester.widget<ListTile>(
-        find.ancestor(
-          of: find.text('引擎乙'),
-          matching: find.byType(ListTile),
-        ),
+        find.ancestor(of: find.text('引擎乙'), matching: find.byType(ListTile)),
       );
       expect(switched.selected, isTrue);
     });
 
     testWidgets('「书」按钮：持久化选中引擎到当前书 readConfig.ttsEngine', (tester) async {
-      when(() => api.getBook(bookUrl)).thenAnswer(
-        (_) async => const Book(bookUrl: bookUrl, name: '书'),
-      );
+      when(() => api.getBook(bookUrl))
+          .thenAnswer((_) async => const Book(bookUrl: bookUrl, name: '书'));
       readNotifier().bindBook(const Book(bookUrl: bookUrl, name: '书'));
       await pumpScreen(tester);
 
@@ -257,11 +267,13 @@ void main() {
     });
 
     testWidgets('「全局」按钮：清书级 + 写全局 config 键', (tester) async {
-      readNotifier().bindBook(const Book(
-        bookUrl: bookUrl,
-        name: '书',
-        readConfig: ReadConfig(ttsEngine: urlA),
-      ));
+      readNotifier().bindBook(
+        const Book(
+          bookUrl: bookUrl,
+          name: '书',
+          readConfig: ReadConfig(ttsEngine: urlA),
+        ),
+      );
       await pumpScreen(tester);
 
       await tester.tap(find.text('引擎乙'));

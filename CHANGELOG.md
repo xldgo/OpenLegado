@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.372] - 2026-10-11
 
+### Added
+- [UI] Android/iOS 朗读引擎增加系统 TTS，支持设备语音与音色选择，沿用书级和全局设置。
+- [UI] 系统朗读复用连续切段切章、暂停恢复、倍速及定时停止，保留 HTTP TTS 和音频书播放。
+
 ### Fixed
 - [UI] 阅读器更多弹出菜单打开时，正文操作先收起弹出菜单，保留阅读菜单；再次操作才收起阅读菜单。
 - [UI] 正文选区统一当前页字形高度，保留行距与段距，避免跨行高亮粘连及间隙不一致。

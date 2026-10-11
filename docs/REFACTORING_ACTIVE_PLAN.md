@@ -10,6 +10,23 @@
 
 > **本批本地提交（2026-10-11）**：用户已授权将本批 UI 修改合为一个本地提交，包含 UI-MD3-AUDIT、UI-READER-TYPOGRAPHY、UI-READER-TOC、UI-READER-MENU-COLOR 与 UI-HOME-HEATMAP 的实现及既有测试适配。提交前汇总检查 48 个改动的 Dart 文件，静态分析无问题，差异检查通过；此前各轮最小回归、增量构建及 MuMu 安装记录沿用，不重复运行整套 CI。版本保持 2.0.372+373，不推送、不触发远端 CI，设备视觉与交互仍按用户人工检查口径，不将本地提交视作额外验收通过。
 
+### SYSTEM-TTS-20261011：接入 Android / iOS 系统朗读（P1）
+
+- **状态**：待复验；代码、定向测试及 Android x86_64 Debug APK 构建和产物校验已完成。Android/iOS 真机中文朗读、锁屏连续播放、耳机控制及中断恢复尚未验收，不能视为平台功能全部完成。
+- **基线与工作区**：基于本地 `feature/ui-material-ui` 已提交 HEAD `d2adff7da`，工作分支 `feature/ui-system-tts`，独立目录 `E:/code/workspace/OpenLegado-tts`。兼容 `material_ui 1.6.0` / `cupertino_ui 1.0.2`；主目录的未提交界面修改留在原处。按用户要求不使用子代理；用户本轮已授权提交并推送当前 TTS 分支，仅手动触发 iOS Build，不触发其他 CI。
+- **实现范围**：新增 `services/system_tts_service.dart`，复用已锁定的 `flutter_tts 4.2.5`。管理页与阅读器引擎选择器增加 `system://default` 内置选项，即使没有 HTTP 引擎也能选择；使用独立选项模型，不创建 HttpTts 数据行。书级 `readConfig.ttsEngine` 和全局 `appTtsEngine` 仍使用原有持久化与优先级，既有配置不被替换。设备引擎/音色偏好存入 SharedPreferences 的独立系统 TTS 键。
+- **声音与设置**：优先设备已安装的离线中文语音；支持选择 Android 设备引擎与 Android/iOS 音色；系统语音设置不会重启正在播放的 HTTP 音频，不支持系统 TTS 的平台保留原有空列表提示。现有倍速、音调、音量用于系统路径；语速按平台有效范围映射。长段按平台输入长度分片并保持原段落归属，全部分片完成才推进；缺少中文语音或初始化/朗读失败时暂停并给出错误，不进行无声估时推进。
+- **播放与竞态**：AudioNotifier 系统分支直接 speak，不调用 Rust HTTP 合成或文件播放器。复用段落/章节队列、媒体会话及定时停止；切书、切章、切段、切引擎、停止和销毁失效旧 token。插件事件没有朗读 ID，串行停止/启动并等待旧原生完成/取消确认后才开始新声音；三秒内未确认则失败并阻止叠音。暂停优先续读，不支持时重读当前分片；暂停后手动切段丢弃旧续读内容。
+- **平台接线**：Android 沿用媒体会话、前台服务与唯一音频焦点所有者，插件 speak(focus: false) 不重复申请。iOS 保留 playback/spokenAudio、共享会话和现有后台 audio 声明，段间不主动释放会话，开始/恢复时重新激活。音频中断只恢复原先播放且允许恢复的会话，用户暂停或停止后不会被 gain 自动开播。
+- **旧桥处理**：删除无 Dart 生产调用的 PlatformChannel 系统朗读方法及第二个 iOS FlutterTts 实例；Kotlin TtsBridge 的注册和销毁仍保留，本轮未删除原生文件。没有新增原生 TTS 桥接。
+- **分析与回归**：`flutter analyze --no-pub --no-fatal-infos` 返回 0，无错误或警告，仅两条既有漫画测试 info。系统服务、AudioNotifier、HTTP TTS、音频焦点、定时停止、章节竞态、引擎选择与持久化共 **87 项定向测试通过**；复用现有 Windows DLL 后 **19 项真实 FFI 测试通过**。日志分别为 `flutter_legado/build/system-tts-analyze.log`、`system-tts-targeted-tests.log`、`system-tts-ffi-tests.log`，均为本地忽略产物。
+- **全套测试边界**：首次全套测试为 2254 通过、22 失败：5 项来自工作区最初缺少 DLL（含连带清理失败），后续 FFI 定向复验通过；3 项为新增系统选项/URL 标识影响的旧选择器断言，已适配并复验。剩余 **14 项界面失败**在未修改的 HEAD 快照复现（30 通过、14 失败），涉及首页壳、字体面板、阅读设置导航、Web 服务入口与顶栏样式，未扩大本任务去修改相关页面。基线日志：`flutter_legado/build/system-tts-baseline/baseline-tests.log`。
+- **Android 构建证据**：复用现有 x86_64 Debug QuickJS 库，核对原构建源码字节、NDK 策略、元数据和 Cargo 源库摘要；两份输入只有 checkout 换行不同，已对齐且不产生 Git 内容差异，未改元数据或绕过校验。Gradle assembleDebug 返回 0（2 分 42 秒），`python scripts/dev.py verify apk android --profile debug --abis x86_64 --apk flutter_legado/build/app/outputs/flutter-apk/app-debug.apk --cargo-target-dir E:/code/workspace/OpenLegado/rust/target --ndk C:/Users/share/AppData/Local/Android/sdk/ndk/28.2.13676358` 返回 0。APK SHA-256：`34d877bc77de1872363fde30222b75264cb88d1148a26bd81474ce8e6afa5a44`；日志为 `system-tts-android-build.log`、`system-tts-apk-verify.log`。未安装到设备，未覆盖主工作区正在验收的界面版本。
+- **本机环境与实测边界**：锁文件依赖已恢复；Windows plugin symlink 准备受开发者模式限制，测试、分析及构建不重新 pub get。镜像缺少 Flutter Maven 产物，构建改用官方存储与用户提供的代理。Kotlin 增量缓存跨盘报错，本次 Gradle 命令使用 `-Pkotlin.incremental=false`；GraalVM 24 的 jlink 失败后，使用 [微软官方 OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download) 便携 JDK 17.0.20.1，校验官方 SHA-256 并仅放任务 build 缓存、设置当前进程 JAVA_HOME，没有改系统 PATH 或项目 Java/Gradle/Kotlin 配置。当前 adb 在线的 MuMu `127.0.0.1:16384` 查询 TTS_SERVICE 返回 `No services found`；中文和后台朗读需要有 TTS 引擎的 Android 设备或 iPhone 验收，Windows 不能完成 iOS Xcode/真机验证。
+- **范围与交付**：应用版本保持 `2.0.372+373`，同步现有版本的两处更新日志。不修改 Rust/FFI 契约、书源、数据库结构、HTTP 合成或 AudioNotifier 整体架构，不实现 synthesizeToFile。用户本轮已授权将本任务合为一条功能提交，推送 `feature/ui-system-tts` 并仅手动触发 iOS Build；真机朗读与后台播放验收仍待进行。
+
+编写者：Codex｜2026-10-11
+
 ### UI-HOME-HEATMAP-20261011：首页阅读热力图迁移（P1）
 
 - **状态**：待复验；用户要求阅读热力图移至首页，并只保留按时长显示。设备视觉与交互由用户人工检查。
@@ -57,6 +74,8 @@
 - **选区留白续修**：旧 max 边界把行距计入高亮，本机真实 Arial/微软雅黑样例的 38px 行框被 38.4px 高亮覆盖，导致相邻行重叠约 0.4px；段落间额外留白又使间隙看起来不均匀。现以当前页实际文字的字体回退度量统一高亮字形高度，保留各行基线、字符横向范围、行距、段距及缩进映射；样例高亮为 31.7px，普通行间留白约 6.32px。补充两档文字缩放的跨行/段距测试，并复核实际主机字体；仅本地审计读字体，不新增字体资产。真实字体证据位于忽略目录 flutter_legado/build/reader-layout-audit/selection-gap-{audit,font-regression}.log。
 - **弹出菜单优先关闭**：原 MenuAnchor 的 consumeOutsideTap 只消费手势，正文区域 Listener 的原始按下仍关闭阅读菜单。共用菜单暴露打开/关闭回调，弹出菜单存在时正文区域拦截原始指针；第一次外部操作只关闭弹出菜单，下一次才按阅读菜单既有规则处理。覆盖外部点击、拖动、系统返回及外部关闭阅读菜单后重新打开四项回归，其中旧外部点击/拖动两项复现失败。保持既有菜单选项、翻页、FFI、数据库和 2.0.372+373 版本不变。
 - **本轮验证与交付**：上述修复与既有菜单、原生选区、重排、缩进及快照测试共 84 项通过，11 个相关文件定向静态检查无问题，差异检查通过。Android x86_64 debug 最终包增量构建成功（63 秒），复用 Rust 库，APK 包内 native 摘要校验通过；已覆盖安装实时在线设备 127.0.0.1:16384（Success），冷启动 Status: ok、进程正常，保留用户数据。测试包为忽略目录 flutter_legado/build/reader-layout-audit/openlegado-reader-interaction-x86_64-debug.apk；日志为 reader-interaction-{regression,analyze,android}.log、rapid-slow-{baseline,regression}.log。设备上的快滑转慢划动画、选区间距和菜单分层由用户复验，未将截图或启动成功当作这些交互通过；iOS 实机未验证。用户已授权本地提交与 TTS 分支合并，保持其他未提交修改，不推送或触发远端 CI。
+
+- **系统 TTS 分支整合（2026-10-12）**：按用户授权，将 `feature/ui-system-tts` 的 `e88313359` 合入当前 `feature/ui-reader-selection`；仅三份共用日志/计划冲突，保留双方内容，未改变 TTS 与阅读器代码。导出待提交合并树的独立副本，复用现有依赖解析缓存，199 项阅读器与朗读针对性测试通过，23 个相关实现文件静态检查无问题，差异检查通过；日志为忽略目录 flutter_legado/build/reader-layout-audit/git-delivery/reader-tts-merge-{tests,analyze}.log。保留其他任务的工作区与暂存改动，仅本地提交；不推送、不触发 CI。本次未重新构建或安装合并版本，系统 TTS 真机中文朗读、锁屏与耳机控制仍待验收。
 
 编写者：Codex｜2026-10-12
 

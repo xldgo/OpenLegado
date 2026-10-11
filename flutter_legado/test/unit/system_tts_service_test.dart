@@ -1,0 +1,334 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/services/system_tts_service.dart';
+
+class MockFlutterTts extends Mock implements FlutterTts {}
+
+Future<void> flush() async {
+  for (var i = 0; i < 8; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late MockFlutterTts plugin;
+  late SystemTtsService service;
+  late List<Completer<dynamic>> requests;
+  late List<String> spoken;
+  late List<Map<String, String>> chosenVoices;
+  late List<double> rates;
+  late List<dynamic> voices;
+  late void Function(dynamic) errorHandler;
+  late int stopCount;
+  late void Function() completionHandler;
+  late void Function() cancelHandler;
+  late void Function() pauseHandler;
+  int? nativeIndex;
+  final cancelled = <int>{};
+
+  setUpAll(() {
+    registerFallbackValue(IosTextToSpeechAudioCategory.playback);
+    registerFallbackValue(IosTextToSpeechAudioMode.spokenAudio);
+  });
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    plugin = MockFlutterTts();
+    requests = [];
+    spoken = [];
+    chosenVoices = [];
+    rates = [];
+    stopCount = 0;
+    nativeIndex = null;
+    cancelled.clear();
+    voices = [
+      {'name': '联网中文', 'locale': 'zh-CN', 'network_required': true},
+      {'name': '离线中文', 'locale': 'zh-CN', 'network_required': false},
+    ];
+    when(() => plugin.getEngines).thenAnswer((_) async => ['test.engine']);
+    when(() => plugin.getDefaultEngine).thenAnswer((_) async => 'test.engine');
+    when(() => plugin.setEngine(any())).thenAnswer((_) async => 1);
+    when(() => plugin.setQueueMode(any())).thenAnswer((_) async => 1);
+    when(() => plugin.getMaxSpeechInputLength).thenAnswer((_) async => 8);
+    when(() => plugin.awaitSpeakCompletion(any())).thenAnswer((_) async => 1);
+    when(() => plugin.getSpeechRateValidRange).thenAnswer(
+      (_) async =>
+          SpeechRateValidRange(0, 0.5, 1.5, TextToSpeechPlatform.android),
+    );
+    when(() => plugin.getVoices).thenAnswer((_) async => voices);
+    when(() => plugin.setVoice(any())).thenAnswer((call) async {
+      chosenVoices.add(call.positionalArguments.first as Map<String, String>);
+      return 1;
+    });
+    when(() => plugin.setLanguage(any())).thenAnswer((_) async => 1);
+    when(() => plugin.isLanguageAvailable(any()))
+        .thenAnswer((_) async => false);
+    when(() => plugin.setSpeechRate(any())).thenAnswer((call) async {
+      rates.add(call.positionalArguments.first as double);
+      return 1;
+    });
+    when(() => plugin.setPitch(any())).thenAnswer((_) async => 1);
+    when(() => plugin.setVolume(any())).thenAnswer((_) async => 1);
+    when(() => plugin.setSharedInstance(any())).thenAnswer((_) async => 1);
+    when(() => plugin.autoStopSharedSession(any())).thenAnswer((_) async => 1);
+    when(() => plugin.setIosAudioCategory(any(), any(), any()))
+        .thenAnswer((_) async => 1);
+    when(() => plugin.setErrorHandler(any())).thenAnswer((call) {
+      errorHandler = call.positionalArguments.first as void Function(dynamic);
+    });
+    when(() => plugin.setCompletionHandler(any())).thenAnswer((call) {
+      completionHandler = call.positionalArguments.first as void Function();
+    });
+    when(() => plugin.setCancelHandler(any())).thenAnswer((call) {
+      cancelHandler = call.positionalArguments.first as void Function();
+    });
+    when(() => plugin.setPauseHandler(any())).thenAnswer((call) {
+      pauseHandler = call.positionalArguments.first as void Function();
+    });
+    when(() => plugin.stop()).thenAnswer((_) async {
+      stopCount++;
+      if (nativeIndex != null) {
+        cancelled.add(nativeIndex!);
+        nativeIndex = null;
+        scheduleMicrotask(cancelHandler);
+      }
+      return 1;
+    });
+    when(() => plugin.pause()).thenAnswer((_) async {
+      if (nativeIndex != null) {
+        cancelled.add(nativeIndex!);
+        nativeIndex = null;
+        scheduleMicrotask(pauseHandler);
+      }
+      return 1;
+    });
+    when(() => plugin.speak(any(), focus: any(named: 'focus')))
+        .thenAnswer((call) async {
+          spoken.add(call.positionalArguments.first as String);
+          final request = Completer<dynamic>();
+          final index = requests.length;
+          requests.add(request);
+          nativeIndex = index;
+          request.future.then((_) {
+            if (!cancelled.contains(index)) {
+              nativeIndex = null;
+              completionHandler();
+            }
+          });
+          return 1;
+        });
+    service = SystemTtsService(tts: plugin, platform: TargetPlatform.android);
+  });
+
+  test('优先离线中文，保持唯一媒体焦点并映射倍速', () async {
+    final result = service.speak('中文小说。', speed: 2);
+    await flush();
+    expect(chosenVoices.single['name'], '离线中文');
+    expect(rates.single, 1.0);
+    verify(() => plugin.speak('中文小说。', focus: false)).called(1);
+    requests.single.complete(1);
+    expect(await result, SystemTtsOutcome.completed);
+  });
+
+  test('长段落串行分片，全部播完才完成原段落', () async {
+    final result = service.speak('第一句结束。第二句结束。');
+    var completed = false;
+    result.then((_) => completed = true);
+    await flush();
+    expect(spoken, ['第一句结束。']);
+    requests[0].complete(1);
+    await flush();
+    expect(completed, false);
+    expect(spoken, ['第一句结束。', '第二句结束。']);
+    requests[1].complete(1);
+    expect(await result, SystemTtsOutcome.completed);
+  });
+
+  test('旧取消确认到达前不能启动新朗读', () async {
+    final old = service.speak('旧段。');
+    await flush();
+    void Function()? acknowledge;
+    when(() => plugin.stop()).thenAnswer((_) async {
+      if (nativeIndex != null) {
+        cancelled.add(nativeIndex!);
+        nativeIndex = null;
+        acknowledge = cancelHandler;
+      }
+      return 1;
+    });
+    final stopped = service.stop();
+    final current = service.speak('新段。');
+    await flush();
+    expect(await old, SystemTtsOutcome.cancelled);
+    expect(spoken, ['旧段。']);
+    acknowledge!();
+    await stopped;
+    await flush();
+    expect(spoken, ['旧段。', '新段。']);
+    requests[1].complete(1);
+    expect(await current, SystemTtsOutcome.completed);
+  });
+
+  test('引擎不确认停止时明确失败，不能启动重叠声音', () async {
+    final old = service.speak('旧段。');
+    await flush();
+    when(() => plugin.stop()).thenAnswer((_) async => 1);
+    final stopped = service.stop();
+    final stopping = expectLater(stopped, throwsStateError);
+    final current = service.speak('新段。');
+    final rejected = expectLater(current, throwsStateError);
+    expect(await old, SystemTtsOutcome.cancelled);
+    await stopping;
+    await rejected;
+    expect(spoken, ['旧段。']);
+    cancelHandler();
+  });
+
+  test('暂停续读不停止原生暂停内容，旧完成不会串入恢复请求', () async {
+    final first = service.speak('中文段落。');
+    await flush();
+    await service.pause();
+    expect(await first, SystemTtsOutcome.paused);
+    final stops = stopCount;
+    final resumed = service.resume();
+    var completed = false;
+    resumed.then((_) => completed = true);
+    await flush();
+    expect(stopCount, stops);
+    expect(spoken, ['中文段落。', '中文段落。']);
+    requests[0].complete(1);
+    await flush();
+    expect(completed, false);
+    requests[1].complete(1);
+    expect(await resumed, SystemTtsOutcome.completed);
+  });
+
+  test('快速开始再停止，在初始化结束后不朗读', () async {
+    final result = service.speak('不能读。');
+    await service.stop();
+    expect(await result, SystemTtsOutcome.cancelled);
+    await flush();
+    expect(spoken, isEmpty);
+  });
+
+  test('缺失中文语音明确失败', () async {
+    voices = [];
+    await expectLater(service.speak('中文'), throwsStateError);
+    expect(spoken, isEmpty);
+  });
+
+  test('插件错误终止等待，不用完成回调假装成功', () async {
+    final result = service.speak('测试');
+    final expectation = expectLater(result, throwsStateError);
+    await flush();
+    errorHandler('引擎失败');
+    await expectation;
+    await service.stop();
+  });
+
+  test('保存系统音色不写入 HTTP 配置，重建服务恢复', () async {
+    await service.initialize();
+    final voice = (await service.getVoices()).last;
+    await service.saveSettings(engine: '', voice: voice.key);
+    final fresh = SystemTtsService(
+      tts: plugin,
+      platform: TargetPlatform.android,
+    );
+    await fresh.initialize();
+    expect(fresh.selectedVoice, voice.key);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getKeys(), {'system_tts_voice', 'system_tts_engine'});
+  });
+
+  test('iOS 使用共享 playback 会话，段间不释放', () async {
+    service = SystemTtsService(tts: plugin, platform: TargetPlatform.iOS);
+    await service.initialize();
+    verify(() => plugin.setSharedInstance(true)).called(1);
+    verify(() => plugin.autoStopSharedSession(false)).called(1);
+    verify(
+      () => plugin.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [],
+        IosTextToSpeechAudioMode.spokenAudio,
+      ),
+    ).called(1);
+    verifyNever(() => plugin.setEngine(any()));
+  });
+
+  test('iOS 暂停恢复共用原生完成事件，不创建等待完成 Future', () async {
+    service = SystemTtsService(tts: plugin, platform: TargetPlatform.iOS);
+    when(() => plugin.pause()).thenAnswer((_) async => 1);
+    final first = service.speak('中文段落。');
+    await flush();
+    await service.pause();
+    expect(await first, SystemTtsOutcome.paused);
+    when(() => plugin.speak(any(), focus: any(named: 'focus')))
+        .thenAnswer((_) async => 1);
+    final resumed = service.resume();
+    await flush();
+    completionHandler();
+    expect(await resumed, SystemTtsOutcome.completed);
+    verify(() => plugin.awaitSpeakCompletion(false)).called(1);
+    verifyNever(() => plugin.awaitSpeakCompletion(true));
+  });
+
+  test('iOS 暂停恢复时重新激活共享音频会话', () async {
+    service = SystemTtsService(tts: plugin, platform: TargetPlatform.iOS);
+    when(() => plugin.pause()).thenAnswer((_) async => 1);
+    final first = service.speak('中文段落。');
+    await flush();
+    await service.pause();
+    expect(await first, SystemTtsOutcome.paused);
+    when(() => plugin.speak(any(), focus: any(named: 'focus')))
+        .thenAnswer((_) async => 1);
+    final resumed = service.resume();
+    await flush();
+    verify(() => plugin.setSharedInstance(true)).called(3);
+    completionHandler();
+    expect(await resumed, SystemTtsOutcome.completed);
+  });
+
+  test('暂停不支持时停止，恢复重播当前分片', () async {
+    when(() => plugin.pause()).thenAnswer((_) async => 0);
+    final first = service.speak('中文段落。');
+    await flush();
+    await service.pause();
+    expect(await first, SystemTtsOutcome.paused);
+    final resumed = service.resume();
+    await flush();
+    expect(spoken, ['中文段落。', '中文段落。']);
+    requests[1].complete(1);
+    expect(await resumed, SystemTtsOutcome.completed);
+  });
+
+  test('不支持平台明确失败，不调用插件', () async {
+    service = SystemTtsService(tts: plugin, platform: TargetPlatform.linux);
+    await expectLater(service.initialize(), throwsStateError);
+    verifyNever(() => plugin.getVoices);
+  });
+
+  test('分片保留全部文本，UTF-16 代理对不会被截断', () {
+    const text = '甲乙丙😀丁戊己😀庚辛';
+    final parts = SystemTtsService.splitText(text, 4);
+    expect(parts.join(), text);
+    for (final part in parts) {
+      expect(part.length, lessThanOrEqualTo(4));
+      expect(
+        part.codeUnitAt(part.length - 1),
+        isNot(inInclusiveRange(0xd800, 0xdbff)),
+      );
+    }
+  });
+
+  test('倍速遵循平台范围与正常值', () {
+    expect(SystemTtsService.speechRate(1, 0.5, 1), 0.5);
+    expect(SystemTtsService.speechRate(3, 0.5, 1), 1);
+    expect(SystemTtsService.speechRate(3, 0.5, 1.5), 1.5);
+    expect(SystemTtsService.speechRate(0.5, 0.5, 1), 0.25);
+  });
+}
