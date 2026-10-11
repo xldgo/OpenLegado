@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/book.dart';
 import '../../models/book_source.dart';
@@ -22,6 +21,7 @@ import '../help/help_assets.dart';
 import '../help/show_help.dart';
 import 'change_chapter_source_sheet.dart';
 import 'change_source_flow.dart';
+import 'reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
 import 'reader_page_chrome.dart';
 import 'reader_settings_sheet.dart';
@@ -950,33 +950,13 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
   // 记住偏好）— Qoder
 
   /// 点击章节 URL：按 readUrlInBrowser 偏好打开（false=内置，true=系统）
-  Future<void> _openChapterUrl(BuildContext context, String url) async {
-    var inSystemBrowser = false;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      inSystemBrowser = prefs.getBool('readUrlInBrowser') ?? false;
-    } catch (_) {
-      // 偏好读取失败时默认内置打开
-    }
-    if (!context.mounted) return;
-    if (inSystemBrowser) {
-      await _openUrlInSystemBrowser(context, url);
-    } else {
-      Navigator.of(context).pushNamed(
-        AppRoutes.browser,
-        arguments: <String, String>{'url': url, 'title': '章节链接'},
-      );
-    }
-  }
+  Future<void> _openChapterUrl(BuildContext context, String url) =>
+      openReaderChapterUrl(context, url);
 
   /// 系统浏览器打开（url_launcher 已在 pubspec 依赖中）
   Future<void> _openUrlInSystemBrowser(
-      BuildContext context, String url) async {
-    final uri = Uri.tryParse(url);
-    final ok = uri != null &&
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) _snack(context, '无法打开链接：$url');
-  }
+      BuildContext context, String url) =>
+      openReaderChapterUrl(context, url, inSystemBrowser: true);
 
   /// 长按章节 URL：选择打开方式（选内置/系统同时持久化偏好）
   Future<void> _showChapterUrlMenu(BuildContext context, String url) async {

@@ -5,8 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_strings.dart';
@@ -22,6 +21,8 @@ import 'reader_page_chrome.dart';
 import 'turn/page_direction.dart';
 import 'turn/reader_turn_view.dart';
 import 'reader_text_content.dart';
+import 'reader_selection_controller.dart';
+import 'reader_selection_region.dart';
 
 /// 阅读器内容区（分页 + 5 种翻页模式）
 ///
@@ -64,6 +65,8 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 长按选择文本开关（对标原版 selectText，关闭后长按不弹选区面板）
   final bool selectText;
 
+  /// 选区内部的普通点按仍交给阅读九宫格，避免原生选区吞掉菜单点按。
+  final ValueChanged<TapUpDetails>? onTapUp;
 
   /// 滚动翻页无动画（对标原版 noAnimScrollPage：程序化翻页去除动画）
   final bool noAnimScroll;
@@ -117,6 +120,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.pageChrome = const ReaderPageChromeConfig(),
     this.readBodyToLh = true,
     this.selectText = true,
+    this.onTapUp,
     this.noAnimScroll = false,
     this.textBold = 0,
     this.italic = false,
@@ -134,13 +138,17 @@ class ReaderPageView extends ConsumerStatefulWidget {
 }
 
 class ReaderPageViewState extends ConsumerState<ReaderPageView> {
+  final ReaderSelectionController _selectionController =
+      ReaderSelectionController();
+
+  bool consumeSelectionTap() => _selectionController.consumeTap();
 
   /// 相邻章预载预览页（章边界动画与承接显示；[UI_SYNC_REFACTOR S6 修]）
   Widget? _nextChapterPreview;
   Widget? _prevChapterPreview;
   bool _preloadingNext = false;
   bool _preloadingPrev = false;
-
+  int _layoutGeneration = 0;
 
   /// 最近一次分页参数（相邻章预载复用同参；翻页回调触发预载时也需读取）
   ParagraphConfig? _pagedConfig;
@@ -165,12 +173,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 分页对应的章节索引（用于检测章节切换后重新分页）
   int _paginatedChapterIndex = -1;
 
-
   /// 分页对应的字号（设置变化时重新分页）
   double _paginatedFontSize = -1;
 
   /// 分页对应的行高
   double _paginatedLineHeight = -1;
+
+  Size? _paginatedScreenSize;
+  TextScaler? _paginatedTextScaler;
+  TextStyle? _paginatedBaseStyle;
+  bool _paginatedBoldText = false;
 
   /// 分页对应的段距
   double _paginatedParagraphSpacing = -1;
@@ -216,10 +228,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   /// 当前页索引（屏级分页）
   int _currentPageIndex = 0;
-
-
-
-
 
   /// 当前分页数据对应的章节标题（与 _paginatedChapterIndex 同帧写入，
   /// 章节切换加载中冻结渲染时标题与正文保持同章，避免新标题配旧正文）
@@ -277,6 +285,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   ///
   /// 跨章节无缝翻页：到达本章最后一页时自动进入下一章第一页。
   void nextPageOrChapter() {
+    if (_selectionController.value) return;
     final notifier = ref.read(readerNotifierProvider.notifier);
     // [UI-fix v2.0.3 | 2026-08-08] 滚动模式下程序化翻页按屏滚动 — Qoder
     if (ref.read(readerNotifierProvider).pageTurnMode == PageTurnMode.scroll) {
@@ -312,6 +321,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   ///
   /// 跨章节无缝翻页：到达本章第一页时自动进入上一章最后一页。
   void prevPageOrChapter() {
+    if (_selectionController.value) return;
     final notifier = ref.read(readerNotifierProvider.notifier);
     // [UI-fix v2.0.3 | 2026-08-08] 滚动模式下程序化翻页按屏滚动 — Qoder
     if (ref.read(readerNotifierProvider).pageTurnMode == PageTurnMode.scroll) {
@@ -367,7 +377,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         if (family != null && family.startsWith('Custom_')) family,
         if (titleFamily.isNotEmpty &&
             titleFamily.startsWith('Custom_') &&
-            titleFamily != family) titleFamily,
+            titleFamily != family)
+          titleFamily,
       };
       // 自定义字体（Custom_* 前缀）应用重启后需重新加载字体文件
       if (customFamilies.isNotEmpty) {
@@ -400,6 +411,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   @override
   void dispose() {
+    _selectionController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -441,6 +453,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // 横屏双页；滚动模式 pageAnim==3 强制单页；桌面端以窗口宽 >=700
     // 作为平板语义）— Reasonix
     final screenSize = MediaQuery.of(context).size;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final baseStyle = DefaultTextStyle.of(context).style;
+    final boldText = MediaQuery.boldTextOf(context);
     final doublePage = switch (widget.doubleHorizontalPage) {
       1 => state.pageTurnMode != PageTurnMode.scroll,
       2 =>
@@ -456,6 +471,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         content.isNotEmpty &&
         (content != _paginatedContent ||
             chapterIndex != _paginatedChapterIndex ||
+            screenSize != _paginatedScreenSize ||
+            textScaler != _paginatedTextScaler ||
+            baseStyle != _paginatedBaseStyle ||
+            boldText != _paginatedBoldText ||
             fontSize != _paginatedFontSize ||
             lineHeight != _paginatedLineHeight ||
             spacing != _paginatedParagraphSpacing ||
@@ -493,10 +512,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // 40 估算页脚且未扣首页标题块高度，满页正文首页底部
     // RenderFlex 溢出 ~16-27px（随字号增大）。改为 TextPainter 按
     // 渲染同参实测页脚与标题块高度，首页容量单独下发排版引擎 — Qoder
-    final textScaler = MediaQuery.textScalerOf(context);
     // 实测样式合并 DefaultTextStyle（与渲染侧 Text 的主题字体一致，
     // 避免字体度量差异引入像素级偏差）
-    final baseStyle = DefaultTextStyle.of(context).style;
     final chrome = widget.pageChrome;
     final headerBlock = ReaderPageLayoutMetrics.headerBlockHeight(
       context,
@@ -538,7 +555,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       // 字重接入测量（与渲染同参）— Qoder
       indent: indent > 0 ? fontSize * indent : 0,
       indentCount: indent,
-      fontWeight: _fontWeightFor(textBold),
+      fontWeight: boldText ? FontWeight.bold : _fontWeightFor(textBold),
       fontStyle: _fontStyleFor(italic),
       justify: justify,
       textColor: _resolveTextColor(state),
@@ -560,17 +577,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // [换源预览修复 | 2026-09-26] 换源后同章号内容被整章替换（index 不变），
     // 仅按章号判变会让章边界承接页残留旧源文本——内容变化同样清相邻章
     // 预览与在途标记，eager 预载随后以新源 bookUrl 重建 — Qoder
-    final chapterChanged = _paginatedChapterIndex != chapterIndex ||
-        content != _paginatedContent;
     _pagedConfig = config;
     _pagedWidth = availableWidth;
     _pagedHeight = availableHeight;
-    if (chapterChanged) {
-      _nextChapterPreview = null;
-      _prevChapterPreview = null;
-      _preloadingNext = false;
-      _preloadingPrev = false;
-    }
+    // 正文或任一排版参数变化时，相邻章预览和在途结果都必须失效。
+    _layoutGeneration++;
+    _nextChapterPreview = null;
+    _prevChapterPreview = null;
+    _preloadingNext = false;
+    _preloadingPrev = false;
 
     final engine = ParagraphLayoutEngine(config: config, context: context);
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
@@ -587,6 +602,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _paginatedChapterTitle = state.currentChapter?.title;
     _paginatedFontSize = fontSize;
     _paginatedLineHeight = lineHeight;
+    _paginatedScreenSize = screenSize;
+    _paginatedTextScaler = textScaler;
+    _paginatedBaseStyle = baseStyle;
+    _paginatedBoldText = boldText;
     _paginatedParagraphSpacing = spacing;
     _paginatedLetterSpacing = letterSpacing;
     _paginatedIndent = indent;
@@ -621,7 +640,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
     // 章边界预载（页末预载下一章首屏 / 页首预载上一章末屏）
     _maybePreloadAdjacent(state, eager: true);
-
   }
 
   @override
@@ -731,7 +749,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // Scrollable 在命中测试中先注册 pointerSignalResolver 会胜出，
     // 覆盖层居顶保证先注册；translucent 不影响下层点击/拖拽）；
     // 滚动模式不拦截，滚轮交给正文 Scrollable 自然滚动 — Qoder
-    final Widget result;
+    Widget result;
     if (state.pageTurnMode == PageTurnMode.scroll || !widget.mouseWheelPage) {
       result = content;
     } else {
@@ -762,6 +780,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final slop = state.pageTurnMode == PageTurnMode.scroll
         ? 0
         : (advCfg?.pageTouchSlop ?? 0);
+    if (widget.selectText && _paginatedPages.isNotEmpty) {
+      final pages = state.pageTurnMode == PageTurnMode.scroll
+          ? _paginatedPages
+          : _paginatedPages.sublist(
+              _currentPageIndex.clamp(0, _paginatedPages.length - 1),
+              math.min(
+                _currentPageIndex + (_isDoublePage ? 2 : 1),
+                _paginatedPages.length,
+              ),
+            );
+      result = ReaderSelectionRegion(
+        controller: _selectionController,
+        source: _paginatedContent,
+        pages: pages,
+        onTapUp: widget.onTapUp,
+        child: result,
+      );
+    }
     return _applyPageTouchSlop(context, result, slop);
   }
 
@@ -795,8 +831,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// textBold 档位 → FontWeight（0中/1粗/2细，对标原版
   /// TextFontWeightConverter 的 normal/bold/light）
   /// [C3 斜体 | Qoder UI] 斜体样式映射（测量/渲染同源调用）
-  FontStyle? _fontStyleFor(bool italic) =>
-      italic ? FontStyle.italic : null;
+  FontStyle? _fontStyleFor(bool italic) => italic ? FontStyle.italic : null;
 
   FontWeight? _fontWeightFor(int bold) {
     switch (bold) {
@@ -871,7 +906,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         textDirection: TextDirection.ltr,
         textScaler: textScaler,
       )..layout(maxWidth: availableWidth);
-      firstPageHeight = availableHeight -
+      firstPageHeight =
+          availableHeight -
           titlePainter.height -
           chrome.titleTopSpacing -
           chrome.titleBottomSpacing;
@@ -886,8 +922,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 章边界预载触发：末屏预载下一章首屏、首屏预载上一章末屏
   void _maybePreloadAdjacent(ReaderState state, {bool eager = false}) {
     if (_paginatedPages.isEmpty || state.currentBook == null) return;
-    final screenIndex =
-        _isDoublePage ? _currentPageIndex ~/ 2 : _currentPageIndex;
+    final screenIndex = _isDoublePage
+        ? _currentPageIndex ~/ 2
+        : _currentPageIndex;
     final screenCount = _isDoublePage
         ? (_paginatedPages.length + 1) ~/ 2
         : _paginatedPages.length;
@@ -917,6 +954,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // [换源预览修复 | 2026-09-26] 在途预载须同时校验 bookUrl：换源后章号
     // 往往不变，仅校验章号会让旧源拉取的结果回写、覆盖新源预览 — Qoder
     final baseBookUrl = book?.bookUrl;
+    final generation = _layoutGeneration;
     final target = baseChapter + delta;
     final config = _pagedConfig;
     final availableWidth = _pagedWidth;
@@ -934,7 +972,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       // 发起后章节已切换或已换源（bookUrl 变）则作废
       final live = ref.read(readerNotifierProvider);
       if (live.currentChapterIndex != baseChapter ||
-          live.currentBook?.bookUrl != baseBookUrl) {
+          live.currentBook?.bookUrl != baseBookUrl ||
+          generation != _layoutGeneration) {
         return;
       }
       if (content.trim().isEmpty) {
@@ -961,7 +1000,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       final pageIndex = delta > 0 ? 0 : pages.length - 1;
       final title = state.chapters[target].title;
       final page = _buildPreviewPage(
-          state, info, pageIndex, pages.length, title);
+        state,
+        info,
+        pageIndex,
+        pages.length,
+        title,
+      );
       if (!mounted) return;
       setState(() {
         if (delta > 0) {
@@ -973,17 +1017,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     } catch (_) {
       // 预载失败静默：章边界退化为瞬时填充
     } finally {
-      if (delta > 0) {
-        _preloadingNext = false;
-      } else {
-        _preloadingPrev = false;
+      if (generation == _layoutGeneration) {
+        if (delta > 0) {
+          _preloadingNext = false;
+        } else {
+          _preloadingPrev = false;
+        }
       }
     }
   }
 
   /// 相邻章预览页构建（与 _buildTypographicPage 同参；selectText 关闭）
-  Widget _buildPreviewPage(ReaderState state, PageInfo info, int pageIndex,
-      int totalPages, String title) {
+  Widget _buildPreviewPage(
+    ReaderState state,
+    PageInfo info,
+    int pageIndex,
+    int totalPages,
+    String title,
+  ) {
     final page = ReaderTypographicPage(
       pageInfo: info,
       pageIndex: pageIndex,
@@ -1023,8 +1074,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 重构版翻页视图（滑动/仿真/覆盖/无动画统一入口）
   Widget _buildTurnContent(ReaderState state) {
     final notifier = ref.read(readerNotifierProvider.notifier);
-    final screenIndex =
-        _isDoublePage ? _currentPageIndex ~/ 2 : _currentPageIndex;
+    final screenIndex = _isDoublePage
+        ? _currentPageIndex ~/ 2
+        : _currentPageIndex;
     final screenCount = _isDoublePage
         ? (_paginatedPages.length + 1) ~/ 2
         : (_paginatedPages.isNotEmpty ? _paginatedPages.length : 1);
@@ -1032,6 +1084,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       context,
       ReaderTurnView(
         key: _turnViewKey,
+        selectionActive: _selectionController,
+        layoutGeneration: _layoutGeneration,
         mode: state.pageTurnMode,
         pageIndex: screenIndex,
         pageCount: screenCount,
@@ -1075,21 +1129,23 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (state.currentChapter != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(
-                  state.currentChapter!.title,
-                  style: TextStyle(
-                    fontSize: state.fontSize + 4,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                    // [A4 滚动模式标题字体 | full-stack-engineer] 标题
-                    // fontFamily 接 effectiveTitleFontFamily 单源（与
-                    // 分页模式渲染侧同参；空=跟随正文字体）。滚动模式
-                    // 不分页、无测量侧，故仅渲染侧取值。
-                    fontFamily: effectiveTitleFontFamily(
-                      widget.pageChrome,
-                      _fontFamily,
+              SelectionContainer.disabled(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    state.currentChapter!.title,
+                    style: TextStyle(
+                      fontSize: state.fontSize + 4,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                      // [A4 滚动模式标题字体 | full-stack-engineer] 标题
+                      // fontFamily 接 effectiveTitleFontFamily 单源（与
+                      // 分页模式渲染侧同参；空=跟随正文字体）。滚动模式
+                      // 不分页、无测量侧，故仅渲染侧取值。
+                      fontFamily: effectiveTitleFontFamily(
+                        widget.pageChrome,
+                        _fontFamily,
+                      ),
                     ),
                   ),
                 ),
@@ -1108,7 +1164,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   letterSpacing: widget.letterSpacing * state.fontSize,
                   fontFamily: _fontFamily,
                   fontWeight: _fontWeightFor(widget.textBold),
-      fontStyle: _fontStyleFor(widget.italic),
+                  fontStyle: _fontStyleFor(widget.italic),
                   justify: widget.textFullJustify,
                   // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入长按选择 — Qoder
                   selectText: widget.selectText,
@@ -1126,7 +1182,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                 letterSpacing: widget.letterSpacing * state.fontSize,
                 fontFamily: _fontFamily,
                 fontWeight: _fontWeightFor(widget.textBold),
-      fontStyle: _fontStyleFor(widget.italic),
+                fontStyle: _fontStyleFor(widget.italic),
                 // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入滚动回退渲染 — Qoder
                 selectText: widget.selectText,
               )

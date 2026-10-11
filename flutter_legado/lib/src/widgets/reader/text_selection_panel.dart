@@ -3,19 +3,13 @@
 // 对齐 Android 原版 ReadBookActivity + TextActionMenu（content_select_action.xml）：
 // 长按正文 → 选中文本 → 弹出操作菜单（替换/复制/书签/高亮/朗读/词典/搜正文/浏览器/分享）。
 //
-// 选区方案（最小侵入）：
-// Flutter 侧正文为排版引擎分页后的逐行 Text 渲染（非 SelectableText，且处于
-// PageView / 滚动容器中），原地实现拖拽手柄跨行选区代价过大。故采用任务建议的
-// 段落选区面板：长按段落 → 底部面板展示整段 SelectableText（原生长按取词 /
-// 拖拽手柄精细调整选区）+ 操作菜单。默认操作文本为整段，选区变化后以选区为准。
+// 正文选区由 ReaderSelectionRegion 管理；此面板保留更多操作和选区细调。
 import 'dart:async';
 import 'dart:convert';
 
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,6 +19,7 @@ import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
 import '../dict_dialog.dart';
+import 'reader_selection_controller.dart';
 
 /// 高亮配色（对齐原版 HighlightStyle 多色能力，颜色写入 BookHighlight.style JSON）
 const List<Color> kHighlightColors = [
@@ -40,10 +35,10 @@ const List<Color> kHighlightColors = [
 /// 对标原版 TextActionMenu 的菜单项清单（顺序对齐 content_select_action.xml）。
 // [UI-fix v2.0.1 | 2026-08-06] 新建长按操作面板 — Qoder
 class TextSelectionPanel extends ConsumerStatefulWidget {
-  /// 长按命中的段落全文（默认操作文本）
+  /// 正文选区的原文（默认操作文本）
   final String text;
 
-  /// 段落在章节正文中的起始字符偏移（ParagraphInfo.startIndex，可为 0）
+  /// 选区在章节原文中的 UTF-16 起始偏移
   final int chapterPos;
 
   const TextSelectionPanel({
@@ -68,13 +63,12 @@ class TextSelectionPanel extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<TextSelectionPanel> createState() =>
-      _TextSelectionPanelState();
+  ConsumerState<TextSelectionPanel> createState() => _TextSelectionPanelState();
 }
 
 class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
-  /// 用户通过原生选区手柄选中的文本（空表示未精细选择，回退整段）
-  String _userSelected = '';
+  /// 保留精细选区的位置，书签、高亮和朗读与实际选中文字使用同一范围。
+  TextSelection? _userSelection;
 
   /// 是否展开高亮配色行
   bool _showHighlightColors = false;
@@ -84,9 +78,18 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
 
   /// 当前操作文本：优先取用户选区，未选择时为整段
   String get _selectedText {
-    final selected = _userSelected.trim();
-    return selected.isEmpty ? widget.text.trim() : selected;
+    final selection = _userSelection;
+    return selection == null
+        ? widget.text
+        : widget.text.substring(selection.start, selection.end);
   }
+
+  int get _selectedStart => widget.chapterPos + (_userSelection?.start ?? 0);
+  int get _selectedEnd =>
+      widget.chapterPos + (_userSelection?.end ?? widget.text.length);
+
+  ReaderTextSelection get _selectionSnapshot =>
+      ReaderTextSelection(_selectedStart, _selectedEnd, _selectedText);
 
   @override
   Widget build(BuildContext context) {
@@ -113,14 +116,16 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
               children: [
                 Text(
                   '已选文本',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${_selectedText.length} 字',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
                 const Spacer(),
                 TextButton(
@@ -134,8 +139,9 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ConstrainedBox(
@@ -149,14 +155,19 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
                     onSelectionChanged: (selection, cause) {
                       final text = widget.text;
                       if (!selection.isValid || selection.isCollapsed) {
-                        if (_userSelected.isNotEmpty) {
-                          setState(() => _userSelected = '');
+                        if (_userSelection != null) {
+                          setState(() => _userSelection = null);
                         }
                         return;
                       }
                       final start = selection.start.clamp(0, text.length);
                       final end = selection.end.clamp(0, text.length);
-                      setState(() => _userSelected = text.substring(start, end));
+                      setState(
+                        () => _userSelection = TextSelection(
+                          baseOffset: start,
+                          extentOffset: end,
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -165,8 +176,9 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
             const SizedBox(height: 4),
             Text(
               '提示：长按上方文本可精细调整选区，未选择时默认操作整段',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
             ),
             const SizedBox(height: 8),
             // 操作菜单（顺序对齐原版 content_select_action.xml）
@@ -184,11 +196,18 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
                       () => _showHighlightColors = !_showHighlightColors,
                     ),
                   ),
-                  _actionItem(Icons.record_voice_over_outlined, '朗读', _readAloud),
+                  _actionItem(
+                    Icons.record_voice_over_outlined,
+                    '朗读',
+                    _readAloud,
+                  ),
                   _actionItem(Icons.menu_book_outlined, '词典', _lookupDict),
                   _actionItem(Icons.search, '搜正文', _searchContent),
                   _actionItem(
-                      Icons.open_in_browser_outlined, '浏览器', _openInBrowser),
+                    Icons.open_in_browser_outlined,
+                    '浏览器',
+                    _openInBrowser,
+                  ),
                   _actionItem(Icons.share_outlined, '分享', _share),
                 ],
               ),
@@ -203,8 +222,9 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
                         children: [
                           Text(
                             '高亮颜色',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: theme.colorScheme.outline),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           for (final color in kHighlightColors)
@@ -223,7 +243,9 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
                                       color: color == _lastHighlightColor
                                           ? theme.colorScheme.primary
                                           : theme.dividerColor,
-                                      width: color == _lastHighlightColor ? 2.5 : 1,
+                                      width: color == _lastHighlightColor
+                                          ? 2.5
+                                          : 1,
                                     ),
                                   ),
                                   child: color == _lastHighlightColor
@@ -283,9 +305,10 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
   void _openReplace() {
     // [UI-fix v2.0.2 | 2026-08-06] 闭合留批次项：选中文本作为替换规则
     // pattern 预填传入规则管理页（对标原版 ReplaceEditActivity 预填） — Qoder
-    _close();
+    final text = _selectedText;
     final navigator = Navigator.of(context, rootNavigator: true);
-    navigator.pushNamed(AppRoutes.replaceRules, arguments: _selectedText);
+    _close();
+    navigator.pushNamed(AppRoutes.replaceRules, arguments: text);
   }
 
   /// 复制：对齐原版 menu_copy → sendToClip
@@ -304,11 +327,13 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
       return;
     }
     try {
-      await ref.read(bookmarkNotifierProvider.notifier).addBookmark(
+      await ref
+          .read(bookmarkNotifierProvider.notifier)
+          .addBookmark(
             bookName: book.name,
             bookAuthor: book.author,
             chapterIndex: state.currentChapterIndex,
-            chapterPos: widget.chapterPos,
+            chapterPos: _selectedStart,
             chapterName: state.currentChapter?.title ?? '',
             bookText: _selectedText,
             content: _selectedText,
@@ -322,7 +347,10 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
 
   /// 高亮样式/笔记 Dialog（对齐 HighlightStyleDialog 配色 + HighlightNoteDialog 笔记）
   Future<void> _openHighlightDialog(Color color) async {
-    final noteCtrl = TextEditingController();
+    // 切换焦点或关闭面板可能清空原生选区，异步操作使用打开时的快照。
+    final selection = _selectionSnapshot;
+    final readerState = ref.read(readerNotifierProvider);
+    var note = '';
     final selectedColor = ValueNotifier<Color>(color);
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -371,11 +399,9 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: noteCtrl,
+                onChanged: (value) => note = value,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '笔记（可选）',
-                ),
+                decoration: const InputDecoration(labelText: '笔记（可选）'),
               ),
               const SizedBox(height: 16),
               Row(
@@ -399,21 +425,24 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
     final chosen = selectedColor.value;
     selectedColor.dispose();
     if (ok != true || !mounted) return;
-    await _saveHighlight(chosen, note: noteCtrl.text.trim());
+    await _saveHighlight(chosen, readerState, selection, note: note.trim());
   }
 
   /// 高亮：对齐原版 menu_highlight → createHighlight + ReadBook.addHighlight
   ///
   /// BookHighlight JSON 字段对齐 API_CONTRACT.md §2.36（DB v99 highlights 表）。
-  Future<void> _saveHighlight(Color color, {String note = ''}) async {
-    final state = ref.read(readerNotifierProvider);
+  Future<void> _saveHighlight(
+    Color color,
+    ReaderState state,
+    ReaderTextSelection selection, {
+    String note = '',
+  }) async {
     final book = state.currentBook;
     if (book == null) {
       _toast('无法添加高亮：未打开书籍');
       return;
     }
     final chapter = state.currentChapter;
-    final selected = _selectedText;
     final highlight = <String, dynamic>{
       'time': 0, // 0 时由 Rust 侧自动分配主键
       'bookUrl': book.bookUrl,
@@ -421,11 +450,11 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
       'bookName': book.name,
       'bookAuthor': book.author,
       'chapterIndex': state.currentChapterIndex,
-      'chapterPos': widget.chapterPos,
-      'chapterPosEnd': widget.chapterPos + selected.length,
+      'chapterPos': selection.start,
+      'chapterPosEnd': selection.end,
       'layoutTitleLength': 0,
       'chapterName': chapter?.title ?? '',
-      'bookText': selected,
+      'bookText': selection.text,
       'style': jsonEncode({
         'type': 'background',
         'color':
@@ -459,16 +488,17 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
       return;
     }
     final chapterIndex = state.currentChapterIndex;
+    final selection = _selectionSnapshot;
+    final audio = ref.read(audioNotifierProvider.notifier);
     _close();
     unawaited(
-      ref.read(audioNotifierProvider.notifier).startReadAloud(
-            bookUrl: book.bookUrl,
-            bookName: book.name,
-            chapterIndex: chapterIndex,
-            startChapterPos: widget.chapterPos,
-            // 分页排版下 ParagraphInfo.startIndex 恒 0，段落文本匹配兜底定位
-            startParagraphText: widget.text,
-          ),
+      audio.startReadAloud(
+        bookUrl: book.bookUrl,
+        bookName: book.name,
+        chapterIndex: chapterIndex,
+        startChapterPos: selection.start,
+        startParagraphText: selection.text,
+      ),
     );
   }
 
@@ -492,10 +522,11 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
     // [UI-fix v2.0.2 | 2026-08-06] 闭合留批次项：选中文本作为初始查询词
     // 传入正文搜索页（对标原版 viewModel.searchContentQuery） — Qoder
     final navigator = Navigator.of(context, rootNavigator: true);
+    final text = _selectedText;
     _close();
     navigator.pushNamed(
       AppRoutes.searchContent,
-      arguments: {'book': book, 'query': _selectedText},
+      arguments: {'book': book, 'query': text},
     );
   }
 
@@ -536,18 +567,16 @@ class _TextSelectionPanelState extends ConsumerState<TextSelectionPanel> {
 /// 正文长按浮出工具条（对齐参考版浮窗形态）
 ///
 /// [UI_SYNC_REFACTOR S6 | 2026-09-08] 用户裁决 A（对齐参考版浮窗）：
-/// 长按段落于按压点浮出工具条（复制/分享/浏览器/朗读/书签/更多）。
-/// 「更多」打开保留的段落面板（替换/高亮/词典/搜正文/精细选区等增强
-/// 动作不丢失）。注：SelectionArea 在阅读器 PageView 手势栈下长按
-/// 不触发（探针实证），故用长按点 Overlay 浮条，行为确定 — Qoder
+/// 长按选中文字后浮出工具条（复制/分享/浏览器/朗读/书签/更多）。
+/// 「更多」继续使用原有面板；正文的选区、高亮和手柄由 Flutter 管理。
 class ReaderSelectionToolbar extends ConsumerWidget {
   /// 按压点全局坐标（工具条锚点）
   final Offset anchor;
 
-  /// 段落全文（动作作用文本）
+  /// 选区原文（动作作用文本）
   final String text;
 
-  /// 选区起始段内位置（书签/朗读定位用，与段落面板同语义）
+  /// 选区在章节原文中的 UTF-16 起始偏移
   final int chapterPos;
 
   final VoidCallback onDismiss;
@@ -588,8 +617,13 @@ class ReaderSelectionToolbar extends ConsumerWidget {
             ),
           ),
           Positioned(
-            left: (anchor.dx - 150).clamp(12.0,
-                MediaQuery.of(context).size.width - 342),
+            left: (anchor.dx - 150).clamp(
+              12.0,
+              (MediaQuery.of(context).size.width - 342).clamp(
+                12.0,
+                double.infinity,
+              ),
+            ),
             top: (anchor.dy - 64).clamp(12.0, double.infinity),
             child: Material(
               elevation: 6,
@@ -612,124 +646,172 @@ class ReaderSelectionToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = [
-      (Icons.copy_outlined, '复制', () async {
-        await Clipboard.setData(ClipboardData(text: text));
-        onDismiss();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-        }
-      }),
-      (Icons.share_outlined, '分享', () async {
-        onDismiss();
-        try {
-          await SharePlus.instance.share(ShareParams(text: text));
-        } catch (_) {}
-      }),
-      (Icons.open_in_browser_outlined, '浏览器', () async {
-        onDismiss();
-        final navigator = Navigator.of(context, rootNavigator: true);
-        if (RegExp(r'^https?://\S+$').hasMatch(text)) {
-          navigator.pushNamed(AppRoutes.browser, arguments: text);
-          return;
-        }
-        final uri = Uri.https('www.bing.com', '/search', {'q': text});
-        try {
-          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      (
+        Icons.copy_outlined,
+        '复制',
+        () async {
+          await Clipboard.setData(ClipboardData(text: text));
+          onDismiss();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+          }
+        },
+      ),
+      (
+        Icons.share_outlined,
+        '分享',
+        () async {
+          onDismiss();
+          try {
+            await SharePlus.instance.share(ShareParams(text: text));
+          } catch (_) {}
+        },
+      ),
+      (
+        Icons.open_in_browser_outlined,
+        '浏览器',
+        () async {
+          onDismiss();
+          final navigator = Navigator.of(context, rootNavigator: true);
+          if (RegExp(r'^https?://\S+$').hasMatch(text)) {
+            navigator.pushNamed(AppRoutes.browser, arguments: text);
+            return;
+          }
+          final uri = Uri.https('www.bing.com', '/search', {'q': text});
+          try {
+            if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('无法打开浏览器')));
+              }
+            }
+          } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('无法打开浏览器')));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('打开浏览器失败：\$e')));
             }
           }
-        } catch (e) {
-          if (context.mounted) {
+        },
+      ),
+      (
+        Icons.record_voice_over_outlined,
+        '朗读',
+        () {
+          final state = ref.read(readerNotifierProvider);
+          final book = state.currentBook;
+          onDismiss();
+          if (book == null) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text('打开浏览器失败：\$e')));
+                .showSnackBar(const SnackBar(content: Text('无法启动朗读：未打开书籍')));
+            return;
           }
-        }
-      }),
-      (Icons.record_voice_over_outlined, '朗读', () {
-        final state = ref.read(readerNotifierProvider);
-        final book = state.currentBook;
-        onDismiss();
-        if (book == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('无法启动朗读：未打开书籍')));
-          return;
-        }
-        unawaited(ref.read(audioNotifierProvider.notifier).startReadAloud(
-          bookUrl: book.bookUrl,
-          bookName: book.name,
-          chapterIndex: state.currentChapterIndex,
-          startChapterPos: chapterPos,
-          startParagraphText: text,
-        ));
-      }),
-      (Icons.bookmark_border, '书签', () async {
-        final state = ref.read(readerNotifierProvider);
-        final book = state.currentBook;
-        onDismiss();
-        if (book == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('无法添加书签：未打开书籍')));
-          return;
-        }
-        try {
-          await ref.read(bookmarkNotifierProvider.notifier).addBookmark(
-                bookName: book.name,
-                bookAuthor: book.author,
-                chapterIndex: state.currentChapterIndex,
-                chapterPos: chapterPos,
-                chapterName: state.currentChapter?.title ?? '',
-                bookText: text,
-                content: text,
-              );
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已添加书签')));
-          }
-        } catch (e) {
-          if (context.mounted) {
+          unawaited(
+            ref
+                .read(audioNotifierProvider.notifier)
+                .startReadAloud(
+                  bookUrl: book.bookUrl,
+                  bookName: book.name,
+                  chapterIndex: state.currentChapterIndex,
+                  startChapterPos: chapterPos,
+                  startParagraphText: text,
+                ),
+          );
+        },
+      ),
+      (
+        Icons.bookmark_border,
+        '书签',
+        () async {
+          final state = ref.read(readerNotifierProvider);
+          final book = state.currentBook;
+          onDismiss();
+          if (book == null) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text('添加书签失败：\$e')));
+                .showSnackBar(const SnackBar(content: Text('无法添加书签：未打开书籍')));
+            return;
           }
-        }
-      }),
-      (Icons.settings_rounded, '更多', () {
-        onDismiss();
-        final navigator = Navigator.of(context, rootNavigator: true);
-        TextSelectionPanel.show(
-          navigator.context,
-          text: text,
-          chapterPos: chapterPos,
-        );
-      }),
+          try {
+            await ref
+                .read(bookmarkNotifierProvider.notifier)
+                .addBookmark(
+                  bookName: book.name,
+                  bookAuthor: book.author,
+                  chapterIndex: state.currentChapterIndex,
+                  chapterPos: chapterPos,
+                  chapterName: state.currentChapter?.title ?? '',
+                  bookText: text,
+                  content: text,
+                );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('已添加书签')));
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('添加书签失败：\$e')));
+            }
+          }
+        },
+      ),
+      (
+        Icons.settings_rounded,
+        '更多',
+        () {
+          onDismiss();
+          final navigator = Navigator.of(context, rootNavigator: true);
+          TextSelectionPanel.show(
+            navigator.context,
+            text: text,
+            chapterPos: chapterPos,
+          );
+        },
+      ),
     ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < actions.length; i++) ...[
-          if (i > 0)
-            SizedBox(
-              height: 24,
-              child: VerticalDivider(
-                  width: 1, color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: actions[i].$3,
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Text(
-                actions[i].$2,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
+    return Material(
+      type: MaterialType.transparency,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: (MediaQuery.sizeOf(context).width - 24).clamp(
+            1.0,
+            double.infinity,
           ),
-        ],
-      ],
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0)
+                  SizedBox(
+                    height: 24,
+                    child: VerticalDivider(
+                      width: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: actions[i].$3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      actions[i].$2,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

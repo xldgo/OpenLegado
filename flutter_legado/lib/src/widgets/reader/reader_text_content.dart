@@ -5,6 +5,8 @@ import '../../widgets/paragraph_layout_engine.dart';
 import 'review_column.dart';
 import 'reader_page_chrome.dart';
 import 'text_selection_panel.dart';
+import 'reader_selection_region.dart';
+import 'reader_selectable_text.dart';
 
 /// 段评角标点击（段落索引 1-based、评论数）
 typedef ReviewTapCallback = void Function(int paragraphIndex, int count);
@@ -122,20 +124,22 @@ class ReaderTypographicPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showHeader)
-            ReaderPageTipBar(
-              padding: EdgeInsets.fromLTRB(
-                chrome.headerPaddingLeft,
-                chrome.headerPaddingTop,
-                chrome.headerPaddingRight,
-                chrome.headerPaddingBottom,
+            SelectionContainer.disabled(
+              child: ReaderPageTipBar(
+                padding: EdgeInsets.fromLTRB(
+                  chrome.headerPaddingLeft,
+                  chrome.headerPaddingTop,
+                  chrome.headerPaddingRight,
+                  chrome.headerPaddingBottom,
+                ),
+                leftTip: chrome.tipHeaderLeft,
+                middleTip: chrome.tipHeaderMiddle,
+                rightTip: chrome.tipHeaderRight,
+                tipContext: tipContext,
+                textColor: textColor,
+                showDivider: chrome.showHeaderLine,
+                dividerOnTop: false,
               ),
-              leftTip: chrome.tipHeaderLeft,
-              middleTip: chrome.tipHeaderMiddle,
-              rightTip: chrome.tipHeaderRight,
-              tipContext: tipContext,
-              textColor: textColor,
-              showDivider: chrome.showHeaderLine,
-              dividerOnTop: false,
             ),
           Expanded(
             child: Padding(
@@ -144,28 +148,30 @@ class ReaderTypographicPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (showTitle)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        top: chrome.titleTopSpacing.toDouble(),
-                        bottom: chrome.titleBottomSpacing.toDouble(),
-                      ),
-                      child: Align(
-                        alignment: titleAlign == TextAlign.center
-                            ? Alignment.center
-                            : Alignment.centerLeft,
-                        child: Text(
-                          chapterTitle!,
-                          textAlign: titleAlign,
-                          style: TextStyle(
-                            fontSize: fontSize + chrome.titleSize,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
-                            // [C3 标题字体] 与测量侧同参（effectiveTitleFontFamily
-                            // 单源）；同时修复既有偏差：空=跟随正文字体，标题
-                            // 随自定义正文自定义字体生效 — full-stack-engineer
-                            fontFamily: effectiveTitleFontFamily(
-                              chrome,
-                              fontFamily,
+                    SelectionContainer.disabled(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top: chrome.titleTopSpacing.toDouble(),
+                          bottom: chrome.titleBottomSpacing.toDouble(),
+                        ),
+                        child: Align(
+                          alignment: titleAlign == TextAlign.center
+                              ? Alignment.center
+                              : Alignment.centerLeft,
+                          child: Text(
+                            chapterTitle!,
+                            textAlign: titleAlign,
+                            style: TextStyle(
+                              fontSize: fontSize + chrome.titleSize,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                              // [C3 标题字体] 与测量侧同参（effectiveTitleFontFamily
+                              // 单源）；同时修复既有偏差：空=跟随正文字体，标题
+                              // 随自定义正文自定义字体生效 — full-stack-engineer
+                              fontFamily: effectiveTitleFontFamily(
+                                chrome,
+                                fontFamily,
+                              ),
                             ),
                           ),
                         ),
@@ -192,14 +198,16 @@ class ReaderTypographicPage extends StatelessWidget {
                     ),
                   ),
                   if (!showFooter)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Center(
-                        child: Text(
-                          _buildPageIndicator(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: textColor.withValues(alpha: 0.4),
+                    SelectionContainer.disabled(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Center(
+                          child: Text(
+                            _buildPageIndicator(),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textColor.withValues(alpha: 0.4),
+                            ),
                           ),
                         ),
                       ),
@@ -209,20 +217,22 @@ class ReaderTypographicPage extends StatelessWidget {
             ),
           ),
           if (showFooter)
-            ReaderPageTipBar(
-              padding: EdgeInsets.fromLTRB(
-                chrome.footerPaddingLeft,
-                chrome.footerPaddingTop,
-                chrome.footerPaddingRight,
-                chrome.footerPaddingBottom,
+            SelectionContainer.disabled(
+              child: ReaderPageTipBar(
+                padding: EdgeInsets.fromLTRB(
+                  chrome.footerPaddingLeft,
+                  chrome.footerPaddingTop,
+                  chrome.footerPaddingRight,
+                  chrome.footerPaddingBottom,
+                ),
+                leftTip: chrome.tipFooterLeft,
+                middleTip: chrome.tipFooterMiddle,
+                rightTip: chrome.tipFooterRight,
+                tipContext: tipContext,
+                textColor: textColor,
+                showDivider: chrome.showFooterLine,
+                dividerOnTop: true,
               ),
-              leftTip: chrome.tipFooterLeft,
-              middleTip: chrome.tipFooterMiddle,
-              rightTip: chrome.tipFooterRight,
-              tipContext: tipContext,
-              textColor: textColor,
-              showDivider: chrome.showFooterLine,
-              dividerOnTop: true,
             ),
         ],
       ),
@@ -304,6 +314,23 @@ class ReaderTextContent extends StatelessWidget {
       builder: (context, constraints) {
         final widgets = <Widget>[];
         final availableWidth = constraints.maxWidth;
+        // 当前页的实际文字共同测量字体回退，避免每行按不同字体单独取高亮高度。
+        final selectionGeometry = selectText && pageInfo.sourceText != null
+            ? ReaderSelectionGeometry.forText(
+                context,
+                pageInfo.paragraphs
+                    .expand((p) => p.lines)
+                    .map((line) => line.selectableText)
+                    .join(),
+                TextStyle(
+                  fontSize: fontSize,
+                  height: lineHeight,
+                  fontFamily: fontFamily,
+                  fontWeight: fontWeight,
+                  fontStyle: fontStyle,
+                ),
+              )
+            : null;
 
         for (var paraIdx = 0; paraIdx < pageInfo.paragraphs.length; paraIdx++) {
           final para = pageInfo.paragraphs[paraIdx];
@@ -317,7 +344,7 @@ class ReaderTextContent extends StatelessWidget {
           final lineWidgets = <Widget>[];
           for (var lineIdx = 0; lineIdx < para.lines.length; lineIdx++) {
             final line = para.lines[lineIdx];
-            final text = line.words.join('');
+            final text = line.selectableText;
             final isLastLine = lineIdx == para.lines.length - 1;
             final isSingleLine = para.lines.length == 1;
 
@@ -325,7 +352,9 @@ class ReaderTextContent extends StatelessWidget {
             double extraLetterSpacing = 0.0;
             // [UI-fix v2.0.2 | 2026-08-06] 关闭两端对齐时不再拉伸字距
             // （对标 MoreConfig textFullJustify 开关） — Qoder
-            final shouldJustify = justify && !isLastLine && !isSingleLine;
+            final shouldJustify =
+                justify &&
+                !(line.isParagraphLastLine ?? (isLastLine || isSingleLine));
             if (shouldJustify && line.width > 0) {
               if (line.width < availableWidth) {
                 final gapCount = line.words.length - 1;
@@ -340,9 +369,40 @@ class ReaderTextContent extends StatelessWidget {
               }
             }
 
+            final textStyle = TextStyle(
+              fontSize: fontSize,
+              height: lineHeight,
+              color: textColor,
+              fontFamily: fontFamily,
+              fontWeight: fontWeight,
+              fontStyle: fontStyle,
+              letterSpacing:
+                  line.letterSpacing ??
+                  ((letterSpacing + extraLetterSpacing) != 0
+                      ? letterSpacing + extraLetterSpacing
+                      : null),
+            );
+            // 缩进用布局留白绘制，原生选区只能接触章节中的实际文字。
+            final lineText = Padding(
+              padding: EdgeInsets.only(left: line.indentWidth),
+              child: text.isEmpty
+                  ? const SizedBox.shrink()
+                  : selectText && pageInfo.sourceText != null
+                  ? ReaderLineText(
+                      text,
+                      style: textStyle,
+                      selectionGeometry: selectionGeometry,
+                    )
+                  : Text(
+                      text,
+                      style: textStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                    ),
+            );
             lineWidgets.add(
               SizedBox(
-                height: fontSize * lineHeight,
+                height: line.height,
                 // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂行：放宽宽度约束至
                 // availableWidth + hangingWidth 避免裁剪，行起点左移 hangingWidth
                 // 使起始引号悬挂进缩进区（对齐原版 TextLine.hangingPunctuation
@@ -353,42 +413,10 @@ class ReaderTextContent extends StatelessWidget {
                         maxWidth: availableWidth + line.hangingWidth,
                         child: Transform.translate(
                           offset: Offset(-line.hangingWidth, 0),
-                          child: Text(
-                            text,
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              height: lineHeight,
-                              color: textColor,
-                              fontFamily: fontFamily,
-                              fontWeight: fontWeight,
-                              fontStyle: fontStyle,
-                              letterSpacing:
-                                  (letterSpacing + extraLetterSpacing) != 0
-                                  ? letterSpacing + extraLetterSpacing
-                                  : null,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
-                          ),
+                          child: lineText,
                         ),
                       )
-                    : Text(
-                        text,
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          height: lineHeight,
-                          color: textColor,
-                          fontFamily: fontFamily,
-                          fontWeight: fontWeight,
-                          fontStyle: fontStyle,
-                          letterSpacing:
-                              (letterSpacing + extraLetterSpacing) != 0
-                              ? letterSpacing + extraLetterSpacing
-                              : null,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                      ),
+                    : lineText,
               ),
             );
           }
@@ -396,7 +424,12 @@ class ReaderTextContent extends StatelessWidget {
           // [UI-fix v2.0.1 | 2026-08-06] 段落级长按入口：弹出选区操作面板
           // （对齐原版 ReadView.onLongPress → showTextActionMenu；P0-1 审计修复）
           // [UI-fix v2.0.3 | 2026-08-08] selectText 关闭时移除长按入口 — Qoder
-          final paraText = para.lines.map((l) => l.words.join('')).join();
+          final source = pageInfo.sourceText;
+          final paraText = source != null
+              ? source.substring(para.startIndex, para.endIndex)
+              : para.lines
+                    .map((l) => l.displayText.substring(l.virtualPrefixLength))
+                    .join();
           final reviewCount =
               (para.isParagraphEnd &&
                   para.chapterParagraphIndex > 0 &&
@@ -407,31 +440,30 @@ class ReaderTextContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: lineWidgets,
           );
-          // [UI_SYNC_REFACTOR S6 | 2026-09-08] 长按交互改造（用户裁决 A：
-          // 对齐参考版浮窗）：长按段落于按压点浮出工具条（复制/分享/浏览器/
-          // 朗读/书签/更多）；「更多」打开保留的段落面板（替换/高亮/词典/
-          // 搜正文/精细选区增强动作不丢失）。
-          // 注：SelectionArea 在阅读器 PageView 手势栈下长按不触发
-          // （组件测试正常/真机不触发，探针实证父级赢得竞技场），故采用
-          // 长按点 Overlay 浮条方案，形态对齐且行为确定 — Qoder
+          // 原生选区覆盖正文；段评角标与翻页快照不参与显示偏移计算。
           Widget paragraphContent = reviewCount > 0
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(child: paragraphBody),
-                    ReviewColumnBadge(
-                      count: reviewCount,
-                      onTap: onReviewTap == null
-                          ? null
-                          : () => onReviewTap!(
-                              para.chapterParagraphIndex,
-                              reviewCount,
-                            ),
+                    SelectionContainer.disabled(
+                      child: ReviewColumnBadge(
+                        count: reviewCount,
+                        onTap: onReviewTap == null
+                            ? null
+                            : () => onReviewTap!(
+                                para.chapterParagraphIndex,
+                                reviewCount,
+                              ),
+                      ),
                     ),
                   ],
                 )
               : paragraphBody;
-          if (selectText && paraText.trim().isNotEmpty) {
+          if (selectText &&
+              source == null &&
+              ReaderSelectionScope.maybeOf(context) == null &&
+              paraText.trim().isNotEmpty) {
             paragraphContent = GestureDetector(
               onLongPressStart: (details) {
                 ReaderSelectionToolbar.show(
@@ -447,10 +479,23 @@ class ReaderTextContent extends StatelessWidget {
           widgets.add(paragraphContent);
         }
 
-        return Column(
+        final body = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: widgets,
         );
+        final selectableBody = selectText && pageInfo.sourceText != null
+            ? ReaderSelectionTextGroup(child: body)
+            : body;
+        if (selectText &&
+            pageInfo.sourceText != null &&
+            ReaderSelectionScope.maybeOf(context) == null) {
+          return ReaderSelectionRegion(
+            pages: [pageInfo],
+            source: pageInfo.sourceText!,
+            child: selectableBody,
+          );
+        }
+        return selectableBody;
       },
     );
   }
@@ -493,35 +538,47 @@ class ReaderParagraphs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paragraphs = content.split('\n');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final p in paragraphs)
-          // [UI-fix v2.0.1 | 2026-08-06] 滚动回退模式段落级长按入口
-          // [UI-fix v2.0.3 | 2026-08-08] selectText 关闭时移除长按入口 — Qoder
-          GestureDetector(
-            onLongPress: (p.trim().isEmpty || !selectText)
-                ? null
-                : () => TextSelectionPanel.show(context, text: p),
-            child: Padding(
-              padding: EdgeInsets.only(bottom: paragraphSpacing),
-              child: Text(
-                p.isEmpty ? ' ' : p,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  height: lineHeight,
-                  color: textColor,
-                  fontFamily: fontFamily,
-                  // [UI-fix v2.0.4 | 2026-08-08] 字重接线 — Qoder
-                  fontWeight: fontWeight,
-                  fontStyle: fontStyle,
-                  letterSpacing: letterSpacing != 0 ? letterSpacing : null,
-                ),
-              ),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final engine = ParagraphLayoutEngine(
+          context: context,
+          config: ParagraphConfig(
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            paragraphSpacing: paragraphSpacing,
+            textColor: textColor,
+            backgroundColor: Colors.transparent,
+            letterSpacing: letterSpacing,
+            fontFamily: fontFamily,
+            fontWeight: MediaQuery.boldTextOf(context)
+                ? FontWeight.bold
+                : fontWeight,
+            fontStyle: fontStyle,
+            justify: false,
+            baseStyle: DefaultTextStyle.of(context).style,
+            textScaler: MediaQuery.textScalerOf(context),
           ),
-      ],
+        );
+        final pages = engine.paginateChapter(
+          content,
+          constraints.maxWidth,
+          double.infinity,
+        );
+        if (pages.isEmpty) return const SizedBox.shrink();
+        return ReaderTextContent(
+          pageInfo: pages.first,
+          fontSize: fontSize,
+          lineHeight: lineHeight,
+          paragraphSpacing: paragraphSpacing,
+          textColor: textColor,
+          letterSpacing: letterSpacing,
+          fontFamily: fontFamily,
+          fontWeight: fontWeight,
+          fontStyle: fontStyle,
+          justify: false,
+          selectText: selectText,
+        );
+      },
     );
   }
 }

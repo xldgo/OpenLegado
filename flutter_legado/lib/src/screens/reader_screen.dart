@@ -613,11 +613,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           builder: (context) {
             final cfg =
                 ref.watch(readerAdvConfigProvider) ?? _advConfig;
-            Widget body = GestureDetector(
-          onTapUp: imageDominant
-              ? null
-              : (details) => _handleTap(context, details),
-          child: Stack(
+            Widget body = Stack(
             children: [
               if (imageDominant)
                 ReaderImageDominantBody(
@@ -631,7 +627,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   onPrevChapter: notifier.prevChapter,
                 )
               else
-              ReaderPageView(
+              GestureDetector(
+                onTapUp: (details) => _handleTap(context, details),
+                child: ReaderPageView(
+                onTapUp: (details) => _handleTap(context, details),
                 key: _pageViewKey,
                 // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
                 // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
@@ -677,6 +676,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 hangingPunctuation: _advConfig.hangingPunctuation,
                 reviewCounts: _reviewCounts,
                 onReviewTap: _onReviewTap,
+                ),
               ),
               if (!state.showControls)
                 ReaderStatusStrip(
@@ -772,7 +772,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   styleFollowPage: _advConfig.readBarStyleFollowPage,
                 ),
             ],
-          ),
         );
             // F6：填充刘海 / 扩展到刘海
             if (cfg.paddingDisplayCutouts) {
@@ -884,9 +883,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 根据点击区域配置执行对应功能
   void _handleTap(BuildContext context, TapUpDetails details) {
+    final notifier = ref.read(readerNotifierProvider.notifier);
+    // 菜单打开时正文点击只关闭菜单，优先于选区、边缘死区和翻页分区。
+    if (ref.read(readerNotifierProvider).showControls) {
+      notifier.hideControls();
+      return;
+    }
+    if (_pageViewKey.currentState?.consumeSelectionTap() ?? false) return;
     final screenWidth = MediaQuery.of(context).size.width;
     final tapX = details.globalPosition.dx;
-    final notifier = ref.read(readerNotifierProvider.notifier);
     final pageView = _pageViewKey.currentState;
 
     // [fix Task#41 | 2026-08-09] pageTouchClick 消费点（对标原版

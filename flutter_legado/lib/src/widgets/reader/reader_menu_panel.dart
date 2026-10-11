@@ -1,3 +1,4 @@
+import '../app_menu.dart';
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
@@ -12,6 +13,7 @@ import '../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../routes.dart';
 import '../../screens/reader_config_panel.dart';
 import 'change_source_flow.dart';
+import 'reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
 
 /// [UI_SYNC_REFACTOR S2-1] 阅读菜单单块底部面板（对齐参考 ReadBookMenuBar）
@@ -65,6 +67,22 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
 
 class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     with SingleTickerProviderStateMixin {
+  final Set<int> _dismissalPointers = {};
+  bool _popupMenuOpen = false;
+
+  void _onPopupMenuOpen() => setState(() => _popupMenuOpen = true);
+
+  void _onPopupMenuClose() => setState(() => _popupMenuOpen = false);
+
+  void _dismissFromPointer(int pointer) {
+    setState(() => _dismissalPointers.add(pointer));
+    ref.read(readerNotifierProvider.notifier).hideControls();
+  }
+
+  void _releaseDismissalPointer(int pointer) {
+    if (_dismissalPointers.remove(pointer)) setState(() {});
+  }
+
   // 进出场：进 220（fadeIn180 内含）/ 出 180（对齐参考 0.88 缩放族）
   late final AnimationController _menuController = AnimationController(
     vsync: this,
@@ -77,6 +95,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
   void didUpdateWidget(covariant ReaderMenuPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.visible != widget.visible) {
+      if (!widget.visible) _popupMenuOpen = false;
       widget.visible ? _menuController.forward() : _menuController.reverse();
     }
   }
@@ -116,16 +135,29 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         animation: _menuController,
         builder: (context, child) {
           final v = _menuController.value;
-          if (v == 0) return const SizedBox.shrink();
+          final hidden = v == 0 && !widget.visible;
+          if (hidden && _dismissalPointers.isEmpty) {
+            return const SizedBox.shrink();
+          }
           final fade = Tween<double>(begin: 0, end: 1).animate(
             CurvedAnimation(
               parent: _menuController,
               curve: const Interval(0, 0.82, curve: Curves.easeOut),
             ),
           );
+          // 淡出后仍保留当前指针的点击识别器，防止长按松手变成正文点击。
+          // 完全隐藏时新手势直接交给正文，当前拖动也不会被中断。
           return IgnorePointer(
-            ignoring: !widget.visible,
-            child: FadeTransition(opacity: fade, child: child!),
+            ignoring: hidden,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {},
+              onLongPress: () {},
+              child: AbsorbPointer(
+                absorbing: !widget.visible && !hidden,
+                child: FadeTransition(opacity: fade, child: child!),
+              ),
+            ),
           );
         },
         child: Column(
@@ -135,7 +167,24 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             // 反馈①：此前误置于底部面板首行；对齐原版布局——← 居左，
             // 换源/刷新/缓存/更多 居右）— Qoder
             _buildTopBar(context, barColor, book, chapter, notifier),
-            const Spacer(),
+            // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
+            Expanded(
+              // 弹出菜单先消费外部手势；原始指针也不能传给阅读菜单与正文。
+              child: AbsorbPointer(
+                absorbing: _popupMenuOpen,
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) => _dismissFromPointer(event.pointer),
+                  onPointerUp: (event) => _releaseDismissalPointer(event.pointer),
+                  onPointerCancel: (event) => _releaseDismissalPointer(event.pointer),
+                  onPointerSignal: (_) => notifier.hideControls(),
+                  onPointerPanZoomStart: (event) =>
+                      _dismissFromPointer(event.pointer),
+                  onPointerPanZoomEnd: (event) =>
+                      _releaseDismissalPointer(event.pointer),
+                ),
+              ),
+            ),
             useSurfaceBlur
                 ? ClipRRect(
                     borderRadius: const BorderRadius.vertical(
@@ -273,6 +322,32 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     final isOnline = book != null &&
         book.origin != BookType.localTag &&
         !book.origin.startsWith(BookType.webDavTag);
+    final chapterUrl = isOnline && chapter != null && chapter.title.isNotEmpty
+        ? resolveReaderChapterWebUrl(chapter)
+        : null;
+    final chapterTitle = Text(
+      chapter?.title ?? '',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.titleSmall,
+    );
+    final chapterTitleWidget = chapterUrl == null
+        ? chapterTitle
+        : Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Semantics(
+              link: true,
+              child: Tooltip(
+                message: '打开章节网页',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: () =>
+                      unawaited(openReaderChapterUrl(context, chapterUrl)),
+                  child: chapterTitle,
+                ),
+              ),
+            ),
+          );
     return Material(
       color: barColor,
       child: SafeArea(
@@ -333,9 +408,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                     tooltip: '下载（离线缓存）',
                     onPressed: () => showReaderOfflineCacheDialog(context, ref),
                   ),
-                  PopupMenuButton<String>(
+                  AppMenuButton<String>(
                     tooltip: '更多',
-                    position: PopupMenuPosition.under,
+                    onOpen: _onPopupMenuOpen,
+                    onClose: _onPopupMenuClose,
                     onSelected: (value) {
                       switch (value) {
                         case 'addBookmark':
@@ -350,12 +426,12 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                       }
                     },
                     itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'addBookmark', child: Text('添加书签')),
-                      PopupMenuItem(
+                      AppMenuItem(value: 'addBookmark', child: Text('添加书签')),
+                      AppMenuItem(
                         value: 'highlightRule',
                         child: Text('高亮规则'),
                       ),
-                      PopupMenuItem(value: 'replace', child: Text('替换规则')),
+                      AppMenuItem(value: 'replace', child: Text('替换规则')),
                     ],
                   ),
                 ],
@@ -370,12 +446,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            chapter?.title ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
+                          child: chapterTitleWidget,
                         ),
                         if (sourceName.isNotEmpty)
                           Container(

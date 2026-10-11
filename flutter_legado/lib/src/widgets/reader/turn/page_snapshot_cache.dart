@@ -22,8 +22,10 @@ class PageSnapshotTriple {
   }
 }
 
-typedef SnapshotCapturer =
-    Future<ui.Image?> Function(GlobalKey key, {double? pixelRatio});
+typedef SnapshotCapturer = Future<ui.Image?> Function(
+  GlobalKey key, {
+  double? pixelRatio,
+});
 
 /// Double-buffered prev/cur/next snapshots (Jingshiro setBitmap timing).
 class PageSnapshotCache {
@@ -32,7 +34,9 @@ class PageSnapshotCache {
 
   final SnapshotCapturer _capturer;
   PageSnapshotTriple? _display;
-  bool _refreshing = false;
+  Future<bool>? _refreshing;
+  int? _refreshGeneration;
+  int _generation = 0;
 
   PageSnapshotTriple? get display => _display;
 
@@ -48,9 +52,17 @@ class PageSnapshotCache {
     required bool hasPrev,
     required bool hasNext,
   }) async {
-    if (_refreshing) return false;
-    _refreshing = true;
-    try {
+    final generation = _generation;
+    // 同页请求共用在途抓取；换页后的请求等旧抓取结束再生成当前页快照。
+    while (_refreshing != null) {
+      final refreshingGeneration = _refreshGeneration;
+      final ok = await _refreshing!;
+      if (generation != _generation) return false;
+      if (refreshingGeneration == generation) return ok;
+    }
+    if (generation != _generation) return false;
+
+    Future<bool> capture() async {
       final cur = await _capturer(curKey, pixelRatio: pixelRatio);
       if (cur == null) {
         return false;
@@ -76,16 +88,31 @@ class PageSnapshotCache {
       }
 
       final pending = PageSnapshotTriple(prev: prev, cur: cur, next: next);
+      if (generation != _generation) {
+        pending.dispose();
+        return false;
+      }
       final old = _display;
       _display = pending;
       old?.dispose();
       return true;
+    }
+
+    final refreshing = capture();
+    _refreshing = refreshing;
+    _refreshGeneration = generation;
+    try {
+      return await refreshing;
     } finally {
-      _refreshing = false;
+      if (identical(_refreshing, refreshing)) {
+        _refreshing = null;
+        _refreshGeneration = null;
+      }
     }
   }
 
   void invalidate() {
+    _generation++;
     _display?.dispose();
     _display = null;
   }

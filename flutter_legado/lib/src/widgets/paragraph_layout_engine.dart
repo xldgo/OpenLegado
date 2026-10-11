@@ -9,6 +9,8 @@
 /// - 字符宽度缓存（移植自 TextMeasure.kt）
 library;
 
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import 'zh_layout.dart';
@@ -237,6 +239,18 @@ class LineInfo {
   final int startIndex;
   final int endIndex;
 
+  /// 断行测量使用的虚拟前缀，不进入正文可选文字。
+  final int virtualPrefixLength;
+
+  /// 虚拟前缀在最终字距和文字缩放下的宽度，只用于布局留白。
+  final double indentWidth;
+
+  /// 最终绘制字距，分页与正文渲染共用。
+  final double? letterSpacing;
+
+  /// 跨页后仍保留原段落末行标记，避免页末续行被当成段末。
+  final bool? isParagraphLastLine;
+
   // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂宽度（>0 表示该行为悬挂行，
   // 渲染侧行起点左移该宽度进入缩进区）— Reasonix
   final double hangingWidth;
@@ -248,7 +262,20 @@ class LineInfo {
     required this.startIndex,
     required this.endIndex,
     this.hangingWidth = 0,
+    this.virtualPrefixLength = 0,
+    this.indentWidth = 0,
+    this.letterSpacing,
+    this.isParagraphLastLine,
   });
+
+  String get displayText => words.join();
+
+  String get selectableText => displayText.substring(virtualPrefixLength);
+
+  /// 将显示文本的 UTF-16 偏移转换为章节原文偏移。
+  int sourceOffset(int displayOffset) =>
+      startIndex +
+      (displayOffset - virtualPrefixLength).clamp(0, endIndex - startIndex);
 }
 
 /// 段落信息
@@ -281,7 +308,45 @@ class PageInfo {
   final List<ParagraphInfo> paragraphs;
   final double totalHeight;
 
-  const PageInfo({required this.paragraphs, required this.totalHeight});
+  /// 所有页面引用同一章节原文，选区从原文取值而非拼接排版字符。
+  final String? sourceText;
+
+  const PageInfo({
+    required this.paragraphs,
+    required this.totalHeight,
+    this.sourceText,
+  });
+}
+
+/// 清理显示空白后仍保留章节原文坐标的段落。
+@immutable
+class SourceParagraph {
+  final String text;
+  final int startIndex;
+  final int endIndex;
+
+  const SourceParagraph(this.text, this.startIndex, this.endIndex);
+}
+
+/// 每个非空逻辑行为一段；原始换行和空白继续保存在章节原文中。
+List<SourceParagraph> splitChapterParagraphs(String content) {
+  final result = <SourceParagraph>[];
+  var start = 0;
+  void append(int end) {
+    final raw = content.substring(start, end);
+    final text = raw.trim();
+    if (text.isEmpty) return;
+    final leading = raw.length - raw.trimLeft().length;
+    final sourceStart = start + leading;
+    result.add(SourceParagraph(text, sourceStart, sourceStart + text.length));
+  }
+
+  for (final match in RegExp(r'\r\n|\r|\n').allMatches(content)) {
+    append(match.start);
+    start = match.end;
+  }
+  append(content.length);
+  return result;
 }
 
 /// 字符宽度缓存
@@ -398,7 +463,7 @@ class ParagraphLayoutEngine {
     double pageHeight, {
     double? firstPageHeight,
   }) {
-    final paragraphs = _splitParagraphs(content);
+    final paragraphs = splitChapterParagraphs(content);
     if (paragraphs.isEmpty) return [];
 
     final pages = <PageInfo>[];
@@ -411,7 +476,7 @@ class ParagraphLayoutEngine {
 
     for (var i = 0; i < paragraphs.length; i++) {
       final para = paragraphs[i];
-      final paraInfo = _layoutParagraph(para, availableWidth, isFirst: i == 0);
+      final paraInfo = _layoutParagraph(para, availableWidth);
       final chapterParaIndex = i + 1; // 1-based，对齐原版段评 paraIndex
 
       // 段落间距（对应 Kotlin durY += textHeight * paragraphSpacing / 10f）
@@ -431,6 +496,7 @@ class ParagraphLayoutEngine {
             PageInfo(
               paragraphs: List.from(currentPageParagraphs),
               totalHeight: currentHeight,
+              sourceText: content,
             ),
           );
           currentPageParagraphs = [];
@@ -442,6 +508,7 @@ class ParagraphLayoutEngine {
           pageHeight,
           firstPageCapacity: capacityFor(pages.length),
           chapterParagraphIndex: chapterParaIndex,
+          sourceText: content,
         );
         pages.addAll(subPages);
         continue;
@@ -465,6 +532,7 @@ class ParagraphLayoutEngine {
           PageInfo(
             paragraphs: List.from(currentPageParagraphs),
             totalHeight: currentHeight,
+            sourceText: content,
           ),
         );
         currentPageParagraphs = [tagged];
@@ -478,7 +546,11 @@ class ParagraphLayoutEngine {
     // 最后一页
     if (currentPageParagraphs.isNotEmpty) {
       pages.add(
-        PageInfo(paragraphs: currentPageParagraphs, totalHeight: currentHeight),
+        PageInfo(
+          paragraphs: currentPageParagraphs,
+          totalHeight: currentHeight,
+          sourceText: content,
+        ),
       );
     }
 
@@ -495,9 +567,9 @@ class ParagraphLayoutEngine {
     double pageHeight, {
     double? firstPageCapacity,
     int chapterParagraphIndex = 0,
+    String? sourceText,
   }) {
     final pages = <PageInfo>[];
-    final textHeight = config.fontSize * config.lineHeight;
 
     var lineIdx = 0;
     var subPageNo = 0;
@@ -505,10 +577,15 @@ class ParagraphLayoutEngine {
       final capacity = subPageNo == 0
           ? (firstPageCapacity ?? pageHeight)
           : pageHeight;
-      final linesPerPage = (capacity / textHeight).floor().clamp(1, 9999);
-      final endIdx = (lineIdx + linesPerPage).clamp(0, paraInfo.lines.length);
+      var endIdx = lineIdx;
+      var height = 0.0;
+      while (endIdx < paraInfo.lines.length) {
+        final nextHeight = paraInfo.lines[endIdx].height;
+        if (endIdx > lineIdx && height + nextHeight > capacity) break;
+        height += nextHeight;
+        endIdx++;
+      }
       final pageLines = paraInfo.lines.sublist(lineIdx, endIdx);
-      final height = pageLines.length * textHeight;
       final isLast = endIdx >= paraInfo.lines.length;
       pages.add(
         PageInfo(
@@ -523,6 +600,7 @@ class ParagraphLayoutEngine {
             ),
           ],
           totalHeight: height,
+          sourceText: sourceText,
         ),
       );
       lineIdx = endIdx;
@@ -531,39 +609,16 @@ class ParagraphLayoutEngine {
     return pages;
   }
 
-  /// 分割段落
-  ///
-  /// 移植自 Kotlin splitNotBlank：按换行符分割，过滤空白段落
-  /// 支持双换行符（\n\n）和单换行符（\n）两种分段模式
-  List<String> _splitParagraphs(String content) {
-    if (content.trim().isEmpty) return [];
-    // 优先按双换行符分割；如果没有双换行符则按单换行符分割
-    if (content.contains('\n\n')) {
-      return content
-          .split(RegExp(r'\n\s*\n'))
-          .map((p) => p.trim())
-          .where((p) => p.isNotEmpty)
-          .toList();
-    }
-    // 单换行符分割（对应 Kotlin contents.forEach 逐段处理）
-    return content
-        .split('\n')
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-  }
-
   /// 排版单个段落
   ///
   /// 移植自 TextChapterLayout.kt setTypeText：
   /// - 首行缩进（对应 Kotlin paragraphIndent + indentCharWidth）
   /// - 行高计算（对应 Kotlin textHeight * lineSpacingExtra）
   ParagraphInfo _layoutParagraph(
-    String paragraph,
-    double availableWidth, {
-    bool isFirst = false,
-  }) {
-    final trimmedPara = paragraph.trim();
+    SourceParagraph paragraph,
+    double availableWidth,
+  ) {
+    final trimmedPara = paragraph.text;
     if (trimmedPara.isEmpty) {
       return const ParagraphInfo(
         lines: [],
@@ -595,24 +650,90 @@ class ParagraphLayoutEngine {
               processableText,
               config.indentCount,
             )
-        ? config.indent
+        ? _measurePrefixWidth(processableText.substring(0, config.indentCount))
         : 0.0;
-    final lines = _breakLines(
+    final layoutLines = _breakLines(
       processableText,
       availableWidth,
       hangingWidth: hangingWidth,
     );
 
     // 计算总高度（对应 Kotlin durY += textHeight * lineSpacingExtra）
-    final textHeight = config.fontSize * config.lineHeight;
-    final totalHeight = lines.isEmpty ? 0.0 : lines.length * textHeight;
+    final prefixLength = processableText.length - trimmedPara.length;
+    final lines = <LineInfo>[];
+    for (var i = 0; i < layoutLines.length; i++) {
+      final line = layoutLines[i];
+      final last = i == layoutLines.length - 1;
+      final spacing = _justifiedSpacing(line, availableWidth, !last);
+      final metrics = _measureLine(line.displayText, spacing);
+      final virtualPrefixLength = (prefixLength - line.startIndex).clamp(
+        0,
+        line.endIndex - line.startIndex,
+      );
+      var indentWidth = 0.0;
+      if (virtualPrefixLength > 0) {
+        final selectableText = line.displayText.substring(virtualPrefixLength);
+        if (selectableText.isEmpty) {
+          indentWidth = metrics.width;
+        } else {
+          // 字距会影响首字左右的半个间距，不能直接用插入点作为留白宽度。
+          final textMetrics = _measureLine(selectableText, spacing);
+          final firstLength = selectableText.characters.first.length;
+          final originalBox = metrics
+              .getBoxesForSelection(
+                TextSelection(
+                  baseOffset: virtualPrefixLength,
+                  extentOffset: virtualPrefixLength + firstLength,
+                ),
+              )
+              .first;
+          final textBox = textMetrics
+              .getBoxesForSelection(
+                TextSelection(baseOffset: 0, extentOffset: firstLength),
+              )
+              .first;
+          indentWidth = math.max(0, originalBox.left - textBox.left);
+          textMetrics.dispose();
+        }
+      }
+      lines.add(
+        LineInfo(
+          words: line.words,
+          width: metrics.width,
+          height: metrics.height,
+          startIndex:
+              paragraph.startIndex +
+              (line.startIndex - prefixLength).clamp(0, trimmedPara.length),
+          endIndex:
+              paragraph.startIndex +
+              (line.endIndex - prefixLength).clamp(0, trimmedPara.length),
+          virtualPrefixLength: virtualPrefixLength,
+          indentWidth: indentWidth,
+          hangingWidth: line.hangingWidth,
+          letterSpacing: spacing,
+          isParagraphLastLine: last,
+        ),
+      );
+      metrics.dispose();
+    }
+    final totalHeight = lines.fold<double>(
+      0,
+      (height, line) => height + line.height,
+    );
 
     return ParagraphInfo(
       lines: lines,
       totalHeight: totalHeight,
-      startIndex: 0,
-      endIndex: paragraph.length,
+      startIndex: paragraph.startIndex,
+      endIndex: paragraph.endIndex,
     );
+  }
+
+  double _measurePrefixWidth(String prefix) {
+    final painter = _measureLine(prefix, config.letterSpacing);
+    final width = painter.width;
+    painter.dispose();
+    return width;
   }
 
   /// 分行算法（使用 ZhLayout 中文断行引擎）
@@ -636,7 +757,15 @@ class ParagraphLayoutEngine {
     final widthsArray = _measureCharWidths(text, availableWidth);
 
     // 步骤2：拆分为字符列表 + 宽度列表（对应 Kotlin measureTextSplit）
-    final (words, widths) = TextMeasure.splitByWidths(text, widthsArray);
+    final words = text.characters.toList();
+    var offset = 0;
+    final widths = words.map((word) {
+      final width = widthsArray
+          .sublist(offset, offset + word.length)
+          .fold<double>(0, (sum, value) => sum + value);
+      offset += word.length;
+      return width;
+    }).toList();
 
     if (words.isEmpty) return [];
 
@@ -791,79 +920,68 @@ class ParagraphLayoutEngine {
     double hangingWidth = 0,
   }) {
     if (lines.isEmpty) return lines;
-    final textHeight = config.fontSize * config.lineHeight;
+    final boundaries = <int>[0];
+    for (final character in text.characters) {
+      boundaries.add(boundaries.last + character.length);
+    }
     final guarded = <LineInfo>[];
-    var carried = -1; // 上一行溢出字符的起点偏移（-1 = 无溢出）
-    for (var li = 0; li < lines.length; li++) {
-      final line = lines[li];
-      final start = carried >= 0 ? carried : line.startIndex;
-      final end = line.endIndex;
-      if (end <= start) {
-        carried = -1;
-        continue;
-      }
-      // 首行保留悬挂宽限（行起点左移悬挂进缩进区，渲染侧同步放宽）
-      final limit = li == 0 ? availableWidth + hangingWidth : availableWidth;
-      var fitEnd = start;
-      var w = 0.0;
-      for (var i = start; i < end; i++) {
-        w += widths[i];
-        if (w > limit) break;
-        fitEnd = i + 1;
-      }
-      if (fitEnd >= end) {
-        // 本行（含并入的溢出字符）宽度合规
-        guarded.add(
-          _buildGuardedLine(
-            text,
-            widths,
-            start,
-            end,
-            textHeight,
-            hangingWidth: li == 0 ? hangingWidth : 0,
-          ),
+    var carried = -1;
+    int fitEnd(int start, int end, double limit) {
+      final first = boundaries.indexOf(start);
+      var last = boundaries.indexOf(end);
+      while (last > first + 1) {
+        final painter = _measureLine(
+          text.substring(start, boundaries[last]),
+          config.letterSpacing,
         );
-        carried = -1;
-        continue;
+        final fits = painter.width <= limit + 0.001;
+        painter.dispose();
+        if (fits) break;
+        last--;
       }
-      if (fitEnd <= start) fitEnd = start + 1; // 单字超宽：保底放一个字
-      // 避头尾回退：下一行行首不得为禁首标点、本行行末不得为禁末标点
-      while (fitEnd > start + 1 &&
-          fitEnd < end &&
-          (ChinesePunctuationRule.isBeginningPunctuation(text[fitEnd]) ||
-              ChinesePunctuationRule.isEndingPunctuation(text[fitEnd - 1]))) {
-        fitEnd--;
+      while (last > first + 1 &&
+          boundaries[last] < text.length &&
+          (ChinesePunctuationRule.isBeginningPunctuation(
+                text[boundaries[last]],
+              ) ||
+              ChinesePunctuationRule.isEndingPunctuation(
+                text[boundaries[last] - 1],
+              ))) {
+        last--;
       }
+      return boundaries[last];
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      final start = carried >= 0 ? carried : lines[i].startIndex;
+      final end = lines[i].endIndex;
+      if (start >= end) continue;
+      final limit = availableWidth + (guarded.isEmpty ? hangingWidth : 0);
+      final fitted = fitEnd(start, end, limit);
       guarded.add(
         _buildGuardedLine(
           text,
           widths,
           start,
-          fitEnd,
-          textHeight,
-          hangingWidth: li == 0 ? hangingWidth : 0,
+          fitted,
+          config.fontSize * config.lineHeight,
+          hangingWidth: guarded.isEmpty ? hangingWidth : 0,
         ),
       );
-      carried = fitEnd;
+      carried = fitted < end ? fitted : -1;
     }
-    // 末行溢出的收尾行（可能仍超宽，继续按限宽切分）
     while (carried >= 0 && carried < text.length) {
-      var fitEnd = carried;
-      var w = 0.0;
-      for (var i = carried; i < text.length; i++) {
-        w += widths[i];
-        if (w > availableWidth) break;
-        fitEnd = i + 1;
-      }
-      if (fitEnd <= carried) fitEnd = carried + 1;
-      while (fitEnd > carried + 1 &&
-          fitEnd < text.length &&
-          (ChinesePunctuationRule.isBeginningPunctuation(text[fitEnd]) ||
-              ChinesePunctuationRule.isEndingPunctuation(text[fitEnd - 1]))) {
-        fitEnd--;
-      }
-      guarded.add(_buildGuardedLine(text, widths, carried, fitEnd, textHeight));
-      carried = fitEnd >= text.length ? -1 : fitEnd;
+      final fitted = fitEnd(carried, text.length, availableWidth);
+      guarded.add(
+        _buildGuardedLine(
+          text,
+          widths,
+          carried,
+          fitted,
+          config.fontSize * config.lineHeight,
+        ),
+      );
+      carried = fitted < text.length ? fitted : -1;
     }
     return guarded;
   }
@@ -877,10 +995,7 @@ class ParagraphLayoutEngine {
     double textHeight, {
     double hangingWidth = 0,
   }) {
-    final (lineWords, _) = TextMeasure.splitByWidths(
-      text.substring(start, end),
-      widths.sublist(start, end),
-    );
+    final lineWords = text.substring(start, end).characters.toList();
     var w = 0.0;
     for (var i = start; i < end; i++) {
       w += widths[i];
@@ -893,6 +1008,66 @@ class ParagraphLayoutEngine {
       endIndex: end,
       hangingWidth: hangingWidth,
     );
+  }
+
+  /// 使用最终绘制样式测量整行，文字缩放和字体回退参与高度与宽度。
+  TextPainter _measureLine(String text, double letterSpacing) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: (config.baseStyle ?? const TextStyle()).merge(
+          TextStyle(
+            fontSize: config.fontSize,
+            height: config.lineHeight,
+            color: config.textColor,
+            fontFamily: config.fontFamily,
+            fontWeight: config.fontWeight,
+            fontStyle: config.fontStyle,
+            letterSpacing: letterSpacing == 0 ? null : letterSpacing,
+          ),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: config.textScaler ?? TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    return painter;
+  }
+
+  /// 根据实际文字引擎的字距增量求对齐值，避免字体缩放后再次超宽。
+  double _justifiedSpacing(
+    LineInfo line,
+    double availableWidth,
+    bool eligible,
+  ) {
+    final base = config.letterSpacing;
+    if (!config.justify || !eligible || line.words.length <= 1) return base;
+    final limit = availableWidth + line.hangingWidth;
+    final natural = _measureLine(line.displayText, base);
+    final naturalWidth = natural.width;
+    natural.dispose();
+    if (naturalWidth >= limit) return base;
+    final probe = _measureLine(line.displayText, base + 1);
+    final increment = probe.width - naturalWidth;
+    probe.dispose();
+    if (increment <= 0) return base;
+    var high =
+        base +
+        math.min((limit - naturalWidth) / increment, config.fontSize * 0.5);
+    var low = base;
+    for (var i = 0; i < 10; i++) {
+      final candidate = i == 0 ? high : (low + high) / 2;
+      final painter = _measureLine(line.displayText, candidate);
+      final fits = painter.width <= limit + 0.001;
+      painter.dispose();
+      if (fits) {
+        low = candidate;
+        if (i == 0) break;
+      } else {
+        high = candidate;
+      }
+    }
+    return low;
   }
 
   /// 测量每个字符的宽度（整段同源测量，无逐字缓存）
@@ -927,18 +1102,17 @@ class ParagraphLayoutEngine {
     );
     painter.layout(maxWidth: maxWidth);
 
-    for (var i = 0; i < text.length; i++) {
+    var start = 0;
+    for (final character in text.characters) {
+      final end = start + character.length;
       final boxes = painter.getBoxesForSelection(
-        TextSelection(baseOffset: i, extentOffset: i + 1),
+        TextSelection(baseOffset: start, extentOffset: end),
       );
-      if (boxes.isNotEmpty) {
-        final box = boxes.first;
-        widths[i] = box.right - box.left;
-      } else {
-        // 零宽字符/组合字符 fallback：沿用前一字符宽度。保持 >0 避免
-        // splitByWidths 产生零宽簇（行索引与文本偏移的对应依赖逐字簇）
-        widths[i] = i > 0 ? widths[i - 1] : config.fontSize * 0.5;
-      }
+      widths[start] = boxes.fold<double>(
+        0,
+        (width, box) => width + box.right - box.left,
+      );
+      start = end;
     }
     painter.dispose();
     return widths;
@@ -963,7 +1137,7 @@ class ParagraphLayoutEngine {
                 : null,
             fontFamily: config.fontFamily,
             fontWeight: config.fontWeight,
-        fontStyle: config.fontStyle,
+            fontStyle: config.fontStyle,
           ),
         ),
       ),
@@ -1094,7 +1268,7 @@ class _LineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = line.words.join('');
+    final text = line.selectableText;
 
     // 两端对齐：计算额外字间距
     // 对应 Kotlin: residualWidth / gapCount
@@ -1110,23 +1284,31 @@ class _LineWidget extends StatelessWidget {
     return Container(
       height: line.height,
       decoration: BoxDecoration(color: config.backgroundColor),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: config.fontSize,
-          color: config.textColor,
-          height: config.lineHeight,
-          fontFamily: config.fontFamily,
-          // [UI-fix v2.0.2 | 2026-08-06] 渲染字距 = 配置基础字距 + 两端对齐额外字距 — Qoder
-          letterSpacing:
-              (config.letterSpacing +
-                      (extraLetterSpacing > 0 ? extraLetterSpacing : 0)) !=
-                  0
-              ? config.letterSpacing +
-                    (extraLetterSpacing > 0 ? extraLetterSpacing : 0)
-              : null,
-        ),
-      ),
+      padding: EdgeInsets.only(left: line.indentWidth),
+      child: text.isEmpty
+          ? null
+          : Text(
+              text,
+              style: TextStyle(
+                fontSize: config.fontSize,
+                color: config.textColor,
+                height: config.lineHeight,
+                fontFamily: config.fontFamily,
+                fontWeight: config.fontWeight,
+                fontStyle: config.fontStyle,
+                // [UI-fix v2.0.2 | 2026-08-06] 渲染字距 = 配置基础字距 + 两端对齐额外字距 — Qoder
+                letterSpacing:
+                    line.letterSpacing ??
+                    ((config.letterSpacing +
+                                (extraLetterSpacing > 0
+                                    ? extraLetterSpacing
+                                    : 0)) !=
+                            0
+                        ? config.letterSpacing +
+                              (extraLetterSpacing > 0 ? extraLetterSpacing : 0)
+                        : null),
+              ),
+            ),
     );
   }
 }
