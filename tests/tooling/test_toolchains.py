@@ -9,9 +9,9 @@ import unittest
 from unittest.mock import patch
 
 from support import fixture, write
-from tooling.common import ToolError
+from tooling.common import ToolError, run_command
 from tooling.policy import load_policy
-from tooling.toolchains import AndroidNdk, android_environment, dart_environment, discover_ndk
+from tooling.toolchains import AndroidNdk, android_environment, dart_environment, discover_ndk, find_tool
 
 
 class ToolchainTests(unittest.TestCase):
@@ -72,6 +72,19 @@ class ToolchainTests(unittest.TestCase):
             dart, env = dart_environment({"PATH": "original"})
         self.assertEqual(dart, native)
         self.assertEqual(env["FLUTTER_ROOT"], str(sdk))
+
+    @unittest.skipIf(os.name == "nt", "Rustup 符号链接入口验证需要 POSIX 宿主")
+    def test_rustup_symlink_preserves_dispatch_name(self):
+        shim = self.root / "rustup"
+        write(shim, '#!/bin/sh\nprintf "%s\\n" "${0##*/}"\n')
+        shim.chmod(0o755)
+        for name in ("cargo", "rustc"):
+            alias = self.root / name
+            alias.symlink_to(shim)
+            tool = find_tool(name, {"PATH": str(self.root)})
+            # 实际执行同一文件的两个入口，确认子进程仍收到各自的工具名称。
+            result = run_command([tool], self.root, dict(os.environ), capture=True)
+            self.assertEqual(result.strip(), name)
 
 
 if __name__ == "__main__":

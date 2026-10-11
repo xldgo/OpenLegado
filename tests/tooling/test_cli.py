@@ -50,6 +50,15 @@ class CliTests(unittest.TestCase):
         self.assertIn(".so.meta", result.stderr)
         self.assertFalse(list(self.root.rglob("*.meta")))
 
+    def test_actions_failure_keeps_diagnostic_annotation(self):
+        env = {**os.environ, "GITHUB_ACTIONS": "true", "PYTHONIOENCODING": "utf-8"}
+        result = subprocess.run([sys.executable, str(self.root / "scripts" / "dev.py"),
+                                 "verify", "ffi", "android", "--profile", "debug", "--abis", "unknown"],
+                                cwd=self.cwd, env=env, text=True, encoding="utf-8", capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("::error::未知 Android ABI", result.stderr)
+        self.assertEqual(result.stdout, "")
+
     def test_bad_arguments_exit_2_and_unsupported_target_exit_1(self):
         for args in (("verify", "ffi", "android"),
                      ("verify", "ffi", "android", "--profile", "profile", "--abis", "arm64-v8a"),

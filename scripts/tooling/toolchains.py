@@ -16,7 +16,8 @@ def find_tool(name: str, env: dict) -> Path:
     found = shutil.which(name, path=env.get("PATH", ""))
     if not found:
         raise ToolError(f"PATH 中找不到 {name}，请先安装并配置该工具。")
-    return Path(found).resolve()
+    # Rustup 根据调用入口名称分派 cargo/rustc；解析符号链接会误调用 rustup 本身。
+    return Path(found).absolute()
 
 
 def rust_environment(root: Path, env: dict) -> dict:

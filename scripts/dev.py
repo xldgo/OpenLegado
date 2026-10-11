@@ -10,6 +10,7 @@ if sys.version_info < (3, 11):
     sys.exit(1)
 
 import argparse
+import os
 from pathlib import Path
 import unittest
 
@@ -27,6 +28,14 @@ from tooling.windows import build_windows_app, build_windows_ffi, verify_windows
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def report_error(error):
+    print(f"错误：{error}", file=sys.stderr)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # 在检查页面保留具体失败原因；转义消息，避免内容被解释为新命令。
+        message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::error::{message}", file=sys.stderr)
 
 
 def android_options(parser, build=False):
@@ -214,10 +223,10 @@ def main(argv=None):
             return 0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1
         return 0
     except CommandError as exc:
-        print(f"错误：{exc}", file=sys.stderr)
+        report_error(exc)
         return exc.code
     except (ToolError, OSError) as exc:
-        print(f"错误：{exc}", file=sys.stderr)
+        report_error(exc)
         return 1
 
 
