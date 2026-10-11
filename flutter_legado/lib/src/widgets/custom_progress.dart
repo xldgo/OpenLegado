@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 自定义进度条 — 带标签的进度条
 class CustomProgress extends StatelessWidget {

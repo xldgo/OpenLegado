@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// [UI_SYNC_REFACTOR B5] 阅读菜单进出场统一封装
 ///

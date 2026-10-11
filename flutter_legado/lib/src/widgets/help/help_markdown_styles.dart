@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 /// 帮助 Markdown 分隔线色
@@ -23,7 +23,8 @@ MarkdownStyleSheet helpMarkdownStyleSheet(ThemeData theme) {
     cs.surface,
   );
 
-  final base = theme.textTheme.bodyLarge?.copyWith(
+  final base =
+      theme.textTheme.bodyLarge?.copyWith(
         color: bodyColor,
         height: 1.3,
         fontSize: 15,
@@ -46,7 +47,8 @@ MarkdownStyleSheet helpMarkdownStyleSheet(ThemeData theme) {
     );
   }
 
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+  // 直接传递共用的文本和绘制类型，避免依赖 Markdown 插件的旧 ThemeData。
+  return MarkdownStyleSheet(
     p: base,
     pPadding: const EdgeInsets.only(bottom: 10),
     h1: heading(1),
@@ -59,21 +61,20 @@ MarkdownStyleSheet helpMarkdownStyleSheet(ThemeData theme) {
     h4: heading(4),
     h5: heading(5),
     h6: heading(6, color: cs.onSurfaceVariant),
-    strong: base.copyWith(
-      color: cs.onSurface,
-      fontWeight: FontWeight.w600,
-    ),
+    strong: base.copyWith(color: cs.onSurface, fontWeight: FontWeight.w600),
     em: base.copyWith(fontStyle: FontStyle.italic),
+    del: const TextStyle(decoration: TextDecoration.lineThrough),
+    img: theme.textTheme.bodyMedium,
+    checkbox: theme.textTheme.bodyMedium?.copyWith(color: cs.primary),
     a: base.copyWith(color: accent, decoration: TextDecoration.none),
     listBullet: base.copyWith(color: accent),
     listIndent: 24,
+    listBulletPadding: const EdgeInsets.only(right: 4),
     blockSpacing: 12,
     blockquote: base.copyWith(color: cs.onSurfaceVariant),
     blockquotePadding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
     blockquoteDecoration: BoxDecoration(
-      border: Border(
-        left: BorderSide(color: accent, width: 3),
-      ),
+      border: Border(left: BorderSide(color: accent, width: 3)),
     ),
     code: TextStyle(
       fontFamily: 'Menlo',
@@ -96,5 +97,8 @@ MarkdownStyleSheet helpMarkdownStyleSheet(ThemeData theme) {
     tableBorder: TableBorder.all(color: breakColor, width: 1),
     tableCellsPadding: const EdgeInsets.all(8),
     tableHeadAlign: TextAlign.left,
+    tablePadding: const EdgeInsets.only(bottom: 4),
+    tableColumnWidth: const FlexColumnWidth(),
+    tableCellsDecoration: const BoxDecoration(),
   );
 }

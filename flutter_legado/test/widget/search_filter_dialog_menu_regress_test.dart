@@ -14,7 +14,7 @@
 // 2. 点「取消」后对话框关闭；
 // 3. 随后打开 ⚙ 设置弹层无异常（tester.takeException() 为空），菜单项在位；
 // 4. 连续三轮「开过滤 → 取消 → 开 ⚙」不再触发红屏断言。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

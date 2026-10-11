@@ -9,7 +9,7 @@
 /// - 字符宽度缓存（移植自 TextMeasure.kt）
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'zh_layout.dart';
 

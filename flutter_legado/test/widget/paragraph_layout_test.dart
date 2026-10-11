@@ -4,7 +4,7 @@
 /// 字符宽度缓存、两端对齐计算、边界条件
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 

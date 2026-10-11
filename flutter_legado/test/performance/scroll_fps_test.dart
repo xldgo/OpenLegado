@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 // ScrollCacheExtent 定义在渲染层（rendering/viewport.dart），widgets/material 未导出
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -2,7 +2,7 @@
 // Windows 前端对无扩展名包导入（package:x/x）解析失败（报「系统找不到
 // 指定的文件」），显式 .dart 扩展名为当前可编译形态；存量测试文件沿用
 // 无扩展名形态系旧工具链产物，未动。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';

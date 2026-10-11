@@ -12,7 +12,7 @@
 //    enabled/focused/disabled/error 全态有效 border 均为 InputBorder.none；
 // 2. 真实 SearchBarWidget（沉浸搜索胶囊）已显式三态无边框；
 // 3. 对照组证明渗入面真实存在：仅写 border 的旧写法会回退主题底线式。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/theme/app_theme.dart';

@@ -9,7 +9,7 @@
 // bookApiProvider 覆写为 mock（mock 网络，不经 Rust FFI）；源数据为 2 个
 // 无 style 的 url 分类（对齐 kaixin7days 真机数据 玄幻/都市）。
 // 断言展开区「实际渲染高度非零」——即 chips 真的占空间，而非仅存在于 widget 树。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

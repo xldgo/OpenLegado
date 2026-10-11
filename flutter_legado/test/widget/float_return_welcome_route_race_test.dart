@@ -20,7 +20,7 @@
 // 完整 LegadoApp 依赖 Rust FFI（见 test/widget_test.dart 注释），无法在
 // 纯 widget 测试环境运行，故绕开 FFI 仅验证路由门控入口。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/app.dart';

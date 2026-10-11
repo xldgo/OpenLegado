@@ -6,7 +6,7 @@
 // - :124-133 touchSurfaceUp：本次长按已生效才恢复原倍速 + 隐藏 tip +
 //   resolveDanmakuStart(当前位置)；
 // - 非长按的点击/双击仍交回宿主（onTap/onDoubleTap），互不干扰。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 长按倍速手势包装：宿主提供提速/恢复回调与「播放中」开关。
 ///

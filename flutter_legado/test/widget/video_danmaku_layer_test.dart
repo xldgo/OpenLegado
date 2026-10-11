@@ -8,7 +8,7 @@
 //
 // [V-B2 | 2026-10-05] 新增。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player/video_player.dart';
 

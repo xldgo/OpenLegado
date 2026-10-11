@@ -9,7 +9,7 @@
 //   - reader_screen.dart 与排版相关文件（承重区，命中先报告再改）
 //   - reader_comic_screen / video_screen / 翻页自绘黑底体系（已登记例外）
 //   - webview_login_screen（WebViewController 自绘登录浮层，平台通道依赖）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

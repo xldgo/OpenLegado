@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
 import 'package:flutter_legado/src/screens/association_import_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;

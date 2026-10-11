@@ -1,5 +1,5 @@
 // EmptyState 颜文字彩蛋测试（用户授权新增，AGENTS 红线 2026-08-29 口径）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/empty_state.dart';

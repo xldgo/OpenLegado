@@ -15,7 +15,7 @@
 // 在架判定数据源：DB 记录（api.getBook + BookOpenUtils.isInBookshelf 判
 // notShelf 位）——路由带入的内存 Book 是瘦壳，不可作为在架依据。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

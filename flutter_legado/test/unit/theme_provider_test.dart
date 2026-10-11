@@ -6,7 +6,7 @@
 //
 // 注意：ThemeNotifier.build() 会通过微任务自动加载持久化设置，
 // 测试中先经 pumpInit() 等待自动加载完成，再执行动作与断言，避免加载覆盖动作结果。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

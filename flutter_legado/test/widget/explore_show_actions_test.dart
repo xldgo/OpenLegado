@@ -3,7 +3,7 @@
 //
 // 对齐基准：参考版书单页顶栏（←+筛选漏斗+☰ 列表切换，用户 0913 手动截图
 // 12~17）；能力不丢失——我方既有 加入书架/页码 动作保留。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

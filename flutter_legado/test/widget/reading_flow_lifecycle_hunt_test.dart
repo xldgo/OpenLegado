@@ -14,7 +14,7 @@
 // - 真机实测（MuMu，2026-09-24）：翻到 4/16 页 → DB durChapterPos 仍 0；
 //   按 HOME 进后台 → 仍 0；force-stop 重启重进 → 回到 1/16（进度丢失）。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show SystemChannels, StringCodec;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;

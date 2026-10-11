@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../models/manga_config.dart';
 import '../../screens/reader_comic/manga_auto_read.dart';

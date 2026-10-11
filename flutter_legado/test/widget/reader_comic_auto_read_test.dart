@@ -21,7 +21,7 @@
 // 4. [W2-fix P2-1] 长按页操作底栏打开期间自动翻页暂停，关闭后恢复。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

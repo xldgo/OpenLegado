@@ -5,7 +5,7 @@
 // - 深色主题 + 从未显式设置背景 → 纯黑 0xFF000000（主题默认，对齐参考实测；
 //   夜间预设 0xFF1A1A1A 仅作为显式选择保留）
 // - 深色主题 + 显式预设索引 1 → 保留 green（0xFFCCEBCC），不随主题变
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

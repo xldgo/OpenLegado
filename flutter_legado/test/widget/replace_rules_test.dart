@@ -6,7 +6,7 @@
 // - 路由预填 pattern 时首帧后直接打开整页编辑器（pattern 已预填）
 // - 整页保存新规则后返回列表且规则出现在列表
 // 整页编辑器字段/保存/剪贴板等用例见 replace_rule_edit_test.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

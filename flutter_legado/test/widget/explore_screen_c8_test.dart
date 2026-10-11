@@ -7,7 +7,7 @@
 // - C8（发现源二级展开区）：子项改 3 列 chips 分区网格
 //   （空 URL 头项 → 通栏分节标题；非通栏 URL 项 → 固定 3 列；
 //    通栏 URL 项（如排行榜，basis>=1）→ 保留全宽行；点击链路不变）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

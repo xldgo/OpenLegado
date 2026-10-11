@@ -9,7 +9,7 @@
 // Flutter 侧对应 UnderlineInputBorder（只画底线，borderRadius 同时定义填充
 // 盒形状）。本测试锁死该形态：任何把 focusedBorder 改回 OutlineInputBorder
 // （四边整圈描边，即 B3 要修掉的偏离形态）的改动都会红。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/theme/app_theme.dart';

@@ -8,7 +8,7 @@
 // - 越界/负数索引视为「未设置」，回落到主题默认
 //
 // 纯函数无状态、无依赖，不需要 WidgetsBinding / SharedPreferences mock。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';

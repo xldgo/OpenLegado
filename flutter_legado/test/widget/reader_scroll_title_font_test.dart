@@ -13,7 +13,7 @@
 /// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

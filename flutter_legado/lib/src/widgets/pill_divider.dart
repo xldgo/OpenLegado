@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// M3 胶囊分隔线（对齐 HapeLee PillDivider）
 ///

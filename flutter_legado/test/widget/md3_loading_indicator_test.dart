@@ -2,7 +2,7 @@
 //
 // 覆盖：结构渲染 / 语义标签 / message 展示 / 减少动画退化分支 /
 // 动画推进稳定性（多帧泵不抛异常）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/loading_indicator.dart';

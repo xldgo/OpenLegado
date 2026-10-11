@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 错误状态组件 — 显示错误信息 + 重试按钮（可选：次要操作，如「换源」）

@@ -1,5 +1,5 @@
 // ExploreKindLayout widget 测试：style 驱动的 wide/cell 布局
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

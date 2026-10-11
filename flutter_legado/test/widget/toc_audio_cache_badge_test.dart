@@ -1,6 +1,6 @@
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2）对无扩展名包导入解析失败，
 // 显式 .dart 扩展名为当前可编译形态（同 toc_chapter_cache_state_test.dart）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';

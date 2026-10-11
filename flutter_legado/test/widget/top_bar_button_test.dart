@@ -2,7 +2,7 @@
 // merge 胶囊分隔线、UiSettingsNotifier 档位解析与默认值、LegadoAppBar 全局
 // 透传（含 topBarOpacity）。设置读取走 uiSettingsListenable 全局通道（组件
 // 不依赖 Riverpod scope），测试直接操作该通道并复位。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// MD3 动画文本行（对齐参考仓库 legado-with-MD3 的 AnimatedTextLine：
 /// 文本变化时旧文本向上滑出、新文本自下滑入的翻滚效果，无淡入淡出）

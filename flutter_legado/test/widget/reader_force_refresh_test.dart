@@ -31,7 +31,7 @@
 // 均属既有 RustApi 契约；新行为以「UI 入口触发强制路径」表达，改造前
 // 文件可编译可运行，红 = 断言失败（非编译错误）。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

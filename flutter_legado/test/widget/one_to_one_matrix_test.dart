@@ -1,7 +1,7 @@
 // 一比一复刻 S7 验收：渲染矩阵补页（详情/阅读，UI_ONE_TO_ONE_CLONE_PLAN_
 // 20260905.md S7）——md3_acceptance_matrix 原有 4 页之外补关键改动两屏，
 // 断言无异常渲染（异常会被 flutter test 捕获）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

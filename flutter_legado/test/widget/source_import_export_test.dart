@@ -4,7 +4,7 @@
 // - SourceScreen 溢出菜单与原版 book_source.xml 一致（7 项）
 // - QrcodeScreen 在桌面/测试环境降级为手动输入模式（无相机），可输入并返回内容
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

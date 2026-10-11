@@ -6,7 +6,7 @@
 // 注意：debugDefaultTargetPlatformOverride 必须在测试体内复位（binding
 // 不变量校验先于 tearDown 执行），故统一 try/finally。
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/routes.dart';

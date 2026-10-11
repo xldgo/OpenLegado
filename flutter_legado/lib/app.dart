@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import 'src/models/models.dart';
 import 'src/providers/providers.dart';
@@ -19,7 +18,9 @@ import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
 import 'src/theme/app_theme.dart';
 import 'src/theme/theme_engine_parameterized.dart';
+
 import 'package:dynamic_color/dynamic_color.dart';
+
 import 'src/theme/md3_colors.dart';
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
@@ -156,7 +157,8 @@ class LegadoApp extends ConsumerStatefulWidget {
   }) {
     void attempt(int attemptNo) {
       final nav = navigator();
-      final welcomeGone = watcher.didObserveTopChange &&
+      final welcomeGone =
+          watcher.didObserveTopChange &&
           watcher.topRouteName != AppRoutes.welcome;
       if (nav != null && welcomeGone) {
         push(nav);
@@ -236,11 +238,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
       // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。
       LegadoApp.scheduleFloatReturnNavigation(
         watcher: _topRouteWatcher,
-        navigator: () => mounted
-            ? PlatformBridgeService.navigatorKey.currentState
-            : null,
-        push: (_) => DeepLinkService.instance
-            .attach(PlatformBridgeService.navigatorKey),
+        navigator: () =>
+            mounted ? PlatformBridgeService.navigatorKey.currentState : null,
+        push: (_) =>
+            DeepLinkService.instance.attach(PlatformBridgeService.navigatorKey),
         onTimeout: () => debugPrint('[DeepLink] 等待欢迎页退出超时'),
       );
     });
@@ -279,9 +280,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) =>
           navigator.pushNamed(AppRoutes.video, arguments: args),
-      onTimeout: () => debugPrint(
-        '[VideoFloat] 闪屏未在等待窗口内退出，放弃本次回全屏导航（停留当前页）',
-      ),
+      onTimeout: () => debugPrint('[VideoFloat] 闪屏未在等待窗口内退出，放弃本次回全屏导航（停留当前页）'),
     );
   }
 
@@ -340,80 +339,92 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         final uiSettings = ref.watch(uiSettingsProvider);
-    final followWallpaper = uiSettings.wallpaperColorFollow;
-    final lightTheme = _withOptionalTransparentScaffold(
-      AppTheme.palette(
-        brightness: Brightness.light,
-        palette: effectivePalette,
-        primary: followWallpaper ? lightDynamic?.primary : c(themeColors.primary),
-        accent: followWallpaper ? lightDynamic?.tertiary : c(themeColors.accent),
-        background: followWallpaper ? null : c(themeColors.background),
-        bottomBackground:
-            followWallpaper ? null : c(themeColors.bottomBackground),
-      ),
-      themeColors.bgImage,
-    );
-    final darkTheme = _withOptionalTransparentScaffold(
-      AppTheme.palette(
-        brightness: Brightness.dark,
-        palette: effectivePalette,
-        primary:
-            followWallpaper ? darkDynamic?.primary : c(themeColors.primaryNight),
-        accent:
-            followWallpaper ? darkDynamic?.tertiary : c(themeColors.accentNight),
-        background: followWallpaper ? null : c(themeColors.backgroundNight),
-        bottomBackground:
-            followWallpaper ? null : c(themeColors.bottomBackgroundNight),
-      ),
-      themeColors.bgImageNight,
-    );
+        final followWallpaper = uiSettings.wallpaperColorFollow;
+        final lightTheme = _withOptionalTransparentScaffold(
+          AppTheme.palette(
+            brightness: Brightness.light,
+            palette: effectivePalette,
+            primary: followWallpaper
+                ? lightDynamic?.primary
+                : c(themeColors.primary),
+            accent: followWallpaper
+                ? lightDynamic?.tertiary
+                : c(themeColors.accent),
+            background: followWallpaper ? null : c(themeColors.background),
+            bottomBackground: followWallpaper
+                ? null
+                : c(themeColors.bottomBackground),
+          ),
+          themeColors.bgImage,
+        );
+        final darkTheme = _withOptionalTransparentScaffold(
+          AppTheme.palette(
+            brightness: Brightness.dark,
+            palette: effectivePalette,
+            primary: followWallpaper
+                ? darkDynamic?.primary
+                : c(themeColors.primaryNight),
+            accent: followWallpaper
+                ? darkDynamic?.tertiary
+                : c(themeColors.accentNight),
+            background: followWallpaper ? null : c(themeColors.backgroundNight),
+            bottomBackground: followWallpaper
+                ? null
+                : c(themeColors.bottomBackgroundNight),
+          ),
+          themeColors.bgImageNight,
+        );
 
-    return MaterialApp(
-      title: 'Legado',
-      // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
-      //（Task #114，服务层无 BuildContext） — QoderCN
-      navigatorKey: PlatformBridgeService.navigatorKey,
-      // [UI-FIX v2.0.7 | 2026-08-09] 全局路由观察器（Task #26）：目录页等
-      // 「返回重现需刷新」的页面经 RouteAware 订阅，从阅读器返回时
-      // 即时刷新缓存云图标/当前章节（对齐原版 SAVE_CONTENT 事件刷新）
-      // [P2-13b 2026-09-19] _topRouteWatcher：崩溃弹窗调度器（见
-      // [LegadoApp.scheduleCrashLogDialog]）监听 didChangeTop，确认冷启动
-      // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
-      navigatorObservers: [appRouteObserver, _topRouteWatcher],
-      debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      // 主题模式由 ThemeNotifier 驱动（亮/暗/跟随系统，全局实时切换）
-      themeMode: themeState.themeMode,
-      // 全局统一滚动物理（BouncingScrollPhysics，对齐安卓原版回弹手感）
-      scrollBehavior: AppScrollBehavior(),
-      // 全局字体缩放：对齐原版 AppContextWrapper.getFontScale
-      // （fontScale 为 null 表示跟随系统，不覆盖平台缩放）
-      builder: (context, child) {
-        final scale = themeState.fontScale;
-        // 全局验证码请求监听（对标原版 SourceVerificationHelp 全局监听，
-        // 书源 JS 挂起等待验证码时跨页面弹窗）
-        Widget wrapped = VerificationCodeListener(child: child!);
-        // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
-        wrapped = WebViewBridgeListener(child: wrapped);
-        // 沉浸式状态栏 / 导航栏：对齐原版 transparentStatusBar / immNavigationBar
-        wrapped = SystemBarBinder(child: wrapped);
-        // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
-        wrapped = _ThemeBackgroundLayer(
-          path: themeColors.bgImageFor(Theme.of(context).brightness),
-          child: wrapped,
-        );
-        if (scale == null) return wrapped;
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
-          child: wrapped,
-        );
-      },
-      initialRoute: widget.initialRoute,
-      // [UI-fix v2.0.167] routes map → onGenerateRoute：命名路由统经
-      // AppRoutes.generateRoute 构建，Android 上按分档覆盖转场时长
-      onGenerateRoute: AppRoutes.generateRoute,
+        return MaterialApp(
+          title: 'Legado',
+          // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
+          //（Task #114，服务层无 BuildContext） — QoderCN
+          navigatorKey: PlatformBridgeService.navigatorKey,
+          // [UI-FIX v2.0.7 | 2026-08-09] 全局路由观察器（Task #26）：目录页等
+          // 「返回重现需刷新」的页面经 RouteAware 订阅，从阅读器返回时
+          // 即时刷新缓存云图标/当前章节（对齐原版 SAVE_CONTENT 事件刷新）
+          // [P2-13b 2026-09-19] _topRouteWatcher：崩溃弹窗调度器（见
+          // [LegadoApp.scheduleCrashLogDialog]）监听 didChangeTop，确认冷启动
+          // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
+          navigatorObservers: [appRouteObserver, _topRouteWatcher],
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          // 主题模式由 ThemeNotifier 驱动（亮/暗/跟随系统，全局实时切换）
+          themeMode: themeState.themeMode,
+          // 全局统一滚动物理（BouncingScrollPhysics，对齐安卓原版回弹手感）
+          scrollBehavior: AppScrollBehavior(),
+          // 全局字体缩放：对齐原版 AppContextWrapper.getFontScale
+          // （fontScale 为 null 表示跟随系统，不覆盖平台缩放）
+          builder: (context, child) {
+            final scale = themeState.fontScale;
+            // 全局验证码请求监听（对标原版 SourceVerificationHelp 全局监听，
+            // 书源 JS 挂起等待验证码时跨页面弹窗）
+            Widget wrapped = VerificationCodeListener(child: child!);
+            // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
+            wrapped = WebViewBridgeListener(child: wrapped);
+            // 沉浸式状态栏 / 导航栏：对齐原版 transparentStatusBar / immNavigationBar
+            wrapped = SystemBarBinder(child: wrapped);
+            // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
+            wrapped = _ThemeBackgroundLayer(
+              path: themeColors.bgImageFor(Theme.of(context).brightness),
+              child: wrapped,
+            );
+            // Markdown 等第三方组件仍从上下文读取旧设计库主题与本地化。
+            // ignore: deprecated_member_use
+            wrapped = MaterialUiCompatibilityBridge(child: wrapped);
+            if (scale == null) return wrapped;
+            return MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: wrapped,
+            );
+          },
+          initialRoute: widget.initialRoute,
+          // [UI-fix v2.0.167] routes map → onGenerateRoute：命名路由统经
+          // AppRoutes.generateRoute 构建，Android 上按分档覆盖转场时长
+          onGenerateRoute: AppRoutes.generateRoute,
         );
       },
     );

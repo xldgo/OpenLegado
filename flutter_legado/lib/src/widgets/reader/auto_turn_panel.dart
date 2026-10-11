@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 自动翻页运行时浮条（差异清单 C10，形态对齐参考版「即开即调」）

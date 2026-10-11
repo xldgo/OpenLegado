@@ -3,7 +3,7 @@
 // 验证 UI_RESTRUCTURE_PLAN.md §6.2 发现页响应式策略：
 // - expanded/large（≥840dp）：左侧书源列表 + 右侧内容占位双栏
 // - compact（<840dp）：单栏列表（保持安卓原版行为，无右栏占位）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

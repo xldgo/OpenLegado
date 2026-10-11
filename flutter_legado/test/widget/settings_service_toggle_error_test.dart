@@ -9,7 +9,7 @@
 /// - MCP 卡片在未配置访问令牌时副题给出前置条件提示（Rust 启动守卫要求）
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

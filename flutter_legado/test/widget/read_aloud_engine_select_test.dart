@@ -8,7 +8,7 @@
 // 1) 选中后 config.engineUrl == engine.url（不含逗号）；
 // 2) 重开对话框：当前引擎按裸 URL 匹配高亮；
 // 3) 存量「名称,URL」形态也能正确高亮（显示侧归一）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

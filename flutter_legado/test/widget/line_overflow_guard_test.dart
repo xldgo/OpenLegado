@@ -11,7 +11,7 @@
 /// 渲染独立的 TextPainter（maxLines:1 同参）逐行验证行宽不越界。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 

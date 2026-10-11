@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// MD3 Expressive 风格波浪加载指示器（参考 Compose Material3 Expressive
 /// 的 LoadingIndicator 视觉签名：环形半径按正弦波调制 + 呼吸幅度 +

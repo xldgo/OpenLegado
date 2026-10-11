@@ -9,7 +9,7 @@
 // 4) 迁移屏等价：HomeScreen 经壳渲染后，壳内 Scaffold 参数与迁移前逐项一致
 //    （appBar==null / bottomNavigationBar!=null / backgroundColor==null /
 //    无 FAB），且结构（PageView + 五页签底栏）与迁移前一致。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

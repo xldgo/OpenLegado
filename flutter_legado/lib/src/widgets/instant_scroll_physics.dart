@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 无动画滚动物理效果 - 页面切换无动画，瞬间完成
 class InstantScrollPhysics extends ScrollPhysics {

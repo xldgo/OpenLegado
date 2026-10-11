@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.370] - 2026-10-11
+
+### Changed
+- [UI] 迁移至独立 Material 与 Cupertino 组件库，更新组件样式，保留主题切换及帮助文档显示。
+- 构建号：371；贡献者：Codex UI。
+
 ## [2.0.369] - 2026-10-07
 
 ### Fixed

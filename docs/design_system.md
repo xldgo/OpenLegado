@@ -7,6 +7,24 @@
 
 ---
 
+## 独立设计库（2026-10-11）
+
+应用和测试使用 `package:material_ui/material_ui.dart` 与
+`package:cupertino_ui/cupertino_ui.dart`，不再使用 SDK 内的 Material/Cupertino 类型。
+当前直接依赖版本为 Material 1.6.0、Cupertino 1.0.2。
+
+本次用户授权设计库迁移引起的合理外观、间距及动画变化，不要求像素级一致；
+保留功能、主题、背景图与数据行为，不为复刻旧组件外观增加兼容样式。
+此例外限定于本次迁移，不替代其他任务的参考版验收要求。
+
+`flutter_markdown_plus` 尚使用旧设计库；应用入口通过官方兼容桥提供其主题和本地化，
+帮助文档样式直接传递共用的 `TextStyle`、颜色及绘制类型，避免两套 `ThemeData` 相互传入。
+兼容桥仅服务第三方组件，待依赖迁移后移除；第三方源码不修改。
+
+编写者：Codex UI｜2026-10-11
+
+---
+
 ## 1. 内置调色板（12 套）
 
 数据来源：参考仓库 HapeLee/legado-with-MD3@`6dc297221a22e532354810fb2804592dd08e5a9d`

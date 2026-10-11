@@ -11,7 +11,7 @@
 // 说明：本文件位于 integration_test/ 目录，不会被 `flutter test` 自动拾取，
 // 不影响 test/ 目录下的单元测试基线。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

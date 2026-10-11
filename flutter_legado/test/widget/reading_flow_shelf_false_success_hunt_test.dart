@@ -12,7 +12,7 @@
 //
 // 本用例**故意断言「失败不得报成功」**：当前实现报成功 → 红 = 缺陷复现。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

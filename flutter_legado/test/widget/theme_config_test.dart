@@ -7,7 +7,7 @@
 // 「书籍详情页」+「容器设置」，「毛玻璃」改名「模糊效果」；
 // 「导出/导入」并入通用组（不再页首）；参考独有功能仅登记不实现。
 // 关键分组标题断言见各 test；惰性列表需滚动到可见区再断言。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

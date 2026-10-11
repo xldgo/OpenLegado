@@ -24,7 +24,7 @@
 // 文本/输入框默认值/mocktail 验证）断言——改造前可编译可运行，
 // 红 = 断言失败（非编译错误）。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

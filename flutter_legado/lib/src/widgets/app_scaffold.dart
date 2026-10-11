@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Legado 统一页壳（对齐参考版 `AppScaffold` 语义的轻量子集）
 ///

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// M3 设置卡（对齐 HapeLee SettingCard M3 分支）
 ///

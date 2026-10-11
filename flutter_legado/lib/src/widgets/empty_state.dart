@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'contained_loading_indicator.dart';
 import 'md3_animated_text_line.dart';

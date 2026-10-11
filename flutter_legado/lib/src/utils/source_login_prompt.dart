@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../bridge/ffi.dart' show BridgeError;
 import '../models/book_source.dart';

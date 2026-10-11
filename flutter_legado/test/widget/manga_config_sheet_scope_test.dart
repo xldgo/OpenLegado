@@ -7,7 +7,7 @@
 // - 选「本书」= 物化书级覆盖；选「跟随全局」= 清除覆盖（回调传 null，
 //   不以写入默认值冒充清除）并回显全局值；
 // - 面板不新增「长按设为全局默认」按钮（原版/参考版均无该入口）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/manga_config.dart';

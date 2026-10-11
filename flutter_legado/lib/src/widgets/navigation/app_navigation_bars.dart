@@ -1,7 +1,7 @@
 import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../services/bottom_bar_skin_service.dart';

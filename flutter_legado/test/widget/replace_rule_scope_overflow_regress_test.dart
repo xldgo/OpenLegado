@@ -16,7 +16,7 @@
 // 2. 三 chips 全部在位（换行后仍完整呈现；「书源」已于 2026-09-13 由
 //    禁用标注改为可读写，见 [书源作用域]）；
 // 3. chip 交互正常（默认选中的「正文」点击后取消）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

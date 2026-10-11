@@ -13,7 +13,7 @@
 // 断言策略：用可辨识的哨兵色覆写 ColorScheme.surfaceContainerLow，
 // 断言 SearchBar 实际取色 == 哨兵色（即取色来自 sCL 槽），
 // 与具体调色板数值解耦；装配模式复用 screens_overflow_regress_test。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

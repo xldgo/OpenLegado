@@ -1,5 +1,5 @@
 // MD3 动画文本行测试（对齐参考 AnimatedTextLine：文本变化翻滚切换）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/md3_animated_text_line.dart';

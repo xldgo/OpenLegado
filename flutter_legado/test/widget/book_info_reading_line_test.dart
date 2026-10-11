@@ -8,7 +8,7 @@
 //   E5 状态词 → 目录末章回落保留，回落同样不加后缀）
 // - 第三行三态（参考 Kotlin when 同源）：
 //   未读（dci==0 且 pos==0）/ 已读 N 章（N=dci+1）/ 已读完（dci+1==total）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

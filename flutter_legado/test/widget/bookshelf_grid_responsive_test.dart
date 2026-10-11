@@ -6,7 +6,7 @@
 // [parity fix 2.0.264 补修] cell 宽高比不再锁 5/7：cell = 封面（5:7）+
 // 书名行 40dp，aspect 随交叉轴宽动态计算（cellW/(cellW×7/5+40)），
 // 固定 5/7 会把 Expanded 封面压成 ≈1:0.97 方形（复审指出）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

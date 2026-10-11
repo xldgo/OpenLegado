@@ -19,7 +19,7 @@
 //
 // 计时推进用 FakeAsync（tester.pump(duration)），播放器经
 // streamAudioPlayerProvider 注入 Fake，不触真实平台通道。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

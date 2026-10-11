@@ -13,7 +13,7 @@
 // await 会链式等待对话框关闭，导致不关闭对话框的断言用例永久挂起。
 // 因此各用例在本地捕获对话框 Future（late 变量 + 回调注入），助手只
 // 负责构建与打开，不做结果链式传递。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';

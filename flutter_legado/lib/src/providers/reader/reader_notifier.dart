@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter/material.dart'
+import 'package:material_ui/material_ui.dart'
     show Brightness, ThemeMode, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;

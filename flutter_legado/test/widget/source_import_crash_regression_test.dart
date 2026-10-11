@@ -6,7 +6,7 @@
 // 修复：controller 由对话框内容组件自持，随子树卸载统一释放。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

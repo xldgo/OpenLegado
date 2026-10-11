@@ -14,7 +14,7 @@
 //      #80121212 半透明深色（kVideoDialogPanelColor），亮/暗主题下
 //      均保持（视频画面永远黑底，主题化反而会破坏语义）；
 //      守护亮色主题下面板不退化为浅色（防误修）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

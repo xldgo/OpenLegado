@@ -8,9 +8,21 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### MATERIAL-UI-20261011：独立 Material / Cupertino 设计库迁移（P1）
+
+- **状态**：待复验；代码与 Flutter 验证已完成，Android APK/设备与 iOS 设备包验证进行中。
+- **基线与执行**：dev `d0d52a87b`；主目录分支 `feature/ui-material-ui`，按用户要求不使用子代理、不新增 worktree。
+- **授权与范围**：应用、单元测试和集成测试统一使用 `material_ui 1.6.0` 与 `cupertino_ui 1.0.2`。允许组件外观、间距和动画合理变化，不要求像素级一致；以独立库实现为准。
+- **兼容与边界**：核对主题、路由、本地化与 Markdown 等第三方组件，必要时使用官方兼容桥或局部数据适配。不修改 Rust、FFI 契约、业务逻辑、数据库及构建体系，不推进全面国际化。
+- **实施结果**：官方迁移规则替换 336 个文件中的设计库导入；两处 Cupertino 组件同步迁移。Markdown 样式直接使用共用文本/绘制类型，应用入口加入官方兼容桥与独立库本地化委托；未修改第三方源码或升级其他依赖。界面批次版本为 `2.0.370+371`。
+- **本地验证**：既有 2,264 项 Flutter 测试全通过；新增主题切换时 Markdown 与 Cupertino 颜色一致回归通过，连同既有帮助文档测试共 3 项通过。分析无错误/警告，保留两条与迁移无关的既有 `prefer_initializing_formals` 提示；Android x86_64 包构建与设备复验进行中。
+- **验收**：无应用自身旧设计库导入（明确的第三方适配除外）；静态分析与全量 Flutter 测试通过；Android 构建及实时可用 MuMu 主要页面、主题验证；iOS 设备包由现有 CI 复验，不运行 iOS 模拟器。
+
+编写者：Codex UI｜2026-10-11
+
 ### CI-PLATFORM-SCOPING-20261011：工具回归集中与平台输入隔离（P2）
 
-- **状态**：工具整理与本地验收完成；用户同意集中工具回归、缩小平台指纹与 CI 路由范围。平台复验通过本条交付提交的正常 push 运行，结果以关联 CI 检查为准。
+- **状态**：已关闭；交付提交 `d0d52a87b` 的 [Tooling CI](https://github.com/xldgo/OpenLegado/actions/runs/38115346010)、[Android/Windows Integration](https://github.com/xldgo/OpenLegado/actions/runs/38115345971) 与 [iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38115346004) 均通过。Flutter/Rust 业务任务按范围跳过。
 - **基线与执行**：dev `d087e3db9`；复用干净的 `.tmp_dev_integration/worktree`，保持脱离分支，不新增常驻分支，不使用子代理。
 - **范围**：新增独立 Tooling CI，原范围判定 action 仅计算差异；从 Android 校验模块提取公共契约/元数据逻辑，隔离平台工具链与 Windows 应用编排，CLI 按需导入。共享原生输入、平台原生输入与打包工具由同一文件范围规则维护；未知工具默认扩大检查和指纹范围。仅排除已确认不参与 Cargo 编译的历史驱动脚本，保留业务源码、锁文件、build.rs 和内嵌资源。
 - **协议与边界**：原生 buildInputsAlgorithm 升至 v2，Rust 输入算法明确版本迁移；旧元数据必须重新构建，禁止补写摘要或复用旧库冒充新产物。保留来源摘要、包完整性、PDE 和 LOAD/RELRO 门禁。应用版本、依赖、UI、FFI 业务契约和设备数据不变；不手动运行 iOS 模拟器。

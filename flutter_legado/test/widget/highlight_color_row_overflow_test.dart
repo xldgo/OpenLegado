@@ -6,7 +6,7 @@
 // 而弹窗内容可用宽仅 360 - 20*2 = 320dp → 溢出 16dp。
 // 本测试固定 360dp（QA 取证机 1080px / dpr3 的逻辑宽）复现：
 // 修复前 takeException 非空（RenderFlex 溢出），颜色行改 Wrap 换行后为空。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

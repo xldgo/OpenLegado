@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// MD3 垂直快速滚动条（对齐参考仓 VerticalFastScroller：长列表右侧拖拽快速定位）
 ///

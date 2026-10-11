@@ -4,7 +4,7 @@
 // - W2/W4：启动失败按原因分流提示（权限引导 / FGS 后台受限 / 其他）。
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

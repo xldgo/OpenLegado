@@ -9,7 +9,7 @@
 // 2. 系统字体缩放边界：textScaler 0.8/1.6 下关键页无溢出。
 // 3. 语义/触控目标：底栏 NavigationBar 目标 ≥ 48dp、SwitchListTile 行高
 //    ≥ 48dp、主题卡片语义标签存在。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

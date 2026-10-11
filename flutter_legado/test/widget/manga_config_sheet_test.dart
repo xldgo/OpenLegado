@@ -11,7 +11,7 @@
 // 4. 阅读模式 5 按钮组（单页式 ×3 + 条漫 ×2，选中 primaryContainer 高亮）
 //    + 模式条件行互斥（单页式「页面适配」下拉 / 条漫「侧边留白」滑杆
 //    0..45%）+ 页脚快捷行（左对齐/居中/隐藏页脚 三按钮 + 页脚预览条）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/manga_config.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 徽标组件 — 右上角数字徽标
 class BadgeWidget extends StatelessWidget {

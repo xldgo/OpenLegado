@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 自定义源分组对话框（对标原版 dialog_custom_group.xml：
 /// 添加分组开关 + 分组名称输入）

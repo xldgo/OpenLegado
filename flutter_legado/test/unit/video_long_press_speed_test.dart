@@ -8,7 +8,7 @@
 //   showOverlayTip() 隐藏 + resolveDanmakuStart(当前位置)
 // - :135-141 setVideoSpeed：弹幕滚动速度因子 danmakuSpeed-(speed-1)/6 联动
 // VideoPlay.kt:84-88 longPressSpeed 默认 30（即 3.0 倍）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/video_danmaku_item.dart';

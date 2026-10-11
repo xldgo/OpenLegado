@@ -9,7 +9,7 @@
 // 2. 管理页（ReadAloudConfigScreen）：行点击只更新选中态（对齐原版
 //    SpeakEngineDialog.kt:315-326 的 upTts），初始选中 = 有效引擎
 //    （书级优先、空则全局回退）；底部「书」/「全局」按钮触发持久化。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

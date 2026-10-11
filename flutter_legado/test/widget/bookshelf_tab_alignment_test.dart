@@ -13,7 +13,7 @@
 // 注意：分组 tab 列表 = 通知器「默认全部组置顶 + 用户组」（bookshelf
 // notifier 68 行），用户组不含「全部」时首 tab 恒为「全部」——断言对象
 // 以实际渲染的首 tab 为准。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 热力图配色模式（对齐参考仓库 HeatmapMode）
 enum Md3HeatmapMode {

@@ -1,6 +1,6 @@
 library;
 
-import 'package:flutter/material.dart' show Color;
+import 'package:material_ui/material_ui.dart' show Color;
 import 'package:material_color_utilities/material_color_utilities.dart';
 
 import 'md3_colors.dart';

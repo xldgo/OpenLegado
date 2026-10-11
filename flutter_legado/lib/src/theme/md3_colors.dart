@@ -5,7 +5,7 @@
 // transparent 主题缺 surfaceContainerLow，按其 surface（全透明）回补。
 // 修改本文件请改走生成器，并同步更新 test/unit/md3_palette_test.dart 锚点。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 一套调色板单个亮度下的 47 个 M3 tonal role（ARGB int）
 class Md3Roles {
