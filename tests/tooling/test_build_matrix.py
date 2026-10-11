@@ -37,7 +37,7 @@ class MatrixTests(unittest.TestCase):
                 parse_abis(value)
         self.assertEqual(parse_abis(" arm64-v8a, x86_64 "), ("arm64-v8a", "x86_64"))
 
-    def test_ci_consumers_use_shared_build_and_explicit_source_verification(self):
+    def test_ci_consumers_use_shared_build_and_keep_native_matrix(self):
         for workflow, profile, abis in (
             ("android-release.yml", "release", "arm64-v8a,armeabi-v7a,x86_64"),
             ("integration-smoke.yml", "debug", "arm64-v8a,x86_64"),
@@ -50,14 +50,12 @@ class MatrixTests(unittest.TestCase):
                 base = ["python3", "scripts/dev.py"]
                 arguments = ["ffi", "android", "--profile", profile, "--abis", abis]
                 self.assertIn([*base, "build", *arguments], commands)
-                self.assertIn([*base, "verify", *arguments, "--cargo-target-dir", "rust/target"], commands)
                 self.assertNotIn("source scripts/rust-fingerprint.sh", text)
                 self.assertNotIn("bash scripts/verify-ffi-android.sh", text)
 
-    def test_windows_smoke_uses_shared_build_verify_and_keeps_runtime_test(self):
+    def test_windows_smoke_uses_shared_build_and_keeps_runtime_test(self):
         text = (ROOT / ".github" / "workflows" / "integration-smoke.yml").read_text(encoding="utf-8-sig")
         self.assertIn("run: python scripts/dev.py build ffi windows --profile debug", text)
-        self.assertIn("run: python scripts/dev.py verify ffi windows --profile debug", text)
         self.assertIn("flutter test integration_test/ffi_smoke_test.dart -d windows", text)
 
     def test_android_release_uses_shared_apk_collection_and_keeps_publish_contract(self):
@@ -89,8 +87,7 @@ class MatrixTests(unittest.TestCase):
 
     def test_ios_bundle_gates_precede_signing_and_keep_ipa_and_diagnostic_contracts(self):
         text = (ROOT / ".github" / "workflows" / "ios-build.yml").read_text(encoding="utf-8-sig")
-        self.assertLess(text.index("prepare icons ios"), text.index("verify icons ios --app"))
-        self.assertLess(text.index("verify icons ios --app"), text.index("name: 准备设备签名材料"))
+        self.assertLess(text.index("prepare icons ios"), text.index("name: 准备设备签名材料"))
         self.assertLess(text.index("codesign -v --strict"), text.index("scripts/dev.py package ios"))
         self.assertIn("id: package", text)
         self.assertIn('if [ -n "$IOS_P12_BASE64" ]; then', text)

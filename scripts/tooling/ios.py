@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import plistlib
 import re
 import shlex
 import shutil
@@ -42,28 +41,17 @@ def require_macos():
 
 def deployment_target(root: Path) -> str:
     ios = root / "flutter_legado" / "ios"
-    try:
-        with (ios / "Flutter" / "AppFrameworkInfo.plist").open("rb") as stream:
-            framework = plistlib.load(stream)
-    except (ValueError, plistlib.InvalidFileException) as exc:
-        raise ToolError("AppFrameworkInfo.plist 无法解析。") from exc
-    if not isinstance(framework, dict):
-        raise ToolError("AppFrameworkInfo.plist 必须为字典。")
-    pod = unique_match(r"^\s*platform\s+:ios,\s*['\"]([^'\"]+)['\"]\s*$",
-                       read_text(ios / "Podfile"), "Podfile iOS 下限")
-    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", pod):
+    version = unique_match(r"^\s*platform\s+:ios,\s*['\"]([^'\"]+)['\"]\s*$",
+                           read_text(ios / "Podfile"), "Podfile iOS 下限")
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version):
         raise ToolError("Podfile 缺少有效 iOS 最低版本。")
-    # Flutter 3.47 自动移除模板中的 MinimumOSVersion，构建时再写入 App.framework。
-    # 宿主版本由 Podfile 与 Xcode/RustFFI 配置决定；旧模板声明存在时仍须一致。
-    version = pod
-    if "MinimumOSVersion" in framework and framework["MinimumOSVersion"] != version:
-        raise ToolError("AppFrameworkInfo.plist 的最低版本 MinimumOSVersion 与宿主配置不一致。")
+    # 最低版本由实际编译配置决定，Flutter 管理的模板不作为静态库校验输入。
     rust_pod = unique_match(r"^\s*s\.ios\.deployment_target\s*=\s*['\"]([^'\"]+)['\"]\s*$",
                             read_text(ios / "RustFFI" / "RustFFI.podspec"), "RustFFI iOS 下限")
     project = re.findall(r"\bIPHONEOS_DEPLOYMENT_TARGET\s*=\s*([\d.]+)\s*;",
                          read_text(ios / "Runner.xcodeproj" / "project.pbxproj"))
-    if pod != version or rust_pod != version or not project or set(project) != {version}:
-        raise ToolError("iOS 最低版本在 Podfile、RustFFI、Xcode 工程与 AppFrameworkInfo 中不一致。")
+    if rust_pod != version or not project or set(project) != {version}:
+        raise ToolError("iOS 最低版本在 Podfile、RustFFI 与 Xcode 工程中不一致。")
     return version
 
 

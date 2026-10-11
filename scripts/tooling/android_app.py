@@ -179,7 +179,6 @@ def build_android_app(root: Path, profile: str, abis: tuple[str, ...],
         verify_android(root, profile, abis, cargo_target_dir)
     else:
         cargo_target_dir = build_android_ffi(root, profile, abis, ndk_path, cargo_target_dir)
-        verify_android(root, profile, abis, cargo_target_dir)
     output = app / "build" / "app" / "outputs" / "flutter-apk"
     apks = ([output / f"app-{abi}-{profile}.apk" for abi in abis] if split_per_abi
             else [output / f"app-{profile}.apk"])
@@ -190,7 +189,6 @@ def build_android_app(root: Path, profile: str, abis: tuple[str, ...],
     if split_per_abi:
         args.append("--split-per-abi")
     run_command(args, app, env)
-    verify_android(root, profile, abis, cargo_target_dir)
     for index, apk in enumerate(apks):
         verify_android_apk(root, apk, profile, (abis[index],) if split_per_abi else abis,
                            ndk_path, cargo_target_dir)

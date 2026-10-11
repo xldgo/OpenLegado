@@ -10,7 +10,7 @@
 
 ### CI-TOOLING-INTEGRATION-20261011：CI 与 Python 工具分支集成及分支清理（P1）
 
-- **状态**：待复验；净改动与轻量验证完成，用户已授权合入 dev 并正常运行 CI，通过后清理多余本地与 origin 分支。
+- **状态**：已关闭（CI/工具净改动集成及分支清理范围）；各平台取得实际 CI 通过结果，多余本地与 origin 分支已删除。后续冗余校验整理按用户授权跳过 CI，以本地工具回归验收，不宣称该整理提交重跑过平台构建。
 - **范围与来源**：基线为 dev `b8a0c9d29`；源分支为 `feature/ui-android-release-artifacts` 的 `ed29147ef`。`bdea9b155` 与压缩后的 `1805569d6` 文件树相同，仅提取 `bdea9b155..ed29147ef` 的 CI 编排、Python 构建/校验、平台接线和已授权脚本清理，不引入源分支的重复依赖历史。
 - **执行与边界**：工作分支 `integration/ci-tooling-20261011`，worktree 为 `.tmp_ci_tooling_integration/worktree`；不使用子代理，不改写两个原分支。净改动汇总为一条提交，快进合入 dev 并推送，不跳过 CI；不手动触发 iOS 模拟器验证。
 - **衔接**：保留 dev 的 AGP 9、Gradle/Kotlin、app_links 7、Rust 依赖/TLS 与锁文件、Xcode 26.1.1 和 download-artifact v8；Python 策略与 CI 统一 NDK 28.2.13676358，迁移 LOAD/RELRO 16 KB 门禁与 common-page-size 参数后移除旧检查入口。
@@ -23,6 +23,11 @@
 - **Windows 定向复现**：`cdaf28376` 推送后 Android/iOS 越过原失败入口，Windows 仍失败；本地在 cp1252 输出编码下执行原生构建，第一条中文日志即触发 `UnicodeEncodeError`，尚未开始 Cargo 编译。入口统一 UTF-8 输出，并加入相同编码条件下的真实 CLI 回归；待 CI 复验确认，不删除分支。
 - **日志核对与后续修复**：系统凭据可正常认证，此前“令牌失效”是沙箱无法读取凭据的误判，无需用户重新登录。`cdaf28376` 的 Rust、Flutter 与 Android FFI 均通过；Windows 日志与本地编码复现一致。iOS 静态库已编译，但 Xcode `nm` 无法解析 Rust LLVM 23 位码，改用同一 Rust 工具链的 `llvm-nm` 并在 iOS workflow 安装对应组件；仍要求读取成功且存在已定义 PDE 符号，最终应用继续使用 Xcode 工具校验。
 - **iOS 模板迁移适配**：`06d3af259` 的设备应用已编译，构建后校验因 Flutter 自动移除模板 `MinimumOSVersion` 失败；本地 SDK 的 `ios_deployment_target_migration.dart` 与 CI 日志确认此行为。宿主最低版本改从 Podfile 读取，继续交叉校验 RustFFI、Xcode 工程及仍存在的模板声明；加入移除模板键后沿用原生元数据的回归，实际最低版本 15.0 不变。
+- **冗余检查收敛（用户授权）**：不再读取 Flutter 管理的 AppFrameworkInfo 模板，也不比较其 `MinimumOSVersion`；最低版本只由 Podfile、RustFFI 与 Xcode 编译配置决定。删除 Android debug/release 和 Windows 构建后的三个重复来源校验步骤，以及已由图标准备入口执行的重复资源步骤；Android APK 编排删除构建返回后的重复原生校验及包校验之前的重复调用。保留复用库时的校验、最终 APK/IPA、PDE 符号、LOAD/RELRO 和图标声明/资源门禁。本次整理提交按用户要求跳过 CI，只运行相关轻量回归。
+- **其他重复与边界**：四个自动 workflow 各自重复执行同一套 CI 路由及 Python 工具回归；当前耗时较短，集中执行需调整跨 workflow 编排，本次仅记录。Python 工具指纹与路由目前覆盖整个工具目录，iOS 工具调整会影响 Android/Windows 来源指纹与 CI 选择；按平台收敛需同时迁移元数据输入和路由规则，本次不以删除来源校验代替该项调整。历史 Assets.car 名称/尺寸探针仅手动诊断，允许失败，未作为发布阻断条件。
+- **实际 CI 结果**：`06d3af259` 的 [Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38112601004)、[Flutter CI](https://github.com/xldgo/OpenLegado/actions/runs/38112600992)、[Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38112601033) 成功，覆盖真实 Android FFI 构建与 Windows FFI 往返。随后 `129449d9d` 只修改 iOS 校验、其测试和本项记录，[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38113280046) 成功，包含静态库、设备应用、PDE、图标与 IPA 打包；同提交另外三个运行被取消，未重新触发。不将取消计为成功，也不宣称所有 workflow 在同一 SHA 通过。
+- **整理验证**：工具测试共 157 项，153 项通过、4 项因 Windows 不具备 POSIX/FIFO/特殊文件名或符号链接条件跳过；覆盖模板版本缺失/过期仍接受、实际平台配置冲突仍拒绝，以及原生发布失败、错误包和缺资源阻断。CI 路由 16 项、actionlint、差异检查通过；应用版本、依赖锁文件和 Rust 业务源码保持不变。iOS 模拟器仍未运行，Android Release APK、iOS 真机和 16 KB 设备运行不在本次新增验收范围。
+- **分支清理结果**：刷新 origin 后，已用原子推送和精确租约删除 17 个远端分支，删除 21 个本地分支；本地及 origin 实际分支仅保留 master、dev。主工作区切回 dev，五个辅助 worktree 脱离分支，目录、缓存和本轮修改均保留；upstream 未改动。删除前历史快照为 `.tmp_branch_cleanup/branches-before-cleanup.bundle`，已通过 `git bundle verify`；删除清单为 `.tmp_branch_cleanup/deleted-branches.json`，用于需要时恢复已压缩或仅用于验证的历史。
 
 编写者：Codex｜2026-10-11
 

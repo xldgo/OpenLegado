@@ -98,9 +98,11 @@ class IosTests(unittest.TestCase):
     def test_flutter_removing_template_minimum_does_not_invalidate_native_metadata(self):
         library = ios.build_ios_ffi(self.root, "device", "release")
         template = self.root / "flutter_legado" / "ios" / "Flutter" / "AppFrameworkInfo.plist"
-        write(template, plistlib.dumps({"CFBundleExecutable": "App"}))
-        self.assertEqual(ios.deployment_target(self.root), "15.0")
-        self.assertEqual(ios.verify_ios_ffi(self.root, "device", "release"), library)
+        for contents in ({"CFBundleExecutable": "App"}, {"MinimumOSVersion": "13.0"}):
+            with self.subTest(template=contents):
+                write(template, plistlib.dumps(contents))
+                self.assertEqual(ios.deployment_target(self.root), "15.0")
+                self.assertEqual(ios.verify_ios_ffi(self.root, "device", "release"), library)
         write(self.root / "flutter_legado" / "ios" / "Podfile", "platform :ios, '16.0'\n")
         with self.assertRaisesRegex(ToolError, "不一致"):
             ios.verify_ios_ffi(self.root, "device", "release")

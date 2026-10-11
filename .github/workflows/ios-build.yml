@@ -116,11 +116,8 @@ jobs:
 
       # 保留历史散文件注入和 legacy 转换；能力边界见图标问题说明。
       # docs/IOS_ICON_SWITCH_LIMITATION_20260903.md 的真机问题仍需独立复验。
-      - name: 保留设备图标兼容处理
+      - name: 处理并校验设备图标兼容资源
         run: python3 scripts/dev.py prepare icons ios --assets flutter_legado/ios/Runner/Assets.xcassets --app flutter_legado/build/ios/iphoneos/Runner.app
-
-      - name: 校验最终图标声明及资源
-        run: python3 scripts/dev.py verify icons ios --app flutter_legado/build/ios/iphoneos/Runner.app
 
       # 直接重签最终修改版 Runner.app，保持图标兼容处理的交付结果。
       # 不使用重新 archive 的 flutter build ipa，以免覆盖上述包内修改。

@@ -58,10 +58,8 @@ jobs:
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - name: 构建 Android debug FFI（Python 统一入口）
+      - name: 构建并校验 Android debug FFI（Python 统一入口）
         run: python3 scripts/dev.py build ffi android --profile debug --abis arm64-v8a,x86_64
-      - name: 校验本次 Android debug FFI 来源
-        run: python3 scripts/dev.py verify ffi android --profile debug --abis arm64-v8a,x86_64 --cargo-target-dir rust/target
 
   ffi-smoke:
     needs: changes
@@ -87,10 +85,8 @@ jobs:
           cache: true
 
       # ── 构建 Rust FFI 动态库（带 quickjs feature）──
-      - name: 构建 legado-ffi DLL (quickjs)
+      - name: 构建并校验 legado-ffi DLL (quickjs)
         run: python scripts/dev.py build ffi windows --profile debug
-      - name: 校验本次 Windows DLL 来源
-        run: python scripts/dev.py verify ffi windows --profile debug
 
       # ── Flutter 依赖 ──
       - name: Flutter pub get
