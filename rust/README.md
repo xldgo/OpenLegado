@@ -32,7 +32,7 @@ Legado（阅读）是一款开源小说阅读器，本目录包含其 **Rust 核
 |-------|------|----------|
 | **legado-core** | 公共基础层：统一错误类型（`thiserror`）、通用数据模型（`serde`）、WebBook 搜索链路、CacheBook 离线缓存 | serde, serde_json, thiserror |
 | **legado-parser** | 书源规则解析：CSS 选择器、XPath、正则，将 HTML/XML 转换为结构化章节数据 | scraper, sxd-xpath, regex |
-| **legado-net** | 网络引擎：HTTP 请求、Cookie 管理、URL 处理、响应编码检测、UA 轮换、代理/SSL 配置、书源有效性检查 | reqwest (rustls-tls), url, tokio |
+| **legado-net** | 网络引擎：HTTP 请求、Cookie 管理、URL 处理、响应编码检测、UA 轮换、代理/SSL 配置、书源有效性检查 | reqwest（ring + Mozilla 根证书）, url, tokio |
 | **legado-js** | JavaScript 沙箱：执行书源中的 JS 脚本，支持 MD5/SHA/Base64 等加密函数（可选 feature）| rquickjs (optional) |
 | **legado-book** | 书籍文件处理：EPUB 解析、TXT 编码检测、ZIP 解压 | zip, quick-xml, encoding_rs |
 | **legado-db** | 本地 SQLite 数据库：书架、阅读进度、书源存储、书签、替换规则 | rusqlite (bundled) |
@@ -103,41 +103,42 @@ cargo clippy --all-targets -- -D warnings
    仓库 `.cargo/config.toml` 只维护共同的页对齐参数。Windows 未指定 `ANDROID_NDK_HOME` 时，
    默认查找 28.2.13676358，不选择其他已安装版本。
 
-### 使用构建脚本
+### 统一 Python 入口
 
-**Linux / macOS:**
-```bash
-./scripts/build-android.sh          # release（默认）
-./scripts/build-android.sh debug    # debug
-```
-
-**Windows (PowerShell):**
-```powershell
-.\scripts\build-android.ps1             # release（默认）
-.\scripts\build-android.ps1 -Mode debug # debug
-```
-
-脚本会编译 `legado-ffi` 并将生成的 `.so` 文件复制到 `flutter_legado/android/app/src/main/jniLibs/`，同时写入 `liblegado_ffi.so.meta`（content hash 标记，供校验脚本与 Gradle 使用）。
-
-### 校验与自动同步（根治 content hash 失配）
-
-构建 APK 前会自动校验 Dart 侧 `rustContentHash` 与 jniLibs 中 `.so` 是否同步：
+以下命令从仓库根目录运行，Windows、Linux 与 macOS 共用 Python 3.11+ 实现：
 
 ```powershell
-# 仅校验（失败时打印可复制命令）
-.\rust\scripts\verify-ffi-android.ps1
+# 独立编译 Rust，复制库并记录 v2 元数据
+python scripts/dev.py build ffi android --profile debug --abis arm64-v8a,x86_64
+python scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
 
-# 失配时自动重编
-.\rust\scripts\verify-ffi-android.ps1 -AutoBuild -Mode debug -Targets "aarch64,x86_64"
+# 只读校验；失配时失败，不编译或修复元数据
+python scripts/dev.py verify ffi android --profile debug --abis arm64-v8a,x86_64
+
+# 构建 Rust 与 APK，核对 APK 内的原生库
+python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64
+python scripts/dev.py build android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --split-per-abi
 ```
 
-**推荐统一入口**（校验 + 编译 + 打包 + 安装）：
+arm64/x86_64 启用 QuickJS；armv7 仅支持 Release，预先明确关闭 QuickJS。失败不重试其他 feature，
+不复用旧库。`--skip-rust` 只跳过编译，仍要求当前源码与工具对应的元数据和库通过严格校验。
+安装启动需显式增加 `--install --device <当前设备编号>`。
+
+直接执行 `flutter build apk` 也会通过对应 variant 的 Gradle 任务调用 Python 校验。
+仅本地 Debug 同时显式设置 `LEGADO_SKIP_RUST_BUILD=1` 和 `USE_MOCK=true` 才可跳过；
+Release/Profile/CI 禁止跳过。迁移与未测边界见 [Android 入口说明](../docs/PYTHON_ANDROID_CLEANUP_20261011.md)。
+
+iOS 正式 RustFFI 接线使用以下命令，须在 macOS/Xcode 环境执行；两种目标均编译 Release QuickJS 静态库：
 
 ```powershell
-.\flutter_legado\scripts\build-apk.ps1
+python scripts/dev.py build ffi ios --target device --profile release
+python scripts/dev.py build ffi ios --target simulator --profile release
+python scripts/dev.py verify ffi ios --target simulator --profile release
 ```
 
-Gradle `preBuild` 也会执行 `verifyRustFfiLibs`；纯 Dart UI 开发者可设置 `LEGADO_SKIP_RUST_BUILD=1` 或使用 `--dart-define=USE_MOCK=true`。
+一次构建只将当前目标复制到 CocoaPods 的 `RustFFI/libliblegado_ffi.a`，不混用设备和模拟器库。
+应用 PDE 检查和元数据说明见 [iOS 工具说明](../docs/PYTHON_IOS_TOOLING_20261011.md)。
+`rust/scripts/build-ios.sh` 输出历史 XCFramework，不属于这条正式构建路径。
 
 ---
 
@@ -147,12 +148,10 @@ Gradle `preBuild` 也会执行 `verifyRustFfiLibs`；纯 Dart UI 开发者可设
 
 ```bash
 cd flutter_legado
-flutter_rust_bridge_codegen generate
-# 或使用脚本
-./scripts/generate-bridge.sh
+python ../scripts/dev.py generate bridge
 ```
 
-生成产物位于 `flutter_legado/lib/src/bridge/`，已被 `.gitignore` 忽略。
+生成产物位于 `flutter_legado/lib/src/bridge/`，随源码提交，不手工修改。
 
 ---
 
@@ -164,7 +163,7 @@ flutter_rust_bridge_codegen generate
 | 序列化 | serde + serde_json |
 | 错误处理 | thiserror |
 | 异步运行时 | tokio |
-| HTTP 客户端 | reqwest（rustls-tls） |
+| HTTP 客户端 | reqwest（ring + Mozilla 根证书） |
 | HTML 解析 | scraper |
 | XPath | sxd-xpath + sxd-document |
 | JS 引擎 | rquickjs（可选 feature） |
@@ -183,8 +182,8 @@ rust/
 ├── rust-toolchain.toml     # Rust 工具链版本
 ├── .cargo/config.toml      # Cargo 配置（含 Android linker）
 ├── scripts/
-│   ├── build-android.sh    # Linux/Mac 交叉编译脚本
-│   └── build-android.ps1   # Windows 交叉编译脚本
+│   ├── build-ios.sh        # 历史 XCFramework 入口，非正式 CI 路径
+│   └── gen_rar5_fixture.py # RAR5 测试样本生成
 ├── legado-core/            # 公共基础层（含 WebBook、CacheBook、ReviewRule、ExploreRule）
 ├── legado-parser/          # 书源解析（含 AnalyzeUrl 完整模板引擎）
 ├── legado-net/             # 网络引擎（含 UA/代理/SSL、SourceChecker）

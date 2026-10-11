@@ -1,5 +1,7 @@
 #!/bin/bash
 # build-ios.sh — 编译 Rust 为 iOS 各架构的静态库并打包 XCFramework
+# 历史非正式入口：当前 CocoaPods/CI 使用 python scripts/dev.py build ffi ios，
+# 本脚本的 XCFramework 不接入现有 RustFFI 静态链接，不能替代正式流程。
 # 用法: ./build-ios.sh [release|debug] [--stub]
 #
 # ⚠️ 本脚本未在 macOS/iOS 实机验证（编写环境为 Windows）。

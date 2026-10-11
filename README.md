@@ -51,6 +51,16 @@ flutter test
 ```
 
 详细开发指南见 [rust/DEVELOPMENT.md](rust/DEVELOPMENT.md) 与 [AGENTS.md](AGENTS.md)。
+Python 指纹与 Android FFI 只读校验的命令和迁移边界见
+[工程工具说明](docs/PYTHON_FFI_TOOLING_20261010.md)。
+Android Rust/APK 构建统一使用 `python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64`，
+其参数与清理范围见 [Android 构建入口](docs/PYTHON_ANDROID_CLEANUP_20261011.md)。
+Android Release 的分 ABI APK 校验与收集复用同一工具，命令见 [Release 工具说明](docs/PYTHON_ANDROID_RELEASE_20261011.md)。
+Windows 使用 `python scripts/dev.py build windows --profile debug` 构建，
+`python scripts/dev.py run windows --profile debug` 启动开发会话；参数见 [Windows 工具说明](docs/PYTHON_WINDOWS_TOOLING_20261011.md)。
+iOS 正式静态库使用 `python scripts/dev.py build ffi ios --target device --profile release`；
+模拟器将 `device` 改为 `simulator`。这些命令需要 macOS/Xcode，接线与校验见 [iOS 工具说明](docs/PYTHON_IOS_TOOLING_20261011.md)。
+iOS 图标兼容处理、plist 诊断和 IPA 打包也使用该 Python 入口；IPA 打包与签名分别执行，命令见同一说明。
 
 ---
 
@@ -58,11 +68,11 @@ flutter test
 
 | 工作流 | 职责与触发 |
 | --- | --- |
-| [Rust CI](.github/workflows/rust-ci.yml) | 自动执行质量检查、默认/QuickJS 测试与依赖审计 |
-| [Flutter CI](.github/workflows/flutter-ci.yml) | 自动执行 Dart 分析与测试，不等待 Android 原生构建 |
-| [Integration Smoke](.github/workflows/integration-smoke.yml) | Windows 真实 FFI 冒烟与 Android FFI 构建校验，可自动或手动执行 |
+| [Rust CI](.github/workflows/rust-ci.yml) | dev/master push、PR 按改动执行质量、默认/QuickJS 测试与审计；支持手动完整检查 |
+| [Flutter CI](.github/workflows/flutter-ci.yml) | dev/master push、PR 按改动执行 Dart 分析与测试；支持手动完整检查 |
+| [Integration Smoke](.github/workflows/integration-smoke.yml) | 按改动分别选择 Android FFI 与 Windows 真实 FFI；手动支持 all/android/windows/routing |
 | [iOS CI](.github/workflows/ios-ci.yml) | **仅手动**运行模拟器编译、图标状态检查和离线搜索阅读测试，不作为 PR 必需检查 |
-| [iOS Build](.github/workflows/ios-build.yml) | 保留设备 IPA 自动构建与手动入口；签名配置见 [iOS 构建说明](docs/IOS_CI_SIGNING_SETUP.md) |
+| [iOS Build](.github/workflows/ios-build.yml) | dev/master 的应用相关改动自动构建设备 IPA，其他分支手动；签名配置见 [iOS 构建说明](docs/IOS_CI_SIGNING_SETUP.md) |
 | [Android Release](.github/workflows/android-release.yml) | 手动运行只生成 Android APK 工件，`v*` tag 触发构建并发布 |
 | [PR Code Review](.github/workflows/pr-review.yml) | 同仓库非草稿、非机器人 PR 添加 `review` 标签后审查；保留标签时随提交更新重审 |
 | [Triage Labels](.github/workflows/triage-labels.yml) | 自动按内容与路径打标签；历史 Issue/PR 标签回填仅手动运行 |

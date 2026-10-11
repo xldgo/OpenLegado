@@ -51,91 +51,10 @@ jobs:
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          echo "NDK_TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64" >> "$GITHUB_ENV"
-      - name: 配置 Android 链接器
-        run: |
-          mkdir -p "$HOME/.cargo"
-          cat >> "$HOME/.cargo/config.toml" << EOF
-          [target.aarch64-linux-android]
-          linker = "$NDK_TOOLCHAIN/bin/aarch64-linux-android21-clang"
-
-          [target.armv7-linux-androideabi]
-          linker = "$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
-
-          [target.x86_64-linux-android]
-          linker = "$NDK_TOOLCHAIN/bin/x86_64-linux-android21-clang"
-          EOF
-      - name: 核对已提交的 FRB 版本与 hash
-        working-directory: rust
-        run: |
-          python3 - <<'PY'
-          import pathlib, re
-          dart = pathlib.Path('../flutter_legado/lib/src/bridge/frb_generated.dart').read_text()
-          rust = pathlib.Path('legado-ffi/src/frb_generated.rs').read_text()
-          dart_hash = re.search(r'rustContentHash\s*=>\s*(-?\d+)', dart)
-          rust_hash = re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', rust)
-          if not dart_hash or not rust_hash or dart_hash[1] != rust_hash[1]:
-              raise SystemExit('Dart/Rust FRB content hash 不一致或无法解析')
-          if "codegenVersion => '2.13.0'" not in dart or 'FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0"' not in rust:
-              raise SystemExit('FRB 生成物版本必须为 2.13.0')
-          print(f'FRB 2.13.0 content hash: {dart_hash[1]}')
-          PY
-      - name: 构建 Android release FFI（三 ABI）
-        working-directory: rust
-        env:
-          CC_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/aarch64-linux-android21-clang
-          AR_aarch64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
-          CC_armv7_linux_androideabi: ${{ env.NDK_TOOLCHAIN }}/bin/armv7a-linux-androideabi21-clang
-          AR_armv7_linux_androideabi: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
-          CC_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/x86_64-linux-android21-clang
-          AR_x86_64_linux_android: ${{ env.NDK_TOOLCHAIN }}/bin/llvm-ar
-        run: |
-          rustup target add --toolchain stable aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-          NDK_SYS="$NDK_TOOLCHAIN/sysroot"
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/aarch64-linux-android"
-          cargo build --locked --release --target aarch64-linux-android -p legado-ffi --features quickjs
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/x86_64-linux-android"
-          cargo build --locked --release --target x86_64-linux-android -p legado-ffi --features quickjs
-          # 保留 P2-24 已裁决的 armv7 无 QuickJS 降级，不尝试 32 位 rar。
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_SYS -I$NDK_SYS/usr/include/arm-linux-androideabi"
-          cargo build --locked --release --target armv7-linux-androideabi -p legado-ffi
-          python3 scripts/verify-android-elf.py target/aarch64-linux-android/release/liblegado_ffi.so target/armv7-linux-androideabi/release/liblegado_ffi.so target/x86_64-linux-android/release/liblegado_ffi.so
-      - name: 复制本次 release 动态库并记录元数据
-        working-directory: rust
-        run: |
-          source scripts/rust-fingerprint.sh
-          RUST_FP="$(rust_fingerprint "$PWD")"
-          export RUST_FP
-          python3 - <<'PY'
-          import datetime, hashlib, json, os, pathlib, re, shutil, subprocess
-          root = pathlib.Path('../flutter_legado/android/app/src/main/jniLibs')
-          strip_tool = pathlib.Path(os.environ['NDK_TOOLCHAIN']) / 'bin/llvm-strip'
-          content_hash = int(re.search(r'FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH:\s*i32\s*=\s*(-?\d+)', pathlib.Path('legado-ffi/src/frb_generated.rs').read_text())[1])
-          targets = [('aarch64-linux-android', 'arm64-v8a', True), ('armv7-linux-androideabi', 'armeabi-v7a', False), ('x86_64-linux-android', 'x86_64', True)]
-          for target, abi, quickjs in targets:
-              source = pathlib.Path('target') / target / 'release/liblegado_ffi.so'
-              source_bytes = source.read_bytes()
-              if not source_bytes:
-                  raise SystemExit(f'{target} 本次构建的动态库为空')
-              binary_sha256 = hashlib.sha256(source_bytes).hexdigest()
-              destination = root / abi / source.name
-              destination.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copyfile(source, destination)
-              if hashlib.sha256(destination.read_bytes()).hexdigest() != binary_sha256:
-                  raise SystemExit(f'{abi} 复制后的动态库与本次构建产物不一致')
-              # 只处理打包副本，保留 Cargo 原产物；提前执行与 APK 校验一致的 NDK strip。
-              subprocess.run([str(strip_tool), '--strip-unneeded', str(destination)], check=True)
-              packaged_bytes = destination.read_bytes()
-              if not packaged_bytes:
-                  raise SystemExit(f'{abi} strip 后的动态库为空')
-              packaged_sha256 = hashlib.sha256(packaged_bytes).hexdigest()
-              metadata = {'contentHash': content_hash, 'mode': 'release', 'quickjs': quickjs, 'rustFingerprint': os.environ['RUST_FP'], 'sourceBinarySha256': binary_sha256, 'packagedBinarySha256': packaged_sha256, 'builtAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
-              destination.with_suffix('.so.meta').write_text(json.dumps(metadata, separators=(',', ':')))
-              print(f'已复制 {abi} 本次动态库，源 SHA256={binary_sha256}，打包 SHA256={packaged_sha256}')
-          PY
-      - name: 校验本次 Android release FFI
-        working-directory: rust
-        run: bash scripts/verify-ffi-android.sh release "aarch64,armv7,x86_64"
+      - name: 构建 Android release FFI（Python 统一入口）
+        run: python3 scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
+      - name: 校验本次 Android release FFI 来源
+        run: python3 scripts/dev.py verify ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --cargo-target-dir rust/target
       # 直接使用仓库中固定为 2.13.0 的生成物，禁止构建后重新生成绑定。
       - name: 设置 Flutter
         uses: subosito/flutter-action@v2
@@ -150,40 +69,7 @@ jobs:
         working-directory: flutter_legado
         run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
       - name: 核对 APK 内的 Rust 动态库并收集产物
-        run: |
-          python3 - <<'PY'
-          import hashlib, os, pathlib, shutil, subprocess, tempfile, zipfile
-          strip_tool = pathlib.Path(os.environ['NDK_TOOLCHAIN']) / 'bin/llvm-strip'
-          def canonical_sha256(library_bytes):
-              with tempfile.TemporaryDirectory(prefix='legado-ffi-verify-', dir=os.environ['RUNNER_TEMP']) as directory:
-                  library = pathlib.Path(directory) / 'liblegado_ffi.so'
-                  library.write_bytes(library_bytes)
-                  subprocess.run([str(strip_tool), '--strip-unneeded', str(library)], check=True)
-                  canonical_bytes = library.read_bytes()
-                  if not canonical_bytes:
-                      raise SystemExit('NDK strip 正规化后的动态库为空')
-                  return hashlib.sha256(canonical_bytes).hexdigest()
-          output = pathlib.Path('release-apk')
-          output.mkdir(exist_ok=True)
-          targets = [('aarch64-linux-android', 'arm64-v8a'), ('armv7-linux-androideabi', 'armeabi-v7a'), ('x86_64-linux-android', 'x86_64')]
-          for target, abi in targets:
-              source = pathlib.Path('rust/target') / target / 'release/liblegado_ffi.so'
-              source_bytes = source.read_bytes()
-              if not source_bytes:
-                  raise SystemExit(f'{target} 本次构建的动态库为空')
-              binary_sha256 = canonical_sha256(source_bytes)
-              apk = pathlib.Path('flutter_legado/build/app/outputs/flutter-apk') / f'app-{abi}-release.apk'
-              with zipfile.ZipFile(apk) as archive:
-                  library_path = f'lib/{abi}/liblegado_ffi.so'
-                  library_paths = [name for name in archive.namelist() if name.startswith('lib/') and name.endswith('/liblegado_ffi.so')]
-                  if library_paths != [library_path]:
-                      raise SystemExit(f'{apk.name} Rust 动态库缺失或 ABI 不符合 {abi}')
-                  library = archive.read(library_path)
-              if canonical_sha256(library) != binary_sha256:
-                  raise SystemExit(f'{apk.name} 动态库与本次 {target} 构建产物的 NDK strip 正规化 SHA256 不一致')
-              shutil.copyfile(apk, output / apk.name)
-              print(f'已核对并收集 {apk.name}，动态库 NDK strip 正规化 SHA256={binary_sha256}')
-          PY
+        run: python3 scripts/dev.py collect apk android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target
       - name: 上传 APK 构建产物
         id: upload-apk
         uses: actions/upload-artifact@v7

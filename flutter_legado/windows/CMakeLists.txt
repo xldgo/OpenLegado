@@ -110,24 +110,19 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 # === Rust FFI Library ===
 # 自动复制 Rust FFI DLL 到构建输出目录，避免运行时找不到 legado_ffi.dll
 # PROJECT_DIR 只在 flutter/ 子目录定义，使用当前工程目录定位仓库产物。
-get_filename_component(RUST_FFI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target" ABSOLUTE)
+if(DEFINED ENV{LEGADO_RUST_FFI_DIR} AND NOT "$ENV{LEGADO_RUST_FFI_DIR}" STREQUAL "")
+  get_filename_component(RUST_FFI_DIR "$ENV{LEGADO_RUST_FFI_DIR}" ABSOLUTE)
+else()
+  get_filename_component(RUST_FFI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target" ABSOLUTE)
+endif()
 set(RUST_FFI_DLL_RELEASE "${RUST_FFI_DIR}/release/legado_ffi.dll")
 set(RUST_FFI_DLL_DEBUG "${RUST_FFI_DIR}/debug/legado_ffi.dll")
 
 # 根据构建配置选择对应的 DLL 路径
-set(RUST_FFI_DLL "$<IF:$<CONFIG:Release>,${RUST_FFI_DLL_RELEASE},${RUST_FFI_DLL_DEBUG}>")
+set(RUST_FFI_DLL "$<IF:$<CONFIG:Debug>,${RUST_FFI_DLL_DEBUG},${RUST_FFI_DLL_RELEASE}>")
 
 install(FILES "${RUST_FFI_DLL}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime OPTIONAL)
 
-# 回退逻辑：如果对应配置的 DLL 不存在，尝试复制 Release 版本
-install(CODE "
-  if(NOT EXISTS \"${INSTALL_BUNDLE_LIB_DIR}/legado_ffi.dll\")
-    if(EXISTS \"${RUST_FFI_DLL_RELEASE}\")
-      file(COPY \"${RUST_FFI_DLL_RELEASE}\" DESTINATION \"${INSTALL_BUNDLE_LIB_DIR}\")
-      message(STATUS \"Copied Rust FFI DLL (release fallback) to bundle\")
-    else()
-      message(WARNING \"Rust FFI DLL not found! Run: cd ../rust && cargo build -p legado-ffi\")
-    endif()
-  endif()
-" COMPONENT Runtime)
+# 直接 Flutter Mock 开发保留 OPTIONAL；Python 真实构建先校验源库，再检查最终复制摘要。
+# 不在缺库时跨 profile 复制 Release DLL。

@@ -3,16 +3,14 @@
 # 流程：构建 debug APK → 安装到指定模拟器 → 启动应用 →
 #       进程存活检查 → 崩溃日志检查 →（可选）UI 元素冒烟
 # 用法示例：
-#   .\scripts\emulator_smoke_test.ps1                      # 默认 emulator-5556
-#   .\scripts\emulator_smoke_test.ps1 -Device emulator-5558   # 用户验收机
-#   .\scripts\emulator_smoke_test.ps1 -SkipBuild              # 复用已有 APK
-#   .\scripts\emulator_smoke_test.ps1 -CheckUI                 # 追加 UI 元素检查
-#   .\scripts\emulator_smoke_test.ps1 -CheckPlayback           # 追加听书前台服务检查
+#   .\scripts\emulator_smoke_test.ps1 -Device <当前设备编号>
+#   .\scripts\emulator_smoke_test.ps1 -Device <当前设备编号> -SkipBuild
+#   可追加 -CheckUI 或 -CheckPlayback；设备编号先用 adb devices 实测确认。
 # 退出码：0=通过 1=失败（可用于 CI/子代理验收门禁）
 # 编写者：Reasonix ｜ 2026-08-10
 # ============================================================
 param(
-  [string]$Device = "emulator-5556",
+  [Parameter(Mandatory=$true)][string]$Device,
   [switch]$SkipBuild,
   [switch]$CheckUI,
   [switch]$CheckPlayback,
@@ -72,32 +70,24 @@ Pass "设备 $Device 在线"
 
 # ---- 2. 构建 APK ----
 $apk = Join-Path $FlutterDir "build\app\outputs\flutter-apk\app-debug.apk"
-$verifyScript = Join-Path (Split-Path $PSScriptRoot -Parent) "rust\scripts\verify-ffi-android.ps1"
+$pythonEntry = Join-Path (Split-Path $FlutterDir -Parent) "scripts\dev.py"
 if ($SkipBuild) {
   if (-not (Test-Path $apk)) { Fail "跳过构建但 APK 不存在：$apk"; exit 1 }
   Pass "跳过构建，复用已有 APK"
 } else {
-  # 构建前校验/自动同步 jniLibs（根治 content hash 失配）
-  if (Test-Path $verifyScript) {
-    Write-Host "==> 校验 Android FFI content hash ..."
-    # .so 必须用 release 编译：debug 构建的 Rust 侧性能约为 release 的 1/10
-    # （实测 favcomic 解析 C≈12s vs ≈1s），会污染性能结论；Dart APK 本身仍为 debug。
-    & $verifyScript -Mode release -Targets "aarch64,x86_64" -AutoBuild
-    if ($LASTEXITCODE -ne 0) {
-      Fail "FFI 校验失败，无法继续构建（exit=$LASTEXITCODE）"
-      exit 1
-    }
-    Pass "FFI content hash 校验通过"
+  if (-not (Test-Path $pythonEntry)) { Fail "Python 构建入口不存在：$pythonEntry"; exit 1 }
+  $pythonCommand = if ($env:PYTHON) { $env:PYTHON } else { "python" }
+  if (-not (Get-Command $pythonCommand -ErrorAction SilentlyContinue)) {
+    Fail "找不到 Python 3.11+，请设置 PATH 或 PYTHON"
+    exit 1
   }
-  Write-Host "==> flutter build apk --debug ..."
-  Push-Location $FlutterDir
-  try {
-    flutter build apk --debug 2>&1 | Select-Object -Last 3
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $apk)) {
-      Fail "APK 构建失败（exit=$LASTEXITCODE）"
-      exit 1
-    }
-  } finally { Pop-Location }
+  # Debug APK 与 Rust Debug 保持一致；本设备冒烟不作为 Release 性能基线。
+  Write-Host "==> Python 构建 Android Debug APK 并校验包内原生库 ..."
+  & $pythonCommand $pythonEntry build android --profile debug --abis "arm64-v8a,x86_64"
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $apk)) {
+    Fail "APK 构建或原生库校验失败（exit=$LASTEXITCODE）"
+    exit 1
+  }
   Pass "APK 构建成功（$([math]::Round((Get-Item $apk).Length/1MB,1)) MB）"
 }
 

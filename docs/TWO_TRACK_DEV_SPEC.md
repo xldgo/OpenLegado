@@ -71,30 +71,29 @@ Content hash on Dart side (X) is different from Rust side (Y),
 indicating out-of-sync code
 ```
 
-**根治方案（2026-08-14 工程化）**：不再依赖手工记忆重编 jniLibs，构建链自动校验 hash：
+**构建配对检查（2026-10-11 更新）**：Android Gradle 调用同一 Python 只读校验器，
+检查契约、源码与工具指纹、ABI/profile/features、元数据和实际库摘要：
 
 | 入口 | 行为 |
 |------|------|
-| `flutter build apk` / Gradle `preBuild` | `verifyRustFfiLibs` 任务校验 `arm64-v8a` + `x86_64` 的 `.so` 与 `frb_generated.dart` hash；失配则**构建失败**并打印可复制命令 |
-| `rust/scripts/verify-ffi-android.ps1 -AutoBuild` | 校验失败时自动调用 `build-android.ps1` 重编 |
-| `flutter_legado/scripts/build-apk.ps1` | 构建前自动 verify + AutoBuild |
-| `scripts/emulator_smoke_test.ps1` | 冒烟前自动 verify + AutoBuild |
-| 纯 Dart UI 开发 | `flutter run --dart-define=USE_MOCK=true`（无需 .so） |
-| 临时跳过（不推荐） | 环境变量 `LEGADO_SKIP_RUST_BUILD=1` |
+| `flutter build apk` / Gradle variant `preBuild` | 对应 Debug/Release/Profile 的任务执行 Python 严格只读校验；失配则构建失败 |
+| `python scripts/dev.py build ffi android ...` | 独立编译、复制并生成 v2 元数据；失败不降级或复用旧库 |
+| `python scripts/dev.py build android ...` | 编译 FFI、严格校验、打包并检查 APK；安装启动需显式选择设备 |
+| `scripts/emulator_smoke_test.ps1` | 保留设备 QA，构建调用 Python；Debug APK 与 Rust Debug 配对 |
+| `python scripts/dev.py collect apk android ...` | 校验已有分 ABI APK 与 Cargo/jniLibs 来源，全部通过后收集；不重新编译或安装 |
+| 本地纯 Dart UI 开发 | 仅 Debug，同时显式 `USE_MOCK=true` 和 `LEGADO_SKIP_RUST_BUILD=1` 才可跳过 |
+| Release/Profile/CI | 禁止通过跳过变量绕过校验 |
 
-**唯一正确 Android 构建流程（Windows）**：
+**Android 构建流程（仓库根目录 PowerShell）**：
 
 ```powershell
-# 推荐：统一入口（自动校验 hash + 交叉编译 + 打包）
-.\flutter_legado\scripts\build-apk.ps1
-
-# 或分步：
-.\rust\scripts\build-android.ps1 -Mode debug -Targets "aarch64,x86_64"
-cd flutter_legado
-flutter build apk --debug
+python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64
 ```
 
-**正确做法（Rust 轨 codegen 后）**：codegen 与 `cargo build -p legado-ffi` 绑定为原子操作（原 Makefile `gen` 目标已于 2026-09-22 随 Makefile 归档至 docs/过期文档/Makefile 而废止；Windows 环境无 make，以 codegen 脚本为准）；Android 侧额外执行 `build-android.ps1` 同步 jniLibs。
+**正确做法（Rust 轨 codegen 后）**：先完成生成，再显式重编对应 native 库，成对验证后运行。
+生成入口不隐式关闭应用或重编 DLL。Android 使用上述 Python 构建命令同步 jniLibs；
+解释器、Mock 限制及迁移证据见 [Gradle 接线说明](PYTHON_GRADLE_FFI_20261011.md)。
+Android 旧入口已删除；APK 与安装参数见 [Android 入口说明](PYTHON_ANDROID_CLEANUP_20261011.md)。
 
 ### 3.3 UI 轨禁区
 
@@ -105,8 +104,10 @@ flutter build apk --debug
 ### 3.4 DLL / .so 构建
 
 - 构建由 Rust 轨负责。
-- Windows 平台遵循项目既有 CMake 自动复制机制（构建时自动将 `legado_ffi.dll` 复制到 Flutter 构建输出目录）。
-- DLL 被运行进程锁定时需先停止 Flutter 进程再编译。
+- Windows 使用 `python scripts/dev.py build ffi windows --profile debug` 独立生成和校验 DLL；应用构建/开发会话分别使用 `build windows`、`run windows`。
+- CMake 负责复制对应 profile 的 DLL；Python 传入当前 Cargo 输出目录并复核最终复制摘要，不跨模式回退。旧 Windows/生成脚本及 Makefile 已删除，详见 [Windows 工具说明](PYTHON_WINDOWS_TOOLING_20261011.md)。
+- DLL 被运行进程锁定时提示用户手动关闭应用，生成器和构建入口均不强制终止进程。
+- iOS 正式静态库由 `python scripts/dev.py build ffi ios --target device --profile release` 编译，模拟器使用 `--target simulator`；保留 CocoaPods `RustFFI` 的 `-force_load`。最终应用的 PDE 符号由同一 Python 入口检查；模拟器兼顾 `Runner.debug.dylib`。元数据与平台边界见 [iOS 工具说明](PYTHON_IOS_TOOLING_20261011.md)，历史 XCFramework 不接入本流程。
 
 ### 3.5 frb 构件配对纪律（评审 W2 登记，持久约束）
 

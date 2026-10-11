@@ -1,9 +1,10 @@
 name: Rust CI
 on:
   push:
-    paths: ['rust/**', '.github/workflows/rust-ci.yml']
+    branches: [dev, master]
   pull_request:
-    paths: ['rust/**', '.github/workflows/rust-ci.yml']
+    branches: [dev, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,7 +14,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.changes.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: changes
+        uses: ./.github/actions/ci-changes
+
   quality:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -36,6 +51,8 @@ jobs:
         run: cargo clippy -p legado-js -p legado-ffi -p legado-server --features quickjs --all-targets -- -D warnings
 
   tests:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -61,6 +78,8 @@ jobs:
         run: cargo test -p legado-server --features quickjs
 
   audit:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -76,22 +95,15 @@ jobs:
         working-directory: rust
         run: cargo audit
 
-  # 保留原 check 名，三个独立门禁全部成功才允许汇总通过。
+  # 保留原 check 名；只允许判定为无关的任务跳过。
   check:
     if: ${{ always() }}
-    needs: [quality, tests, audit]
+    needs: [changes, quality, tests, audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v7
       - name: 汇总 Rust 门禁
         env:
-          QUALITY_RESULT: ${{ needs.quality.result }}
-          TESTS_RESULT: ${{ needs.tests.result }}
-          AUDIT_RESULT: ${{ needs.audit.result }}
-        run: |
-          for result in "$QUALITY_RESULT" "$TESTS_RESULT" "$AUDIT_RESULT"; do
-            if [[ "$result" != "success" ]]; then
-              echo "::error::Rust 门禁未通过：quality=$QUALITY_RESULT tests=$TESTS_RESULT audit=$AUDIT_RESULT"
-              exit 1
-            fi
-          done
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci_changes.py check quality=rust tests=rust audit=rust

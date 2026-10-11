@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "ndkVersion": "28.2.13676358",
+  "clangApiLevel": 21,
+  "maxPageSize": 16384,
+  "targets": {
+    "arm64-v8a": {
+      "flutterPlatform": "android-arm64",
+      "targetTriple": "aarch64-linux-android",
+      "clangTarget": "aarch64-linux-android",
+      "sysrootTriple": "aarch64-linux-android",
+      "elfClass": 2,
+      "elfMachine": 183,
+      "features": {"debug": ["quickjs"], "release": ["quickjs"]}
+    },
+    "x86_64": {
+      "flutterPlatform": "android-x64",
+      "targetTriple": "x86_64-linux-android",
+      "clangTarget": "x86_64-linux-android",
+      "sysrootTriple": "x86_64-linux-android",
+      "elfClass": 2,
+      "elfMachine": 62,
+      "features": {"debug": ["quickjs"], "release": ["quickjs"]}
+    },
+    "armeabi-v7a": {
+      "flutterPlatform": "android-arm",
+      "targetTriple": "armv7-linux-androideabi",
+      "clangTarget": "armv7a-linux-androideabi",
+      "sysrootTriple": "arm-linux-androideabi",
+      "elfClass": 1,
+      "elfMachine": 40,
+      "features": {"release": []}
+    }
+  }
+}

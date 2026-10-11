@@ -60,7 +60,7 @@ rustup install stable
 
 参考官方文档：https://flutter.dev/docs/get-started/install
 
-要求 Flutter SDK >= 3.11.5：
+当前工程使用 Flutter 3.47.7（随附 Dart 3.13.5）：
 ```bash
 flutter --version
 ```
@@ -68,8 +68,24 @@ flutter --version
 ### 3. flutter_rust_bridge CLI
 
 ```bash
-cargo install flutter_rust_bridge_codegen --version 2.12.0
+cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 ```
+
+### Python 工程工具
+
+安装 Python 3.11 或更新版本后，在仓库根目录执行：
+
+```powershell
+python scripts/dev.py fingerprint rust
+python scripts/dev.py test tooling
+```
+
+Android FFI 的严格只读校验、元数据格式和现有流程迁移边界见
+[Python 工具说明](PYTHON_FFI_TOOLING_20261010.md)。Android 旧脚本已删除，旧元数据不会自动转换。
+Python 代码生成和 Android FFI 编译命令见 [构建入口说明](PYTHON_FFI_BUILD_20261011.md)；
+生成绑定与重编原生库分别执行。Android Gradle 与两处 Android CI 已接入 Python，
+解释器配置、Mock 限制及未迁移入口见 [Gradle 接线](PYTHON_GRADLE_FFI_20261011.md)。
+APK 构建、可选安装与删除范围见 [Android 入口说明](PYTHON_ANDROID_CLEANUP_20261011.md)。
 
 ### 4. C 编译器（QuickJS 需要）
 
@@ -134,7 +150,7 @@ cargo build --workspace
 cargo build --release -p legado-server
 
 # Android 交叉编译（Windows）
-.\scripts\build-android.ps1 -Mode release
+python ../scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
 ```
 
 ### Flutter
@@ -149,10 +165,12 @@ flutter pub get
 flutter run
 
 # 构建 APK
-flutter build apk
+python ../scripts/dev.py build android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --split-per-abi
 
 # Windows 桌面构建
-.\scripts\build-windows.ps1
+python ../scripts/dev.py build windows --profile debug
+# Windows 开发会话（先重编 DLL，保留热重载）
+python ../scripts/dev.py run windows --profile debug
 ```
 
 ### FFI Bridge 代码生成
@@ -161,16 +179,15 @@ Rust API 变更后需重新生成 Dart bindings：
 
 ```bash
 cd flutter_legado
-flutter_rust_bridge_codegen generate
-# 或使用脚本
-.\scripts\generate-bridge.ps1   # Windows
-./scripts/generate-bridge.sh    # Linux/Mac
+python ../scripts/dev.py generate bridge
+# 只读隔离复核
+python ../scripts/dev.py generate bridge --check
 ```
 
 ### Makefile（2026-09-22 归档）
 
 > 根目录 `Makefile` 已移入 `docs/过期文档/Makefile` 归档（`过期文档/PENDING_DELETE_20260920.md` §P4，已归档）：当前开发环境为 Windows、无 `make` 命令（见 AGENTS.md「关键约束」），且 `make build`/`make gen` 等目标已不存在。
-> 实际执行以：codegen → `scripts/generate-bridge.ps1`（见上节）；构建/验证 → AGENTS.md「验证命令」（`cargo check/test`、`flutter analyze/test`、`flutter build`）。
+> Flutter 子目录的 Makefile 也已删除。生成、Android/Windows 编排使用 `python scripts/dev.py`；检查/测试/独立清理使用 Cargo/Flutter 原生命令，见 AGENTS.md「验证命令」。Windows 参数和未测边界见 [Windows 工具说明](PYTHON_WINDOWS_TOOLING_20261011.md)。
 
 ---
 
@@ -247,14 +264,15 @@ flutter analyze
 
 ### CI 流水线
 
-GitHub Actions 自动执行以下检查（排除 legado-ffi，因其需要 Flutter 工具链）：
+Flutter/Rust/Integration 自动检查针对 `dev/master` push 和指向这两个分支的 PR，
+按改动选择任务；开发分支可通过 PR 或手动入口验证。Rust CI 保留默认 feature 与
+QuickJS 的质量/测试以及依赖审计；Flutter CI 执行分析与测试。
 
-1. `cargo check --workspace --exclude legado-ffi`
-2. `cargo clippy --workspace --exclude legado-ffi -- -D warnings`
-3. `cargo test --workspace --exclude legado-ffi`
-4. `cargo test -p legado-js --features quickjs`
-5. `flutter analyze`
-6. `flutter test`
+Integration Smoke 手动范围支持 `all`、`android`、`windows`、`routing`；最后一项
+只验证编排。iOS Build 仅对 dev/master 的应用相关改动自动构建设备包，其他分支
+手动；iOS CI 保持仅手动模拟器验证。Android Release 保持 Tag 发布与手动只构建。
+
+任务范围、门禁语义与轻量回归命令见 [CI 编排说明](CI_ORCHESTRATION_20261010.md)。
 
 ---
 

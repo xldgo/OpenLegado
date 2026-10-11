@@ -76,6 +76,8 @@
 | [API_CONTRACT.md](API_CONTRACT.md) | BookApi 接口契约文档（UI 轨与 Rust 轨唯一接口基准） |
 | [api.md](api.md) | 阅读 Web API 说明及 Android 原版 Content Provider 参考；FFI 契约另见 API_CONTRACT.md |
 | [IOS_CI_SIGNING_SETUP.md](IOS_CI_SIGNING_SETUP.md) | iOS Build 签名与 IPA 交付；手动 iOS CI、诊断入口、真机安装与排障方法 |
+| [PYTHON_IOS_TOOLING_20261011.md](PYTHON_IOS_TOOLING_20261011.md) | iOS 正式静态库、来源元数据与应用 PDE 校验；保留 CocoaPods 与既有签名图标流程 |
+| [PYTHON_ANDROID_RELEASE_20261011.md](PYTHON_ANDROID_RELEASE_20261011.md) | Android Release 复用 APK 校验、三个 ABI 的来源核对与专用产物收集 |
 | [CI_WORKFLOW_REVIEW_20261010.md](CI_WORKFLOW_REVIEW_20261010.md) | 工作流拆分的独立审查与静态验证证据；当前进度仍以 Active 计划为准 |
 | [CI_AUTOMATION_REVIEW_20261010.md](CI_AUTOMATION_REVIEW_20261010.md) | Dependabot、标签、按标签启用的 PR 审查与 Issue 清理配置，以及旧路径核查、8 个旧 Gradle 文件删除清单和本地验证证据 |
 

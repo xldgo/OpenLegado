@@ -2,6 +2,9 @@
 
 本报告保存配置设计和检查证据；任务状态仅记录于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)。用户要求不使用子代理、审核前不自动提交，并已追加指令提交本地 commit。本轮由主代理直接实施与自审，不称作独立审查；本次提交授权不包含推送。
 
+> 下文为 2026-10-10 的审计与授权记录；2026-10-11 新增的旧脚本清理候选见文末。
+> 原记录中的“脚本保留”描述当时的实施范围，当前任务与用户修订以 Active 计划为准。
+
 ## 范围与配置
 
 基线为 `06665408f`，分支为 `dev`。修改包括 `.github/` 自动化配置、三份仓库自动化 workflow 和必要说明；按用户追加的旧路径核查要求，另修正 `package.json` 仓库链接、iOS Podspec 首页和当前入口文档，并按其明确授权删除 8 个旧原版 Gradle 文件（含两个 Gradle 启动脚本）。`.github/scripts/`、`scripts/` 及 Rust/Flutter 辅助脚本、应用源码、现用依赖版本、Pod 构建字段与六份构建/发布 workflow 均未改动；没有应用可见变化，不递增应用版本或更新应用内日志。
@@ -106,3 +109,56 @@ Dependabot 配置、Issue 和 schedule 自动化需在用户审核、提交并�
 其他规则出处：[Dependabot 配置项](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)、[PR 事件与权限语义](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target)、[OpenAI Codex Action 输入](https://learn.chatgpt.com/docs/github-action)、[Stale 参数](https://github.com/actions/stale)。
 
 编写者：Codex 主代理｜2026-10-10
+
+## 旧 CI 脚本清理候选（2026-10-11）
+
+本节记录 `CI-SCRIPT-CLEANUP-20261011` 的清理依据，基线为 `a9833ac33`；
+当前进度只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)。用户先要求 doctor 后置并准备清理，
+随后明确批准删除旧 APK、Web 资产推送、帮助页构建及 Cronet 四类共 9 个文件；
+更新日志提取及蓝奏云/Telegram 分发的 4 个文件暂时保留。未执行这些脚本的内容。
+
+以下是原始 13 个候选的用途和引用依据；当前删除范围限定为上述获准四类：
+
+| 文件 | 原用途 | 当前引用与删除依据 |
+| --- | --- | --- |
+| `collect-apks.sh`、`remove-universal-apks.sh`、`test-collect-apks.sh` | 移动/命名旧原版 APK，删除 universal 包及对应测试 | 仅配套测试调用；当前 Android Release 使用 `collect apk android` 检查三个 ABI 并收集 Flutter APK，不消费旧命名规则。 |
+| `extract-latest-update.sh`、`test-extract-latest-update.sh` | 提取原版日期更新日志及检查其源码变更日期 | 仅配套测试调用；测试读取不再跟踪的原版 `app/` 日志与 `modules/`。当前 Release 正文由 workflow 设置，不调用此提取器。 |
+| `push-web-assets.sh`、`test-push-web-assets.sh` | 将生成 Web 资产提交同步并推送到 master，包含模拟远端测试 | 仅配套测试调用；旧 Web 资产更新 workflow 已无现行入口，无需把推送逻辑迁入 Python。 |
+| `build-help-highlight.sh`、`test-help-highlight.js` | 构建/验证旧原版帮助页 highlight.js | 无当前调用，固定读写 `app/src/main/assets/web/help/`，该目录不在当前版本控制中。Flutter 帮助页和 Rust 服务帮助资源仍在使用，保留这些实际资源。 |
+| `cronet.sh`、`verify-cronet.sh` | 更新/验证旧原版 Cronet JAR、原生库、元数据和混淆规则 | 无当前调用；依赖已删除的根 `gradle.properties` 及不再跟踪的 `app/cronetlib` 等文件，不是 Flutter/Rust 网络构建的一部分。 |
+| `lzy_web.py`、`tg_bot.py` | 旧蓝奏云与 Telegram 文件分发 | 无当前 workflow 或工程入口调用；当前 APK/IPA 通过 Actions Artifact，Android Tag 通过 GitHub Release 交付，不消费这两个上传脚本。 |
+
+引用核对包括全部当前 workflow、composite action、工程脚本、测试、开发入口文档，
+并用 Git 跟踪文件检索补充隐藏目录。剩余引用限于上述配套测试、脚本自身、
+本报告与 `.qoder/repowiki/` 的历史生成文档/元数据；没有发现当前生产调用。
+`.qoder` 快照中的路径继续作为历史资料，不重写大份生成元数据，也不将其当成当前构建依据。
+
+用户批准的删除清单（均位于 `.github/scripts/`）：
+
+- 旧 APK：`collect-apks.sh`、`remove-universal-apks.sh`、`test-collect-apks.sh`。
+- 旧 Web 资产推送：`push-web-assets.sh`、`test-push-web-assets.sh`。
+- 旧帮助页构建：`build-help-highlight.sh`、`test-help-highlight.js`。
+- 旧 Cronet：`cronet.sh`、`verify-cronet.sh`。
+
+删除前检查 Git 工作区仅有既有清理文档修改，九个脚本没有未提交改动。
+解析全部目标的绝对路径，确认它们均位于本仓库 `.github/scripts/`，不是目录或符号链接，
+再使用 PowerShell `Remove-Item -LiteralPath` 删除明确文件，没有递归清理或修改其他脚本。
+
+首批保留的工具与理由：
+
+- `extract-latest-update.sh`、`test-extract-latest-update.sh`：用户暂时保留更新日志提取能力及配套测试，不在本轮改接 Flutter 日志。
+- `lzy_web.py`、`tg_bot.py`：用户暂时保留两个分发渠道，不调用它们，也不更改账号或机器人配置。
+- `.github/scripts/ci_changes.py`、`test_ci_changes.py`：composite action 和 CI 汇总门禁正在使用。
+- `.github/scripts/backfill-labels.rb`：`triage-labels.yml` 仍有语法检查和手动历史标签回填入口。
+- `rust/scripts/build-ios.sh`：历史 XCFramework 独有的 Intel 模拟器/Debug/stub 能力未迁移，正式 macOS 路径也待复验；此次不删除。
+- `rust/scripts/gen_rar5_fixture.py`：Rust 归档测试注明样本由此生成，保留可重现来源。
+- `scripts/` 中设备冒烟、搜索探针及视觉比对脚本：属于独立 QA 能力，不按扩展名清理。
+- `flutter_legado/scripts/archive/`：已有历史隔离，本次不扩展到旧批次修复脚本裁决。
+
+按授权清单直接删除旧实现与配套测试，不保留转发壳、不搬运失效功能。
+当前入口文档未发现调用这些已删除文件，历史证据中的路径保留为历史记录。
+本次没有运行测试、actionlint、构建、设备任务或 Actions，没有远端/设备通过证据。
+用户已授权将删除与文档变更一并本地提交，使用 `[skip ci]`；本次授权不包含 push。
+应用版本保持 `2.0.369+370`，文件删除不改变 workflow 触发、权限或发布行为。
+
+补充编写者：Codex｜2026-10-11

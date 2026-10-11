@@ -70,6 +70,8 @@ flutter_legado/e2e_local_book.txt
 
 # 本地调试临时产物(体检报告 §四.15:不入库,防误提交书源快照/base64 转储)
 .tmp_*
+# 本地执行 Release 收集命令产生的 APK，不进入版本控制。
+/release-apk/
 .shot_*
 *_b64.txt
 .s0_booksource.json

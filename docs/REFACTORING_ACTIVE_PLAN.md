@@ -8,15 +8,30 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### CI-TOOLING-INTEGRATION-20261011：CI 与 Python 工具分支集成及分支清理（P1）
+
+- **状态**：待复验；净改动与轻量验证完成，用户已授权合入 dev 并正常运行 CI，通过后清理多余本地与 origin 分支。
+- **范围与来源**：基线为 dev `b8a0c9d29`；源分支为 `feature/ui-android-release-artifacts` 的 `ed29147ef`。`bdea9b155` 与压缩后的 `1805569d6` 文件树相同，仅提取 `bdea9b155..ed29147ef` 的 CI 编排、Python 构建/校验、平台接线和已授权脚本清理，不引入源分支的重复依赖历史。
+- **执行与边界**：工作分支 `integration/ci-tooling-20261011`，worktree 为 `.tmp_ci_tooling_integration/worktree`；不使用子代理，不改写两个原分支。净改动汇总为一条提交，快进合入 dev 并推送，不跳过 CI；不手动触发 iOS 模拟器验证。
+- **衔接**：保留 dev 的 AGP 9、Gradle/Kotlin、app_links 7、Rust 依赖/TLS 与锁文件、Xcode 26.1.1 和 download-artifact v8；Python 策略与 CI 统一 NDK 28.2.13676358，迁移 LOAD/RELRO 16 KB 门禁与 common-page-size 参数后移除旧检查入口。
+- **验收**：检查无未解决冲突、重复依赖差异或旧构建调用；运行 CI 编排与 Python 工具轻量回归、actionlint 和差异检查。真实 Android/Windows/iOS 新构建与 IPA 验收保留为后续正常 CI 范围，不能用此前旧入口通过结果代替。
+- **准备结果**：源分支的 18 个 CI/工具提交净改动已汇总，四处文本冲突已解决；已补齐新 Python 入口缺少的 RELRO 参数和完整 ELF 门禁。首次运行发现 iOS 聚合摘要先于具体字段报错，已调整诊断顺序并保留严格拒绝；CI 测试子进程固定 UTF-8，消除 Windows 解码异常。
+- **验证证据**：Python 工具共 151 项，148 项通过、3 项因 Windows 不支持 FIFO、分隔字符文件名和无符号链接权限而跳过；新增 ELF 回归覆盖三个 ABI 的 LOAD/RELRO 正反例。CI 编排 16 项、actionlint 与差异检查通过；既有真实库的旧、新 ELF 判定一致，最新 x86_64 通过，历史 arm64/armv7 库均拒绝，未重编或复用旧库生成新元数据。
+- **历史核对**：本候选基于 dev `b8a0c9d29`，没有引入 16 个旧依赖提交；Cargo/pub 锁文件、Rust 业务代码、app_links 接线和 AGP 9 版本配置相对 dev 无差异。远端源分支额外的 `2dc78318f` 仅记录较早的清理候选，其内容已包含于本地后续清理记录。
+- **清理条件与范围**：本次实现提交的自动 CI 成功后，保留 master 和 dev，删除其他本地及 origin 分支；删除前核对未合入内容并保存历史快照。worktree 文件、未提交内容与构建缓存保留，不清理 upstream 远端分支。
+
+编写者：Codex｜2026-10-11
+
 ### DEV-INTEGRATION-20261011：升级分支合入 dev（P2）
 
-- **状态**：待复验；已无冲突合入并推送 dev `24d4882a7`，Flutter CI 与 Integration Smoke 通过，Rust CI 与 iOS Build 的失败已定点修复，等待修复提交的远端结果。
+- **状态**：已关闭（合并与自动 CI 范围）；已无冲突合入并推送 dev，修复提交 `b8a0c9d29` 的四个自动 CI 全部通过。
 - **授权与范围**：用户要求合并到 dev 且不跳过 CI；从本地 dev `e4c9a9764` 合入 `feature/rust-dependency-upgrades` 的 `9907fe101`，保留 Flutter、FRB、依赖、AGP 9、RELRO 与 NDK 28 的既有提交，不改写历史。
 - **执行与边界**：在独立 worktree 操作，不使用子代理；主工作区的未提交 iOS 工具整理保持原样。合并提交不包含跳过 CI 标记，正常推送 dev；iOS 模拟器和 Android Release 保持现有手动/标签入口。
 - **验收**：合并差异检查与 workflow 语法检查通过；以本次 dev 合并提交的 Rust CI、Flutter CI、Integration Smoke 和 iOS Build 结果确认远端门禁，不能沿用旧提交的 CI 作为本次通过依据。
 - **失败根因与修复**：[Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38077340368) 的测试、安全审计和格式检查通过，但新增 TLS 测试未处理读取字节数，被 `clippy::unused_io_amount` 拒绝；改为按实际长度累积完整请求头。[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38077340316) 默认使用 Xcode 16.4，缺少设备信息插件引用的 `isiOSAppOnVision` API；设备和模拟器 workflow 统一显式选择 Xcode 26.1.1，并在构建前打印工具与 SDK 版本。
 - **版本依据与边界**：[device_info_plus 13.3.0](https://pub.dev/packages/device_info_plus/versions/13.3.0) 声明 Xcode 最低 26.1.1；[失败时的 macOS 15 ARM64 镜像清单](https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md) 已安装该版本，但默认仍为 16.4。本次只修复测试和 CI 环境，保留 iOS 最低系统版本 15.0、依赖锁文件、签名和应用版本，不手动触发模拟器验证。
 - **本地定向验证**：Rust 格式检查、TLS 测试的 Clippy（`-D warnings`）、四项真实 HTTPS 回归、actionlint 与差异检查通过。完整工作区与 Apple 编译由修复提交的正常 CI 复验，本机不重复构建 Android 应用。
+- **复验结果**：`b8a0c9d29` 的 [Rust CI](https://github.com/xldgo/OpenLegado/actions/runs/38078675872)、[Flutter CI](https://github.com/xldgo/OpenLegado/actions/runs/38078675802)、[Integration Smoke](https://github.com/xldgo/OpenLegado/actions/runs/38078675847)、[iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38078675884) 均成功，未跳过 CI；用户已确认结果。本次不宣称 iOS 真机或 16 KB 设备运行已验收。
 
 编写者：Codex｜2026-10-11
 
@@ -70,6 +85,106 @@
 - **方案与证据**：[AGP 9 迁移方案](AGP9_MIGRATION_PLAN_20261010.md)，包含版本来源、插件清单、文件边界、Windows 命令、退出条件和回退基线。后续实施与验证结果回填本项。
 
 编写者：Codex 主代理｜2026-10-10
+
+### CI-SCRIPT-CLEANUP-20261011：清理用户指定的旧 CI 辅助脚本（P2）
+
+- **状态**：指定文件清理已完成，用户已批准本地提交，未授权推送。用户从 13 个候选中明确批准删除旧 APK、Web 资产推送、帮助页构建及 Cronet 四类共 9 个文件，其他暂时保留。继续跳过测试、构建和 CI，不使用子代理。
+- **范围与基线**：基线 `a9833ac33`，沿用 `feature/ui-android-release-artifacts`。仅删除 `.github/scripts/` 中获准的实现及配套测试；具体名单与引用依据见 [自动化审计补充](CI_AUTOMATION_REVIEW_20261010.md#旧-ci-脚本清理候选2026-10-11)。
+- **保留范围**：`extract-latest-update.sh`、`test-extract-latest-update.sh`、`lzy_web.py`、`tg_bot.py` 按用户指令保留。当前 CI 路由及测试、Ruby 标签回填、历史 iOS XCFramework、RAR5 样本生成、设备 QA、Flutter 历史脚本归档和实际帮助资源继续保留。
+- **实施与复核**：删除前确认九个目标均在本仓库脚本目录内、没有未提交修改且为独立文件；使用 PowerShell 逐项清单删除，没有递归清理。当前 workflow 与保留脚本无生产调用待迁移，历史路径继续用于溯源。不修改 workflow、Python 构建实现、应用版本和依赖，不重生成旧 Wiki。
+- **记录与提交**：删除与文档变更在同一个本地提交中交付，本次授权不包含 push。后续未经用户明确允许，不得 commit 或 push。提交使用 `[skip ci]`，不追加提交号回填。doctor 保持后置，既有 native 迁移的真实验证仍待后续定向安排。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-IOS-PACKAGING-20261011：iOS 图标、plist 与 IPA 编排收口（P1）
+
+- **状态**：待复验（代码与接线交付范围）；用户批准继续整理，沿用不使用子代理、跳过测试/构建/CI 的要求。回归用例已加入，但没有执行结果，也没有真实 IPA 或设备验收证据。
+- **范围与基线**：基线 `1c81a8767`，继续使用 `feature/ui-android-release-artifacts`；将 `ios-build.yml` 的图标源引用检查、actool 警告检查、散文件复制/legacy 转换、最终图标门禁、plist 导出和 IPA 打包迁入 `scripts/tooling/ios_bundle.py`。签名、诊断开关、上传名称/路径和 workflow 权限保持。
+- **行为与边界**：继续复制 24 个备选图标散文件与主图标，区分 iPhone/iPad 的 legacy 文件引用，iPad 区段仍可缺省。IPA 保留 macOS `cp -r` / `zip -qry`，新增独立临时 Payload 与校验后替换；旧目录和归档不参与新打包。损坏资产 JSON、缺构建日志、重复 ZIP 条目或无效 Runner 明确失败；不宣称图标切换已可用。
+- **交付与记录**：代码、测试用例与本项文档在一个实质提交中交付，标题为 `chore(tool): 提取 iOS 图标与 IPA 处理逻辑 [skip ci]`。按用户修订，不再为每项任务创建分支，不追加仅回填提交号的 commit；后续需要追溯时通过 Git 日志查询。SDK/JDK、FFI 契约与应用版本 `2.0.369+370` 保持。
+- **方法与后续**：命令、差异和回滚见 [iOS 工具说明](PYTHON_IOS_TOOLING_20261011.md)。后续定向验证 macOS 复制/ZIP 的权限与符号链接、签名后的 IPA 和真实图标资源；本轮不启动这些验证。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-APK-20261011：Android Release APK 校验与收集收口（P1）
+
+- **状态**：待复验（代码与接线已交付）；实现提交 `2bbd0019e`。用户批准继续整理，沿用不使用子代理、跳过测试/构建/CI 的要求。本轮只交付代码与接线，不提供实际 APK 或 Actions 通过结论。
+- **范围与基线**：从 `e5798a701` 创建 `feature/ui-android-release-artifacts`；将 `android-release.yml` 内嵌的 APK 校验与收集改为根 Python CLI，保留 Flutter 构建、ABI/QuickJS 矩阵、Tag 发布、Artifact ID、工件命名与权限。
+- **目标与行为**：共用 `verify_android_apk`；指定 Cargo 目录时，源库、jniLibs 和 APK 的临时副本经同一 NDK strip 后摘要一致。新增 `collect apk android`，全部分 ABI APK 和临时复制通过后才写入收集目录；未知文件不清理、错包不放行、失败不发布旧包。
+- **实施与验收边界**：新增 11 项收集 fixture、一项 CLI 参数用例与一项 CI 接线用例但不执行；只静态复核后提交/push，使用 `[skip ci]`。iOS 图标/IPA 内嵌代码、doctor 和旧入口清理另批推进；SDK/JDK、FFI 契约和应用版本 `2.0.369+370` 保持。
+- **说明**：命令、差异、来源证明与回滚见 [Android Release 工具说明](PYTHON_ANDROID_RELEASE_20261011.md)；当前任务状态仅维护于本项。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-IOS-20261011：iOS 正式 Rust 静态库迁移（P1）
+
+- **状态**：待复验（代码与接线已交付）；实现提交 `c165e50dc`。用户批准下一步，沿用不使用子代理、跳过验证和 CI 的要求。本轮仅交付代码与接线，实际 macOS 编译、最终 IPA 和设备验收尚未进行。
+- **范围与基线**：从 `db415d4b2` 创建 `feature/ui-python-ios-tooling`；迁移两份 iOS workflow 中 Rust 静态库编译/复制及 PDE 符号检查，保持现有 CocoaPods、签名、图标、产物命名、触发与权限。
+- **目标与边界**：device / simulator 分别使用 arm64 Release QuickJS；沿用 `RustFFI/libliblegado_ffi.a` 和 podspec 的 `-force_load`。建立 v2 元数据只读门禁，拒绝陈旧/错目标库和缺失的已定义 PDE 符号；模拟器保留 `Runner.debug.dylib` 检查。SDK/JDK、FFI 契约和应用版本 `2.0.369+370` 保持。
+- **代码落点**：新增 `scripts/tooling/ios.py`；CLI 支持 `build ffi ios`、`verify ffi ios` 和 `verify app ios`，两份 workflow 替换对应 Rust/PDE 步骤。iOS 与 Windows 共用 Cargo 输出目录解释函数，行为不变。新增 16 项 iOS fixture、一项 CLI 参数用例和一项 CI 接线用例，均未执行。
+- **交付要求**：静态复核后单独提交和 push，使用 `[skip ci]`。旧 XCFramework 脚本标明历史非正式入口，不接入本轮正式流程；方法与未测边界见 [iOS 工具说明](PYTHON_IOS_TOOLING_20261011.md)。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-WINDOWS-20261011：Windows 构建与运行入口迁移（P1）
+
+- **状态**：已交付（代码与引用清理范围）；实现提交 `7f9293595`。沿用用户跳过验证、跳过 CI 的要求，不使用子代理，实际 Windows 构建/运行和 CI 验收未完成。
+- **范围与基线**：从 `01cec318c` 创建 `feature/ui-python-windows-tooling`。将 Windows DLL 编译/复制、应用构建/运行及旧生成脚本能力接入根 Python CLI；迁移 Windows Smoke 的 DLL 编译段和有效调用方，再删除已替代的五个脚本与 Flutter Makefile，不留转发壳。Makefile 的检查/测试/清理使用对应 Cargo/Flutter 原生命令。
+- **行为约束**：默认 QuickJS；原 Makefile 显式 stub 开发模式仅 Debug 可选，不能因失败自动降级。生成、构建、运行分别执行，不强制终止应用；失败不得复制旧 DLL。CMake 保留复制职责，绑定当前请求的 DLL/profile，取消 Release 回退。
+- **验收边界**：本轮仅代码与引用清理，实际 Windows 构建/运行和 CI 均未验收；新增回归测试但不执行。iOS 正式构建、签名与图标接线另行迁移；SDK/JDK、FFI 契约和应用版本保持。
+- **代码落点**：新增 `scripts/tooling/windows.py`，CLI 支持 `build ffi windows`、`verify ffi windows`、`build windows`、`run windows`；Android/Windows 共用 Cargo 产物确认函数。CMake、Windows Smoke 和当前开发文档同步接线；新增 11 项 Windows fixture 与一项 CI 接线测试但未执行。行为、元数据与回滚见 [Windows 工具说明](PYTHON_WINDOWS_TOOLING_20261011.md)。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-CLEANUP-20261011：删除已替代的 Android 脚本（P1）
+
+- **状态**：已交付（代码与引用清理范围）；实现提交 `56fff0af4`。用户批准直接清理，不保留兼容转发壳。本轮沿用跳过验证的要求，未运行测试、APK、模拟器或 CI；实际构建与设备验收仍未完成。
+- **范围与基线**：从 `cd5f97c99` 创建 `feature/ui-android-script-cleanup`；主代理执行，不使用子代理。删除旧 Android 编译/校验/指纹的六个 PS/Bash 文件与 `build-apk.ps1`，先迁移 APK 编排及仍有效的调用方。Windows/iOS 与设备 QA 本身的独有能力保留。
+- **目标**：APK 构建、严格跳过 Rust 编译和可选安装启动统一到 Python；冒烟脚本不再调用旧校验器；更新当前开发入口、错误提示与 CI 路由。源码/工具变化使旧元数据失效后必须重编，不补写元数据。
+- **验收边界**：仅交付代码与引用清理；新增编排及设备调用未经实际构建验收，不能以此前 FFI/Gradle fixture 的结果替代。本批不改变 SDK/JDK、FFI 契约、应用版本或 CI 发布语义。
+- **代码落点**：新增 `scripts/tooling/android_app.py`；根 CLI 支持 `build android` 和 `verify apk android`；迁移设备冒烟与 Makefile 的 Android 调用、错误提示、CI 范围规则和开发文档。新增 11 项工具测试但未执行，方法与回滚见 [Android 入口说明](PYTHON_ANDROID_CLEANUP_20261011.md)。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-GRADLE-20261011：Gradle 接入 Python FFI 校验（P1）
+
+- **状态**：已交付（配置修改范围）；实现提交 `5b841ae44`。2026-10-11 用户要求跳过后续验证，不继续实际工程复验、不安装临时 JDK 17、不运行 routing 或全量 CI。实际 Android 工程与 JDK 17 验收仍未完成。
+- **范围与基线**：从 `85f4827d9` 创建 `feature/ui-gradle-ffi-validation`。用户同意 Gradle 只调用 Python 校验；主代理执行，不使用子代理。同步迁移两个 Android workflow 的 FFI 生产步骤，避免旧元数据被新门禁拒绝；发布、权限和平台职责保持。应用版本 `2.0.369+370`。
+- **目标**：按实际 Debug/Release/Profile 和 ABI 调用同一只读校验器；删除 Gradle 四字节扫描及旧元数据放行；直接 Flutter/Android Studio 构建保留保护。Mock 跳过仅允许显式本地 Debug，Release 与 CI 禁止。
+- **验证与边界**：用户叫停前，10 项真实 Gradle fixture 测试通过（使用本机已有 JDK 24），Python 69 项中 66 项通过、3 项宿主限制跳过；actionlint 与差异检查通过。Windows 双 ABI FFI/v2 生产成功。实际工程在 AGP 缓存目录重命名阶段失败，未执行到门禁；这些结果不等于 Java 17/实际工程/最终 APK 通过。新构建库仍由独立 Python 命令生成。
+- **证据**：[Gradle 接线与验证](PYTHON_GRADLE_FFI_20261011.md)；当前任务状态只维护于本项。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-BUILD-20261011：Python 生成与 Android FFI 构建迁移（P1）
+
+- **状态**：已交付（本批生成与 Android FFI 编排范围）；实现提交 `1b3e5d1f7`，Linux 轻量 routing 通过。正式 Gradle 与 CI 构建接线尚未迁移。
+- **范围与基线**：从 `bb9fbe303` 创建 `feature/ui-python-ffi-build`。按用户要求主代理执行、不使用子代理；FRB 和 Android 编译作为独立命令，保留旧脚本。应用版本保持 `2.0.369+370`，Rust stable。
+- **目标**：固定版本 FRB/Dart 生成与隔离复核；严格执行当前 Android ABI/QuickJS/NDK 策略，编译失败不降级、不复用旧文件；全部请求 ABI 成功且来源校验通过后整体发布库与 v2 元数据。
+- **验证**：Windows Python 3.11/3.13 各 69 项，66 项通过、3 项受宿主能力限制跳过；Linux 69 项全部通过。真实双 ABI Debug QuickJS 编译与源库校验、FRB 隔离复核、Dart 生成通过，应用源码和锁文件无差异。[轻量 routing CI](https://github.com/xldgo/OpenLegado/actions/runs/38067819023)成功，Android/Windows 原生作业跳过；APK、iOS 模拟器与设备回归继续暂缓，本批不迁移 Android APK 安装/启动辅助入口。
+- **证据与后续**：[构建迁移说明](PYTHON_FFI_BUILD_20261011.md)。下一阶段再接入 Gradle/CI，真实跨平台构建证明不足前不删除旧脚本。
+
+编写者：Codex｜2026-10-11
+
+### PYTHON-FFI-20261010：Python 指纹与只读 FFI 校验（P1）
+
+- **状态**：已交付（阶段 B 指纹与纯校验范围）；实现提交 `44a20d28f`，Linux 轻量运行通过。正式编译与打包入口仍使用原流程。
+- **范围与基线**：从 `16cb270d2` 创建 `feature/ui-python-ffi-validation`。用户要求主代理执行，不使用子代理；保留旧 sh/ps1、Gradle 和原生 CI 构建路径，应用版本保持 `2.0.369+370`。
+- **目标**：提供根目录 Python CLI、规范化 Rust 指纹、Android ABI/QuickJS 策略和 v2 元数据只读校验；缺失、陈旧、损坏或模式错配时失败，不能扫描四字节 hash 或补写旧库元数据。
+- **验证**：Windows Python 3.11/3.13 各运行 42 项，39 项通过、3 项受宿主能力限制跳过；Linux 42 项全部通过。原编排 16 项通过；固定样本与旧 PS/Bash 指纹一致，当前 Rust 树与旧 PS 一致。actionlint、语法与差异检查通过。[轻量 routing 运行](https://github.com/xldgo/OpenLegado/actions/runs/38063850065)的 changes/check 成功，Android/Windows 原生作业正确跳过。
+- **边界与后续**：schema v2 新构建生产者、FRB 生成与 Android 编译在下一阶段实施；当前新校验器不能代替真实 FFI smoke、APK strip 校验或设备回归。方法与证据见 [Python 工具说明](PYTHON_FFI_TOOLING_20261010.md)。
+
+编写者：Codex｜2026-10-10
+
+### CI-ORCH-20261010：CI 编排优化与按改动选择任务（P1）
+
+- **状态**：已交付（本批 CI 编排与轻量接线验证范围）；实现提交 `27351fd68`，Integration Smoke routing 运行成功。
+- **范围与基线**：从 `bdea9b155` 创建 `feature/ui-ci-orchestration`。主代理执行，不使用子代理；先编排，后 Python 构建迁移。应用版本保持 `2.0.369+370`。
+- **目标与执行**：Flutter/Rust/Integration 自动检查改为 dev/master push 和指向两分支的 PR；统一 Python 变更判定，无关任务只运行轻量检查。Android/Windows 冒烟分别选择，iOS 设备构建先在 Linux 判定；iOS CI 继续仅手动，Android Release 发布规则保持。
+- **验收**：16 项本地测试覆盖多提交 push、PR 合并、浅检出、重命名、中文空格路径与失败汇总；9 份 workflow 的 actionlint 和差异检查通过。原构建、测试、缓存、签名与产物门禁逐值保持。[轻量 Actions 运行](https://github.com/xldgo/OpenLegado/actions/runs/38062145455)的 changes/check 成功，Android/Windows 原生作业正确跳过；不启动整套 native CI。
+- **证据与边界**：[编排说明与验证](CI_ORCHESTRATION_20261010.md)。本批不删除旧 sh/ps1、不迁移 FFI 校验；平台构建与设备验收继续暂缓。下一阶段为统一指纹与只读校验。
+
+编写者：Codex｜2026-10-10
 
 ### DEPS-UPGRADE-20261010：Flutter 依赖逐项升级与停维护包替换（P1）
 

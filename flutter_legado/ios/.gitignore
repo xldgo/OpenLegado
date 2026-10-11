@@ -33,3 +33,5 @@ Runner/GeneratedPluginRegistrant.*
 !default.pbxuser
 !default.perspectivev3
 RustFFI/libliblegado_ffi.a
+RustFFI/libliblegado_ffi.a.meta
+RustFFI/.tmp_ios_ffi_*/

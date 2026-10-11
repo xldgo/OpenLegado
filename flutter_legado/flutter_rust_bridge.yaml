@@ -1,7 +1,7 @@
 # flutter_rust_bridge 代码生成配置
 #
 # 运行代码生成:
-#   在 flutter_legado 目录运行 scripts/generate-bridge.ps1 或 scripts/generate-bridge.sh
+#   在仓库根目录运行 python scripts/dev.py generate bridge；构建原生库另行执行。
 
 rust_input: crate::ffi
 rust_root: ../rust/legado-ffi/

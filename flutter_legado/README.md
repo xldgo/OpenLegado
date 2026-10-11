@@ -12,7 +12,7 @@ flutter_legado/
 │   ├── main.dart              # 入口
 │   ├── app.dart               # MaterialApp 配置
 │   └── src/
-│       ├── bridge/            # flutter_rust_bridge 生成代码（不提交）
+│       ├── bridge/            # flutter_rust_bridge 生成代码（随源码提交）
 │       │   ├── api/           # 按 API 分组的桥接接口
 │       │   ├── ffi/           # 底层 FFI 绑定
 │       │   └── frb_generated.*.dart
@@ -67,10 +67,7 @@ flutter_legado/
 │       └── routes.dart        # 路由配置
 ├── android/                   # Android 平台工程
 ├── ios/                       # iOS 平台工程
-├── scripts/
-│   ├── generate-bridge.sh     # Bridge 代码生成脚本
-│   └── generate-bridge.ps1    # Windows 版
-├── Makefile                   # 统一构建命令
+├── scripts/archive/           # 历史修复与取证辅助工具
 ├── pubspec.yaml               # Flutter 依赖
 └── flutter_rust_bridge.yaml   # flutter_rust_bridge 配置
 ```
@@ -103,15 +100,12 @@ cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 
 每次 Rust API 变更后需重新生成：
 
-```bash
-# Linux / macOS
-./scripts/generate-bridge.sh
-
-# Windows PowerShell
-.\scripts\generate-bridge.ps1
-
-# 两个脚本均核对 FRB 版本，并在生成后重建带 QuickJS 的原生库。
+```powershell
+python ../scripts/dev.py generate bridge
+python ../scripts/dev.py generate bridge --check
 ```
+
+生成命令不关闭应用或重编原生库。Windows DLL 构建/运行入口仍独立保留。
 
 ---
 
@@ -127,33 +121,48 @@ flutter run
 
 **完整流程（Rust .so + Flutter APK）：**
 
-```bash
-# 使用 Makefile（推荐）
-make build          # release
-make build-debug    # debug
-
-# 或手动步骤：
-cd ../rust && ./scripts/build-android.sh release
-cd ../flutter_legado && flutter build apk
+```powershell
+# 在 flutter_legado/ 下运行
+python ../scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64
+python ../scripts/dev.py build android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --split-per-abi
 ```
+
+Python 3.11+ 统一编译与只读校验；旧 Android Shell/PowerShell 入口已删除。
+复用当前库可增加 `--skip-rust`，安装启动需显式指定 `--install --device <当前设备编号>`。
+行为差异与未执行验证见 [Android 入口说明](../docs/PYTHON_ANDROID_CLEANUP_20261011.md)。
 
 ### 代码检查
 
-```bash
-make check          # Rust cargo check + Flutter analyze
+```powershell
+# 在 flutter_legado/ 下执行；Rust 与 Flutter 分别检查
+cargo check --manifest-path ../rust/Cargo.toml
+flutter analyze
 ```
 
 ### 运行测试
 
-```bash
-make test           # Rust cargo test + Flutter test
+```powershell
+cargo test --manifest-path ../rust/Cargo.toml
+flutter test
 ```
 
 ### 清理
 
-```bash
-make clean          # cargo clean + flutter clean
+```powershell
+cargo clean --manifest-path ../rust/Cargo.toml
+flutter clean
 ```
+
+### Windows 构建与运行
+
+```powershell
+python ../scripts/dev.py build windows --profile debug
+python ../scripts/dev.py run windows --profile debug
+python ../scripts/dev.py build windows --profile release
+```
+
+生成、构建与运行分别执行；旧脚本和 Makefile 已删除。Windows DLL 严格来源校验、
+显式 Debug stub 与未测边界见 [Windows 工具说明](../docs/PYTHON_WINDOWS_TOOLING_20261011.md)。
 
 ---
 

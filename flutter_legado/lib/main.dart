@@ -99,20 +99,20 @@ class _FfiErrorApp extends StatelessWidget {
       if (isHashMismatch) {
         return 'Android 上 Rust .so 与当前 Dart 桥接代码不同步（content hash 失配）。\n\n'
             '请在仓库根目录执行：\n'
-            '.\\rust\\scripts\\build-android.ps1 -Mode debug -Targets "aarch64,x86_64"\n\n'
-            '或使用统一入口：\n'
-            '.\\flutter_legado\\scripts\\build-apk.ps1\n\n'
-            '然后重新构建并安装 APK。';
+            'python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64\n\n'
+            'Release 包请改用 --profile release，并指定实际需要的 ABI。\n'
+            '然后重新安装 APK。';
       }
       return '请确认已构建 Android Rust FFI 动态库：\n'
-          '.\\rust\\scripts\\build-android.ps1 -Mode debug\n'
-          '然后执行 flutter build apk --debug 并重新安装。';
+          '在仓库根目录执行：\n'
+          'python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64\n'
+          '然后重新安装 APK；Release 包请改用 --profile release。';
     }
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      return '请使用开发脚本启动（会自动重编译 DLL）：\n'
-          '.\\flutter_legado\\scripts\\run-windows.ps1\n\n'
-          '或手动：cd rust && cargo build -p legado-ffi --features quickjs';
+      return '请在仓库根目录启动开发会话（先重编译 DLL）：\n'
+          'python scripts/dev.py run windows --profile debug\n\n'
+          'Release 包请改用 --profile release；DLL 被占用时先手动关闭应用。';
     }
 
     return '请确认已构建 Rust FFI 动态库，然后重新运行应用。\n'

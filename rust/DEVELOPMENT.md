@@ -138,11 +138,8 @@ cargo build --workspace
 # Release 构建（服务端部署）
 cargo build --release -p legado-server
 
-# Android 交叉编译（Linux/Mac）
-./scripts/build-android.sh release
-
-# Android 交叉编译（Windows PowerShell）
-.\scripts\build-android.ps1 -Mode release
+# Android 交叉编译（在 rust/ 下，Python 3.11+）
+python ../scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
 ```
 
 ### Flutter
@@ -160,66 +157,41 @@ flutter analyze
 flutter run
 
 # 构建 APK
-flutter build apk
+python ../scripts/dev.py build android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --split-per-abi
 
 # 生成 Bridge 代码（Rust API 变更后）
-flutter_rust_bridge_codegen generate
-# 或使用脚本
-.\scripts\generate-bridge.ps1   # Windows
-./scripts/generate-bridge.sh    # Linux/Mac
+python ../scripts/dev.py generate bridge
+python ../scripts/dev.py generate bridge --check
 ```
 
-> ⚠️ **codegen 须知（评审 Warning 登记，2026-08-06）**：frb Dart 生成物
-> （`flutter_legado/lib/src/rust/**`，含 `frb_generated.dart`）已 git-ignore，
-> 仓库不包含。**拉取含新增 FFI 的提交后，必须先执行
-> `flutter_rust_bridge_codegen generate` 再构建**，否则 Dart 侧缺失新增
-> FFI 绑定；codegen 后还需重编译 Rust DLL/.so（content hash 校验要求
-> 两侧生成物与二进制同步，参见 Makefile `gen` 目标 = codegen +
-> `cargo build -p legado-ffi` 的原子操作约定）。
+> 当前 FRB 生成物随源码提交，不手工修改。API 变化时生成与对应原生库编译分别执行；
+> `generate bridge --check` 在隔离目录复核，不隐式重编库或关闭应用。
 
 ### Windows 桌面构建与运行
 
 ```powershell
-# 一键构建+运行（PowerShell）
-cd flutter_legado
-.\scripts\build-windows.ps1
-
-# 仅构建不运行
-.\scripts\build-windows.ps1 -BuildOnly
+# 在仓库根目录执行；默认只构建，不自动启动
+python scripts/dev.py build windows --profile debug
 
 # Release 模式
-.\scripts\build-windows.ps1 -Release
+python scripts/dev.py build windows --profile release
 
 # 清理后重新构建
-.\scripts\build-windows.ps1 -Clean
+python scripts/dev.py build windows --profile debug --clean
 
-# CMD 兼容
-flutter_legado\scripts\build-windows.bat
+# 启动开发会话（先重编 DLL；CMD 与 PowerShell 共用）
+python scripts/dev.py run windows --profile debug
 ```
 
 构建流程：
-1. 编译 Rust FFI 库（`cargo build -p legado-ffi`）
+1. 使用 Rust stable、锁文件及明确 target/features 编译 FFI，写入并校验来源元数据
 2. 构建 Flutter Windows 应用（`flutter build windows`）
-3. 复制 `legado_ffi.dll` 到 Flutter 构建输出目录
-4. 可选运行应用（`flutter run -d windows`）
+3. 复制 `legado_ffi.dll` 到对应应用目录，并核对摘要
+4. `run windows` 调用 Flutter 开发会话，保留热重载；不会强制终止既有进程
 
-也可通过根目录 Makefile：
-```bash
-make run-windows          # 构建并运行
-make build-windows        # 仅构建（Debug）
-make build-windows-release  # 仅构建（Release）
-```
-
-### Makefile 快捷命令
-
-```bash
-cd flutter_legado
-make check    # Rust cargo check + Flutter analyze
-make test     # Rust cargo test + Flutter test
-make build    # Rust .so + Flutter APK (release)
-make clean    # cargo clean + flutter clean
-make gen      # flutter_rust_bridge_codegen generate
-```
+无 QuickJS 的旧开发目标改用显式 `--no-quickjs`，仅支持 Debug，不能作为真实书源验收。
+旧脚本与 Makefile 已删除；检查、测试和独立清理使用 `cargo check/test/clean`、
+`flutter analyze/test/clean`。细节与未测边界见 [Windows 工具说明](../docs/PYTHON_WINDOWS_TOOLING_20261011.md)。
 
 ---
 
