@@ -510,7 +510,7 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
             controller: ctrl,
             maxLines: null,
             minLines: 12,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+            decoration: const InputDecoration(),
           ),
         ),
         actions: [
@@ -629,7 +629,6 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                 decoration: const InputDecoration(
                   labelText: 'charset',
                   hintText: '如 UTF-8 / GBK',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),

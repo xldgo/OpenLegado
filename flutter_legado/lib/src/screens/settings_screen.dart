@@ -18,26 +18,32 @@ import '../widgets/ios_widgets.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 import '../widgets/bottom_sheet_widget.dart';
+import '../widgets/reader/reader_settings_sheet.dart';
 
 /// 我的页面（枢纽菜单）
 ///
 /// 对标 Android 原版「我的」页（`fragment_my_config.xml` + `pref_main.xml`）：
 /// - 顶部：书源管理 / 定时任务 / 运行定时任务 / TXT 目录规则 / 替换净化 /
 ///   字典规则 / 主题模式 / Web 服务 / MCP 服务
-/// - 「设置」分组：备份与恢复 / 主题设置 / 其他设置
+/// - 「设置」分组：外观 / 阅读界面 / 高级 / 备份与恢复
 /// - 「其他」分组：书签 / 阅读记录 / 文件管理 / 关于 / 退出
 ///
 /// 视觉：apple-ui-designer — iOS 分组 inset 列表、系统感图标色块、克制分隔。
 ///
 /// — UI 子代理 + UI ｜ 2026-08-13
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.openSettingsRequest = 0});
+
+  /// 首页齿轮每次点击时递增，定位到本页设置分组。
+  final int openSettingsRequest;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final GlobalKey _settingsSectionKey = GlobalKey();
+
   // 服务开关（对标 pref_main SwitchPreference）
   bool _autoTaskService = false;
   bool _webService = false;
@@ -65,6 +71,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _initServiceStates();
+    if (widget.openSettingsRequest > 0) _revealSettings();
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openSettingsRequest != oldWidget.openSettingsRequest) {
+      _revealSettings();
+    }
+  }
+
+  void _revealSettings() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final sectionContext = _settingsSectionKey.currentContext;
+      if (sectionContext == null) return;
+      Scrollable.ensureVisible(
+        sectionContext,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   /// 恢复服务开关持久化状态（config 键 webService / autoTaskService / mcpPort）
@@ -247,110 +275,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// [B2-C2 2-10 | 全栈工程师] Web 服务大卡（图标 + 绿 accent）
-  ///
-  /// 对齐 ref 12 原版「我的」页 Web 服务大卡形态：48dp 圆角图标槽
-  /// （language 图标）+ 标题/状态副题 + 右端 Switch（busy 时 spinner）；
-  /// 开启态卡片描边与图标槽转绿（iOS 系统绿语义色）。
-  Widget _buildWebServiceCard(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    // [2026-10-06 登记待修 → 本批已修复] 原「iOS 标记暂不可用」门控（副题
-    // 「暂不可用，将在后续版本修复」+ Switch 禁用）已整体移除：根因见
-    // docs/IOS_WEB_SERVICE_ROOT_CAUSE_SURVEY_20261006.md（缺陷 A 绑定
-    // 127.0.0.1、缺陷 B bind 失败假成功、缺陷 C 缺本地网络用途描述），
-    // 三处已随本批修复，iOS 与其他平台恢复统一形态。
-    // [A-5 | 2026-09-20 用户裁决] AppColors 整体删除，本卡启用态 accent
-    // 改 MD3 scheme 取值。槽位映射（保持"开启态强调"视觉语义）：
-    //   AppColors.iosGreenLight / iosGreenDark（iOS 系统绿，按亮暗双取值）
-    //     → cs.primary（MD3 主色，随当前 13 套调色板亮/暗各自生效）
-    // 对齐参考版 SwitchSettingItem：开关 checked 色即 colorScheme.primary，
-    // 同卡内 Switch 与卡描边/图标槽同源，主题切换无残留绿。
-    final green = cs.primary;
-    final enabled = _webService;
-    final baseSubtitle = enabled && _webServiceStatus.isNotEmpty
+  /// 服务运行状态与后台保活提示；呈现统一使用设置开关行。
+  String get _webServiceSubtitle {
+    final baseSubtitle = _webService && _webServiceStatus.isNotEmpty
         ? _webServiceStatus
         : '用浏览器写源或看书';
-    // [2026-10-07 保活批 | 方案 A 兜底] 保活启动失败 → 回退「仅前台可用」，
-    // 仅副题提示（对齐需求：不阻断服务、UI 主形态不变）。
-    final subtitle = enabled && _webKeepAliveUnavailable
+    return _webService && _webKeepAliveUnavailable
         ? '$baseSubtitle · 后台保活不可用，请保持 App 打开'
         : baseSubtitle;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: enabled ? green.withValues(alpha: 0.6) : cs.outlineVariant,
-          width: enabled ? 1.5 : 0.5,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: enabled
-                    ? green.withValues(alpha: 0.15)
-                    : cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Symbols.language_rounded,
-                size: 28,
-                color: enabled ? green : cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Web 服务',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            _webServiceBusy
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Switch(
-                    value: _webService,
-                    onChanged: _toggleWebService,
-                  ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeNotifierProvider).themeMode;
-    // [MD3 LargeTitle] 主 Tab 根页可折叠大标题（UI_MD3_PLAN.md Batch 1）
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+    // 主页面标题与操作按钮同排，列表从工具栏下方开始。
     return AppScaffold(
-      body: LegadoLargeTitleScroll(
-        title: Text(AppStrings.my),
+      topBar: LegadoAppBar(
+        showBack: false,
+        title: Text(
+          AppStrings.my,
+          style: Theme.of(context).textTheme.headlineMedium
+              ?.copyWith(fontSize: 28),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),
@@ -358,178 +304,212 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: _showHelp,
           ),
         ],
-        body: IosGroupedBody(
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 32),
-            children: [
-              // ===== 顶部管理入口（对标 pref_main 顶层项，文案对齐 values-zh）=====
-              IosGroup(
-                separatorIndent: 62,
-                children: [
-                  IosListTile(
-                    icon: Symbols.library_books_rounded,
-                    title: '书源管理',
-                    subtitle: '新建、导入、编辑或管理书源',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.sources),
-                  ),
-                  IosListTile(
-                    icon: Symbols.schedule_rounded,
-                    title: '定时任务',
-                    subtitle: '管理按计划执行的 JavaScript 任务',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.autoTasks),
-                  ),
-                  SettingSwitchRow(
-                    icon: Symbols.autorenew_rounded,
-                    title: '运行定时任务',
-                    subtitle: '重启后保留计划；Android 可能延后实际执行时间',
-                    value: _autoTaskService,
-                    onChanged: _toggleAutoTaskService,
-                  ),
-                  IosListTile(
-                    icon: Symbols.toc_rounded,
-                    title: 'TXT 目录规则',
-                    subtitle: '配置 TXT 目录规则',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.txtTocRules),
-                  ),
-                  IosListTile(
-                    icon: Symbols.find_replace_rounded,
-                    title: '替换净化',
-                    subtitle: '配置替换净化规则',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.replaceRules),
-                  ),
-                  IosListTile(
-                    icon: Symbols.translate_rounded,
-                    title: '字典规则',
-                    subtitle: '配置字典规则',
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
-                  ),
-                  // [C2 批2 | full-stack-engineer + UI] 字典规则管理页入口
-                  // （对齐原版 DictRuleActivity；「字典规则」仍进查询页）
-                  IosListTile(
-                    icon: Symbols.manage_search_rounded,
-                    title: '规则管理',
-                    subtitle: '管理字典规则（增删改、启停、排序、导入）',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.dictRule),
-                  ),
-                  IosListTile(
-                    icon: Icons.sell_rounded,
-                    title: '高亮标注',
-                    subtitle: '自动高亮标注规则',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.highlightRules),
-                  ),
-                  IosListTile(
-                    icon: Symbols.brightness_6_rounded,
-                    title: '主题模式',
-                    subtitle: '选择主题模式',
-                    value: _themeModeLabel(themeMode),
-                    onTap: () => _showThemePicker(context),
-                  ),
-                ],
-              ),
+      ),
+      body: IosGroupedBody(
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 32),
+          children: [
+            // 分组整体构建，确保首页快捷入口能定位尚未滚动到的设置区域。
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ===== 顶部管理入口（对标 pref_main 顶层项，文案对齐 values-zh）=====
+                IosGroup(
+                  separatorIndent: 62,
+                  children: [
+                    IosListTile(
+                      icon: Symbols.library_books_rounded,
+                      title: '书源管理',
+                      subtitle: '新建、导入、编辑或管理书源',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.sources),
+                    ),
+                    IosListTile(
+                      icon: Symbols.schedule_rounded,
+                      title: '定时任务',
+                      subtitle: '管理按计划执行的 JavaScript 任务',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.autoTasks),
+                    ),
+                    SettingSwitchRow(
+                      icon: Symbols.autorenew_rounded,
+                      title: '运行定时任务',
+                      subtitle: '重启后保留计划；Android 可能延后实际执行时间',
+                      value: _autoTaskService,
+                      onChanged: _toggleAutoTaskService,
+                    ),
+                    IosListTile(
+                      icon: Symbols.toc_rounded,
+                      title: 'TXT 目录规则',
+                      subtitle: '配置 TXT 目录规则',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.txtTocRules),
+                    ),
+                    IosListTile(
+                      icon: Symbols.find_replace_rounded,
+                      title: '替换净化',
+                      subtitle: '配置替换净化规则',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.replaceRules),
+                    ),
+                    IosListTile(
+                      icon: Symbols.translate_rounded,
+                      title: '字典规则',
+                      subtitle: '配置字典规则',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
+                    ),
+                    // [C2 批2 | full-stack-engineer + UI] 字典规则管理页入口
+                    // （对齐原版 DictRuleActivity；「字典规则」仍进查询页）
+                    IosListTile(
+                      icon: Symbols.manage_search_rounded,
+                      title: '规则管理',
+                      subtitle: '管理字典规则（增删改、启停、排序、导入）',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.dictRule),
+                    ),
+                    IosListTile(
+                      icon: Icons.sell_rounded,
+                      title: '高亮标注',
+                      subtitle: '自动高亮标注规则',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.highlightRules),
+                    ),
+                    IosListTile(
+                      icon: Symbols.brightness_6_rounded,
+                      title: '主题模式',
+                      subtitle: '选择主题模式',
+                      value: _themeModeLabel(themeMode),
+                      onTap: () => _showThemePicker(context),
+                    ),
+                  ],
+                ),
 
-              // [B2-C2 2-10 | 全栈工程师] Web 服务卡片化：图标+绿 accent 独立大卡
-              //（对齐 ref 12「大卡带图标/绿acc」；_toggleWebService 语义不变）
-              _buildWebServiceCard(context),
+                  const SizedBox(height: 16),
+                  IosGroup(
+                    separatorIndent: 62,
+                    children: [
+                      SettingSwitchRow(
+                        leading: _webServiceBusy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Icon(
+                                Symbols.language_rounded,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        title: 'Web 服务',
+                        subtitle: _webServiceSubtitle,
+                        value: _webService,
+                        onChanged: _webServiceBusy ? null : _toggleWebService,
+                      ),
+                      SettingSwitchRow(
+                        leading: _mcpServiceBusy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Icon(
+                                Symbols.cable_rounded,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        title: 'MCP 服务',
+                        subtitle: _mcpServiceSubtitle,
+                        value: _mcpService,
+                        onChanged: _mcpServiceBusy ? null : _toggleMcpService,
+                      ),
+                    ],
+                  ),
 
-              IosGroup(
-                separatorIndent: 62,
-                children: [
-                  SettingSwitchRow(
-                    leading: _mcpServiceBusy
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            Symbols.cable_rounded,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                    title: 'MCP 服务',
-                    subtitle: _mcpServiceSubtitle,
-                    value: _mcpService,
-                    onChanged: _mcpServiceBusy ? null : _toggleMcpService,
+                  // ===== 设置分组 =====
+                  IosSectionHeader('设置', key: _settingsSectionKey),
+                  IosGroup(
+                    separatorIndent: 62,
+                    children: [
+                      // 常用设置直接进入对应页面，减少一层菜单跳转。
+                      IosListTile(
+                        icon: Symbols.palette_rounded,
+                        title: '外观',
+                        subtitle: '主题配色与显示模式',
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.themeConfig),
+                      ),
+                      IosListTile(
+                        icon: Symbols.style_rounded,
+                        title: '阅读界面',
+                        subtitle: '字号/背景/翻页动画/排版',
+                        onTap: () => ReaderSettingsSheet.show(context),
+                      ),
+                      IosListTile(
+                        icon: Symbols.tune_rounded,
+                        title: '高级',
+                        subtitle: '功能相关的一些设置',
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.otherSettings),
+                      ),
+                      IosListTile(
+                        icon: Symbols.backup_rounded,
+                        title: '备份与恢复',
+                        subtitle: 'WebDav 设置/导入旧版本数据',
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.webdavSettings),
+                      ),
+                    ],
                   ),
-                ],
-              ),
 
-              // ===== 设置分组 =====
-              const IosSectionHeader('设置'),
-              IosGroup(
-                separatorIndent: 62,
-                children: [
-                  // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页集中化：我的页
-                  // 原备份与恢复/主题设置/其他设置三 tile 收敛为单一「设置」
-                  // 入口（对齐参考版我的页「设置」项；各页经设置主页分组到达）
-                  // — Qoder
-                  IosListTile(
-                    icon: Symbols.settings_rounded,
-                    title: '设置',
-                    subtitle: '外观 / 高级 / 阅读界面 / 备份 / 缓存',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.settingsHome),
-                  ),
-                ],
-              ),
-
-              // ===== 其他分组 =====
-              const IosSectionHeader('其他'),
-              IosGroup(
-                separatorIndent: 62,
-                children: [
-                  IosListTile(
-                    icon: Symbols.bookmark_rounded,
-                    title: '书签',
-                    subtitle: '所有书签',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.bookmarks),
-                  ),
-                  IosListTile(
-                    icon: Symbols.history_rounded,
-                    title: '阅读记录',
-                    subtitle: '阅读时间记录',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.readRecord),
-                  ),
-                  // [UI_SYNC_REFACTOR S5 修 | 2026-09-08] 补「缓存管理」入口
-                  //（对齐参考版我的页其它组；页面复用既有离线缓存页
-                  // OfflineCacheScreen，此前入口仅在书架菜单「离线缓存」）— Qoder
-                  IosListTile(
-                    icon: Symbols.download_rounded,
-                    title: '缓存管理',
-                    subtitle: '书籍下载任务与缓存进度',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.offlineCache),
-                  ),
-                  IosListTile(
-                    icon: Symbols.folder_rounded,
-                    title: '文件管理',
-                    subtitle: '管理私有文件夹的文件',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.fileManage),
-                  ),
-                  IosListTile(
-                    icon: Symbols.info_rounded,
-                    title: '关于',
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.about),
-                  ),
-                  IosListTile(
-                    icon: Symbols.logout_rounded,
-                    title: '退出',
-                    onTap: _confirmExit,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                // ===== 其他分组 =====
+                const IosSectionHeader('其他'),
+                IosGroup(
+                  separatorIndent: 62,
+                  children: [
+                    IosListTile(
+                      icon: Symbols.bookmark_rounded,
+                      title: '书签',
+                      subtitle: '所有书签',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.bookmarks),
+                    ),
+                    IosListTile(
+                      icon: Symbols.history_rounded,
+                      title: '阅读记录',
+                      subtitle: '阅读时间记录',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.readRecord),
+                    ),
+                    // [UI_SYNC_REFACTOR S5 修 | 2026-09-08] 补「缓存管理」入口
+                    //（对齐参考版我的页其它组；页面复用既有离线缓存页
+                    // OfflineCacheScreen，此前入口仅在书架菜单「离线缓存」）— Qoder
+                    IosListTile(
+                      icon: Symbols.download_rounded,
+                      title: '缓存管理',
+                      subtitle: '书籍下载任务与缓存进度',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.offlineCache),
+                    ),
+                    IosListTile(
+                      icon: Symbols.folder_rounded,
+                      title: '文件管理',
+                      subtitle: '管理私有文件夹的文件',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.fileManage),
+                    ),
+                    IosListTile(
+                      icon: Symbols.info_rounded,
+                      title: '关于',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+                    ),
+                    IosListTile(
+                      icon: Symbols.logout_rounded,
+                      title: '退出',
+                      onTap: _confirmExit,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -1245,7 +1245,6 @@ class _CheckSourceConfigDialogState extends State<_CheckSourceConfigDialog> {
                 decoration: InputDecoration(
                   labelText: '校验超时（秒）',
                   hintText: '单个校验步骤的超时时间',
-                  border: const OutlineInputBorder(),
                   errorText: _timeoutError,
                 ),
               ),

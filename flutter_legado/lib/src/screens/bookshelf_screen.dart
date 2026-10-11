@@ -592,28 +592,16 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     );
   }
 
-  /// [骨架对齐 2.0.260 | 台账 1-3] 头部 sliver：可折叠 LargeTitle「书架」
-  /// + 常驻分组 tab 行（bottom）。空态/内容态共用，保证 tab 行与选中态
-  /// 始终可见（对齐参考 03/03b 截图骨架）。
+  /// 书架标题与操作按钮同排，分组页签常驻工具栏下方。
   Widget _buildHeaderSliver(
       BuildContext context, WidgetRef ref, BookshelfState state) {
     return LegadoTabRootHeaderSliver(
-      large: true,
-      // [骨架对齐 2.0.260 | 台账 1-3] 大标题 28sp：参考 03b 截图量测字高
-      // 79px（480dpi 下 ≈28sp，与首页 2.0.259 大标题先例一致）
-      largeTitleFontSize: 28,
-      // [骨架对齐 2.0.260 | 台账 1-3] 展开态 164dp：SliverAppBar.large 的
-      // 显式 expandedHeight 被 SDK 原样使用（large 变体 delegate maxExtent =
-      // topPadding + expandedHeight，显式值不额外加 bottom 高——仅默认分支
-      // 112 + bottomHeight 计入），即「状态栏之外的头部总高」且须含 TabBar
-      // 56dp：164 = 顶行 64 + 标题区 44 + TabBar 56——对齐参考 03b 量测：
-      // 状态栏 24 + 顶行 64 + 标题区 44（28sp 标题字身 99–121dp 居中于
-      // 88–132dp 带）+ TabBar 56（下划线底 551px@3x）= 头部总 188dp
-      // （Scaffold 无 AppBar 的 body 内 topPadding = 24dp）。传 108 会被
-      // delegate 钳制至 minExtent 144dp 致标题带归零、大标题不渲染（实机
-      // 复验发现）
-      expandedHeight: 164,
-      title: Text(AppStrings.bookshelf),
+      large: false,
+      title: Text(
+        AppStrings.bookshelf,
+        style: Theme.of(context).textTheme.headlineMedium
+            ?.copyWith(fontSize: 28),
+      ),
       // [UI-fix 2.0.258] 选择模式顶栏切换为批量动作集（全选/反选/删除/取消）
       actions: state.isBatchMode
           ? _buildBatchAppBarActions(context, ref)

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter/services.dart';

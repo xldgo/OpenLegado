@@ -24,6 +24,10 @@ void main() {
   setUpAll(registerFallbacks);
 
   Future<void> pumpHome(WidgetTester tester, MockRustApi mockApi) async {
+    // 既有底栏交互用例使用手机窗口，避免默认宽窗口启用侧栏。
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     when(() => mockApi.getBooks()).thenAnswer(
       (_) async => [

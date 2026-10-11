@@ -458,7 +458,6 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
           maxLines: 3,
           decoration: InputDecoration(
             hintText: comment,
-            border: const OutlineInputBorder(),
           ),
         ),
         actions: [

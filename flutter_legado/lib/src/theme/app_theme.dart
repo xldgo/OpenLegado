@@ -72,11 +72,9 @@ class AppTheme {
   /// 圆角：输入框 / 菜单 / 小控件
   static const double _controlRadius = 12.0;
 
-  /// 输入框填充盒形状：顶角 4dp 圆、底角直角（参考版 B3 实测）。
-  /// 用于 [UnderlineInputBorder.borderRadius]——它同时定义填充底色与底线
-  /// 两端的形状；显式声明防止未来 SDK 默认值变化导致形态漂移。
-  static const BorderRadius _fieldFillRadius = BorderRadius.vertical(
-    top: Radius.circular(4),
+  /// 普通表单输入框统一使用四角 12dp 圆角。
+  static const BorderRadius _fieldRadius = BorderRadius.all(
+    Radius.circular(_controlRadius),
   );
 
   /// 圆角：弹窗 / 底部抽屉（M3 extraLarge 28）
@@ -141,6 +139,7 @@ class AppTheme {
   static ThemeData palette({
     required Brightness brightness,
     required Md3Palette palette,
+    bool amoledDark = false,
     Color? primary,
     Color? accent,
     Color? background,
@@ -149,6 +148,28 @@ class AppTheme {
     var scheme = brightness == Brightness.light
         ? md3LightScheme(palette)
         : md3DarkScheme(palette);
+
+    // 默认深色主题的页面底色已变暗，容器层次同步收敛，避免混用旧亮灰色。
+    if (brightness == Brightness.dark && palette.id == 'def') {
+      scheme = scheme.copyWith(
+        surfaceContainerLowest: const Color(0xFF0B0F12),
+        surfaceContainer: const Color(0xFF24282C),
+        surfaceContainerHigh: const Color(0xFF2B2F34),
+        surfaceContainerHighest: const Color(0xFF34383D),
+        surfaceBright: const Color(0xFF393D42),
+      );
+    }
+
+    // 纯黑模式统一应用于内置色板和参数化配色，自定义颜色仍按原有优先级覆盖。
+    if (brightness == Brightness.dark && amoledDark) {
+      scheme = scheme.copyWith(
+        surface: Colors.black,
+        surfaceContainerLowest: Colors.black,
+        surfaceContainerLow: const Color(0xFF0A0A0A),
+        surfaceContainer: const Color(0xFF0A0A0A),
+        surfaceContainerHigh: const Color(0xFF121212),
+      );
+    }
 
     if (primary == null &&
         accent == null &&
@@ -341,38 +362,32 @@ class AppTheme {
         ),
       ),
 
-      // 输入框主题 —— 参考版实测形态：填充盒+底部指示线（聚焦主题色加粗），
-      // 四边无描边（B3 取证 2026-10-01）
-      //
-      // [B3] 参考版 kazusa 实测：未聚焦=深色细底线（实测 (75,71,57)，即
-      // 调色板 onSurfaceVariant 角色；非浅色 outlineVariant）、聚焦=主题色
-      // 底线约 2dp；填充盒顶角 4dp 圆、底角直角，四边（含顶边）均无描边。
-      // Flutter 侧对应 UnderlineInputBorder：只绘制底线，且其 borderRadius
-      // 同时决定填充底色形状（SDK 文档：the border radius defines the shape
-      // of the background fill as well as the bottom edges of the underline）。
-      // 注意不可用 OutlineInputBorder+borderSide：它会四边整圈描边，正是
-      // B3 要修掉的偏离形态。
+      // 普通表单统一使用圆角填充和描边，聚焦与错误状态只改变边线。
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHighest,
+        fillColor: colorScheme.surfaceContainerLow,
         isDense: true,
-        border: UnderlineInputBorder(
-          borderRadius: _fieldFillRadius,
-          borderSide: BorderSide(color: colorScheme.onSurfaceVariant, width: 1),
+        border: OutlineInputBorder(
+          borderRadius: _fieldRadius,
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
         ),
-        enabledBorder: UnderlineInputBorder(
-          borderRadius: _fieldFillRadius,
-          borderSide: BorderSide(color: colorScheme.onSurfaceVariant, width: 1),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: _fieldRadius,
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
         ),
-        focusedBorder: UnderlineInputBorder(
-          borderRadius: _fieldFillRadius,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: _fieldRadius,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
+        // 错误与禁用态由组件根据 border 的形状解析，兼容显式无边框输入。
         hintStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
+        labelStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
 
       // ListTile 主题 —— M3 规格（图标 onSurfaceVariant）

@@ -73,7 +73,7 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 | 底部导航栏 / 菜单（PopupMenu / DropdownMenu） | `surfaceContainer` |
 | BottomSheet | `surfaceContainerLow` |
 | Dialog | `surfaceContainerHigh` |
-| 输入框填充 | `surfaceContainerHighest` |
+| 普通表单输入框填充 | `surfaceContainerLow` |
 | 指示器（NavigationBar pill） | `secondaryContainer` |
 
 ### 1.3 用户自定义主题并存模型（themeConfigList 功能完整保留）
@@ -84,6 +84,44 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 - 底栏皮肤（bottom_bar_skin）：完整保留，与主题正交。
 
 ---
+
+### 1.4 默认深色主题的容器层次（2026-10-11）
+
+默认调色板的页面底色为 `#101418`；`AppTheme.palette` 装配时将最低容器、
+普通容器、高容器、最高容器与亮表面分别统一为 `#0B0F12`、`#24282C`、
+`#2B2F34`、`#34383D`、`#393D42`，低容器保留 `#1D2024`。
+这些为本轮用户授权的配色调整，覆盖默认深色主题历史遗留的亮灰色层次；
+参考资源生成的原始调色板数据仍作为来源记录。浅色及其他调色板不变。
+深色模式下普通 tonal 顶栏图标按钮使用透明常态底色，保留圆形按压反馈。
+
+编写者：Codex UI｜2026-10-11
+
+纯黑深色模式在 `AppTheme.palette` 统一应用，默认主题、各内置色板和参数化配色
+均通过同一入口处理：页面与最低容器为 `#000000`，低容器与普通容器为 `#0A0A0A`，
+高容器为 `#121212`。仅深色模式生效；关闭时使用当前主题原有颜色。
+自定义颜色继续按原优先级覆盖，背景图片和阅读器独立背景沿用原规则。
+
+### 1.5 搜索输入（2026-10-11）
+
+替换净化、书源管理与字典查询使用 `AppSearchField`，高度 48dp、胶囊形状、
+零阴影和无描边；底色为 `surfaceContainerLow`，文字用 `onSurface`，
+提示和搜索图标用 `onSurfaceVariant`。输入非空时提供清除入口。
+通过 `AppSearchRow` 装配在标题栏下方，左右边距 16dp；字典查询按钮同排。
+组件只统一呈现，实时筛选和提交查询仍由页面回调负责。
+
+编写者：Codex UI｜2026-10-11
+
+### 1.6 设置导航与列表（2026-10-11）
+
+我的页的设置分组依次展示外观、阅读界面、高级和备份与恢复四项入口。
+外观页保留跟随系统、浅色与深色三段控件，我的页按用户指令暂时保留主题模式快捷入口；
+两处共用原有主题状态与持久化。
+不保留独立设置主页，首页齿轮切换至我的页并定位设置分组；
+书源、定时任务、缓存及关于入口保留于我的页。
+子设置页通过 `AppScaffold` / `LegadoAppBar` 将返回与标题同排，
+列表复用 `IosGroupedBody` / `IosGroup` / `IosListTile` 的底色、字体、圆角和点击反馈。
+
+编写者：Codex UI｜2026-10-11
 
 ## 2. 字体层级（M3 type scale，跟随系统字体）
 
@@ -163,8 +201,12 @@ Flutter 无 Expressive shape scale preset，经 component theme 显式落地（`
 - 轮廓按钮：`primary` 前景 + `outlineVariant` 边线
 
 ### 5.5 InputDecoration（输入框）
-- 填充色：`surfaceContainerHighest`，圆角 12，无边框
-- 聚焦：`primary` 1.5px 边线
+- 普通设置、表单与对话框输入统一使用 `surfaceContainerLow` 填充，四角圆角 12dp。
+- 普通态：`outlineVariant` 1dp 描边；聚焦态：`primary` 2dp 描边。
+- 错误态：`error` 1dp 描边，聚焦错误态 2dp；禁用态使用减弱的边线。
+- 水平内边距 16dp、垂直 12dp；多行和密码输入沿用自身的行数与行为。
+- 搜索输入沿用 §1.5 的胶囊样式，代码编辑器及已有自绘输入保留专用样式。
+- 本次用户授权统一外观，替代历史 B3 的小圆角下划线输入形态。
 
 ### 5.6 ListTile
 - 水平内边距：16；图标色：`onSurfaceVariant`（IosListTile 默认容器 `primaryContainer` + `onPrimaryContainer` 图标，可覆写）

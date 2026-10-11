@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -70,6 +71,19 @@ class _DictScreenState extends ConsumerState<DictScreen> {
     return AppScaffold(
       topBar: LegadoAppBar(
         title: const Text('字典查询'),
+        bottom: AppSearchRow(
+          field: AppSearchField(
+            controller: _searchController,
+            focusNode: _searchFocus,
+            autoFocus: true,
+            hintText: '输入单词查询释义',
+            onSubmitted: (_) => _search(),
+          ),
+          action: FilledButton(
+            onPressed: _search,
+            child: const Text('查询'),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),
@@ -91,43 +105,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(theme),
-          const Divider(height: 1),
-          Expanded(child: _buildBody(theme, state)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(ThemeData theme) {
-    return Padding(
-      // [LAYOUT_PLAN P2] 页面水平边距 16dp；搜索行纵向 12dp
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocus,
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _search(),
-              // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme（不显式 border/radius）
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Symbols.search_rounded),
-                hintText: '输入单词查询释义',
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _search,
-            child: const Text('查询'),
-          ),
-        ],
-      ),
+      body: _buildBody(theme, state),
     );
   }
 

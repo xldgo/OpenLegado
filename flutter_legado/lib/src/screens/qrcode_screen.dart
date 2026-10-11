@@ -383,7 +383,6 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
           maxLines: 3,
           decoration: InputDecoration(
             hintText: '粘贴或输入二维码内容：书源 URL / legado:// 链接 / 书源 JSON / 口令',
-            border: const OutlineInputBorder(),
             suffixIcon: IconButton(
               icon: const Icon(Symbols.content_paste_rounded),
               tooltip: '从剪贴板粘贴',

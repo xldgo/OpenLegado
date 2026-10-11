@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/md3_fast_scroller.dart';
 import '../widgets/app_scaffold.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -78,49 +79,13 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     final filtered = _applyFilters(state.rules);
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      // 对齐原版 activity_replace_rule.xml：TitleBar 内嵌 view_search 搜索框
       topBar: _batchMode ? _buildBatchAppBar() : LegadoAppBar(
-        titleSpacing: 0,
-        title: SizedBox(
-          height: 36,
-          child: TextField(
+        title: const Text('替换净化'),
+        bottom: AppSearchRow(
+          field: AppSearchField(
             controller: _searchCtrl,
+            hintText: '搜索规则',
             onChanged: (v) => setState(() => _filter = v.trim()),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onPrimary,
-                ),
-            decoration: InputDecoration(
-              hintText: '搜索规则',
-              hintStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.6),
-              ),
-              prefixIcon: Icon(
-                Symbols.search_rounded,
-                size: 20,
-                color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8),
-              ),
-              filled: true,
-              // [深色主题 Batch A-2] 白色 0.2 填充 → surfaceContainerHighest：
-              // 亮/暗两态下均为「AppBar surface 之上的一级 tonal 抬升」，
-              // 消除亮态近不可见、暗态呈灰白填充的双态不一致
-              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-              // [B3] 搜索胶囊：无描边无底线、聚焦零变化
-              // （显式声明防主题底部指示线渗入）
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-            ),
           ),
         ),
         actions: [

@@ -70,7 +70,6 @@ import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
 import 'package:flutter_legado/src/screens/rule_sub_screen.dart';
 import 'package:flutter_legado/src/screens/search_content_screen.dart';
 import 'package:flutter_legado/src/screens/search_screen.dart';
-import 'package:flutter_legado/src/screens/settings_home_screen.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/screens/source_debug_screen.dart';
 import 'package:flutter_legado/src/screens/source_edit_screen.dart';
@@ -153,7 +152,6 @@ void main() {
     ('HomeScreen', const HomeScreen()),
     // ===== 设置各页 / 其它 =====
     ('SettingsScreen', const SettingsScreen()),
-    ('SettingsHomeScreen', const SettingsHomeScreen()),
     ('AboutScreen', const AboutScreen()),
     ('AppLogScreen', const AppLogScreen()),
     ('AutoTaskScreen', const AutoTaskScreen()),

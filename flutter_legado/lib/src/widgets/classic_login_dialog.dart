@@ -510,7 +510,6 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
               obscureText: row.type == 'password',
               decoration: InputDecoration(
                 labelText: _displayName(row),
-                border: const OutlineInputBorder(),
               ),
             ),
           ),
@@ -524,7 +523,6 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
               initialValue: _picked[row.name],
               decoration: InputDecoration(
                 labelText: _displayName(row),
-                border: const OutlineInputBorder(),
               ),
               items: [
                 for (final c in row.chars)

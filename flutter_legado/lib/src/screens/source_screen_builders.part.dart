@@ -10,61 +10,13 @@ part of 'source_screen.dart';
 extension _SourceBuilders on _SourceScreenState {
   PreferredSizeWidget _buildAppBar(BuildContext context, SourceState state) {
     return LegadoAppBar(
-      // 原版 TitleBar 内嵌 view_search：搜索框与菜单图标同行，无标题文字
-      // 收紧 titleSpacing 保证搜索框宽度，「搜索书源」提示不被截断
-      titleSpacing: 8,
-      title: SizedBox(
-        height: 36,
-        child: TextField(
+      title: const Text('书源管理'),
+      bottom: AppSearchRow(
+        field: AppSearchField(
           controller: _searchCtrl,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: '搜索书源',
-            hintStyle: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-            prefixIcon: Icon(Symbols.search_rounded,
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            // 压缩前缀图标占位，为提示文字腾出完整显示空间
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 36,
-              minHeight: 36,
-            ),
-            suffixIcon: state.filterKeyword.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Symbols.close_rounded,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      ref
-                          .read(sourceNotifierProvider.notifier)
-                          .clearFilter();
-                    },
-                  )
-                : null,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-            // [B3] 搜索胶囊：无描边无底线、聚焦零变化
-            // （显式声明防主题底部指示线渗入）
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          onChanged: (v) =>
-              ref.read(sourceNotifierProvider.notifier).setFilter(v),
+          hintText: '搜索书源',
+          onChanged: (v) => ref.read(sourceNotifierProvider.notifier).setFilter(v),
+          onClear: () => ref.read(sourceNotifierProvider.notifier).clearFilter(),
         ),
       ),
       actions: [

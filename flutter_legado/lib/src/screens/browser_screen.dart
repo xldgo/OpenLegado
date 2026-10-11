@@ -336,9 +336,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
                 isDense: true,
                 prefixIcon: const Icon(Symbols.public_rounded, size: 20),
                 hintText: '输入网址，如 https://example.com',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
               ),
             ),
           ),

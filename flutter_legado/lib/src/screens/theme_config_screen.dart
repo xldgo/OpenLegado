@@ -969,21 +969,20 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           .read(uiSettingsProvider.notifier)
                           .setEnableBlur(v),
                     ),
-                    IosListTile(
-                      title: '顶栏模糊',
-                      subtitle: ui.enableBlur
-                          ? '半径 ${ui.topBarBlurRadius}dp · 底色 ${ui.topBarBlurAlpha}/255'
-                          : '需先启用毛玻璃',
-                      onTap: ui.enableBlur ? _showTopBarBlurDialog : null,
-                    ),
-                    IosListTile(
-                      title: '悬浮底栏模糊',
-                      subtitle: ui.enableBlur
-                          ? '半径 ${ui.bottomBarBlurRadius}dp · 底色 ${ui.bottomBarBlurAlpha}/255'
-                          : '需先启用毛玻璃',
-                      onTap:
-                          ui.enableBlur ? _showBottomBarBlurDialog : null,
-                    ),
+                    if (ui.enableBlur) ...[
+                      IosListTile(
+                        title: '顶栏模糊',
+                        subtitle:
+                            '半径 ${ui.topBarBlurRadius}dp · 底色 ${ui.topBarBlurAlpha}/255',
+                        onTap: _showTopBarBlurDialog,
+                      ),
+                      IosListTile(
+                        title: '悬浮底栏模糊',
+                        subtitle:
+                            '半径 ${ui.bottomBarBlurRadius}dp · 底色 ${ui.bottomBarBlurAlpha}/255',
+                        onTap: _showBottomBarBlurDialog,
+                      ),
+                    ],
                   ]),
 
                   // === 自定义主题·白天（对齐原版 day category，themeConfigList

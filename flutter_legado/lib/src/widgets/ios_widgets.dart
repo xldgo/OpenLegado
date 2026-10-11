@@ -151,38 +151,23 @@ class IosGroup extends StatelessWidget {
         padding: margin,
         child: Material(
           type: MaterialType.transparency,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: rows,
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
         ),
       );
     }
-    // [UI_SYNC_REFACTOR T2] 对齐参考 SplicedColumnGroup：16dp 玻璃分组卡
-    //（surfaceContainer 底）+ 组内 spacedBy 2 + 每行 4dp surfaceContainerLow
-    // 小卡底（SettingCard 等效）
+    // 分组只绘制一个底色；点击反馈共用同一 Material，并由外层圆角裁剪。
     return Padding(
       padding: margin,
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(16),
-        ),
+      child: Material(
+        color: theme.colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              Material(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(4),
-                clipBehavior: Clip.antiAlias,
-                child: children[i],
-              ),
-              if (i != children.length - 1) const SizedBox(height: 2),
-            ],
-          ],
+        child: ListTileTheme(
+          data: theme.listTileTheme.copyWith(
+            tileColor: Colors.transparent,
+            shape: const RoundedRectangleBorder(),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
         ),
       ),
     );
@@ -281,7 +266,10 @@ class IosListTile extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Icon(
-              icon!, size: 19, color: iconColor ?? scheme.onPrimaryContainer),
+            icon!,
+            size: 19,
+            color: iconColor ?? scheme.onPrimaryContainer,
+          ),
         );
       } else {
         // 默认裸图标（HapeLee SettingItem 无容器）

@@ -52,6 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// [LAYOUT_MOTION_AUDIT L3] IndexedStack 当前索引。
   /// 禁滑动切页（HapeLee IndexedStack 语义），切页一律经 setState 切索引。
   int _stackIndex = 0;
+  int _openSettingsRequest = 0;
   // [UI_SYNC_REFACTOR S1] 滑动切页控制器（对齐参考 MainScreen
   // HorizontalPager userScrollEnabled=true；2026-09-05 拉源码核实，
   // 早前审计 IndexedStack 口径系误读——原版本就是 ViewPager 滑动）
@@ -138,6 +139,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// 首页设置快捷入口：切到我的页并定位设置分组。
+  void _openMySettings() {
+    final tabs = _visibleTabs(ref.read(mainPrefsProvider));
+    setState(() => _openSettingsRequest++);
+    _onDestinationSelected(tabs, tabs.indexOf(_HomeTab.my));
+  }
+
   /// 底栏双击动作（对标 onNavigationItemReselected）
   void _onReselect(_HomeTab tab) {
     switch (tab) {
@@ -190,7 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     switch (tab) {
       case _HomeTab.home:
         return _visitedTabs.contains(tab)
-            ? const HomeTabScreen()
+            ? HomeTabScreen(onOpenSettings: _openMySettings)
             : const SizedBox.shrink();
       case _HomeTab.bookshelf:
         return BookshelfScreen(scrollTopSignal: _bookshelfScrollTopSignal);
@@ -204,7 +212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : const SizedBox.shrink();
       case _HomeTab.my:
         return _visitedTabs.contains(tab)
-            ? const SettingsScreen()
+            ? SettingsScreen(openSettingsRequest: _openSettingsRequest)
             : const SizedBox.shrink();
     }
   }
@@ -284,25 +292,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               bottom: false,
               // [UI_SYNC_REFACTOR B3] tabletInterface + sw≥600 切 NavigationRail
               //（简版：系统图标不带皮肤，expand 持久化登记差异延后）
-              child: useRail
-                  ? Row(
-                      children: [
-                        _buildRail(ui, tabs, currentIndex),
-                        const VerticalDivider(width: 1, thickness: 0),
-                        Expanded(child: pageArea),
-                      ],
-                    )
-                  : pageArea,
+              // 保持页面容器层级稳定，切换导航形态时不重建当前页。
+              child: Row(
+                children: [
+                  if (useRail) ...[
+                    _buildRail(ui, tabs, currentIndex),
+                    const VerticalDivider(width: 1, thickness: 0),
+                  ],
+                  Expanded(
+                    key: const ValueKey('home-page-area'),
+                    child: pageArea,
+                  ),
+                ],
+              ),
             ),
             // [UI_SYNC_REFACTOR B3] 底栏三形态：隐藏 / 悬浮 64dp 胶囊 / 标准
             // NavigationBar（label 三档 + 透明度）；皮肤图标两种形态均保留
-            bottomBar: _buildBottomBar(
-              context,
-              ui,
-              tabs,
-              currentIndex,
-              activeSkin,
-            ),
+            // 侧栏与底栏互斥，横竖屏切换时保留当前页签。
+            bottomBar: useRail
+                ? null
+                : _buildBottomBar(context, ui, tabs, currentIndex, activeSkin),
           );
         },
       ),

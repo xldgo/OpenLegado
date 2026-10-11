@@ -175,7 +175,6 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                           decoration: const InputDecoration(
                             hintText: '分钟',
                             isDense: true,
-                            border: UnderlineInputBorder(),
                           ),
                         ),
                       ),
@@ -226,7 +225,6 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                           decoration: const InputDecoration(
                             hintText: '章数',
                             isDense: true,
-                            border: UnderlineInputBorder(),
                           ),
                         ),
                       ),

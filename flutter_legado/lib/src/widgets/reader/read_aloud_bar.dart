@@ -205,7 +205,6 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                           decoration: const InputDecoration(
                             hintText: '分钟',
                             isDense: true,
-                            border: UnderlineInputBorder(),
                           ),
                         ),
                       ),

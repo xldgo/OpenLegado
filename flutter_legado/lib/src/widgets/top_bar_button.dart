@@ -2,6 +2,14 @@ import 'package:material_ui/material_ui.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
 
+// 深色下普通图标按钮使用透明底，圆形点击反馈仍由 IconButton 绘制。
+Color _tonalButtonBackground(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.brightness == Brightness.dark
+      ? Colors.transparent
+      : theme.colorScheme.surfaceContainerHigh;
+}
+
 /// [UI_SYNC_REFACTOR B2] 顶栏按钮体系（对齐参考仓 TopBarButton/GlassDefaults）
 ///
 /// - 5 档样式：plain 40dp/图标24；tonal/outlined/glass/liquidGlass 36dp/图标20；
@@ -93,7 +101,7 @@ class TopBarActionStyler extends StatelessWidget {
         return BoxDecoration(
           shape: BoxShape.rectangle,
           borderRadius: BorderRadius.circular(20),
-          color: cs.surfaceContainerHigh,
+          color: _tonalButtonBackground(context),
         );
     }
   }
@@ -123,7 +131,7 @@ class _ActionSlot extends StatelessWidget {
       // [2.0.275 视觉精修] tonal 中性槽位：surfaceContainerHigh 底 +
       // onSurfaceVariant 前景（激活态由调用方以主题色覆盖，见 _circleAction）
       TopBarButtonStyle.tonal => (
-        merge ? null : cs.surfaceContainerHigh,
+        merge ? null : _tonalButtonBackground(context),
         cs.onSurfaceVariant,
         null,
       ),
@@ -194,7 +202,7 @@ class TopBarButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     // [2.0.275 视觉精修] tonal 中性槽位（surfaceContainerHigh + onSurfaceVariant）
     final bg = switch (style) {
-      TopBarButtonStyle.tonal => cs.surfaceContainerHigh,
+      TopBarButtonStyle.tonal => _tonalButtonBackground(context),
       TopBarButtonStyle.glass ||
       TopBarButtonStyle.liquidGlass => cs.surfaceContainerHighest.withValues(alpha: 0.5),
       _ => Colors.transparent,

@@ -952,7 +952,6 @@ class _BookUpdateTaskDialogState extends State<_BookUpdateTaskDialog> {
               decoration: InputDecoration(
                 labelText: 'Cron 表达式',
                 hintText: '*/30 * * * *',
-                border: const OutlineInputBorder(),
                 helperText: '标准5位 cron 表达式（分 时 日 月 周）',
                 errorText: _cronError,
               ),

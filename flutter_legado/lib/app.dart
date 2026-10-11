@@ -307,7 +307,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
     // [UI_SYNC_REFACTOR S4] 主题引擎参数化：themeStyle 非 none 时按
     // paletteStyle/contrastLevel 从调色板锚点 seed 生成明暗两套角色
     //（material_color_utilities Scheme* 类，对齐参考 ThemeEngine）；
-    // AMOLED 仅暗色纯黑。并存模型保持：动态壁纸 > 自定义四色 > 参数化
+    // 纯黑模式由 AppTheme 统一装配。并存模型保持：动态壁纸 > 自定义四色 > 参数化
     // seed > 内置色板（自定义四色仍叠加于参数化结果之上）
     final uiTheme = ref.watch(uiSettingsProvider);
     var effectivePalette = palette;
@@ -320,7 +320,6 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
         style: uiTheme.themeStyle,
         seed: seed,
         contrastLevel: contrast,
-        amoledDark: uiTheme.themeAmoled,
       );
       effectivePalette = Md3Palette(
         id: '${palette.id}__param',
@@ -361,6 +360,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
           AppTheme.palette(
             brightness: Brightness.dark,
             palette: effectivePalette,
+            amoledDark: uiTheme.themeAmoled,
             primary: followWallpaper
                 ? darkDynamic?.primary
                 : c(themeColors.primaryNight),

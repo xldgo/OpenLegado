@@ -18,7 +18,6 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/settings_home_screen.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
@@ -54,14 +53,10 @@ void main() {
     );
   }
 
-  /// [MD3 LargeTitle] 页面改为 NestedScrollView（外层折叠头 + 内层 ListView），
-  /// 滚动定位需指定内层 ListView 视图
-  Future<void> dragTo(WidgetTester tester, String text) {
-    return tester.dragUntilVisible(
-      find.text(text),
-      find.byType(ListView),
-      const Offset(0, -100),
-    );
+  /// 分组整体构建后，定位行并等待滚动布局完成。
+  Future<void> dragTo(WidgetTester tester, String text) async {
+    await tester.ensureVisible(find.text(text));
+    await tester.pumpAndSettle();
   }
 
   group('SettingsScreen 枢纽菜单', () {
@@ -77,15 +72,14 @@ void main() {
       expect(find.text('字典规则'), findsOneWidget);
       expect(find.text('主题模式'), findsOneWidget);
 
-      expect(find.text('我的'), findsWidgets,
-          reason: 'SliverAppBar.large 展开大标题与折叠工具栏标题同时存在');
-      // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页集中化：我的页原
-      // 备份与恢复/主题设置/其他设置三 tile 收敛为单一「设置」入口
-      //（组头「设置」+ 入口 tile 同文案，skipOffstage 计 2）— Qoder
-      await dragTo(tester, '设置');
-      expect(
-          find.text('设置', skipOffstage: false), findsNWidgets(2));
-      expect(find.text('备份与恢复'), findsNothing);
+      expect(find.text('我的'), findsOneWidget);
+      // 我的页直接展示四项设置，组头保留“设置”，不再有同名入口。
+      await dragTo(tester, '备份与恢复');
+      expect(find.text('设置', skipOffstage: false), findsOneWidget);
+      expect(find.text('外观'), findsOneWidget);
+      expect(find.text('高级'), findsOneWidget);
+      expect(find.text('阅读界面'), findsOneWidget);
+      expect(find.text('备份与恢复'), findsOneWidget);
       expect(find.text('主题设置'), findsNothing);
 
       // 已删除创意项
@@ -404,26 +398,19 @@ void main() {
       expect(find.text('深色'), findsOneWidget);
     });
 
-    testWidgets('经设置主页进入备份与恢复全页 WebDAV/备份设置', (tester) async {
+    testWidgets('从我的页直接进入备份与恢复全页 WebDAV/备份设置', (tester) async {
       await tester.pumpWidget(wrap(
         const SettingsScreen(),
         routes: {
-          AppRoutes.settingsHome: (_) => const SettingsHomeScreen(),
           AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
         },
       ));
       await tester.pumpAndSettle();
 
-      // 我的页「设置」→ 设置主页「备份与恢复」（集中化两级导航）
-      await dragTo(tester, '设置');
+      // 我的页直接进入备份与恢复，不经过设置主页。
+      await dragTo(tester, '备份与恢复');
       await tester.drag(find.byType(ListView), const Offset(0, 140));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('设置').last);
-      await tester.pumpAndSettle();
-
-      await tester.dragUntilVisible(
-          find.text('备份与恢复'), find.byType(CustomScrollView).first,
-          const Offset(0, -80));
       await tester.tap(find.text('备份与恢复'));
       await tester.pumpAndSettle();
 

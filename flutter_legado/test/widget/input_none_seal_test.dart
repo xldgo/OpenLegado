@@ -1,9 +1,9 @@
 // [GLOBALCOMP B3 尾项] 刻意无边框输入场的三态防渗入回归。
 //
-// 背景：B3 把输入框主题改为 filled 底线式（UnderlineInputBorder 三态，
+// 背景：全局输入框使用圆角填充与描边（OutlineInputBorder，
 // 见 input_theme_b3_test.dart）。只写 `border: InputBorder.none` 的字段，
 // 其 enabled/focused 态会回退到主题 enabledBorder/focusedBorder——即
-// 「未聚焦多一条细底线、聚焦底线加粗」。对刻意无边框的沉浸/胶囊/行内
+// 「普通态出现描边、聚焦描边加粗」。对刻意无边框的沉浸/胶囊/行内
 // 字段（代码编辑、顶栏/弹层搜索、目录跳转等），必须显式声明
 // border / enabledBorder / focusedBorder 三态均无边框。
 //
@@ -11,7 +11,7 @@
 // 1. 三个代表场（编辑区、沉浸搜索框、搜索胶囊）经真实渲染与解析链后，
 //    enabled/focused/disabled/error 全态有效 border 均为 InputBorder.none；
 // 2. 真实 SearchBarWidget（沉浸搜索胶囊）已显式三态无边框；
-// 3. 对照组证明渗入面真实存在：仅写 border 的旧写法会回退主题底线式。
+// 3. 对照组证明渗入面真实存在：仅写 border 的旧写法会回退主题描边样式。
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -124,7 +124,7 @@ void main() {
             expect(
               border,
               InputBorder.none,
-              reason: '$state 态不得回退主题底线式/描边',
+              reason: '$state 态不得回退主题描边样式/描边',
             );
           }
         }
@@ -146,11 +146,11 @@ void main() {
         expect(resolved.focusedBorder, InputBorder.none);
       });
 
-      test('渗入面对照：仅写 border 的旧写法会回退主题底线式', () {
+      test('渗入面对照：仅写 border 的旧写法会回退主题描边样式', () {
         const onlyBorder = InputDecoration(border: InputBorder.none);
         final resolved = onlyBorder.applyDefaults(theme.inputDecorationTheme);
-        expect(resolved.enabledBorder, isA<UnderlineInputBorder>());
-        expect(resolved.focusedBorder, isA<UnderlineInputBorder>());
+        expect(resolved.enabledBorder, isA<OutlineInputBorder>());
+        expect(resolved.focusedBorder, isA<OutlineInputBorder>());
       });
     });
   }

@@ -11,6 +11,7 @@ import '../providers/read_record/read_record_notifier.dart';
 import '../routes.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/book_cover.dart';
+import '../widgets/legado_app_bar.dart';
 
 /// 首页页签（对齐参考版首页布局）
 ///
@@ -20,7 +21,9 @@ import '../widgets/book_cover.dart';
 /// 今日目标分钟数存本地偏好 homeReadGoalMinutes（默认 30，可编辑）。
 /// 首页模块管理（自定义集/书源模块）为参考版深功能，登记后续批次。
 class HomeTabScreen extends ConsumerStatefulWidget {
-  const HomeTabScreen({super.key});
+  const HomeTabScreen({super.key, this.onOpenSettings});
+
+  final VoidCallback? onOpenSettings;
 
   @override
   ConsumerState<HomeTabScreen> createState() => _HomeTabScreenState();
@@ -182,32 +185,24 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final todayMinutes = (_todaySeconds / 60).round();
 
     return Scaffold(
+      appBar: LegadoAppBar(
+        showBack: false,
+        title: Text(
+          '首页',
+          style: Theme.of(context).textTheme.headlineMedium
+              ?.copyWith(fontSize: 28),
+        ),
+        actions: [
+          IconButton(
+            tooltip: '设置',
+            icon: const Icon(Icons.settings_rounded),
+            onPressed: widget.onOpenSettings,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         children: [
-          // [1-2 ①] 参考版层级：动作钮行在上（右对齐），大标题独占下一行（左对齐、更大）。
-          // 参考版该行另有 ⋮（「首页组件」入口，属模块管理域，用户裁决暂不实施，仅保留台账登记）
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                tooltip: '其他设置',
-                icon: const Icon(Icons.settings_rounded),
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.otherSettings),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '首页',
-            // 参考版量测：标题字高 77px ≈ 28sp（现 headlineMedium 24sp → 放大至 28）
-            style: Theme.of(context)
-                .textTheme
-                .headlineMedium
-                ?.copyWith(fontSize: 28),
-          ),
-          const SizedBox(height: 16),
           // ===== 最近阅读卡 =====
           if (recent != null)
             _HomeCard(

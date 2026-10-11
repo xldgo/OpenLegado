@@ -720,7 +720,6 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         decoration: InputDecoration(
           labelText: spec.label,
           hintText: spec.hint.isEmpty ? null : spec.hint,
-          border: const OutlineInputBorder(),
           isDense: true,
           suffixIcon: spec.maxLines >= 2
               ? IconButton(
