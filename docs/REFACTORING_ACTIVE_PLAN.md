@@ -8,6 +8,23 @@
 >
 > **进度校准提示**：以下历史执行记录和旧任务登记保留为证据，不自动等同当前开放问题。新批次开始前须按 `REFACTORING_WORKFLOW.md` 阶段 0 对照当前 HEAD、源码、测试与验收证据；未经核验的旧登记标为“待核验”。
 
+### SYSTEM-TTS-20261011：接入 Android / iOS 系统朗读（P1）
+
+- **状态**：待复验；代码、定向测试及 Android x86_64 Debug APK 构建和产物校验已完成。Android/iOS 真机中文朗读、锁屏连续播放、耳机控制及中断恢复尚未验收，不能视为平台功能全部完成。
+- **基线与工作区**：基于本地 `feature/ui-material-ui` 已提交 HEAD `d2adff7da`，工作分支 `feature/ui-system-tts`，独立目录 `E:/code/workspace/OpenLegado-tts`。兼容 `material_ui 1.6.0` / `cupertino_ui 1.0.2`；主目录的未提交界面修改留在原处。按用户要求不使用子代理；用户本轮已授权提交并推送当前 TTS 分支，仅手动触发 iOS Build，不触发其他 CI。
+- **实现范围**：新增 `services/system_tts_service.dart`，复用已锁定的 `flutter_tts 4.2.5`。管理页与阅读器引擎选择器增加 `system://default` 内置选项，即使没有 HTTP 引擎也能选择；使用独立选项模型，不创建 HttpTts 数据行。书级 `readConfig.ttsEngine` 和全局 `appTtsEngine` 仍使用原有持久化与优先级，既有配置不被替换。设备引擎/音色偏好存入 SharedPreferences 的独立系统 TTS 键。
+- **声音与设置**：优先设备已安装的离线中文语音；支持选择 Android 设备引擎与 Android/iOS 音色；系统语音设置不会重启正在播放的 HTTP 音频，不支持系统 TTS 的平台保留原有空列表提示。现有倍速、音调、音量用于系统路径；语速按平台有效范围映射。长段按平台输入长度分片并保持原段落归属，全部分片完成才推进；缺少中文语音或初始化/朗读失败时暂停并给出错误，不进行无声估时推进。
+- **播放与竞态**：AudioNotifier 系统分支直接 speak，不调用 Rust HTTP 合成或文件播放器。复用段落/章节队列、媒体会话及定时停止；切书、切章、切段、切引擎、停止和销毁失效旧 token。插件事件没有朗读 ID，串行停止/启动并等待旧原生完成/取消确认后才开始新声音；三秒内未确认则失败并阻止叠音。暂停优先续读，不支持时重读当前分片；暂停后手动切段丢弃旧续读内容。
+- **平台接线**：Android 沿用媒体会话、前台服务与唯一音频焦点所有者，插件 speak(focus: false) 不重复申请。iOS 保留 playback/spokenAudio、共享会话和现有后台 audio 声明，段间不主动释放会话，开始/恢复时重新激活。音频中断只恢复原先播放且允许恢复的会话，用户暂停或停止后不会被 gain 自动开播。
+- **旧桥处理**：删除无 Dart 生产调用的 PlatformChannel 系统朗读方法及第二个 iOS FlutterTts 实例；Kotlin TtsBridge 的注册和销毁仍保留，本轮未删除原生文件。没有新增原生 TTS 桥接。
+- **分析与回归**：`flutter analyze --no-pub --no-fatal-infos` 返回 0，无错误或警告，仅两条既有漫画测试 info。系统服务、AudioNotifier、HTTP TTS、音频焦点、定时停止、章节竞态、引擎选择与持久化共 **87 项定向测试通过**；复用现有 Windows DLL 后 **19 项真实 FFI 测试通过**。日志分别为 `flutter_legado/build/system-tts-analyze.log`、`system-tts-targeted-tests.log`、`system-tts-ffi-tests.log`，均为本地忽略产物。
+- **全套测试边界**：首次全套测试为 2254 通过、22 失败：5 项来自工作区最初缺少 DLL（含连带清理失败），后续 FFI 定向复验通过；3 项为新增系统选项/URL 标识影响的旧选择器断言，已适配并复验。剩余 **14 项界面失败**在未修改的 HEAD 快照复现（30 通过、14 失败），涉及首页壳、字体面板、阅读设置导航、Web 服务入口与顶栏样式，未扩大本任务去修改相关页面。基线日志：`flutter_legado/build/system-tts-baseline/baseline-tests.log`。
+- **Android 构建证据**：复用现有 x86_64 Debug QuickJS 库，核对原构建源码字节、NDK 策略、元数据和 Cargo 源库摘要；两份输入只有 checkout 换行不同，已对齐且不产生 Git 内容差异，未改元数据或绕过校验。Gradle assembleDebug 返回 0（2 分 42 秒），`python scripts/dev.py verify apk android --profile debug --abis x86_64 --apk flutter_legado/build/app/outputs/flutter-apk/app-debug.apk --cargo-target-dir E:/code/workspace/OpenLegado/rust/target --ndk C:/Users/share/AppData/Local/Android/sdk/ndk/28.2.13676358` 返回 0。APK SHA-256：`34d877bc77de1872363fde30222b75264cb88d1148a26bd81474ce8e6afa5a44`；日志为 `system-tts-android-build.log`、`system-tts-apk-verify.log`。未安装到设备，未覆盖主工作区正在验收的界面版本。
+- **本机环境与实测边界**：锁文件依赖已恢复；Windows plugin symlink 准备受开发者模式限制，测试、分析及构建不重新 pub get。镜像缺少 Flutter Maven 产物，构建改用官方存储与用户提供的代理。Kotlin 增量缓存跨盘报错，本次 Gradle 命令使用 `-Pkotlin.incremental=false`；GraalVM 24 的 jlink 失败后，使用 [微软官方 OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download) 便携 JDK 17.0.20.1，校验官方 SHA-256 并仅放任务 build 缓存、设置当前进程 JAVA_HOME，没有改系统 PATH 或项目 Java/Gradle/Kotlin 配置。当前 adb 在线的 MuMu `127.0.0.1:16384` 查询 TTS_SERVICE 返回 `No services found`；中文和后台朗读需要有 TTS 引擎的 Android 设备或 iPhone 验收，Windows 不能完成 iOS Xcode/真机验证。
+- **范围与交付**：应用版本保持 `2.0.372+373`，同步现有版本的两处更新日志。不修改 Rust/FFI 契约、书源、数据库结构、HTTP 合成或 AudioNotifier 整体架构，不实现 synthesizeToFile。用户本轮已授权将本任务合为一条功能提交，推送 `feature/ui-system-tts` 并仅手动触发 iOS Build；真机朗读与后台播放验收仍待进行。
+
+编写者：Codex｜2026-10-11
+
 ### UI-READER-SETTINGS-20261011：阅读设置分组与入口整理（P1）
 
 - **状态**：待复验；上一批 UI 修改已提交并推送 `4c7bc9445`，仅手动触发 iOS Build。本批已增量编译安装至 MuMu；用户现授权将本批合为一条提交、推送当前功能分支并仅手动触发 iOS Build，设备交互仍由用户人工检查。

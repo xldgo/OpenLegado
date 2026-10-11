@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/misc.dart';
+import '../../models/tts_engine_option.dart';
+import '../../services/system_tts_service.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../providers/providers.dart';
 import '../../routes.dart';
@@ -129,10 +130,9 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
 
   Future<void> _persistFollowSystem(bool follow) async {
     try {
-      await ref.read(bookApiProvider).setConfig(
-            _keyFollowSystem,
-            follow ? 'true' : 'false',
-          );
+      await ref
+          .read(bookApiProvider)
+          .setConfig(_keyFollowSystem, follow ? 'true' : 'false');
     } catch (_) {}
   }
 
@@ -250,14 +250,22 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
 
   /// 引擎选择对话框（getHttpTts 列表，对标原版引擎下拉）
   Future<void> _showEngineDialog() async {
-    List<HttpTts> engines;
+    List<HttpTts> httpEngines = [];
     try {
-      engines = await ref.read(bookApiProvider).getHttpTts();
+      httpEngines = await ref.read(bookApiProvider).getHttpTts();
     } catch (e) {
-      if (mounted) _snack('朗读引擎列表加载失败: $e');
-      return;
+      if (mounted) _snack('HTTP 朗读引擎列表加载失败: $e');
     }
     if (!mounted) return;
+    final engines = <TtsEngineOption>[
+      if (ref.read(systemTtsServiceProvider).isSupported)
+        const TtsEngineOption(name: '系统 TTS', url: systemTtsEngineUrl),
+      for (final engine in httpEngines)
+        TtsEngineOption(
+          name: engine.name,
+          url: normalizeTtsEngineUrl(engine.url),
+        ),
+    ];
     if (engines.isEmpty) {
       _snack('暂无朗读引擎，请到「朗读设置」添加 HTTP TTS 引擎');
       return;
@@ -267,12 +275,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     // （SpeakEngineDialog.kt:57）；此前只看全局内存值，书级生效时会高亮错误项。
     final notifier = ref.read(audioNotifierProvider.notifier);
     final currentUrl = normalizeTtsEngineUrl(notifier.resolveTtsEngineUrl());
-    String? currentName;
-    HttpTts? currentEngine;
+    TtsEngineOption? currentEngine;
     if (currentUrl.isNotEmpty) {
       for (final engine in engines) {
         if (normalizeTtsEngineUrl(engine.url) == currentUrl) {
-          currentName = engine.name;
           currentEngine = engine;
           break;
         }
@@ -286,24 +292,22 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
         title: const Text('选择朗读引擎'),
         children: [
           RadioGroup<String>(
-            groupValue: currentName,
+            groupValue: currentEngine?.url,
             onChanged: (v) {
               // [UX 修复 | 2026-10-03] 未选中项：RadioGroup 回传新值；已选中项：
               // RadioListTile 开启 toggleable 后回传 null（点已选项不产生新值）。
               // 两种点击都要关闭对话框——对齐原版 SpeakEngineDialog 点击任意项
               // 均 upTts（已选项为幂等重确认），此前已选项点击走不到关闭逻辑。
-              final name = v ?? currentName;
-              if (name == null) return;
-              final engine = engines.firstWhere((e) => e.name == name);
+              final url = v ?? currentEngine?.url;
+              if (url == null) return;
+              final engine = engines.firstWhere((e) => e.url == url);
               Navigator.pop(dialogContext);
               // [P0 | 2026-10-03] 只存裸 URL：合成管线（Rust tts_speak）把
               // engineUrl 当 URL 模板与缓存键，存「名称,URL」必然合成失败。
               // [引擎双持久化 | 2026-10-04] 快捷切换按原版「全局」语义落库
               // （先清书级覆盖再写全局，SpeakEngineDialog.kt:171-177）：书级
               // 优先下若只写全局内存值，该书仍会继续用书级引擎，切换不生效。
-              unawaited(
-                notifier.setGlobalTtsEngine(engine.url),
-              );
+              unawaited(notifier.setGlobalTtsEngine(engine.url));
               _snack('已切换引擎：${engine.name}');
             },
             child: Column(
@@ -312,7 +316,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                 for (final engine in engines)
                   RadioListTile<String>(
                     title: Text(engine.name),
-                    value: engine.name,
+                    value: engine.url,
                     // 已选中项默认吞掉点击（Flutter _handleListTileTap 对
                     // checked 且非 toggleable 直接 return，本版 RadioListTile
                     // 未暴露 onTap 参数）；toggleable 让已选项点击回传 null，
@@ -336,10 +340,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                   onPressed: selectedEngine == null
                       ? null
                       : () => _applyEngine(
-                            dialogContext,
-                            selectedEngine,
-                            bookLevel: true,
-                          ),
+                          dialogContext,
+                          selectedEngine,
+                          bookLevel: true,
+                        ),
                   child: const Text('书'),
                 ),
                 const Spacer(),
@@ -351,10 +355,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                   onPressed: selectedEngine == null
                       ? null
                       : () => _applyEngine(
-                            dialogContext,
-                            selectedEngine,
-                            bookLevel: false,
-                          ),
+                          dialogContext,
+                          selectedEngine,
+                          bookLevel: false,
+                        ),
                   child: const Text('全局'),
                 ),
               ],
@@ -372,7 +376,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
   /// false = 「全局」按钮：先清书级覆盖再写全局（原版 :171-177）。
   Future<void> _applyEngine(
     BuildContext dialogContext,
-    HttpTts engine, {
+    TtsEngineOption engine, {
     required bool bookLevel,
   }) async {
     final navigator = Navigator.of(dialogContext);
@@ -463,10 +467,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
             audio.isPlaying
                 ? Icons.graphic_eq
                 : audio.isLoading
-                    ? Icons.hourglass_top
-                    : audio.state == PlayerState.error
-                        ? Icons.error_outline
-                        : Icons.pause_circle_outline,
+                ? Icons.hourglass_top
+                : audio.state == PlayerState.error
+                ? Icons.error_outline
+                : Icons.pause_circle_outline,
             size: 18,
             color: theme.colorScheme.primary,
           ),
@@ -503,9 +507,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           // （单一数据源，与听书页/通知栏展示同一份剩余量）
           IconButton(
             icon: Icon(
-              notifier.isSleepTimerActive
-                  ? Icons.timer
-                  : Icons.timer_outlined,
+              notifier.isSleepTimerActive ? Icons.timer : Icons.timer_outlined,
               color: notifier.isSleepTimerActive
                   ? theme.colorScheme.primary
                   : null,
@@ -578,8 +580,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           IconButton(
             icon: const Icon(Icons.chevron_left),
             tooltip: '上一段',
-            onPressed: audio.state != PlayerState.idle &&
-                    notifier.paragraphCount > 0
+            onPressed:
+                audio.state != PlayerState.idle && notifier.paragraphCount > 0
                 ? notifier.prevParagraph
                 : null,
           ),
@@ -614,8 +616,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           IconButton(
             icon: const Icon(Icons.chevron_right),
             tooltip: '下一段',
-            onPressed: audio.state != PlayerState.idle &&
-                    notifier.paragraphCount > 0
+            onPressed:
+                audio.state != PlayerState.idle && notifier.paragraphCount > 0
                 ? notifier.nextParagraph
                 : null,
           ),
@@ -717,9 +719,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           Expanded(
             child: TextButton.icon(
               icon: Icon(
-                _followSystemSpeed
-                    ? Icons.speed
-                    : Icons.speed_outlined,
+                _followSystemSpeed ? Icons.speed : Icons.speed_outlined,
                 size: 18,
               ),
               label: Text(_followSystemSpeed ? '语速:跟随系统' : '语速:手动'),
@@ -753,10 +753,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
 
   /// 紧凑按钮样式：缩小内边距，窄屏下四按钮可均分不溢出
   ButtonStyle get _compactButtonStyle => TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
 
   String _statusText(AudioState audio) {
     switch (audio.state) {

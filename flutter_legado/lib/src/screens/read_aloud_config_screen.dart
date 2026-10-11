@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
@@ -9,6 +11,8 @@ import '../providers/audio/audio_notifier.dart';
 import '../providers/audio/http_tts_seed.dart';
 import '../providers/providers.dart';
 import '../widgets/app_progress_indicator.dart';
+import '../widgets/system_tts_settings_dialog.dart';
+import '../services/system_tts_service.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 
@@ -19,7 +23,8 @@ class ReadAloudConfigScreen extends ConsumerStatefulWidget {
   const ReadAloudConfigScreen({super.key});
 
   @override
-  ConsumerState<ReadAloudConfigScreen> createState() => _ReadAloudConfigScreenState();
+  ConsumerState<ReadAloudConfigScreen> createState() =>
+      _ReadAloudConfigScreenState();
 }
 
 class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
@@ -55,23 +60,23 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
       // 全局回退），对齐原版对话框 `ttsEngine = ReadAloud.ttsEngine`；
       // 有效值已不在引擎列表中（被删/失效）时不选中，避免把失效 URL 再写回。
       final effective = await notifier.loadEffectiveTtsEngineUrl();
-      final listedUrls =
-          list.map((e) => normalizeTtsEngineUrl(e.url)).toSet();
+      final listedUrls = list.map((e) => normalizeTtsEngineUrl(e.url)).toSet();
+      if (ref.read(systemTtsServiceProvider).isSupported) {
+        listedUrls.add(systemTtsEngineUrl);
+      }
       setState(() {
         _engines = list;
-        _selectedUrl =
-            effective.isNotEmpty && listedUrls.contains(effective)
-                ? effective
-                : null;
+        _selectedUrl = effective.isNotEmpty && listedUrls.contains(effective)
+            ? effective
+            : null;
         _hasBook = notifier.hasCurrentBook;
         _loading = false;
       });
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载朗读引擎失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('加载朗读引擎失败: $e')));
       }
     }
   }
@@ -103,13 +108,9 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     try {
       await api.deleteHttpTts(engine.id);
       await _loadEngines();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('已删除')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('已删除')));
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('删除失败: $e')));
     }
   }
 
@@ -135,9 +136,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
         SnackBar(content: Text(existing != null ? '已更新' : '已添加')),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('保存失败: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('保存失败: $e')));
     }
   }
 
@@ -150,13 +149,12 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     final url = _selectedUrl;
     if (url == null) return;
     final messenger = ScaffoldMessenger.of(context);
-    final ok =
-        await ref.read(audioNotifierProvider.notifier).setBookTtsEngine(url);
+    final ok = await ref
+        .read(audioNotifierProvider.notifier)
+        .setBookTtsEngine(url);
     if (!mounted) return;
     if (!ok) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('未打开书籍，无法设为本书引擎')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('未打开书籍，无法设为本书引擎')));
       return;
     }
     setState(() => _hasBook = true);
@@ -179,6 +177,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasSystem = ref.read(systemTtsServiceProvider).isSupported;
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -230,92 +229,125 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
       body: _loading
           // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
           ? const Center(child: AppCircularProgressIndicator())
-          : _engines.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Symbols.record_voice_over_rounded,
-                          size: 64, color: theme.colorScheme.outline),
-                      const SizedBox(height: 16),
-                      Text(
-                        '暂无朗读引擎',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '点击右下角按钮添加 HTTP TTS 引擎',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    ],
+          : _engines.isEmpty && !hasSystem
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Symbols.record_voice_over_rounded,
+                    size: 64,
+                    color: theme.colorScheme.outline,
                   ),
-                )
-              // [LAYOUT_PLAN P1] 本页无开关行（SwitchListTile），无需 showChevron；
-              // 引擎行无箭头（仅编辑/删除动作）；卡片分组间距 12dp
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _engines.length,
-                  itemBuilder: (context, index) {
-                    final engine = _engines[index];
-                    final engineUrl = normalizeTtsEngineUrl(engine.url);
-                    final isSelected =
-                        _selectedUrl != null && engineUrl == _selectedUrl;
-                    return Card(
-                      // [LAYOUT_PLAN P1] 分组间距 12dp
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        // [引擎双持久化 | 2026-10-04] 行点击仅更新选中态
-                        // （对齐原版 SpeakEngineDialog.kt:315-326 的 upTts：
-                        // 不持久化、不关闭），持久化交底部「书」/「全局」。
-                        selected: isSelected,
-                        onTap: () =>
-                            setState(() => _selectedUrl = engineUrl),
-                        // 选中控件对齐原版行布局的 ThemeRadioButton
-                        // （item_http_tts.xml:14-20），替代纯装饰性头像
-                        leading: Icon(
-                          isSelected
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                          color: isSelected ? theme.colorScheme.primary : null,
-                        ),
-                        title: Text(
-                          engine.name,
-                          // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        subtitle: Text(
-                          engine.url,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Symbols.edit_rounded, size: 20),
-                              tooltip: '编辑',
-                              onPressed: () => _addOrEditEngine(engine),
-                            ),
-                            IconButton(
-                              icon: Icon(Symbols.delete_rounded,
-                                  size: 20, color: theme.colorScheme.error),
-                              tooltip: '删除',
-                              onPressed: () => _deleteEngine(engine),
-                            ),
-                          ],
+                  const SizedBox(height: 16),
+                  Text(
+                    '暂无朗读引擎',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '点击右下角按钮添加 HTTP TTS 引擎',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          // [LAYOUT_PLAN P1] 本页无开关行（SwitchListTile），无需 showChevron；
+          // 引擎行无箭头（仅编辑/删除动作）；卡片分组间距 12dp
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _engines.length + (hasSystem ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (hasSystem && index == 0) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      selected: _selectedUrl == systemTtsEngineUrl,
+                      leading: Icon(
+                        _selectedUrl == systemTtsEngineUrl
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                      ),
+                      title: const Text('系统 TTS'),
+                      subtitle: const Text('使用设备语音，支持已安装的中文音色'),
+                      onTap: () =>
+                          setState(() => _selectedUrl = systemTtsEngineUrl),
+                      trailing: IconButton(
+                        icon: const Icon(Symbols.settings_rounded),
+                        tooltip: '系统语音设置',
+                        onPressed: () => showSystemTtsSettings(
+                          context,
+                          ref.read(systemTtsServiceProvider),
+                          ref
+                              .read(audioNotifierProvider.notifier)
+                              .refreshSystemTtsSettings,
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                }
+                final engine = _engines[index - (hasSystem ? 1 : 0)];
+                final engineUrl = normalizeTtsEngineUrl(engine.url);
+                final isSelected =
+                    _selectedUrl != null && engineUrl == _selectedUrl;
+                return Card(
+                  // [LAYOUT_PLAN P1] 分组间距 12dp
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    // [引擎双持久化 | 2026-10-04] 行点击仅更新选中态
+                    // （对齐原版 SpeakEngineDialog.kt:315-326 的 upTts：
+                    // 不持久化、不关闭），持久化交底部「书」/「全局」。
+                    selected: isSelected,
+                    onTap: () => setState(() => _selectedUrl = engineUrl),
+                    // 选中控件对齐原版行布局的 ThemeRadioButton
+                    // （item_http_tts.xml:14-20），替代纯装饰性头像
+                    leading: Icon(
+                      isSelected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: isSelected ? theme.colorScheme.primary : null,
+                    ),
+                    title: Text(
+                      engine.name,
+                      // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    subtitle: Text(
+                      engine.url,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Symbols.edit_rounded, size: 20),
+                          tooltip: '编辑',
+                          onPressed: () => _addOrEditEngine(engine),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Symbols.delete_rounded,
+                            size: 20,
+                            color: theme.colorScheme.error,
+                          ),
+                          tooltip: '删除',
+                          onPressed: () => _deleteEngine(engine),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -363,7 +395,9 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
       id: widget.engine?.id ?? 0,
       name: _nameCtrl.text.trim(),
       url: _urlCtrl.text.trim(),
-      header: _headerCtrl.text.trim().isNotEmpty ? _headerCtrl.text.trim() : null,
+      header: _headerCtrl.text.trim().isNotEmpty
+          ? _headerCtrl.text.trim()
+          : null,
       contentType: _contentTypeCtrl.text.trim().isNotEmpty
           ? _contentTypeCtrl.text.trim()
           : null,
@@ -436,10 +470,7 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('保存')),
       ],
     );
   }

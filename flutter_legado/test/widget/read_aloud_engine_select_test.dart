@@ -9,8 +9,7 @@
 // 2) 重开对话框：当前引擎按裸 URL 匹配高亮；
 // 3) 存量「名称,URL」形态也能正确高亮（显示侧归一）。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/services/system_tts_service.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
 import '../mocks/mocks.dart';
@@ -48,6 +48,7 @@ void main() {
     addTearDown(container.dispose);
 
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
+    when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
     when(() => api.getHttpTts()).thenAnswer(
       (_) async => [const HttpTts(id: 1, name: engineName, url: engineUrl)],
     );
@@ -103,11 +104,28 @@ void main() {
     await settleSnackBar(tester);
   });
 
+  testWidgets('没有 HTTP 引擎时可选择系统 TTS，并保存固定标识', (tester) async {
+    when(() => api.getHttpTts()).thenAnswer((_) async => []);
+    await pumpBar(tester);
+    await openEngineDialog(tester);
+    expect(find.text('系统 TTS'), findsOneWidget);
+    await tester.tap(find.text('系统 TTS'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(audioNotifierProvider).config.engineUrl,
+      systemTtsEngineUrl,
+    );
+    verify(() => api.setConfig(kTtsEngineConfigKey, systemTtsEngineUrl))
+        .called(1);
+    verifyNever(() => api.addHttpTts(any()));
+    await settleSnackBar(tester);
+  });
+
   testWidgets('重开对话框：当前引擎按裸 URL 匹配高亮', (tester) async {
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: engineUrl,
-        );
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: engineUrl);
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -115,7 +133,7 @@ void main() {
     final group = tester.widget<RadioGroup<String>>(
       find.byType(RadioGroup<String>),
     );
-    expect(group.groupValue, engineName);
+    expect(group.groupValue, engineUrl);
 
     // 关闭对话框：点选当前项（幂等，仍写入裸 URL）
     await tester.tap(find.text(engineName));
@@ -125,9 +143,9 @@ void main() {
 
   testWidgets('点击已选中的引擎项：对话框关闭（已项不再吞点击）', (tester) async {
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: engineUrl,
-        );
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: engineUrl);
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -144,9 +162,9 @@ void main() {
 
   testWidgets('存量「名称,URL」形态：显示侧归一并正确高亮', (tester) async {
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: '$engineName,$engineUrl',
-        );
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: '$engineName,$engineUrl');
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -154,7 +172,7 @@ void main() {
     final group = tester.widget<RadioGroup<String>>(
       find.byType(RadioGroup<String>),
     );
-    expect(group.groupValue, engineName);
+    expect(group.groupValue, engineUrl);
 
     // 关闭对话框：RadioGroup 对已选中项不再回调 onChanged，点遮罩收起
     await tester.tapAt(const Offset(10, 10));

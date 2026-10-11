@@ -8,7 +8,6 @@ import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/read_record/read_record_notifier.dart';
-import '../routes.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/legado_app_bar.dart';
