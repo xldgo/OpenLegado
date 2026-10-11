@@ -1,0 +1,37 @@
+name: Tooling CI
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tooling-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: changes
+        uses: ./.github/actions/ci-changes
+      - name: 验证 CI 编排规则
+        if: steps.changes.outputs.tooling == 'true'
+        run: python3 -m unittest discover -s .github/scripts -p test_ci_changes.py -v
+      - name: 验证 Python 工具与平台输入隔离
+        if: steps.changes.outputs.tooling == 'true'
+        run: python3 scripts/dev.py test tooling
+      - name: 校验 workflow 语法
+        if: steps.changes.outputs.tooling == 'true'
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -shellcheck= -pyflakes=

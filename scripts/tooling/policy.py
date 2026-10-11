@@ -1,16 +1,15 @@
 """冻结现有 Android CI 构建矩阵；后续编译入口也使用这份配置。"""
 
-import argparse
 import hashlib
 import json
 from pathlib import Path
 import re
 
-from .common import ToolError, read_json, sha256_file
-from .fingerprint import tree_fingerprint
+from .common import ToolError, parse_abis, read_json
+from .fingerprint import tooling_fingerprint
 
 
-INPUTS_ALGORITHM = "android-ffi-inputs-sha256-v1"
+INPUTS_ALGORITHM = "android-ffi-inputs-sha256-v2"
 
 
 def load_policy(root: Path) -> dict:
@@ -51,13 +50,6 @@ def load_policy(root: Path) -> dict:
     return policy
 
 
-def parse_abis(value: str) -> tuple[str, ...]:
-    abis = tuple(part.strip() for part in value.split(","))
-    if not all(abis) or len(abis) != len(set(abis)):
-        raise argparse.ArgumentTypeError("--abis 不能包含空条目或重复 ABI。")
-    return abis
-
-
 def select_target(policy: dict, abi: str, profile: str) -> dict:
     if profile not in ("debug", "release"):
         raise ToolError(f"不支持构建模式：{profile}")
@@ -84,11 +76,7 @@ def build_inputs_sha256(root: Path, policy: dict, abi: str, profile: str,
         "ndkVersion": policy["ndkVersion"],
         "clangApiLevel": policy["clangApiLevel"],
         "maxPageSize": policy["maxPageSize"],
-        "entrypointSha256": sha256_file(root / "scripts" / "dev.py"),
-        "toolingFingerprint": tree_fingerprint(
-            root / "scripts" / "tooling", excluded_dirs=("__pycache__",),
-            excluded_suffixes=(".pyc", ".pyo"),
-        ),
+        "toolingFingerprint": tooling_fingerprint(root, "android"),
     }
     payload = json.dumps(inputs, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -51,10 +51,14 @@ Cargo 使用项目 stable 工具链、`--locked`、明确的 `x86_64-pc-windows-
 实际 Cargo 文件位于 `<target-dir>/x86_64-pc-windows-msvc/<profile>/legado_ffi.dll`，
 成功后复制到 `<target-dir>/<profile>/legado_ffi.dll`，维持现有 CMake/Dart 的默认搜索布局。
 
-DLL 旁记录 `.dll.meta` schema v2，使用独立的 `windows-ffi-inputs-sha256-v1` 输入标识，
-包含 Rust 实际字节指纹、根入口/工具指纹、FRB 契约、target/profile/features、源库/复制摘要
+DLL 旁记录 `.dll.meta` schema v2，使用独立的 `windows-ffi-inputs-sha256-v2` 输入标识，
+包含 Rust 实际字节指纹、共享及 Windows 原生工具指纹、FRB 契约、target/profile/features、源库/复制摘要
 及工具版本诊断信息。校验只读；旧或缺失元数据需要用新命令重编，不能补写指纹。
 PE 检查限定基本 x64 DLL 头，不能替代运行时装载、导出符号或真实 FFI 调用。
+
+2026-10-11 起，应用编排位于 `windows_app.py`，原生 DLL 构建与校验位于 `windows.py`；
+平台输入由 `input_scopes.py` 统一维护，CLI、应用打包及其他平台工具不进入 Windows DLL 指纹。
+本次算法从 v1 迁移至 v2，需要正式重建后生成元数据。
 
 Python 将当前 Cargo 输出目录通过子进程环境 `LEGADO_RUST_FFI_DIR` 交给 CMake。
 Debug 取 Debug DLL，Profile/Release 取 Release DLL；移除缺库时跨 profile 复制 Release 的回退。

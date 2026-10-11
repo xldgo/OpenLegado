@@ -53,7 +53,7 @@ Rustup 目标安装继续由现有 CI 安装步骤负责；本地须自行准备
 1. 保留 `cargo rustc --release --target … --lib --crate-type staticlib --features quickjs`；新增
    `--locked`、显式无默认 feature 和 Cargo JSON 产物确认。成功的增量编译可接受，失败或缺产物消息不能复制旧库。
 2. SDK 继续由 `xcrun --sdk … --show-sdk-path` 选择。`IPHONEOS_DEPLOYMENT_TARGET` 从现有
-   `AppFrameworkInfo.plist` 读取，并要求 Podfile、RustFFI podspec、Xcode 工程声明一致，当前值为 15.0。
+   Podfile 读取，并要求 RustFFI podspec、Xcode 工程声明一致，当前值为 15.0。
    模拟器保持 clang 识别的 `aarch64-apple-ios-simulator` bindgen 参数，含空格路径通过参数解析保留。
    子进程清除继承的 bindgen 目标覆盖值，防止本地从模拟器切回设备时使用错目标参数。
 3. 复制前校验静态归档头、`lipo` 单一 arm64 架构和已定义 PDE 符号；构建前后比较源码与工具输入。
@@ -68,14 +68,15 @@ Rustup 目标安装继续由现有 CI 安装步骤负责；本地须自行准备
 相邻文件 `libliblegado_ffi.a.meta` 使用共用 schema v2，记录：
 
 - Dart/Rust 契约 hash 与实际 FRB runtime/codegen 版本；版本从当前工程读取。
-- Rust 文件树指纹、CLI/工具实现指纹及算法标识 `ios-ffi-inputs-sha256-v1`。
+- Rust 文件树指纹、共享及 iOS 原生工具指纹及算法标识 `ios-ffi-inputs-sha256-v2`。
 - `targetTriple`、arm64、Release、QuickJS、SDK 种类和最低系统版本。
 - Cargo 源库与 RustFFI 复制库 SHA-256、UTC 构建时间，Rust/Cargo/SDK 版本诊断信息。
 
 只读校验不编译、不写文件、不补元数据；缺失、旧 schema、错目标、源码/工具变化或摘要不匹配均失败。
 源码/契约检查、文件摘要和已定义符号检查不能替代真实 Flutter FFI 调用。
 `lipo` 只证明 arm64 架构，设备/模拟器来源由显式 Cargo 目标和元数据约束；元数据不是防恶意篡改的签名。
-本批工具实现变化也会使其他平台旧输入摘要失效，需要按当前入口重编；不能补写新指纹复用旧库。
+平台输入由 `input_scopes.py` 统一维护，CLI、图标/IPA 打包与 Android/Windows 模块不进入
+iOS 静态库指纹；本次算法从 v1 迁移至 v2，需要正式重建后生成元数据。
 
 ## 交付与未测边界
 

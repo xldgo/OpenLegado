@@ -13,8 +13,8 @@ import sys
 import tempfile
 
 from .common import CommandError, ToolError, cargo_artifact, output_directory, read_json, read_text, run_command, sha256_file
-from .ffi_metadata import bridge_contract, unique_match, validate_schema
-from .fingerprint import ALGORITHM, rust_fingerprint, tree_fingerprint
+from .contracts import bridge_contract, unique_match, validate_schema
+from .fingerprint import ALGORITHM, rust_fingerprint, tooling_fingerprint
 from .toolchains import find_tool, rust_environment
 
 
@@ -22,7 +22,7 @@ TARGETS = {
     "device": ("aarch64-apple-ios", "iphoneos"),
     "simulator": ("aarch64-apple-ios-sim", "iphonesimulator"),
 }
-INPUTS_ALGORITHM = "ios-ffi-inputs-sha256-v1"
+INPUTS_ALGORITHM = "ios-ffi-inputs-sha256-v2"
 PDE_SYMBOL = "frb_pde_ffi_dispatcher_primary"
 
 
@@ -68,9 +68,7 @@ def ios_inputs(root: Path, target: str, profile: str) -> dict:
         "features": ["quickjs"],
         "sdk": sdk,
         "deploymentTarget": deployment_target(root),
-        "entrypointSha256": sha256_file(root / "scripts" / "dev.py"),
-        "toolingFingerprint": tree_fingerprint(root / "scripts" / "tooling",
-                                               excluded_dirs=("__pycache__",), excluded_suffixes=(".pyc", ".pyo")),
+        "toolingFingerprint": tooling_fingerprint(root, "ios"),
     }
     digest = hashlib.sha256(json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     # 先报告具体字段变化，再核对包含这些字段的聚合摘要。

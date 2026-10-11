@@ -12,6 +12,7 @@ from unittest.mock import patch
 from support import fixture, write
 from tooling.common import CommandError, ToolError
 from tooling import windows as win
+from tooling import windows_app as app
 
 
 def pe(payload=b"fixture"):
@@ -39,6 +40,7 @@ class WindowsTests(unittest.TestCase):
             patch.dict(os.environ, {"CARGO_TARGET_DIR": str(self.root / "rust" / "target")}),
             patch.object(win, "find_tool", side_effect=lambda name, env: self.root / name),
             patch.object(win, "run_command", side_effect=self.execute),
+            patch.object(app, "run_command", side_effect=self.execute),
         ):
             replacement.start()
             self.addCleanup(replacement.stop)
@@ -61,7 +63,7 @@ class WindowsTests(unittest.TestCase):
             return json.dumps({"reason": "compiler-artifact", "target": {"name": "legado_ffi"},
                                "filenames": [] if self.omit else [str(source)]}) + "\n"
         profile = "release" if "--release" in args else "debug"
-        bundle = win.bundle_directory(self.root, profile)
+        bundle = app.bundle_directory(self.root, profile)
         write(bundle / "flutter_legado.exe", b"new-executable")
         shutil.copyfile(Path(env["LEGADO_RUST_FFI_DIR"]) / profile / "legado_ffi.dll", bundle / "legado_ffi.dll")
         return ""
@@ -136,8 +138,8 @@ class WindowsTests(unittest.TestCase):
                 win.build_windows_ffi(self.root, "debug")
 
     def test_app_build_copies_requested_release_dll(self):
-        with patch.object(win, "flutter_command", return_value=(["flutter"], {})):
-            executable = win.build_windows_app(self.root, "release")
+        with patch.object(app, "flutter_command", return_value=(["flutter"], {})):
+            executable = app.build_windows_app(self.root, "release")
         self.assertTrue(executable.is_file())
         source = win.verify_windows_ffi(self.root, "release")
         self.assertEqual(source.read_bytes(), (executable.parent / source.name).read_bytes())
@@ -146,8 +148,8 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual(env["LEGADO_RUST_FFI_DIR"], str(source.parent.parent))
 
     def test_run_builds_via_flutter_run_once_without_preceding_flutter_build(self):
-        with patch.object(win, "flutter_command", return_value=(["flutter"], {})):
-            win.build_windows_app(self.root, "debug", run=True)
+        with patch.object(app, "flutter_command", return_value=(["flutter"], {})):
+            app.build_windows_app(self.root, "debug", run=True)
         commands = [args for args, _ in self.calls if args[0] == "flutter"]
         self.assertEqual(commands, [["flutter", "run", "-d", "windows", "--debug"]])
 

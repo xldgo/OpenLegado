@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-from support import artifact, fixture
+from support import artifact, fixture, write
 from tooling.fingerprint import rust_fingerprint
 
 
@@ -41,6 +41,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("源库摘要已核对", result.stdout)
         self.assertFalse(list(self.root.rglob("__pycache__")))
+
+    def test_android_cli_does_not_import_unrelated_platform_modules(self):
+        artifact(self.root)
+        for name in ("ios.py", "ios_bundle.py", "windows.py", "windows_app.py"):
+            write(self.root / "scripts" / "tooling" / name, "raise RuntimeError('不得导入其他平台')\n")
+        result = self.run_cli("verify", "ffi", "android", "--profile", "debug", "--abis", "arm64-v8a")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("校验通过", result.stdout)
 
     def test_cli_uses_utf8_when_parent_encoding_is_cp1252(self):
         artifact(self.root)

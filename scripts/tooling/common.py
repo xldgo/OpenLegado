@@ -1,5 +1,6 @@
 """工程工具共用的错误与只读文件操作。"""
 
+import argparse
 import hashlib
 import json
 import os
@@ -98,3 +99,10 @@ def read_json(path: Path) -> dict:
     if type(result) is not dict:
         raise ToolError(f"{path}：JSON 根节点必须是对象。")
     return result
+
+
+def parse_abis(value: str) -> tuple[str, ...]:
+    abis = tuple(part.strip() for part in value.split(","))
+    if not all(abis) or len(abis) != len(set(abis)):
+        raise argparse.ArgumentTypeError("--abis 不能包含空条目或重复 ABI。")
+    return abis

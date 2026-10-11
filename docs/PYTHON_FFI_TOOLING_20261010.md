@@ -1,6 +1,6 @@
 # Python 指纹与只读 FFI 校验
 
-本文保存阶段 B 的设计与验收证据；后续 Android 构建与校验接线已经迁移。
+本文保存指纹协议说明与阶段 B 的历史验收证据；后续 Android 构建与校验接线已经迁移。
 当前命令和旧脚本删除范围见 [Android 构建入口](PYTHON_ANDROID_CLEANUP_20261011.md)，
 不得将本文记录的旧脚本作为当前开发入口。
 
@@ -36,12 +36,14 @@ ABI 空条目、重复条目、未知 ABI 和未批准的模式组合都会失�
 
 ## Rust 指纹
 
-算法标识为 `rust-tree-sha256-v1`：枚举 Rust 树内常规文件，排除任意深度名为 `target`
-的目录；相对路径使用 `/`，逐文件取实际字节 SHA-256，再将
+当前算法标识为 `rust-tree-sha256-v2`：枚举 Rust 树内常规文件，排除任意深度名为 `target`
+的目录，以及确认不参与 Cargo 编译的 `scripts/build-ios.sh`、`scripts/gen_rar5_fixture.py`；
+相对路径使用 `/`，逐文件取实际字节 SHA-256，再将
 `相对路径<TAB>小写摘要<LF>` 按 UTF-8 字节序排序、拼接、取整体 SHA-256。
 不将文件范围改为 Git 已跟踪清单，不归一化 LF/CRLF，读取失败不能省略该文件。
 
-普通文件集合与原脚本保持兼容。对旧流程的歧义采用明确失败规则：Rust 输入中的符号链接
+业务源码、Cargo/锁文件、build.rs 与内嵌资源仍保留，新脚本默认纳入共享输入。
+对旧流程的歧义采用明确失败规则：Rust 输入中的符号链接
 与 Windows 重解析点会失败，避免 Cargo 编译外部文件但指纹未覆盖；含制表符、换行或
 反斜杠的路径不支持。排除的 target 目录不参与这些检查。
 UTF-8 字节排序遵循原 Bash 的口径；原 PowerShell 的 UTF-16 Ordinal 排序在补充平面
@@ -66,8 +68,8 @@ Python 不因为 QuickJS 失败而选择另一组 feature。
 ```json
 {
   "schemaVersion": 2,
-  "fingerprintAlgorithm": "rust-tree-sha256-v1",
-  "buildInputsAlgorithm": "android-ffi-inputs-sha256-v1",
+  "fingerprintAlgorithm": "rust-tree-sha256-v2",
+  "buildInputsAlgorithm": "android-ffi-inputs-sha256-v2",
   "contentHash": -123456,
   "frbCodegenVersion": "2.13.0",
   "rustFingerprint": "<64位小写SHA-256>",
@@ -87,8 +89,9 @@ Python 不因为 QuickJS 失败而选择另一组 feature。
 - JSON 重复字段、非有限数字、缺失字段、字段类型不符和旧 schema 都失败。
 - `buildInputsSha256` 对排序键、紧凑分隔、ASCII 转义的 JSON 输入对象取 SHA-256。
   输入包括算法、Rust 指纹、FRB hash/版本、ABI、target、profile、features、NDK、Clang
-  API、页大小、`dev.py` 摘要和 tooling 目录指纹。tooling 目录排除 `__pycache__`、pyc、pyo。
-  修改 Python 策略或实现也会使旧元数据失效；具体字段实现见 `policy.py`。
+  API、页大小和该平台的工具指纹。文件范围由 `input_scopes.py` 统一维护，包含共享原生模块
+  与对应平台原生模块，不包含 CLI、其他平台模块、打包或代码生成工具；`__pycache__`、pyc、pyo
+  不参与计算，尚未分类的工具文件默认纳入三个平台。具体字段实现见 `policy.py`。
 - `sourceSha256` 代表 Cargo 原库；`packagedSha256` 代表 jniLibs 实际库，允许合法 strip
   后两者不同。这里只核对各自摘要，不在本阶段判断 strip 转换是否合法。
 - 校验 ELF 头的位数、小端格式、ET_DYN 和 machine；它不是完整 ELF 装载验证。
@@ -98,7 +101,18 @@ Python 不因为 QuickJS 失败而选择另一组 feature。
 版本、NDK 安装真实性、编译命令和成功后原子化写入元数据需要下一阶段生产者记录并证明；
 schema v2 不会凭一份声明证明编译已成功。最终 APK strip 比较和真实 FFI 调用仍分别验收。
 
-## 与旧流程的行为差异
+## 平台隔离与协议迁移
+
+公共 FRB 契约/schema 检查放在 `contracts.py`，Android NDK 操作放在 `android_toolchain.py`；
+Windows 应用编排放在 `windows_app.py`，原生 DLL 操作保留在 `windows.py`。CLI 按命令导入模块，
+Android 命令不再加载 iOS/Windows 代码；另一个平台模块变化不会使本平台原生库失效。
+
+Android、Windows、iOS 的 `buildInputsAlgorithm` 均使用各自的 `*-ffi-inputs-sha256-v2`。
+本次改变输入范围，旧 v1 元数据需要由正式构建入口重建后生成 v2 元数据；校验器不改写旧声明。
+`schemaVersion` 仍为 2，库来源、打包摘要、架构、feature 与契约校验保持。
+工具与 CI 编排回归只在独立 Tooling CI 执行一次，平台 workflow 只计算差异并执行所选检查。
+
+## 阶段 B 的历史行为差异
 
 旧 PS、Bash、Gradle 的校验继续原样工作，新命令作为旁路使用。新校验器拒绝缺指纹、
 旧 schema、错误模式/feature、错误摘要与错误 ABI；不扫描库是否含四字节 FRB hash，
@@ -108,7 +122,7 @@ schema v2 不会凭一份声明证明编译已成功。最终 APK strip 比较�
 轻量 CI 前置步骤增加标准库测试，原生构建、签名、发布、手动触发与权限保持既有接线。
 原生产物与模拟器验证按用户要求暂缓，不以合成 ELF fixture 代替这些验证。
 
-## 验证与回滚
+## 阶段 B 的历史验证与回滚
 
 实现提交为 `44a20d28f64fda4f51fd4d13a245498991ed00e9`。本地 Windows Python 3.13.15
 与最低版本 Python 3.11.14 各运行 42 项测试：39 项通过，符号链接权限、FIFO 与非法文件名

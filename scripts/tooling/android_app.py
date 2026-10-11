@@ -12,7 +12,8 @@ from .android import build_android_ffi
 from .common import ToolError, output_directory, run_command, sha256_file
 from .ffi_metadata import verify_android
 from .policy import load_policy, select_target
-from .toolchains import discover_ndk, flutter_command, property_value
+from .android_toolchain import discover_ndk
+from .toolchains import flutter_command, property_value
 
 
 PACKAGE = "io.legado.flutter_legado"

@@ -82,7 +82,7 @@ class MetadataTests(unittest.TestCase):
             self.verify()
 
     def test_tooling_change_invalidates_build_inputs(self):
-        path = self.root / "scripts" / "dev.py"
+        path = self.root / "scripts" / "tooling" / "android.py"
         write(path, path.read_bytes() + b"\n# change\n")
         with self.assertRaisesRegex(ToolError, "buildInputsSha256"):
             self.verify()

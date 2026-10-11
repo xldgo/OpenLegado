@@ -1,7 +1,8 @@
 # CI 编排与按改动选择任务
 
-任务状态只记录于 [Active 计划](REFACTORING_ACTIVE_PLAN.md) 的 `CI-ORCH-20261010`。
-实施基线为 `bdea9b155`，分支 `feature/ui-ci-orchestration`。
+任务状态只记录于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)。最初编排任务为
+`CI-ORCH-20261010`，实施基线 `bdea9b155`；2026-10-11 的工具集中与平台隔离任务为
+`CI-PLATFORM-SCOPING-20261011`，实施基线 dev `d087e3db9`。
 
 ## 决策与范围
 
@@ -22,14 +23,15 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 
 | Workflow | 自动入口 | 手动入口与检查 |
 |---|---|---|
+| Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
 | Flutter CI | `dev/master` push、指向两分支的 PR | 保留手动完整检查；原 `analyze` 作业内按范围执行 SDK 安装、分析和测试 |
 | Rust CI | 同上 | 新增手动完整检查；原 `check` 汇总，所需 quality/tests/audit 必须成功 |
-| Integration Smoke | 同上 | `all/android/windows/routing`；routing 只验证编排，不构建 native；新增 `check` 汇总 |
+| Integration Smoke | 同上 | `all/android/windows`；`check` 汇总所选原生任务的结果；仅验证工具时使用 Tooling CI |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
 | iOS CI | 无自动入口 | 保持仅手动模拟器验证 |
 | Android Release | `v*` tag | 保持手动只构建；Tag 发布条件、产物 ID 和 publish 权限不变 |
 
-Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳过；无关改动也提供
+Tooling/Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳过；无关改动也提供
 轻量检查结果，避免将来设置必需检查时长期 Pending。当前仓库 dev/master 未受保护，
 本批不修改保护或 Ruleset。选择失败、必要任务失败/取消/意外跳过，汇总均失败；
 只有明确判定不需要的 job 才允许 skipped。
@@ -46,11 +48,18 @@ Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳过；�
   编译和复制校验，不替代 APK/Gradle 宿主构建。
 - Rust 生产源码、Cargo 输入、FRB 绑定、Dart native 入口、模型、设备桥接与依赖
   文件覆盖相应原生检查；资源 Markdown 属于应用输入，不作为纯文档忽略。
-- 构建脚本按平台选择；未来 `scripts/dev.py`、`scripts/tooling/**` 和现有
-  `third_party/**` 保守选择所有消费者。workflow 修改选择其自身消费者。
-- 编排脚本/action 修改由每次判定前的轻量测试保护，不因此启动所有原生构建。
-  后续 Python 工具批次在相同前置步骤增加指纹/只读校验测试，routing 可一并验证；
-  方法与独立运行证据见 [工具说明](PYTHON_FFI_TOOLING_20261010.md)。
+- 工具的权威范围为 [input_scopes.py](../scripts/tooling/input_scopes.py)，指纹与路由共用。
+  Android、Windows、iOS 的已分类工具只选择自身平台及 Tooling CI；共享模块、CLI 和
+  尚未分类的工具选择三个原生平台及 Tooling CI，不因工具改动启动 Flutter/Rust 业务测试。
+  打包工具修改仍验证所属平台，但不改变 Rust 库指纹；代码生成工具修改先运行 Tooling CI，
+  真正生成的 Rust/Dart 源码变化再选择各自消费者。
+- Tooling CI 是编排与 Python 工具回归的唯一自动入口；其他 workflow 的本地 action
+  只计算差异。测试、编排脚本/action 修改仅选择 Tooling CI；workflow 修改另选自身消费者。
+  Tooling CI 与原生 workflow 独立运行，不增加跨 workflow 调度依赖；需强制合入门禁时可将
+  Tooling CI 的 `check` 与所需平台检查一起设为必需检查。
+- Rust 树仅排除已核对的宿主驱动脚本 `build-ios.sh`、`gen_rar5_fixture.py`，它们分别选择
+  iOS 和 Rust 验证。新 Rust 脚本默认仍视为共享编译输入。`third_party/**` 保守选择全部消费者。
+  详细指纹口径见 [工具说明](PYTHON_FFI_TOOLING_20261010.md)。
 
 重命名按删除旧路径、新增新路径处理，两侧模块都检查。手动范围覆盖自动差异选择。
 
@@ -58,9 +67,12 @@ Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳过；�
 
 ```powershell
 python -m unittest discover -s .github/scripts -p test_ci_changes.py -v
+python scripts/dev.py test tooling
 .\.tmp_ci_workflow_validation\actionlint.exe
 git diff --check
 ```
+
+以下为最初 `CI-ORCH-20261010` 的历史证据；当前批次结果只回写 Active 计划。
 
 本地 16 项测试通过，覆盖范围矩阵、手动选择、多提交 push、PR 合并差异、删除与
 重命名、中文空格路径、浅检出补取基线、输出与失败汇总。actionlint 与差异检查通过。
@@ -83,3 +95,5 @@ Git 推送使用本次进程的 SSH HTTP CONNECT 代理 `127.0.0.1:7897`，没�
 [任务条件与 needs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idif)。
 
 编写者：Codex｜2026-10-10
+
+修订者：Codex｜2026-10-11（工具回归集中与平台范围共享）

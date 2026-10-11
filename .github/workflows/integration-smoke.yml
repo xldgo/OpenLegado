@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: '选择 Android FFI、Windows FFI，或仅验证编排规则'
+        description: '选择 Android FFI 或 Windows FFI；编排规则改由 Tooling CI 手动验证'
         type: choice
         default: all
-        options: [all, android, windows, routing]
+        options: [all, android, windows]
 
 permissions:
   contents: read

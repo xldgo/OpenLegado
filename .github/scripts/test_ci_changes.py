@@ -16,8 +16,8 @@ class RoutingTests(unittest.TestCase):
             "docs/development.md": set(),
             "flutter_legado/README.md": set(),
             "rust/DEVELOPMENT.md": set(),
-            ".github/scripts/ci_changes.py": set(),
-            ".github/scripts/test_ci_changes.py": set(),
+            ".github/scripts/ci_changes.py": {"tooling"},
+            ".github/scripts/test_ci_changes.py": {"tooling"},
             "flutter_legado/lib/src/screens/bookshelf_screen.dart": {"flutter", "ios_build"},
             "flutter_legado/test/widget/bookshelf_test.dart": {"flutter"},
             "flutter_legado/assets/updateLog.md": {"flutter", "ios_build"},
@@ -27,28 +27,40 @@ class RoutingTests(unittest.TestCase):
             "flutter_legado/lib/src/services/rust_api.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
             "flutter_legado/lib/src/services/rust_api_sources.part.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
             "flutter_legado/lib/src/bridge/frb_generated.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
-            "flutter_legado/pubspec.lock": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
+            "flutter_legado/pubspec.lock": {"flutter", "android_ffi", "windows_ffi", "ios_build", "tooling"},
             "rust/legado-core/src/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/legado-ffi/src/ffi.rs": set(ci.TARGETS),
+            "rust/legado-ffi/src/ffi.rs": set(ci.TARGETS) - {"tooling"},
             "rust/legado-core/tests/reader.rs": {"rust"},
             "rust/legado-core/src/tests/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/legado-server/assets/web/help/md/jsHelp.md": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/Cargo.lock": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/.cargo/config.toml": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/rust-toolchain.toml": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/scripts/build-ios.sh": {"ios_build"},
-            "rust/scripts/gen_rar5_fixture.py": {"rust"},
-            "scripts/emulator_smoke_test.ps1": {"android_ffi"},
-            "scripts/tooling/android_app.py": set(ci.TARGETS),
-            "scripts/tooling/windows.py": set(ci.TARGETS),
-            "scripts/tooling/android.py": set(ci.TARGETS),
-            "scripts/dev.py": set(ci.TARGETS),
+            "rust/scripts/build-ios.sh": {"tooling", "ios_build"},
+            "rust/scripts/gen_rar5_fixture.py": {"tooling", "rust"},
+            "rust/scripts/build-ios-new.sh": {"tooling", "rust", "android_ffi", "windows_ffi", "ios_build"},
+            "rust/scripts/new_input.md": {"tooling", "rust", "android_ffi", "windows_ffi", "ios_build"},
+            "scripts/emulator_smoke_test.ps1": {"tooling", "android_ffi"},
+            "scripts/tooling/android_app.py": {"tooling", "android_ffi"},
+            "scripts/tooling/windows.py": {"tooling", "windows_ffi"},
+            "scripts/tooling/windows_app.py": {"tooling", "windows_ffi"},
+            "scripts/tooling/android.py": {"tooling", "android_ffi"},
+            "scripts/tooling/android_toolchain.py": {"tooling", "android_ffi"},
+            "scripts/tooling/ios.py": {"tooling", "ios_build"},
+            "scripts/tooling/ios_bundle.py": {"tooling", "ios_build"},
+            "scripts/tooling/bridge.py": {"tooling"},
+            "tests/tooling/test_ios.py": {"tooling"},
+            "scripts/tooling/new_tool.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
+            "scripts/tooling/new_data.md": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
+            "scripts/tooling/contracts.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
+            "scripts/dev.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
             "third_party/quickjs/quickjs.c": set(ci.TARGETS),
-            ".github/workflows/flutter-ci.yml": {"flutter"},
-            ".github/workflows/rust-ci.yml": {"rust"},
-            ".github/workflows/integration-smoke.yml": {"android_ffi", "windows_ffi"},
-            ".github/workflows/android-release.yml": {"android_ffi"},
-            ".github/workflows/ios-build.yml": {"ios_build"},
+            ".github/workflows/flutter-ci.yml": {"tooling", "flutter"},
+            ".github/workflows/rust-ci.yml": {"tooling", "rust"},
+            ".github/workflows/integration-smoke.yml": {"tooling", "android_ffi", "windows_ffi"},
+            ".github/workflows/android-release.yml": {"tooling", "android_ffi"},
+            ".github/workflows/ios-build.yml": {"tooling", "ios_build"},
+            ".github/workflows/tooling-ci.yml": {"tooling"},
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
@@ -58,11 +70,11 @@ class RoutingTests(unittest.TestCase):
     def test_multiple_modules_are_combined(self):
         self.assertEqual(ci.classify_paths([
             "flutter_legado/test/widget/a.dart", "rust/legado-core/src/reader.rs",
-        ]), dict.fromkeys(ci.TARGETS, True))
+        ]), {target: target != "tooling" for target in ci.TARGETS})
 
     def test_manual_scope(self):
         for scope, expected in (
-            ("all", set(ci.TARGETS)), ("routing", set()),
+            ("all", set(ci.TARGETS)),
             ("android", {"android_ffi"}), ("windows", {"windows_ffi"}),
         ):
             with self.subTest(scope=scope):
@@ -185,13 +197,14 @@ class GitDiffTests(unittest.TestCase):
     def test_cli_writes_outputs_and_rejects_invalid_scope(self):
         event = self.root / "event.json"
         output = self.root / "outputs.txt"
-        event.write_text(json.dumps({"inputs": {"platform": "routing"}}), encoding="utf-8")
+        event.write_text(json.dumps({"inputs": {"platform": "android"}}), encoding="utf-8")
         environment = dict(os.environ, GITHUB_EVENT_NAME="workflow_dispatch", GITHUB_EVENT_PATH=str(event),
                            GITHUB_OUTPUT=str(output), GITHUB_SHA=self.base, PYTHONIOENCODING="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(output.read_text(encoding="utf-8").splitlines(), [f"{key}=false" for key in ci.TARGETS])
+        self.assertEqual(output.read_text(encoding="utf-8").splitlines(),
+                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in ci.TARGETS])
         event.write_text(json.dumps({"inputs": {"platform": "unknown"}}), encoding="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")

@@ -18,17 +18,7 @@ import os
 from pathlib import Path
 import unittest
 
-from tooling.common import CommandError, ToolError
-from tooling.android import build_android_ffi
-from tooling.android_app import build_android_app, collect_android_apks, verify_android_apk
-from tooling.bridge import generate_bridge, generate_dart
-from tooling.ffi_metadata import verify_android
-from tooling.fingerprint import rust_fingerprint
-from tooling.ios import build_ios_ffi, verify_ios_app, verify_ios_ffi
-from tooling.ios_bundle import (export_ios_plist, package_ios_ipa, prepare_bundle_icons,
-                               verify_bundle_icons, verify_icon_assets, verify_icon_build_log, verify_ios_ipa)
-from tooling.policy import parse_abis
-from tooling.windows import build_windows_app, build_windows_ffi, verify_windows_ffi
+from tooling.common import CommandError, ToolError, parse_abis
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -146,74 +136,96 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "fingerprint":
+            from tooling.fingerprint import rust_fingerprint
             print(rust_fingerprint(ROOT / "rust"))
         elif args.command == "generate":
             if args.component == "dart":
+                from tooling.bridge import generate_dart
                 generate_dart(ROOT)
             else:
+                from tooling.bridge import generate_bridge
                 generate_bridge(ROOT, args.check)
             print("生成复核通过。" if getattr(args, "check", False) else "代码生成完成，请另行重编相应原生库。")
         elif args.command == "build":
             if args.component == "ffi":
                 if args.platform == "windows":
+                    from tooling.windows import build_windows_ffi
                     output = build_windows_ffi(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean)
                     print(f"Windows FFI 构建与校验通过：{output}")
                 elif args.platform == "ios":
+                    from tooling.ios import build_ios_ffi
                     output = build_ios_ffi(ROOT, args.target, args.profile, args.cargo_target_dir)
                     print(f"iOS {args.target} 静态库构建与校验通过：{output}")
                 else:
+                    from tooling.android import build_android_ffi
                     output = build_android_ffi(ROOT, args.profile, args.abis, args.ndk, args.cargo_target_dir)
                     print(f"Android FFI 构建与校验通过：{', '.join(args.abis)}；Cargo 输出：{output}")
             elif args.component == "windows":
+                from tooling.windows_app import build_windows_app
                 output = build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean)
                 print(f"Windows 应用构建与 DLL 复制校验通过：{output}")
             else:
+                from tooling.android_app import build_android_app
                 apks = build_android_app(ROOT, args.profile, args.abis, args.ndk, args.cargo_target_dir,
                                          args.skip_rust, args.clean, args.split_per_abi,
                                          args.install, args.device, args.adb)
                 for apk in apks:
                     print(f"Android APK 构建与包内原生库校验通过：{apk}")
         elif args.command == "run":
+            from tooling.windows_app import build_windows_app
             build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean, run=True)
         elif args.command == "collect":
+            from tooling.android_app import collect_android_apks
             apks = collect_android_apks(ROOT, args.profile, args.abis, args.output_dir, args.ndk, args.cargo_target_dir)
             for apk in apks:
                 print(f"已校验并收集 APK：{apk}")
         elif args.command == "prepare":
+            from tooling.ios_bundle import prepare_bundle_icons
             prepare_bundle_icons(ROOT, args.assets, args.app)
         elif args.command == "package":
+            from tooling.ios_bundle import package_ios_ipa
             output = package_ios_ipa(ROOT, args.app, args.ipa)
             print(f"IPA 打包与完整性校验通过：{output}")
         elif args.command == "export":
+            from tooling.ios_bundle import export_ios_plist
             export_ios_plist(ROOT, args.app, args.output_dir)
             print(f"已导出 plist 诊断文件：{args.output_dir}")
         elif args.command == "verify":
             if args.component == "icons":
                 if args.assets is not None:
+                    from tooling.ios_bundle import verify_icon_assets
                     verify_icon_assets(args.assets)
                     print("六个备选图标的源资产引用文件完整。")
                 elif args.build_log is not None:
+                    from tooling.ios_bundle import verify_icon_build_log
                     verify_icon_build_log(args.build_log)
                     print("actool 无 unassigned children 警告。")
                 else:
+                    from tooling.ios_bundle import verify_bundle_icons
                     verify_bundle_icons(args.app)
                     print("最终 plist 与六个备选图标引用资源完整；运行时能力仍须真机验证。")
             elif args.component == "ipa":
+                from tooling.ios_bundle import verify_ios_ipa
                 verify_ios_ipa(args.ipa)
                 print(f"IPA 完整性、plist 与 Runner 校验通过：{args.ipa}")
             elif args.component == "apk":
+                from tooling.android_app import verify_android_apk
                 verify_android_apk(ROOT, args.apk, args.profile, args.abis, args.ndk, args.cargo_target_dir)
                 print(f"APK 包内原生库校验通过：{args.apk}")
             elif args.component == "app":
+                from tooling.ios import verify_ios_app
                 verify_ios_app(ROOT, args.target, args.profile, args.app, args.cargo_target_dir)
                 print(f"iOS {args.target} 应用 PDE 符号校验通过：{args.app}")
             elif args.platform == "ios":
+                from tooling.ios import verify_ios_ffi
                 output = verify_ios_ffi(ROOT, args.target, args.profile, args.cargo_target_dir)
                 print(f"iOS {args.target} 静态库只读校验通过：{output}")
             elif args.platform == "windows":
+                from tooling.windows import verify_windows_ffi
                 output = verify_windows_ffi(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs)
                 print(f"Windows FFI 只读校验通过：{output}")
             else:
+                from tooling.ffi_metadata import verify_android
                 for result in verify_android(ROOT, args.profile, args.abis, args.cargo_target_dir):
                     source = "源库摘要已核对" if result.source_checked else "未核对 Cargo 源库"
                     print(f"{result.abi}：校验通过（{args.profile}，{source}）")

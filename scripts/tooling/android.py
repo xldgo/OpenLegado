@@ -13,7 +13,8 @@ from .common import ToolError, cargo_artifact, run_command, sha256_file
 from .ffi_metadata import bridge_contract, verify_android, verify_elf
 from .fingerprint import ALGORITHM, rust_fingerprint, tree_fingerprint
 from .policy import INPUTS_ALGORITHM, build_inputs_sha256, load_policy, select_target
-from .toolchains import android_environment, discover_ndk, find_tool, rust_environment
+from .android_toolchain import android_environment, discover_ndk
+from .toolchains import find_tool, rust_environment
 
 
 @contextmanager

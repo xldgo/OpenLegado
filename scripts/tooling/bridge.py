@@ -7,7 +7,7 @@ import shutil
 import tempfile
 
 from .common import ToolError, read_text, run_command
-from .ffi_metadata import bridge_contract, runtime_version, unique_match
+from .contracts import bridge_contract, runtime_version, unique_match
 from .fingerprint import tree_fingerprint
 from .toolchains import dart_environment, find_tool, rust_environment
 

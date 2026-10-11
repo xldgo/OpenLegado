@@ -10,7 +10,11 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGETS = ("flutter", "rust", "android_ffi", "windows_ffi", "ios_build")
+sys.path.insert(0, str(ROOT / "scripts"))
+from tooling.input_scopes import RUST_DRIVERS, tooling_platforms
+
+TARGETS = ("flutter", "rust", "android_ffi", "windows_ffi", "ios_build", "tooling")
+PLATFORM_TARGETS = {"android": "android_ffi", "windows": "windows_ffi", "ios": "ios_build", "rust": "rust"}
 
 
 def classify_paths(paths):
@@ -22,22 +26,26 @@ def classify_paths(paths):
             selected[target] = True
 
     for path in paths:
+        platforms = tooling_platforms(path)
+        if platforms is not None:
+            select("tooling", *(PLATFORM_TARGETS[platform] for platform in platforms))
+            continue
+        if path in RUST_DRIVERS:
+            select("tooling", *(PLATFORM_TARGETS[platform] for platform in RUST_DRIVERS[path]))
+            continue
+        if path.startswith("rust/scripts/"):
+            # 未登记的 Rust 脚本仍在共享源码指纹中，不能仅按名称缩小检查范围。
+            select("tooling", "rust", "android_ffi", "windows_ffi", "ios_build")
+            continue
+        if path.startswith(("tests/tooling/", ".github/actions/", ".github/scripts/", ".github/workflows/")):
+            select("tooling")
         # assets 中的 Markdown 属于打包内容，不能按文档忽略。
         if path.startswith("docs/") or (
             path.endswith((".md", ".rst")) and "assets" not in path.split("/")
         ):
             continue
-        if path.startswith(("scripts/tooling/", "third_party/")) or path in (
-            ".gitmodules", "scripts/dev.py",
-        ):
+        if path.startswith("third_party/") or path == ".gitmodules":
             select(*TARGETS)
-        elif path.startswith("rust/scripts/"):
-            if path.startswith("rust/scripts/build-ios."):
-                select("ios_build")
-            elif path == "rust/scripts/gen_rar5_fixture.py":
-                select("rust")
-            else:
-                select("android_ffi", "windows_ffi", "ios_build")
         elif path.startswith("rust/"):
             select("rust")
             # crate 的集成测试不进入正式原生库。
@@ -61,7 +69,7 @@ def classify_paths(paths):
             else:
                 select("flutter")
                 if relative in ("pubspec.yaml", "pubspec.lock", ".metadata", "flutter_rust_bridge.yaml"):
-                    select("android_ffi", "windows_ffi", "ios_build")
+                    select("tooling", "android_ffi", "windows_ffi", "ios_build")
                 elif relative.startswith(("lib/", "assets/")):
                     select("ios_build")
                 if relative.startswith((
@@ -72,7 +80,7 @@ def classify_paths(paths):
                 )):
                     select("android_ffi", "windows_ffi")
         elif path == "scripts/emulator_smoke_test.ps1":
-            select("android_ffi")
+            select("tooling", "android_ffi")
         elif path == ".github/workflows/flutter-ci.yml":
             select("flutter")
         elif path == ".github/workflows/rust-ci.yml":
@@ -132,8 +140,6 @@ def plan(root, event_name, event, head):
         platform = event.get("inputs", {}).get("platform", "all")
         if platform == "all":
             return dict.fromkeys(TARGETS, True)
-        if platform == "routing":
-            return dict.fromkeys(TARGETS, False)
         if platform in ("android", "windows"):
             selected = dict.fromkeys(TARGETS, False)
             selected[f"{platform}_ffi"] = True

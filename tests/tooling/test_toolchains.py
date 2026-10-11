@@ -11,7 +11,8 @@ from unittest.mock import patch
 from support import fixture, write
 from tooling.common import ToolError, run_command
 from tooling.policy import load_policy
-from tooling.toolchains import AndroidNdk, android_environment, dart_environment, discover_ndk, find_tool
+from tooling.android_toolchain import AndroidNdk, android_environment, discover_ndk
+from tooling.toolchains import dart_environment, find_tool
 
 
 class ToolchainTests(unittest.TestCase):

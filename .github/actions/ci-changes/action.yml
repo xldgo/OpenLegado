@@ -1,6 +1,9 @@
 name: 判定 CI 改动范围
-description: 运行编排回归并按事件差异选择任务；失败时不允许跳过检查。
+description: 按事件差异选择任务；失败时不允许跳过检查，工具回归集中在 Tooling CI。
 outputs:
+  tooling:
+    description: 是否运行工具回归
+    value: ${{ steps.changes.outputs.tooling }}
   flutter:
     description: 是否运行 Flutter 检查
     value: ${{ steps.changes.outputs.flutter }}
@@ -19,12 +22,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: 验证 CI 编排规则
-      shell: bash
-      run: python3 -m unittest discover -s .github/scripts -p test_ci_changes.py -v
-    - name: 验证 Python 指纹与只读 FFI 校验
-      shell: bash
-      run: python3 scripts/dev.py test tooling
     - name: 判定受影响任务
       id: changes
       shell: bash
