@@ -1,3 +1,4 @@
+import '../app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -80,6 +81,9 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
   );
   // [UI-fix v2.0.4 | 2026-08-08] EPUB delTag 位标（对齐 Kotlin Book.hTag=2、
   // Book.rubyTag=4，经 ReadConfig.delTag 位运算持久化） — Qoder
+  final _sourceActionMenuController = MenuController();
+  BookSource? _sourceMenuSource;
+
   static const int _hTag = 2;
   static const int _rubyTag = 4;
 
@@ -103,6 +107,7 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
   @override
   void didUpdateWidget(covariant ReaderTopBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.visible) _sourceActionMenuController.close();
     if (oldWidget.visible != widget.visible) {
       widget.visible
           ? _menuController.forward()
@@ -725,28 +730,31 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
     }
     if (!context.mounted) return;
 
-    final loginUrl = source?.loginUrl ?? '';
-    final sourceName =
-        (source?.bookSourceName ?? book.originName).trim();
+    setState(() => _sourceMenuSource = source);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.visible) _sourceActionMenuController.open();
+    });
+  }
 
-    // 菜单锚在顶栏下缘右侧（徽章位置），不遮挡顶栏内容
-    final screenWidth = MediaQuery.of(context).size.width;
-    final action = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-          screenWidth - 200, kToolbarHeight + 56, 8, 0),
-      items: [
-        if (loginUrl.isNotEmpty)
-          const PopupMenuItem(value: 'login', child: Text('登录源')),
-        // 本地书隐藏章节购买项（对标原版 isLocal 短路）— Qoder
-        if (book.origin != BookType.localTag)
-          const PopupMenuItem(value: 'chapterPay', child: Text('章节购买')),
-        const PopupMenuItem(value: 'editSource', child: Text('编辑源')),
-        const PopupMenuItem(value: 'disableSource', child: Text('禁用源')),
-      ],
-    );
-    if (action == null || !context.mounted) return;
+  List<AppMenuEntry<String>> _sourceActionMenuItems(Book book) => [
+    if ((_sourceMenuSource?.loginUrl ?? '').isNotEmpty)
+      const AppMenuItem(value: 'login', child: Text('登录源')),
+    if (book.origin != BookType.localTag)
+      const AppMenuItem(value: 'chapterPay', child: Text('章节购买')),
+    const AppMenuItem(value: 'editSource', child: Text('编辑源')),
+    const AppMenuItem(value: 'disableSource', child: Text('禁用源')),
+  ];
 
+  Future<void> _handleSourceAction(
+    BuildContext context,
+    Book book,
+    String action,
+  ) async {
+    final api = ref.read(bookApiProvider);
+    final sourceUrl = book.origin;
+    final loginUrl = _sourceMenuSource?.loginUrl ?? '';
+    final sourceName = (_sourceMenuSource?.bookSourceName ?? book.originName).trim();
+    if (!context.mounted) return;
     switch (action) {
       case 'login':
         // 对标原版 menu_login → 登录 V2 页面
@@ -1228,10 +1236,9 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                       // 标题/EPUB 标签清理/有效替换规则，移除与常驻图标
                       // 重复的换源/刷新/缓存/设置编码与原版不存在的
                       // 高级设置项（底栏设置按钮承接） — Qoder）
-                      PopupMenuButton<String>(
+                      AppMenuButton<String>(
                         tooltip: '更多',
                         // 菜单自顶栏正下方展开（项目菜单定位规范）
-                        position: PopupMenuPosition.under,
                         onSelected: (value) async {
                           switch (value) {
                             case 'addBookmark':
@@ -1328,45 +1335,45 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                             // enable_replace → same_title_removed →
                             // re_segment → epub 组(仅 EPUB) → image_style →
                             // update_toc → effective_replaces → log → help
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'addBookmark', child: Text('添加书签')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'highlightRule', child: Text('高亮规则')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'editContent', child: Text('编辑内容')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'pageAnim', child: Text('翻页动画')),
                             // P1-10：WebDAV 已配置时显示（对齐 upMenu AppWebDav.isOk）
                             if (webDavOk) ...[
-                              const PopupMenuItem(
+                              const AppMenuItem(
                                   value: 'getProgress',
                                   child: Text('同步阅读进度')),
-                              const PopupMenuItem(
+                              const AppMenuItem(
                                   value: 'coverProgress',
                                   child: Text('覆盖云端进度')),
                             ],
                             // 反转内容仅在线书可见（对齐 upMenu
                             // isVisible=onLine）
                             if (isOnline)
-                              const PopupMenuItem(
+                              const AppMenuItem(
                                   value: 'reverseContent',
                                   child: Text('反转内容')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'simulatedReading',
                                 child: Text('模拟追读')),
-                            PopupMenuItem(
+                            AppMenuItem(
                               value: 'enableReplace',
                               child: checked('替换规则', replaceOn),
                             ),
                             // [Task #52 | 2026-08-10] 删除重复标题接通章级 FFI
                             // （契约 §2.9.10 toggleSameTitleRemoved；对齐原版
                             // menu_same_title_removed → reverseRemoveSameTitle） — Qoder
-                            PopupMenuItem(
+                            AppMenuItem(
                               value: 'sameTitleRemoved',
                               child:
                                   checked('删除重复标题', _sameTitleRemoved),
                             ),
-                            PopupMenuItem(
+                            AppMenuItem(
                               value: 'reSegment',
                               child: checked('重新分段', segmentOn),
                             ),
@@ -1374,32 +1381,32 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                             // （对齐 menu_group_epub 仅 EPUB 可见，经
                             // ReadConfig.delTag 位标持久化） — Qoder
                             if (isEpub) ...[
-                              PopupMenuItem(
+                              AppMenuItem(
                                 value: 'delRubyTag',
                                 child: checked(
                                     '删除 Ruby 标签', _hasDelTag(book, _rubyTag)),
                               ),
-                              PopupMenuItem(
+                              AppMenuItem(
                                 value: 'delHTag',
                                 child: checked(
                                     '删除 H 标签', _hasDelTag(book, _hTag)),
                               ),
                             ],
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'imageStyle', child: Text('图片样式')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'updateToc', child: Text('更新目录')),
                             // [UI-fix v2.0.4 | 2026-08-08] 有效替换规则只读
                             // 展示（对齐 menu_effective_replaces） — Qoder
-                            PopupMenuItem(
+                            AppMenuItem(
                               value: 'effectiveReplaces',
                               child: Text(_effectiveReplaceCount != null
                                   ? '有效替换规则（$_effectiveReplaceCount 条启用）'
                                   : '有效替换规则'),
                             ),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'log', child: Text('日志')),
-                            const PopupMenuItem(
+                            const AppMenuItem(
                                 value: 'help', child: Text('帮助')),
                           ];
                         },
@@ -1463,6 +1470,12 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                         // 强调色底；承接原底栏“源菜单”入口）
                         if (isOnline) ...[
                           const SizedBox(width: 8),
+                          AppMenuAnchor<String>(
+                            controller: _sourceActionMenuController,
+                            itemBuilder: (_) => _sourceActionMenuItems(book),
+                            onSelected: (action) =>
+                                unawaited(_handleSourceAction(context, book, action)),
+                            builder: (context, controller, _) =>
                           InkWell(
                             borderRadius: BorderRadius.circular(4),
                             onTap: () =>
@@ -1493,6 +1506,7 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
                                             .onPrimary),
                               ),
                             ),
+                          ),
                           ),
                         ],
                       ],

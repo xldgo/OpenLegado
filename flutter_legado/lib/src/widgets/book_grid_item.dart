@@ -101,29 +101,7 @@ class BookGridItem extends StatelessWidget {
                         Positioned(
                           top: 0,
                           right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            constraints: const BoxConstraints(
-                                minWidth: 18, minHeight: 18),
-                            decoration: BoxDecoration(
-                              color: colorScheme.error,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(10),
-                                bottomLeft: Radius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              unreadNum > 99 ? '99+' : '$unreadNum',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: colorScheme.onError,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
-                            ),
-                          ),
+                          child: Badge.count(count: unreadNum, maxCount: 99),
                         ),
                       // 封面底部阅读进度条（对标 pb_read_progress，2dp）
                       if (progress != null)

@@ -38,6 +38,9 @@ abstract class BookshelfState with _$BookshelfState {
     /// 展示层：网格/列表视图模式
     @Default(false) bool isGridView,
 
+    /// 展示层：网格列数
+    @Default(3) int gridColumns,
+
     /// 展示层：分组显示模式
     @Default(GroupMode.none) GroupMode groupMode,
 

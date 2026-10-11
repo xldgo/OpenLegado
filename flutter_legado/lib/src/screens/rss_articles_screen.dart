@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -68,22 +69,22 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
           // [UI-fix v2.0.2 | 2026-08-06] 文章列表菜单（对标原版
           // rss_articles.xml：登录/刷新排序/设置源变量/编辑源/切换布局/
           // 阅读记录/清空，不含搜索） — Qoder
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多',
             onSelected: _handleMenu,
             itemBuilder: (_) => [
               // 对标原版 onMenuOpened：仅 loginUrl 非空时显示登录
               if ((widget.source.loginUrl ?? '').trim().isNotEmpty)
-                const PopupMenuItem(value: 'login', child: Text('登录')),
-              const PopupMenuItem(value: 'refreshSort', child: Text('刷新排序')),
-              const PopupMenuItem(
+                const AppMenuItem(value: 'login', child: Text('登录')),
+              const AppMenuItem(value: 'refreshSort', child: Text('刷新排序')),
+              const AppMenuItem(
                 value: 'setVariable',
                 child: Text('设置源变量'),
               ),
-              const PopupMenuItem(value: 'editSource', child: Text('编辑源')),
-              const PopupMenuItem(value: 'switchLayout', child: Text('切换布局')),
-              const PopupMenuItem(value: 'readRecord', child: Text('阅读记录')),
-              const PopupMenuItem(value: 'clear', child: Text('清空')),
+              const AppMenuItem(value: 'editSource', child: Text('编辑源')),
+              const AppMenuItem(value: 'switchLayout', child: Text('切换布局')),
+              const AppMenuItem(value: 'readRecord', child: Text('阅读记录')),
+              const AppMenuItem(value: 'clear', child: Text('清空')),
             ],
           ),
         ],

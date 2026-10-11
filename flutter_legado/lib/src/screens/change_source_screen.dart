@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -479,11 +480,11 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                             : () => _search(forceRefresh: true),
                       ),
                       // [UI-fix v2.0.2 | 2026-08-06] 高级选项菜单（对标 change_source.xml）— Qoder
-                      PopupMenuButton<String>(
+                      AppMenuButton<String>(
                         tooltip: '高级选项',
                         onSelected: _handleAdvancedMenu,
                         itemBuilder: (_) => [
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'startStop',
                             child: _menuRow(
                               icon: _stopped
@@ -492,21 +493,21 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                               label: _stopped ? '继续刷新' : '停止刷新',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'sourceManage',
                             child: _menuRow(
                               icon: Symbols.settings_rounded,
                               label: '书源管理',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'refreshList',
                             child: _menuRow(
                               icon: Symbols.refresh_rounded,
                               label: '刷新列表',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'checkAuthor',
                             child: _menuRow(
                               icon: _checkAuthor
@@ -515,7 +516,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                               label: '校验作者',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'loadWordCount',
                             child: _menuRow(
                               icon: _loadWordCount
@@ -524,7 +525,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                               label: '加载字数',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'loadInfo',
                             child: _menuRow(
                               icon: _loadInfo
@@ -533,7 +534,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                               label: '加载信息',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'loadToc',
                             child: _menuRow(
                               icon: _loadToc
@@ -542,7 +543,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                               label: '加载目录',
                             ),
                           ),
-                          PopupMenuItem(
+                          AppMenuItem(
                             value: 'group',
                             child: _menuRow(
                               icon: Symbols.group_work_rounded,
@@ -551,7 +552,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                                   : '源分组：$_searchGroup',
                             ),
                           ),
-                          const PopupMenuItem(
+                          const AppMenuItem(
                             value: 'close',
                             child: _MenuRowStatic(
                               icon: Symbols.close_rounded,

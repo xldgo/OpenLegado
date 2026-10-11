@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -248,13 +249,12 @@ class _ReplaceRuleImportConfirmScreenState
                 ? '自定义源分组'
                 : '${_isAddGroup ? '+' : ''}$_groupName'),
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多选项',
             // 菜单在顶栏下方展开，不覆盖顶栏
-            position: PopupMenuPosition.under,
             onSelected: _handleMenu,
             itemBuilder: (_) => [
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_name',
                 checked: _keepName,
                 child: const Text('保留原名'),

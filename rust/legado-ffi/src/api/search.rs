@@ -1551,11 +1551,7 @@ fn parse_search_response_ex(
         // 多标签按原版 BookList.kt:230 `getStringList(ruleKind)?.joinToString(",")` 用逗号分隔：
         // 批量路径 css_vec_to_string 已把多匹配以 \n 连接，此处将 \n 换为 ,（等价于 joinToString(",")，
         // 复用共享 CSS 解析、零额外 parse，不回退 2026-08-18 搜索提速）。
-        let kind = if field_str(2).is_empty() {
-            None
-        } else {
-            Some(field_str(2).replace('\n', ","))
-        };
+        let kind = legado_core::book_help::normalize_book_kind(&field_str(2));
 
         // [P3-6 阶段三 | BookList.kt:236-238] precision filter:原版在 getSearchItem
         // 中以 (name, author, kind) 调用 filter,不命中即丢弃该条(precision 关闭时全通过)。
@@ -2101,33 +2097,7 @@ pub(crate) use legado_fetcher::book_type::book_type_of_source;
 /// 纯数字 >10000 → 「x.x万字」；>0 → 「n字」；非数字原样；空/<=0 → None）
 ///
 /// `pub(crate)`：explore 链路复用（发现页修复 A7）。— DeepSeek Harness + Bridge
-pub(crate) fn word_count_format(raw: &str) -> Option<String> {
-    let t = raw.trim();
-    if t.is_empty() {
-        return None;
-    }
-    // [R-NaN 数据源清洗 | 2026-09-17] "NaN"（书源字数规则缺失数值时 JS 侧
-    // 字符串化产物，或页面文案）非合法字数文本：原版非数字原样透传会把
-    // "NaN" 渲染进标签，此处视为无数据。
-    if t.eq_ignore_ascii_case("NaN") {
-        return None;
-    }
-    match t.parse::<i64>() {
-        Ok(n) if n > 10000 => {
-            let v = n as f64 / 10000.0;
-            let scaled = (v * 10.0).round();
-            let s = if scaled % 10.0 == 0.0 {
-                format!("{}", scaled as i64 / 10)
-            } else {
-                format!("{:.1}", scaled / 10.0)
-            };
-            Some(format!("{s}万字"))
-        }
-        Ok(n) if n > 0 => Some(format!("{n}字")),
-        Ok(_) => None,
-        Err(_) => Some(t.to_string()),
-    }
-}
+pub(crate) use legado_core::book_help::format_book_word_count as word_count_format;
 
 /// 解析 URL（将相对路径转为绝对路径）
 fn resolve_url(url: &str, base_url: &str) -> String {
@@ -2244,8 +2214,7 @@ async fn search_js_source(
                 kind: v
                     .get("kind")
                     .and_then(|k| k.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
+                    .and_then(legado_core::book_help::normalize_book_kind),
                 word_count: v
                     .get("wordCount")
                     .and_then(|w| w.as_str())

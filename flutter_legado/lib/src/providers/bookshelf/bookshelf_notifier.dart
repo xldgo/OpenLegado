@@ -18,6 +18,8 @@ export 'bookshelf_state.dart';
 /// - 禁止包含业务计算（排序/过滤/规则解析由 Rust 完成）
 class BookshelfNotifier extends Notifier<BookshelfState> {
   final SettingsService _settings = SettingsService();
+  static const _gridColumnsKey = 'bookshelf_grid_columns';
+  static const _groupModeKey = 'bookshelf_group_mode';
 
   @override
   BookshelfState build() {
@@ -31,12 +33,20 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     return const BookshelfState();
   }
 
-  /// 加载持久化的书架偏好设置（网格/列表布局）
-  // [红线清理 2.0.260 | 台账 1-3] 统计行/最近阅读行移除后，偏好仅剩布局
+  /// 加载持久化的布局、网格列数和分组方式
   Future<void> _loadSettings() async {
     final isGridView = await _settings.getBookshelfLayout();
+    final gridColumns = await _settings.getIntPref(_gridColumnsKey, defaultValue: 3);
+    final groupName = await _settings.getStringPref(_groupModeKey);
     if (!ref.mounted) return;
-    state = state.copyWith(isGridView: isGridView);
+    state = state.copyWith(
+      isGridView: isGridView,
+      gridColumns: gridColumns.clamp(2, 6),
+      groupMode: GroupMode.values.firstWhere(
+        (mode) => mode.name == groupName,
+        orElse: () => GroupMode.none,
+      ),
+    );
   }
 
   /// 调用 Rust API 获取书籍列表
@@ -244,6 +254,25 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     final newValue = !state.isGridView;
     state = state.copyWith(isGridView: newValue);
     await _settings.setBookshelfLayout(newValue);
+  }
+
+  /// 对话框确认后一次应用并保存展示偏好
+  Future<void> setLayout({
+    required bool isGridView,
+    required int gridColumns,
+    required GroupMode groupMode,
+  }) async {
+    final columns = gridColumns.clamp(2, 6);
+    state = state.copyWith(
+      isGridView: isGridView,
+      gridColumns: columns,
+      groupMode: groupMode,
+    );
+    await Future.wait([
+      _settings.setBookshelfLayout(isGridView),
+      _settings.setIntPref(_gridColumnsKey, columns),
+      _settings.setStringPref(_groupModeKey, groupMode.name),
+    ]);
   }
 
   /// 设置分组模式

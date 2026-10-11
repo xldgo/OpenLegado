@@ -359,7 +359,7 @@ extension _SearchBuilders on _SearchScreenState {
         // ① 设置⚙ → 设置弹层（书源管理/精准搜索/标识读过的书籍/日志，
         // 原 ⋮ 静态项并入；锚定 ⚙ 钮下方，替代原 _menuButtonKey 定位）
         // 图标对齐参考版：齿轮（Settings，非默认 ⋮），实心深色（onSurface）
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           key: _menuButtonKey,
           tooltip: '设置',
           icon: Icon(
@@ -394,23 +394,23 @@ extension _SearchBuilders on _SearchScreenState {
 
   /// [1-6 ①] ⚙ 设置弹层项（原 ⋮ 菜单「设置类」静态项并入；
   /// 动态范围项归 ◯ 弹层，见 [_SearchScopeSheet] 范围快捷节）
-  List<PopupMenuEntry<String>> _buildSettingsMenuItems() {
+  List<AppMenuEntry<String>> _buildSettingsMenuItems() {
     return [
-      CheckedPopupMenuItem(
+      AppMenuItem(
         value: 'precision',
         checked: _precision,
         child: const Text('精准搜索'),
       ),
       // 对标原版 show_search_read_record：「标识读过的书籍」
-      CheckedPopupMenuItem(
+      AppMenuItem(
         value: 'readRecord',
         checked: _showReadRecord,
         child: const Text('标识读过的书籍'),
       ),
-      const PopupMenuItem(value: 'sources', child: Text('书源管理')),
+      const AppMenuItem(value: 'sources', child: Text('书源管理')),
       // [UI-fix v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen
       //（对标原版 menu_log → AppLogDialog） — Qoder
-      const PopupMenuItem(value: 'log', child: Text('日志')),
+      const AppMenuItem(value: 'log', child: Text('日志')),
     ];
   }
 

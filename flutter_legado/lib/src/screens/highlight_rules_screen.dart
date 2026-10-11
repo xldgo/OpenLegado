@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -125,7 +126,7 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
             subtitle: '点击右上角「+」新增自动高亮规则',
           );
         }
-        // iOS grouped list：规则卡片 + hairline 分隔
+          // 规则分组沿用设置卡片与分隔线样式。
         // [UI_SYNC_REFACTOR R3] 规则列表快速滚动条
         return Md3FastScroller(
           controller: _fsController,
@@ -133,15 +134,11 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
             controller: _fsController,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
-              Card(
-                child: Column(
+                SettingsGroup(
                   children: [
-                    for (var i = 0; i < state.rules.length; i++) ...[
-                      if (i > 0) const Divider(height: 1, indent: 16),
-                      _buildRuleTile(context, state.rules[i], cs),
+                    for (final rule in state.rules)
+                      _buildRuleTile(context, rule, cs),
                     ],
-                  ],
-                ),
               ),
             ],
           ),
@@ -394,18 +391,15 @@ class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
               ),
             ),
             const SizedBox(height: 4),
-            // [LAYOUT_PLAN P1] 开关行无 Chevron（SwitchListTile 自带无箭头，
-            // 等价 showChevron=false）；标题字级走 M3 Type Scale
-            SwitchListTile(
+            SettingSwitchRow(
               contentPadding: EdgeInsets.zero,
-              title: const Text('使用正则表达式'),
+              title: '使用正则表达式',
               value: _isRegex,
               onChanged: (v) => setState(() => _isRegex = v),
             ),
-            // [LAYOUT_PLAN P1] 同上：开关行无 Chevron，等价 showChevron=false
-            SwitchListTile(
+            SettingSwitchRow(
               contentPadding: EdgeInsets.zero,
-              title: const Text('应用到标题'),
+              title: '应用到标题',
               value: _applyToTitle,
               onChanged: (v) => setState(() => _applyToTitle = v),
             ),

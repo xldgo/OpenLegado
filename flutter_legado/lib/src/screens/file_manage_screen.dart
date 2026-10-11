@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/bottom_sheet_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -214,39 +215,10 @@ class _FileManageScreenState extends State<FileManageScreen> {
       child: AppScaffold(
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
         topBar: LegadoAppBar(
-          title: TextField(
-            controller: _searchCtrl,
-            decoration: InputDecoration(
-              // 对标原版 queryHint：筛选 • 文件管理
-              hintText: '筛选 · 文件管理',
-              filled: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              prefixIcon: const Icon(Symbols.search_rounded, size: 20),
-              suffixIcon: _filter.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Symbols.close_rounded, size: 18),
-                      onPressed: () => _searchCtrl.clear(),
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(35),
-                borderSide: BorderSide.none,
+          title: AppSearchField(controller: _searchCtrl, hintText: '筛选 · 文件管理'),
               ),
-              // [B3] 搜索胶囊：无描边无底线、聚焦零变化
-              // （显式声明防主题底部指示线渗入）
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(35),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(35),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-        body: Builder(builder: (context) {
+        body: Builder(
+          builder: (context) {
           if (_rootDoc == null && _error == null) {
             return const LoadingIndicator(message: '加载文件...');
           }
@@ -339,9 +311,10 @@ class _FileManageScreenState extends State<FileManageScreen> {
         final isDir = FileSystemEntity.isDirectorySync(entity.path);
         final name = _baseName(entity.path);
         return ListTile(
-          // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 16,
+          ),
           leading: Icon(
             isDir ? Symbols.folder_rounded : Symbols.insert_drive_file_rounded,
             color: isDir ? cs.primary : cs.onSurfaceVariant,
@@ -351,7 +324,7 @@ class _FileManageScreenState extends State<FileManageScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           subtitle: isDir
               ? null

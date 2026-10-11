@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -222,7 +223,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       topBar: LegadoAppBar(
         title: const Text('分组管理'),
         actions: [
-          PopupMenuButton<_GroupSort>(
+          AppMenuButton<_GroupSort>(
             tooltip: '排序方式',
             icon: const Icon(Symbols.sort_rounded),
             onSelected: (s) => setState(() => _sort = s),
@@ -243,8 +244,8 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     );
   }
 
-  PopupMenuItem<_GroupSort> _sortItem(_GroupSort value, String label) {
-    return PopupMenuItem(
+  AppMenuItem<_GroupSort> _sortItem(_GroupSort value, String label) {
+    return AppMenuItem(
       value: value,
       child: Row(
         children: [
@@ -354,12 +355,12 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
                 onChanged: (_) => _toggleShow(group),
               ),
             ),
-            PopupMenuButton<String>(
+            AppMenuButton<String>(
               onSelected: (action) => _handleAction(action, group),
               itemBuilder: (_) => [
-                PopupMenuItem(value: 'assign', child: Text('分配书籍')),
-                PopupMenuItem(value: 'edit', child: Text(AppStrings.edit)),
-                PopupMenuItem(
+                AppMenuItem(value: 'assign', child: Text('分配书籍')),
+                AppMenuItem(value: 'edit', child: Text(AppStrings.edit)),
+                AppMenuItem(
                   value: 'delete',
                   child: Text(AppStrings.delete,
                       style: TextStyle(color: Theme.of(context).colorScheme.error)),

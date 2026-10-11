@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -278,192 +279,32 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
       ),
       // 原版 main_bookshelf.xml 无常驻视图切换按钮，网格/列表切换在溢出菜单「布局设置」
-      // [parity C3 B2] 触发钮为裸 ⋮ 图标（对齐参考 03b 顶栏 ⋮ 位置，无圆底）；
-      // 菜单本体由自绘「图标+分体圆角卡」页面承接（_showCardMenu），
-      // 替换原 PopupMenuButton 下拉形态（台账 1-4①：参考每项带图标+分体圆角卡）
-      IconButton(
-        icon: const Icon(Symbols.more_vert_rounded),
+      AppMenuButton<String>(
         tooltip: '更多',
-        onPressed: () => _showCardMenu(context, ref),
+        itemBuilder: (_) => _buildShelfMenuItems(),
+        onSelected: (action) => _handleMenuAction(context, ref, action),
       ),
     ];
   }
 
-  // ===== [parity C3 B2] 自绘「图标+圆角卡」溢出菜单 =====
-  //
-  // [P2-31] 形态对齐参考版（RoundDropdownMenu 非 Miuix 分支：M3
-  // DropdownMenu shape=medium / shadowElevation 4 / surfaceContainerLow）——
-  // 由「全屏不透明白底 + 右侧竖板」改为「浮层」：
-  // · 背景书架内容保持可见（route opaque=false）；
-  // · 半透明 scrim（_kMenuScrimColor，alpha≈0.25）压暗整屏，点按关闭；
-  // · 右侧一枚圆角 16 + 阴影浮卡（surfaceContainerLow）承载菜单项，
-  //   高度受限可滚动；卡内 24dp 图标（onSurface）距左 15dp + 14sp 标签。
-  // 首屏 11 项顺序/文案/功能项不动（台账 1-4），图标逐项对齐参考版
-  // （见 _cardMenuItems [P2-31] 注），我方特有项保留（双基准原则）。
-
-  List<_CardMenuItem> _cardMenuItems(WidgetRef ref) {
-    final state = ref.read(bookshelfNotifierProvider);
+  List<AppMenuEntry<String>> _buildShelfMenuItems() {
+    AppMenuItem<String> item(String action, String label, IconData icon) =>
+        AppMenuItem(value: action, leadingIcon: Icon(icon), child: Text(label));
     return [
-      // [UI-parity 2.0.257] 首屏 11 项对齐参考版书架溢出菜单顺序
-      // （远程书籍/添加本地/更新目录/布局设置/分组管理/添加网址/
-      // 选择模式/书架管理/导出书单/导入书单/日志），使「导出书单/导入
-      // 书单/日志」首屏可见（此前 14 项+4 分割线把三项挤到滚动区外，
-      // 台账 1-4② 误判为功能缺失）
-      // [parity C3 B3] 文案对齐参考版：「添加远程书籍」→「远程书籍」、
-      // 「书架布局」→「布局设置」
-      // [P2-31] 图标逐项对齐参考版 BookshelfScreen 溢出菜单
-      // （Wifi/Save/Refresh/GridView/ViewCarousel/Link/Edit/Bookmarks/
-      // UploadFile/CloudDownload/History → 映射 material_symbols rounded）
-      _CardMenuItem('remote', '远程书籍', Symbols.wifi_rounded),
-      _CardMenuItem('import', AppStrings.addLocalBook, Symbols.save_rounded),
-      _CardMenuItem('update_all', AppStrings.updateAll, Symbols.refresh_rounded),
-      _CardMenuItem('layout', '布局设置', Symbols.grid_view_rounded),
-      _CardMenuItem('groups', '分组管理', Symbols.view_carousel_rounded),
-      _CardMenuItem('add_url', '添加网址', Symbols.link_rounded),
-      _CardMenuItem('select_mode', '选择模式', Symbols.edit_rounded),
-      _CardMenuItem('manage', AppStrings.manageBookshelf, Symbols.bookmarks_rounded),
-      _CardMenuItem('export_list', '导出书单', Symbols.upload_file_rounded),
-      _CardMenuItem('import_list', '导入书单', Symbols.cloud_download_rounded),
-      _CardMenuItem('log', '日志', Symbols.history_rounded),
-      // 我方特有项（双基准原则保留不删）：离线缓存（对应原版
-      // menu_download 缓存/导出）+ 分组展示模式 + 书源管理
-      _CardMenuItem('offline_cache', '离线缓存', Symbols.wifi_off_rounded),
-      // 分组模式三项：图标列用单选钮勾选态（对标原 _buildGroupModeItem 语义）
-      _CardMenuItem(
-          'group_none', '不分组',
-          _radioIcon(state.groupMode == GroupMode.none)),
-      _CardMenuItem(
-          'group_source', '按来源分组',
-          _radioIcon(state.groupMode == GroupMode.bySource)),
-      _CardMenuItem(
-          'group_group', '按分组显示',
-          _radioIcon(state.groupMode == GroupMode.byGroup)),
-      _CardMenuItem('sources', AppStrings.sourceManagement, Symbols.database_rounded),
+      item('remote', '远程书籍', Symbols.wifi_rounded),
+      item('import', AppStrings.addLocalBook, Symbols.save_rounded),
+      item('update_all', AppStrings.updateAll, Symbols.refresh_rounded),
+      item('layout', '布局设置', Symbols.grid_view_rounded),
+      item('groups', '分组管理', Symbols.view_carousel_rounded),
+      item('add_url', '添加网址', Symbols.link_rounded),
+      item('select_mode', '选择模式', Symbols.edit_rounded),
+      item('manage', AppStrings.manageBookshelf, Symbols.bookmarks_rounded),
+      item('offline_cache', '离线缓存', Symbols.download_for_offline_rounded),
+      item('export_list', '导出书单', Symbols.upload_file_rounded),
+      item('import_list', '导入书单', Symbols.cloud_download_rounded),
+      item('log', '日志', Symbols.history_rounded),
     ];
   }
-
-  /// 打开自绘卡菜单页（全屏 route）；返回被点选 action 后统一分发
-  Future<void> _showCardMenu(BuildContext context, WidgetRef ref) async {
-    final action = await Navigator.push<String>(
-      context,
-      _CardMenuRoute(_buildCardMenuPage(context, ref)),
-    );
-    if (action == null || !context.mounted) return;
-    _handleMenuAction(context, ref, action);
-  }
-
-  /// [P2-31] 菜单页：参考版浮层形态——
-  /// 背景书架内容保持可见（route opaque=false），半透明 scrim 压暗整屏，
-  /// 右侧一枚圆角阴影浮卡承载菜单项（对标参考 RoundDropdownMenu 非 Miuix
-  /// 分支：M3 DropdownMenu shape=medium / shadowElevation 4 /
-  /// surfaceContainerLow），点 scrim 关闭。11 项功能行为不变。
-  Widget _buildCardMenuPage(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final items = _cardMenuItems(ref);
-    final cardColor = colorScheme.surfaceContainerLow; // 浮卡（近白）
-    final onSurface = colorScheme.onSurface;
-
-    Widget buildCard(int index, _CardMenuItem item) {
-      // 浮卡内条目：透明行（浮卡统一底色），段间以加宽间距分隔
-      final isSectionBreak = _isSectionBreak(items, index);
-      return Padding(
-        padding: EdgeInsets.only(
-          top: index == 0 ? 8 : (isSectionBreak ? 16 : 4),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => Navigator.pop(context, item.action),
-          child: SizedBox(
-            height: 48,
-            child: Row(
-              children: [
-                // 图标列：距卡左 15dp、宽 24dp（量测 15..33dp）
-                Padding(
-                  padding: const EdgeInsets.only(left: 15),
-                  child: Icon(item.icon, size: 24, color: onSurface),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: onSurface,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Stack(
-      children: [
-        // [P2-31] 半透明 scrim：压暗后方书架（内容仍可见），点按关闭
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.pop(context),
-            child: ColoredBox(
-              // [P2-31] 稳定键值（widget 测试以同名字面量断言 scrim 存在；
-              // 不导出命名常量，保证修复前测试亦可编译 → 干净红→绿）
-              key: const ValueKey<String>('bookshelf_menu_scrim'),
-              color: _kMenuScrimColor,
-            ),
-          ),
-        ),
-        // [P2-31] 右侧浮卡：圆角 16 + 阴影（对标参考 surfaceContainerLow
-        // 卡 + shadowElevation 4），高度受限可滚动
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final maxCardHeight = constraints.maxHeight * 0.7;
-            return Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxCardHeight),
-                  // Material 提供浮卡底色 + 圆角 + 落影（elevation 4 对标
-                  // 参考 shadowElevation 4），并为卡内 InkWell 提供 Material
-                  // 祖先（ink 涟漪画布）
-                  child: Material(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    elevation: 4,
-                    child: SizedBox(
-                      width: 232,
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 8,
-                        ),
-                        itemCount: items.length,
-                        itemBuilder: (_, i) => buildCard(i, items[i]),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  /// 分组模式项的单选钮图标（checked=当前选中模式）
-  static IconData _radioIcon(bool checked) =>
-      checked ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded;
-
-  /// 原分割线位置（首屏 11 项后 / 分组模式三项后）→ 卡间 16dp 加宽
-  /// （卡片分体形态下以间距替代 PopupMenuDivider）
-  static bool _isSectionBreak(List<_CardMenuItem> items, int index) =>
-      index == 12 || index == 16;
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bookshelfNotifierProvider);
@@ -472,20 +313,21 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       // [LAYOUT_PLAN P4] 首屏 Skeleton 接线：按当前视图模式渲染网格/列表骨架
       // （shimmer 1200ms 已在 skeleton.dart 实现），替代整页 LoadingIndicator
       if (state.isGridView) {
-        // [parity fix 2.0.264 补修 | 台账 1-3] 骨架与正式 3 列大封面网格同构
-        // （cell aspect 同按实际宽计算，封面 5:7 不被压方形）
+        // 骨架与当前网格列数保持一致，封面按实际宽度保留 5:7 比例。
         return LayoutBuilder(
           builder: (context, constraints) {
             return GridView.builder(
               padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+                crossAxisCount: state.gridColumns,
                 mainAxisSpacing: 20,
                 crossAxisSpacing: 20,
-                childAspectRatio:
-                    _bookshelfGridCellAspectRatio(constraints.maxWidth - 44),
+                childAspectRatio: _bookshelfGridCellAspectRatio(
+                  constraints.maxWidth - 44,
+                  state.gridColumns,
+                ),
               ),
-              itemCount: 6,
+              itemCount: state.gridColumns * 2,
               itemBuilder: (_, _) => const GridSkeletonItem(),
             );
           },
@@ -616,27 +458,21 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   Widget _buildGridSliver(
       BuildContext context, WidgetRef ref, List<Book> books, double viewportWidth) {
-    // [parity fix 2.0.264 | 台账 1-3] 3 列固定卡宽网格（对齐参考 03b 量测：
-    // 卡宽≈屏宽 27%/列间距 20/左右边距 22；卡片=大封面+居中标题；书少时
-    // 右侧格子自然留空，不撑满/居中放大——此前 2 列（卡宽≈44%）系参考误读，
-    // 0915 用户实测指出后修正）
-    // [parity fix 2.0.264 补修 | 台账 1-3] cell 宽高比不再固定 5/7：固定值
-    // 把「封面 5:7 + 标题行 40dp」整格按 5:7 定高，BookGridItem 的 Expanded
-    // 封面被标题行挤占后实测压成 ≈1:0.97 方形（复审指出）。viewportWidth
-    // 由上层 LayoutBuilder 取视口实际宽度传入（SDK 无 SliverPadding.builder，
-    // 改在 box 层取宽），按 cellH = cellW×7/5 + 40 计算 cell aspect，封面
-    // 恢复精确 5:7。
+    // 按选定列数计算卡片宽高，保留封面 5:7 与书名行的高度。
+    final columns = ref.watch(
+      bookshelfNotifierProvider.select((state) => state.gridColumns),
+    );
     final available = viewportWidth - 44; // 扣除左右 padding 22×2
     return SliverPadding(
       // 内容边距：左右 22（参考边距 22px）+ 上下 8
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
       sliver: SliverGrid.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+          crossAxisCount: columns,
           // 网格间距 20dp（参考卡列间距 20px）
           mainAxisSpacing: 20,
           crossAxisSpacing: 20,
-          childAspectRatio: _bookshelfGridCellAspectRatio(available),
+          childAspectRatio: _bookshelfGridCellAspectRatio(available, columns),
         ),
         itemCount: books.length,
         itemBuilder: (context, index) =>
@@ -645,15 +481,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     );
   }
 
-  /// [parity fix 2.0.264 补修 | 台账 1-3] 书架 3 列大封面网格 cell 宽高比：
-  /// cell = 封面（精确 5:7）+ 书名行 40dp（BookGridItem：Expanded 封面 +
-  /// SizedBox(height:40) 标题）。[availableWidth] 为扣除左右 padding 22×2
-  /// 后的网格内容宽。360dp 屏：cellW=92dp → cellH=168.8dp → 0.5450（而非
-  /// 固定 0.714，后者令封面被压成方形）。
-  double _bookshelfGridCellAspectRatio(double availableWidth) {
+  /// 网格单元由 5:7 封面和 40dp 书名行组成。
+  double _bookshelfGridCellAspectRatio(double availableWidth, int columns) {
     const crossSpacing = 20.0;
     const titleHeight = 40.0;
-    final cellWidth = (availableWidth - 2 * crossSpacing) / 3;
+    final cellWidth = (availableWidth - (columns - 1) * crossSpacing) / columns;
     return cellWidth / (cellWidth * 7 / 5 + titleHeight);
   }
 
@@ -1031,14 +863,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       case 'groups':
         Navigator.pushNamed(context, AppRoutes.bookGroups);
       case 'layout':
-        // 原版书架布局切换：Flutter 映射为网格/列表视图切换
-        ref.read(bookshelfNotifierProvider.notifier).toggleViewMode();
-      case 'group_none':
-        ref.read(bookshelfNotifierProvider.notifier).setGroupMode(GroupMode.none);
-      case 'group_source':
-        ref.read(bookshelfNotifierProvider.notifier).setGroupMode(GroupMode.bySource);
-      case 'group_group':
-        ref.read(bookshelfNotifierProvider.notifier).setGroupMode(GroupMode.byGroup);
+        _showLayoutDialog();
       case 'export_list':
         // [UI-fix v2.0.2 | 2026-08-06] 导出书单对齐 Kotlin exportBookshelf（JSON 数组文件） — Qoder
         _exportBookshelf();
@@ -1048,9 +873,72 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       case 'log':
         // [UI-fix v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen（对标原版 menu_log → AppLogDialog） — Qoder
         Navigator.pushNamed(context, AppRoutes.appLog);
-      case 'sources':
-        Navigator.pushNamed(context, AppRoutes.sources);
     }
+  }
+
+  Future<void> _showLayoutDialog() async {
+    final state = ref.read(bookshelfNotifierProvider);
+    var layout = state.isGridView ? state.gridColumns : 0;
+    var groupMode = state.groupMode;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('布局设置'),
+        content: SizedBox(
+          width: 320,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownMenu<int>(
+                initialSelection: layout,
+                selectOnly: true,
+                expandedInsets: EdgeInsets.zero,
+                label: const Text('布局方式'),
+                dropdownMenuEntries: [
+                  const DropdownMenuEntry(value: 0, label: '列表'),
+                  for (var columns = 2; columns <= 6; columns++)
+                    DropdownMenuEntry(value: columns, label: '网格（$columns 列）'),
+                ],
+                onSelected: (value) {
+                  if (value != null) layout = value;
+                },
+              ),
+              const SizedBox(height: 20),
+              DropdownMenu<GroupMode>(
+                initialSelection: groupMode,
+                selectOnly: true,
+                expandedInsets: EdgeInsets.zero,
+                label: const Text('分组方式'),
+                dropdownMenuEntries: const [
+                  DropdownMenuEntry(value: GroupMode.none, label: '不分组'),
+                  DropdownMenuEntry(value: GroupMode.bySource, label: '按来源分组'),
+                  DropdownMenuEntry(value: GroupMode.byGroup, label: '按分组显示'),
+                ],
+                onSelected: (value) {
+                  if (value != null) groupMode = value;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(bookshelfNotifierProvider.notifier).setLayout(
+      isGridView: layout != 0,
+      gridColumns: layout == 0 ? state.gridColumns : layout,
+      groupMode: groupMode,
+    );
   }
 
   /// 导出书单（对标 Kotlin BookshelfViewModel.exportBookshelf）：
@@ -1607,41 +1495,3 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 }
-
-/// [parity C3 B2] 自绘卡菜单条目（action + 文案 + 图标）
-class _CardMenuItem {
-  final String action;
-  final String label;
-  final IconData icon;
-
-  const _CardMenuItem(this.action, this.label, this.icon);
-}
-
-/// [P2-31] 菜单页路由：整页淡入（浮层形态）。
-/// [P2-31] opaque=false —— 背景书架内容保持可见（对标参考
-/// RoundDropdownMenu 浮层，而非全屏不透明覆盖）；scrim + 浮卡见
-/// _buildCardMenuPage。
-class _CardMenuRoute extends PageRouteBuilder<String> {
-  _CardMenuRoute(Widget page)
-      : super(
-          opaque: false,
-          transitionDuration: const Duration(milliseconds: 200),
-          reverseTransitionDuration: const Duration(milliseconds: 150),
-          pageBuilder: (_, _, _) => page,
-        );
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return FadeTransition(opacity: animation, child: child);
-  }
-}
-
-/// [P2-31] 菜单 scrim 色（半透明压暗，书架内容仍透出）。
-/// 半透明（alpha 0x40 ≈ 0.25）保证后方书架内容透出可见（浮层形态，
-/// 而非修复前的全屏不透明白底）。
-const Color _kMenuScrimColor = Color(0x40000000);

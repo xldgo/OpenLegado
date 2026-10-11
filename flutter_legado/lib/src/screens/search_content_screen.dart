@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -13,7 +14,6 @@ import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../widgets/app_progress_indicator.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/pill_divider.dart';
 
 /// 单条正文搜索结果
 class _ContentMatch {
@@ -377,7 +377,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
             IconButton(icon: const Icon(Symbols.close_rounded), onPressed: _cancelSearch),
           // [C4 对齐 | Qoder UI] 搜索选项菜单（对齐原版 content_search 菜单：
           // 替换 / 正则 两项可勾选，原版为 overflow 菜单 app:showAsAction="never"）
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '搜索选项',
             onSelected: (v) {
               setState(() {
@@ -403,32 +403,32 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
               if (_query.isNotEmpty) unawaited(_search(_query));
             },
             itemBuilder: (_) => [
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'replace',
                 checked: _SearchContentOptions.useReplace,
                 child: const Text('替换'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'regex',
                 checked: _SearchContentOptions.useRegex,
                 child: const Text('正则'),
               ),
-              const PillMenuDivider(),
+              const AppMenuDivider(),
               // [C4 双基准对齐] 搜索范围三档：语义取重构版 SearchContentPrefsPort
               //（仅当前章 / 本书已缓存 / 本书含网络），参考版「仅本书」对应已缓存档
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'scope_current',
                 checked: _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeCurrent,
                 child: const Text('仅当前章'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'scope_cached',
                 checked: _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeCached,
                 child: const Text('仅本书（已缓存）'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'scope_network',
                 checked: _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeNetwork,

@@ -448,6 +448,13 @@
 
 ### 2.17 WebBook 操作（6 个方法）
 
+**分类与字数格式（2026-10-12，用户确认）**：搜索、发现及详情的新解析结果统一分类与
+字数口径。`kind` 按换行（含 CRLF）、英文逗号、中文逗号拆项并去除空项，输出英文逗号
+分隔文本；`categories` 使用同一分类序列，保留标签内空格和日期内容。纯数字字数沿用现有
+格式化规则（如 `3128968` → `312.9万字`），已有单位文本保持原样；空、非正数字及 NaN
+视为缺失。详情刷新继续按既有逻辑写回在架书籍；不调整数据库读取，不批量修复旧数据。
+字段、FFI 签名及生成绑定不变。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `webbookSearch(String sourceJson, String query, int page)` | sourceJson, query, page | `Future<String>` | 搜索书籍（书源规则驱动），返回 JSON |
@@ -637,6 +644,8 @@
 | `rssListReadRecordsByOrigin(String origin, {int? limit})` | origin, limit(可选，默认100) | `Future<List<RssReadRecordRow>>` | 按 RSS 源 origin 获取已读记录（对齐原版 `getRecordsByOrigin`，F3-17） |
 
 ### 2.36 正文高亮（highlight FFI）（11 个方法）
+
+> **Flutter 选区调用口径（2026-10-11，UI-READER-SELECTION-20261011）**：新增选区记录的 `chapterPos` / `chapterPosEnd` 为收到的章节正文中的 UTF-16 起止偏移（左闭右开），与 Dart 选区一致；`bookText` 从同一原文区间取得，排版生成的缩进不计入原文。阅读器现有页索引与字符偏移分别管理。Rust 沿用现有整数存储，不新增字段、方法或数据库迁移，也不重写历史高亮记录。
 
 > 对齐上游 `BookHighlight` / `HighlightRule` 实体与 DAO（DB v96-v99）。
 > JSON 字段名对齐 Room 列名（camelCase）：BookHighlight 含 `time` / `bookUrl` / `chapterUrl` / `bookName` / `bookAuthor` / `chapterIndex` / `chapterPos` / `chapterPosEnd` / `layoutTitleLength` / `chapterName` / `bookText` / `style` / `note`；HighlightRule 含 `id` / `name` / `pattern` / `isRegex` / `scope` / `isEnabled` / `style` / `sortOrder` / `timeoutMillisecond` / `applyToTitle`。

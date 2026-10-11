@@ -194,13 +194,13 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: LegadoAppBar(title: const Text('其他设置')),
+      topBar: LegadoAppBar(title: const Text('高级')),
       body: IosGroupedBody(
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             // ===== 语言（对齐原版 language，无独立 category）=====
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(
                 children: [
               IosListTile(
                 icon: Symbols.language_rounded,
@@ -211,8 +211,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             ]),
 
             // ===== 主界面 =====
-            const IosSectionHeader('主界面'),
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            const SizedBox(height: 16),
+            SettingsGroup(
+              title: '主界面',
                 children: [
               SettingSwitchRow(
                 title: '自动刷新',
@@ -261,8 +262,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             ]),
 
             // ===== 其他（顺序严格对齐 pref_config_other.xml）=====
-            const IosSectionHeader('其他设置'),
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            const SizedBox(height: 16),
+            SettingsGroup(
+              title: '其他设置',
                 children: [
               IosListTile(
                 title: '设置本地密码',
@@ -1239,9 +1241,9 @@ class _CheckSourceConfigDialogState extends State<_CheckSourceConfigDialog> {
               const SizedBox(height: 8),
               // 校验步骤级联（对齐原版 checkSearch→checkInfo→checkCategory
               // →checkContent 依赖链，映射到 Rust 侧三步开关）
-              SwitchListTile(
-                title: const Text('校验搜索'),
-                subtitle: const Text('搜索关键词并校验结果'),
+              SettingSwitchRow(
+                title: '校验搜索',
+                subtitle: '搜索关键词并校验结果',
                 value: _checkSearch,
                 onChanged: (v) => setState(() {
                   _checkSearch = v;
@@ -1251,9 +1253,9 @@ class _CheckSourceConfigDialogState extends State<_CheckSourceConfigDialog> {
                   }
                 }),
               ),
-              SwitchListTile(
-                title: const Text('校验目录'),
-                subtitle: const Text('依赖校验搜索结果'),
+              SettingSwitchRow(
+                title: '校验目录',
+                subtitle: '依赖校验搜索结果',
                 value: _checkToc,
                 // 上级步骤关闭时下级不可切换（对齐原版 isEnabled 联动）
                 onChanged: !_checkSearch
@@ -1263,23 +1265,23 @@ class _CheckSourceConfigDialogState extends State<_CheckSourceConfigDialog> {
                           if (!v) _checkContent = false;
                         }),
               ),
-              SwitchListTile(
-                title: const Text('校验正文'),
-                subtitle: const Text('依赖校验目录结果'),
+              SettingSwitchRow(
+                title: '校验正文',
+                subtitle: '依赖校验目录结果',
                 value: _checkContent,
                 onChanged: (!_checkSearch || !_checkToc)
                     ? null
                     : (v) => setState(() => _checkContent = v),
               ),
-              SwitchListTile(
-                title: const Text('验证码拦截检测'),
-                subtitle: const Text('识别疑似验证码页面并标记'),
+              SettingSwitchRow(
+                title: '验证码拦截检测',
+                subtitle: '识别疑似验证码页面并标记',
                 value: _detectCaptcha,
                 onChanged: (v) => setState(() => _detectCaptcha = v),
               ),
-              SwitchListTile(
-                title: const Text('重定向检测'),
-                subtitle: const Text('识别登录/拦截重定向并标记'),
+              SettingSwitchRow(
+                title: '重定向检测',
+                subtitle: '识别登录/拦截重定向并标记',
                 value: _detectRedirect,
                 onChanged: (v) => setState(() => _detectRedirect = v),
               ),

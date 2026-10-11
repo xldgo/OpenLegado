@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -444,7 +445,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
                 : const Text('保存'),
           ),
           // ⋮ 菜单（对标原版 replace_edit menu：全屏编辑/复制规则/粘贴规则）
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多',
             onSelected: (v) {
               switch (v) {
@@ -457,9 +458,9 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'fullscreen', child: Text('全屏编辑')),
-              PopupMenuItem(value: 'copy', child: Text('复制规则')),
-              PopupMenuItem(value: 'paste', child: Text('粘贴规则')),
+              AppMenuItem(value: 'fullscreen', child: Text('全屏编辑')),
+              AppMenuItem(value: 'copy', child: Text('复制规则')),
+              AppMenuItem(value: 'paste', child: Text('粘贴规则')),
             ],
           ),
         ],

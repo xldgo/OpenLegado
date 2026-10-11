@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -135,7 +136,7 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
                 .read(appLogNotifierProvider.notifier)
                 .load(state.currentLevel),
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '日志操作',
             onSelected: (value) {
               switch (value) {
@@ -148,9 +149,9 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'clear_level', child: Text('清空当前级别')),
-              PopupMenuItem(value: 'clear_all', child: Text('清空全部')),
-              PopupMenuItem(value: 'export', child: Text('导出到剪贴板')),
+              AppMenuItem(value: 'clear_level', child: Text('清空当前级别')),
+              AppMenuItem(value: 'clear_all', child: Text('清空全部')),
+              AppMenuItem(value: 'export', child: Text('导出到剪贴板')),
             ],
           ),
         ],

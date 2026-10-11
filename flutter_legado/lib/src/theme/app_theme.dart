@@ -238,6 +238,16 @@ class AppTheme {
     required Color tabBarBg,
   }) {
     final bool isLight = brightness == Brightness.light;
+    final menuStyle = MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLow),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      elevation: const WidgetStatePropertyAll(4),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      alignment: AlignmentDirectional.bottomStart,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -453,31 +463,19 @@ class AppTheme {
         tabAlignment: TabAlignment.start,
       ),
 
-      // PopupMenu 主题 —— tonal 容器 + Expressive 圆角
-      // [LAYOUT_MOTION_AUDIT L1] 容器 surfaceContainerLow + elev4
-      //（原 surfaceContainer+elev3 各差一级）
-      popupMenuTheme: PopupMenuThemeData(
-        color: colorScheme.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: colorScheme.error,
+        textColor: colorScheme.onError,
+        largeSize: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        textStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
         ),
       ),
 
-      // DropdownMenu 主题
-      dropdownMenuTheme: DropdownMenuThemeData(
-        menuStyle: MenuStyle(
-          backgroundColor: WidgetStateProperty.all(
-            colorScheme.surfaceContainerLow,
-          ),
-          shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-      ),
+      dropdownMenuTheme: DropdownMenuThemeData(menuStyle: menuStyle),
 
       // Snackbar 主题 —— M3 inverseSurface 反色
       snackBarTheme: SnackBarThemeData(
@@ -602,18 +600,15 @@ class AppTheme {
         ),
       ),
 
-      // Menu 主题 —— MenuItem 行规（48 高 + 选中 primary）
-      // [LAYOUT_MOTION_AUDIT L1] 新增
-      menuTheme: MenuThemeData(
-        style: MenuStyle(
-          backgroundColor: WidgetStateProperty.all(
-            colorScheme.surfaceContainerLow,
+      menuTheme: MenuThemeData(style: menuStyle),
+      menuButtonTheme: MenuButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16),
           ),
-          shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          textStyle: WidgetStatePropertyAll(AppTypography.lightTextTheme.bodyMedium),
+          shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
         ),
       ),
     );

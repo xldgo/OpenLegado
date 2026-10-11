@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -224,9 +225,8 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
                 onPressed: () => _save(),
                 child: const Text('保存'),
               ),
-            PopupMenuButton<String>(
+            AppMenuButton<String>(
               tooltip: '更多',
-              position: PopupMenuPosition.under,
               onSelected: (v) async {
                 switch (v) {
                   case 'find':
@@ -248,11 +248,11 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'find', child: Text('查找')),
-                const PopupMenuItem(value: 'curl', child: Text('cURL 转换')),
+                const AppMenuItem(value: 'find', child: Text('查找')),
+                const AppMenuItem(value: 'curl', child: Text('cURL 转换')),
                 if (widget.writable && widget.showDebugSource)
-                  const PopupMenuItem(value: 'debug', child: Text('调试')),
-                const PopupMenuItem(value: 'copy_all', child: Text('复制全部')),
+                  const AppMenuItem(value: 'debug', child: Text('调试')),
+                const AppMenuItem(value: 'copy_all', child: Text('复制全部')),
               ],
             ),
           ],

@@ -84,11 +84,13 @@ class SourceNotifier extends Notifier<SourceState> {
     try {
       final api = ref.read(bookApiProvider);
       await api.deleteBookSource(sourceUrl);
+      final selected = {...state.selectedUrls}..remove(sourceUrl);
       state = state.copyWith(
         sources: state.sources
             .where((s) => s.bookSourceUrl != sourceUrl)
             .toList(),
-        selectedUrls: {...state.selectedUrls}..remove(sourceUrl),
+        selectedUrls: selected,
+        batchMode: selected.isNotEmpty,
       );
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
@@ -280,6 +282,64 @@ class SourceNotifier extends Notifier<SourceState> {
     state = state.copyWith(sortAscending: !state.sortAscending);
   }
 
+  /// 拖动当前可见书源；目标索引采用 onReorderItem 的移除后语义。
+  /// 筛选隐藏的书源保留原位置，降序显示时反向写入手动序号。
+  Future<bool> reorderSources(int oldIndex, int newIndex) async {
+    if (state.loading || state.sort != SourceSort.manual) return false;
+    final visible = List<BookSource>.of(state.filteredSources);
+    if (oldIndex < 0 || oldIndex >= visible.length ||
+        newIndex < 0 || newIndex >= visible.length) {
+      return false;
+    }
+    if (oldIndex == newIndex) return true;
+    visible.insert(newIndex, visible.removeAt(oldIndex));
+
+    final ordered = state.copyWith(
+      filterKeyword: '',
+      selectedGroup: null,
+      sortAscending: true,
+    ).filteredSources;
+    final visibleUrls = visible.map((s) => s.bookSourceUrl).toSet();
+    final replacements = (state.sortAscending ? visible : visible.reversed)
+        .iterator;
+    final changed = <String, int>{};
+    for (var i = 0; i < ordered.length; i++) {
+      var source = ordered[i];
+      if (visibleUrls.contains(source.bookSourceUrl)) {
+        replacements.moveNext();
+        source = replacements.current;
+      }
+      if (source.customOrder != i) changed[source.bookSourceUrl] = i;
+    }
+    state = state.copyWith(
+      sources: [
+        for (final source in state.sources)
+          if (changed.containsKey(source.bookSourceUrl))
+            source.copyWith(customOrder: changed[source.bookSourceUrl]!)
+          else
+            source,
+      ],
+      loading: true,
+      error: null,
+    );
+    try {
+      final api = ref.read(bookApiProvider);
+      final sourcesByUrl = {
+        for (final source in state.sources) source.bookSourceUrl: source,
+      };
+      for (final url in changed.keys) {
+        await api.updateBookSource(sourcesByUrl[url]!);
+      }
+      state = state.copyWith(loading: false);
+      return true;
+    } catch (e) {
+      // 保存中途失败时重新读取已落库的顺序，避免界面假装全部保存成功。
+      await loadSources();
+      state = state.copyWith(error: _mapError(e), loading: false);
+      return false;
+    }
+  }
+
   // ===== 批量操作 =====
 
   /// 进入批量模式
@@ -292,6 +352,11 @@ class SourceNotifier extends Notifier<SourceState> {
     state = state.copyWith(batchMode: false, selectedUrls: {});
   }
 
+  /// 选择变化时同步模式，最后一项取消后退出多选。
+  void _setSelection(Set<String> urls) {
+    state = state.copyWith(selectedUrls: urls, batchMode: urls.isNotEmpty);
+  }
+
   /// 切换选中状态
   void toggleSelection(String sourceUrl) {
     final newSet = {...state.selectedUrls};
@@ -300,7 +365,7 @@ class SourceNotifier extends Notifier<SourceState> {
     } else {
       newSet.add(sourceUrl);
     }
-    state = state.copyWith(selectedUrls: newSet);
+    _setSelection(newSet);
   }
 
   /// 全选当前过滤结果
@@ -309,12 +374,12 @@ class SourceNotifier extends Notifier<SourceState> {
     for (final s in state.filteredSources) {
       newSet.add(s.bookSourceUrl);
     }
-    state = state.copyWith(selectedUrls: newSet);
+    _setSelection(newSet);
   }
 
   /// 取消全选
   void deselectAll() {
-    state = state.copyWith(selectedUrls: {});
+    exitBatchMode();
   }
 
   /// 反选当前过滤结果（对标原版 SelectActionBar 反选）
@@ -325,7 +390,7 @@ class SourceNotifier extends Notifier<SourceState> {
         newSet.add(s.bookSourceUrl);
       }
     }
-    state = state.copyWith(selectedUrls: newSet);
+    _setSelection(newSet);
   }
 
   /// 选中所选区间（对标原版 BookSourceAdapter.checkSelectedInterval）
@@ -347,7 +412,7 @@ class SourceNotifier extends Notifier<SourceState> {
     for (var i = min; i <= max; i++) {
       newSet.add(list[i].bookSourceUrl);
     }
-    state = state.copyWith(selectedUrls: newSet);
+    _setSelection(newSet);
   }
 
   /// 切换单个书源的发现启用状态（对标长按菜单 启用/禁用发现）

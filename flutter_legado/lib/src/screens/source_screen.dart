@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -7,6 +8,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/app_search_field.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
+import '../widgets/source_selection_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -32,7 +34,6 @@ import 'source_edit_screen.dart';
 import 'js_source_edit_screen.dart';
 import 'source_import_confirm_screen.dart';
 import 'source_login_screen.dart';
-import '../widgets/pill_divider.dart';
 import '../widgets/bottom_sheet_widget.dart';
 part 'source_screen_builders.part.dart';
 part 'source_screen_actions.part.dart';
@@ -71,6 +72,7 @@ class _SourceScreenState extends ConsumerState<SourceScreen> {
       // 若不同步重置，离屏返回时搜索框为空而过滤关键词残留，
       // filteredSources 恒空 → 整表误显示「暂无书源」（69 实机回归
       // D2 观察项根因，重启进程后 provider 重建才恢复） — Qoder
+      ref.read(sourceNotifierProvider.notifier).exitBatchMode();
       ref.read(sourceNotifierProvider.notifier).clearFilter();
       ref.read(sourceNotifierProvider.notifier).loadSources();
     });
@@ -99,14 +101,9 @@ class _SourceScreenState extends ConsumerState<SourceScreen> {
       },
       child: AppScaffold(
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-        topBar: state.batchMode
-            ? _buildBatchAppBar(context, state)
-            : _buildAppBar(context, state),
+        topBar: _buildAppBar(context, state),
         body: _buildBody(context),
-        // 底部常驻批量操作栏（全选/反选/删除/更多选项，
-        // 对标原版 SelectActionBar + book_source_sel.xml）；
-        // 非批量模式下点击全选/反选会自动进入批量模式
-        bottomBar: _buildBatchBottomBar(context, state),
+        bottomBar: state.batchMode ? _buildBatchBottomBar(context, state) : null,
       ),
     );
   }

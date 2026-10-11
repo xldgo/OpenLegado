@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -283,42 +284,41 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
           // 缓存根为 set_audio_cache_dir 注入的应用私有 cache/audio_cache，SAF
           // content:// 树无法作为 Rust std::fs 路径，选择结果对读写面均无效果——
           // 加回入口会误导用户（详见本批报告「SAF 目录与私有缓存根不一致」）。
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多',
             // [LAYOUT_PLAN P3] 沉浸域仅顶栏动作行规范：菜单在顶栏下方展开（本体不动）
-            position: PopupMenuPosition.under,
             onSelected: _handleOverflowMenu,
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'changeSource', child: Text('换源')),
+              const AppMenuItem(value: 'changeSource', child: Text('换源')),
               if (_origin.isNotEmpty)
-                const PopupMenuItem(value: 'login', child: Text('登录')),
+                const AppMenuItem(value: 'login', child: Text('登录')),
               if (_canCopyPlayUrl)
-                const PopupMenuItem(
+                const AppMenuItem(
                   value: 'copyAudioUrl',
                   child: Text('复制播放地址'),
                 ),
               // 原版菜单顺序：copy_audio_url → cache_range → clear_current_audio_cache
               if (_canCopyPlayUrl)
-                const PopupMenuItem(
+                const AppMenuItem(
                   value: 'cacheRange',
                   child: Text('缓存章节范围'),
                 ),
               if (_canCopyPlayUrl)
-                const PopupMenuItem(
+                const AppMenuItem(
                   value: 'clearCurrentCache',
                   child: Text('清除本章缓存'),
                 ),
               if (_canCopyPlayUrl)
-                CheckedPopupMenuItem(
+                AppMenuItem(
                   value: 'wakeLock',
                   checked: _wakeLock,
                   child: const Text('唤醒锁定'),
                 ),
               if (_canCopyPlayUrl)
-                const PopupMenuItem(value: 'skipCredits', child: Text('跳过片头片尾')),
+                const AppMenuItem(value: 'skipCredits', child: Text('跳过片头片尾')),
               if (_origin.isNotEmpty)
-                const PopupMenuItem(value: 'editSource', child: Text('编辑书源')),
-              const PopupMenuItem(value: 'log', child: Text('日志')),
+                const AppMenuItem(value: 'editSource', child: Text('编辑书源')),
+              const AppMenuItem(value: 'log', child: Text('日志')),
             ],
           ),
         ],

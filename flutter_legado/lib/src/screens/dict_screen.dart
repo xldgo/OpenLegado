@@ -152,6 +152,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
 
   Widget _buildResultCard(ThemeData theme, DictEntry entry) {
     return Card(
+      color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -221,6 +222,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
 
   Widget _buildNotFound(ThemeData theme, String word) {
     return Card(
+      color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -232,10 +234,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
             Icon(Symbols.search_off_rounded, size: 40,
                 color: theme.colorScheme.outline),
             const SizedBox(height: 8),
-            Text(
-              '本地词典未收录「$word」',
-              style: theme.textTheme.titleSmall,
-            ),
+            Text('本地词典未收录「$word」', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
               '可使用下方在线词典查询',
@@ -251,7 +250,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('在线词典', style: theme.textTheme.titleSmall),
+        Text('在线词典', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (state.rules.isEmpty)
           Text('暂无词典规则，点击右上角管理添加',

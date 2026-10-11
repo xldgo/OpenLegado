@@ -1,3 +1,4 @@
+import 'app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -142,26 +143,8 @@ class _VerificationCodeDialogState
   }
 
   /// 溢出菜单：禁用书源/删除书源（对标原版 VerificationCodeDialog 菜单）
-  Future<void> _showSourceMenu(BuildContext buttonContext) async {
-    // 从按钮自身坐标弹出（对齐顶栏右侧锚点）
-    final box = buttonContext.findRenderObject() as RenderBox?;
-    final overlay =
-        MediaQuery.of(buttonContext).size;
-    final position = box != null
-        ? RelativeRect.fromRect(
-            box.localToGlobal(Offset.zero) & box.size,
-            Offset.zero & overlay,
-          )
-        : const RelativeRect.fromLTRB(100, 100, 0, 0);
-    final action = await showMenu<String>(
-      context: buttonContext,
-      position: position,
-      items: [
-        const PopupMenuItem(value: 'disable', child: Text('禁用书源')),
-        const PopupMenuItem(value: 'delete', child: Text('删除书源')),
-      ],
-    );
-    if (action == null || !mounted) return;
+  Future<void> _handleSourceMenu(String action) async {
+    if (!mounted) return;
     final notifier = ref.read(sourceNotifierProvider.notifier);
     switch (action) {
       case 'disable':
@@ -188,13 +171,14 @@ class _VerificationCodeDialogState
             child: Text(header,
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
-          Builder(
-            builder: (btnContext) => IconButton(
-              icon: const Icon(Symbols.more_vert_rounded, size: 20),
-              tooltip: '更多选项',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _showSourceMenu(btnContext),
-            ),
+          AppMenuButton<String>(
+            tooltip: '更多选项',
+            icon: const Icon(Symbols.more_vert_rounded, size: 20),
+            itemBuilder: (_) => const [
+              AppMenuItem(value: 'disable', child: Text('禁用书源')),
+              AppMenuItem(value: 'delete', child: Text('删除书源')),
+            ],
+            onSelected: _handleSourceMenu,
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import '../app_menu.dart';
 import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
@@ -315,7 +316,7 @@ class AppRailBar extends StatelessWidget {
           ),
           // 书架分组菜单（对齐参考 BookshelfRailGroupMenu）
           if (groups != null && groups!.isNotEmpty)
-            PopupMenuButton<int>(
+            AppMenuButton<int>(
               tooltip: '书架分组',
               icon: Icon(
                 Symbols.folder_copy_rounded,
@@ -324,7 +325,7 @@ class AppRailBar extends StatelessWidget {
               onSelected: onGroupSelected,
               itemBuilder: (context) => [
                 for (var i = 0; i < groups!.length; i++)
-                  CheckedPopupMenuItem<int>(
+                  AppMenuItem<int>(
                     value: i,
                     checked: selectedGroupIndex == i,
                     child: Text(groups![i]),

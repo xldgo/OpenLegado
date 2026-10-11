@@ -297,14 +297,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       body: IosGroupedBody(
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             // 分组整体构建，确保首页快捷入口能定位尚未滚动到的其他区域。
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const IosSectionHeader('内容与规则'),
                 SettingsGroup(
+                  title: '内容与规则',
                   children: [
                     IosListTile(
                       icon: Symbols.library_books_rounded,
@@ -353,8 +353,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                const IosSectionHeader('外观'),
+                const SizedBox(height: 16),
                 SettingsGroup(
+                  title: '外观',
                   children: [
                     IosListTile(
                       icon: Symbols.palette_rounded,
@@ -371,8 +372,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                const IosSectionHeader('同步与服务'),
+                const SizedBox(height: 16),
                 SettingsGroup(
+                  title: '同步与服务',
                   children: [
                     SettingSwitchRow(
                       leading: _webServiceBusy
@@ -424,8 +426,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                const IosSectionHeader('定时任务'),
+                const SizedBox(height: 16),
                 SettingsGroup(
+                  title: '定时任务',
                   children: [
                     IosListTile(
                       icon: Symbols.schedule_rounded,
@@ -443,8 +446,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                IosSectionHeader('其他', key: _otherSectionKey),
+                const SizedBox(height: 16),
                 SettingsGroup(
+                  key: _otherSectionKey,
+                  title: '其他',
                   children: [
                     IosListTile(
                       icon: Symbols.tune_rounded,

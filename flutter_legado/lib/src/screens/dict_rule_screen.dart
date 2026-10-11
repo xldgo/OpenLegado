@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -530,17 +531,17 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
         // 对标 R.menu.dict_rule（menu_add/menu_import_local/menu_import_qr/
         // menu_import_onLine/menu_import_default/menu_help；
         // menu_import_qr 复用 QrcodeScreen 扫码链路，见 _importFromQr）
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           tooltip: '更多操作',
           icon: const Icon(Symbols.more_vert_rounded),
           onSelected: _onMenuSelected,
           itemBuilder: (_) => const [
-            PopupMenuItem(value: 'add', child: Text('新增规则')),
-            PopupMenuItem(value: 'importLocal', child: Text('本地导入')),
-            PopupMenuItem(value: 'importQr', child: Text('扫码导入')),
-            PopupMenuItem(value: 'importOnline', child: Text('在线导入')),
-            PopupMenuItem(value: 'importDefault', child: Text('导入默认')),
-            PopupMenuItem(value: 'help', child: Text('帮助')),
+            AppMenuItem(value: 'add', child: Text('新增规则')),
+            AppMenuItem(value: 'importLocal', child: Text('本地导入')),
+            AppMenuItem(value: 'importQr', child: Text('扫码导入')),
+            AppMenuItem(value: 'importOnline', child: Text('在线导入')),
+            AppMenuItem(value: 'importDefault', child: Text('导入默认')),
+            AppMenuItem(value: 'help', child: Text('帮助')),
           ],
         ),
       ],
@@ -621,9 +622,13 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       key: ValueKey(index),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: selected ? cs.primaryContainer : null,
+      color: selected ? cs.primaryContainer : cs.surfaceContainer,
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        shape: const RoundedRectangleBorder(),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 16,
+        ),
         leading: _selectMode
             ? Checkbox(
                 value: selected,
@@ -639,7 +644,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
               ),
         title: Text(
           row.name,
-          style: textTheme.titleSmall?.copyWith(
+          style: textTheme.titleMedium?.copyWith(
             // 禁用规则降透明度（对标原版行内 switch 关态视觉弱化）
             color: row.enabled
                 ? null

@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -181,7 +182,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
         // menu_import_local / menu_import_on_line / menu_export / menu_help）
         // — Qoder
         actions: [
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             onSelected: (value) {
               switch (value) {
                 case 'import_local':
@@ -199,10 +200,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'import_local', child: Text('导入本地任务')),
-              PopupMenuItem(value: 'import_online', child: Text('导入线上任务')),
-              PopupMenuItem(value: 'export', child: Text('导出任务')),
-              PopupMenuItem(value: 'help', child: Text('帮助')),
+              AppMenuItem(value: 'import_local', child: Text('导入本地任务')),
+              AppMenuItem(value: 'import_online', child: Text('导入线上任务')),
+              AppMenuItem(value: 'export', child: Text('导出任务')),
+              AppMenuItem(value: 'help', child: Text('帮助')),
             ],
           ),
         ],
@@ -275,8 +276,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
           return CustomRefreshIndicator(
             onRefresh: () => notifier.loadTasks(),
             child: ListView.separated(
-              // [LAYOUT_PLAN P3] 页面水平边距 16dp；纵向留白 8dp
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              // 行内容负责水平边距，列表只保留纵向留白。
+              padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: state.tasks.length,
               // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant（对齐 file_manage/offline_cache 样板）
               separatorBuilder: (_, index) =>
@@ -317,14 +318,9 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     }
 
     return ListTile(
-      // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(
-        task.name,
-        // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
-        style: Theme.of(context).textTheme.titleSmall,
-      ),
+      title: Text(task.name, style: Theme.of(context).textTheme.titleMedium),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -471,7 +467,6 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 12,
                 horizontal: 8,
@@ -489,7 +484,6 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
             ),
             // P2-7：调试（对标原版 AutoTaskDebugActivity）
             ListTile(
-              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 12,
                 horizontal: 8,
@@ -503,7 +497,6 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               },
             ),
             ListTile(
-              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 12,
                 horizontal: 8,
@@ -516,7 +509,6 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               },
             ),
             ListTile(
-              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 12,
                 horizontal: 8,

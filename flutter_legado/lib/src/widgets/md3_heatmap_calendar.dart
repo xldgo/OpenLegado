@@ -212,7 +212,7 @@ class Md3HeatmapCalendar extends StatelessWidget {
               ),
             Text(
               mode == Md3HeatmapMode.duration
-                  ? '多（格 = 当日阅读时长）'
+                  ? '多'
                   : '多（格 = 当日阅读书籍数）',
               style: Theme.of(context)
                   .textTheme

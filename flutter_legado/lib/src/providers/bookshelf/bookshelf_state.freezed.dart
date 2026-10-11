@@ -26,6 +26,9 @@ mixin _$BookshelfState {
   /// 展示层：网格/列表视图模式
   bool get isGridView;
 
+  /// 展示层：网格列数
+  int get gridColumns;
+
   /// 展示层：分组显示模式
   GroupMode get groupMode;
 
@@ -64,6 +67,8 @@ mixin _$BookshelfState {
                 other.error == _this.error) &&
             (identical(other.isGridView, _this.isGridView) ||
                 other.isGridView == _this.isGridView) &&
+            (identical(other.gridColumns, _this.gridColumns) ||
+                other.gridColumns == _this.gridColumns) &&
             (identical(other.groupMode, _this.groupMode) ||
                 other.groupMode == _this.groupMode) &&
             const DeepCollectionEquality().equals(other.groups, _this.groups) &&
@@ -86,6 +91,7 @@ mixin _$BookshelfState {
       _this.isLoading,
       _this.error,
       _this.isGridView,
+      _this.gridColumns,
       _this.groupMode,
       const DeepCollectionEquality().hash(_this.groups),
       _this.selectedGroupIndex,
@@ -97,7 +103,7 @@ mixin _$BookshelfState {
   @override
   String toString() {
     final _this = this as BookshelfState;
-    return 'BookshelfState(books: ${_this.books}, isLoading: ${_this.isLoading}, error: ${_this.error}, isGridView: ${_this.isGridView}, groupMode: ${_this.groupMode}, groups: ${_this.groups}, selectedGroupIndex: ${_this.selectedGroupIndex}, isBatchMode: ${_this.isBatchMode}, selectedUrls: ${_this.selectedUrls})';
+    return 'BookshelfState(books: ${_this.books}, isLoading: ${_this.isLoading}, error: ${_this.error}, isGridView: ${_this.isGridView}, gridColumns: ${_this.gridColumns}, groupMode: ${_this.groupMode}, groups: ${_this.groups}, selectedGroupIndex: ${_this.selectedGroupIndex}, isBatchMode: ${_this.isBatchMode}, selectedUrls: ${_this.selectedUrls})';
   }
 }
 
@@ -113,6 +119,7 @@ abstract mixin class $BookshelfStateCopyWith<$Res> {
     bool isLoading,
     String? error,
     bool isGridView,
+    int gridColumns,
     GroupMode groupMode,
     List<BookGroup> groups,
     int selectedGroupIndex,
@@ -138,6 +145,7 @@ class _$BookshelfStateCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
     Object? isGridView = null,
+    Object? gridColumns = null,
     Object? groupMode = null,
     Object? groups = null,
     Object? selectedGroupIndex = null,
@@ -162,6 +170,10 @@ class _$BookshelfStateCopyWithImpl<$Res>
             ? _self.isGridView
             : isGridView // ignore: cast_nullable_to_non_nullable
                   as bool,
+        gridColumns: null == gridColumns
+            ? _self.gridColumns
+            : gridColumns // ignore: cast_nullable_to_non_nullable
+                  as int,
         groupMode: null == groupMode
             ? _self.groupMode
             : groupMode // ignore: cast_nullable_to_non_nullable
@@ -285,6 +297,7 @@ extension BookshelfStatePatterns on BookshelfState {
       bool isLoading,
       String? error,
       bool isGridView,
+      int gridColumns,
       GroupMode groupMode,
       List<BookGroup> groups,
       int selectedGroupIndex,
@@ -302,6 +315,7 @@ extension BookshelfStatePatterns on BookshelfState {
           _that.isLoading,
           _that.error,
           _that.isGridView,
+          _that.gridColumns,
           _that.groupMode,
           _that.groups,
           _that.selectedGroupIndex,
@@ -333,6 +347,7 @@ extension BookshelfStatePatterns on BookshelfState {
       bool isLoading,
       String? error,
       bool isGridView,
+      int gridColumns,
       GroupMode groupMode,
       List<BookGroup> groups,
       int selectedGroupIndex,
@@ -349,6 +364,7 @@ extension BookshelfStatePatterns on BookshelfState {
           _that.isLoading,
           _that.error,
           _that.isGridView,
+          _that.gridColumns,
           _that.groupMode,
           _that.groups,
           _that.selectedGroupIndex,
@@ -379,6 +395,7 @@ extension BookshelfStatePatterns on BookshelfState {
       bool isLoading,
       String? error,
       bool isGridView,
+      int gridColumns,
       GroupMode groupMode,
       List<BookGroup> groups,
       int selectedGroupIndex,
@@ -395,6 +412,7 @@ extension BookshelfStatePatterns on BookshelfState {
           _that.isLoading,
           _that.error,
           _that.isGridView,
+          _that.gridColumns,
           _that.groupMode,
           _that.groups,
           _that.selectedGroupIndex,
@@ -415,6 +433,7 @@ class _BookshelfState implements BookshelfState {
     this.isLoading = false,
     this.error,
     this.isGridView = false,
+    this.gridColumns = 3,
     this.groupMode = GroupMode.none,
     List<BookGroup> groups = const [],
     this.selectedGroupIndex = 0,
@@ -449,6 +468,11 @@ class _BookshelfState implements BookshelfState {
   @override
   @JsonKey()
   final bool isGridView;
+
+  /// 展示层：网格列数
+  @override
+  @JsonKey()
+  final int gridColumns;
 
   /// 展示层：分组显示模式
   @override
@@ -508,6 +532,8 @@ class _BookshelfState implements BookshelfState {
             (identical(other.error, error) || other.error == error) &&
             (identical(other.isGridView, isGridView) ||
                 other.isGridView == isGridView) &&
+            (identical(other.gridColumns, gridColumns) ||
+                other.gridColumns == gridColumns) &&
             (identical(other.groupMode, groupMode) ||
                 other.groupMode == groupMode) &&
             const DeepCollectionEquality().equals(other.groups, _groups) &&
@@ -529,6 +555,7 @@ class _BookshelfState implements BookshelfState {
       isLoading,
       error,
       isGridView,
+      gridColumns,
       groupMode,
       const DeepCollectionEquality().hash(_groups),
       selectedGroupIndex,
@@ -539,7 +566,7 @@ class _BookshelfState implements BookshelfState {
 
   @override
   String toString() {
-    return 'BookshelfState(books: $books, isLoading: $isLoading, error: $error, isGridView: $isGridView, groupMode: $groupMode, groups: $groups, selectedGroupIndex: $selectedGroupIndex, isBatchMode: $isBatchMode, selectedUrls: $selectedUrls)';
+    return 'BookshelfState(books: $books, isLoading: $isLoading, error: $error, isGridView: $isGridView, gridColumns: $gridColumns, groupMode: $groupMode, groups: $groups, selectedGroupIndex: $selectedGroupIndex, isBatchMode: $isBatchMode, selectedUrls: $selectedUrls)';
   }
 }
 
@@ -557,6 +584,7 @@ abstract mixin class _$BookshelfStateCopyWith<$Res>
     bool isLoading,
     String? error,
     bool isGridView,
+    int gridColumns,
     GroupMode groupMode,
     List<BookGroup> groups,
     int selectedGroupIndex,
@@ -582,6 +610,7 @@ class __$BookshelfStateCopyWithImpl<$Res>
     Object? isLoading = null,
     Object? error = freezed,
     Object? isGridView = null,
+    Object? gridColumns = null,
     Object? groupMode = null,
     Object? groups = null,
     Object? selectedGroupIndex = null,
@@ -606,6 +635,10 @@ class __$BookshelfStateCopyWithImpl<$Res>
             ? _self.isGridView
             : isGridView // ignore: cast_nullable_to_non_nullable
                   as bool,
+        gridColumns: null == gridColumns
+            ? _self.gridColumns
+            : gridColumns // ignore: cast_nullable_to_non_nullable
+                  as int,
         groupMode: null == groupMode
             ? _self.groupMode
             : groupMode // ignore: cast_nullable_to_non_nullable

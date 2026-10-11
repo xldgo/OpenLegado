@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -97,7 +98,7 @@ void main() {
       await tester.pump();
 
       expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
-      expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+      expect(find.byType(AppMenuButton<String>), findsOneWidget);
       // 初始无书籍时进度为 0.0%
       expect(find.text('0.0%'), findsOneWidget);
     });

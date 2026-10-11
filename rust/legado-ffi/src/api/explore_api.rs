@@ -761,13 +761,7 @@ async fn explore_books_async(
             if v.is_empty() {
                 None
             } else {
-                // 多段 kind（如 dd.2:3）get_string 以 \n 拼接，对齐原版 join(",")
-                Some(
-                    v.split('\n')
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join(","),
-                )
+                legado_core::book_help::normalize_book_kind(&v)
             }
         };
 
@@ -878,12 +872,7 @@ fn parse_explore_as_single_book(
         if v.is_empty() {
             None
         } else {
-            Some(
-                v.split('\n')
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(","),
-            )
+            legado_core::book_help::normalize_book_kind(&v)
         }
     };
     let word_count =

@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -17,7 +18,6 @@ import '../utils/book_open_utils.dart';
 import '../widgets/custom_refresh_indicator.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/loading_indicator.dart';
-import '../widgets/pill_divider.dart';
 
 /// 离线缓存界面（对齐原版 CacheActivity）
 ///
@@ -320,16 +320,16 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
             icon: const Icon(Symbols.refresh_rounded),
             onPressed: () => _refresh(),
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '缓存操作',
             onSelected: _handleMenu,
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'download_all', child: Text('全部缓存')),
-              PopupMenuItem(
+              AppMenuItem(value: 'download_all', child: Text('全部缓存')),
+              AppMenuItem(
                   value: 'download_after', child: Text('缓存当前章节之后')),
-              PopupMenuItem(value: 'stop_all', child: Text('停止全部下载')),
-              PillMenuDivider(),
-              PopupMenuItem(value: 'queue', child: Text('下载队列')),
+              AppMenuItem(value: 'stop_all', child: Text('停止全部下载')),
+              AppMenuDivider(),
+              AppMenuItem(value: 'queue', child: Text('下载队列')),
             ],
           ),
         ],
@@ -367,7 +367,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
           Icon(Symbols.cloud_off_rounded, size: 64, color: cs.outlineVariant),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-          Text('书架暂无书籍', style: Theme.of(context).textTheme.titleSmall),
+          Text('书架暂无书籍', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
             '在书架添加书籍后，可在此缓存离线阅读',
@@ -403,14 +403,13 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       onTap: () => _openBook(book),
       // 三行布局（书名/作者/进度），必须 isThreeLine 否则 subtitle 被钳到单行
       isThreeLine: true,
-      // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       title: Text(
         book.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-        style: Theme.of(context).textTheme.titleSmall,
+        style: Theme.of(context).textTheme.titleMedium,
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -116,6 +116,8 @@ class IosSectionFooter extends StatelessWidget {
 /// [flat] 为 true 时走扁平模式（Column + 条件 80% pill 分隔，
 /// HapeLee 设置页式，9 屏迁移用），默认 false 保持卡片兼容。
 class SettingsGroup extends StatelessWidget {
+  /// 可选的卡片内标题，不参与设置行之间的分隔线。
+  final String? title;
   final List<Widget> children;
   final double? separatorIndent;
   final EdgeInsets margin;
@@ -124,6 +126,7 @@ class SettingsGroup extends StatelessWidget {
   const SettingsGroup({
     super.key,
     required this.children,
+    this.title,
     this.separatorIndent,
     this.margin = const EdgeInsets.symmetric(horizontal: 0),
     this.flat = false,
@@ -140,6 +143,20 @@ class SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final rows = <Widget>[];
+    if (title != null) {
+      rows.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            title!,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ));
+    }
     for (var i = 0; i < children.length; i++) {
       rows.add(children[i]);
       if (i != children.length - 1) {

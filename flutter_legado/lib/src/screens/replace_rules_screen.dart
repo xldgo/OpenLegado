@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -90,28 +91,28 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         ),
         actions: [
           // [UI-fix v2.0.2 | 2026-08-06] 分组筛选入口（对标原版 menu_group）— Qoder
-          PopupMenuButton<String?>(
+          AppMenuButton<String?>(
             tooltip: '分组筛选',
             icon: Icon(
               _groupFilter == null ? Symbols.filter_list_rounded : Symbols.filter_alt_rounded,
             ),
             onSelected: (v) => setState(() => _groupFilter = v),
             itemBuilder: (_) => [
-              const PopupMenuItem<String?>(value: null, child: Text('全部')),
-              const PopupMenuItem<String?>(
+              const AppMenuItem<String?>(value: null, child: Text('全部')),
+              const AppMenuItem<String?>(
                 value: '__enabled__',
                 child: Text('启用'),
               ),
-              const PopupMenuItem<String?>(
+              const AppMenuItem<String?>(
                 value: '__disabled__',
                 child: Text('禁用'),
               ),
-              const PopupMenuItem<String?>(
+              const AppMenuItem<String?>(
                 value: '__null__',
                 child: Text('无分组'),
               ),
               for (final g in _collectGroups(state.rules))
-                PopupMenuItem<String?>(value: g, child: Text('分组：$g')),
+                AppMenuItem<String?>(value: g, child: Text('分组：$g')),
             ],
           ),
           // P2-12：分组管理（对标原版 menu_group_manage → GroupManageDialog）
@@ -122,14 +123,14 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
           ),
           // [UI-fix v2.0.2 | 2026-08-06] 导入入口接 ReplaceRuleImportConfirmScreen
           // （对标原版 ReplaceRuleActivity menu_import：本地/网络/二维码均已接通） — Qoder
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '导入',
             icon: const Icon(Symbols.file_download_rounded),
             onSelected: _handleImportMenu,
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'local', child: Text('本地导入')),
-              PopupMenuItem(value: 'online', child: Text('网络导入')),
-              PopupMenuItem(value: 'qrcode', child: Text('二维码导入')),
+              AppMenuItem(value: 'local', child: Text('本地导入')),
+              AppMenuItem(value: 'online', child: Text('网络导入')),
+              AppMenuItem(value: 'qrcode', child: Text('二维码导入')),
             ],
           ),
           // [UI-fix v2.0.2 | 2026-08-06] 批量模式入口 — Qoder
@@ -385,15 +386,15 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
             });
           },
         ),
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           tooltip: '批量操作',
           onSelected: _handleBatchAction,
           itemBuilder: (_) => const [
-            PopupMenuItem(value: 'enable', child: Text('启用选中')),
-            PopupMenuItem(value: 'disable', child: Text('禁用选中')),
-            PopupMenuItem(value: 'top', child: Text('置顶')),
-            PopupMenuItem(value: 'bottom', child: Text('置底')),
-            PopupMenuItem(value: 'export', child: Text('导出选中')),
+            AppMenuItem(value: 'enable', child: Text('启用选中')),
+            AppMenuItem(value: 'disable', child: Text('禁用选中')),
+            AppMenuItem(value: 'top', child: Text('置顶')),
+            AppMenuItem(value: 'bottom', child: Text('置底')),
+            AppMenuItem(value: 'export', child: Text('导出选中')),
           ],
         ),
       ],
@@ -697,6 +698,7 @@ class _ReplaceRuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；边距 horizontal16（全局标尺）
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -707,8 +709,7 @@ class _ReplaceRuleTile extends StatelessWidget {
         onLongPress: batchMode ? onSelect : onEnterBatch,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               // [UI-fix v2.0.2 | 2026-08-06] 批量模式显示选中框，否则排序手柄 — Qoder
@@ -734,9 +735,7 @@ class _ReplaceRuleTile extends StatelessWidget {
                   children: [
                     Text(
                       rule.name.isEmpty ? '(未命名)' : rule.name,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -774,7 +773,7 @@ class _ReplaceRuleTile extends StatelessWidget {
                   onPressed: onEdit,
                 ),
                 // 更多菜单（对标 iv_menu_more）
-                PopupMenuButton<String>(
+                AppMenuButton<String>(
                   icon: Icon(
                     Symbols.more_vert_rounded,
                     size: 20,
@@ -785,7 +784,7 @@ class _ReplaceRuleTile extends StatelessWidget {
                     if (v == 'delete') onDelete();
                   },
                   itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'delete', child: Text('删除')),
+                    AppMenuItem(value: 'delete', child: Text('删除')),
                   ],
                 ),
               ],

@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -51,18 +52,12 @@ It was a dark and stormy night.''';
     final state = ref.watch(txtTocRulesNotifierProvider);
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      // [台账 4-1 ①②⑦ | 2.0.274] 顶栏/入口重构（对齐参考 01_txt_toc_rule 截图）：
-      // ① 大标题左对齐、动作钮上行独立——复用 LegadoTabRootHeaderSliver 大标题
-      //    模式（滚动折叠为标准栏，_buildHeaderSliver）；
-      // ② 新建入口改右下 + FAB（主题槽位着色，见 floatingActionButton）；
-      // ⑦ 移除顶栏 ?/↺ 两直钮（原版 txt_toc_rule.xml 菜单仅 menu_add=always、
-      //    帮助/导入默认=never 溢出，无独立顶栏钮），原版能力经 ⋮ 溢出菜单保留
+      topBar: _buildAppBar(),
       body: Md3FastScroller(
         controller: _fsController,
         child: CustomScrollView(
           controller: _fsController,
           slivers: [
-            _buildHeaderSliver(context),
             if (state.isLoading)
               const SliverFillRemaining(
                 hasScrollBody: false,
@@ -115,26 +110,17 @@ It was a dark and stormy night.''';
     );
   }
 
-  /// [台账 4-1 ①⑦ | 2.0.274] 头部 sliver：可折叠大标题「TXT 目录规则」（左对齐，
-  /// 展开 152dp，滚动折叠为标准栏）+ 返回钮（push 子页保留）+ ⋮ 溢出菜单
-  /// （导入默认/帮助，对应原版菜单 never 项；?/↺ 直钮已移除）。
-  Widget _buildHeaderSliver(BuildContext context) {
-    return LegadoTabRootHeaderSliver(
-      large: true,
-      leading: IconButton(
-        icon: const Icon(Symbols.arrow_back_rounded),
-        tooltip: '返回',
-        onPressed: () => Navigator.of(context).maybePop(),
-      ),
+  LegadoAppBar _buildAppBar() {
+    return LegadoAppBar(
       title: const Text('TXT 目录规则'),
       actions: [
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           tooltip: '更多操作',
           icon: const Icon(Symbols.more_vert_rounded),
           onSelected: _onMoreMenuSelected,
           itemBuilder: (_) => const [
-            PopupMenuItem(value: 'importDefault', child: Text('导入默认')),
-            PopupMenuItem(value: 'help', child: Text('帮助')),
+            AppMenuItem(value: 'importDefault', child: Text('导入默认')),
+            AppMenuItem(value: 'help', child: Text('帮助')),
           ],
         ),
       ],
@@ -427,16 +413,15 @@ class _RuleTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Card(
-      // [台账 4-1 ⑤ | 2.0.274] 分体卡：圆角 14dp、卡间距 vertical 12dp
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: theme.colorScheme.surfaceContainer,
+      // 规则卡片与其他管理页保持相同圆角、间距和文字层级。
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onEdit,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Expanded(
@@ -445,9 +430,7 @@ class _RuleTile extends StatelessWidget {
                   children: [
                     Text(
                       rule.name.isEmpty ? '(未命名)' : rule.name,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(

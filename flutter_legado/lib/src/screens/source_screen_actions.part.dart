@@ -62,6 +62,14 @@ extension _SourceActions on _SourceScreenState {
       case 'import_qr':
         _importFromQrCode(context);
         break;
+      case 'select_mode':
+        final notifier = ref.read(sourceNotifierProvider.notifier);
+        if (ref.read(sourceNotifierProvider).batchMode) {
+          notifier.exitBatchMode();
+        } else {
+          notifier.enterBatchMode();
+        }
+        break;
       case 'group_by_domain':
         setState(() => _groupByDomain = !_groupByDomain);
         break;
@@ -80,11 +88,11 @@ extension _SourceActions on _SourceScreenState {
   }
 
   /// 排序菜单项（对标 Android menu_sort_manual/auto/name/url + menu_sort_desc）
-  List<PopupMenuEntry<String>> _buildSortMenuItems(BuildContext context) {
+  List<AppMenuEntry<String>> _buildSortMenuItems(BuildContext context) {
     final state = ref.read(sourceNotifierProvider);
-    PopupMenuItem<String> sortItem(SourceSort sort, String label) {
+    AppMenuItem<String> sortItem(SourceSort sort, String label) {
       final selected = state.sort == sort;
-      return PopupMenuItem(
+      return AppMenuItem(
         value: 'sort_${sort.name}',
         child: Row(
           children: [
@@ -101,7 +109,7 @@ extension _SourceActions on _SourceScreenState {
     }
 
     return [
-      PopupMenuItem(
+      AppMenuItem(
         value: 'sort_desc',
         child: Row(
           children: [
@@ -115,7 +123,7 @@ extension _SourceActions on _SourceScreenState {
           ],
         ),
       ),
-      const PillMenuDivider(),
+      const AppMenuDivider(),
       sortItem(SourceSort.manual, '手动排序'),
       sortItem(SourceSort.weight, '自动排序（权重）'),
       sortItem(SourceSort.name, '按名称'),

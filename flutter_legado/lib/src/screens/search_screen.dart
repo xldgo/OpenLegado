@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -81,7 +82,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   int _searchSessionId = 0;
   int _emptyDialogShownForSession = -1;
   // [UI-fix v2.0.3 | 2026-08-07] 锚定菜单定位键：分组 PopupMenu 锚定按钮下方 — Qoder
-  // [1-6 ①] 2.0.259 ⋮ 溢出菜单移除后，该键由 ⚙ 设置弹层 PopupMenuButton 复用（锚定 ⚙ 钮下方）
+  // [1-6 ①] 2.0.259 ⋮ 溢出菜单移除后，该键由 ⚙ 设置弹层 AppMenuButton 复用（锚定 ⚙ 钮下方）
   final _menuButtonKey = GlobalKey();
   // [队列④ P1-B] 失败书源横幅展开态（折叠=摘要行，展开=逐源明细；
   // failedSources 变空时经 ref.listen 自动收起，见 build 内监听回调）

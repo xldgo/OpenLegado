@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -261,10 +262,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
             tooltip: '检测',
             onPressed: _checking ? null : _verify,
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多选项',
             // [LAYOUT_PLAN P2] 菜单在顶栏下方展开，不覆盖顶栏
-            position: PopupMenuPosition.under,
             onSelected: (value) {
               switch (value) {
                 case 'manual':
@@ -274,8 +274,8 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'manual', child: Text('手动编辑 Cookie')),
-              PopupMenuItem(
+              AppMenuItem(value: 'manual', child: Text('手动编辑 Cookie')),
+              AppMenuItem(
                 value: 'open_external',
                 child: Text('在浏览器中打开'),
               ),

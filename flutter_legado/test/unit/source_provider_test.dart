@@ -385,9 +385,11 @@ void main() {
       readNotifier().toggleSelection('http://a.com');
       expect(readState().isSelected('http://a.com'), isTrue);
       expect(readState().selectedCount, equals(1));
+      expect(readState().batchMode, isTrue);
 
       readNotifier().toggleSelection('http://a.com');
       expect(readState().isSelected('http://a.com'), isFalse);
+      expect(readState().batchMode, isFalse);
     });
 
     test('selectAll 全选当前过滤结果', () {
@@ -402,6 +404,15 @@ void main() {
       readNotifier().selectAll();
       readNotifier().deselectAll();
       expect(readState().selectedCount, equals(0));
+      expect(readState().batchMode, isFalse);
+    });
+
+    test('全选后反选为空时退出批量模式', () {
+      readNotifier().selectAll();
+      expect(readState().batchMode, isTrue);
+      readNotifier().revertSelection();
+      expect(readState().selectedUrls, isEmpty);
+      expect(readState().batchMode, isFalse);
     });
 
     test('batchEnable 批量启用', () async {
@@ -535,6 +546,77 @@ void main() {
         readState().filteredSources.map((s) => s.bookSourceUrl).toList(),
         equals(['http://a.com', 'http://b.com', 'http://c.com']),
       );
+    });
+
+    test('拖到末尾保存手动顺序，重新加载后保持', () async {
+      var stored = [
+        makeSortSource('http://a.com', 'A'),
+        makeSortSource('http://b.com', 'B'),
+        makeSortSource('http://c.com', 'C'),
+      ];
+      when(() => mockApi.getBookSources()).thenAnswer((_) async => stored);
+      when(() => mockApi.updateBookSource(any())).thenAnswer((invocation) async {
+        final updated = invocation.positionalArguments.single as BookSource;
+        stored = [
+          for (final source in stored)
+            source.bookSourceUrl == updated.bookSourceUrl ? updated : source,
+        ];
+      });
+      await readNotifier().loadSources();
+
+      expect(await readNotifier().reorderSources(0, 2), isTrue);
+      await readNotifier().loadSources();
+      expect(readState().filteredSources.map((s) => s.bookSourceName),
+          ['B', 'C', 'A']);
+      expect(readState().filteredSources.map((s) => s.customOrder), [0, 1, 2]);
+    });
+
+    test('降序筛选拖动保持隐藏书源位置与勾选状态', () async {
+      await load([
+        makeSortSource('http://a.com', '可见A', group: '小说', customOrder: 0),
+        makeSortSource('http://b.com', '隐藏B', customOrder: 1),
+        makeSortSource('http://c.com', '可见C', group: '小说', customOrder: 2),
+        makeSortSource('http://d.com', '可见D', group: '小说', customOrder: 3),
+      ]);
+      when(() => mockApi.updateBookSource(any())).thenAnswer((_) async {});
+      readNotifier().setGroup('小说');
+      readNotifier().setFilter('可见');
+      readNotifier().toggleSortDirection();
+      readNotifier().enterBatchMode();
+      readNotifier().toggleSelection('http://d.com');
+
+      expect(await readNotifier().reorderSources(0, 2), isTrue);
+      expect(readState().filteredSources.map((s) => s.bookSourceName),
+          ['可见C', '可见A', '可见D']);
+      expect(readState().sources.firstWhere(
+          (s) => s.bookSourceUrl == 'http://b.com').customOrder, 1);
+      expect(readState().batchMode, isTrue);
+      expect(readState().selectedUrls, {'http://d.com'});
+    });
+
+    test('拖动保存中途失败重新读取数据库顺序', () async {
+      var stored = [
+        makeSortSource('http://a.com', 'A', customOrder: 0),
+        makeSortSource('http://b.com', 'B', customOrder: 1),
+        makeSortSource('http://c.com', 'C', customOrder: 2),
+      ];
+      when(() => mockApi.getBookSources()).thenAnswer((_) async => stored);
+      when(() => mockApi.updateBookSource(any())).thenAnswer((invocation) async {
+        final updated = invocation.positionalArguments.single as BookSource;
+        if (updated.bookSourceUrl == 'http://c.com') {
+          throw const BridgeError(message: '写入失败');
+        }
+        stored = [
+          for (final source in stored)
+            source.bookSourceUrl == updated.bookSourceUrl ? updated : source,
+        ];
+      });
+      await readNotifier().loadSources();
+
+      expect(await readNotifier().reorderSources(0, 2), isFalse);
+      expect(readState().sources, stored);
+      expect(readState().loading, isFalse);
+      expect(readState().error, '写入失败');
     });
 
     test('权重排序默认高权重优先', () async {

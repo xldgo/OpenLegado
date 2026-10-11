@@ -75,7 +75,8 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 |------|------|
 | Scaffold / AppBar 背景 | `surface` |
 | 分组卡片（Card / SettingsGroup） | 亮 `surfaceContainerLowest` / 暗 `surfaceContainerLow` |
-| 底部导航栏 / 菜单（PopupMenu / DropdownMenu） | `surfaceContainer` |
+| 底部导航栏 | `surfaceContainer` |
+| 操作菜单 / 表单下拉菜单 | `surfaceContainerLow` |
 | BottomSheet | `surfaceContainerLow` |
 | Dialog | `surfaceContainerHigh` |
 | 普通表单输入框填充 | `surfaceContainerLow` |
@@ -107,6 +108,18 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 订阅源与单章换源复用 AppSearchField，书源规则输入保留独立标签与代码入口。
 普通 AlertDialog 使用 dialogTheme 的形状，二维码白底保留扫码用途。
 
+操作菜单统一经 `app_menu.dart` 使用标准 `MenuAnchor`、`MenuItemButton` 与
+`CheckboxMenuButton`，共用入口只管理选项、回调及系统返回时关闭菜单，
+不自行绘制弹层。书架、顶栏更多、文字触发和书源行长按使用同一接线；
+表单保留 `DropdownMenu` / `DropdownMenuFormField`，不改为操作菜单。
+两类菜单共用 16dp 圆角、`surfaceContainerLow` 底色及 4dp 阴影；
+操作菜单行最低高度 48dp、横向边距 16dp，文字采用 bodyMedium。
+分隔线使用标准 Divider，两侧各留 16dp。以上数值为项目统一配置。
+
+数量徽标使用标准 `Badge.count(maxCount: 99)`，共用 `BadgeThemeData` 的
+error/onError 颜色、18dp 高度及 11sp 文字，不再手动绘制书架数字容器。
+共用 BadgeWidget 只保留角标位置、显隐和自定义底色能力。
+
 编写者：Codex UI｜2026-10-11
 
 纯黑深色模式在 `AppTheme.palette` 统一应用，默认主题、各内置色板和参数化配色
@@ -134,7 +147,7 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 
 ### 1.5 搜索输入（2026-10-11）
 
-替换净化、书源管理、字典查询、阅读记录与书签使用 `AppSearchField`，高度 48dp、胶囊形状、
+替换净化、书源管理、字典查询、文件管理、阅读记录与书签使用 `AppSearchField`，高度 48dp、胶囊形状、
 零阴影和无描边；底色为 `surfaceContainerLow`，文字用 `onSurface`，
 提示和搜索图标用 `onSurfaceVariant`。输入非空时提供清除入口。
 常规页面通过 `AppSearchRow` 装配在标题栏下方，左右边距 16dp；字典查询按钮同排。
@@ -151,6 +164,9 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 ### 1.6 设置导航与列表（2026-10-11）
 
 我的页按内容与规则、外观、同步与服务、定时任务、其他五组排列。
+五个分组标题通过 SettingsGroup 的可选 title 放入卡片顶部，使用 titleSmall/
+onSurfaceVariant，无图标、不可点击、不参与行间分隔线。
+标题独立留白，设置行保留原有边距；卡片之间留 16dp，不额外给整卡内容加统一内边距。
 内容与规则包含书源、订阅源、TXT 目录规则、替换净化、字典查询、字典规则和高亮标注；
 定时任务管理及运行开关独立成组。同步与服务包含 Web/MCP 服务、备份与恢复和缓存管理。
 外观组只包含外观与阅读界面，高级移至其他组，保留书签、阅读记录、文件管理、关于和退出。
@@ -163,6 +179,18 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 我的页直接使用该默认规则。
 
 编写者：Codex UI｜2026-10-11
+
+“我的”二级设置页（外观、高级、备份与恢复、关于）沿用卡片内标题，顶部与组间留
+16dp，不添加整卡统一内边距。设置与弹层的布尔选项复用 SettingSwitchRow；弹层已有
+内容边距时允许行内零边距。二级页使用 LegadoAppBar，TXT 目录规则不再单独使用大标题。
+文件管理复用标题栏 AppSearchField，目录返回保持原行为；书签与阅读记录保持标题栏搜索。
+管理列表主标题使用 titleMedium，副文本使用 bodySmall/onSurfaceVariant，操作图标保持
+透明背景。规则与书签卡片使用 16dp 圆角和 surfaceContainer，点击反馈服从外层圆角裁剪；
+规则高亮与选中状态保留语义色。普通列表由行内容负责水平留白，避免列表和行双重缩进；
+带勾选框的行保留控件所需边距。书源及订阅源现有分割线右侧同样留 16dp。
+
+免责声明和更新日志复用 HelpScreen 的 Markdown 弹窗，不使用普通文本的独立底部弹层；
+标题、列表、链接、主题及关闭图标沿用帮助文档查看器。
 
 ### 1.7 阅读设置（2026-10-11）
 

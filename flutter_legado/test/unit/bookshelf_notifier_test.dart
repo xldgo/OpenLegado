@@ -213,9 +213,13 @@ void main() {
       expect(prefs.getBool('bookshelf_layout'), isFalse);
     });
 
-    test('布局偏好重启后恢复（对标原版 bookshelfLayout 持久化）', () async {
-      // 预置上次选择：列表视图
-      SharedPreferences.setMockInitialValues({'bookshelf_layout': false});
+    test('布局偏好重启后恢复', () async {
+      await pumpInit();
+      await readNotifier().setLayout(
+        isGridView: true,
+        gridColumns: 4,
+        groupMode: GroupMode.bySource,
+      );
       container.dispose();
       container = ProviderContainer(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -223,7 +227,9 @@ void main() {
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 
-      expect(readState().isGridView, isFalse);
+      expect(readState().isGridView, isTrue);
+      expect(readState().gridColumns, 4);
+      expect(readState().groupMode, GroupMode.bySource);
     });
 
     test('setGroupMode 切换分组模式', () async {

@@ -1,6 +1,6 @@
 ---
 name: flutter-mcp-toolkit-dogfood-iterations
-description: Runs and records flutter_test_app dogfood iterations (tool_quality_rubric, run_dogfood_eval.sh, dogfood_web_eval.yaml). Use when scoring MCP/intentcall quality, appending iteration N, comparing regressions, or CI static/weekly eval gates.
+description: Runs and records showcase/flutter_test_app dogfood iterations (tool_quality_rubric, run_dogfood_eval.sh, dogfood_web_eval.yaml). Use when scoring MCP/intentcall quality, appending iteration N, comparing regressions, or CI static/weekly eval gates.
 ---
 
 <!-- @FMT_MODE_PRELUDE -->
@@ -92,7 +92,7 @@ dart run mcp_server_dart/bin/flutter_mcp_toolkit.dart \
 
 ## Chrome battery notes
 
-- Skip heavy visual harness unless `HARNESS_ROOT` points at `flutter_harness`: add `--skip-visual`
+- Skip the visual track (`--skip-visual`): its fixture home (external `flutter_harness`) is retired, so the visual evidence is paused, not regenerable
 - `validate-runtime --save-images` can hang >5m on Chrome; battery omits it unless `DOGFOOD_SAVE_IMAGES=1`
 
 ## CI (branch)

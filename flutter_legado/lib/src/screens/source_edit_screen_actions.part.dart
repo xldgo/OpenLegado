@@ -8,7 +8,6 @@ part of 'source_edit_screen.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _SourceEditActions on _SourceEditScreenState {
-
   /// 将 [BookSource] 展平为 key→文本 映射，供 [_populateFields] 回填控制器。
   Map<String, String> _sourceToValues(BookSource source) {
     String v(String? value) => value ?? '';
@@ -274,7 +273,10 @@ extension _SourceEditActions on _SourceEditScreenState {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _tabController.animateTo(0);
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -283,114 +285,42 @@ extension _SourceEditActions on _SourceEditScreenState {
       await notifier.saveSource(source);
       _afterSaveRefresh();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(isNew ? '书源已创建' : '书源已保存')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(isNew ? '书源已创建' : '书源已保存')));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('保存失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  /// overflow 菜单项（对齐原版 source_edit.xml 顺序/内容；紧凑行高使 12 项
-  /// 菜单在顶栏下方完整展示而不被屏幕底边顶回覆盖顶栏）
-  List<PopupMenuEntry<String>> _buildMenuItems() {
-    const itemHeight = 44.0;
+  /// 菜单保留原有顺序与条件，超长内容由标准菜单滚动展示。
+  List<AppMenuEntry<String>> _buildMenuItems() {
     return [
       // 登录（对齐 menu_login：仅在配置了登录 URL 时显示）
       if (_ctrl('loginUrl').text.trim().isNotEmpty)
-        const PopupMenuItem(
-          value: 'login',
-          height: itemHeight,
-          child: Text('登录'),
-        ),
-      const PopupMenuItem(
-        value: 'search',
-        height: itemHeight,
-        child: Text('搜索'),
-      ),
-      const PopupMenuItem(
-        value: 'clear_cookie',
-        height: itemHeight,
-        child: Text('清除Cookie'),
-      ),
-      CheckedPopupMenuItem(
+        const AppMenuItem(value: 'login', child: Text('登录')),
+      const AppMenuItem(value: 'search', child: Text('搜索')),
+      const AppMenuItem(value: 'clear_cookie', child: Text('清除Cookie')),
+      AppMenuItem(
         value: 'auto_complete',
-        height: itemHeight,
         checked: _autoComplete,
         child: const Text('自动补全'),
       ),
-      const PopupMenuItem(
-        value: 'copy_source',
-        height: itemHeight,
-        child: Text('拷贝源'),
-      ),
-      const PopupMenuItem(
-        value: 'paste_source',
-        height: itemHeight,
-        child: Text('粘贴源'),
-      ),
-      const PopupMenuItem(
-        value: 'set_source_variable',
-        height: itemHeight,
-        child: Text('设置源变量'),
-      ),
-      const PopupMenuItem(
-        value: 'import_qr',
-        height: itemHeight,
-        child: Text('二维码导入'),
-      ),
-      const PopupMenuItem(
-        value: 'share_qr',
-        height: itemHeight,
-        child: Text('二维码分享'),
-      ),
-      const PopupMenuItem(
-        value: 'share_str',
-        height: itemHeight,
-        child: Text('字符串分享'),
-      ),
-      const PopupMenuItem(
-        value: 'log',
-        height: itemHeight,
-        child: Text('日志'),
-      ),
-      const PopupMenuItem(
-        value: 'help',
-        height: itemHeight,
-        child: Text('帮助'),
-      ),
+      const AppMenuItem(value: 'copy_source', child: Text('拷贝源')),
+      const AppMenuItem(value: 'paste_source', child: Text('粘贴源')),
+      const AppMenuItem(value: 'set_source_variable', child: Text('设置源变量')),
+      const AppMenuItem(value: 'import_qr', child: Text('二维码导入')),
+      const AppMenuItem(value: 'share_qr', child: Text('二维码分享')),
+      const AppMenuItem(value: 'share_str', child: Text('字符串分享')),
+      const AppMenuItem(value: 'log', child: Text('日志')),
+      const AppMenuItem(value: 'help', child: Text('帮助')),
     ];
-  }
-
-  /// 在按钮下方弹出更多选项菜单（对齐原版：菜单在顶栏按钮下方、右对齐，
-  /// 不覆盖顶栏操作按钮；底部留边使超长菜单滚动展示而非上移顶回工具栏）
-  Future<void> _showOverflowMenu(BuildContext anchor) async {
-    final overlay = Overlay.of(anchor).context.findRenderObject()! as RenderBox;
-    const top = 156.0;
-    const bottom = 48.0;
-    const menuWidth = 300.0;
-    final position = RelativeRect.fromLTRB(
-      overlay.size.width - menuWidth - 8,
-      top,
-      8,
-      bottom,
-    );
-    final value = await showMenu<String>(
-      context: anchor,
-      position: position,
-      items: _buildMenuItems(),
-    );
-    if (value != null) {
-      await _handleMenu(value);
-    }
   }
 
   /// overflow 菜单分流（对标原版 source_edit.xml 折叠项）
@@ -405,9 +335,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       case 'auto_complete':
         setState(() => _autoComplete = !_autoComplete);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_autoComplete ? '自动补全已开启' : '自动补全已关闭'),
-          ),
+          SnackBar(content: Text(_autoComplete ? '自动补全已开启' : '自动补全已关闭')),
         );
       case 'copy_source':
         await _copySource();
@@ -445,9 +373,8 @@ extension _SourceEditActions on _SourceEditScreenState {
       await Navigator.of(context).pushNamed(AppRoutes.search);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开搜索失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('打开搜索失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -458,22 +385,19 @@ extension _SourceEditActions on _SourceEditScreenState {
   Future<void> _clearCookie() async {
     final url = _ctrl('bookSourceUrl').text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填写书源 URL')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先填写书源 URL')));
       return;
     }
     try {
       await ref.read(bookApiProvider).clearCookie(url);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cookie 已清除')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Cookie 已清除')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除 Cookie 失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清除 Cookie 失败：$e')));
       }
     }
   }
@@ -500,10 +424,9 @@ extension _SourceEditActions on _SourceEditScreenState {
         ),
       );
       if (input == null || !mounted) return;
-      await ref.read(bookApiProvider).setSourceVariable(
-            source.bookSourceUrl,
-            input,
-          );
+      await ref
+          .read(bookApiProvider)
+          .setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       setState(() => _preservedVariable = input);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -511,9 +434,8 @@ extension _SourceEditActions on _SourceEditScreenState {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('设置源变量失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('设置源变量失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -525,17 +447,13 @@ extension _SourceEditActions on _SourceEditScreenState {
     final json = jsonEncode(_buildSource().toJson());
     if (json.length > 2000) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('内容过长，无法生成二维码，请使用字符串分享')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('内容过长，无法生成二维码，请使用字符串分享')));
       return;
     }
     await showDialog<void>(
       context: context,
-      builder: (ctx) => _QrShareDialog(
-        title: '分享书源',
-        payload: json,
-      ),
+      builder: (ctx) => _QrShareDialog(title: '分享书源', payload: json),
     );
   }
 
@@ -551,14 +469,12 @@ extension _SourceEditActions on _SourceEditScreenState {
 
   /// 拷贝源（对标原版 menu_copy_source：JSON 写入剪贴板）
   Future<void> _copySource() async {
-    final json = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_buildSource().toJson());
+    final json = const JsonEncoder.withIndent('  ')
+        .convert(_buildSource().toJson());
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
   }
 
   /// 粘贴源（对标原版 menu_paste_source：解析剪贴板 JSON 回填表单）
@@ -591,7 +507,8 @@ extension _SourceEditActions on _SourceEditScreenState {
   /// 字符串分享（对标原版 menu_share_str：写缓存文件再分享）
   Future<void> _shareSource() async {
     try {
-      final json = const JsonEncoder.withIndent('  ').convert(_buildSource().toJson());
+      final json = const JsonEncoder.withIndent('  ')
+          .convert(_buildSource().toJson());
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/bookSource_share.json');
       await file.writeAsString(json);
@@ -603,9 +520,8 @@ extension _SourceEditActions on _SourceEditScreenState {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分享失败：$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('分享失败：$e')));
     }
   }
 
@@ -666,15 +582,12 @@ extension _SourceEditActions on _SourceEditScreenState {
       await notifier.saveSource(source);
       _afterSaveRefresh();
       if (!mounted) return;
-      Navigator.of(context).pushNamed(
-        AppRoutes.sourceDebug,
-        arguments: source.bookSourceUrl,
-      );
+      Navigator.of(context)
+          .pushNamed(AppRoutes.sourceDebug, arguments: source.bookSourceUrl);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('调试失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('调试失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -687,29 +600,22 @@ extension _SourceEditActions on _SourceEditScreenState {
   Future<void> _showFullscreenEdit() async {
     final key = _focusedFieldKey;
     if (key == null || !_ctrls.containsKey(key)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先将光标放在要编辑的输入框')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先将光标放在要编辑的输入框')));
       return;
     }
     await _openCodeEditForField(key, title: _fieldLabels[key] ?? key);
   }
 
-  Future<void> _openCodeEditForField(String key, {required String title}) async {
-    final ctrl = _ctrl(key);
-    final focus = _focus(key);
-    final cursor = ctrl.selection.baseOffset.clamp(0, ctrl.text.length);
-    final result = await CodeEditScreen.open(
+  Future<void> _openCodeEditForField(
+    String key, {
+    required String title,
+  }) async {
+    await editSourceFieldCode(
       context,
       title: title,
-      initialText: ctrl.text,
-      cursorPosition: cursor < 0 ? 0 : cursor,
+      controller: _ctrl(key),
+      focusNode: _focus(key),
     );
-    if (result == null || !mounted) return;
-    setState(() {
-      ctrl.text = result;
-      ctrl.selection = TextSelection.collapsed(offset: result.length);
-    });
-    focus.requestFocus();
   }
 }

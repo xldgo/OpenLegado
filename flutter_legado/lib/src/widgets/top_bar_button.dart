@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'app_menu.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
 
@@ -10,7 +11,7 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 /// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
 ///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
 /// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
-/// - [TopBarActionStyler] 可包装任意既有 action（IconButton/PopupMenuButton），
+/// - [TopBarActionStyler] 可包装任意既有 action（IconButton/AppMenuButton），
 ///   使全站顶栏按钮零逐页改动获得新样式；
 /// - merge 模式：actions 并入 Stadium 胶囊容器 + 1dp 分隔线
 ///   （onSurfaceVariant α0.15，对齐参考仓 mergeTopBarActions）。
@@ -120,7 +121,10 @@ class _ActionSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 文字按钮保留自身尺寸，不压进图标槽位。
-    if (child is! IconButton && child is! PopupMenuButton) return child;
+    if (child is! IconButton && child is! AppMenuButton) return child;
+    if (child is AppMenuButton && (child as AppMenuButton).child != null) {
+      return child;
+    }
     if (style == TopBarButtonStyle.plain) {
       // 保持 40dp 的视觉尺寸，点击区域由按钮扩展至 48dp。
       return SizedBox(

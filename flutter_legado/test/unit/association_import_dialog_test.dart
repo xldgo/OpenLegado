@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
 import 'package:flutter_legado/src/screens/association_import_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -64,7 +65,7 @@ void main() {
     expect(find.text('确认（1）'), findsOneWidget);
     // bookSource 头部动作：自定义分组 + 更多选项菜单
     expect(find.text('自定义分组'), findsOneWidget);
-    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+    expect(find.byType(AppMenuButton<String>), findsOneWidget);
 
     // 回归守护：点选后重建不得回弹（freezed items getter 每次访问新建包装，
     // 旧实现按列表 identity 判定会重置勾选）

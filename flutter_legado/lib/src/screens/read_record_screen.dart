@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'read_record_daily_view.dart';
@@ -17,7 +18,6 @@ import '../widgets/md3_fast_scroller.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_indicator.dart';
-import '../widgets/pill_divider.dart';
 
 /// 阅读记录页（对齐原版 `ReadRecordActivity`）
 ///
@@ -94,27 +94,27 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ref.read(readRecordNotifierProvider.notifier).setSearchQuery(q),
         ),
         actions: [
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '排序与设置',
             onSelected: _onMenuSelected,
             itemBuilder: (_) => [
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'sort_name',
                 checked: state.sortMode == ReadRecordSortMode.name,
                 child: const Text('按书名排序'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'sort_read_long',
                 checked: state.sortMode == ReadRecordSortMode.readTime,
                 child: const Text('按阅读时长'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'sort_last_read',
                 checked: state.sortMode == ReadRecordSortMode.lastRead,
                 child: const Text('按最后阅读'),
               ),
-              const PillMenuDivider(),
-              CheckedPopupMenuItem(
+              const AppMenuDivider(),
+              AppMenuItem(
                 value: 'enable_record',
                 checked: state.enableRecord,
                 child: const Text('启用阅读记录'),
@@ -338,7 +338,7 @@ class _ReadRecordTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -350,7 +350,7 @@ class _ReadRecordTile extends StatelessWidget {
                     item.bookName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(

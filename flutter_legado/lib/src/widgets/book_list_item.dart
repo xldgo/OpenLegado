@@ -73,7 +73,11 @@ class BookListItem extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (unread > 0) _UnreadBadge(count: unread),
+                      if (unread > 0)
+                        Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: Badge.count(count: unread, maxCount: 99),
+                        ),
                     ],
                   ),
                   // 作者 + 更新时间行（对标 iv_author + tv_author + tv_last_update_time）
@@ -173,37 +177,6 @@ class _SummaryRow extends StatelessWidget {
             trailing!,
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// 未读章节数角标（对标 BadgeView bv_unread）
-class _UnreadBadge extends StatelessWidget {
-  final int count;
-
-  const _UnreadBadge({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.all(5),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-      decoration: BoxDecoration(
-        color: colorScheme.error,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: colorScheme.onError,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          height: 1.2,
-        ),
       ),
     );
   }

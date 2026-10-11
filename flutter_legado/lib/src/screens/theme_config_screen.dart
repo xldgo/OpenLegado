@@ -29,6 +29,8 @@ import '../services/launcher_icon_service.dart';
 import '../services/settings_service.dart';
 import '../theme/md3_colors.dart';
 import '../widgets/settings_widgets.dart';
+import '../widgets/app_menu.dart';
+import '../widgets/setting_cards.dart' show LabelMediumEmphasized;
 
 /// 主题设置页面（对齐原版 ThemeConfigFragment）
 ///
@@ -511,8 +513,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SwitchListTile(
-                title: const Text('覆写主题圆角'),
+              SettingSwitchRow(
+                title: '覆写主题圆角',
                 value: override,
                 onChanged: (v) => setDialogState(() => override = v),
               ),
@@ -640,7 +642,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
           ? const Center(child: CircularProgressIndicator())
           : IosGroupedBody(
               child: ListView(
-                padding: const EdgeInsets.only(bottom: 32),
+                padding: const EdgeInsets.only(top: 16, bottom: 32),
                 children: [
                   // === [2.0.269 用户裁决] 外观预览卡已移除（C6 批 b03c2ba444 低优
                   // 增强建议产物，无独立用户授权记录；与配色轮同类，严格红线） ===
@@ -655,8 +657,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // ThemeNotifier.setThemeMode，非新增功能。
                   // 原「主题导出/导入」独立分区并入下方通用组（对齐参考主题管理
                   // 同簇）；[B3-C1 A3] 导出/导入能力保留不动。
-                  const IosSectionHeader('主题模式'),
                   SettingsGroup(
+                    title: '主题模式',
                       children: [
                         // 参考 ThemeModeSelector（:974-1012）material 引擎分支：
                         // 跟随系统 / 浅色 / 深色（flow_sys/light_mode/dark_mode）
@@ -676,8 +678,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 对比度；参考版无对应分组——参考"主题风格"=compose 引擎
                   // 开关，属参考独有，仅登记不实现）。[队列⑦c A3] AMOLED 纯黑
                   // 移出本组，改入通用组首位（对齐参考 纯黑深色模式 首位） ===
-                  const IosSectionHeader('主题引擎'),
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '主题引擎',
                       children: [
                     IosListTile(
                       title: '配色风格',
@@ -692,7 +695,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                   ]),
 
-                  // === 分组 3 通用（无分组标题，对齐参考版未分组通用组；
+                  // === 分组 3 通用（卡片内标题与其他设置页统一；
                   // 参考顺序 纯黑→切换图标→字体大小→主题管理→背景图片；
                   // 参考独有 字体设置/自定义颜色/compose 引擎/预见性返回手势
                   // 仅登记不实现） ===
@@ -700,7 +703,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 对齐参考 纯黑 首位）→ 切换图标 → 字体大小 → 主题管理
                   // （原主题列表改名）→ 导出/导入主题（原顶部分区并入）→ 其余
                   // 我方项保持原有相对顺序
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '通用',
                       children: [
                     // 纯黑深色模式（参考 pure_black=纯黑深色模式；原"AMOLED
                     // 纯黑"，标题对齐参考，副标题保留）
@@ -716,12 +721,48 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                     // change_icon_summary=切换软件显示在桌面的图标；
                     // Android/iOS 支持，Windows 等桌面端整项隐藏）
                     if (LauncherIconService.isSupported)
-                      IosListTile(
-                        title: '切换图标',
-                        subtitle: '切换软件显示在桌面的图标',
-                        value: _launcherIconLabels[
-                            _launcherIcons.indexOf(_launcherIcon).clamp(0, 6)],
-                        onTap: _showLauncherIconPicker,
+                      AppMenuAnchor<String>(
+                        itemBuilder: (_) => [
+                          for (var i = 0; i < _launcherIcons.length; i++)
+                            AppMenuItem(
+                              value: _launcherIcons[i],
+                              checked: _launcherIcon == _launcherIcons[i],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _launcherIconPreview(_launcherIcons[i]),
+                                  const SizedBox(width: 12),
+                                  Text(_launcherIconLabels[i]),
+                                ],
+                              ),
+                            ),
+                        ],
+                        onSelected: _setLauncherIcon,
+                        builder: (_, controller, _) => IosListTile(
+                          title: '切换图标',
+                          subtitle: '切换软件显示在桌面的图标',
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _launcherIconPreview(_launcherIcon, size: 32),
+                              const SizedBox(width: 8),
+                              Text(
+                                _launcherIconLabels[_launcherIcons
+                                    .indexOf(_launcherIcon)
+                                    .clamp(0, 6)],
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMediumEmphasized
+                                    ?.copyWith(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => controller.isOpen
+                              ? controller.close()
+                              : controller.open(),
+                        ),
                       ),
                     // 字体大小（参考 font_scale=字体大小；摘要半角冒号对齐
                     // font_scale_summary「当前字体大小: %.1f」，见 theme_state）
@@ -830,8 +871,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // [队列⑦c A3] 合并原"顶栏与布局"+"底栏与导航"两组为参考的单
                   // 主界面组，设置经 uiSettings 即时全局生效；参考 首页与导航/
                   // 显示状态栏/启用滑动时动画 属参考独有，仅登记不实现） ===
-                  const IosSectionHeader('主界面'),
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '主界面',
                       children: [
                     IosListTile(
                       title: '顶栏按钮样式',
@@ -897,8 +939,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // === 分组 5「书籍详情页」（参考 R.string.book_info_page=
                   // 书籍详情页；原"详情与圆角"的封面三行；卡片圆角/分隔线移入
                   // 下方"容器设置"组） ===
-                  const IosSectionHeader('书籍详情页'),
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '书籍详情页',
                       children: [
                     // 参考 book_info_follow_cover_color=界面颜色跟随封面取色，
                     // 摘要 book_info_follow_cover_color_s=仅在显示背景封面时生效
@@ -929,8 +972,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 卡片圆角/分隔线两行；参考 容器背景图/容器背景不透明度/
                   // 关闭设置分组圆角/覆盖卡片边框/边框粗细/日夜卡片边框颜色/
                   // 分割线粗细/长度/颜色 等子项属参考独有，仅登记不实现） ===
-                  const IosSectionHeader('容器设置'),
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '容器设置',
                       children: [
                     // 参考 base_card_corner_radius=卡片圆角（0-40 滑杆）；我方为
                     // 单对话框（覆写开关 + 4-28），参考 覆盖卡片圆角 双行开关
@@ -957,9 +1001,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // [队列⑦c A3] 原"毛玻璃"改组名对齐参考；我方 启用毛玻璃 +
                   // 顶栏/悬浮底栏模糊参数，参考 启用控件模糊/启用渐变模糊 开关
                   // 结构属参考独有，仅登记；默认关——低端机掉帧保护） ===
-                  const IosSectionHeader('模糊效果'),
-                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '模糊效果',
                       children: [
                     SettingSwitchRow(
                       title: '启用毛玻璃',
@@ -987,9 +1031,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
                   // === 自定义主题·白天（对齐原版 day category，themeConfigList
                   // 功能完整保留——UI_MD3_PLAN.md 第九节） ===
-                  const IosSectionHeader('自定义主题 · 白天'),
-                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '自定义主题 · 白天',
                       children: [
                     _colorTile(PrefKeys.cPrimary, '主色调', colors),
                     _colorTile(PrefKeys.cAccent, '强调色', colors),
@@ -1020,9 +1064,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   ]),
 
                   // === 自定义主题·夜间（对齐原版 night category）===
-                  const IosSectionHeader('自定义主题 · 夜间'),
-                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  const SizedBox(height: 16),
                   SettingsGroup(
+                    title: '自定义主题 · 夜间',
                       children: [
                     _colorTile(PrefKeys.cNPrimary, '主色调', colors,
                         isNight: true),
@@ -1176,32 +1220,24 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     await ref.read(themeColorsProvider.notifier).setColor(key, selected);
   }
 
-  /// 启动图标选择（对齐原版 launcherIcon ListPreference，仅 Android 生效）
-  Future<void> _showLauncherIconPicker() async {
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('启动图标'),
-        children: [
-          // 用 RadioGroup 统一管理选中值（避免 groupValue/onChanged 废弃 API）
-          RadioGroup<String>(
-            groupValue: _launcherIcon,
-            onChanged: (v) => Navigator.pop(ctx, v),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < _launcherIcons.length; i++)
-                  RadioListTile<String>(
-                    title: Text(_launcherIconLabels[i]),
-                    value: _launcherIcons[i],
-                  ),
-              ],
-            ),
-          ),
-        ],
+  /// 预览复用现有原生图标图片，保持选项与实际图标对应。
+  Widget _launcherIconPreview(String icon, {double size = 36}) {
+    final name = _launcherIcons.contains(icon) ? icon : 'iconMain';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.asset(
+        'assets/images/launcher_$name.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
       ),
     );
-    if (selected == null || !mounted) return;
+  }
+
+  /// 沿用现有 Android/iOS 切换与结果提示。
+  Future<void> _setLauncherIcon(String selected) async {
+    if (!mounted) return;
     setState(() => _launcherIcon = selected);
     await _settings.setStringPref(PrefKeys.launcherIcon, selected);
     // 下发原生侧实际切换（Android setComponentEnabledSetting /
@@ -1247,36 +1283,36 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SwitchListTile(
+              SettingSwitchRow(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('仅 Wifi 加载封面'),
+                title: '仅 Wifi 加载封面',
                 value: onlyWifi,
                 onChanged: (v) {
                   setDialogState(() => onlyWifi = v);
                   _settings.setBoolPref(PrefKeys.loadCoverOnlyWifi, v);
                 },
               ),
-              SwitchListTile(
+              SettingSwitchRow(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('优先使用默认封面'),
+                title: '优先使用默认封面',
                 value: useDefault,
                 onChanged: (v) {
                   setDialogState(() => useDefault = v);
                   _settings.setBoolPref(PrefKeys.useDefaultCover, v);
                 },
               ),
-              SwitchListTile(
+              SettingSwitchRow(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('默认封面显示书名'),
+                title: '默认封面显示书名',
                 value: showName,
                 onChanged: (v) {
                   setDialogState(() => showName = v);
                   _settings.setBoolPref(PrefKeys.coverShowName, v);
                 },
               ),
-              SwitchListTile(
+              SettingSwitchRow(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('默认封面显示作者'),
+                title: '默认封面显示作者',
                 value: showAuthor,
                 onChanged: (v) {
                   setDialogState(() => showAuthor = v);
@@ -1950,9 +1986,9 @@ class _CoverRuleConfigDialogState extends State<_CoverRuleConfigDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SwitchListTile(
+                    SettingSwitchRow(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('启用'),
+                      title: '启用',
                       value: _enable,
                       onChanged: _saving
                           ? null

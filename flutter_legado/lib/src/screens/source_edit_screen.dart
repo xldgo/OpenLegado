@@ -1,14 +1,17 @@
+import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,7 +26,8 @@ import '../routes.dart';
 import '../utils/source_login_entry.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
-import 'code_edit_screen.dart';
+import '../utils/source_field_code_edit.dart';
+import '../widgets/source_editor.dart';
 part 'source_edit_screen_load.part.dart';
 part 'source_edit_screen_actions.part.dart';
 part 'source_edit_screen_builders.part.dart';
@@ -35,12 +39,8 @@ part 'source_edit_screen_dialogs.part.dart';
 /// 书源编辑页面
 ///
 /// 对标 Android `BookSourceEditActivity`，编辑书源的全部规则：
-/// 设置 + 基本信息 / 搜索规则 / 发现规则 / 详情规则 / 目录规则 / 正文规则 /
-/// 段评规则。
-/// [B2-C2 2-8 | 全栈工程师] 表单改为扁平单列结构（对齐参考版 ref 09）：
-/// 设置段与 7 大规则分组在同一滚动列内顺序展开，取消 Tab 页签与字段导航条；
-/// 字段顺序与分组沿用原数据驱动定义（[_Field] 列表），controller 按 key
-/// 惰性创建，与原版基于 `EditEntity` 列表的配置化编辑思路一致。
+/// 基本、搜索、发现、详情、目录、正文六个页签；设置归入基本，段评归入正文。
+/// 各页共享字段控制器，保留输入与滚动位置，保存仍使用完整书源对象。
 class SourceEditScreen extends ConsumerStatefulWidget {
   /// 书源 URL（编辑模式），null 表示新建
   final String? sourceUrl;
@@ -55,40 +55,13 @@ class SourceEditScreen extends ConsumerStatefulWidget {
   ConsumerState<SourceEditScreen> createState() => _SourceEditScreenState();
 }
 
-/// 表单字段定义
-class _Field {
-  /// 控制器 key（唯一），同时用于 [_SourceEditScreenState._sourceToValues]
-  /// 与 [_SourceEditScreenState._buildSource] 的字段映射。
-  final String key;
-
-  /// 字段标签（不含必填星号）
-  final String label;
-
-  /// 提示文本
-  final String? hint;
-
-  /// 最大行数
-  final int maxLines;
-
-  /// 是否必填（参与表单校验）
-  final bool required;
-
-  const _Field(
-    this.key,
-    this.label, {
-    this.hint,
-    this.maxLines = 2,
-    this.required = false,
-  });
-}
-
-class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
+class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
+  late final TabController _tabController;
 
-  // [B2-C2 2-8 | 全栈工程师] 扁平单列后取消 TabController/字段导航条
-  // （原 _tabController/_lastFieldNavTab/_selectedNavField 一并移除），
-  // 字段 GlobalKey 仍保留供焦点定位/校验滚动使用。
+  // 字段 GlobalKey 保留供焦点定位和校验使用。
   final Map<String, GlobalKey> _fieldKeys = {};
 
   /// 首次帮助已展示标志（对标原版 LocalConfig.ruleHelpVersionIsLast）
@@ -129,12 +102,13 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
 
   FocusNode _focus(String key) => _focusNodes.putIfAbsent(
     key,
-    () => FocusNode()..addListener(() {
-      // [B2-C2 2-8] 扁平化后无字段导航条，仅记录焦点字段 key
-      if (_focusNodes[key]?.hasFocus == true) {
-        _focusedFieldKey = key;
-      }
-    }),
+    () => FocusNode()
+      ..addListener(() {
+        // [B2-C2 2-8] 扁平化后无字段导航条，仅记录焦点字段 key
+        if (_focusNodes[key]?.hasFocus == true) {
+          _focusedFieldKey = key;
+        }
+      }),
   );
 
   /// 书源类型（对标原版 sp_type / @array/source_type）
@@ -142,131 +116,176 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
 
   // ─── 基本信息字段（对齐原版 BookSourceEditActivity sourceEntities 顺序/标签） ───
   static const _basicFields = [
-    _Field('bookSourceUrl', '源 URL（sourceUrl）', required: true, maxLines: 1),
-    _Field('bookSourceName', '源名称（sourceName）', required: true, maxLines: 1),
-    _Field('bookSourceGroup', '源分组（sourceGroup）', maxLines: 1),
-    _Field('bookSourceComment', '源注释（sourceComment）', maxLines: 3),
-    _Field('loginUrl', '登录 URL(loginUrl)', maxLines: 3),
-    _Field('loginUi', '登录 UI（loginUi）', maxLines: 4),
-    _Field('loginCheckJs', '登录检查 JS（loginCheckJs）', maxLines: 4),
-    _Field('coverDecodeJs', '封面解密（coverDecodeJs）', maxLines: 4),
-    _Field('bookUrlPattern', '书籍 URL 正则（bookUrlPattern）', maxLines: 2),
-    _Field('header', '请求头（header）', hint: 'JSON 格式', maxLines: 3),
-    _Field('variableComment', '变量说明(variableComment)', maxLines: 2),
-    _Field('concurrentRate', '并发率（concurrentRate）', maxLines: 1),
-    _Field('jsLib', 'jsLib', maxLines: 8),
+    SourceEditorFieldSpec(
+      'bookSourceUrl',
+      '源 URL（sourceUrl）',
+      required: true,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'bookSourceName',
+      '源名称（sourceName）',
+      required: true,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('bookSourceGroup', '源分组（sourceGroup）', maxLines: 1),
+    SourceEditorFieldSpec(
+      'bookSourceComment',
+      '源注释（sourceComment）',
+      maxLines: 3,
+    ),
+    SourceEditorFieldSpec('loginUrl', '登录 URL(loginUrl)', maxLines: 3),
+    SourceEditorFieldSpec('loginUi', '登录 UI（loginUi）', maxLines: 4),
+    SourceEditorFieldSpec('loginCheckJs', '登录检查 JS（loginCheckJs）', maxLines: 4),
+    SourceEditorFieldSpec('coverDecodeJs', '封面解密（coverDecodeJs）', maxLines: 4),
+    SourceEditorFieldSpec(
+      'bookUrlPattern',
+      '书籍 URL 正则（bookUrlPattern）',
+      maxLines: 2,
+    ),
+    SourceEditorFieldSpec(
+      'header',
+      '请求头（header）',
+      hint: 'JSON 格式',
+      maxLines: 3,
+    ),
+    SourceEditorFieldSpec(
+      'variableComment',
+      '变量说明(variableComment)',
+      maxLines: 2,
+    ),
+    SourceEditorFieldSpec('concurrentRate', '并发率（concurrentRate）', maxLines: 1),
+    SourceEditorFieldSpec('jsLib', 'jsLib', maxLines: 8),
   ];
 
   // ─── 搜索规则字段（对齐原版 searchEntities 顺序/标签） ──────────
   static const _searchFields = [
-    _Field(
+    SourceEditorFieldSpec(
       'searchUrl',
       '搜索地址（url）',
       maxLines: 1,
       hint: '例如：https://example.com/search?q=searchKey',
     ),
-    _Field('s_checkKeyWord', '校验关键字（checkKeyWord）'),
-    _Field('s_bookList', '书籍列表规则（bookList）'),
-    _Field('s_name', '书名规则（name）'),
-    _Field('s_author', '作者规则（author）'),
-    _Field('s_kind', '分类规则（kind）'),
-    _Field('s_wordCount', '字数规则（wordCount）'),
-    _Field('s_lastChapter', '最新章节规则（lastChapter）'),
-    _Field('s_intro', '简介规则（intro）'),
-    _Field('s_coverUrl', '封面规则（coverUrl）'),
-    _Field('s_bookUrl', '详情页 URL 规则（bookUrl）'),
+    SourceEditorFieldSpec('s_checkKeyWord', '校验关键字（checkKeyWord）'),
+    SourceEditorFieldSpec('s_bookList', '书籍列表规则（bookList）'),
+    SourceEditorFieldSpec('s_name', '书名规则（name）'),
+    SourceEditorFieldSpec('s_author', '作者规则（author）'),
+    SourceEditorFieldSpec('s_kind', '分类规则（kind）'),
+    SourceEditorFieldSpec('s_wordCount', '字数规则（wordCount）'),
+    SourceEditorFieldSpec('s_lastChapter', '最新章节规则（lastChapter）'),
+    SourceEditorFieldSpec('s_intro', '简介规则（intro）'),
+    SourceEditorFieldSpec('s_coverUrl', '封面规则（coverUrl）'),
+    SourceEditorFieldSpec('s_bookUrl', '详情页 URL 规则（bookUrl）'),
   ];
 
   // ─── 发现规则字段（对齐原版 exploreEntities 顺序/标签） ──────────
   static const _exploreFields = [
-    _Field(
+    SourceEditorFieldSpec(
       'exploreUrl',
       '发现地址规则（url）',
       maxLines: 3,
       hint: '例如：分类名::https://example.com/sort\n或 url 形式',
     ),
-    _Field('e_bookList', '书籍列表规则（bookList）'),
-    _Field('e_name', '书名规则（name）'),
-    _Field('e_author', '作者规则（author）'),
-    _Field('e_kind', '分类规则（kind）'),
-    _Field('e_wordCount', '字数规则（wordCount）'),
-    _Field('e_lastChapter', '最新章节规则（lastChapter）'),
-    _Field('e_intro', '简介规则（intro）'),
-    _Field('e_coverUrl', '封面规则（coverUrl）'),
-    _Field('e_bookUrl', '详情页 URL 规则（bookUrl）'),
+    SourceEditorFieldSpec('e_bookList', '书籍列表规则（bookList）'),
+    SourceEditorFieldSpec('e_name', '书名规则（name）'),
+    SourceEditorFieldSpec('e_author', '作者规则（author）'),
+    SourceEditorFieldSpec('e_kind', '分类规则（kind）'),
+    SourceEditorFieldSpec('e_wordCount', '字数规则（wordCount）'),
+    SourceEditorFieldSpec('e_lastChapter', '最新章节规则（lastChapter）'),
+    SourceEditorFieldSpec('e_intro', '简介规则（intro）'),
+    SourceEditorFieldSpec('e_coverUrl', '封面规则（coverUrl）'),
+    SourceEditorFieldSpec('e_bookUrl', '详情页 URL 规则（bookUrl）'),
   ];
 
   // ─── 详情规则字段（对齐原版 infoEntities 顺序/标签） ─────────────
   static const _infoFields = [
-    _Field('i_init', '预处理规则（bookInfoInit）'),
-    _Field('i_name', '书名规则（name）'),
-    _Field('i_author', '作者规则（author）'),
-    _Field('i_kind', '分类规则（kind）'),
-    _Field('i_wordCount', '字数规则（wordCount）'),
-    _Field('i_lastChapter', '最新章节规则（lastChapter）'),
-    _Field('i_intro', '简介规则（intro）'),
-    _Field('i_coverUrl', '封面规则（coverUrl）'),
-    _Field('i_tocUrl', '目录 URL 规则（tocUrl）'),
-    _Field('i_canReName', '允许修改书名作者（canReName）'),
-    _Field('i_downloadUrls', '下载URL规则(downloadUrls)'),
+    SourceEditorFieldSpec('i_init', '预处理规则（bookInfoInit）'),
+    SourceEditorFieldSpec('i_name', '书名规则（name）'),
+    SourceEditorFieldSpec('i_author', '作者规则（author）'),
+    SourceEditorFieldSpec('i_kind', '分类规则（kind）'),
+    SourceEditorFieldSpec('i_wordCount', '字数规则（wordCount）'),
+    SourceEditorFieldSpec('i_lastChapter', '最新章节规则（lastChapter）'),
+    SourceEditorFieldSpec('i_intro', '简介规则（intro）'),
+    SourceEditorFieldSpec('i_coverUrl', '封面规则（coverUrl）'),
+    SourceEditorFieldSpec('i_tocUrl', '目录 URL 规则（tocUrl）'),
+    SourceEditorFieldSpec('i_canReName', '允许修改书名作者（canReName）'),
+    SourceEditorFieldSpec('i_downloadUrls', '下载URL规则(downloadUrls)'),
   ];
 
   // ─── 目录规则字段（对齐原版 tocEntities 顺序/标签） ─────────────
   static const _tocFields = [
-    _Field('t_preUpdateJs', '更新之前 JS（preUpdateJs）'),
-    _Field('t_chapterList', '目录列表规则（chapterList）'),
-    _Field('t_chapterName', '章节名称规则（ChapterName）'),
-    _Field('t_chapterUrl', '章节 URL 规则（chapterUrl）'),
-    _Field('t_formatJs', '格式化规则(formatJs)'),
-    _Field('t_isVolume', 'Volume 标识（isVolume）'),
-    _Field('t_updateTime', '章节信息（ChapterInfo）'),
-    _Field('t_isVip', 'VIP 标识（isVip）'),
-    _Field('t_isPay', '购买标识（isPay）'),
-    _Field('t_nextTocUrl', '目录下一页规则（nextTocUrl）'),
+    SourceEditorFieldSpec('t_preUpdateJs', '更新之前 JS（preUpdateJs）'),
+    SourceEditorFieldSpec('t_chapterList', '目录列表规则（chapterList）'),
+    SourceEditorFieldSpec('t_chapterName', '章节名称规则（ChapterName）'),
+    SourceEditorFieldSpec('t_chapterUrl', '章节 URL 规则（chapterUrl）'),
+    SourceEditorFieldSpec('t_formatJs', '格式化规则(formatJs)'),
+    SourceEditorFieldSpec('t_isVolume', 'Volume 标识（isVolume）'),
+    SourceEditorFieldSpec('t_updateTime', '章节信息（ChapterInfo）'),
+    SourceEditorFieldSpec('t_isVip', 'VIP 标识（isVip）'),
+    SourceEditorFieldSpec('t_isPay', '购买标识（isPay）'),
+    SourceEditorFieldSpec('t_nextTocUrl', '目录下一页规则（nextTocUrl）'),
   ];
 
   // ─── 正文规则字段（对齐原版 contentEntities 顺序/标签） ──────────
   static const _contentFields = [
-    _Field('c_content', '正文规则（content）', maxLines: 3),
-    _Field('c_nextContentUrl', '正文下一页 URL 规则（nextContentUrl）'),
-    _Field('c_subContent', '副文规则（subContent）'),
-    _Field('c_replaceRegex', '替换规则（replaceRegex）', maxLines: 4),
-    _Field('c_title', '标题（title）'),
-    _Field('c_sourceRegex', '资源正则（sourceRegex）'),
-    _Field('c_imageStyle', '图片样式（imageStyle）'),
-    _Field('c_imageDecode', '图片解密（imageDecode）'),
-    _Field('c_webJs', 'WebView JS（webJs）', maxLines: 4),
-    _Field('c_payAction', '购买操作（payAction）'),
-    _Field('c_callBackJs', '回调操作（callBackJs）'),
+    SourceEditorFieldSpec('c_content', '正文规则（content）', maxLines: 3),
+    SourceEditorFieldSpec('c_nextContentUrl', '正文下一页 URL 规则（nextContentUrl）'),
+    SourceEditorFieldSpec('c_subContent', '副文规则（subContent）'),
+    SourceEditorFieldSpec('c_replaceRegex', '替换规则（replaceRegex）', maxLines: 4),
+    SourceEditorFieldSpec('c_title', '标题（title）'),
+    SourceEditorFieldSpec('c_sourceRegex', '资源正则（sourceRegex）'),
+    SourceEditorFieldSpec('c_imageStyle', '图片样式（imageStyle）'),
+    SourceEditorFieldSpec('c_imageDecode', '图片解密（imageDecode）'),
+    SourceEditorFieldSpec('c_webJs', 'WebView JS（webJs）', maxLines: 4),
+    SourceEditorFieldSpec('c_payAction', '购买操作（payAction）'),
+    SourceEditorFieldSpec('c_callBackJs', '回调操作（callBackJs）'),
   ];
 
   // ─── 段评规则字段（对齐原版 reviewEntities 顺序/标签） ───────────
   static const _reviewFields = [
-    _Field('r_reviewSummaryUrl', '段评统计 URL（reviewSummaryUrl）'),
-    _Field('r_summaryListRule', '段评统计列表（summaryListRule）'),
-    _Field('r_summaryParagraphIndexRule', '段落索引（summaryParagraphIndexRule）'),
-    _Field('r_summaryCountRule', '段评数量（summaryCountRule）'),
-    _Field('r_summaryParagraphDataRule', '段落数据（summaryParagraphDataRule）'),
-    _Field('r_reviewDetailUrl', '段评详情 URL（reviewDetailUrl）'),
-    _Field('r_reviewDetailNextPageUrl', '段评下一页 URL（reviewDetailNextPageUrl）'),
-    _Field('r_detailListRule', '段评详情列表（detailListRule）'),
-    _Field('r_detailIdRule', '段评 ID（detailIdRule）'),
-    _Field('r_detailAvatarRule', '头像（detailAvatarRule）'),
-    _Field('r_detailNameRule', '昵称（detailNameRule）'),
-    _Field('r_detailBadgeRule', '徽章（detailBadgeRule）'),
-    _Field('r_detailContentRule', '评论内容协议（detailContentRule）', maxLines: 3),
-    _Field('r_reviewQuoteUrl', '段评回复URL（reviewQuoteUrl）'),
-    _Field('r_replyListRule', '子评论列表（replyListRule）'),
-    _Field('r_replyIdRule', '子评论 ID（replyIdRule）'),
-    _Field('r_replyAvatarRule', '子评论头像（replyAvatarRule）'),
-    _Field('r_replyNameRule', '子评论昵称（replyNameRule）'),
-    _Field('r_replyBadgeRule', '子评论徽章（replyBadgeRule）'),
-    _Field('r_replyContentRule', '子评论内容协议（replyContentRule）', maxLines: 3),
+    SourceEditorFieldSpec('r_reviewSummaryUrl', '段评统计 URL（reviewSummaryUrl）'),
+    SourceEditorFieldSpec('r_summaryListRule', '段评统计列表（summaryListRule）'),
+    SourceEditorFieldSpec(
+      'r_summaryParagraphIndexRule',
+      '段落索引（summaryParagraphIndexRule）',
+    ),
+    SourceEditorFieldSpec('r_summaryCountRule', '段评数量（summaryCountRule）'),
+    SourceEditorFieldSpec(
+      'r_summaryParagraphDataRule',
+      '段落数据（summaryParagraphDataRule）',
+    ),
+    SourceEditorFieldSpec('r_reviewDetailUrl', '段评详情 URL（reviewDetailUrl）'),
+    SourceEditorFieldSpec(
+      'r_reviewDetailNextPageUrl',
+      '段评下一页 URL（reviewDetailNextPageUrl）',
+    ),
+    SourceEditorFieldSpec('r_detailListRule', '段评详情列表（detailListRule）'),
+    SourceEditorFieldSpec('r_detailIdRule', '段评 ID（detailIdRule）'),
+    SourceEditorFieldSpec('r_detailAvatarRule', '头像（detailAvatarRule）'),
+    SourceEditorFieldSpec('r_detailNameRule', '昵称（detailNameRule）'),
+    SourceEditorFieldSpec('r_detailBadgeRule', '徽章（detailBadgeRule）'),
+    SourceEditorFieldSpec(
+      'r_detailContentRule',
+      '评论内容协议（detailContentRule）',
+      maxLines: 3,
+    ),
+    SourceEditorFieldSpec('r_reviewQuoteUrl', '段评回复URL（reviewQuoteUrl）'),
+    SourceEditorFieldSpec('r_replyListRule', '子评论列表（replyListRule）'),
+    SourceEditorFieldSpec('r_replyIdRule', '子评论 ID（replyIdRule）'),
+    SourceEditorFieldSpec('r_replyAvatarRule', '子评论头像（replyAvatarRule）'),
+    SourceEditorFieldSpec('r_replyNameRule', '子评论昵称（replyNameRule）'),
+    SourceEditorFieldSpec('r_replyBadgeRule', '子评论徽章（replyBadgeRule）'),
+    SourceEditorFieldSpec(
+      'r_replyContentRule',
+      '子评论内容协议（replyContentRule）',
+      maxLines: 3,
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 6, vsync: this);
     // 直接传入书源对象（发现页编辑入口）时立即回填，不走内存列表查找
     final source = widget.source;
     if (source != null) {
@@ -282,7 +301,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
 
   @override
   void dispose() {
-    // [B2-C2 2-8] TabController 已随扁平化移除，无需 dispose
+    _tabController.dispose();
     for (final controller in _ctrls.values) {
       controller.dispose();
     }
@@ -302,6 +321,19 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
           isNew ? '新建书源' : '编辑书源',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          onTap: (_) => FocusScope.of(context).unfocus(),
+          tabs: const [
+            Tab(text: '基本'),
+            Tab(text: '搜索'),
+            Tab(text: '发现'),
+            Tab(text: '详情'),
+            Tab(text: '目录'),
+            Tab(text: '正文'),
+          ],
         ),
         actions: [
           // 全屏代码编辑（对齐原版 menu_fullscreen_edit → 编辑内容，图标位）
@@ -327,35 +359,30 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen> {
             visualDensity: VisualDensity.compact,
             onPressed: _saving ? null : _debugSource,
           ),
-          // overflow 菜单（对齐原版 source_edit.xml 折叠项顺序/内容）
-          // 用 showMenu 显式锚定在按钮下方（AppBar 内 PopupMenuButton 的
-          // 弹出层会覆盖顶栏按钮，与原版「菜单在按钮下方」不一致）
-          Builder(
-            builder: (btnContext) => IconButton(
-              icon: const Icon(Symbols.more_vert_rounded),
-              tooltip: '更多选项',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _showOverflowMenu(btnContext),
-            ),
+          AppMenuButton<String>(
+            tooltip: '更多选项',
+            itemBuilder: (_) => _buildMenuItems(),
+            onSelected: _handleMenu,
           ),
         ],
       ),
-      // [B2-C2 2-8 | 全栈工程师] 表单扁平单列（对齐参考版 ref 09）：
-      // 设置段 + 7 大规则分组在同一滚动列内顺序展开，取消 Tab 页签与字段
-      // 导航条；字段顺序沿用原各 Tab 内的数据驱动定义
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
+        child: TabBarView(
+          controller: _tabController,
           children: [
-            _buildSettingsSection(),
-            _buildFormSection('基本信息', _basicFields),
-            _buildFormSection('搜索规则', _searchFields),
-            _buildFormSection('发现规则', _exploreFields),
-            _buildFormSection('详情规则', _infoFields),
-            _buildFormSection('目录规则', _tocFields),
-            _buildFormSection('正文规则', _contentFields),
-            _buildFormSection('段评规则', _reviewFields),
+            _buildEditTab('basic', [
+              _buildSettingsSection(),
+              _buildFormSection(_basicFields),
+            ]),
+            _buildEditTab('search', [_buildFormSection(_searchFields)]),
+            _buildEditTab('explore', [_buildFormSection(_exploreFields)]),
+            _buildEditTab('info', [_buildFormSection(_infoFields)]),
+            _buildEditTab('toc', [_buildFormSection(_tocFields)]),
+            _buildEditTab('content', [
+              _buildFormSection(_contentFields),
+              _buildFormSection(_reviewFields, title: '段评规则'),
+            ]),
           ],
         ),
       ),

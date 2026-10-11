@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
@@ -139,7 +140,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
             onPressed: () => Navigator.pushNamed(context, AppRoutes.rssFavorites),
           ),
           // 分组筛选：对齐原版 RssFragment 的分组菜单（ic_groups 图标，linkedSetOf 保序聚合）
-          PopupMenuButton<String?>(
+          AppMenuButton<String?>(
             tooltip: '分组',
             icon: Icon(
               Symbols.groups_rounded,
@@ -148,12 +149,12 @@ class _RssScreenState extends ConsumerState<RssScreen> {
             ),
             onSelected: (group) => notifier.setGroup(group),
             itemBuilder: (context) => [
-              const PopupMenuItem<String?>(
+              const AppMenuItem<String?>(
                 value: null,
                 child: Text('全部'),
               ),
               for (final group in state.groups)
-                PopupMenuItem<String?>(
+                AppMenuItem<String?>(
                   value: group,
                   child: Text(group),
                 ),

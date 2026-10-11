@@ -1,3 +1,4 @@
+import 'app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -376,14 +377,14 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
                 tooltip: '确认',
                 onPressed: _busy ? null : _onConfirm,
               ),
-              PopupMenuButton<String>(
+              AppMenuButton<String>(
                 tooltip: '更多选项',
                 onSelected: _menuAction,
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'view_header', child: Text('查看登录头')),
-                  PopupMenuItem(value: 'del_header', child: Text('删除登录头')),
-                  PopupMenuItem(value: 'clear_info', child: Text('清除登录信息')),
-                  PopupMenuItem(value: 'log', child: Text('日志')),
+                  AppMenuItem(value: 'view_header', child: Text('查看登录头')),
+                  AppMenuItem(value: 'del_header', child: Text('删除登录头')),
+                  AppMenuItem(value: 'clear_info', child: Text('清除登录信息')),
+                  AppMenuItem(value: 'log', child: Text('日志')),
                 ],
               ),
             ],

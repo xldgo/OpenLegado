@@ -1,12 +1,15 @@
+import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../models/models.dart';
@@ -15,17 +18,8 @@ import '../routes.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
-import 'code_edit_screen.dart';
-
-/// 编辑字段定义（key 与 RssSource JSON 字段名一致）
-class _FieldSpec {
-  final String key;
-  final String label;
-  final String hint;
-  final int maxLines;
-
-  const _FieldSpec(this.key, this.label, [this.hint = '', this.maxLines = 1]);
-}
+import '../utils/source_field_code_edit.dart';
+import '../widgets/source_editor.dart';
 
 /// RSS 源编辑器页面（对标原版 RssSourceEditActivity）
 ///
@@ -48,50 +42,111 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   // ===== 字段定义（对标原版 sourceEntities 4 Tab 分组） =====
 
   static const _baseFields = [
-    _FieldSpec('sourceName', '源名称'),
-    _FieldSpec('sourceUrl', '源 URL', 'https://example.com/feed'),
-    _FieldSpec('sourceIcon', '图标', '图标 URL'),
-    _FieldSpec('sourceGroup', '源分组', '多个分组用逗号分隔'),
-    _FieldSpec('sourceComment', '源注释', '', 2),
-    _FieldSpec('searchUrl', '搜索 URL'),
-    _FieldSpec('sortUrl', '分类 URL', '分类名::规则', 2),
-    _FieldSpec('loginUrl', '登录 URL'),
-    _FieldSpec('loginUi', '登录界面'),
-    _FieldSpec('loginCheckJs', '登录检测 JS'),
-    _FieldSpec('coverDecodeJs', '封面解码 JS'),
-    _FieldSpec('header', '请求头'),
-    _FieldSpec('variableComment', '源变量注释', 'variableComment'),
-    _FieldSpec('concurrentRate', '并发率', '如：16/s'),
-    _FieldSpec('jsLib', 'JS 库', '源使用的 JavaScript 库'),
+    SourceEditorFieldSpec('sourceName', '源名称', maxLines: 1),
+    SourceEditorFieldSpec(
+      'sourceUrl',
+      '源 URL',
+      hint: 'https://example.com/feed',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('sourceIcon', '图标', hint: '图标 URL', maxLines: 1),
+    SourceEditorFieldSpec('sourceGroup', '源分组', hint: '多个分组用逗号分隔', maxLines: 1),
+    SourceEditorFieldSpec('sourceComment', '源注释'),
+    SourceEditorFieldSpec('searchUrl', '搜索 URL', maxLines: 1),
+    SourceEditorFieldSpec('sortUrl', '分类 URL', hint: '分类名::规则'),
+    SourceEditorFieldSpec('loginUrl', '登录 URL', maxLines: 1),
+    SourceEditorFieldSpec('loginUi', '登录界面', maxLines: 1),
+    SourceEditorFieldSpec('loginCheckJs', '登录检测 JS', maxLines: 1),
+    SourceEditorFieldSpec('coverDecodeJs', '封面解码 JS', maxLines: 1),
+    SourceEditorFieldSpec('header', '请求头', maxLines: 1),
+    SourceEditorFieldSpec(
+      'variableComment',
+      '源变量注释',
+      hint: 'variableComment',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('concurrentRate', '并发率', hint: '如：16/s', maxLines: 1),
+    SourceEditorFieldSpec(
+      'jsLib',
+      'JS 库',
+      hint: '源使用的 JavaScript 库',
+      maxLines: 1,
+    ),
   ];
 
   static const _preFields = [
-    _FieldSpec('startHtml', '初始 HTML', 'startHtml'),
-    _FieldSpec('startStyle', '初始样式', 'startStyle', 2),
-    _FieldSpec('startJs', '初始 JS', 'startJs'),
-    _FieldSpec('preloadJs', '预加载 JS', 'preloadJs'),
+    SourceEditorFieldSpec(
+      'startHtml',
+      '初始 HTML',
+      hint: 'startHtml',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('startStyle', '初始样式', hint: 'startStyle'),
+    SourceEditorFieldSpec('startJs', '初始 JS', hint: 'startJs', maxLines: 1),
+    SourceEditorFieldSpec(
+      'preloadJs',
+      '预加载 JS',
+      hint: 'preloadJs',
+      maxLines: 1,
+    ),
   ];
 
   static const _listFields = [
-    _FieldSpec('ruleArticles', '文章列表规则', 'ruleArticles，如 item 或 //item'),
-    _FieldSpec('ruleNextPage', '下一页规则', 'ruleNextPage'),
-    _FieldSpec('ruleTitle', '标题规则', 'ruleTitle'),
-    _FieldSpec('rulePubDate', '日期规则', 'rulePubDate'),
-    _FieldSpec('ruleDescription', '描述规则', 'ruleDescription'),
-    _FieldSpec('ruleImage', '图片规则', 'ruleImage'),
-    _FieldSpec('ruleLink', '链接规则', 'ruleLink'),
+    SourceEditorFieldSpec(
+      'ruleArticles',
+      '文章列表规则',
+      hint: 'ruleArticles，如 item 或 //item',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'ruleNextPage',
+      '下一页规则',
+      hint: 'ruleNextPage',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('ruleTitle', '标题规则', hint: 'ruleTitle', maxLines: 1),
+    SourceEditorFieldSpec(
+      'rulePubDate',
+      '日期规则',
+      hint: 'rulePubDate',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'ruleDescription',
+      '描述规则',
+      hint: 'ruleDescription',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('ruleImage', '图片规则', hint: 'ruleImage', maxLines: 1),
+    SourceEditorFieldSpec('ruleLink', '链接规则', hint: 'ruleLink', maxLines: 1),
   ];
 
   static const _webFields = [
-    _FieldSpec('ruleContent', '内容规则', 'ruleContent'),
-    _FieldSpec('style', '样式', '文章页面 CSS', 2),
-    _FieldSpec('injectJs', '注入 JS', 'injectJs'),
-    _FieldSpec('contentWhitelist', '内容白名单', 'contentWhitelist'),
-    _FieldSpec('contentBlacklist', '内容黑名单', 'contentBlacklist'),
-    _FieldSpec(
+    SourceEditorFieldSpec(
+      'ruleContent',
+      '内容规则',
+      hint: 'ruleContent',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('style', '样式', hint: '文章页面 CSS'),
+    SourceEditorFieldSpec('injectJs', '注入 JS', hint: 'injectJs', maxLines: 1),
+    SourceEditorFieldSpec(
+      'contentWhitelist',
+      '内容白名单',
+      hint: 'contentWhitelist',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'contentBlacklist',
+      '内容黑名单',
+      hint: 'contentBlacklist',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
       'shouldOverrideUrlLoading',
       'URL 拦截',
-      'shouldOverrideUrlLoading',
+      hint: 'shouldOverrideUrlLoading',
+      maxLines: 1,
     ),
   ];
 
@@ -165,27 +220,21 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
   FocusNode _focusNodeFor(String key) => _focusNodes.putIfAbsent(
     key,
-    () => FocusNode()..addListener(() {
-      if (_focusNodes[key]?.hasFocus == true) {
-        _focusedFieldKey = key;
-      }
-    }),
+    () => FocusNode()
+      ..addListener(() {
+        if (_focusNodes[key]?.hasFocus == true) {
+          _focusedFieldKey = key;
+        }
+      }),
   );
 
   Future<void> _openCodeEdit(String key, String title) async {
-    final ctrl = _ctrls[key]!;
-    final cursor = ctrl.selection.baseOffset.clamp(0, ctrl.text.length);
-    final result = await CodeEditScreen.open(
+    await editSourceFieldCode(
       context,
       title: title,
-      initialText: ctrl.text,
-      cursorPosition: cursor < 0 ? 0 : cursor,
+      controller: _ctrls[key]!,
+      focusNode: _focusNodeFor(key),
     );
-    if (result == null || !mounted) return;
-    setState(() {
-      ctrl.text = result;
-      ctrl.selection = TextSelection.collapsed(offset: result.length);
-    });
   }
 
   Future<void> _fullscreenCodeEdit() async {
@@ -406,8 +455,6 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         await _pasteSource();
       case 'clear_cookie':
         await _clearCookie();
-      case 'code_edit':
-        await _fullscreenCodeEdit();
       case 'share':
         final json = jsonEncode(_buildSource().toJson());
         await SharePlus.instance.share(
@@ -477,8 +524,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         final type = map['type'];
         _type = type is int ? type.clamp(0, _typeLabels.length - 1) : 0;
         final style = map['articleStyle'];
-        _articleStyle =
-            style is int ? style.clamp(0, _styleLabels.length - 1) : 0;
+        _articleStyle = style is int
+            ? style.clamp(0, _styleLabels.length - 1)
+            : 0;
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -527,9 +575,22 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: '编辑内容',
+                icon: const Icon(Symbols.code_rounded),
+                visualDensity: VisualDensity.compact,
+                onPressed: _fullscreenCodeEdit,
+              ),
+              IconButton(
+                tooltip: '保存',
+                icon: const Icon(Symbols.save_rounded),
+                visualDensity: VisualDensity.compact,
+                onPressed: _saving ? null : _save,
+              ),
               // 测试（快速验证源 URL 可用性）
               IconButton(
                 tooltip: '测试',
+                visualDensity: VisualDensity.compact,
                 icon: _testing
                     ? const SizedBox(
                         width: 18,
@@ -540,38 +601,21 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
                 onPressed: _testing ? null : _test,
               ),
               // 溢出菜单（对标原版 source_edit.xml 精简版）
-              PopupMenuButton<String>(
+              AppMenuButton<String>(
                 tooltip: '更多选项',
-                position: PopupMenuPosition.under,
                 onSelected: _handleMenu,
                 itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'debug', child: Text('调试源')),
-                  const PopupMenuItem(value: 'copy', child: Text('复制源')),
-                  const PopupMenuItem(value: 'paste', child: Text('粘贴源')),
-                  const PopupMenuItem(
+                  const AppMenuItem(value: 'debug', child: Text('调试源')),
+                  const AppMenuItem(value: 'copy', child: Text('复制源')),
+                  const AppMenuItem(value: 'paste', child: Text('粘贴源')),
+                  const AppMenuItem(
                     value: 'clear_cookie',
                     child: Text('清除Cookie'),
                   ),
-                  const PopupMenuItem(value: 'code_edit', child: Text('代码编辑')),
-                  const PopupMenuItem(value: 'share', child: Text('分享文本')),
-                  const PopupMenuItem(value: 'help', child: Text('帮助')),
+                  const AppMenuItem(value: 'share', child: Text('分享文本')),
+                  const AppMenuItem(value: 'help', child: Text('帮助')),
                 ],
               ),
-              // 保存（对标原版 menu_save）
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('保存'),
-              ),
-              const SizedBox(width: 8),
             ],
           ),
           body: Column(
@@ -581,9 +625,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _buildFieldList(_baseFields, withTestResult: true),
-                    _buildFieldList(_preFields),
-                    _buildFieldList(_listFields),
+                    _buildFieldList('basic', _baseFields, withTestResult: true),
+                    _buildFieldList('pre', _preFields),
+                    _buildFieldList('list', _listFields),
                     _buildWebViewTab(),
                   ],
                 ),
@@ -668,10 +712,12 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   }
 
   Widget _buildFieldList(
-    List<_FieldSpec> fields, {
+    String name,
+    List<SourceEditorFieldSpec> fields, {
     bool withTestResult = false,
   }) {
-    return ListView(
+    return SourceEditorTab(
+      storageKey: 'rss_source_edit_$name',
       padding: const EdgeInsets.all(16),
       children: [
         for (final spec in fields) _field(spec),
@@ -702,32 +748,18 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     );
   }
 
-  Widget _field(_FieldSpec spec) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: _ctrls[spec.key],
-        focusNode: _focusNodeFor(spec.key),
-        maxLines: spec.maxLines,
-        decoration: InputDecoration(
-          labelText: spec.label,
-          hintText: spec.hint.isEmpty ? null : spec.hint,
-          isDense: true,
-          suffixIcon: spec.maxLines >= 2
-              ? IconButton(
-                  tooltip: '代码编辑',
-                  icon: const Icon(Symbols.code_rounded, size: 20),
-                  onPressed: () => _openCodeEdit(spec.key, spec.label),
-                )
-              : null,
-        ),
-      ),
+  Widget _field(SourceEditorFieldSpec spec) {
+    return SourceEditorField(
+      spec: spec,
+      controller: _ctrls[spec.key]!,
+      focusNode: _focusNodeFor(spec.key),
     );
   }
 
   /// WEB_VIEW Tab：4 开关 + 6 文本字段（对标原版 WEB_VIEW 页 10 项）
   Widget _buildWebViewTab() {
-    return ListView(
+    return SourceEditorTab(
+      storageKey: 'rss_source_edit_web',
       padding: const EdgeInsets.all(16),
       children: [
         CheckboxListTile(

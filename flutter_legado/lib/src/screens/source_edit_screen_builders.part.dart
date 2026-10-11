@@ -1,6 +1,5 @@
 // source_edit_screen.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// extension _SourceEditBuilders 承载：设置段 / 扁平表单分组构建
-//（[B2-C2 2-8] 字段导航条与 Tab 表单随扁平化移除）。
+// extension _SourceEditBuilders 承载：页签表单、设置段与字段分组构建。
 // 同 library 内可访问 State 私有字段；生命周期（initState/dispose/build）留在主类。
 part of 'source_edit_screen.dart';
 
@@ -9,6 +8,10 @@ part of 'source_edit_screen.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _SourceEditBuilders on _SourceEditScreenState {
+  Widget _buildEditTab(String name, List<Widget> sections) {
+    return SourceEditorTab(storageKey: 'source_edit_$name', children: sections);
+  }
+
   /// 可折叠「设置」段（[B2-C2 2-8] 扁平化对齐参考版 ref 09：取消分组卡片
   /// 外壳，改为平铺段落 + 底部细分割线；收起态显示「设置」+ 摘要「类型 |
   /// 启用 | 发现 | CookieJar | 段评 | 事件监听 | 定制按钮」+ 展开箭头；
@@ -175,96 +178,43 @@ extension _SourceEditBuilders on _SourceEditScreenState {
     );
   }
 
-  /// 扁平单列规则分组段（[B2-C2 2-8] 对齐参考版 ref 09）：分组标题 +
-  /// 该组字段顺序平铺（字段定义与顺序沿用原各 Tab 的数据驱动列表，
-  /// 零行为变更；外层统一由单滚动列承载）
-  Widget _buildFormSection(String title, List<_Field> fields) {
+  /// 页签直接展示字段，只有段评等页内子分组保留标题。
+  Widget _buildFormSection(
+    List<SourceEditorFieldSpec> fields, {
+    String? title,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 分组标题（主色小号加粗，与正文区分；对齐参考版扁平分组头）
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 20, 12, 6),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.primary,
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 20, 12, 6),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
             ),
-          ),
-        ),
+          )
+        else
+          const SizedBox(height: 12),
         for (final field in fields) _buildField(field),
       ],
     );
   }
 
-  /// 构建单个表单字段
-  ///
-  /// 对齐原版 item_source_edit（TextInputLayout + CodeView）：
-  /// - 无边框框、无背景填充（全局主题的灰色圆角填充框在此覆盖为透明，
-  ///   与原版一致）；仅标签（灰字小号）在上、输入内容在下
-  /// - 字段底部保留细分割线（Material 下划线样式，对齐原版 TextInputLayout
-  ///   默认分隔线；聚焦时变主色）
-  /// - 默认单行（minLines=1），输入/内容增长时展开到 [field.maxLines]
-  Widget _buildField(_Field field) {
+  /// 描边字段使用内置浮动标签，多行输入向顶部对齐，内容增长时自动展开。
+  Widget _buildField(SourceEditorFieldSpec field) {
     _fieldLabels[field.key] = field.label;
-    final colorScheme = Theme.of(context).colorScheme;
-    // [B2-C2 2-8] 字段标签渲染为「常显」独立 Text（对齐原版 TextInputLayout
-    // 标签在上/输入在下的形态，且保证可访问性文本可被 uiautomator 命中，
-    // 而非 Material 浮动 labelText——后者在有值时不暴露为独立可访问节点）。
-    final label = field.required ? '${field.label} *' : field.label;
     return KeyedSubtree(
       key: _fieldKeys.putIfAbsent(field.key, GlobalKey.new),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextFormField(
-              // [B2-C2 2-8] 标签已上移为常显 Text（见上），为保持可测性，
-              // 字段以 ValueKey('sf_<field.key>') 稳定标识（供 widget 测试
-              // find.byKey 定位；field.key 各分组内唯一）。
-              key: ValueKey<String>('sf_${field.key}'),
-              controller: _ctrl(field.key),
-              focusNode: _focus(field.key),
-              minLines: 1,
-              maxLines: field.maxLines,
-              decoration: InputDecoration(
-                hintText: field.hint,
-                hintStyle: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 14,
-                ),
-                // 输入形状与状态颜色沿用全局主题，保留独立字段标签及代码入口。
-                suffixIcon: field.maxLines >= 2
-                    ? IconButton(
-                        tooltip: '代码编辑',
-                        icon: const Icon(Symbols.code_rounded, size: 20),
-                        onPressed: () => _openCodeEditForField(
-                          field.key,
-                          title: field.label,
-                        ),
-                      )
-                    : null,
-              ),
-              validator: field.required
-                  ? (value) => (value == null || value.trim().isEmpty)
-                        ? '请输入${field.label}'
-                        : null
-                  : null,
-            ),
-          ],
-        ),
+      child: SourceEditorField(
+        spec: field,
+        controller: _ctrl(field.key),
+        focusNode: _focus(field.key),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -243,28 +244,27 @@ class _RssSourceImportConfirmScreenState
                 ? '自定义源分组'
                 : '${_isAddGroup ? '+' : ''}$_groupName'),
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多选项',
             // 菜单在顶栏下方展开，不覆盖顶栏
-            position: PopupMenuPosition.under,
             onSelected: _handleMenu,
             itemBuilder: (_) => [
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_name',
                 checked: _keepName,
                 child: const Text('保留原名'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_group',
                 checked: _keepGroup,
                 child: const Text('保留分组'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_enable',
                 checked: _keepEnable,
                 child: const Text('保留启用状态'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'show_comment',
                 checked: _showComment,
                 child: const Text('显示源注释'),

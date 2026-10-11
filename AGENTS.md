@@ -29,6 +29,10 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 
 ## 规范与文档路由（改动前必读）
 
+Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
+`python scripts/setup_skills.py` 初始化。来源与更新方法见
+[Skills 维护说明](docs/SKILLS_MAINTENANCE.md)，项目特有约束以本文件和设计系统为准。
+
 1. [docs/DEVELOPMENT_CONVENTIONS.md](docs/DEVELOPMENT_CONVENTIONS.md) — 项目开发规范：优先级分类（P0/P1/P2）、验证优先工作流、基准口径、Git 安全实践、Windows 编码处理、文档存放规范（自 `.qoder/rules/legado-dev-conventions.md` 迁移，2026-09-27）
 2. [docs/REFACTORING_WORKFLOW.md](docs/REFACTORING_WORKFLOW.md) — 重构任务统一实施、Agent 派发、验证、证据与关闭流程
 3. [docs/REFACTORING_ACTIVE_PLAN.md](docs/REFACTORING_ACTIVE_PLAN.md) — 当前唯一开放任务与进度状态入口

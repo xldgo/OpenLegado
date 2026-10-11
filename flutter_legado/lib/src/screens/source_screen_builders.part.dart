@@ -10,6 +10,14 @@ part of 'source_screen.dart';
 extension _SourceBuilders on _SourceScreenState {
   PreferredSizeWidget _buildAppBar(BuildContext context, SourceState state) {
     return LegadoAppBar(
+      leading: state.batchMode
+          ? IconButton(
+              icon: const Icon(Symbols.close_rounded),
+              tooltip: '退出选择模式',
+              onPressed: () =>
+                  ref.read(sourceNotifierProvider.notifier).exitBatchMode(),
+            )
+          : null,
       title: const Text('书源管理'),
       bottom: AppSearchRow(
         field: AppSearchField(
@@ -21,104 +29,108 @@ extension _SourceBuilders on _SourceScreenState {
       ),
       actions: [
         // 安卓原版 book_source.xml：排序按钮常驻顶栏（action_sort）
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           icon: const Icon(Symbols.sort_rounded),
           tooltip: '排序',
           // 菜单在顶栏下方展开，不覆盖顶栏
-          position: PopupMenuPosition.under,
           onSelected: (value) => _handleSortAction(context, value),
           itemBuilder: (_) => _buildSortMenuItems(context),
         ),
         // 安卓原版：分组按钮常驻顶栏（menu_group 子菜单）
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           icon: const Icon(Symbols.groups_rounded),
           tooltip: '分组',
           // 菜单在顶栏下方展开，不覆盖顶栏
-          position: PopupMenuPosition.under,
           onSelected: (value) => _handleGroupAction(context, value),
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            const AppMenuItem(
               enabled: false,
               child:
                   Text('分组', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-            const PopupMenuItem(value: 'group_manage', child: Text('分组管理')),
-            CheckedPopupMenuItem(
+            const AppMenuItem(value: 'group_manage', child: Text('分组管理')),
+            AppMenuItem(
               value: SourceSpecialGroup.enabled,
               checked: state.selectedGroup == SourceSpecialGroup.enabled,
               child: const Text('已启用'),
             ),
-            CheckedPopupMenuItem(
+            AppMenuItem(
               value: SourceSpecialGroup.disabled,
               checked: state.selectedGroup == SourceSpecialGroup.disabled,
               child: const Text('已禁用'),
             ),
-            CheckedPopupMenuItem(
+            AppMenuItem(
               value: SourceSpecialGroup.login,
               checked: state.selectedGroup == SourceSpecialGroup.login,
               child: const Text('需登录'),
             ),
-            CheckedPopupMenuItem(
+            AppMenuItem(
               value: '未分组',
               checked: state.selectedGroup == '未分组',
               child: const Text('未分组'),
             ),
-            CheckedPopupMenuItem(
+            AppMenuItem(
               value: SourceSpecialGroup.exploreOn,
               checked: state.selectedGroup == SourceSpecialGroup.exploreOn,
               child: const Text('发现已启用'),
             ),
-            CheckedPopupMenuItem(
+            AppMenuItem(
               value: SourceSpecialGroup.exploreOff,
               checked: state.selectedGroup == SourceSpecialGroup.exploreOff,
               child: const Text('发现已禁用'),
             ),
             for (final group in state.groups.where((g) => g != '未分组'))
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: group,
                 checked: state.selectedGroup == group,
                 child: Text(group),
               ),
           ],
         ),
-        PopupMenuButton<String>(
+        AppMenuButton<String>(
           // 原版无 tooltip 时系统默认提示 Show menu（长按被误读为
           // "shou menu"），此处显式指定中文提示
           tooltip: '更多选项',
           // 菜单在顶栏下方展开，不覆盖顶栏（默认 over 会盖住搜索栏）
-          position: PopupMenuPosition.under,
           onSelected: (value) => _handleAction(context, value),
           itemBuilder: (_) => [
             // 对标原版 book_source.xml 溢出菜单（JS 书源编辑器未移植前隐藏入口，避免假菜单）
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'new',
               child: _MenuRow(icon: Symbols.add_rounded, label: '新建书源'),
             ),
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'new_js',
               child: _MenuRow(icon: Symbols.code_rounded, label: '新建 JS 书源'),
             ),
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'import_file',
               child: _MenuRow(icon: Symbols.download_rounded, label: '本地导入'),
             ),
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'import_url',
               child:
                   _MenuRow(icon: Symbols.cloud_download_rounded, label: '网络导入'),
             ),
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'import_qr',
               child: _MenuRow(icon: Symbols.qr_code_rounded, label: '二维码导入'),
             ),
-            PopupMenuItem(
+            AppMenuItem(
+              value: 'select_mode',
+              child: _MenuRow(
+                icon: Symbols.checklist_rounded,
+                label: state.batchMode ? '退出选择模式' : '选择模式',
+              ),
+            ),
+            AppMenuItem(
               value: 'group_by_domain',
               child: _MenuRow(
                 icon: Symbols.domain_rounded,
                 label: _groupByDomain ? '按域名分组显示 ✓' : '按域名分组显示',
               ),
             ),
-            const PopupMenuItem(
+            const AppMenuItem(
               value: 'help',
               child: _MenuRow(icon: Symbols.help_rounded, label: '帮助'),
             ),
@@ -128,200 +140,53 @@ extension _SourceBuilders on _SourceScreenState {
     );
   }
 
-  /// 批量模式顶栏（对标原版 SelectActionBar：关闭 + 已选计数）
-  ///
-  /// 全选/反选/更多操作统一收进底部操作栏，与原版底部操作区一致。
-  PreferredSizeWidget _buildBatchAppBar(
-      BuildContext context, SourceState state) {
-    return LegadoAppBar(
-      leading: IconButton(
-        icon: const Icon(Symbols.close_rounded),
-        tooltip: '退出批量模式',
-        onPressed: () =>
-            ref.read(sourceNotifierProvider.notifier).exitBatchMode(),
-      ),
-      title: Text('已选择 ${state.selectedCount} 项'),
-    );
-  }
-
-  /// 底部常驻批量操作栏（对标原版 SelectActionBar：全选/反选 +
-  /// book_source_sel.xml 更多操作菜单）；非批量模式下点击
-  /// 全选/反选自动进入批量模式
+  /// 两种源管理复用同一多选操作栏，页面只提供各自的操作。
   Widget _buildBatchBottomBar(BuildContext context, SourceState state) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final filteredCount = state.filteredSources.length;
-
-    Widget barButton({
-      required IconData icon,
-      required String label,
-      required VoidCallback? onPressed,
-      Color? color,
-    }) {
-      final effective = color ?? colorScheme.onSurface;
-      // 不包 Expanded：宽度由调用处控制（全选 Expanded / 反选删除固定宽）
-      return InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 22, color: onPressed == null
-                  ? effective.withValues(alpha: 0.35)
-                  : effective),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: onPressed == null
-                      ? effective.withValues(alpha: 0.35)
-                      : effective,
-                ),
-              ),
-            ],
-          ),
+    final notifier = ref.read(sourceNotifierProvider.notifier);
+    return SourceSelectionBar(
+      selectedCount: state.selectedCount,
+      totalCount: state.filteredSources.length,
+      allSelected: state.isAllSelected,
+      onToggleAll: () {
+        if (state.isAllSelected) {
+          notifier.deselectAll();
+        } else {
+          notifier.selectAll();
+        }
+      },
+      onInvert: notifier.revertSelection,
+      onDelete: () => _handleBatchAction(context, 'delete'),
+      onMenuSelected: (value) => _handleBatchAction(context, value),
+      menuItems: const [
+        // 对标原版 book_source_sel.xml 12 项选择操作
+        AppMenuItem(value: 'enable', child: Text('启用所选')),
+        AppMenuItem(value: 'disable', child: Text('禁用所选')),
+        AppMenuItem(
+          value: 'add_group',
+          child: Text('添加分组'),
         ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        // iOS hairline 上边线
-        border: Border(
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-            width: 0.5,
-          ),
+        AppMenuItem(
+          value: 'remove_group',
+          child: Text('移除分组'),
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          // 对齐原版 SelectActionBar：paddingLeft 16dp / paddingRight 8dp，
-          // 全选 weight=1 占剩余、反选/删除内容宽（min 72dp）、更多 36dp 图标
-          padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-          child: Row(
-            children: [
-              // 全选/取消全选（带当前进度 n/m，对齐原版「全选（0/968）」）
-              Expanded(
-                child: barButton(
-                  icon: state.isAllSelected
-                      ? Symbols.check_box_rounded
-                      : Symbols.check_box_outline_blank_rounded,
-                  label: '全选（${state.selectedCount}/$filteredCount）',
-                  onPressed: () {
-                    final notifier =
-                        ref.read(sourceNotifierProvider.notifier);
-                    if (!state.batchMode) notifier.enterBatchMode();
-                    if (state.isAllSelected) {
-                      notifier.deselectAll();
-                    } else {
-                      notifier.selectAll();
-                    }
-                  },
-                ),
-              ),
-              // 反选（对齐原版 btn_revert_selection：minWidth 72dp + margin）
-              SizedBox(
-                width: 82,
-                child: barButton(
-                  icon: Symbols.flip_rounded,
-                  label: '反选',
-                  onPressed: state.filteredSources.isEmpty
-                      ? null
-                      : () {
-                          final notifier =
-                              ref.read(sourceNotifierProvider.notifier);
-                          if (!state.batchMode) notifier.enterBatchMode();
-                          notifier.revertSelection();
-                        },
-                ),
-              ),
-              // 删除（危险操作标红，对标原版 delete）
-              SizedBox(
-                width: 82,
-                child: barButton(
-                  icon: Symbols.delete_rounded,
-                  label: '删除',
-                  color: colorScheme.error,
-                  onPressed: state.selectedCount == 0
-                      ? null
-                      : () => _handleBatchAction(context, 'delete'),
-                ),
-              ),
-              // 更多选项（book_source_sel.xml 全量选择操作菜单）
-              SizedBox(
-                width: 36,
-                child: PopupMenuButton<String>(
-                  tooltip: '更多选项',
-                  enabled: state.selectedCount > 0,
-                  onSelected: (value) =>
-                      _handleBatchAction(context, value),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Symbols.more_horiz_rounded,
-                          size: 22,
-                          color: state.selectedCount == 0
-                              ? colorScheme.onSurface
-                                  .withValues(alpha: 0.35)
-                              : colorScheme.onSurface,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '更多选项',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: state.selectedCount == 0
-                                ? colorScheme.onSurface
-                                    .withValues(alpha: 0.35)
-                                : colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  itemBuilder: (_) => [
-                    // 对标原版 book_source_sel.xml 12 项选择操作
-                    const PopupMenuItem(
-                        value: 'enable', child: Text('启用所选')),
-                    const PopupMenuItem(
-                        value: 'disable', child: Text('禁用所选')),
-                    const PopupMenuItem(
-                        value: 'add_group', child: Text('添加分组')),
-                    const PopupMenuItem(
-                        value: 'remove_group', child: Text('移除分组')),
-                    const PopupMenuItem(
-                        value: 'enable_explore', child: Text('启用发现')),
-                    const PopupMenuItem(
-                        value: 'disable_explore', child: Text('禁用发现')),
-                    const PopupMenuItem(
-                        value: 'top', child: Text('置顶所选')),
-                    const PopupMenuItem(
-                        value: 'bottom', child: Text('置底所选')),
-                    const PopupMenuItem(
-                        value: 'export', child: Text('导出所选')),
-                    const PopupMenuItem(
-                        value: 'share', child: Text('分享选中源')),
-                    const PopupMenuItem(
-                        value: 'check', child: Text('校验所选')),
-                    const PopupMenuItem(
-                        value: 'select_range', child: Text('选中所选区间')),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        AppMenuItem(
+          value: 'enable_explore',
+          child: Text('启用发现'),
         ),
-      ),
+        AppMenuItem(
+          value: 'disable_explore',
+          child: Text('禁用发现'),
+        ),
+        AppMenuItem(value: 'top', child: Text('置顶所选')),
+        AppMenuItem(value: 'bottom', child: Text('置底所选')),
+        AppMenuItem(value: 'export', child: Text('导出所选')),
+        AppMenuItem(value: 'share', child: Text('分享选中源')),
+        AppMenuItem(value: 'check', child: Text('校验所选')),
+        AppMenuItem(
+          value: 'select_range',
+          child: Text('选中所选区间'),
+        ),
+      ],
     );
   }
 
@@ -507,25 +372,52 @@ extension _SourceBuilders on _SourceScreenState {
               return _buildDomainHeader(context, row.header!);
             }
             final source = row.source!;
-            return state.batchMode
-                ? _buildBatchSourceItem(context, source, state)
-                : _buildSourceItem(context, source, state);
+            return _buildSourceItem(context, source, state);
           },
+        ),
+      );
+    }
+
+    if (state.sort == SourceSort.manual) {
+      return Md3FastScroller(
+        controller: _listController,
+        child: ReorderableListView.builder(
+          scrollController: _listController,
+          buildDefaultDragHandles: false,
+          itemCount: sources.length,
+          onReorderItem: (oldIndex, newIndex) async {
+            final saved = await ref
+                .read(sourceNotifierProvider.notifier)
+                .reorderSources(oldIndex, newIndex);
+            if (!mounted || saved) return;
+            final error = ref.read(sourceNotifierProvider).error;
+            if (error != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('保存排序失败：$error')),
+              );
+            }
+          },
+          itemBuilder: (context, index) => KeyedSubtree(
+            key: ValueKey(sources[index].bookSourceUrl),
+            child: _buildSourceItem(
+              context,
+              sources[index],
+              state,
+              dragIndex: index,
+            ),
+          ),
         ),
       );
     }
 
     return Md3FastScroller(
       controller: _listController,
-      child: ListView.separated(
+      child: ListView.builder(
         controller: _listController,
         itemCount: sources.length,
-        separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
         itemBuilder: (context, index) {
           final source = sources[index];
-          return state.batchMode
-              ? _buildBatchSourceItem(context, source, state)
-              : _buildSourceItem(context, source, state);
+          return _buildSourceItem(context, source, state);
         },
       ),
     );
@@ -549,298 +441,165 @@ extension _SourceBuilders on _SourceScreenState {
     );
   }
 
-  /// 书源列表项（对标原版 item_book_source.xml：勾选框+源名 16sp + Switch +
-  /// 编辑图标 + 更多图标（含发现状态角标），无头像/分组副标题）
-  ///
-  /// [C1 形态对齐 | Qoder UI] 行内复选框常显（对齐原版 cb_book_source：复选框与
-  /// 源名同排、始终可见，勾选即多选；未在批量模式时自动进入），并移除我方自创的
-  /// 「ON/OFF」文字（原版无此控件，启用态由开关呈现）。
-  Widget _buildSourceItem(
-      BuildContext context, BookSource source, SourceState state) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final hasExplore =
-        source.exploreUrl != null && source.exploreUrl!.isNotEmpty;
-    // 校验结果消息（对标原版列表项 checkSourceMessage：绿=通过，红=失效）
-    final checkMessage =
-        ref.watch(checkSourceNotifierProvider).messages[source.bookSourceUrl];
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SourceEditScreen(sourceUrl: source.bookSourceUrl),
-          ),
-        );
-      },
-      onLongPress: () {
-        // 对标原版 BookSourceAdapter：长按进入多选模式并选中该项
-        final notifier = ref.read(sourceNotifierProvider.notifier);
-        if (!ref.read(sourceNotifierProvider).batchMode) {
-          notifier.enterBatchMode();
-        }
-        notifier.toggleSelection(source.bookSourceUrl);
-      },
-      child: Padding(
-        // 对齐原版 item_book_source 行高（137px ≈ 68.5dp）：
-        // padding 14dp×2 + 内容（开关/图标按钮 ~40dp），
-        // 行高由内容自然撑起
-        padding: const EdgeInsets.only(left: 4, right: 16, top: 14, bottom: 14),
-        child: Row(
-          children: [
-            // 源名（对标原版 cb_book_source 文本 16sp）+ 分组标签
-            //（对齐原版行内分组标注，如「懒人听书app本地源（同人） (同人书源)」）
-            // + 校验消息副标题
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          source.bookSourceName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      if ((source.bookSourceGroup ?? '').trim().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Text(
-                            '(${source.bookSourceGroup!.trim()})',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (checkMessage != null)
-                    Text(
-                      checkMessage.text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                        color: checkMessage.ok
-                            ? colorScheme.primary
-                            : colorScheme.error,
-                      ),
-                    ),
-                ],
+  /// 名称和分组共用可用宽度，从名称开头显示，超长时省略尾部。
+  Widget _buildSourceName(BuildContext context, BookSource source) {
+    final theme = Theme.of(context);
+    final group = (source.bookSourceGroup ?? '').trim();
+    return Text.rich(
+      TextSpan(
+        text: source.bookSourceName,
+        children: [
+          if (group.isNotEmpty)
+            TextSpan(
+              text: ' ($group)',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            // [B2-C2 2-7 | 全栈工程师] 行右勾选圈（ref 08 行右控制簇
-            // 「勾选圈+开关」顺序；勾选态与批量栏计数联动，保留开关/⋮）
-            Checkbox(
-              value: state.isSelected(source.bookSourceUrl),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              onChanged: (_) {
-                final notifier = ref.read(sourceNotifierProvider.notifier);
-                if (!state.batchMode) notifier.enterBatchMode();
-                notifier.toggleSelection(source.bookSourceUrl);
-              },
-            ),
-            Switch(
-              value: source.enabled,
-              // 压缩触控/视觉高度（对齐原版 ThemeSwitch 行高 ~36.5dp，
-              // 避免 Material 默认 48dp 把整行撑高）
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (_) => ref
-                  .read(sourceNotifierProvider.notifier)
-                  .toggleSource(source.bookSourceUrl),
-            ),
-            // 编辑图标（对标 iv_edit）
-            IconButton(
-              icon: const Icon(Symbols.edit_rounded, size: 20),
-              tooltip: '编辑',
-              visualDensity: VisualDensity.compact,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        SourceEditScreen(sourceUrl: source.bookSourceUrl),
-                  ),
-                );
-              },
-            ),
-            // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
-            // 绿=有发现且启用，红=有发现未启用，无=无发现）
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                  // 对齐原版内容描述「更多菜单」
-                  tooltip: '更多菜单',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _showSourceMenu(context, source),
-                ),
-                if (hasExplore)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Semantics(
-                      // 对齐原版「标志:发现已启用」内容描述
-                      label: source.enabledExplore
-                          ? '标志:发现已启用'
-                          : '标志:发现未启用',
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        // 发现启用=系统绿；有发现但未启用=系统红
-                        // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                        decoration: BoxDecoration(
-                          color: source.enabledExplore
-                              ? colorScheme.primary
-                              : colorScheme.error,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.start,
+      style: theme.textTheme.titleMedium?.copyWith(
+        color: theme.colorScheme.onSurface,
       ),
     );
   }
 
-  /// 批量模式列表项：对标原版选择态仍保留完整行控件
-  /// （勾选框 + 源名 + 启用开关 + 编辑 + 更多 + 发现角标），
-  /// 整行点击切换选中；开关/编辑/更多各自独立响应，与原版一致
-  Widget _buildBatchSourceItem(
-      BuildContext context, BookSource source, SourceState state) {
+  /// 勾选框常显，长按名称区域排序，多选状态保留行内操作。
+  Widget _buildSourceItem(
+    BuildContext context,
+    BookSource source,
+    SourceState state, {
+    int? dragIndex,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final selected = state.isSelected(source.bookSourceUrl);
     final hasExplore =
         source.exploreUrl != null && source.exploreUrl!.isNotEmpty;
     // 校验结果消息（对标原版列表项 checkSourceMessage：绿=通过，红=失效）
     final checkMessage =
         ref.watch(checkSourceNotifierProvider).messages[source.bookSourceUrl];
-    return InkWell(
-      onTap: () => ref
-          .read(sourceNotifierProvider.notifier)
-          .toggleSelection(source.bookSourceUrl),
-      child: Padding(
-        padding: const EdgeInsets.only(left: 4, right: 8, top: 4, bottom: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    Widget name = Container(
+      color: Colors.transparent,
+      constraints: const BoxConstraints(minHeight: 48),
+      alignment: Alignment.centerLeft,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSourceName(context, source),
+          if (checkMessage != null)
+            Text(
+              checkMessage.text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: checkMessage.ok ? colorScheme.primary : colorScheme.error,
+              ),
+            ),
+        ],
+      ),
+    );
+    if (dragIndex != null) {
+      name = ReorderableDelayedDragStartListener(
+        index: dragIndex,
+        enabled: !state.loading,
+        child: name,
+      );
+    }
+    return AbsorbPointer(
+      absorbing: state.loading,
+      child: InkWell(
+        onTap: () {
+          if (state.batchMode) {
+            ref.read(sourceNotifierProvider.notifier)
+                .toggleSelection(source.bookSourceUrl);
+            return;
+          }
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SourceEditScreen(sourceUrl: source.bookSourceUrl),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+          child: Row(
+            children: [
+              Checkbox(
+                value: state.isSelected(source.bookSourceUrl),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: (_) {
+                  final notifier = ref.read(sourceNotifierProvider.notifier);
+                  if (!state.batchMode) notifier.enterBatchMode();
+                  notifier.toggleSelection(source.bookSourceUrl);
+                },
+              ),
+              Expanded(child: name),
+              Switch(
+                value: source.enabled,
+                // 压缩触控/视觉高度（对齐原版 ThemeSwitch 行高 ~36.5dp，
+                // 避免 Material 默认 48dp 把整行撑高）
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (_) => ref
+                    .read(sourceNotifierProvider.notifier)
+                    .toggleSource(source.bookSourceUrl),
+              ),
+              // 编辑图标（对标 iv_edit）
+              IconButton(
+                icon: const Icon(Symbols.edit_rounded, size: 20),
+                tooltip: '编辑',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SourceEditScreen(sourceUrl: source.bookSourceUrl),
+                    ),
+                  );
+                },
+              ),
+              // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
+              // 绿=有发现且启用，红=有发现未启用，无=无发现）
+              Stack(
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          source.bookSourceName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 16, color: colorScheme.onSurface),
-                        ),
-                      ),
-                      if ((source.bookSourceGroup ?? '').trim().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Text(
-                            '(${source.bookSourceGroup!.trim()})',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                  IconButton(
+                    icon: const Icon(Symbols.more_vert_rounded, size: 20),
+                    // 对齐原版内容描述「更多菜单」
+                    tooltip: '更多菜单',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showSourceMenu(context, source),
+                  ),
+                  if (hasExplore)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Semantics(
+                        // 对齐原版「标志:发现已启用」内容描述
+                        label: source.enabledExplore
+                            ? '标志:发现已启用'
+                            : '标志:发现未启用',
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          // 发现启用=系统绿；有发现但未启用=系统红
+                          // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
+                          decoration: BoxDecoration(
+                            color: source.enabledExplore
+                                ? colorScheme.primary
+                                : colorScheme.error,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                    ],
-                  ),
-                  if (checkMessage != null)
-                    Text(
-                      checkMessage.text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                        color: checkMessage.ok
-                            ? colorScheme.primary
-                            : colorScheme.error,
                       ),
                     ),
                 ],
               ),
-            ),
-            // [B2-C2 2-7 | 全栈工程师] 批量行勾选圈与常规行同位（行右控制簇
-            // 「勾选圈+开关」顺序，保留开关/⋮）
-            Checkbox(
-              value: selected,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              onChanged: (_) => ref
-                  .read(sourceNotifierProvider.notifier)
-                  .toggleSelection(source.bookSourceUrl),
-            ),
-            Switch(
-              value: source.enabled,
-              // 压缩触控/视觉高度（对齐原版 ThemeSwitch 行高 ~36.5dp，
-              // 避免 Material 默认 48dp 把整行撑高）
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (_) => ref
-                  .read(sourceNotifierProvider.notifier)
-                  .toggleSource(source.bookSourceUrl),
-            ),
-            // 编辑图标（对标 iv_edit）
-            IconButton(
-              icon: const Icon(Symbols.edit_rounded, size: 20),
-              tooltip: '编辑',
-              visualDensity: VisualDensity.compact,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        SourceEditScreen(sourceUrl: source.bookSourceUrl),
-                  ),
-                );
-              },
-            ),
-            // 更多图标（对标 iv_menu_more）+ 发现角标
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                  tooltip: '更多选项',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _showSourceMenu(context, source),
-                ),
-                if (hasExplore)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                        color: source.enabledExplore
-                            ? colorScheme.primary
-                            : colorScheme.error,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

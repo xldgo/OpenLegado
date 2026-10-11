@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -483,7 +484,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             tooltip: '帮助',
             onPressed: _showHelp,
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             onSelected: (v) {
               switch (v) {
                 case 'import_old':
@@ -493,11 +494,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
               }
             },
             itemBuilder: (ctx) => const [
-              PopupMenuItem(
+              AppMenuItem(
                 value: 'import_old',
                 child: Text('导入旧版数据'),
               ),
-              PopupMenuItem(
+              AppMenuItem(
                 value: 'log',
                 child: Text('日志'),
               ),
@@ -509,11 +510,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         // [LAYOUT_PLAN P3] 列表边距 16dp 走 IosGroupedBody（全局标尺）
         child: ListView(
           // [LAYOUT_PLAN P3] 底部 bottom32 保留
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
-            const IosSectionHeader('WebDav 设置'),
             SettingsGroup(
-              flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+              title: 'WebDAV 设置',
               children: [
                 IosListTile(
                   title: 'WebDAV 服务器地址',
@@ -574,20 +574,12 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                       : _testWebDavConnection,
                 ),
                 SettingSwitchRow(
-                  // [LAYOUT_PLAN P3] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-                  dense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   title: '同步书籍进度',
                   subtitle: '在多设备间同步书籍阅读进度',
                   value: syncState.syncBookProgress,
                   onChanged: (v) => notifier.setSyncBookProgress(v),
                 ),
                 SettingSwitchRow(
-                  // [LAYOUT_PLAN P3] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-                  dense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   title: '同步书籍进度增强',
                   subtitle: '同步更详细的阅读进度信息',
                   value: syncState.syncBookProgressPlus,
@@ -598,9 +590,9 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
               ],
             ),
 
-            const IosSectionHeader('备份与恢复'),
+            const SizedBox(height: 16),
             SettingsGroup(
-              flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+              title: '备份与恢复',
               children: [
                 IosListTile(
                   title: '备份路径',
@@ -628,10 +620,6 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   onTap: _busy ? null : _showRestoreIgnore,
                 ),
                 SettingSwitchRow(
-                  // [LAYOUT_PLAN P3] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-                  dense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   title: '仅保留最新备份',
                   subtitle: '本地备份仅保留最新备份文件',
                   value: _onlyLatestBackup,
@@ -641,10 +629,6 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   },
                 ),
                 SettingSwitchRow(
-                  // [LAYOUT_PLAN P3] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-                  dense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   title: '自动检查新备份',
                   subtitle: '打开软件时检查是否有新备份，有新备份时提示是否更新',
                   value: _autoCheckNewBackup,

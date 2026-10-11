@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -14,7 +15,6 @@ import '../providers/providers.dart';
 import '../routes.dart';
 import '../services/source_import_service.dart';
 import '../widgets/custom_group_dialog.dart';
-import '../widgets/pill_divider.dart';
 
 /// 关联导入弹出式确认对话框（对标原版各 ImportXxxDialog，视觉遵循 MD3）
 ///
@@ -464,37 +464,36 @@ class _AssociationImportDialogState
           // bookSource 更多选项（对标 import_source.xml）
           if (state.phase == AssociationPhase.ready &&
               state.type == ImportType.bookSource)
-            PopupMenuButton<String>(
+            AppMenuButton<String>(
               tooltip: '更多选项',
               // [LAYOUT_PLAN P3] 菜单在顶栏下方展开，不覆盖顶栏（对齐 P2 规范）
-              position: PopupMenuPosition.under,
               onSelected: _handleMenu,
               itemBuilder: (_) => [
-                const PopupMenuItem(
+                const AppMenuItem(
                   value: 'select_new',
                   child: Text('选中新增源'),
                 ),
-                const PopupMenuItem(
+                const AppMenuItem(
                   value: 'select_update',
                   child: Text('选中更新源'),
                 ),
-                const PillMenuDivider(),
-                CheckedPopupMenuItem(
+                const AppMenuDivider(),
+                AppMenuItem(
                   value: 'keep_name',
                   checked: _keepName,
                   child: const Text('保留原名'),
                 ),
-                CheckedPopupMenuItem(
+                AppMenuItem(
                   value: 'keep_group',
                   checked: _keepGroup,
                   child: const Text('保留分组'),
                 ),
-                CheckedPopupMenuItem(
+                AppMenuItem(
                   value: 'keep_enable',
                   checked: _keepEnable,
                   child: const Text('保留启用状态'),
                 ),
-                CheckedPopupMenuItem(
+                AppMenuItem(
                   value: 'show_comment',
                   checked: _showComment,
                   child: const Text('显示源注释'),

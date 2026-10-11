@@ -226,36 +226,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       case 'customBtn':
         await _onCustomButton();
         break;
-      case 'edit':
-        // [U1 | 台账 0917] 菜单「编辑」项接通（逻辑同顶栏编辑图标：
-        // 编辑保存成功 reload；顶栏图标保持仅架上书显示）
-        {
-          final b = book;
-          if (b == null) break;
-          try {
-            final saved = await Navigator.pushNamed(
-              context,
-              AppRoutes.editBookInfo,
-              arguments: b,
-            );
-            if (saved == true && mounted) {
-              _reload();
-            }
-          } catch (e) {
-            debugPrint('编辑书籍信息失败: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')),
-              );
-            }
-          }
-        }
-        break;
-      case 'readRecord':
-        // [U1 | 台账 0917] 菜单「阅读记录」项（与详情页四图标卡同入口）
-        if (!context.mounted) break;
-        await Navigator.pushNamed(context, AppRoutes.readRecord);
-        break;
       case 'refresh':
         // 对齐原版：刷新即含目录更新（在线书走 refreshToc，本地书仅重加载）
         if (book != null && _isOnlineBook(book)) {
@@ -809,8 +779,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         SliverToBoxAdapter(
           child: _buildKindChipRow(context, book, kinds),
         ),
-        // ② 操作宫格（B1：四宫格：已在书架/查看目录/书源/阅读记录；
-        // 「分组」收进 ⋮ 菜单）[PARITY C1 D2] 卡片行紧随 ① 信息行
+        // 操作区：加入书架、查看目录、书源和设置分组。
         SliverToBoxAdapter(child: _buildActionCards(context, book)),
         // [U10 | 台账 0917 批三] ③ 在读/最新/共N章 三行块（原置于四按钮
         // 之前，参考 08 排在四按钮之后；U9 在读/最新行 + D4 共N章单行，
@@ -1247,9 +1216,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
 
   /// 操作区四图标卡一行（[PARITY C1 D2]，对齐参考 08）
   /// - 四卡：已在书架/加书架（切换，_toggleShelf）/ 查看目录 / 书源（换源）/
-  ///   阅读记录（全部现有能力，行为不变）
-  /// - 「设置分组」不占卡位，并入次级入口：顶栏 ⋮ 溢出菜单
-  ///   （_handleMenu 'group' → _showChangeGroup），功能不丢失
+  ///   设置分组（复用现有分组选择对话框）
   /// [H1 | 台账 0917 反馈批七] 四按钮横向拓宽（近卡片横排）：ref 08 量化
   /// 单卡 229px≈76dp 宽 × 207px≈69dp 高、圆角 44.75px≈15dp、卡间距
   /// 24-25px≈8dp、左右页边距 39px≈13dp、横向跨度 989px≈329.7dp →
@@ -1330,9 +1297,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           const SizedBox(width: 10),
           Expanded(
             child: card(
-              Symbols.history_rounded,
-              '阅读记录',
-              () => Navigator.pushNamed(context, AppRoutes.readRecord),
+              Symbols.folder_rounded,
+              '设置分组',
+              _showChangeGroup,
             ),
           ),
         ],

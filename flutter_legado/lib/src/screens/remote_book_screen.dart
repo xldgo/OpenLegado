@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -11,7 +12,6 @@ import '../routes.dart';
 import '../services/settings_service.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
-import '../widgets/pill_divider.dart';
 
 /// 远程书库（对齐原版 RemoteBookActivity）
 ///
@@ -90,7 +90,7 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
               icon: const Icon(Symbols.refresh_rounded),
               onPressed: state.isLoading ? null : () => notifier.refresh(),
             ),
-            PopupMenuButton<String>(
+            AppMenuButton<String>(
               icon: const Icon(Symbols.more_vert_rounded),
               onSelected: (v) async {
                 switch (v) {
@@ -106,20 +106,20 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'server', child: Text('服务器配置')),
-                const PillMenuDivider(),
-                CheckedPopupMenuItem(
+                const AppMenuItem(value: 'server', child: Text('服务器配置')),
+                const AppMenuDivider(),
+                AppMenuItem(
                   value: 'sort_name',
                   checked: state.sortKey == RemoteBookSort.name,
                   child: const Text('按名称'),
                 ),
-                CheckedPopupMenuItem(
+                AppMenuItem(
                   value: 'sort_time',
                   checked: state.sortKey == RemoteBookSort.time,
                   child: const Text('按时间'),
                 ),
-                const PillMenuDivider(),
-                const PopupMenuItem(
+                const AppMenuDivider(),
+                const AppMenuItem(
                   value: 'webdav_settings',
                   child: Text('默认 WebDAV 设置'),
                 ),

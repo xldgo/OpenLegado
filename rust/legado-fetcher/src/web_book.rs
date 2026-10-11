@@ -1392,26 +1392,23 @@ impl RealBookSourceFetcher {
             existing_author.to_string()
         };
 
-        // 分类：kind 原始字符串 + 拆分后的 categories
+        // 分类与字数沿用搜索、发现的统一格式，避免详情刷新覆盖为原始值。
         let kind_raw = info_rule
             .and_then(|r| r.kind.as_deref())
             .map(|rule| analyzer.get_string(rule).unwrap_or_default())
             .unwrap_or_default();
-        let (kind, categories) = if kind_raw.is_empty() {
-            (None, Vec::new())
-        } else {
-            let cats = kind_raw
-                .split([',', '，', ' '])
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-            (Some(kind_raw), cats)
-        };
+        let kind = legado_core::book_help::normalize_book_kind(&kind_raw);
+        let categories = kind
+            .as_deref()
+            .map(|value| value.split(',').map(str::to_string).collect())
+            .unwrap_or_default();
 
         // B2 字数
         let word_count = info_rule
             .and_then(|r| r.word_count.as_deref())
-            .and_then(|rule| optional_field(&analyzer, rule));
+            .and_then(|rule| optional_field(&analyzer, rule))
+            .as_deref()
+            .and_then(legado_core::book_help::format_book_word_count);
 
         let intro = info_rule
             .and_then(|r| r.intro.as_deref())
@@ -1701,8 +1698,12 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             let intro = optional_field(&elem_analyzer, intro_rule);
             let latest_chapter = optional_field(&elem_analyzer, last_chapter_rule);
             // B1.2 kind / wordCount 输出字段
-            let kind = optional_field(&elem_analyzer, kind_rule);
-            let word_count = optional_field(&elem_analyzer, word_count_rule);
+            let kind = optional_field(&elem_analyzer, kind_rule)
+                .as_deref()
+                .and_then(legado_core::book_help::normalize_book_kind);
+            let word_count = optional_field(&elem_analyzer, word_count_rule)
+                .as_deref()
+                .and_then(legado_core::book_help::format_book_word_count);
 
             results.push(WebSearchResult {
                 name,
@@ -4106,13 +4107,11 @@ pub fn convert_js_search_results(
             let kind = v
                 .get("kind")
                 .and_then(|k| k.as_str())
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
+                .and_then(legado_core::book_help::normalize_book_kind);
             let word_count = v
                 .get("wordCount")
                 .and_then(|w| w.as_str())
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
+                .and_then(legado_core::book_help::format_book_word_count);
             Some(WebSearchResult {
                 name,
                 author,
@@ -4328,15 +4327,13 @@ pub async fn webbook_info(
         .await
         .map_err(|e| LegadoError::Internal(format!("JS 详情任务异常: {e}")))??;
         // 将 MarshalledBookInfo 转换为 WebBookInfo
-        let categories = js_info
+        let kind = js_info
             .kind
             .as_deref()
-            .map(|k| {
-                k.split([',', '，', ' '])
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            })
+            .and_then(legado_core::book_help::normalize_book_kind);
+        let categories = kind
+            .as_deref()
+            .map(|value| value.split(',').map(str::to_string).collect())
             .unwrap_or_default();
         let info = WebBookInfo {
             name: js_info.name,
@@ -4347,8 +4344,11 @@ pub async fn webbook_info(
             last_chapter: js_info.latest_chapter_title,
             book_url: book_url.to_string(),
             toc_url: js_info.toc_url.unwrap_or_else(|| book_url.to_string()),
-            word_count: js_info.word_count,
-            kind: js_info.kind,
+            word_count: js_info
+                .word_count
+                .as_deref()
+                .and_then(legado_core::book_help::format_book_word_count),
+            kind,
             // JS 源 marshalled 详情暂不携带 variable（marshaller 未透出），
             // 换源变量以搜索候选与规则源详情导出为准
             variable: None,
@@ -6804,6 +6804,32 @@ mod tests {
         );
         // tocUrl 规则为空时回退 book_url
         assert_eq!(info.toc_url, "https://example.com/book/1");
+    }
+
+    #[test]
+    fn test_parse_book_info_normalizes_multiline_kind_and_numeric_word_count() {
+        let source = make_info_source(None);
+        let html = INFO_HTML
+            .replace(
+                "<div class='kind'>科幻,悬疑</div>",
+                "<div class='kind'>武侠</div><div class='kind'>连载中</div><div class='kind'>2024-05-30</div>",
+            )
+            .replace("200万字", "3128968");
+        let info = test_fetcher().parse_book_info_from_body(
+            &source,
+            html,
+            "https://example.com/book/1",
+            "https://example.com/book/1",
+            true,
+            "",
+            "",
+        );
+        assert_eq!(info.kind.as_deref(), Some("武侠,连载中,2024-05-30"));
+        assert_eq!(info.categories, vec!["武侠", "连载中", "2024-05-30"]);
+        assert_eq!(info.word_count.as_deref(), Some("312.9万字"));
+        let search = info_to_search_result(info, &source.book_source_url);
+        assert_eq!(search.kind.as_deref(), Some("武侠,连载中,2024-05-30"));
+        assert_eq!(search.word_count.as_deref(), Some("312.9万字"));
     }
 
     #[test]

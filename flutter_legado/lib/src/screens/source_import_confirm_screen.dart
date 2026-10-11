@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -11,7 +12,6 @@ import '../models/models.dart';
 import '../providers/source/source_notifier.dart';
 import '../services/source_import_service.dart';
 import '../widgets/custom_group_dialog.dart';
-import '../widgets/pill_divider.dart';
 
 /// 书源导入状态（对标原版 ImportBookSourceStatus）
 enum _ImportStatus {
@@ -253,37 +253,36 @@ class _SourceImportConfirmScreenState
                 ? '自定义源分组'
                 : '${_isAddGroup ? '+' : ''}$_groupName'),
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多选项',
             // 菜单在顶栏下方展开，不覆盖顶栏
-            position: PopupMenuPosition.under,
             onSelected: _handleMenu,
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              const AppMenuItem(
                 value: 'select_new',
                 child: Text('选中新增源'),
               ),
-              const PopupMenuItem(
+              const AppMenuItem(
                 value: 'select_update',
                 child: Text('选中更新源'),
               ),
-              const PillMenuDivider(),
-              CheckedPopupMenuItem(
+              const AppMenuDivider(),
+              AppMenuItem(
                 value: 'keep_name',
                 checked: _keepName,
                 child: const Text('保留原名'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_group',
                 checked: _keepGroup,
                 child: const Text('保留分组'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'keep_enable',
                 checked: _keepEnable,
                 child: const Text('保留启用状态'),
               ),
-              CheckedPopupMenuItem(
+              AppMenuItem(
                 value: 'show_comment',
                 checked: _showComment,
                 child: const Text('显示源注释'),

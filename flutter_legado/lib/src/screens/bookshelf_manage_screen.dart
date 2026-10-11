@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -338,14 +339,14 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
         ),
         actions: [
           // 原版溢出菜单 bookshelf_manage.xml
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             onSelected: _handleMenu,
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              const AppMenuItem(
                   value: 'group_manage', child: Text('分组管理')),
-              const PopupMenuItem(
+              const AppMenuItem(
                   value: 'export_all', child: Text('导出所有使用书源')),
-              PopupMenuItem(
+              AppMenuItem(
                 value: 'open_by_title',
                 child: Row(
                   children: [

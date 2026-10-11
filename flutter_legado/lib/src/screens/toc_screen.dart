@@ -1,3 +1,4 @@
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -622,42 +623,42 @@ class _TocScreenState extends ConsumerState<TocScreen>
 
   // ===== 溢出菜单（对齐 book_toc.xml 顺序 + TocActivity.onMenuOpened 条件显隐） =====
 
-  List<PopupMenuEntry<String>> _buildMenuItems() {
+  List<AppMenuEntry<String>> _buildMenuItems() {
     final tab = _tabController.index;
-    final items = <PopupMenuEntry<String>>[];
+    final items = <AppMenuEntry<String>>[];
     if (tab == 0) {
       // menu_group_text：仅本地 TXT 书可见（对齐原版 isLocalTxt 判定）
       if (_isLocalTxt) {
-        items.add(const PopupMenuItem(
+        items.add(const AppMenuItem(
             value: 'tocRegex', child: Text('TXT 目录规则')));
-        items.add(CheckedPopupMenuItem(
+        items.add(AppMenuItem(
           value: 'splitLongChapter',
           checked: _book.readConfig?.splitLongChapter ?? true,
           child: const Text('拆分长章节'),
         ));
       }
       // menu_group_toc：目录 Tab 可见
-      items.add(const PopupMenuItem(value: 'reverseToc', child: Text('倒序目录')));
-      items.add(CheckedPopupMenuItem(
+      items.add(const AppMenuItem(value: 'reverseToc', child: Text('倒序目录')));
+      items.add(AppMenuItem(
         value: 'useReplace',
         // useReplaceRule 存于 ReadConfig（对齐原版 Book.ReadConfig.useReplaceRule）
         checked: _book.readConfig?.useReplaceRule ?? true,
         child: const Text('使用替换规则'),
       ));
-      items.add(CheckedPopupMenuItem(
+      items.add(AppMenuItem(
         value: 'loadWordCount',
         checked: _loadWordCount,
         child: const Text('加载字数'),
       ));
     } else if (tab == 1) {
       // menu_group_bookmark：书签 Tab 可见
-      items.add(const PopupMenuItem(
+      items.add(const AppMenuItem(
           value: 'exportBookmark', child: Text('导出')));
-      items.add(const PopupMenuItem(
+      items.add(const AppMenuItem(
           value: 'exportMd', child: Text('导出 Markdown')));
     }
     // menu_log：始终可见
-    items.add(const PopupMenuItem(value: 'log', child: Text('日志')));
+    items.add(const AppMenuItem(value: 'log', child: Text('日志')));
     return items;
   }
 
@@ -830,7 +831,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
             tooltip: _searching ? '关闭搜索' : '搜索',
             onPressed: _toggleSearch,
           ),
-          PopupMenuButton<String>(
+          AppMenuButton<String>(
             tooltip: '更多',
             onSelected: _handleMenu,
             itemBuilder: (_) => _buildMenuItems(),

@@ -11,6 +11,7 @@ import '../services/app_update_service.dart';
 import '../services/crash_log_service.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/help/help_screen.dart';
 
 /// 关于页面（对齐原版 about.xml + AboutFragment）
 ///
@@ -98,68 +99,18 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     }
   }
 
-  /// 展示 Markdown 正文（资产缺失时用内置占位，避免假功能）
-  Future<void> _showTextSheet(String title, String body) async {
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
+  Future<void> _showMarkdown(String title, String assetPath) async {
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.65,
-        minChildSize: 0.35,
-        maxChildSize: 0.95,
-        builder: (_, controller) => Column(
-          children: [
-            Padding(
-              // [LAYOUT_PLAN P3] Sheet 内水平边距 20→16（全局标尺）
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: Theme.of(ctx).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: controller,
-                // [LAYOUT_PLAN P3] Sheet 内水平边距 20→16（全局标尺）
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: Text(body),
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => HelpScreen(title: title, assetPath: assetPath),
     );
   }
 
-  Future<void> _showUpdateLog() async {
-    const placeholder =
-        '更新日志正文尚未打包进 Flutter 资产（对标 Android assets/updateLog.md）。\n'
-        '请前往 GitHub Releases 查看完整变更说明。';
-    try {
-      final md = await rootBundle.loadString('assets/updateLog.md');
-      await _showTextSheet('更新日志', md);
-    } catch (_) {
-      await _showTextSheet('更新日志', placeholder);
-    }
-  }
+  Future<void> _showUpdateLog() =>
+      _showMarkdown('更新日志', 'assets/updateLog.md');
 
-  Future<void> _showDisclaimer() async {
-    const placeholder =
-        '免责声明正文尚未打包进 Flutter 资产（对标 Android assets/disclaimer.md）。\n'
-        '本软件为开源阅读工具，使用者须遵守当地法律法规与网站服务条款。';
-    try {
-      final md = await rootBundle.loadString('assets/disclaimer.md');
-      await _showTextSheet('免责声明', md);
-    } catch (_) {
-      await _showTextSheet('免责声明', placeholder);
-    }
-  }
+  Future<void> _showDisclaimer() =>
+      _showMarkdown('免责声明', 'assets/disclaimer.md');
 
   Future<void> _saveLog() async {
     try {
@@ -200,10 +151,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       body: IosGroupedBody(
         child: ListView(
           // [LAYOUT_PLAN P3] 底部 bottom32 保留；列表水平边距走 IosGroupedBody 16dp
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-              // [LAYOUT_PLAN P3] 分组行走 IosListTile 规范（扁平分组，行内边距由 ListTile 承担）
+            SettingsGroup(
               children: [
                 IosListTile(
                   title: '开发人员',
@@ -230,9 +180,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 ),
               ],
             ),
-            const IosSectionHeader('其他'),
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-              // [LAYOUT_PLAN P3] 分组行走 IosListTile 规范（扁平分组，行内边距由 ListTile 承担）
+            const SizedBox(height: 16),
+            SettingsGroup(
+              title: '其他',
               children: [
                 IosListTile(
                   title: '崩溃日志',

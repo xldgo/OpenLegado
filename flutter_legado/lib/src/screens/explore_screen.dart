@@ -11,6 +11,7 @@
 /// 视觉：参考版单列列表行（图标 + 源名 + 右箭头）+ 顶栏嵌入式搜索 — Composer + UI
 library;
 
+import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -115,7 +116,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               // [A4 形态对齐 | full-stack-engineer + UI] 顶栏 ⋮ 更多菜单
               // （对齐参考版/原版顶栏形态：搜索 + ⋮；原版 main_explore.xml 的
               //  menu_group 分组子菜单并入此处，文件夹图标能力无损收编）
-              PopupMenuButton<String>(
+              AppMenuButton<String>(
                 tooltip: '更多',
                 icon: const Icon(Symbols.more_vert_rounded),
                 onSelected: (group) {
@@ -123,12 +124,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   setState(() => _selectedCategory = null);
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem<String>(
+                  const AppMenuItem<String>(
                     value: '',
                     child: Text('全部'),
                   ),
                   for (final group in state.groups)
-                    PopupMenuItem<String>(value: group, child: Text(group)),
+                    AppMenuItem<String>(value: group, child: Text(group)),
                 ],
               ),
             ],
@@ -467,9 +468,13 @@ class _SourceItemState extends ConsumerState<_SourceItem>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AppMenuAnchor<String>(
+            itemBuilder: _buildItemMenu,
+            onSelected: _handleItemMenu,
+            builder: (context, controller, _) =>
           InkWell(
             onTap: _toggleExpand,
-            onLongPress: _showItemMenu,
+            onLongPress: controller.open,
             child: ConstrainedBox(
               // [LAYOUT_MOTION_AUDIT L3] 分组头行高对齐 M3 ListItem 单行 56
               constraints: const BoxConstraints(minHeight: 56),
@@ -521,6 +526,7 @@ class _SourceItemState extends ConsumerState<_SourceItem>
               ),
             ),
           ),
+          ),
           SizeTransition(
             sizeFactor: _expandAnimation,
             alignment: Alignment.topCenter,
@@ -534,31 +540,25 @@ class _SourceItemState extends ConsumerState<_SourceItem>
     );
   }
 
-  Future<void> _showItemMenu() async {
-    final box = context.findRenderObject() as RenderBox?;
-    final pos = box != null ? box.localToGlobal(Offset.zero) : Offset.zero;
-    // 书源行菜单（对齐原版 ExploreAdapter.showMenu 六项：
-    // 编辑/置顶/登录(hasLoginUrl 条件)/搜索/刷新/删除）— 发现页修复 R2
-    final action = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx, pos.dy),
-      items: [
-        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-        const PopupMenuItem(value: 'top', child: Text('置顶')),
+  List<AppMenuEntry<String>> _buildItemMenu(BuildContext context) =>
+[
+        const AppMenuItem(value: 'edit', child: Text('编辑')),
+        const AppMenuItem(value: 'top', child: Text('置顶')),
         if (_hasLoginUrl)
-          const PopupMenuItem(value: 'login', child: Text('登录')),
-        const PopupMenuItem(value: 'search', child: Text('搜索')),
-        const PopupMenuItem(value: 'refresh', child: Text('刷新')),
-        PopupMenuItem(
+          const AppMenuItem(value: 'login', child: Text('登录')),
+        const AppMenuItem(value: 'search', child: Text('搜索')),
+        const AppMenuItem(value: 'refresh', child: Text('刷新')),
+        AppMenuItem(
           value: 'uninstall',
           child: Text(
             '删除',
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ),
-      ],
-    );
-    if (!mounted || action == null) return;
+      ];
+
+  void _handleItemMenu(String action) {
+    if (!mounted) return;
     switch (action) {
       case 'edit':
         widget.onEdit();
