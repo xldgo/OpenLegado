@@ -3,6 +3,10 @@
 
 import sys
 
+# Windows 重定向输出可能默认使用 cp1252；工程日志与错误统一输出 UTF-8。
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 # 只读命令也不在源码目录生成 Python 字节码缓存。
 sys.dont_write_bytecode = True
 if sys.version_info < (3, 11):

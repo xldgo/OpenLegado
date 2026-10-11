@@ -20,6 +20,7 @@
 - **历史核对**：本候选基于 dev `b8a0c9d29`，没有引入 16 个旧依赖提交；Cargo/pub 锁文件、Rust 业务代码、app_links 接线和 AGP 9 版本配置相对 dev 无差异。远端源分支额外的 `2dc78318f` 仅记录较早的清理候选，其内容已包含于本地后续清理记录。
 - **清理条件与范围**：本次实现提交的自动 CI 成功后，保留 master 和 dev，删除其他本地及 origin 分支；删除前核对未合入内容并保存历史快照。worktree 文件、未提交内容与构建缓存保留，不清理 upstream 远端分支。
 - **首轮复验**：集成提交 `a2ef064e9` 已推送；Flutter CI、CI 路由与工具回归通过，Android、Windows 和 iOS 在原生构建入口失败。工具查找解析符号链接会破坏 Rustup 的 cargo/rustc 分派，已改为保留入口名称并加入 POSIX 实际执行回归；Windows 具体失败仍待日志核对。本机 GitHub CLI 令牌失效，已请求重新登录；分支清理尚未执行。
+- **Windows 定向复现**：`cdaf28376` 推送后 Android/iOS 越过原失败入口，Windows 仍失败；本地在 cp1252 输出编码下执行原生构建，第一条中文日志即触发 `UnicodeEncodeError`，尚未开始 Cargo 编译。入口统一 UTF-8 输出，并加入相同编码条件下的真实 CLI 回归；待 CI 复验确认，不删除分支。
 
 编写者：Codex｜2026-10-11
 

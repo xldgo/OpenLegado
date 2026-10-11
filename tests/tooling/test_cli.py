@@ -42,6 +42,16 @@ class CliTests(unittest.TestCase):
         self.assertIn("源库摘要已核对", result.stdout)
         self.assertFalse(list(self.root.rglob("__pycache__")))
 
+    def test_cli_uses_utf8_when_parent_encoding_is_cp1252(self):
+        artifact(self.root)
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+        result = subprocess.run([sys.executable, str(self.root / "scripts" / "dev.py"),
+                                 "verify", "ffi", "android", "--profile", "debug", "--abis", "arm64-v8a"],
+                                cwd=self.cwd, env=env, text=True, encoding="utf-8", capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("校验通过", result.stdout)
+        self.assertEqual(result.stderr, "")
+
     def test_validation_failure_exit_1_without_creating_metadata(self):
         artifact(self.root)[1].unlink()
         result = self.run_cli("verify", "ffi", "android", "--profile", "debug", "--abis", "arm64-v8a")
