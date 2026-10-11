@@ -45,6 +45,7 @@ jobs:
         working-directory: rust
         run: |
           rustup target add aarch64-apple-ios-sim
+          rustup component add llvm-tools-preview
           rustup target list --installed
 
       - name: 安装 Flutter

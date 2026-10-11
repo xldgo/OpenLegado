@@ -21,6 +21,7 @@
 - **清理条件与范围**：本次实现提交的自动 CI 成功后，保留 master 和 dev，删除其他本地及 origin 分支；删除前核对未合入内容并保存历史快照。worktree 文件、未提交内容与构建缓存保留，不清理 upstream 远端分支。
 - **首轮复验**：集成提交 `a2ef064e9` 已推送；Flutter CI、CI 路由与工具回归通过，Android、Windows 和 iOS 在原生构建入口失败。工具查找解析符号链接会破坏 Rustup 的 cargo/rustc 分派，已改为保留入口名称并加入 POSIX 实际执行回归；Windows 具体失败仍待日志核对。本机 GitHub CLI 令牌失效，已请求重新登录；分支清理尚未执行。
 - **Windows 定向复现**：`cdaf28376` 推送后 Android/iOS 越过原失败入口，Windows 仍失败；本地在 cp1252 输出编码下执行原生构建，第一条中文日志即触发 `UnicodeEncodeError`，尚未开始 Cargo 编译。入口统一 UTF-8 输出，并加入相同编码条件下的真实 CLI 回归；待 CI 复验确认，不删除分支。
+- **日志核对与后续修复**：系统凭据可正常认证，此前“令牌失效”是沙箱无法读取凭据的误判，无需用户重新登录。`cdaf28376` 的 Rust、Flutter 与 Android FFI 均通过；Windows 日志与本地编码复现一致。iOS 静态库已编译，但 Xcode `nm` 无法解析 Rust LLVM 23 位码，改用同一 Rust 工具链的 `llvm-nm` 并在 iOS workflow 安装对应组件；仍要求读取成功且存在已定义 PDE 符号，最终应用继续使用 Xcode 工具校验。
 
 编写者：Codex｜2026-10-11
 

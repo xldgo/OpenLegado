@@ -110,11 +110,26 @@ def has_defined_pde(output: str) -> bool:
     return False
 
 
-def verify_native_symbols(root: Path, library: Path, xcrun: Path, env: dict):
+def rust_nm(root: Path, env: dict) -> Path:
+    """静态归档包含 Rust 位码，必须使用当前 Rust 工具链的 LLVM 读取。"""
+    rust_env = rust_environment(root, env)
+    rustc = find_tool("rustc", rust_env)
+    version = run_command([rustc, "-Vv"], root / "rust", rust_env, capture=True)
+    host = unique_match(r"^host: ([a-zA-Z0-9_-]+)$", version, "Rust host")
+    sysroot = Path(run_command([rustc, "--print", "sysroot"], root / "rust", rust_env, capture=True).strip())
+    if not sysroot.is_absolute() or not sysroot.is_dir():
+        raise ToolError("Rust 未提供有效的 sysroot，无法读取 LLVM 工具。")
+    tool = sysroot / "lib" / "rustlib" / host / "bin" / "llvm-nm"
+    if not tool.is_file():
+        raise ToolError("缺少当前 Rust 的 llvm-nm；请在 rust 目录执行 rustup component add llvm-tools-preview。")
+    return tool
+
+
+def verify_native_symbols(root: Path, library: Path, xcrun: Path, env: dict, nm: Path | None = None):
     arches = run_command([xcrun, "lipo", "-archs", library], root, env, capture=True).split()
     if arches != ["arm64"]:
         raise ToolError(f"{library}：要求单一 arm64 库，实际架构为 {arches}。")
-    if not has_defined_pde(run_command([xcrun, "nm", "-g", library], root, env, capture=True)):
+    if not has_defined_pde(run_command([nm or rust_nm(root, env), "-g", library], root, env, capture=True)):
         raise ToolError(f"{library}：缺少已定义的 FRB PDE 分发器符号。")
 
 
@@ -163,6 +178,7 @@ def build_ios_ffi(root: Path, target: str, profile: str, cargo_target_dir: Path 
     env = rust_environment(root, os.environ.copy())
     cargo, rustc, xcrun = (find_tool(name, env) for name in ("cargo", "rustc", "xcrun"))
     env["RUSTC"] = str(rustc)
+    nm = rust_nm(root, env)
     sdk_path = run_command([xcrun, "--sdk", sdk, "--show-sdk-path"], root, env, capture=True).strip()
     if not sdk_path or not Path(sdk_path).is_dir():
         raise ToolError(f"Xcode 未提供可用的 {sdk} SDK。")
@@ -184,7 +200,7 @@ def build_ios_ffi(root: Path, target: str, profile: str, cargo_target_dir: Path 
         source = cargo_artifact(run_command(args, root / "rust", env, capture=True),
                                 output / triple / profile / "liblegado_ffi.a")
         verify_archive(source)
-        verify_native_symbols(root, source, xcrun, env)
+        verify_native_symbols(root, source, xcrun, env, nm)
         if ios_inputs(root, target, profile) != inputs:
             raise ToolError("构建期间源码、工具、iOS 下限或 FRB 契约改变，拒绝发布静态库元数据。")
         destination = library_path(root)

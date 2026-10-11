@@ -92,6 +92,7 @@ APK 构建、可选安装与删除范围见 [Android 入口说明](PYTHON_ANDROI
 - **Windows**: Visual Studio Build Tools (MSVC)
 - **Linux**: `build-essential`
 - **macOS**: Xcode Command Line Tools
+- **iOS 原生校验**：在 `rust/` 执行 `rustup component add llvm-tools-preview`；静态库使用当前 Rust 自带的 `llvm-nm`，最终应用仍使用 Xcode `nm`。
 
 ### 5. 验证环境
 

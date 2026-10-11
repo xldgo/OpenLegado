@@ -30,6 +30,9 @@ class IosTests(unittest.TestCase):
         self.arches = "arm64\n"
         self.library_symbols = "0000000000000000 T _frb_pde_ffi_dispatcher_primary\n"
         self.app_symbols = {}
+        self.sysroot = self.root / "Rust SDK"
+        self.llvm_nm = self.sysroot / "lib" / "rustlib" / "aarch64-apple-darwin" / "bin" / "llvm-nm"
+        write(self.llvm_nm, b"tool")
         for sdk in ("iphoneos", "iphonesimulator"):
             (self.root / f"{sdk} SDK").mkdir()
         for replacement in (
@@ -48,7 +51,13 @@ class IosTests(unittest.TestCase):
             return str(self.root / f"{args[args.index('--sdk') + 1]} SDK") + "\n"
         if "--show-sdk-version" in args:
             return "fixture-sdk\n"
-        if args[1:] in (["-Vv"], ["-V"]):
+        if args[1:] == ["-Vv"]:
+            return "fixture-version\nhost: aarch64-apple-darwin\n"
+        if args[1:] == ["--print", "sysroot"]:
+            return str(self.sysroot) + "\n"
+        if Path(args[0]).name == "llvm-nm":
+            return self.library_symbols
+        if args[1:] == ["-V"]:
             return "fixture-version\n"
         if args[1] == "rustc":
             if self.fail:
@@ -74,6 +83,17 @@ class IosTests(unittest.TestCase):
 
     def library(self):
         return self.root / "flutter_legado" / "ios" / "RustFFI" / "libliblegado_ffi.a"
+
+    def test_static_archive_uses_matching_rust_llvm_and_app_uses_xcode_nm(self):
+        ios.build_ios_ffi(self.root, "device", "release")
+        self.assertTrue(any(Path(args[0]) == self.llvm_nm for args, env in self.calls))
+        self.assertFalse(any(args[1] == "nm" for args, env in self.calls))
+
+    def test_missing_rust_llvm_tools_fails_before_cargo_build(self):
+        self.llvm_nm.unlink()
+        with self.assertRaisesRegex(ToolError, "llvm-tools-preview"):
+            ios.build_ios_ffi(self.root, "device", "release")
+        self.assertFalse(any(args[1] == "rustc" for args, env in self.calls))
 
     def test_both_formal_targets_build_release_quickjs_with_locked_dependencies(self):
         for target, (triple, sdk) in ios.TARGETS.items():
