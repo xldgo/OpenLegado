@@ -135,9 +135,8 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         .where((name) => name.toLowerCase().endsWith('.txt'))
         .toList();
     if (txtFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有选中的 TXT 文件需要检测编码')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有选中的 TXT 文件需要检测编码')));
       return;
     }
 
@@ -182,7 +181,9 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         final fileName = filePath.split(Platform.pathSeparator).last;
         if (!txtFiles.contains(fileName)) continue;
         try {
-          final encResult = await _api.archiveDetectEncoding(filePath: filePath);
+          final encResult = await _api.archiveDetectEncoding(
+            filePath: filePath,
+          );
           final encoding = encResult['encoding'] as String? ?? '未知';
           final confidence = encResult['confidence'] as String? ?? '';
           if (mounted) {
@@ -210,9 +211,8 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('编码检测失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('编码检测失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -305,16 +305,14 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
       await notifier.refresh();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功导入 $_importDone 本书籍')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('成功导入 $_importDone 本书籍')));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导入失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -329,13 +327,8 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
     return AlertDialog(
       // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
-      title: Text(
-        '压缩包导入',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      title: Text('压缩包导入', style: Theme.of(context).textTheme.titleMedium),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -364,9 +357,7 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
               const SizedBox(height: 8),
             ],
             // 文件列表区域
-            Flexible(
-              child: _buildFileListContent(),
-            ),
+            Flexible(child: _buildFileListContent()),
             const SizedBox(height: 8),
             // 编码选择行
             _buildEncodingRow(),
@@ -405,7 +396,10 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.error_rounded, color: Theme.of(context).colorScheme.error),
+            Icon(
+              Symbols.error_rounded,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 8),
             Text('加载失败', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 4),
@@ -465,8 +459,10 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             subtitle: isTxt && detectedEnc != null
-                ? Text('编码: $detectedEnc',
-                    style: Theme.of(context).textTheme.labelSmall)
+                ? Text(
+                    '编码: $detectedEnc',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  )
                 : null,
             dense: true,
             controlAffinity: ListTileControlAffinity.leading,
@@ -482,17 +478,16 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
       children: [
         // 编码下拉选择
         Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedEncoding,
-            // [LAYOUT_PLAN P3] 输入框走 inputDecorationTheme（不显式 border）
-            decoration: const InputDecoration(
-              labelText: 'TXT 编码',
-              isDense: true,
-            ),
-            items: _supportedEncodings
-                .map((enc) => DropdownMenuItem(value: enc, child: Text(enc)))
+          child: DropdownMenuFormField<String>(
+            key: ValueKey(_selectedEncoding),
+            initialSelection: _selectedEncoding,
+            selectOnly: true,
+            expandedInsets: EdgeInsets.zero,
+            label: const Text('TXT 编码'),
+            dropdownMenuEntries: _supportedEncodings
+                .map((enc) => DropdownMenuEntry(value: enc, label: enc))
                 .toList(),
-            onChanged: (v) {
+            onSelected: (v) {
               if (v != null) setState(() => _selectedEncoding = v);
             },
           ),

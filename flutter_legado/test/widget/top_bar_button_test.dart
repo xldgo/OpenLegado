@@ -12,10 +12,7 @@ import 'package:flutter_legado/src/widgets/top_bar_button.dart';
 void main() {
   group('TopBarButtonStyle 解析', () {
     test('合法名直取、未知值回退 tonal', () {
-      expect(
-        TopBarButtonStyle.fromName('plain'),
-        TopBarButtonStyle.plain,
-      );
+      expect(TopBarButtonStyle.fromName('plain'), TopBarButtonStyle.plain);
       expect(
         TopBarButtonStyle.fromName('liquidGlass'),
         TopBarButtonStyle.liquidGlass,
@@ -38,10 +35,7 @@ void main() {
               style: style,
               merge: merge,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.search), onPressed: () {}),
               ],
             ),
           ),
@@ -50,41 +44,25 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets(
-        'tonal：36dp 圆槽 + surfaceContainerHigh 中性底（2.0.275 视觉精修）',
-        (tester) async {
+    testWidgets('tonal：36dp 透明圆槽与 48dp 点击区域', (tester) async {
       await pumpActions(tester, style: TopBarButtonStyle.tonal);
-      final context = tester.element(find.byType(TopBarActionStyler));
-      final cs = Theme.of(context).colorScheme;
-      // 按底色精确定位槽位 Container
-      // [2.0.275 视觉精修] 槽位底由 secondaryContainer（主题色相）改中性
-      // surfaceContainerHigh（对齐参考基准图 ref_20260914 07 顶栏圆钮）
+      // 视觉圆槽与按钮点击区域分别核对。
       final slot = tester
           .widgetList<Container>(find.byType(Container))
           .firstWhere(
             (c) =>
                 c.decoration is BoxDecoration &&
-                (c.decoration! as BoxDecoration).color ==
-                    cs.surfaceContainerHigh,
+                (c.decoration! as BoxDecoration).color == Colors.transparent,
           );
       expect(slot.constraints?.maxWidth, 36);
       final deco = slot.decoration! as BoxDecoration;
       expect(deco.shape, BoxShape.circle);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
-    testWidgets('plain：40dp 透明槽', (tester) async {
+    testWidgets('plain：48dp 点击区域', (tester) async {
       await pumpActions(tester, style: TopBarButtonStyle.plain);
-      // plain 槽无装饰 Container：断言 IconButton 的 40dp SizedBox 祖先
-      final slot = tester.widget<SizedBox>(
-        find
-            .ancestor(
-              of: find.byType(IconButton),
-              matching: find.byType(SizedBox),
-            )
-            .first,
-      );
-      expect(slot.width, 40);
-      expect(slot.height, 40);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
     testWidgets('outlined：1dp outlineVariant 描边', (tester) async {
@@ -119,7 +97,7 @@ void main() {
   });
 
   group('LegadoAppBar 全局透传', () {
-    testWidgets('默认 tonal：actions 被包装为 36dp 槽', (tester) async {
+    testWidgets('默认 tonal：36dp 外观与 48dp 点击区域', (tester) async {
       addTearDown(() {
         uiSettingsListenable.value = const UiSettingsState();
       });
@@ -139,6 +117,7 @@ void main() {
       await tester.pump();
       final container = tester.widget<Container>(find.byType(Container).first);
       expect(container.constraints?.maxWidth, 36);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
     testWidgets('topBarOpacity=50：背景混入半透明', (tester) async {

@@ -2,8 +2,7 @@
 //
 // 用真实 ReaderScreen 渲染（模板对齐 one_to_one_matrix_test.dart），
 // 断言深色主题下正文背景 Scaffold 的背景色解析结果：
-// - 深色主题 + 从未显式设置背景 → 纯黑 0xFF000000（主题默认，对齐参考实测；
-//   夜间预设 0xFF1A1A1A 仅作为显式选择保留）
+// - 深色主题 + 纯黑开启 + 从未显式设置背景 → 纯黑 0xFF000000
 // - 深色主题 + 显式预设索引 1 → 保留 green（0xFFCCEBCC），不随主题变
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
@@ -69,12 +68,15 @@ void main() {
   }
 
   group('[M1] 阅读器深色态背景', () {
-    testWidgets('深色主题 + 未设置背景 → 正文背景为纯黑（对齐参考）',
+    testWidgets('深色主题 + 纯黑开启 + 未设置背景 → 正文背景为纯黑',
         (tester) async {
       tester.view.physicalSize = const Size(1080, 2260);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);
-      SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
+      SharedPreferences.setMockInitialValues({
+        'app_theme_mode': 'dark',
+        'themeAmoled': true,
+      });
       final mockApi = MockRustApi();
       stubReader(mockApi);
       await pumpReader(tester, mockApi);
@@ -85,9 +87,7 @@ void main() {
       expect(
         scaffolds.any((s) => s.backgroundColor == const Color(0xFF000000)),
         isTrue,
-        reason: '深色主题 + 未显式设置时，正文背景应为纯黑 0xFF000000'
-            '（主题默认，对齐参考实测），而不是纯白；'
-            '夜间预设 0xFF1A1A1A 仅为用户显式选择时的取值',
+        reason: '软件深色模式且纯黑开启时，默认正文背景应为纯黑',
       );
       expect(tester.takeException(), isNull);
     });

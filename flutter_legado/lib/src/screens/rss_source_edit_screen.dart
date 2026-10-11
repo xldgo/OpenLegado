@@ -88,7 +88,11 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     _FieldSpec('injectJs', '注入 JS', 'injectJs'),
     _FieldSpec('contentWhitelist', '内容白名单', 'contentWhitelist'),
     _FieldSpec('contentBlacklist', '内容黑名单', 'contentBlacklist'),
-    _FieldSpec('shouldOverrideUrlLoading', 'URL 拦截', 'shouldOverrideUrlLoading'),
+    _FieldSpec(
+      'shouldOverrideUrlLoading',
+      'URL 拦截',
+      'shouldOverrideUrlLoading',
+    ),
   ];
 
   static const _allFieldSpecs = [
@@ -141,8 +145,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final initial = s?.toJson() ?? const <String, dynamic>{};
     for (final spec in _allFieldSpecs) {
       final v = initial[spec.key];
-      _ctrls[spec.key] =
-          TextEditingController(text: v == null ? '' : v.toString());
+      _ctrls[spec.key] = TextEditingController(
+        text: v == null ? '' : v.toString(),
+      );
     }
     _enabled = s?.enabled ?? true;
     _singleUrl = s?.singleUrl ?? false;
@@ -186,9 +191,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   Future<void> _fullscreenCodeEdit() async {
     final key = _focusedFieldKey;
     if (key == null || !_ctrls.containsKey(key)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先将光标放在要编辑的输入框')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先将光标放在要编辑的输入框')));
       return;
     }
     final label = _allFieldSpecs
@@ -290,15 +294,13 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final name = _ctrls['sourceName']!.text.trim();
     final url = _ctrls['sourceUrl']!.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入源名称')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请输入源名称')));
       return;
     }
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入源 URL')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请输入源 URL')));
       return;
     }
 
@@ -314,15 +316,13 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       if (!mounted) return;
       // 保存成功后更新快照，退出不再提示未保存
       _initialSnapshotMark = _snapshot();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEdit ? '订阅源已更新' : '订阅源已添加')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_isEdit ? '订阅源已更新' : '订阅源已添加')));
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('保存失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -399,9 +399,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
             .convert(_buildSource().toJson());
         await Clipboard.setData(ClipboardData(text: json));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已复制订阅源到剪贴板')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已复制订阅源到剪贴板')));
         }
       case 'paste':
         await _pasteSource();
@@ -427,23 +426,20 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final url = _ctrls['sourceUrl']!.text.trim();
     if (url.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先填写源 URL')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('请先填写源 URL')));
       }
       return;
     }
     try {
       await ref.read(bookApiProvider).clearCookie(url);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cookie 已清除')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Cookie 已清除')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除 Cookie 失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清除 Cookie 失败：$e')));
       }
     }
   }
@@ -454,9 +450,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final text = data?.text?.trim();
     if (text == null || text.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板为空')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('剪贴板为空')));
       }
       return;
     }
@@ -486,15 +481,13 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
             style is int ? style.clamp(0, _styleLabels.length - 1) : 0;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已从剪贴板粘贴订阅源')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已从剪贴板粘贴订阅源')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('粘贴失败，剪贴板不是有效的订阅源 JSON：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('粘贴失败，剪贴板不是有效的订阅源 JSON：$e')));
       }
     }
   }
@@ -552,20 +545,16 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
                 position: PopupMenuPosition.under,
                 onSelected: _handleMenu,
                 itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'debug', child: Text('调试源')),
+                  const PopupMenuItem(value: 'copy', child: Text('复制源')),
+                  const PopupMenuItem(value: 'paste', child: Text('粘贴源')),
                   const PopupMenuItem(
-                      value: 'debug', child: Text('调试源')),
-                  const PopupMenuItem(
-                      value: 'copy', child: Text('复制源')),
-                  const PopupMenuItem(
-                      value: 'paste', child: Text('粘贴源')),
-                  const PopupMenuItem(
-                      value: 'clear_cookie', child: Text('清除Cookie')),
-                  const PopupMenuItem(
-                      value: 'code_edit', child: Text('代码编辑')),
-                  const PopupMenuItem(
-                      value: 'share', child: Text('分享文本')),
-                  const PopupMenuItem(
-                      value: 'help', child: Text('帮助')),
+                    value: 'clear_cookie',
+                    child: Text('清除Cookie'),
+                  ),
+                  const PopupMenuItem(value: 'code_edit', child: Text('代码编辑')),
+                  const PopupMenuItem(value: 'share', child: Text('分享文本')),
+                  const PopupMenuItem(value: 'help', child: Text('帮助')),
                 ],
               ),
               // 保存（对标原版 menu_save）
@@ -609,14 +598,15 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   /// 选项面板（对标原版 cb_is_enable/cb_single_url/cb_is_enable_cookie/
   /// cb_is_enable_preload + sp_type + ly_type）
   Widget _buildOptionPanel() {
-    final colorScheme = Theme.of(context).colorScheme;
     return ExpansionTile(
       initiallyExpanded: true,
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       shape: const Border(),
       collapsedShape: const Border(),
-      title: const Text('选项',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      title: const Text(
+        '选项',
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -631,29 +621,28 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Row(
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
             children: [
-              Text('类型', style: TextStyle(color: colorScheme.onSurface)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _type,
-                isDense: true,
-                onChanged: (v) => setState(() => _type = v ?? 0),
-                items: [
+              DropdownMenu<int>(
+                initialSelection: _type,
+                selectOnly: true,
+                label: const Text('类型'),
+                onSelected: (v) => setState(() => _type = v ?? 0),
+                dropdownMenuEntries: [
                   for (var i = 0; i < _typeLabels.length; i++)
-                    DropdownMenuItem(value: i, child: Text(_typeLabels[i])),
+                    DropdownMenuEntry(value: i, label: _typeLabels[i]),
                 ],
               ),
-              const SizedBox(width: 24),
-              Text('样式', style: TextStyle(color: colorScheme.onSurface)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _articleStyle,
-                isDense: true,
-                onChanged: (v) => setState(() => _articleStyle = v ?? 0),
-                items: [
+              DropdownMenu<int>(
+                initialSelection: _articleStyle,
+                selectOnly: true,
+                label: const Text('样式'),
+                onSelected: (v) => setState(() => _articleStyle = v ?? 0),
+                dropdownMenuEntries: [
                   for (var i = 0; i < _styleLabels.length; i++)
-                    DropdownMenuItem(value: i, child: Text(_styleLabels[i])),
+                    DropdownMenuEntry(value: i, label: _styleLabels[i]),
                 ],
               ),
             ],
@@ -678,7 +667,10 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     );
   }
 
-  Widget _buildFieldList(List<_FieldSpec> fields, {bool withTestResult = false}) {
+  Widget _buildFieldList(
+    List<_FieldSpec> fields, {
+    bool withTestResult = false,
+  }) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [

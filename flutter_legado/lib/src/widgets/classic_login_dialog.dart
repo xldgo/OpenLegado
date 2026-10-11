@@ -271,10 +271,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
         // 空表单 → 清除登录信息（对齐原版 loginData.isEmpty → removeLoginInfo）
         await widget.api.putLoginInfo(source.bookSourceUrl, '{}');
       } else {
-        await widget.api.putLoginInfo(
-          source.bookSourceUrl,
-          jsonEncode(data),
-        );
+        await widget.api.putLoginInfo(source.bookSourceUrl, jsonEncode(data));
       }
       if (_loginJs.isNotEmpty) {
         await _runAction(
@@ -303,9 +300,8 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   static bool _isAbsUrl(String s) {
@@ -362,37 +358,37 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
             // 无左上关闭按钮（原版仅右上 确认 + 更多选项）
             automaticallyImplyLeading: false,
             title: Text('登录 ${source.bookSourceName}'),
-          actions: [
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+            actions: [
+              if (_busy)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
                 ),
+              IconButton(
+                icon: const Icon(Symbols.check_rounded),
+                // 对齐原版顶栏「确认」
+                tooltip: '确认',
+                onPressed: _busy ? null : _onConfirm,
               ),
-            IconButton(
-              icon: const Icon(Symbols.check_rounded),
-              // 对齐原版顶栏「确认」
-              tooltip: '确认',
-              onPressed: _busy ? null : _onConfirm,
-            ),
-            PopupMenuButton<String>(
-              tooltip: '更多选项',
-              onSelected: _menuAction,
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'view_header', child: Text('查看登录头')),
-                PopupMenuItem(value: 'del_header', child: Text('删除登录头')),
-                PopupMenuItem(value: 'clear_info', child: Text('清除登录信息')),
-                PopupMenuItem(value: 'log', child: Text('日志')),
-              ],
-            ),
-          ],
-        ),
-        body: _buildBody(colorScheme),
+              PopupMenuButton<String>(
+                tooltip: '更多选项',
+                onSelected: _menuAction,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'view_header', child: Text('查看登录头')),
+                  PopupMenuItem(value: 'del_header', child: Text('删除登录头')),
+                  PopupMenuItem(value: 'clear_info', child: Text('清除登录信息')),
+                  PopupMenuItem(value: 'log', child: Text('日志')),
+                ],
+              ),
+            ],
+          ),
+          body: _buildBody(colorScheme),
         ),
       ),
     );
@@ -508,9 +504,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
                 TextEditingController.new,
               ),
               obscureText: row.type == 'password',
-              decoration: InputDecoration(
-                labelText: _displayName(row),
-              ),
+              decoration: InputDecoration(labelText: _displayName(row)),
             ),
           ),
         );
@@ -519,16 +513,16 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
           label: _displayName(row),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: DropdownButtonFormField<String>(
-              initialValue: _picked[row.name],
-              decoration: InputDecoration(
-                labelText: _displayName(row),
-              ),
-              items: [
+            child: DropdownMenuFormField<String>(
+              initialSelection: _picked[row.name],
+              selectOnly: true,
+              expandedInsets: EdgeInsets.zero,
+              label: Text(_displayName(row)),
+              dropdownMenuEntries: [
                 for (final c in row.chars)
-                  DropdownMenuItem(value: c, child: Text(c)),
+                  DropdownMenuEntry(value: c, label: c),
               ],
-              onChanged: (v) {
+              onSelected: (v) {
                 if (v == null) return;
                 setState(() => _picked[row.name] = v);
                 if (row.action.trim().isNotEmpty) {

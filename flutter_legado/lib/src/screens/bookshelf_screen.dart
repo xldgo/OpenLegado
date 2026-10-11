@@ -15,8 +15,6 @@ import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
-import '../providers/ui_settings/ui_settings_notifier.dart'
-    show TopBarButtonStyle;
 import '../routes.dart';
 import '../services/local_book_store.dart';
 import '../utils/book_open_utils.dart';
@@ -138,13 +136,15 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     return LegadoAppBar(
       // [骨架对齐 2.0.260 | 台账 1-3] 分组 tab 行常驻于 sliver 头部
       // （含空态）；标准栏（加载/错误态）仅显示「书架」大标题
-      title: Text(AppStrings.bookshelf),
+      title: Text(
+        AppStrings.bookshelf,
+        style: Theme.of(context).textTheme.headlineMedium
+            ?.copyWith(fontSize: 28),
+      ),
       // [UI-fix 2.0.258] 选择模式下加载态/错误态顶栏同样切换为批量动作集
       actions: state.isBatchMode
           ? _buildBatchAppBarActions(context, ref)
           : _buildAppBarActions(context, ref),
-      // [parity C3 B5] 与头部 sliver 同锁：书架顶栏裸图标（参考 03/03b）
-      actionsStyle: TopBarButtonStyle.plain,
     );
   }
 
@@ -611,10 +611,6 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: _buildGroupTabBar(context, state),
       ),
-      // [parity C3 B5] 书架顶栏钮按参考锁裸图标（03/03b 顶栏 🔍/⋮ 无
-      // 圆底；选择模式 05 批量钮同为裸图标），不随全局 topBarButtonStyle
-      // 档位（全局档位仍作用于搜索等圆底屏）
-      actionsStyle: TopBarButtonStyle.plain,
     );
   }
 

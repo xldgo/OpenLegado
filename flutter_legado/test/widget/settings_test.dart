@@ -15,7 +15,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
@@ -66,17 +65,17 @@ void main() {
 
       // 顶部管理入口（对标 pref_main；字典规则非「词典规则」）
       expect(find.text('书源管理'), findsOneWidget);
-      expect(find.text('定时任务'), findsOneWidget);
+      expect(find.text('定时任务'), findsNWidgets(2));
       expect(find.text('TXT 目录规则'), findsOneWidget);
       expect(find.text('替换净化'), findsOneWidget);
       expect(find.text('字典规则'), findsOneWidget);
-      expect(find.text('主题模式'), findsOneWidget);
+      expect(find.text('主题模式'), findsNothing);
 
       expect(find.text('我的'), findsOneWidget);
-      // 我的页直接展示四项设置，组头保留“设置”，不再有同名入口。
+      // 外观组包含外观和阅读界面，高级与备份分别归入其他和同步与服务。
       await dragTo(tester, '备份与恢复');
-      expect(find.text('设置', skipOffstage: false), findsOneWidget);
-      expect(find.text('外观'), findsOneWidget);
+      expect(find.text('设置', skipOffstage: false), findsNothing);
+      expect(find.text('外观'), findsNWidgets(2));
       expect(find.text('高级'), findsOneWidget);
       expect(find.text('阅读界面'), findsOneWidget);
       expect(find.text('备份与恢复'), findsOneWidget);
@@ -367,35 +366,6 @@ void main() {
         isTrue,
         reason: '保活失败不阻断 Web 服务开关（方案 A 兜底）',
       );
-    });
-
-    testWidgets('点击主题模式弹出选择对话框并可切换（全局生效）', (tester) async {
-      await tester.pumpWidget(wrap(const SettingsScreen()));
-      await tester.pumpAndSettle();
-
-      expect(find.text('跟随系统'), findsOneWidget);
-      expect(
-        container.read(themeNotifierProvider).themeMode,
-        ThemeMode.system,
-      );
-
-      // 点标题「主题模式」（subtitle「选择主题模式」同屏，勿用模糊 finder）；
-      // LargeTitle 展开占高，先滚动到可见区，再回拖使其离开 pinned 头部遮挡区
-      await dragTo(tester, '主题模式');
-      await tester.drag(find.byType(ListView), const Offset(0, 140));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('主题模式'));
-      await tester.pumpAndSettle();
-
-      // 底栏标题与列表 subtitle 可能同文案，用 ListTile 精确匹配选项
-      expect(find.widgetWithText(ListTile, '浅色'), findsOneWidget);
-      expect(find.widgetWithText(ListTile, '深色'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(ListTile, '深色'));
-      await tester.pumpAndSettle();
-
-      expect(container.read(themeNotifierProvider).themeMode, ThemeMode.dark);
-      expect(find.text('深色'), findsOneWidget);
     });
 
     testWidgets('从我的页直接进入备份与恢复全页 WebDAV/备份设置', (tester) async {

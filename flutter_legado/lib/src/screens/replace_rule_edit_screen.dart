@@ -48,10 +48,8 @@ class ReplaceRuleEditScreen extends ConsumerStatefulWidget {
   }) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => ReplaceRuleEditScreen(
-          rule: rule,
-          prefillPattern: prefillPattern,
-        ),
+        builder: (_) =>
+            ReplaceRuleEditScreen(rule: rule, prefillPattern: prefillPattern),
       ),
     );
     return saved ?? false;
@@ -165,9 +163,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
     for (final r in ref.read(replaceRuleNotifierProvider).rules) {
       final g = r.group;
       if (g == null || g.trim().isEmpty) continue;
-      set.addAll(
-        g.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
-      );
+      set.addAll(g.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
     }
     return set.toList()..sort();
   }
@@ -461,10 +457,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'fullscreen',
-                child: Text('全屏编辑'),
-              ),
+              PopupMenuItem(value: 'fullscreen', child: Text('全屏编辑')),
               PopupMenuItem(value: 'copy', child: Text('复制规则')),
               PopupMenuItem(value: 'paste', child: Text('粘贴规则')),
             ],
@@ -476,11 +469,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           // 1. 名称（对标 et_name）
-          _buildTextField(
-            _nameCtrl,
-            label: '规则名称',
-            focusNode: _nameFocus,
-          ),
+          _buildTextField(_nameCtrl, label: '规则名称', focusNode: _nameFocus),
           const SizedBox(height: 16),
           // 2. 分组（对标 et_group；参考版形态：分组下拉 + 自定义输入）
           _buildGroupField(groups),
@@ -515,12 +504,10 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
               // 走仓库既有 Row(Checkbox, Text) 写法，如导入确认页）
               Checkbox(
                 value: _isRegex,
-                onChanged: (v) => setState(
-                  () {
-                    _isRegex = v ?? true;
-                    _schedulePreview();
-                  },
-                ),
+                onChanged: (v) => setState(() {
+                  _isRegex = v ?? true;
+                  _schedulePreview();
+                }),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 semanticLabel: '使用正则表达式',
               ),
@@ -577,10 +564,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
       controller: controller,
       focusNode: focusNode,
       onChanged: (v) => onChanged?.call(v),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
     );
   }
 
@@ -592,24 +576,22 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
       children: [
         // Key 随 _groupChoice 变化强制重建（FormField 的 initialValue
         // 只在首建生效；粘贴回填等程序化改组需重建以同步选中项）
-        DropdownButtonFormField<String?>(
+        DropdownMenuFormField<String?>(
           key: ValueKey<String?>('groupChoice$_groupChoice'),
-          initialValue: _groupChoice,
-          decoration: const InputDecoration(labelText: '分组'),
-          isExpanded: true,
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('（无分组）'),
-            ),
+          initialSelection: _groupChoice,
+          selectOnly: true,
+          expandedInsets: EdgeInsets.zero,
+          label: const Text('分组'),
+          dropdownMenuEntries: [
+            const DropdownMenuEntry<String?>(value: null, label: '（无分组）'),
             for (final g in groups)
-              DropdownMenuItem<String?>(value: g, child: Text(g)),
-            const DropdownMenuItem<String?>(
+              DropdownMenuEntry<String?>(value: g, label: g),
+            const DropdownMenuEntry<String?>(
               value: _kGroupCustom,
-              child: Text('自定义…'),
+              label: '自定义…',
             ),
           ],
-          onChanged: (v) {
+          onSelected: (v) {
             setState(() {
               _groupChoice = v;
               if (v != _kGroupCustom) _customGroupCtrl.clear();
@@ -685,12 +667,8 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
       children: [
         TextField(
           controller: _timeoutCtrl,
-          keyboardType: const TextInputType.numberWithOptions(
-            signed: true,
-          ),
-          decoration: const InputDecoration(
-            labelText: '超时时间（毫秒）',
-          ),
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          decoration: const InputDecoration(labelText: '超时时间（毫秒）'),
         ),
         const SizedBox(height: 4),
         Text(

@@ -19,8 +19,9 @@ class _SourceVariableDialog extends StatefulWidget {
 }
 
 class _SourceVariableDialogState extends State<_SourceVariableDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialText,
+  );
 
   @override
   void dispose() {
@@ -31,7 +32,6 @@ class _SourceVariableDialogState extends State<_SourceVariableDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(widget.title),
       content: SingleChildScrollView(
         child: Column(
@@ -49,9 +49,7 @@ class _SourceVariableDialogState extends State<_SourceVariableDialog> {
               controller: _controller,
               maxLines: 6,
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: '输入源变量（空则清除）',
-              ),
+              decoration: const InputDecoration(hintText: '输入源变量（空则清除）'),
             ),
           ],
         ),
@@ -97,9 +95,8 @@ class _QrShareDialog extends StatelessWidget {
       );
       if (imageData == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('二维码生成失败')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('二维码生成失败')));
         }
         return;
       }
@@ -114,9 +111,8 @@ class _QrShareDialog extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败：$e')));
       }
     }
   }
@@ -124,7 +120,6 @@ class _QrShareDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(title),
       content: SizedBox(
         width: 240,

@@ -139,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// 首页设置快捷入口：切到我的页并定位设置分组。
+  /// 首页设置快捷入口：切到我的页并定位其他分组。
   void _openMySettings() {
     final tabs = _visibleTabs(ref.read(mainPrefsProvider));
     setState(() => _openSettingsRequest++);

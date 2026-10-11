@@ -63,7 +63,9 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
     _countdownTimers.remove(action)?.cancel();
     _countdownLeft[action] = seconds;
     setState(() {});
-    _countdownTimers[action] = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _countdownTimers[action] = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) {
       final left = (_countdownLeft[action] ?? 1) - 1;
       if (!mounted) {
         timer.cancel();
@@ -255,17 +257,19 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
         final current = _selects[key] ?? '';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: DropdownButton<String>(
-            value: options.contains(current)
+          child: DropdownMenu<String>(
+            initialSelection: options.contains(current)
                 ? current
                 : (options.isNotEmpty ? options.first : null),
-            isExpanded: true,
-            hint: Text(hint),
-            items: [
+            selectOnly: true,
+            expandedInsets: EdgeInsets.zero,
+            hintText: hint,
+            enabled: options.isNotEmpty,
+            dropdownMenuEntries: [
               for (final o in options)
-                DropdownMenuItem<String>(value: o, child: Text(o)),
+                DropdownMenuEntry<String>(value: o, label: o),
             ],
-            onChanged: (v) {
+            onSelected: (v) {
               if (v != null) setState(() => _selects[key] = v);
             },
           ),

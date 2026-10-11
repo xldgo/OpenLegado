@@ -113,6 +113,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   @override
+  void didChangePlatformBrightness() {
+    // 跟随系统时同步正文默认配色，显式主题与自定义背景由解析器保留。
+    unawaited(ref
+        .read(readerNotifierProvider.notifier)
+        .reapplyBackgroundForCurrentTheme());
+  }
+
+  @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     // [C3-hunt | 2026-09-24] 注销生命周期观察者（与 initState 配对）

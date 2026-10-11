@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../settings_widgets.dart';
+
 import '../../services/system_brightness.dart';
 
 /// 设置页与阅读底栏共用的亮度控件。
@@ -151,31 +153,32 @@ class _ReaderBrightnessControlState extends State<ReaderBrightnessControl>
 
     return Column(
       children: [
-        SwitchListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('跟随系统亮度'),
-          subtitle: const Text('关闭后可单独调节阅读亮度'),
+        SettingSwitchRow(
+          title: '跟随系统亮度',
+          subtitle: '关闭后可单独调节阅读亮度',
           value: _followSystem,
           onChanged: _busy
               ? null
               : (value) => unawaited(_setFollowSystem(value)),
         ),
         if (!_followSystem)
-          Row(
-            children: [
-              const Icon(Icons.brightness_low, size: 20),
-              Expanded(child: _slider()),
-              const Icon(Icons.brightness_high, size: 20),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                child: Text(
-                  '${(_brightness * 100).round()}%',
-                  textAlign: TextAlign.end,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.brightness_low, size: 20),
+                Expanded(child: _slider()),
+                const Icon(Icons.brightness_high, size: 20),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '${(_brightness * 100).round()}%',
+                    textAlign: TextAlign.end,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
       ],
     );

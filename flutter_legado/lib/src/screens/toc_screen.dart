@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/md3_fast_scroller.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
@@ -787,17 +788,15 @@ class _TocScreenState extends ConsumerState<TocScreen>
     return AppScaffold(
       topBar: LegadoAppBar(
         title: _searching
-            ? TextField(
+            ? AppSearchField(
                 controller: _searchCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: '搜索...',
-                  // [B3] 顶栏沉浸搜索框：三态显式无边框，防主题底线式渗入
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
+                autoFocus: true,
+                hintText: '搜索关键词',
                 onChanged: _onSearchChanged,
+                onClear: () {
+                  _debounce?.cancel();
+                  setState(() => _searchKey = '');
+                },
               )
             : currentChapterTitle.isNotEmpty
                 // [PARITY C2 T3] 章名（主标题）+ 页码（小字）同行，整体作为
@@ -1239,6 +1238,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
     return ListTile(
       dense: true,
+      shape: const RoundedRectangleBorder(),
       // [P2-29b] 当前章行级高亮对齐参考版 ReaderSheetChapterItem :965-974：
       // isDur → 行背景 secondaryContainer + 标题 onSecondaryContainer（蓝色
       // 主调下即此前量化的淡蓝底 ≈(238,243,253)，替代 primary 10% 铺底）

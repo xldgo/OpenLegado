@@ -9,12 +9,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
+import '../../constants/pref_keys.dart';
 import '../../models/models.dart';
 import '../../services/rust_api.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import '../providers.dart';
 import '../theme/theme_notifier.dart';
+import '../ui_settings/ui_settings_notifier.dart';
 import 'reader_state.dart';
 
 export 'reader_state.dart';
@@ -97,11 +99,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   ReaderState build() {
     // 延迟到 build() 返回后执行（state 初始化完成后才能访问）
     Future.microtask(_loadSettings);
-    // [M1 深色态默认修复] 主题切换时重新解析阅读背景默认（仅影响
-    // 「从未显式设置」路径，尊重用户显式选择；toggleDayNight 经
-    // setThemeMode 同路）。监听挂在阅读器 Notifier 上：仅阅读器实际
-    // 被使用（provider 已构建）时才随主题重解析，设置页切主题不会
-    // 强制构建阅读器状态。
+    // 主题与纯黑开关即时影响默认背景和夜间预设，不覆盖自定义配色。
     ref.listen(
       themeNotifierProvider,
       (previous, next) {
@@ -112,6 +110,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
             themeMode: next.themeMode,
           ));
         }
+      },
+    );
+    ref.listen(
+      uiSettingsProvider.select((settings) => settings.themeAmoled),
+      (previous, next) {
+        unawaited(reapplyBackgroundForCurrentTheme(themeAmoled: next));
       },
     );
     return const ReaderState();
@@ -136,10 +140,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       if (custom != null) customBgColor = Color(custom);
     }
 
-    // [M1 深色态默认修复] 背景默认解析：显式自定义 > 显式预设索引 > 主题默认
-    // （深色 → 夜间预设；亮色 → 白色原默认不变；用户显式选择一律保留）
     final backgroundColor = resolveReaderBackground(
       themeBrightness: await _effectiveThemeBrightness(),
+      themeAmoled: prefs.getBool(PrefKeys.themeAmoled) ?? false,
       storedBgIndex: bgIndex,
       customBgColor: customBgColor,
     );
@@ -153,17 +156,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
     );
   }
 
-  /// [M1 深色态默认修复] 主题切换后重新解析阅读背景
-  ///
-  /// 仅影响「从未显式设置」路径：用户已显式选择自定义背景或有效预设索引时
-  /// 直接返回（尊重用户选择，不随主题变化）；仅在从未显式设置时按当前
-  /// 主题重新解析默认（深色 → 夜间预设，亮色 → 白色）。
-  ///
-  /// [themeMode]：切换后的新主题模式（build() 内 ref.listen 回调传入，
-  /// 避免此刻重读尚未落盘的持久化旧值）；省略时从 [SettingsService] 读取。
-  /// 由 build() 内 ref.listen(themeNotifierProvider) 在主题切换时调用
-  /// （toggleDayNight 经 setThemeMode 同路）。
-  Future<void> reapplyBackgroundForCurrentTheme({ThemeMode? themeMode}) async {
+  /// 重新应用主题明暗与纯黑偏好，保留自定义背景及浅色预设。
+  /// 监听传入内存中的新值，避免读取尚未完成持久化的旧值。
+  Future<void> reapplyBackgroundForCurrentTheme({
+    ThemeMode? themeMode,
+    bool? themeAmoled,
+  }) async {
     late SharedPreferences prefs;
     try {
       prefs = await SharedPreferences.getInstance();
@@ -176,10 +174,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final hasExplicitIndex = storedIndex != null &&
         storedIndex >= 0 &&
         storedIndex < ReaderBackground.presets.length;
-    if (hasExplicitIndex) return;
+    if (hasExplicitIndex &&
+        ReaderBackground.presets[storedIndex] != ReaderBackground.dark) {
+      return;
+    }
+    final brightness = await _effectiveThemeBrightness(mode: themeMode);
+    if (!ref.mounted) return;
     final resolved = resolveReaderBackground(
-      themeBrightness: await _effectiveThemeBrightness(mode: themeMode),
-      storedBgIndex: null,
+      themeBrightness: brightness,
+      themeAmoled: themeAmoled ?? ref.read(uiSettingsProvider).themeAmoled,
+      storedBgIndex: storedIndex,
       customBgColor: null,
     );
     if (!ref.mounted) return;
@@ -197,6 +201,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// 省略时读持久化值（加载路径）。
   Future<Brightness> _effectiveThemeBrightness({ThemeMode? mode}) async {
     final effectiveMode = mode ?? await _settings.getThemeMode();
+    return _themeBrightness(effectiveMode);
+  }
+
+  Brightness _themeBrightness(ThemeMode mode) {
     Brightness platform;
     try {
       platform =
@@ -204,7 +212,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     } catch (_) {
       platform = Brightness.light;
     }
-    return themeBrightnessFor(effectiveMode, platform);
+    return themeBrightnessFor(mode, platform);
   }
 
   /// 打开书籍：加载目录并定位到上次阅读章节
@@ -400,9 +408,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// 更新背景色（预设）
-  void updateBackgroundColor(dynamic color) {
-    state = state.copyWith(backgroundColor: color);
+  void updateBackgroundColor(Color color) {
     final index = ReaderBackground.presets.indexOf(color);
+    final backgroundColor = index < 0
+        ? color
+        : resolveReaderBackground(
+            themeBrightness:
+                _themeBrightness(ref.read(themeNotifierProvider).themeMode),
+            themeAmoled: ref.read(uiSettingsProvider).themeAmoled,
+            storedBgIndex: index,
+          );
+    state = state.copyWith(backgroundColor: backgroundColor);
     if (index >= 0) {
       _settings.setBgColorIndex(index);
       // [UI-fix v2.0.4 | 2026-08-08] 选中预设时清除自定义背景标志，

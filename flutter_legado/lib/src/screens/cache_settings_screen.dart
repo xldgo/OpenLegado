@@ -118,17 +118,14 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
       await CacheService.clearSameTitleRemovedFlags();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已清除 ${CacheService.formatSize(cleared)} 缓存'),
-          ),
+          SnackBar(content: Text('已清除 ${CacheService.formatSize(cleared)} 缓存')),
         );
         await _loadStats();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除缓存失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清除缓存失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -143,9 +140,8 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
     setState(() => _expireDays = days);
     await _cacheService.setAutoExpireDays(days);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('过期策略已更新')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('过期策略已更新')));
     }
   }
 
@@ -181,46 +177,46 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
       child: Padding(
         // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '缓存统计',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  icon: Symbols.storage_rounded,
-                  label: '总大小',
-                  value: CacheService.formatSize(_totalSize),
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '缓存统计',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  icon: Symbols.menu_book_rounded,
-                  label: '书籍数量',
-                  value: '$_bookCount',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Symbols.storage_rounded,
+                    label: '总大小',
+                    value: CacheService.formatSize(_totalSize),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  icon: Symbols.article_rounded,
-                  label: '章节数量',
-                  value: '$_chapterCount',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Symbols.menu_book_rounded,
+                    label: '书籍数量',
+                    value: '$_bookCount',
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
-        // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Symbols.article_rounded,
+                    label: '章节数量',
+                    value: '$_chapterCount',
+                  ),
+                ),
+              ],
+            ),
+          ],
+          // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
         ),
       ),
     );
@@ -271,40 +267,40 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
       child: Padding(
         // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '自动过期策略',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-            initialValue: _expireDays,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Symbols.schedule_rounded),
-              labelText: '缓存过期时间',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '自动过期策略',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            items: _expireOptions.map((option) {
-              return DropdownMenuItem<int>(
-                value: option['days'] as int,
-                child: Text(option['label'] as String),
-              );
-            }).toList(),
-            onChanged: _onExpireDaysChanged,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '超过设定时间的缓存将在下次启动时自动清除',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-        // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
+            const SizedBox(height: 8),
+            DropdownMenuFormField<int>(
+              initialSelection: _expireDays,
+              selectOnly: true,
+              expandedInsets: EdgeInsets.zero,
+              leadingIcon: const Icon(Symbols.schedule_rounded),
+              label: const Text('缓存过期时间'),
+              dropdownMenuEntries: _expireOptions.map((option) {
+                return DropdownMenuEntry<int>(
+                  value: option['days'] as int,
+                  label: option['label'] as String,
+                );
+              }).toList(),
+              onSelected: _onExpireDaysChanged,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '超过设定时间的缓存将在下次启动时自动清除',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
         ),
       ),
     );
@@ -318,49 +314,51 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
       child: Padding(
         // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '清理操作',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _clearing ? null : _showClearConfirmDialog,
-              icon: _clearing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      Symbols.cleaning_services_rounded,
-                      // [LAYOUT_PLAN P3] 状态色走 tonal
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                    ),
-              label: Text(
-                _clearing ? '清理中...' : '清除全部缓存',
-                // [LAYOUT_PLAN P3] 状态色走 tonal
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onErrorContainer),
-              ),
-              style: OutlinedButton.styleFrom(
-                // [LAYOUT_PLAN P3] 状态色走 tonal
-                backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                side: BorderSide(
-                    color: Theme.of(context).colorScheme.errorContainer),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '清理操作',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
-        // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _clearing ? null : _showClearConfirmDialog,
+                icon: _clearing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        Symbols.cleaning_services_rounded,
+                        // [LAYOUT_PLAN P3] 状态色走 tonal
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                label: Text(
+                  _clearing ? '清理中...' : '清除全部缓存',
+                  // [LAYOUT_PLAN P3] 状态色走 tonal
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  // [LAYOUT_PLAN P3] 状态色走 tonal
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+          // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
         ),
       ),
     );

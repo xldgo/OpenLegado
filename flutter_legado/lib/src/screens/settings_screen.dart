@@ -12,29 +12,20 @@ import '../utils/error_message.dart';
 import '../services/auto_task_scheduler.dart';
 import '../services/web_keep_alive_service.dart';
 import '../providers/providers.dart';
-import '../providers/theme/theme_notifier.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
-import '../widgets/bottom_sheet_widget.dart';
 import '../widgets/reader/reader_settings_sheet.dart';
 
 /// 我的页面（枢纽菜单）
 ///
-/// 对标 Android 原版「我的」页（`fragment_my_config.xml` + `pref_main.xml`）：
-/// - 顶部：书源管理 / 定时任务 / 运行定时任务 / TXT 目录规则 / 替换净化 /
-///   字典规则 / 主题模式 / Web 服务 / MCP 服务
-/// - 「设置」分组：外观 / 阅读界面 / 高级 / 备份与恢复
-/// - 「其他」分组：书签 / 阅读记录 / 文件管理 / 关于 / 退出
-///
-/// 视觉：apple-ui-designer — iOS 分组 inset 列表、系统感图标色块、克制分隔。
-///
-/// — UI 子代理 + UI ｜ 2026-08-13
+/// 内容与规则、外观、同步与服务、定时任务及其他按职责分组。
+/// 外观保留主题模式配置，本页仅提供对应入口。
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key, this.openSettingsRequest = 0});
 
-  /// 首页齿轮每次点击时递增，定位到本页设置分组。
+  /// 首页齿轮每次点击时递增，定位到本页其他分组。
   final int openSettingsRequest;
 
   @override
@@ -42,7 +33,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final GlobalKey _settingsSectionKey = GlobalKey();
+  final GlobalKey _otherSectionKey = GlobalKey();
 
   // 服务开关（对标 pref_main SwitchPreference）
   bool _autoTaskService = false;
@@ -71,21 +62,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _initServiceStates();
-    if (widget.openSettingsRequest > 0) _revealSettings();
+    if (widget.openSettingsRequest > 0) _revealOther();
   }
 
   @override
   void didUpdateWidget(covariant SettingsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.openSettingsRequest != oldWidget.openSettingsRequest) {
-      _revealSettings();
+      _revealOther();
     }
   }
 
-  void _revealSettings() {
+  void _revealOther() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final sectionContext = _settingsSectionKey.currentContext;
+      final sectionContext = _otherSectionKey.currentContext;
       if (sectionContext == null) return;
       Scrollable.ensureVisible(
         sectionContext,
@@ -221,7 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return '端口 $_mcpPort（带令牌保护的书源开发工具）';
     }
     if (!_mcpTokenConfigured) {
-      return '需先配置「Web 书源访问令牌」（设置 → 高级 → 其他设置）';
+      return '需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）';
     }
     return '带令牌保护的书源开发工具';
   }
@@ -287,7 +278,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeNotifierProvider).themeMode;
     // 主页面标题与操作按钮同排，列表从工具栏下方开始。
     return AppScaffold(
       topBar: LegadoAppBar(
@@ -309,11 +299,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            // 分组整体构建，确保首页快捷入口能定位尚未滚动到的设置区域。
+            // 分组整体构建，确保首页快捷入口能定位尚未滚动到的其他区域。
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ===== 顶部管理入口（对标 pref_main 顶层项，文案对齐 values-zh）=====
+                const IosSectionHeader('内容与规则'),
                 SettingsGroup(
                   children: [
                     IosListTile(
@@ -323,18 +313,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () => Navigator.pushNamed(context, AppRoutes.sources),
                     ),
                     IosListTile(
-                      icon: Symbols.schedule_rounded,
-                      title: '定时任务',
-                      subtitle: '管理按计划执行的 JavaScript 任务',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.autoTasks),
-                    ),
-                    SettingSwitchRow(
-                      icon: Symbols.autorenew_rounded,
-                      title: '运行定时任务',
-                      subtitle: '重启后保留计划；Android 可能延后实际执行时间',
-                      value: _autoTaskService,
-                      onChanged: _toggleAutoTaskService,
+                      icon: Symbols.rss_feed_rounded,
+                      title: '订阅源管理',
+                      subtitle: '新建、导入、编辑或管理订阅源',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.rssSourceManage),
                     ),
                     IosListTile(
                       icon: Symbols.toc_rounded,
@@ -352,15 +334,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     IosListTile(
                       icon: Symbols.translate_rounded,
-                      title: '字典规则',
-                      subtitle: '配置字典规则',
+                      title: '字典查询',
+                      subtitle: '按字典规则查询内容',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
                     ),
-                    // [C2 批2 | full-stack-engineer + UI] 字典规则管理页入口
-                    // （对齐原版 DictRuleActivity；「字典规则」仍进查询页）
                     IosListTile(
                       icon: Symbols.manage_search_rounded,
-                      title: '规则管理',
+                      title: '字典规则',
                       subtitle: '管理字典规则（增删改、启停、排序、导入）',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.dictRule),
                     ),
@@ -371,95 +351,108 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.highlightRules),
                     ),
+                  ],
+                ),
+                const IosSectionHeader('外观'),
+                SettingsGroup(
+                  children: [
                     IosListTile(
-                      icon: Symbols.brightness_6_rounded,
-                      title: '主题模式',
-                      subtitle: '选择主题模式',
-                      value: _themeModeLabel(themeMode),
-                      onTap: () => _showThemePicker(context),
+                      icon: Symbols.palette_rounded,
+                      title: '外观',
+                      subtitle: '主题配色与显示模式',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.themeConfig),
+                    ),
+                    IosListTile(
+                      icon: Symbols.style_rounded,
+                      title: '阅读界面',
+                      subtitle: '字体、配色、翻页与屏幕显示',
+                      onTap: () => ReaderSettingsSheet.showPage(context),
                     ),
                   ],
                 ),
-
-                  const SizedBox(height: 16),
-                  SettingsGroup(
-                    children: [
-                      SettingSwitchRow(
-                        leading: _webServiceBusy
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(
-                                Symbols.language_rounded,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                        title: 'Web 服务',
-                        subtitle: _webServiceSubtitle,
-                        value: _webService,
-                        onChanged: _webServiceBusy ? null : _toggleWebService,
-                      ),
-                      SettingSwitchRow(
-                        leading: _mcpServiceBusy
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(
-                                Symbols.cable_rounded,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        title: 'MCP 服务',
-                        subtitle: _mcpServiceSubtitle,
-                        value: _mcpService,
-                        onChanged: _mcpServiceBusy ? null : _toggleMcpService,
-                      ),
-                    ],
-                  ),
-
-                  // ===== 设置分组 =====
-                  IosSectionHeader('设置', key: _settingsSectionKey),
-                  SettingsGroup(
-                    children: [
-                      // 常用设置直接进入对应页面，减少一层菜单跳转。
-                      IosListTile(
-                        icon: Symbols.palette_rounded,
-                        title: '外观',
-                        subtitle: '主题配色与显示模式',
-                        onTap: () =>
-                            Navigator.pushNamed(context, AppRoutes.themeConfig),
-                      ),
-                      IosListTile(
-                        icon: Symbols.style_rounded,
-                        title: '阅读界面',
-                        subtitle: '字体、配色、翻页与屏幕显示',
-                        onTap: () => ReaderSettingsSheet.showPage(context),
-                      ),
-                      IosListTile(
-                        icon: Symbols.tune_rounded,
-                        title: '高级',
-                        subtitle: '功能相关的一些设置',
-                        onTap: () =>
-                            Navigator.pushNamed(context, AppRoutes.otherSettings),
-                      ),
-                      IosListTile(
-                        icon: Symbols.backup_rounded,
-                        title: '备份与恢复',
-                        subtitle: 'WebDav 设置/导入旧版本数据',
-                        onTap: () =>
-                            Navigator.pushNamed(context, AppRoutes.webdavSettings),
-                      ),
-                    ],
-                  ),
-
-                // ===== 其他分组 =====
-                const IosSectionHeader('其他'),
+                const IosSectionHeader('同步与服务'),
                 SettingsGroup(
                   children: [
+                    SettingSwitchRow(
+                      leading: _webServiceBusy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Symbols.language_rounded,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      title: 'Web 服务',
+                      subtitle: _webServiceSubtitle,
+                      value: _webService,
+                      onChanged: _webServiceBusy ? null : _toggleWebService,
+                    ),
+                    SettingSwitchRow(
+                      leading: _mcpServiceBusy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Symbols.cable_rounded,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                      title: 'MCP 服务',
+                      subtitle: _mcpServiceSubtitle,
+                      value: _mcpService,
+                      onChanged: _mcpServiceBusy ? null : _toggleMcpService,
+                    ),
+                    IosListTile(
+                      icon: Symbols.backup_rounded,
+                      title: '备份与恢复',
+                      subtitle: 'WebDav 设置/导入旧版本数据',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.webdavSettings),
+                    ),
+                    IosListTile(
+                      icon: Symbols.download_rounded,
+                      title: '缓存管理',
+                      subtitle: '书籍下载任务与缓存进度',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.offlineCache),
+                    ),
+                  ],
+                ),
+                const IosSectionHeader('定时任务'),
+                SettingsGroup(
+                  children: [
+                    IosListTile(
+                      icon: Symbols.schedule_rounded,
+                      title: '定时任务',
+                      subtitle: '管理按计划执行的 JavaScript 任务',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.autoTasks),
+                    ),
+                    SettingSwitchRow(
+                      icon: Symbols.autorenew_rounded,
+                      title: '运行定时任务',
+                      subtitle: '重启后保留计划；Android 可能延后实际执行时间',
+                      value: _autoTaskService,
+                      onChanged: _toggleAutoTaskService,
+                    ),
+                  ],
+                ),
+                IosSectionHeader('其他', key: _otherSectionKey),
+                SettingsGroup(
+                  children: [
+                    IosListTile(
+                      icon: Symbols.tune_rounded,
+                      title: '高级',
+                      subtitle: '功能相关的一些设置',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.otherSettings),
+                    ),
                     IosListTile(
                       icon: Symbols.bookmark_rounded,
                       title: '书签',
@@ -473,16 +466,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: '阅读时间记录',
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.readRecord),
-                    ),
-                    // [UI_SYNC_REFACTOR S5 修 | 2026-09-08] 补「缓存管理」入口
-                    //（对齐参考版我的页其它组；页面复用既有离线缓存页
-                    // OfflineCacheScreen，此前入口仅在书架菜单「离线缓存」）— Qoder
-                    IosListTile(
-                      icon: Symbols.download_rounded,
-                      title: '缓存管理',
-                      subtitle: '书籍下载任务与缓存进度',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.offlineCache),
                     ),
                     IosListTile(
                       icon: Symbols.folder_rounded,
@@ -511,60 +494,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  String _themeModeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return AppStrings.themeLight;
-      case ThemeMode.dark:
-        return AppStrings.themeDark;
-      default:
-        return AppStrings.themeSystem;
-    }
-  }
-
   /// 帮助（对标 main_my.xml → showHelp("appHelp")）
   void _showHelp() {
     showHelp(context, HelpAssets.appHelp);
-  }
-
-  void _showThemePicker(BuildContext context) {
-    final themeNotifier = ref.read(themeNotifierProvider.notifier);
-    final currentMode = ref.read(themeNotifierProvider).themeMode;
-    // [统一壳 B2a] 自造壳迁移统一 AppBottomSheet（对齐参考版 AppModalBottomSheet
-    // 语义；把手由主题 bottomSheetTheme.showDragHandle 统一提供）
-    AppBottomSheet.show<ThemeMode>(
-      context: context,
-      title: AppStrings.selectTheme,
-      children: [
-        ...ThemeMode.values.map((mode) {
-          final selected = mode == currentMode;
-          return ListTile(
-            leading: Icon(
-              selected ? Symbols.check_circle_rounded : Symbols.radio_button_unchecked_rounded,
-              color: selected ? Theme.of(context).colorScheme.primary : null,
-            ),
-            title: Text(_getThemeLabel(mode)),
-            onTap: () => Navigator.pop(context, mode),
-          );
-        }),
-        const SizedBox(height: 8),
-      ],
-    ).then((selectedMode) {
-      if (selectedMode != null) {
-        themeNotifier.setThemeMode(selectedMode);
-      }
-    });
-  }
-
-  String _getThemeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return AppStrings.themeSystem;
-      case ThemeMode.light:
-        return AppStrings.themeLight;
-      case ThemeMode.dark:
-        return AppStrings.themeDark;
-    }
   }
 
   Future<void> _confirmExit() async {

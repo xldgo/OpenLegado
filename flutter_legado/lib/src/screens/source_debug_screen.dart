@@ -51,13 +51,14 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
     super.dispose();
   }
 
-  void _appendLog(String message, {_DebugLogLevel level = _DebugLogLevel.info}) {
+  void _appendLog(
+    String message, {
+    _DebugLogLevel level = _DebugLogLevel.info,
+  }) {
     setState(() {
-      _logs.add(_DebugLogEntry(
-        time: DateTime.now(),
-        message: message,
-        level: level,
-      ));
+      _logs.add(
+        _DebugLogEntry(time: DateTime.now(), message: message, level: level),
+      );
     });
     _scrollToBottom();
   }
@@ -288,11 +289,9 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                             visualDensity: VisualDensity.compact,
                             labelStyle: TextStyle(
                               fontSize: 11,
-                              // 选中时背景为 tonal role（见 chipColor），白色为其 on 色
-                              //（primary/tertiary/error 的 on 色均为白系），保证对比度
+                              // 标签使用背景对应的前景色，兼容深色主题和自定义配色。
                               color: _enabledLevels.contains(level)
-                                  // ignore: use_full_hex_values_for_flutter_colors
-                                  ? Colors.white
+                                  ? level.chipForeground(theme)
                                   : level.color(theme),
                             ),
                           ),
@@ -325,27 +324,27 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                     ),
                   )
                 : filteredLogs.isEmpty
-                    ? Center(
-                        child: Text(
-                          '没有匹配的日志条目',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _logScrollCtrl,
-                        // [LAYOUT_PLAN P2] 页面水平边距统一 16dp（全局标尺）
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        itemCount: filteredLogs.length,
-                        itemBuilder: (context, index) {
-                          final log = filteredLogs[index];
-                          return _buildLogEntry(log, theme);
-                        },
+                ? Center(
+                    child: Text(
+                      '没有匹配的日志条目',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _logScrollCtrl,
+                    // [LAYOUT_PLAN P2] 页面水平边距统一 16dp（全局标尺）
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    itemCount: filteredLogs.length,
+                    itemBuilder: (context, index) {
+                      final log = filteredLogs[index];
+                      return _buildLogEntry(log, theme);
+                    },
+                  ),
           ),
         ],
       ),
@@ -362,10 +361,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
         // [LAYOUT_PLAN P2] 分组卡圆角统一 16dp（全局标尺）
         borderRadius: BorderRadius.circular(16),
         border: Border(
-          left: BorderSide(
-            color: log.level.color(theme),
-            width: 3,
-          ),
+          left: BorderSide(color: log.level.color(theme), width: 3),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -373,11 +369,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 级别图标
-          Icon(
-            log.level.icon,
-            size: 14,
-            color: log.level.color(theme),
-          ),
+          Icon(log.level.icon, size: 14, color: log.level.color(theme)),
           const SizedBox(width: 8),
           // 时间戳
           Text(
@@ -467,12 +459,11 @@ enum _DebugLogLevel {
 
   /// 过滤芯片选中颜色
   ///
-  /// [审计修复 §3.2] 作为选中背景与白色标签搭配，按亮暗选 shade 保证对比度 — Qoder
-  /// [UI_MD3_ALIGNMENT_PLAN.md Batch B B1] 改走 tonal container role
+  /// 与过滤标签前景成对使用。
   Color chipColor(ThemeData theme) {
     switch (this) {
       case _DebugLogLevel.info:
-        return theme.colorScheme.outline;
+        return theme.colorScheme.secondaryContainer;
       case _DebugLogLevel.success:
         return theme.colorScheme.primary;
       case _DebugLogLevel.warn:
@@ -481,6 +472,13 @@ enum _DebugLogLevel {
         return theme.colorScheme.error;
     }
   }
+
+  Color chipForeground(ThemeData theme) => switch (this) {
+    _DebugLogLevel.info => theme.colorScheme.onSecondaryContainer,
+    _DebugLogLevel.success => theme.colorScheme.onPrimary,
+    _DebugLogLevel.warn => theme.colorScheme.onTertiary,
+    _DebugLogLevel.error => theme.colorScheme.onError,
+  };
 
   /// 级别图标
   IconData get icon {

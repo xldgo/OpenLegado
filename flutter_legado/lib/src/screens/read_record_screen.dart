@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/md3_heatmap_calendar.dart';
 import 'read_record_daily_view.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
@@ -17,7 +17,6 @@ import '../widgets/md3_fast_scroller.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_indicator.dart';
-import '../utils/error_message.dart';
 import '../widgets/pill_divider.dart';
 
 /// 阅读记录页（对齐原版 `ReadRecordActivity`）
@@ -84,26 +83,13 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(readRecordNotifierProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: TextField(
+        title: AppSearchField(
           controller: _searchController,
-          textAlignVertical: TextAlignVertical.center,
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: '搜索',
-            // [B3] 顶栏沉浸搜索框：三态显式无边框，防主题底线式渗入
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            hintStyle: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.45),
-            ),
-          ),
-          style: Theme.of(context).textTheme.titleMedium,
+          hintText: '搜索阅读记录',
           onChanged: (q) =>
               ref.read(readRecordNotifierProvider.notifier).setSearchQuery(q),
         ),
@@ -205,7 +191,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           controller: _listController,
           // [LAYOUT_PLAN P3] 页面水平边距 16dp；纵向留白 8dp
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: state.records.length + 1,
+          itemCount: state.records.length,
         separatorBuilder: (_, _) => const Divider(
           height: 1,
           // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant（对齐 file_manage/offline_cache 样板）
@@ -213,33 +199,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           endIndent: 16,
         ),
         itemBuilder: (context, index) {
-          // [阅读热力图] 默认收起的可选区块（用户授权新增，AGENTS 红线
-          // 2026-08-29 口径）：时长模式 = readRecordDailyList（Rust 契约
-          // 2026-08-29）；计数模式 = 记录 lastRead 落日去重
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
-                title: Text(
-                  '阅读热力图',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                subtitle: Text(
-                  '近一年每日阅读情况',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ),
-                children: [
-                  _HeatmapSection(records: state.records),
-                ],
-              ),
-            );
-          }
-          final item = state.records[index - 1];
+          final item = state.records[index];
           return _ReadRecordTile(
             item: item,
             lastReadText: _formatDate(item.lastRead),
@@ -418,105 +378,6 @@ class _ReadRecordTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-
-/// 热力图区块：懒加载每日时长（readRecordDailyList）+ 时长/本数双模式切换
-class _HeatmapSection extends ConsumerStatefulWidget {
-  final List<ReadRecordShow> records;
-
-  const _HeatmapSection({required this.records});
-
-  @override
-  ConsumerState<_HeatmapSection> createState() => _HeatmapSectionState();
-}
-
-class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
-  Md3HeatmapMode _mode = Md3HeatmapMode.duration;
-  Map<DateTime, int>? _dailySeconds;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDaily();
-  }
-
-  Future<void> _loadDaily() async {
-    try {
-      final list = await ref
-          .read(bookApiProvider)
-          .readRecordDailyList(DateTime.now().year);
-      if (!mounted) return;
-      final map = <DateTime, int>{};
-      for (final e in list) {
-        final date = (e['date'] ?? '').toString();
-        final seconds = (e['seconds'] as num?)?.toInt() ?? 0;
-        if (date.isEmpty) continue;
-        final parts = date.split('-');
-        if (parts.length != 3) continue;
-        map[DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        )] = seconds;
-      }
-      setState(() => _dailySeconds = map);
-    } catch (e) {
-      if (mounted) setState(() => _error = errorMessage(e));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dailyCounts = Md3HeatmapCalendar.aggregateDailyBookCount(
-      widget.records.map(
-        (r) => (bookName: r.bookName, lastRead: r.lastRead),
-      ),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SegmentedButton<Md3HeatmapMode>(
-          segments: const [
-            ButtonSegment(
-              value: Md3HeatmapMode.duration,
-              label: Text('按时长'),
-              icon: Icon(Symbols.timer_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: Md3HeatmapMode.count,
-              label: Text('按本数'),
-              icon: Icon(Symbols.menu_book_rounded, size: 16),
-            ),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (selection) =>
-              setState(() => _mode = selection.first),
-          style: const ButtonStyle(
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_error != null)
-          Text(
-            '每日时长加载失败：$_error',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
-          )
-        else
-          Md3HeatmapCalendar(
-            dailySeconds: _dailySeconds ?? const {},
-            dailyCounts: dailyCounts,
-            mode: _dailySeconds == null && _mode == Md3HeatmapMode.duration
-                ? Md3HeatmapMode.count
-                : _mode,
-            endDate: DateTime.now(),
-          ),
-      ],
     );
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../settings_widgets.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -442,10 +444,10 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SwitchListTile(
+              SettingSwitchRow(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('启用模拟追读'),
-                subtitle: const Text('按日逐步释放章节，模拟追更体验'),
+                title: '启用模拟追读',
+                subtitle: '按日逐步释放章节，模拟追更体验',
                 value: simulating,
                 onChanged: (v) => setDialogState(() => simulating = v),
               ),

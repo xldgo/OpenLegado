@@ -12,6 +12,7 @@ import '../routes.dart';
 import '../widgets/reader/reader_brightness_control.dart';
 import '../widgets/reader/reader_padding_config_sheet.dart';
 import '../widgets/reader/reader_tip_config_sheet.dart';
+import '../widgets/settings_widgets.dart';
 part 'reader_config_panel_data.part.dart';
 part 'reader_config_panel_builders.part.dart';
 
@@ -177,18 +178,6 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     _config = widget.config.copy();
   }
 
-  /// [LAYOUT_PLAN P1] 配置分组卡片：圆角 16dp + 卡内 16dp，
-  /// 组内行统一 vertical12/horizontal8（见 builders part）。
-  Card _groupCard(Widget child) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // [UI-fix v2.0.4 | 2026-08-08] 区块过滤模式：仅渲染指定区块 — Qoder
@@ -196,35 +185,39 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     switch (widget.section) {
       case ReaderConfigSection.typography:
         children = [
-          _groupCard(_buildParagraphSpacing()),
-          const SizedBox(height: 12),
-          _groupCard(_buildTypographyOptions()),
+          SettingsGroup(children: [_buildTypographyOptions()]),
         ];
         break;
       case ReaderConfigSection.interaction:
         children = [
-          _groupCard(_buildAutoPageTurn()),
+          SettingsGroup(children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
-          _groupCard(_buildTapZones()),
+          SettingsGroup(children: [_buildTapZones()]),
           const SizedBox(height: 12),
-          _groupCard(_buildInteractionOptions()),
+          SettingsGroup(children: [_buildInteractionOptions()]),
         ];
         break;
       case ReaderConfigSection.screen:
         children = [
-          _groupCard(_buildBrightnessControl()),
+          SettingsGroup(children: [_buildBrightnessControl()]),
           const SizedBox(height: 12),
-          _groupCard(_buildScreenOptions()),
+          SettingsGroup(children: [_buildScreenOptions()]),
         ];
         break;
       case ReaderConfigSection.content:
-        children = [_groupCard(_buildContentOptions())];
+        children = [
+          SettingsGroup(children: [_buildContentOptions()]),
+        ];
         break;
       case ReaderConfigSection.toolbar:
-        children = [_groupCard(_buildToolbarOptions())];
+        children = [
+          SettingsGroup(children: [_buildToolbarOptions()]),
+        ];
         break;
       case ReaderConfigSection.brightness:
-        children = [_groupCard(_buildBrightnessControl())];
+        children = [
+          SettingsGroup(children: [_buildBrightnessControl()]),
+        ];
         break;
       case ReaderConfigSection.margins:
         children = [
@@ -251,42 +244,40 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
       case ReaderConfigSection.menu:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「菜单」页 — Qoder
         children = [
-          _groupCard(_buildAutoPageTurn()),
+          SettingsGroup(children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
-          _groupCard(_buildTapZones()),
+          SettingsGroup(children: [_buildTapZones()]),
           const SizedBox(height: 12),
-          _groupCard(_buildBrightnessControl()),
+          SettingsGroup(children: [_buildBrightnessControl()]),
         ];
         break;
       case ReaderConfigSection.more:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「更多」页（排版与
         // 更多配置 + 页面边距入口）— Qoder
         children = [
-          _groupCard(_buildTypography()),
+          SettingsGroup(children: [_buildTypography()]),
           const SizedBox(height: 12),
-          _groupCard(_buildParagraphSpacing()),
+          SettingsGroup(children: [_buildParagraphSpacing()]),
           const SizedBox(height: 12),
-          _groupCard(_buildMoreConfig()),
+          SettingsGroup(children: [_buildMoreConfig()]),
           const SizedBox(height: 12),
-          _groupCard(
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12,
-                horizontal: 8,
+          SettingsGroup(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.crop_free),
+                title: const Text('页面边距'),
+                subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ReaderPaddingConfigSheet.show(
+                  context,
+                  config: _config.copy(),
+                  onChanged: (cfg) {
+                    _config = cfg.copy();
+                    _commit();
+                  },
+                ),
               ),
-              leading: const Icon(Icons.crop_free),
-              title: const Text('页面边距'),
-              subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => ReaderPaddingConfigSheet.show(
-                context,
-                config: _config.copy(),
-                onChanged: (cfg) {
-                  _config = cfg.copy();
-                  _commit();
-                },
-              ),
-            ),
+            ],
           ),
         ];
         break;
@@ -294,72 +285,68 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
         children = [
           Text('高级阅读设置', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp，见 _groupCard）
-          _groupCard(_buildFlipMode()),
+          // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp，使用 SettingsGroup）
+          SettingsGroup(children: [_buildFlipMode()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildAutoPageTurn()),
+          SettingsGroup(children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildTapZones()),
+          SettingsGroup(children: [_buildTapZones()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildParagraphSpacing()),
+          SettingsGroup(children: [_buildParagraphSpacing()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildTypography()),
+          SettingsGroup(children: [_buildTypography()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 跳转行两人一组进 Card 分组（圆角 16dp）
-          _groupCard(
-            Column(
-              children: [
-                ListTile(
-                  // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 8,
+          SettingsGroup(
+            children: [
+              Column(
+                children: [
+                  ListTile(
+                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
+
+                    leading: const Icon(Icons.crop_free),
+                    title: const Text('页面边距'),
+                    subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => ReaderPaddingConfigSheet.show(
+                      context,
+                      config: _config.copy(),
+                      onChanged: (cfg) {
+                        _config = cfg.copy();
+                        _commit();
+                      },
+                    ),
                   ),
-                  leading: const Icon(Icons.crop_free),
-                  title: const Text('页面边距'),
-                  subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => ReaderPaddingConfigSheet.show(
-                    context,
-                    config: _config.copy(),
-                    onChanged: (cfg) {
-                      _config = cfg.copy();
-                      _commit();
-                    },
+                  ListTile(
+                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
+
+                    leading: const Icon(Icons.info_outline),
+                    title: const Text('阅读提示信息'),
+                    subtitle: const Text('页眉页脚提示项与标题样式'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => ReaderTipConfigSheet.show(
+                      context,
+                      config: _config.copy(),
+                      onChanged: (cfg) {
+                        _config = cfg.copy();
+                        _commit();
+                      },
+                    ),
                   ),
-                ),
-                ListTile(
-                  // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 8,
-                  ),
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('阅读提示信息'),
-                  subtitle: const Text('页眉页脚提示项与标题样式'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => ReaderTipConfigSheet.show(
-                    context,
-                    config: _config.copy(),
-                    onChanged: (cfg) {
-                      _config = cfg.copy();
-                      _commit();
-                    },
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildMoreConfig()),
+          SettingsGroup(children: [_buildMoreConfig()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          _groupCard(_buildBrightnessControl()),
+          SettingsGroup(children: [_buildBrightnessControl()]),
         ];
         break;
     }

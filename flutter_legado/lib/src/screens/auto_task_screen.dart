@@ -145,7 +145,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     if (ok) {
       _resyncScheduler();
       if (mounted) {
-        _snack(context, isNew ? '已创建任务: ${confirmed.name}' : '已更新任务: ${confirmed.name}');
+        _snack(
+          context,
+          isNew ? '已创建任务: ${confirmed.name}' : '已更新任务: ${confirmed.name}',
+        );
       }
     } else if (mounted) {
       _snack(context, '保存失败');
@@ -215,12 +218,18 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Symbols.error_rounded,
-                      size: 48, color: Theme.of(context).colorScheme.error),
+                  Icon(
+                    Symbols.error_rounded,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   const SizedBox(height: 8),
-                  Text(state.error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    state.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => notifier.loadTasks(),
@@ -236,18 +245,27 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Symbols.schedule_rounded, size: 64,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  Icon(
+                    Symbols.schedule_rounded,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 8),
-                  Text('暂无定时任务',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 16)),
+                  Text(
+                    '暂无定时任务',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('点击右下角按钮添加新任务',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 12)),
+                  Text(
+                    '点击右下角按钮添加新任务',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -261,11 +279,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: state.tasks.length,
               // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant（对齐 file_manage/offline_cache 样板）
-              separatorBuilder: (_, index) => Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-              ),
+              separatorBuilder: (_, index) =>
+                  Divider(height: 1, indent: 16, endIndent: 16),
               itemBuilder: (context, index) {
                 final task = state.tasks[index];
                 return _buildTaskTile(context, notifier, task);
@@ -282,7 +297,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   }
 
   Widget _buildTaskTile(
-      BuildContext context, AutoTaskNotifier provider, AutoTask task) {
+    BuildContext context,
+    AutoTaskNotifier provider,
+    AutoTask task,
+  ) {
     final IconData icon;
     switch (task.taskType) {
       case 'refreshToc':
@@ -313,21 +331,30 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
           const SizedBox(height: 2),
           Row(
             children: [
-              Icon(Symbols.schedule_rounded, size: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Icon(
+                Symbols.schedule_rounded,
+                size: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 4),
-              Text('cron: ${task.cron}',
-                  // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text(
+                'cron: ${task.cron}',
+                // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
           if (task.lastRunAt != null) ...[
             const SizedBox(height: 2),
-            Text('上次运行: ${task.lastRunAt} · ${task.lastResult ?? "未知"}',
-                // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Text(
+              '上次运行: ${task.lastRunAt} · ${task.lastResult ?? "未知"}',
+              // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ],
       ),
@@ -369,19 +396,17 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: taskType,
-                  decoration: const InputDecoration(
-                    labelText: '任务类型',
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'refreshToc', child: Text('刷新目录')),
-                    DropdownMenuItem(
-                        value: 'updateSources', child: Text('更新书源')),
-                    DropdownMenuItem(value: 'backup', child: Text('自动备份')),
+                DropdownMenuFormField<String>(
+                  initialSelection: taskType,
+                  selectOnly: true,
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('任务类型'),
+                  dropdownMenuEntries: const [
+                    DropdownMenuEntry(value: 'refreshToc', label: '刷新目录'),
+                    DropdownMenuEntry(value: 'updateSources', label: '更新书源'),
+                    DropdownMenuEntry(value: 'backup', label: '自动备份'),
                   ],
-                  onChanged: (val) {
+                  onSelected: (val) {
                     setDialogState(() => taskType = val ?? 'refreshToc');
                   },
                 ),
@@ -427,16 +452,18 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
       await ref.read(autoTaskNotifierProvider.notifier).createTask(result);
       _resyncScheduler();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已添加任务: ${result.name}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已添加任务: ${result.name}')));
       }
     }
   }
 
   /// 显示任务操作菜单
   void _showTaskOptions(
-      BuildContext context, AutoTaskNotifier provider, AutoTask task) {
+    BuildContext context,
+    AutoTaskNotifier provider,
+    AutoTask task,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -445,24 +472,28 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
           children: [
             ListTile(
               // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 8,
+              ),
               leading: const Icon(Symbols.play_arrow_rounded),
               title: const Text('立即运行'),
               subtitle: Text(task.name),
               onTap: () {
                 Navigator.pop(ctx);
                 provider.runNow(task.id).then((_) => _resyncScheduler());
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('正在运行: ${task.name}')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('正在运行: ${task.name}')));
               },
             ),
             // P2-7：调试（对标原版 AutoTaskDebugActivity）
             ListTile(
               // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 8,
+              ),
               leading: const Icon(Symbols.bug_report_rounded),
               title: const Text('调试'),
               subtitle: const Text('执行并查看结果日志'),
@@ -473,8 +504,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
             ),
             ListTile(
               // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 8,
+              ),
               leading: const Icon(Symbols.edit_rounded),
               title: const Text('编辑任务'),
               onTap: () {
@@ -484,11 +517,18 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
             ),
             ListTile(
               // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              leading: Icon(Symbols.delete_rounded, color: Theme.of(context).colorScheme.error),
-              title: Text('删除任务',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 8,
+              ),
+              leading: Icon(
+                Symbols.delete_rounded,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                '删除任务',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _confirmDelete(context, provider, task);
@@ -530,24 +570,20 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: '任务名称',
-                  ),
+                  decoration: const InputDecoration(labelText: '任务名称'),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: taskType,
-                  decoration: const InputDecoration(
-                    labelText: '任务类型',
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'refreshToc', child: Text('刷新目录')),
-                    DropdownMenuItem(
-                        value: 'updateSources', child: Text('更新书源')),
-                    DropdownMenuItem(value: 'backup', child: Text('自动备份')),
+                DropdownMenuFormField<String>(
+                  initialSelection: taskType,
+                  selectOnly: true,
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('任务类型'),
+                  dropdownMenuEntries: const [
+                    DropdownMenuEntry(value: 'refreshToc', label: '刷新目录'),
+                    DropdownMenuEntry(value: 'updateSources', label: '更新书源'),
+                    DropdownMenuEntry(value: 'backup', label: '自动备份'),
                   ],
-                  onChanged: (value) {
+                  onSelected: (value) {
                     setDialogState(() => taskType = value ?? 'refreshToc');
                   },
                 ),
@@ -592,9 +628,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
         await ref.read(autoTaskNotifierProvider.notifier).createTask(result);
         _resyncScheduler();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已更新任务: ${result.name}')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('已更新任务: ${result.name}')));
         }
       }
     }
@@ -634,9 +669,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
       builder: (dialogContext) => AlertDialog(
         // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
         backgroundColor: Theme.of(dialogContext).colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: const Text('导入线上任务'),
         content: TextField(
           controller: ctrl,
@@ -816,7 +849,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
 
   /// 确认删除
   void _confirmDelete(
-      BuildContext context, AutoTaskNotifier provider, AutoTask task) {
+    BuildContext context,
+    AutoTaskNotifier provider,
+    AutoTask task,
+  ) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -831,9 +867,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               provider.deleteTask(task.id).then((_) => _resyncScheduler());
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已删除任务: ${task.name}')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('已删除任务: ${task.name}')));
             },
             child: const Text('删除'),
           ),
@@ -877,10 +912,12 @@ class _BookUpdateTaskDialog extends StatefulWidget {
 }
 
 class _BookUpdateTaskDialogState extends State<_BookUpdateTaskDialog> {
-  late final TextEditingController _nameController =
-      TextEditingController(text: widget.initialName);
-  late final TextEditingController _cronController =
-      TextEditingController(text: widget.initialCron);
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.initialName,
+  );
+  late final TextEditingController _cronController = TextEditingController(
+    text: widget.initialCron,
+  );
 
   /// cron 校验错误回显（[fix Task#45] Med1）
   String? _cronError;
@@ -937,9 +974,7 @@ class _BookUpdateTaskDialogState extends State<_BookUpdateTaskDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: '任务名称',
-              ),
+              decoration: const InputDecoration(labelText: '任务名称'),
             ),
             const SizedBox(height: 12),
             TextField(

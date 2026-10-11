@@ -95,7 +95,6 @@ class _VideoSettingsDialogState extends State<_VideoSettingsDialog> {
     final scheme = Theme.of(context).colorScheme;
     final s = _settings;
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('播放设置'),
       content: _loading || s == null
           // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
@@ -471,10 +470,7 @@ class _VideoDialogItem extends StatelessWidget {
             color: highlighted
                 ? kVideoDialogHighlightColor
                 : kVideoDialogItemColor,
-            border: Border.all(
-              color: kVideoDialogItemBorderColor,
-              width: 1,
-            ),
+            border: Border.all(color: kVideoDialogItemBorderColor, width: 1),
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),

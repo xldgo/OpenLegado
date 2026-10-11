@@ -86,7 +86,10 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
             .whereType<String>()
             .where((g) => g.isNotEmpty)
             .toList();
-        final next = widget.copyWithGroup(item, updated.isEmpty ? null : updated.join(','));
+        final next = widget.copyWithGroup(
+          item,
+          updated.isEmpty ? null : updated.join(','),
+        );
         await widget.update(next);
         _items[_items.indexOf(item)] = next;
       }
@@ -94,9 +97,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('操作失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -107,16 +109,12 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
   Future<void> _addGroup() async {
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextInputDialog(
-        title: '添加分组',
-        hintText: '分组名称',
-      ),
+      builder: (_) => const _TextInputDialog(title: '添加分组', hintText: '分组名称'),
     );
     if (name == null || name.isEmpty || !mounted) return;
     if (_groups.contains(name)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分组「$name」已存在')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('分组「$name」已存在')));
       return;
     }
     setState(() => _busy = true);
@@ -140,9 +138,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加分组失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('添加分组失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -162,9 +159,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       return;
     }
     if (_groups.contains(newName)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分组「$newName」已存在')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('分组「$newName」已存在')));
       return;
     }
     await _upGroup(group, newName);
@@ -189,7 +185,6 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
     // iOS 风格：大圆角、轻量标题行、列表靠间距而非硬边框
     return AlertDialog(
       // [LAYOUT_PLAN P2] 分组卡圆角统一 16dp（全局标尺）
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
           const Expanded(child: Text('分组管理')),
@@ -296,8 +291,9 @@ class _TextInputDialog extends StatefulWidget {
 }
 
 class _TextInputDialogState extends State<_TextInputDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialText,
+  );
 
   @override
   void dispose() {

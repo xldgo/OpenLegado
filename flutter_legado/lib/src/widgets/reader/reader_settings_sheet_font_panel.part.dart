@@ -15,12 +15,16 @@ class ReaderFontPanel extends ConsumerStatefulWidget {
   final ReaderFontPanelCommit? onChanged;
 
   final bool titleOnly;
+  final Widget? fontSizeControl;
+  final Widget? lineHeightControl;
 
   const ReaderFontPanel({
     super.key,
     required this.config,
     this.onChanged,
     this.titleOnly = false,
+    this.fontSizeControl,
+    this.lineHeightControl,
   });
 
   @override
@@ -91,23 +95,10 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
     widget.onChanged?.call(_config.copy());
   }
 
-  /// 字体分组容器，与其他设置分组统一。
-  Widget _card(Widget child) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      margin: EdgeInsets.zero,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-      ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
-
   /// 面板内分组标题行
   Widget _sectionTitle(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
           Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
@@ -122,202 +113,177 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
     );
   }
 
-  /// 面板内跳转/选择行（标题 + 副标题 + 当前值 + chevron）
-  Widget _row({
-    required String title,
-    String? subtitle,
-    String? value,
-    VoidCallback? onTap,
-    bool disabled = false,
-    IconData? leading,
-  }) {
-    return InkWell(
-      onTap: disabled ? null : onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
+  /// 字体选择和缩进选择使用相同的设置行。
+  Widget _row({required String title, String? value, VoidCallback? onTap}) =>
+      ListTile(
+        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (leading != null) ...[
-              Icon(
-                leading,
-                size: 20,
-                color: disabled
-                    ? Theme.of(context).colorScheme.onSurfaceVariant
-                    : Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: disabled
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : null,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
             if (value != null)
-              Text(
-                value,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: disabled
-                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                      : Theme.of(context).colorScheme.primary,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
+                ),
+                child: Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-            const SizedBox(width: 4),
-            if (!disabled)
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
-      ),
+        onTap: onTap,
+      );
+
+  Future<void> _selectFont({bool title = false}) async {
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.fonts,
+      arguments: title ? 'title' : null,
     );
+    if (!mounted) return;
+    if (title) {
+      await _loadTitleFontLabel();
+    } else {
+      await _loadFontLabel();
+    }
+    _commit();
   }
 
   @override
   Widget build(BuildContext context) {
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    if (widget.titleOnly) {
+      return SettingsGroup(
         children: [
-          if (widget.titleOnly) ...[
-            // ===== 标题字体（对标原版 #1072 titleFont：空值=跟随正文字体） =====
-            // [C3 标题字体 | full-stack-engineer + UI] 我方已有纯 Dart 配置字段
-            // ReaderAdvancedConfig.titleFont（不涉 Rust/FFI），行跳转
-            // FontScreen(target: 'title')；返回后重读标签并通知主 Sheet 推送
-            // 共享配置（ReaderPageView 重读字体并触发重分页）
-            _row(
-              title: '标题字体',
-              subtitle: '章节标题独立字体',
-              value: _titleFontLabel,
-              leading: Icons.title_outlined,
-              onTap: () async {
-                await Navigator.pushNamed(
-                  context,
-                  AppRoutes.fonts,
-                  arguments: 'title',
-                );
-                if (!mounted) return;
-                await _loadTitleFontLabel();
-                _commit();
-              },
-            ),
-          ] else ...[
-            _sectionTitle('正文字体', Icons.font_download_outlined),
-            // ===== 正文字体 / 选择字体（既有字体管理页链路，不重写） =====
-            _row(
-              title: '选择字体',
-              subtitle: '正文字体',
-              value: _fontLabel,
-              leading: Icons.text_fields_outlined,
-              onTap: () async {
-                await Navigator.pushNamed(context, AppRoutes.fonts);
-                if (!mounted) return;
-                // 返回后重读字体标签并通知主 Sheet 推送共享配置
-                // （ReaderPageView.didUpdateWidget 重读字体配置）
-                await _loadFontLabel();
-                _commit();
-              },
-            ),
-            // ===== 正文字距（对标原版 dsb_text_letter_spacing，
-            // letterSpacing em -0.5~1.0，(p-50)/100 语义） =====
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              child: Row(
-                children: [
-                  Text('正文字距', style: Theme.of(context).textTheme.bodyMedium),
-                  Expanded(
-                    child: Slider(
-                      value: _config.letterSpacing.clamp(-0.5, 1.0),
-                      min: -0.5,
-                      max: 1.0,
-                      divisions: 75,
-                      label: _config.letterSpacing.toStringAsFixed(2),
-                      onChanged: (v) {
-                        _config.letterSpacing = v;
-                        _commit();
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 48,
-                    child: Text(
-                      _config.letterSpacing.toStringAsFixed(2),
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // ===== 首行缩进（对标原版 tv_text_indent，5 档 无/一/二/三/四字符；
-            // 我方既有字段 paragraphIndent 档位 0-3，按我方取值范围取前 4 档） =====
-            _row(
-              title: '首行缩进',
-              value: _indentLabel(_config.paragraphIndent),
-              onTap: () => _showChoiceDialog(
-                title: '首行缩进',
-                current: _config.paragraphIndent,
-                options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
-                onPick: (v) {
-                  _config.paragraphIndent = v;
-                  _commit();
-                  setState(() {});
-                },
-              ),
-            ),
-            // ===== 斜体开关 =====
-            // [C3 双基准对齐 | Qoder UI] 参考版行内面板含「斜体」开关（原版无此项
-            // —— 开源版全仓无斜体配置字段）。按项目双基准口径（原版 + 参考版）补齐：
-            // 新增 ReaderAdvancedConfig.italic，并贯通分页测量与渲染两侧
-            //（ParagraphConfig.fontStyle → 测量/渲染同源同参，避免分页偏差）。
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('斜体'),
-              subtitle: const Text('正文使用倾斜字体'),
-              value: _config.italic,
-              onChanged: (v) {
-                _config.italic = v;
-                _commit();
-                setState(() {});
-              },
-            ),
-            // ===== 字重（对标原版 TextFontWeightConverter：0中/1粗/2细，
-            // 既有字段 ReaderAdvancedConfig.textBold） =====
-            Row(
+          _row(
+            title: '标题字体',
+            value: _titleFontLabel,
+            onTap: () => _selectFont(title: true),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsGroup(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('字重', style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('中')),
-                      ButtonSegment(value: 1, label: Text('粗')),
-                      ButtonSegment(value: 2, label: Text('细')),
+                _sectionTitle('正文字体', Icons.font_download_outlined),
+                _row(title: '字体', value: _fontLabel, onTap: _selectFont),
+                if (widget.fontSizeControl != null) widget.fontSizeControl!,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '字重',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 2,
+                            label: Text(
+                              '细体',
+                              style: TextStyle(fontWeight: FontWeight.w300),
+                            ),
+                          ),
+                          ButtonSegment(
+                            value: 0,
+                            label: Text(
+                              '常规',
+                              style: TextStyle(fontWeight: FontWeight.w400),
+                            ),
+                          ),
+                          ButtonSegment(
+                            value: 1,
+                            label: Text(
+                              '粗体',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                        selected: {_config.textBold.clamp(0, 2)},
+                        onSelectionChanged: (selected) {
+                          _config.textBold = selected.first;
+                          _commit();
+                          setState(() {});
+                        },
+                      ),
                     ],
-                    selected: {_config.textBold.clamp(0, 2)},
-                    onSelectionChanged: (sel) {
-                      _config.textBold = sel.first;
+                  ),
+                ),
+                SettingSwitchRow(
+                  title: '斜体',
+                  value: _config.italic,
+                  onChanged: (value) {
+                    _config.italic = value;
+                    _commit();
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SettingsGroup(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _sectionTitle('间距与缩进', Icons.format_line_spacing_outlined),
+                _ReaderSliderSetting(
+                  title: '字间距',
+                  displayValue:
+                      '${_config.letterSpacing.toStringAsFixed(2)} em',
+                  value: _config.letterSpacing,
+                  min: -0.5,
+                  max: 1,
+                  divisions: 75,
+                  onChanged: (value) {
+                    _config.letterSpacing = value;
+                    _commit();
+                    setState(() {});
+                  },
+                ),
+                if (widget.lineHeightControl != null) widget.lineHeightControl!,
+                _ReaderSliderSetting(
+                  title: '段间距',
+                  displayValue:
+                      '${_config.paragraphSpacing.toStringAsFixed(0)} dp',
+                  value: _config.paragraphSpacing,
+                  min: 0,
+                  max: 48,
+                  divisions: 16,
+                  onChanged: (value) {
+                    _config.paragraphSpacing = value;
+                    _commit();
+                    setState(() {});
+                  },
+                ),
+                _row(
+                  title: '首行缩进',
+                  value: _indentLabel(_config.paragraphIndent),
+                  onTap: () => _showChoiceDialog(
+                    title: '首行缩进',
+                    current: _config.paragraphIndent,
+                    options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
+                    onPick: (value) {
+                      _config.paragraphIndent = value;
                       _commit();
                       setState(() {});
                     },
@@ -326,8 +292,8 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
               ],
             ),
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -368,4 +334,59 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
       ),
     );
   }
+}
+
+/// 间距设置统一为名称、带单位的当前值和整行滑条。
+class _ReaderSliderSetting extends StatelessWidget {
+  const _ReaderSliderSetting({
+    required this.title,
+    required this.displayValue,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String displayValue;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Text(
+              displayValue,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: displayValue,
+          onChanged: onChanged,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ],
+    ),
+  );
 }

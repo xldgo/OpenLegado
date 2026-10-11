@@ -129,42 +129,56 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       child: Padding(
         padding: widget.embedded
             ? EdgeInsets.zero
-            : const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            : const EdgeInsets.fromLTRB(0, 8, 0, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!widget.embedded) const Center(child: IosGrabber()),
             const SizedBox(height: 12),
             if (!widget.embedded)
-              Text('阅读提示信息', style: theme.textTheme.titleMedium),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text('阅读提示信息', style: theme.textTheme.titleMedium),
+              ),
             const SizedBox(height: 12),
-            Text('正文标题', style: theme.textTheme.titleSmall),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('居左')),
-                ButtonSegment(value: 1, label: Text('居中')),
-                ButtonSegment(value: 2, label: Text('隐藏')),
-              ],
-              selected: {_config.titleMode.clamp(0, 2)},
-              onSelectionChanged: (sel) {
-                _config.titleMode = sel.first;
-                _commit();
-              },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('正文标题', style: theme.textTheme.titleSmall),
             ),
-            _stepRow('标题字号', _config.titleSize, 0, 20, (v) {
-              _config.titleSize = v;
-              _commit();
-            }),
-            _stepRow('标题上边距', _config.titleTopSpacing, 0, 100, (v) {
-              _config.titleTopSpacing = v;
-              _commit();
-            }),
-            _stepRow('标题下边距', _config.titleBottomSpacing, 0, 100, (v) {
-              _config.titleBottomSpacing = v;
-              _commit();
-            }),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('居左')),
+                  ButtonSegment(value: 1, label: Text('居中')),
+                  ButtonSegment(value: 2, label: Text('隐藏')),
+                ],
+                selected: {_config.titleMode.clamp(0, 2)},
+                onSelectionChanged: (sel) {
+                  _config.titleMode = sel.first;
+                  _commit();
+                },
+              ),
+            ),
+            if (_config.titleMode != 2) ...[
+              _stepRow('标题字号增量', _config.titleSize, 0, 20, (v) {
+                _config.titleSize = v;
+                _commit();
+              }, showPlus: true),
+              _stepRow('标题上边距', _config.titleTopSpacing, 0, 100, (v) {
+                _config.titleTopSpacing = v;
+                _commit();
+              }),
+              _stepRow('标题下边距', _config.titleBottomSpacing, 0, 100, (v) {
+                _config.titleBottomSpacing = v;
+                _commit();
+              }),
+            ],
             const Divider(height: 24),
-            Text('页眉', style: theme.textTheme.titleSmall),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('页眉', style: theme.textTheme.titleSmall),
+            ),
             _modeRow('页眉显示', _config.headerMode, (v) {
               _config.headerMode = v;
               _commit();
@@ -184,7 +198,10 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
               }),
             ],
             const Divider(height: 24),
-            Text('页脚', style: theme.textTheme.titleSmall),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('页脚', style: theme.textTheme.titleSmall),
+            ),
             _modeRow('页脚显示', _config.footerMode, (v) {
               _config.footerMode = v;
               _commit();
@@ -204,46 +221,41 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
               }),
             ],
             const SizedBox(height: 8),
-            Text(
-              '顶部状态条 · 隐藏阅读工具栏时显示',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                '顶部状态条 · 隐藏阅读工具栏时显示',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('显示电量'),
+            SettingSwitchRow(
+              title: '显示电量',
               value: _config.showBattery,
               onChanged: (v) {
                 _config.showBattery = v;
                 _commit();
               },
             ),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('显示时间'),
+            SettingSwitchRow(
+              title: '显示时间',
               value: _config.showTime,
               onChanged: (v) {
                 _config.showTime = v;
                 _commit();
               },
             ),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('显示进度'),
+            SettingSwitchRow(
+              title: '显示进度',
               value: _config.showProgress,
               onChanged: (v) {
                 _config.showProgress = v;
                 _commit();
               },
             ),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('显示章节名'),
+            SettingSwitchRow(
+              title: '显示章节名',
               value: _config.showChapterName,
               onChanged: (v) {
                 _config.showChapterName = v;
@@ -259,8 +271,8 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
   Widget _modeRow(String label, int current, ValueChanged<int> onPick) {
     return ListTile(
       dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
+
+      title: Text(label, style: Theme.of(context).textTheme.titleMedium),
       trailing: Text(_modeOptions[current.clamp(0, 2)] ?? '显示'),
       onTap: () async {
         final picked = await showDialog<int>(
@@ -290,8 +302,8 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
   Widget _tipRow(String label, int current, ValueChanged<int> onPick) {
     return ListTile(
       dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
+
+      title: Text(label, style: Theme.of(context).textTheme.titleMedium),
       trailing: Text(_tipLabel(current)),
       onTap: () => _pickTip(label, current, onPick),
     );
@@ -302,23 +314,29 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     int value,
     int min,
     int max,
-    ValueChanged<int> onChanged,
-  ) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          onPressed: value > min ? () => onChanged(value - 1) : null,
-          icon: const Icon(Icons.remove_circle_outline),
-        ),
-        Text('$value'),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          onPressed: value < max ? () => onChanged(value + 1) : null,
-          icon: const Icon(Icons.add_circle_outline),
-        ),
-      ],
+    ValueChanged<int> onChanged, {
+    bool showPlus = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: value > min ? () => onChanged(value - 1) : null,
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          Text(showPlus ? '+$value' : '$value'),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: value < max ? () => onChanged(value + 1) : null,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ],
+      ),
     );
   }
 }

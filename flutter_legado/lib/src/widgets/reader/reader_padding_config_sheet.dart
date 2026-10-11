@@ -198,54 +198,56 @@ class _ReaderPaddingConfigSheetState
       child: Padding(
         padding: widget.embedded
             ? EdgeInsets.zero
-            : const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            : const EdgeInsets.fromLTRB(0, 8, 0, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!widget.embedded) const Center(child: IosGrabber()),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.embedded ? '调整边距' : '页面边距',
-                    style: theme.textTheme.titleMedium,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.embedded ? '调整边距' : '页面边距',
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: '恢复默认',
-                  onPressed: _resetRegion,
-                  icon: const Icon(Icons.restore),
-                ),
-              ],
+                  IconButton(
+                    tooltip: '恢复默认',
+                    onPressed: _resetRegion,
+                    icon: const Icon(Icons.restore),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                _regionTab(PaddingRegion.header, '页眉'),
-                const SizedBox(width: 4),
-                _regionTab(PaddingRegion.body, '正文'),
-                const SizedBox(width: 4),
-                _regionTab(PaddingRegion.footer, '页脚'),
-              ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  _regionTab(PaddingRegion.header, '页眉'),
+                  const SizedBox(width: 4),
+                  _regionTab(PaddingRegion.body, '正文'),
+                  const SizedBox(width: 4),
+                  _regionTab(PaddingRegion.footer, '页脚'),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             _seekRow('上边距', _Side.top, Icons.arrow_upward),
             _seekRow('下边距', _Side.bottom, Icons.arrow_downward),
             _seekRow('左边距', _Side.left, Icons.arrow_back),
             _seekRow('右边距', _Side.right, Icons.arrow_forward),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('左右边距联动'),
+            SettingSwitchRow(
+              title: '左右边距联动',
               value: _lockLr,
               onChanged: (v) => setState(() => _lockLr = v),
             ),
             if (_region == PaddingRegion.header)
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: const Text('显示页眉分隔线'),
+              SettingSwitchRow(
+                title: '显示页眉分隔线',
                 value: _config.showHeaderLine,
                 onChanged: (v) {
                   _config.showHeaderLine = v;
@@ -253,10 +255,8 @@ class _ReaderPaddingConfigSheetState
                 },
               )
             else if (_region == PaddingRegion.footer)
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: const Text('显示页脚分隔线'),
+              SettingSwitchRow(
+                title: '显示页脚分隔线',
                 value: _config.showFooterLine,
                 onChanged: (v) {
                   _config.showFooterLine = v;
@@ -307,12 +307,15 @@ class _ReaderPaddingConfigSheetState
   Widget _seekRow(String label, _Side side, IconData icon) {
     final value = _paddingFor(_region, side).round();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 8),
-          SizedBox(width: 56, child: Text(label)),
+          SizedBox(
+            width: 56,
+            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+          ),
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _adjust(side, -1),

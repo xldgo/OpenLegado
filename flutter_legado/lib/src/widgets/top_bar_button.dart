@@ -9,6 +9,7 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 ///   （surfaceContainerHighest α0.5，enableBlur 接通后差异化）；
 /// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
 ///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
+/// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
 /// - [TopBarActionStyler] 可包装任意既有 action（IconButton/PopupMenuButton），
 ///   使全站顶栏按钮零逐页改动获得新样式；
 /// - merge 模式：actions 并入 Stadium 胶囊容器 + 1dp 分隔线
@@ -27,7 +28,10 @@ class TopBarActionStyler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: styleActions(context, actions, style: style, merge: merge));
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: styleActions(context, actions, style: style, merge: merge),
+    );
   }
 
   /// 将任意 action 列表按样式档位包装（LegadoAppBar 统一入口）
@@ -68,7 +72,10 @@ class TopBarActionStyler extends StatelessWidget {
     ];
   }
 
-  static BoxDecoration _mergeDecoration(BuildContext context, TopBarButtonStyle style) {
+  static BoxDecoration _mergeDecoration(
+    BuildContext context,
+    TopBarButtonStyle style,
+  ) {
     final cs = Theme.of(context).colorScheme;
     switch (style) {
       case TopBarButtonStyle.plain:
@@ -104,16 +111,31 @@ class _ActionSlot extends StatelessWidget {
   final bool merge;
   final Widget child;
 
-  const _ActionSlot({required this.style, this.merge = false, required this.child});
+  const _ActionSlot({
+    required this.style,
+    this.merge = false,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // 文字按钮保留自身尺寸，不压进图标槽位。
+    if (child is! IconButton && child is! PopupMenuButton) return child;
     if (style == TopBarButtonStyle.plain) {
-      // plain：40dp 容器、图标 24（IconButton 默认），仅约束尺寸
+      // 保持 40dp 的视觉尺寸，点击区域由按钮扩展至 48dp。
       return SizedBox(
-        width: 40,
-        height: 40,
-        child: Center(child: child),
+        width: 48,
+        height: 48,
+        child: IconButtonTheme(
+          data: IconButtonThemeData(
+            style: IconButton.styleFrom(
+              fixedSize: const Size(40, 40),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+            ),
+          ),
+          child: child,
+        ),
       );
     }
     final cs = Theme.of(context).colorScheme;
@@ -142,28 +164,34 @@ class _ActionSlot extends StatelessWidget {
       border: border,
       shape: merge ? BoxShape.rectangle : BoxShape.circle,
     );
-    return Container(
-      width: 36,
-      height: 36,
-      margin: merge ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 4),
-      decoration: deco,
-      alignment: Alignment.center,
-      child: IconButtonTheme(
-        data: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            iconSize: 20,
-            foregroundColor: fg,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            fixedSize: const Size(36, 36),
-            minimumSize: const Size(36, 36),
-            maximumSize: const Size(36, 36),
-            padding: EdgeInsets.zero,
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: Container(width: 36, height: 36, decoration: deco),
           ),
-        ),
-        child: IconTheme(
-          data: IconThemeData(size: 20, color: fg),
-          child: child,
-        ),
+          IconButtonTheme(
+            data: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                iconSize: 20,
+                foregroundColor: fg,
+                tapTargetSize: MaterialTapTargetSize.padded,
+                visualDensity: VisualDensity.standard,
+                fixedSize: const Size(36, 36),
+                minimumSize: const Size(36, 36),
+                maximumSize: const Size(36, 36),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            child: IconTheme(
+              data: IconThemeData(size: 20, color: fg),
+              child: child,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -201,23 +229,38 @@ class TopBarButton extends StatelessWidget {
       TopBarButtonStyle.outlined => cs.onSurfaceVariant,
       _ => cs.onSurface,
     };
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-        border: style == TopBarButtonStyle.outlined
-            ? Border.all(color: cs.outlineVariant)
-            : null,
-      ),
-      child: IconButton(
-        tooltip: tooltip,
-        icon: Icon(icon, size: iconSize),
-        color: fg,
-        padding: EdgeInsets.zero,
-        constraints: BoxConstraints.tightFor(width: size, height: size),
-        onPressed: onPressed,
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: bg,
+                shape: BoxShape.circle,
+                border: style == TopBarButtonStyle.outlined
+                    ? Border.all(color: cs.outlineVariant)
+                    : null,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: tooltip,
+            icon: Icon(icon, size: iconSize),
+            color: fg,
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              fixedSize: Size(size, size),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+            ),
+            onPressed: onPressed,
+          ),
+        ],
       ),
     );
   }

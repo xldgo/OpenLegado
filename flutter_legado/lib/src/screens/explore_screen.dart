@@ -54,6 +54,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   // [UI_SYNC_REFACTOR R3] 快速滚动条控制器
   final ScrollController _listController = ScrollController();
   final _searchController = TextEditingController();
+  bool _searchExpanded = false;
 
   /// 搜索防抖计时器（300ms，对标 Android SearchView onQueryTextChange）
   Timer? _debounceTimer;
@@ -101,7 +102,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             // 当前分组、搜索行默认收起（切换钮展开）、分组筛选走下拉菜单
             //（非常驻 FilterChip 横条）
             subtitle: state.selectedGroup.isEmpty ? '全部' : state.selectedGroup,
-            initialExpanded: false,
+            expanded: _searchExpanded,
+            onExpandedChanged: (value) => setState(() => _searchExpanded = value),
             searchController: _searchController,
             searchHint: '筛选发现源',
             onChanged: _onSearchChanged,

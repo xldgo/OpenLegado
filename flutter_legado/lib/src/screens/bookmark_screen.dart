@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -42,13 +43,12 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('书签'),
-        actions: [
-          IconButton(
-            icon: const Icon(Symbols.search_rounded),
-            onPressed: () => _showSearchDialog(context),
-          ),
-        ],
+        title: AppSearchField(
+          controller: _searchController,
+          hintText: '搜索书签',
+          onSubmitted: _searchBookmarks,
+          onClear: () => _searchBookmarks(''),
+        ),
       ),
       body: _buildBody(ref.watch(bookmarkNotifierProvider)),
     );
@@ -152,46 +152,11 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
     );
   }
 
-  void _showSearchDialog(BuildContext context) {
-    _searchController.text = _searchQuery;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('搜索书签'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: '输入关键词搜索书签',
-          ),
-          autofocus: true,
-          onSubmitted: (value) {
-            Navigator.of(ctx).pop();
-            setState(() => _searchQuery = value);
-            ref.read(bookmarkNotifierProvider.notifier).search(value);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              setState(() => _searchQuery = '');
-              ref.read(bookmarkNotifierProvider.notifier).loadAll();
-            },
-            child: const Text('清除'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              final query = _searchController.text;
-              setState(() => _searchQuery = query);
-              ref.read(bookmarkNotifierProvider.notifier).search(query);
-            },
-            child: const Text('搜索'),
-          ),
-        ],
-      ),
-    );
+  void _searchBookmarks(String query) {
+    setState(() => _searchQuery = query);
+    ref.read(bookmarkNotifierProvider.notifier).search(query);
   }
+
 }
 
 class _BookmarkTile extends StatelessWidget {

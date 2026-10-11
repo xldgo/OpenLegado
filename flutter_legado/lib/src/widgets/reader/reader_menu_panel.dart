@@ -17,9 +17,9 @@ import 'reader_download_dialog.dart';
 /// [UI_SYNC_REFACTOR S2-1] 阅读菜单单块底部面板（对齐参考 ReadBookMenuBar）
 ///
 /// 结构：屏幕顶栏（返回/书名/换源/刷新正文/下载（离线缓存）/更多溢出 +
-/// 章节信息块与中部快捷钮）→ 底部 Surface（进度滑条行 + 单行五键行动作行）。
-/// [PARITY A5] 键集收敛对齐参考版默认键集：动作行 = 全文搜索/自动翻页/
-/// 目录/朗读/设置（参考 ReadButtonConfigDelegate.kt:197-203
+/// 章节信息块）→ 底部 Surface（进度滑条行 + 单行五键行动作行）。
+/// 底部按钮按用户指定顺序排列：目录/全文搜索/自动翻页/朗读/设置。
+/// 键集沿用参考 ReadButtonConfigDelegate.kt:197-203（
 /// DEFAULT_ENABLED_BUTTON_IDS = search/auto_page/catalog/read_aloud/setting，
 /// 显示顺序 ReadBookContract.kt:404+ ReadBookButtonIds；无第二页、无字号/
 /// 亮度键；参考 showBrightnessView 默认 "0" 亮度隐藏，字号/亮度保留在读内
@@ -347,10 +347,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                           );
                         case 'replace':
                           widget.onOpenReplaceRules();
-                        case 'settings':
-                          widget.onOpenSettings();
-                        case 'toc':
-                          widget.onOpenCatalog();
                       }
                     },
                     itemBuilder: (_) => const [
@@ -360,8 +356,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                         child: Text('高亮规则'),
                       ),
                       PopupMenuItem(value: 'replace', child: Text('替换规则')),
-                      PopupMenuItem(value: 'toc', child: Text('查看目录')),
-                      PopupMenuItem(value: 'settings', child: Text('界面设置')),
                     ],
                   ),
                 ],
@@ -403,80 +397,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                           ),
                       ],
                     ),
-                    // [PARITY C2 M3] 中部快捷钮去圆底：参考版中部为小图标形态
-                    //（无圆形底衬），对齐后保留全部五项功能入口。
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _shortcutButton(
-                          context,
-                          Symbols.search_rounded,
-                          '搜索',
-                          widget.onOpenContentSearch,
-                        ),
-                        _shortcutButton(
-                          context,
-                          Symbols.format_list_bulleted_rounded,
-                          '目录',
-                          widget.onOpenCatalog,
-                        ),
-                        _shortcutButton(
-                          context,
-                          Symbols.headphones_rounded,
-                          '朗读',
-                          widget.onReadAloud,
-                        ),
-                        _shortcutButton(
-                          context,
-                          Symbols.settings_rounded,
-                          '设置',
-                          widget.onOpenSettings,
-                        ),
-                        // [P2-9 fix | 2026-09-24] 本地书不渲染换源快捷钮
-                        // （隐藏而非置灰，同顶栏行）；换源 = await 导航，
-                        // 成功后重载，取消不做任何事
-                        if (isOnline) _shortcutButton(
-                          context,
-                          Symbols.swap_horiz_rounded,
-                          '换源',
-                          () => unawaited(_changeSourceFlow(context, book)),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// [PARITY C2 M3] 小图标快捷钮（搜索/目录/朗读/设置/换源五项保留）：
-  /// 对齐参考版中部小图标形态——去除圆形底衬，仅保留小图标 + 圆形点击热区。
-  Widget _shortcutButton(
-    BuildContext context,
-    IconData icon,
-    String tip,
-    VoidCallback? onTap,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: SizedBox(
-          width: 34,
-          height: 34,
-          child: Icon(
-            icon,
-            size: 22,
-            color: onTap == null
-                ? cs.onSurface.withValues(alpha: 0.35)
-                : cs.onSurface,
-          ),
         ),
       ),
     );
@@ -542,11 +466,11 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       );
     }
 
-    // [PARITY A5] 键集/顺序/文案 = 参考默认五键（见本分区头部注释依据）：
-    // search / auto_page / catalog / read_aloud / setting。
-    // 图标随中部快捷钮既有 Symbols 形态；auto_page 运行中切 pause 图标 +
+    // 键集沿用参考默认五键，按用户要求将目录移至最左，其余相对顺序不变。
+    // 使用 Symbols 图标；auto_page 运行中切 pause 图标 +
     // primary 色（参考 active 态以颜色标记）。
     final items = <Widget>[
+      item(Symbols.format_list_bulleted_rounded, '目录', widget.onOpenCatalog),
       item(Symbols.search_rounded, '全文搜索', widget.onOpenContentSearch),
       item(
         autoPageActive
@@ -556,7 +480,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         widget.onToggleAutoPage,
         active: autoPageActive,
       ),
-      item(Symbols.format_list_bulleted_rounded, '目录', widget.onOpenCatalog),
       item(Symbols.headphones_rounded, '朗读', widget.onReadAloud),
       item(Symbols.settings_rounded, '设置', widget.onOpenSettings),
     ];
@@ -584,78 +507,79 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       0,
       chapterPageCount > 0 ? chapterPageCount - 1 : 0,
     );
-    // [PARITY C2 M4] 进度形态对齐参考底行「X/Y + 目录%」：
-    // ①左显章节/页码位置（页内寻址时「页/章内页」，否则「章/总章」）；
-    // ②右显目录百分比（readingProgress 0~1 → 整数 %）；
-    // ③保留滑条寻址能力（原 S6 圆形箭头钮为旧解读，参考该态为文字+滑条，
-    //   故移除圆形箭头钮；上/下章仍可经点按屏缘与目录进入）。
-    final percent = (state.readingProgress * 100).round();
-    final positionText = usePageSeek
-        ? '${currentPage + 1}/$chapterPageCount'
-        : '${state.currentChapterIndex + 1}/${state.chapters.length}';
     final cs = Theme.of(context).colorScheme;
     final progressColor = foreground ?? cs.onSurface;
+    final accentColor = foreground ?? cs.primary;
     final sliderTheme = SliderTheme.of(context).copyWith(
-      trackHeight: 8,
-      year2023: false,
-      thumbColor: foreground ?? cs.onSurface,
-      activeTrackColor: (foreground ?? cs.onSurface).withValues(alpha: 0.25),
-      inactiveTrackColor: (foreground ?? cs.onSurface).withValues(alpha: 0.12),
-      disabledActiveTrackColor: (foreground ?? cs.onSurface).withValues(
-        alpha: 0.15,
+      trackHeight: 4,
+      showValueIndicator: ShowValueIndicator.never,
+      trackShape: const RoundedRectSliderTrackShape(),
+      thumbShape: const RoundSliderThumbShape(
+        enabledThumbRadius: 7,
+        disabledThumbRadius: 6,
+        elevation: 0,
+        pressedElevation: 0,
       ),
-      disabledInactiveTrackColor: (foreground ?? cs.onSurface).withValues(
-        alpha: 0.08,
-      ),
-      activeTickMarkColor: Colors.transparent,
-      inactiveTickMarkColor: (foreground ?? cs.onSurface).withValues(
-        alpha: 0.35,
-      ),
-      overlayShape: SliderComponentShape.noOverlay,
-    );
-    // [PARITY C2 M4] 参考底行形态：「X/Y + 目录%」文字行 + 全宽滑条。
-    // 文字行左=位置、右=百分比；下方保留滑条寻址（章节/章内页两种语义）。
-    final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: progressColor,
+      thumbColor: accentColor,
+      activeTrackColor: accentColor,
+      inactiveTrackColor: progressColor.withValues(alpha: 0.12),
+      disabledThumbColor: progressColor.withValues(alpha: 0.38),
+      disabledActiveTrackColor: progressColor.withValues(alpha: 0.15),
+      disabledInactiveTrackColor: progressColor.withValues(alpha: 0.08),
+      tickMarkShape: SliderTickMarkShape.noTickMark,
+      overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+      overlayColor: accentColor.withValues(alpha: 0.12),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(positionText, style: textStyle),
-              Text('$percent%', style: textStyle),
-            ],
+          IconButton(
+            tooltip: '上一章',
+            color: progressColor,
+            disabledColor: progressColor.withValues(alpha: 0.38),
+            onPressed: state.hasPreviousChapter && !state.isLoading
+                ? () => unawaited(notifier.prevChapter())
+                : null,
+            icon: const Icon(Icons.skip_previous_rounded),
           ),
-          const SizedBox(height: 2),
-          SliderTheme(
-            data: sliderTheme,
-            child: usePageSeek
-                ? Slider(
-                    value: currentPage.toDouble(),
-                    min: 0,
-                    max: (chapterPageCount - 1).toDouble(),
-                    divisions: chapterPageCount - 1,
-                    label: positionText,
-                    onChanged: (value) => widget.onSeekPage!(value.toInt()),
-                  )
-                : Slider(
-                    value: state.chapters.isNotEmpty
-                        ? state.currentChapterIndex.toDouble()
-                        : 0,
-                    min: 0,
-                    max: state.chapters.length > 1
-                        ? (state.chapters.length - 1).toDouble()
-                        : 1,
-                    divisions: state.chapters.length > 1
-                        ? state.chapters.length - 1
-                        : null,
-                    label: positionText,
-                    onChanged: (value) => notifier.goToChapter(value.toInt()),
-                  ),
+          Expanded(
+            child: SliderTheme(
+              data: sliderTheme,
+              child: usePageSeek
+                  ? Slider(
+                      value: currentPage.toDouble(),
+                      min: 0,
+                      max: (chapterPageCount - 1).toDouble(),
+                      divisions: chapterPageCount - 1,
+                      onChanged: (value) => widget.onSeekPage!(value.toInt()),
+                    )
+                  : Slider(
+                      value: state.chapters.isNotEmpty
+                          ? state.currentChapterIndex.toDouble()
+                          : 0,
+                      min: 0,
+                      max: state.chapters.length > 1
+                          ? (state.chapters.length - 1).toDouble()
+                          : 1,
+                      divisions: state.chapters.length > 1
+                          ? state.chapters.length - 1
+                          : null,
+                      onChanged: state.chapters.length > 1
+                          ? (value) => notifier.goToChapter(value.toInt())
+                          : null,
+                    ),
+            ),
+          ),
+          IconButton(
+            tooltip: '下一章',
+            color: progressColor,
+            disabledColor: progressColor.withValues(alpha: 0.38),
+            onPressed: state.hasNextChapter && !state.isLoading
+                ? () => unawaited(notifier.nextChapter())
+                : null,
+            icon: const Icon(Icons.skip_next_rounded),
           ),
         ],
       ),

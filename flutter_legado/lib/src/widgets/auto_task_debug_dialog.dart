@@ -74,9 +74,7 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
     }
 
     emit('Running ${widget.task.name}');
-    emit(
-      'type=${widget.task.taskType} cron=${widget.task.cron}',
-    );
+    emit('type=${widget.task.taskType} cron=${widget.task.cron}');
 
     try {
       final api = ref.read(bookApiProvider);
@@ -191,7 +189,6 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
           Expanded(child: Text('调试：${widget.task.name}')),

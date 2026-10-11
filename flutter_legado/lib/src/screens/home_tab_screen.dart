@@ -8,10 +8,11 @@ import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/read_record/read_record_notifier.dart';
-import '../routes.dart';
 import '../utils/book_open_utils.dart';
+import '../utils/error_message.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/md3_heatmap_calendar.dart';
 
 /// 首页页签（对齐参考版首页布局）
 ///
@@ -378,6 +379,26 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          _HomeCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '阅读热力图',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '每日阅读时长',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 12),
+                const _HeatmapSection(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -504,4 +525,77 @@ class _GoalDialPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.trackColor != trackColor ||
       oldDelegate.progressColor != progressColor;
+}
+
+/// 首页阅读热力图：显示时加载每日时长，沿用现有统计 API。
+class _HeatmapSection extends ConsumerStatefulWidget {
+  const _HeatmapSection();
+
+  @override
+  ConsumerState<_HeatmapSection> createState() => _HeatmapSectionState();
+}
+
+class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
+  Map<DateTime, int>? _dailySeconds;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDaily();
+  }
+
+  Future<void> _loadDaily() async {
+    try {
+      final list = await ref
+          .read(bookApiProvider)
+          .readRecordDailyList(DateTime.now().year);
+      if (!mounted) return;
+      final map = <DateTime, int>{};
+      for (final e in list) {
+        final date = (e['date'] ?? '').toString();
+        final seconds = (e['seconds'] as num?)?.toInt() ?? 0;
+        if (date.isEmpty) continue;
+        final parts = date.split('-');
+        if (parts.length != 3) continue;
+        map[DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          int.parse(parts[2]),
+        )] = seconds;
+      }
+      setState(() => _dailySeconds = map);
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessage(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Text(
+        '每日时长加载失败：$_error',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+      );
+    }
+    if (_dailySeconds == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 24,
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+    return Md3HeatmapCalendar(
+      dailySeconds: _dailySeconds!,
+      dailyCounts: const {},
+      mode: Md3HeatmapMode.duration,
+      endDate: DateTime.now(),
+    );
+  }
 }

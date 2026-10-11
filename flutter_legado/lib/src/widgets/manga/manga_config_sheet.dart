@@ -477,8 +477,9 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     _mangaLongClickSaveImage = widget.mangaLongClickSaveImage ?? true;
     _disableMangaCrossFade = widget.disableMangaCrossFade ?? false;
     _mangaBgColor = widget.mangaBgColor ?? MangaBgColors.black;
-    _clickActions =
-        List<int>.from(widget.clickActions ?? MangaClickActions.defaultActions);
+    _clickActions = List<int>.from(
+      widget.clickActions ?? MangaClickActions.defaultActions,
+    );
   }
 
   @override
@@ -641,10 +642,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                         max: MangaAutoRead.maxSpeed.toDouble(),
                         label: '$_autoReadSpeed 档',
                         onChanged: (v) {
-                          final rounded = v
-                              .round()
-                              .clamp(MangaAutoRead.minSpeed,
-                                  MangaAutoRead.maxSpeed);
+                          final rounded = v.round().clamp(
+                            MangaAutoRead.minSpeed,
+                            MangaAutoRead.maxSpeed,
+                          );
                           if (rounded == _autoReadSpeed) return;
                           setState(() => _autoReadSpeed = rounded);
                           widget.onAutoReadSpeedChanged?.call(_autoReadSpeed);
@@ -697,10 +698,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                   ],
                 ]),
                 // [P4-3 M4 批3] 「滤镜」入口跳转锚点（ensureVisible 目标）
-                Container(
-                  key: _colorFilterSectionKey,
-                  child: _section('色彩滤镜'),
-                ),
+                Container(key: _colorFilterSectionKey, child: _section('色彩滤镜')),
                 _card([
                   _sliderTile(
                     title: '亮度',
@@ -901,10 +899,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: _clickActionCell(
-                          scheme,
-                          index: row * 3 + col,
-                        ),
+                        child: _clickActionCell(scheme, index: row * 3 + col),
                       ),
                     ),
                 ],
@@ -971,10 +966,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     return TextButton.icon(
       onPressed: _jumpToColorFilter,
       icon: Icon(Icons.colorize, color: scheme.primary),
-      label: Text(
-        '滤镜',
-        style: TextStyle(color: scheme.onSurface),
-      ),
+      label: Text('滤镜', style: TextStyle(color: scheme.onSurface)),
     );
   }
 
@@ -1033,24 +1025,20 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
               style: TextStyle(fontSize: 16, color: scheme.onSurface),
             ),
           ),
-          DropdownButton<int>(
-            value: options.contains(value) ? value : options.first,
-            items: options
-                .map((o) => DropdownMenuItem<int>(
-                      value: o,
-                      child: Text(
-                        labelOf(o),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ))
-                .toList(),
-            // DropdownButton.onChanged 为 ValueChanged<int?>?（可为 null）
-            onChanged: (v) {
-              if (v != null) onChanged(v);
-            },
+          Flexible(
+            child: DropdownMenu<int>(
+              initialSelection: options.contains(value) ? value : options.first,
+              selectOnly: true,
+              expandedInsets: EdgeInsets.zero,
+              dropdownMenuEntries: options
+                  .map(
+                    (o) => DropdownMenuEntry<int>(value: o, label: labelOf(o)),
+                  )
+                  .toList(),
+              onSelected: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
           ),
         ],
       ),
@@ -1336,10 +1324,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                   MangaFooterConfig.alignCenter
               ? TextAlign.center
               : TextAlign.left,
-          style: TextStyle(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
         ),
       ),
     );
@@ -1420,8 +1405,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
               duration: const Duration(milliseconds: 120),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color:
                       hidden ? Colors.transparent : scheme.primaryContainer,
@@ -1567,10 +1554,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '背景颜色',
-            style: TextStyle(fontSize: 16, color: scheme.onSurface),
-          ),
+          Text('背景颜色', style: TextStyle(fontSize: 16, color: scheme.onSurface)),
           const SizedBox(height: 8),
           Row(
             children: swatches.map((argb) {

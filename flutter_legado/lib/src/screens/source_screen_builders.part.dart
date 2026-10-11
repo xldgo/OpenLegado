@@ -637,19 +637,6 @@ extension _SourceBuilders on _SourceScreenState {
                 ],
               ),
             ),
-            // [C1 双基准对齐 | Qoder UI] 启用状态标签 + 开关：参考版为 Switch
-            // 自带「开启」文案（实机 dump 实证），原版仅有 Switch；取参考版形态、
-            // 文案本地化为中文（开启/关闭），替代我方旧有的英文 ON/OFF
-            Text(
-              source.enabled ? '开启' : '关闭',
-              style: TextStyle(
-                fontSize: 12,
-                // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                color: source.enabled
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ),
             // [B2-C2 2-7 | 全栈工程师] 行右勾选圈（ref 08 行右控制簇
             // 「勾选圈+开关」顺序；勾选态与批量栏计数联动，保留开关/⋮）
             Checkbox(
@@ -791,19 +778,6 @@ extension _SourceBuilders on _SourceScreenState {
                       ),
                     ),
                 ],
-              ),
-            ),
-            // [C1 双基准对齐 | Qoder UI] 启用状态标签 + 开关：参考版为 Switch
-            // 自带「开启」文案（实机 dump 实证），原版仅有 Switch；取参考版形态、
-            // 文案本地化为中文（开启/关闭），替代我方旧有的英文 ON/OFF
-            Text(
-              source.enabled ? '开启' : '关闭',
-              style: TextStyle(
-                fontSize: 12,
-                // [UI_MD3_ALIGNMENT_PLAN.md Batch B B3] 状态语义走 tonal
-                color: source.enabled
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
               ),
             ),
             // [B2-C2 2-7 | 全栈工程师] 批量行勾选圈与常规行同位（行右控制簇

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+import '../widgets/app_search_field.dart';
 import '../widgets/md3_fast_scroller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
@@ -90,7 +91,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       setState(() {
         _sources = sources;
         _loading = false;
-        _selected.removeWhere((url) => sources.every((s) => s.sourceUrl != url));
+        _selected.removeWhere(
+          (url) => sources.every((s) => s.sourceUrl != url),
+        );
       });
     } catch (e) {
       if (!mounted) return;
@@ -149,9 +152,11 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     }
     final lower = kw.toLowerCase();
     return _sources
-        .where((s) =>
-            s.sourceName.toLowerCase().contains(lower) ||
-            s.sourceUrl.toLowerCase().contains(lower))
+        .where(
+          (s) =>
+              s.sourceName.toLowerCase().contains(lower) ||
+              s.sourceUrl.toLowerCase().contains(lower),
+        )
         .toList();
   }
 
@@ -181,51 +186,12 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    final colorScheme = Theme.of(context).colorScheme;
     return LegadoAppBar(
-      // 原版 TitleBar 内嵌搜索框：无标题文字
-      titleSpacing: 8,
-      title: SizedBox(
-        height: 36,
-        child: TextField(
+      title: const Text('订阅源管理'),
+      bottom: AppSearchRow(
+        field: AppSearchField(
           controller: _searchCtrl,
-          style: TextStyle(color: colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: '搜索订阅源',
-            hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-            filled: true,
-            fillColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-            prefixIcon: Icon(Symbols.search_rounded,
-                size: 20, color: colorScheme.onSurfaceVariant),
-            prefixIconConstraints:
-                const BoxConstraints(minWidth: 36, minHeight: 36),
-            suffixIcon: _keyword.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Symbols.close_rounded,
-                        size: 18, color: colorScheme.onSurfaceVariant),
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      setState(() => _keyword = '');
-                    },
-                  )
-                : null,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-            // [B3] 搜索胶囊：无描边无底线、聚焦零变化
-            // （显式声明防主题底部指示线渗入）
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(35),
-              borderSide: BorderSide.none,
-            ),
-          ),
+          hintText: '搜索订阅源',
           onChanged: (v) => setState(() => _keyword = v),
         ),
       ),
@@ -287,7 +253,10 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             ),
             const PopupMenuItem(
               value: 'import_url',
-              child: _MenuRow(icon: Symbols.cloud_download_rounded, label: '网络导入'),
+              child: _MenuRow(
+                icon: Symbols.cloud_download_rounded,
+                label: '网络导入',
+              ),
             ),
             const PopupMenuItem(
               value: 'import_qr',
@@ -295,18 +264,17 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             ),
             const PopupMenuItem(
               value: 'import_default',
-              child:
-                  _MenuRow(icon: Symbols.auto_fix_high_rounded, label: '导入默认规则'),
+              child: _MenuRow(
+                icon: Symbols.auto_fix_high_rounded,
+                label: '导入默认规则',
+              ),
             ),
             // 规则订阅入口（对标原版 RssFragment 列表头部
             // 「规则订阅」header item → RuleSubActivity；Flutter 侧
             // 统一收进溢出菜单，iOS 菜单惯例）
             const PopupMenuItem(
               value: 'rule_sub',
-              child: _MenuRow(
-                icon: Symbols.rss_feed_rounded,
-                label: '规则订阅',
-              ),
+              child: _MenuRow(icon: Symbols.rss_feed_rounded, label: '规则订阅'),
             ),
             const PopupMenuItem(
               value: 'help',
@@ -359,11 +327,11 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon,
-                    size: 22,
-                    color: dim
-                        ? effective.withValues(alpha: 0.35)
-                        : effective),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: dim ? effective.withValues(alpha: 0.35) : effective,
+                ),
                 const SizedBox(height: 3),
                 Text(
                   label,
@@ -594,7 +562,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 16, color: colorScheme.onSurface),
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
                   ),
                   if (group.isNotEmpty)
                     Text(
@@ -1204,8 +1174,11 @@ class _MenuRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon,
-            size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 12),
         Expanded(child: Text(label)),
       ],
@@ -1245,9 +1218,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             TextField(
               controller: _controller,
               autofocus: widget.history.isEmpty,
-              decoration: const InputDecoration(
-                hintText: '输入订阅源 URL 地址',
-              ),
+              decoration: const InputDecoration(hintText: '输入订阅源 URL 地址'),
               keyboardType: TextInputType.url,
             ),
             if (widget.history.isNotEmpty) ...[

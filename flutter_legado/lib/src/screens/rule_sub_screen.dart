@@ -121,10 +121,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
                 ),
                 child: Text(
                   sub.typeLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.primary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: colorScheme.primary),
                 ),
               ),
               const SizedBox(width: 12),
@@ -231,9 +228,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
           if (context.mounted && Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
-          messenger.showSnackBar(
-            SnackBar(content: Text('检查更新失败：$e')),
-          );
+          messenger.showSnackBar(SnackBar(content: Text('检查更新失败：$e')));
           return;
         }
         if (!context.mounted) return;
@@ -241,13 +236,17 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
         final error = (result['error'] ?? '').toString();
         final hasUpdate = result['hasUpdate'] == true;
         final version = (result['remoteVersion'] ?? '').toString();
-        messenger.showSnackBar(SnackBar(
-          content: Text(error.isNotEmpty
-              ? '检查更新失败：$error'
-              : (hasUpdate
-                  ? '发现新版本${version.isNotEmpty ? '：$version' : ''}'
-                  : '已是最新版本')),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              error.isNotEmpty
+                  ? '检查更新失败：$error'
+                  : (hasUpdate
+                        ? '发现新版本${version.isNotEmpty ? '：$version' : ''}'
+                        : '已是最新版本'),
+            ),
+          ),
+        );
       case 'apply_update':
         showDialog<void>(
           context: context,
@@ -261,25 +260,23 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
           if (context.mounted && Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
-          messenger.showSnackBar(
-            SnackBar(content: Text('应用更新失败：$e')),
-          );
+          messenger.showSnackBar(SnackBar(content: Text('应用更新失败：$e')));
           return;
         }
         if (!context.mounted) return;
         Navigator.of(context).pop(); // 关闭加载指示
         final error = (result['error'] ?? '').toString();
         if (error.isNotEmpty || result['success'] != true) {
-          messenger.showSnackBar(SnackBar(
-            content: Text('应用更新失败：${error.isEmpty ? '未知错误' : error}'),
-          ));
+          messenger.showSnackBar(
+            SnackBar(content: Text('应用更新失败：${error.isEmpty ? '未知错误' : error}')),
+          );
         } else {
           final added = (result['itemsAdded'] ?? 0).toString();
           final updated = (result['itemsUpdated'] ?? 0).toString();
           final removed = (result['itemsRemoved'] ?? 0).toString();
-          messenger.showSnackBar(SnackBar(
-            content: Text('更新完成：新增 $added、更新 $updated、移除 $removed'),
-          ));
+          messenger.showSnackBar(
+            SnackBar(content: Text('更新完成：新增 $added、更新 $updated、移除 $removed')),
+          );
         }
       case 'delete':
         final confirmed = await showConfirmDialog(
@@ -308,9 +305,8 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
     final duplicate =
         notifier.findDuplicate(result.url, excludeId: result.id);
     if (duplicate != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('URL 已存在（${duplicate.name}）')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('URL 已存在（${duplicate.name}）')));
       return;
     }
     await notifier.saveSub(result);
@@ -326,9 +322,8 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       case RuleSub.replaceRule:
         await _importReplaceRules(context, sub);
       default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('未知订阅类型：${sub.subType}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('未知订阅类型：${sub.subType}')));
     }
   }
 
@@ -350,18 +345,14 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('获取书源失败：$e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('获取书源失败：$e')));
       return;
     }
     if (!context.mounted) return;
     Navigator.of(context).pop(); // 关闭加载指示
 
     if (sources.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到书源')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到书源')));
       return;
     }
 
@@ -394,18 +385,14 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('获取订阅源失败：$e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('获取订阅源失败：$e')));
       return;
     }
     if (!context.mounted) return;
     Navigator.of(context).pop(); // 关闭加载指示
 
     if (items.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到订阅源')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到订阅源')));
       return;
     }
 
@@ -450,18 +437,14 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('获取替换规则失败：$e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('获取替换规则失败：$e')));
       return;
     }
     if (!context.mounted) return;
     Navigator.of(context).pop(); // 关闭加载指示
 
     if (items.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到替换规则')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到替换规则')));
       return;
     }
 
@@ -487,9 +470,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       ),
     );
     if (count != null && count > 0 && mounted) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('已导入 $count 条替换规则')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('已导入 $count 条替换规则')));
     }
   }
 
@@ -591,9 +572,8 @@ class _RuleSubEditDialogState extends State<_RuleSubEditDialog> {
   void _confirm() {
     final url = _urlCtrl.text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URL 不能为空')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('URL 不能为空')));
       return;
     }
     final interval = int.tryParse(_intervalCtrl.text.trim()) ?? 0;
@@ -625,24 +605,17 @@ class _RuleSubEditDialogState extends State<_RuleSubEditDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // 类型下拉（对标 sp_type：书源/订阅源/替换规则）
-            DropdownButtonFormField<String>(
-              initialValue: _type,
-              decoration: const InputDecoration(labelText: '类型'),
-              items: const [
-                DropdownMenuItem(
-                  value: RuleSub.bookSource,
-                  child: Text('书源'),
-                ),
-                DropdownMenuItem(
-                  value: RuleSub.rssSource,
-                  child: Text('订阅源'),
-                ),
-                DropdownMenuItem(
-                  value: RuleSub.replaceRule,
-                  child: Text('替换规则'),
-                ),
+            DropdownMenuFormField<String>(
+              initialSelection: _type,
+              selectOnly: true,
+              expandedInsets: EdgeInsets.zero,
+              label: const Text('类型'),
+              dropdownMenuEntries: const [
+                DropdownMenuEntry(value: RuleSub.bookSource, label: '书源'),
+                DropdownMenuEntry(value: RuleSub.rssSource, label: '订阅源'),
+                DropdownMenuEntry(value: RuleSub.replaceRule, label: '替换规则'),
               ],
-              onChanged: (v) {
+              onSelected: (v) {
                 if (v != null) setState(() => _type = v);
               },
             ),
@@ -663,11 +636,7 @@ class _RuleSubEditDialogState extends State<_RuleSubEditDialog> {
               crossAxisAlignment: WrapCrossAlignment.center,
               runSpacing: 4,
               children: [
-                _buildCheckText(
-                  '自动更新',
-                  _autoUpdate,
-                  _onAutoUpdateChanged,
-                ),
+                _buildCheckText('自动更新', _autoUpdate, _onAutoUpdateChanged),
                 _buildCheckText(
                   '静默更新',
                   _silentUpdate && silentEnabled,
@@ -694,9 +663,7 @@ class _RuleSubEditDialogState extends State<_RuleSubEditDialog> {
                     enabled: intervalEnabled,
                     keyboardType: TextInputType.number,
                     // 对标原版 digits="0123456789"
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,
                     decoration: const InputDecoration(
                       hintText: '24',
@@ -730,10 +697,7 @@ class _RuleSubEditDialogState extends State<_RuleSubEditDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _confirm,
-          child: const Text('确定'),
-        ),
+        FilledButton(onPressed: _confirm, child: const Text('确定')),
       ],
     );
   }

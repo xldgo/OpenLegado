@@ -15,7 +15,7 @@ import '../utils/error_message.dart';
 ///
 /// 提供完整的导出配置界面，包括：
 /// - 格式选择器（RadioGroup: TXT/EPUB/HTML）
-/// - 字符集选择器（DropdownButton: UTF-8/GBK/Big5）
+/// - 字符集选择器（DropdownMenu: UTF-8/GBK/Big5）
 /// - 导出路径选择（FilePicker）
 /// - TOC 复选框（includeToc）
 /// - 进度指示器（ProgressIndicator）
@@ -107,9 +107,8 @@ class _ExportDialogState extends State<ExportDialog> {
             // 标题
             Text(
               '导出${widget.book.name}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
 
@@ -209,16 +208,16 @@ class _ExportDialogState extends State<ExportDialog> {
         const Text('字符编码',
             style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        DropdownButton<String>(
-          value: _selectedEncoding,
-          isExpanded: true,
-          items: widget.exportService.supportedEncodings.map((encoding) {
-            return DropdownMenuItem<String>(
-              value: encoding,
-              child: Text(encoding),
-            );
+        DropdownMenu<String>(
+          initialSelection: _selectedEncoding,
+          selectOnly: true,
+          expandedInsets: EdgeInsets.zero,
+          dropdownMenuEntries: widget.exportService.supportedEncodings.map((
+            encoding,
+          ) {
+            return DropdownMenuEntry<String>(value: encoding, label: encoding);
           }).toList(),
-          onChanged: (value) {
+          onSelected: (value) {
             setState(() {
               _selectedEncoding = value ?? 'UTF-8';
             });
@@ -238,17 +237,13 @@ class _ExportDialogState extends State<ExportDialog> {
         const SizedBox(height: 4),
         Text(
           '可用变量：{name} {author}',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _fileNameCtrl,
-          decoration: const InputDecoration(
-            hintText: '{name}',
-            isDense: true,
-          ),
+          decoration: const InputDecoration(hintText: '{name}', isDense: true),
         ),
       ],
     );
@@ -264,9 +259,8 @@ class _ExportDialogState extends State<ExportDialog> {
         const SizedBox(height: 4),
         Text(
           '索引从 0 起；留空表示全部章节',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Row(
@@ -322,8 +316,11 @@ class _ExportDialogState extends State<ExportDialog> {
             ),
             child: Row(
               children: [
-                Icon(Symbols.folder_open_rounded,
-                    size: 20, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Symbols.folder_open_rounded,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -348,9 +345,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// 选择导出目录
   Future<void> _pickExportPath() async {
-    final dir = await FilePicker.getDirectoryPath(
-      dialogTitle: '选择导出目录',
-    );
+    final dir = await FilePicker.getDirectoryPath(dialogTitle: '选择导出目录');
     if (!mounted) return;
     if (dir != null) {
       setState(() {
@@ -428,8 +423,11 @@ class _ExportDialogState extends State<ExportDialog> {
               children: [
                 Row(
                   children: [
-                    Icon(Symbols.folder_special_rounded,
-                        size: 20, color: Theme.of(context).primaryIconTheme.color),
+                    Icon(
+                      Symbols.folder_special_rounded,
+                      size: 20,
+                      color: Theme.of(context).primaryIconTheme.color,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       fileName,
@@ -473,10 +471,7 @@ class _ExportDialogState extends State<ExportDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          _progressText,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(_progressText, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

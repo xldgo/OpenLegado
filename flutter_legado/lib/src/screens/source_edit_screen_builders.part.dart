@@ -132,23 +132,26 @@ extension _SourceEditBuilders on _SourceEditScreenState {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  Text('类型：', style: TextStyle(color: colorScheme.onSurface)),
-                  const SizedBox(width: 8),
-                  DropdownButton<int>(
-                    value: _bookSourceType,
-                    isDense: true,
-                    onChanged: (v) => setState(() => _bookSourceType = v ?? 0),
-                    items: [
-                      for (
-                        var i = 0;
-                        i < _SourceEditScreenState._typeLabels.length;
-                        i++
-                      )
-                        DropdownMenuItem(
-                          value: i,
-                          child: Text(_SourceEditScreenState._typeLabels[i]),
-                        ),
-                    ],
+                  Expanded(
+                    child: DropdownMenu<int>(
+                      initialSelection: _bookSourceType,
+                      selectOnly: true,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('类型'),
+                      onSelected: (v) =>
+                          setState(() => _bookSourceType = v ?? 0),
+                      dropdownMenuEntries: [
+                        for (
+                          var i = 0;
+                          i < _SourceEditScreenState._typeLabels.length;
+                          i++
+                        )
+                          DropdownMenuEntry(
+                            value: i,
+                            label: _SourceEditScreenState._typeLabels[i],
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -208,8 +211,6 @@ extension _SourceEditBuilders on _SourceEditScreenState {
   Widget _buildField(_Field field) {
     _fieldLabels[field.key] = field.label;
     final colorScheme = Theme.of(context).colorScheme;
-    final separator =
-        Theme.of(context).dividerTheme.color ?? colorScheme.outlineVariant;
     // [B2-C2 2-8] 字段标签渲染为「常显」独立 Text（对齐原版 TextInputLayout
     // 标签在上/输入在下的形态，且保证可访问性文本可被 uiautomator 命中，
     // 而非 Material 浮动 labelText——后者在有值时不暴露为独立可访问节点）。
@@ -217,7 +218,7 @@ extension _SourceEditBuilders on _SourceEditScreenState {
     return KeyedSubtree(
       key: _fieldKeys.putIfAbsent(field.key, GlobalKey.new),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -228,7 +229,7 @@ extension _SourceEditBuilders on _SourceEditScreenState {
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 6),
             TextFormField(
               // [B2-C2 2-8] 标签已上移为常显 Text（见上），为保持可测性，
               // 字段以 ValueKey('sf_<field.key>') 稳定标识（供 widget 测试
@@ -244,23 +245,7 @@ extension _SourceEditBuilders on _SourceEditScreenState {
                   color: colorScheme.onSurfaceVariant,
                   fontSize: 14,
                 ),
-                // 无框无背景（对齐原版 TextInputLayout，仅底部细分割线）
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: separator, width: 0.5),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: colorScheme.primary, width: 1),
-                ),
-                isDense: true,
-                // 水平 12dp 内容边距（对齐原版 item_source_edit CodeView
-                // paddingHorizontal=12dp：字段贴边但内容文字留 12dp 内边距）
-                contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                suffixIconConstraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
+                // 输入形状与状态颜色沿用全局主题，保留独立字段标签及代码入口。
                 suffixIcon: field.maxLines >= 2
                     ? IconButton(
                         tooltip: '代码编辑',

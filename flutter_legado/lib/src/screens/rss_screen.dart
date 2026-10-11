@@ -34,6 +34,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
   /// 实时按名称/URL 过滤已启用订阅源）
   final _searchController = TextEditingController();
   String _searchKey = '';
+  bool _searchExpanded = false;
 
   @override
   void initState() {
@@ -98,7 +99,8 @@ class _RssScreenState extends ConsumerState<RssScreen> {
         subtitle: (state.selectedGroup?.isEmpty ?? true)
             ? '全部'
             : state.selectedGroup,
-        initialExpanded: false,
+        expanded: _searchExpanded,
+        onExpandedChanged: (value) => setState(() => _searchExpanded = value),
         // [UI_SYNC_REFACTOR S1b] Dynamic 搜索行顶栏（对齐参考
         // DynamicTopAppBar：标题+搜索切换钮+bottomContent 展开行）
         // 原嵌入式胶囊搜索框迁至 bottomContent（appBar 由 LegadoAppBar
