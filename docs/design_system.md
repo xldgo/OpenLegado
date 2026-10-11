@@ -21,6 +21,11 @@
 帮助文档样式直接传递共用的 `TextStyle`、颜色及绘制类型，避免两套 `ThemeData` 相互传入。
 兼容桥仅服务第三方组件，待依赖迁移后移除；第三方源码不修改。
 
+组件语言由 `appLocaleProvider` 统一选择中文、英文或跟随系统；应用启动恢复
+`app_locale`，设置变更即时通知 `MaterialApp`。`supportedLocales` 声明中文与英文，
+沿用独立设计库的 Material、Cupertino、Widgets 本地化代理；AppStrings 使用同一解析结果。
+跟随系统时响应系统语言变化，未支持的语言回退中文；保持现有中文文案范围。
+
 编写者：Codex UI｜2026-10-11
 
 ---
@@ -69,7 +74,7 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 | 组件 | Role |
 |------|------|
 | Scaffold / AppBar 背景 | `surface` |
-| 分组卡片（Card / IosGroup） | 亮 `surfaceContainerLowest` / 暗 `surfaceContainerLow` |
+| 分组卡片（Card / SettingsGroup） | 亮 `surfaceContainerLowest` / 暗 `surfaceContainerLow` |
 | 底部导航栏 / 菜单（PopupMenu / DropdownMenu） | `surfaceContainer` |
 | BottomSheet | `surfaceContainerLow` |
 | Dialog | `surfaceContainerHigh` |
@@ -92,7 +97,8 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 `#2B2F34`、`#34383D`、`#393D42`，低容器保留 `#1D2024`。
 这些为本轮用户授权的配色调整，覆盖默认深色主题历史遗留的亮灰色层次；
 参考资源生成的原始调色板数据仍作为来源记录。浅色及其他调色板不变。
-深色模式下普通 tonal 顶栏图标按钮使用透明常态底色，保留圆形按压反馈。
+浅色与深色模式下普通 tonal 顶栏图标按钮均使用透明常态底色，保留圆形按压反馈；
+独立按钮、顶栏动作槽与合并动作布局共用该规则。
 
 编写者：Codex UI｜2026-10-11
 
@@ -119,7 +125,25 @@ role 值逐字拷贝（非重推导）；由 `flutter_legado/tool/gen_md3_colors
 不保留独立设置主页，首页齿轮切换至我的页并定位设置分组；
 书源、定时任务、缓存及关于入口保留于我的页。
 子设置页通过 `AppScaffold` / `LegadoAppBar` 将返回与标题同排，
-列表复用 `IosGroupedBody` / `IosGroup` / `IosListTile` 的底色、字体、圆角和点击反馈。
+列表复用 `IosGroupedBody` / `SettingsGroup` / `IosListTile` 的底色、字体、圆角和点击反馈。
+分组组件位于 `settings_widgets.dart`。`SettingsGroup` 默认分隔线避开相邻行的图标列：
+有图标时左侧留 56dp，无图标时留 16dp，右侧统一留 16dp；`separatorIndent` 可覆盖左侧缩进。
+我的页直接使用该默认规则。
+
+编写者：Codex UI｜2026-10-11
+
+### 1.7 阅读设置（2026-10-11）
+
+用户批准将完整阅读设置与阅读快捷面板分开。完整设置按字体与排版、背景与配色、
+翻页与操作、标题与信息、页面与屏幕、内容与工具栏六组进入独立页面，返回与标题同排。
+复杂的页面边距使用子页面，字体选择沿用既有字体管理；不叠加“更多”弹层。
+阅读中只展示字号、背景、翻页动画与亮度，并提供“全部阅读设置”入口。
+两种入口共享控件和设置源，每项在完整设置内只有一个归属；关闭父选项隐藏相关子项，
+原值保留。页眉页脚与顶部状态条分别标注，日夜共用排版沿用现有布局存储。
+
+亮度开关统一称为“跟随系统亮度”，Android/iOS 均恢复应用亮度覆盖，
+不修改设备的系统自动亮度开关；关闭后使用手动滑条。设置页与阅读底栏复用同一控件，
+同步实际应用亮度，调节失败显示提示。退出正文或漫画阅读时恢复系统亮度。
 
 编写者：Codex UI｜2026-10-11
 
@@ -191,7 +215,7 @@ Flutter 无 Expressive shape scale preset，经 component theme 显式落地（`
 - 选中图标：`onSecondaryContainer`；未选中：`onSurfaceVariant`
 - 高度 80，label 常显；激活底栏皮肤时渲染用户图（bottom_bar_skin）
 
-### 5.3 Card / 分组容器（IosGroup）
+### 5.3 Card / 分组容器（SettingsGroup）
 - 背景：亮 `surfaceContainerLowest` / 暗 `surfaceContainerLow`
 - 圆角 20，elevation 0，无边框
 - 分隔线：`outlineVariant` 1px（带缩进）

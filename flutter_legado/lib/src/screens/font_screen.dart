@@ -272,7 +272,9 @@ class _FontScreenState extends State<FontScreen> {
           ),
         ],
       ),
-      body: ListView(
+      // 预览固定在顶部，仅字体列表滚动；选中字体仍通过 setState 实时刷新。
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ===== 当前字体 + 预览 =====
           Padding(
@@ -300,17 +302,23 @@ class _FontScreenState extends State<FontScreen> {
           ),
           const Divider(),
 
-          // ===== 自定义字体 =====
-          if (_customFonts.isNotEmpty) ...[
-            _buildSectionHeader(theme, '自定义字体'),
-            ..._customFonts.map((f) => _buildFontTile(theme, f)),
-            const Divider(),
-          ],
+          Expanded(
+            child: ListView(
+              children: [
+                // ===== 自定义字体 =====
+                if (_customFonts.isNotEmpty) ...[
+                  _buildSectionHeader(theme, '自定义字体'),
+                  ..._customFonts.map((f) => _buildFontTile(theme, f)),
+                  const Divider(),
+                ],
 
-          // ===== 系统字体 =====
-          _buildSectionHeader(theme, '系统字体'),
-          ..._systemFonts.map((f) => _buildFontTile(theme, f)),
-          const SizedBox(height: 16),
+                // ===== 系统字体 =====
+                _buildSectionHeader(theme, '系统字体'),
+                ..._systemFonts.map((f) => _buildFontTile(theme, f)),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
         ],
       ),
     );

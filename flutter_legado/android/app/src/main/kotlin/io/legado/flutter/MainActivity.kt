@@ -17,7 +17,6 @@ import io.flutter.plugin.common.MethodChannel
 open class MainActivity : FlutterActivity() {
 
     private val webViewBridge = WebViewBridge()
-    private val brightnessBridge = BrightnessBridge()
     private val ttsBridge = TtsBridge()
     private val filePickerBridge = FilePickerBridge()
     private val mediaSessionBridge = MediaSessionBridge()
@@ -44,7 +43,6 @@ open class MainActivity : FlutterActivity() {
         private const val CHANNEL_TTS = "legado/tts"
         private const val CHANNEL_FILE_PICKER = "legado/file_picker"
         private const val CHANNEL_NOTIFICATION = "legado/notification"
-        private const val CHANNEL_BRIGHTNESS = "io.legado.app/brightness"
         private const val CHANNEL_MEDIA_SESSION = "legado/media_session"
         private const val CHANNEL_DEEP_LINK = "legado/deep_link"
         private const val CHANNEL_SYSTEM_BAR = "legado/system_bar"
@@ -104,12 +102,6 @@ open class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NOTIFICATION)
             .setMethodCallHandler { call, result ->
                 NotificationService.handleMethodCall(call, result, this)
-            }
-
-        // 注册亮度控制通道
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_BRIGHTNESS)
-            .setMethodCallHandler { call, result ->
-                brightnessBridge.handleMethodCall(call, result, this)
             }
 
         // 注册媒体会话通道（后台播放 + 媒体按钮 + 音频焦点）

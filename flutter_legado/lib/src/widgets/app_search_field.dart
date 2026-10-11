@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 统一搜索输入外观，筛选或提交查询由页面回调决定。
-/// — Codex UI｜2026-10-11
+/// 2026-10-11
 class AppSearchField extends StatelessWidget {
   const AppSearchField({
     super.key,

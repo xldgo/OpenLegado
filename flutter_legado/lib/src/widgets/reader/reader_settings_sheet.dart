@@ -1,48 +1,68 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
 import '../../screens/reader_config_panel.dart';
+import '../app_scaffold.dart';
+import '../legado_app_bar.dart';
+import '../settings_widgets.dart';
+import 'reader_padding_config_sheet.dart';
 import 'reader_tip_config_sheet.dart';
 
 part 'reader_settings_sheet_font_panel.part.dart';
-// ↑ [C3 形态对齐 | full-stack-engineer + UI] Tt 行内字体面板 part（参照
-// reader_config_panel 既有 part 拆法）：与主文件同 library，可共享私有成员。
 
-/// 阅读界面设置弹层（「界面」面板）
-///
-/// [UI_SYNC_REFACTOR S5 修 | 2026-09-06] 一比一对齐参考版「阅读界面」
-/// 弹层布局（四页签结构）：
-/// - 头部：圆形返回按钮 + 「阅读界面」标题
-/// - 底部页签：全局 / 菜单 / 信息 / 更多
-/// - 全局页（参考版实证布局）：字号步进器（- 24 +）+ 独立 Tt 字体小卡；
-///   背景卡（长按自定义 + 月亮夜间切换 + 自定义/预设 chips）；翻页动画行
-///   （当前值 + 独立图标小卡）
-/// - 菜单页：自动翻页 / 点击区域 / 亮度控制
-/// - 信息页：阅读提示信息（页眉页脚提示项与标题样式）
-/// - 更多页：行距 / 字重 / 字体字距缩进段距 / 更多配置 / 页面边距 / 共用布局
+// 字体设置复用既有管理入口，与主文件共享配置提交方法。
+
+/// 完整阅读设置的分组；快捷面板复用同一套控件与配置。
+enum ReaderSettingsCategory {
+  typography('字体与排版', '字体、字号、行距与段落样式', Icons.text_fields),
+  background('背景与配色', '预设背景与自定义文字颜色', Icons.palette_outlined),
+  interaction('翻页与操作', '翻页动画、点击区域与自动翻页', Icons.auto_stories_outlined),
+  information('标题与信息', '章节标题、页眉页脚与状态条', Icons.info_outline),
+  screen('页面与屏幕', '边距、亮度、屏幕方向与系统栏', Icons.phone_android),
+  content('内容与工具栏', '简繁转换、换源与工具栏显示', Icons.tune),
+  margins('页面边距', '页眉、正文与页脚边距', Icons.crop_free);
+
+  const ReaderSettingsCategory(this.title, this.summary, this.icon);
+  final String title;
+  final String summary;
+  final IconData icon;
+}
+
+/// 阅读中的快捷面板与独立阅读设置页。
 class ReaderSettingsSheet extends ConsumerStatefulWidget {
-  const ReaderSettingsSheet({super.key});
+  const ReaderSettingsSheet({super.key, this.fullPage = false, this.category});
 
-  /// 便捷弹出方法
+  final bool fullPage;
+  final ReaderSettingsCategory? category;
+
+  static Future<void> showPage(
+    BuildContext context, {
+    ReaderSettingsCategory? category,
+  }) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ReaderSettingsSheet(fullPage: true, category: category),
+      ),
+    );
+  }
+
   static void show(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: false,
+      showDragHandle: true,
       builder: (_) => DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.72,
+        initialChildSize: MediaQuery.sizeOf(context).height < 500 ? 0.95 : 0.72,
         minChildSize: 0.4,
         maxChildSize: 0.95,
-        builder: (_, scrollController) => SingleChildScrollView(
-          controller: scrollController,
+        builder: (_, controller) => SingleChildScrollView(
+          controller: controller,
           child: const ReaderSettingsSheet(),
         ),
       ),
@@ -55,15 +75,6 @@ class ReaderSettingsSheet extends ConsumerStatefulWidget {
 }
 
 class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
-  /// 当前页签（0全局 1菜单 2信息 3更多，对齐参考版页签顺序）
-  int _tab = 0;
-
-  /// [C3 形态对齐 | full-stack-engineer + UI] Tt 行内字体面板展开态
-  /// （对标参考版「Tt 入口行内展开」形态：不再跳转整页字体管理）
-  bool _fontPanelOpen = false;
-
-  static const _tabLabels = ['全局', '菜单', '信息', '更多'];
-
   /// 翻页动画标签（顺序对齐原版 page_anim 数组）
   static const _flipLabels = {
     PageTurnMode.cover: '覆盖',
@@ -119,175 +130,68 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
   Widget build(BuildContext context) {
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
-    final adv = ref.watch(readerAdvConfigProvider) ?? ReaderAdvancedConfig();
+    final adv = ref.watch(readerAdvConfigProvider);
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 16),
-            _buildTabBar(context, state, notifier, adv),
-            const SizedBox(height: 16),
-            switch (_tab) {
-              0 => _buildGlobalTab(state, notifier, adv),
-              1 => ReaderConfigPanel(
-                  config: adv.copy(),
-                  onChanged: _commitAdv,
-                  section: ReaderConfigSection.menu,
+    if (widget.fullPage) {
+      return AppScaffold(
+        topBar: LegadoAppBar(
+          title: Text(widget.category?.title ?? '阅读界面'),
+          showBack: true,
+        ),
+        body: adv == null
+            ? const Center(child: CircularProgressIndicator())
+            : IosGroupedBody(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: _buildPage(state, notifier, adv),
                 ),
-              2 => ReaderTipConfigSheet(
-                  config: adv.copy(),
-                  onChanged: _commitAdv,
-                ),
-              // 「更多」页签改为打开全高独立弹层（见 _openMoreSheet），
-              // 页签态本身不再内嵌内容
-              _ => const SizedBox.shrink(),
-            },
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ===== 头部：圆形返回按钮 + 标题（对齐参考版） =====
-
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => Navigator.of(context).pop(),
-          customBorder: const CircleBorder(),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            ),
-            child: Icon(
-              Icons.arrow_back_rounded,
-              size: 22,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Text(
-          '阅读界面',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
-    );
-  }
-
-  // ===== 底部页签：全局 / 菜单 / 信息 / 更多（更多=打开全高独立弹层） =====
-
-  Widget _buildTabBar(
-    BuildContext context,
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
-    Widget tabItem(int i, {VoidCallback? onTap}) {
-      final selected = onTap == null && _tab == i;
-      return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: onTap ?? () => setState(() => _tab = i),
-          child: Container(
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              color: selected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
-            ),
-            child: Text(
-              _tabLabels[i],
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: selected
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ),
-        ),
+              ),
       );
     }
 
-    return Row(
-      children: [
-        tabItem(0),
-        const SizedBox(width: 8),
-        tabItem(1),
-        const SizedBox(width: 8),
-        tabItem(2),
-        const SizedBox(width: 8),
-        // [更多全高形态 | Qoder UI] 参考版「更多」页签为全高独立弹层
-        //（把手+居中标题、无底部页签栏）：点按以全高弹层覆盖打开
-        tabItem(3, onTap: () => _openMoreSheet(state, notifier, adv)),
-      ],
-    );
-  }
-
-  /// [更多全高形态 | Qoder UI] 「更多」全高独立弹层（对齐参考版形态：
-  /// 把手 + 居中标题、无底部页签栏；关闭后回到页签弹层）
-  void _openMoreSheet(
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SizedBox(
-        height: MediaQuery.of(sheetContext).size.height * 0.92,
+    if (adv == null) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 10),
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+            Text('阅读设置', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            _buildFontSizeCard(state, notifier),
+            const SizedBox(height: 12),
+            _buildBackgroundCard(state, notifier, adv),
+            const SizedBox(height: 12),
+            _buildFlipCard(state, notifier),
+            const SizedBox(height: 12),
+            _configPanel(adv, ReaderConfigSection.brightness),
+            const SizedBox(height: 12),
+            SettingsGroup(
+              margin: EdgeInsets.zero,
+              children: [
+                IosListTile(
+                  icon: Icons.tune,
+                  title: '全部阅读设置',
+                  onTap: () {
+                    // 先关闭快捷面板，避免在完整设置页下方残留弹层。
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const ReaderSettingsSheet(fullPage: true),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '更多',
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: _buildMoreSheetContent(state, notifier, adv),
-              ),
+              ],
             ),
           ],
         ),
@@ -295,106 +199,162 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     );
   }
 
-  // ===== 配置卡片基座（圆角 20，与参考版卡片形态一致） =====
+  Widget _configPanel(ReaderAdvancedConfig adv, ReaderConfigSection section) =>
+      ReaderConfigPanel(
+        config: adv.copy(),
+        onChanged: _commitAdv,
+        section: section,
+      );
+
+  Widget _buildPage(
+    ReaderState state,
+    ReaderNotifier notifier,
+    ReaderAdvancedConfig adv,
+  ) {
+    final category = widget.category;
+    if (category == null) {
+      return SettingsGroup(
+        margin: EdgeInsets.zero,
+        children: [
+          for (final item in ReaderSettingsCategory.values)
+            if (item != ReaderSettingsCategory.margins)
+              IosListTile(
+                icon: item.icon,
+                title: item.title,
+                subtitle: item.summary,
+                onTap: () =>
+                    ReaderSettingsSheet.showPage(context, category: item),
+              ),
+        ],
+      );
+    }
+
+    final children = switch (category) {
+      ReaderSettingsCategory.typography => <Widget>[
+        _buildFontSizeCard(state, notifier),
+        ReaderFontPanel(config: adv.copy(), onChanged: _commitAdv),
+        _buildLineHeightCard(state, notifier),
+        _configPanel(adv, ReaderConfigSection.typography),
+      ],
+      ReaderSettingsCategory.background => <Widget>[
+        _buildBackgroundCard(state, notifier, adv),
+      ],
+      ReaderSettingsCategory.interaction => <Widget>[
+        _buildFlipCard(state, notifier),
+        _configPanel(adv, ReaderConfigSection.interaction),
+      ],
+      ReaderSettingsCategory.information => <Widget>[
+        ReaderFontPanel(
+          config: adv.copy(),
+          onChanged: _commitAdv,
+          titleOnly: true,
+        ),
+        _panelCard(
+          child: ReaderTipConfigSheet(
+            config: adv.copy(),
+            onChanged: _commitAdv,
+            embedded: true,
+          ),
+        ),
+      ],
+      ReaderSettingsCategory.screen => <Widget>[
+        SettingsGroup(
+          margin: EdgeInsets.zero,
+          children: [
+            IosListTile(
+              icon: Icons.crop_free,
+              title: '页面边距',
+              subtitle: '页眉、正文与页脚',
+              onTap: () => ReaderSettingsSheet.showPage(
+                context,
+                category: ReaderSettingsCategory.margins,
+              ),
+            ),
+            SwitchListTile(
+              title: const Text('日夜共用排版'),
+              subtitle: Text(
+                adv.shareLayout ? '日间与夜间使用同一套边距和排版参数' : '日间与夜间分别保存边距和排版参数',
+              ),
+              value: adv.shareLayout,
+              onChanged: (v) => _commitAdv(adv.copy()..shareLayout = v),
+            ),
+          ],
+        ),
+        _configPanel(adv, ReaderConfigSection.screen),
+      ],
+      ReaderSettingsCategory.content => <Widget>[
+        _configPanel(adv, ReaderConfigSection.content),
+        _configPanel(adv, ReaderConfigSection.toolbar),
+      ],
+      ReaderSettingsCategory.margins => <Widget>[
+        _panelCard(
+          child: ReaderPaddingConfigSheet(
+            config: adv.copy(),
+            onChanged: _commitAdv,
+            embedded: true,
+          ),
+        ),
+      ],
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          children[i],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFlipCard(ReaderState state, ReaderNotifier notifier) =>
+      _panelCard(
+        onTap: () => _showFlipPicker(state, notifier),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_stories_outlined),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('翻页动画')),
+            Text(_flipLabels[state.pageTurnMode] ?? '覆盖'),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      );
+
+  Widget _buildLineHeightCard(ReaderState state, ReaderNotifier notifier) =>
+      _panelCard(
+        child: Row(
+          children: [
+            const Text('行距'),
+            Expanded(
+              child: Slider(
+                value: state.lineHeight.clamp(1.0, 3.0),
+                min: 1.0,
+                max: 3.0,
+                divisions: 40,
+                label: state.lineHeight.toStringAsFixed(2),
+                onChanged: notifier.updateLineHeight,
+              ),
+            ),
+            Text(state.lineHeight.toStringAsFixed(2)),
+          ],
+        ),
+      );
+
+  // ===== 配置卡片基座（与其他设置分组统一） =====
 
   Widget _panelCard({required Widget child, VoidCallback? onTap}) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(padding: const EdgeInsets.all(16), child: child),
       ),
-    );
-  }
-
-  // ===== 全局页：字号 / 背景 / 翻页动画 =====
-
-  Widget _buildGlobalTab(
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(child: _buildFontSizeCard(state, notifier)),
-              const SizedBox(width: 12),
-              _buildFontEntryCard(context),
-            ],
-          ),
-        ),
-        // [C3 形态对齐 | full-stack-engineer + UI] Tt 展开后行内字体面板
-        // （正文选择/字距/缩进/字重/简繁，对齐参考版行内形态）
-        if (_fontPanelOpen) ...[
-          const SizedBox(height: 12),
-          ReaderFontPanel(
-            config: adv.copy(),
-            onChanged: _commitAdv, // 面板行内修改统一经 _commitAdv 持久化
-            onReload: () {
-              // [P2-9 | 2026-09-24] 保持缓存优先重载（不接入 Fix A
-              // 强制路径）。简繁转换是「配置变更重渲染」而非网络刷新：
-              // Rust 侧 cached_chapters 存原始正文，每次读取（含缓存
-              // 命中）都会重放净化（替换规则/简繁转换/去重复标题，见
-              // fetch_chapter_content_inner 缓存分支 +
-              // apply_content_processing_inner 读取
-              // current_chinese_convert_direction），缓存路径即可正确
-              // 呈现新配置；若改走强制路径会 clearBookCache 清空整书
-              // 离线缓存、强制触网，且本地书被
-              // refreshChapterContent 守卫拒绝而无法重载——破坏
-              // 本地书路径。对标原版 UP_CONFIG[5] → loadContent（缓存
-              // 优先重载）语义。
-              unawaited(notifier.reloadChapterContent());
-            },
-          ),
-        ],
-        const SizedBox(height: 12),
-        _buildBackgroundCard(state, notifier, adv),
-        const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(
-                child: _panelCard(
-                  onTap: () => _showFlipPicker(state, notifier),
-                  child: Row(
-                    children: [
-                      Text('翻页动画',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const Spacer(),
-                      Text(
-                        _flipLabels[state.pageTurnMode] ?? '覆盖',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              _panelCard(
-                onTap: () => _showFlipPicker(state, notifier),
-                child: SizedBox(
-                  width: 44,
-                  child: Icon(
-                    Icons.auto_stories_rounded,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -407,8 +367,8 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           const Spacer(),
           _stepButton(
             icon: Icons.remove_rounded,
-            onTap: () => notifier
-                .updateFontSize((state.fontSize - 1).clamp(12.0, 32.0)),
+            onTap: () =>
+                notifier.updateFontSize((state.fontSize - 1).clamp(12.0, 32.0)),
           ),
           const SizedBox(width: 10),
           Container(
@@ -421,17 +381,15 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             ),
             child: Text(
               state.fontSize.round().toString(),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
+              style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(width: 10),
           _stepButton(
             icon: Icons.add_rounded,
-            onTap: () => notifier
-                .updateFontSize((state.fontSize + 1).clamp(12.0, 32.0)),
+            onTap: () =>
+                notifier.updateFontSize((state.fontSize + 1).clamp(12.0, 32.0)),
           ),
         ],
       ),
@@ -461,37 +419,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     );
   }
 
-  /// Tt 字体入口小卡
-  ///
-  /// [C3 形态对齐 | full-stack-engineer + UI] 由「跳转整页字体管理」改为
-  /// 「行内展开字体面板」（对齐参考版形态：页签内正文字体/字距/标题字体
-  /// + 斜体开关/字重/选择字体/简繁转换）。字体选择整页链路不丢失：
-  /// 面板内「选择字体」行仍跳转 AppRoutes.fonts（FontScreen）。
-  Widget _buildFontEntryCard(BuildContext context) {
-    final selected = _fontPanelOpen;
-    return _panelCard(
-      onTap: () => setState(() => _fontPanelOpen = !selected),
-      child: SizedBox(
-        width: 56,
-        child: Center(
-          child: Text(
-            'Tt',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  // 展开态主色高亮（对标参考版行内面板选中态）
-                  color: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// 背景卡片：标题 + 长按自定义提示 + 月亮夜间切换 + 预设 chips
   Widget _buildBackgroundCard(
     ReaderState state,
@@ -511,11 +438,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                   Text('背景', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 2),
                   Text(
-                    '长按自定义',
+                    '选择预设或自定义配色',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -533,8 +459,9 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest,
                   ),
                   child: Icon(
                     Icons.dark_mode_rounded,
@@ -596,11 +523,11 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     final color = ReaderBackground.presets[index];
     final label = ReaderBackground.labels[index];
     final isSelected = state.backgroundColor == color;
-    final onColor =
-        color.computeLuminance() > 0.5 ? Colors.black87 : Colors.white70;
+    final onColor = color.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white70;
     return GestureDetector(
-      onLongPress: () =>
-          _showCustomColorDialog(context, null, notifier, state),
+      onLongPress: () => _showCustomColorDialog(context, null, notifier, state),
       onTap: () => notifier.updateBackgroundColor(color),
       child: Container(
         width: 64,
@@ -623,9 +550,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           children: [
             Text(
               label,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
+              style: Theme.of(context).textTheme.labelMedium
                   ?.copyWith(color: onColor),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -658,8 +583,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             ListTile(
               title: Text(_flipLabels[mode] ?? mode.name),
               trailing: state.pageTurnMode == mode
-                  ? Icon(Icons.check,
-                      color: Theme.of(dialogContext).colorScheme.primary)
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(dialogContext).colorScheme.primary,
+                    )
                   : null,
               onTap: () {
                 Navigator.pop(dialogContext);
@@ -671,99 +598,14 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     );
   }
 
-  // ===== 更多弹层内容：行距 / 字重 / 排版与更多配置 / 共用布局 =====
-  //（原「更多」页签内容整体迁移至全高弹层）
-
-  Widget _buildMoreSheetContent(
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _panelCard(
-          child: Row(
-            children: [
-              Text('行距', style: Theme.of(context).textTheme.titleMedium),
-              Expanded(
-                child: Slider(
-                  value: state.lineHeight.clamp(1.0, 3.0),
-                  min: 1.0,
-                  max: 3.0,
-                  divisions: 40,
-                  label: state.lineHeight.toStringAsFixed(2),
-                  onChanged: (v) => notifier.updateLineHeight(v),
-                ),
-              ),
-              SizedBox(
-                width: 44,
-                child: Text(
-                  state.lineHeight.toStringAsFixed(2),
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _panelCard(
-          child: Row(
-            children: [
-              Text('字重', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(width: 16),
-              Expanded(
-                child: SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('中')),
-                    ButtonSegment(value: 1, label: Text('粗')),
-                    ButtonSegment(value: 2, label: Text('细')),
-                  ],
-                  selected: {adv.textBold.clamp(0, 2)},
-                  onSelectionChanged: (sel) {
-                    final cfg = adv.copy()..textBold = sel.first;
-                    _commitAdv(cfg);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        ReaderConfigPanel(
-          config: adv.copy(),
-          onChanged: _commitAdv,
-          section: ReaderConfigSection.more,
-        ),
-        const SizedBox(height: 12),
-        // 共用布局（对标原版 ReadBookConfig.shareLayout：
-        // 开启后日/夜共用边距/字距/缩进/字重/翻页模式；关闭则分桶）
-        _panelCard(
-          child: SwitchListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('共用布局'),
-            subtitle: Text(
-              adv.shareLayout
-                  ? '日夜共用边距与排版参数'
-                  : '日夜分别保存布局（切换主题自动切换）',
-            ),
-            value: adv.shareLayout,
-            onChanged: (v) {
-              final cfg = adv.copy()..shareLayout = v;
-              _commitAdv(cfg);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   // ===== 自定义配色对话框（长按背景 chip 弹出，自绘色板不引入依赖） =====
 
-  void _showCustomColorDialog(BuildContext context, ReaderAdvancedConfig? adv,
-      ReaderNotifier notifier, ReaderState state) {
+  void _showCustomColorDialog(
+    BuildContext context,
+    ReaderAdvancedConfig? adv,
+    ReaderNotifier notifier,
+    ReaderState state,
+  ) {
     final effectiveAdv =
         adv ?? ref.read(readerAdvConfigProvider) ?? ReaderAdvancedConfig();
     var textColorValue = effectiveAdv.customTextColor;
@@ -778,8 +620,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('文字颜色',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium),
+                Text(
+                  '文字颜色',
+                  style: Theme.of(dialogContext).textTheme.bodyMedium,
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -797,8 +641,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                         c,
                         textColorValue == c.toARGB32(),
                         () {
-                          setDialogState(
-                              () => textColorValue = c.toARGB32());
+                          setDialogState(() => textColorValue = c.toARGB32());
                           final cfg = effectiveAdv.copy()
                             ..customTextColor = c.toARGB32();
                           _commitAdv(cfg);
@@ -807,8 +650,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text('背景颜色',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium),
+                Text(
+                  '背景颜色',
+                  style: Theme.of(dialogContext).textTheme.bodyMedium,
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -843,7 +688,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
 
   /// 「自动」文字色选项块
   Widget _autoTextChip(
-      BuildContext context, bool selected, VoidCallback onTap) {
+    BuildContext context,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -867,7 +715,11 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
 
   /// 色板色块
   Widget _colorBlock(
-      BuildContext context, Color color, bool selected, VoidCallback onTap) {
+    BuildContext context,
+    Color color,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -885,11 +737,13 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           ),
         ),
         child: selected
-            ? Icon(Icons.check,
+            ? Icon(
+                Icons.check,
                 size: 16,
                 color: color.computeLuminance() > 0.5
                     ? Colors.black54
-                    : Colors.white70)
+                    : Colors.white70,
+              )
             : null,
       ),
     );

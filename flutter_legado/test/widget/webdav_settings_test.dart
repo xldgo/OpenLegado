@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
-import 'package:flutter_legado/src/widgets/ios_widgets.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';
 

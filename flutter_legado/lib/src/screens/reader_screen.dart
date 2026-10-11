@@ -17,6 +17,7 @@ import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
+import '../services/system_brightness.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/reader/read_aloud_bar.dart';
 import '../widgets/reader/auto_turn_panel.dart';
@@ -122,6 +123,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     // 对标原版 ReadBookActivity 退出时 upSystemUiMode 还原）— Qoder
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(const []);
+    unawaited(SystemBrightness.setFollowSystem(true).catchError((Object error) {
+      debugPrint('退出阅读时恢复系统亮度失败: $error');
+    }));
     super.dispose();
   }
 
@@ -962,20 +966,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  /// 打开高级设置面板，配置变更后实时应用
+  /// 进入完整阅读设置，返回后同步系统显示与自动翻页。
   Future<void> _openAdvancedConfig(BuildContext context) async {
-    await ReaderConfigPanel.show(
-      context,
-      config: _advConfig,
-      onChanged: (cfg) {
-        _advConfig = cfg;
-        _syncAutoTimer();
-        // [UI-fix v2.0.3 | 2026-08-08] 面板内变更隐藏栏/方向等系统级
-        // 配置后立即生效（对标原版 onSharedPreferenceChanged 即时语义）— Qoder
-        _applySystemChrome(cfg);
-        if (mounted) setState(() {});
-      },
-    );
+    await ReaderSettingsSheet.showPage(context);
+    if (!mounted) return;
+    _advConfig = ref.read(readerAdvConfigProvider) ?? _advConfig;
+    _syncAutoTimer();
+    _applySystemChrome(_advConfig);
+    setState(() {});
   }
 
   // ===== [UI-fix v2.0.3 | 2026-08-08] 自动换源最小路径 =====

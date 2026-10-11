@@ -2,16 +2,14 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/flip_mode.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
-import '../services/system_brightness.dart';
-import '../widgets/app_progress_indicator.dart'; // [STAGE-UI-P43UNIFY2 B3] part 文件内裸环换接统一封装
+import '../widgets/reader/reader_brightness_control.dart';
 import '../widgets/reader/reader_padding_config_sheet.dart';
 import '../widgets/reader/reader_tip_config_sheet.dart';
 part 'reader_config_panel_data.part.dart';
@@ -47,12 +45,21 @@ enum TapAction {
   }
 }
 
-/// 面板可单独展示的区块（界面 Sheet 的「边距/信息」按钮对标原版
-/// ReadStyleDialog 的 showPaddingConfig / TipConfigDialog 独立弹层）
-///
-/// [UI_SYNC_REFACTOR S5 修 | 2026-09-06] 新增 menu/more：阅读界面弹层
-/// 四页签（全局/菜单/信息/更多）的「菜单」「更多」页嵌入复用 — Qoder
-enum ReaderConfigSection { all, margins, statusBar, menu, more }
+/// 可复用的配置区块，完整设置页按职责分别展示。
+/// 原有聚合区块保留兼容，应用入口统一使用完整设置与快捷面板。
+enum ReaderConfigSection {
+  all,
+  margins,
+  statusBar,
+  menu,
+  more,
+  typography,
+  interaction,
+  screen,
+  content,
+  toolbar,
+  brightness,
+}
 
 /// 阅读器高级配置面板
 ///
@@ -88,7 +95,8 @@ class ReaderConfigPanel extends ConsumerStatefulWidget {
     ValueChanged<ReaderAdvancedConfig>? onChanged,
     ReaderConfigSection section = ReaderConfigSection.all,
   }) {
-    return showModalBottomSheet<void>(      showDragHandle: false,
+    return showModalBottomSheet<void>(
+      showDragHandle: false,
 
       context: context,
       isScrollControlled: true,
@@ -152,25 +160,32 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   }
 
   void _commit() {
-    unawaited(_config.save());
-    widget.onChanged?.call(_config.copy());
+    if (widget.onChanged != null) {
+      widget.onChanged!(_config.copy());
+    } else {
+      unawaited(_config.save());
+    }
     // [UI-fix v2.0.4 | 2026-08-08] 同步推送共享 Provider（界面 Sheet /
     // reader_screen 经 watch 实时感知面板修改）— Qoder
     ref.read(readerAdvConfigProvider.notifier).apply(_config.copy());
     setState(() {});
   }
 
+  @override
+  void didUpdateWidget(covariant ReaderConfigPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _config = widget.config.copy();
+  }
+
   /// [LAYOUT_PLAN P1] 配置分组卡片：圆角 16dp + 卡内 16dp，
   /// 组内行统一 vertical12/horizontal8（见 builders part）。
   Card _groupCard(Widget child) {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
-      ),
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
   }
 
@@ -179,6 +194,38 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     // [UI-fix v2.0.4 | 2026-08-08] 区块过滤模式：仅渲染指定区块 — Qoder
     final List<Widget> children;
     switch (widget.section) {
+      case ReaderConfigSection.typography:
+        children = [
+          _groupCard(_buildParagraphSpacing()),
+          const SizedBox(height: 12),
+          _groupCard(_buildTypographyOptions()),
+        ];
+        break;
+      case ReaderConfigSection.interaction:
+        children = [
+          _groupCard(_buildAutoPageTurn()),
+          const SizedBox(height: 12),
+          _groupCard(_buildTapZones()),
+          const SizedBox(height: 12),
+          _groupCard(_buildInteractionOptions()),
+        ];
+        break;
+      case ReaderConfigSection.screen:
+        children = [
+          _groupCard(_buildBrightnessControl()),
+          const SizedBox(height: 12),
+          _groupCard(_buildScreenOptions()),
+        ];
+        break;
+      case ReaderConfigSection.content:
+        children = [_groupCard(_buildContentOptions())];
+        break;
+      case ReaderConfigSection.toolbar:
+        children = [_groupCard(_buildToolbarOptions())];
+        break;
+      case ReaderConfigSection.brightness:
+        children = [_groupCard(_buildBrightnessControl())];
+        break;
       case ReaderConfigSection.margins:
         children = [
           ReaderPaddingConfigSheet(
@@ -223,8 +270,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           const SizedBox(height: 12),
           _groupCard(
             ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 8,
+              ),
               leading: const Icon(Icons.crop_free),
               title: const Text('页面边距'),
               subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
@@ -266,8 +315,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
               children: [
                 ListTile(
                   // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   leading: const Icon(Icons.crop_free),
                   title: const Text('页面边距'),
                   subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
@@ -283,8 +334,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                 ),
                 ListTile(
                   // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   leading: const Icon(Icons.info_outline),
                   title: const Text('阅读提示信息'),
                   subtitle: const Text('页眉页脚提示项与标题样式'),
@@ -314,7 +367,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: widget.section.index >= ReaderConfigSection.typography.index
+            ? EdgeInsets.zero
+            : const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -326,9 +381,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
+                    color: Theme.of(context).colorScheme.onSurfaceVariant
                         .withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),

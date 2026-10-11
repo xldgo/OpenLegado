@@ -7,7 +7,7 @@ import '../widgets/legado_app_bar.dart';
 
 import '../services/bottom_bar_skin_format.dart';
 import '../services/bottom_bar_skin_service.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 
 /// 底栏皮肤槽位分配（对齐 BottomBarSkinAssignActivity）
 ///
@@ -303,7 +303,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                       ),
                     ),
                   const IosSectionHeader('名称'),
-                  IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                  SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -321,7 +321,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                     ],
                   ),
                   const IosSectionHeader('槽位'),
-                  IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                  SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       for (var i = 0; i < _rows.length; i++) ...[
                         if (i > 0) const Divider(height: 1),

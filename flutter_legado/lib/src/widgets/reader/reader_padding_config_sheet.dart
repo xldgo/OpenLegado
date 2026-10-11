@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../screens/reader_config_panel.dart';
-import '../ios_widgets.dart';
+import '../settings_widgets.dart';
 
 /// 页面边距配置（对标原版 PaddingConfigDialog + dialog_read_padding.xml）
 ///
@@ -15,11 +14,13 @@ import '../ios_widgets.dart';
 class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
   final ReaderAdvancedConfig config;
   final ValueChanged<ReaderAdvancedConfig>? onChanged;
+  final bool embedded;
 
   const ReaderPaddingConfigSheet({
     super.key,
     required this.config,
     this.onChanged,
+    this.embedded = false,
   });
 
   static Future<void> show(
@@ -27,7 +28,8 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
     required ReaderAdvancedConfig config,
     ValueChanged<ReaderAdvancedConfig>? onChanged,
   }) {
-    return showModalBottomSheet<void>(      showDragHandle: false,
+    return showModalBottomSheet<void>(
+      showDragHandle: false,
 
       context: context,
       isScrollControlled: true,
@@ -38,10 +40,7 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
         maxChildSize: 0.85,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: ReaderPaddingConfigSheet(
-            config: config,
-            onChanged: onChanged,
-          ),
+          child: ReaderPaddingConfigSheet(config: config, onChanged: onChanged),
         ),
       ),
     );
@@ -54,7 +53,7 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
 
 class _ReaderPaddingConfigSheetState
     extends ConsumerState<ReaderPaddingConfigSheet> {
-  late final ReaderAdvancedConfig _config = widget.config.copy();
+  late ReaderAdvancedConfig _config = widget.config.copy();
   PaddingRegion _region = PaddingRegion.body;
   bool _lockLr = false;
 
@@ -70,9 +69,18 @@ class _ReaderPaddingConfigSheetState
     _lockLr = left == right;
   }
 
+  @override
+  void didUpdateWidget(covariant ReaderPaddingConfigSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _config = widget.config.copy();
+  }
+
   void _commit() {
-    unawaited(_config.save());
-    widget.onChanged?.call(_config.copy());
+    if (widget.onChanged != null) {
+      widget.onChanged!(_config.copy());
+    } else {
+      unawaited(_config.save());
+    }
     ref.read(readerAdvConfigProvider.notifier).apply(_config.copy());
     setState(() {});
   }
@@ -188,17 +196,21 @@ class _ReaderPaddingConfigSheetState
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: widget.embedded
+            ? EdgeInsets.zero
+            : const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(child: IosGrabber()),
+            if (!widget.embedded) const Center(child: IosGrabber()),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: Text('页面边距',
-                      style: theme.textTheme.titleMedium),
+                  child: Text(
+                    widget.embedded ? '调整边距' : '页面边距',
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
                 IconButton(
                   tooltip: '恢复默认',
@@ -262,9 +274,7 @@ class _ReaderPaddingConfigSheetState
     final theme = Theme.of(context);
     return Expanded(
       child: Material(
-        color: selected
-            ? theme.colorScheme.primary
-            : Colors.transparent,
+        color: selected ? theme.colorScheme.primary : Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: theme.colorScheme.outlineVariant),

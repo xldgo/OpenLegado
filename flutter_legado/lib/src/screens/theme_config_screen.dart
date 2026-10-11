@@ -4,7 +4,7 @@
 // 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/透明导航栏/保存主题。
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
 // Android 专属项持久化并以灰字"仅 Android 生效"标注；
-// 视觉保持 iOS 分组卡片风格（IosGroup/IosListTile） — Qoder
+// 视觉保持 iOS 分组卡片风格（SettingsGroup/IosListTile） — Qoder
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,7 +28,7 @@ import '../routes.dart';
 import '../services/launcher_icon_service.dart';
 import '../services/settings_service.dart';
 import '../theme/md3_colors.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 
 /// 主题设置页面（对齐原版 ThemeConfigFragment）
 ///
@@ -656,7 +656,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 原「主题导出/导入」独立分区并入下方通用组（对齐参考主题管理
                   // 同簇）；[B3-C1 A3] 导出/导入能力保留不动。
                   const IosSectionHeader('主题模式'),
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                         // 参考 ThemeModeSelector（:974-1012）material 引擎分支：
                         // 跟随系统 / 浅色 / 深色（flow_sys/light_mode/dark_mode）
@@ -677,7 +677,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 开关，属参考独有，仅登记不实现）。[队列⑦c A3] AMOLED 纯黑
                   // 移出本组，改入通用组首位（对齐参考 纯黑深色模式 首位） ===
                   const IosSectionHeader('主题引擎'),
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                     IosListTile(
                       title: '配色风格',
@@ -700,7 +700,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 对齐参考 纯黑 首位）→ 切换图标 → 字体大小 → 主题管理
                   // （原主题列表改名）→ 导出/导入主题（原顶部分区并入）→ 其余
                   // 我方项保持原有相对顺序
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                     // 纯黑深色模式（参考 pure_black=纯黑深色模式；原"AMOLED
                     // 纯黑"，标题对齐参考，副标题保留）
@@ -831,7 +831,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 主界面组，设置经 uiSettings 即时全局生效；参考 首页与导航/
                   // 显示状态栏/启用滑动时动画 属参考独有，仅登记不实现） ===
                   const IosSectionHeader('主界面'),
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                     IosListTile(
                       title: '顶栏按钮样式',
@@ -898,7 +898,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 书籍详情页；原"详情与圆角"的封面三行；卡片圆角/分隔线移入
                   // 下方"容器设置"组） ===
                   const IosSectionHeader('书籍详情页'),
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                     // 参考 book_info_follow_cover_color=界面颜色跟随封面取色，
                     // 摘要 book_info_follow_cover_color_s=仅在显示背景封面时生效
@@ -930,7 +930,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 关闭设置分组圆角/覆盖卡片边框/边框粗细/日夜卡片边框颜色/
                   // 分割线粗细/长度/颜色 等子项属参考独有，仅登记不实现） ===
                   const IosSectionHeader('容器设置'),
-                  IosGroup(
+                  SettingsGroup(
                       children: [
                     // 参考 base_card_corner_radius=卡片圆角（0-40 滑杆）；我方为
                     // 单对话框（覆写开关 + 4-28），参考 覆盖卡片圆角 双行开关
@@ -958,8 +958,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // 顶栏/悬浮底栏模糊参数，参考 启用控件模糊/启用渐变模糊 开关
                   // 结构属参考独有，仅登记；默认关——低端机掉帧保护） ===
                   const IosSectionHeader('模糊效果'),
-                  // [B3-C1 A6] 每区独立圆角卡（IosGroup 卡片模式）
-                  IosGroup(
+                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  SettingsGroup(
                       children: [
                     SettingSwitchRow(
                       title: '启用毛玻璃',
@@ -988,8 +988,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                   // === 自定义主题·白天（对齐原版 day category，themeConfigList
                   // 功能完整保留——UI_MD3_PLAN.md 第九节） ===
                   const IosSectionHeader('自定义主题 · 白天'),
-                  // [B3-C1 A6] 每区独立圆角卡（IosGroup 卡片模式）
-                  IosGroup(
+                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  SettingsGroup(
                       children: [
                     _colorTile(PrefKeys.cPrimary, '主色调', colors),
                     _colorTile(PrefKeys.cAccent, '强调色', colors),
@@ -1021,8 +1021,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
                   // === 自定义主题·夜间（对齐原版 night category）===
                   const IosSectionHeader('自定义主题 · 夜间'),
-                  // [B3-C1 A6] 每区独立圆角卡（IosGroup 卡片模式）
-                  IosGroup(
+                  // [B3-C1 A6] 每区独立圆角卡（SettingsGroup 卡片模式）
+                  SettingsGroup(
                       children: [
                     _colorTile(PrefKeys.cNPrimary, '主色调', colors,
                         isNight: true),

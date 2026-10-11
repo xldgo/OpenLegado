@@ -43,7 +43,7 @@ class PillDivider extends StatelessWidget {
 /// 设置行分隔线（对齐 HapeLee SettingItemDivider）
 ///
 /// 默认关闭（enableItemDivider=false），打开时为 80% 长 pill 线。
-/// 存量 IosGroup 内 0.5dp 全宽线保持不动，逐屏迁移时替换。
+/// 存量 SettingsGroup 内 0.5dp 全宽线保持不动，逐屏迁移时替换。
 class SettingItemDivider extends StatelessWidget {
   /// 是否启用（默认 false，与 HapeLee 一致）。
   final bool enabled;

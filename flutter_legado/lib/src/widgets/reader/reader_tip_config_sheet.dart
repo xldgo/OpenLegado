@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../screens/reader_config_panel.dart';
-import '../ios_widgets.dart';
+import '../settings_widgets.dart';
 
 /// 页眉/页脚提示项（对标原版 ReadTipConfig.tipValues）
 class ReadTipOption {
@@ -18,11 +17,13 @@ class ReadTipOption {
 class ReaderTipConfigSheet extends ConsumerStatefulWidget {
   final ReaderAdvancedConfig config;
   final ValueChanged<ReaderAdvancedConfig>? onChanged;
+  final bool embedded;
 
   const ReaderTipConfigSheet({
     super.key,
     required this.config,
     this.onChanged,
+    this.embedded = false,
   });
 
   static Future<void> show(
@@ -30,7 +31,8 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
     required ReaderAdvancedConfig config,
     ValueChanged<ReaderAdvancedConfig>? onChanged,
   }) {
-    return showModalBottomSheet<void>(      showDragHandle: false,
+    return showModalBottomSheet<void>(
+      showDragHandle: false,
 
       context: context,
       isScrollControlled: true,
@@ -41,10 +43,7 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
         maxChildSize: 0.92,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: ReaderTipConfigSheet(
-            config: config,
-            onChanged: onChanged,
-          ),
+          child: ReaderTipConfigSheet(config: config, onChanged: onChanged),
         ),
       ),
     );
@@ -56,7 +55,7 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
 }
 
 class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
-  late final ReaderAdvancedConfig _config = widget.config.copy();
+  late ReaderAdvancedConfig _config = widget.config.copy();
 
   static const _tipOptions = [
     ReadTipOption(0, '无'),
@@ -73,15 +72,20 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     ReadTipOption(9, '时间+电量%'),
   ];
 
-  static const _modeOptions = {
-    0: '状态栏显示时隐藏',
-    1: '显示',
-    2: '隐藏',
-  };
+  static const _modeOptions = {0: '状态栏显示时隐藏', 1: '显示', 2: '隐藏'};
+
+  @override
+  void didUpdateWidget(covariant ReaderTipConfigSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _config = widget.config.copy();
+  }
 
   void _commit() {
-    unawaited(_config.save());
-    widget.onChanged?.call(_config.copy());
+    if (widget.onChanged != null) {
+      widget.onChanged!(_config.copy());
+    } else {
+      unawaited(_config.save());
+    }
     ref.read(readerAdvConfigProvider.notifier).apply(_config.copy());
     setState(() {});
   }
@@ -123,13 +127,16 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: widget.embedded
+            ? EdgeInsets.zero
+            : const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(child: IosGrabber()),
+            if (!widget.embedded) const Center(child: IosGrabber()),
             const SizedBox(height: 12),
-            Text('阅读提示信息', style: theme.textTheme.titleMedium),
+            if (!widget.embedded)
+              Text('阅读提示信息', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             Text('正文标题', style: theme.textTheme.titleSmall),
             SegmentedButton<int>(
@@ -162,39 +169,43 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
               _config.headerMode = v;
               _commit();
             }),
-            _tipRow('页眉左', _config.tipHeaderLeft, (v) {
-              _config.tipHeaderLeft = v;
-              _commit();
-            }),
-            _tipRow('页眉中', _config.tipHeaderMiddle, (v) {
-              _config.tipHeaderMiddle = v;
-              _commit();
-            }),
-            _tipRow('页眉右', _config.tipHeaderRight, (v) {
-              _config.tipHeaderRight = v;
-              _commit();
-            }),
+            if (_config.headerMode != 2) ...[
+              _tipRow('页眉左', _config.tipHeaderLeft, (v) {
+                _config.tipHeaderLeft = v;
+                _commit();
+              }),
+              _tipRow('页眉中', _config.tipHeaderMiddle, (v) {
+                _config.tipHeaderMiddle = v;
+                _commit();
+              }),
+              _tipRow('页眉右', _config.tipHeaderRight, (v) {
+                _config.tipHeaderRight = v;
+                _commit();
+              }),
+            ],
             const Divider(height: 24),
             Text('页脚', style: theme.textTheme.titleSmall),
             _modeRow('页脚显示', _config.footerMode, (v) {
               _config.footerMode = v;
               _commit();
             }),
-            _tipRow('页脚左', _config.tipFooterLeft, (v) {
-              _config.tipFooterLeft = v;
-              _commit();
-            }),
-            _tipRow('页脚中', _config.tipFooterMiddle, (v) {
-              _config.tipFooterMiddle = v;
-              _commit();
-            }),
-            _tipRow('页脚右', _config.tipFooterRight, (v) {
-              _config.tipFooterRight = v;
-              _commit();
-            }),
+            if (_config.footerMode != 2) ...[
+              _tipRow('页脚左', _config.tipFooterLeft, (v) {
+                _config.tipFooterLeft = v;
+                _commit();
+              }),
+              _tipRow('页脚中', _config.tipFooterMiddle, (v) {
+                _config.tipFooterMiddle = v;
+                _commit();
+              }),
+              _tipRow('页脚右', _config.tipFooterRight, (v) {
+                _config.tipFooterRight = v;
+                _commit();
+              }),
+            ],
             const SizedBox(height: 8),
             Text(
-              '兼容旧版：下方开关同步控制顶部状态条（隐藏工具栏时）',
+              '顶部状态条 · 隐藏阅读工具栏时显示',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -261,8 +272,10 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
                 ListTile(
                   title: Text(e.value),
                   trailing: current == e.key
-                      ? Icon(Icons.check,
-                          color: Theme.of(ctx).colorScheme.primary)
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        )
                       : null,
                   onTap: () => Navigator.pop(ctx, e.key),
                 ),

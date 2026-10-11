@@ -13,7 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/bottom_bar_skin_notifier.dart';
 import '../services/bottom_bar_skin_format.dart';
 import '../services/bottom_bar_skin_service.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/bottom_sheet_widget.dart';
 import 'bottom_bar_skin_assign_screen.dart';
 
@@ -44,7 +44,7 @@ class BottomBarSkinScreen extends ConsumerWidget {
         child: ListView(
           children: [
             const IosSectionHeader('皮肤'),
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               children: [
                 ListTile(
                   leading: Icon(
@@ -101,7 +101,7 @@ class BottomBarSkinScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const IosSectionHeader('预览'),
-                      IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                      SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(

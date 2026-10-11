@@ -4,10 +4,10 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 
 import 'setting_cards.dart';
 
-/// MD3 风格分组列表组件库（Batch 0 集中改造，UI_MD3_PLAN.md 第八节）
+/// 跨平台分组列表组件库。
 ///
 /// 提供分组设置页的「tonal 表面背景 + 大圆角分组容器 + outlineVariant
-/// 分隔」构件。类名沿用 Ios* 前缀（消费屏零改动继承改造），视觉已切换
+/// 分隔」构件。部分类名沿用 Ios* 前缀，视觉已切换
 /// 为 MD3 token：分组容器走 cardTheme（tonal surfaceContainer 层次），
 /// 图标容器 primaryContainer，拖拽把手对齐 M3 drag handle 规格。
 ///
@@ -17,7 +17,7 @@ import 'setting_cards.dart';
 ///   slivers: [
 ///     SliverToBoxAdapter(child: IosSectionHeader('分组')),
 ///     SliverToBoxAdapter(
-///       child: IosGroup(children: [ ListTile(...), SwitchListTile(...) ]),
+///       child: SettingsGroup(children: [ ListTile(...), SwitchListTile(...) ]),
 ///     ),
 ///   ],
 /// )
@@ -109,39 +109,50 @@ class IosSectionFooter extends StatelessWidget {
 /// tonal 圆角分组容器：在 children 之间绘制 outlineVariant 分隔线。
 ///
 /// 容器视觉由 cardTheme 驱动（tonal surfaceContainer 层次）；
-/// [separatorIndent] 为分隔线左侧缩进（有 leading 图标时约 56）。
+/// 默认分隔线避开相邻行的图标列，无图标时左侧留 16dp，右侧始终留 16dp。
+/// [separatorIndent] 可显式覆盖左侧缩进。
 /// [LAYOUT_MOTION_AUDIT L2] 分组圆角 16dp（HapeLee SplicedColumnGroup，
 /// 已确认；cardTheme 全局 20 保留，此处显式覆盖）；
 /// [flat] 为 true 时走扁平模式（Column + 条件 80% pill 分隔，
 /// HapeLee 设置页式，9 屏迁移用），默认 false 保持卡片兼容。
-class IosGroup extends StatelessWidget {
+class SettingsGroup extends StatelessWidget {
   final List<Widget> children;
-  final double separatorIndent;
+  final double? separatorIndent;
   final EdgeInsets margin;
   final bool flat;
 
-  const IosGroup({
+  const SettingsGroup({
     super.key,
     required this.children,
-    this.separatorIndent = 16,
+    this.separatorIndent,
     this.margin = const EdgeInsets.symmetric(horizontal: 0),
     this.flat = false,
   });
 
+  bool _hasLeading(Widget row) => switch (row) {
+    IosListTile(:final icon, :final leading) => icon != null || leading != null,
+    SettingSwitchRow(:final icon, :final leading) => icon != null || leading != null,
+    ListTile(:final leading) => leading != null,
+    _ => false,
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final separator = Divider(
-      height: 0.5,
-      thickness: 0.5,
-      indent: separatorIndent,
-      color: theme.dividerColor,
-    );
-
     final rows = <Widget>[];
     for (var i = 0; i < children.length; i++) {
       rows.add(children[i]);
-      if (i != children.length - 1) rows.add(separator);
+      if (i != children.length - 1) {
+        // 图标行的文字起点为 16dp 内边距 + 24dp 图标列 + 16dp 间距。
+        final hasLeading = _hasLeading(children[i]) || _hasLeading(children[i + 1]);
+        rows.add(Divider(
+          height: 0.5,
+          thickness: 0.5,
+          indent: separatorIndent ?? (hasLeading ? 56 : 16),
+          endIndent: 16,
+          color: theme.dividerColor,
+        ));
+      }
     }
 
     if (flat) {

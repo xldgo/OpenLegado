@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import 'src/models/models.dart';
+import 'src/l10n/app_strings.dart';
+import 'src/providers/app_locale_notifier.dart';
 import 'src/providers/providers.dart';
 import 'src/providers/ui_settings/ui_settings_notifier.dart';
 import 'src/providers/theme/theme_colors_notifier.dart';
@@ -199,7 +201,8 @@ class TopRouteWatcher extends NavigatorObserver {
   }
 }
 
-class _LegadoAppState extends ConsumerState<LegadoApp> {
+class _LegadoAppState extends ConsumerState<LegadoApp>
+    with WidgetsBindingObserver {
   /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
   /// [build]），两个只读消费者：
   /// - [P2-13b] 崩溃弹窗调度（[scheduleCrashLogDialog]）；
@@ -210,6 +213,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 系统栏样式由 [SystemBarBinder] 按偏好与主题统一驱动
     // 首帧渲染后检查上次崩溃日志并弹窗提示
     // [P2-13 2026-09-18] 弹窗上下文改用全局 Navigator（见
@@ -251,6 +255,17 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
       ..openFullscreen = _openVideoFromFloatWindow
       ..onNotice = _showFloatWindowNotice;
     VideoFloatWindowBridge.instance.attach();
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (ref.read(appLocaleProvider) == 'system') setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   /// [V-B3] 悬浮窗「全屏」/通知点击回传：导航到视频页从交回位置续播
@@ -295,6 +310,12 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeNotifierProvider);
+    final localePreference = ref.watch(appLocaleProvider);
+    final locale = resolveAppLocale(
+      localePreference,
+      WidgetsBinding.instance.platformDispatcher.locales,
+    );
+    AppStrings.setLocale(locale.languageCode);
     // [UI-FIX v2.0.5 | 2026-08-08] 自定义主题颜色接入 MaterialApp（对齐原版
     // ThemeConfigFragment 日间/夜间颜色配置，设置页修改后全局即时生效） — Qoder
     final themeColors = ref.watch(themeColorsProvider);
@@ -389,6 +410,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
           navigatorObservers: [appRouteObserver, _topRouteWatcher],
           debugShowCheckedModeBanner: false,
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          supportedLocales: appSupportedLocales,
+          locale: locale,
           theme: lightTheme,
           darkTheme: darkTheme,
           // 主题模式由 ThemeNotifier 驱动（亮/暗/跟随系统，全局实时切换）

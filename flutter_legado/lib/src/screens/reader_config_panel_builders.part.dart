@@ -7,7 +7,6 @@ part of 'reader_config_panel.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _ReaderConfigBuilders on _ReaderConfigPanelState {
-
   Widget _sectionTitle(String title, IconData icon) {
     // [LAYOUT_PLAN P1] 组内标题行 vertical12/horizontal8（全局行规范）
     return Padding(
@@ -16,8 +15,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         children: [
           Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 8),
-          Text(title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -59,8 +61,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
         SwitchListTile(
           dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
           title: const Text('启用自动翻页'),
           value: _config.autoPageTurn,
           onChanged: (v) {
@@ -71,8 +75,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         if (_config.autoPageTurn) ...[
           Row(
             children: [
-              Text('间隔 ${_config.autoPageTurnInterval.toStringAsFixed(0)} 秒',
-                  style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                '间隔 ${_config.autoPageTurnInterval.toStringAsFixed(0)} 秒',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               Expanded(
                 child: Slider(
                   value: _config.autoPageTurnInterval,
@@ -134,13 +140,20 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     );
   }
 
-  Widget _tapZoneRow(String label, TapAction current, ValueChanged<TapAction> onPick) {
+  Widget _tapZoneRow(
+    String label,
+    TapAction current,
+    ValueChanged<TapAction> onPick,
+  ) {
     // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Row(
         children: [
-          SizedBox(width: 72, child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+          SizedBox(
+            width: 72,
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
           Expanded(
             child: DropdownButton<TapAction>(
               value: current,
@@ -208,8 +221,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         ListTile(
           dense: true,
           // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
           leading: const Icon(Icons.font_download_outlined, size: 20),
           title: const Text('阅读字体'),
           subtitle: Text(_fontLabel),
@@ -257,12 +272,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           _showChoiceDialog<int>(
             title: '首行缩进',
             current: _config.paragraphIndent,
-            options: const {
-              0: '无缩进',
-              1: '一字符',
-              2: '二字符',
-              3: '三字符',
-            },
+            options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
             onPick: (v) {
               _config.paragraphIndent = v;
               _commit();
@@ -282,304 +292,57 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
   // ===== 更多配置（对标原版 MoreConfigDialog） =====
 
-  Widget _buildMoreConfig() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle('更多配置', Icons.tune_outlined),
-        // 简繁转换（接 Rust 繁简转换 FFI，对标原版 chineseConvertType）
-        Row(
-          children: [
-            Text('简繁转换', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 0, label: Text('不转换')),
-                  ButtonSegment(value: 1, label: Text('繁→简')),
-                  ButtonSegment(value: 2, label: Text('简→繁')),
-                ],
-                selected: {_convertType},
-                onSelectionChanged: (sel) async {
-                  final type = sel.first;
-                  setState(() => _convertType = type);
-                  try {
-                    await ref.read(bookApiProvider).setChineseConvertType(type);
-                    // 转换类型变更后重新加载当前章正文
-                    if (mounted) {
-                      unawaited(
-                        ref
-                            .read(readerNotifierProvider.notifier)
-                            .reloadChapterContent(),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('简繁转换设置失败: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        // 两端对齐（对标原版 MoreConfig textFullJustify）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('两端对齐'),
-          subtitle: const Text('正文行尾对齐（末行除外）'),
-          value: _config.textFullJustify,
-          onChanged: (v) {
-            _config.textFullJustify = v;
-            _commit();
-          },
-        ),
-        // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批无平台依赖项：
-        // 按原版 pref_config_read.xml 项序与文案补齐，每项真实生效
-        // （对标 MoreConfigDialog.onSharedPreferenceChanged 事件语义）— Qoder
-        // 屏幕方向（原版第 1 项 screenOrientation）
-        _moreRow('屏幕方向', _orientationLabel(_config.screenOrientation), () {
-          _showChoiceDialog<int>(
-            title: '屏幕方向',
-            current: _config.screenOrientation,
-            options: const {
-              0: '跟随系统',
-              1: '竖屏',
-              2: '横屏',
-              3: '自动(传感器)',
-              4: '反向竖屏',
-              5: '反向横屏',
-            },
-            onPick: (v) {
-              _config.screenOrientation = v;
-              _commit();
-            },
-          );
-        }),
-        // 保持亮屏（原版第 2 项 keep_light；平台限制诚实标注：项目未引入
-        // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
-        // 与 audio_screen 的 audioWakeLock 标注一致）
-        _moreRow('保持亮屏', _keepLightLabel(_config.keepLight), () {
-          _showChoiceDialog<int>(
-            title: '保持亮屏',
-            current: _config.keepLight,
-            options: const {
-              0: '默认',
-              60: '1 分钟',
-              300: '5 分钟',
-              600: '10 分钟',
-              -1: '常亮',
-            },
-            onPick: (v) {
-              _config.keepLight = v;
-              _commit();
-            },
-          );
-        }),
-        // 隐藏状态栏（原版第 3 项：SystemUiMode 移除顶部 overlay）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('隐藏状态栏'),
-          subtitle: const Text('阅读时隐藏系统状态栏'),
-          value: _config.hideStatusBar,
-          onChanged: (v) {
-            _config.hideStatusBar = v;
-            _commit();
-          },
-        ),
-        // 隐藏导航栏（原版第 4 项：SystemUiMode 移除底部 overlay）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('隐藏导航栏'),
-          subtitle: const Text('阅读时隐藏系统导航栏'),
-          value: _config.hideNavigationBar,
-          onChanged: (v) {
-            _config.hideNavigationBar = v;
-            _commit();
-          },
-        ),
-        // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
-        _moreRow('进度条行为',
-            _config.progressBarBehavior == 'page' ? '调章内页' : '调章节', () {
-          _showChoiceDialog<String>(
-            title: '进度条行为',
-            current: _config.progressBarBehavior,
-            options: const {
-              'page': '调章内页',
-              'chapter': '调章节',
-            },
-            onPick: (v) {
-              _config.progressBarBehavior = v;
-              _commit();
-            },
-          );
-        }),
-        // 自动换源（原版 autoChangeSource：章节加载失败自动切换书源）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('自动换源'),
-          subtitle: const Text('章节加载失败时自动切换书源'),
-          value: _config.autoChangeSource,
-          onChanged: (v) {
-            _config.autoChangeSource = v;
-            _commit();
-          },
-        ),
-        // 长按选择文本（原版 selectText：长按正文选区面板启停）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('长按选择文本'),
-          subtitle: const Text('长按正文段落弹出选择面板'),
-          value: _config.selectText,
-          onChanged: (v) {
-            _config.selectText = v;
-            _commit();
-          },
-        ),
-        // 显示亮度控件（原版 showBrightnessView：底栏亮度行显隐）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('显示亮度控件'),
-          subtitle: const Text('底栏显示亮度调节滑条'),
-          value: _config.showBrightnessView,
-          onChanged: (v) {
-            _config.showBrightnessView = v;
-            _commit();
-          },
-        ),
-        // 滚动翻页无动画（原版 noAnimScrollPage：程序化翻页去除动画）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('滚动翻页无动画'),
-          subtitle: const Text('点击/自动翻页直接切换不带动画'),
-          value: _config.noAnimScrollPage,
-          onChanged: (v) {
-            _config.noAnimScrollPage = v;
-            _commit();
-          },
-        ),
-        // 显示标题附加区（原版 showReadTitleAddition：顶栏书名后追加章名）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('显示标题附加区'),
-          subtitle: const Text('顶栏书名后显示当前章名'),
-          value: _config.showReadTitleAddition,
-          onChanged: (v) {
-            _config.showReadTitleAddition = v;
-            _commit();
-          },
-        ),
-        // 工具栏跟随页面（原版 readBarStyleFollowPage：顶/底栏背景与文字色
-        // 跟随当前阅读页配色，对标 ReadMenu immersiveMenu）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('工具栏跟随页面'),
-          subtitle: const Text('顶/底栏配色跟随阅读页背景'),
-          value: _config.readBarStyleFollowPage,
-          onChanged: (v) {
-            _config.readBarStyleFollowPage = v;
-            _commit();
-          },
-        ),
-        // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
-        // pref_config_read.xml 项序与文案补齐，平台受限项以副标题
-        // 灰字诚实标注（不引入新依赖）— Qoder
-        // 扩展到刘海（原版 readBodyToLh；仅 Android 生效）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('扩展到刘海'),
-          subtitle: const Text('正文延伸到刘海区域（仅 Android 生效）'),
-          value: _config.readBodyToLh,
-          onChanged: (v) {
-            _config.readBodyToLh = v;
-            _commit();
-          },
-        ),
-        // 填充刘海区域（原版 paddingDisplayCutouts；仅 Android 生效）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('填充刘海区域'),
-          subtitle: const Text('页面边距避开刘海区域（仅 Android 生效）'),
-          value: _config.paddingDisplayCutouts,
-          onChanged: (v) {
-            _config.paddingDisplayCutouts = v;
-            _commit();
-          },
-        ),
-        // 平板/横屏双页（原版 doubleHorizontalPage，4 档；已接入渲染）
-        _moreRow('平板/横屏双页',
-            _doublePageLabel(_config.doubleHorizontalPage), () {
-          _showChoiceDialog<int>(
-            title: '平板/横屏双页',
-            current: _config.doubleHorizontalPage,
-            options: const {
-              0: '全局单页',
-              1: '全局双页',
-              2: '横屏双页',
-              3: '平板/横屏双页',
-            },
-            onPick: (v) {
-              _config.doubleHorizontalPage = v;
-              _commit();
-            },
-          );
-        }),
-        // 使用自定义中文分行（原版 useZhLayout；关闭后走朴素按宽断行）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('使用自定义中文分行'),
-          subtitle: const Text('开启后启用中文避头尾与更优断行'),
-          value: _config.useZhLayout,
-          onChanged: (v) {
-            _config.useZhLayout = v;
-            _commit();
-          },
-        ),
+  /// 旧面板入口复用相同分组，完整设置页按职责分别展示。
+  Widget _buildMoreConfig() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildTypographyOptions(),
+      _buildInteractionOptions(),
+      _buildScreenOptions(),
+      _buildContentOptions(),
+      _buildToolbarOptions(),
+    ],
+  );
+
+  Widget _buildTypographyOptions() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionTitle('排版细节', Icons.text_fields),
+      // 两端对齐（对标原版 MoreConfig textFullJustify）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('两端对齐'),
+        subtitle: const Text('正文行尾对齐（末行除外）'),
+        value: _config.textFullJustify,
+        onChanged: (v) {
+          _config.textFullJustify = v;
+          _commit();
+        },
+      ),
+      // 使用自定义中文分行（原版 useZhLayout；关闭后走朴素按宽断行）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('使用自定义中文分行'),
+        subtitle: const Text('开启后启用中文避头尾与更优断行'),
+        value: _config.useZhLayout,
+        onChanged: (v) {
+          _config.useZhLayout = v;
+          _commit();
+        },
+      ),
+      if (_config.useZhLayout)
         // 段首标点悬挂（原版 hangingPunctuation；已接入排版引擎）
         // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
         SwitchListTile(
           dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
           title: const Text('段首标点悬挂'),
           subtitle: const Text('段首引号等标点悬挂于缩进内，使正文首字与其他段落对齐'),
           value: _config.hangingPunctuation,
@@ -588,40 +351,74 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             _commit();
           },
         ),
-        // 鼠标滚轮翻页（原版 mouseWheelPage；桌面端真实生效）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('鼠标滚轮翻页'),
-          subtitle: const Text('分页模式下滚轮上下滚动翻页'),
-          value: _config.mouseWheelPage,
-          onChanged: (v) {
-            _config.mouseWheelPage = v;
-            _commit();
-          },
-        ),
-        // 音量键翻页（原版 volumeKeyPage；桌面端无音量键事件）
-        // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
-        SwitchListTile(
-          dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          title: const Text('音量键翻页'),
-          subtitle: const Text('仅 Android 生效'),
-          value: _config.volumeKeyPage,
-          onChanged: (v) {
-            _config.volumeKeyPage = v;
-            _commit();
-          },
-        ),
+    ],
+  );
+
+  Widget _buildInteractionOptions() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionTitle('操作选项', Icons.touch_app_outlined),
+      // 长按选择文本（原版 selectText：长按正文选区面板启停）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('长按选择文本'),
+        subtitle: const Text('长按正文段落弹出选择面板'),
+        value: _config.selectText,
+        onChanged: (v) {
+          _config.selectText = v;
+          _commit();
+        },
+      ),
+      // 滚动翻页无动画（原版 noAnimScrollPage：程序化翻页去除动画）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('滚动翻页无动画'),
+        subtitle: const Text('点击/自动翻页直接切换不带动画'),
+        value: _config.noAnimScrollPage,
+        onChanged: (v) {
+          _config.noAnimScrollPage = v;
+          _commit();
+        },
+      ),
+      // 鼠标滚轮翻页（原版 mouseWheelPage；桌面端真实生效）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('鼠标滚轮翻页'),
+        subtitle: const Text('分页模式下滚轮上下滚动翻页'),
+        value: _config.mouseWheelPage,
+        onChanged: (v) {
+          _config.mouseWheelPage = v;
+          _commit();
+        },
+      ),
+      // 音量键翻页（原版 volumeKeyPage；桌面端无音量键事件）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('音量键翻页'),
+        subtitle: const Text('仅 Android 生效'),
+        value: _config.volumeKeyPage,
+        onChanged: (v) {
+          _config.volumeKeyPage = v;
+          _commit();
+        },
+      ),
+      if (_config.volumeKeyPage)
         // 朗读时音量键翻页（原版 volumeKeyPageOnPlay；仅 Android 生效）
         // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
         SwitchListTile(
           dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
           title: const Text('朗读时音量键翻页'),
           subtitle: const Text('仅 Android 生效'),
           value: _config.volumeKeyPageOnPlay,
@@ -630,12 +427,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             _commit();
           },
         ),
-        // 滑动翻页阈值（原版 pageTouchSlop：NumberPicker 0-9999，
-        // 0=系统默认值；[fix Task#41 | 2026-08-09] 已经 reader_page_view
-        // 的 MediaQuery.gestureSettings 覆写拖拽识别阈值，修改即时生效）
-        _moreRow('滑动翻页阈值',
-            _config.pageTouchSlop == 0 ? '系统默认' : '${_config.pageTouchSlop}px',
-            () {
+      // 滑动翻页阈值（原版 pageTouchSlop：NumberPicker 0-9999，
+      // 0=系统默认值；[fix Task#41 | 2026-08-09] 已经 reader_page_view
+      // 的 MediaQuery.gestureSettings 覆写拖拽识别阈值，修改即时生效）
+      _moreRow(
+        '滑动翻页阈值',
+        _config.pageTouchSlop == 0 ? '系统默认' : '${_config.pageTouchSlop}px',
+        () {
           _showNumberDialog(
             title: '滑动翻页阈值（0 = 系统默认值）',
             current: _config.pageTouchSlop,
@@ -645,24 +443,260 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               _commit();
             },
           );
-        }),
-        // 边缘点击阈值（原版 pageTouchClick：NumberPicker 0-399，
-        // 左右边缘多少距离不触发点击；[fix Task#41 | 2026-08-09] 已经
-        // reader_screen._handleTap 收缩左右分区边缘死区，修改即时生效）
-        _moreRow('边缘点击阈值', '${_config.pageTouchClick}px', () {
-          _showNumberDialog(
-            title: '边缘点击阈值',
-            current: _config.pageTouchClick,
-            max: 399,
+        },
+      ),
+      // 边缘点击阈值（原版 pageTouchClick：NumberPicker 0-399，
+      // 左右边缘多少距离不触发点击；[fix Task#41 | 2026-08-09] 已经
+      // reader_screen._handleTap 收缩左右分区边缘死区，修改即时生效）
+      _moreRow('边缘点击阈值', '${_config.pageTouchClick}px', () {
+        _showNumberDialog(
+          title: '边缘点击阈值',
+          current: _config.pageTouchClick,
+          max: 399,
+          onPick: (v) {
+            _config.pageTouchClick = v;
+            _commit();
+          },
+        );
+      }),
+    ],
+  );
+
+  Widget _buildScreenOptions() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionTitle('屏幕显示', Icons.phone_android),
+      // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批无平台依赖项：
+      // 按原版 pref_config_read.xml 项序与文案补齐，每项真实生效
+      // （对标 MoreConfigDialog.onSharedPreferenceChanged 事件语义）— Qoder
+      // 屏幕方向（原版第 1 项 screenOrientation）
+      _moreRow('屏幕方向', _orientationLabel(_config.screenOrientation), () {
+        _showChoiceDialog<int>(
+          title: '屏幕方向',
+          current: _config.screenOrientation,
+          options: const {
+            0: '跟随系统',
+            1: '竖屏',
+            2: '横屏',
+            3: '自动(传感器)',
+            4: '反向竖屏',
+            5: '反向横屏',
+          },
+          onPick: (v) {
+            _config.screenOrientation = v;
+            _commit();
+          },
+        );
+      }),
+      // 保持亮屏（原版第 2 项 keep_light；平台限制诚实标注：项目未引入
+      // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
+      // 与 audio_screen 的 audioWakeLock 标注一致）
+      _moreRow('保持亮屏', _keepLightLabel(_config.keepLight), () {
+        _showChoiceDialog<int>(
+          title: '保持亮屏',
+          current: _config.keepLight,
+          options: const {
+            0: '默认',
+            60: '1 分钟',
+            300: '5 分钟',
+            600: '10 分钟',
+            -1: '常亮',
+          },
+          onPick: (v) {
+            _config.keepLight = v;
+            _commit();
+          },
+        );
+      }),
+      // 隐藏状态栏（原版第 3 项：SystemUiMode 移除顶部 overlay）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('隐藏状态栏'),
+        subtitle: const Text('阅读时隐藏系统状态栏'),
+        value: _config.hideStatusBar,
+        onChanged: (v) {
+          _config.hideStatusBar = v;
+          _commit();
+        },
+      ),
+      // 隐藏导航栏（原版第 4 项：SystemUiMode 移除底部 overlay）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('隐藏导航栏'),
+        subtitle: const Text('阅读时隐藏系统导航栏'),
+        value: _config.hideNavigationBar,
+        onChanged: (v) {
+          _config.hideNavigationBar = v;
+          _commit();
+        },
+      ),
+      // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
+      // pref_config_read.xml 项序与文案补齐，平台受限项以副标题
+      // 灰字诚实标注（不引入新依赖）— Qoder
+      // 扩展到刘海（原版 readBodyToLh；仅 Android 生效）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('扩展到刘海'),
+        subtitle: const Text('正文延伸到刘海区域（仅 Android 生效）'),
+        value: _config.readBodyToLh,
+        onChanged: (v) {
+          _config.readBodyToLh = v;
+          _commit();
+        },
+      ),
+      // 填充刘海区域（原版 paddingDisplayCutouts；仅 Android 生效）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('填充刘海区域'),
+        subtitle: const Text('页面边距避开刘海区域（仅 Android 生效）'),
+        value: _config.paddingDisplayCutouts,
+        onChanged: (v) {
+          _config.paddingDisplayCutouts = v;
+          _commit();
+        },
+      ),
+      // 平板/横屏双页（原版 doubleHorizontalPage，4 档；已接入渲染）
+      _moreRow('平板/横屏双页', _doublePageLabel(_config.doubleHorizontalPage), () {
+        _showChoiceDialog<int>(
+          title: '平板/横屏双页',
+          current: _config.doubleHorizontalPage,
+          options: const {0: '全局单页', 1: '全局双页', 2: '横屏双页', 3: '平板/横屏双页'},
+          onPick: (v) {
+            _config.doubleHorizontalPage = v;
+            _commit();
+          },
+        );
+      }),
+    ],
+  );
+
+  Widget _buildContentOptions() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionTitle('内容处理', Icons.article_outlined),
+      // 简繁转换（接 Rust 繁简转换 FFI，对标原版 chineseConvertType）
+      Row(
+        children: [
+          Text('简繁转换', style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 0, label: Text('不转换')),
+                ButtonSegment(value: 1, label: Text('繁→简')),
+                ButtonSegment(value: 2, label: Text('简→繁')),
+              ],
+              selected: {_convertType},
+              onSelectionChanged: (sel) async {
+                final type = sel.first;
+                setState(() => _convertType = type);
+                try {
+                  await ref.read(bookApiProvider).setChineseConvertType(type);
+                  // 转换类型变更后重新加载当前章正文
+                  if (mounted) {
+                    unawaited(
+                      ref
+                          .read(readerNotifierProvider.notifier)
+                          .reloadChapterContent(),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text('简繁转换设置失败: $e')));
+                  }
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+      // 自动换源（原版 autoChangeSource：章节加载失败自动切换书源）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('自动换源'),
+        subtitle: const Text('章节加载失败时自动切换书源'),
+        value: _config.autoChangeSource,
+        onChanged: (v) {
+          _config.autoChangeSource = v;
+          _commit();
+        },
+      ),
+    ],
+  );
+
+  Widget _buildToolbarOptions() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionTitle('阅读工具栏', Icons.view_quilt_outlined),
+      // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
+      _moreRow(
+        '进度条行为',
+        _config.progressBarBehavior == 'page' ? '调章内页' : '调章节',
+        () {
+          _showChoiceDialog<String>(
+            title: '进度条行为',
+            current: _config.progressBarBehavior,
+            options: const {'page': '调章内页', 'chapter': '调章节'},
             onPick: (v) {
-              _config.pageTouchClick = v;
+              _config.progressBarBehavior = v;
               _commit();
             },
           );
-        }),
-      ],
-    );
-  }
+        },
+      ),
+      // 显示亮度控件（原版 showBrightnessView：底栏亮度行显隐）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('显示亮度控件'),
+        subtitle: const Text('底栏显示亮度调节滑条'),
+        value: _config.showBrightnessView,
+        onChanged: (v) {
+          _config.showBrightnessView = v;
+          _commit();
+        },
+      ),
+      // 显示标题附加区（原版 showReadTitleAddition：顶栏书名后追加章名）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('显示标题附加区'),
+        subtitle: const Text('顶栏书名后显示当前章名'),
+        value: _config.showReadTitleAddition,
+        onChanged: (v) {
+          _config.showReadTitleAddition = v;
+          _commit();
+        },
+      ),
+      // 工具栏跟随页面（原版 readBarStyleFollowPage：顶/底栏背景与文字色
+      // 跟随当前阅读页配色，对标 ReadMenu immersiveMenu）
+      // [LAYOUT_PLAN P1] 开关行规范：组内行 vertical12/horizontal8，无 Chevron
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        title: const Text('工具栏跟随页面'),
+        subtitle: const Text('顶/底栏配色跟随阅读页背景'),
+        value: _config.readBarStyleFollowPage,
+        onChanged: (v) {
+          _config.readBarStyleFollowPage = v;
+          _commit();
+        },
+      ),
+    ],
+  );
 
   // ===== MoreConfig 第②批辅助构建方法 =====
 
@@ -745,14 +779,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             Expanded(
               child: Text(title, style: Theme.of(context).textTheme.bodyMedium),
             ),
-            Text(current,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    )),
+            Text(
+              current,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+            ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down,
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
@@ -777,8 +814,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             ListTile(
               title: Text(entry.value),
               trailing: current == entry.key
-                  ? Icon(Icons.check,
-                      color: Theme.of(dialogContext).colorScheme.primary)
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(dialogContext).colorScheme.primary,
+                    )
                   : null,
               onTap: () {
                 Navigator.pop(dialogContext);
@@ -797,97 +836,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle('亮度控制', Icons.brightness_6_outlined),
-        FutureBuilder<bool>(
-          future: SystemBrightness.isSupported(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
-              return const Center(child: AppCircularProgressIndicator());
-            }
-            
-            final supported = snapshot.data ?? false;
-            if (!supported) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text('此设备不支持亮度调节',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              );
-            }
-
-            return FutureBuilder<bool>(
-              future: SystemBrightness.isAutoBrightness(),
-              builder: (context, autoSnapshot) {
-                if (autoSnapshot.connectionState != ConnectionState.done) {
-                  // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
-                  return const Center(child: AppCircularProgressIndicator());
-                }
-
-                final isAuto = autoSnapshot.data ?? false;
-
-                return Column(
-                  children: [
-                    SwitchListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('自动亮度'),
-                      subtitle: const Text('根据环境光自动调节'),
-                      value: isAuto,
-                      onChanged: (v) async {
-                        await SystemBrightness.setAutoBrightness(v);
-                        setState(() {});
-                      },
-                    ),
-                    if (!isAuto) ...[
-                      const SizedBox(height: 8),
-                      FutureBuilder<double>(
-                        future: SystemBrightness.getBrightness(),
-                        builder: (context, brightnessSnapshot) {
-                          if (brightnessSnapshot.connectionState != ConnectionState.done) {
-                            // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
-                            return const Center(child: AppCircularProgressIndicator());
-                          }
-
-                          final brightness = brightnessSnapshot.data ?? 0.5;
-
-                          return Row(
-                            children: [
-                              Icon(Icons.brightness_low, size: 20,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              Expanded(
-                                child: Slider(
-                                  value: brightness,
-                                  min: 0.0,
-                                  max: 1.0,
-                                  divisions: 20,
-                                  label: '${(brightness * 100).round()}%',
-                                  onChanged: (v) async {
-                                    await SystemBrightness.setBrightness(v);
-                                    setState(() {});
-                                  },
-                                ),
-                              ),
-                              Icon(Icons.brightness_high, size: 20,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              SizedBox(
-                                width: 48,
-                                child: Text(
-                                  '${(brightness * 100).round()}%',
-                                  textAlign: TextAlign.end,
-                                  style: Theme.of(context).textTheme.labelMedium,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                );
-              },
-            );
-          },
-        ),
+        const ReaderBrightnessControl(),
       ],
     );
   }

@@ -144,9 +144,10 @@ class _HelpScreenState extends State<HelpScreen> {
                 tooltip: '源码',
                 onPressed: _markdown == null ? null : _openSourceView,
               ),
-              TextButton(
+              IconButton(
+                icon: const Icon(Symbols.close_rounded),
+                tooltip: '关闭',
                 onPressed: _close,
-                child: const Text('关闭'),
               ),
             ],
           ),

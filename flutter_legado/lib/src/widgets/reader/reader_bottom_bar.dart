@@ -9,13 +9,13 @@ import '../../providers/audio/audio_notifier.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/theme/theme_notifier.dart';
 import '../../screens/reader_config_panel.dart';
-import '../../services/system_brightness.dart';
+import 'reader_brightness_control.dart';
 
 /// 阅读器底部工具栏
 ///
 /// 对齐安卓原版 ReadMenu 底部栏（view_read_menu.xml）：
 /// 悬浮按钮行（搜索/夜间，对标 ll_floating_button）
-/// + 亮度行（自动亮度+亮度滑条）+ 上一章/章节进度条/下一章
+/// + 亮度行（跟随系统亮度/手动滑条）+ 上一章/章节进度条/下一章
 /// + 目录/朗读/界面/设置四功能按钮
 /// [UI-fix v2.0.4 | 2026-08-08] 源操作行移除（原版底栏无此行，源操作
 /// 已迁至顶栏源名称徽章，对标 tv_source_action）；搜索/夜间自顶栏迁入
@@ -83,9 +83,6 @@ class _ReaderBottomBarState extends ConsumerState<ReaderBottomBar>
     reverseDuration: const Duration(milliseconds: 180),
     value: widget.visible ? 1 : 0,
   );
-  bool _brightnessSupported = false;
-  bool _autoBrightness = false;
-  double _brightness = 0.5;
 
   // AnimatedOpacity + AnimatedSlide（180ms，对标 anim_readbook_bottom）。
 
@@ -108,27 +105,7 @@ class _ReaderBottomBarState extends ConsumerState<ReaderBottomBar>
   @override
   void initState() {
     super.initState();
-    unawaited(_loadBrightness());
     // [LAYOUT_PLAN P4] 触发底栏 slide+fade 进场（保持 showControls 条件挂载逻辑不变）。
-  }
-
-  Future<void> _loadBrightness() async {
-    try {
-      final supported = await SystemBrightness.isSupported();
-      if (!supported) return;
-      final isAuto = await SystemBrightness.isAutoBrightness();
-      final value = await SystemBrightness.getBrightness();
-      if (!mounted) return;
-      setState(() {
-        _brightnessSupported = true;
-        _autoBrightness = isAuto;
-        _brightness = value;
-      });
-    } catch (e) {
-      // [审计修复 §4.1] 平台通道不可用时（如测试环境）静默降级隐藏亮度行，
-      // debugPrint 留痕便于排障 — Qoder
-      debugPrint('亮度通道不可用，隐藏亮度行: $e');
-    }
   }
 
   // [UI-fix v2.0.4 | 2026-08-08] 源操作菜单（_showSourceMenu/_chapterPay）
@@ -290,39 +267,12 @@ class _ReaderBottomBarState extends ConsumerState<ReaderBottomBar>
               child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 亮度行（对标 ll_brightness：自动亮度 + 亮度滑条）
+              // 亮度行与设置页共用跟随系统及手动调节逻辑。
               // [UI-fix v2.0.3 | 2026-08-08] showBrightnessView 关闭时隐藏 — Qoder
-              if (_brightnessSupported && widget.showBrightnessView)
+              if (widget.showBrightnessView)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _autoBrightness
-                              ? Icons.brightness_auto
-                              : Icons.brightness_auto_outlined,
-                        ),
-                        tooltip: _autoBrightness ? '关闭自动亮度' : '自动亮度',
-                        onPressed: () async {
-                          await SystemBrightness.setAutoBrightness(
-                              !_autoBrightness);
-                          await _loadBrightness();
-                        },
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: _brightness,
-                          onChanged: _autoBrightness
-                              ? null
-                              : (v) {
-                                  setState(() => _brightness = v);
-                                  unawaited(SystemBrightness.setBrightness(v));
-                                },
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: const ReaderBrightnessControl(compact: true),
                 ),
               // 进度条（对标 tv_pre + seek_read_page + tv_next）
               // [UI-fix v2.0.3 | 2026-08-08] progressBarBehavior=page 时滑条

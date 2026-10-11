@@ -340,6 +340,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     unawaited(bridge.setVolumeKeyCapture(false));
     // 退出前保存阅读进度
     unawaited(_saveProgress());
+    unawaited(SystemBrightness.setFollowSystem(true).catchError((Object error) {
+      debugPrint('退出漫画阅读时恢复系统亮度失败: $error');
+    }));
     super.dispose();
   }
 

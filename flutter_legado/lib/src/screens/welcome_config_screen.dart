@@ -12,7 +12,7 @@ import '../constants/pref_keys.dart';
 import '../providers/providers.dart';
 import '../services/settings_service.dart';
 import '../widgets/app_progress_indicator.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 
 /// 欢迎页样式配置（对齐原版 WelcomeConfigFragment + pref_config_welcome.xml）
 ///
@@ -149,7 +149,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
               child: ListView(
                 children: [
                   const IosSectionHeader('显示时长'),
-                  IosGroup(
+                  SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
                     Padding(
@@ -197,7 +197,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                     ),
                   ]),
                   const IosSectionHeader('自定义'),
-                  IosGroup(
+                  SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
                     SwitchListTile.adaptive(
@@ -211,7 +211,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                     ),
                   ]),
                   const IosSectionHeader('白天'),
-                  IosGroup(
+                  SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
                     IosListTile(
@@ -240,7 +240,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                     ),
                   ]),
                   const IosSectionHeader('夜间'),
-                  IosGroup(
+                  SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
                     IosListTile(

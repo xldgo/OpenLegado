@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'ios_widgets.dart';
+import 'settings_widgets.dart';
 
 /// 规则语法帮助弹层（静态速查）
 ///

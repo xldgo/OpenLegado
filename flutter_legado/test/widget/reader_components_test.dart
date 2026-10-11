@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
@@ -8,7 +8,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/l10n/app_strings.dart';
-import 'package:flutter_legado/src/services/system_brightness.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
@@ -267,15 +266,27 @@ void main() {
       expect(nextButton.onPressed, isNotNull);
     });
 
-    // [iOS 视角F B1] 模拟 iOS：亮度通道未注册（不装 mock handler，
-    // invokeMethod 即抛 MissingPluginException）。修复前 isAutoBrightness
-    // 异常穿透 → _loadBrightness 整段 catch → 亮度行隐藏；修复后
-    // iOS 分支不调通道（isAutoBrightness 固定 false / setAutoBrightness
-    // no-op）→ 亮度行正常渲染，自动亮度切换不抛异常。
-    testWidgets('iOS 通道未注册时亮度行仍渲染且自动亮度切换不抛',
+    // 既有亮度行用例改用共用插件，验证跟随系统切换为手动亮度。
+    testWidgets('亮度行从跟随系统切换为手动调节',
         (tester) async {
-      SystemBrightness.platformIsIOS = () => true;
-      addTearDown(() => SystemBrightness.platformIsIOS = () => Platform.isIOS);
+      const channel = MethodChannel('github.com/aaassseee/screen_brightness');
+      const eventChannel = MethodChannel('github.com/aaassseee/screen_brightness/application_brightness_changed');
+      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      var changed = false;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'getApplicationScreenBrightness': return 0.5;
+          case 'hasApplicationScreenBrightnessChanged': return changed;
+          case 'setApplicationScreenBrightness': changed = true; return null;
+          case 'resetApplicationScreenBrightness': changed = false; return null;
+        }
+        return null;
+      });
+      messenger.setMockMethodCallHandler(eventChannel, (_) async => null);
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(channel, null);
+        messenger.setMockMethodCallHandler(eventChannel, null);
+      });
       await tester.pumpWidget(wrapStack(ReaderBottomBar(
         onOpenCatalog: () {},
         onOpenSettings: () {},
@@ -283,32 +294,13 @@ void main() {
         onOpenContentSearch: () {},
         onReadAloud: () {},
       )));
-      // _loadBrightness 为微任务链（isSupported → isAutoBrightness →
-      // getBrightness：iOS 通道未注册 → 通道响应经真实异步 I/O 回传
-      // MissingPluginException → 回落 0.5 → setState）。通道响应在假异步区
-      // 无法靠 pump 冲刷，先 runAsync 让真实事件循环完成回传，再以有界 pump
-      // 循环推进剩余微任务 hop 直至亮度行出现（若链路异常未渲染，循环用尽
-      // 后断言失败）
-      final autoIcon = find.byIcon(Icons.brightness_auto_outlined);
-      await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 200)));
-      for (var i = 0; i < 10 && autoIcon.evaluate().isEmpty; i++) {
-        await tester.pump();
-      }
-
-      // 亮度行渲染：自动亮度图标 + 亮度滑条（另有章节进度滑条共 2 个）
-      expect(autoIcon, findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('跟随系统亮度'), findsOneWidget);
+      expect(find.byType(Slider), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.brightness_auto));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.brightness_auto_outlined), findsOneWidget);
       expect(find.byType(Slider), findsNWidgets(2));
-
-      // 点击自动亮度切换：setAutoBrightness no-op + _loadBrightness 重跑
-      // （其通道回传同样需 runAsync 冲刷），行不消失、无未捕获异常
-      await tester.tap(autoIcon);
-      await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 200)));
-      for (var i = 0; i < 10 && autoIcon.evaluate().isEmpty; i++) {
-        await tester.pump();
-      }
-      expect(autoIcon, findsOneWidget);
     });
   });
 

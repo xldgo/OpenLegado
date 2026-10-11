@@ -29,12 +29,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import '../constants/pref_keys.dart';
 import '../bridge/ffi.dart';
 import '../l10n/app_strings.dart';
+import '../providers/app_locale_notifier.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/source_check/check_source_notifier.dart';
 import '../services/crash_log_service.dart';
 import '../services/settings_service.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/video_settings_dialog.dart';
 
 /// 其他设置页面（对齐原版 OtherConfigFragment）
@@ -109,11 +110,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
   Future<void> _loadLocale() async {
     _localeValue = await _settingsService.getLocale();
-    // 约定：'system' 不调用 setLocale，生效 AppStrings 默认值 'zh'（系统=中文，
-    // 与 _showLocalePicker 选“系统”时回退 'zh' 的行为保持一致）
-    if (_localeValue != 'system') {
-      AppStrings.setLocale(_localeValue);
-    }
+    // 语言应用由全局状态负责，本页只恢复选项显示。
     if (mounted) setState(() {});
   }
 
@@ -203,7 +200,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
           padding: const EdgeInsets.only(bottom: 32),
           children: [
             // ===== 语言（对齐原版 language，无独立 category）=====
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                 children: [
               IosListTile(
                 icon: Symbols.language_rounded,
@@ -215,7 +212,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
             // ===== 主界面 =====
             const IosSectionHeader('主界面'),
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                 children: [
               SettingSwitchRow(
                 title: '自动刷新',
@@ -265,7 +262,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
             // ===== 其他（顺序严格对齐 pref_config_other.xml）=====
             const IosSectionHeader('其他设置'),
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                 children: [
               IosListTile(
                 title: '设置本地密码',
@@ -1091,16 +1088,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       // 进入 .then 回调后第一时间检查 mounted，再 setState/持久化
       if (selectedLocale == null || !mounted) return;
       setState(() => _localeValue = selectedLocale);
-      await _settingsService.setLocale(selectedLocale);
-      // [UI-fix v2.0.5 | 2026-08-08] 项目约定：“跟随系统”=中文。
-      // AppStrings 无系统语言解析能力，其 _locale 默认值即 'zh'（冷启动时
-      // _loadLocale 对 'system' 不调用 setLocale，最终生效的就是默认 'zh'），
-      // 故此处选“系统”时立即回退 'zh'，与重启后效果保持一致 — Qoder
-      if (selectedLocale == 'system') {
-        AppStrings.setLocale('zh');
-      } else {
-        AppStrings.setLocale(selectedLocale);
-      }
+      await ref.read(appLocaleProvider.notifier).setLocale(selectedLocale);
       if (mounted) setState(() {});
     });
   }

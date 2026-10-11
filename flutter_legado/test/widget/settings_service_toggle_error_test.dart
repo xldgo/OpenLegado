@@ -20,7 +20,7 @@ import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
-import 'package:flutter_legado/src/widgets/ios_widgets.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';
 

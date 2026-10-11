@@ -24,7 +24,7 @@ import '../routes.dart';
 import '../services/crash_log_service.dart';
 import '../services/restore_ignore_prefs.dart';
 import '../services/settings_service.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 import '../widgets/restore_ignore_dialog.dart';
@@ -512,7 +512,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
           padding: const EdgeInsets.only(bottom: 32),
           children: [
             const IosSectionHeader('WebDav 设置'),
-            IosGroup(
+            SettingsGroup(
               flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               children: [
                 IosListTile(
@@ -599,7 +599,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             ),
 
             const IosSectionHeader('备份与恢复'),
-            IosGroup(
+            SettingsGroup(
               flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               children: [
                 IosListTile(

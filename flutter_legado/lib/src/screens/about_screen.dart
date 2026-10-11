@@ -9,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../routes.dart';
 import '../services/app_update_service.dart';
 import '../services/crash_log_service.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/update_dialog.dart';
 
 /// 关于页面（对齐原版 about.xml + AboutFragment）
@@ -202,7 +202,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           // [LAYOUT_PLAN P3] 底部 bottom32 保留；列表水平边距走 IosGroupedBody 16dp
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               // [LAYOUT_PLAN P3] 分组行走 IosListTile 规范（扁平分组，行内边距由 ListTile 承担）
               children: [
                 IosListTile(
@@ -231,7 +231,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               ],
             ),
             const IosSectionHeader('其他'),
-            IosGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               // [LAYOUT_PLAN P3] 分组行走 IosListTile 规范（扁平分组，行内边距由 ListTile 承担）
               children: [
                 IosListTile(

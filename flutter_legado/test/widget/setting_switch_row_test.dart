@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
-import 'package:flutter_legado/src/widgets/ios_widgets.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 /// M3 设置开关行（`SettingSwitchRow`，对齐参考版 `SwitchSettingItem`）测试
 ///

@@ -14,7 +14,7 @@ import '../services/web_keep_alive_service.dart';
 import '../providers/providers.dart';
 import '../providers/theme/theme_notifier.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/ios_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 import '../widgets/bottom_sheet_widget.dart';
@@ -314,8 +314,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ===== 顶部管理入口（对标 pref_main 顶层项，文案对齐 values-zh）=====
-                IosGroup(
-                  separatorIndent: 62,
+                SettingsGroup(
                   children: [
                     IosListTile(
                       icon: Symbols.library_books_rounded,
@@ -383,8 +382,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
 
                   const SizedBox(height: 16),
-                  IosGroup(
-                    separatorIndent: 62,
+                  SettingsGroup(
                     children: [
                       SettingSwitchRow(
                         leading: _webServiceBusy
@@ -425,8 +423,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // ===== 设置分组 =====
                   IosSectionHeader('设置', key: _settingsSectionKey),
-                  IosGroup(
-                    separatorIndent: 62,
+                  SettingsGroup(
                     children: [
                       // 常用设置直接进入对应页面，减少一层菜单跳转。
                       IosListTile(
@@ -439,8 +436,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       IosListTile(
                         icon: Symbols.style_rounded,
                         title: '阅读界面',
-                        subtitle: '字号/背景/翻页动画/排版',
-                        onTap: () => ReaderSettingsSheet.show(context),
+                        subtitle: '字体、配色、翻页与屏幕显示',
+                        onTap: () => ReaderSettingsSheet.showPage(context),
                       ),
                       IosListTile(
                         icon: Symbols.tune_rounded,
@@ -461,8 +458,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                 // ===== 其他分组 =====
                 const IosSectionHeader('其他'),
-                IosGroup(
-                  separatorIndent: 62,
+                SettingsGroup(
                   children: [
                     IosListTile(
                       icon: Symbols.bookmark_rounded,
