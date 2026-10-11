@@ -10,12 +10,16 @@
 
 ### MATERIAL-UI-20261011：独立 Material / Cupertino 设计库迁移（P1）
 
-- **状态**：待复验；代码与 Flutter 验证已完成，Android APK/设备与 iOS 设备包验证进行中。
+- **状态**：已关闭（设计库迁移代码、Flutter 验证、Android x86_64 设备回归与 iOS 未签名包构建范围）；实现提交 `947bba6fe`。iOS 真机交互与 Android arm64 新包不在本轮已验证结果内。
 - **基线与执行**：dev `d0d52a87b`；主目录分支 `feature/ui-material-ui`，按用户要求不使用子代理、不新增 worktree。
+- **后续交付约束**：仅本地修改、验证与提交，任何远端推送须先取得用户明确批准；不自动合入 dev。
 - **授权与范围**：应用、单元测试和集成测试统一使用 `material_ui 1.6.0` 与 `cupertino_ui 1.0.2`。允许组件外观、间距和动画合理变化，不要求像素级一致；以独立库实现为准。
 - **兼容与边界**：核对主题、路由、本地化与 Markdown 等第三方组件，必要时使用官方兼容桥或局部数据适配。不修改 Rust、FFI 契约、业务逻辑、数据库及构建体系，不推进全面国际化。
 - **实施结果**：官方迁移规则替换 336 个文件中的设计库导入；两处 Cupertino 组件同步迁移。Markdown 样式直接使用共用文本/绘制类型，应用入口加入官方兼容桥与独立库本地化委托；未修改第三方源码或升级其他依赖。界面批次版本为 `2.0.370+371`。
-- **本地验证**：既有 2,264 项 Flutter 测试全通过；新增主题切换时 Markdown 与 Cupertino 颜色一致回归通过，连同既有帮助文档测试共 3 项通过。分析无错误/警告，保留两条与迁移无关的既有 `prefer_initializing_formals` 提示；Android x86_64 包构建与设备复验进行中。
+- **本地验证**：既有 2,264 项 Flutter 测试全通过；新增主题切换时 Markdown 与 Cupertino 颜色一致回归通过，连同既有帮助文档测试共 3 项通过。分析无错误/警告，保留两条与迁移无关的既有 `prefer_initializing_formals` 提示。
+- **Android 构建**：使用 NDK `28.2.13676358` 重编 x86_64 debug QuickJS 库；Cargo、JNI 与 APK 来源摘要、FRB 契约及 ELF LOAD/RELRO 校验通过。使用本地 JDK 17 与关闭 Kotlin 增量编译的进程参数完成 APK 构建，未修改工程构建配置。按用户要求删除旧 NDK 27 arm64 JNI 库、元数据、对应 Cargo 库及含旧库的混合 APK；只保留本次通过校验的 x86_64 包。
+- **Android 设备回归**：实时探测的 MuMu Android 15，端点 `127.0.0.1:16384`、x86_64、安装 `2.0.370+371` debug 包。书架、搜索页面、设置、Markdown 帮助文档、深浅色主题、本地 TXT 导入、正文、翻页、阅读菜单、退出后第 2 页进度恢复与阅读背景切换通过；未做在线书源搜索结果验证。应用进程日志未发现 Flutter 错误、布局异常或崩溃。临时测试书籍已移出书架、临时下载文件已删除，主题恢复跟随系统。
+- **证据与平台限制**：Android 包位于 `flutter_legado/build/app/outputs/flutter-apk/app-x86_64-debug.apk`；设备日志、截图和 XML 位于 `flutter_legado/build/material-ui-validation/`，均为本地构建产物、不提交。此前触发的 [iOS Build](https://github.com/xldgo/OpenLegado/actions/runs/38117843209) 在 `947bba6fe` 上通过 Rust 库构建、IPA 打包与最终包校验；缺少签名凭据，产物未签名，不代表 iOS 真机运行验证。用户提出推送限制后未再推送或触发远端任务。
 - **验收**：无应用自身旧设计库导入（明确的第三方适配除外）；静态分析与全量 Flutter 测试通过；Android 构建及实时可用 MuMu 主要页面、主题验证；iOS 设备包由现有 CI 复验，不运行 iOS 模拟器。
 
 编写者：Codex UI｜2026-10-11
