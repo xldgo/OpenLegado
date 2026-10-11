@@ -44,13 +44,20 @@ def deployment_target(root: Path) -> str:
     ios = root / "flutter_legado" / "ios"
     try:
         with (ios / "Flutter" / "AppFrameworkInfo.plist").open("rb") as stream:
-            version = plistlib.load(stream).get("MinimumOSVersion")
+            framework = plistlib.load(stream)
     except (ValueError, plistlib.InvalidFileException) as exc:
         raise ToolError("AppFrameworkInfo.plist 无法解析。") from exc
-    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version):
-        raise ToolError("AppFrameworkInfo.plist 缺少有效 MinimumOSVersion。")
+    if not isinstance(framework, dict):
+        raise ToolError("AppFrameworkInfo.plist 必须为字典。")
     pod = unique_match(r"^\s*platform\s+:ios,\s*['\"]([^'\"]+)['\"]\s*$",
                        read_text(ios / "Podfile"), "Podfile iOS 下限")
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", pod):
+        raise ToolError("Podfile 缺少有效 iOS 最低版本。")
+    # Flutter 3.47 自动移除模板中的 MinimumOSVersion，构建时再写入 App.framework。
+    # 宿主版本由 Podfile 与 Xcode/RustFFI 配置决定；旧模板声明存在时仍须一致。
+    version = pod
+    if "MinimumOSVersion" in framework and framework["MinimumOSVersion"] != version:
+        raise ToolError("AppFrameworkInfo.plist 的最低版本 MinimumOSVersion 与宿主配置不一致。")
     rust_pod = unique_match(r"^\s*s\.ios\.deployment_target\s*=\s*['\"]([^'\"]+)['\"]\s*$",
                             read_text(ios / "RustFFI" / "RustFFI.podspec"), "RustFFI iOS 下限")
     project = re.findall(r"\bIPHONEOS_DEPLOYMENT_TARGET\s*=\s*([\d.]+)\s*;",

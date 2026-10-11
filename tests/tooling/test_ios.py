@@ -95,6 +95,16 @@ class IosTests(unittest.TestCase):
             ios.build_ios_ffi(self.root, "device", "release")
         self.assertFalse(any(args[1] == "rustc" for args, env in self.calls))
 
+    def test_flutter_removing_template_minimum_does_not_invalidate_native_metadata(self):
+        library = ios.build_ios_ffi(self.root, "device", "release")
+        template = self.root / "flutter_legado" / "ios" / "Flutter" / "AppFrameworkInfo.plist"
+        write(template, plistlib.dumps({"CFBundleExecutable": "App"}))
+        self.assertEqual(ios.deployment_target(self.root), "15.0")
+        self.assertEqual(ios.verify_ios_ffi(self.root, "device", "release"), library)
+        write(self.root / "flutter_legado" / "ios" / "Podfile", "platform :ios, '16.0'\n")
+        with self.assertRaisesRegex(ToolError, "不一致"):
+            ios.verify_ios_ffi(self.root, "device", "release")
+
     def test_both_formal_targets_build_release_quickjs_with_locked_dependencies(self):
         for target, (triple, sdk) in ios.TARGETS.items():
             with self.subTest(target=target):

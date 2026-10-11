@@ -22,6 +22,7 @@
 - **首轮复验**：集成提交 `a2ef064e9` 已推送；Flutter CI、CI 路由与工具回归通过，Android、Windows 和 iOS 在原生构建入口失败。工具查找解析符号链接会破坏 Rustup 的 cargo/rustc 分派，已改为保留入口名称并加入 POSIX 实际执行回归；Windows 具体失败仍待日志核对。本机 GitHub CLI 令牌失效，已请求重新登录；分支清理尚未执行。
 - **Windows 定向复现**：`cdaf28376` 推送后 Android/iOS 越过原失败入口，Windows 仍失败；本地在 cp1252 输出编码下执行原生构建，第一条中文日志即触发 `UnicodeEncodeError`，尚未开始 Cargo 编译。入口统一 UTF-8 输出，并加入相同编码条件下的真实 CLI 回归；待 CI 复验确认，不删除分支。
 - **日志核对与后续修复**：系统凭据可正常认证，此前“令牌失效”是沙箱无法读取凭据的误判，无需用户重新登录。`cdaf28376` 的 Rust、Flutter 与 Android FFI 均通过；Windows 日志与本地编码复现一致。iOS 静态库已编译，但 Xcode `nm` 无法解析 Rust LLVM 23 位码，改用同一 Rust 工具链的 `llvm-nm` 并在 iOS workflow 安装对应组件；仍要求读取成功且存在已定义 PDE 符号，最终应用继续使用 Xcode 工具校验。
+- **iOS 模板迁移适配**：`06d3af259` 的设备应用已编译，构建后校验因 Flutter 自动移除模板 `MinimumOSVersion` 失败；本地 SDK 的 `ios_deployment_target_migration.dart` 与 CI 日志确认此行为。宿主最低版本改从 Podfile 读取，继续交叉校验 RustFFI、Xcode 工程及仍存在的模板声明；加入移除模板键后沿用原生元数据的回归，实际最低版本 15.0 不变。
 
 编写者：Codex｜2026-10-11
 
