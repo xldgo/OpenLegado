@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -43,24 +44,26 @@ class ReadAchievementCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '已读 $readBooks 本',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
+                      context.l10n.readingRecordBooksRead(readBooks),
+                      style: Theme.of(context).textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '累计 $totalDurationText',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                      context.l10n.readingRecordTotalDuration(
+                        totalDurationText,
+                      ),
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
               ),
               if (onClearAll != null)
-                TextButton(onPressed: onClearAll, child: const Text('清空')),
+                TextButton(
+                  onPressed: onClearAll,
+                  child: Text(context.l10n.clear),
+                ),
             ],
           ),
         ),
@@ -146,13 +149,12 @@ class ReadRecordDailyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('(╮_╰)',
-                style: TextStyle(fontSize: 40, color: cs.outline)),
+            Text('(╮_╰)', style: TextStyle(fontSize: 40, color: cs.outline)),
             const SizedBox(height: 16),
-            const Text('暂无阅读记录'),
+            Text(context.l10n.noReadingRecords),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
-              TextButton(onPressed: onRetry, child: const Text('重新加载')),
+              TextButton(onPressed: onRetry, child: Text(context.l10n.reload)),
             ],
           ],
         ),
@@ -160,38 +162,39 @@ class ReadRecordDailyView extends StatelessWidget {
     }
     final rows = <Widget>[];
     for (final group in groups) {
-      rows.add(Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-        child: Text(
-          group.label,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: cs.primary,
-                fontWeight: FontWeight.w600,
-              ),
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          child: Text(
+            group.label,
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
+          ),
         ),
-      ));
+      );
       for (final entry in group.entries) {
-        rows.add(ListTile(
-          dense: true,
-          leading: Icon(Symbols.calendar_today_rounded,
-              size: 20, color: cs.onSurfaceVariant),
-          title: Text(
-            '${entry.date.year}-'
-            '${entry.date.month.toString().padLeft(2, '0')}-'
-            '${entry.date.day.toString().padLeft(2, '0')}',
+        rows.add(
+          ListTile(
+            dense: true,
+            leading: Icon(
+              Symbols.calendar_today_rounded,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+            title: Text(
+              '${entry.date.year}-'
+              '${entry.date.month.toString().padLeft(2, '0')}-'
+              '${entry.date.day.toString().padLeft(2, '0')}',
+            ),
+            trailing: Text(
+              formatSeconds(entry.seconds),
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
           ),
-          trailing: Text(
-            formatSeconds(entry.seconds),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-          ),
-        ));
+        );
       }
     }
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: rows,
-    );
+    return ListView(padding: const EdgeInsets.only(bottom: 24), children: rows);
   }
 }
