@@ -179,12 +179,12 @@ pub fn resolve_js_lib_url_map(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::QuickJsEngine;
     use crate::engine::JsEngine;
     use crate::sandbox::SandboxConfig;
-    use crate::QuickJsEngine;
     use std::io::{Read, Write};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// 本地回环 jsLib mock：固定返回一段 JS 文件（`Connection: close`，
     /// 逐请求新连接；accept 计数用于「缓存命中不重拉」断言）。

@@ -27,9 +27,9 @@
 
 use legado_ffi::api::source_js_bindings::{book_source_js_setup_script, load_js_lib_for_explore};
 use legado_ffi::legado_core::models::BookSource;
+use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_js::engine::JsEngine;
 use legado_ffi::legado_js::sandbox::SandboxConfig;
-use legado_ffi::legado_js::QuickJsEngine;
 
 /// 生产同源引擎（与 capability_sweep 干跑同一形态）
 fn make_engine() -> QuickJsEngine {

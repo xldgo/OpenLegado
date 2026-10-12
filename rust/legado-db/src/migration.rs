@@ -288,15 +288,14 @@ mod tests {
     fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
         let sql = format!("PRAGMA table_info({table})");
         let mut stmt = conn.prepare(&sql).unwrap();
-        let result = stmt
-            .query_map([], |row| {
-                let name: String = row.get(1)?;
-                Ok(name == column)
-            })
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .any(|b| b);
-        result
+
+        stmt.query_map([], |row| {
+            let name: String = row.get(1)?;
+            Ok(name == column)
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .any(|b| b)
     }
 
     #[test]

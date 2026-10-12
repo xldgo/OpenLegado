@@ -327,8 +327,8 @@ pub async fn run_change_source_stream<F>(
 ) where
     F: FnMut(String) -> Result<(), String>,
 {
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     let options = resolve_switch_options(&options_json);
 
@@ -664,11 +664,11 @@ pub(crate) fn merge_variables(initial: Option<&str>, detail: Option<&str>) -> Op
     let mut map = serde_json::Map::new();
     for (label, src) in [("initial", initial), ("detail", detail)] {
         let _ = label;
-        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty()) {
-            if let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s) {
-                for (k, v) in m {
-                    map.insert(k, v);
-                }
+        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty())
+            && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
+        {
+            for (k, v) in m {
+                map.insert(k, v);
             }
         }
     }
@@ -729,10 +729,10 @@ pub(crate) fn yield_stale_overlay_to_db(
         if candidate_has_key(k) {
             continue;
         }
-        if let Some(db_v) = db_value(k) {
-            if map.get(k) != Some(&db_v) {
-                map.insert(k.clone(), db_v);
-            }
+        if let Some(db_v) = db_value(k)
+            && map.get(k) != Some(&db_v)
+        {
+            map.insert(k.clone(), db_v);
         }
     }
     Some(serde_json::Value::Object(map).to_string())
@@ -823,8 +823,8 @@ fn commit_source_switch(
     web_chapters: Vec<WebChapter>,
 ) -> LegadoResult<String> {
     use crate::db_state::with_database;
-    use legado_db::repository::Repository;
     use legado_db::BookRepository;
+    use legado_db::repository::Repository;
 
     // [T2] tocUrl = 详情解析出的真实目录页（目录页可与详情页不同，
     //     如「详情页=books/1、目录页=/book/1/chapters」的源）
@@ -1323,10 +1323,11 @@ fn config_flag(key: &str) -> bool {
 /// 解析换源搜索选项：优先 options_json，缺省回退 config
 pub(crate) fn resolve_switch_options(options_json: &str) -> SwitchSearchOptions {
     let trimmed = options_json.trim();
-    if !trimmed.is_empty() && trimmed != "null" {
-        if let Ok(opts) = serde_json::from_str::<SwitchSearchOptions>(trimmed) {
-            return opts;
-        }
+    if !trimmed.is_empty()
+        && trimmed != "null"
+        && let Ok(opts) = serde_json::from_str::<SwitchSearchOptions>(trimmed)
+    {
+        return opts;
     }
     SwitchSearchOptions {
         load_info: config_flag("changeSourceLoadInfo"),
@@ -1503,8 +1504,8 @@ async fn enrich_one_switch_candidate_with(
     // getBookInfoAwait 的 AnalyzeUrl 以 ruleData=book 构建，WebBook.kt:225-231）
     let detail_vars = super::web_book::chapter_url_variables(candidate.variable.as_deref());
 
-    if options.load_info {
-        if let Ok(info) = fetcher
+    if options.load_info
+        && let Ok(info) = fetcher
             .get_book_info_with_existing_and_vars(
                 source,
                 &book_url,
@@ -1514,24 +1515,23 @@ async fn enrich_one_switch_candidate_with(
                 &detail_vars,
             )
             .await
+    {
+        if candidate
+            .latest_chapter
+            .as_ref()
+            .is_none_or(|s| s.is_empty())
         {
-            if candidate
-                .latest_chapter
-                .as_ref()
-                .is_none_or(|s| s.is_empty())
-            {
-                candidate.latest_chapter = info.last_chapter.clone();
-            }
-            if candidate.word_count.as_ref().is_none_or(|s| s.is_empty()) {
-                candidate.word_count = info.word_count.clone();
-            }
-            toc_url = info.toc_url.clone();
-            prefetched_info = Some(info.clone());
-            // 上游 bookMap 恒写语义（loadBookInfo 成功后必写）：即使目录未
-            // 拉取也先写「详情-only」条目，apply 命中可降级「缓存详情 +
-            // 现场目录」省一次详情抓取
-            prefetch_cache_insert(&source.book_source_url, &book_url, Some(info), Vec::new());
+            candidate.latest_chapter = info.last_chapter.clone();
         }
+        if candidate.word_count.as_ref().is_none_or(|s| s.is_empty()) {
+            candidate.word_count = info.word_count.clone();
+        }
+        toc_url = info.toc_url.clone();
+        prefetched_info = Some(info.clone());
+        // 上游 bookMap 恒写语义（loadBookInfo 成功后必写）：即使目录未
+        // 拉取也先写「详情-only」条目，apply 命中可降级「缓存详情 +
+        // 现场目录」省一次详情抓取
+        prefetch_cache_insert(&source.book_source_url, &book_url, Some(info), Vec::new());
     }
 
     if options.load_toc || options.load_word_count {
@@ -1837,8 +1837,8 @@ mod tests {
     #[test]
     fn test_resolve_switch_sources_group_membership() {
         use crate::db_state::with_database;
-        use legado_db::repository::Repository;
         use legado_db::BookSourceRepository;
+        use legado_db::repository::Repository;
 
         let _db_guard = crate::db_state::ensure_test_db();
         let json = std::fs::read_to_string("tests/fixtures/yckceo_7631.json")

@@ -13,9 +13,9 @@
 use std::collections::HashMap;
 
 use base64::Engine as _;
-use legado_core::models::BookSource;
 use legado_core::LegadoError;
 use legado_core::LegadoResult;
+use legado_core::models::BookSource;
 #[cfg(feature = "quickjs")]
 use legado_js::JsEngine;
 #[cfg(feature = "quickjs")]
@@ -32,15 +32,14 @@ fn parse_header_map(header: &str) -> HashMap<String, String> {
     if trimmed.is_empty() {
         return map;
     }
-    if trimmed.starts_with('{') {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
-            if let Some(obj) = v.as_object() {
-                for (k, val) in obj {
-                    map.insert(k.clone(), val.as_str().unwrap_or_default().to_string());
-                }
-                return map;
-            }
+    if trimmed.starts_with('{')
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed)
+        && let Some(obj) = v.as_object()
+    {
+        for (k, val) in obj {
+            map.insert(k.clone(), val.as_str().unwrap_or_default().to_string());
         }
+        return map;
     }
     for line in trimmed.lines() {
         if let Some(idx) = line.find(':') {
@@ -102,15 +101,15 @@ pub fn decode_image_bytes(source: &BookSource, img_url: &str, bytes: &[u8]) -> V
                     }
                 };
 
-                if let Some(lib) = js_lib.as_deref() {
-                    if let Err(e) = JsEngine::eval(&engine, lib) {
-                        // 降级继续：部分书源混淆 jsLib 依赖 Rhino Packages，但仍可能仅靠
-                        // imageDecode 内联逻辑；失败必须可观测，勿静默当成功
-                        eprintln!(
-                            "[legado-ffi] imageDecode jsLib 加载失败（降级继续 decode）: {e} source={}",
-                            source.book_source_url
-                        );
-                    }
+                if let Some(lib) = js_lib.as_deref()
+                    && let Err(e) = JsEngine::eval(&engine, lib)
+                {
+                    // 降级继续：部分书源混淆 jsLib 依赖 Rhino Packages，但仍可能仅靠
+                    // imageDecode 内联逻辑；失败必须可观测，勿静默当成功
+                    eprintln!(
+                        "[legado-ffi] imageDecode jsLib 加载失败（降级继续 decode）: {e} source={}",
+                        source.book_source_url
+                    );
                 }
 
                 match JsEngine::eval_bytes(
@@ -157,10 +156,10 @@ fn default_referer_from_source_url(book_source_url: &str) -> Option<String> {
         return Some(url.to_string());
     }
     // 无路径：整段 URL + /
-    if let Some(scheme_end) = url.find("://") {
-        if !url[scheme_end + 3..].contains('/') {
-            return Some(format!("{url}/"));
-        }
+    if let Some(scheme_end) = url.find("://")
+        && !url[scheme_end + 3..].contains('/')
+    {
+        return Some(format!("{url}/"));
     }
     // 有路径：去掉最后一段，保留目录尾斜杠
     if let Some(pos) = url.rfind('/') {
@@ -223,10 +222,11 @@ pub fn fetch_image_with_decode(url: &str, source_json: &str) -> LegadoResult<Str
         headers.insert("User-Agent".to_string(), DEFAULT_USER_AGENT.to_string());
     }
     // 图片防盗链：无 Referer 时以书源主页兜底（对齐原版 ImageLoader referer）
-    if !headers.contains_key("Referer") && !headers.contains_key("referer") {
-        if let Some(referer) = default_referer_from_source_url(&source.book_source_url) {
-            headers.insert("Referer".to_string(), referer);
-        }
+    if !headers.contains_key("Referer")
+        && !headers.contains_key("referer")
+        && let Some(referer) = default_referer_from_source_url(&source.book_source_url)
+    {
+        headers.insert("Referer".to_string(), referer);
     }
     // 写侧 CookieJar 门控（批 2）：开启源补内部标记头（只补不覆盖；
     // 发送前由 legado-net 剥离、绝不出网）；读侧 cookie 注入不受影响。

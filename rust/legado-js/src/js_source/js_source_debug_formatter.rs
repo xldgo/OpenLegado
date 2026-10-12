@@ -71,11 +71,11 @@ impl JsSourceDebugFormatter {
             lines.push("≡首章信息".to_string());
             lines.push(format!("◇章节名称:{}", Self::format_value(title)));
         }
-        if chapter_count > 1 {
-            if let Some(title) = last_title {
-                lines.push("≡末章信息".to_string());
-                lines.push(format!("◇章节名称:{}", Self::format_value(title)));
-            }
+        if chapter_count > 1
+            && let Some(title) = last_title
+        {
+            lines.push("≡末章信息".to_string());
+            lines.push(format!("◇章节名称:{}", Self::format_value(title)));
         }
         lines
     }

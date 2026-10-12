@@ -36,8 +36,8 @@ use legado_core::LegadoError;
 use legado_parser::{
     AnalyzeRule, JsonPathParser, RegexEngine, RuleAnalyzer, RuleType, XPathParser,
 };
-use rquickjs::function::Opt;
 use rquickjs::Ctx;
+use rquickjs::function::Opt;
 use scraper::{Html, Selector};
 
 /// CSS 选择：返回匹配元素的 outerHTML 字符串快照列表
@@ -490,16 +490,16 @@ fn resolve_dispatched_strings<'js>(ctx: &Ctx<'js>, content: &str, rule: &str) ->
         RuleDispatch::Regex(pattern) => regex_extract(content, &pattern),
         RuleDispatch::Js(code) | RuleDispatch::WebJs(code) => {
             let out = eval_js_nested(ctx, content, &code);
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&out) {
-                if let Some(arr) = v.as_array() {
-                    return arr
-                        .iter()
-                        .map(|item| match item {
-                            serde_json::Value::String(s) => s.clone(),
-                            other => other.to_string(),
-                        })
-                        .collect();
-                }
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&out)
+                && let Some(arr) = v.as_array()
+            {
+                return arr
+                    .iter()
+                    .map(|item| match item {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    })
+                    .collect();
             }
             if out.is_empty() {
                 Vec::new()
@@ -1216,17 +1216,17 @@ pub fn get_string_list<'js>(
                 // L276-278：字符串结果按 \n 拆分；JSON 数组字符串先走
                 // P2-6(e) 展开（元素逐个保留，非数组串才 \n 拆分）
                 JsNestedValue::String(s) => {
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-                        if let Some(arr) = v.as_array() {
-                            return Some(
-                                arr.iter()
-                                    .map(|item| match item {
-                                        serde_json::Value::String(x) => x.clone(),
-                                        other => other.to_string(),
-                                    })
-                                    .collect(),
-                            );
-                        }
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s)
+                        && let Some(arr) = v.as_array()
+                    {
+                        return Some(
+                            arr.iter()
+                                .map(|item| match item {
+                                    serde_json::Value::String(x) => x.clone(),
+                                    other => other.to_string(),
+                                })
+                                .collect(),
+                        );
                     }
                     Some(s.split('\n').map(String::from).collect())
                 }
@@ -1654,7 +1654,7 @@ mod tests {
         assert_eq!(jsoup_size(&row0, "a"), 2);
         assert_eq!(jsoup_attr_n(&row0, "a", 0, "href"), "/novel/1");
         assert_eq!(jsoup_attr_n(&row0, "a", 1, "href"), ""); // 章A 的 a 无 href → 空串
-                                                             // 越界 → 空串（宽松语义）
+        // 越界 → 空串（宽松语义）
         assert_eq!(jsoup_text_n(html, "tr", 99), "");
         assert_eq!(jsoup_attr_n(html, "tr", 99, "x"), "");
         assert_eq!(jsoup_html_n(html, "tr", 99), "");
@@ -1696,7 +1696,7 @@ mod tests {
         assert_eq!(jsoup_unescape_entities("&#65;&#x42;"), "AB");
         assert_eq!(jsoup_unescape_entities("&#32;"), "\u{20}"); // 空格
         assert_eq!(jsoup_unescape_entities("&#27665;"), "\u{6c11}"); // 民
-                                                                     // 命名实体（书源正文高频）
+        // 命名实体（书源正文高频）
         assert_eq!(
             jsoup_unescape_entities("&lt;div&gt;&amp;&quot;&apos;&nbsp;"),
             "<div>&\"'\u{a0}"

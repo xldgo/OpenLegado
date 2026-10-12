@@ -87,13 +87,11 @@ use std::sync::OnceLock;
 /// 集合 A：ECMAScript `\s` 的显式字符类（Dart 探针实测 25 成员，
 /// `probe_output.txt`「setA_full」；U+FEFF 在 ECMAScript WhiteSpace 内，
 /// 实测 0xFEFF A 列 = Y）。
-const JS_WS_CLASS: &str =
-    "[\u{9}\u{A}\u{B}\u{C}\u{D} \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]";
+const JS_WS_CLASS: &str = "[\u{9}\u{A}\u{B}\u{C}\u{D} \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]";
 
 /// `\S` 等价：集合 A 的补（Rust 负类 `[^…]` 匹配任何不在集合内的码点，
 /// 与 ECMAScript `\S` 逐码点等价）。
-const JS_NON_WS_CLASS: &str =
-    "[^\u{9}\u{A}\u{B}\u{C}\u{D} \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]";
+const JS_NON_WS_CLASS: &str = "[^\u{9}\u{A}\u{B}\u{C}\u{D} \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]";
 
 /// `.` 等价：实测排除集 C 的负类（U+000A/U+000D/U+2028/U+2029，
 /// `probe_output.txt`「setC_full」；Rust `.` 仅排除 LF，须显式负类）。

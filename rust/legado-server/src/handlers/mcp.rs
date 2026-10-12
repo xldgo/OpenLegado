@@ -3,7 +3,7 @@
 //! 暴露书架/搜索/阅读能力给 AI 助手。
 //! 基于 JSON-RPC 2.0 协议。
 
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -1032,9 +1032,9 @@ fn eval_js_blocking(
 
 #[cfg(feature = "quickjs")]
 fn eval_js_blocking(js: &str, base_url: &str, timeout_sec: i64) -> Result<Option<String>, String> {
+    use legado_js::QuickJsEngine;
     use legado_js::engine::JsEngine;
     use legado_js::sandbox::SandboxConfig;
-    use legado_js::QuickJsEngine;
 
     // 沙箱配置：以 timeout_sec 作为脚本最大执行时间（超时后中断脚本）
     let sandbox = SandboxConfig {
@@ -1488,10 +1488,12 @@ mod tests {
         let tools = list_tools();
         let search_tool = tools.iter().find(|t| t.name == "search_books").unwrap();
         let required = search_tool.input_schema.get("required").unwrap();
-        assert!(required
-            .as_array()
-            .unwrap()
-            .contains(&serde_json::json!("query")));
+        assert!(
+            required
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("query"))
+        );
     }
 
     #[tokio::test]

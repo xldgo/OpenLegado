@@ -96,19 +96,19 @@ impl JsExecutor for QuickJsExecutor {
                         // 逐条拉取失败已在加载器内记台账（降级跳过该条，
                         // 仅依赖该 jsLib 的规则受影响）；全失败时脚本为 None，
                         // 直接跳过 eval（原始 JSON 非合法 JS，不回退原始级联）
-                        if let Some(script) = &url_map_script {
-                            if let Err(e) = crate::JsEngine::eval(&engine, script) {
-                                // 队列④：登记台账后**带原因上抛**（对齐原版
-                                // SharedJsScope.evaluateJsLib 失败直接抛，
-                                // SharedJsScope.kt:251/:258）。此前静默降级会让
-                                // 失败推迟到主脚本引用点，报出误导性
-                                // `source is not defined`（iOS 实机 1/2 号根因链）
-                                crate::host_api::capability_ledger::record_jslib_load_failure(
-                                    &ledger_tag,
-                                    &e.to_string(),
-                                );
-                                return Err(format!("jsLib 求值失败: {e}"));
-                            }
+                        if let Some(script) = &url_map_script
+                            && let Err(e) = crate::JsEngine::eval(&engine, script)
+                        {
+                            // 队列④：登记台账后**带原因上抛**（对齐原版
+                            // SharedJsScope.evaluateJsLib 失败直接抛，
+                            // SharedJsScope.kt:251/:258）。此前静默降级会让
+                            // 失败推迟到主脚本引用点，报出误导性
+                            // `source is not defined`（iOS 实机 1/2 号根因链）
+                            crate::host_api::capability_ledger::record_jslib_load_failure(
+                                &ledger_tag,
+                                &e.to_string(),
+                            );
+                            return Err(format!("jsLib 求值失败: {e}"));
                         }
                     } else if let Err(e) = crate::JsEngine::eval(&engine, lib) {
                         // 仅对语法错误尝试 Rhino 宽容语法归一化后重试一次（与 engine_cache
@@ -119,9 +119,9 @@ impl JsExecutor for QuickJsExecutor {
                             let (normalized, changed) = crate::jslib_normalize::normalize(lib);
                             if changed && crate::JsEngine::eval(&engine, &normalized).is_ok() {
                                 eprintln!(
-                                        "[legado-js] 书源 {} jsLib 经 Rhino 宽容语法归一化后加载成功（原错误: {e}）",
-                                        self.source_tag
-                                    );
+                                    "[legado-js] 书源 {} jsLib 经 Rhino 宽容语法归一化后加载成功（原错误: {e}）",
+                                    self.source_tag
+                                );
                                 true
                             } else {
                                 false
@@ -144,13 +144,13 @@ impl JsExecutor for QuickJsExecutor {
                         }
                     }
                 }
-                if let Some(setup) = &self.setup_script {
-                    if let Err(e) = crate::JsEngine::eval(&engine, setup) {
-                        eprintln!(
-                            "[legado-js] 书源 {} setup 加载失败（降级继续）: {e}",
-                            self.source_tag
-                        );
-                    }
+                if let Some(setup) = &self.setup_script
+                    && let Err(e) = crate::JsEngine::eval(&engine, setup)
+                {
+                    eprintln!(
+                        "[legado-js] 书源 {} setup 加载失败（降级继续）: {e}",
+                        self.source_tag
+                    );
                 }
                 if let Err(e) = crate::JsEngine::eval(
                     &engine,

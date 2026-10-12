@@ -39,7 +39,8 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
   @override
   Future<void> updateBookmark(Bookmark bookmark) async {
     final idx = _bookmarks.indexWhere((b) => b.id == bookmark.id);
-    if (idx >= 0) _bookmarks[idx] = bookmark;
+    if (idx < 0) throw StateError('书签不存在: ${bookmark.id}');
+    _bookmarks[idx] = bookmark.copyWith(time: _bookmarks[idx].time);
   }
 
   @override
@@ -184,10 +185,7 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
   }
 
   @override
-  Future<List<BookChapter>> refreshToc(
-    String bookUrl,
-    String sourceUrl,
-  ) async {
+  Future<List<BookChapter>> refreshToc(String bookUrl, String sourceUrl) async {
     await _ensureBooksLoaded();
     return _chaptersCache[bookUrl] ?? [];
   }
@@ -304,7 +302,9 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
     if (_dictRules.isEmpty) _seedDefaultDictRules();
     final ordered = List<Map<String, dynamic>>.from(_dictRules)
       ..sort((a, b) {
-        final bySort = (a['sortNumber'] as int).compareTo(b['sortNumber'] as int);
+        final bySort = (a['sortNumber'] as int).compareTo(
+          b['sortNumber'] as int,
+        );
         if (bySort != 0) return bySort;
         return (a['id'] as int).compareTo(b['id'] as int);
       });
@@ -360,7 +360,10 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
 
   /// 设置字典规则启用/禁用（按 id；不存在返回 false）
   @override
-  Future<bool> dictRuleSetEnabled({required int id, required bool enabled}) async {
+  Future<bool> dictRuleSetEnabled({
+    required int id,
+    required bool enabled,
+  }) async {
     if (!_dictRules.any((r) => r['id'] == id)) return false;
     for (final r in _dictRules) {
       if (r['id'] == id) r['enabled'] = enabled;
@@ -438,7 +441,9 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
         'showRule': (m['showRule'] ?? '').toString(),
         'enabled': m['enabled'] is bool ? m['enabled'] : true,
         // JSON decode 的整数可能为 num（double 字面量场景），统一归一为 int
-        'sortNumber': m['sortNumber'] is num ? (m['sortNumber'] as num).toInt() : 0,
+        'sortNumber': m['sortNumber'] is num
+            ? (m['sortNumber'] as num).toInt()
+            : 0,
       });
     }
     return rules.where((r) => (r['name'] as String).isNotEmpty).toList();
@@ -448,11 +453,10 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
   /// 异名插入）
   void _upsertDictRuleByName(Map<String, dynamic> rule) {
     final name = rule['name'] as String;
-    final existing =
-        _dictRules.cast<Map<String, dynamic>>().firstWhere(
-              (r) => r['name'] == name,
-              orElse: () => const {},
-            );
+    final existing = _dictRules.cast<Map<String, dynamic>>().firstWhere(
+      (r) => r['name'] == name,
+      orElse: () => const {},
+    );
     if (existing.isNotEmpty) {
       existing['urlRule'] = rule['urlRule'];
       existing['showRule'] = rule['showRule'];
@@ -508,5 +512,6 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async => const [];
+  Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async =>
+      const [];
 }

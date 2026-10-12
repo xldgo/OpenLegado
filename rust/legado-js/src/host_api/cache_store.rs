@@ -156,24 +156,23 @@ pub fn disk_dir() -> PathBuf {
         if let Ok(guard) = TEST_DISK_DIR_OVERRIDE
             .get_or_init(|| Mutex::new(None))
             .lock()
+            && let Some(dir) = guard.clone()
         {
-            if let Some(dir) = guard.clone() {
-                return dir;
-            }
+            return dir;
         }
     }
     #[cfg(not(test))]
     {
-        if let Ok(dir) = std::env::var(CACHE_DIR_ENV) {
-            if !dir.trim().is_empty() {
-                return PathBuf::from(dir);
-            }
+        if let Ok(dir) = std::env::var(CACHE_DIR_ENV)
+            && !dir.trim().is_empty()
+        {
+            return PathBuf::from(dir);
         }
     }
-    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-        if let Some(dir) = guard.clone() {
-            return dir;
-        }
+    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock()
+        && let Some(dir) = guard.clone()
+    {
+        return dir;
     }
     if DEFAULT_DIR_WARNED
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -261,17 +260,17 @@ pub fn put(key: &str, value: &str, save_time_secs: i64) -> bool {
         now_millis() + save_time_secs * 1000
     };
     let path = disk_path(key);
-    if let Some(parent) = path.parent() {
-        if let Err(e) = fs::create_dir_all(parent) {
-            warn_once(&PUT_WRITE_FAIL_WARNED, || {
-                eprintln!(
-                    "[cache_store] 创建缓存目录失败 {:?}: {e}（降级保留内存层；同类失败后续不再逐条记日志）",
-                    parent
-                );
-            });
-            put_memory(key, value);
-            return false;
-        }
+    if let Some(parent) = path.parent()
+        && let Err(e) = fs::create_dir_all(parent)
+    {
+        warn_once(&PUT_WRITE_FAIL_WARNED, || {
+            eprintln!(
+                "[cache_store] 创建缓存目录失败 {:?}: {e}（降级保留内存层；同类失败后续不再逐条记日志）",
+                parent
+            );
+        });
+        put_memory(key, value);
+        return false;
     }
     let json = match serde_json::to_string(&DiskCacheEntry {
         v: value.to_string(),
@@ -280,7 +279,9 @@ pub fn put(key: &str, value: &str, save_time_secs: i64) -> bool {
         Ok(j) => j,
         Err(e) => {
             warn_once(&PUT_WRITE_FAIL_WARNED, || {
-                eprintln!("[cache_store] 序列化失败 {key}: {e}（降级保留内存层；同类失败后续不再逐条记日志）");
+                eprintln!(
+                    "[cache_store] 序列化失败 {key}: {e}（降级保留内存层；同类失败后续不再逐条记日志）"
+                );
             });
             put_memory(key, value);
             return false;
@@ -288,7 +289,9 @@ pub fn put(key: &str, value: &str, save_time_secs: i64) -> bool {
     };
     if let Err(e) = fs::write(&path, json) {
         warn_once(&PUT_WRITE_FAIL_WARNED, || {
-            eprintln!("[cache_store] 写盘失败 {key} ({path:?}): {e}（降级保留内存层；同类失败后续不再逐条记日志）");
+            eprintln!(
+                "[cache_store] 写盘失败 {key} ({path:?}): {e}（降级保留内存层；同类失败后续不再逐条记日志）"
+            );
         });
         put_memory(key, value);
         return false;
@@ -303,10 +306,8 @@ pub fn put(key: &str, value: &str, save_time_secs: i64) -> bool {
 
 /// 磁盘读取（`get`）：内存优先（only_disk 跳过），磁盘按 deadline 校验
 pub fn get(key: &str, only_disk: bool) -> Option<String> {
-    if !only_disk {
-        if let Some(v) = get_from_memory(key) {
-            return Some(v);
-        }
+    if !only_disk && let Some(v) = get_from_memory(key) {
+        return Some(v);
     }
     let raw = fs::read_to_string(disk_path(key)).ok()?;
     let entry: DiskCacheEntry = serde_json::from_str(&raw).ok()?;
@@ -324,16 +325,16 @@ pub fn get(key: &str, only_disk: bool) -> Option<String> {
 /// 纯磁盘写入（`putFile`，无内存层、不过期）
 pub fn put_file(key: &str, value: &str) -> bool {
     let path = file_path(key);
-    if let Some(parent) = path.parent() {
-        if let Err(e) = fs::create_dir_all(parent) {
-            warn_once(&PUT_FILE_WRITE_FAIL_WARNED, || {
-                eprintln!(
-                    "[cache_store] 创建缓存目录失败 {:?}: {e}（纯磁盘 API 无内存层可降级；同类失败后续不再逐条记日志）",
-                    parent
-                );
-            });
-            return false;
-        }
+    if let Some(parent) = path.parent()
+        && let Err(e) = fs::create_dir_all(parent)
+    {
+        warn_once(&PUT_FILE_WRITE_FAIL_WARNED, || {
+            eprintln!(
+                "[cache_store] 创建缓存目录失败 {:?}: {e}（纯磁盘 API 无内存层可降级；同类失败后续不再逐条记日志）",
+                parent
+            );
+        });
+        return false;
     }
     // P2-11 ②：纯磁盘 API（file/ 子目录，不进内存层）——写失败无内存层
     // 可降级，仅记录失败原因（原 `.is_ok()` 静默吞错）；P2-15 剩项：

@@ -2,15 +2,15 @@
 //!
 //! 参考 Kotlin 实现 `RssSource.kt`，通过 `legado_net::rss` 解析 RSS/Atom Feed。
 
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde::Serialize;
 use std::sync::Arc;
 
 use crate::error::ApiError;
 use crate::state::AppState;
 use legado_core::LegadoError;
-use legado_net::rss::{fetch_feed, RssFeed};
+use legado_net::rss::{RssFeed, fetch_feed};
 
 /// RSS 源信息 + 文章列表
 #[derive(Debug, Serialize)]

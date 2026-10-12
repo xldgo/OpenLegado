@@ -18,11 +18,11 @@ use legado_core::web_book::{
     BookSourceFetcher, WebBookEngine, WebBookInfo, WebChapter, WebSearchResult,
 };
 use legado_core::{LegadoError, LegadoResult};
+use legado_js::JsSourceConfig;
 use legado_js::host_api::variable_store;
 use legado_js::js_source::js_source_book::JsSourceBookOrchestrator;
-use legado_js::JsSourceConfig;
 use legado_net::LegadoClient;
-use legado_parser::{compile_regex_safe, set_global_variable_reader, AnalyzeUrl};
+use legado_parser::{AnalyzeUrl, compile_regex_safe, set_global_variable_reader};
 
 use crate::book_type::book_type_of_source;
 use crate::deps::FetcherDeps;
@@ -146,13 +146,12 @@ fn charset_from_html_meta(bytes: &[u8]) -> Option<String> {
         let is_content_type = attrs
             .get("http-equiv")
             .is_some_and(|v| v.eq_ignore_ascii_case("content-type"));
-        if is_content_type {
-            if let Some(cs) = attrs
+        if is_content_type
+            && let Some(cs) = attrs
                 .get("content")
                 .and_then(|v| extract_charset_assignment(v))
-            {
-                return Some(cs);
-            }
+        {
+            return Some(cs);
         }
     }
     None
@@ -959,10 +958,10 @@ impl RealBookSourceFetcher {
             .and_then(|h| serde_json::from_str(h).ok())
             .unwrap_or_default();
 
-        if let Some(login_header_json) = self.deps.login_header_for(&source.book_source_url) {
-            if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json) {
-                headers.extend(map);
-            }
+        if let Some(login_header_json) = self.deps.login_header_for(&source.book_source_url)
+            && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json)
+        {
+            headers.extend(map);
         }
 
         // 写侧 CookieJar 门控标记（批 1）：开启源补内部标记头；发送前由
@@ -1120,11 +1119,9 @@ impl RealBookSourceFetcher {
         if let Some(result) = fetch_data_uri_content(url) {
             return result;
         }
-        if use_page_cache {
-            if let Some(cached) = cache_get_page_body(url) {
-                eprintln!("[web_book] page body cache hit: {url}");
-                return Ok(cached);
-            }
+        if use_page_cache && let Some(cached) = cache_get_page_body(url) {
+            eprintln!("[web_book] page body cache hit: {url}");
+            return Ok(cached);
         }
         // 与 fetch_page 一致：按键合并请求 URL 属域的 JS cookie（改前缺口：
         // 本路径漏注入 → 正文 nextUrl 分页 / subContent / 目录 nextTocUrl
@@ -1235,7 +1232,7 @@ impl RealBookSourceFetcher {
                     code: response_code,
                     body: response_body.to_string(),
                     url: response_url.to_string(),
-                })
+                });
             }
         };
 
@@ -1347,14 +1344,13 @@ impl RealBookSourceFetcher {
         // content 会导致 tocUrl 产出 {"tab":"novel"} 空 catalog。— 书山目录修复
         if let Some(init_rule) = info_rule.and_then(|r| r.init.as_deref()) {
             let init_rule = init_rule.trim();
-            if !init_rule.is_empty() {
-                if let Ok(init_result) = analyzer.get_string(init_rule) {
-                    if !init_result.is_empty() {
-                        // 对象语义注入：tocUrl 等后续规则访问 result.source 等
-                        // 字段需要 JSON 对象（对齐原版 getElements(init) Map）
-                        analyzer.set_element_content(init_result);
-                    }
-                }
+            if !init_rule.is_empty()
+                && let Ok(init_result) = analyzer.get_string(init_rule)
+                && !init_result.is_empty()
+            {
+                // 对象语义注入：tocUrl 等后续规则访问 result.source 等
+                // 字段需要 JSON 对象（对齐原版 getElements(init) Map）
+                analyzer.set_element_content(init_result);
             }
         }
 
@@ -1942,10 +1938,10 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let mut book_meta = lookup_book_meta_for_chapter(&source.book_source_url, &chapter.url);
         // P1-1：缓存 meta 有值但 variable 缺失/为空（记录点未补到、或缓存
         // 早于用户后来设置的变量）→ 按 bookUrl 从 DB 补
-        if let Some(m) = book_meta.as_mut() {
-            if m.variable.as_deref().is_none_or(|v| v.trim().is_empty()) {
-                m.variable = db_book_variable(&self.deps, &m.book_url);
-            }
+        if let Some(m) = book_meta.as_mut()
+            && m.variable.as_deref().is_none_or(|v| v.trim().is_empty())
+        {
+            m.variable = db_book_variable(&self.deps, &m.book_url);
         }
         let (first_content, next_urls) = parse_content_page_with_bindings(
             body,
@@ -2491,12 +2487,11 @@ impl RealBookSourceFetcher {
         // /details 响应，tocUrl 规则依赖其中的 source/book_url/title）
         if let Some(init_rule) = info_rule.and_then(|r| r.init.as_deref()) {
             let init_rule = init_rule.trim();
-            if !init_rule.is_empty() {
-                if let Ok(init_result) = info_analyzer.get_string(init_rule) {
-                    if !init_result.is_empty() {
-                        info_analyzer.set_element_content(init_result);
-                    }
-                }
+            if !init_rule.is_empty()
+                && let Ok(init_result) = info_analyzer.get_string(init_rule)
+                && !init_result.is_empty()
+            {
+                info_analyzer.set_element_content(init_result);
             }
         }
 
@@ -3161,14 +3156,14 @@ impl RealBookSourceFetcher {
 /// 优先从正文 JSON 的 `data.comic_chapter` 对象/数组长度推断；
 /// 否则退回 `chapter.index + 1`。
 fn infer_total_chapter_num(body: &str, chapter: &WebChapter) -> i32 {
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
-        if let Some(cc) = v.pointer("/data/comic_chapter") {
-            if let Some(obj) = cc.as_object() {
-                return obj.len() as i32;
-            }
-            if let Some(arr) = cc.as_array() {
-                return arr.len() as i32;
-            }
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body)
+        && let Some(cc) = v.pointer("/data/comic_chapter")
+    {
+        if let Some(obj) = cc.as_object() {
+            return obj.len() as i32;
+        }
+        if let Some(arr) = cc.as_array() {
+            return arr.len() as i32;
         }
     }
     chapter.index.saturating_add(1)
@@ -3246,10 +3241,10 @@ fn apply_content_web_hooks(
             if let Ok(hit) = legado_core::webview_channel::request_and_wait(
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
-            ) {
-                if !hit.trim().is_empty() && !hit.starts_with("[ERROR]") {
-                    return hit;
-                }
+            ) && !hit.trim().is_empty()
+                && !hit.starts_with("[ERROR]")
+            {
+                return hit;
             }
         }
         if let Some(hit) = sniff_source_regex_url(&body, re_str) {
@@ -3284,10 +3279,10 @@ fn apply_content_web_hooks(
             if let Ok(out) = legado_core::webview_channel::request_and_wait(
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
-            ) {
-                if !out.trim().is_empty() && !out.starts_with("[ERROR]") {
-                    return out;
-                }
+            ) && !out.trim().is_empty()
+                && !out.starts_with("[ERROR]")
+            {
+                return out;
             }
         }
         // P2-9 ①：src = 正文响应体（见 bind_orig_src 注释）
@@ -3346,11 +3341,11 @@ fn sniff_source_regex_url(body: &str, source_regex: &str) -> Option<String> {
 pub fn merge_variables_json(base: Option<&str>, overlay: Option<&str>) -> Option<String> {
     let mut map = serde_json::Map::new();
     for src in [base, overlay] {
-        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty()) {
-            if let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s) {
-                for (k, v) in m {
-                    map.insert(k, v);
-                }
+        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty())
+            && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
+        {
+            for (k, v) in m {
+                map.insert(k, v);
             }
         }
     }
@@ -3366,15 +3361,15 @@ pub fn merge_variables_json(base: Option<&str>, overlay: Option<&str>) -> Option
 /// `{{key}}` 取自该表，空表会使翻页 token 类变量无法展开。
 pub fn chapter_url_variables(variable: Option<&str>) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
-    if let Some(s) = variable.map(str::trim).filter(|v| !v.is_empty()) {
-        if let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s) {
-            for (k, v) in m {
-                let val = match v {
-                    serde_json::Value::String(t) => t,
-                    other => other.to_string(),
-                };
-                map.insert(k, val);
-            }
+    if let Some(s) = variable.map(str::trim).filter(|v| !v.is_empty())
+        && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
+    {
+        for (k, v) in m {
+            let val = match v {
+                serde_json::Value::String(t) => t,
+                other => other.to_string(),
+            };
+            map.insert(k, val);
         }
     }
     map
@@ -3998,11 +3993,7 @@ fn optional_field(analyzer: &legado_parser::AnalyzeRule, rule: &str) -> Option<S
         return None;
     }
     let v = eval_rule_string(analyzer, rule).unwrap_or_default();
-    if v.is_empty() {
-        None
-    } else {
-        Some(v)
-    }
+    if v.is_empty() { None } else { Some(v) }
 }
 
 /// 判断 URL 是否命中 bookUrlPattern 正则（对标 Kotlin `baseUrl.matches(it.toRegex())`）
@@ -4518,10 +4509,10 @@ pub async fn webbook_content(
         // 不同书源书籍不串键
         let mut book_meta = lookup_book_meta_for_chapter(&source.book_source_url, &chapter.url);
         // P1-1：缓存 meta 有值但 variable 缺失/为空 → 按 bookUrl 从 DB 补
-        if let Some(m) = book_meta.as_mut() {
-            if m.variable.as_deref().is_none_or(|v| v.trim().is_empty()) {
-                m.variable = db_book_variable(&deps, &m.book_url);
-            }
+        if let Some(m) = book_meta.as_mut()
+            && m.variable.as_deref().is_none_or(|v| v.trim().is_empty())
+        {
+            m.variable = db_book_variable(&deps, &m.book_url);
         }
         let out = tokio::task::spawn_blocking(move || {
             let book_chapter = BookChapter {
@@ -4586,7 +4577,7 @@ pub async fn webbook_content(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{block_on, GLOBAL_STORE_TEST_LOCK};
+    use crate::test_support::{GLOBAL_STORE_TEST_LOCK, block_on};
     use legado_core::models::rule::ContentRule;
     use legado_parser::AnalyzeRule;
 
@@ -4617,8 +4608,8 @@ mod tests {
     fn test_fetch_page_hex_post_dispatches_post() {
         use std::io::{Read, Write};
         use std::net::TcpListener;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 回环服务器");
         let port = listener.local_addr().unwrap().port();
@@ -4965,8 +4956,7 @@ mod tests {
         ))
         .expect("详情解析应成功（修复前阶段）");
         assert_eq!(
-            before.toc_url,
-            BOOK_URL,
+            before.toc_url, BOOK_URL,
             "修复前：@get 本地未命中（桥未注册）→ tocUrl 空 → 回退 book_url（复现原偏差：目录页错）"
         );
 
@@ -5314,11 +5304,10 @@ mod tests {
         // 详情阶段写入的 variable 不被目录阶段（variable=None）清空
         assert_eq!(meta.variable, Some(r#"{"a":"1"}"#.into()));
         // 未注册章节 URL → None（回退既有空 name 字面量绑定）
-        assert!(lookup_book_meta_for_chapter(
-            source_url,
-            "https://meta-cache-test.example.com/unknown"
-        )
-        .is_none());
+        assert!(
+            lookup_book_meta_for_chapter(source_url, "https://meta-cache-test.example.com/unknown")
+                .is_none()
+        );
     }
 
     /// P2-11 §193：同章节 URL 的两本书（不同书源）不串键——复合键回归测试。
@@ -6497,8 +6486,7 @@ mod tests {
         // 边界安全前进修复后，内组未解析 → 原规则透传 JS → 模板串由
         // quickjs 求值（`$` 为 Array.from 回参）→ info = "5200字"
         let toc_url = "https://book4.cc/AU文学/1/101/toc/";
-        let toc_body =
-            "{\"chapter_list\":[{\"name\":\"第一章\",\"file_name\":\"/f/1.html\",\"len\":5200},{\"name\":\"第二章\",\"file_name\":\"/f/2.html\",\"len\":4300}]}";
+        let toc_body = "{\"chapter_list\":[{\"name\":\"第一章\",\"file_name\":\"/f/1.html\",\"len\":5200},{\"name\":\"第二章\",\"file_name\":\"/f/2.html\",\"len\":4300}]}";
         let fetcher = test_fetcher();
         let meta = lookup_book_meta_by_book_url(url_after).expect("补后：meta 应已播种");
         let ch = block_on(fetcher.parse_chapters_from_toc_body(
@@ -7112,8 +7100,7 @@ mod tests {
 <a class='next' href='/chap/8_2.html'>下一页</a></body></html>";
         const CUR_LAST_HTML: &str = "<html><body><div class='content'><p>本章第二页</p></div>\
 <a class='next' href='/chap/9.html'>下一章</a></body></html>";
-        const NEXT_CHAPTER_HTML: &str =
-            "<html><body><div class='content'><p>下一章正文不应出现在本章</p></div>\
+        const NEXT_CHAPTER_HTML: &str = "<html><body><div class='content'><p>下一章正文不应出现在本章</p></div>\
 <a class='next' href='/chap/10.html'>下一章</a></body></html>";
 
         let mut pages = std::collections::HashMap::new();

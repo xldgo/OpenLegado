@@ -129,24 +129,24 @@ pub fn set_cache_dir(path: &str) {
 fn cache_root() -> PathBuf {
     #[cfg(test)]
     {
-        if let Ok(guard) = TEST_DIR_OVERRIDE.get_or_init(|| Mutex::new(None)).lock() {
-            if let Some(dir) = guard.clone() {
-                return dir;
-            }
+        if let Ok(guard) = TEST_DIR_OVERRIDE.get_or_init(|| Mutex::new(None)).lock()
+            && let Some(dir) = guard.clone()
+        {
+            return dir;
         }
     }
     #[cfg(not(test))]
     {
-        if let Ok(dir) = std::env::var(CACHE_DIR_ENV) {
-            if !dir.trim().is_empty() {
-                return PathBuf::from(dir);
-            }
+        if let Ok(dir) = std::env::var(CACHE_DIR_ENV)
+            && !dir.trim().is_empty()
+        {
+            return PathBuf::from(dir);
         }
     }
-    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-        if let Some(dir) = guard.clone() {
-            return dir;
-        }
+    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock()
+        && let Some(dir) = guard.clone()
+    {
+        return dir;
     }
     let root = std::env::temp_dir().join(DEFAULT_ROOT);
     if DEFAULT_DIR_WARNED
@@ -343,7 +343,9 @@ pub fn audio_cache_list(book_url: &str) -> Vec<i32> {
         }
     }
     if skipped > 0 {
-        log::debug!("[audio_cache] 目录 {dir:?} 跳过 {skipped} 个不匹配五段式命名的文件（旧键/残留文件不读不迁移）");
+        log::debug!(
+            "[audio_cache] 目录 {dir:?} 跳过 {skipped} 个不匹配五段式命名的文件（旧键/残留文件不读不迁移）"
+        );
     }
     indexes.into_iter().collect()
 }
@@ -704,10 +706,11 @@ fn remove_cache_files(dir: &Path, key16: &str, except_name: Option<&str>) -> i32
         if is_data && except_name != Some(name.as_str()) {
             data_targets.push(name.clone());
         }
-        if let Some(base) = name.strip_suffix(COMPLETE_SUFFIX) {
-            if except_name != Some(base) && is_cache_file_name(base, key16) {
-                marker_targets.push(name.clone());
-            }
+        if let Some(base) = name.strip_suffix(COMPLETE_SUFFIX)
+            && except_name != Some(base)
+            && is_cache_file_name(base, key16)
+        {
+            marker_targets.push(name.clone());
         }
     }
     let count = data_targets.len() as i32;
@@ -1211,10 +1214,12 @@ mod tests {
         // 段数不足不匹配
         assert!(parse_cache_file_name("00042_bc4b2a76b9719d91_标题.mp3").is_none());
         // 序号溢出 i32 → 跳过
-        assert!(parse_cache_file_name(
-            "99999999999_bc4b2a76b9719d91_标题_bc964d2a0c9c9bf9_9f8e7d6c.mp3"
-        )
-        .is_none());
+        assert!(
+            parse_cache_file_name(
+                "99999999999_bc4b2a76b9719d91_标题_bc964d2a0c9c9bf9_9f8e7d6c.mp3"
+            )
+            .is_none()
+        );
         // 旧孤儿键命名不匹配（不读不迁移的天然屏障）
         assert!(parse_cache_file_name("-123456_0.audio").is_none());
     }
@@ -1452,9 +1457,10 @@ mod tests {
             "第一章"
         ));
         assert_eq!(audio_cache_list("https://a.com/book/5"), vec![4]);
-        assert!(root
-            .join(format!("book_{}", md5_mid16("https://a.com/book/5")))
-            .exists());
+        assert!(
+            root.join(format!("book_{}", md5_mid16("https://a.com/book/5")))
+                .exists()
+        );
         // 删除数 = 数据文件（不含 .complete 标记）
         assert_eq!(audio_cache_clear_book("https://a.com/book/5"), 1);
         // 复位注入槽为 None（不污染其他测试）
@@ -1618,19 +1624,25 @@ mod tests {
     #[test]
     fn extension_detection_and_rejections() {
         // playUrl 校验
-        assert!(require_cacheable_play_url("")
-            .unwrap_err()
-            .to_string()
-            .contains("播放链接为空"));
+        assert!(
+            require_cacheable_play_url("")
+                .unwrap_err()
+                .to_string()
+                .contains("播放链接为空")
+        );
         assert!(require_cacheable_play_url("   ").is_err());
-        assert!(require_cacheable_play_url("[{\"url\":\"a\"}]")
-            .unwrap_err()
-            .to_string()
-            .contains("暂不支持缓存多段音频"));
-        assert!(require_cacheable_play_url("https://x.com/a.M3U8?t=1")
-            .unwrap_err()
-            .to_string()
-            .contains("暂不支持缓存 HLS 音频"));
+        assert!(
+            require_cacheable_play_url("[{\"url\":\"a\"}]")
+                .unwrap_err()
+                .to_string()
+                .contains("暂不支持缓存多段音频")
+        );
+        assert!(
+            require_cacheable_play_url("https://x.com/a.M3U8?t=1")
+                .unwrap_err()
+                .to_string()
+                .contains("暂不支持缓存 HLS 音频")
+        );
         assert!(require_cacheable_play_url("https://x.com/a.m3u#frag").is_err());
         assert!(require_cacheable_play_url("https://x.com/a.mp3").is_ok());
 
@@ -1680,14 +1692,16 @@ mod tests {
             "audio"
         );
         // HLS 拒绝：Content-Type 含 mpegurl / 最终 URL 为 m3u8
-        assert!(detect_extension(
-            Some("application/vnd.apple.mpegurl"),
-            "https://x/a",
-            "https://x/a"
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("暂不支持缓存 HLS 音频"));
+        assert!(
+            detect_extension(
+                Some("application/vnd.apple.mpegurl"),
+                "https://x/a",
+                "https://x/a"
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("暂不支持缓存 HLS 音频")
+        );
         assert!(detect_extension(None, "https://x/live.m3u8", "https://x/live").is_err());
         // URL 无点 → 不误判（substringAfterLast 缺省空串语义）
         assert_eq!(extension_from_url("https://x.com/stream"), None);
@@ -1817,17 +1831,19 @@ mod tests {
                 .contains("书籍 URL 为空")
         );
         // 书籍不存在
-        assert!(audio_cache_download_with_client(
-            &client,
-            "https://a.com/no-book",
-            0,
-            "u",
-            "t",
-            "https://x/a.mp3"
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("书籍不存在"));
+        assert!(
+            audio_cache_download_with_client(
+                &client,
+                "https://a.com/no-book",
+                0,
+                "u",
+                "t",
+                "https://x/a.mp3"
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("书籍不存在")
+        );
         // 章节不存在
         let book_url = "https://a.com/book/dl-val";
         insert_audio_book(
@@ -1837,17 +1853,19 @@ mod tests {
             "第一章",
             false,
         );
-        assert!(audio_cache_download_with_client(
-            &client,
-            book_url,
-            9,
-            "hello",
-            "第一章",
-            "https://x/a.mp3"
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("章节 9 不存在"));
+        assert!(
+            audio_cache_download_with_client(
+                &client,
+                book_url,
+                9,
+                "hello",
+                "第一章",
+                "https://x/a.mp3"
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("章节 9 不存在")
+        );
         // 分卷章节拒绝（原版文案）
         let vol_url = "https://a.com/book/dl-vol";
         insert_audio_book(
@@ -1857,17 +1875,19 @@ mod tests {
             "第一章",
             true,
         );
-        assert!(audio_cache_download_with_client(
-            &client,
-            vol_url,
-            0,
-            "hello",
-            "第一章",
-            "https://x/a.mp3"
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("分卷章节不支持缓存"));
+        assert!(
+            audio_cache_download_with_client(
+                &client,
+                vol_url,
+                0,
+                "hello",
+                "第一章",
+                "https://x/a.mp3"
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("分卷章节不支持缓存")
+        );
         // playUrl 空 / JSON 多段 / HLS
         for (play, msg) in [
             ("", "播放链接为空"),
@@ -1901,17 +1921,19 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        assert!(audio_cache_download_with_client(
-            &client,
-            no_src_url,
-            0,
-            "hello",
-            "第一章",
-            "https://x/a.mp3"
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("书源不存在"));
+        assert!(
+            audio_cache_download_with_client(
+                &client,
+                no_src_url,
+                0,
+                "hello",
+                "第一章",
+                "https://x/a.mp3"
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("书源不存在")
+        );
 
         clear_test_root();
         let _ = fs::remove_dir_all(&root);
@@ -2104,14 +2126,18 @@ mod tests {
         assert!(!audio_cache_query(book_url, 0, "hello", "第一章"));
 
         // 纯函数 size 校验分支（流中断以外的「不完整」判据）
-        assert!(require_complete_size(0, None)
-            .unwrap_err()
-            .to_string()
-            .contains("音频文件为空"));
-        assert!(require_complete_size(10, Some(100))
-            .unwrap_err()
-            .to_string()
-            .contains("音频文件不完整"));
+        assert!(
+            require_complete_size(0, None)
+                .unwrap_err()
+                .to_string()
+                .contains("音频文件为空")
+        );
+        assert!(
+            require_complete_size(10, Some(100))
+                .unwrap_err()
+                .to_string()
+                .contains("音频文件不完整")
+        );
         assert!(require_complete_size(100, Some(100)).is_ok());
         assert!(require_complete_size(10, None).is_ok());
 

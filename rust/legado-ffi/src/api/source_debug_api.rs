@@ -72,10 +72,10 @@ pub fn log_debug(source_url: Option<&str>, msg: &str, state: i32, show_time: boo
     let Some(session) = guard.as_ref() else {
         return;
     };
-    if let Some(url) = source_url {
-        if url != session.source_url {
-            return;
-        }
+    if let Some(url) = source_url
+        && url != session.source_url
+    {
+        return;
     }
     let print_msg = if show_time {
         format!("{} {msg}", format_elapsed(session.start))
@@ -98,10 +98,10 @@ fn emitter_lock() -> &'static Mutex<Option<EmitFn>> {
 }
 
 fn emit_log(item: DebugLogItem) {
-    if let Ok(guard) = emitter_lock().lock() {
-        if let Some(emit) = guard.as_ref() {
-            emit(item);
-        }
+    if let Ok(guard) = emitter_lock().lock()
+        && let Some(emit) = guard.as_ref()
+    {
+        emit(item);
     }
 }
 
@@ -180,10 +180,10 @@ where
         if let Ok(mut guard) = emitter_lock().lock() {
             *guard = Some(Box::new(move |item| {
                 let json = serde_json::to_string(&item).unwrap_or_default();
-                if let Ok(mut cb) = on_log_emit.lock() {
-                    if cb(json).is_err() {
-                        DEBUG_CANCELLED.store(true, Ordering::SeqCst);
-                    }
+                if let Ok(mut cb) = on_log_emit.lock()
+                    && cb(json).is_err()
+                {
+                    DEBUG_CANCELLED.store(true, Ordering::SeqCst);
                 }
             }));
         }
@@ -194,14 +194,14 @@ where
         debug_book_source_sync(&source_url, &key, session_id);
     });
 
-    if let Err(e) = join.await {
-        if let Ok(mut cb) = on_log.lock() {
-            let item = DebugLogItem {
-                state: -1,
-                msg: format!("调试任务异常: {e}"),
-            };
-            let _ = cb(serde_json::to_string(&item).unwrap_or_default());
-        }
+    if let Err(e) = join.await
+        && let Ok(mut cb) = on_log.lock()
+    {
+        let item = DebugLogItem {
+            state: -1,
+            msg: format!("调试任务异常: {e}"),
+        };
+        let _ = cb(serde_json::to_string(&item).unwrap_or_default());
     }
 
     if let Ok(mut guard) = emitter_lock().lock() {

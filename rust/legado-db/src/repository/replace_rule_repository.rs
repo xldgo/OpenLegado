@@ -1,6 +1,6 @@
 //! ReplaceRule Repository - replace_rules 表 CRUD + 规则应用
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::ReplaceRule;
 use legado_core::{LegadoError, LegadoResult};
@@ -164,10 +164,12 @@ impl<'a> ReplaceRuleRepository<'a> {
         for rule in &rules {
             // 检查 scope 匹配：scope 为空或 "global" 时全局生效
             // scope 包含书籍名称时对特定书籍生效
-            if let Some(scope) = &rule.scope {
-                if !scope.is_empty() && scope != "global" && !scope.contains(book_name) {
-                    continue;
-                }
+            if let Some(scope) = &rule.scope
+                && !scope.is_empty()
+                && scope != "global"
+                && !scope.contains(book_name)
+            {
+                continue;
             }
 
             if rule.pattern.is_empty() {

@@ -47,8 +47,8 @@ use std::sync::{Arc, Mutex, MutexGuard, Once};
 
 use base64::Engine as _;
 use legado_ffi::legado_core::models::Book;
-use legado_ffi::legado_db::repository::Repository;
 use legado_ffi::legado_db::BookRepository;
+use legado_ffi::legado_db::repository::Repository;
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 static ENV_INIT: Once = Once::new();
@@ -60,8 +60,13 @@ fn lock_test() -> MutexGuard<'static, ()> {
 fn setup_env() {
     let db = legado_ffi::legado_db::init_in_memory_database().expect("内存数据库初始化");
     legado_ffi::db_state::init_database(db).expect("全局连接池初始化");
-    std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
-    legado_ffi::http_state::reset_shared_client();
+    legado_ffi::http_state::reset_shared_client_with_config(
+        legado_ffi::legado_net::LegadoClientConfig {
+            no_proxy: true,
+            ..Default::default()
+        },
+    )
+    .expect("回环夹具客户端初始化");
 }
 
 // ─── 回环 mock 服务器（P2-17 同纪律）────────────────────────────────────────

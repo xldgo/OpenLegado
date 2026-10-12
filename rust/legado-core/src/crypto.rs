@@ -29,7 +29,7 @@ impl AesCrypto {
     pub fn decrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
 
         type Dec128 = cbc::Decryptor<Aes128>;
         type Dec192 = cbc::Decryptor<Aes192>;
@@ -39,15 +39,15 @@ impl AesCrypto {
         let pt = match key.len() {
             16 => Dec128::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec192::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             32 => Dec256::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -58,7 +58,7 @@ impl AesCrypto {
     pub fn encrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyIvInit};
 
         type Enc128 = cbc::Encryptor<Aes128>;
         type Enc192 = cbc::Encryptor<Aes192>;
@@ -68,15 +68,15 @@ impl AesCrypto {
         let ct = match key.len() {
             16 => Enc128::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc192::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             32 => Enc256::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -90,7 +90,7 @@ impl AesCrypto {
     pub fn decrypt_cbc_nopadding(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
 
         type Dec128 = cbc::Decryptor<Aes128>;
         type Dec192 = cbc::Decryptor<Aes192>;
@@ -107,15 +107,15 @@ impl AesCrypto {
         let pt = match key.len() {
             16 => Dec128::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec192::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             32 => Dec256::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -126,7 +126,7 @@ impl AesCrypto {
     pub fn encrypt_cbc_nopadding(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyIvInit};
 
         type Enc128 = cbc::Encryptor<Aes128>;
         type Enc192 = cbc::Encryptor<Aes192>;
@@ -143,15 +143,15 @@ impl AesCrypto {
         let ct = match key.len() {
             16 => Enc128::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc192::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             32 => Enc256::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -162,7 +162,7 @@ impl AesCrypto {
     pub fn decrypt_ecb_nopadding(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockDecryptMut, KeyInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyInit};
 
         type EcbDec128 = ecb::Decryptor<Aes128>;
         type EcbDec192 = ecb::Decryptor<Aes192>;
@@ -179,15 +179,15 @@ impl AesCrypto {
         let pt = match key.len() {
             16 => EcbDec128::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => EcbDec192::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             32 => EcbDec256::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -198,7 +198,7 @@ impl AesCrypto {
     pub fn encrypt_ecb_nopadding(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockEncryptMut, KeyInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyInit};
 
         type EcbEnc128 = ecb::Encryptor<Aes128>;
         type EcbEnc192 = ecb::Encryptor<Aes192>;
@@ -215,15 +215,15 @@ impl AesCrypto {
         let ct = match key.len() {
             16 => EcbEnc128::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => EcbEnc192::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             32 => EcbEnc256::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -234,7 +234,7 @@ impl AesCrypto {
     pub fn decrypt_ecb(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockDecryptMut, KeyInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyInit};
 
         type EcbDec128 = ecb::Decryptor<Aes128>;
         type EcbDec192 = ecb::Decryptor<Aes192>;
@@ -244,15 +244,15 @@ impl AesCrypto {
         let pt = match key.len() {
             16 => EcbDec128::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => EcbDec192::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             32 => EcbDec256::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -263,7 +263,7 @@ impl AesCrypto {
     pub fn encrypt_ecb(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use aes::{Aes128, Aes192, Aes256};
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockEncryptMut, KeyInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyInit};
 
         type EcbEnc128 = ecb::Encryptor<Aes128>;
         type EcbEnc192 = ecb::Encryptor<Aes192>;
@@ -273,15 +273,15 @@ impl AesCrypto {
         let ct = match key.len() {
             16 => EcbEnc128::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => EcbEnc192::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             32 => EcbEnc256::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("AES", n, &[16, 24, 32])),
         };
@@ -300,7 +300,7 @@ impl DesCrypto {
     /// DES-CBC 解密
     pub fn decrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
         use des::Des;
 
         if key.len() != 8 {
@@ -310,7 +310,7 @@ impl DesCrypto {
         let mut buf = data.to_vec();
         let pt = Dec::new_from_slices(key, iv)
             .map_err(crypto_init_err)?
-            .decrypt_padded_mut::<Pkcs7>(&mut buf)
+            .decrypt_padded::<Pkcs7>(&mut buf)
             .map_err(crypto_op_err)?;
         Ok(pt.to_vec())
     }
@@ -318,7 +318,7 @@ impl DesCrypto {
     /// DES-CBC 加密
     pub fn encrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyIvInit};
         use des::Des;
 
         if key.len() != 8 {
@@ -328,7 +328,7 @@ impl DesCrypto {
         let mut buf = make_padded_buf(DES_BLOCK_SIZE, data);
         let ct = Enc::new_from_slices(key, iv)
             .map_err(crypto_init_err)?
-            .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+            .encrypt_padded::<Pkcs7>(&mut buf, data.len())
             .map_err(crypto_op_err)?;
         Ok(ct.to_vec())
     }
@@ -351,7 +351,7 @@ impl TripleDesCrypto {
     /// 3DES-CBC 解密（PKCS7 填充）
     pub fn decrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
         use des::{TdesEde2, TdesEde3};
 
         type Dec2 = cbc::Decryptor<TdesEde2>;
@@ -361,11 +361,11 @@ impl TripleDesCrypto {
         let pt = match key.len() {
             16 => Dec2::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec3::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -375,7 +375,7 @@ impl TripleDesCrypto {
     /// 3DES-CBC 加密（PKCS7 填充）
     pub fn encrypt_cbc(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyIvInit};
         use des::{TdesEde2, TdesEde3};
 
         type Enc2 = cbc::Encryptor<TdesEde2>;
@@ -385,11 +385,11 @@ impl TripleDesCrypto {
         let ct = match key.len() {
             16 => Enc2::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc3::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -399,7 +399,7 @@ impl TripleDesCrypto {
     /// 3DES-CBC 解密（NoPadding；密文长度须为 8 的倍数）
     pub fn decrypt_cbc_nopadding(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
         use des::{TdesEde2, TdesEde3};
 
         type Dec2 = cbc::Decryptor<TdesEde2>;
@@ -416,11 +416,11 @@ impl TripleDesCrypto {
         let pt = match key.len() {
             16 => Dec2::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec3::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -430,7 +430,7 @@ impl TripleDesCrypto {
     /// 3DES-CBC 加密（NoPadding；明文长度须为 8 的倍数）
     pub fn encrypt_cbc_nopadding(key: &[u8], iv: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyIvInit};
         use des::{TdesEde2, TdesEde3};
 
         type Enc2 = cbc::Encryptor<TdesEde2>;
@@ -447,11 +447,11 @@ impl TripleDesCrypto {
         let ct = match key.len() {
             16 => Enc2::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc3::new_from_slices(key, iv)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -461,7 +461,7 @@ impl TripleDesCrypto {
     /// 3DES-ECB 解密（PKCS7 填充）
     pub fn decrypt_ecb(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockDecryptMut, KeyInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyInit};
         use des::{TdesEde2, TdesEde3};
 
         type Dec2 = ecb::Decryptor<TdesEde2>;
@@ -471,11 +471,11 @@ impl TripleDesCrypto {
         let pt = match key.len() {
             16 => Dec2::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec3::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<Pkcs7>(&mut buf)
+                .decrypt_padded::<Pkcs7>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -485,7 +485,7 @@ impl TripleDesCrypto {
     /// 3DES-ECB 加密（PKCS7 填充）
     pub fn encrypt_ecb(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::Pkcs7;
-        use cbc::cipher::{BlockEncryptMut, KeyInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyInit};
         use des::{TdesEde2, TdesEde3};
 
         type Enc2 = ecb::Encryptor<TdesEde2>;
@@ -495,11 +495,11 @@ impl TripleDesCrypto {
         let ct = match key.len() {
             16 => Enc2::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc3::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<Pkcs7>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -509,7 +509,7 @@ impl TripleDesCrypto {
     /// 3DES-ECB 解密（NoPadding；密文长度须为 8 的倍数）
     pub fn decrypt_ecb_nopadding(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockDecryptMut, KeyInit};
+        use cbc::cipher::{BlockModeDecrypt, KeyInit};
         use des::{TdesEde2, TdesEde3};
 
         type Dec2 = ecb::Decryptor<TdesEde2>;
@@ -526,11 +526,11 @@ impl TripleDesCrypto {
         let pt = match key.len() {
             16 => Dec2::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             24 => Dec3::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .decrypt_padded_mut::<NoPadding>(&mut buf)
+                .decrypt_padded::<NoPadding>(&mut buf)
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -540,7 +540,7 @@ impl TripleDesCrypto {
     /// 3DES-ECB 加密（NoPadding；明文长度须为 8 的倍数）
     pub fn encrypt_ecb_nopadding(key: &[u8], data: &[u8]) -> LegadoResult<Vec<u8>> {
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockEncryptMut, KeyInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyInit};
         use des::{TdesEde2, TdesEde3};
 
         type Enc2 = ecb::Encryptor<TdesEde2>;
@@ -557,11 +557,11 @@ impl TripleDesCrypto {
         let ct = match key.len() {
             16 => Enc2::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             24 => Enc3::new_from_slice(key)
                 .map_err(crypto_init_err)?
-                .encrypt_padded_mut::<NoPadding>(&mut buf, data.len())
+                .encrypt_padded::<NoPadding>(&mut buf, data.len())
                 .map_err(crypto_op_err)?,
             n => return Err(bad_key_len("DESEDE", n, &[16, 24])),
         };
@@ -1057,7 +1057,7 @@ mod tests {
         // EDE2(k, k) = E(k)D(k)E(k) ≡ E(k)：16 字节密钥（k1 == k2）单块
         // NoPadding 结果必须等于同 8 字节密钥的单 DES-ECB（用 des  crate 直接锚定）
         use cbc::cipher::block_padding::NoPadding;
-        use cbc::cipher::{BlockEncryptMut, KeyInit};
+        use cbc::cipher::{BlockModeEncrypt, KeyInit};
         use des::Des;
 
         let key8 = [0x01u8; 8];
@@ -1067,7 +1067,7 @@ mod tests {
         let mut des_block = block;
         let des_ct = ecb::Encryptor::<Des>::new_from_slice(&key8)
             .expect("des init")
-            .encrypt_padded_mut::<NoPadding>(&mut des_block, 8)
+            .encrypt_padded::<NoPadding>(&mut des_block, 8)
             .expect("des ecb");
 
         let tdes_ct = TripleDesCrypto::encrypt_ecb_nopadding(&key16, &block).expect("tdes ecb");

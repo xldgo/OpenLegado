@@ -5,16 +5,16 @@
 //! - GET /api/sources/updates — 检查书源更新
 //! - POST /api/sources/update — 执行更新
 
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
-use legado_db::repository::book_source_repository::BookSourceRepository;
-use legado_db::repository::Repository;
 use legado_db::RoomImporter;
+use legado_db::repository::Repository;
+use legado_db::repository::book_source_repository::BookSourceRepository;
 
 use crate::error::ApiError;
 use crate::state::AppState;

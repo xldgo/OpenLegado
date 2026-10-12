@@ -1,5 +1,32 @@
 # Legado 后续重构执行计划（Active）
 
+### API-LIFECYCLE-20261012：书签原子更新与启动实例统一（P1）
+
+- **授权与基线**：用户优先要求修复审计项 1、2；基线为 `feature/ui-reader-selection` 的 `2d5ce051a`。不使用子代理、不创建分支；用户现已授权本批修复、Rust 2024 迁移与依赖升级合为一个本地提交，不推送。
+- **范围与契约**：先冻结 API_CONTRACT §2.7，新增 FRB 书签更新入口，以单条 UPDATE 保留 id 和创建时间，失败保留旧记录；Mock 对齐。启动入口把已初始化的同一 BookApi 实例注入 Provider，保留 Mock 选择、并行预热和失败页面。
+- **验收**：覆盖成功更新、连续更新、缺失目标、非法输入与数据库拒绝写入；覆盖初始化等待、失败传播和 Provider 实例身份。重新生成双方 FRB 绑定并重建 Windows 原生库，执行定向 Rust/Dart/真实 FFI 回归与静态检查，不触发全量 CI 或设备测试。
+- **状态**：代码与定向验证通过，本批纳入用户授权的本地提交，提交记录以 Git 为准。Flutter 启动/Mock/书签 Provider/契约回归 26 项、Rust Repository 与桥接入口 18 项、真实 Windows FRB/DLL 2 项通过，10 个改动 Dart 文件静态检查无问题，Windows FFI 构建及元数据校验通过。真实 DLL 首次加载因本地产物权限未继承失败，恢复该产物目录继承权限后通过；不改变全局沙箱配置。按规则应用版本递增为 `2.0.373+374`，同步两处日志。未运行设备、Android/iOS 构建或全量 CI。
+- **旧 C ABI 审计**：`bridge.rs` 的 182 个函数定义（181 个独立符号）在当前源码、测试、工具和构建中的命中全部为注释，FRB 输入为 `crate::ffi`。未发现外部消费者；按用户后续清理范围移除旧模块与声明。Windows DLL 重建后用真实动态库符号查找确认 181 个旧函数符号均不存在，现用 FRB/PDE 分发与初始化符号存在。
+
+编写者：Codex｜2026-10-12
+
+### RUST-EDITION-20261012：Rust 2024、依赖升级与旧 C ABI 清理（P2）
+
+- **用户授权**：完成书签与启动修复后继续升级到 Rust 2024，沿用当前分支；用户现已授权与修复合为一个本地提交，不推送。
+- **边界**：迁移自有工作区 crate 的语言 edition，使用现有 stable；用户追加允许升级 Rust 依赖并清理旧 C ABI。本轮更新依赖（包括追加批准的加密与 Base64 跨版本迁移）、移除旧模块，不修改 third_party 上游、不混入业务重构。运行 Cargo edition 迁移检查，复核宏、unsafe 导出、测试环境变量及平台条件分支；FRB 生成物由生成器重新生成。
+- **验收**：工作区在默认与 QuickJS feature 下检查所有本地目标，相关 Rust 回归通过；FRB 重新生成、Windows DLL 重建及真实桥接验证通过。Windows 无法提供 iOS/Xcode 和 Android 最终构建证据，明确记录限制。
+- **状态**：代码、生成与可用平台验证通过，本批纳入用户授权的本地提交，提交记录以 Git 为准。十个自有 crate 继承工作区 2024 edition，resolver 升至 3；Rust 保持 stable（本机 1.99.0），FRB runtime/codegen 保持 2.13.0。Cargo 锁文件更新包括 Tokio 1.53.2、Serde JSON 1.0.154、Futures 0.3.34、Thiserror 2.0.21、UUID 1.28.0 与 Zip 9.0.2；追加迁移 AES 0.9.3、CBC 0.2.1、ECB 0.2.1、DES 0.9.0 和 Base64 0.23.1。
+- **迁移细节**：处理 edition 的条件表达式临时值生命周期、Android unsafe extern 声明与新 let-chain lint；Cargo 自动修复和格式化覆盖相应自有源码，不改 third_party。测试目录使用线程内覆盖，回环 HTTP 夹具显式关闭代理，不在并行测试中修改进程环境。新增 `rust/rustfmt.toml` 统一生成器与 Cargo 的 2024 格式化风格，避免绑定重复生成产生导入排序差异。
+- **依赖追加**：按用户要求补齐 AES、CBC、ECB、DES 与 Base64 的跨版本升级；前四项使用 cipher 0.5.2，迁移 BlockModeEncrypt/BlockModeDecrypt 与填充方法名，JS 的 Base64 声明收敛到工作区配置。31 项加解密定向测试通过；升级后重新执行 QuickJS 工作区 lib 测试，3356 项通过、44 项按原标记忽略；严格 all-targets Clippy、格式检查与 Android arm64 core 编译通过。Windows DLL 重建及元数据校验、两项真实 FRB 调用通过。lopdf/rar 的旧加密依赖和 axum 的旧 Base64 作为间接依赖保留，不改第三方源码；未触发 CI 或推送。
+- **后续跨版本迁移**：升级 tower-http 0.7.1、tokio-tungstenite 0.30.0、lopdf 0.45.0、sevenz-rust2 0.24.0、rquickjs 0.14.0；Android/iOS 与宿主声明同步，不再锁定旧 QuickJS。7z 迁移至 ArchiveReader；TypedArray 字节立即复制为 Rust 自有数据，不跨 JS 调用借用引擎内存，新增视图偏移、缩容越界和分离缓冲区回归。独立 URL 管道的 MD5 升至 0.11.0。
+- **PDF 图片边界**：实际 JPEG/PNG 解码升级 image 0.25.10；genpdf 0.2 仍依赖 image 0.23，使用仅接收已解码像素的 image_pdf 类型适配，不重复编码、解码。保留灰度/RGB 和 16 位非透明通道，透明图继续铺白底；旧 image 不会从依赖树完全消失。
+- **保留项与依据**：隔离对照 0.7.5/1.0.11 的 11 个 JSONPath 表达式，现有 in、anyOf、~=、后缀 length() 和特殊裸字段被新版拒绝，size 返回空结果，因此生产仍保留 0.7.5，补齐方言、空值和数组语义测试；升级必须另行处理书源方言，不能直接替换。[RSA 0.9.10](https://docs.rs/crate/rsa/0.9.10) 是当前稳定系列，公共接口要求 digest 0.10、signature 2 和 rand_core 0.6；JS 的 MD5/SHA/HMAC 保留配套版本，不为版本号引入预发布 RSA 或双套签名类型。
+- **追加验证**：默认及 QuickJS 工作区 all-targets 严格 Clippy 通过，QuickJS 工作区 lib 3362 项通过、44 项按既有标记忽略；最终依赖组合下定向书源脚本 21 项、WebSocket 9 项和真实图片 PDF 导出 4 项通过（未触发缺字体跳过）。Android arm64 含 QuickJS 的 FFI 编译检查通过，NDK 使用现有 28.2.13676358；首次执行受本机沙箱权限限制，单次放行编译后通过。Windows DLL 重建、只读元数据校验和两项真实 FRB 调用通过；仅恢复新 DLL 文件的继承权限，不改全局权限。沿用当前分支与版本，保留已有工作区成果，不推送、不触发全量 CI。
+- **证据**：默认及 QuickJS 的工作区 all-targets 严格 Clippy 通过；最终 QuickJS 工作区 lib 测试 3362 项通过、44 项按既有标记忽略；五组本地 HTTP 夹具 22 项、上游排版一致性 8 项通过；Android arm64 legado-core 编译检查通过。FRB 重复生成无差异，Windows FFI 构建及元数据校验通过，旧 C ABI 符号实际查找全部缺失，现用 FRB/PDE 符号存在；新 DLL 的真实书签调用 2 项通过，Flutter 启动/Mock/书签 Provider/契约定向回归 26 项通过。
+- **边界与日志**：没有运行全量 CI、设备交互、完整 Android APK 或 iOS/Xcode 构建；Android core 编译检查不代表完整应用构建通过。日志在忽略目录 `flutter_legado/build/rust-2024-*.log` 与 `rust-deps-*.log`，仅供本地追溯，不写入提交正文；JSONPath 新旧库对照在隔离的 build 目录运行，未接入生产依赖。版本沿用本批 `2.0.373+374`，不另行递增。
+
+编写者：Codex｜2026-10-12
+
 ### UI-READER-SELECTION-MENU-20261012：阅读选区菜单管理与多行展开（P2）
 
 - **授权与基线**：用户要求先提交 reader-overlay worktree，再在干净状态复刻上游选区工具栏、菜单项管理及多行展开。已将前批改动提交为 `7334d0488`，提交后工作区干净；用户随后授权将本批及前批阅读界面改动合入本地排版提交 `1c066fc145ac9e381c93b3bcbb49190096f36b17`，不推送、不改应用版本；已授权编译安装到 MuMu，不影响主目录另一会话的性能与排版工作。

@@ -10,8 +10,8 @@
 //!
 //! 纯内存缓冲，无数据库依赖，任意时机可调用。
 
-use legado_core::app_log::{LogEntry, LogLevel};
 use legado_core::LegadoError;
+use legado_core::app_log::{LogEntry, LogLevel};
 
 /// 解析级别字符串，非法值返回错误
 fn parse_level(level: &str) -> Result<LogLevel, LegadoError> {

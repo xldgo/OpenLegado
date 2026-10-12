@@ -9,8 +9,8 @@
 //! - POST /api/read-aloud/next — 下一段
 //! - POST /api/read-aloud/seek — 跳转
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;

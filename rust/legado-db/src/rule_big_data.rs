@@ -397,9 +397,10 @@ mod tests {
             format!("{:x}.txt", md5::compute("content"))
         );
         // 未写入的键 → 路径确定但文件不存在
-        assert!(!mgr
-            .chapter_variable_path("http://b.com", "http://c1", "danmaku")
-            .exists());
+        assert!(
+            !mgr.chapter_variable_path("http://b.com", "http://c1", "danmaku")
+                .exists()
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

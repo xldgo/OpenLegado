@@ -6,7 +6,7 @@
 //! cargo run --example book_import -p legado-db
 //! ```
 
-use legado_db::{init_in_memory_database, Database, RoomImporter};
+use legado_db::{Database, RoomImporter, init_in_memory_database};
 
 fn main() {
     println!("=== Legado 书籍数据导入示例 ===\n");

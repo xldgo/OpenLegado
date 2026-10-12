@@ -565,7 +565,7 @@ fn glyph_signature(glyph: &Option<Glyph>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::host_api::font_api::tests::{build_minimal_ttf, Segment};
+    use crate::host_api::font_api::tests::{Segment, build_minimal_ttf};
 
     /// 错误字体映射：PUA E001..E003 → glyph 1..3（delta 取模运算正值）
     fn error_segments() -> Vec<Segment> {

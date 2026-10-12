@@ -73,24 +73,24 @@ pub fn set_cache_dir(path: &str) {
 fn cache_root() -> PathBuf {
     #[cfg(test)]
     {
-        if let Ok(guard) = TEST_DIR_OVERRIDE.get_or_init(|| Mutex::new(None)).lock() {
-            if let Some(dir) = guard.clone() {
-                return dir;
-            }
+        if let Ok(guard) = TEST_DIR_OVERRIDE.get_or_init(|| Mutex::new(None)).lock()
+            && let Some(dir) = guard.clone()
+        {
+            return dir;
         }
     }
     #[cfg(not(test))]
     {
-        if let Ok(dir) = std::env::var(CACHE_DIR_ENV) {
-            if !dir.trim().is_empty() {
-                return PathBuf::from(dir);
-            }
+        if let Ok(dir) = std::env::var(CACHE_DIR_ENV)
+            && !dir.trim().is_empty()
+        {
+            return PathBuf::from(dir);
         }
     }
-    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-        if let Some(dir) = guard.clone() {
-            return dir;
-        }
+    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock()
+        && let Some(dir) = guard.clone()
+    {
+        return dir;
     }
     let root = std::env::temp_dir().join(DEFAULT_ROOT);
     if DEFAULT_DIR_WARNED
@@ -161,18 +161,18 @@ fn image_file_path(book_url: &str, url: &str) -> PathBuf {
 /// 一次性日志，**不抛异常**——缓存失败不影响在线加载）。
 pub fn save_image_cache(book_url: &str, url: &str, bytes: &[u8]) -> bool {
     let file = image_file_path(book_url, url);
-    if let Some(parent) = file.parent() {
-        if let Err(e) = fs::create_dir_all(parent) {
-            if WRITE_FAIL_WARNED
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                .is_ok()
-            {
-                log::warn!(
-                    "[image_cache] 目录创建失败 {parent:?}: {e}（降级：本次不落盘，不影响在线加载；同类失败后续不再逐条记日志）"
-                );
-            }
-            return false;
+    if let Some(parent) = file.parent()
+        && let Err(e) = fs::create_dir_all(parent)
+    {
+        if WRITE_FAIL_WARNED
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            log::warn!(
+                "[image_cache] 目录创建失败 {parent:?}: {e}（降级：本次不落盘，不影响在线加载；同类失败后续不再逐条记日志）"
+            );
         }
+        return false;
     }
     match fs::write(&file, bytes) {
         Ok(()) => true,

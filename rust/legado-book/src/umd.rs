@@ -164,8 +164,8 @@ fn chapter_title_from_name(name: &str) -> String {
 mod tests {
     use super::*;
     use std::io::Write;
-    use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
+    use zip::write::SimpleFileOptions;
 
     /// 构造一个内存中的 UMD（ZIP）测试文件
     fn build_umd_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {

@@ -11,7 +11,7 @@ use legado_core::{LegadoError, LegadoResult};
 
 // 再导出：保持既有 legado_parser::{compile_regex_safe, compile_regex_on_stack, MAX_REGEX_PATTERN_LEN} 路径兼容
 pub use legado_core::regex_safe::{
-    compile_regex_on_stack, compile_regex_safe, MAX_REGEX_PATTERN_LEN,
+    MAX_REGEX_PATTERN_LEN, compile_regex_on_stack, compile_regex_safe,
 };
 
 /// 正则引擎

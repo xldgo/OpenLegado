@@ -33,6 +33,8 @@ pub mod js_source;
 pub mod jslib_normalize;
 /// loginCheckJs 响应解析内核（P5 下沉：ffi/server 共享单一实现）
 pub mod login_check;
+#[cfg(feature = "quickjs")]
+mod quickjs_bytes;
 pub mod sandbox;
 pub mod scope;
 pub mod source_engine;

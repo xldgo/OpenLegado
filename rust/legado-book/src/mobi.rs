@@ -287,13 +287,7 @@ fn parse_entry_headers(rec: &[u8]) -> LegadoResult<EntryHeaders> {
 
     // KF8 头（仅 version >= 8）
     let kf8 = if version >= 8 && rec.len() >= 264 {
-        let to_i64 = |v: u32| -> i64 {
-            if v == u32::MAX {
-                -1
-            } else {
-                i64::from(v)
-            }
-        };
+        let to_i64 = |v: u32| -> i64 { if v == u32::MAX { -1 } else { i64::from(v) } };
         Some(Kf8Header {
             fdst: to_i64(read_u32(rec, 192)),
             num_fdst: read_u32(rec, 196),
@@ -402,22 +396,19 @@ impl MobiBook {
         let mut kf8_boundary = 0usize;
 
         // 双格式：KF6 部分的 EXTH boundary 指向 KF8 头部所在记录
-        if headers.mobi.version < 8 {
-            if let Some(boundary) = headers.exth.boundary {
-                if boundary > 0 && (boundary as usize) < records.count() {
-                    if let Ok(brec) = records.record(boundary as usize) {
-                        if let Ok(kh) = parse_entry_headers(brec) {
-                            if kh.mobi.version >= 8 {
-                                // 资源记录以 KF6 部分声明的 resourceStart 为准
-                                let resource_start = headers.mobi.resource_start;
-                                headers = kh;
-                                headers.mobi.resource_start = resource_start;
-                                kf8_boundary = boundary as usize;
-                            }
-                        }
-                    }
-                }
-            }
+        if headers.mobi.version < 8
+            && let Some(boundary) = headers.exth.boundary
+            && boundary > 0
+            && (boundary as usize) < records.count()
+            && let Ok(brec) = records.record(boundary as usize)
+            && let Ok(kh) = parse_entry_headers(brec)
+            && kh.mobi.version >= 8
+        {
+            // 资源记录以 KF6 部分声明的 resourceStart 为准
+            let resource_start = headers.mobi.resource_start;
+            headers = kh;
+            headers.mobi.resource_start = resource_start;
+            kf8_boundary = boundary as usize;
         }
 
         if headers.palmdoc.encryption != 0 && headers.palmdoc.encryption != 1 {
@@ -538,19 +529,17 @@ impl MobiBook {
 
     /// 封面提取（对照 Kotlin：MobiBook.getCover）
     fn get_cover(&self) -> Option<Vec<u8>> {
-        if let Some(off) = self.headers.exth.cover_offset {
-            if off != u32::MAX {
-                if let Ok(r) = self.resource(off) {
-                    return Some(r.to_vec());
-                }
-            }
+        if let Some(off) = self.headers.exth.cover_offset
+            && off != u32::MAX
+            && let Ok(r) = self.resource(off)
+        {
+            return Some(r.to_vec());
         }
-        if let Some(off) = self.headers.exth.thumbnail_offset {
-            if off != u32::MAX {
-                if let Ok(r) = self.resource(off) {
-                    return Some(r.to_vec());
-                }
-            }
+        if let Some(off) = self.headers.exth.thumbnail_offset
+            && off != u32::MAX
+            && let Ok(r) = self.resource(off)
+        {
+            return Some(r.to_vec());
         }
         None
     }
@@ -1246,11 +1235,11 @@ fn get_ncx(book: &MobiBook) -> Option<Vec<NcxItem>> {
     fn build(idx: usize, items: &[Flat], children_map: &HashMap<u32, Vec<usize>>) -> NcxItem {
         let item = &items[idx];
         let mut children = Vec::new();
-        if item.first_child.is_some() {
-            if let Some(kids) = children_map.get(&(idx as u32)) {
-                for &k in kids {
-                    children.push(build(k, items, children_map));
-                }
+        if item.first_child.is_some()
+            && let Some(kids) = children_map.get(&(idx as u32))
+        {
+            for &k in kids {
+                children.push(build(k, items, children_map));
             }
         }
         NcxItem {
@@ -1270,11 +1259,7 @@ fn get_ncx(book: &MobiBook) -> Option<Vec<NcxItem>> {
         .map(|(idx, _)| build(idx, &items, &children_map))
         .collect();
 
-    if roots.is_empty() {
-        None
-    } else {
-        Some(roots)
-    }
+    if roots.is_empty() { None } else { Some(roots) }
 }
 
 // ---------------------------------------------------------------------------
@@ -2135,7 +2120,7 @@ mod tests {
             let _ = i;
         }
         w32(&mut huff, 16, 1); // table1[0] = 1
-                               // table2：32 对 (mincode, maxcode)，码长 1 为 (0,0)
+        // table2：32 对 (mincode, maxcode)，码长 1 为 (0,0)
         for _ in 0..32 {
             huff.extend_from_slice(&0u32.to_be_bytes());
             huff.extend_from_slice(&0u32.to_be_bytes());
@@ -2203,7 +2188,7 @@ mod tests {
         w32(&mut cdic, 4, 16); // 头长度
         w32(&mut cdic, 8, 2); // numEntries
         w32(&mut cdic, 12, 1); // codeLength → n = min(2, 2) = 2
-                               // 指针表（相对数据区）：条目 0 在偏移 4，条目 1 在偏移 7
+        // 指针表（相对数据区）：条目 0 在偏移 4，条目 1 在偏移 7
         cdic.extend_from_slice(&4u16.to_be_bytes());
         cdic.extend_from_slice(&7u16.to_be_bytes());
         cdic.extend_from_slice(&0x8001u16.to_be_bytes()); // len=1, decompressed=1

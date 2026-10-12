@@ -9,10 +9,10 @@
 //! - POST   /api/auto-tasks/import   — 导入
 //! - GET    /api/auto-tasks/export   — 导出
 
+use axum::Json;
 use axum::extract::Path;
 use axum::http::StatusCode;
-use axum::Json;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
 
@@ -209,10 +209,10 @@ pub async fn export_tasks() -> Result<Json<Value>, ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Method, Request};
     use axum::routing::{get, post, put};
-    use axum::Router;
     use tower::ServiceExt;
 
     /// 序列化测试避免全局状态竞争
@@ -455,10 +455,12 @@ mod tests {
         // 见 auto_task_api.rs 截获逻辑）；REST 降级路径预期收到拒绝而非假成功。
         assert_eq!(json["success"], false);
         assert_eq!(json["task_id"], "t4");
-        assert!(json["message"]
-            .as_str()
-            .unwrap()
-            .contains("autoTaskExecute"));
+        assert!(
+            json["message"]
+                .as_str()
+                .unwrap()
+                .contains("autoTaskExecute")
+        );
     }
 
     #[tokio::test]

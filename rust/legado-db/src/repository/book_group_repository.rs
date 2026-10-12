@@ -1,6 +1,6 @@
 //! BookGroup Repository - book_groups 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};

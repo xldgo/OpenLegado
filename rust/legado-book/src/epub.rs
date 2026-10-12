@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
-use quick_xml::events::Event;
 use quick_xml::Reader;
+use quick_xml::events::Event;
 use zip::ZipArchive;
 
 use legado_core::{LegadoError, LegadoResult};
@@ -368,27 +368,27 @@ fn extract_cover<R: Read + std::io::Seek>(
 ) -> Option<Vec<u8>> {
     // 策略 1: 通过 meta cover_id 在 manifest 中查找
     if let Some(ref cover_id) = opf.cover_id {
-        if let Some((href, media_type)) = opf.manifest.get(cover_id) {
-            if media_type.starts_with("image/") {
-                let path = normalize_path(&opf.base_path, href);
-                if let Ok(bytes) = read_zip_entry_bytes(archive, &path) {
-                    if !bytes.is_empty() {
-                        return Some(bytes);
-                    }
-                }
+        if let Some((href, media_type)) = opf.manifest.get(cover_id)
+            && media_type.starts_with("image/")
+        {
+            let path = normalize_path(&opf.base_path, href);
+            if let Ok(bytes) = read_zip_entry_bytes(archive, &path)
+                && !bytes.is_empty()
+            {
+                return Some(bytes);
             }
         }
         // cover_id 可能指向一个 XHTML 包装页，尝试在 manifest 中找同名图片
         // 例如 cover_id="cover" 但 manifest 中有 "cover-image"
         let img_id = format!("{cover_id}-image");
-        if let Some((href, media_type)) = opf.manifest.get(&img_id) {
-            if media_type.starts_with("image/") {
-                let path = normalize_path(&opf.base_path, href);
-                if let Ok(bytes) = read_zip_entry_bytes(archive, &path) {
-                    if !bytes.is_empty() {
-                        return Some(bytes);
-                    }
-                }
+        if let Some((href, media_type)) = opf.manifest.get(&img_id)
+            && media_type.starts_with("image/")
+        {
+            let path = normalize_path(&opf.base_path, href);
+            if let Ok(bytes) = read_zip_entry_bytes(archive, &path)
+                && !bytes.is_empty()
+            {
+                return Some(bytes);
             }
         }
     }
@@ -411,10 +411,10 @@ fn extract_cover<R: Read + std::io::Seek>(
     });
     for (href, _) in candidates {
         let path = normalize_path(&opf.base_path, href);
-        if let Ok(bytes) = read_zip_entry_bytes(archive, &path) {
-            if !bytes.is_empty() {
-                return Some(bytes);
-            }
+        if let Ok(bytes) = read_zip_entry_bytes(archive, &path)
+            && !bytes.is_empty()
+        {
+            return Some(bytes);
         }
     }
 
@@ -434,10 +434,10 @@ fn extract_cover<R: Read + std::io::Seek>(
         "Images/cover.jpg",
     ];
     for path in &common_paths {
-        if let Ok(bytes) = read_zip_entry_bytes(archive, path) {
-            if !bytes.is_empty() {
-                return Some(bytes);
-            }
+        if let Ok(bytes) = read_zip_entry_bytes(archive, path)
+            && !bytes.is_empty()
+        {
+            return Some(bytes);
         }
     }
 

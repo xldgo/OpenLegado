@@ -3,18 +3,18 @@
 //! 提供章节列表获取、TTS 增强版语音合成、播放控制等 API。
 //! `/api/audio/chapter-media` 对齐 FFI `audio_get_chapter_media`（缓存 / 卷章 / getContent）。
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::error::ApiError;
 use crate::state::AppState;
+use legado_core::LegadoError;
 use legado_core::audio::{PlayMode, PlayerState};
 use legado_core::cache_book::CachedChapter;
 use legado_core::models::book::book_type;
 use legado_core::web_book::WebChapter;
-use legado_core::LegadoError;
 use legado_db::{BookChapterRepository, BookRepository, BookSourceRepository, CacheBookRepository};
 
 /// 获取章节列表请求
@@ -177,7 +177,7 @@ pub async fn speak(
             )))
         })?;
 
-        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
         let audio_data = STANDARD.encode(&bytes);
 
         return Ok(Json(AudioSpeakResponse {
@@ -197,16 +197,16 @@ pub async fn speak(
         )))
     })?;
 
-    if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text) {
-        if let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str()) {
-            return Ok(Json(AudioSpeakResponse {
-                audio_url: Some(audio_url.to_string()),
-                audio_data: None,
-                content_type: "audio/mpeg".to_string(),
-                text_length: char_count,
-                estimated_duration_ms,
-            }));
-        }
+    if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text)
+        && let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str())
+    {
+        return Ok(Json(AudioSpeakResponse {
+            audio_url: Some(audio_url.to_string()),
+            audio_data: None,
+            content_type: "audio/mpeg".to_string(),
+            text_length: char_count,
+            estimated_duration_ms,
+        }));
     }
 
     Ok(Json(AudioSpeakResponse {

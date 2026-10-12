@@ -143,6 +143,18 @@ mod tests {
     }
 
     #[test]
+    fn test_json_path_missing_null_and_array_contract() {
+        assert_eq!(json_path(TEST_JSON, "$.missing").unwrap(), ["null"]);
+        assert_eq!(json_path(r#"{"x":null}"#, "$.x").unwrap(), ["null"]);
+        assert_eq!(
+            json_path(TEST_JSON, "$.tags").unwrap(),
+            [r#"["a","b","c"]"#]
+        );
+        assert_eq!(json_path(TEST_JSON, "$.tags.length()").unwrap(), ["3"]);
+        assert!(json_path(TEST_JSON, "$.[broken").is_err());
+    }
+
+    #[test]
     fn test_to_json_roundtrip() {
         let result = to_json(r#"{"a":1}"#).unwrap();
         assert_eq!(result, r#"{"a":1}"#);

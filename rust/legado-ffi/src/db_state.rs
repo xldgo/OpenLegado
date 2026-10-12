@@ -1,7 +1,7 @@
 //! 全局数据库状态管理
 //!
 //! FFI 层持有一个全局 r2d2 连接池，通过 `OnceLock` 管理。
-//! 由 `ffi_db_open` 初始化，各 API 模块通过 `with_database` 访问。
+//! 由 `ffi::Bridge::db_open` 初始化，各 API 模块通过 `with_database` 访问。
 //!
 //! 连接池保证：
 //! - 多线程可并发调用 `with_database`，每次获取独立的池连接
@@ -72,7 +72,7 @@ pub fn resolve_local_book_path(book_url: &str) -> String {
     }
 }
 
-/// 初始化全局数据库连接池（由 `ffi_db_open` 调用）
+/// 初始化全局数据库连接池（由 `ffi::Bridge::db_open` 调用）
 ///
 /// 从 `Database` 实例中提取连接池并存储到全局状态。
 /// 仅首次调用生效，后续调用记录警告并返回 Ok（避免冗余的 Database::open 开销）。

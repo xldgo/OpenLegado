@@ -10,8 +10,8 @@ use std::sync::{OnceLock, RwLock};
 
 use serde::Serialize;
 
-use legado_core::tts_speak::{self, SpeakResponse};
 use legado_core::LegadoResult;
+use legado_core::tts_speak::{self, SpeakResponse};
 
 /// TTS 合成结果 DTO（camelCase 对齐 Dart 侧解析约定，见 API_CONTRACT §2.42）
 #[derive(Debug, Clone, Serialize)]

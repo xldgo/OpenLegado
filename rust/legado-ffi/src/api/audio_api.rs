@@ -477,13 +477,13 @@ mod tests {
         assert!(lyric_from_variable(&Some("{}".into())).is_none());
     }
 
-    /// 临时规则数据目录 env 守卫（Drop 恢复原值）
+    /// 临时规则数据目录的线程内覆盖守卫，Drop 恢复原值。
     ///
-    /// 本模块测试与 video_api 测试同持 `ensure_test_db` 串行锁，env 不会被
-    /// 并发改写；锁序遵循 test_support 全局锁序不变式。
+    /// 目录仅作用于当前测试线程；数据库仍使用 `ensure_test_db` 串行锁，
+    /// 锁序遵循 test_support 全局锁序不变式。
     struct LyricRuleDataDirGuard {
         dir: std::path::PathBuf,
-        prev: Option<String>,
+        prev: Option<std::path::PathBuf>,
     }
 
     impl LyricRuleDataDirGuard {
@@ -491,18 +491,14 @@ mod tests {
             let dir = std::env::temp_dir()
                 .join(format!("legado_audio_lyric_test_{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
-            let prev = std::env::var(crate::api::video_api::RULE_DATA_DIR_ENV).ok();
-            std::env::set_var(crate::api::video_api::RULE_DATA_DIR_ENV, &dir);
+            let prev = crate::api::video_api::replace_test_rule_data_dir(Some(dir.clone()));
             Self { dir, prev }
         }
     }
 
     impl Drop for LyricRuleDataDirGuard {
         fn drop(&mut self) {
-            match &self.prev {
-                Some(v) => std::env::set_var(crate::api::video_api::RULE_DATA_DIR_ENV, v),
-                None => std::env::remove_var(crate::api::video_api::RULE_DATA_DIR_ENV),
-            }
+            crate::api::video_api::replace_test_rule_data_dir(self.prev.take());
             let _ = std::fs::remove_dir_all(&self.dir);
         }
     }

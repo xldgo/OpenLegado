@@ -4,8 +4,8 @@
 
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::repository::Repository;
 use legado_db::BookSourceRepository;
+use legado_db::repository::Repository;
 
 use crate::db_state::with_database;
 

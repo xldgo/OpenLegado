@@ -29,7 +29,7 @@
 //! 批次3治理（Task #118）：曾存在的同名降级桩因无任何调用点已删除。
 
 use legado_core::verification_channel;
-use legado_core::webview_channel::{self, WebViewRequest, DEFAULT_WEBVIEW_TIMEOUT};
+use legado_core::webview_channel::{self, DEFAULT_WEBVIEW_TIMEOUT, WebViewRequest};
 
 use super::current_source;
 

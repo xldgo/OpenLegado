@@ -13,7 +13,7 @@
 //! 未启用 quickjs feature 时返回 `JsEngine` 错误（FFI 层转 BridgeError）。
 
 use legado_core::models::BookSource;
-use legado_core::{login_ui_v2, LegadoError, LegadoResult};
+use legado_core::{LegadoError, LegadoResult, login_ui_v2};
 
 /// 判定书源登录 UI 是否为 V2 动态状态协议
 ///

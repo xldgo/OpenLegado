@@ -2,11 +2,11 @@
 //!
 //! 提供书籍的增删改查操作，通过 BookRepository 访问数据库。
 
-use legado_core::models::Book;
 use legado_core::LegadoResult;
+use legado_core::models::Book;
+use legado_db::BookRepository;
 use legado_db::import::RoomImporter;
 use legado_db::repository::Repository;
-use legado_db::BookRepository;
 
 use crate::db_state::with_database;
 
@@ -199,8 +199,8 @@ pub fn reorder_books(orders_json: &str) -> LegadoResult<()> {
 mod tests {
     use crate::db_state::with_database;
     use legado_core::models::{Book, ReadConfig};
-    use legado_db::repository::Repository;
     use legado_db::BookRepository;
+    use legado_db::repository::Repository;
 
     /// [漫画设置作用域 2026-10-01] `update_book`（Dart `updateBook` 的 FFI 入口）
     /// 全行回写必须保留 readConfig 书级字段 `mangaScrollMode` /

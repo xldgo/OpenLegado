@@ -29,12 +29,13 @@ const STREAM_POLL_INTERVAL: Duration = Duration::from_secs(1);
 /// （对齐 Kotlin `VerificationCodeActivity` 的 `sourceName` extra）；
 /// 查库失败（如数据库未初始化）时保持空字符串。
 pub fn serialize_event(mut request: VerificationRequest) -> String {
-    if request.source_name.is_empty() && !request.source_url.is_empty() {
-        if let Ok(Some(source)) = with_database(|db| {
+    if request.source_name.is_empty()
+        && !request.source_url.is_empty()
+        && let Ok(Some(source)) = with_database(|db| {
             BookSourceRepository::new(db.connection()).find_by_url(&request.source_url)
-        }) {
-            request.source_name = source.book_source_name;
-        }
+        })
+    {
+        request.source_name = source.book_source_name;
     }
     serde_json::to_string(&request).unwrap_or_default()
 }

@@ -30,10 +30,10 @@
 
 use std::io::{Read, Write};
 
+use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
 use legado_js::host_api::current_source;
 use legado_js::sandbox::SandboxConfig;
-use legado_js::QuickJsEngine;
 
 // 注：Response 桥（RESPONSE_BRIDGE_JS）由引擎创建时自动注入
 // （register_all_apis → inject_response_bridge）；本测试不得再次 eval

@@ -166,7 +166,7 @@ pub fn clear_cookie(url: &str) -> LegadoResult<()> {
 pub fn http_get_bytes(url: &str, headers_json: &str) -> LegadoResult<String> {
     use std::collections::HashMap;
 
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     let url = url.trim();
     if url.is_empty() {
@@ -512,12 +512,14 @@ mod tests {
         assert!(row.is_none(), "删行被夹在写方 RMW 中间后不得复活: {row:?}");
         // jar 内存侧同样干净
         let client = crate::http_state::shared_client().unwrap();
-        assert!(client
-            .cookie_store()
-            .read()
-            .unwrap()
-            .get_cookies(&dk)
-            .is_empty());
+        assert!(
+            client
+                .cookie_store()
+                .read()
+                .unwrap()
+                .get_cookies(&dk)
+                .is_empty()
+        );
 
         // 收尾：清理残留（幂等）
         clear_cookie(URL).unwrap();

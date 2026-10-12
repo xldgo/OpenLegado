@@ -408,10 +408,10 @@ impl AutoTaskExporter {
         }
 
         // 尝试解析为单个对象
-        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(trimmed) {
-            if obj.is_object() {
-                return Ok(vec![obj]);
-            }
+        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(trimmed)
+            && obj.is_object()
+        {
+            return Ok(vec![obj]);
         }
 
         Err("Invalid JSON format for task import".to_string())
@@ -924,11 +924,7 @@ fn action_string(map: &serde_json::Value, key: &str) -> Option<String> {
         }
         other => {
             let text = other.to_string().trim().to_string();
-            if text.is_empty() {
-                None
-            } else {
-                Some(text)
-            }
+            if text.is_empty() { None } else { Some(text) }
         }
     }
 }

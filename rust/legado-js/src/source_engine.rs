@@ -424,8 +424,8 @@ mod tests {
     use super::*;
     use crate::engine::{CompiledScript, JsEngine, JsValue};
     use legado_core::LegadoResult;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// 测试用引擎：记录 eval 调用次数
     struct CountingEngine {

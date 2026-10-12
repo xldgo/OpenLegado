@@ -30,7 +30,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{add_column_if_not_exists, table_exists, Migration};
+use crate::migration::{Migration, add_column_if_not_exists, table_exists};
 use crate::schema::{CREATE_AUTO_TASK_RULES, CREATE_HIGHLIGHT_RULES};
 
 /// BookType.notShelf（对齐 Kotlin `BookType.notShelf = 0b100_0000_0000`）
@@ -819,15 +819,14 @@ mod tests {
     fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
         let sql = format!("PRAGMA table_info({table})");
         let mut stmt = conn.prepare(&sql).unwrap();
-        let result = stmt
-            .query_map([], |row| {
-                let name: String = row.get(1)?;
-                Ok(name == column)
-            })
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .any(|b| b);
-        result
+
+        stmt.query_map([], |row| {
+            let name: String = row.get(1)?;
+            Ok(name == column)
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .any(|b| b)
     }
 
     #[test]

@@ -8,6 +8,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-12 | **RUST-EDITION-20261012 工具链与旧 C ABI 清理范围**：工作区自有 crate 迁移 Rust 2024，沿用 stable，更新兼容依赖；FRB runtime/codegen 保持 2.13.0 配对。移除无项目内调用方的旧 `bridge.rs` C ABI 模块及其 182 个函数定义（181 个独立导出符号），不保留旧符号兼容层。现用 `crate::ffi`、FRB/PDE 入口、业务签名与 JSON、数据库结构保持不变（本日新增书签更新入口除外）；生成绑定由固定生成器重新产生。 |
+| 2026-10-12 | **API-LIFECYCLE-20261012 书签更新契约冻结**：保留 `BookApi.updateBookmark(Bookmark)` 签名，新增 FRB `bookmark_update(bookmark_json: String) → Result<(), BridgeError>`，Dart 绑定为 `bookmarkUpdate(bookmarkJson:)`。按现有 Bookmark JSON 字段传入，以 id 定位并用单条 UPDATE 修改书籍、章节、正文和备注；id 与数据库原有 time 不变，输入 time 不参与更新。JSON 非法、目标不存在或数据库写入失败均抛错，失败不删除或新增记录。Mock 同步此语义；数据库结构与 BookApi 方法计数不变。初始化后将同一 BookApi 实例注入 Provider，不增加业务接口。 |
 | 2026-10-10 | **FRB-UPGRADE-20261010 工具链升级范围冻结**：用户已同意 Dart 下限提高至 3.13、FRB Dart/Rust runtime 与 codegen 同步至 2.13.0。重新生成双方绑定并重建原生库；现有 BookApi/FFI 方法签名、JSON 字段、错误与事件流语义、数据库格式保持不变。版本、生成器内部实现和 content hash 可由同次生成更新，禁止手改生成物；生成前后核对导出方法并执行真实 FFI 回归。本条不增加业务 API，方法表与计数不变。 |
 | 2026-10-05 | **P2-29c 后续：失败章查询契约冻结（加法式，零破坏，+1 方法，契约先行本批不改代码）**：§2.43 新增 `cacheDownloadFailedChapters(bookUrl) → Future<String>`（§2.43.8）：单次只读查询返回该书批量下载**已失败**章节 index 的 JSON 整型数组（升序、0-based；无失败为空数组）；数据链=任务表 `TaskInner` 与持久化快照新增失败章索引集合（对齐参考版 `CacheDownloadStateStore.kt:35-57` 的 `markFailed`（加入）/`markSuccess`（移除）语义，任务启动清空、恢复回读一并恢复、`persist_snapshot` 含集合）；目录页 ERROR 态（红色重试图标可重试，P2-29c 已落 UI、数据源恒空待接）由此接通。§2.43 方法数 10→**11**，附录合计 293→**294**，BookApi 口径 290→**291**（契约先行，实现批封装后程序化计数转齐） |
 | 2026-10-03 | **B2 音频预下载写入面契约冻结（加法式，+2 写面方法；契约先于代码，本批不改任何代码）**：§2.48 新增（补齐 §2.47 只读/清理面所缺写入面，对齐原版 `AudioCacheService` 服务编排 + `AudioCacheManager.cacheChapter` 写入本体）：`audioCacheDownload({bookUrl, chapterIndex, chapterUrl, chapterTitle, playUrl}) → Future<String>`（Rust `ffi::audio_cache_download`，async + spawn_blocking 非阻塞）——单章下载安装，**幂等**（已提交缓存直接返回 `already_cached` 不重下，对齐原版服务循环 `AudioCacheService.kt:216` 跳过语义）；playUrl 由 Dart 经既有 `audioGetChapterMedia`（§2.26 播放取址链）的 `mediaUrl` 解析传入——**修订说明（2026-10-04，主代理据实现批反馈修正）**：初稿写 `getChapterContentFull`，但该链会应用替换规则与简繁转换（`reader.rs:1034,1111`）**可能污染 URL**；原版 `cacheChapterLocked:139-144` 实为播放链 `WebBook.getContentAwait` 输出，与我方 `getAudioChapterMedia` 同源，实现取后者更贴原版；Rust 自 DB 载入 Book/BookSource/BookChapter 后以 `legado-parser::AnalyzeUrl` 等价语义发起下载（headers/cookie/JS/重试全在 Rust；**字节不穿 FFI**——音频可达数十 MB，禁止 base64，系 §2.46 base64 惯例的反例登记，先例 `tts_speak`/`webdavDownloadFile`）；流程逐条对齐 `AudioCacheManager.kt:132-199`：五段式命名（`AudioCachePolicy.kt:67-98`）→ 陈旧未提交清理（1 小时阈值 `:302-314`）→ 流式写 `tmp_*.part`（块级取消检查）→ size 校验 → rename 安装（失败退复制）→ 写 `.complete` 并回读校验 → 同 key 旧版本清理；失败 **Err 上抛不降级**（有意区别于 §2.47 读面降级风格：写入是显式用户动作，错误须驱动 Dart 循环 failCount）。`audioCacheCancel() → Future<bool>`——取消在途下载（进程级取消代数单槽，对齐原版服务单 worker + stop 语义；中止流式拷贝并删部分文件）。**不设**批量队列/进度查询方法（Dart 循环逐章自持进度，原版服务编排不上 FFI）；**不设**容量上限/自动清理（原版无此功能，重构红线禁新增）；**不设**导入/导出（用户已裁决）；原版前台服务保活语义不复制（进程死即停、已装文件保留，登记为已知边界）。决策策略（键计算/文件名/扩展名探测/.complete 安装/已缓存跳过）全部落 Rust，UI 层零业务逻辑。§2.48 方法数 **2**，方法模块 44→**45**，附录合计 291→**293**，BookApi 口径 288→**290**（契约先行，代码未实现，`api_contract_test.dart` BookApi 总数项按预期红、实现批封装后转绿） |
@@ -358,7 +360,7 @@
 | `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签列表（遵守 §1.4 裸数组铁律）。既有 `getBookmarks` 签名保持不变，本方法为加法式新增。方案说明：不采用给 `getBookmarks` 追加可选参数方案，避免触碰既有冻结签名；新增独立方法对既有调用方零破坏（台账 §5.14-2，第三批后置项，Task #63，加法式新增） |
 | `getAllBookmarks()` | 无 | `Future<List<Bookmark>>` | 获取所有书签 |
 | `addBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<Bookmark>` | 添加书签 |
-| `updateBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<void>` | 更新书签 |
+| `updateBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<void>` | 通过 FRB `bookmark_update(bookmark_json)` 原子更新已有书签；保留 id 与原有创建时间 time。非法 JSON、目标不存在或写入失败抛错，失败保留原记录，不执行删除后新增。 |
 | `deleteBookmark(int id)` | id | `Future<void>` | 删除书签 |
 | `searchBookmarks(String keyword)` | keyword | `Future<List<Bookmark>>` | 搜索书签 |
 
@@ -732,7 +734,7 @@
 
 ### 2.40 本地 TXT 全文搜索（txt_search FFI，Task #98 缺口#4）（4 个方法）
 
-> 对齐既有 C ABI 4 函数（`ffi_txt_search` / `ffi_txt_search_regex` / `ffi_txt_search_in_chapter` / `ffi_txt_search_count`），
+> 保留原 TXT 搜索、正则搜索、章节内搜索和匹配计数四项能力；旧 C ABI 已移除，统一使用 FRB 入口，
 > 本小节为其 frb 主链路暴露（包装 `legado-book::txt_search::TxtSearch` 引擎），供 Flutter 侧本地 TXT 书内搜索调用。
 > 返回裸 JSON Array（遵守 §1.4 铁律），每项字段（snake_case）：`chapter_index` / `chapter_title` / `char_offset` /
 > `matched_text` / `context` / `context_match_start` / `context_match_end`（TxtSearchResult 序列化）。
@@ -778,7 +780,7 @@
 ### 2.43 缓存写/购买/批量下载/导出扩展（Task #136 R5+R6+R7+R8，11 个方法）
 
 > Task #136 合并批次，均为**加法式**新增（不改既有签名/行为）。仅走 frb 主链路（`ffi.rs`），
-> 旧式 C ABI（`bridge.rs`）已按 Task #136 R12 冻结新增并标注 DEPRECATED，故本批不在 C ABI 面暴露。
+> 旧式 C ABI（`bridge.rs`）已在 RUST-EDITION-20261012 移除；本节能力统一通过 FRB 入口提供。
 
 #### 2.43.1 R5 缓存写（1 个方法）
 
@@ -1010,7 +1012,7 @@
 | `checkSource` / `checkSourcesStream` / `cancelCheckSources`（新增，Task #87） | 见 §2.3 方法清单 | 书源校验 FFI 暴露：单本四步校验（CheckResult JSON）+ 批量串行 Stream 进度回推（CheckProgress JSON）+ 取消（包装 legado-net SourceChecker，对齐 Kotlin CheckSource 与 server /sources/check），校验页面 UI 由 UI 轨接入 | 2026-08-05 | ✅ 已完成 |
 | `ruleSub*`（新增，Task #89） | 见 §2.39 方法清单 | 规则订阅 FFI 暴露：列表/保存/删除/启用切换/拖拽排序 + 检查更新/应用更新（DB v100 补全 Kotlin RuleSub 7 字段，委托 legado-net rule_update_client），订阅管理 UI 由 UI 轨接入 | 2026-08-05 | ✅ 已完成 |
 | `verificationRequestStream` / `submitVerificationResult` / `cancelVerificationRequest`（新增，Task #90） | 见 §2.3 方法清单 | 验证码交互通道：JS 钩子（getVerificationCode/startBrowserAwait，对齐 Kotlin JsExtensions）经请求管理器挂起等待 → FFI 事件流推送请求（含航班去重/回放/5 分钟超时）→ UI 提交/取消唤醒；useBrowser 降级为图片验证码（桌面无 WebView），验证码弹窗 UI 由 UI 轨接入 | 2026-08-05 | ✅ 已完成 |
-| `txtSearch` / `txtSearchRegex` / `txtSearchInChapter` / `txtSearchCount`（新增，Task #98 缺口#4） | 见 §2.40 方法清单 | 本地 TXT 全文搜索接入 frb 主链路：既有 C ABI 4 函数的 frb 暴露（包装 legado-book TxtSearch 引擎，纯文本/正则/章节内搜索 + 匹配计数，返回裸 JSON Array），供搜索页内“搜本地书正文”场景调用，UI 由 UI 轨后续接入 | 2026-08-05 | ✅ 已完成 |
+| `txtSearch` / `txtSearchRegex` / `txtSearchInChapter` / `txtSearchCount`（新增，Task #98 缺口#4） | 见 §2.40 方法清单 | 本地 TXT 全文搜索接入 frb 主链路：四项 TXT 搜索能力的 FRB 入口（包装 legado-book TxtSearch 引擎，纯文本/正则/章节内搜索 + 匹配计数，返回裸 JSON Array），供搜索页内“搜本地书正文”场景调用，UI 由 UI 轨后续接入 | 2026-08-05 | ✅ 已完成 |
 | `setChineseConvertType` / `getChineseConvertType`（新增，Task #100） | 见 §2.9 方法清单 | 繁简转换 FFI 透传：reader.rs 硬编码 `chinese_convert: None` 改为读取持久化配置（键 `chineseConverterType`，0/1/2 → None/t2s/s2t），新增 set/get 接口；章节标题在展示路径补齐 t2s/s2t（对齐 Kotlin getDisplayTitle）；阅读器样式面板控件由 UI 轨接入 | 2026-08-05 | ✅ 已完成 |
 | `ttsSpeak` / `ttsSetCacheDir`（新增，Task #113 缺口②） | 见 §2.42 方法清单 | TTS 真实合成管线：url 模板替换（speakText/speakSpeed）→ HTTP 拉取音频二进制（legado-net 新增 get_raw）→ Content-Type 校验 → MD5 命名本地缓存（命中免请求）；请 UI 轨将 `audioSpeak`（§2.26）的 `http.get` 探活 fallback 改接 `ttsSpeak`，音频播放器播放返回的 `audioPath` | 2026-08-06 | ✅ 已完成 |
 | `readRecordDailyList`（新增，热力图「每日时长」） | `int year` | `Future<List<Map<String, dynamic>>>`（`[{date, seconds}]` 日期升序；写路径 `putReadRecord` 自动累加当日增量，见 §2.12） | 2026-08-29 | ✅ 已完成（单位归一 2026-09-11：存量毫秒经 v107 迁移归一为秒） |

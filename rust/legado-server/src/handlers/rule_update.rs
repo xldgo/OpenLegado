@@ -5,10 +5,10 @@
 //! - POST /api/rule-update/check — 检查更新
 //! - POST /api/rule-update/apply — 应用更新
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_db::repository::rule_sub_repository::RuleSubRepository;
@@ -111,7 +111,7 @@ pub async fn check_update(
                     return Ok(Json(json!({
                         "results": [],
                         "error": format!("未找到订阅: {url}"),
-                    })))
+                    })));
                 }
             },
             None => repo.get_enabled_subs()?,
@@ -178,7 +178,7 @@ pub async fn apply_update(
             return Ok(Json(json!({
                 "success": false,
                 "error": format!("未找到订阅: {}", body.url),
-            })))
+            })));
         }
     };
 
@@ -194,7 +194,7 @@ pub async fn apply_update(
             return Ok(Json(json!({
                 "success": false,
                 "error": format!("拉取订阅失败: {e}"),
-            })))
+            })));
         }
     };
 
@@ -241,10 +241,10 @@ pub async fn apply_update(
 /// 尝试从 JSON 内容中提取版本信息
 fn extract_version(json_str: &str) -> Option<String> {
     // 尝试解析为对象并查找 version 字段
-    if let Ok(obj) = serde_json::from_str::<Value>(json_str) {
-        if let Some(v) = obj.get("version").and_then(|v| v.as_str()) {
-            return Some(v.to_string());
-        }
+    if let Ok(obj) = serde_json::from_str::<Value>(json_str)
+        && let Some(v) = obj.get("version").and_then(|v| v.as_str())
+    {
+        return Some(v.to_string());
     }
     None
 }
@@ -252,14 +252,14 @@ fn extract_version(json_str: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use axum::routing::{get, post};
-    use axum::Router;
     use tower::ServiceExt;
 
-    use legado_db::repository::rule_sub_repository::RuleSubRecord;
     use legado_db::Database;
+    use legado_db::repository::rule_sub_repository::RuleSubRecord;
 
     fn make_test_state() -> Arc<AppState> {
         let db = Database::open_in_memory().unwrap();

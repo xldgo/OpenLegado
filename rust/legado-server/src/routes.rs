@@ -1,7 +1,7 @@
 //! 路由组装
 
-use axum::routing::{delete, get, post, put};
 use axum::Router;
+use axum::routing::{delete, get, post, put};
 use std::sync::Arc;
 
 use crate::handlers;

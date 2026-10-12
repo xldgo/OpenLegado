@@ -3,7 +3,7 @@
 //! 对齐原版 `SearchBookDao`：搜索时逐条 insert，换源优先 `changeSourceByGroup`
 //! 读库复用，避免二次全量搜索。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::SearchBook;
 use legado_core::{LegadoError, LegadoResult};

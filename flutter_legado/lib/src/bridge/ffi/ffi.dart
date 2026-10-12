@@ -607,7 +607,7 @@ Future<String> importLocalBook({required String filePath}) =>
 
 /// 搜索本地 TXT 文件内容（纯文本模式）
 ///
-/// 对齐 C ABI `ffi_txt_search`。返回 JSON 序列化的 `Vec<TxtSearchResult>`，
+/// 返回 JSON 序列化的 `Vec<TxtSearchResult>`，
 /// 每项含 `chapter_index` / `chapter_title` / `char_offset` / `matched_text` /
 /// `context` / `context_match_start` / `context_match_end`。
 Future<String> txtSearch({
@@ -624,7 +624,7 @@ Future<String> txtSearch({
 
 /// 使用正则搜索本地 TXT 文件内容
 ///
-/// 对齐 C ABI `ffi_txt_search_regex`。返回格式同 `txt_search`。
+/// 返回格式同 `txt_search`。
 Future<String> txtSearchRegex({
   required String path,
   required String pattern,
@@ -639,7 +639,7 @@ Future<String> txtSearchRegex({
 
 /// 在本地 TXT 文件指定章节内搜索
 ///
-/// 对齐 C ABI `ffi_txt_search_in_chapter`。返回格式同 `txt_search`。
+/// 返回格式同 `txt_search`。
 Future<String> txtSearchInChapter({
   required String path,
   required String query,
@@ -656,7 +656,7 @@ Future<String> txtSearchInChapter({
 
 /// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
 ///
-/// 对齐 C ABI `ffi_txt_search_count`。
+///
 Future<int> txtSearchCount({
   required String path,
   required String query,
@@ -678,7 +678,7 @@ Future<String> rssAddSource({required String sourceJson}) =>
 /// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（JSON）
 ///
 /// 缺口④ rssUpdateSource 原子更新（Task #108，加法式）：
-/// 对齐 C ABI `ffi_rss_update_source`。
+///
 Future<String> rssUpdateSource({required String sourceJson}) =>
     RustLib.instance.api.crateFfiFfiRssUpdateSource(sourceJson: sourceJson);
 
@@ -1154,6 +1154,10 @@ Future<PlatformInt64> bookmarkAdd({
   bookText: bookText,
   content: content,
 );
+
+/// 按 id 原子更新书签，保留原记录的 id 和创建时间。— Codex + Bridge
+Future<void> bookmarkUpdate({required String bookmarkJson}) =>
+    RustLib.instance.api.crateFfiFfiBookmarkUpdate(bookmarkJson: bookmarkJson);
 
 /// 删除书签
 Future<void> bookmarkDelete({required PlatformInt64 bookmarkId}) =>

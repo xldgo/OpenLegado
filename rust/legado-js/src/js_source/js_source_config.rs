@@ -13,9 +13,9 @@
 // 非 quickjs 构建下，仅供 quickjs 路径使用的辅助函数/常量不参与编译用途
 #![cfg_attr(not(feature = "quickjs"), allow(dead_code))]
 
+use legado_core::models::BookSource;
 #[cfg(feature = "quickjs")]
 use legado_core::models::book_source::book_source_type;
-use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
 use serde_json::Value;
 
@@ -456,7 +456,7 @@ fn fallback_bracket_check(text: &str) -> SyntaxCheckResult {
                             valid: false,
                             message: format!("括号不匹配（基础检查，未启用 QuickJS）：位置 {}", i),
                             line: None,
-                        }
+                        };
                     }
                 }
                 i += 1;
@@ -614,12 +614,12 @@ fn scan_config_object(b: &[u8], text: &str, start: usize) -> (usize, Vec<(usize,
                 let j = skip_trivia(b, i);
                 if j < n && b[j] == b':' {
                     i = skip_trivia(b, j + 1);
-                    if k == "lastUpdateTime" {
-                        if let Some((vs, ve)) = read_supported_value(b, i) {
-                            found.push((vs, ve));
-                            i = ve;
-                            continue;
-                        }
+                    if k == "lastUpdateTime"
+                        && let Some((vs, ve)) = read_supported_value(b, i)
+                    {
+                        found.push((vs, ve));
+                        i = ve;
+                        continue;
                     }
                     i = skip_value(b, i);
                     continue;
@@ -1019,8 +1019,7 @@ mod tests {
     #[cfg(feature = "quickjs")]
     #[test]
     fn extract_legacy_source_variable() {
-        let text =
-            "var source = { bookSourceUrl: 'https://legacy.com', bookSourceName: '旧版' };\n\
+        let text = "var source = { bookSourceUrl: 'https://legacy.com', bookSourceName: '旧版' };\n\
                     function search(k) { return k; }\n\
                     function getChapters() { return []; }\n\
                     function getContent() { return ''; }";

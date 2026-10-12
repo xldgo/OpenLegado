@@ -1,8 +1,8 @@
 //! 无损传输适配：共享字形样式、压缩重复字段，不参与断行或分页。
 use crate::model::{Element, Page, TextStyle};
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Serialize)]

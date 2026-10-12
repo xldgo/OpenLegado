@@ -69,7 +69,7 @@ pub mod webview_channel;
 
 pub use error::{LegadoError, LegadoResult};
 pub use regex_safe::{
-    compile_fancy_regex_safe, compile_regex_on_stack, compile_regex_safe, MAX_REGEX_PATTERN_LEN,
+    MAX_REGEX_PATTERN_LEN, compile_fancy_regex_safe, compile_regex_on_stack, compile_regex_safe,
 };
 pub use search_engine::{
     MultiSourceSearcher, NoopSourceSearcher, SearchConfig, SearchResult, SourceSearcher,

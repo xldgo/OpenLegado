@@ -154,15 +154,15 @@ pub fn webdav_download_file(
     let rt = webdav_runtime_handle()?;
     let bytes = rt.block_on(client.get(path))?;
 
-    if let Some(parent) = std::path::Path::new(local_file_path).parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                legado_core::LegadoError::Io(std::io::Error::new(
-                    e.kind(),
-                    format!("创建父目录失败: {parent:?}: {e}"),
-                ))
-            })?;
-        }
+    if let Some(parent) = std::path::Path::new(local_file_path).parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            legado_core::LegadoError::Io(std::io::Error::new(
+                e.kind(),
+                format!("创建父目录失败: {parent:?}: {e}"),
+            ))
+        })?;
     }
     std::fs::write(local_file_path, bytes).map_err(|e| {
         legado_core::LegadoError::Io(std::io::Error::new(

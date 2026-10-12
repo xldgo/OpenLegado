@@ -2,85 +2,81 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'src/routes.dart';
+import 'src/providers/providers.dart';
+import 'src/services/book_api.dart';
+import 'src/services/book_api_bootstrap.dart';
 import 'src/services/crash_log_service.dart';
-import 'src/services/mock_book_api.dart';
-import 'src/services/rust_api.dart';
 
 void main() {
-  runZonedGuarded(() async {
-    final totalSw = Stopwatch()..start();
+  runZonedGuarded(
+    () async {
+      final totalSw = Stopwatch()..start();
 
-    WidgetsFlutterBinding.ensureInitialized();
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // 1. 崩溃日志服务（最先初始化，确保后续异常可被捕获）
-    var sw = Stopwatch()..start();
-    await CrashLogService.instance.init();
-    debugPrint('[启动] CrashLogService 初始化耗时：${sw.elapsedMilliseconds}ms');
+      // 1. 崩溃日志服务（最先初始化，确保后续异常可被捕获）
+      var sw = Stopwatch()..start();
+      await CrashLogService.instance.init();
+      debugPrint('[启动] CrashLogService 初始化耗时：${sw.elapsedMilliseconds}ms');
 
-    // 2. 注册全局错误捕获
-    FlutterError.onError = (details) {
-      CrashLogService.instance.logError(details.exception, details.stack);
-    };
-    PlatformDispatcher.instance.onError = (error, stack) {
-      CrashLogService.instance.logError(error, stack);
-      return true;
-    };
+      // 2. 注册全局错误捕获
+      FlutterError.onError = (details) {
+        CrashLogService.instance.logError(details.exception, details.stack);
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        CrashLogService.instance.logError(error, stack);
+        return true;
+      };
 
-    // 3. 读取上次崩溃日志
-    final lastCrash = await CrashLogService.instance.getLastCrashLog();
+      // 3. 读取上次崩溃日志
+      final lastCrash = await CrashLogService.instance.getLastCrashLog();
 
-    // 4. 并行初始化：SharedPreferences 与 Rust FFI 无依赖，可并行
-    // SharedPreferences 预热供 SettingsService；RustApi.initialize 装载引擎单例
-    //（bookApiProvider 随后取同一 FFI 句柄）。
-    sw = Stopwatch()..start();
-    const useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
-    try {
-      if (useMock) {
-        final rustApi = MockBookApi();
-        await Future.wait([
+      // 4. 并行初始化：SharedPreferences 与 Rust FFI 无依赖，可并行
+      // SharedPreferences 预热供 SettingsService；初始化的 BookApi 原实例注入 Provider。
+      sw = Stopwatch()..start();
+      late final BookApi bookApi;
+      try {
+        final apiInitialization = initializeBookApi();
+        await Future.wait<Object>([
           SharedPreferences.getInstance(),
-          rustApi.initialize(),
+          apiInitialization,
         ]);
-      } else {
-        final realApi = RustApi();
-        await Future.wait([
-          SharedPreferences.getInstance(),
-          realApi.initialize(),
-        ]);
+        bookApi = await apiInitialization;
+      } catch (e, stack) {
+        CrashLogService.instance.logError(e, stack);
+        debugPrint('[Legado] 初始化失败：$e');
+        runApp(_FfiErrorApp(error: e.toString()));
+        return;
       }
-    } catch (e, stack) {
-      CrashLogService.instance.logError(e, stack);
-      debugPrint('[Legado] 初始化失败：$e');
-      runApp(_FfiErrorApp(error: e.toString()));
-      return;
-    }
-    debugPrint('[启动] 并行初始化（prefs+FFI）耗时：${sw.elapsedMilliseconds}ms');
+      debugPrint('[启动] 并行初始化（prefs+FFI）耗时：${sw.elapsedMilliseconds}ms');
 
-    // 5. 冷启动始终经闪屏路由（对齐 WelcomeActivity；时长 0 则立即进主页）
-    const initialRoute = AppRoutes.welcome;
+      // 5. 冷启动始终经闪屏路由（对齐 WelcomeActivity；时长 0 则立即进主页）
+      const initialRoute = AppRoutes.welcome;
 
-    debugPrint('[启动] 总启动耗时：${totalSw.elapsedMilliseconds}ms');
-    
-    // 6. 启动应用（传入崩溃日志）
-    // ProviderScope 为 Riverpod 全局作用域：全部状态管理已迁移至 Riverpod Notifier
-    // （主题/书架/书源/RSS/阅读统计/同步/书签/替换规则/定时任务/阅读器/搜索/发现等）
-    runApp(
-      ProviderScope(
-        // 保留原有手动重试行为，避免 Riverpod 3 自动重试引入额外请求。
-        retry: (retryCount, error) => null,
-        child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),
-      ),
-    );
-  }, (error, stack) {
-    // Zone 级异常兜底：记录到崩溃日志
-    CrashLogService.instance.logError(error, stack);
-  });
+      debugPrint('[启动] 总启动耗时：${totalSw.elapsedMilliseconds}ms');
+
+      // 6. 启动应用（传入崩溃日志）
+      // ProviderScope 为 Riverpod 全局作用域：全部状态管理已迁移至 Riverpod Notifier
+      // （主题/书架/书源/RSS/阅读统计/同步/书签/替换规则/定时任务/阅读器/搜索/发现等）
+      runApp(
+        ProviderScope(
+          overrides: [bookApiProvider.overrideWithValue(bookApi)],
+          // 保留原有手动重试行为，避免 Riverpod 3 自动重试引入额外请求。
+          retry: (retryCount, error) => null,
+          child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),
+        ),
+      );
+    },
+    (error, stack) {
+      // Zone 级异常兜底：记录到崩溃日志
+      CrashLogService.instance.logError(error, stack);
+    },
+  );
 }
 
 /// FFI 初始化失败时显示的错误页面
@@ -91,7 +87,8 @@ class _FfiErrorApp extends StatelessWidget {
 
   String get _fixHint {
     final lower = error.toLowerCase();
-    final isHashMismatch = lower.contains('content hash') ||
+    final isHashMismatch =
+        lower.contains('content hash') ||
         lower.contains('out-of-sync') ||
         lower.contains('rustcontenthash');
 

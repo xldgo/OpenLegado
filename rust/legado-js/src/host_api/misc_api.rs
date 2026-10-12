@@ -18,7 +18,7 @@ pub fn connect(url: &str, header: &str) -> String {
         serde_json::from_str(header).ok()
     };
 
-    let result = block_on(async {
+    block_on(async {
         // 进程级共享池（2026-09-24 性能专项：不再每调用新建客户端/连接池；
         // 回环 URL 经 no_proxy 直连池，真实主机走默认池，语义不变）
         let client = match crate::host_api::network::shared_client_for_url(url) {
@@ -29,8 +29,7 @@ pub fn connect(url: &str, header: &str) -> String {
             Ok(resp) => resp.body,
             Err(e) => format!("[ERROR] {}", e),
         }
-    });
-    result
+    })
 }
 
 /// connect 的非 quickjs fallback

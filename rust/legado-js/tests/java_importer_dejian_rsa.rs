@@ -41,14 +41,14 @@
 
 #![cfg(feature = "quickjs")]
 
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 
+use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
-use legado_js::host_api::asymmetric_crypto::{parse_public_key, rsa_verify, SignAlgo};
+use legado_js::host_api::asymmetric_crypto::{SignAlgo, parse_public_key, rsa_verify};
 use legado_js::host_api::current_source;
 use legado_js::sandbox::SandboxConfig;
-use legado_js::QuickJsEngine;
 
 /// 固定测试私钥（PKCS#8 DER，Base64）——自生成，非真实源密钥
 const TEST_PRIV_B64: &str = "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKq54k9Yuq+XhYi6aG0AReMvTfzenktZF94Xh+7C9TuutMbz/1NzsbpvHyD7MbMdY8/W9h8HC3yWLiCwr3z7A8sf80VyFF+xk+fNKdkqGfVEzl+TXSEBzJt2egOqCz2sw5JMZMdl1NJrjgjvHyw9VALDcKNTNHxAS3WC4dZgsvWvAgMBAAECgYAqBupMCBakxRMNLn4oXwnVPD7hgdfLypnShU5kG0ANOhusYkI3Q+K7d0FdeBiq9BAvCMa7qptMRxgB2hzJEm3DOuMXcYRjeNcCDFaAtqC+mLNmxEUNy1QTsjQZtFbVI8+daFaX/L2BugegVGnYIiQy2dSazpoMBlFODrnk/1LBIQJBAMLvJtSx+qRLY0HlsEhOISgJEwgzaUlIiuex2jss4Dhkg1y1jRNoV5NBVwBh5CHT1SryMfp8/LnaqLmO8eNCqV8CQQDgNVphV5a3JMTJ114Bns6ljcDUijXl1lMShaTtcJ0bbz2Glw44H1p/SjKzmKIw2pg6lEyDb58g7VvKCeNH0wWxAkEAp3QdXVVOxFfmejM/jb1gCi5RZRgU99kTShmkKHVSX98oYTmsaOGXaW4VuMRe3xhD5FKN0GoSB+3oRw6eh+U57QJAdJZp1Bp2ze95wTeTs6X/8QjAUAU6t7R2aDhEpg+cMqrqxHUCON7c8ToFGWzyUhMpe7SoAOTnS3kB9RKlNDEgUQJABkD6nzg1Wca9GyhmjtEsd+jgz0Gjcdkf7QON6A8VR/U7g0ox+Hg0OIQ67BPk0XAs+ANks1CsT+lWwv3CAkq1TA==";

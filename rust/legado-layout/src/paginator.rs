@@ -1,12 +1,12 @@
 //! ReaderPaginator.kt 的纯数据移植；一块前瞻、逐行分页与延迟一页输出保持上游语义。
-use crate::line_breaker::{break_lines, break_plain, forbidden_break, BreakInput};
+use crate::line_breaker::{BreakInput, break_lines, break_plain, forbidden_break};
 use crate::model::*;
 use crate::{LayoutError, Result};
 use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 struct Row {
@@ -614,14 +614,14 @@ impl PaginationSession {
             starts.push(until);
         }
         // 段评扩展只修正最后边界；没有段评时逐项执行上游规则。
-        if let Some(tail) = review_tail_start(p) {
-            if starts[starts.len() - 2] > tail {
-                starts.retain(|&start| start <= tail);
-                if *starts.last().unwrap() != tail {
-                    starts.push(tail);
-                }
-                starts.push(p.items.len());
+        if let Some(tail) = review_tail_start(p)
+            && starts[starts.len() - 2] > tail
+        {
+            starts.retain(|&start| start <= tail);
+            if *starts.last().unwrap() != tail {
+                starts.push(tail);
             }
+            starts.push(p.items.len());
         }
         for line in 0..starts.len() - 1 {
             self.check_cancelled()?;

@@ -12,9 +12,9 @@
 
 use std::sync::Arc;
 
+use legado_core::LegadoResult;
 use legado_core::models::BookSource;
 use legado_core::web_book::{WebBookEngine, WebBookInfo};
-use legado_core::LegadoResult;
 use legado_fetcher::deps::FetcherDeps;
 
 use crate::runtime;
@@ -231,9 +231,9 @@ pub(crate) fn parse_source_headers(
 mod tests {
     use super::*;
     use crate::test_support::GLOBAL_STORE_TEST_LOCK;
+    use legado_core::LegadoError;
     use legado_core::models::book_source::book_source_type;
     use legado_core::web_book::{BookSourceFetcher, WebBookInfo, WebChapter, WebSearchResult};
-    use legado_core::LegadoError;
     use legado_js::host_api::variable_store;
     use legado_parser::AnalyzeUrl;
 

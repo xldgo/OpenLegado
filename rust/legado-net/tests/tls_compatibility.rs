@@ -1,7 +1,7 @@
 //! reqwest 升级后的真实 TLS 握手回归，全部使用本地服务。
 
 use legado_net::{ssl_config::SslConfig, tls::client_builder};
-use rustls::{pki_types::PrivateKeyDer, ServerConfig};
+use rustls::{ServerConfig, pki_types::PrivateKeyDer};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},

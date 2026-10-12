@@ -101,9 +101,11 @@ mod tests {
         // 按 origin 列表
         mark_read("https://other.com", "Other", Some("https://link.com/2")).unwrap();
         let by_origin = list_records_by_origin("https://rss.example.com", None).unwrap();
-        assert!(by_origin
-            .iter()
-            .all(|r| r.origin == "https://rss.example.com"));
+        assert!(
+            by_origin
+                .iter()
+                .all(|r| r.origin == "https://rss.example.com")
+        );
         assert_eq!(by_origin.len(), 1);
 
         // 清空

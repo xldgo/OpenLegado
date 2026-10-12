@@ -491,9 +491,11 @@ mod tests {
         // 0 是合法覆盖值（区别于未覆盖的 None），序列化必须保留
         let zero: ReadConfig = serde_json::from_str(r#"{"mangaScrollMode":0}"#).unwrap();
         assert_eq!(zero.manga_scroll_mode, Some(0));
-        assert!(serde_json::to_string(&zero)
-            .unwrap()
-            .contains(r#""mangaScrollMode":0"#));
+        assert!(
+            serde_json::to_string(&zero)
+                .unwrap()
+                .contains(r#""mangaScrollMode":0"#)
+        );
     }
 
     #[test]

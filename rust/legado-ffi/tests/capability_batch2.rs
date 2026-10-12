@@ -25,9 +25,9 @@
 use legado_ffi::api::source_js_bindings::book_source_js_setup_script;
 use legado_ffi::js_executor::build_search_url_with_setup;
 use legado_ffi::legado_core::models::BookSource;
+use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_js::engine::JsEngine;
 use legado_ffi::legado_js::sandbox::SandboxConfig;
-use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_parser::analyze_url::{
     current_url, set_current_url, take_pending_request_headers,
 };

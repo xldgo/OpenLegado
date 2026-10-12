@@ -2,9 +2,9 @@
 //!
 //! 参考 Kotlin 实现 `HttpTTS.kt`，通过 HTTP 请求外部 TTS 引擎将文本转换为语音。
 
-use axum::extract::State;
 use axum::Json;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use axum::extract::State;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -94,14 +94,14 @@ pub async fn speak(
         })?;
 
         // 尝试解析为 JSON 提取 audio_url
-        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str()) {
-                return Ok(Json(TtsResponse {
-                    audio_url: Some(audio_url.to_string()),
-                    audio_data: None,
-                    content_type: "audio/mpeg".to_string(),
-                }));
-            }
+        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text)
+            && let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str())
+        {
+            return Ok(Json(TtsResponse {
+                audio_url: Some(audio_url.to_string()),
+                audio_data: None,
+                content_type: "audio/mpeg".to_string(),
+            }));
         }
 
         // 非音频响应，直接返回文本作为 URL

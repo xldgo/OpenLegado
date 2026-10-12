@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{table_exists, Migration};
+use crate::migration::{Migration, table_exists};
 
 /// 从 v106 升级到 v107
 ///
@@ -103,12 +103,11 @@ mod tests {
         let mut stmt = conn
             .prepare("SELECT date, durationSeconds FROM readRecordDaily ORDER BY date")
             .unwrap();
-        let rows = stmt
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+
+        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
             .filter_map(|r| r.ok())
-            .collect();
-        rows
+            .collect()
     }
 
     /// 懒建表尚未创建时迁移应跳过而不报错

@@ -44,8 +44,7 @@ use crate::user_agent::{UserAgentMiddleware, UserAgentRotator};
 /// "Legado/1.0"，主链路已补注入而 JS 桥四池漏网，指纹不一致致 WAF
 /// cookie 跨层失效）。漂移防护：
 /// `legado-ffi search.rs::test_default_user_agent_matches_net_client_default`。
-pub const DEFAULT_USER_AGENT: &str =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /// 写侧 CookieJar 门控标记头（对齐上游 `CookieManager.cookieJarHeader = "CookieJar"`）
 ///
@@ -977,10 +976,10 @@ impl LegadoClient {
         // 失败仅记日志不阻断请求）。
         // 视图为空时**不删行**（重要 3，见函数文档）：该行与 JS 侧共享，
         // 删除会抹掉 JS 键。
-        if let Some(ref persistence) = self.cookie_persistence {
-            if !cookie_string.is_empty() {
-                persistence.save(&domain, &cookie_string);
-            }
+        if let Some(ref persistence) = self.cookie_persistence
+            && !cookie_string.is_empty()
+        {
+            persistence.save(&domain, &cookie_string);
         }
     }
 }
@@ -1340,8 +1339,8 @@ mod tests {
     /// 返回监听地址（如 `127.0.0.1:53211`）。验证 reqwest 启用 gzip feature 后
     /// 自动设置 Accept-Encoding 并透明解压响应体（对齐上游 OkHttp 行为）。
     async fn spawn_gzip_server(plain_body: &'static str) -> std::net::SocketAddr {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
         use std::io::Write;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;

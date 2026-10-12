@@ -1700,9 +1700,14 @@ fn register_encoding_apis<'js>(
         java,
         globals,
         "base64EncodeBytes",
-        rquickjs::Function::new(ctx.clone(), |bytes: rquickjs::TypedArray<u8>| -> String {
-            encoding::base64_encode_bytes(bytes.as_ref())
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |bytes: rquickjs::TypedArray<u8>| -> rquickjs::Result<String> {
+                let data = crate::quickjs_bytes::copy_bytes(&bytes)
+                    .ok_or_else(|| rquickjs::Error::new_from_js("detached Uint8Array", "bytes"))?;
+                Ok(encoding::base64_encode_bytes(&data))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2523,7 +2528,7 @@ fn register_utility_apis<'js>(
              bytes: rquickjs::TypedArray<u8>|
              -> rquickjs::Result<rquickjs::Value<'js>> {
                 use rquickjs::IntoJs;
-                let data: Vec<u8> = bytes.as_bytes().map(|b| b.to_vec()).unwrap_or_default();
+                let data = crate::quickjs_bytes::copy_bytes(&bytes).unwrap_or_default();
                 let out = archive_utils::inflate_raw_bytes(&data).map_err(|e| {
                     rquickjs::Error::FromJs {
                         from: "Uint8Array",
@@ -2984,9 +2989,10 @@ fn register_crypto_apis<'js>(
                 let t = transformation
                     .0
                     .unwrap_or_else(|| "AES/CBC/PKCS5Padding".to_string());
-                let key_b: Vec<u8> = key.as_bytes().unwrap_or(&[]).to_vec();
-                let data_b: Vec<u8> = data.as_bytes().unwrap_or(&[]).to_vec();
-                let iv_b: Option<Vec<u8>> = iv.0.map(|a| a.as_bytes().unwrap_or(&[]).to_vec());
+                let key_b = crate::quickjs_bytes::copy_bytes(&key).unwrap_or_default();
+                let data_b = crate::quickjs_bytes::copy_bytes(&data).unwrap_or_default();
+                let iv_b =
+                    iv.0.map(|a| crate::quickjs_bytes::copy_bytes(&a).unwrap_or_default());
                 let plain =
                     legado_core::crypto::symmetric_decrypt(&t, &key_b, iv_b.as_deref(), &data_b)
                         .map_err(|e| rquickjs::Error::FromJs {
@@ -3244,7 +3250,7 @@ fn register_message_digest_apis<'js>(
              data: rquickjs::TypedArray<u8>|
              -> rquickjs::Result<rquickjs::Value<'js>> {
                 use rquickjs::IntoJs;
-                let data_b: Vec<u8> = data.as_bytes().unwrap_or(&[]).to_vec();
+                let data_b = crate::quickjs_bytes::copy_bytes(&data).unwrap_or_default();
                 let out = message_digest::digest_bytes(&algo, &data_b).map_err(|e| {
                     rquickjs::Error::FromJs {
                         from: "MessageDigest",
@@ -4772,7 +4778,7 @@ mod tests {
         use std::sync::Arc;
 
         use crate::host_api::variable_store;
-        use legado_parser::{set_global_variable_reader, AnalyzeRule};
+        use legado_parser::{AnalyzeRule, set_global_variable_reader};
 
         // 全局状态（读取器 + 全局变量表 + flow scope）与所有其他触碰方串行
         let _lock = variable_store::lock_variables();
@@ -5170,8 +5176,8 @@ String(loc);
     /// 对齐 51漫画 imageDecode：AES/CBC/NoPadding + decrypt(Uint8Array)
     #[test]
     fn test_create_symmetric_crypto_image_decode_nopadding() {
-        use crate::engine::JsEngine;
         use crate::JsValue;
+        use crate::engine::JsEngine;
         use base64::Engine as _;
         use legado_core::crypto::AesCrypto;
 
@@ -5698,7 +5704,7 @@ cipher.decryptStr(b64);
     #[test]
     fn test_java_replace_font_real_cmap() {
         // 端到端：真实 cmap/glyf 解析，经 JS 契约完成防爬字体替换
-        use crate::host_api::font_api::tests::{build_minimal_ttf, Segment};
+        use crate::host_api::font_api::tests::{Segment, build_minimal_ttf};
         use base64::Engine;
         let err_font = build_minimal_ttf(
             &[Segment {
@@ -5839,8 +5845,8 @@ cipher.decryptStr(b64);
     /// 辅助：创建测试 ZIP 文件，返回路径
     fn create_zip_for_js(entries: &[(&str, &[u8])]) -> String {
         use std::io::Write;
-        use zip::write::SimpleFileOptions;
         use zip::ZipWriter;
+        use zip::write::SimpleFileOptions;
 
         let dir = std::env::temp_dir().join(format!(
             "legado_js_host_test_{}_{}",
@@ -7340,9 +7346,11 @@ cipher.decryptStr(b64);
                 .contains("此书源需要 Java 脚本能力（Packages.java.lang.NoSuchClass）"),
             "got: {err}"
         );
-        assert!(capability_ledger::unknown_java_symbols()
-            .iter()
-            .any(|(k, _)| k == "java.lang.NoSuchClass"));
+        assert!(
+            capability_ledger::unknown_java_symbols()
+                .iter()
+                .any(|(k, _)| k == "java.lang.NoSuchClass")
+        );
 
         // Java.type 哨兵：登记 `Java.type(<name>)` + 抛错
         let err = engine.eval("Java.type('com.x.Y');").unwrap_err();
@@ -7351,9 +7359,11 @@ cipher.decryptStr(b64);
                 .contains("此书源需要 Java 脚本能力（Java.type(com.x.Y)）"),
             "got: {err}"
         );
-        assert!(capability_ledger::unknown_java_symbols()
-            .iter()
-            .any(|(k, _)| k == "Java.type(com.x.Y)"));
+        assert!(
+            capability_ledger::unknown_java_symbols()
+                .iter()
+                .any(|(k, _)| k == "Java.type(com.x.Y)")
+        );
 
         // importClass 哨兵：登记 `importClass(<cls>)` + 抛错
         let err = engine.eval("importClass('com.x.Z');").unwrap_err();
@@ -7362,9 +7372,11 @@ cipher.decryptStr(b64);
                 .contains("此书源需要 Java 脚本能力（importClass(com.x.Z)）"),
             "got: {err}"
         );
-        assert!(capability_ledger::unknown_java_symbols()
-            .iter()
-            .any(|(k, _)| k == "importClass(com.x.Z)"));
+        assert!(
+            capability_ledger::unknown_java_symbols()
+                .iter()
+                .any(|(k, _)| k == "importClass(com.x.Z)")
+        );
 
         // 四个未知符号各登记一次——以上四个 contains 断言即逐符号验证；
         // 不做精确全量计数断言：同进程并行测试可能并发登记其他未知符号
@@ -7413,9 +7425,11 @@ cipher.decryptStr(b64);
                 .contains("此书源需要 Java 脚本能力（Packages.foo）"),
             "got: {err}"
         );
-        assert!(capability_ledger::unknown_java_symbols()
-            .iter()
-            .any(|(k, _)| k == "foo()"));
+        assert!(
+            capability_ledger::unknown_java_symbols()
+                .iter()
+                .any(|(k, _)| k == "foo()")
+        );
 
         // 实例化：construct 陷阱抛带文案错误
         let err = engine.eval("new Packages.foo();").unwrap_err();

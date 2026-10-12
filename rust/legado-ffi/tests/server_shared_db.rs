@@ -72,10 +72,10 @@ fn http_request(addr: &str, method: &str, path: &str, json_body: Option<&str>) -
                 .lines()
                 .find_map(|l| l.strip_prefix("content-length:"))
                 .and_then(|v| v.trim().parse::<usize>().ok());
-            if let Some(len) = content_length {
-                if resp.len() >= body_start + len {
-                    break;
-                }
+            if let Some(len) = content_length
+                && resp.len() >= body_start + len
+            {
+                break;
             }
         }
     }

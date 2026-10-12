@@ -55,10 +55,13 @@ impl SslConfig {
 
         // 添加自定义 CA 证书
         if let Some(ref pem) = self.custom_ca {
-            if let Ok(cert) = reqwest::Certificate::from_pem(pem.as_bytes()) {
-                builder = builder.tls_certs_merge([cert]);
-            } else {
-                log::warn!("SslConfig: failed to parse custom CA PEM, ignoring");
+            match reqwest::Certificate::from_pem(pem.as_bytes()) {
+                Ok(cert) => {
+                    builder = builder.tls_certs_merge([cert]);
+                }
+                _ => {
+                    log::warn!("SslConfig: failed to parse custom CA PEM, ignoring");
+                }
             }
         }
 

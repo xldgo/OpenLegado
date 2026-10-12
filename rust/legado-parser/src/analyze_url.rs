@@ -346,10 +346,10 @@ impl AnalyzeUrl {
         }
 
         // 2. 替换页码（含 {{page}} / 页码列表 / {page}）
-        if let Some(p) = page {
-            if !Self::is_data_uri_rule(&self.rule_url) {
-                self.replace_page(p);
-            }
+        if let Some(p) = page
+            && !Self::is_data_uri_rule(&self.rule_url)
+        {
+            self.replace_page(p);
         }
 
         // 3. 解析 URL 和选项
@@ -537,7 +537,7 @@ impl AnalyzeUrl {
                     let mut hasher = Md5::new();
                     hasher.update(result.as_bytes());
                     let hash = hasher.finalize();
-                    result = format!("{:x}", hash);
+                    result = hash.iter().map(|byte| format!("{byte:02x}")).collect();
                 }
                 _ => {
                     // 未知管道，保持不变
@@ -596,10 +596,10 @@ impl AnalyzeUrl {
         self.url_no_query = self.url.clone();
 
         // 解析 JSON 选项
-        if let Some(opt_str) = option_part {
-            if let Ok(option) = Self::parse_url_option(&opt_str) {
-                self.apply_option(option);
-            }
+        if let Some(opt_str) = option_part
+            && let Ok(option) = Self::parse_url_option(&opt_str)
+        {
+            self.apply_option(option);
         }
 
         // 提取 proxy from headers
@@ -987,10 +987,10 @@ impl AnalyzeUrl {
                 };
             }
 
-            if let Some(wj) = obj.get("webJs").and_then(|v| v.as_str()) {
-                if !wj.is_empty() {
-                    option.web_js = Some(wj.to_string());
-                }
+            if let Some(wj) = obj.get("webJs").and_then(|v| v.as_str())
+                && !wj.is_empty()
+            {
+                option.web_js = Some(wj.to_string());
             }
 
             if let Some(dt) = obj.get("webViewDelayTime").and_then(|v| v.as_u64()) {
@@ -998,24 +998,24 @@ impl AnalyzeUrl {
             }
 
             // 解析完 URL 后执行的 JS
-            if let Some(js) = obj.get("js").and_then(|v| v.as_str()) {
-                if !js.is_empty() {
-                    option.js = Some(js.to_string());
-                }
+            if let Some(js) = obj.get("js").and_then(|v| v.as_str())
+                && !js.is_empty()
+            {
+                option.js = Some(js.to_string());
             }
 
             // 对响应 body 二次处理的 JS
-            if let Some(bjs) = obj.get("bodyJs").and_then(|v| v.as_str()) {
-                if !bjs.is_empty() {
-                    option.body_js = Some(bjs.to_string());
-                }
+            if let Some(bjs) = obj.get("bodyJs").and_then(|v| v.as_str())
+                && !bjs.is_empty()
+            {
+                option.body_js = Some(bjs.to_string());
             }
 
             // 自定义域名 IP
-            if let Some(dns) = obj.get("dnsIp").and_then(|v| v.as_str()) {
-                if !dns.is_empty() {
-                    option.dns_ip = Some(dns.trim().to_string());
-                }
+            if let Some(dns) = obj.get("dnsIp").and_then(|v| v.as_str())
+                && !dns.is_empty()
+            {
+                option.dns_ip = Some(dns.trim().to_string());
             }
 
             // 服务器 ID
@@ -2095,7 +2095,10 @@ mod tests {
             &HashMap::new(),
             1,
         ).unwrap();
-        assert_eq!(url.request_body(), "keyboard=%E4%B8%80%E5%BF%B5&show=title%2Cbooksay%2Cbookwriter&submit=%E6%90%9C%E7%B4%A2");
+        assert_eq!(
+            url.request_body(),
+            "keyboard=%E4%B8%80%E5%BF%B5&show=title%2Cbooksay%2Cbookwriter&submit=%E6%90%9C%E7%B4%A2"
+        );
     }
 
     /// UTF-8 表单编码保留 Java URLEncoder 的 *，且逗号正常百分号编码。
@@ -2840,9 +2843,10 @@ mod tests {
             1,
         )
         .unwrap();
-        assert!(url
-            .url()
-            .contains("Rust%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97"));
+        assert!(
+            url.url()
+                .contains("Rust%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97")
+        );
     }
 
     #[test]

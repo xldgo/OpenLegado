@@ -7,8 +7,8 @@
 //! 对齐原版 `McpService.kt` 独立前台服务（默认 1236，合法区间
 //! 1024..65530，≤0 停止），与 Web 服务并存、独立启停。
 
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
@@ -106,11 +106,9 @@ fn lock_handle_slot(
 /// `rt.block_on(handle)`——JoinHandle 在任务完全结束（栈帧析构）后才
 /// resolve，返回即端口已释放。
 ///
-/// 死锁分析（调用上下文核实）：本函数仅由 FFI 导出（`ffi_server_stop` /
-/// FRB `server_stop`，运行在 Dart/FFI 调用线程）与测试线程进入，从不在
+/// 死锁分析（调用上下文核实）：本函数仅由 FRB 导出（`server_stop`，运行在 Dart/FFI 调用线程）与测试线程进入，从不在
 /// SERVER_RUNTIME 的任务内执行；即便未来从该 runtime 内部误调，tokio 的
-/// `block_on` 会 panic（禁止 runtime 内嵌套阻塞，被 bridge 的
-/// `catch_unwind` 捕获）而非静默死锁——依赖方向 legado-ffi → legado-server
+/// `block_on` 会 panic（禁止 runtime 内嵌套阻塞）而非静默死锁——依赖方向 legado-ffi → legado-server
 /// 亦保证服务端代码不存在回调进本模块的路径。故无需 `block_in_place`。
 fn abort_and_wait(handle: JoinHandle<()>) {
     handle.abort();

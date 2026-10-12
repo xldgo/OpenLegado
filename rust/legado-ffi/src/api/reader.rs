@@ -766,12 +766,11 @@ fn fetch_chapter_content_inner(
             BookChapterRepository::new(db.connection()).word_count_missing(book_url, chapter_url)
         })
         .unwrap_or(false);
-        if wc_missing {
-            if let Err(e) =
+        if wc_missing
+            && let Err(e) =
                 backfill_chapter_word_count(book_url, chapter_url, &cached_chapter.content)
-            {
-                log::warn!("章节字数自愈回填失败（已忽略，不影响阅读）: {e}");
-            }
+        {
+            log::warn!("章节字数自愈回填失败（已忽略，不影响阅读）: {e}");
         }
         // 缓存存储原始正文，返回前应用净化（避免规则变更后缓存陈旧）
         let processed = apply_content_processing_chapter(
@@ -877,11 +876,7 @@ pub fn word_count_format(words: usize) -> String {
             q
         } else {
             // tie（恰为 .5）→ HALF_EVEN 取偶数侧
-            if q.is_multiple_of(2) {
-                q
-            } else {
-                q + 1
-            }
+            if q.is_multiple_of(2) { q } else { q + 1 }
         }
     };
     let (int_part, frac_part) = (t / 10, t % 10);
@@ -1229,8 +1224,8 @@ fn get_chapter_index_title_variable(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use legado_core::models::rule::ContentRule;
     use legado_core::models::BookSource;
+    use legado_core::models::rule::ContentRule;
 
     /// 初始化测试数据库并持锁（返回串行锁守卫，测试必须绑定到变量）
     fn setup_db_and_source(source_url: &str) -> std::sync::MutexGuard<'static, ()> {
@@ -1508,21 +1503,19 @@ mod tests {
 
             // [P2-1 复审] 模拟刷新窗口内的「并发进度写入」：只在首次抓取（坏 tocUrl）播种，
             // 避开重试抓取，确保落在「快照读取之后、tocUrl 回写之前」的丢更新窗口内。
-            if is_first_fetch {
-                if let Some(burl) = &self.seed_progress_book_url {
-                    let _ = with_database(|db| {
-                        use rusqlite::params;
-                        db.connection()
-                            .execute(
-                                "UPDATE books SET durChapterIndex = 7 WHERE bookUrl = ?1",
-                                params![burl],
-                            )
-                            .map_err(|e| {
-                                LegadoError::Database(format!("播种 durChapterIndex 失败: {e}"))
-                            })?;
-                        Ok(())
-                    });
-                }
+            if is_first_fetch && let Some(burl) = &self.seed_progress_book_url {
+                let _ = with_database(|db| {
+                    use rusqlite::params;
+                    db.connection()
+                        .execute(
+                            "UPDATE books SET durChapterIndex = 7 WHERE bookUrl = ?1",
+                            params![burl],
+                        )
+                        .map_err(|e| {
+                            LegadoError::Database(format!("播种 durChapterIndex 失败: {e}"))
+                        })?;
+                    Ok(())
+                });
             }
 
             Ok(self

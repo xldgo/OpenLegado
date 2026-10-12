@@ -130,10 +130,10 @@ impl SharedScopeManager {
     pub fn release_creation_lock(&self, key: &str) {
         let mut locks = self.creation_locks.lock().unwrap();
         // 仅当没有其他使用者时才移除
-        if let Some(lock) = locks.get(key) {
-            if Arc::strong_count(lock) <= 1 {
-                locks.remove(key);
-            }
+        if let Some(lock) = locks.get(key)
+            && Arc::strong_count(lock) <= 1
+        {
+            locks.remove(key);
         }
     }
 

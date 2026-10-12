@@ -35,11 +35,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use legado_core::LegadoError;
 use legado_core::models::BookChapter;
 use legado_core::video_state::{DanmakuSource, VideoPlayerState};
-use legado_core::LegadoError;
-use legado_db::rule_big_data::RuleBigDataManager;
 use legado_db::BookChapterRepository;
+use legado_db::rule_big_data::RuleBigDataManager;
 
 use crate::db_state::with_database;
 
@@ -58,23 +58,39 @@ const LARGE_VALUE_THRESHOLD: usize = 10000;
 /// 系统 temp 回落一次性告警（对齐 image_cache / cache_store 先例）
 static TEMP_FALLBACK_WARNED: AtomicBool = AtomicBool::new(false);
 
+// 测试目录只覆盖当前测试线程，避免并行测试修改进程级环境变量。
+#[cfg(test)]
+thread_local! {
+    static TEST_RULE_DATA_DIR: std::cell::RefCell<Option<PathBuf>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn replace_test_rule_data_dir(dir: Option<PathBuf>) -> Option<PathBuf> {
+    TEST_RULE_DATA_DIR.with(|slot| slot.replace(dir))
+}
+
 /// 解析规则数据根目录（写入侧与查询侧共用，同根同键）
 ///
 /// 优先级：env [`RULE_DATA_DIR_ENV`] > DB 文件父目录（App Documents）
 /// /ruleData > 系统 temp 目录（一次性告警；宿主未 `db_open` 时的测试/异常路径）。
 pub fn rule_data_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(dir) = TEST_RULE_DATA_DIR.with(|slot| slot.borrow().clone()) {
+        return dir;
+    }
     if let Ok(dir) = std::env::var(RULE_DATA_DIR_ENV) {
         let dir = dir.trim();
         if !dir.is_empty() {
             return PathBuf::from(dir);
         }
     }
-    if let Some(db_path) = crate::db_state::current_db_path() {
-        if let Some(parent) = Path::new(&db_path).parent() {
-            if !parent.as_os_str().is_empty() {
-                return parent.join(RULE_DATA_DIR_NAME);
-            }
-        }
+    if let Some(db_path) = crate::db_state::current_db_path()
+        && let Some(parent) = Path::new(&db_path).parent()
+        && !parent.as_os_str().is_empty()
+    {
+        return parent.join(RULE_DATA_DIR_NAME);
     }
     if !TEMP_FALLBACK_WARNED.swap(true, Ordering::Relaxed) {
         log::warn!(
@@ -423,13 +439,13 @@ pub fn put_media_sub_content_from_capture(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
-    if let Some(candidate) = direct {
-        if chapter_exists(&candidate, chapter_url) {
-            put_media_sub_content(&candidate, chapter_url, key, value);
-            return;
-        }
-        // meta 的 bookUrl 未命中 DB（如 refreshToc 透传的目录页 URL）→ 兜底
+    if let Some(candidate) = direct
+        && chapter_exists(&candidate, chapter_url)
+    {
+        put_media_sub_content(&candidate, chapter_url, key, value);
+        return;
     }
+    // meta 的 bookUrl 未命中 DB（如 refreshToc 透传的目录页 URL）→ 兜底
     if let Some(resolved) = resolve_book_url_by_source_chapter(source_url, chapter_url) {
         put_media_sub_content(&resolved, chapter_url, key, value);
         return;
@@ -562,14 +578,14 @@ mod tests {
     use legado_core::models::Book;
     use legado_db::repository::Repository;
 
-    /// 模块级串行锁（env 目录 + 共享测试库为进程级状态，防并行互踩；
+    /// 模块级串行锁（共享测试库为进程级状态，防并行互踩；
     /// 锁序：本锁先取、DB 守卫后取，遵循 test_support 全局锁序不变式）
     static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    /// 临时规则数据目录 + env 注入守卫（Drop 恢复原值）
+    /// 临时规则数据目录的线程内覆盖守卫，Drop 恢复原值。
     struct RuleDataDirGuard {
         dir: PathBuf,
-        prev: Option<String>,
+        prev: Option<PathBuf>,
     }
 
     impl RuleDataDirGuard {
@@ -580,18 +596,14 @@ mod tests {
                 tag
             ));
             let _ = std::fs::remove_dir_all(&dir);
-            let prev = std::env::var(RULE_DATA_DIR_ENV).ok();
-            std::env::set_var(RULE_DATA_DIR_ENV, &dir);
+            let prev = replace_test_rule_data_dir(Some(dir.clone()));
             Self { dir, prev }
         }
     }
 
     impl Drop for RuleDataDirGuard {
         fn drop(&mut self) {
-            match &self.prev {
-                Some(v) => std::env::set_var(RULE_DATA_DIR_ENV, v),
-                None => std::env::remove_var(RULE_DATA_DIR_ENV),
-            }
+            replace_test_rule_data_dir(self.prev.take());
             let _ = std::fs::remove_dir_all(&self.dir);
         }
     }
@@ -649,9 +661,11 @@ mod tests {
         // variable 列确为 JSON（键 danmaku），未落大数据文件
         let variable = chapter_variable(book_url, chapter_url).unwrap();
         assert!(variable.contains("\"danmaku\""), "variable 应含 danmaku 键");
-        assert!(!big_data_manager()
-            .chapter_variable_path(book_url, chapter_url, DANMAKU_KEY)
-            .exists());
+        assert!(
+            !big_data_manager()
+                .chapter_variable_path(book_url, chapter_url, DANMAKU_KEY)
+                .exists()
+        );
     }
 
     /// `≥10000`：大数据文件落点往返（读回原样）；variable 列不含该键
@@ -1025,7 +1039,7 @@ mod tests {
         assert_eq!(items[0]["color"], -16777216); // p3=0 → 0xFF000000 as i32
         assert_eq!(items[1]["timeMs"], 2500);
         assert_eq!(items[1]["color"], -1); // p3=-1 → 0xFFFFFFFF as i32
-                                           // 尾部空段（p 以逗号结尾）按 Kotlin dropLastWhile 丢弃
+        // 尾部空段（p 以逗号结尾）按 Kotlin dropLastWhile 丢弃
         let xml_tail = r#"<i><d p="1.5,1,25,16777215,1422201084,0,hash,id,">尾部逗号</d></i>"#;
         let items = parse_items(xml_tail);
         assert_eq!(items.len(), 1);

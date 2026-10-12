@@ -44,8 +44,8 @@
 
 use std::sync::{Arc, OnceLock};
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
@@ -480,7 +480,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Method, Request, StatusCode};
     use legado_net::CookiePersistence;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::atomic::AtomicBool;
     use tokio::sync::Mutex;
     use tower::ServiceExt;

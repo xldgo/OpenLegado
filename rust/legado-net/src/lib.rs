@@ -45,25 +45,25 @@ pub mod webdav;
 mod socks5_e2e;
 
 // 常用类型重导出
-pub use client::{cookie_jar_marker_present, LegadoClient, LegadoClientConfig, COOKIE_JAR_HEADER};
+pub use client::{COOKIE_JAR_HEADER, LegadoClient, LegadoClientConfig, cookie_jar_marker_present};
 pub use cookie_store::{CookiePersistence, CookieStore};
 pub use cover::CoverCache;
 pub use custom_hosts::{
-    apply_custom_hosts, clear_custom_hosts, lookup_ips, resolver, CustomHostsResolver,
+    CustomHostsResolver, apply_custom_hosts, clear_custom_hosts, lookup_ips, resolver,
 };
 pub use middleware::{Middleware, MiddlewareChain};
-pub use proxy::{parse_proxy_config, ProxyConfig, ProxyCredentials, ProxyPool, ProxyType};
+pub use proxy::{ProxyConfig, ProxyCredentials, ProxyPool, ProxyType, parse_proxy_config};
 pub use rate_limit::{DomainRateLimiter, RateLimiter};
 pub use request::{LegadoRequest, Method};
 pub use response::{LegadoRawResponse, LegadoResponse, LegadoStreamResponse};
 pub use retry::{RetryConfig, RetryExecutor};
-pub use rss::{fetch_feed, parse_feed, RssArticle, RssFeed};
+pub use rss::{RssArticle, RssFeed, fetch_feed, parse_feed};
 pub use rule_update_client::{
-    fetch_subscription, merge_subscription, should_update, MergeResult, RuleSubscription,
-    UpdateResult,
+    MergeResult, RuleSubscription, UpdateResult, fetch_subscription, merge_subscription,
+    should_update,
 };
 pub use source_checker::{CaptchaInfo, CheckResult, CheckerConfig, RedirectInfo, SourceChecker};
 pub use ssl_config::SslConfig;
-pub use url_template::{parse_url_template, ParsedUrl, UrlOption};
+pub use url_template::{ParsedUrl, UrlOption, parse_url_template};
 pub use user_agent::{UserAgentMiddleware, UserAgentRotator};
 pub use verification::{VerificationFlightRegistry, VerificationResult};

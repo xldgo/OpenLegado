@@ -1,15 +1,15 @@
 //! 搜索处理器
 
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use crate::error::ApiError;
 use crate::state::AppState;
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use legado_db::repository::Repository;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// 搜索请求体
 #[derive(Debug, Deserialize)]
@@ -85,8 +85,8 @@ mod tests {
     use crate::routes::create_router;
     use crate::state::AppState;
     use legado_core::models::Book;
-    use legado_db::repository::book_repository::BookRepository;
     use legado_db::repository::Repository;
+    use legado_db::repository::book_repository::BookRepository;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();

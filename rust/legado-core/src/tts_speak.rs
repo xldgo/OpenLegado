@@ -162,12 +162,11 @@ impl SpeakCache {
                 continue;
             };
             let name = file_name.to_string_lossy().to_string();
-            if name.starts_with(&prefix) {
-                if let Ok(meta) = std::fs::metadata(&path) {
-                    if meta.len() > 0 {
-                        return Some(path);
-                    }
-                }
+            if name.starts_with(&prefix)
+                && let Ok(meta) = std::fs::metadata(&path)
+                && meta.len() > 0
+            {
+                return Some(path);
             }
         }
         None

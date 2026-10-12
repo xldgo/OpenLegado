@@ -4,7 +4,7 @@
 //! （bookSource/rssSource/replaceRule）供 FFI/JSON；落库为 Room `type` Int
 //! （0/1/3）。version/isEnabled/createdAt 为 Rust 超集列。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};

@@ -16,9 +16,9 @@ use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use image::GenericImageView;
-use zip::write::SimpleFileOptions;
+use image_pdf::GenericImageView;
 use zip::ZipWriter;
+use zip::write::SimpleFileOptions;
 
 /// 导出格式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -619,10 +619,10 @@ pub fn fetch_image_bytes(src: &str, fetcher: Option<&ImageFetcher>) -> Result<Ve
 /// 解码图片字节为可嵌入 PDF 的 DynamicImage（支持 JPEG/PNG）
 ///
 /// genpdf/printpdf 不支持 alpha 通道：带透明通道的图片先平铺到白色背景。
-fn decode_pdf_image(bytes: &[u8]) -> Result<image::DynamicImage, String> {
+fn decode_pdf_image(bytes: &[u8]) -> Result<image_pdf::DynamicImage, String> {
     let img = image::load_from_memory(bytes).map_err(|e| format!("图片解码失败: {e}"))?;
     if !img.color().has_alpha() {
-        return Ok(img);
+        return into_pdf_image(img);
     }
     // alpha 平铺到白色背景（对齐常见 PDF 阅读器的白底呈现）
     let rgba = img.to_rgba8();
@@ -633,7 +633,31 @@ fn decode_pdf_image(bytes: &[u8]) -> Result<image::DynamicImage, String> {
         let blend = |c: u8| (c as f32 * af + 255.0 * (1.0 - af)).round() as u8;
         rgb.put_pixel(x, y, image::Rgb([blend(r), blend(g), blend(b)]));
     }
-    Ok(image::DynamicImage::ImageRgb8(rgb))
+    into_pdf_image(image::DynamicImage::ImageRgb8(rgb))
+}
+
+/// genpdf 固定依赖旧 image 类型，直接转交像素内存，不重复编码或解码。
+/// JPEG/PNG 的非透明灰度、RGB 与 16 位通道保持原样；透明图已在上游铺白底。
+fn into_pdf_image(img: image::DynamicImage) -> Result<image_pdf::DynamicImage, String> {
+    let width = img.width();
+    let height = img.height();
+    let converted = match img {
+        image::DynamicImage::ImageLuma8(pixels) => {
+            image_pdf::ImageBuffer::from_raw(width, height, pixels.into_raw())
+                .map(image_pdf::DynamicImage::ImageLuma8)
+        }
+        image::DynamicImage::ImageLuma16(pixels) => {
+            image_pdf::ImageBuffer::from_raw(width, height, pixels.into_raw())
+                .map(image_pdf::DynamicImage::ImageLuma16)
+        }
+        image::DynamicImage::ImageRgb16(pixels) => {
+            image_pdf::ImageBuffer::from_raw(width, height, pixels.into_raw())
+                .map(image_pdf::DynamicImage::ImageRgb16)
+        }
+        other => image_pdf::RgbImage::from_raw(width, height, other.into_rgb8().into_raw())
+            .map(image_pdf::DynamicImage::ImageRgb8),
+    };
+    converted.ok_or_else(|| "图片像素尺寸与数据不一致".to_string())
 }
 
 /// 计算图片适配 A4 内容区的等比缩放系数
@@ -844,7 +868,7 @@ fn pdf_regular_candidates() -> Vec<PdfFontCandidate> {
     list.push((font_path(win, "simkai.ttf"), None)); // 楷体
     list.push((font_path(win, "simfang.ttf"), None)); // 仿宋
     list.push((font_path(win, "msyh.ttf"), None)); // 旧版微软雅黑
-                                                   // Linux（文泉驿/思源/Droid 等常见 CJK 字体）
+    // Linux（文泉驿/思源/Droid 等常见 CJK 字体）
     list.push((
         PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
         Some(0),
@@ -1518,19 +1542,20 @@ mod tests {
 
     /// 用 image crate 生成最小 PNG 字节（测试样本，避免外部文件依赖）
     fn make_png_bytes(width: u32, height: u32, alpha: bool) -> Vec<u8> {
+        use image::ImageEncoder;
         let mut buf = Vec::new();
         if alpha {
             // 半透明红色（验证 alpha 平铺白底逻辑）
             let img = image::RgbaImage::from_pixel(width, height, image::Rgba([255, 0, 0, 128]));
             let encoder = image::codecs::png::PngEncoder::new(&mut buf);
             encoder
-                .encode(img.as_raw(), width, height, image::ColorType::Rgba8)
+                .write_image(img.as_raw(), width, height, image::ExtendedColorType::Rgba8)
                 .unwrap();
         } else {
             let img = image::RgbImage::from_pixel(width, height, image::Rgb([30, 60, 200]));
             let encoder = image::codecs::png::PngEncoder::new(&mut buf);
             encoder
-                .encode(img.as_raw(), width, height, image::ColorType::Rgb8)
+                .write_image(img.as_raw(), width, height, image::ExtendedColorType::Rgb8)
                 .unwrap();
         }
         buf
@@ -1542,7 +1567,7 @@ mod tests {
         let mut buf = Vec::new();
         let mut encoder = image::codecs::jpeg::JpegEncoder::new(&mut buf);
         encoder
-            .encode(img.as_raw(), 8, 8, image::ColorType::Rgb8)
+            .encode(img.as_raw(), 8, 8, image::ExtendedColorType::Rgb8)
             .unwrap();
         buf
     }
@@ -1635,9 +1660,38 @@ mod tests {
         let rgba_png = make_png_bytes(8, 8, true);
         let img = decode_pdf_image(&rgba_png).unwrap();
         assert!(!img.color().has_alpha(), "alpha 应被平铺到白底");
+        assert_eq!(img.to_rgb8().get_pixel(0, 0).0, [255, 127, 127]);
 
         // 非法字节返回错误而非 panic
         assert!(decode_pdf_image(b"not-an-image").is_err());
+    }
+
+    #[test]
+    fn test_pdf_image_bridge_preserves_grayscale_and_16_bit_pixels() {
+        for modern in [
+            image::DynamicImage::ImageLuma8(image::GrayImage::from_pixel(2, 3, image::Luma([42]))),
+            image::DynamicImage::ImageLuma16(image::ImageBuffer::from_pixel(
+                2,
+                3,
+                image::Luma([12345u16]),
+            )),
+            image::DynamicImage::ImageRgb16(image::ImageBuffer::from_pixel(
+                2,
+                3,
+                image::Rgb([12345u16, 23456, 34567]),
+            )),
+        ] {
+            let expected = modern.as_bytes().to_vec();
+            let mut png = Cursor::new(Vec::new());
+            modern.write_to(&mut png, image::ImageFormat::Png).unwrap();
+            let legacy = decode_pdf_image(png.get_ref()).unwrap();
+            assert_eq!(legacy.dimensions(), (2, 3));
+            assert_eq!(legacy.as_bytes(), expected);
+            assert_eq!(
+                legacy.color().bits_per_pixel(),
+                modern.color().bits_per_pixel()
+            );
+        }
     }
 
     /// 适配缩放：保持宽高比、不放大、适配 A4 内容区

@@ -134,10 +134,10 @@ pub fn query_ttf(data: &str, use_cache: bool) -> String {
     // 检查句柄缓存（对齐 Kotlin AppCacheManager.getQueryTTF）
     if use_cache {
         let guard = get_cache();
-        if let Some(cache) = guard.as_ref() {
-            if let Some(cached) = cache.get(&cache_key) {
-                return cached.clone();
-            }
+        if let Some(cache) = guard.as_ref()
+            && let Some(cached) = cache.get(&cache_key)
+        {
+            return cached.clone();
         }
     }
 
@@ -183,10 +183,10 @@ fn load_font_bytes(data: &str, font_type: &str, cache_key: &str) -> Result<Vec<u
         "url" => {
             let cache_path = font_cache_dir().join(format!("{}.ttf", cache_key));
             // 已缓存直接用（对齐 TTS 缓存模式）
-            if let Ok(bytes) = std::fs::read(&cache_path) {
-                if !bytes.is_empty() {
-                    return Ok(bytes);
-                }
+            if let Ok(bytes) = std::fs::read(&cache_path)
+                && !bytes.is_empty()
+            {
+                return Ok(bytes);
             }
             let bytes = download_font(data)?;
             // 下载成功落盘缓存（失败忽略）
@@ -310,11 +310,11 @@ pub fn replace_font(
         // 使用轮廓签名在正确字体反查 unicode
         if let Some(sig) = &glyf {
             let new_code = correct_font.unicode_by_glyf(sig);
-            if new_code != 0 {
-                if let Some(new_ch) = char::from_u32(new_code) {
-                    out.push(new_ch);
-                    continue;
-                }
+            if new_code != 0
+                && let Some(new_ch) = char::from_u32(new_code)
+            {
+                out.push(new_ch);
+                continue;
             }
         }
         // 无映射的字符保留原样
@@ -408,7 +408,7 @@ pub mod tests {
         g.extend_from_slice(&be16(10)); // yMax
         g.extend_from_slice(&be16(2)); // endPtsOfContours = [2]
         g.extend_from_slice(&be16(0)); // instructionLength
-                                       // flags：3 点，短向量正号（x: 0x12, y: 0x24）
+        // flags：3 点，短向量正号（x: 0x12, y: 0x24）
         g.extend_from_slice(&[0x12 | 0x24, 0x12 | 0x24, 0x12 | 0x24]);
         let d = variant;
         g.extend_from_slice(&[1 + d, 2 + d, 3 + d]); // x 增量

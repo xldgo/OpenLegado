@@ -69,10 +69,10 @@ fn http_get(addr: SocketAddr) -> Option<String> {
 fn wait_server_ready(addr: SocketAddr) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
-        if let Some(resp) = http_get(addr) {
-            if resp.starts_with("HTTP/1.1") || resp.starts_with("HTTP/1.0") {
-                return resp;
-            }
+        if let Some(resp) = http_get(addr)
+            && (resp.starts_with("HTTP/1.1") || resp.starts_with("HTTP/1.0"))
+        {
+            return resp;
         }
         std::thread::sleep(Duration::from_millis(50));
     }

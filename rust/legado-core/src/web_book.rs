@@ -142,7 +142,7 @@ pub trait BookSourceFetcher: Send + Sync {
     /// - `source`: 书源配置
     /// - `book_url`: 书籍详情页 URL
     async fn get_book_info(&self, source: &BookSource, book_url: &str)
-        -> LegadoResult<WebBookInfo>;
+    -> LegadoResult<WebBookInfo>;
 
     /// 带既有书籍上下文的详情获取（换源 T2，2026-09-03）
     ///

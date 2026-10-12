@@ -1,6 +1,6 @@
 //! SearchKeyword Repository - search_keywords 表 CRUD（对齐 Room v95）
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::{LegadoError, LegadoResult};
 

@@ -19,7 +19,7 @@
 //! - `D>0`：模拟慢站点响应延迟（真实 10 分钟重载的主因项）。
 //!
 //! 基建（与 tests/three_entry_parity.rs 同纪律）：
-//! - 内存 DB + 全局连接池（OnceLock first-wins）+ `NO_PROXY=127.0.0.1,localhost`
+//! - 内存 DB + 全局连接池（OnceLock first-wins）+ 客户端显式 `no_proxy` 配置
 //!   + `reset_shared_client()`（防宿主代理劫持回环流量）；
 //! - 全部测试持 `TEST_LOCK` 串行（共享全局 DB / HTTP 客户端 / 进程级
 //!   PageBodyCache 45s TTL / 流作用域）；
@@ -57,7 +57,7 @@ use std::time::{Duration, Instant};
 use legado_ffi::legado_db::repository::Repository;
 
 /// 全部测试串行：共享全局内存 DB、HTTP 客户端单例、进程级 PageBodyCache
-/// 与 `NO_PROXY` 环境变量（与 three_entry_parity.rs 同一动机）
+/// 与共享客户端配置（与 three_entry_parity.rs 同一动机）
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 static ENV_INIT: Once = Once::new();
 
@@ -82,9 +82,14 @@ fn setup_env() {
     let db = legado_ffi::legado_db::init_in_memory_database().expect("内存数据库初始化");
     // 仅首次调用生效（OnceLock first-wins），后续测试复用同一池
     legado_ffi::db_state::init_database(db).expect("全局连接池初始化");
-    // 夹具流量全走 127.0.0.1 回环：reqwest 构建时读 NO_PROXY，重置单例令其生效
-    std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
-    legado_ffi::http_state::reset_shared_client();
+    // 夹具流量全走 127.0.0.1 回环，显式关闭客户端代理
+    legado_ffi::http_state::reset_shared_client_with_config(
+        legado_ffi::legado_net::LegadoClientConfig {
+            no_proxy: true,
+            ..Default::default()
+        },
+    )
+    .expect("回环夹具客户端初始化");
 }
 
 // ─── 多连接 mock 服务器 ─────────────────────────────────────────────────────
@@ -290,10 +295,10 @@ fn route(path: &str, cfg: &ServerCfg) -> (u16, String) {
             if k == 0 || k > cfg.pages {
                 return (404, "not found".to_string());
             }
-            if let Some(fp) = cfg.fail_page {
-                if k == fp {
-                    return (500, "injected failure".to_string());
-                }
+            if let Some(fp) = cfg.fail_page
+                && k == fp
+            {
+                return (500, "injected failure".to_string());
             }
             let next = (k < cfg.pages)
                 .then(|| format!("/run/{}", k + 1))
@@ -313,10 +318,10 @@ fn route(path: &str, cfg: &ServerCfg) -> (u16, String) {
         if k == 0 || k > cfg.pages {
             return (404, "not found".to_string());
         }
-        if let Some(fp) = cfg.fail_page {
-            if k == fp {
-                return (500, "injected failure".to_string());
-            }
+        if let Some(fp) = cfg.fail_page
+            && k == fp
+        {
+            return (500, "injected failure".to_string());
         }
         let next: Vec<String> = if cfg.parallel_list {
             if k == 1 {
@@ -397,7 +402,9 @@ fn perf_serial_timing_matrix() {
     } else {
         vec![10, 50]
     };
-    eprintln!("[perf] 串行 nextTocUrl 链（详情页 + 首抓页 + N-1 后续页 = N+1 次请求；每页 {CH_PER_PAGE} 章）:");
+    eprintln!(
+        "[perf] 串行 nextTocUrl 链（详情页 + 首抓页 + N-1 后续页 = N+1 次请求；每页 {CH_PER_PAGE} 章）:"
+    );
     for &n in &ns {
         // D=0：纯我方成本
         let (src, book, stats) = setup_scenario(ServerCfg::serial(n, 0, None));

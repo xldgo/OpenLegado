@@ -379,11 +379,11 @@ fn merge_cookie_entries(
     let raw = input.trim().to_string();
     let norm = normalize_cookie_key(input);
     let mut merged: HashMap<String, String> = HashMap::new();
-    if norm != raw {
-        if let Some(map) = store.get(&norm) {
-            for (name, value) in map {
-                merged.insert(name.clone(), value.clone());
-            }
+    if norm != raw
+        && let Some(map) = store.get(&norm)
+    {
+        for (name, value) in map {
+            merged.insert(name.clone(), value.clone());
         }
     }
     if let Some(map) = store.get(&raw) {
@@ -440,10 +440,10 @@ fn with_store_update(url: &str, f: impl FnOnce(&mut HashMap<String, String>) -> 
             None
         }
     };
-    if let Some(merged) = merged {
-        if let Some(sink) = COOKIE_SINK.get() {
-            sink.upsert(&domain_key, &merged);
-        }
+    if let Some(merged) = merged
+        && let Some(sink) = COOKIE_SINK.get()
+    {
+        sink.upsert(&domain_key, &merged);
     }
 }
 
@@ -1276,7 +1276,7 @@ mod sink_tests {
         const KEY: &str = "p219_sink_memo";
         clear_cookies(KEY);
         set_cookie(KEY, "x", "mem"); // 内存 x=mem，sink 行 "x=mem"
-                                     // 直接改写记录 map 模拟「DB 行与内存态不一致」（DB 侧有 x=db 旧值 + y=3 独有键）
+        // 直接改写记录 map 模拟「DB 行与内存态不一致」（DB 侧有 x=db 旧值 + y=3 独有键）
         SINK_STORE
             .lock()
             .unwrap_or_else(|p| p.into_inner())

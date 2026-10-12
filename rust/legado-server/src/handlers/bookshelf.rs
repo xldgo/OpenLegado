@@ -1,15 +1,15 @@
 //! 书架管理处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::models::Book;
-use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::Repository;
+use legado_db::repository::book_repository::BookRepository;
 
 use crate::error::ApiError;
 use crate::state::AppState;

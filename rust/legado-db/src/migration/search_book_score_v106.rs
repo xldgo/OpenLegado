@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{add_column_if_not_exists, table_exists, Migration};
+use crate::migration::{Migration, add_column_if_not_exists, table_exists};
 
 /// 从 v105 升级到 v106
 ///

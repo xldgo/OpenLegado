@@ -55,10 +55,10 @@ pub fn single_flight(key: String, wait_ms: i64, f_js: String) -> String {
     });
 
     // 检查是否有未过期的缓存结果
-    if let Some((ref result, expire)) = entry.flight_result {
-        if Instant::now() < expire {
-            return result.clone();
-        }
+    if let Some((ref result, expire)) = entry.flight_result
+        && Instant::now() < expire
+    {
+        return result.clone();
     }
 
     // 执行"函数"（简化：返回 f_js 本身作为结果标识）

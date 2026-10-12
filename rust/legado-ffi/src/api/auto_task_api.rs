@@ -5,19 +5,19 @@
 //!
 //! 对应 Kotlin 原版 `AutoTask` / `AutoTaskRunner` / `AutoTaskSchedulePolicy`。
 
+use legado_core::LegadoResult;
 use legado_core::auto_task::{
-    build_book_update_task as core_build_book_update_task,
+    AutoTaskExporter, AutoTaskRule, AutoTaskRunner, AutoTaskSchedulePolicy, TaskAction,
+    TaskProtocol, build_book_update_task as core_build_book_update_task,
     can_refresh_book_toc as core_can_refresh_book_toc,
     find_book_update_task as core_find_book_update_task, normalize_script as core_normalize_script,
-    update_cron_batch as core_update_cron_batch, AutoTaskExporter, AutoTaskRule, AutoTaskRunner,
-    AutoTaskSchedulePolicy, TaskAction, TaskProtocol,
+    update_cron_batch as core_update_cron_batch,
 };
 use legado_core::models::AutoTaskRule as AutoTaskRuleModel;
-use legado_core::LegadoResult;
 
 use crate::db_state::with_database;
-use legado_db::repository::Repository;
 use legado_db::AutoTaskRepository;
+use legado_db::repository::Repository;
 
 /// 构建书籍更新定时任务（对应 Kotlin `AutoTask.buildBookUpdateTask`）
 ///

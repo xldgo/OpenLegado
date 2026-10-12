@@ -1,8 +1,8 @@
 //! legado-server 集成测试
 //! 启动真实 HTTP 服务 → 发送请求 → 验证响应
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};

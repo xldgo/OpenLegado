@@ -30,7 +30,7 @@
 
 use axum::body::Body;
 use axum::extract::Request;
-use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
+use axum::http::{HeaderName, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
@@ -90,10 +90,10 @@ pub fn with_web_headers(resp: &mut Response, header_path: &str, origin: Option<&
         HeaderName::from_static("x-content-type-options"),
         HeaderValue::from_static("nosniff"),
     );
-    if let Some(origin) = origin {
-        if let Ok(value) = HeaderValue::from_str(origin) {
-            headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
-        }
+    if let Some(origin) = origin
+        && let Ok(value) = HeaderValue::from_str(origin)
+    {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
     }
     if header_path.starts_with("/vue/") && header_path.ends_with(".html") {
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));

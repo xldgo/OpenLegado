@@ -267,10 +267,10 @@ impl WebDavClient {
         let files = self.list_dir(path).await?;
         let mut result = HashMap::new();
         for file in files {
-            if !file.is_dir {
-                if let (Some(etag), Some(modified)) = (&file.etag, &file.last_modified) {
-                    result.insert(file.name, (etag.clone(), modified.clone()));
-                }
+            if !file.is_dir
+                && let (Some(etag), Some(modified)) = (&file.etag, &file.last_modified)
+            {
+                result.insert(file.name, (etag.clone(), modified.clone()));
             }
         }
         Ok(result)
@@ -278,8 +278,8 @@ impl WebDavClient {
 
     /// 解析 PROPFIND XML 响应
     fn parse_propfind_response(xml: &str) -> LegadoResult<Vec<WebDavFileInfo>> {
-        use quick_xml::events::Event;
         use quick_xml::Reader;
+        use quick_xml::events::Event;
 
         let mut reader = Reader::from_str(xml);
         let mut buf = Vec::new();

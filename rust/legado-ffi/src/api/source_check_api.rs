@@ -11,8 +11,8 @@
 //! 与 server 端点的差异：批量校验采用串行执行（对齐 Kotlin 原版），
 //! 避免对书源站产生并发压力；支持全局取消（对齐 Kotlin `CheckSource.stop`）。
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 

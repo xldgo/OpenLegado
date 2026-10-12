@@ -3,8 +3,8 @@
 //! 提供内置的 UA 列表和轮换策略（轮询 / 随机），
 //! 并可作为中间件自动为每个请求注入不同的 User-Agent。
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::SystemTime;
 
 use legado_core::LegadoResult;
@@ -189,9 +189,9 @@ mod tests {
         use crate::middleware::MiddlewareChain;
         use std::sync::atomic::AtomicUsize;
 
-        let rotator = Arc::new(UserAgentRotator::with_agents(
-            vec!["TestUA/1.0".to_string()],
-        ));
+        let rotator = Arc::new(UserAgentRotator::with_agents(vec![
+            "TestUA/1.0".to_string(),
+        ]));
         let mut chain = MiddlewareChain::new();
         chain.add(UserAgentMiddleware::new(rotator));
 

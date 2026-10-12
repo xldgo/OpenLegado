@@ -12,22 +12,22 @@
 //!
 //! 先红证据：本文件在实施批次前运行 —— 全部端点 404、静态页为自制页。
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use legado_core::cache_book::CachedChapter;
 use legado_core::download_manager::DownloadManager;
 use legado_core::models::{Book, BookChapter};
+use legado_db::repository::Repository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::cache_book_repository::CacheBookRepository;
-use legado_db::repository::Repository;
 use legado_server::routes::create_router;
 use legado_server::state::AppState;
 

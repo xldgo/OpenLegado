@@ -137,7 +137,7 @@ impl JsSourceUpsert {
                     has_conflict: false,
                     conflicting_fields: vec!["JSON 解析失败".to_string()],
                     existing_source_url: None,
-                }
+                };
             }
         };
 
@@ -229,10 +229,8 @@ impl JsSourceUpsert {
             .get("bookSourceGroup")
             .and_then(|v| v.as_str())
             .is_none_or(|s| s.trim().is_empty());
-        if new_group_empty {
-            if let Some(val) = old_obj.get("bookSourceGroup") {
-                obj.insert("bookSourceGroup".to_string(), val.clone());
-            }
+        if new_group_empty && let Some(val) = old_obj.get("bookSourceGroup") {
+            obj.insert("bookSourceGroup".to_string(), val.clone());
         }
 
         serde_json::to_string(&new_parsed).unwrap_or_else(|_| new_source.to_string())
@@ -310,12 +308,16 @@ mod tests {
             vec![r#"{"bookSourceUrl":"http://a.com","bookSourceName":"源A"}"#.to_string()];
         let result = JsSourceUpsert::detect_conflict(new_src, &existing);
         assert!(result.has_conflict);
-        assert!(result
-            .conflicting_fields
-            .contains(&"bookSourceUrl".to_string()));
-        assert!(result
-            .conflicting_fields
-            .contains(&"bookSourceName".to_string()));
+        assert!(
+            result
+                .conflicting_fields
+                .contains(&"bookSourceUrl".to_string())
+        );
+        assert!(
+            result
+                .conflicting_fields
+                .contains(&"bookSourceName".to_string())
+        );
         assert_eq!(result.existing_source_url, Some("http://a.com".to_string()));
     }
 

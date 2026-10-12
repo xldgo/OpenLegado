@@ -7,8 +7,8 @@
 //! - `java.reGetBook()` — preciseSearch + getBookInfo（仅本源）
 //! - `java.refreshTocUrl()` — getBookInfo 刷新 tocUrl
 
-use legado_core::models::{Book, BookSource};
 use legado_core::LegadoResult;
+use legado_core::models::{Book, BookSource};
 
 /// 执行 preUpdateJs 并写回 `book`（空规则 / 无 quickjs 时为 no-op）
 pub fn run_pre_update_js(source: &BookSource, book: &mut Book) -> LegadoResult<()> {
@@ -90,8 +90,10 @@ fn run_pre_update_js_inner(source: &BookSource, book: &mut Book, js: &str) -> Le
     // 优先采用 JS 侧最终 book；失败则回退钩子已写入的 book_cell
     if let Ok(updated) = serde_json::from_str::<Book>(&eval_out) {
         *book = updated;
-    } else if let Ok(guard) = book_cell.lock() {
-        *book = guard.clone();
+    } else {
+        if let Ok(guard) = book_cell.lock() {
+            *book = guard.clone();
+        }
     }
     Ok(())
 }
@@ -102,19 +104,19 @@ fn re_get_book_native(source: &BookSource, book: &mut Book) -> LegadoResult<()> 
     let urls = serde_json::to_string(&vec![&source.book_source_url])?;
     let hit_json = crate::api::search::precise_search(&book.name, &book.author, &urls)?;
     let hit: serde_json::Value = serde_json::from_str(&hit_json)?;
-    if let Some(url) = hit.get("bookUrl").and_then(|v| v.as_str()) {
-        if !url.is_empty() {
-            // [P2-8] 精搜命中的详情页地址写入 originBookUrl（当前书源详情页），
-            // 不再改写 book_url：bookUrl 是稳定主键（chapters/cached_chapters/
-            // download_tasks 等多处持有者依赖其不变，P0 教训 da7b0d265f），
-            // 下游「抓取书籍页」路径按 originBookUrl 优先、空则回退 bookUrl。
-            book.origin_book_url = url.to_string();
-        }
+    if let Some(url) = hit.get("bookUrl").and_then(|v| v.as_str())
+        && !url.is_empty()
+    {
+        // [P2-8] 精搜命中的详情页地址写入 originBookUrl（当前书源详情页），
+        // 不再改写 book_url：bookUrl 是稳定主键（chapters/cached_chapters/
+        // download_tasks 等多处持有者依赖其不变，P0 教训 da7b0d265f），
+        // 下游「抓取书籍页」路径按 originBookUrl 优先、空则回退 bookUrl。
+        book.origin_book_url = url.to_string();
     }
-    if let Some(var) = hit.get("variable").and_then(|v| v.as_str()) {
-        if !var.is_empty() {
-            book.variable = Some(var.to_string());
-        }
+    if let Some(var) = hit.get("variable").and_then(|v| v.as_str())
+        && !var.is_empty()
+    {
+        book.variable = Some(var.to_string());
     }
     refresh_toc_url_native(source, book)
 }

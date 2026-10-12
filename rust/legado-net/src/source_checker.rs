@@ -486,10 +486,10 @@ impl SourceChecker {
     fn extract_first_book_url(&self, body: &str, source: &BookSource) -> Result<String, String> {
         // 如果有 bookUrlPattern，用正则提取（书源可控 pattern，走统一安全入口）
         if let Some(ref pattern) = source.book_url_pattern {
-            if let Some(re) = legado_core::regex_safe::compile_regex_safe(pattern) {
-                if let Some(m) = re.find(body) {
-                    return Ok(m.as_str().to_string());
-                }
+            if let Some(re) = legado_core::regex_safe::compile_regex_safe(pattern)
+                && let Some(m) = re.find(body)
+            {
+                return Ok(m.as_str().to_string());
             }
             return Err("bookUrlPattern did not match any result".to_string());
         }
@@ -669,11 +669,7 @@ fn parse_headers(header: Option<&str>) -> Option<std::collections::HashMap<Strin
             map.insert(k.trim().to_string(), v.trim().to_string());
         }
     }
-    if map.is_empty() {
-        None
-    } else {
-        Some(map)
-    }
+    if map.is_empty() { None } else { Some(map) }
 }
 
 /// 书源请求头 + 写侧 CookieJar 门控标记（批 2）
@@ -707,10 +703,10 @@ fn source_request_headers(
 /// 从 URL 提取主机名（用于重定向检测对比）
 fn extract_host(url: &str) -> String {
     // 尝试使用 url crate 解析
-    if let Ok(parsed) = url::Url::parse(url) {
-        if let Some(host) = parsed.host_str() {
-            return host.to_lowercase();
-        }
+    if let Ok(parsed) = url::Url::parse(url)
+        && let Some(host) = parsed.host_str()
+    {
+        return host.to_lowercase();
     }
     // 回退：简单字符串截取
     let without_scheme = url

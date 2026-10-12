@@ -98,8 +98,8 @@ async fn run_webbook_blocking(
 #[allow(clippy::too_many_arguments)] // 同上：frb 桥接函数参数 >7 属对外 API 表面
 #[flutter_rust_bridge::frb]
 pub mod ffi {
-    use super::to_json;
     use super::BridgeError;
+    use super::to_json;
     use crate::frb_generated::StreamSink;
 
     // ─── 基础 ─────────────────────────────────────────────────
@@ -868,7 +868,7 @@ pub mod ffi {
 
     /// 搜索本地 TXT 文件内容（纯文本模式）
     ///
-    /// 对齐 C ABI `ffi_txt_search`。返回 JSON 序列化的 `Vec<TxtSearchResult>`，
+    /// 返回 JSON 序列化的 `Vec<TxtSearchResult>`，
     /// 每项含 `chapter_index` / `chapter_title` / `char_offset` / `matched_text` /
     /// `context` / `context_match_start` / `context_match_end`。
     pub fn txt_search(
@@ -887,7 +887,7 @@ pub mod ffi {
 
     /// 使用正则搜索本地 TXT 文件内容
     ///
-    /// 对齐 C ABI `ffi_txt_search_regex`。返回格式同 `txt_search`。
+    /// 返回格式同 `txt_search`。
     pub fn txt_search_regex(
         path: String,
         pattern: String,
@@ -904,7 +904,7 @@ pub mod ffi {
 
     /// 在本地 TXT 文件指定章节内搜索
     ///
-    /// 对齐 C ABI `ffi_txt_search_in_chapter`。返回格式同 `txt_search`。
+    /// 返回格式同 `txt_search`。
     pub fn txt_search_in_chapter(
         path: String,
         query: String,
@@ -923,7 +923,7 @@ pub mod ffi {
 
     /// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
     ///
-    /// 对齐 C ABI `ffi_txt_search_count`。
+    ///
     pub fn txt_search_count(
         path: String,
         query: String,
@@ -953,7 +953,7 @@ pub mod ffi {
     /// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（JSON）
     ///
     /// 缺口④ rssUpdateSource 原子更新（Task #108，加法式）：
-    /// 对齐 C ABI `ffi_rss_update_source`。
+    ///
     pub fn rss_update_source(source_json: String) -> Result<String, BridgeError> {
         let source = crate::api::rss::update_rss_source(&source_json)?;
         to_json(&source)
@@ -1481,9 +1481,9 @@ pub mod ffi {
     /// 执行 JS 脚本，返回结果字符串（启用 quickjs feature 时使用真实引擎）
     #[cfg(feature = "quickjs")]
     pub fn js_eval(script: String) -> Result<String, BridgeError> {
-        use legado_js::engine::QuickJsEngine;
         use legado_js::JsEngine;
         use legado_js::SandboxConfig;
+        use legado_js::engine::QuickJsEngine;
         let engine = QuickJsEngine::new(SandboxConfig::default()).map_err(|e| BridgeError {
             message: e.to_string(),
         })?;
@@ -1541,6 +1541,13 @@ pub mod ffi {
             &content,
         )?;
         Ok(id)
+    }
+
+    /// 按 id 原子更新书签，保留原记录的 id 和创建时间。— Codex + Bridge
+    pub fn bookmark_update(bookmark_json: String) -> Result<(), BridgeError> {
+        let bookmark: legado_core::models::Bookmark = serde_json::from_str(&bookmark_json)?;
+        crate::api::bookmark_api::update_bookmark(&bookmark)?;
+        Ok(())
     }
 
     /// 删除书签

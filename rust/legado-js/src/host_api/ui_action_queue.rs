@@ -9,8 +9,8 @@
 //! 2. 执行 callBackJs（宿主 API 经 [`push_action`] / [`push_payload_json`] 入队）
 //! 3. [`end_collect`] 关闭收集并取出全部 action
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::Value;
 

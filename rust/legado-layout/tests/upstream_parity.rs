@@ -1,11 +1,11 @@
 //! 期望值来自原始 Kotlin，不从 Rust 实现回填。
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use legado_layout::{
-    line_breaker::{break_lines, BreakInput},
+    line_breaker::{BreakInput, break_lines},
     model::{Block, Config},
-    paginator::{paginate, PaginationSession},
+    paginator::{PaginationSession, paginate},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn fixture() -> Value {
     let decoder = flate2::read::GzDecoder::new(&include_bytes!("fixtures/md3.json.gz")[..]);
@@ -280,8 +280,8 @@ fn review_extension_stays_with_legal_text_tail_and_has_no_source_length() {
 #[test]
 fn external_cancellation_stops_an_existing_session() {
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
     let f = fixture();
     let v = &f["cases"]
@@ -298,8 +298,10 @@ fn external_cancellation_stops_an_existing_session() {
         .accept(serde_json::from_value(v["blocks"][0].clone()).unwrap())
         .unwrap();
     token.store(true, Ordering::Release);
-    assert!(session
-        .accept(serde_json::from_value(v["blocks"][1].clone()).unwrap())
-        .is_err());
+    assert!(
+        session
+            .accept(serde_json::from_value(v["blocks"][1].clone()).unwrap())
+            .is_err()
+    );
     assert!(session.finish().is_err());
 }

@@ -14,8 +14,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as B64;
 use rquickjs::function::Opt;
 use rquickjs::{Ctx, Function, Object, Result as JsResult, TypedArray, Value};
 
@@ -46,10 +46,10 @@ fn value_to_key_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
     if let Some(s) = v.as_string() {
         return Ok(s.to_string()?.into_bytes());
     }
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone())
+        && let Some(bytes) = crate::quickjs_bytes::copy_bytes(&arr)
+    {
+        return Ok(bytes);
     }
     Err(js_err(
         "key/iv must be String or Uint8Array (对齐 Android ByteArray/String 重载)",
@@ -58,10 +58,10 @@ fn value_to_key_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
 
 /// JS 密文 → 字节：Uint8Array 原样；String 按 Base64 解码（对齐 hutool decrypt(String)）
 fn value_to_cipher_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone())
+        && let Some(bytes) = crate::quickjs_bytes::copy_bytes(&arr)
+    {
+        return Ok(bytes);
     }
     if let Some(s) = v.as_string() {
         return b64_decode_lenient(&s.to_string()?).map_err(js_err);
@@ -74,10 +74,10 @@ fn value_to_plain_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
     if let Some(s) = v.as_string() {
         return Ok(s.to_string()?.into_bytes());
     }
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone())
+        && let Some(bytes) = crate::quickjs_bytes::copy_bytes(&arr)
+    {
+        return Ok(bytes);
     }
     Err(js_err("encrypt input must be String or Uint8Array"))
 }

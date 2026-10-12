@@ -1,6 +1,6 @@
 //! BookSource Repository - book_sources 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
@@ -615,14 +615,16 @@ mod tests {
         ];
         repo.insert_batch(&items).unwrap();
         assert_eq!(repo.count().unwrap(), 2);
-        assert!(repo
-            .find_by_url("https://batch-ok-1.example")
-            .unwrap()
-            .is_some());
-        assert!(repo
-            .find_by_url("https://batch-ok-2.example")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.find_by_url("https://batch-ok-1.example")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            repo.find_by_url("https://batch-ok-2.example")
+                .unwrap()
+                .is_some()
+        );
     }
 
     /// 行级失败整批回滚：第 1 条合法、第 2 条被临时触发器 ABORT（确定性

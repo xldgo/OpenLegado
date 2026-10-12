@@ -5,10 +5,10 @@
 use serde::{Deserialize, Serialize};
 
 use legado_book::{BookFormat, BookMetadata, LocalBook};
-use legado_core::models::Book;
 use legado_core::LegadoResult;
-use legado_db::repository::Repository;
+use legado_core::models::Book;
 use legado_db::BookRepository;
+use legado_db::repository::Repository;
 
 use crate::db_state::{resolve_local_book_path, with_database};
 

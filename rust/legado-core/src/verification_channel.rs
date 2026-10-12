@@ -21,7 +21,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -141,17 +141,16 @@ impl VerificationManager {
         let mut flights = self.flights.lock().unwrap_or_else(|e| e.into_inner());
 
         // 航班去重：同书源并发请求共享结果（匿名请求不参与去重，避免跨书源串扰）
-        if !source_url.is_empty() {
-            if let Some(key) = flights.get(source_url) {
-                if let Some(attempt) = attempts.get(key) {
-                    return VerificationHandle {
-                        attempt: attempt.clone(),
-                        joined: true,
-                        is_owner: false,
-                        manager: self,
-                    };
-                }
-            }
+        if !source_url.is_empty()
+            && let Some(key) = flights.get(source_url)
+            && let Some(attempt) = attempts.get(key)
+        {
+            return VerificationHandle {
+                attempt: attempt.clone(),
+                joined: true,
+                is_owner: false,
+                manager: self,
+            };
         }
 
         let key = self.new_key();

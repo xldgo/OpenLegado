@@ -18,7 +18,7 @@
 //! - 构建时从 DB 加载全部 Cookie 到内存 CookieStore（重启不丢 Cookie）
 //! - 响应 Set-Cookie 变更时同步写回 DB（按域名 upsert）
 //!
-//! 若构建时 DB 尚未初始化（`ffi_db_open` 未先于首次请求调用），则降级为纯内存
+//! 若构建时 DB 尚未初始化（`ffi::Bridge::db_open` 未先于首次请求调用），则降级为纯内存
 //! Cookie（与既有行为一致）；`reset_shared_client` 后重建时会重新尝试接入。
 //!
 //! ## 共享内存 Cookie store（脑裂修复，x81zws 根因，2026-09-26）
@@ -345,7 +345,7 @@ pub fn shared_client() -> LegadoResult<LegadoClient> {
     }
 
     // 慢路径：先构建（含 DB load_all，不持槽位锁），再短暂持写锁装入
-    let client = build_default_client()?;
+    let client = build_client(LegadoClientConfig::default())?;
 
     {
         let mut guard = write_client_slot();
@@ -358,7 +358,7 @@ pub fn shared_client() -> LegadoResult<LegadoClient> {
     Ok(client)
 }
 
-/// 构建默认配置的共享客户端（含 Cookie 持久化后端的 DB 加载）
+/// 构建指定配置的共享客户端（含 Cookie 持久化后端的 DB 加载）
 ///
 /// **必须在不持有客户端槽位锁时调用**（见 [`shared_client`] 锁序约束）：
 /// `LegadoClient::build` 同步执行 `persistence.load_all()`（DB I/O），
@@ -367,9 +367,9 @@ pub fn shared_client() -> LegadoResult<LegadoClient> {
 /// **复用进程级共享 store**（脑裂修复）：reset 重建不新建罐——store 内容
 /// 跨 reset 保留，持久化后端 `load_all` 以合并预载（内存值同名冲突时
 /// 胜出，不丢在途 403 重种状态）。
-fn build_default_client() -> LegadoResult<LegadoClient> {
+fn build_client(config: LegadoClientConfig) -> LegadoResult<LegadoClient> {
     LegadoClient::with_cookie_store(
-        LegadoClientConfig::default(),
+        config,
         shared_cookie_store().clone(),
         make_cookie_persistence(),
     )
@@ -382,6 +382,14 @@ fn build_default_client() -> LegadoResult<LegadoClient> {
 pub fn reset_shared_client() {
     let mut guard = write_client_slot();
     *guard = None;
+}
+
+/// 用明确配置重建共享客户端；离线夹具可关闭代理，无需修改进程环境变量。
+/// 构建在槽位锁外进行，继续复用共享 Cookie 存储及数据库持久化后端。
+pub fn reset_shared_client_with_config(config: LegadoClientConfig) -> LegadoResult<()> {
+    let client = build_client(config)?;
+    *write_client_slot() = Some(client);
+    Ok(())
 }
 
 /// 注册 JS 桥共享客户端池的 Cookie 持久化后端（设计项 A，2026-09-26）

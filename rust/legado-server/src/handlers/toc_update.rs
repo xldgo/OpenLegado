@@ -13,20 +13,20 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
 use legado_core::models::{Book, BookChapter};
-use legado_core::toc_updater::{run_batch, TocUpdateRequest, TocUpdater};
+use legado_core::toc_updater::{TocUpdateRequest, TocUpdater, run_batch};
 use legado_core::web_book::WebBookEngine;
 use legado_db::repository::Repository;
 use legado_db::{BookChapterRepository, BookRepository, BookSourceRepository};
 
-use super::web_book::{build_engine, RealBookSourceFetcher};
+use super::web_book::{RealBookSourceFetcher, build_engine};
 use crate::error::ApiError;
 use crate::state::AppState;
 
@@ -417,10 +417,10 @@ pub async fn stop_toc_update() -> Result<Json<Value>, ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Method, Request};
     use axum::routing::{get, post};
-    use axum::Router;
     use legado_core::download_manager::DownloadManager;
     use legado_core::models::Book;
     use legado_db::repository::Repository;
@@ -616,10 +616,12 @@ mod tests {
         assert_eq!(json["total"], 2);
         assert_eq!(json["failed"], 2);
         // 错误信息逐本回报
-        assert!(json["results"][0]["error"]
-            .as_str()
-            .unwrap()
-            .contains("书籍不存在"));
+        assert!(
+            json["results"][0]["error"]
+                .as_str()
+                .unwrap()
+                .contains("书籍不存在")
+        );
     }
 
     #[tokio::test]

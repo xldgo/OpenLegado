@@ -75,10 +75,10 @@ impl PdfParser {
         pages_per_chapter: u32,
     ) -> LegadoResult<Vec<ChapterInfo>> {
         // 尝试从书签提取
-        if let Ok(bookmarks) = Self::extract_bookmarks(doc) {
-            if !bookmarks.is_empty() {
-                return Ok(bookmarks);
-            }
+        if let Ok(bookmarks) = Self::extract_bookmarks(doc)
+            && !bookmarks.is_empty()
+        {
+            return Ok(bookmarks);
         }
 
         // 回退：按固定页数分割
@@ -212,16 +212,16 @@ impl PdfParser {
     ) -> Option<u32> {
         // Dest 可能是数组 [page_ref, /Fit, ...] 或字符串名称
         let dest = item.get(b"Dest").ok()?;
-        if let Ok(dest_arr) = dest.as_array() {
-            if let Some(first) = dest_arr.first() {
-                // 直接引用
-                if let Ok(page_ref) = first.as_reference() {
-                    return id_to_page.get(&page_ref).copied();
-                }
-                // 整数对象（页码）
-                if let Ok(page_num) = first.as_i64() {
-                    return Some(page_num as u32);
-                }
+        if let Ok(dest_arr) = dest.as_array()
+            && let Some(first) = dest_arr.first()
+        {
+            // 直接引用
+            if let Ok(page_ref) = first.as_reference() {
+                return id_to_page.get(&page_ref).copied();
+            }
+            // 整数对象（页码）
+            if let Ok(page_num) = first.as_i64() {
+                return Some(page_num as u32);
             }
         }
 

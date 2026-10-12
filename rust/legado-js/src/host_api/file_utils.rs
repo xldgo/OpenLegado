@@ -65,16 +65,13 @@ mod impl_file_utils {
         };
 
         // 运行时检查：canonicalize 后确认路径在沙箱内
-        if let Ok(canonical_sandbox) = sandbox_root.canonicalize() {
-            if let Some(parent) = resolved.parent() {
-                if parent.exists() {
-                    if let Ok(canonical_parent) = parent.canonicalize() {
-                        if !canonical_parent.starts_with(&canonical_sandbox) {
-                            return Err(format!("Path traversal blocked: {}", path));
-                        }
-                    }
-                }
-            }
+        if let Ok(canonical_sandbox) = sandbox_root.canonicalize()
+            && let Some(parent) = resolved.parent()
+            && parent.exists()
+            && let Ok(canonical_parent) = parent.canonicalize()
+            && !canonical_parent.starts_with(&canonical_sandbox)
+        {
+            return Err(format!("Path traversal blocked: {}", path));
         }
         Ok(resolved)
     }
@@ -314,12 +311,11 @@ mod impl_file_utils {
             let path = entry.path();
             if path.is_file() {
                 // 只读取 .txt 文件
-                if let Some(ext) = path.extension() {
-                    if ext.eq_ignore_ascii_case("txt") {
-                        if let Ok(text) = fs::read_to_string(&path) {
-                            contents.push(text);
-                        }
-                    }
+                if let Some(ext) = path.extension()
+                    && ext.eq_ignore_ascii_case("txt")
+                    && let Ok(text) = fs::read_to_string(&path)
+                {
+                    contents.push(text);
                 }
             }
         }

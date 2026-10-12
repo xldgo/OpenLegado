@@ -283,6 +283,55 @@ mod tests {
         assert_eq!(result, vec!["a", "c"]);
     }
 
+    /// 冻结书源已支持的 Jayway 风格扩展，升级查询库不能静默丢失这些结果。
+    #[test]
+    fn test_book_source_filter_dialect() {
+        let json = r#"{"allowed":["a","c"],"expected":["x","y"],"items":[{"name":"a","tags":["x"]},{"name":"b","tags":["z"]},{"name":"c","tags":["x","y"]}]}"#;
+        let cases = [
+            ("$.items[?(@.name in $.allowed)].name", vec!["a", "c"]),
+            ("$.items[?(@.name nin $.allowed)].name", vec!["b"]),
+            ("$.items[?(@.tags anyOf $.expected)].name", vec!["a", "c"]),
+            ("$.items[?(@.tags noneOf $.expected)].name", vec!["b"]),
+            (
+                "$.items[?(@.tags subsetOf $.expected)].name",
+                vec!["a", "c"],
+            ),
+            ("$.items[?(@.tags size 1)].name", vec!["a", "b"]),
+            ("$.items[?(@.name ~= '^a')].name", vec!["a"]),
+            ("$.items.length()", vec!["3"]),
+            ("$.items[*].length()", vec!["3"]),
+        ];
+        let parser = JsonPathParser::new();
+        for (path, expected) in cases {
+            assert_eq!(
+                parser.parse_jsonpath(json, path).unwrap(),
+                expected,
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_book_source_shorthand_and_missing_values() {
+        let parser = JsonPathParser::new();
+        let json = r#"{"odd-key":7,"a/b":8,"items":["a","b"],"nullValue":null}"#;
+        for (path, expected) in [
+            ("$.odd-key", vec!["7"]),
+            ("$.a/b", vec!["8"]),
+            ("$.items[-0]", vec!["a"]),
+            ("$.items.[0]", vec!["a"]),
+            ("$.missing", vec![]),
+            ("$.nullValue", vec![""]),
+            ("$.items", vec!["a", "b"]),
+        ] {
+            assert_eq!(
+                parser.parse_jsonpath(json, path).unwrap(),
+                expected,
+                "{path}"
+            );
+        }
+    }
+
     /// P2-9 ⑤：`%%` 以首列表长度定界（回归，对齐 AnalyzeByJSonPath `0 until
     /// results[0].size`）：`b` 1 元素、`a` 2 元素 → 截断到首列表长度 → 2 元素
     /// （旧 max_len 定界会多带 `a2`，得 3 元素）。

@@ -1,6 +1,6 @@
 //! RssStar Repository - rssStars 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::{LegadoError, LegadoResult};
 

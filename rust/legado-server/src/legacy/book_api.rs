@@ -28,18 +28,18 @@ use legado_core::content_processor::{
 use legado_core::models::book_type;
 use legado_core::models::{Book, BookChapter};
 use legado_core::web_book::{WebBookEngine, WebChapter};
+use legado_db::BookSourceRepository;
+use legado_db::repository::Repository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::cache_book_repository::CacheBookRepository;
 use legado_db::repository::cache_repository::CacheRepository;
 use legado_db::repository::replace_rule_repository::ReplaceRuleRepository;
-use legado_db::repository::Repository;
-use legado_db::BookSourceRepository;
 use legado_net::{LegadoClient, LegadoClientConfig};
 
 use super::book_json::{LegacyBook, LegacyBookChapter};
-use super::{bytes_response, origin_of, to_response, ReturnData};
-use crate::handlers::web_book::{build_engine, RealBookSourceFetcher};
+use super::{ReturnData, bytes_response, origin_of, to_response};
+use crate::handlers::web_book::{RealBookSourceFetcher, build_engine};
 use crate::state::AppState;
 
 /// 原版 `CacheManager` 的 Web 阅读配置键（BookController.kt:335-351）
@@ -225,10 +225,10 @@ async fn refresh_toc(state: &Arc<AppState>, book_url: &str) -> Result<Vec<BookCh
     // 原版：tocUrl 为空时先 getBookInfoAwait 补全详情（BookController.kt:163-167）
     if book.toc_url.trim().is_empty() {
         let detail_url = book.book_page_fetch_url().to_string();
-        if let Ok(info) = engine.get_book_info(&source, &detail_url).await {
-            if !info.toc_url.trim().is_empty() {
-                book.toc_url = info.toc_url;
-            }
+        if let Ok(info) = engine.get_book_info(&source, &detail_url).await
+            && !info.toc_url.trim().is_empty()
+        {
+            book.toc_url = info.toc_url;
         }
     }
     let fetch_url = toc_fetch_url(&book, book_url);
@@ -833,16 +833,16 @@ async fn local_read_allowlist(state: &Arc<AppState>) -> Vec<PathBuf> {
     };
     let mut roots: Vec<PathBuf> = Vec::new();
     for book in &books {
-        if is_local_book(book) {
-            if let Some(real) = canonical_local_path(&book.book_url) {
-                let dir = if real.is_dir() {
-                    Some(real)
-                } else {
-                    real.parent().map(Path::to_path_buf)
-                };
-                if let Some(dir) = dir {
-                    roots.push(dir);
-                }
+        if is_local_book(book)
+            && let Some(real) = canonical_local_path(&book.book_url)
+        {
+            let dir = if real.is_dir() {
+                Some(real)
+            } else {
+                real.parent().map(Path::to_path_buf)
+            };
+            if let Some(dir) = dir {
+                roots.push(dir);
             }
         }
         for cover in [book.cover_url.as_deref(), book.custom_cover_url.as_deref()]

@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use legado_core::{LegadoError, LegadoResult};
 use legado_db::{RuleSubRecord, RuleSubRepository};
-use legado_net::{fetch_subscription, merge_subscription, should_update, RuleSubscription};
+use legado_net::{RuleSubscription, fetch_subscription, merge_subscription, should_update};
 
 use crate::db_state::with_database;
 
@@ -125,10 +125,10 @@ fn now_millis() -> i64 {
 
 /// 从订阅 JSON 内容中提取版本信息（与 server 端 extract_version 语义一致）
 fn extract_version(json_str: &str) -> Option<String> {
-    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(json_str) {
-        if let Some(v) = obj.get("version").and_then(|v| v.as_str()) {
-            return Some(v.to_string());
-        }
+    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(json_str)
+        && let Some(v) = obj.get("version").and_then(|v| v.as_str())
+    {
+        return Some(v.to_string());
     }
     None
 }

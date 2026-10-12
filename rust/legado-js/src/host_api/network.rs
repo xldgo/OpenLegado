@@ -11,8 +11,8 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::host_api::runtime_bridge::block_on;
 use legado_net::{
-    CookiePersistence, CookieStore, LegadoClient, LegadoClientConfig, LegadoRequest, Method,
-    COOKIE_JAR_HEADER,
+    COOKIE_JAR_HEADER, CookiePersistence, CookieStore, LegadoClient, LegadoClientConfig,
+    LegadoRequest, Method,
 };
 
 /// 默认请求超时（毫秒），与 Kotlin 端一致
@@ -553,21 +553,21 @@ pub fn ajax(input: &str) -> Result<String, String> {
 pub fn ajax_with_timeout(input: &str, call_timeout_ms: Option<u64>) -> Result<String, String> {
     let input = input.trim();
     // 原版「url,{json}」格式：不以 `{` 开头且含 `,{`，逗号前为 URL、逗号后为 option JSON
-    if !input.starts_with('{') {
-        if let Some(comma) = input.find(",{") {
-            let url_part = input[..comma].trim();
-            let option_part = &input[comma + 1..];
-            if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(option_part) {
-                if let Some(obj) = v.as_object_mut() {
-                    obj.insert(
-                        "url".to_string(),
-                        serde_json::Value::String(url_part.to_string()),
-                    );
-                    if let Ok(mut opts) = serde_json::from_value::<HttpOptions>(v) {
-                        apply_call_timeout(&mut opts, call_timeout_ms);
-                        return ajax_request_body(&opts);
-                    }
-                }
+    if !input.starts_with('{')
+        && let Some(comma) = input.find(",{")
+    {
+        let url_part = input[..comma].trim();
+        let option_part = &input[comma + 1..];
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(option_part)
+            && let Some(obj) = v.as_object_mut()
+        {
+            obj.insert(
+                "url".to_string(),
+                serde_json::Value::String(url_part.to_string()),
+            );
+            if let Ok(mut opts) = serde_json::from_value::<HttpOptions>(v) {
+                apply_call_timeout(&mut opts, call_timeout_ms);
+                return ajax_request_body(&opts);
             }
         }
     }

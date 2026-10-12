@@ -41,21 +41,22 @@ pub mod xpath;
 pub(crate) mod test_support;
 
 pub use analyze_rule::{
-    set_global_variable_reader, split_top_level_hash, AnalyzeRule, JsExecutor, RuleType,
+    AnalyzeRule, JsExecutor, RuleType, set_global_variable_reader, split_top_level_hash,
 };
 pub use analyze_url::{AnalyzeUrl, DataUriContent, RequestMethod, TemplateContext, UrlOption};
 pub use curl_converter::{
-    analyze_url_to_curl, curl_to_analyze_url, is_curl_error, looks_like_curl, parse_curl, to_curl,
-    CurlErrorReason, CurlParseResult, CurlRequestParams,
+    CurlErrorReason, CurlParseResult, CurlRequestParams, analyze_url_to_curl, curl_to_analyze_url,
+    is_curl_error, looks_like_curl, parse_curl, to_curl,
 };
 pub use html::HtmlParser;
 pub use jsonpath::JsonPathParser;
 pub use regex_engine::{
-    compile_regex_on_stack, compile_regex_safe, RegexEngine, MAX_REGEX_PATTERN_LEN,
+    MAX_REGEX_PATTERN_LEN, RegexEngine, compile_regex_on_stack, compile_regex_safe,
 };
 pub use review_rule_parser::{
-    parse_detail_page, parse_detail_page_with, parse_reply_page, parse_reply_page_with,
-    parse_summary, parse_summary_with, ReviewDetailItem, ReviewDetailPage, ReviewSummaryResult,
+    ReviewDetailItem, ReviewDetailPage, ReviewSummaryResult, parse_detail_page,
+    parse_detail_page_with, parse_reply_page, parse_reply_page_with, parse_summary,
+    parse_summary_with,
 };
 pub use rule_analyzer::RuleAnalyzer;
 pub use xpath::XPathParser;

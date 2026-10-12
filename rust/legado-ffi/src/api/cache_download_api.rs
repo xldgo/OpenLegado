@@ -15,9 +15,9 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use legado_core::{LegadoError, LegadoResult};
+use legado_db::BookRepository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::cache_repository::CacheRepository;
-use legado_db::BookRepository;
 use serde::{Deserialize, Serialize};
 
 use crate::db_state::with_database;
@@ -188,10 +188,10 @@ fn ensure_restored() {
     }
     let restored: Vec<PersistedTask> = with_database(|db| {
         let repo = CacheRepository::new(db.connection());
-        if let Some(next_s) = repo.get(PERSIST_NEXT_ID)? {
-            if let Ok(next) = next_s.parse::<u64>() {
-                NEXT_TASK_ID.fetch_max(next, Ordering::SeqCst);
-            }
+        if let Some(next_s) = repo.get(PERSIST_NEXT_ID)?
+            && let Ok(next) = next_s.parse::<u64>()
+        {
+            NEXT_TASK_ID.fetch_max(next, Ordering::SeqCst);
         }
         let ids: Vec<u64> = repo
             .get(PERSIST_INDEX)?
@@ -199,10 +199,10 @@ fn ensure_restored() {
             .unwrap_or_default();
         let mut out = Vec::new();
         for id in ids {
-            if let Some(json) = repo.get(&persist_key(id))? {
-                if let Ok(row) = serde_json::from_str::<PersistedTask>(&json) {
-                    out.push(row);
-                }
+            if let Some(json) = repo.get(&persist_key(id))?
+                && let Ok(row) = serde_json::from_str::<PersistedTask>(&json)
+            {
+                out.push(row);
             }
         }
         Ok(out)
@@ -219,13 +219,16 @@ fn ensure_restored() {
         // 重启/关闭时保留 `failedIndices` 供展示与重试，
         // `CacheDownloadStateStore.kt:103-121`）
         let task = task_from_persisted(row);
-        if let Ok(mut map) = TASKS.lock() {
-            if map.contains_key(&task_id) {
+        match TASKS.lock() {
+            Ok(mut map) => {
+                if map.contains_key(&task_id) {
+                    continue;
+                }
+                map.insert(task_id, Arc::clone(&task));
+            }
+            _ => {
                 continue;
             }
-            map.insert(task_id, Arc::clone(&task));
-        } else {
-            continue;
         }
         let _ = std::thread::Builder::new()
             .name(format!("cache-download-resume-{task_id}"))
@@ -384,17 +387,16 @@ pub fn cache_download_progress(task_id: u64) -> LegadoResult<CacheDownloadTask> 
     // 内存无任务时回读落库快照（终态/进程重启后仍可查进度）
     if let Ok(Some(json)) =
         with_database(|db| CacheRepository::new(db.connection()).get(&persist_key(task_id)))
+        && let Ok(row) = serde_json::from_str::<PersistedTask>(&json)
     {
-        if let Ok(row) = serde_json::from_str::<PersistedTask>(&json) {
-            return Ok(CacheDownloadTask {
-                task_id: row.task_id,
-                book_url: row.book_url,
-                status: row.status,
-                total: row.total,
-                completed: row.completed,
-                failed: row.failed,
-            });
-        }
+        return Ok(CacheDownloadTask {
+            task_id: row.task_id,
+            book_url: row.book_url,
+            status: row.status,
+            total: row.total,
+            completed: row.completed,
+            failed: row.failed,
+        });
     }
     Ok(CacheDownloadTask {
         task_id,
@@ -448,17 +450,16 @@ pub fn cache_download_list() -> LegadoResult<Vec<CacheDownloadTask>> {
             out.push(snapshot(id, t));
         } else if let Ok(Some(json)) =
             with_database(|db| CacheRepository::new(db.connection()).get(&persist_key(id)))
+            && let Ok(row) = serde_json::from_str::<PersistedTask>(&json)
         {
-            if let Ok(row) = serde_json::from_str::<PersistedTask>(&json) {
-                out.push(CacheDownloadTask {
-                    task_id: row.task_id,
-                    book_url: row.book_url,
-                    status: row.status,
-                    total: row.total,
-                    completed: row.completed,
-                    failed: row.failed,
-                });
-            }
+            out.push(CacheDownloadTask {
+                task_id: row.task_id,
+                book_url: row.book_url,
+                status: row.status,
+                total: row.total,
+                completed: row.completed,
+                failed: row.failed,
+            });
         }
     }
     Ok(out)

@@ -1,15 +1,15 @@
 //! 阅读相关处理器（章节列表、章节内容）
 
-use axum::extract::{Path, State};
 use axum::Json;
-use serde_json::{json, Value};
+use axum::extract::{Path, State};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::models::book::book_type;
 use legado_core::web_book::WebChapter;
+use legado_db::BookSourceRepository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::book_repository::BookRepository;
-use legado_db::BookSourceRepository;
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -52,7 +52,7 @@ pub async fn get_chapter_content(
                     "error": "chapter not found",
                     "book_url": book_url,
                     "index": index,
-                })))
+                })));
             }
         };
 
@@ -63,7 +63,7 @@ pub async fn get_chapter_content(
                 return Ok(Json(json!({
                     "error": "book not found",
                     "book_url": book_url,
-                })))
+                })));
             }
         };
 
@@ -84,7 +84,7 @@ pub async fn get_chapter_content(
                     "error": "book source not found",
                     "book_url": book_url,
                     "origin": book.origin,
-                })))
+                })));
             }
         }
     };
@@ -115,10 +115,10 @@ mod tests {
     use crate::state::AppState;
     use legado_core::models::rule::ContentRule;
     use legado_core::models::{Book, BookChapter, BookSource};
+    use legado_db::BookSourceRepository;
+    use legado_db::repository::Repository;
     use legado_db::repository::book_chapter_repository::BookChapterRepository;
     use legado_db::repository::book_repository::BookRepository;
-    use legado_db::repository::Repository;
-    use legado_db::BookSourceRepository;
     use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {

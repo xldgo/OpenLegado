@@ -3,7 +3,7 @@
 //! 移植自 Kotlin CacheManager.kt，提供带 TTL 的键值缓存能力。
 //! deadline = 0 表示永不过期；deadline > 0 表示过期时间戳（毫秒）。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::{LegadoError, LegadoResult};
 

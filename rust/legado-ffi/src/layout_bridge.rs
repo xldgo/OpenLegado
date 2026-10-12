@@ -2,14 +2,14 @@
 use crate::ffi::BridgeError;
 use legado_layout::{
     model::{Block, Config, Page},
-    paginator::{validate_block, PaginationSession},
+    paginator::{PaginationSession, validate_block},
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex, OnceLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Instant,
 };
@@ -206,7 +206,7 @@ mod tests {
         .unwrap();
         let v: serde_json::Value = serde_json::from_str(&finish(&id).unwrap()).unwrap();
         assert_eq!(v["pages"][0]["text"], "甲😀乙");
-        use base64::{engine::general_purpose::STANDARD, Engine};
+        use base64::{Engine, engine::general_purpose::STANDARD};
         let positions = STANDARD
             .decode(v["glyphs"]["positions"].as_str().unwrap())
             .unwrap();

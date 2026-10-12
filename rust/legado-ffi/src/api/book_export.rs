@@ -5,8 +5,8 @@
 use serde::{Deserialize, Serialize};
 
 use legado_book::export::{
-    extract_image_sources, BookExporter, ExportChapter, ExportConfig, ExportData, ExportFormat,
-    ImageFetcher,
+    BookExporter, ExportChapter, ExportConfig, ExportData, ExportFormat, ImageFetcher,
+    extract_image_sources,
 };
 use legado_core::LegadoResult;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
@@ -335,8 +335,7 @@ mod tests {
             "legado_export_test_{suffix_tag}_{}.txt",
             std::process::id()
         ));
-        let content =
-            "第一章 测试章节一\n这是第一章的正文广告文字。\n第二章 测试章节二\n这是第二章的正文。\n";
+        let content = "第一章 测试章节一\n这是第一章的正文广告文字。\n第二章 测试章节二\n这是第二章的正文。\n";
         let mut file = std::fs::File::create(&path).unwrap();
         file.write_all(content.as_bytes()).unwrap();
         path.to_string_lossy().to_string()

@@ -1,6 +1,6 @@
 //! DownloadTask Repository - download_tasks 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::{DownloadStatus, DownloadTask};
 use legado_core::{LegadoError, LegadoResult};
@@ -157,11 +157,7 @@ fn row_to_download_task(row: &rusqlite::Row<'_>) -> rusqlite::Result<DownloadTas
         completed_at: row.get(9)?,
         error: {
             let s: String = row.get(10)?;
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
+            if s.is_empty() { None } else { Some(s) }
         },
         fail_count: row.get(11)?,
         last_retry_at: row.get(12)?,

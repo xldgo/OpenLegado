@@ -24,9 +24,9 @@ use std::collections::HashMap;
 // 零改动（ffi 内 search/explore_api/source_login_v1_api/image_api 等与本模块
 // 测试、tests/ 集成测试均不受影响）。
 pub use legado_fetcher::js_adapter::{
-    build_search_url_with_setup, build_toc_page_context, construct_analyzer_with_js_lib,
-    construct_analyzer_with_source_context, construct_toc_page_analyzer, decode_js_error_url,
-    TocPageContext,
+    TocPageContext, build_search_url_with_setup, build_toc_page_context,
+    construct_analyzer_with_js_lib, construct_analyzer_with_source_context,
+    construct_toc_page_analyzer, decode_js_error_url,
 };
 
 /// 构造规则解析器，并按构建特性决定是否注入 JS 执行器。

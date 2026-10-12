@@ -192,25 +192,25 @@ impl JsSourceBookOrchestrator {
             .engine
             .call_function_if_exists("getBookInfo", &[("book", JsValue::String(book_json))])?;
 
-        if call_result.exists {
-            if let Some(json_str) = call_result.value {
-                // 经 Marshaller 解析（downloadUrls 绝对化 + javascript: 过滤）
-                let info_value = JsSourceMarshaller::marshal_book_info(&json_str, &book.book_url)
-                    .map_err(LegadoError::Parser)?;
-                let mut info: MarshalledBookInfo = serde_json::from_value(info_value)?;
+        if call_result.exists
+            && let Some(json_str) = call_result.value
+        {
+            // 经 Marshaller 解析（downloadUrls 绝对化 + javascript: 过滤）
+            let info_value = JsSourceMarshaller::marshal_book_info(&json_str, &book.book_url)
+                .map_err(LegadoError::Parser)?;
+            let mut info: MarshalledBookInfo = serde_json::from_value(info_value)?;
 
-                // canReName 门控：仅当 can_re_name 为 true 时才允许覆盖 name
-                if !can_re_name {
-                    info.name = book.name.clone();
-                }
-
-                // tocUrl 空回退 bookUrl
-                if info.toc_url.as_ref().is_none_or(|u| u.trim().is_empty()) {
-                    info.toc_url = Some(book.book_url.clone());
-                }
-
-                return Ok(info);
+            // canReName 门控：仅当 can_re_name 为 true 时才允许覆盖 name
+            if !can_re_name {
+                info.name = book.name.clone();
             }
+
+            // tocUrl 空回退 bookUrl
+            if info.toc_url.as_ref().is_none_or(|u| u.trim().is_empty()) {
+                info.toc_url = Some(book.book_url.clone());
+            }
+
+            return Ok(info);
         }
 
         // getBookInfo 函数不存在或无返回值，沿用搜索字段构造 BookInfo
@@ -357,7 +357,7 @@ impl JsSourceBookOrchestrator {
                 return Ok(ReviewDetailPage {
                     items: Vec::new(),
                     next_page_url: None,
-                })
+                });
             }
         };
         JsSourceReview::parse_detail_page(&json, &chapter.url).map_err(LegadoError::Parser)
@@ -497,8 +497,8 @@ mod tests {
 
     // ─── R10 get_review_detail 测试（Task #134，mock JS 执行） ─────────────
 
-    use crate::engine::{CompiledScript as TestCompiledScript, JsEngine as TestJsEngine};
     use crate::JsSourceConfig;
+    use crate::engine::{CompiledScript as TestCompiledScript, JsEngine as TestJsEngine};
 
     /// 固定返回预设 JSON 的 mock JS 引擎（模拟 getReviewDetail 执行结果）
     struct FixedJsonEngine {

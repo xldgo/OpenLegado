@@ -1,13 +1,13 @@
 //! HTTP 服务启动逻辑
 
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use axum::body::Body;
 use axum::extract::Request;
-use axum::http::{header::HeaderName, StatusCode};
-use axum::middleware::{from_fn, Next};
+use axum::http::{StatusCode, header::HeaderName};
+use axum::middleware::{Next, from_fn};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};

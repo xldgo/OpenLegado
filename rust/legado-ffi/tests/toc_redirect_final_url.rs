@@ -41,8 +41,8 @@ use std::net::TcpListener;
 use std::sync::{Arc, Mutex, MutexGuard, Once};
 
 use legado_ffi::legado_core::models::Book;
-use legado_ffi::legado_db::repository::Repository;
 use legado_ffi::legado_db::BookRepository;
+use legado_ffi::legado_db::repository::Repository;
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 static ENV_INIT: Once = Once::new();
@@ -54,8 +54,13 @@ fn lock_test() -> MutexGuard<'static, ()> {
 fn setup_env() {
     let db = legado_ffi::legado_db::init_in_memory_database().expect("内存数据库初始化");
     legado_ffi::db_state::init_database(db).expect("全局连接池初始化");
-    std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
-    legado_ffi::http_state::reset_shared_client();
+    legado_ffi::http_state::reset_shared_client_with_config(
+        legado_ffi::legado_net::LegadoClientConfig {
+            no_proxy: true,
+            ..Default::default()
+        },
+    )
+    .expect("回环夹具客户端初始化");
 }
 
 /// 每页章节数（断言总章数 = 2 页 × 20）
@@ -201,8 +206,14 @@ fn redirected_toc_pagination_resolves_next_page_against_final_url() {
     let get = |p: &str| hits.get(p).copied().unwrap_or(0);
 
     // 请求轨迹证据（无论红绿都打印，供报告引用）
-    eprintln!("[p3verify-b11] total={} /toc/entry={} /toc/v2/index.html={} /toc/v2/page2.html={} /toc/page2.html={}",
-        resp.total, get("/toc/entry"), get("/toc/v2/index.html"), get("/toc/v2/page2.html"), get("/toc/page2.html"));
+    eprintln!(
+        "[p3verify-b11] total={} /toc/entry={} /toc/v2/index.html={} /toc/v2/page2.html={} /toc/page2.html={}",
+        resp.total,
+        get("/toc/entry"),
+        get("/toc/v2/index.html"),
+        get("/toc/v2/page2.html"),
+        get("/toc/page2.html")
+    );
 
     // 断言 1（缺陷形态为 RED）：相对 nextTocUrl 应基于重定向后最终 URL 绝对化
     // → 第 2 页可抓到，总计 40 章

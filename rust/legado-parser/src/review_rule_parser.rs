@@ -288,18 +288,19 @@ fn get_element_list(analyzer: &AnalyzeRule, list_rule: &str) -> LegadoResult<Vec
     // Kotlin normalizeList 的 String 分支：单个 JSON 数组字符串 → 展开为各项
     if items.len() == 1 {
         let trimmed = items[0].trim();
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            if let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(trimmed) {
-                let expanded: Vec<String> = arr
-                    .iter()
-                    .map(|v| match v {
-                        Value::String(s) => s.clone(),
-                        other => other.to_string(),
-                    })
-                    .collect();
-                if !expanded.is_empty() {
-                    items = expanded;
-                }
+        if trimmed.starts_with('[')
+            && trimmed.ends_with(']')
+            && let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(trimmed)
+        {
+            let expanded: Vec<String> = arr
+                .iter()
+                .map(|v| match v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                })
+                .collect();
+            if !expanded.is_empty() {
+                items = expanded;
             }
         }
     }
@@ -458,17 +459,18 @@ fn split_badge_value(raw: Option<&str>) -> Vec<String> {
         return vec![raw];
     }
     // JSON 数组字符串
-    if raw.starts_with('[') && raw.ends_with(']') {
-        if let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(&raw) {
-            let items: Vec<String> = arr
-                .iter()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-            if !items.is_empty() {
-                return items;
-            }
+    if raw.starts_with('[')
+        && raw.ends_with(']')
+        && let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(&raw)
+    {
+        let items: Vec<String> = arr
+            .iter()
+            .filter_map(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !items.is_empty() {
+            return items;
         }
     }
     // 分隔符优先级：换行 > 竖线 > 逗号（含 URL 保护，参考 Kotlin shouldSplitByComma）

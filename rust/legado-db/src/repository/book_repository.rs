@@ -1,6 +1,6 @@
 //! Book Repository - books 表 CRUD
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use legado_core::models::Book;
 use legado_core::{LegadoError, LegadoResult};
@@ -557,11 +557,11 @@ impl<'a> Repository<Book> for BookRepository<'a> {
         }
         // D5：二级索引 (name,author) 冲突预检——避免 INSERT OR REPLACE
         // 删掉另一 bookUrl 行并 CASCADE 清空其 chapters。
-        if let Some(conflict) = self.find_by_name_author(&item.name, &item.author)? {
-            if conflict.book_url != item.book_url {
-                self.remap_book_url_preserving_chapters(&conflict.book_url, item)?;
-                return Ok(());
-            }
+        if let Some(conflict) = self.find_by_name_author(&item.name, &item.author)?
+            && conflict.book_url != item.book_url
+        {
+            self.remap_book_url_preserving_chapters(&conflict.book_url, item)?;
+            return Ok(());
         }
         self.insert_replace(item)
     }
@@ -1114,14 +1114,16 @@ mod tests {
         repo.insert(&replacement).unwrap();
 
         assert_eq!(repo.count().unwrap(), 1);
-        assert!(repo
-            .find_by_url("https://old.example/book")
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .find_by_url("https://new.example/book")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.find_by_url("https://old.example/book")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.find_by_url("https://new.example/book")
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(
             ch_repo
                 .find_by_book_url("https://new.example/book")

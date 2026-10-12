@@ -5,7 +5,7 @@
 
 use std::sync::{Mutex, OnceLock};
 
-use legado_core::download_manager::{DownloadManager, PreloadStrategy, PRELOAD_TRIGGER_THRESHOLD};
+use legado_core::download_manager::{DownloadManager, PRELOAD_TRIGGER_THRESHOLD, PreloadStrategy};
 use legado_core::models::{DownloadStatus, DownloadTask};
 use legado_core::{LegadoError, LegadoResult};
 

@@ -207,7 +207,7 @@ pub fn unrar_file(_rar_path: &str, _output_path: Option<&str>) -> Result<String,
 #[cfg(feature = "quickjs")]
 pub fn seven_z_entry_bytes(seven_z_bytes: &[u8], entry_name: &str) -> Result<Vec<u8>, String> {
     let cursor = std::io::Cursor::new(seven_z_bytes);
-    let mut reader = sevenz_rust2::SevenZReader::new(cursor, sevenz_rust2::Password::empty())
+    let mut reader = sevenz_rust2::ArchiveReader::new(cursor, sevenz_rust2::Password::empty())
         .map_err(|e| format!("Invalid 7z archive: {e}"))?;
     reader
         .read_file(entry_name)
@@ -382,8 +382,8 @@ pub fn inflate_raw_bytes(data: &[u8]) -> Result<Vec<u8>, String> {
 mod tests {
     use super::*;
     use std::io::Write;
-    use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
+    use zip::write::SimpleFileOptions;
 
     /// 辅助：创建包含指定条目的测试 ZIP 文件，返回 ZIP 路径
     fn create_test_zip(entries: &[(&str, &[u8])]) -> String {
@@ -803,8 +803,8 @@ mod tests {
     #[test]
     #[cfg(feature = "quickjs")]
     fn test_inflate_raw_bytes() {
-        use flate2::write::{DeflateEncoder, ZlibEncoder};
         use flate2::Compression;
+        use flate2::write::{DeflateEncoder, ZlibEncoder};
         use std::io::Write as _;
 
         let payload = b"legado-inflate-raw-test-\xE6\x95\xB0\xE6\x8D\xAE-1234567890";

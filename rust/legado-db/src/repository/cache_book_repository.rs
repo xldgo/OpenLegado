@@ -1,6 +1,6 @@
 //! CacheBook Repository - cached_chapters 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::cache_book::{CacheStats, CachedChapter};
 use legado_core::{LegadoError, LegadoResult};
@@ -495,18 +495,21 @@ mod tests {
         assert_eq!(deleted, 1);
 
         // book1 第 1 章保留，book2 同索引第 0 章不受影响
-        assert!(repo
-            .get_by_book_and_chapter_url("book1", "http://ex.com/ch1")
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .get_by_book_and_chapter_url("book1", "http://ex.com/ch2")
-            .unwrap()
-            .is_some());
-        assert!(repo
-            .get_by_book_and_chapter_url("book2", "http://ex.com/ch1")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.get_by_book_and_chapter_url("book1", "http://ex.com/ch1")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("book1", "http://ex.com/ch2")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("book2", "http://ex.com/ch1")
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
 
         // 行不存在为 no-op：重复删除 / 未缓存索引均返回 0 且不报错
@@ -538,14 +541,16 @@ mod tests {
         assert_eq!(deleted, 1);
 
         // bookA 已删，bookB 保留
-        assert!(repo
-            .get_by_book_and_chapter_url("bookA", shared_url)
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .get_by_book_and_chapter_url("bookB", shared_url)
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.get_by_book_and_chapter_url("bookA", shared_url)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("bookB", shared_url)
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(repo.get_stats().unwrap().total_chapters, 1);
     }
 }

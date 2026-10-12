@@ -1,7 +1,7 @@
 //! 健康检查端点
 
 use axum::Json;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// GET /api/health — 服务健康检查
 pub async fn health_check() -> Json<Value> {

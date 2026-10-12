@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::models::book_type;
 use crate::models::rule::{BookInfoRule, ContentRule, ExploreRule, SearchRule, TocRule};
-use crate::models::{book_source_type, Book, BookSource, ReadConfig, ReplaceRule};
+use crate::models::{Book, BookSource, ReadConfig, ReplaceRule, book_source_type};
 
 /// 将旧版 default 规则语法迁到 3.x（#→##、|→||、&→&&，保留前缀 -/+/特殊前缀）
 pub fn to_new_rule(old_rule: Option<&str>) -> Option<String> {
@@ -415,16 +415,16 @@ fn replace_rule_valid(rule: &ReplaceRule) -> bool {
 /// 单条替换规则：优先新格式；否则旧字段 regex/replaceSummary/useTo/enable/serialNumber
 pub fn from_old_replace_rule(item: &Value) -> Option<ReplaceRule> {
     // 尝试新格式
-    if let Ok(mut rule) = serde_json::from_value::<ReplaceRule>(item.clone()) {
-        if replace_rule_valid(&rule) {
-            if rule.id == 0 {
-                rule.id = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_millis() as i64)
-                    .unwrap_or(0);
-            }
-            return Some(rule);
+    if let Ok(mut rule) = serde_json::from_value::<ReplaceRule>(item.clone())
+        && replace_rule_valid(&rule)
+    {
+        if rule.id == 0 {
+            rule.id = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
         }
+        return Some(rule);
     }
     let pattern = json_str(item, "regex").unwrap_or_default();
     if pattern.is_empty() {

@@ -1,6 +1,6 @@
 //! ChapterReview Repository - chapter_reviews 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::review::ChapterReview;
 use legado_core::{LegadoError, LegadoResult};

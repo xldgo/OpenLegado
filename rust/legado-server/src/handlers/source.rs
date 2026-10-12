@@ -1,15 +1,15 @@
 //! 书源管理处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::{Deserialize, Deserializer};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::models::BookSource;
-use legado_db::repository::book_source_repository::BookSourceRepository;
 use legado_db::repository::Repository;
+use legado_db::repository::book_source_repository::BookSourceRepository;
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -397,11 +397,13 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
-        assert!(find_source(&state, url)
-            .await
-            .unwrap()
-            .concurrent_rate
-            .is_none());
+        assert!(
+            find_source(&state, url)
+                .await
+                .unwrap()
+                .concurrent_rate
+                .is_none()
+        );
         let passed = tokio::time::timeout(
             Duration::from_millis(300),
             registry.acquire(&rate_snapshot(url, "1/10000")),

@@ -1,7 +1,7 @@
 //! 书源 evalJS 上下文绑定（对标 Android `BaseSource.evalJS` bindings）
 
-use legado_core::models::BookSource;
 use legado_core::LegadoResult;
+use legado_core::models::BookSource;
 
 /// 从书源 jsLib 提取 `var host = [...];`（大灰狼等聚合源 explore 依赖）
 ///
@@ -157,11 +157,11 @@ pub fn load_js_lib_for_explore(
         return;
     }
 
-    if let Some(host_decl) = extract_js_lib_host_decl(lib) {
-        if guard.eval(&host_decl).is_ok() {
-            eprintln!("[explore] jsLib 完整加载失败，已预置 host 数组");
-            return;
-        }
+    if let Some(host_decl) = extract_js_lib_host_decl(lib)
+        && guard.eval(&host_decl).is_ok()
+    {
+        eprintln!("[explore] jsLib 完整加载失败，已预置 host 数组");
+        return;
     }
 
     eprintln!("[explore] jsLib 加载失败（降级继续）");

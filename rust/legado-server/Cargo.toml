@@ -1,7 +1,7 @@
 [package]
 name = "legado-server"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 legado-core = { path = "../legado-core" }
@@ -20,7 +20,7 @@ serde_json = { workspace = true }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
 base64 = { workspace = true }
 urlencoding = "2.1"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
+tower-http = { version = "0.7", features = ["cors", "fs"] }
 # 静态资产开发机磁盘兜底（web_assets::serve_static 内以 ServiceExt::oneshot
 # 调用 ServeDir）；tower 亦是 axum 的传递依赖与既有 dev-dependency，无新增外部 crate
 tower = { version = "0.5", features = ["util"] }
@@ -34,5 +34,5 @@ default = []
 quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs"]
 
 [dev-dependencies]
-tokio-tungstenite = "0.26"
+tokio-tungstenite = "0.30"
 futures-util = "0.3"

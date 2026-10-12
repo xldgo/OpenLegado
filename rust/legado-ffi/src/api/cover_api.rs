@@ -301,10 +301,12 @@ mod tests {
         clear_cover_rules();
 
         // 缺省（Dart 对话框现有 JSON 形态）→ None
-        assert!(save_cover_rule(
-            r#"{"enable":true,"searchUrl":"https://s.example/{{key}}","coverRule":"$.cover"}"#
-        )
-        .unwrap());
+        assert!(
+            save_cover_rule(
+                r#"{"enable":true,"searchUrl":"https://s.example/{{key}}","coverRule":"$.cover"}"#
+            )
+            .unwrap()
+        );
         let cfg: CoverRuleConfig = serde_json::from_str(&get_cover_rule().unwrap()).unwrap();
         assert_eq!(cfg.enabled_cookie_jar, None, "缺省应保持 None（按关）");
 

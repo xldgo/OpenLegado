@@ -228,8 +228,8 @@ mod quickjs_engine {
     use crate::host_api::quickjs_impl;
     use crate::sandbox::SandboxConfig;
     use legado_core::LegadoError;
-    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::time::Instant;
 
     /// 将 rquickjs::Value 转换为 JsValue
@@ -555,10 +555,10 @@ mod quickjs_engine {
                 .as_object()
                 .and_then(|o| rquickjs::Exception::from_object(o.clone()))
             {
-                if let Some(m) = exc.message() {
-                    if !m.trim().is_empty() {
-                        message = m;
-                    }
+                if let Some(m) = exc.message()
+                    && !m.trim().is_empty()
+                {
+                    message = m;
                 }
                 let stack = exc.stack().unwrap_or_default();
                 if stack.trim().is_empty() {
@@ -567,10 +567,10 @@ mod quickjs_engine {
                 return format!("{} ({})", message, stack.trim());
             }
             // 非 Error 对象异常：退化为字符串表示
-            if let Some(s) = exc_val.as_string().and_then(|s| s.to_string().ok()) {
-                if !s.trim().is_empty() {
-                    return s;
-                }
+            if let Some(s) = exc_val.as_string().and_then(|s| s.to_string().ok())
+                && !s.trim().is_empty()
+            {
+                return s;
             }
             message
         }
@@ -635,12 +635,9 @@ mod quickjs_engine {
                 let arr: rquickjs::TypedArray<u8> = result.get().map_err(|e| {
                     LegadoError::JsEngine(format!("imageDecode 结果不是字节数组: {e}"))
                 })?;
-                let mut buf = vec![0u8; arr.len()];
-                let slice = arr.as_bytes().ok_or_else(|| {
+                crate::quickjs_bytes::copy_bytes(&arr).ok_or_else(|| {
                     LegadoError::JsEngine("读取字节数组失败: 非连续缓冲区".to_string())
-                })?;
-                buf.copy_from_slice(slice);
-                Ok(buf)
+                })
             })
         }
 

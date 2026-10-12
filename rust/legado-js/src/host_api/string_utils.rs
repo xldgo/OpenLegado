@@ -12,7 +12,7 @@
 // ============================================================
 #[cfg(feature = "quickjs")]
 mod impl_string_utils {
-    use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
+    use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
     /// URL 编码
     ///

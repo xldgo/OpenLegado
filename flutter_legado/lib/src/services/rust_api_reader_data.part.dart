@@ -61,20 +61,10 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
     return bookmark.copyWith(id: id);
   }
 
-  /// 更新书签（删除后重新添加）
+  /// 原子更新已有书签，保留 id 与创建时间。— Codex + Bridge
   @override
-  Future<void> updateBookmark(Bookmark bookmark) async {
-    await bridge.bookmarkDelete(bookmarkId: bookmark.id);
-    await bridge.bookmarkAdd(
-      bookName: bookmark.bookName,
-      bookAuthor: bookmark.bookAuthor,
-      chapterIndex: bookmark.chapterIndex,
-      chapterPos: bookmark.chapterPos,
-      chapterName: bookmark.chapterName,
-      bookText: bookmark.bookText,
-      content: bookmark.content,
-    );
-  }
+  Future<void> updateBookmark(Bookmark bookmark) =>
+      bridge.bookmarkUpdate(bookmarkJson: jsonEncode(bookmark.toJson()));
 
   /// 删除书签
   @override
@@ -199,10 +189,7 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
   /// 错误文本（不上抛 FFI）；非法输入（JSON 解析失败）MAY Err。
   @override
   Future<String> previewReplaceRule(String ruleJson, String sampleContent) =>
-      bridge.replaceRulePreview(
-        ruleJson: ruleJson,
-        sample: sampleContent,
-      );
+      bridge.replaceRulePreview(ruleJson: ruleJson, sample: sampleContent);
 
   // ========== 阅读器操作 ==========
 
@@ -416,8 +403,7 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
     required String name,
     required String urlRule,
     required String showRule,
-  }) =>
-      bridge.dictRuleAdd(name: name, urlRule: urlRule, showRule: showRule);
+  }) => bridge.dictRuleAdd(name: name, urlRule: urlRule, showRule: showRule);
 
   @override
   Future<bool> dictRuleUpdate({
@@ -425,17 +411,15 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
     required String name,
     required String urlRule,
     required String showRule,
-  }) =>
-      bridge.dictRuleUpdate(
-        id: id,
-        name: name,
-        urlRule: urlRule,
-        showRule: showRule,
-      );
+  }) => bridge.dictRuleUpdate(
+    id: id,
+    name: name,
+    urlRule: urlRule,
+    showRule: showRule,
+  );
 
   @override
-  Future<bool> dictRuleDelete(int id) =>
-      bridge.dictRuleDelete(id: id);
+  Future<bool> dictRuleDelete(int id) => bridge.dictRuleDelete(id: id);
 
   @override
   Future<bool> dictRuleSetEnabled({required int id, required bool enabled}) =>
@@ -446,8 +430,10 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
       bridge.dictRuleReorder(idsJson: idsJson);
 
   @override
-  Future<int> dictRuleImport({required String jsonOrUrl, required String kind}) =>
-      bridge.dictRuleImport(jsonOrUrl: jsonOrUrl, kind: kind);
+  Future<int> dictRuleImport({
+    required String jsonOrUrl,
+    required String kind,
+  }) => bridge.dictRuleImport(jsonOrUrl: jsonOrUrl, kind: kind);
 
   // ========== 应用日志（appLog FFI） ==========
   // [审计修复 §1.2] 接通契约 §2.38 appLog* 五方法（frb 绑定已生成） — QoderCN

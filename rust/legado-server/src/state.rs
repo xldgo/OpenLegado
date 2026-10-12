@@ -1,7 +1,7 @@
 //! 共享应用状态
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::sync::Mutex;
 
 use legado_core::download_manager::DownloadManager;

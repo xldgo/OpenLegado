@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.373] - 2026-10-12
+
+### Fixed
+- 修复书签编辑通过删除后新增导致记录丢失及 ID 改变的问题，原子更新保留创建时间，失败保留原记录。
+- 修复启动初始化与业务 Provider 使用不同 BookApi 实例的问题，统一注入已经初始化的实例。
+
+### Changed
+- Rust 工作区迁移到 2024 edition，统一格式化口径并更新兼容依赖；Rust 工具链继续使用 stable。
+- 升级 AES、CBC、ECB、DES 和 Base64，统一加密接口与工作区版本声明。
+- 升级 HTTP 中间件、WebSocket 测试客户端、PDF、7z 与 QuickJS；图片解码使用新版 image，PDF 接口直接接收像素，保留书源 JSONPath 方言及稳定 RSA 类型约束。
+- 移除无调用方的旧 C ABI 模块，保留现用 FRB 入口；测试不再并发修改进程环境变量。
+
+贡献者：Codex
+
 ## [2.0.372] - 2026-10-11
 
 ### Added

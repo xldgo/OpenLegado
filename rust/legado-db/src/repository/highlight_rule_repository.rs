@@ -4,7 +4,7 @@
 //! all / findById / findEnabledByBook / minOrder / maxOrder /
 //! insert / update / delete / deleteAll / replaceAll。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::HighlightRule;
 use legado_core::{LegadoError, LegadoResult};

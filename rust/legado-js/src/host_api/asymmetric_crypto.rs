@@ -24,14 +24,14 @@ use crate::host_api::coerce::RhinoStr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as B64;
 use rsa::pkcs1v15::{Signature as RsaSignature, SigningKey, VerifyingKey};
 use rsa::traits::PublicKeyParts;
 use rsa::{Oaep, Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use sha2::Digest;
-use signature::hazmat::{PrehashSigner, PrehashVerifier};
 use signature::SignatureEncoding;
+use signature::hazmat::{PrehashSigner, PrehashVerifier};
 
 // ---------------------------------------------------------------------------
 // 填充模式解析（对齐 Java transformation）
@@ -430,10 +430,10 @@ fn value_to_bytes<'js>(v: &rquickjs::Value<'js>) -> rquickjs::Result<Vec<u8>> {
     if let Some(s) = v.as_string() {
         return Ok(s.to_string()?.into_bytes());
     }
-    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone())
+        && let Some(bytes) = crate::quickjs_bytes::copy_bytes(&arr)
+    {
+        return Ok(bytes);
     }
     Err(js_err(
         "Cannot convert JS value to bytes (expected String or Uint8Array)",
@@ -445,10 +445,10 @@ fn value_to_cipher_bytes<'js>(v: &rquickjs::Value<'js>) -> rquickjs::Result<Vec<
     if let Some(s) = v.as_string() {
         return decode_cipher_text(&s.to_string()?).map_err(js_err);
     }
-    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone())
+        && let Some(bytes) = crate::quickjs_bytes::copy_bytes(&arr)
+    {
+        return Ok(bytes);
     }
     Err(js_err(
         "Cannot convert JS value to ciphertext bytes (expected String or Uint8Array)",
@@ -835,15 +835,15 @@ pub fn build_sign_object<'js>(
                 let mut st = st.borrow_mut();
                 if let Some(s) = sig.as_string() {
                     let s = s.to_string()?;
-                    if let Ok(b64) = b64_decode_lenient(&s) {
-                        if st.verify(&bytes, &b64).map_err(js_err)? {
-                            return Ok(true);
-                        }
+                    if let Ok(b64) = b64_decode_lenient(&s)
+                        && st.verify(&bytes, &b64).map_err(js_err)?
+                    {
+                        return Ok(true);
                     }
-                    if let Ok(hx) = hex::decode(s.trim()) {
-                        if st.verify(&bytes, &hx).map_err(js_err)? {
-                            return Ok(true);
-                        }
+                    if let Ok(hx) = hex::decode(s.trim())
+                        && st.verify(&bytes, &hx).map_err(js_err)?
+                    {
+                        return Ok(true);
                     }
                     return Ok(false);
                 }

@@ -5,7 +5,7 @@
 //! bindChapterUrl / updateBookMetadata / update / delete，
 //! 并扩展 getByChapter / searchByKeyword / deleteByBook 供 FFI 层使用。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::BookHighlight;
 use legado_core::{LegadoError, LegadoResult};

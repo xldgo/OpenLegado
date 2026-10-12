@@ -1,6 +1,6 @@
 //! AutoTask Repository - auto_task_rules 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::AutoTaskRule;
 use legado_core::{LegadoError, LegadoResult};

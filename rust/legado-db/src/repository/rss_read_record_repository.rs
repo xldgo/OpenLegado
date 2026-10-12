@@ -1,6 +1,6 @@
 //! RssReadRecord Repository - rssReadRecords 表 CRUD（对齐 Room v95：主键 record）
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::{LegadoError, LegadoResult};
 
@@ -177,12 +177,15 @@ mod tests {
         let repo = RssReadRecordRepository::new(db.connection());
         repo.mark_read("https://rss.com", "Article1", None).unwrap();
 
-        assert!(repo
-            .is_read_by_title("https://rss.com", "Article1")
-            .unwrap());
-        assert!(!repo
-            .is_read_by_title("https://rss.com", "Article2")
-            .unwrap());
+        assert!(
+            repo.is_read_by_title("https://rss.com", "Article1")
+                .unwrap()
+        );
+        assert!(
+            !repo
+                .is_read_by_title("https://rss.com", "Article2")
+                .unwrap()
+        );
     }
 
     #[test]

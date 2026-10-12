@@ -9,10 +9,10 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::state::AppState;
 use legado_core::debug_session::{DebugStep, DebugStepStatus, DebugStepType, Debugger};
@@ -184,10 +184,10 @@ pub async fn complete_session(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Method, Request, StatusCode};
     use axum::routing::{get, post};
-    use axum::Router;
     use tower::ServiceExt;
 
     use crate::state::AppState;
@@ -363,10 +363,12 @@ mod tests {
             .await
             .unwrap();
         let result: Value = serde_json::from_slice(&body_bytes).unwrap();
-        assert!(result["error"]
-            .as_str()
-            .unwrap()
-            .contains("Unknown step type"));
+        assert!(
+            result["error"]
+                .as_str()
+                .unwrap()
+                .contains("Unknown step type")
+        );
     }
 
     #[tokio::test]

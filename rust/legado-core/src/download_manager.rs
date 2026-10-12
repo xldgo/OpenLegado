@@ -341,12 +341,12 @@ impl DownloadManager {
                 if task.fail_count >= task.max_retry_count {
                     continue;
                 }
-                if let Some(next) = task.next_retry_at {
-                    if next <= now {
-                        // 可重试，选择优先级最高的
-                        if best.map(|(_, p)| p > task.priority).unwrap_or(true) {
-                            best = Some((id, task.priority));
-                        }
+                if let Some(next) = task.next_retry_at
+                    && next <= now
+                {
+                    // 可重试，选择优先级最高的
+                    if best.map(|(_, p)| p > task.priority).unwrap_or(true) {
+                        best = Some((id, task.priority));
                     }
                 }
             }

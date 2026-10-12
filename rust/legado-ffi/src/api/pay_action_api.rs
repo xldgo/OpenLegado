@@ -346,15 +346,19 @@ mod quickjs_tests {
             &chapter_url,
         )
         .unwrap();
-        assert!(!crate::api::cache_api::get_chapter_cache(book_url, 1)
-            .unwrap()
-            .is_empty());
+        assert!(
+            !crate::api::cache_api::get_chapter_cache(book_url, 1)
+                .unwrap()
+                .is_empty()
+        );
 
         let result = chapter_pay_action(book_url, 1).unwrap();
         assert_eq!(result.kind, "success");
-        assert!(crate::api::cache_api::get_chapter_cache(book_url, 1)
-            .unwrap()
-            .is_empty());
+        assert!(
+            crate::api::cache_api::get_chapter_cache(book_url, 1)
+                .unwrap()
+                .is_empty()
+        );
 
         teardown(source_url, book_url);
     }

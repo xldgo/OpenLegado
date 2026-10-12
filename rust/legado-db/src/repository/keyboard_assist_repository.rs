@@ -2,7 +2,7 @@
 //!
 //! D1：对齐 Room `KeyboardAssist`（主键 type+key；列 type/key/value/serialNo）。
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};

@@ -380,8 +380,8 @@ fn like_escape(s: &str) -> String {
 mod tests {
     use super::*;
     use legado_core::models::{Book, BookChapter};
-    use legado_db::repository::book_repository::BookRepository;
     use legado_db::repository::Repository;
+    use legado_db::repository::book_repository::BookRepository;
 
     #[test]
     fn test_cache_apis() {
@@ -412,22 +412,26 @@ mod tests {
         let book_url = "http://clear-chapter.example.com/book1";
 
         // 两章缓存 + 一章级「不删重复标题」开关键
-        assert!(save_chapter_content(
-            book_url,
-            0,
-            "第一章",
-            "第一章正文",
-            "http://clear-chapter.example.com/ch1"
-        )
-        .unwrap());
-        assert!(save_chapter_content(
-            book_url,
-            1,
-            "第二章",
-            "第二章正文",
-            "http://clear-chapter.example.com/ch2"
-        )
-        .unwrap());
+        assert!(
+            save_chapter_content(
+                book_url,
+                0,
+                "第一章",
+                "第一章正文",
+                "http://clear-chapter.example.com/ch1"
+            )
+            .unwrap()
+        );
+        assert!(
+            save_chapter_content(
+                book_url,
+                1,
+                "第二章",
+                "第二章正文",
+                "http://clear-chapter.example.com/ch2"
+            )
+            .unwrap()
+        );
         with_database(|db| {
             let repo = CacheRepository::new(db.connection());
             repo.put(&format!("sameTitleRemoved:{book_url}:0"), "1", 0)?;
@@ -552,22 +556,26 @@ mod tests {
         let fresh_book = "http://clear-before.example.com/book/fresh";
 
         // 两本书各写一章缓存
-        assert!(save_chapter_content(
-            old_book,
-            0,
-            "旧章",
-            "旧正文",
-            "http://clear-before.example.com/ch/old0"
-        )
-        .unwrap());
-        assert!(save_chapter_content(
-            fresh_book,
-            0,
-            "新章",
-            "新正文",
-            "http://clear-before.example.com/ch/fresh0"
-        )
-        .unwrap());
+        assert!(
+            save_chapter_content(
+                old_book,
+                0,
+                "旧章",
+                "旧正文",
+                "http://clear-before.example.com/ch/old0"
+            )
+            .unwrap()
+        );
+        assert!(
+            save_chapter_content(
+                fresh_book,
+                0,
+                "新章",
+                "新正文",
+                "http://clear-before.example.com/ch/fresh0"
+            )
+            .unwrap()
+        );
 
         // 将 old_book 的 cached_at 改为远古时间，fresh_book 保持当前时间
         with_database(|db| {

@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use legado_core::explore::{parse_explore_url, ExploreCategory};
+use legado_core::explore::{ExploreCategory, parse_explore_url};
 use legado_core::models::BookSource;
 use legado_core::web_book::WebSearchResult;
 use legado_core::{LegadoError, LegadoResult};
@@ -236,10 +236,10 @@ fn extract_js_tag_body(s: &str) -> String {
     let lower = s.to_ascii_lowercase();
     if let Some(start) = lower.find("<js>") {
         let content_start = start + "<js>".len();
-        if let Some(end) = lower.rfind("</js>") {
-            if end >= content_start {
-                return s[content_start..end].trim().to_string();
-            }
+        if let Some(end) = lower.rfind("</js>")
+            && end >= content_start
+        {
+            return s[content_start..end].trim().to_string();
         }
         return s[content_start..].trim().to_string();
     }
@@ -249,8 +249,8 @@ fn extract_js_tag_body(s: &str) -> String {
 /// 执行 exploreUrl 内嵌 JS（对标 Android runScriptWithContext + evalJS + infoMap）
 #[cfg(feature = "quickjs")]
 fn eval_explore_js(js_code: &str, source: &BookSource) -> LegadoResult<String> {
-    use legado_js::host_api::current_source::with_current_source_tag;
     use legado_js::JsEngine;
+    use legado_js::host_api::current_source::with_current_source_tag;
 
     let tag = source.book_source_url.clone();
     let engine = crate::js_executor::fresh_engine(&tag)?;
@@ -302,17 +302,17 @@ fn bootstrap_explore_js_context(
     );
 
     // JS 单文件书源：exploreUrl @js: 常调用 mainJs 内定义的函数
-    if source.is_js_source() {
-        if let Some(main_js) = source.main_js.as_deref() {
-            let main_js = main_js.trim();
-            if !main_js.is_empty() {
-                if let Err(e) = guard.eval(main_js) {
-                    eprintln!("[explore] mainJs 加载失败: {e}");
-                    return Err(LegadoError::JsEngine(format!(
-                        "exploreUrl mainJs 加载失败: {e}"
-                    )));
-                }
-            }
+    if source.is_js_source()
+        && let Some(main_js) = source.main_js.as_deref()
+    {
+        let main_js = main_js.trim();
+        if !main_js.is_empty()
+            && let Err(e) = guard.eval(main_js)
+        {
+            eprintln!("[explore] mainJs 加载失败: {e}");
+            return Err(LegadoError::JsEngine(format!(
+                "exploreUrl mainJs 加载失败: {e}"
+            )));
         }
     }
 
@@ -368,9 +368,9 @@ fn eval_explore_action_js(
     action_js: &str,
     source: &BookSource,
 ) -> LegadoResult<ExploreEvalActionResult> {
+    use legado_js::JsEngine;
     use legado_js::host_api::current_source::with_current_source_tag;
     use legado_js::host_api::ui_action_queue;
-    use legado_js::JsEngine;
 
     let tag = source.book_source_url.clone();
     let engine = crate::js_executor::fresh_engine(&tag)?;
@@ -410,8 +410,8 @@ fn eval_explore_action_js(
 
 #[cfg(feature = "quickjs")]
 fn eval_explore_ui_js(js_str: &str, source: &BookSource) -> LegadoResult<String> {
-    use legado_js::host_api::current_source::with_current_source_tag;
     use legado_js::JsEngine;
+    use legado_js::host_api::current_source::with_current_source_tag;
 
     let tag = source.book_source_url.clone();
     let engine = crate::js_executor::fresh_engine(&tag)?;
@@ -454,10 +454,9 @@ async fn explore_books_async(
         .unwrap_or_default();
     if let Some(login_header_json) =
         crate::api::source_login_cache::get_login_header(&source.book_source_url)
+        && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json)
     {
-        if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json) {
-            source_headers.extend(map);
-        }
+        source_headers.extend(map);
     }
     let source_headers = if source_headers.is_empty() {
         None
@@ -750,11 +749,7 @@ async fn explore_books_async(
             let v = elem_analyzer
                 .get_string(last_chapter_rule)
                 .unwrap_or_default();
-            if v.is_empty() {
-                None
-            } else {
-                Some(v)
-            }
+            if v.is_empty() { None } else { Some(v) }
         };
         let kind = {
             let v = elem_analyzer.get_string(kind_rule).unwrap_or_default();

@@ -71,10 +71,10 @@ impl EnginePool {
         }
 
         // 随机淘汰：如果池已满，移除第一个（HashMap 迭代顺序不确定，后续可改为真正的 LRU）
-        if pool.len() >= self.max_size {
-            if let Some(key) = pool.keys().next().cloned() {
-                pool.remove(&key);
-            }
+        if pool.len() >= self.max_size
+            && let Some(key) = pool.keys().next().cloned()
+        {
+            pool.remove(&key);
         }
 
         let engine = QuickJsEngine::new(self.sandbox_config.clone())?;

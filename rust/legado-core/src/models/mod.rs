@@ -12,15 +12,15 @@ pub mod rule;
 pub use book::book_type;
 pub use book::{Book, ReadConfig};
 pub use book_chapter::BookChapter;
-pub use book_source::book_source_type;
 pub use book_source::BookSource;
+pub use book_source::book_source_type;
 pub use download_task::{DownloadStatus, DownloadTask};
 pub use highlight::{BookHighlight, HighlightRule};
 pub use rss_source::RssSource;
 
 pub use rule::{
-    row_ui_type, BookInfoRule, BookListRule, ContentRule, ExploreKind, ExploreRule, FlexChildStyle,
-    ReviewRule, RowUi, SearchRule, TocRule,
+    BookInfoRule, BookListRule, ContentRule, ExploreKind, ExploreRule, FlexChildStyle, ReviewRule,
+    RowUi, SearchRule, TocRule, row_ui_type,
 };
 
 pub use misc::{

@@ -10,7 +10,7 @@
 //! `CREATE TABLE IF NOT EXISTS`（不新增列/索引、不走版本迁移，
 //! 与 DB 迁移冻结约束兼容）。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};

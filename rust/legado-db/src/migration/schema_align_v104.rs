@@ -17,7 +17,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{column_exists, primary_key_columns, table_exists, Migration};
+use crate::migration::{Migration, column_exists, primary_key_columns, table_exists};
 use crate::schema::{
     CREATE_COVER_RULES, CREATE_HTTP_TTS, CREATE_READ_RECORD, CREATE_RSS_ARTICLES,
     CREATE_RSS_READ_RECORDS, CREATE_RSS_STARS, CREATE_SEARCH_KEYWORDS,
@@ -716,7 +716,7 @@ fn rebuild_search_keywords(conn: &Connection) -> LegadoResult<()> {
 mod tests {
     use super::*;
     use crate::connection::Database;
-    use crate::migration::{primary_key_columns, MigrationRegistry};
+    use crate::migration::{MigrationRegistry, primary_key_columns};
 
     fn column_exists_bool(conn: &Connection, table: &str, column: &str) -> bool {
         column_exists(conn, table, column).unwrap_or(false)

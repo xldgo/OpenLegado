@@ -4,8 +4,8 @@
 //! 使用 legado-parser 的 AnalyzeUrl + AnalyzeRule 解析搜索结果。
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -16,10 +16,10 @@ use legado_core::models::{BookSource, SearchBook as CoreSearchBook};
 use legado_core::search_aggregate;
 use legado_core::source_matcher::SearchCandidate;
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::repository::read_record_repository::decode_read_record_authors;
 use legado_db::ReadRecordRepository;
-use legado_net::client::DEFAULT_USER_AGENT;
+use legado_db::repository::read_record_repository::decode_read_record_authors;
 use legado_net::LegadoClient;
+use legado_net::client::DEFAULT_USER_AGENT;
 // P2-19 尾项后 lib 侧不再直接使用 AnalyzeUrl（响应解码已收敛到 fetcher 四级
 // 入口）；仅 `#[cfg(test)] build_search_url` 的返回类型仍需，测试期导入
 #[cfg(test)]
@@ -69,10 +69,10 @@ fn register_current_session(session: &Arc<SearchSession>) {
     let mut guard = CURRENT_SEARCH_SESSION
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    if let Some(prev) = guard.as_ref() {
-        if !Arc::ptr_eq(prev, session) {
-            prev.cancel.store(true, Ordering::SeqCst); // 新搜索取代 → 终止旧会话，防残留
-        }
+    if let Some(prev) = guard.as_ref()
+        && !Arc::ptr_eq(prev, session)
+    {
+        prev.cancel.store(true, Ordering::SeqCst); // 新搜索取代 → 终止旧会话，防残留
     }
     *guard = Some(Arc::clone(session));
 }
@@ -97,10 +97,10 @@ fn clear_current_session_if_same(session: &Arc<SearchSession>) {
     let mut guard = CURRENT_SEARCH_SESSION
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    if let Some(cur) = guard.as_ref() {
-        if Arc::ptr_eq(cur, session) {
-            *guard = None;
-        }
+    if let Some(cur) = guard.as_ref()
+        && Arc::ptr_eq(cur, session)
+    {
+        *guard = None;
     }
 }
 
@@ -510,14 +510,15 @@ fn extract_cover_candidates(results: Vec<SearchResult>) -> Vec<CoverCandidate> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut candidates: Vec<CoverCandidate> = Vec::new();
     for item in results {
-        if let Some(url) = item.cover_url {
-            if !url.is_empty() && seen.insert(url.clone()) {
-                candidates.push(CoverCandidate {
-                    url,
-                    width: 0,
-                    height: 0,
-                });
-            }
+        if let Some(url) = item.cover_url
+            && !url.is_empty()
+            && seen.insert(url.clone())
+        {
+            candidates.push(CoverCandidate {
+                url,
+                width: 0,
+                height: 0,
+            });
         }
     }
     candidates
@@ -2035,7 +2036,9 @@ mod s0e_tests {
         let source2 = mk_source(
             "https://ex.com",
             None,
-            Some("result.code() == 200 ? { code: 200, body: 'new-body', url: 'https://ex.com/s2' } : false"),
+            Some(
+                "result.code() == 200 ? { code: 200, body: 'new-body', url: 'https://ex.com/s2' } : false",
+            ),
             None,
         );
         let resp2 =
@@ -2068,7 +2071,9 @@ mod s0e_tests {
         let source = mk_source(
             "https://ex.com",
             None,
-            Some("result.code() == 500 ? { code: 200, body: 'recovered', url: 'https://ex.com/s' } : false"),
+            Some(
+                "result.code() == 500 ? { code: 200, body: 'recovered', url: 'https://ex.com/s' } : false",
+            ),
             None,
         );
         let resp = RealBookSourceFetcher::execute_login_check(
@@ -2117,11 +2122,11 @@ fn resolve_url(url: &str, base_url: &str) -> String {
     }
     // 绝对路径
     if url.starts_with('/') {
-        if let Some(pos) = base_url.find("://") {
-            if let Some(slash_pos) = base_url[pos + 3..].find('/') {
-                let domain = &base_url[..pos + 3 + slash_pos];
-                return format!("{}{}", domain, url);
-            }
+        if let Some(pos) = base_url.find("://")
+            && let Some(slash_pos) = base_url[pos + 3..].find('/')
+        {
+            let domain = &base_url[..pos + 3 + slash_pos];
+            return format!("{}{}", domain, url);
         }
         return format!("{}{}", base_url.trim_end_matches('/'), url);
     }
@@ -2243,8 +2248,8 @@ async fn search_js_source(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use legado_core::models::rule::SearchRule;
     use legado_core::SourceSearcher;
+    use legado_core::models::rule::SearchRule;
     use legado_net::LegadoClientConfig;
     use legado_parser::RequestMethod;
 
@@ -2282,8 +2287,8 @@ mod tests {
     fn test_search_single_source_consumes_retry_option() {
         use std::io::{Read, Write};
         use std::net::TcpListener;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         // 回环脚本服务器：前 2 次 500，第 3 次起 200 + 可解析 HTML
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 回环服务器");
@@ -2998,10 +3003,12 @@ mod tests {
         let mut headers = HashMap::new();
         headers.insert("Referer".to_string(), "https://www.example.com".to_string());
         ensure_default_user_agent(&mut headers);
-        assert!(headers
-            .get("User-Agent")
-            .unwrap()
-            .starts_with("Mozilla/5.0"));
+        assert!(
+            headers
+                .get("User-Agent")
+                .unwrap()
+                .starts_with("Mozilla/5.0")
+        );
     }
 
     #[test]
@@ -3224,14 +3231,16 @@ mod tests {
         let ok_books: usize = got.iter().filter_map(|(_, n, _, _, _)| *n).sum();
         assert_eq!(ok_books, 2, "两个成功源各 1 本书应全部保留");
         // 失败/超时/panic 均有错误信息且不阻断其他源
-        assert!(got
-            .iter()
-            .any(|(u, _, e, _, _)| u.contains("fail") && e.is_some()));
+        assert!(
+            got.iter()
+                .any(|(u, _, e, _, _)| u.contains("fail") && e.is_some())
+        );
         assert!(got.iter().any(|(u, _, e, _, _)| u.contains("slow")
             && e.as_deref().is_some_and(|m| m.contains("超时"))));
-        assert!(got
-            .iter()
-            .any(|(u, _, e, _, _)| u.contains("panic") && e.is_some()));
+        assert!(
+            got.iter()
+                .any(|(u, _, e, _, _)| u.contains("panic") && e.is_some())
+        );
         // 进度 total 正确且存在收尾批次（finished == total）
         assert!(got.iter().all(|(_, _, _, _, t)| *t == 5));
         assert!(got.iter().any(|(_, _, _, f, t)| f == t));

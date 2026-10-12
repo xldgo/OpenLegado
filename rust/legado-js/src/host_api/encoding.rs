@@ -17,7 +17,7 @@ mod impl_encoding {
     use base64::Engine;
     use hmac::{Hmac, Mac};
     use md5::{Digest as Md5Digest, Md5};
-    use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
+    use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
     use sha1::Sha1;
     use sha2::{Sha256, Sha384, Sha512};
 

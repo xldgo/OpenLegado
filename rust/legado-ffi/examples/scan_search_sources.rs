@@ -20,7 +20,9 @@ fn read_query_arg(arg: &str) -> String {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 {
-        eprintln!("用法: scan_search_sources <db_path> <query|@query_file> <report_json> [urls_json_file]");
+        eprintln!(
+            "用法: scan_search_sources <db_path> <query|@query_file> <report_json> [urls_json_file]"
+        );
         std::process::exit(2);
     }
     let db_path = args[1].clone();

@@ -3,7 +3,7 @@
 //! 提供替换规则的增删改查操作，通过 ReplaceRuleRepository 访问数据库。
 
 use legado_core::content_processor::{
-    apply_source_replace_rules, preview_single_rule, ReplaceJsExecutor, ReplaceRuleEntry,
+    ReplaceJsExecutor, ReplaceRuleEntry, apply_source_replace_rules, preview_single_rule,
 };
 use legado_core::models::ReplaceRule;
 use legado_core::{LegadoError, LegadoResult};
@@ -365,16 +365,20 @@ mod tests {
             "rr_r1_4", "a", "b", false, "", None, None, None, None, None, None,
         )
         .unwrap();
-        assert!(get_replace_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_4"));
+        assert!(
+            get_replace_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_4")
+        );
 
         delete_replace_rule(id).unwrap();
-        assert!(!get_replace_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_4"));
+        assert!(
+            !get_replace_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_4")
+        );
     }
 
     #[test]
@@ -406,24 +410,30 @@ mod tests {
         .unwrap();
 
         // 默认启用
-        assert!(get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
 
         // 禁用
         set_rule_enabled(id, false).unwrap();
-        assert!(!get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            !get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
 
         // 重新启用
         set_rule_enabled(id, true).unwrap();
-        assert!(get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
     }
 
     #[test]

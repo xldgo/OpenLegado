@@ -1,6 +1,6 @@
 //! BookChapter Repository - chapters 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::BookChapter;
 use legado_core::{LegadoError, LegadoResult};
@@ -394,8 +394,8 @@ fn row_to_chapter(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookChapter> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::book_repository::BookRepository;
     use super::super::Repository;
+    use super::super::book_repository::BookRepository;
     use super::*;
     use legado_core::models::Book;
 
@@ -461,14 +461,16 @@ mod tests {
         assert_eq!(ch.title, "第6章");
 
         // 未命中章节 / 未命中书 → None（不报错）
-        assert!(repo
-            .find_by_book_url_and_chapter_url("book1", "book1/ch9")
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .find_by_book_url_and_chapter_url("book2", "book1/ch0")
-            .unwrap()
-            .is_none());
+        assert!(
+            repo.find_by_book_url_and_chapter_url("book1", "book1/ch9")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.find_by_book_url_and_chapter_url("book2", "book1/ch0")
+                .unwrap()
+                .is_none()
+        );
     }
 
     /// [V-B1 §2.49] 按 (书源, 章节 URL) 反查书籍取址点：唯一命中 → Some；
@@ -551,9 +553,10 @@ mod tests {
         let repo = BookChapterRepository::new(conn);
         repo.insert(&make_chapter("book1", 0, "第1章")).unwrap();
 
-        assert!(repo
-            .update_variable("book1", "book1/ch0", r#"{"danmaku":"<xml/>"}"#)
-            .unwrap());
+        assert!(
+            repo.update_variable("book1", "book1/ch0", r#"{"danmaku":"<xml/>"}"#)
+                .unwrap()
+        );
         let saved = repo
             .find_by_book_url_and_chapter_url("book1", "book1/ch0")
             .unwrap()
@@ -561,12 +564,16 @@ mod tests {
         assert_eq!(saved.variable.as_deref(), Some(r#"{"danmaku":"<xml/>"}"#));
 
         // 未命中章节 → false（仅影响行数为 0，非错误）
-        assert!(!repo
-            .update_variable("book1", "book1/ch9", r#"{"a":"b"}"#)
-            .unwrap());
-        assert!(!repo
-            .update_variable("no-such-book", "book1/ch0", r#"{"a":"b"}"#)
-            .unwrap());
+        assert!(
+            !repo
+                .update_variable("book1", "book1/ch9", r#"{"a":"b"}"#)
+                .unwrap()
+        );
+        assert!(
+            !repo
+                .update_variable("no-such-book", "book1/ch0", r#"{"a":"b"}"#)
+                .unwrap()
+        );
     }
 
     #[test]
@@ -640,9 +647,11 @@ mod tests {
             "有值 wordCount 不应判为空"
         );
         assert!(!repo.word_count_missing("book1", "book1/ch9").unwrap());
-        assert!(!repo
-            .word_count_missing("no-such-book", "book1/ch0")
-            .unwrap());
+        assert!(
+            !repo
+                .word_count_missing("no-such-book", "book1/ch0")
+                .unwrap()
+        );
     }
 
     /// [P2-28b] 失败形态：缺 chapters 表时回填/判空均 Err（调用方须降级告警，

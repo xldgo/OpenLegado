@@ -43,13 +43,13 @@
 
 #![cfg(feature = "quickjs")]
 
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use hex::encode as hex_encode;
+use legado_js::QuickJsEngine;
 use legado_js::engine::JsEngine;
 use legado_js::host_api::current_source;
 use legado_js::sandbox::SandboxConfig;
-use legado_js::QuickJsEngine;
 use md5::Md5;
 use sha2::Digest;
 use sha2::Sha256;
