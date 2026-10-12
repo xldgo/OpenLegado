@@ -1,0 +1,128 @@
+import 'package:flutter/widgets.dart';
+
+import 'text_layout_environment.dart';
+
+/// 行信息
+@immutable
+class LineInfo {
+  final List<String> words;
+  final double width;
+  final double height;
+  final int startIndex;
+  final int endIndex;
+  final double? baseline;
+
+  /// 断行测量使用的虚拟前缀，不进入正文可选文字。
+  final int virtualPrefixLength;
+
+  /// 虚拟前缀在最终字距和文字缩放下的宽度，只用于布局留白。
+  final double indentWidth;
+
+  /// 最终绘制字距，分页与正文渲染共用。
+  final double? letterSpacing;
+
+  /// 跨页后仍保留原段落末行标记，避免页末续行被当成段末。
+  final bool? isParagraphLastLine;
+
+  // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂宽度（>0 表示该行为悬挂行，
+  // 渲染侧行起点左移该宽度进入缩进区）— Reasonix
+  final double hangingWidth;
+
+  const LineInfo({
+    required this.words,
+    required this.width,
+    required this.height,
+    required this.startIndex,
+    required this.endIndex,
+    this.baseline,
+    this.hangingWidth = 0,
+    this.virtualPrefixLength = 0,
+    this.indentWidth = 0,
+    this.letterSpacing,
+    this.isParagraphLastLine,
+  });
+
+  String get displayText => words.join();
+
+  String get selectableText => displayText.substring(virtualPrefixLength);
+
+  /// 将显示文本的 UTF-16 偏移转换为章节原文偏移。
+  int sourceOffset(int displayOffset) =>
+      startIndex +
+      (displayOffset - virtualPrefixLength).clamp(0, endIndex - startIndex);
+}
+
+/// 段落信息
+@immutable
+class ParagraphInfo {
+  final List<LineInfo> lines;
+  final double totalHeight;
+  final int startIndex;
+  final int endIndex;
+
+  /// 章内 1-based 段落序号（对齐原版 TextLine.paragraphNum / 段评 paraIndex）
+  final int chapterParagraphIndex;
+
+  /// 是否为该段落在分页后的最后一片（段末角标只画在此）
+  final bool isParagraphEnd;
+
+  /// 分页确定的段前间距，跨页续段与页首均为零。
+  final double? spacingBefore;
+
+  const ParagraphInfo({
+    required this.lines,
+    required this.totalHeight,
+    required this.startIndex,
+    required this.endIndex,
+    this.chapterParagraphIndex = 0,
+    this.isParagraphEnd = true,
+    this.spacingBefore,
+  });
+}
+
+/// 页面信息
+@immutable
+class PageInfo {
+  final List<ParagraphInfo> paragraphs;
+  final double totalHeight;
+
+  /// 所有页面引用同一章节原文，选区从原文取值而非拼接排版字符。
+  final String? sourceText;
+  final TextLayoutEnvironment? textEnvironment;
+
+  const PageInfo({
+    required this.paragraphs,
+    required this.totalHeight,
+    this.sourceText,
+    this.textEnvironment,
+  });
+
+  int get sourceStart => paragraphs.isEmpty ? 0 : paragraphs.first.startIndex;
+  int get sourceEnd => paragraphs.isEmpty ? 0 : paragraphs.last.endIndex;
+}
+
+/// 原文空白间隙归到其后的正文页，超出末尾的锚点归到末页。
+int pageIndexForSourceOffset(List<PageInfo> pages, int sourceOffset) {
+  if (pages.isEmpty) return 0;
+  var low = 0;
+  var high = pages.length - 1;
+  while (low < high) {
+    final middle = (low + high) ~/ 2;
+    if (pages[middle].sourceEnd <= sourceOffset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
+}
+
+/// 清理显示空白后仍保留章节原文坐标的段落。
+@immutable
+class SourceParagraph {
+  final String text;
+  final int startIndex;
+  final int endIndex;
+
+  const SourceParagraph(this.text, this.startIndex, this.endIndex);
+}

@@ -374,12 +374,19 @@ void main() {
     await tester.pumpAndSettle();
     final rightLine = pages.last.paragraphs.first.lines.first;
     final rightText = find
-        .byWidgetPredicate(
-          (widget) =>
-              widget is ReaderLineText &&
-              widget.data == rightLine.selectableText,
+        .descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is ReaderTextContent &&
+                identical(widget.pageInfo, pages.last),
+          ),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ReaderLineText &&
+                widget.data == rightLine.selectableText,
+          ),
         )
-        .last;
+        .first;
     await tester.longPress(rightText);
     await tester.pumpAndSettle();
     final paragraph = tester.renderObject<RenderParagraph>(

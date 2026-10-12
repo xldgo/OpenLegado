@@ -336,8 +336,10 @@ class ReaderTextContent extends StatelessWidget {
           final para = pageInfo.paragraphs[paraIdx];
 
           // 段落间距（非第一段时添加）
-          if (paraIdx > 0 && lineHeight > 0) {
-            widgets.add(SizedBox(height: paragraphSpacing));
+          final gap =
+              para.spacingBefore ?? (paraIdx > 0 ? paragraphSpacing : 0);
+          if (gap > 0) {
+            widgets.add(SizedBox(height: gap));
           }
 
           // 逐行渲染

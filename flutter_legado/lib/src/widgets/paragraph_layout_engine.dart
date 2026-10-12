@@ -15,6 +15,9 @@ import 'package:material_ui/material_ui.dart';
 
 import 'zh_layout.dart';
 import 'reader/text_layout_environment.dart';
+import 'reader/chapter_layout.dart';
+import 'reader/line_paginator.dart';
+export 'reader/chapter_layout.dart';
 
 /// 中文标点悬挂规则
 ///
@@ -235,127 +238,6 @@ class ParagraphConfig {
   }
 }
 
-/// 行信息
-@immutable
-class LineInfo {
-  final List<String> words;
-  final double width;
-  final double height;
-  final int startIndex;
-  final int endIndex;
-  final double? baseline;
-
-  /// 断行测量使用的虚拟前缀，不进入正文可选文字。
-  final int virtualPrefixLength;
-
-  /// 虚拟前缀在最终字距和文字缩放下的宽度，只用于布局留白。
-  final double indentWidth;
-
-  /// 最终绘制字距，分页与正文渲染共用。
-  final double? letterSpacing;
-
-  /// 跨页后仍保留原段落末行标记，避免页末续行被当成段末。
-  final bool? isParagraphLastLine;
-
-  // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂宽度（>0 表示该行为悬挂行，
-  // 渲染侧行起点左移该宽度进入缩进区）— Reasonix
-  final double hangingWidth;
-
-  const LineInfo({
-    required this.words,
-    required this.width,
-    required this.height,
-    required this.startIndex,
-    required this.endIndex,
-    this.baseline,
-    this.hangingWidth = 0,
-    this.virtualPrefixLength = 0,
-    this.indentWidth = 0,
-    this.letterSpacing,
-    this.isParagraphLastLine,
-  });
-
-  String get displayText => words.join();
-
-  String get selectableText => displayText.substring(virtualPrefixLength);
-
-  /// 将显示文本的 UTF-16 偏移转换为章节原文偏移。
-  int sourceOffset(int displayOffset) =>
-      startIndex +
-      (displayOffset - virtualPrefixLength).clamp(0, endIndex - startIndex);
-}
-
-/// 段落信息
-@immutable
-class ParagraphInfo {
-  final List<LineInfo> lines;
-  final double totalHeight;
-  final int startIndex;
-  final int endIndex;
-
-  /// 章内 1-based 段落序号（对齐原版 TextLine.paragraphNum / 段评 paraIndex）
-  final int chapterParagraphIndex;
-
-  /// 是否为该段落在分页后的最后一片（段末角标只画在此）
-  final bool isParagraphEnd;
-
-  const ParagraphInfo({
-    required this.lines,
-    required this.totalHeight,
-    required this.startIndex,
-    required this.endIndex,
-    this.chapterParagraphIndex = 0,
-    this.isParagraphEnd = true,
-  });
-}
-
-/// 页面信息
-@immutable
-class PageInfo {
-  final List<ParagraphInfo> paragraphs;
-  final double totalHeight;
-
-  /// 所有页面引用同一章节原文，选区从原文取值而非拼接排版字符。
-  final String? sourceText;
-  final TextLayoutEnvironment? textEnvironment;
-
-  const PageInfo({
-    required this.paragraphs,
-    required this.totalHeight,
-    this.sourceText,
-    this.textEnvironment,
-  });
-
-  int get sourceStart => paragraphs.isEmpty ? 0 : paragraphs.first.startIndex;
-  int get sourceEnd => paragraphs.isEmpty ? 0 : paragraphs.last.endIndex;
-}
-
-/// 原文空白间隙归到其后的正文页，超出末尾的锚点归到末页。
-int pageIndexForSourceOffset(List<PageInfo> pages, int sourceOffset) {
-  if (pages.isEmpty) return 0;
-  var low = 0;
-  var high = pages.length - 1;
-  while (low < high) {
-    final middle = (low + high) ~/ 2;
-    if (pages[middle].sourceEnd <= sourceOffset) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
-  return low;
-}
-
-/// 清理显示空白后仍保留章节原文坐标的段落。
-@immutable
-class SourceParagraph {
-  final String text;
-  final int startIndex;
-  final int endIndex;
-
-  const SourceParagraph(this.text, this.startIndex, this.endIndex);
-}
-
 /// 每个非空逻辑行为一段；原始换行和空白继续保存在章节原文中。
 List<SourceParagraph> splitChapterParagraphs(String content) {
   final result = <SourceParagraph>[];
@@ -485,14 +367,55 @@ class ParagraphLayoutEngine {
 
   /// 将整章内容排版并分页，返回所有页面
   ///
-  /// 移植自 TextChapterLayout.kt getTextChapter + prepareNextPageIfNeed：
-  /// 逐段排版，累积到当前页；超出页面高度时开始新页。
-  /// 返回的每个 PageInfo 代表一屏内容。
+  /// 最终行按顺序填入页面；普通段落可以跨页，尾页继续容纳后续段落。
+  /// 段距与真实段末由分页结果保存，绘制层不重新决定分页。
   ///
   /// [UI-fix v2.0.4 | 2026-08-08] 新增 [firstPageHeight]：首页可用高度
   /// （渲染侧首页预留章节标题块，容量小于后续页；不传则与
   /// pageHeight 一致），修复满页正文首页底部 RenderFlex 溢出 — Qoder
   List<PageInfo> paginateChapter(
+    String content,
+    double availableWidth,
+    double pageHeight, {
+    double? firstPageHeight,
+  }) {
+    final builder = LinePaginator(
+      sourceText: content,
+      environment: _environment,
+      pageHeight: pageHeight,
+      firstPageHeight: firstPageHeight,
+      paragraphSpacing: config.paragraphSpacing,
+    );
+    final paragraphs = splitChapterParagraphs(content);
+    for (var i = 0; i < paragraphs.length; i++) {
+      builder.addParagraph(
+        _layoutParagraph(paragraphs[i], availableWidth),
+        i + 1,
+      );
+    }
+    return builder.finish();
+  }
+
+  /// 仅供未标记旧页码首次转换；普通排版不再走整段换页路径。
+  int legacyPageSourceOffset(
+    String content,
+    double width,
+    double height,
+    int pageIndex, {
+    double? firstPageHeight,
+  }) {
+    final pages = _paginateLegacy(
+      content,
+      width,
+      height,
+      firstPageHeight: firstPageHeight,
+    );
+    return pages.isEmpty
+        ? 0
+        : pages[pageIndex.clamp(0, pages.length - 1)].sourceStart;
+  }
+
+  List<PageInfo> _paginateLegacy(
     String content,
     double availableWidth,
     double pageHeight, {

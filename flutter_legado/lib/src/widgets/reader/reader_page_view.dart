@@ -544,9 +544,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       context,
       chrome,
     );
-    // 预留 4px 保险余量：TextPainter 测量与 Text 实际渲染存在亚像素差
-    //（基线/字距舍入），满页正文底部 RenderFlex 溢出 3px（书山等长正文
-    // 复现）— 2026-08-17
     final availableHeight =
         screenSize.height -
         statusBarTop -
@@ -554,8 +551,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         headerBlock -
         footerBlock -
         widget.marginTop -
-        widget.marginBottom -
-        4.0;
+        widget.marginBottom;
 
     // 首页标题块高度（与渲染侧 pageIndex==0 分支同参）
     // [UI_SYNC_REFACTOR S6 修] 抽为 _computeFirstPageHeight：相邻章预载需按
@@ -611,7 +607,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
     final notifier = ref.read(readerNotifierProvider.notifier);
     final sameChapter = chapterIndex == _paginatedChapterIndex;
-    final sourceAnchor =
+    var sourceAnchor =
         notifier.currentSourceOffset ??
         (sameChapter &&
                 state.currentChapterPos == _currentPageIndex &&
@@ -623,6 +619,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   .sourceStart
             : null);
     final engine = ParagraphLayoutEngine(config: config, context: context);
+    if (sourceAnchor == null && !sameChapter && state.currentChapterPos > 0) {
+      sourceAnchor = engine.legacyPageSourceOffset(
+        content,
+        availableWidth,
+        availableHeight,
+        state.currentChapterPos,
+        firstPageHeight: firstPageHeight,
+      );
+    }
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
     final pages = engine.paginateChapter(
       content,
