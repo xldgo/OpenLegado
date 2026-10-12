@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../l10n/app_strings.dart';
+import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
@@ -251,13 +251,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         final loginCount = next.failedSources
             .where((f) =>
                 f.error.contains('Login required') ||
-                f.error.contains('需要登录'))
+                f.error.contains('需要登录'),
+            )
             .length;
         if (loginCount > 0 && mounted) {
           _loginToastShownForSession = _searchSessionId;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$loginCount 个书源需要登录，请先在书源菜单中登录后重试'),
+              content: Text(context.l10n.searchLoginRequiredCount(loginCount)),
               duration: const Duration(seconds: 3),
             ),
           );
@@ -298,10 +299,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '搜索',
+                    context.l10n.search,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                      fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   _buildSearchField(context),
@@ -328,13 +328,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     ),
                     decoration: BoxDecoration(
                       color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
+                        context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      '结果 ${state.results.length} · '
-                      '进度 ${state.searchedCount}/${state.totalCount}',
+                      context.l10n.searchProgressSummary(
+                        state.results.length,
+                        state.searchedCount,
+                        state.totalCount,
+                      ),
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../../l10n/app_localization.dart';
 import '../../screens/reader_config_panel.dart';
 import '../settings_widgets.dart';
 
@@ -228,10 +229,19 @@ class _ReaderPaddingConfigSheetState
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SegmentedButton<PaddingRegion>(
-              segments: const [
-                ButtonSegment(value: PaddingRegion.header, label: Text('页眉')),
-                ButtonSegment(value: PaddingRegion.body, label: Text('正文')),
-                ButtonSegment(value: PaddingRegion.footer, label: Text('页脚')),
+              segments: [
+                ButtonSegment(
+                  value: PaddingRegion.header,
+                  label: Text(context.l10n.readerHeader),
+                ),
+                ButtonSegment(
+                  value: PaddingRegion.body,
+                  label: Text(context.l10n.readerBody),
+                ),
+                ButtonSegment(
+                  value: PaddingRegion.footer,
+                  label: Text(context.l10n.readerFooter),
+                ),
               ],
               selected: {_region},
               onSelectionChanged: (selected) {
@@ -244,10 +254,10 @@ class _ReaderPaddingConfigSheetState
           ),
         ],
         const Divider(height: 16, indent: 16, endIndent: 16),
-        _paddingRow('上边距', _Side.top),
-        _paddingRow('下边距', _Side.bottom),
-        _paddingRow('左边距', _Side.left),
-        _paddingRow('右边距', _Side.right),
+        _paddingRow(context.l10n.readerPaddingTop, _Side.top),
+        _paddingRow(context.l10n.readerPaddingBottom, _Side.bottom),
+        _paddingRow(context.l10n.readerPaddingLeft, _Side.left),
+        _paddingRow(context.l10n.readerPaddingRight, _Side.right),
         const Divider(height: 16, indent: 16, endIndent: 16),
         SettingSwitchRow(
           title: '左右边距联动',

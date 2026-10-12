@@ -1,3 +1,4 @@
+import '../../l10n/app_localization.dart';
 import '../app_menu.dart';
 
 import 'dart:async';

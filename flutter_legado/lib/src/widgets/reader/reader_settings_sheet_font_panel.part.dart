@@ -39,7 +39,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
 
   /// 当前正文字体显示名（与 FontScreen 持久化键 reader_font_family 同步，
   /// 读取方式对标 reader_config_panel._loadFontLabel）
-  String _fontLabel = '默认字体';
+  String? _fontLabel;
 
   /// 当前标题字体显示名（与 FontScreen titleFont 键同步；
   /// 空=「跟随正文」，[C3 标题字体]）
@@ -182,7 +182,11 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _sectionTitle('正文字体', Icons.font_download_outlined),
-                _row(title: '字体', value: _fontLabel, onTap: _selectFont),
+                _row(
+                  title: context.l10n.readerFont,
+                  value: _fontLabel ?? context.l10n.readerDefaultFont,
+                  onTap: _selectFont,
+                ),
                 if (widget.fontSizeControl != null) widget.fontSizeControl!,
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -190,31 +194,37 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        '字重',
+                        context.l10n.readerFontWeight,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
                       SegmentedButton<int>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: 2,
                             label: Text(
-                              '细体',
-                              style: TextStyle(fontWeight: FontWeight.w300),
+                              context.l10n.readerWeightLight,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w300,
+                              ),
                             ),
                           ),
                           ButtonSegment(
                             value: 0,
                             label: Text(
-                              '常规',
-                              style: TextStyle(fontWeight: FontWeight.w400),
+                              context.l10n.readerWeightRegular,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w400,
+                              ),
                             ),
                           ),
                           ButtonSegment(
                             value: 1,
                             label: Text(
-                              '粗体',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                              context.l10n.readerWeightBold,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -229,7 +239,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                   ),
                 ),
                 SettingSwitchRow(
-                  title: '斜体',
+                  title: context.l10n.readerItalic,
                   value: _config.italic,
                   onChanged: (value) {
                     _config.italic = value;
@@ -265,7 +275,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                 ),
                 if (widget.lineHeightControl != null) widget.lineHeightControl!,
                 _ReaderSliderSetting(
-                  title: '段间距',
+                  title: context.l10n.readerParagraphSpacing,
                   displayValue:
                       '${_config.paragraphSpacing.toStringAsFixed(0)} dp',
                   value: _config.paragraphSpacing,
@@ -281,7 +291,12 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                 SettingMenuRow<int>(
                   title: '首行缩进',
                   value: _config.paragraphIndent,
-                  options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
+                  options: {
+                    0: context.l10n.readerIndentNone,
+                    1: context.l10n.readerIndentOne,
+                    2: context.l10n.readerIndentTwo,
+                    3: context.l10n.readerIndentThree,
+                  },
                   onChanged: (value) {
                     _config.paragraphIndent = value;
                     _commit();

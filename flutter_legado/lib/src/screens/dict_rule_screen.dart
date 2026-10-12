@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:convert';
 
@@ -295,11 +296,11 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
+            child: Text(ctx.l10n.delete),
           ),
         ],
       ),
@@ -399,8 +400,9 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     await showDialog<String>(
       context: context,
       builder: (ctx) => _ImportTextDialog(
-        title: '本地导入',
-        hint: '粘贴 JSON（对象数组或单对象，字段 name/urlRule/showRule，'
+        title: ctx.l10n.importLocal,
+        hint:
+            '粘贴 JSON（对象数组或单对象，字段 name/urlRule/showRule，'
             'enabled/sortNumber 可选）',
         onImport: (value) => text = value,
       ),
@@ -457,7 +459,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     await showDialog<String>(
       context: context,
       builder: (ctx) => _ImportTextDialog(
-        title: '在线导入',
+        title: ctx.l10n.ruleImportOnline,
         hint: 'https://example.com/dictRules.json',
         isUrl: true,
         onImport: (value) => text = value,
@@ -519,29 +521,38 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
               // 对标原版 FAB 新增（menu_add 同语义：DictRuleEditDialog 空表单）
               onPressed: _busy ? null : () => _showRuleEditor(),
               icon: const Icon(Symbols.add_rounded),
-              label: const Text('新增规则'),
+              label: Text(context.l10n.ruleNewRule),
             ),
     );
   }
 
   PreferredSizeWidget _buildNormalAppBar() {
     return LegadoAppBar(
-      title: const Text('字典规则管理'),
+      title: Text(context.l10n.dictionaryRuleManagement),
       actions: [
         // 对标 R.menu.dict_rule（menu_add/menu_import_local/menu_import_qr/
         // menu_import_onLine/menu_import_default/menu_help；
         // menu_import_qr 复用 QrcodeScreen 扫码链路，见 _importFromQr）
         AppMenuButton<String>(
-          tooltip: '更多操作',
+          tooltip: context.l10n.ruleMoreActions,
           icon: const Icon(Symbols.more_vert_rounded),
           onSelected: _onMenuSelected,
-          itemBuilder: (_) => const [
-            AppMenuItem(value: 'add', child: Text('新增规则')),
-            AppMenuItem(value: 'importLocal', child: Text('本地导入')),
+          itemBuilder: (_) => [
+            AppMenuItem(value: 'add', child: Text(context.l10n.ruleNewRule)),
+            AppMenuItem(
+              value: 'importLocal',
+              child: Text(context.l10n.importLocal),
+            ),
             AppMenuItem(value: 'importQr', child: Text('扫码导入')),
-            AppMenuItem(value: 'importOnline', child: Text('在线导入')),
-            AppMenuItem(value: 'importDefault', child: Text('导入默认')),
-            AppMenuItem(value: 'help', child: Text('帮助')),
+            AppMenuItem(
+              value: 'importOnline',
+              child: Text(context.l10n.ruleImportOnline),
+            ),
+            AppMenuItem(
+              value: 'importDefault',
+              child: Text(context.l10n.ruleImportDefault),
+            ),
+            AppMenuItem(value: 'help', child: Text(context.l10n.help)),
           ],
         ),
       ],
@@ -550,33 +561,34 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
 
   /// 多选模式顶栏（对标 SelectActionBar：计数 + 启用选中/禁用选中/删除）
   PreferredSizeWidget _buildSelectAppBar() {
-    final allSelected =
-        _rows.isNotEmpty && _selectedIds.length == _rows.length;
+    final allSelected = _rows.isNotEmpty && _selectedIds.length == _rows.length;
     return LegadoAppBar(
       title: Text('已选 ${_selectedIds.length} 项'),
       leading: IconButton(
         icon: const Icon(Symbols.close_rounded),
-        tooltip: '退出多选',
+        tooltip: context.l10n.ruleExitSelection,
         onPressed: _exitSelectMode,
       ),
       actions: [
         TextButton(
           onPressed: _selectToggleAll,
-          child: Text(allSelected ? '取消全选' : '全选'),
+          child: Text(
+            allSelected ? context.l10n.ruleDeselectAll : context.l10n.selectAll,
+          ),
         ),
         IconButton(
           icon: const Icon(Symbols.check_circle_outline_rounded),
-          tooltip: '启用选中',
+          tooltip: context.l10n.enableSelected,
           onPressed: _busy ? null : () => _batchSetEnabled(true),
         ),
         IconButton(
           icon: const Icon(Symbols.remove_circle_outline_rounded),
-          tooltip: '禁用选中',
+          tooltip: context.l10n.disableSelected,
           onPressed: _busy ? null : () => _batchSetEnabled(false),
         ),
         IconButton(
           icon: const Icon(Symbols.delete_rounded),
-          tooltip: '删除选中',
+          tooltip: context.l10n.ruleDeleteSelected,
           onPressed: _busy ? null : _batchDelete,
         ),
       ],
@@ -597,7 +609,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
         subtitle: '点击右下角按钮添加，或从右上角菜单导入',
         action: FilledButton(
           onPressed: _busy ? null : () => _showRuleEditor(),
-          child: const Text('新增规则'),
+          child: Text(context.l10n.ruleNewRule),
         ),
       );
     }
@@ -744,11 +756,12 @@ class _RuleEditDialogState extends State<_RuleEditDialog> {
                 autofocus: true,
                 // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme（不显式 border）
                 decoration: InputDecoration(
-                  labelText: '规则名称',
+                  labelText: context.l10n.ruleName,
                   errorText: _nameInvalid ? '规则名称不能为空' : null,
                 ),
-                onChanged: (_) =>
-                    setState(() => _nameInvalid = _nameCtrl.text.trim().isEmpty),
+                onChanged: (_) => setState(
+                  () => _nameInvalid = _nameCtrl.text.trim().isEmpty,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -775,7 +788,7 @@ class _RuleEditDialogState extends State<_RuleEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -790,7 +803,7 @@ class _RuleEditDialogState extends State<_RuleEditDialog> {
             Navigator.of(context).pop();
             widget.onSaved(name, urlRule, showRule);
           },
-          child: const Text('保存'),
+          child: Text(context.l10n.save),
         ),
       ],
     );
@@ -853,7 +866,7 @@ class _ImportTextDialogState extends State<_ImportTextDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -861,7 +874,7 @@ class _ImportTextDialogState extends State<_ImportTextDialog> {
             Navigator.of(context).pop(value);
             widget.onImport(value);
           },
-          child: const Text('导入'),
+          child: Text(context.l10n.importAction),
         ),
       ],
     );

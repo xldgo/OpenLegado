@@ -71,7 +71,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
           final go = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('同步阅读进度'),
+              title: Text(ctx.l10n.readerSyncProgress),
               content: Text(
                 '云端进度更新（第 ${progress.durChapterIndex + 1} 章'
                 '${progress.durChapterTitle != null && progress.durChapterTitle!.isNotEmpty ? '「${progress.durChapterTitle}」' : ''}）。'
@@ -80,7 +80,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('取消'),
+                  child: Text(ctx.l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
@@ -95,9 +95,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
                   book.bookUrl) {
             await ref
                 .read(readerNotifierProvider.notifier)
-                .applyBookProgress(
-                  chapterIndex: progress.durChapterIndex,
-                );
+                .applyBookProgress(chapterIndex: progress.durChapterIndex);
           }
         },
       );
@@ -158,7 +156,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
             children: [
               ListTile(
                 leading: const Icon(Icons.article_outlined),
-                title: const Text('单章换源'),
+                title: Text(context.l10n.readerChapterChangeSource),
                 subtitle: Text(
                   chapter?.title.isNotEmpty == true
                       ? chapter!.title
@@ -180,7 +178,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
               ),
               ListTile(
                 leading: const Icon(Icons.swap_horiz),
-                title: const Text('换书源'),
+                title: Text(context.l10n.readerChangeBookSource),
                 subtitle: const Text('切换整本书的书源'),
                 onTap: () {
                   Navigator.pop(sheetCtx);
@@ -269,7 +267,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: const Text('图片样式'),
+        title: Text(dialogContext.l10n.editorImageStyle),
         children: [
           RadioGroup<String?>(
             groupValue: current,
@@ -336,7 +334,9 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final route = DialogRoute<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(title.isEmpty ? '编辑内容' : '编辑：$title'),
+        title: Text(
+          title.isEmpty ? dialogContext.l10n.editSourceContent : '编辑：$title',
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: TextField(
@@ -349,11 +349,11 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(dialogContext.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('保存'),
+            child: Text(dialogContext.l10n.save),
           ),
         ],
       ),
@@ -441,7 +441,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('设置编码'),
+          title: Text(ctx.l10n.readerSetCharset),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -470,7 +470,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
+              child: Text(ctx.l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -482,7 +482,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
                 }
                 unawaited(_applyCharset(context, ref, charset));
               },
-              child: const Text('确定'),
+              child: Text(ctx.l10n.confirm),
             ),
           ],
         ),
@@ -553,9 +553,15 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if ((_sourceMenuSource?.loginUrl ?? '').trim().isNotEmpty)
       const AppMenuItem(value: 'login', child: Text('登录源')),
     if ((_sourceMenuSource?.ruleContent?.payAction ?? '').trim().isNotEmpty)
-      const AppMenuItem(value: 'chapterPay', child: Text('章节购买')),
-    const AppMenuItem(value: 'editSource', child: Text('编辑源')),
-    const AppMenuItem(value: 'disableSource', child: Text('禁用源')),
+      AppMenuItem(
+        value: 'chapterPay',
+        child: Text(context.l10n.readerPurchaseChapter),
+      ),
+    AppMenuItem(value: 'editSource', child: Text(context.l10n.editSource)),
+    AppMenuItem(
+      value: 'disableSource',
+      child: Text(context.l10n.readerDisableSource),
+    ),
   ];
 
   Future<void> _handleSourceAction(
@@ -620,16 +626,16 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('章节购买'),
+          title: Text(dialogContext.l10n.readerPurchaseChapter),
           content: Text('是否执行「${chapter.title}」的购买操作？'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
+              child: Text(dialogContext.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('确定'),
+              child: Text(dialogContext.l10n.confirm),
             ),
           ],
         ),
@@ -774,7 +780,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final choice = await showDialog<String>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: const Text('打开方式'),
+        title: Text(dialogContext.l10n.readerOpenFun),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogContext, 'inner'),
@@ -857,18 +863,39 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
   }
 
   List<AppMenuEntry<String>> _menuItems(Book? book, bool isOnline) => [
-    const AppMenuItem(value: 'addBookmark', child: Text('添加书签')),
-    const AppMenuItem(value: 'editContent', child: Text('编辑内容')),
-    const AppMenuItem(value: 'highlightRule', child: Text('高亮规则')),
-    const AppMenuItem(value: 'replace', child: Text('替换规则')),
+    AppMenuItem(
+      value: 'addBookmark',
+      child: Text(context.l10n.readerBookmarkAdd),
+    ),
+    AppMenuItem(
+      value: 'editContent',
+      child: Text(context.l10n.editSourceContent),
+    ),
+    AppMenuItem(
+      value: 'highlightRule',
+      child: Text(context.l10n.readerHighlightRuleConfig),
+    ),
+    AppMenuItem(
+      value: 'replace',
+      child: Text(context.l10n.readerReplaceRuleTitleSetting),
+    ),
     if (ref.watch(syncNotifierProvider).isConfigured) ...[
       const AppMenuDivider(),
-      const AppMenuItem(value: 'getProgress', child: Text('同步阅读进度')),
-      const AppMenuItem(value: 'coverProgress', child: Text('覆盖云端进度')),
+      AppMenuItem(
+        value: 'getProgress',
+        child: Text(context.l10n.readerSyncProgress),
+      ),
+      AppMenuItem(
+        value: 'coverProgress',
+        child: Text(context.l10n.readerCoverBookProgress),
+      ),
     ],
     const AppMenuDivider(),
     if (isOnline)
-      const AppMenuItem(value: 'reverseContent', child: Text('反转内容')),
+      AppMenuItem(
+        value: 'reverseContent',
+        child: Text(context.l10n.readerReverseContent),
+      ),
     AppMenuItem(
       value: 'enableReplace',
       checked: book?.readConfig?.useReplaceRule ?? true,
@@ -877,12 +904,12 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     AppMenuItem(
       value: 'sameTitleRemoved',
       checked: _sameTitleRemoved,
-      child: const Text('删除重复标题'),
+      child: Text(context.l10n.readerRemoveDuplicateTitle),
     ),
     AppMenuItem(
       value: 'reSegment',
       checked: book?.readConfig?.reSegment ?? false,
-      child: const Text('重新分段'),
+      child: Text(context.l10n.readerReSegment),
     ),
     if (_isEpub(book)) ...[
       AppMenuItem(
@@ -896,13 +923,17 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         child: const Text('删除 H 标签'),
       ),
     ],
-    const AppMenuItem(value: 'imageStyle', child: Text('图片样式')),
-    if (isOnline) const AppMenuItem(value: 'updateToc', child: Text('更新目录')),
+    AppMenuItem(
+      value: 'imageStyle',
+      child: Text(context.l10n.editorImageStyle),
+    ),
+    if (isOnline)
+      AppMenuItem(value: 'updateToc', child: Text(context.l10n.updateToc)),
     if (book != null && !isOnline && !_isEpub(book))
-      const AppMenuItem(value: 'charset', child: Text('设置编码')),
+      AppMenuItem(value: 'charset', child: Text(context.l10n.readerSetCharset)),
     const AppMenuItem(value: 'effectiveReplaces', child: Text('已启用替换规则')),
     const AppMenuDivider(),
-    const AppMenuItem(value: 'log', child: Text('日志')),
-    const AppMenuItem(value: 'help', child: Text('帮助')),
+    AppMenuItem(value: 'log', child: Text(context.l10n.logs)),
+    AppMenuItem(value: 'help', child: Text(context.l10n.help)),
   ];
 }

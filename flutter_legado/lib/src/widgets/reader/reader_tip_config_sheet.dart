@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../../l10n/app_localization.dart';
 import '../../screens/reader_config_panel.dart';
 import '../settings_widgets.dart';
 import 'reader_padding_config_sheet.dart';
@@ -67,22 +68,26 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
 class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
   late ReaderAdvancedConfig _config = widget.config.copy();
 
-  static const _tipOptions = [
-    ReadTipOption(0, '无'),
-    ReadTipOption(7, '书名'),
-    ReadTipOption(1, '章节名'),
-    ReadTipOption(2, '时间'),
-    ReadTipOption(3, '电量图标'),
-    ReadTipOption(10, '电量百分比'),
-    ReadTipOption(4, '页码'),
-    ReadTipOption(5, '阅读进度'),
+  List<ReadTipOption> get _tipOptions => [
+    ReadTipOption(0, context.l10n.readerTipNone),
+    ReadTipOption(7, context.l10n.readerTipBookName),
+    ReadTipOption(1, context.l10n.readerTipChapterName),
+    ReadTipOption(2, context.l10n.readerTipTime),
+    ReadTipOption(3, context.l10n.readerTipBatteryIcon),
+    ReadTipOption(10, context.l10n.readerTipBatteryPercent),
+    ReadTipOption(4, context.l10n.readerTipPages),
+    ReadTipOption(5, context.l10n.readerTipProgress),
     ReadTipOption(11, '章节进度'),
-    ReadTipOption(6, '页码+进度'),
-    ReadTipOption(8, '时间+电量'),
-    ReadTipOption(9, '时间+电量%'),
+    ReadTipOption(6, context.l10n.readerTipPagesProgress),
+    ReadTipOption(8, context.l10n.readerTipTimeBattery),
+    ReadTipOption(9, context.l10n.readerTipTimeBatteryPercent),
   ];
 
-  static const _modeOptions = {0: '状态栏显示时隐藏', 1: '显示', 2: '隐藏'};
+  Map<int, String> get _modeOptions => {
+    0: context.l10n.readerHideWithStatusBar,
+    1: context.l10n.readerShow,
+    2: context.l10n.readerHide,
+  };
 
   @override
   void didUpdateWidget(covariant ReaderTipConfigSheet oldWidget) {
@@ -138,12 +143,16 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
 
   Widget _titleGroup() => SettingsGroup(
     showDividers: false,
-    title: '章节标题',
+    title: context.l10n.readerChapterTitle,
     children: [
       SettingMenuRow<int>(
         title: '显示与对齐',
         value: _config.titleMode.clamp(0, 2),
-        options: const {0: '居左', 1: '居中', 2: '隐藏'},
+        options: {
+          0: context.l10n.readerAlignLeft,
+          1: context.l10n.readerAlignCenter,
+          2: context.l10n.readerHide,
+        },
         onChanged: (value) {
           _config.titleMode = value;
           _commit();
@@ -171,7 +180,9 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
 
   Widget _edgeGroup({required bool header}) {
     final mode = header ? _config.headerMode : _config.footerMode;
-    final label = header ? '页眉' : '页脚';
+    final label = header
+        ? context.l10n.readerHeader
+        : context.l10n.readerFooter;
     return SettingsGroup(
       showDividers: false,
       title: label,
@@ -236,7 +247,7 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
             },
           ),
           SettingSwitchRow(
-            title: '显示分隔线',
+            title: context.l10n.readerShowDivider,
             value: header ? _config.showHeaderLine : _config.showFooterLine,
             onChanged: (value) {
               if (header) {

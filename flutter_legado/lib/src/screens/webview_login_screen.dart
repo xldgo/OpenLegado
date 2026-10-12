@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -113,7 +114,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
               setState(() => _checking = false);
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
-                ..showSnackBar(const SnackBar(content: Text('登录检测完成')));
+                ..showSnackBar(
+                  SnackBar(content: Text(context.l10n.loginCheckCompleted)),
+                );
               Navigator.of(context).pop(true);
             }
           },
@@ -144,7 +147,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
               // 非 http(s) 跳转：提示后转外部打开（对齐原版 longSnackbar）
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('即将跳转到其他应用打开：${request.url}')),
+                  SnackBar(
+                    content: Text(context.l10n.openingExternalApp(request.url)),
+                  ),
                 );
               }
               launchUrl(
@@ -178,7 +183,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('页面加载失败：$reason')));
+      ..showSnackBar(
+        SnackBar(content: Text(context.l10n.loginPageLoadFailed(reason))),
+      );
   }
 
   /// 读取系统 Cookie 并落库 loginHeader（对齐原版 onPageStarted/Finished
@@ -223,7 +230,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     setState(() => _checking = true);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('正在检测 Cookie…')));
+      ..showSnackBar(
+        SnackBar(content: Text(context.l10n.checkingLoginCookies)),
+      );
     try {
       await _controller.reload();
     } catch (_) {
@@ -251,7 +260,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: Text(widget.title ?? '登录 ${widget.sourceName}'),
+        title: Text(
+          widget.title ?? context.l10n.loginToSource(widget.sourceName),
+        ),
         actions: [
           if (_checking)
             const Padding(
@@ -267,11 +278,11 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
           if (widget.showLoginActions)
             IconButton(
               icon: const Icon(Symbols.fact_check_rounded),
-              tooltip: '检测',
+              tooltip: context.l10n.checkLoginAction,
               onPressed: _checking ? null : _verify,
             ),
           AppMenuButton<String>(
-            tooltip: '更多选项',
+            tooltip: context.l10n.moreOptions,
             // [LAYOUT_PLAN P2] 菜单在顶栏下方展开，不覆盖顶栏
             onSelected: (value) {
               switch (value) {
@@ -281,10 +292,16 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
                   _openExternal();
               }
             },
-            itemBuilder: (_) => [
+            itemBuilder: (ctx) => [
               if (widget.showLoginActions)
-                const AppMenuItem(value: 'manual', child: Text('手动编辑 Cookie')),
-              const AppMenuItem(value: 'open_external', child: Text('在浏览器中打开')),
+                AppMenuItem(
+                  value: 'manual',
+                  child: Text(ctx.l10n.editLoginCookies),
+                ),
+              AppMenuItem(
+                value: 'open_external',
+                child: Text(ctx.l10n.openInBrowser),
+              ),
             ],
           ),
         ],

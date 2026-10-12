@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -79,21 +80,18 @@ It was a dark and stormy night.''';
               SliverPadding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final rule = state.rules[index];
-                      return _RuleTile(
-                        rule: rule,
-                        onToggle: (v) => ref
-                            .read(txtTocRulesNotifierProvider.notifier)
-                            .setEnabled(rule.id, v),
-                        onEdit: () => _showRuleForm(context, rule: rule),
-                        onDelete: () => _confirmDelete(rule),
-                        onTest: () => _showTestDialog(rule),
-                      );
-                    },
-                    childCount: state.rules.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final rule = state.rules[index];
+                    return _RuleTile(
+                      rule: rule,
+                      onToggle: (v) => ref
+                          .read(txtTocRulesNotifierProvider.notifier)
+                          .setEnabled(rule.id, v),
+                      onEdit: () => _showRuleForm(context, rule: rule),
+                      onDelete: () => _confirmDelete(rule),
+                      onTest: () => _showTestDialog(rule),
+                    );
+                  }, childCount: state.rules.length),
                 ),
               ),
           ],
@@ -103,7 +101,7 @@ It was a dark and stormy night.''';
       // （app_theme floatingActionButtonTheme = primaryContainer 底 / primary
       // 前景，随调色板切换），不硬编码黄色；替代原顶栏圆形 + 钮
       floatingActionButton: FloatingActionButton(
-        tooltip: '添加规则',
+        tooltip: context.l10n.ruleAddRule,
         onPressed: () => _showRuleForm(context),
         child: const Icon(Symbols.add_rounded),
       ),
@@ -112,15 +110,18 @@ It was a dark and stormy night.''';
 
   LegadoAppBar _buildAppBar() {
     return LegadoAppBar(
-      title: const Text('TXT 目录规则'),
+      title: Text(context.l10n.txtTocRules),
       actions: [
         AppMenuButton<String>(
-          tooltip: '更多操作',
+          tooltip: context.l10n.ruleMoreActions,
           icon: const Icon(Symbols.more_vert_rounded),
           onSelected: _onMoreMenuSelected,
-          itemBuilder: (_) => const [
-            AppMenuItem(value: 'importDefault', child: Text('导入默认')),
-            AppMenuItem(value: 'help', child: Text('帮助')),
+          itemBuilder: (_) => [
+            AppMenuItem(
+              value: 'importDefault',
+              child: Text(context.l10n.ruleImportDefault),
+            ),
+            AppMenuItem(value: 'help', child: Text(context.l10n.help)),
           ],
         ),
       ],
@@ -156,7 +157,7 @@ It was a dark and stormy night.''';
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           TextButton(
             style: TextButton.styleFrom(
@@ -164,7 +165,9 @@ It was a dark and stormy night.''';
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              ref.read(txtTocRulesNotifierProvider.notifier).deleteRule(rule.id);
+              ref
+                  .read(txtTocRulesNotifierProvider.notifier)
+                  .deleteRule(rule.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('规则已删除'),
@@ -172,7 +175,7 @@ It was a dark and stormy night.''';
                 ),
               );
             },
-            child: const Text('删除'),
+            child: Text(ctx.l10n.delete),
           ),
         ],
       ),
@@ -183,14 +186,15 @@ It was a dark and stormy night.''';
     final isEdit = rule != null;
     final nameCtrl = TextEditingController(text: rule?.name ?? '');
     final ruleCtrl = TextEditingController(text: rule?.rule ?? '');
-    final replacementCtrl =
-        TextEditingController(text: rule?.replacement ?? '');
+    final replacementCtrl = TextEditingController(
+      text: rule?.replacement ?? '',
+    );
     final exampleCtrl = TextEditingController(text: rule?.example ?? '');
 
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? '编辑规则' : '添加规则'),
+        title: Text(isEdit ? ctx.l10n.ruleEditRule : ctx.l10n.ruleAddRule),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -199,31 +203,25 @@ It was a dark and stormy night.''';
               // 字段分组间距 12dp
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: '规则名称',
-                ),
+                decoration: InputDecoration(labelText: ctx.l10n.ruleName),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: ruleCtrl,
-                decoration: const InputDecoration(
-                  labelText: '正则表达式',
+                decoration: InputDecoration(
+                  labelText: ctx.l10n.ruleRegexPattern,
                   hintText: r'^第\s*\d+\s*章',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: replacementCtrl,
-                decoration: const InputDecoration(
-                  labelText: '替换为（可选）',
-                ),
+                decoration: const InputDecoration(labelText: '替换为（可选）'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: exampleCtrl,
-                decoration: const InputDecoration(
-                  labelText: '示例文本（可选）',
-                ),
+                decoration: const InputDecoration(labelText: '示例文本（可选）'),
               ),
             ],
           ),
@@ -231,14 +229,13 @@ It was a dark and stormy night.''';
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
               if (ruleCtrl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('正则表达式不能为空')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('正则表达式不能为空')));
                 return;
               }
               final updated = TxtTocRule(
@@ -258,7 +255,7 @@ It was a dark and stormy night.''';
               }
               Navigator.pop(ctx);
             },
-            child: Text(isEdit ? '保存' : '添加'),
+            child: Text(isEdit ? ctx.l10n.save : ctx.l10n.ruleAdd),
           ),
         ],
       ),
@@ -289,9 +286,7 @@ It was a dark and stormy night.''';
                     controller: textCtrl,
                     maxLines: 6,
                     // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme（不显式 border）
-                    decoration: const InputDecoration(
-                      labelText: '待匹配文本',
-                    ),
+                    decoration: const InputDecoration(labelText: '待匹配文本'),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 12),
@@ -316,23 +311,20 @@ It was a dark and stormy night.''';
                             ),
                           )
                         : result.matches.isEmpty
-                            ? Text(
-                                '无匹配项',
-                                style: TextStyle(
-                                  color: Theme.of(ctx).colorScheme.outline,
-                                ),
-                              )
-                            : ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: result.matches.length,
-                                itemBuilder: (_, i) => Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 2),
-                                  child: Text(
-                                    '${i + 1}. ${result.matches[i]}',
-                                  ),
-                                ),
-                              ),
+                        ? Text(
+                            '无匹配项',
+                            style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.outline,
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: result.matches.length,
+                            itemBuilder: (_, i) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text('${i + 1}. ${result.matches[i]}'),
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -340,7 +332,7 @@ It was a dark and stormy night.''';
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('关闭'),
+                child: Text(ctx.l10n.close),
               ),
             ],
           );
@@ -446,14 +438,26 @@ class _RuleTile extends StatelessWidget {
                       children: [
                         // [台账 4-1 ③] 图标化动作：铅笔编辑 / 垃圾桶删除 /
                         // 测试保留为次级（图标+文字小钮）
-                        _iconAction(context, Symbols.edit_rounded, '编辑',
-                            onEdit),
+                        _iconAction(
+                          context,
+                          Symbols.edit_rounded,
+                          context.l10n.edit,
+                          onEdit,
+                        ),
                         const SizedBox(width: 6),
-                        _iconAction(context, Symbols.delete_outline_rounded,
-                            '删除', onDelete),
+                        _iconAction(
+                          context,
+                          Symbols.delete_outline_rounded,
+                          context.l10n.delete,
+                          onDelete,
+                        ),
                         const SizedBox(width: 6),
-                        _iconAction(context, Symbols.play_arrow_rounded,
-                            '测试', onTest),
+                        _iconAction(
+                          context,
+                          Symbols.play_arrow_rounded,
+                          context.l10n.testSource,
+                          onTest,
+                        ),
                       ],
                     ),
                   ],

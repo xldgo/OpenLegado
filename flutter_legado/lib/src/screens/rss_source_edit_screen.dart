@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -41,127 +42,206 @@ class RssSourceEditScreen extends ConsumerStatefulWidget {
 class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   // ===== 字段定义（对标原版 sourceEntities 4 Tab 分组） =====
 
-  static const _baseFields = [
-    SourceEditorFieldSpec('sourceName', '源名称', maxLines: 1),
+  static List<SourceEditorFieldSpec> _baseFields(AppLocalizations l10n) => [
+    SourceEditorFieldSpec('sourceName', l10n.editorSourceName, maxLines: 1),
     SourceEditorFieldSpec(
       'sourceUrl',
-      '源 URL',
+      l10n.editorSourceUrl,
       hint: 'https://example.com/feed',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('sourceIcon', '图标', hint: '图标 URL', maxLines: 1),
-    SourceEditorFieldSpec('sourceGroup', '源分组', hint: '多个分组用逗号分隔', maxLines: 1),
-    SourceEditorFieldSpec('sourceComment', '源注释'),
-    SourceEditorFieldSpec('searchUrl', '搜索 URL', maxLines: 1),
-    SourceEditorFieldSpec('sortUrl', '分类 URL', hint: '分类名::规则'),
-    SourceEditorFieldSpec('loginUrl', '登录 URL', maxLines: 1),
-    SourceEditorFieldSpec('loginUi', '登录界面', maxLines: 1),
-    SourceEditorFieldSpec('loginCheckJs', '登录检测 JS', maxLines: 1),
-    SourceEditorFieldSpec('coverDecodeJs', '封面解码 JS', maxLines: 1),
-    SourceEditorFieldSpec('header', '请求头', maxLines: 1),
+    SourceEditorFieldSpec(
+      'sourceIcon',
+      l10n.editorIcon,
+      hint: l10n.editorIconUrl,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'sourceGroup',
+      l10n.editorSourceGroup,
+      hint: l10n.editorGroupHint,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('sourceComment', l10n.editorSourceComment),
+    SourceEditorFieldSpec('searchUrl', l10n.editorSearchUrl, maxLines: 1),
+    SourceEditorFieldSpec(
+      'sortUrl',
+      l10n.editorSortUrl,
+      hint: l10n.editorSortHint,
+    ),
+    SourceEditorFieldSpec('loginUrl', l10n.editorLoginUrl, maxLines: 1),
+    SourceEditorFieldSpec('loginUi', l10n.editorLoginUi, maxLines: 1),
+    SourceEditorFieldSpec(
+      'loginCheckJs',
+      l10n.editorLoginDetectionJs,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'coverDecodeJs',
+      l10n.editorCoverDecodeJs,
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec('header', l10n.editorHeader, maxLines: 1),
     SourceEditorFieldSpec(
       'variableComment',
-      '源变量注释',
+      l10n.editorRssVariableComment,
       hint: 'variableComment',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('concurrentRate', '并发率', hint: '如：16/s', maxLines: 1),
+    SourceEditorFieldSpec(
+      'concurrentRate',
+      l10n.editorConcurrentRate,
+      hint: l10n.editorRateHint,
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec(
       'jsLib',
-      'JS 库',
-      hint: '源使用的 JavaScript 库',
+      l10n.editorJsLibrary,
+      hint: l10n.editorJsLibraryHint,
       maxLines: 1,
     ),
   ];
 
-  static const _preFields = [
+  static List<SourceEditorFieldSpec> _preFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'startHtml',
-      '初始 HTML',
+      l10n.editorStartHtml,
       hint: 'startHtml',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('startStyle', '初始样式', hint: 'startStyle'),
-    SourceEditorFieldSpec('startJs', '初始 JS', hint: 'startJs', maxLines: 1),
+    SourceEditorFieldSpec(
+      'startStyle',
+      l10n.editorStartStyle,
+      hint: 'startStyle',
+    ),
+    SourceEditorFieldSpec(
+      'startJs',
+      l10n.editorStartJs,
+      hint: 'startJs',
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec(
       'preloadJs',
-      '预加载 JS',
+      l10n.editorPreloadJs,
       hint: 'preloadJs',
       maxLines: 1,
     ),
   ];
 
-  static const _listFields = [
+  static List<SourceEditorFieldSpec> _listFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'ruleArticles',
-      '文章列表规则',
-      hint: 'ruleArticles，如 item 或 //item',
+      l10n.editorArticleList,
+      hint: l10n.editorArticlesHint,
       maxLines: 1,
     ),
     SourceEditorFieldSpec(
       'ruleNextPage',
-      '下一页规则',
+      l10n.editorNextPage,
       hint: 'ruleNextPage',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('ruleTitle', '标题规则', hint: 'ruleTitle', maxLines: 1),
+    SourceEditorFieldSpec(
+      'ruleTitle',
+      l10n.editorTitleRule,
+      hint: 'ruleTitle',
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec(
       'rulePubDate',
-      '日期规则',
+      l10n.editorDateRule,
       hint: 'rulePubDate',
       maxLines: 1,
     ),
     SourceEditorFieldSpec(
       'ruleDescription',
-      '描述规则',
+      l10n.editorDescriptionRule,
       hint: 'ruleDescription',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('ruleImage', '图片规则', hint: 'ruleImage', maxLines: 1),
-    SourceEditorFieldSpec('ruleLink', '链接规则', hint: 'ruleLink', maxLines: 1),
+    SourceEditorFieldSpec(
+      'ruleImage',
+      l10n.editorImageRule,
+      hint: 'ruleImage',
+      maxLines: 1,
+    ),
+    SourceEditorFieldSpec(
+      'ruleLink',
+      l10n.editorLinkRule,
+      hint: 'ruleLink',
+      maxLines: 1,
+    ),
   ];
 
-  static const _webFields = [
+  static List<SourceEditorFieldSpec> _webFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'ruleContent',
-      '内容规则',
+      l10n.editorContentRule,
       hint: 'ruleContent',
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('style', '样式', hint: '文章页面 CSS'),
-    SourceEditorFieldSpec('injectJs', '注入 JS', hint: 'injectJs', maxLines: 1),
+    SourceEditorFieldSpec('style', l10n.editorStyle, hint: l10n.editorCssHint),
+    SourceEditorFieldSpec(
+      'injectJs',
+      l10n.editorInjectJs,
+      hint: 'injectJs',
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec(
       'contentWhitelist',
-      '内容白名单',
+      l10n.editorContentWhitelist,
       hint: 'contentWhitelist',
       maxLines: 1,
     ),
     SourceEditorFieldSpec(
       'contentBlacklist',
-      '内容黑名单',
+      l10n.editorContentBlacklist,
       hint: 'contentBlacklist',
       maxLines: 1,
     ),
     SourceEditorFieldSpec(
       'shouldOverrideUrlLoading',
-      'URL 拦截',
+      l10n.editorOverrideUrl,
       hint: 'shouldOverrideUrlLoading',
       maxLines: 1,
     ),
   ];
 
-  static const _allFieldSpecs = [
-    ..._baseFields,
-    ..._preFields,
-    ..._listFields,
-    ..._webFields,
+  static List<SourceEditorFieldSpec> _allFieldSpecs(AppLocalizations l10n) => [
+    ..._baseFields(l10n),
+    ..._preFields(l10n),
+    ..._listFields(l10n),
+    ..._webFields(l10n),
   ];
 
   /// 源类型（对标原版 sp_type / @array/rss_type）
-  static const _typeLabels = ['网页', '图片', '视频'];
+  static List<String> _typeLabels(AppLocalizations l10n) => [
+    l10n.editorWeb,
+    l10n.editorImage,
+    l10n.editorVideo,
+  ];
 
   /// 文章样式（对标原版 ly_type / @array/layout_type）
-  static const _styleLabels = ['列表', '单列', '双列', '瀑布', '三列'];
+  static List<String> _styleLabels(AppLocalizations l10n) => [
+    l10n.editorList,
+    l10n.editorSingleColumn,
+    l10n.editorTwoColumns,
+    l10n.editorWaterfall,
+    l10n.editorThreeColumns,
+  ];
+
+  // 初始化与快照只使用字段键，不读取页面的语言上下文。
+  static final _allFieldKeys = _allFieldSpecs(
+    lookupAppLocalizations(const Locale('zh')),
+  ).map((field) => field.key).toList(growable: false);
+
+  static final _typeCount = _typeLabels(
+    lookupAppLocalizations(const Locale('zh')),
+  ).length;
+
+  static final _styleCount = _styleLabels(
+    lookupAppLocalizations(const Locale('zh')),
+  ).length;
 
   final Map<String, TextEditingController> _ctrls = {};
   final Map<String, FocusNode> _focusNodes = {};
@@ -184,8 +264,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
   bool _saving = false;
   bool _testing = false;
-  String? _testResult;
-  String? _testError;
+  String Function(AppLocalizations)? _testResult;
+  String Function(AppLocalizations)? _testError;
 
   bool get _isEdit => widget.source != null;
 
@@ -198,11 +278,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final s = widget.source;
     // 初始值直接取源 JSON（key 与字段定义一致）
     final initial = s?.toJson() ?? const <String, dynamic>{};
-    for (final spec in _allFieldSpecs) {
-      final v = initial[spec.key];
-      _ctrls[spec.key] = TextEditingController(
-        text: v == null ? '' : v.toString(),
-      );
+    for (final key in _allFieldKeys) {
+      final v = initial[key];
+      _ctrls[key] = TextEditingController(text: v == null ? '' : v.toString());
     }
     _enabled = s?.enabled ?? true;
     _singleUrl = s?.singleUrl ?? false;
@@ -213,8 +291,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     _showWebLog = s?.showWebLog ?? false;
     _cacheFirst = s?.cacheFirst ?? false;
     // 越界归零（对标原版 spType/lyType selection 校验）
-    _type = (s?.rssType ?? 0).clamp(0, _typeLabels.length - 1);
-    _articleStyle = (s?.articleStyle ?? 0).clamp(0, _styleLabels.length - 1);
+    _type = (s?.rssType ?? 0).clamp(0, _typeCount - 1);
+    _articleStyle = (s?.articleStyle ?? 0).clamp(0, _styleCount - 1);
     _initialSnapshot = _snapshot();
   }
 
@@ -238,13 +316,14 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   }
 
   Future<void> _fullscreenCodeEdit() async {
+    final l10n = context.l10n;
     final key = _focusedFieldKey;
     if (key == null || !_ctrls.containsKey(key)) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请先将光标放在要编辑的输入框')));
+          .showSnackBar(SnackBar(content: Text(l10n.focusSourceFieldFirst)));
       return;
     }
-    final label = _allFieldSpecs
+    final label = _allFieldSpecs(context.l10n)
         .where((s) => s.key == key)
         .map((s) => s.label)
         .firstOrNull;
@@ -266,7 +345,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
   String _snapshot() {
     return jsonEncode({
-      for (final spec in _allFieldSpecs) spec.key: _ctrls[spec.key]!.text,
+      for (final key in _allFieldKeys) key: _ctrls[key]!.text,
       'enabled': _enabled,
       'singleUrl': _singleUrl,
       'enabledCookieJar': _cookieJar,
@@ -340,16 +419,17 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   // ===== 保存 / 测试 =====
 
   Future<void> _save() async {
+    final l10n = context.l10n;
     final name = _ctrls['sourceName']!.text.trim();
     final url = _ctrls['sourceUrl']!.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请输入源名称')));
+          .showSnackBar(SnackBar(content: Text(l10n.enterSourceName)));
       return;
     }
     if (url.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请输入源 URL')));
+          .showSnackBar(SnackBar(content: Text(l10n.enterSourceUrl)));
       return;
     }
 
@@ -365,13 +445,17 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       if (!mounted) return;
       // 保存成功后更新快照，退出不再提示未保存
       _initialSnapshotMark = _snapshot();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(_isEdit ? '订阅源已更新' : '订阅源已添加')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEdit ? l10n.rssSourceUpdated : l10n.rssSourceAdded),
+        ),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失败：$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.sourceSaveFailed(e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -387,15 +471,16 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
   /// 退出拦截：未保存时确认放弃（对标原版 exit 提示）
   Future<void> _tryExit({Object? result}) async {
+    final l10n = context.l10n;
     if (!_dirty) {
       Navigator.of(context).pop(result);
       return;
     }
     final discard = await showConfirmDialog(
       context,
-      title: '未保存的修改',
-      content: '修改尚未保存，确定要放弃修改并退出吗？',
-      confirmText: '放弃',
+      title: l10n.unsavedChanges,
+      content: l10n.discardSourceChanges,
+      confirmText: l10n.discard,
       isDestructive: true,
     );
     if (discard && mounted) {
@@ -406,7 +491,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   Future<void> _test() async {
     final url = _ctrls['sourceUrl']!.text.trim();
     if (url.isEmpty) {
-      setState(() => _testError = '请先输入源 URL');
+      setState(() => _testError = (l10n) => l10n.testSourceUrlRequired);
       return;
     }
     setState(() {
@@ -417,17 +502,27 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     try {
       final api = ref.read(bookApiProvider);
       final articles = await api.getRssArticles(url);
+      if (!mounted) return;
       if (articles.isEmpty) {
-        setState(() => _testResult = '连接成功，但未获取到文章（可能需要配置规则）');
+        setState(() => _testResult = (l10n) => l10n.sourceTestNoArticles);
       } else {
         final titles = articles
             .take(5)
-            .map((e) => e.title.isEmpty ? '(无标题)' : e.title)
-            .join('\n');
-        setState(() => _testResult = '成功获取 ${articles.length} 篇文章：\n$titles');
+            .map((e) => e.title)
+            .toList(growable: false);
+        setState(
+          () => _testResult = (l10n) => l10n.sourceTestArticles(
+            articles.length,
+            titles
+                .map((title) => title.isEmpty ? l10n.untitledArticle : title)
+                .join('\n'),
+          ),
+        );
       }
     } catch (e) {
-      setState(() => _testError = '测试失败：$e');
+      if (!mounted) return;
+      final error = e.toString();
+      setState(() => _testError = (l10n) => l10n.sourceTestFailed(error));
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -436,6 +531,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
   // ===== 菜单操作 =====
 
   Future<void> _handleMenu(String action) async {
+    final l10n = context.l10n;
     switch (action) {
       case 'debug':
         final url = _ctrls['sourceUrl']!.text.trim();
@@ -449,7 +545,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         await Clipboard.setData(ClipboardData(text: json));
         if (mounted) {
           ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('已复制订阅源到剪贴板')));
+              .showSnackBar(SnackBar(content: Text(l10n.copiedRssSource)));
         }
       case 'paste':
         await _pasteSource();
@@ -460,7 +556,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         await SharePlus.instance.share(
           ShareParams(
             text: json,
-            subject: '订阅源分享：${_ctrls['sourceName']!.text.trim()}',
+            subject: l10n.rssSourceShareSubject(
+              _ctrls['sourceName']!.text.trim(),
+            ),
           ),
         );
       case 'help':
@@ -470,11 +568,12 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
   /// 清除 Cookie（对标原版 RssSourceEdit menu_clear_cookie）
   Future<void> _clearCookie() async {
+    final l10n = context.l10n;
     final url = _ctrls['sourceUrl']!.text.trim();
     if (url.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('请先填写源 URL')));
+            .showSnackBar(SnackBar(content: Text(l10n.enterSourceUrlFirst)));
       }
       return;
     }
@@ -482,23 +581,26 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       await ref.read(bookApiProvider).clearCookie(url);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cookie 已清除')));
+          .showSnackBar(SnackBar(content: Text(l10n.cookiesCleared)));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('清除 Cookie 失败：$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.clearCookiesFailed(e.toString()))),
+        );
       }
     }
   }
 
   /// 粘贴源（对标原版 menu_paste_source：剪贴板 JSON 回填字段）
   Future<void> _pasteSource() async {
+    final l10n = context.l10n;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
     final text = data?.text?.trim();
     if (text == null || text.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('剪贴板为空')));
+            .showSnackBar(SnackBar(content: Text(l10n.clipboardEmpty)));
       }
       return;
     }
@@ -509,9 +611,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           : decoded;
       if (map is! Map) throw const FormatException('不是订阅源 JSON');
       setState(() {
-        for (final spec in _allFieldSpecs) {
-          final v = map[spec.key];
-          _ctrls[spec.key]!.text = v == null ? '' : v.toString();
+        for (final key in _allFieldKeys) {
+          final v = map[key];
+          _ctrls[key]!.text = v == null ? '' : v.toString();
         }
         _enabled = map['enabled'] == true;
         _singleUrl = map['singleUrl'] == true;
@@ -522,20 +624,19 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         _showWebLog = map['showWebLog'] == true;
         _cacheFirst = map['cacheFirst'] == true;
         final type = map['type'];
-        _type = type is int ? type.clamp(0, _typeLabels.length - 1) : 0;
+        _type = type is int ? type.clamp(0, _typeCount - 1) : 0;
         final style = map['articleStyle'];
-        _articleStyle = style is int
-            ? style.clamp(0, _styleLabels.length - 1)
-            : 0;
+        _articleStyle = style is int ? style.clamp(0, _styleCount - 1) : 0;
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已从剪贴板粘贴订阅源')));
+            .showSnackBar(SnackBar(content: Text(l10n.pastedRssSource)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('粘贴失败，剪贴板不是有效的订阅源 JSON：$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pasteRssSourceFailed(e.toString()))),
+        );
       }
     }
   }
@@ -562,34 +663,36 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               icon: const Icon(Symbols.arrow_back_rounded),
               onPressed: _tryExit,
             ),
-            title: Text(_isEdit ? '编辑订阅源' : '新建订阅源'),
-            bottom: const TabBar(
+            title: Text(
+              _isEdit ? context.l10n.editRssSource : context.l10n.newRssSource,
+            ),
+            bottom: TabBar(
               // 全局 tabBarTheme 设了 TabAlignment.start，必须 isScrollable
               // 否则触发断言崩溃（对齐书源编辑页）
               isScrollable: true,
               tabs: [
-                Tab(text: '基本'),
-                Tab(text: '预处理'),
-                Tab(text: '列表规则'),
-                Tab(text: 'WEB_VIEW'),
+                Tab(text: context.l10n.editorBasic),
+                Tab(text: context.l10n.editorPreprocess),
+                Tab(text: context.l10n.editorListRules),
+                Tab(text: context.l10n.editorWeb),
               ],
             ),
             actions: [
               IconButton(
-                tooltip: '编辑内容',
+                tooltip: context.l10n.editSourceContent,
                 icon: const Icon(Symbols.code_rounded),
                 visualDensity: VisualDensity.compact,
                 onPressed: _fullscreenCodeEdit,
               ),
               IconButton(
-                tooltip: '保存',
+                tooltip: context.l10n.save,
                 icon: const Icon(Symbols.save_rounded),
                 visualDensity: VisualDensity.compact,
                 onPressed: _saving ? null : _save,
               ),
               // 测试（快速验证源 URL 可用性）
               IconButton(
-                tooltip: '测试',
+                tooltip: context.l10n.testSource,
                 visualDensity: VisualDensity.compact,
                 icon: _testing
                     ? const SizedBox(
@@ -602,18 +705,30 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               ),
               // 溢出菜单（对标原版 source_edit.xml 精简版）
               AppMenuButton<String>(
-                tooltip: '更多选项',
+                tooltip: context.l10n.moreOptions,
                 onSelected: _handleMenu,
                 itemBuilder: (_) => [
-                  const AppMenuItem(value: 'debug', child: Text('调试源')),
-                  const AppMenuItem(value: 'copy', child: Text('复制源')),
-                  const AppMenuItem(value: 'paste', child: Text('粘贴源')),
-                  const AppMenuItem(
-                    value: 'clear_cookie',
-                    child: Text('清除Cookie'),
+                  AppMenuItem(
+                    value: 'debug',
+                    child: Text(context.l10n.debugSource),
                   ),
-                  const AppMenuItem(value: 'share', child: Text('分享文本')),
-                  const AppMenuItem(value: 'help', child: Text('帮助')),
+                  AppMenuItem(
+                    value: 'copy',
+                    child: Text(context.l10n.copySource),
+                  ),
+                  AppMenuItem(
+                    value: 'paste',
+                    child: Text(context.l10n.pasteSource),
+                  ),
+                  AppMenuItem(
+                    value: 'clear_cookie',
+                    child: Text(context.l10n.clearCookies),
+                  ),
+                  AppMenuItem(
+                    value: 'share',
+                    child: Text(context.l10n.shareSourceText),
+                  ),
+                  AppMenuItem(value: 'help', child: Text(context.l10n.help)),
                 ],
               ),
             ],
@@ -625,9 +740,13 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _buildFieldList('basic', _baseFields, withTestResult: true),
-                    _buildFieldList('pre', _preFields),
-                    _buildFieldList('list', _listFields),
+                    _buildFieldList(
+                      'basic',
+                      _baseFields(context.l10n),
+                      withTestResult: true,
+                    ),
+                    _buildFieldList('pre', _preFields(context.l10n)),
+                    _buildFieldList('list', _listFields(context.l10n)),
                     _buildWebViewTab(),
                   ],
                 ),
@@ -647,8 +766,8 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       shape: const Border(),
       collapsedShape: const Border(),
-      title: const Text(
-        '选项',
+      title: Text(
+        context.l10n.editorOptions,
         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
       children: [
@@ -656,10 +775,22 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Wrap(
             children: [
-              _checkChip('启用', _enabled, (v) => _enabled = v),
-              _checkChip('单 URL', _singleUrl, (v) => _singleUrl = v),
+              _checkChip(
+                context.l10n.editorEnable,
+                _enabled,
+                (v) => _enabled = v,
+              ),
+              _checkChip(
+                context.l10n.editorSingleUrl,
+                _singleUrl,
+                (v) => _singleUrl = v,
+              ),
               _checkChip('Cookie', _cookieJar, (v) => _cookieJar = v),
-              _checkChip('预加载', _preload, (v) => _preload = v),
+              _checkChip(
+                context.l10n.editorPreload,
+                _preload,
+                (v) => _preload = v,
+              ),
             ],
           ),
         ),
@@ -672,21 +803,27 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               DropdownMenu<int>(
                 initialSelection: _type,
                 selectOnly: true,
-                label: const Text('类型'),
+                label: Text(context.l10n.editorType),
                 onSelected: (v) => setState(() => _type = v ?? 0),
                 dropdownMenuEntries: [
-                  for (var i = 0; i < _typeLabels.length; i++)
-                    DropdownMenuEntry(value: i, label: _typeLabels[i]),
+                  for (var i = 0; i < _typeCount; i++)
+                    DropdownMenuEntry(
+                      value: i,
+                      label: _typeLabels(context.l10n)[i],
+                    ),
                 ],
               ),
               DropdownMenu<int>(
                 initialSelection: _articleStyle,
                 selectOnly: true,
-                label: const Text('样式'),
+                label: Text(context.l10n.editorStyle),
                 onSelected: (v) => setState(() => _articleStyle = v ?? 0),
                 dropdownMenuEntries: [
-                  for (var i = 0; i < _styleLabels.length; i++)
-                    DropdownMenuEntry(value: i, label: _styleLabels[i]),
+                  for (var i = 0; i < _styleCount; i++)
+                    DropdownMenuEntry(
+                      value: i,
+                      label: _styleLabels(context.l10n)[i],
+                    ),
                 ],
               ),
             ],
@@ -733,7 +870,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _testError ?? _testResult!,
+              (_testError ?? _testResult)!(context.l10n),
               style: TextStyle(
                 fontSize: 13,
                 color: _testError != null
@@ -766,7 +903,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
-          title: const Text('启用 JS'),
+          title: Text(context.l10n.editorEnableJs),
           value: _enableJs,
           onChanged: (v) => setState(() => _enableJs = v ?? true),
         ),
@@ -774,7 +911,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
-          title: const Text('以 base URL 加载'),
+          title: Text(context.l10n.editorLoadBaseUrl),
           value: _loadWithBaseUrl,
           onChanged: (v) => setState(() => _loadWithBaseUrl = v ?? true),
         ),
@@ -782,7 +919,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
-          title: const Text('显示网页日志'),
+          title: Text(context.l10n.editorShowWebLog),
           value: _showWebLog,
           onChanged: (v) => setState(() => _showWebLog = v ?? false),
         ),
@@ -790,12 +927,12 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
-          title: const Text('缓存优先'),
+          title: Text(context.l10n.editorCacheFirst),
           value: _cacheFirst,
           onChanged: (v) => setState(() => _cacheFirst = v ?? false),
         ),
         const SizedBox(height: 8),
-        for (final spec in _webFields) _field(spec),
+        for (final spec in _webFields(context.l10n)) _field(spec),
         const SizedBox(height: 24),
       ],
     );

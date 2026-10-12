@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -112,175 +113,419 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
   );
 
   /// 书源类型（对标原版 sp_type / @array/source_type）
-  static const _typeLabels = ['文本', '音频', '图片', '文件', '视频'];
+  static List<String> _typeLabels(AppLocalizations l10n) => [
+    l10n.editorText,
+    l10n.editorAudio,
+    l10n.editorImage,
+    l10n.editorFile,
+    l10n.editorVideo,
+  ];
 
   // ─── 基本信息字段（对齐原版 BookSourceEditActivity sourceEntities 顺序/标签） ───
-  static const _basicFields = [
+  static List<SourceEditorFieldSpec> _basicFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'bookSourceUrl',
-      '源 URL（sourceUrl）',
+      l10n.editorFieldLabel(l10n.editorSourceUrl, 'sourceUrl'),
       required: true,
       maxLines: 1,
     ),
     SourceEditorFieldSpec(
       'bookSourceName',
-      '源名称（sourceName）',
+      l10n.editorFieldLabel(l10n.editorSourceName, 'sourceName'),
       required: true,
       maxLines: 1,
     ),
-    SourceEditorFieldSpec('bookSourceGroup', '源分组（sourceGroup）', maxLines: 1),
+    SourceEditorFieldSpec(
+      'bookSourceGroup',
+      l10n.editorFieldLabel(l10n.editorSourceGroup, 'sourceGroup'),
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec(
       'bookSourceComment',
-      '源注释（sourceComment）',
+      l10n.editorFieldLabel(l10n.editorSourceComment, 'sourceComment'),
       maxLines: 3,
     ),
-    SourceEditorFieldSpec('loginUrl', '登录 URL(loginUrl)', maxLines: 3),
-    SourceEditorFieldSpec('loginUi', '登录 UI（loginUi）', maxLines: 4),
-    SourceEditorFieldSpec('loginCheckJs', '登录检查 JS（loginCheckJs）', maxLines: 4),
-    SourceEditorFieldSpec('coverDecodeJs', '封面解密（coverDecodeJs）', maxLines: 4),
+    SourceEditorFieldSpec(
+      'loginUrl',
+      l10n.editorFieldLabel(l10n.editorLoginUrl, 'loginUrl'),
+      maxLines: 3,
+    ),
+    SourceEditorFieldSpec(
+      'loginUi',
+      l10n.editorFieldLabel(l10n.editorLoginUi, 'loginUi'),
+      maxLines: 4,
+    ),
+    SourceEditorFieldSpec(
+      'loginCheckJs',
+      l10n.editorFieldLabel(l10n.editorLoginCheckJs, 'loginCheckJs'),
+      maxLines: 4,
+    ),
+    SourceEditorFieldSpec(
+      'coverDecodeJs',
+      l10n.editorFieldLabel(l10n.editorCoverDecode, 'coverDecodeJs'),
+      maxLines: 4,
+    ),
     SourceEditorFieldSpec(
       'bookUrlPattern',
-      '书籍 URL 正则（bookUrlPattern）',
+      l10n.editorFieldLabel(l10n.editorBookUrlPattern, 'bookUrlPattern'),
       maxLines: 2,
     ),
     SourceEditorFieldSpec(
       'header',
-      '请求头（header）',
-      hint: 'JSON 格式',
+      l10n.editorFieldLabel(l10n.editorHeader, 'header'),
+      hint: l10n.editorJsonHint,
       maxLines: 3,
     ),
     SourceEditorFieldSpec(
       'variableComment',
-      '变量说明(variableComment)',
+      l10n.editorFieldLabel(l10n.editorVariableComment, 'variableComment'),
       maxLines: 2,
     ),
-    SourceEditorFieldSpec('concurrentRate', '并发率（concurrentRate）', maxLines: 1),
+    SourceEditorFieldSpec(
+      'concurrentRate',
+      l10n.editorFieldLabel(l10n.editorConcurrentRate, 'concurrentRate'),
+      maxLines: 1,
+    ),
     SourceEditorFieldSpec('jsLib', 'jsLib', maxLines: 8),
   ];
 
   // ─── 搜索规则字段（对齐原版 searchEntities 顺序/标签） ──────────
-  static const _searchFields = [
+  static List<SourceEditorFieldSpec> _searchFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'searchUrl',
-      '搜索地址（url）',
+      l10n.editorFieldLabel(l10n.editorSearchUrl, 'url'),
       maxLines: 1,
-      hint: '例如：https://example.com/search?q=searchKey',
+      hint: l10n.editorSearchUrlHint,
     ),
-    SourceEditorFieldSpec('s_checkKeyWord', '校验关键字（checkKeyWord）'),
-    SourceEditorFieldSpec('s_bookList', '书籍列表规则（bookList）'),
-    SourceEditorFieldSpec('s_name', '书名规则（name）'),
-    SourceEditorFieldSpec('s_author', '作者规则（author）'),
-    SourceEditorFieldSpec('s_kind', '分类规则（kind）'),
-    SourceEditorFieldSpec('s_wordCount', '字数规则（wordCount）'),
-    SourceEditorFieldSpec('s_lastChapter', '最新章节规则（lastChapter）'),
-    SourceEditorFieldSpec('s_intro', '简介规则（intro）'),
-    SourceEditorFieldSpec('s_coverUrl', '封面规则（coverUrl）'),
-    SourceEditorFieldSpec('s_bookUrl', '详情页 URL 规则（bookUrl）'),
+    SourceEditorFieldSpec(
+      's_checkKeyWord',
+      l10n.editorFieldLabel(l10n.editorCheckKeyword, 'checkKeyWord'),
+    ),
+    SourceEditorFieldSpec(
+      's_bookList',
+      l10n.editorFieldLabel(l10n.editorBookList, 'bookList'),
+    ),
+    SourceEditorFieldSpec(
+      's_name',
+      l10n.editorFieldLabel(l10n.editorBookName, 'name'),
+    ),
+    SourceEditorFieldSpec(
+      's_author',
+      l10n.editorFieldLabel(l10n.editorAuthor, 'author'),
+    ),
+    SourceEditorFieldSpec(
+      's_kind',
+      l10n.editorFieldLabel(l10n.editorKind, 'kind'),
+    ),
+    SourceEditorFieldSpec(
+      's_wordCount',
+      l10n.editorFieldLabel(l10n.editorWordCount, 'wordCount'),
+    ),
+    SourceEditorFieldSpec(
+      's_lastChapter',
+      l10n.editorFieldLabel(l10n.editorLastChapter, 'lastChapter'),
+    ),
+    SourceEditorFieldSpec(
+      's_intro',
+      l10n.editorFieldLabel(l10n.editorIntro, 'intro'),
+    ),
+    SourceEditorFieldSpec(
+      's_coverUrl',
+      l10n.editorFieldLabel(l10n.editorCoverUrl, 'coverUrl'),
+    ),
+    SourceEditorFieldSpec(
+      's_bookUrl',
+      l10n.editorFieldLabel(l10n.editorBookUrl, 'bookUrl'),
+    ),
   ];
 
   // ─── 发现规则字段（对齐原版 exploreEntities 顺序/标签） ──────────
-  static const _exploreFields = [
+  static List<SourceEditorFieldSpec> _exploreFields(AppLocalizations l10n) => [
     SourceEditorFieldSpec(
       'exploreUrl',
-      '发现地址规则（url）',
+      l10n.editorFieldLabel(l10n.editorExploreUrl, 'url'),
       maxLines: 3,
-      hint: '例如：分类名::https://example.com/sort\n或 url 形式',
+      hint: l10n.editorExploreUrlHint,
     ),
-    SourceEditorFieldSpec('e_bookList', '书籍列表规则（bookList）'),
-    SourceEditorFieldSpec('e_name', '书名规则（name）'),
-    SourceEditorFieldSpec('e_author', '作者规则（author）'),
-    SourceEditorFieldSpec('e_kind', '分类规则（kind）'),
-    SourceEditorFieldSpec('e_wordCount', '字数规则（wordCount）'),
-    SourceEditorFieldSpec('e_lastChapter', '最新章节规则（lastChapter）'),
-    SourceEditorFieldSpec('e_intro', '简介规则（intro）'),
-    SourceEditorFieldSpec('e_coverUrl', '封面规则（coverUrl）'),
-    SourceEditorFieldSpec('e_bookUrl', '详情页 URL 规则（bookUrl）'),
+    SourceEditorFieldSpec(
+      'e_bookList',
+      l10n.editorFieldLabel(l10n.editorBookList, 'bookList'),
+    ),
+    SourceEditorFieldSpec(
+      'e_name',
+      l10n.editorFieldLabel(l10n.editorBookName, 'name'),
+    ),
+    SourceEditorFieldSpec(
+      'e_author',
+      l10n.editorFieldLabel(l10n.editorAuthor, 'author'),
+    ),
+    SourceEditorFieldSpec(
+      'e_kind',
+      l10n.editorFieldLabel(l10n.editorKind, 'kind'),
+    ),
+    SourceEditorFieldSpec(
+      'e_wordCount',
+      l10n.editorFieldLabel(l10n.editorWordCount, 'wordCount'),
+    ),
+    SourceEditorFieldSpec(
+      'e_lastChapter',
+      l10n.editorFieldLabel(l10n.editorLastChapter, 'lastChapter'),
+    ),
+    SourceEditorFieldSpec(
+      'e_intro',
+      l10n.editorFieldLabel(l10n.editorIntro, 'intro'),
+    ),
+    SourceEditorFieldSpec(
+      'e_coverUrl',
+      l10n.editorFieldLabel(l10n.editorCoverUrl, 'coverUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'e_bookUrl',
+      l10n.editorFieldLabel(l10n.editorBookUrl, 'bookUrl'),
+    ),
   ];
 
   // ─── 详情规则字段（对齐原版 infoEntities 顺序/标签） ─────────────
-  static const _infoFields = [
-    SourceEditorFieldSpec('i_init', '预处理规则（bookInfoInit）'),
-    SourceEditorFieldSpec('i_name', '书名规则（name）'),
-    SourceEditorFieldSpec('i_author', '作者规则（author）'),
-    SourceEditorFieldSpec('i_kind', '分类规则（kind）'),
-    SourceEditorFieldSpec('i_wordCount', '字数规则（wordCount）'),
-    SourceEditorFieldSpec('i_lastChapter', '最新章节规则（lastChapter）'),
-    SourceEditorFieldSpec('i_intro', '简介规则（intro）'),
-    SourceEditorFieldSpec('i_coverUrl', '封面规则（coverUrl）'),
-    SourceEditorFieldSpec('i_tocUrl', '目录 URL 规则（tocUrl）'),
-    SourceEditorFieldSpec('i_canReName', '允许修改书名作者（canReName）'),
-    SourceEditorFieldSpec('i_downloadUrls', '下载URL规则(downloadUrls)'),
+  static List<SourceEditorFieldSpec> _infoFields(AppLocalizations l10n) => [
+    SourceEditorFieldSpec(
+      'i_init',
+      l10n.editorFieldLabel(l10n.editorInfoInit, 'bookInfoInit'),
+    ),
+    SourceEditorFieldSpec(
+      'i_name',
+      l10n.editorFieldLabel(l10n.editorBookName, 'name'),
+    ),
+    SourceEditorFieldSpec(
+      'i_author',
+      l10n.editorFieldLabel(l10n.editorAuthor, 'author'),
+    ),
+    SourceEditorFieldSpec(
+      'i_kind',
+      l10n.editorFieldLabel(l10n.editorKind, 'kind'),
+    ),
+    SourceEditorFieldSpec(
+      'i_wordCount',
+      l10n.editorFieldLabel(l10n.editorWordCount, 'wordCount'),
+    ),
+    SourceEditorFieldSpec(
+      'i_lastChapter',
+      l10n.editorFieldLabel(l10n.editorLastChapter, 'lastChapter'),
+    ),
+    SourceEditorFieldSpec(
+      'i_intro',
+      l10n.editorFieldLabel(l10n.editorIntro, 'intro'),
+    ),
+    SourceEditorFieldSpec(
+      'i_coverUrl',
+      l10n.editorFieldLabel(l10n.editorCoverUrl, 'coverUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'i_tocUrl',
+      l10n.editorFieldLabel(l10n.editorTocUrl, 'tocUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'i_canReName',
+      l10n.editorFieldLabel(l10n.editorCanRename, 'canReName'),
+    ),
+    SourceEditorFieldSpec(
+      'i_downloadUrls',
+      l10n.editorFieldLabel(l10n.editorDownloadUrls, 'downloadUrls'),
+    ),
   ];
 
   // ─── 目录规则字段（对齐原版 tocEntities 顺序/标签） ─────────────
-  static const _tocFields = [
-    SourceEditorFieldSpec('t_preUpdateJs', '更新之前 JS（preUpdateJs）'),
-    SourceEditorFieldSpec('t_chapterList', '目录列表规则（chapterList）'),
-    SourceEditorFieldSpec('t_chapterName', '章节名称规则（ChapterName）'),
-    SourceEditorFieldSpec('t_chapterUrl', '章节 URL 规则（chapterUrl）'),
-    SourceEditorFieldSpec('t_formatJs', '格式化规则(formatJs)'),
-    SourceEditorFieldSpec('t_isVolume', 'Volume 标识（isVolume）'),
-    SourceEditorFieldSpec('t_updateTime', '章节信息（ChapterInfo）'),
-    SourceEditorFieldSpec('t_isVip', 'VIP 标识（isVip）'),
-    SourceEditorFieldSpec('t_isPay', '购买标识（isPay）'),
-    SourceEditorFieldSpec('t_nextTocUrl', '目录下一页规则（nextTocUrl）'),
+  static List<SourceEditorFieldSpec> _tocFields(AppLocalizations l10n) => [
+    SourceEditorFieldSpec(
+      't_preUpdateJs',
+      l10n.editorFieldLabel(l10n.editorPreUpdateJs, 'preUpdateJs'),
+    ),
+    SourceEditorFieldSpec(
+      't_chapterList',
+      l10n.editorFieldLabel(l10n.editorChapterList, 'chapterList'),
+    ),
+    SourceEditorFieldSpec(
+      't_chapterName',
+      l10n.editorFieldLabel(l10n.editorChapterName, 'ChapterName'),
+    ),
+    SourceEditorFieldSpec(
+      't_chapterUrl',
+      l10n.editorFieldLabel(l10n.editorChapterUrl, 'chapterUrl'),
+    ),
+    SourceEditorFieldSpec(
+      't_formatJs',
+      l10n.editorFieldLabel(l10n.editorFormatJs, 'formatJs'),
+    ),
+    SourceEditorFieldSpec(
+      't_isVolume',
+      l10n.editorFieldLabel(l10n.editorIsVolume, 'isVolume'),
+    ),
+    SourceEditorFieldSpec(
+      't_updateTime',
+      l10n.editorFieldLabel(l10n.editorChapterInfo, 'ChapterInfo'),
+    ),
+    SourceEditorFieldSpec(
+      't_isVip',
+      l10n.editorFieldLabel(l10n.editorIsVip, 'isVip'),
+    ),
+    SourceEditorFieldSpec(
+      't_isPay',
+      l10n.editorFieldLabel(l10n.editorIsPay, 'isPay'),
+    ),
+    SourceEditorFieldSpec(
+      't_nextTocUrl',
+      l10n.editorFieldLabel(l10n.editorNextTocUrl, 'nextTocUrl'),
+    ),
   ];
 
   // ─── 正文规则字段（对齐原版 contentEntities 顺序/标签） ──────────
-  static const _contentFields = [
-    SourceEditorFieldSpec('c_content', '正文规则（content）', maxLines: 3),
-    SourceEditorFieldSpec('c_nextContentUrl', '正文下一页 URL 规则（nextContentUrl）'),
-    SourceEditorFieldSpec('c_subContent', '副文规则（subContent）'),
-    SourceEditorFieldSpec('c_replaceRegex', '替换规则（replaceRegex）', maxLines: 4),
-    SourceEditorFieldSpec('c_title', '标题（title）'),
-    SourceEditorFieldSpec('c_sourceRegex', '资源正则（sourceRegex）'),
-    SourceEditorFieldSpec('c_imageStyle', '图片样式（imageStyle）'),
-    SourceEditorFieldSpec('c_imageDecode', '图片解密（imageDecode）'),
-    SourceEditorFieldSpec('c_webJs', 'WebView JS（webJs）', maxLines: 4),
-    SourceEditorFieldSpec('c_payAction', '购买操作（payAction）'),
-    SourceEditorFieldSpec('c_callBackJs', '回调操作（callBackJs）'),
+  static List<SourceEditorFieldSpec> _contentFields(AppLocalizations l10n) => [
+    SourceEditorFieldSpec(
+      'c_content',
+      l10n.editorFieldLabel(l10n.editorContent, 'content'),
+      maxLines: 3,
+    ),
+    SourceEditorFieldSpec(
+      'c_nextContentUrl',
+      l10n.editorFieldLabel(l10n.editorNextContentUrl, 'nextContentUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'c_subContent',
+      l10n.editorFieldLabel(l10n.editorSubContent, 'subContent'),
+    ),
+    SourceEditorFieldSpec(
+      'c_replaceRegex',
+      l10n.editorFieldLabel(l10n.editorReplaceRegex, 'replaceRegex'),
+      maxLines: 4,
+    ),
+    SourceEditorFieldSpec(
+      'c_title',
+      l10n.editorFieldLabel(l10n.editorTitle, 'title'),
+    ),
+    SourceEditorFieldSpec(
+      'c_sourceRegex',
+      l10n.editorFieldLabel(l10n.editorSourceRegex, 'sourceRegex'),
+    ),
+    SourceEditorFieldSpec(
+      'c_imageStyle',
+      l10n.editorFieldLabel(l10n.editorImageStyle, 'imageStyle'),
+    ),
+    SourceEditorFieldSpec(
+      'c_imageDecode',
+      l10n.editorFieldLabel(l10n.editorImageDecode, 'imageDecode'),
+    ),
+    SourceEditorFieldSpec(
+      'c_webJs',
+      l10n.editorFieldLabel(l10n.editorWebJs, 'webJs'),
+      maxLines: 4,
+    ),
+    SourceEditorFieldSpec(
+      'c_payAction',
+      l10n.editorFieldLabel(l10n.editorPayAction, 'payAction'),
+    ),
+    SourceEditorFieldSpec(
+      'c_callBackJs',
+      l10n.editorFieldLabel(l10n.editorCallbackJs, 'callBackJs'),
+    ),
   ];
 
   // ─── 段评规则字段（对齐原版 reviewEntities 顺序/标签） ───────────
-  static const _reviewFields = [
-    SourceEditorFieldSpec('r_reviewSummaryUrl', '段评统计 URL（reviewSummaryUrl）'),
-    SourceEditorFieldSpec('r_summaryListRule', '段评统计列表（summaryListRule）'),
+  static List<SourceEditorFieldSpec> _reviewFields(AppLocalizations l10n) => [
+    SourceEditorFieldSpec(
+      'r_reviewSummaryUrl',
+      l10n.editorFieldLabel(l10n.editorReviewSummaryUrl, 'reviewSummaryUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'r_summaryListRule',
+      l10n.editorFieldLabel(l10n.editorSummaryList, 'summaryListRule'),
+    ),
     SourceEditorFieldSpec(
       'r_summaryParagraphIndexRule',
-      '段落索引（summaryParagraphIndexRule）',
+      l10n.editorFieldLabel(
+        l10n.editorParagraphIndex,
+        'summaryParagraphIndexRule',
+      ),
     ),
-    SourceEditorFieldSpec('r_summaryCountRule', '段评数量（summaryCountRule）'),
+    SourceEditorFieldSpec(
+      'r_summaryCountRule',
+      l10n.editorFieldLabel(l10n.editorSummaryCount, 'summaryCountRule'),
+    ),
     SourceEditorFieldSpec(
       'r_summaryParagraphDataRule',
-      '段落数据（summaryParagraphDataRule）',
+      l10n.editorFieldLabel(
+        l10n.editorParagraphData,
+        'summaryParagraphDataRule',
+      ),
     ),
-    SourceEditorFieldSpec('r_reviewDetailUrl', '段评详情 URL（reviewDetailUrl）'),
+    SourceEditorFieldSpec(
+      'r_reviewDetailUrl',
+      l10n.editorFieldLabel(l10n.editorReviewDetailUrl, 'reviewDetailUrl'),
+    ),
     SourceEditorFieldSpec(
       'r_reviewDetailNextPageUrl',
-      '段评下一页 URL（reviewDetailNextPageUrl）',
+      l10n.editorFieldLabel(
+        l10n.editorReviewNextPage,
+        'reviewDetailNextPageUrl',
+      ),
     ),
-    SourceEditorFieldSpec('r_detailListRule', '段评详情列表（detailListRule）'),
-    SourceEditorFieldSpec('r_detailIdRule', '段评 ID（detailIdRule）'),
-    SourceEditorFieldSpec('r_detailAvatarRule', '头像（detailAvatarRule）'),
-    SourceEditorFieldSpec('r_detailNameRule', '昵称（detailNameRule）'),
-    SourceEditorFieldSpec('r_detailBadgeRule', '徽章（detailBadgeRule）'),
+    SourceEditorFieldSpec(
+      'r_detailListRule',
+      l10n.editorFieldLabel(l10n.editorDetailList, 'detailListRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_detailIdRule',
+      l10n.editorFieldLabel(l10n.editorCommentId, 'detailIdRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_detailAvatarRule',
+      l10n.editorFieldLabel(l10n.editorAvatar, 'detailAvatarRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_detailNameRule',
+      l10n.editorFieldLabel(l10n.editorNickname, 'detailNameRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_detailBadgeRule',
+      l10n.editorFieldLabel(l10n.editorBadge, 'detailBadgeRule'),
+    ),
     SourceEditorFieldSpec(
       'r_detailContentRule',
-      '评论内容协议（detailContentRule）',
+      l10n.editorFieldLabel(l10n.editorCommentContent, 'detailContentRule'),
       maxLines: 3,
     ),
-    SourceEditorFieldSpec('r_reviewQuoteUrl', '段评回复URL（reviewQuoteUrl）'),
-    SourceEditorFieldSpec('r_replyListRule', '子评论列表（replyListRule）'),
-    SourceEditorFieldSpec('r_replyIdRule', '子评论 ID（replyIdRule）'),
-    SourceEditorFieldSpec('r_replyAvatarRule', '子评论头像（replyAvatarRule）'),
-    SourceEditorFieldSpec('r_replyNameRule', '子评论昵称（replyNameRule）'),
-    SourceEditorFieldSpec('r_replyBadgeRule', '子评论徽章（replyBadgeRule）'),
+    SourceEditorFieldSpec(
+      'r_reviewQuoteUrl',
+      l10n.editorFieldLabel(l10n.editorReviewQuoteUrl, 'reviewQuoteUrl'),
+    ),
+    SourceEditorFieldSpec(
+      'r_replyListRule',
+      l10n.editorFieldLabel(l10n.editorReplyList, 'replyListRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_replyIdRule',
+      l10n.editorFieldLabel(l10n.editorReplyId, 'replyIdRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_replyAvatarRule',
+      l10n.editorFieldLabel(l10n.editorReplyAvatar, 'replyAvatarRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_replyNameRule',
+      l10n.editorFieldLabel(l10n.editorReplyName, 'replyNameRule'),
+    ),
+    SourceEditorFieldSpec(
+      'r_replyBadgeRule',
+      l10n.editorFieldLabel(l10n.editorReplyBadge, 'replyBadgeRule'),
+    ),
     SourceEditorFieldSpec(
       'r_replyContentRule',
-      '子评论内容协议（replyContentRule）',
+      l10n.editorFieldLabel(l10n.editorReplyContent, 'replyContentRule'),
       maxLines: 3,
     ),
   ];
+
+  static final _typeCount = _typeLabels(
+    lookupAppLocalizations(const Locale('zh')),
+  ).length;
 
   @override
   void initState() {
@@ -318,7 +563,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
       topBar: LegadoAppBar(
         // 标题字号 20sp 与原版 ToolbarTitle 一致；防极端设备字号缩放截断
         title: Text(
-          isNew ? '新建书源' : '编辑书源',
+          isNew ? context.l10n.newBookSource : context.l10n.editBookSource,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -326,20 +571,20 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
           controller: _tabController,
           isScrollable: true,
           onTap: (_) => FocusScope.of(context).unfocus(),
-          tabs: const [
-            Tab(text: '基本'),
-            Tab(text: '搜索'),
-            Tab(text: '发现'),
-            Tab(text: '详情'),
-            Tab(text: '目录'),
-            Tab(text: '正文'),
+          tabs: [
+            Tab(text: context.l10n.editorBasic),
+            Tab(text: context.l10n.search),
+            Tab(text: context.l10n.discover),
+            Tab(text: context.l10n.editorDetails),
+            Tab(text: context.l10n.editorChapters),
+            Tab(text: context.l10n.editorBookContent),
           ],
         ),
         actions: [
           // 全屏代码编辑（对齐原版 menu_fullscreen_edit → 编辑内容，图标位）
           IconButton(
             icon: const Icon(Symbols.code_rounded),
-            tooltip: '编辑内容',
+            tooltip: context.l10n.editSourceContent,
             // 压缩触控区 48→40dp：给标题留出更多空间（字体放大时标题
             // 保持原版字号完整显示，避免截断/缩放）
             visualDensity: VisualDensity.compact,
@@ -348,19 +593,19 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
           // 保存（对齐原版 menu_save：仅图标，无文字）
           IconButton(
             icon: const Icon(Symbols.save_rounded),
-            tooltip: '保存',
+            tooltip: context.l10n.save,
             visualDensity: VisualDensity.compact,
             onPressed: _saving ? null : _save,
           ),
           // 调试源（对齐原版 menu_debug_source，图标位）
           IconButton(
             icon: const Icon(Symbols.bug_report_rounded),
-            tooltip: '调试源',
+            tooltip: context.l10n.debugSource,
             visualDensity: VisualDensity.compact,
             onPressed: _saving ? null : _debugSource,
           ),
           AppMenuButton<String>(
-            tooltip: '更多选项',
+            tooltip: context.l10n.moreOptions,
             itemBuilder: (_) => _buildMenuItems(),
             onSelected: _handleMenu,
           ),
@@ -373,15 +618,24 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
           children: [
             _buildEditTab('basic', [
               _buildSettingsSection(),
-              _buildFormSection(_basicFields),
+              _buildFormSection(_basicFields(context.l10n)),
             ]),
-            _buildEditTab('search', [_buildFormSection(_searchFields)]),
-            _buildEditTab('explore', [_buildFormSection(_exploreFields)]),
-            _buildEditTab('info', [_buildFormSection(_infoFields)]),
-            _buildEditTab('toc', [_buildFormSection(_tocFields)]),
+            _buildEditTab('search', [
+              _buildFormSection(_searchFields(context.l10n)),
+            ]),
+            _buildEditTab('explore', [
+              _buildFormSection(_exploreFields(context.l10n)),
+            ]),
+            _buildEditTab('info', [
+              _buildFormSection(_infoFields(context.l10n)),
+            ]),
+            _buildEditTab('toc', [_buildFormSection(_tocFields(context.l10n))]),
             _buildEditTab('content', [
-              _buildFormSection(_contentFields),
-              _buildFormSection(_reviewFields, title: '段评规则'),
+              _buildFormSection(_contentFields(context.l10n)),
+              _buildFormSection(
+                _reviewFields(context.l10n),
+                title: context.l10n.editorReviewRules,
+              ),
             ]),
           ],
         ),

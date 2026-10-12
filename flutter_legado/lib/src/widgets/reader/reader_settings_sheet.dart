@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/app_localization.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../routes.dart';
@@ -75,12 +76,12 @@ class ReaderSettingsSheet extends ConsumerStatefulWidget {
 
 class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
   /// 翻页动画标签（顺序对齐原版 page_anim 数组）
-  static const _flipLabels = {
-    PageTurnMode.cover: '覆盖',
-    PageTurnMode.slide: '滑动',
-    PageTurnMode.simulate: '仿真',
-    PageTurnMode.scroll: '滚动',
-    PageTurnMode.none: '无动画',
+  Map<PageTurnMode, String> get _flipLabels => {
+    PageTurnMode.cover: context.l10n.coverMode,
+    PageTurnMode.slide: context.l10n.readerSlide,
+    PageTurnMode.simulate: context.l10n.readerSimulation,
+    PageTurnMode.scroll: context.l10n.readerScroll,
+    PageTurnMode.none: context.l10n.noneMode,
   };
 
   /// 自定义配色对话框可选色板（自绘色块网格，不引入 pub 依赖）
@@ -134,7 +135,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     if (widget.fullPage) {
       return AppScaffold(
         topBar: LegadoAppBar(
-          title: Text(widget.category?.title ?? '阅读界面'),
+          title: Text(widget.category?.title ?? context.l10n.readingInterface),
           showBack: true,
         ),
         body: adv == null
@@ -253,7 +254,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           onChanged: _commitAdv,
           fontSizeControl: _buildFontSizeControl(state, notifier),
           lineHeightControl: _ReaderSliderSetting(
-            title: '行距',
+            title: context.l10n.lineHeight,
             displayValue: '${state.lineHeight.toStringAsFixed(2)} 倍',
             value: state.lineHeight,
             min: 1,
@@ -309,7 +310,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         showDividers: false,
         children: [
           SettingMenuRow<PageTurnMode>(
-            title: '翻页动画',
+            title: context.l10n.readerPageAnimation,
             icon: Icons.auto_stories_outlined,
             value: state.pageTurnMode,
             options: _flipLabels,
@@ -327,7 +328,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
 
   Widget _buildFontSizeControl(ReaderState state, ReaderNotifier notifier) =>
       SettingStepperRow(
-        title: '字号',
+        title: context.l10n.readerFontSize,
         value: state.fontSize,
         min: 12,
         max: 32,
@@ -355,7 +356,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '背景',
+                        context.l10n.readerBackground,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 2),
@@ -530,7 +531,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '文字颜色',
+                  dialogContext.l10n.readerTextColor,
                   style: Theme.of(dialogContext).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
@@ -560,7 +561,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '背景颜色',
+                  dialogContext.l10n.readerBackgroundColor,
                   style: Theme.of(dialogContext).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
@@ -587,7 +588,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('完成'),
+              child: Text(dialogContext.l10n.readerDone),
             ),
           ],
         ),
@@ -617,7 +618,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             width: selected ? 2 : 1,
           ),
         ),
-        child: Text('自动', style: Theme.of(context).textTheme.labelMedium),
+        child: Text(
+          context.l10n.readerAuto,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
       ),
     );
   }

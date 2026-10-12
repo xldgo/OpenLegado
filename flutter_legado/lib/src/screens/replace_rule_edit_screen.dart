@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -276,11 +277,11 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
   /// 焦点节点 → 目标编辑框（控制器 + 标题；未命中返回 null）
   _EditableTarget? _findEditable(FocusNode focused) {
     final nodes = [
-      (_nameFocus, _nameCtrl, '规则名称'),
-      (_patternFocus, _patternCtrl, '匹配规则'),
-      (_replacementFocus, _replacementCtrl, '替换为'),
-      (_scopeFocus, _scopeCtrl, '特定范围'),
-      (_excludeScopeFocus, _excludeScopeCtrl, '排除范围'),
+      (_nameFocus, _nameCtrl, context.l10n.ruleName),
+      (_patternFocus, _patternCtrl, context.l10n.ruleMatchPattern),
+      (_replacementFocus, _replacementCtrl, context.l10n.ruleReplaceTo),
+      (_scopeFocus, _scopeCtrl, context.l10n.ruleSpecificScope),
+      (_excludeScopeFocus, _excludeScopeCtrl, context.l10n.ruleExcludeScope),
       (_previewInputFocus, _previewInputCtrl, '预览输入'),
     ];
     for (final (node, controller, title) in nodes) {
@@ -431,7 +432,11 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: Text(_isEdit ? '编辑替换规则' : '添加替换规则'),
+        title: Text(
+          _isEdit
+              ? context.l10n.ruleEditReplaceRule
+              : context.l10n.ruleAddReplacement,
+        ),
         actions: [
           // 保存（醒目，点即存并返回；对标原版 menu_save showAsAction=always）
           FilledButton.tonal(
@@ -442,11 +447,11 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('保存'),
+                : Text(context.l10n.save),
           ),
           // ⋮ 菜单（对标原版 replace_edit menu：全屏编辑/复制规则/粘贴规则）
           AppMenuButton<String>(
-            tooltip: '更多',
+            tooltip: context.l10n.more,
             onSelected: (v) {
               switch (v) {
                 case 'fullscreen':
@@ -457,10 +462,19 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
                   _pasteRule();
               }
             },
-            itemBuilder: (_) => const [
-              AppMenuItem(value: 'fullscreen', child: Text('全屏编辑')),
-              AppMenuItem(value: 'copy', child: Text('复制规则')),
-              AppMenuItem(value: 'paste', child: Text('粘贴规则')),
+            itemBuilder: (_) => [
+              AppMenuItem(
+                value: 'fullscreen',
+                child: Text(context.l10n.ruleFullscreenEditor),
+              ),
+              AppMenuItem(
+                value: 'copy',
+                child: Text(context.l10n.ruleCopyRule),
+              ),
+              AppMenuItem(
+                value: 'paste',
+                child: Text(context.l10n.rulePasteRule),
+              ),
             ],
           ),
         ],
@@ -470,7 +484,11 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           // 1. 名称（对标 et_name）
-          _buildTextField(_nameCtrl, label: '规则名称', focusNode: _nameFocus),
+          _buildTextField(
+            _nameCtrl,
+            label: context.l10n.ruleName,
+            focusNode: _nameFocus,
+          ),
           const SizedBox(height: 16),
           // 2. 分组（对标 et_group；参考版形态：分组下拉 + 自定义输入）
           _buildGroupField(groups),
@@ -478,7 +496,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           // 3. 匹配规则（对标 et_replace_rule）
           _buildTextField(
             _patternCtrl,
-            label: '匹配规则',
+            label: context.l10n.ruleMatchPattern,
             hint: '正则表达式或文本',
             onChanged: (_) => _schedulePreview(),
             focusNode: _patternFocus,
@@ -487,7 +505,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           // 4. 替换为（对标 et_replace_to）
           _buildTextField(
             _replacementCtrl,
-            label: '替换为',
+            label: context.l10n.ruleReplaceTo,
             onChanged: (_) => _schedulePreview(),
             focusNode: _replacementFocus,
           ),
@@ -510,15 +528,15 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
                   _schedulePreview();
                 }),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                semanticLabel: '使用正则表达式',
+                semanticLabel: context.l10n.ruleUseRegex,
               ),
-              const Text('使用正则表达式'),
+              Text(context.l10n.ruleUseRegex),
               const Spacer(),
               // 帮助图标（对标 iv_help → showHelp("regexHelp")；
               // 复用仓库既有帮助弹层组件，内容为正则语法静态说明）
               IconButton(
                 icon: const Icon(Symbols.help_outline_rounded),
-                tooltip: '帮助',
+                tooltip: context.l10n.help,
                 onPressed: () => showHelp(context, HelpAssets.regexHelp),
               ),
             ],
@@ -527,7 +545,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           // 6. 特定范围（对标 et_scope）
           _buildTextField(
             _scopeCtrl,
-            label: '特定范围',
+            label: context.l10n.ruleSpecificScope,
             hint: '留空为全局，输入书名为特定书籍',
             focusNode: _scopeFocus,
           ),
@@ -535,7 +553,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           // 7. 排除范围（对标 et_exclude_scope）
           _buildTextField(
             _excludeScopeCtrl,
-            label: '排除范围',
+            label: context.l10n.ruleExcludeScope,
             hint: '输入书名，多个用逗号分隔',
             focusNode: _excludeScopeFocus,
           ),
@@ -582,9 +600,12 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           initialSelection: _groupChoice,
           selectOnly: true,
           expandedInsets: EdgeInsets.zero,
-          label: const Text('分组'),
+          label: Text(context.l10n.group),
           dropdownMenuEntries: [
-            const DropdownMenuEntry<String?>(value: null, label: '（无分组）'),
+            DropdownMenuEntry<String?>(
+              value: null,
+              label: context.l10n.ruleNoGroupOption,
+            ),
             for (final g in groups)
               DropdownMenuEntry<String?>(value: g, label: g),
             const DropdownMenuEntry<String?>(
@@ -603,9 +624,9 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _customGroupCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '输入分组名',
-              hintText: '多个分组用逗号分隔',
+              hintText: context.l10n.editorGroupHint,
             ),
           ),
         ],
@@ -631,17 +652,17 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
           runSpacing: 4,
           children: [
             _ScopeChip(
-              label: '标题',
+              label: context.l10n.editorTitle,
               selected: _scopeTitle,
               onSelected: (v) => setState(() => _scopeTitle = v),
             ),
             _ScopeChip(
-              label: '书源',
+              label: context.l10n.sources,
               selected: _scopeSource,
               onSelected: (v) => setState(() => _scopeSource = v),
             ),
             _ScopeChip(
-              label: '正文',
+              label: context.l10n.readerBody,
               selected: _scopeContent,
               onSelected: (v) => setState(() => _scopeContent = v),
             ),

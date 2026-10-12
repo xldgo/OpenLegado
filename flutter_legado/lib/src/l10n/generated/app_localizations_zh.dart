@@ -1496,4 +1496,1904 @@ class AppLocalizationsZh extends AppLocalizations {
   String confirmDeleteItemGroup(String name, String noun) {
     return '确定要删除分组「$name」吗？分组内$noun将移出该分组。';
   }
+
+  @override
+  String get searchScope => '搜索范围';
+
+  @override
+  String get stopSearch => '停止搜索';
+
+  @override
+  String get loadNextPage => '加载下一页';
+
+  @override
+  String get preciseSearch => '精准搜索';
+
+  @override
+  String get markReadBooks => '标识读过的书籍';
+
+  @override
+  String get appLog => '日志';
+
+  @override
+  String get searchResultFilter => '搜索结果过滤';
+
+  @override
+  String get searchResultFilterActive => '搜索结果过滤（已开启）';
+
+  @override
+  String get copySourceFailures => '复制全部失败详情';
+
+  @override
+  String get searchBookOrAuthor => '搜索书名、作者';
+
+  @override
+  String get noMatchingSearchHistory => '无匹配的历史关键词';
+
+  @override
+  String get clearSearchHistory => '清空搜索历史';
+
+  @override
+  String get confirmClearSearchHistory => '确定要清空所有搜索历史吗？';
+
+  @override
+  String get emptySearchResults => '搜索结果为空';
+
+  @override
+  String get disablePreciseSearch => '关闭精准搜索';
+
+  @override
+  String get switchAllSearchGroups => '切换全部分组';
+
+  @override
+  String get specifiedBookSources => '指定书源';
+
+  @override
+  String get currentBookSource => '当前书源';
+
+  @override
+  String get allBookSources => '全部书源';
+
+  @override
+  String get searchBookSources => '搜索书源';
+
+  @override
+  String get noMatchingBookSources => '无匹配书源';
+
+  @override
+  String get noGroupedBookSources => '无分组书源';
+
+  @override
+  String get searchBlockedWords => '搜索结果屏蔽词';
+
+  @override
+  String get searchBlockedWordsHelp => '每行一个普通文本，匹配书名、作者或分类标签，忽略英文字母大小写';
+
+  @override
+  String get searchBlockedWordsHint => '屏蔽词（每行一个）';
+
+  @override
+  String get searchContent => '搜索内容';
+
+  @override
+  String get searchOptions => '搜索选项';
+
+  @override
+  String get searchUseReplacement => '替换';
+
+  @override
+  String get searchUseRegex => '正则';
+
+  @override
+  String get searchCurrentChapter => '仅当前章';
+
+  @override
+  String get searchCachedChapters => '仅本书（已缓存）';
+
+  @override
+  String get searchNetworkChapters => '本书 + 网络';
+
+  @override
+  String get searchPlaceholder => '搜索...';
+
+  @override
+  String get searchResultsTruncated => '（已截断）';
+
+  @override
+  String get searchContentHint => '输入关键词开始搜索正文';
+
+  @override
+  String get searchThisBookOnly => '仅本书';
+
+  @override
+  String get displayListSeparator => '、';
+
+  @override
+  String searchProgressSummary(int count, int searched, int total) {
+    return '结果 $count · 进度 $searched/$total';
+  }
+
+  @override
+  String searchLoginRequiredCount(int count) {
+    return '$count 个书源需要登录，请先在书源菜单中登录后重试';
+  }
+
+  @override
+  String bookSourceSearchFailed(String error) {
+    return '书源搜索失败：$error';
+  }
+
+  @override
+  String bookSourceSearchFailureCount(int count) {
+    return '$count 个书源搜索失败，点击展开';
+  }
+
+  @override
+  String copiedSourceFailureCount(int count) {
+    return '已复制 $count 条书源失败详情';
+  }
+
+  @override
+  String searchGroupCount(int count) {
+    return '$count 分组';
+  }
+
+  @override
+  String searchSourceCount(int count) {
+    return '$count 书源';
+  }
+
+  @override
+  String latestChapterLabel(String chapter) {
+    return '最新：$chapter';
+  }
+
+  @override
+  String bookSourcesLoadFailed(String error) {
+    return '书源加载失败: $error';
+  }
+
+  @override
+  String deletedSearchKeyword(String keyword) {
+    return '已删除「$keyword」';
+  }
+
+  @override
+  String emptySearchDisablePrecision(String scope) {
+    return '$scope分组搜索结果为空，是否关闭精准搜索？';
+  }
+
+  @override
+  String emptySearchSwitchAllGroups(String scope) {
+    return '$scope分组搜索结果为空，是否切换到全部分组？';
+  }
+
+  @override
+  String scanningSearchChapters(int scanned, int total) {
+    return '扫描章节 $scanned / $total ...';
+  }
+
+  @override
+  String noContentMatches(String keyword) {
+    return '未找到「$keyword」相关内容';
+  }
+
+  @override
+  String contentMatchCount(int count) {
+    return '共 $count 处匹配';
+  }
+
+  @override
+  String get editorSourceUrl => '源 URL';
+
+  @override
+  String get editorSourceName => '源名称';
+
+  @override
+  String get editorSourceGroup => '源分组';
+
+  @override
+  String get editorSourceComment => '源注释';
+
+  @override
+  String get editorLoginUrl => '登录 URL';
+
+  @override
+  String get editorLoginUi => '登录界面';
+
+  @override
+  String get editorLoginCheckJs => '登录检查 JS';
+
+  @override
+  String get editorCoverDecode => '封面解密';
+
+  @override
+  String get editorBookUrlPattern => '书籍 URL 正则';
+
+  @override
+  String get editorHeader => '请求头';
+
+  @override
+  String get editorVariableComment => '变量说明';
+
+  @override
+  String get editorConcurrentRate => '并发率';
+
+  @override
+  String get editorSearchUrl => '搜索地址';
+
+  @override
+  String get editorCheckKeyword => '校验关键字';
+
+  @override
+  String get editorBookList => '书籍列表规则';
+
+  @override
+  String get editorBookName => '书名规则';
+
+  @override
+  String get editorAuthor => '作者规则';
+
+  @override
+  String get editorKind => '分类规则';
+
+  @override
+  String get editorWordCount => '字数规则';
+
+  @override
+  String get editorLastChapter => '最新章节规则';
+
+  @override
+  String get editorIntro => '简介规则';
+
+  @override
+  String get editorCoverUrl => '封面规则';
+
+  @override
+  String get editorBookUrl => '详情页 URL 规则';
+
+  @override
+  String get editorExploreUrl => '发现地址规则';
+
+  @override
+  String get editorInfoInit => '预处理规则';
+
+  @override
+  String get editorTocUrl => '目录 URL 规则';
+
+  @override
+  String get editorCanRename => '允许修改书名作者';
+
+  @override
+  String get editorDownloadUrls => '下载URL规则';
+
+  @override
+  String get editorPreUpdateJs => '更新之前 JS';
+
+  @override
+  String get editorChapterList => '目录列表规则';
+
+  @override
+  String get editorChapterName => '章节名称规则';
+
+  @override
+  String get editorChapterUrl => '章节 URL 规则';
+
+  @override
+  String get editorFormatJs => '格式化规则';
+
+  @override
+  String get editorIsVolume => 'Volume 标识';
+
+  @override
+  String get editorChapterInfo => '章节信息';
+
+  @override
+  String get editorIsVip => 'VIP 标识';
+
+  @override
+  String get editorIsPay => '购买标识';
+
+  @override
+  String get editorNextTocUrl => '目录下一页规则';
+
+  @override
+  String get editorContent => '正文规则';
+
+  @override
+  String get editorNextContentUrl => '正文下一页 URL 规则';
+
+  @override
+  String get editorSubContent => '副文规则';
+
+  @override
+  String get editorReplaceRegex => '替换规则';
+
+  @override
+  String get editorTitle => '标题';
+
+  @override
+  String get editorSourceRegex => '资源正则';
+
+  @override
+  String get editorImageStyle => '图片样式';
+
+  @override
+  String get editorImageDecode => '图片解密';
+
+  @override
+  String get editorWebJs => 'WebView JS';
+
+  @override
+  String get editorPayAction => '购买操作';
+
+  @override
+  String get editorCallbackJs => '回调操作';
+
+  @override
+  String get editorReviewSummaryUrl => '段评统计 URL';
+
+  @override
+  String get editorSummaryList => '段评统计列表';
+
+  @override
+  String get editorParagraphIndex => '段落索引';
+
+  @override
+  String get editorSummaryCount => '段评数量';
+
+  @override
+  String get editorParagraphData => '段落数据';
+
+  @override
+  String get editorReviewDetailUrl => '段评详情 URL';
+
+  @override
+  String get editorReviewNextPage => '段评下一页 URL';
+
+  @override
+  String get editorDetailList => '段评详情列表';
+
+  @override
+  String get editorCommentId => '段评 ID';
+
+  @override
+  String get editorAvatar => '头像';
+
+  @override
+  String get editorNickname => '昵称';
+
+  @override
+  String get editorBadge => '徽章';
+
+  @override
+  String get editorCommentContent => '评论内容协议';
+
+  @override
+  String get editorReviewQuoteUrl => '段评回复URL';
+
+  @override
+  String get editorReplyList => '子评论列表';
+
+  @override
+  String get editorReplyId => '子评论 ID';
+
+  @override
+  String get editorReplyAvatar => '子评论头像';
+
+  @override
+  String get editorReplyName => '子评论昵称';
+
+  @override
+  String get editorReplyBadge => '子评论徽章';
+
+  @override
+  String get editorReplyContent => '子评论内容协议';
+
+  @override
+  String get editorIcon => '图标';
+
+  @override
+  String get editorIconUrl => '图标 URL';
+
+  @override
+  String get editorSortUrl => '分类 URL';
+
+  @override
+  String get editorLoginDetectionJs => '登录检测 JS';
+
+  @override
+  String get editorCoverDecodeJs => '封面解码 JS';
+
+  @override
+  String get editorRssVariableComment => '源变量注释';
+
+  @override
+  String get editorJsLibrary => 'JS 库';
+
+  @override
+  String get editorStartHtml => '初始 HTML';
+
+  @override
+  String get editorStartStyle => '初始样式';
+
+  @override
+  String get editorStartJs => '初始 JS';
+
+  @override
+  String get editorPreloadJs => '预加载 JS';
+
+  @override
+  String get editorArticleList => '文章列表规则';
+
+  @override
+  String get editorNextPage => '下一页规则';
+
+  @override
+  String get editorTitleRule => '标题规则';
+
+  @override
+  String get editorDateRule => '日期规则';
+
+  @override
+  String get editorDescriptionRule => '描述规则';
+
+  @override
+  String get editorImageRule => '图片规则';
+
+  @override
+  String get editorLinkRule => '链接规则';
+
+  @override
+  String get editorContentRule => '内容规则';
+
+  @override
+  String get editorStyle => '样式';
+
+  @override
+  String get editorInjectJs => '注入 JS';
+
+  @override
+  String get editorContentWhitelist => '内容白名单';
+
+  @override
+  String get editorContentBlacklist => '内容黑名单';
+
+  @override
+  String get editorOverrideUrl => 'URL 拦截';
+
+  @override
+  String get editorType => '类型';
+
+  @override
+  String get editorText => '文本';
+
+  @override
+  String get editorAudio => '音频';
+
+  @override
+  String get editorImage => '图片';
+
+  @override
+  String get editorFile => '文件';
+
+  @override
+  String get editorVideo => '视频';
+
+  @override
+  String get editorWeb => '网页';
+
+  @override
+  String get editorList => '列表';
+
+  @override
+  String get editorSingleColumn => '单列';
+
+  @override
+  String get editorTwoColumns => '双列';
+
+  @override
+  String get editorWaterfall => '瀑布';
+
+  @override
+  String get editorThreeColumns => '三列';
+
+  @override
+  String get editorBasic => '基本';
+
+  @override
+  String get editorDetails => '详情';
+
+  @override
+  String get editorChapters => '目录';
+
+  @override
+  String get editorBookContent => '正文';
+
+  @override
+  String get editorPreprocess => '预处理';
+
+  @override
+  String get editorListRules => '列表规则';
+
+  @override
+  String get editorReviewRules => '段评规则';
+
+  @override
+  String get editorEnable => '启用';
+
+  @override
+  String get editorReviews => '段评';
+
+  @override
+  String get editorEventListener => '事件监听';
+
+  @override
+  String get editorCustomButton => '定制按钮';
+
+  @override
+  String get editorOptions => '选项';
+
+  @override
+  String get editorSingleUrl => '单 URL';
+
+  @override
+  String get editorPreload => '预加载';
+
+  @override
+  String get editorEnableJs => '启用 JS';
+
+  @override
+  String get editorLoadBaseUrl => '以 base URL 加载';
+
+  @override
+  String get editorShowWebLog => '显示网页日志';
+
+  @override
+  String get editorCacheFirst => '缓存优先';
+
+  @override
+  String editorFieldLabel(String label, String field) {
+    return '$label（$field）';
+  }
+
+  @override
+  String enterEditorField(String label) {
+    return '请输入$label';
+  }
+
+  @override
+  String editorSettingsSummary(String summary, String action) {
+    return '设置, $summary, $action';
+  }
+
+  @override
+  String get editorCollapse => '收起';
+
+  @override
+  String get editorExpand => '展开';
+
+  @override
+  String get editorJsonHint => 'JSON 格式';
+
+  @override
+  String get editorSearchUrlHint => '例如：https://example.com/search?q=searchKey';
+
+  @override
+  String get editorExploreUrlHint =>
+      '例如：分类名::https://example.com/sort\n或 url 形式';
+
+  @override
+  String get editorGroupHint => '多个分组用逗号分隔';
+
+  @override
+  String get editorSortHint => '分类名::规则';
+
+  @override
+  String get editorRateHint => '如：16/s';
+
+  @override
+  String get editorJsLibraryHint => '源使用的 JavaScript 库';
+
+  @override
+  String get editorArticlesHint => 'ruleArticles，如 item 或 //item';
+
+  @override
+  String get editorCssHint => '文章页面 CSS';
+
+  @override
+  String get newBookSource => '新建书源';
+
+  @override
+  String get editBookSource => '编辑书源';
+
+  @override
+  String get newRssSource => '新建订阅源';
+
+  @override
+  String get editRssSource => '编辑订阅源';
+
+  @override
+  String get editSourceContent => '编辑内容';
+
+  @override
+  String get debugSource => '调试源';
+
+  @override
+  String get moreOptions => '更多选项';
+
+  @override
+  String get testSource => '测试';
+
+  @override
+  String get bookSourceCreated => '书源已创建';
+
+  @override
+  String get bookSourceSaved => '书源已保存';
+
+  @override
+  String get rssSourceUpdated => '订阅源已更新';
+
+  @override
+  String get rssSourceAdded => '订阅源已添加';
+
+  @override
+  String sourceSaveFailed(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String get clearCookies => '清除Cookie';
+
+  @override
+  String get cookiesCleared => 'Cookie 已清除';
+
+  @override
+  String clearCookiesFailed(String error) {
+    return '清除 Cookie 失败：$error';
+  }
+
+  @override
+  String get autoComplete => '自动补全';
+
+  @override
+  String get autoCompleteEnabled => '自动补全已开启';
+
+  @override
+  String get autoCompleteDisabled => '自动补全已关闭';
+
+  @override
+  String get copySource => '拷贝源';
+
+  @override
+  String get pasteSource => '粘贴源';
+
+  @override
+  String get importSourceQr => '二维码导入';
+
+  @override
+  String get shareSourceQr => '二维码分享';
+
+  @override
+  String get shareSourceText => '字符串分享';
+
+  @override
+  String get shareBookSource => '分享书源';
+
+  @override
+  String get enterBookSourceUrlFirst => '请先填写书源 URL';
+
+  @override
+  String get enterSourceUrlFirst => '请先填写源 URL';
+
+  @override
+  String get sourceVariableCleared => '源变量已清除';
+
+  @override
+  String get sourceVariableInputHint => '输入源变量（空则清除）';
+
+  @override
+  String get qrTooLong => '内容过长，无法生成二维码，请使用字符串分享';
+
+  @override
+  String get qrGenerateFailed => '二维码生成失败';
+
+  @override
+  String get shareImage => '分享图片';
+
+  @override
+  String get clipboardEmpty => '剪贴板为空';
+
+  @override
+  String pastedBookSource(String name) {
+    return '已粘贴书源：$name';
+  }
+
+  @override
+  String get clipboardInvalidBookSource => '剪贴板内容不是有效的书源 JSON';
+
+  @override
+  String get bookSourceShareSubject => '书源分享';
+
+  @override
+  String importedBookSource(String name) {
+    return '已导入书源：$name';
+  }
+
+  @override
+  String get qrInvalidBookSource => '扫码内容不是有效的书源 JSON';
+
+  @override
+  String get sourceProtocolImportHint => 'legado 协议链接请使用「关联导入」页处理';
+
+  @override
+  String get sourceUrlImportHint => 'URL 内容请使用书源管理页的网络导入处理';
+
+  @override
+  String sourceSearchOpenFailed(String error) {
+    return '打开搜索失败：$error';
+  }
+
+  @override
+  String sourceDebugFailed(String error) {
+    return '调试失败：$error';
+  }
+
+  @override
+  String get focusSourceFieldFirst => '请先将光标放在要编辑的输入框';
+
+  @override
+  String get bookSourceNotFound => '未找到书源，可能已被删除';
+
+  @override
+  String get enterSourceName => '请输入源名称';
+
+  @override
+  String get enterSourceUrl => '请输入源 URL';
+
+  @override
+  String get unsavedChanges => '未保存的修改';
+
+  @override
+  String get discardSourceChanges => '修改尚未保存，确定要放弃修改并退出吗？';
+
+  @override
+  String get discard => '放弃';
+
+  @override
+  String get testSourceUrlRequired => '请先输入源 URL';
+
+  @override
+  String get sourceTestNoArticles => '连接成功，但未获取到文章（可能需要配置规则）';
+
+  @override
+  String get untitledArticle => '(无标题)';
+
+  @override
+  String sourceTestArticles(int count, String titles) {
+    return '成功获取 $count 篇文章：\n$titles';
+  }
+
+  @override
+  String sourceTestFailed(String error) {
+    return '测试失败：$error';
+  }
+
+  @override
+  String get copiedRssSource => '已复制订阅源到剪贴板';
+
+  @override
+  String rssSourceShareSubject(String name) {
+    return '订阅源分享：$name';
+  }
+
+  @override
+  String get pastedRssSource => '已从剪贴板粘贴订阅源';
+
+  @override
+  String pasteRssSourceFailed(String error) {
+    return '粘贴失败，剪贴板不是有效的订阅源 JSON：$error';
+  }
+
+  @override
+  String get bookSourceDebugTitle => '书源调试';
+
+  @override
+  String get rssSourceDebugTitle => 'RSS 源调试';
+
+  @override
+  String get clearDebugLogs => '清空日志';
+
+  @override
+  String get debugBookSourceUrlLabel => '书源 URL';
+
+  @override
+  String get debugBookSourceUrlHint => '输入要调试的书源地址';
+
+  @override
+  String get debugKeywordLabel => '搜索关键词';
+
+  @override
+  String get debugKeywordHint => '关键词 / URL / ++目录 / --正文';
+
+  @override
+  String get debugAction => '调试';
+
+  @override
+  String get stopAction => '停止';
+
+  @override
+  String get debugRunning => '运行中';
+
+  @override
+  String get deselectAll => '全不选';
+
+  @override
+  String get debugLogSuccess => '成功';
+
+  @override
+  String debugLogCount(int visible, int total) {
+    return '$visible / $total 条';
+  }
+
+  @override
+  String get debugBookSourceEmptyHint => '输入书源 URL 和关键词后点击“调试”开始';
+
+  @override
+  String get debugNoMatchingLogs => '没有匹配的日志条目';
+
+  @override
+  String get debugRssEmptyHint => '点击“调试”开始执行';
+
+  @override
+  String get debugBookSourceUrlRequired => '错误：请输入书源 URL';
+
+  @override
+  String get debugKeywordRequired => '错误：请输入搜索关键词';
+
+  @override
+  String get debugStarting => '⇒开始调试';
+
+  @override
+  String debugException(String error) {
+    return '异常: $error';
+  }
+
+  @override
+  String get debugRssUrlRequired => '错误：请先输入 RSS 源地址';
+
+  @override
+  String get debugRssStarting => '=== 开始调试 RSS 源 ===';
+
+  @override
+  String debugSourceAddress(String url) {
+    return '源地址: $url';
+  }
+
+  @override
+  String get debugRssQuery => '[1/2] 正在查询已注册的 RSS 源...';
+
+  @override
+  String get debugRssUnregistered => '未在书架注册该 RSS 源，将直接按 URL 抓取';
+
+  @override
+  String debugSourceName(String name) {
+    return '源名称: $name';
+  }
+
+  @override
+  String get debugRssFetch => '[2/2] 正在抓取文章列表...';
+
+  @override
+  String get debugRssNoArticles => '未获取到文章（可能需要配置规则或源不可达）';
+
+  @override
+  String debugRssArticlesFound(int count) {
+    return '抓取完成，共 $count 篇文章';
+  }
+
+  @override
+  String debugArticleLink(String url) {
+    return '      链接: $url';
+  }
+
+  @override
+  String debugRssArticlesOmitted(int count) {
+    return '  ...（其余 $count 篇省略）';
+  }
+
+  @override
+  String get debugFinished => '=== 调试完成 ===';
+
+  @override
+  String loginToSource(String source) {
+    return '登录 $source';
+  }
+
+  @override
+  String get manualLoginInput => '手动输入';
+
+  @override
+  String get loginLink => '登录链接';
+
+  @override
+  String get sourceLoginLinkMissing => '该书源未配置登录链接';
+
+  @override
+  String get sourceLoginLinkInvalid => '登录链接无效';
+
+  @override
+  String get sourceLoginLinkOpenFailed => '无法打开登录链接';
+
+  @override
+  String get cookieNameRequired => 'Cookie 名称不能为空';
+
+  @override
+  String get headerNameRequired => 'Header 名称不能为空';
+
+  @override
+  String get loginInfoSaved => '登录信息已保存';
+
+  @override
+  String get loginSaveFailed => '保存失败，请重试';
+
+  @override
+  String get saveLoginInfo => '保存登录信息';
+
+  @override
+  String get optionalLoginToken => 'Token（可选）';
+
+  @override
+  String get loginTokenHint => 'Bearer Token / API Key';
+
+  @override
+  String get loginCookies => 'Cookies';
+
+  @override
+  String get loginCookieNameHint => '名称';
+
+  @override
+  String get loginCookieValueHint => '值';
+
+  @override
+  String get optionalLoginHeaders => 'Headers（可选）';
+
+  @override
+  String get loginHeaderNameHint => '请求头名称';
+
+  @override
+  String get loginHeaderValueHint => '请求头值';
+
+  @override
+  String get browserLoginInstructions => '在浏览器完成登录后，复制 Cookie 并切换到“手动输入”标签页粘贴。';
+
+  @override
+  String loginActionFailed(String error) {
+    return '动作执行失败：$error';
+  }
+
+  @override
+  String sourceLoginFailed(String error) {
+    return '登录出错：$error';
+  }
+
+  @override
+  String get loginHeader => '登录头';
+
+  @override
+  String get loginNoValue => '（无）';
+
+  @override
+  String get loginHeaderDeleted => '登录头已删除';
+
+  @override
+  String get loginInfoCleared => '登录信息已清除';
+
+  @override
+  String get viewLoginHeader => '查看登录头';
+
+  @override
+  String get deleteLoginHeader => '删除登录头';
+
+  @override
+  String get clearLoginInfo => '清除登录信息';
+
+  @override
+  String loginFormParseFailed(String error) {
+    return '登录表单解析失败：$error';
+  }
+
+  @override
+  String get sourceLoginFormMissing => '该书源未配置登录表单';
+
+  @override
+  String loginButtonCountdown(String label, int seconds) {
+    return '$label（$seconds秒）';
+  }
+
+  @override
+  String get loginCheckCompleted => '登录检测完成';
+
+  @override
+  String openingExternalApp(String url) {
+    return '即将跳转到其他应用打开：$url';
+  }
+
+  @override
+  String loginPageLoadFailed(String error) {
+    return '页面加载失败：$error';
+  }
+
+  @override
+  String get checkingLoginCookies => '正在检测 Cookie…';
+
+  @override
+  String get checkLoginAction => '检测';
+
+  @override
+  String get editLoginCookies => '手动编辑 Cookie';
+
+  @override
+  String get loginRequiredTitle => '需要登录';
+
+  @override
+  String get sourceLoginRetryHint => '书源需要登录，请先在书源菜单中登录后重试';
+
+  @override
+  String get loginFailed => '登录失败';
+
+  @override
+  String loginFormTitle(String source) {
+    return '登录 - $source';
+  }
+
+  @override
+  String get confirmLoginAction => '确认';
+
+  @override
+  String get readerSlide => '滑动';
+
+  @override
+  String get readerSimulation => '仿真';
+
+  @override
+  String get readerScroll => '滚动';
+
+  @override
+  String get readerPageAnimation => '翻页动画';
+
+  @override
+  String get readerFontSize => '字号';
+
+  @override
+  String get readerBackground => '背景';
+
+  @override
+  String get readerTextColor => '文字颜色';
+
+  @override
+  String get readerBackgroundColor => '背景颜色';
+
+  @override
+  String get readerDone => '完成';
+
+  @override
+  String get readerAuto => '自动';
+
+  @override
+  String get readerDefaultFont => '默认字体';
+
+  @override
+  String get readerFont => '字体';
+
+  @override
+  String get readerFontWeight => '字重';
+
+  @override
+  String get readerItalic => '斜体';
+
+  @override
+  String get readerWeightLight => '细体';
+
+  @override
+  String get readerWeightRegular => '常规';
+
+  @override
+  String get readerWeightBold => '粗体';
+
+  @override
+  String get readerIndentNone => '无缩进';
+
+  @override
+  String get readerIndentOne => '一字符';
+
+  @override
+  String get readerIndentTwo => '二字符';
+
+  @override
+  String get readerIndentThree => '三字符';
+
+  @override
+  String get readerParagraphSpacing => '段间距';
+
+  @override
+  String get readerHeader => '页眉';
+
+  @override
+  String get readerFooter => '页脚';
+
+  @override
+  String get readerBody => '正文';
+
+  @override
+  String get readerPaddingTop => '上边距';
+
+  @override
+  String get readerPaddingBottom => '下边距';
+
+  @override
+  String get readerPaddingLeft => '左边距';
+
+  @override
+  String get readerPaddingRight => '右边距';
+
+  @override
+  String get readerTipNone => '无';
+
+  @override
+  String get readerTipBookName => '书名';
+
+  @override
+  String get readerTipChapterName => '章节名';
+
+  @override
+  String get readerTipTime => '时间';
+
+  @override
+  String get readerTipBatteryIcon => '电量图标';
+
+  @override
+  String get readerTipBatteryPercent => '电量百分比';
+
+  @override
+  String get readerTipPages => '页码';
+
+  @override
+  String get readerTipProgress => '阅读进度';
+
+  @override
+  String get readerTipPagesProgress => '页码+进度';
+
+  @override
+  String get readerTipTimeBattery => '时间+电量';
+
+  @override
+  String get readerTipTimeBatteryPercent => '时间+电量%';
+
+  @override
+  String get readerHideWithStatusBar => '状态栏显示时隐藏';
+
+  @override
+  String get readerShow => '显示';
+
+  @override
+  String get readerHide => '隐藏';
+
+  @override
+  String get readerChapterTitle => '章节标题';
+
+  @override
+  String get readerAlignLeft => '居左';
+
+  @override
+  String get readerAlignCenter => '居中';
+
+  @override
+  String get readerShowDivider => '显示分隔线';
+
+  @override
+  String get readerAutoPageTurn => '自动翻页';
+
+  @override
+  String get readerNoAction => '无操作';
+
+  @override
+  String get readerPreviousPage => '上一页';
+
+  @override
+  String get readerNextPage => '下一页';
+
+  @override
+  String get readerMenu => '菜单';
+
+  @override
+  String get readerTapAreas => '点击区域';
+
+  @override
+  String get readerSelectText => '长按选择文本';
+
+  @override
+  String get readerMouseWheelPage => '鼠标滚轮翻页';
+
+  @override
+  String get readerVolumeKeyPage => '音量键翻页';
+
+  @override
+  String get readerVolumeKeyPageReading => '朗读时音量键翻页';
+
+  @override
+  String get readerPageTouchSlop => '滑动翻页阈值';
+
+  @override
+  String get readerPageTouchSlopDialog => '滑动翻页阈值（0 = 系统默认值）';
+
+  @override
+  String get readerScreenOrientation => '屏幕方向';
+
+  @override
+  String get readerPortrait => '竖屏';
+
+  @override
+  String get readerLandscape => '横屏';
+
+  @override
+  String get readerSensor => '自动(传感器)';
+
+  @override
+  String get readerPortraitReversed => '反向竖屏';
+
+  @override
+  String get readerLandscapeReversed => '反向横屏';
+
+  @override
+  String get readerKeepAwake => '保持亮屏';
+
+  @override
+  String get readerDefault => '默认';
+
+  @override
+  String get readerAwakeMinute => '1 分钟';
+
+  @override
+  String get readerAwakeFiveMinutes => '5 分钟';
+
+  @override
+  String get readerAwakeTenMinutes => '10 分钟';
+
+  @override
+  String get readerAwakeAlways => '常亮';
+
+  @override
+  String get readerHideStatusBar => '隐藏状态栏';
+
+  @override
+  String get readerHideNavigationBar => '隐藏导航栏';
+
+  @override
+  String get readerExtendCutout => '扩展到刘海';
+
+  @override
+  String get readerFillCutout => '填充刘海区域';
+
+  @override
+  String get readerDualPageMode => '平板/横屏双页';
+
+  @override
+  String get readerSinglePage => '全局单页';
+
+  @override
+  String get readerDoublePage => '全局双页';
+
+  @override
+  String get readerLandscapeDoublePage => '横屏双页';
+
+  @override
+  String get readerChineseConversion => '简繁转换';
+
+  @override
+  String get readerNoConversion => '不转换';
+
+  @override
+  String get readerToSimplified => '繁→简';
+
+  @override
+  String get readerToTraditional => '简→繁';
+
+  @override
+  String get readerAutoChangeSource => '自动换源';
+
+  @override
+  String get readerProgressBarBehavior => '进度条行为';
+
+  @override
+  String get readerAdjustChapterPage => '调章内页';
+
+  @override
+  String get readerAdjustChapterIndex => '调章节';
+
+  @override
+  String get readerToolbarFollowPage => '工具栏跟随页面';
+
+  @override
+  String get readerBrightnessOff => '关闭';
+
+  @override
+  String get readerBrightnessHorizontal => '横向';
+
+  @override
+  String get advancedMainScreen => '主界面';
+
+  @override
+  String get advancedAutoRefresh => '自动刷新';
+
+  @override
+  String get advancedAutoRefreshDescription => '打开软件时自动更新书籍';
+
+  @override
+  String get advancedRecentReading => '自动跳转最近阅读';
+
+  @override
+  String get advancedRecentReadingDescription => '默认打开书架';
+
+  @override
+  String get advancedShowDiscovery => '显示发现';
+
+  @override
+  String get advancedShowRss => '显示订阅';
+
+  @override
+  String get advancedDefaultHomePage => '默认主页';
+
+  @override
+  String get advancedDefaultHomePageDialog => '默认首页';
+
+  @override
+  String get advancedLocalPassword => '设置本地密码';
+
+  @override
+  String get advancedLocalPasswordDescription =>
+      '本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.';
+
+  @override
+  String get advancedUserAgent => '用户代理';
+
+  @override
+  String get advancedBookSaveLocation => '书籍保存位置';
+
+  @override
+  String get advancedBookSaveLocationDescription => '从其它应用打开的书籍保存位置';
+
+  @override
+  String get advancedSourceEditorMaxLines => '源编辑框最大行数';
+
+  @override
+  String get advancedCheckSourceSettings => '校验设置';
+
+  @override
+  String get advancedAntiAlias => '抗锯齿';
+
+  @override
+  String get advancedAntiAliasDescription => '绘制图片时抗锯齿';
+
+  @override
+  String get advancedBitmapCache => '图片绘制缓存';
+
+  @override
+  String get advancedMangaRetention => '漫画保留数量';
+
+  @override
+  String get advancedPreDownload => '预下载';
+
+  @override
+  String get advancedReplaceByDefault => '默认启用替换净化';
+
+  @override
+  String get advancedReplaceByDefaultDescription => '新加入书架的书是否启用替换净化';
+
+  @override
+  String get advancedHeadsetAlways => '全程响应耳机按键';
+
+  @override
+  String get advancedHeadsetAlwaysDescription => '即使退出软件也响应耳机按键';
+
+  @override
+  String get advancedHeadsetReadAloud => '耳机按键启动朗读';
+
+  @override
+  String get advancedHeadsetReadAloudDescription => '通过耳机按键来启动朗读';
+
+  @override
+  String get advancedIgnoreAudioFocus => '忽略音频焦点';
+
+  @override
+  String get advancedIgnoreAudioFocusDescription => '允许与其他应用同时播放音频';
+
+  @override
+  String get advancedClearExpiredSearch => '自动清除过期搜索数据';
+
+  @override
+  String get advancedClearExpiredSearchDescription => '超过一天的搜索数据';
+
+  @override
+  String get advancedAddToShelfPrompt => '返回时提示放入书架';
+
+  @override
+  String get advancedAddToShelfPromptDescription => '阅读未放入书架的书籍在返回时提示放入书架';
+
+  @override
+  String get advancedMangaViewer => '漫画浏览';
+
+  @override
+  String get advancedWebPort => 'Web 端口';
+
+  @override
+  String get advancedClearCache => '清理缓存';
+
+  @override
+  String get advancedClearCacheDescription => '清除已下载书籍和字体缓存';
+
+  @override
+  String get advancedClearWebView => '清除 WebView 数据';
+
+  @override
+  String get advancedClearWebViewDescription => '清除内置浏览器所有数据';
+
+  @override
+  String get advancedShrinkDatabase => '压缩数据库';
+
+  @override
+  String get advancedShrinkDatabaseDescription => '减小数据库文件的大小';
+
+  @override
+  String get advancedSearchTextActions => '文字操作显示搜索';
+
+  @override
+  String get advancedRecordLog => '记录日志';
+
+  @override
+  String get advancedRecordDebugLog => '记录调试日志';
+
+  @override
+  String get advancedHeapDump => '记录堆转储';
+
+  @override
+  String get advancedHeapDumpDescription => '当应用发生OOM崩溃时保存堆转储';
+
+  @override
+  String get themeTopBarButtonStyle => '顶栏按钮样式';
+
+  @override
+  String get themeTopBarOpacity => '顶栏不透明度';
+
+  @override
+  String get themeBottomBarOpacity => '底栏不透明度';
+
+  @override
+  String get themeBaseCardCornerRadius => '卡片圆角';
+
+  @override
+  String get themePureBlack => '纯黑深色模式';
+
+  @override
+  String get themeChangeIcon => '切换图标';
+
+  @override
+  String get themeChangeIconSummary => '切换软件显示在桌面的图标';
+
+  @override
+  String get themeManagement => '主题管理';
+
+  @override
+  String get themeManagementDescription => '使用、保存、导入或分享主题';
+
+  @override
+  String get themeImportTheme => '导入主题';
+
+  @override
+  String get themeWelcomeStyle => '启动界面样式';
+
+  @override
+  String get themeImmersionStatusBar => '沉浸式状态栏';
+
+  @override
+  String get themeStatusBarImmersion => '状态栏颜色透明';
+
+  @override
+  String get themeImmNavigationBar => '沉浸式导航栏';
+
+  @override
+  String get themeImmersiveNavigationDescription => '导航栏颜色透明';
+
+  @override
+  String get themeBarElevation => '导航栏阴影';
+
+  @override
+  String get themeCoverConfig => '封面设置';
+
+  @override
+  String get themeCoverConfigSummary => '通用封面规则及默认封面样式';
+
+  @override
+  String get themeMergeTopBarActions => '合并顶栏按钮';
+
+  @override
+  String get themeFloatingBottomBar => '悬浮底栏';
+
+  @override
+  String get themeBookInfoPage => '书籍详情页';
+
+  @override
+  String get themeBookInfoFollowCoverColor => '界面颜色跟随封面取色';
+
+  @override
+  String get themeBookInfoFollowCoverColorSummary => '仅在显示背景封面时生效';
+
+  @override
+  String get themeBookInfoNetworkCoverBackground => '网络封面背景设置';
+
+  @override
+  String get themeBookInfoDefaultCoverBackground => '默认封面背景设置';
+
+  @override
+  String get themeContainerSettings => '容器设置';
+
+  @override
+  String get themeBlurEffects => '模糊效果';
+
+  @override
+  String get themePrimary => '主色调';
+
+  @override
+  String get themeAccent => '强调色';
+
+  @override
+  String get themeNavbarColor => '底部操作栏颜色';
+
+  @override
+  String get themeBackgroundImage => '背景图片';
+
+  @override
+  String get themeRestoreDefault => '恢复默认';
+
+  @override
+  String get themeCoverRule => '封面规则';
+
+  @override
+  String get themeThemeName => '主题名称';
+
+  @override
+  String get themeSelectImage => '选择图片';
+
+  @override
+  String get sourceSort => '排序';
+
+  @override
+  String get sourceGroupSourcesByDomain => '按域名分组显示';
+
+  @override
+  String get sourceEnableSelection => '启用所选';
+
+  @override
+  String get sourceDisableSelection => '禁用所选';
+
+  @override
+  String get sourceEnableExplore => '启用发现';
+
+  @override
+  String get sourceDisableExplore => '禁用发现';
+
+  @override
+  String get sourceSelectionToTop => '置顶所选';
+
+  @override
+  String get sourceSelectionToBottom => '置底所选';
+
+  @override
+  String get sourceExportSelection => '导出所选';
+
+  @override
+  String get sourceShareSelectedSource => '分享选中源';
+
+  @override
+  String get sourceCheckSelectSource => '校验所选';
+
+  @override
+  String get sourceCheckSelectedInterval => '选中所选区间';
+
+  @override
+  String get sourceMoreMenu => '更多菜单';
+
+  @override
+  String get sourceTagExploreEnabled => '标志:发现已启用';
+
+  @override
+  String get sourceDescendingOrder => '降序';
+
+  @override
+  String get sourceSortManual => '手动排序';
+
+  @override
+  String get sourceSortByUpdate => '按更新时间';
+
+  @override
+  String get ruleName => '规则名称';
+
+  @override
+  String get ruleMatchPattern => '匹配规则';
+
+  @override
+  String get ruleReplaceTo => '替换为';
+
+  @override
+  String get ruleSpecificScope => '特定范围';
+
+  @override
+  String get ruleExcludeScope => '排除范围';
+
+  @override
+  String get ruleEditReplaceRule => '编辑替换规则';
+
+  @override
+  String get rulePasteRule => '粘贴规则';
+
+  @override
+  String get ruleUseRegex => '使用正则表达式';
+
+  @override
+  String get ruleMoreActions => '更多操作';
+
+  @override
+  String get ruleEditRule => '编辑规则';
+
+  @override
+  String get ruleRegexPattern => '正则表达式';
+
+  @override
+  String get ruleAdd => '添加';
+
+  @override
+  String get ruleNewRule => '新增规则';
+
+  @override
+  String get ruleDeleteSelected => '删除选中';
+
+  @override
+  String get backupTesting => '测试中…';
+
+  @override
+  String get backupMenuImportOldVersion => '导入旧版数据';
+
+  @override
+  String get backupWebdavDeviceName => '设备名称';
+
+  @override
+  String get backupPath => '备份路径';
+
+  @override
+  String get backupSelectBackupPath => '请选择备份路径';
+
+  @override
+  String get backupSummary => '本地和 WebDav 一起备份';
+
+  @override
+  String get backupRestoreIgnore => '恢复忽略列表';
+
+  @override
+  String get backupKeepLatest => '仅保留最新备份';
+
+  @override
+  String get backupKeepLatestDescription => '本地备份仅保留最新备份文件';
+
+  @override
+  String get backupCheckNew => '自动检查新备份';
+
+  @override
+  String get backupCheckNewDescription => '打开软件时检查是否有新备份，有新备份时提示是否更新';
+
+  @override
+  String get readerUseReplaceRule => '使用替换规则';
+
+  @override
+  String get readerLoadWordCount => '加载字数';
+
+  @override
+  String get readerExport => '导出';
+
+  @override
+  String get readerLocateCurrentReading => '定位至当前阅读';
+
+  @override
+  String get readerMoveToTop => '移至顶部';
+
+  @override
+  String get readerMoveToBottom => '移至底部';
+
+  @override
+  String get readerDownloadAll => '一键缓存';
+
+  @override
+  String get readerNoBookmark => '暂无书签';
+
+  @override
+  String get readerSyncProgress => '同步阅读进度';
+
+  @override
+  String get readerChapterChangeSource => '单章换源';
+
+  @override
+  String get readerSetCharset => '设置编码';
+
+  @override
+  String get readerDisableSource => '禁用源';
+
+  @override
+  String get readerOpenFun => '打开方式';
+
+  @override
+  String get readerBookmarkAdd => '添加书签';
+
+  @override
+  String get readerHighlightRuleConfig => '高亮规则';
+
+  @override
+  String get readerReplaceRuleTitleSetting => '替换规则';
+
+  @override
+  String get readerCoverBookProgress => '覆盖云端进度';
+
+  @override
+  String get readerReverseContent => '反转内容';
+
+  @override
+  String get readerReSegment => '重新分段';
+
+  @override
+  String get mangaSetting => '漫画阅读设置';
+
+  @override
+  String get mangaReadType => '阅读模式';
+
+  @override
+  String get mangaEnableMangaGray => '灰度';
+
+  @override
+  String get mangaBrightness => '亮度';
+
+  @override
+  String get mangaDisableMangaClickScroll => '禁用点击翻页';
+
+  @override
+  String get mangaDisableMangaScale => '禁用漫画缩放';
+
+  @override
+  String get mangaDisableMangaScrollAnimation => '禁用翻页动画';
+
+  @override
+  String get mangaHideMangaTitle => '隐藏漫画列表标题';
+
+  @override
+  String get mangaReverseVolumeKeyPage => '反转音量键翻页方向';
+
+  @override
+  String get mangaLongClick => '长按保存图片';
+
+  @override
+  String get mangaCrossFade => '禁用加载淡入动画';
+
+  @override
+  String get mangaColorFilter => '滤镜';
+
+  @override
+  String get mangaReaderLeftAlign => '左对齐';
+
+  @override
+  String get mangaReaderHideFooter => '隐藏页脚';
+
+  @override
+  String get mangaCheckPageLabel => '页数';
+
+  @override
+  String get mangaCheckChapterLabel => '章节';
+
+  @override
+  String get mangaCheckProgressLabel => '总进度';
+
+  @override
+  String get sourceExitSelection => '退出选择模式';
+
+  @override
+  String get ruleExitBatchMode => '退出批量模式';
+
+  @override
+  String get ruleExitSelection => '退出多选';
+
+  @override
+  String get sourceDiscoveryEnabled => '发现已启用';
+
+  @override
+  String get sourceDiscoveryDisabled => '发现已禁用';
+
+  @override
+  String get sourceSortName => '按名称';
+
+  @override
+  String get sourceSortResponseTime => '按响应时间';
+
+  @override
+  String get ruleCopyRule => '复制规则';
+
+  @override
+  String get ruleImportDefault => '导入默认';
+
+  @override
+  String get dictionaryRuleManagement => '字典规则管理';
+
+  @override
+  String get ruleImportOnline => '在线导入';
+
+  @override
+  String get webdavSettings => 'WebDAV 设置';
+
+  @override
+  String get webdavServerAddress => 'WebDAV 服务器地址';
+
+  @override
+  String get webdavServerAddressHint => '输入你的服务器地址';
+
+  @override
+  String get webdavAccount => 'WebDAV 账号';
+
+  @override
+  String get webdavAccountHint => '输入你的 WebDAV 账号';
+
+  @override
+  String get webdavPassword => 'WebDAV 密码';
+
+  @override
+  String get webdavPasswordHint => '输入你的密码';
+
+  @override
+  String get webdavTestConfig => '测试配置';
+
+  @override
+  String get webdavSyncProgress => '同步书籍进度';
+
+  @override
+  String get readerSplitLongChapters => '拆分长章节';
+
+  @override
+  String get readerReverseChapterOrder => '倒序目录';
+
+  @override
+  String get readerDeleteBookmark => '删除书签';
+
+  @override
+  String get readerChangeBookSource => '换书源';
+
+  @override
+  String get readerPurchaseChapter => '章节购买';
+
+  @override
+  String get readerRemoveDuplicateTitle => '删除重复标题';
+
+  @override
+  String get ruleFilterDisabled => '禁用';
+
+  @override
+  String get ruleNoGroup => '无分组';
+
+  @override
+  String get ruleNoGroupOption => '（无分组）';
+
+  @override
+  String get ruleFullscreenEditor => '全屏编辑';
+
+  @override
+  String get ruleAddReplacement => '添加替换规则';
+
+  @override
+  String get ruleAddRule => '添加规则';
+
+  @override
+  String get ruleDeselectAll => '取消全选';
 }

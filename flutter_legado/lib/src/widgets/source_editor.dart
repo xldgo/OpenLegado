@@ -1,3 +1,5 @@
+import '../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 /// 书源与订阅源共用的字段描述；字段映射与保存由各自页面负责。
@@ -57,7 +59,7 @@ class SourceEditorField extends StatelessWidget {
         ),
         validator: spec.required
             ? (value) => (value == null || value.trim().isEmpty)
-                  ? '请输入${spec.label}'
+                  ? context.l10n.enterEditorField(spec.label)
                   : null
             : null,
       ),

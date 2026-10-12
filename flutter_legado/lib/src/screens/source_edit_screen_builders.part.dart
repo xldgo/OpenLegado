@@ -34,18 +34,18 @@ extension _SourceEditBuilders on _SourceEditScreenState {
 
     // 摘要（对齐原版 tvOptionsSummary：类型 + 勾选开关 join(" | ")）
     final summaryParts = <String>[
-      _SourceEditScreenState._typeLabels[_bookSourceType],
+      _SourceEditScreenState._typeLabels(context.l10n)[_bookSourceType],
     ];
     void addSummary(String label, bool checked) {
       if (checked) summaryParts.add(label);
     }
 
-    addSummary('启用', _enabled);
-    addSummary('发现', _enabledExplore);
+    addSummary(context.l10n.editorEnable, _enabled);
+    addSummary(context.l10n.discover, _enabledExplore);
     addSummary('CookieJar', _cookieJar);
-    addSummary('段评', _reviewEnabled);
-    addSummary('事件监听', _eventListener);
-    addSummary('定制按钮', _customButton);
+    addSummary(context.l10n.editorReviews, _reviewEnabled);
+    addSummary(context.l10n.editorEventListener, _eventListener);
+    addSummary(context.l10n.editorCustomButton, _customButton);
     final summary = summaryParts.join(' | ');
 
     return Container(
@@ -70,7 +70,12 @@ extension _SourceEditBuilders on _SourceEditScreenState {
             onTap: () => setState(() => _settingsExpanded = !_settingsExpanded),
             // Semantics：合并节点文案对齐原版「设置, 摘要, 展开/收起」
             child: Semantics(
-              label: '设置, $summary, ${_settingsExpanded ? '收起' : '展开'}',
+              label: context.l10n.editorSettingsSummary(
+                summary,
+                _settingsExpanded
+                    ? context.l10n.editorCollapse
+                    : context.l10n.editorExpand,
+              ),
               button: true,
               excludeSemantics: true,
               child: ConstrainedBox(
@@ -87,7 +92,7 @@ extension _SourceEditBuilders on _SourceEditScreenState {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '设置',
+                                context.l10n.settings,
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
@@ -140,18 +145,20 @@ extension _SourceEditBuilders on _SourceEditScreenState {
                       initialSelection: _bookSourceType,
                       selectOnly: true,
                       expandedInsets: EdgeInsets.zero,
-                      label: const Text('类型'),
+                      label: Text(context.l10n.editorType),
                       onSelected: (v) =>
                           setState(() => _bookSourceType = v ?? 0),
                       dropdownMenuEntries: [
                         for (
                           var i = 0;
-                          i < _SourceEditScreenState._typeLabels.length;
+                          i < _SourceEditScreenState._typeCount;
                           i++
                         )
                           DropdownMenuEntry(
                             value: i,
-                            label: _SourceEditScreenState._typeLabels[i],
+                            label: _SourceEditScreenState._typeLabels(
+                              context.l10n,
+                            )[i],
                           ),
                       ],
                     ),
@@ -163,12 +170,32 @@ extension _SourceEditBuilders on _SourceEditScreenState {
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
               child: Wrap(
                 children: [
-                  checkChip('启用', _enabled, (v) => _enabled = v),
-                  checkChip('发现', _enabledExplore, (v) => _enabledExplore = v),
+                  checkChip(
+                    context.l10n.editorEnable,
+                    _enabled,
+                    (v) => _enabled = v,
+                  ),
+                  checkChip(
+                    context.l10n.discover,
+                    _enabledExplore,
+                    (v) => _enabledExplore = v,
+                  ),
                   checkChip('CookieJar', _cookieJar, (v) => _cookieJar = v),
-                  checkChip('段评', _reviewEnabled, (v) => _reviewEnabled = v),
-                  checkChip('事件监听', _eventListener, (v) => _eventListener = v),
-                  checkChip('定制按钮', _customButton, (v) => _customButton = v),
+                  checkChip(
+                    context.l10n.editorReviews,
+                    _reviewEnabled,
+                    (v) => _reviewEnabled = v,
+                  ),
+                  checkChip(
+                    context.l10n.editorEventListener,
+                    _eventListener,
+                    (v) => _eventListener = v,
+                  ),
+                  checkChip(
+                    context.l10n.editorCustomButton,
+                    _customButton,
+                    (v) => _customButton = v,
+                  ),
                 ],
               ),
             ),

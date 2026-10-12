@@ -1,3 +1,4 @@
+import '../../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/manga_config.dart';
@@ -516,7 +517,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
               child: Text(
                 // [P4-3 M3 修4] 标题对齐参考版 MangaSettingsPanel
                 // 「漫画阅读设置」（M2 旧称「漫画设置」）
-                '漫画阅读设置',
+                context.l10n.mangaSetting,
                 // [深色主题 Batch A-1] 标题 #1C1C1E → onSurface
                 style: TextStyle(
                   fontSize: 20,
@@ -552,13 +553,13 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 // 替代 M2「翻页模式」下拉）+ 模式条件行：单页式保留页面适配
                 // 下拉、条漫新增侧边留白滑杆（0..45%，对齐参考版
                 // SettingSlider sidePaddingPercent 仅 isWebtoon 显示）
-                _section('阅读模式'),
+                _section(context.l10n.mangaReadType),
                 _card([
                   // [漫画设置作用域] 翻页模式作用域选择（跟随全局/本书；
                   // 无当前书或上游未接书级写路径时不渲染 → 仅全局）
                   if (_showScrollModeScope)
                     _scopeRow(
-                      title: '翻页模式',
+                      title: context.l10n.flipMode,
                       prefix: 'mangaScrollMode',
                       bookScope: _bookScrollMode != null,
                       onChanged: _changeScrollModeScope,
@@ -622,10 +623,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 // MangaSettingsPanel L755-767：开关 + 速度滑杆 1..15；
                 // 速度项随开关显隐，对齐原版 ReadMangaActivity L572-575）
                 if (_showAutoReadSection) ...[
-                  _section('自动翻页'),
+                  _section(context.l10n.readerAutoPageTurn),
                   _card([
                     _switchTile(
-                      title: '自动翻页',
+                      title: context.l10n.readerAutoPageTurn,
                       subtitle: '单页式定时翻页；条漫定时滚动',
                       value: _autoRead,
                       onChanged: (v) {
@@ -657,7 +658,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 _section('显示效果'),
                 _card([
                   _switchTile(
-                    title: '灰度',
+                    title: context.l10n.mangaEnableMangaGray,
                     value: _gray,
                     onChanged: (v) {
                       setState(() {
@@ -701,7 +702,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 Container(key: _colorFilterSectionKey, child: _section('色彩滤镜')),
                 _card([
                   _sliderTile(
-                    title: '亮度',
+                    title: context.l10n.mangaBrightness,
                     value: _filter.l.toDouble(),
                     min: 0,
                     max: 255,
@@ -786,10 +787,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 // 背景色板行（黑/白/灰/绿/蓝 + 当前色圆点；键名对齐
                 // 原版 PreferKey，键持久化经各 on*Changed 回调落库）
                 if (_showBehaviorSection) ...[
-                  _section('其他'),
+                  _section(context.l10n.otherSettings),
                   _card([
                     _checkboxTile(
-                      title: '禁用点击翻页',
+                      title: context.l10n.mangaDisableMangaClickScroll,
                       value: _disableClickScroll,
                       onChanged: (v) {
                         setState(() => _disableClickScroll = v);
@@ -798,7 +799,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '禁用漫画缩放',
+                      title: context.l10n.mangaDisableMangaScale,
                       value: _disableMangaScale,
                       onChanged: (v) {
                         setState(() => _disableMangaScale = v);
@@ -807,7 +808,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '禁用翻页动画',
+                      title: context.l10n.mangaDisableMangaScrollAnimation,
                       value: _disableMangaPageAnim,
                       onChanged: (v) {
                         setState(() => _disableMangaPageAnim = v);
@@ -816,7 +817,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '隐藏漫画列表标题',
+                      title: context.l10n.mangaHideMangaTitle,
                       value: _hideMangaTitle,
                       onChanged: (v) {
                         setState(() => _hideMangaTitle = v);
@@ -825,7 +826,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '音量键翻页',
+                      title: context.l10n.readerVolumeKeyPage,
                       value: _volumeKeyPage,
                       onChanged: (v) {
                         setState(() => _volumeKeyPage = v);
@@ -834,7 +835,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '反转音量键翻页方向',
+                      title: context.l10n.mangaReverseVolumeKeyPage,
                       value: _reverseVolumeKeyPage,
                       onChanged: (v) {
                         setState(() => _reverseVolumeKeyPage = v);
@@ -843,7 +844,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '长按保存图片',
+                      title: context.l10n.mangaLongClick,
                       value: _mangaLongClickSaveImage,
                       onChanged: (v) {
                         setState(() => _mangaLongClickSaveImage = v);
@@ -852,7 +853,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                     ),
                     _divider(),
                     _checkboxTile(
-                      title: '禁用加载淡入动画',
+                      title: context.l10n.mangaCrossFade,
                       value: _disableMangaCrossFade,
                       onChanged: (v) {
                         setState(() => _disableMangaCrossFade = v);
@@ -868,7 +869,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                 // 3x3 网格每格显示当前动作名，点击循环切换
                 // -1→0→1→2→3→4→-1 并持久化，屏内即时生效）
                 if (_showClickActionsSection) ...[
-                  _section('点击区域'),
+                  _section(context.l10n.readerTapAreas),
                   _card([_clickActionsGrid()]),
                 ],
               ],
@@ -966,7 +967,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     return TextButton.icon(
       onPressed: _jumpToColorFilter,
       icon: Icon(Icons.colorize, color: scheme.primary),
-      label: Text('滤镜', style: TextStyle(color: scheme.onSurface)),
+      label: Text(
+        context.l10n.mangaColorFilter,
+        style: TextStyle(color: scheme.onSurface),
+      ),
     );
   }
 
@@ -1229,11 +1233,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   /// 取消隐藏——三键互斥可切换，全部复用既有 footer 键）
   Widget _footerQuickRow() {
     final scheme = Theme.of(context).colorScheme;
-    final isCenter =
-        _footer.footerOrientation == MangaFooterConfig.alignCenter;
+    final isCenter = _footer.footerOrientation == MangaFooterConfig.alignCenter;
     final entries = <(String, bool, VoidCallback)>[
       (
-        '左对齐',
+        context.l10n.mangaReaderLeftAlign,
         !isCenter && !_footer.hideFooter,
         () {
           setState(() {
@@ -1244,7 +1247,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         },
       ),
       (
-        '居中',
+        context.l10n.readerAlignCenter,
         isCenter && !_footer.hideFooter,
         () {
           setState(() {
@@ -1255,7 +1258,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         },
       ),
       (
-        '隐藏页脚',
+        context.l10n.mangaReaderHideFooter,
         _footer.hideFooter,
         () {
           setState(() => _footer.hideFooter = !_footer.hideFooter);
@@ -1354,7 +1357,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         () => _footer.hideChapterName = !_footer.hideChapterName,
       ),
       (
-        '页数',
+        context.l10n.mangaCheckPageLabel,
         _footer.hidePageNumberLabel,
         () => _footer.hidePageNumberLabel = !_footer.hidePageNumberLabel,
       ),
@@ -1364,7 +1367,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         () => _footer.hidePageNumber = !_footer.hidePageNumber,
       ),
       (
-        '章节',
+        context.l10n.mangaCheckChapterLabel,
         _footer.hideChapterLabel,
         () => _footer.hideChapterLabel = !_footer.hideChapterLabel,
       ),
@@ -1374,7 +1377,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         () => _footer.hideChapter = !_footer.hideChapter,
       ),
       (
-        '总进度',
+        context.l10n.mangaCheckProgressLabel,
         _footer.hideProgressRatioLabel,
         () => _footer.hideProgressRatioLabel = !_footer.hideProgressRatioLabel,
       ),
@@ -1410,8 +1413,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      hidden ? Colors.transparent : scheme.primaryContainer,
+                  color: hidden ? Colors.transparent : scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -1554,7 +1556,10 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('背景颜色', style: TextStyle(fontSize: 16, color: scheme.onSurface)),
+          Text(
+            context.l10n.readerBackgroundColor,
+            style: TextStyle(fontSize: 16, color: scheme.onSurface),
+          ),
           const SizedBox(height: 8),
           Row(
             children: swatches.map((argb) {

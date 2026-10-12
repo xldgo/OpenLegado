@@ -204,7 +204,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 children: [
               IosListTile(
                 icon: Symbols.language_rounded,
-                title: '语言',
+                title: context.l10n.language,
                 value: _localeLabel,
                 onTap: () => _showLocalePicker(context),
               ),
@@ -213,11 +213,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             // ===== 主界面 =====
             const SizedBox(height: 16),
             SettingsGroup(
-              title: '主界面',
+              title: context.l10n.advancedMainScreen,
                 children: [
               SettingSwitchRow(
-                title: '自动刷新',
-                subtitle: '打开软件时自动更新书籍',
+                title: context.l10n.advancedAutoRefresh,
+                subtitle: context.l10n.advancedAutoRefreshDescription,
                 value: _autoRefresh,
                 onChanged: (v) {
                   setState(() => _autoRefresh = v);
@@ -235,8 +235,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   },
                 ),
               SettingSwitchRow(
-                title: '自动跳转最近阅读',
-                subtitle: '默认打开书架',
+                title: context.l10n.advancedRecentReading,
+                subtitle: context.l10n.advancedRecentReadingDescription,
                 value: _defaultToRead,
                 onChanged: (v) {
                   setState(() => _defaultToRead = v);
@@ -244,18 +244,18 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '显示发现',
+                title: context.l10n.advancedShowDiscovery,
                 value: mainPrefs.showDiscovery,
                 onChanged: (v) => mainPrefsNotifier.setShowDiscovery(v),
               ),
               SettingSwitchRow(
-                title: '显示订阅',
+                title: context.l10n.advancedShowRss,
                 value: mainPrefs.showRss,
                 onChanged: (v) => mainPrefsNotifier.setShowRss(v),
               ),
               IosListTile(
                 icon: Symbols.home_rounded,
-                title: '默认主页',
+                title: context.l10n.advancedDefaultHomePage,
                 value: _homePageLabel(mainPrefs.defaultHomePage),
                 onTap: () => _showHomePagePicker(mainPrefs, mainPrefsNotifier),
               ),
@@ -267,15 +267,15 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
               title: '其他设置',
                 children: [
               IosListTile(
-                title: '设置本地密码',
+                title: context.l10n.advancedLocalPassword,
                 subtitle:
-                    '本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.',
+                    context.l10n.advancedLocalPasswordDescription,
                 value: _localPassword.isEmpty ? '未设置' : '已设置',
                 onTap: _showLocalPasswordDialog,
               ),
               IosListTile(
-                title: '用户代理',
-                subtitle: _userAgent.isEmpty ? '默认' : _userAgent,
+                title: context.l10n.advancedUserAgent,
+                subtitle: _userAgent.isEmpty ? context.l10n.readerDefault : _userAgent,
                 onTap: _showUserAgentDialog,
               ),
               IosListTile(
@@ -295,17 +295,17 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               IosListTile(
-                title: '书籍保存位置',
+                title: context.l10n.advancedBookSaveLocation,
                 subtitle: _defaultBookTreeUri.isEmpty
-                    ? '从其它应用打开的书籍保存位置'
+                    ? context.l10n.advancedBookSaveLocationDescription
                     : _defaultBookTreeUri,
                 onTap: _showBookTreeUriDialog,
               ),
               IosListTile(
-                title: '源编辑框最大行数',
+                title: context.l10n.advancedSourceEditorMaxLines,
                 value: '$_sourceEditMaxLine',
                 onTap: () => _editIntPref(
-                  title: '源编辑框最大行数',
+                  title: context.l10n.advancedSourceEditorMaxLines,
                   key: PrefKeys.sourceEditMaxLine,
                   current: _sourceEditMaxLine,
                   min: 10,
@@ -314,13 +314,13 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
               ),
               IosListTile(
-                title: '校验设置',
+                title: context.l10n.advancedCheckSourceSettings,
                 subtitle: _checkSourceConfigSummary,
                 onTap: _showCheckSourceConfigDialog,
               ),
               SettingSwitchRow(
-                title: '抗锯齿',
-                subtitle: '绘制图片时抗锯齿',
+                title: context.l10n.advancedAntiAlias,
+                subtitle: context.l10n.advancedAntiAliasDescription,
                 value: _antiAlias,
                 onChanged: (v) {
                   setState(() => _antiAlias = v);
@@ -328,7 +328,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               IosListTile(
-                title: '图片绘制缓存',
+                title: context.l10n.advancedBitmapCache,
                 subtitle: '当前最大缓存 $_bitmapCacheSize MB',
                 onTap: () => _editIntPref(
                   title: '图片绘制缓存（MB）',
@@ -340,10 +340,10 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
               ),
               IosListTile(
-                title: '漫画保留数量',
+                title: context.l10n.advancedMangaRetention,
                 subtitle: '保留已读章节数量 $_imageRetainNum',
                 onTap: () => _editIntPref(
-                  title: '漫画保留数量',
+                  title: context.l10n.advancedMangaRetention,
                   key: PrefKeys.imageRetainNum,
                   current: _imageRetainNum,
                   min: 0,
@@ -352,7 +352,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
               ),
               IosListTile(
-                title: '预下载',
+                title: context.l10n.advancedPreDownload,
                 subtitle: '预先下载 $_preDownloadNum 章正文',
                 onTap: () => _editIntPref(
                   title: '预下载章节数量',
@@ -364,8 +364,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
               ),
               SettingSwitchRow(
-                title: '默认启用替换净化',
-                subtitle: '新加入书架的书是否启用替换净化',
+                title: context.l10n.advancedReplaceByDefault,
+                subtitle: context.l10n.advancedReplaceByDefaultDescription,
                 value: _replaceEnableDefault,
                 onChanged: (v) {
                   setState(() => _replaceEnableDefault = v);
@@ -374,8 +374,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '全程响应耳机按键',
-                subtitle: '即使退出软件也响应耳机按键',
+                title: context.l10n.advancedHeadsetAlways,
+                subtitle: context.l10n.advancedHeadsetAlwaysDescription,
                 value: _mediaButtonOnExit,
                 onChanged: (v) {
                   setState(() => _mediaButtonOnExit = v);
@@ -383,8 +383,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '耳机按键启动朗读',
-                subtitle: '通过耳机按键来启动朗读',
+                title: context.l10n.advancedHeadsetReadAloud,
+                subtitle: context.l10n.advancedHeadsetReadAloudDescription,
                 value: _readAloudByMediaButton,
                 onChanged: (v) {
                   setState(() => _readAloudByMediaButton = v);
@@ -393,8 +393,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '忽略音频焦点',
-                subtitle: '允许与其他应用同时播放音频',
+                title: context.l10n.advancedIgnoreAudioFocus,
+                subtitle: context.l10n.advancedIgnoreAudioFocusDescription,
                 value: _ignoreAudioFocus,
                 onChanged: (v) {
                   setState(() => _ignoreAudioFocus = v);
@@ -402,8 +402,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '自动清除过期搜索数据',
-                subtitle: '超过一天的搜索数据',
+                title: context.l10n.advancedClearExpiredSearch,
+                subtitle: context.l10n.advancedClearExpiredSearchDescription,
                 value: _autoClearExpired,
                 onChanged: (v) {
                   setState(() => _autoClearExpired = v);
@@ -411,8 +411,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '返回时提示放入书架',
-                subtitle: '阅读未放入书架的书籍在返回时提示放入书架',
+                title: context.l10n.advancedAddToShelfPrompt,
+                subtitle: context.l10n.advancedAddToShelfPromptDescription,
                 value: _showAddToShelfAlert,
                 onChanged: (v) {
                   setState(() => _showAddToShelfAlert = v);
@@ -430,7 +430,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '漫画浏览',
+                title: context.l10n.advancedMangaViewer,
                 value: _showMangaUi,
                 onChanged: (v) {
                   setState(() => _showMangaUi = v);
@@ -443,7 +443,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 onTap: () => showVideoSettingsDialog(context),
               ),
               IosListTile(
-                title: 'Web 端口',
+                title: context.l10n.advancedWebPort,
                 subtitle: '当前端口 $_webPort',
                 onTap: _showWebPortDialog,
               ),
@@ -460,18 +460,18 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 onTap: _editJsSourceApiToken,
               ),
               IosListTile(
-                title: '清理缓存',
-                subtitle: '清除已下载书籍和字体缓存',
+                title: context.l10n.advancedClearCache,
+                subtitle: context.l10n.advancedClearCacheDescription,
                 onTap: _cleanCache,
               ),
               IosListTile(
-                title: '清除 WebView 数据',
-                subtitle: '清除内置浏览器所有数据',
+                title: context.l10n.advancedClearWebView,
+                subtitle: context.l10n.advancedClearWebViewDescription,
                 onTap: _clearWebViewData,
               ),
               IosListTile(
-                title: '压缩数据库',
-                subtitle: '减小数据库文件的大小',
+                title: context.l10n.advancedShrinkDatabase,
+                subtitle: context.l10n.advancedShrinkDatabaseDescription,
                 onTap: _shrinkDatabase,
               ),
               IosListTile(
@@ -487,7 +487,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
               ),
               SettingSwitchRow(
-                title: '文字操作显示搜索',
+                title: context.l10n.advancedSearchTextActions,
                 subtitle: '长按文字在操作菜单中显示阅读·搜索',
                 value: _processText,
                 onChanged: (v) {
@@ -496,8 +496,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '记录日志',
-                subtitle: '记录调试日志',
+                title: context.l10n.advancedRecordLog,
+                subtitle: context.l10n.advancedRecordDebugLog,
                 value: _recordLog,
                 onChanged: (v) {
                   setState(() => _recordLog = v);
@@ -514,8 +514,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 },
               ),
               SettingSwitchRow(
-                title: '记录堆转储',
-                subtitle: '当应用发生OOM崩溃时保存堆转储',
+                title: context.l10n.advancedHeapDump,
+                subtitle: context.l10n.advancedHeapDumpDescription,
                 value: _recordHeapDump,
                 onChanged: (v) {
                   setState(() => _recordHeapDump = v);
@@ -545,15 +545,15 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   String _homePageLabel(String value) {
     switch (value) {
       case 'home':
-        return '首页';
+        return context.l10n.home;
       case 'explore':
-        return '发现';
+        return context.l10n.discover;
       case 'rss':
-        return '订阅';
+        return context.l10n.rss;
       case 'my':
-        return '我的';
+        return context.l10n.my;
       default:
-        return '书架';
+        return context.l10n.bookshelf;
     }
   }
 
@@ -562,17 +562,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     MainPrefsState prefs,
     MainPrefsNotifier notifier,
   ) async {
-    const options = [
-      ('home', '首页'),
-      ('bookshelf', '书架'),
-      ('explore', '发现'),
-      ('rss', '订阅'),
-      ('my', '我的'),
-    ];
+    const options = ['home', 'bookshelf', 'explore', 'rss', 'my'];
     final selected = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('默认首页'),
+        title: Text(ctx.l10n.advancedDefaultHomePageDialog),
         children: [
           // 用 RadioGroup 统一管理选中值（避免 groupValue/onChanged 废弃 API）
           RadioGroup<String>(
@@ -581,9 +575,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final (value, label) in options)
+                for (final value in options)
                   RadioListTile<String>(
-                    title: Text(label),
+                    title: Text(_homePageLabel(value)),
                     value: value,
                   ),
               ],
