@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/services/system_tts_service.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
@@ -15,6 +17,7 @@ import '../mocks/mocks.dart';
 class FakeSystemTts extends SystemTtsService {
   FakeSystemTts() : super(platform: TargetPlatform.android);
   final texts = <String>[];
+  final speeds = <double>[];
   final requests = <Completer<SystemTtsOutcome>>[];
   bool paused = false;
   int pauses = 0;
@@ -29,6 +32,7 @@ class FakeSystemTts extends SystemTtsService {
   }) {
     paused = false;
     texts.add(text);
+    speeds.add(speed);
     final result = Completer<SystemTtsOutcome>();
     requests.add(result);
     return result.future;
@@ -41,7 +45,7 @@ class FakeSystemTts extends SystemTtsService {
 
   @override
   Future<void> pause() async {
-    paused = true;
+    paused = requests.isNotEmpty && !requests.last.isCompleted;
     pauses++;
   }
 
@@ -71,6 +75,7 @@ void main() {
 
   setUpAll(registerFallbacks);
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
     system = FakeSystemTts();
     player = FakeStreamAudioPlayer();
@@ -141,6 +146,195 @@ void main() {
     await notifier().play();
     await flush();
   }
+
+  test('播放器暂停中点击正文只移动位置，恢复后读目标段', () async {
+    await start();
+    notifier().pause();
+    await flush();
+    await notifier().seekToParagraph(1);
+    await flush();
+    expect(state().state, PlayerState.paused);
+    expect(notifier().currentParagraphIndex, 1);
+    expect(system.texts, ['第一段。']);
+    await notifier().resumeOrPlay();
+    await flush();
+    expect(system.texts.last, '第二段。');
+  });
+
+  test('播放器播放中拖动到目标段，旧段完成回调不能再推进', () async {
+    await start();
+    final previousSpeech = system.requests.first;
+    await notifier().seekToParagraph(1);
+    await flush();
+    expect(state().state, PlayerState.playing);
+    expect(system.texts.last, '第二段。');
+    previousSpeech.complete(SystemTtsOutcome.completed);
+    await flush();
+    expect(state().currentIndex, 0);
+    expect(notifier().currentParagraphIndex, 1);
+    expect(system.texts, ['第一段。', '第二段。']);
+  });
+
+  test('正文快照不可修改，切章等待期间隐藏上一章正文', () async {
+    await start();
+    expect(notifier().currentParagraphs, ['第一段。', '第二段。']);
+    expect(
+      () => notifier().currentParagraphs.add('伪造正文'),
+      throwsUnsupportedError,
+    );
+    final chapter = Completer<String>();
+    when(() => api.getChapterContentFull('book', 1))
+        .thenAnswer((_) => chapter.future);
+    final pending = notifier().next();
+    await flush();
+    expect(notifier().currentParagraphs, isEmpty);
+    chapter.complete('新章节正文。');
+    await pending;
+    expect(notifier().currentParagraphs, ['新章节正文。']);
+    notifier().stop();
+    expect(notifier().currentParagraphs, isEmpty);
+  });
+
+  test('当前正文起点保留段内偏移，换段后恢复完整正文', () async {
+    notifier().updateConfig(
+      engineUrl: systemTtsEngineUrl,
+      restartPlayback: false,
+    );
+    const content = '  第一段。\r\n\n  第二段内容。';
+    when(() => api.getChapterContentFull('book', 0))
+        .thenAnswer((_) async => content);
+    await notifier().startReadAloud(
+      bookUrl: 'book',
+      bookName: '小说',
+      startChapterPos: content.indexOf('内容'),
+    );
+    await flush();
+    expect(system.texts, ['内容。']);
+    system.requests[0].complete(SystemTtsOutcome.completed);
+    await flush();
+    expect(system.texts.last, '下一章。');
+  });
+
+  test('HTTP 合成同样使用选区段内起点，重复段不误定位', () async {
+    const content = '相同正文。\r\n  相同正文。';
+    when(() => api.getChapterContentFull('book', 0))
+        .thenAnswer((_) async => content);
+    notifier().updateConfig(
+      engineUrl: 'https://tts/{{text}}',
+      restartPlayback: false,
+    );
+    await notifier().startReadAloud(
+      bookUrl: 'book',
+      bookName: '小说',
+      startChapterPos: content.lastIndexOf('正文'),
+    );
+    await flush();
+    verify(
+      () => api.audioSpeak(
+        text: '正文。',
+        engineUrl: 'https://tts/{{text}}',
+        speed: 1,
+        pitch: 1,
+        volume: 1,
+        voiceName: null,
+      ),
+    ).called(1);
+    expect(player.playedLocalFiles.length, 1);
+    expect(system.texts, isEmpty);
+  });
+
+  test('从段中开始后切换系统参数仍保留起点，手动切段读完整正文', () async {
+    notifier().updateConfig(
+      engineUrl: systemTtsEngineUrl,
+      restartPlayback: false,
+    );
+    await notifier().startReadAloud(
+      bookUrl: 'book',
+      bookName: '小说',
+      startChapterPos: 2,
+    );
+    await flush();
+    expect(system.texts, ['段。']);
+    await notifier().refreshSystemTtsSettings();
+    await flush();
+    expect(system.texts.last, '段。');
+    await notifier().nextParagraph();
+    await flush();
+    expect(system.texts.last, '第二段。');
+  });
+
+  test('正文还在加载时停止，迟到结果不能重新起播', () async {
+    final content = Completer<String>();
+    when(() => api.getChapterContentFull('book', 0))
+        .thenAnswer((_) => content.future);
+    notifier().updateConfig(
+      engineUrl: systemTtsEngineUrl,
+      restartPlayback: false,
+    );
+    final pending = notifier().startReadAloud(bookUrl: 'book', bookName: '小说');
+    await flush();
+    notifier().stop();
+    content.complete('迟到正文');
+    await pending;
+    await flush();
+    expect(system.texts, isEmpty);
+    expect(state().state, PlayerState.idle);
+  });
+
+  test('段间停顿实际延迟播放，暂停后不会迟到续播', () async {
+    await container
+        .read(readAloudPreferencesProvider.notifier)
+        .setParagraphInterval(100);
+    await start();
+    system.requests[0].complete(SystemTtsOutcome.completed);
+    await flush();
+    expect(system.texts, ['第一段。']);
+    notifier().pause();
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(system.texts, ['第一段。']);
+    expect(state().state, PlayerState.paused);
+    await notifier().resumeOrPlay();
+    await flush();
+    expect(system.texts.last, '第二段。');
+  });
+
+  test('自然换段遵循段间停顿', () async {
+    await container
+        .read(readAloudPreferencesProvider.notifier)
+        .setParagraphInterval(100);
+    await start();
+    system.requests[0].complete(SystemTtsOutcome.completed);
+    await flush();
+    expect(system.texts, ['第一段。']);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await flush();
+    expect(system.texts, ['第一段。', '第二段。']);
+  });
+
+  test('旧书级手动语速迁移到独立偏好，跟随开关不会丢失原值', () async {
+    when(() => api.getConfig('ttsFollowSys')).thenAnswer((_) async => 'false');
+    when(() => api.getBook('book')).thenAnswer(
+      (_) async => const Book(
+        bookUrl: 'book',
+        name: '小说',
+        readConfig: ReadConfig(playSpeed: 1.7),
+      ),
+    );
+    notifier().updateConfig(
+      engineUrl: systemTtsEngineUrl,
+      restartPlayback: false,
+    );
+    await notifier().startReadAloud(bookUrl: 'book', bookName: '小说');
+    await flush();
+    expect(system.speeds.last, 1.7);
+    verify(() => api.setConfig('ttsSpeechRate', '12')).called(1);
+    await notifier().setReadAloudFollowSystem(true);
+    await flush();
+    expect(system.speeds.last, 1);
+    await notifier().setReadAloudFollowSystem(false);
+    await flush();
+    expect(system.speeds.last, 1.7);
+  });
 
   test('系统直接朗读，完成后切段切章，不进入 Rust 合成与文件播放器', () async {
     await start();

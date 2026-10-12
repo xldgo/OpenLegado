@@ -452,5 +452,70 @@
   "deselectAllCount": "Deselect all ({selected}/{total})",
   "groupAlreadyExists": "Group “{name}” already exists",
   "noUngroupedItems": "No ungrouped {noun} to add to this group",
-  "confirmDeleteItemGroup": "Delete group “{name}”? Its {noun} will be removed from this group."
+  "confirmDeleteItemGroup": "Delete group “{name}”? Its {noun} will be removed from this group.",
+  "readAloudSettingsTitle": "Read-aloud settings",
+  "readAloudPlaybackGroup": "Playback and controls",
+  "readAloudFollowSystem": "Use default speech rate",
+  "readAloudFollowSystemSummary": "Use the default rate. Turn off to adjust speech speed.",
+  "readAloudSpeed": "Speech rate",
+  "readAloudParagraphInterval": "Pause between paragraphs",
+  "readAloudSecondsUnit": "s",
+  "readAloudVoiceGroup": "Engines and voices",
+  "readAloudEngines": "Speech engines",
+  "readAloudEnginesSummary": "Manage system and HTTP speech engines",
+  "readAloudSystemVoice": "System voice",
+  "readAloudSystemVoiceSummary": "Choose a device engine and an installed voice",
+  "readAloudSystemAdjustmentGroup": "System speech adjustments",
+  "readAloudPitch": "Pitch",
+  "readAloudVolume": "Volume",
+  "readAloudSaveFailed": "Could not save read-aloud settings: {error}",
+  "readAloudPlayer": "Read-aloud player",
+  "readAloudChapterText": "Text",
+  "readAloudClassicPanel": "Return to classic panel",
+  "readAloudPreviousParagraph": "Previous paragraph",
+  "readAloudNextParagraph": "Next paragraph",
+  "readAloudTextUnavailable": "Start reading aloud to display the chapter text",
+  "readAloudParagraphProgress": "Paragraph {current}/{total}",
+  "@readAloudParagraphProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudTimer": "Sleep timer",
+  "readAloudMinutes": "{minutes} minutes",
+  "@readAloudMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudCustomMinutes": "Custom minutes",
+  "readAloudTimerRange": "Enter 1–{max} minutes",
+  "@readAloudTimerRange": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudStopAfterChapter": "Stop after this chapter",
+  "readAloudCancelTimer": "Cancel timer",
+  "readAloudControlFailed": "Read-aloud control failed: {error}",
+  "@readAloudControlFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudStop": "Stop reading aloud",
+  "readAloudCapsuleGroup": "Playback capsule",
+  "readAloudCapsuleAutoCollapse": "Auto-collapse capsule",
+  "readAloudCapsuleAutoCollapseSummary": "Collapse to the cover after 3 seconds of inactivity"
 }

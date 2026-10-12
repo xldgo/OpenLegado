@@ -104,6 +104,18 @@ void main() {
     await settleSnackBar(tester);
   });
 
+  testWidgets('控制条挂载和重开不重置当前语速或写配置', (tester) async {
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(speed: 1.8, persistBookSpeed: false);
+    await pumpBar(tester);
+    expect(container.read(audioNotifierProvider).config.speed, 1.8);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBar(tester);
+    expect(container.read(audioNotifierProvider).config.speed, 1.8);
+    verifyNever(() => api.setConfig(any(), any()));
+  });
+
   testWidgets('没有 HTTP 引擎时可选择系统 TTS，并保存固定标识', (tester) async {
     when(() => api.getHttpTts()).thenAnswer((_) async => []);
     await pumpBar(tester);

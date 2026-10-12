@@ -19,6 +19,7 @@ import '../routes.dart';
 import '../services/system_brightness.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/reader/read_aloud_bar.dart';
+import '../providers/audio/read_aloud_capsule.dart';
 import '../widgets/reader/auto_turn_panel.dart';
 import '../widgets/reader/reader_page_chrome.dart';
 import '../widgets/reader/reader_image_dominant_body.dart';
@@ -80,10 +81,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 已触发过预加载的章节索引（避免重复预加载）
   int _lastPreloadedIndex = -1;
-
-  /// [UI-fix v2.0.1 | 2026-08-06] 朗读控制条是否被手动收起
-  /// （收起后朗读继续，再次点击底栏朗读按钮重新展开） — Qoder
-  bool _aloudBarHidden = false;
 
   /// 段评摘要（P2-9 ruleReview；禁止接本地 CommentService）
   Map<int, int> _reviewCounts = {};
@@ -583,6 +580,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final notifier = ref.read(readerNotifierProvider.notifier);
     // 朗读控制条显隐依赖全局朗读状态（朗读进行中时替代底部功能栏）
     final audio = ref.watch(audioNotifierProvider);
+    final capsule = ref.watch(readAloudCapsuleProvider);
     final book = state.currentBook;
     final aloudActive =
         book != null &&
@@ -772,11 +770,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 ),
                 // [UI_SYNC_REFACTOR S2-1] 单块底部面板（五分区，替代顶/底栏
                 // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
-                if (aloudActive && !_aloudBarHidden)
+                if (aloudActive && capsule.classicExpanded)
                   ReadAloudBar(
-                    onDismiss: () => setState(() => _aloudBarHidden = true),
+                    onDismiss: () => ref.read(readAloudCapsuleProvider.notifier).showClassic(false),
                     onOpenCatalog: () => unawaited(_openToc()),
-                    onBackstage: () => Navigator.of(context).maybePop(),
+                    onBackstage: () {
+                      ref.read(readAloudCapsuleProvider.notifier).showClassic(false);
+                      Navigator.of(context).maybePop();
+                    },
                   )
                 else
                   ReaderMenuPanel(
@@ -846,9 +847,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (audio.isPlaying) {
         notifier.pause();
       } else {
-        unawaited(notifier.play());
+        unawaited(notifier.resumeOrPlay());
       }
-      setState(() => _aloudBarHidden = false);
+      ref.read(readAloudCapsuleProvider.notifier).showClassic(true);
       return;
     }
     unawaited(_startReadAloud(state));
@@ -881,13 +882,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           .showSnackBar(const SnackBar(content: Text('无法启动朗读：未打开书籍')));
       return;
     }
-    setState(() => _aloudBarHidden = false);
+    ref.read(readAloudCapsuleProvider.notifier).showClassic(false);
     await ref
         .read(audioNotifierProvider.notifier)
         .startReadAloud(
           bookUrl: book.bookUrl,
           bookName: book.name,
           chapterIndex: state.currentChapterIndex,
+          startChapterPos: ref
+              .read(readerNotifierProvider.notifier)
+              .currentSourceOffset,
         );
   }
 

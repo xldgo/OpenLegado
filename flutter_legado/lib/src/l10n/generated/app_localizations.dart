@@ -2816,6 +2816,210 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'确定要删除分组「{name}」吗？分组内{noun}将移出该分组。'**
   String confirmDeleteItemGroup(String name, String noun);
+
+  /// No description provided for @readAloudSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读设置'**
+  String get readAloudSettingsTitle;
+
+  /// No description provided for @readAloudPlaybackGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放与控制'**
+  String get readAloudPlaybackGroup;
+
+  /// No description provided for @readAloudFollowSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速跟随系统'**
+  String get readAloudFollowSystem;
+
+  /// No description provided for @readAloudFollowSystemSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用默认语速；关闭后可调整手动语速'**
+  String get readAloudFollowSystemSummary;
+
+  /// No description provided for @readAloudSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速'**
+  String get readAloudSpeed;
+
+  /// No description provided for @readAloudParagraphInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'段间停顿'**
+  String get readAloudParagraphInterval;
+
+  /// No description provided for @readAloudSecondsUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'秒'**
+  String get readAloudSecondsUnit;
+
+  /// No description provided for @readAloudVoiceGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎与声音'**
+  String get readAloudVoiceGroup;
+
+  /// No description provided for @readAloudEngines.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读引擎'**
+  String get readAloudEngines;
+
+  /// No description provided for @readAloudEnginesSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理系统与 HTTP 朗读引擎'**
+  String get readAloudEnginesSummary;
+
+  /// No description provided for @readAloudSystemVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统语音'**
+  String get readAloudSystemVoice;
+
+  /// No description provided for @readAloudSystemVoiceSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择设备引擎与已安装的音色'**
+  String get readAloudSystemVoiceSummary;
+
+  /// No description provided for @readAloudSystemAdjustmentGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统朗读调节'**
+  String get readAloudSystemAdjustmentGroup;
+
+  /// No description provided for @readAloudPitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'音调'**
+  String get readAloudPitch;
+
+  /// No description provided for @readAloudVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量'**
+  String get readAloudVolume;
+
+  /// No description provided for @readAloudSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存朗读设置失败：{error}'**
+  String readAloudSaveFailed(String error);
+
+  /// No description provided for @readAloudPlayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读播放器'**
+  String get readAloudPlayer;
+
+  /// No description provided for @readAloudChapterText.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get readAloudChapterText;
+
+  /// No description provided for @readAloudClassicPanel.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回经典面板'**
+  String get readAloudClassicPanel;
+
+  /// No description provided for @readAloudPreviousParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一段'**
+  String get readAloudPreviousParagraph;
+
+  /// No description provided for @readAloudNextParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一段'**
+  String get readAloudNextParagraph;
+
+  /// No description provided for @readAloudTextUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始朗读后显示本章正文'**
+  String get readAloudTextUnavailable;
+
+  /// No description provided for @readAloudParagraphProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {current}/{total} 段'**
+  String readAloudParagraphProgress(int current, int total);
+
+  /// No description provided for @readAloudTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时停止'**
+  String get readAloudTimer;
+
+  /// No description provided for @readAloudMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟'**
+  String readAloudMinutes(int minutes);
+
+  /// No description provided for @readAloudCustomMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义分钟'**
+  String get readAloudCustomMinutes;
+
+  /// No description provided for @readAloudTimerRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 1–{max} 分钟'**
+  String readAloudTimerRange(int max);
+
+  /// No description provided for @readAloudStopAfterChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'读完本章后停止'**
+  String get readAloudStopAfterChapter;
+
+  /// No description provided for @readAloudCancelTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消定时'**
+  String get readAloudCancelTimer;
+
+  /// No description provided for @readAloudControlFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读操作失败：{error}'**
+  String readAloudControlFailed(String error);
+
+  /// No description provided for @readAloudStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止朗读'**
+  String get readAloudStop;
+
+  /// No description provided for @readAloudCapsuleGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放胶囊'**
+  String get readAloudCapsuleGroup;
+
+  /// No description provided for @readAloudCapsuleAutoCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动收起胶囊'**
+  String get readAloudCapsuleAutoCollapse;
+
+  /// No description provided for @readAloudCapsuleAutoCollapseSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'3 秒无操作后收起为封面'**
+  String get readAloudCapsuleAutoCollapseSummary;
 }
 
 class _AppLocalizationsDelegate

@@ -1604,4 +1604,120 @@ class AppLocalizationsEn extends AppLocalizations {
   String confirmDeleteItemGroup(String name, String noun) {
     return 'Delete group “$name”? Its $noun will be removed from this group.';
   }
+
+  @override
+  String get readAloudSettingsTitle => 'Read-aloud settings';
+
+  @override
+  String get readAloudPlaybackGroup => 'Playback and controls';
+
+  @override
+  String get readAloudFollowSystem => 'Use default speech rate';
+
+  @override
+  String get readAloudFollowSystemSummary =>
+      'Use the default rate. Turn off to adjust speech speed.';
+
+  @override
+  String get readAloudSpeed => 'Speech rate';
+
+  @override
+  String get readAloudParagraphInterval => 'Pause between paragraphs';
+
+  @override
+  String get readAloudSecondsUnit => 's';
+
+  @override
+  String get readAloudVoiceGroup => 'Engines and voices';
+
+  @override
+  String get readAloudEngines => 'Speech engines';
+
+  @override
+  String get readAloudEnginesSummary => 'Manage system and HTTP speech engines';
+
+  @override
+  String get readAloudSystemVoice => 'System voice';
+
+  @override
+  String get readAloudSystemVoiceSummary =>
+      'Choose a device engine and an installed voice';
+
+  @override
+  String get readAloudSystemAdjustmentGroup => 'System speech adjustments';
+
+  @override
+  String get readAloudPitch => 'Pitch';
+
+  @override
+  String get readAloudVolume => 'Volume';
+
+  @override
+  String readAloudSaveFailed(String error) {
+    return 'Could not save read-aloud settings: $error';
+  }
+
+  @override
+  String get readAloudPlayer => 'Read-aloud player';
+
+  @override
+  String get readAloudChapterText => 'Text';
+
+  @override
+  String get readAloudClassicPanel => 'Return to classic panel';
+
+  @override
+  String get readAloudPreviousParagraph => 'Previous paragraph';
+
+  @override
+  String get readAloudNextParagraph => 'Next paragraph';
+
+  @override
+  String get readAloudTextUnavailable =>
+      'Start reading aloud to display the chapter text';
+
+  @override
+  String readAloudParagraphProgress(int current, int total) {
+    return 'Paragraph $current/$total';
+  }
+
+  @override
+  String get readAloudTimer => 'Sleep timer';
+
+  @override
+  String readAloudMinutes(int minutes) {
+    return '$minutes minutes';
+  }
+
+  @override
+  String get readAloudCustomMinutes => 'Custom minutes';
+
+  @override
+  String readAloudTimerRange(int max) {
+    return 'Enter 1–$max minutes';
+  }
+
+  @override
+  String get readAloudStopAfterChapter => 'Stop after this chapter';
+
+  @override
+  String get readAloudCancelTimer => 'Cancel timer';
+
+  @override
+  String readAloudControlFailed(String error) {
+    return 'Read-aloud control failed: $error';
+  }
+
+  @override
+  String get readAloudStop => 'Stop reading aloud';
+
+  @override
+  String get readAloudCapsuleGroup => 'Playback capsule';
+
+  @override
+  String get readAloudCapsuleAutoCollapse => 'Auto-collapse capsule';
+
+  @override
+  String get readAloudCapsuleAutoCollapseSummary =>
+      'Collapse to the cover after 3 seconds of inactivity';
 }

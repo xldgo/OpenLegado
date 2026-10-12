@@ -1496,4 +1496,116 @@ class AppLocalizationsZh extends AppLocalizations {
   String confirmDeleteItemGroup(String name, String noun) {
     return '确定要删除分组「$name」吗？分组内$noun将移出该分组。';
   }
+
+  @override
+  String get readAloudSettingsTitle => '朗读设置';
+
+  @override
+  String get readAloudPlaybackGroup => '播放与控制';
+
+  @override
+  String get readAloudFollowSystem => '语速跟随系统';
+
+  @override
+  String get readAloudFollowSystemSummary => '使用默认语速；关闭后可调整手动语速';
+
+  @override
+  String get readAloudSpeed => '语速';
+
+  @override
+  String get readAloudParagraphInterval => '段间停顿';
+
+  @override
+  String get readAloudSecondsUnit => '秒';
+
+  @override
+  String get readAloudVoiceGroup => '引擎与声音';
+
+  @override
+  String get readAloudEngines => '朗读引擎';
+
+  @override
+  String get readAloudEnginesSummary => '管理系统与 HTTP 朗读引擎';
+
+  @override
+  String get readAloudSystemVoice => '系统语音';
+
+  @override
+  String get readAloudSystemVoiceSummary => '选择设备引擎与已安装的音色';
+
+  @override
+  String get readAloudSystemAdjustmentGroup => '系统朗读调节';
+
+  @override
+  String get readAloudPitch => '音调';
+
+  @override
+  String get readAloudVolume => '音量';
+
+  @override
+  String readAloudSaveFailed(String error) {
+    return '保存朗读设置失败：$error';
+  }
+
+  @override
+  String get readAloudPlayer => '朗读播放器';
+
+  @override
+  String get readAloudChapterText => '正文';
+
+  @override
+  String get readAloudClassicPanel => '返回经典面板';
+
+  @override
+  String get readAloudPreviousParagraph => '上一段';
+
+  @override
+  String get readAloudNextParagraph => '下一段';
+
+  @override
+  String get readAloudTextUnavailable => '开始朗读后显示本章正文';
+
+  @override
+  String readAloudParagraphProgress(int current, int total) {
+    return '第 $current/$total 段';
+  }
+
+  @override
+  String get readAloudTimer => '定时停止';
+
+  @override
+  String readAloudMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
+  String get readAloudCustomMinutes => '自定义分钟';
+
+  @override
+  String readAloudTimerRange(int max) {
+    return '请输入 1–$max 分钟';
+  }
+
+  @override
+  String get readAloudStopAfterChapter => '读完本章后停止';
+
+  @override
+  String get readAloudCancelTimer => '取消定时';
+
+  @override
+  String readAloudControlFailed(String error) {
+    return '朗读操作失败：$error';
+  }
+
+  @override
+  String get readAloudStop => '停止朗读';
+
+  @override
+  String get readAloudCapsuleGroup => '播放胶囊';
+
+  @override
+  String get readAloudCapsuleAutoCollapse => '自动收起胶囊';
+
+  @override
+  String get readAloudCapsuleAutoCollapseSummary => '3 秒无操作后收起为封面';
 }
