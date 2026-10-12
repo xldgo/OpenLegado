@@ -34,7 +34,7 @@ jobs:
   build:
     needs: changes
     if: needs.changes.outputs.ios_build == 'true'
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 90
     env:
       FLUTTER_VERSION: '3.47.7'
