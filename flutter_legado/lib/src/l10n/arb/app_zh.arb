@@ -4140,5 +4140,166 @@
   "ruleDeselectAll": "取消全选",
   "@ruleDeselectAll": {
     "description": "按页面功能核对 HapeLee deselect_all；只用于显示文案。"
+  },
+  "bookmarkSearchHint": "搜索书签",
+  "@bookmarkSearchHint": {
+    "description": "参考 HapeLee action_search、bookmark，按本页面实际显示语境组成完整文案。"
+  },
+  "bookmarkNoMatches": "未找到匹配的书签",
+  "@bookmarkNoMatches": {
+    "description": "参考 HapeLee search_empty、no_bookmark，按本页面实际显示语境组成完整文案。"
+  },
+  "bookmarkDeleted": "书签已删除",
+  "@bookmarkDeleted": {
+    "description": "参考 HapeLee bookmark_removed，按本页面实际显示语境组成完整文案。"
+  },
+  "confirmDeleteChapterBookmark": "确定删除「{chapter}」的书签吗？",
+  "@confirmDeleteChapterBookmark": {
+    "description": "参考 HapeLee delete_bookmark_message，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "chapter": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkChapterNumber": "第 {number} 章",
+  "@bookmarkChapterNumber": {
+    "description": "参考 HapeLee chapter_index_format，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkNoteText": "备注: {note}",
+  "@bookmarkNoteText": {
+    "description": "参考 HapeLee bookmark_mark_note，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordSearchHint": "搜索阅读记录",
+  "@readingRecordSearchHint": {
+    "description": "参考 HapeLee action_search、read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordOptions": "排序与设置",
+  "@readingRecordOptions": {
+    "description": "参考 HapeLee read_record_options，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortName": "按书名排序",
+  "@readingRecordSortName": {
+    "description": "参考 HapeLee bookshelf_px_2，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortDuration": "按阅读时长",
+  "@readingRecordSortDuration": {
+    "description": "参考 HapeLee reading_time_sort，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortLastRead": "按最后阅读",
+  "@readingRecordSortLastRead": {
+    "description": "参考 HapeLee last_read_time_sort，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordEnabled": "启用阅读记录",
+  "@readingRecordEnabled": {
+    "description": "参考 HapeLee enable_read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordLoading": "加载阅读记录...",
+  "@readingRecordLoading": {
+    "description": "参考 HapeLee loading、read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordNoMatches": "未找到匹配的记录",
+  "@readingRecordNoMatches": {
+    "description": "参考 HapeLee search_empty、no_read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "confirmDeleteNamedReadingRecord": "确定删除「{name}」吗？",
+  "@confirmDeleteNamedReadingRecord": {
+    "description": "参考 HapeLee delete_read_record_message，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmClearReadingRecords": "确定删除全部阅读记录吗？",
+  "@confirmClearReadingRecords": {
+    "description": "参考 HapeLee clear_read_records_message，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordDurationText": "阅读时长：{duration}",
+  "@readingRecordDurationText": {
+    "description": "参考 HapeLee reading_time_with_value，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordLastReadText": "最后阅读：{date}",
+  "@readingRecordLastReadText": {
+    "description": "参考 HapeLee last_read_time_tag，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordBooksRead": "已读 {count} 本",
+  "@readingRecordBooksRead": {
+    "description": "参考 HapeLee read_books_prefix、read_books_suffix，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readingRecordTotalDuration": "累计 {duration}",
+  "@readingRecordTotalDuration": {
+    "description": "参考 HapeLee total_reading_time_format，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "reload": "重新加载",
+  "@reload": {
+    "description": "参考 HapeLee reload，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupEdit": "编辑分组",
+  "@bookGroupEdit": {
+    "description": "参考 HapeLee group_edit，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupNew": "新建分组",
+  "@bookGroupNew": {
+    "description": "参考 HapeLee group_add，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupSortMode": "排序方式",
+  "@bookGroupSortMode": {
+    "description": "参考 HapeLee sort，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupLoading": "加载分组...",
+  "@bookGroupLoading": {
+    "description": "参考 HapeLee loading、group_manage，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupsEmpty": "还没有分组",
+  "@bookGroupsEmpty": {
+    "description": "参考 HapeLee empty、group_manage，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupBookCount": "{count} 本书",
+  "@bookGroupBookCount": {
+    "description": "参考 HapeLee book_count，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookGroupShownOnShelf": "在书架显示",
+  "@bookGroupShownOnShelf": {
+    "description": "参考 HapeLee show、bookshelf，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupHiddenOnShelf": "在书架隐藏",
+  "@bookGroupHiddenOnShelf": {
+    "description": "参考 HapeLee hide、bookshelf，按本页面实际显示语境组成完整文案。"
   }
 }

@@ -3600,4 +3600,121 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleDeselectAll => 'Deselect all';
+
+  @override
+  String get bookmarkSearchHint => 'Search bookmarks';
+
+  @override
+  String get bookmarkNoMatches => 'No matching bookmarks';
+
+  @override
+  String get bookmarkDeleted => 'Bookmark deleted';
+
+  @override
+  String confirmDeleteChapterBookmark(String chapter) {
+    return 'Delete the bookmark for “$chapter”?';
+  }
+
+  @override
+  String bookmarkChapterNumber(int number) {
+    return 'Chapter $number';
+  }
+
+  @override
+  String bookmarkNoteText(String note) {
+    return 'Note: $note';
+  }
+
+  @override
+  String get readingRecordSearchHint => 'Search reading records';
+
+  @override
+  String get readingRecordOptions => 'Sort and settings';
+
+  @override
+  String get readingRecordSortName => 'By book title';
+
+  @override
+  String get readingRecordSortDuration => 'By reading duration';
+
+  @override
+  String get readingRecordSortLastRead => 'By last read time';
+
+  @override
+  String get readingRecordEnabled => 'Enable reading records';
+
+  @override
+  String get readingRecordLoading => 'Loading reading records...';
+
+  @override
+  String get readingRecordNoMatches => 'No matching records';
+
+  @override
+  String confirmDeleteNamedReadingRecord(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get confirmClearReadingRecords => 'Delete all reading records?';
+
+  @override
+  String readingRecordDurationText(String duration) {
+    return 'Reading time: $duration';
+  }
+
+  @override
+  String readingRecordLastReadText(String date) {
+    return 'Last read: $date';
+  }
+
+  @override
+  String readingRecordBooksRead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Read $count books',
+      one: 'Read 1 book',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readingRecordTotalDuration(String duration) {
+    return 'Total reading $duration';
+  }
+
+  @override
+  String get reload => 'Reload';
+
+  @override
+  String get bookGroupEdit => 'Edit group';
+
+  @override
+  String get bookGroupNew => 'New group';
+
+  @override
+  String get bookGroupSortMode => 'Sort mode';
+
+  @override
+  String get bookGroupLoading => 'Loading groups...';
+
+  @override
+  String get bookGroupsEmpty => 'No groups yet';
+
+  @override
+  String bookGroupBookCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count books',
+      one: '1 book',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bookGroupShownOnShelf => 'Shown on bookshelf';
+
+  @override
+  String get bookGroupHiddenOnShelf => 'Hidden on bookshelf';
 }

@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../widgets/app_scaffold.dart';
@@ -45,7 +46,7 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
       topBar: LegadoAppBar(
         title: AppSearchField(
           controller: _searchController,
-          hintText: '搜索书签',
+          hintText: context.l10n.bookmarkSearchHint,
           onSubmitted: _searchBookmarks,
           onClear: () => _searchBookmarks(''),
         ),
@@ -64,14 +65,17 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.error_rounded, size: 48,
-                color: Theme.of(context).colorScheme.error),
+            Icon(
+              Symbols.error_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 16),
             Text(state.error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => notifier.loadAll(),
-              child: const Text('重试'),
+              child: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -82,11 +86,16 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.bookmark_border_rounded, size: 64,
-                color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Symbols.bookmark_border_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
             Text(
-              _searchQuery.isEmpty ? '暂无书签' : '未找到匹配的书签',
+              _searchQuery.isEmpty
+                  ? context.l10n.readerNoBookmark
+                  : context.l10n.bookmarkNoMatches,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
           ],
@@ -128,12 +137,14 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除书签'),
-        content: Text('确定删除「${bookmark.chapterName}」的书签吗？'),
+        title: Text(ctx.l10n.readerDeleteBookmark),
+        content: Text(
+          ctx.l10n.confirmDeleteChapterBookmark(bookmark.chapterName),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -141,11 +152,11 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
               ref
                   .read(bookmarkNotifierProvider.notifier)
                   .deleteBookmark(bookmark.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('书签已删除')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(ctx.l10n.bookmarkDeleted)));
             },
-            child: const Text('删除'),
+            child: Text(ctx.l10n.delete),
           ),
         ],
       ),
@@ -197,8 +208,11 @@ class _BookmarkTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Symbols.bookmark_rounded, size: 16,
-                      color: theme.colorScheme.primary),
+                  Icon(
+                    Symbols.bookmark_rounded,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -214,8 +228,11 @@ class _BookmarkTile extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Symbols.menu_book_rounded, size: 14,
-                      color: theme.colorScheme.outline),
+                  Icon(
+                    Symbols.menu_book_rounded,
+                    size: 14,
+                    color: theme.colorScheme.outline,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -229,7 +246,9 @@ class _BookmarkTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '第 ${bookmark.chapterIndex + 1} 章',
+                    context.l10n.bookmarkChapterNumber(
+                      bookmark.chapterIndex + 1,
+                    ),
                     style: theme.textTheme.labelSmall?.copyWith(
                       // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
                       color: theme.colorScheme.onSurfaceVariant,
@@ -251,7 +270,7 @@ class _BookmarkTile extends StatelessWidget {
               if (bookmark.content.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  '备注: ${bookmark.content}',
+                  context.l10n.bookmarkNoteText(bookmark.content),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.secondary,
                     fontStyle: FontStyle.italic,

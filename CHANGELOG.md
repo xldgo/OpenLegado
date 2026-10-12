@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.373] - 2026-10-12
 
 ### Fixed
+- [UI] 补齐书签、阅读记录及分组管理的对应中英文文案，书籍计数适配英文单复数。
 - 修复书签编辑通过删除后新增导致记录丢失及 ID 改变的问题，原子更新保留创建时间，失败保留原记录。
 - 修复启动初始化与业务 Provider 使用不同 BookApi 实例的问题，统一注入已经初始化的实例。
 

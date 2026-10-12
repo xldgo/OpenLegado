@@ -157,4 +157,28 @@ Cookie/Header/Token、源提示、网页内容和 Rust 日志同样保持原样�
 
 Flutter 生成配置与 ICU 语法依据 [官方国际化说明](https://docs.flutter.dev/ui/internationalization)。
 
+### 书签、阅读记录与书架分组的补充对应
+
+基线更新到 `74dda3c7b` 后，四个页面文件继续接入 41 项文案、49 个显示位置；
+新增 29 项资源，复用 12 项，中英文共 1086 个键。上游来源仍为前述固定版本，
+组合的搜索、加载及计数句子按本页面实际行为组成完整资源，不照搬拆分词序。
+
+| 本应用语境 | HapeLee 参考键 |
+|---|---|
+| 书签搜索、空态及删除确认 | `action_search`、`bookmark`、`no_bookmark`、`confirm_delete_bookmark`、`delete_bookmark_message` |
+| 书签的章节序号及备注 | `chapter_index_format`、`bookmark_mark_note` |
+| 阅读记录选项、排序和启用 | `read_record_options`、`bookshelf_px_2`、`reading_time_sort`、`last_read_time_sort`、`enable_read_record` |
+| 阅读记录删除及时间标签 | `delete_read_record_message`、`clear_read_records_message`、`reading_time_with_value`、`last_read_time_tag` |
+| 累计已读和时长 | `read_books_prefix/suffix`、`total_reading_time_format` |
+| 分组编辑、新建、名称与书籍计数 | `group_edit`、`group_add`、`group_name`、`book_count` |
+
+保留本应用中文标签及确认语义：原来带书名或章节名的确认继续保留参数，
+不新增删除范围或不可撤销承诺；备注内容、书籍数据与自定义分组名保持原文。
+英文书籍计数使用 ICU 单复数。分组显示/隐藏的提示只描述已有开关状态。
+
+本批不改 `formatDuring` 时长算法及中文输出，也不改 `groupDailyByDay` 的
+中文内部标识与分组顺序。按书／按天视图及日期分组标签、分组封面 URL 说明、
+分配与删除分组的长说明和未核对的异步反馈继续保留，后续核对行为再处理。
+当前英文界面仍可能出现这些中文，不视为阅读记录或全应用国际化完成。
+
 编写者：Codex｜2026-10-12

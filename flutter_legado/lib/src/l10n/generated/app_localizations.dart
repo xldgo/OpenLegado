@@ -6440,6 +6440,180 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'取消全选'**
   String get ruleDeselectAll;
+
+  /// 参考 HapeLee action_search、bookmark，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索书签'**
+  String get bookmarkSearchHint;
+
+  /// 参考 HapeLee search_empty、no_bookmark，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到匹配的书签'**
+  String get bookmarkNoMatches;
+
+  /// 参考 HapeLee bookmark_removed，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'书签已删除'**
+  String get bookmarkDeleted;
+
+  /// 参考 HapeLee delete_bookmark_message，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除「{chapter}」的书签吗？'**
+  String confirmDeleteChapterBookmark(String chapter);
+
+  /// 参考 HapeLee chapter_index_format，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {number} 章'**
+  String bookmarkChapterNumber(int number);
+
+  /// 参考 HapeLee bookmark_mark_note，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'备注: {note}'**
+  String bookmarkNoteText(String note);
+
+  /// 参考 HapeLee action_search、read_record，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索阅读记录'**
+  String get readingRecordSearchHint;
+
+  /// 参考 HapeLee read_record_options，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'排序与设置'**
+  String get readingRecordOptions;
+
+  /// 参考 HapeLee bookshelf_px_2，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'按书名排序'**
+  String get readingRecordSortName;
+
+  /// 参考 HapeLee reading_time_sort，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'按阅读时长'**
+  String get readingRecordSortDuration;
+
+  /// 参考 HapeLee last_read_time_sort，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'按最后阅读'**
+  String get readingRecordSortLastRead;
+
+  /// 参考 HapeLee enable_read_record，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'启用阅读记录'**
+  String get readingRecordEnabled;
+
+  /// 参考 HapeLee loading、read_record，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'加载阅读记录...'**
+  String get readingRecordLoading;
+
+  /// 参考 HapeLee search_empty、no_read_record，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到匹配的记录'**
+  String get readingRecordNoMatches;
+
+  /// 参考 HapeLee delete_read_record_message，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除「{name}」吗？'**
+  String confirmDeleteNamedReadingRecord(String name);
+
+  /// 参考 HapeLee clear_read_records_message，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除全部阅读记录吗？'**
+  String get confirmClearReadingRecords;
+
+  /// 参考 HapeLee reading_time_with_value，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读时长：{duration}'**
+  String readingRecordDurationText(String duration);
+
+  /// 参考 HapeLee last_read_time_tag，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'最后阅读：{date}'**
+  String readingRecordLastReadText(String date);
+
+  /// 参考 HapeLee read_books_prefix、read_books_suffix，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'已读 {count} 本'**
+  String readingRecordBooksRead(int count);
+
+  /// 参考 HapeLee total_reading_time_format，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'累计 {duration}'**
+  String readingRecordTotalDuration(String duration);
+
+  /// 参考 HapeLee reload，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载'**
+  String get reload;
+
+  /// 参考 HapeLee group_edit，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑分组'**
+  String get bookGroupEdit;
+
+  /// 参考 HapeLee group_add，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'新建分组'**
+  String get bookGroupNew;
+
+  /// 参考 HapeLee sort，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'排序方式'**
+  String get bookGroupSortMode;
+
+  /// 参考 HapeLee loading、group_manage，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'加载分组...'**
+  String get bookGroupLoading;
+
+  /// 参考 HapeLee empty、group_manage，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有分组'**
+  String get bookGroupsEmpty;
+
+  /// 参考 HapeLee book_count，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 本书'**
+  String bookGroupBookCount(int count);
+
+  /// 参考 HapeLee show、bookshelf，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'在书架显示'**
+  String get bookGroupShownOnShelf;
+
+  /// 参考 HapeLee hide、bookshelf，按本页面实际显示语境组成完整文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'在书架隐藏'**
+  String get bookGroupHiddenOnShelf;
 }
 
 class _AppLocalizationsDelegate

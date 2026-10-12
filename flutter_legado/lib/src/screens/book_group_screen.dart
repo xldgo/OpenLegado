@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -92,7 +93,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? '编辑分组' : '新建分组'),
+        title: Text(isEdit ? ctx.l10n.bookGroupEdit : ctx.l10n.bookGroupNew),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -100,16 +101,12 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
               TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '分组名称',
-                ),
+                decoration: InputDecoration(labelText: ctx.l10n.groupName),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: coverController,
-                decoration: const InputDecoration(
-                  labelText: '封面图片 URL（可选）',
-                ),
+                decoration: const InputDecoration(labelText: '封面图片 URL（可选）'),
               ),
             ],
           ),
@@ -135,19 +132,27 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     final api = ref.read(bookApiProvider);
     try {
       if (isEdit) {
-        await api.updateBookGroup(group.copyWith(
-          groupName: name,
-          cover: coverController.text.trim().isEmpty ? null : coverController.text.trim(),
-        ));
+        await api.updateBookGroup(
+          group.copyWith(
+            groupName: name,
+            cover: coverController.text.trim().isEmpty
+                ? null
+                : coverController.text.trim(),
+          ),
+        );
       } else {
         final nextOrder = _groups.isEmpty
             ? 0
             : _groups.map((g) => g.order).reduce((a, b) => a > b ? a : b) + 1;
-        await api.addBookGroup(BookGroup(
-          groupName: name,
-          cover: coverController.text.trim().isEmpty ? null : coverController.text.trim(),
-          order: nextOrder,
-        ));
+        await api.addBookGroup(
+          BookGroup(
+            groupName: name,
+            cover: coverController.text.trim().isEmpty
+                ? null
+                : coverController.text.trim(),
+            order: nextOrder,
+          ),
+        );
       }
       await _loadGroups();
     } catch (e) {
@@ -158,7 +163,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
   Future<void> _deleteGroup(BookGroup group) async {
     final confirmed = await showConfirmDialog(
       context,
-      title: '删除分组',
+      title: context.l10n.deleteGroup,
       content: '确定要删除分组「${group.groupName}」吗？分组内的书籍不会被删除。',
       confirmText: AppStrings.delete,
       isDestructive: true,
@@ -221,15 +226,15 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('分组管理'),
+        title: Text(context.l10n.groupManagement),
         actions: [
           AppMenuButton<_GroupSort>(
-            tooltip: '排序方式',
+            tooltip: context.l10n.bookGroupSortMode,
             icon: const Icon(Symbols.sort_rounded),
             onSelected: (s) => setState(() => _sort = s),
             itemBuilder: (_) => [
               _sortItem(_GroupSort.order, '按排序值'),
-              _sortItem(_GroupSort.name, '按名称'),
+              _sortItem(_GroupSort.name, context.l10n.sourceSortName),
               _sortItem(_GroupSort.bookCount, '按书籍数量'),
             ],
           ),
@@ -238,7 +243,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showEditDialog(),
-        tooltip: '新建分组',
+        tooltip: context.l10n.bookGroupNew,
         child: const Icon(Symbols.add_rounded),
       ),
     );
@@ -261,19 +266,24 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const LoadingIndicator(message: '加载分组...');
+    if (_loading) {
+      return LoadingIndicator(message: context.l10n.bookGroupLoading);
+    }
     if (_error != null) {
       return EmptyState(
         icon: Symbols.error_rounded,
         title: AppStrings.error,
         subtitle: _error,
-        action: FilledButton(onPressed: _loadGroups, child: Text(AppStrings.retry)),
+        action: FilledButton(
+          onPressed: _loadGroups,
+          child: Text(AppStrings.retry),
+        ),
       );
     }
     if (_groups.isEmpty) {
       return EmptyState(
         icon: Symbols.folder_special_rounded,
-        title: '还没有分组',
+        title: context.l10n.bookGroupsEmpty,
         subtitle: '点击右下角按钮创建第一个分组',
       );
     }
@@ -291,14 +301,16 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
           list.insert(newIndex, item);
           _persistOrder(list);
         },
-        itemBuilder: (context, index) => _buildGroupTile(groups[index], draggable: true),
+        itemBuilder: (context, index) =>
+            _buildGroupTile(groups[index], draggable: true),
       );
     }
     return ListView.builder(
       // [LAYOUT_PLAN P3] 页面水平边距16dp
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
       itemCount: groups.length,
-      itemBuilder: (context, index) => _buildGroupTile(groups[index], draggable: false),
+      itemBuilder: (context, index) =>
+          _buildGroupTile(groups[index], draggable: false),
     );
   }
 
@@ -341,7 +353,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
           ),
         ),
         subtitle: Text(
-          '$count 本书',
+          context.l10n.bookGroupBookCount(count),
           style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         trailing: Row(
@@ -349,7 +361,9 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
           children: [
             // 显示/隐藏开关
             Tooltip(
-              message: group.show ? '在书架显示' : '在书架隐藏',
+              message: group.show
+                  ? context.l10n.bookGroupShownOnShelf
+                  : context.l10n.bookGroupHiddenOnShelf,
               child: Switch(
                 value: group.show,
                 onChanged: (_) => _toggleShow(group),
@@ -362,8 +376,12 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
                 AppMenuItem(value: 'edit', child: Text(AppStrings.edit)),
                 AppMenuItem(
                   value: 'delete',
-                  child: Text(AppStrings.delete,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  child: Text(
+                    AppStrings.delete,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ],
             ),

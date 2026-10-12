@@ -3396,4 +3396,109 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ruleDeselectAll => '取消全选';
+
+  @override
+  String get bookmarkSearchHint => '搜索书签';
+
+  @override
+  String get bookmarkNoMatches => '未找到匹配的书签';
+
+  @override
+  String get bookmarkDeleted => '书签已删除';
+
+  @override
+  String confirmDeleteChapterBookmark(String chapter) {
+    return '确定删除「$chapter」的书签吗？';
+  }
+
+  @override
+  String bookmarkChapterNumber(int number) {
+    return '第 $number 章';
+  }
+
+  @override
+  String bookmarkNoteText(String note) {
+    return '备注: $note';
+  }
+
+  @override
+  String get readingRecordSearchHint => '搜索阅读记录';
+
+  @override
+  String get readingRecordOptions => '排序与设置';
+
+  @override
+  String get readingRecordSortName => '按书名排序';
+
+  @override
+  String get readingRecordSortDuration => '按阅读时长';
+
+  @override
+  String get readingRecordSortLastRead => '按最后阅读';
+
+  @override
+  String get readingRecordEnabled => '启用阅读记录';
+
+  @override
+  String get readingRecordLoading => '加载阅读记录...';
+
+  @override
+  String get readingRecordNoMatches => '未找到匹配的记录';
+
+  @override
+  String confirmDeleteNamedReadingRecord(String name) {
+    return '确定删除「$name」吗？';
+  }
+
+  @override
+  String get confirmClearReadingRecords => '确定删除全部阅读记录吗？';
+
+  @override
+  String readingRecordDurationText(String duration) {
+    return '阅读时长：$duration';
+  }
+
+  @override
+  String readingRecordLastReadText(String date) {
+    return '最后阅读：$date';
+  }
+
+  @override
+  String readingRecordBooksRead(int count) {
+    return '已读 $count 本';
+  }
+
+  @override
+  String readingRecordTotalDuration(String duration) {
+    return '累计 $duration';
+  }
+
+  @override
+  String get reload => '重新加载';
+
+  @override
+  String get bookGroupEdit => '编辑分组';
+
+  @override
+  String get bookGroupNew => '新建分组';
+
+  @override
+  String get bookGroupSortMode => '排序方式';
+
+  @override
+  String get bookGroupLoading => '加载分组...';
+
+  @override
+  String get bookGroupsEmpty => '还没有分组';
+
+  @override
+  String bookGroupBookCount(int count) {
+    return '$count 本书';
+  }
+
+  @override
+  String get bookGroupShownOnShelf => '在书架显示';
+
+  @override
+  String get bookGroupHiddenOnShelf => '在书架隐藏';
 }

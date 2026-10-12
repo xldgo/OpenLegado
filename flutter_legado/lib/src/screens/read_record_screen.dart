@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -89,35 +90,35 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
       topBar: LegadoAppBar(
         title: AppSearchField(
           controller: _searchController,
-          hintText: '搜索阅读记录',
+          hintText: context.l10n.readingRecordSearchHint,
           onChanged: (q) =>
               ref.read(readRecordNotifierProvider.notifier).setSearchQuery(q),
         ),
         actions: [
           AppMenuButton<String>(
-            tooltip: '排序与设置',
+            tooltip: context.l10n.readingRecordOptions,
             onSelected: _onMenuSelected,
             itemBuilder: (_) => [
               AppMenuItem(
                 value: 'sort_name',
                 checked: state.sortMode == ReadRecordSortMode.name,
-                child: const Text('按书名排序'),
+                child: Text(context.l10n.readingRecordSortName),
               ),
               AppMenuItem(
                 value: 'sort_read_long',
                 checked: state.sortMode == ReadRecordSortMode.readTime,
-                child: const Text('按阅读时长'),
+                child: Text(context.l10n.readingRecordSortDuration),
               ),
               AppMenuItem(
                 value: 'sort_last_read',
                 checked: state.sortMode == ReadRecordSortMode.lastRead,
-                child: const Text('按最后阅读'),
+                child: Text(context.l10n.readingRecordSortLastRead),
               ),
               const AppMenuDivider(),
               AppMenuItem(
                 value: 'enable_record',
                 checked: state.enableRecord,
-                child: const Text('启用阅读记录'),
+                child: Text(context.l10n.readingRecordEnabled),
               ),
             ],
           ),
@@ -167,7 +168,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
 
   Widget _buildBody(BuildContext context, ReadRecordState state) {
     if (state.isLoading && state.records.isEmpty) {
-      return const LoadingIndicator(message: '加载阅读记录...');
+      return LoadingIndicator(message: context.l10n.readingRecordLoading);
     }
     if (state.error != null && state.records.isEmpty) {
       return ErrorView(
@@ -178,7 +179,9 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     if (state.records.isEmpty) {
       return EmptyState(
         icon: Symbols.history_rounded,
-        title: state.searchQuery.isEmpty ? '暂无阅读记录' : '未找到匹配的记录',
+        title: state.searchQuery.isEmpty
+            ? context.l10n.noReadingRecords
+            : context.l10n.readingRecordNoMatches,
       );
     }
     // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
@@ -192,24 +195,24 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           // [LAYOUT_PLAN P3] 页面水平边距 16dp；纵向留白 8dp
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           itemCount: state.records.length,
-        separatorBuilder: (_, _) => const Divider(
-          height: 1,
-          // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant（对齐 file_manage/offline_cache 样板）
-          indent: 16,
-          endIndent: 16,
-        ),
-        itemBuilder: (context, index) {
-          final item = state.records[index];
-          return _ReadRecordTile(
-            item: item,
-            lastReadText: _formatDate(item.lastRead),
-            durationText: formatDuring(item.readTime),
-            onTap: () => _openRecord(context, item),
-            onClear: () => _confirmDelete(context, item),
-          );
-        },
+          separatorBuilder: (_, _) => const Divider(
+            height: 1,
+            // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant（对齐 file_manage/offline_cache 样板）
+            indent: 16,
+            endIndent: 16,
           ),
+          itemBuilder: (context, index) {
+            final item = state.records[index];
+            return _ReadRecordTile(
+              item: item,
+              lastReadText: _formatDate(item.lastRead),
+              durationText: formatDuring(item.readTime),
+              onTap: () => _openRecord(context, item),
+              onClear: () => _confirmDelete(context, item),
+            );
+          },
         ),
+      ),
     );
   }
 
@@ -248,23 +251,20 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     await BookOpenUtils.openBook(context, ref, book);
   }
 
-  Future<void> _confirmDelete(
-    BuildContext context,
-    ReadRecordShow item,
-  ) async {
+  Future<void> _confirmDelete(BuildContext context, ReadRecordShow item) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除'),
-        content: Text('确定删除「${item.bookName}」吗？'),
+        title: Text(ctx.l10n.delete),
+        content: Text(ctx.l10n.confirmDeleteNamedReadingRecord(item.bookName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确定'),
+            child: Text(ctx.l10n.confirm),
           ),
         ],
       ),
@@ -280,16 +280,16 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除'),
-        content: const Text('确定删除全部阅读记录吗？'),
+        title: Text(ctx.l10n.delete),
+        content: Text(ctx.l10n.confirmClearReadingRecords),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确定'),
+            child: Text(ctx.l10n.confirm),
           ),
         ],
       ),
@@ -354,27 +354,22 @@ class _ReadRecordTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '阅读时长：$durationText',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: secondary,
-                        ),
+                    context.l10n.readingRecordDurationText(durationText),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: secondary),
                   ),
                   if (lastReadText.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
-                      '最后阅读：$lastReadText',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: secondary,
-                          ),
+                      context.l10n.readingRecordLastReadText(lastReadText),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: secondary),
                     ),
                   ],
                 ],
               ),
             ),
-            TextButton(
-              onPressed: onClear,
-              child: const Text('清空'),
-            ),
+            TextButton(onPressed: onClear, child: Text(context.l10n.clear)),
           ],
         ),
       ),
