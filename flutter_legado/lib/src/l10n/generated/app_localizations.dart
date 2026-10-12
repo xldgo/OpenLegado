@@ -6668,6 +6668,450 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已添加书签'**
   String get bookmarkAdded;
+
+  /// No description provided for @readAloudSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读设置'**
+  String get readAloudSettingsTitle;
+
+  /// No description provided for @readAloudPlaybackGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放与控制'**
+  String get readAloudPlaybackGroup;
+
+  /// No description provided for @readAloudFollowSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速跟随系统'**
+  String get readAloudFollowSystem;
+
+  /// No description provided for @readAloudFollowSystemSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用默认语速；关闭后可调整手动语速'**
+  String get readAloudFollowSystemSummary;
+
+  /// No description provided for @readAloudSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速'**
+  String get readAloudSpeed;
+
+  /// No description provided for @readAloudParagraphInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'段间停顿'**
+  String get readAloudParagraphInterval;
+
+  /// No description provided for @readAloudSecondsUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'秒'**
+  String get readAloudSecondsUnit;
+
+  /// No description provided for @readAloudVoiceGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎与声音'**
+  String get readAloudVoiceGroup;
+
+  /// No description provided for @readAloudEngines.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读引擎'**
+  String get readAloudEngines;
+
+  /// No description provided for @readAloudEnginesSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理系统与 HTTP 朗读引擎'**
+  String get readAloudEnginesSummary;
+
+  /// No description provided for @readAloudSystemVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统语音'**
+  String get readAloudSystemVoice;
+
+  /// No description provided for @readAloudSystemVoiceSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择设备引擎与已安装的音色'**
+  String get readAloudSystemVoiceSummary;
+
+  /// No description provided for @readAloudSystemAdjustmentGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统朗读调节'**
+  String get readAloudSystemAdjustmentGroup;
+
+  /// No description provided for @readAloudPitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'音调'**
+  String get readAloudPitch;
+
+  /// No description provided for @readAloudVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量'**
+  String get readAloudVolume;
+
+  /// No description provided for @readAloudSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存朗读设置失败：{error}'**
+  String readAloudSaveFailed(String error);
+
+  /// No description provided for @readAloudPlayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读播放器'**
+  String get readAloudPlayer;
+
+  /// No description provided for @readAloudChapterText.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get readAloudChapterText;
+
+  /// No description provided for @readAloudClassicPanel.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回经典面板'**
+  String get readAloudClassicPanel;
+
+  /// No description provided for @readAloudPreviousParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一段'**
+  String get readAloudPreviousParagraph;
+
+  /// No description provided for @readAloudNextParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一段'**
+  String get readAloudNextParagraph;
+
+  /// No description provided for @readAloudTextUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始朗读后显示本章正文'**
+  String get readAloudTextUnavailable;
+
+  /// No description provided for @readAloudParagraphProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {current}/{total} 段'**
+  String readAloudParagraphProgress(int current, int total);
+
+  /// No description provided for @readAloudTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时停止'**
+  String get readAloudTimer;
+
+  /// No description provided for @readAloudMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟'**
+  String readAloudMinutes(int minutes);
+
+  /// No description provided for @readAloudCustomMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义分钟'**
+  String get readAloudCustomMinutes;
+
+  /// No description provided for @readAloudTimerRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 1–{max} 分钟'**
+  String readAloudTimerRange(int max);
+
+  /// No description provided for @readAloudStopAfterChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'读完本章后停止'**
+  String get readAloudStopAfterChapter;
+
+  /// No description provided for @readAloudCancelTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消定时'**
+  String get readAloudCancelTimer;
+
+  /// No description provided for @readAloudControlFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读操作失败：{error}'**
+  String readAloudControlFailed(String error);
+
+  /// No description provided for @readAloudStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止朗读'**
+  String get readAloudStop;
+
+  /// No description provided for @readAloudCapsuleGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放胶囊'**
+  String get readAloudCapsuleGroup;
+
+  /// No description provided for @readAloudCapsuleAutoCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动收起胶囊'**
+  String get readAloudCapsuleAutoCollapse;
+
+  /// No description provided for @readAloudCapsuleAutoCollapseSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'3 秒无操作后收起为封面'**
+  String get readAloudCapsuleAutoCollapseSummary;
+
+  /// No description provided for @readAloudDetachReminder.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读脱离提醒'**
+  String get readAloudDetachReminder;
+
+  /// No description provided for @readAloudDetachReminderSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读'**
+  String get readAloudDetachReminderSummary;
+
+  /// No description provided for @readAloudReturnToPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'去朗读页'**
+  String get readAloudReturnToPosition;
+
+  /// No description provided for @readAloudFromThisPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'从本页读'**
+  String get readAloudFromThisPage;
+
+  /// No description provided for @readerMenuTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单配色'**
+  String get readerMenuTheme;
+
+  /// No description provided for @readerMenuFollowApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随应用'**
+  String get readerMenuFollowApp;
+
+  /// No description provided for @readerMenuFollowBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随阅读背景'**
+  String get readerMenuFollowBackground;
+
+  /// No description provided for @readerMenuCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get readerMenuCustom;
+
+  /// No description provided for @readerMenuPalette.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单配色风格'**
+  String get readerMenuPalette;
+
+  /// No description provided for @readerMenuTonalSpot.
+  ///
+  /// In zh, this message translates to:
+  /// **'柔和'**
+  String get readerMenuTonalSpot;
+
+  /// No description provided for @readerMenuNeutral.
+  ///
+  /// In zh, this message translates to:
+  /// **'中性'**
+  String get readerMenuNeutral;
+
+  /// No description provided for @readerMenuVibrant.
+  ///
+  /// In zh, this message translates to:
+  /// **'鲜艳'**
+  String get readerMenuVibrant;
+
+  /// No description provided for @readerMenuExpressive.
+  ///
+  /// In zh, this message translates to:
+  /// **'表现力'**
+  String get readerMenuExpressive;
+
+  /// No description provided for @readerMenuFidelity.
+  ///
+  /// In zh, this message translates to:
+  /// **'保真'**
+  String get readerMenuFidelity;
+
+  /// No description provided for @readerMenuContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容'**
+  String get readerMenuContent;
+
+  /// No description provided for @readerMenuRainbow.
+  ///
+  /// In zh, this message translates to:
+  /// **'彩虹'**
+  String get readerMenuRainbow;
+
+  /// No description provided for @readerMenuFruitSalad.
+  ///
+  /// In zh, this message translates to:
+  /// **'水果沙拉'**
+  String get readerMenuFruitSalad;
+
+  /// No description provided for @readerMenuMonochrome.
+  ///
+  /// In zh, this message translates to:
+  /// **'单色'**
+  String get readerMenuMonochrome;
+
+  /// No description provided for @readerMenuColorMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义方式'**
+  String get readerMenuColorMode;
+
+  /// No description provided for @readerMenuSeedOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'由主色生成'**
+  String get readerMenuSeedOnly;
+
+  /// No description provided for @readerMenuManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'分别指定颜色'**
+  String get readerMenuManual;
+
+  /// No description provided for @readerMenuEditingMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑配色'**
+  String get readerMenuEditingMode;
+
+  /// No description provided for @readerMenuDay.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色模式'**
+  String get readerMenuDay;
+
+  /// No description provided for @readerMenuNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色模式'**
+  String get readerMenuNight;
+
+  /// No description provided for @readerMenuAccent.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单主色'**
+  String get readerMenuAccent;
+
+  /// No description provided for @readerMenuBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单背景'**
+  String get readerMenuBackground;
+
+  /// No description provided for @readerMenuContainer.
+  ///
+  /// In zh, this message translates to:
+  /// **'弹层背景'**
+  String get readerMenuContainer;
+
+  /// No description provided for @readerMenuTitleColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'顶栏文字颜色'**
+  String get readerMenuTitleColor;
+
+  /// No description provided for @readerMenuColorDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get readerMenuColorDefault;
+
+  /// No description provided for @readerMenuColorHex.
+  ///
+  /// In zh, this message translates to:
+  /// **'十六进制颜色'**
+  String get readerMenuColorHex;
+
+  /// No description provided for @readerMenuColorInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 6 位或 8 位十六进制颜色'**
+  String get readerMenuColorInvalid;
+
+  /// No description provided for @eyeProtection.
+  ///
+  /// In zh, this message translates to:
+  /// **'护眼模式'**
+  String get eyeProtection;
+
+  /// No description provided for @eyeProtectionEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用护眼模式'**
+  String get eyeProtectionEnabled;
+
+  /// No description provided for @eyeProtectionEnabledSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'为应用画面应用暖色滤镜，不改变原始配色'**
+  String get eyeProtectionEnabledSummary;
+
+  /// No description provided for @eyeProtectionAutoNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随深色模式'**
+  String get eyeProtectionAutoNight;
+
+  /// No description provided for @eyeProtectionIntensity.
+  ///
+  /// In zh, this message translates to:
+  /// **'滤镜强度'**
+  String get eyeProtectionIntensity;
+
+  /// No description provided for @eyeProtectionSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时启用'**
+  String get eyeProtectionSchedule;
+
+  /// No description provided for @eyeProtectionScheduleSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅在指定时段生效，支持跨午夜'**
+  String get eyeProtectionScheduleSummary;
+
+  /// No description provided for @eyeProtectionStartTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间'**
+  String get eyeProtectionStartTime;
+
+  /// No description provided for @eyeProtectionEndTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束时间'**
+  String get eyeProtectionEndTime;
 }
 
 class _AppLocalizationsDelegate

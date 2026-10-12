@@ -4319,5 +4319,117 @@
   "@bookmarkNoteSaveFailed": {"description": "书签备注编辑面板"},
   "@bookmarkNoteSaving": {"description": "书签备注编辑面板"},
   "@bookmarkNoteSaved": {"description": "书签备注编辑面板"},
-  "@bookmarkAdded": {"description": "书签备注编辑面板"}
+  "@bookmarkAdded": {"description": "书签备注编辑面板"},
+  "readAloudSettingsTitle": "朗读设置",
+  "readAloudPlaybackGroup": "播放与控制",
+  "readAloudFollowSystem": "语速跟随系统",
+  "readAloudFollowSystemSummary": "使用默认语速；关闭后可调整手动语速",
+  "readAloudSpeed": "语速",
+  "readAloudParagraphInterval": "段间停顿",
+  "readAloudSecondsUnit": "秒",
+  "readAloudVoiceGroup": "引擎与声音",
+  "readAloudEngines": "朗读引擎",
+  "readAloudEnginesSummary": "管理系统与 HTTP 朗读引擎",
+  "readAloudSystemVoice": "系统语音",
+  "readAloudSystemVoiceSummary": "选择设备引擎与已安装的音色",
+  "readAloudSystemAdjustmentGroup": "系统朗读调节",
+  "readAloudPitch": "音调",
+  "readAloudVolume": "音量",
+  "readAloudSaveFailed": "保存朗读设置失败：{error}",
+  "@readAloudSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudPlayer": "朗读播放器",
+  "readAloudChapterText": "正文",
+  "readAloudClassicPanel": "返回经典面板",
+  "readAloudPreviousParagraph": "上一段",
+  "readAloudNextParagraph": "下一段",
+  "readAloudTextUnavailable": "开始朗读后显示本章正文",
+  "readAloudParagraphProgress": "第 {current}/{total} 段",
+  "@readAloudParagraphProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudTimer": "定时停止",
+  "readAloudMinutes": "{minutes} 分钟",
+  "@readAloudMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudCustomMinutes": "自定义分钟",
+  "readAloudTimerRange": "请输入 1–{max} 分钟",
+  "@readAloudTimerRange": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudStopAfterChapter": "读完本章后停止",
+  "readAloudCancelTimer": "取消定时",
+  "readAloudControlFailed": "朗读操作失败：{error}",
+  "@readAloudControlFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudStop": "停止朗读",
+  "readAloudCapsuleGroup": "播放胶囊",
+  "readAloudCapsuleAutoCollapse": "自动收起胶囊",
+  "readAloudCapsuleAutoCollapseSummary": "3 秒无操作后收起为封面",
+  "readAloudDetachReminder": "朗读脱离提醒",
+  "readAloudDetachReminderSummary": "手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读",
+  "readAloudReturnToPosition": "去朗读页",
+  "readAloudFromThisPage": "从本页读",
+  "readerMenuTheme": "菜单配色",
+  "readerMenuFollowApp": "跟随应用",
+  "readerMenuFollowBackground": "跟随阅读背景",
+  "readerMenuCustom": "自定义",
+  "readerMenuPalette": "菜单配色风格",
+  "readerMenuTonalSpot": "柔和",
+  "readerMenuNeutral": "中性",
+  "readerMenuVibrant": "鲜艳",
+  "readerMenuExpressive": "表现力",
+  "readerMenuFidelity": "保真",
+  "readerMenuContent": "内容",
+  "readerMenuRainbow": "彩虹",
+  "readerMenuFruitSalad": "水果沙拉",
+  "readerMenuMonochrome": "单色",
+  "readerMenuColorMode": "自定义方式",
+  "readerMenuSeedOnly": "由主色生成",
+  "readerMenuManual": "分别指定颜色",
+  "readerMenuEditingMode": "编辑配色",
+  "readerMenuDay": "浅色模式",
+  "readerMenuNight": "深色模式",
+  "readerMenuAccent": "菜单主色",
+  "readerMenuBackground": "菜单背景",
+  "readerMenuContainer": "弹层背景",
+  "readerMenuTitleColor": "顶栏文字颜色",
+  "readerMenuColorDefault": "默认",
+  "readerMenuColorHex": "十六进制颜色",
+  "readerMenuColorInvalid": "请输入 6 位或 8 位十六进制颜色",
+  "eyeProtection": "护眼模式",
+  "eyeProtectionEnabled": "启用护眼模式",
+  "eyeProtectionEnabledSummary": "为应用画面应用暖色滤镜，不改变原始配色",
+  "eyeProtectionAutoNight": "跟随深色模式",
+  "eyeProtectionIntensity": "滤镜强度",
+  "eyeProtectionSchedule": "定时启用",
+  "eyeProtectionScheduleSummary": "仅在指定时段生效，支持跨午夜",
+  "eyeProtectionStartTime": "开始时间",
+  "eyeProtectionEndTime": "结束时间"
 }

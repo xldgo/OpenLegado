@@ -15,6 +15,7 @@ import '../providers/audio/audio_notifier.dart';
 import '../providers/providers.dart';
 import '../utils/audio_skip_policy.dart';
 import '../routes.dart';
+import '../l10n/app_localization.dart';
 import '../services/audio_cache_events.dart';
 import 'source_edit_screen.dart';
 import 'source_login_screen.dart';
@@ -96,7 +97,11 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       unawaited(notifier.applyBookPreferences(
         widget.book,
         fallbackBookUrl: widget.effectiveBookUrl,
-      ));
+      ).then((_) async {
+        if (mounted && !ref.read(audioNotifierProvider).isStreamMode) {
+          await notifier.prepareReadAloudSettings();
+        }
+      }));
       notifier.initMediaSession(bookName: widget.effectiveBookName);
       unawaited(notifier.isWakeLockEnabled().then((v) {
         if (mounted) setState(() => _wakeLock = v);
@@ -661,14 +666,21 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   }
 
   Widget _buildSettingsPanel(AudioState provider) {
-    final isStream = provider.isStreamMode;
+    if (!provider.isStreamMode) {
+      return ListTile(
+        leading: const Icon(Symbols.tune_rounded),
+        title: Text(context.l10n.readAloudSettingsTitle),
+        subtitle: Text(context.l10n.readAloudEnginesSummary),
+        onTap: () => Navigator.pushNamed(context, AppRoutes.readAloudSettings),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isStream ? '播放设置' : '朗读设置',
+            '播放设置',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -695,60 +707,6 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
               ),
             ],
           ),
-          if (!isStream) ...[
-            Row(
-              children: [
-                const SizedBox(width: 60, child: Text('音调')),
-                Expanded(
-                  child: Slider(
-                    value: provider.config.pitch,
-                    min: 0.5,
-                    max: 2.0,
-                    divisions: 15,
-                    label: provider.config.pitch.toStringAsFixed(1),
-                    onChanged: (v) => ref
-                        .read(audioNotifierProvider.notifier)
-                        .updateConfig(pitch: v),
-                  ),
-                ),
-                SizedBox(
-                  width: 40,
-                  child: Text(provider.config.pitch.toStringAsFixed(1)),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const SizedBox(width: 60, child: Text('音量')),
-                Expanded(
-                  child: Slider(
-                    value: provider.config.volume,
-                    min: 0.0,
-                    max: 1.0,
-                    divisions: 10,
-                    label: '${(provider.config.volume * 100).toInt()}%',
-                    onChanged: (v) => ref
-                        .read(audioNotifierProvider.notifier)
-                        .updateConfig(volume: v),
-                  ),
-                ),
-                SizedBox(
-                  width: 40,
-                  child: Text('${(provider.config.volume * 100).toInt()}%'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Symbols.tune_rounded, size: 20),
-              title: const Text('朗读引擎'),
-              subtitle: const Text('管理 HTTP TTS 朗读引擎'),
-              onTap: () =>
-                  Navigator.pushNamed(context, AppRoutes.readAloudConfig),
-            ),
-          ],
         ],
       ),
     );

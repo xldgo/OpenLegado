@@ -124,8 +124,7 @@ void main() {
   group('朗读条引擎对话框：双持久化按钮（原版 :164-177）', () {
     testWidgets('「书」按钮：只写当前书 readConfig.ttsEngine，不改全局', (tester) async {
       await pumpBar(tester);
-      // 绑定放在 pumpBar 之后：避免 _loadFollowSystem 的默认语速触发
-      // 600ms 防抖写库，污染 updateBook 调用计数（与本测试无关的既有行为）
+      // 控制条挂载不写语速；绑定当前书后检查显式引擎保存。
       readNotifier().bindBook(const Book(bookUrl: bookUrl, name: '书'));
       readNotifier().updateConfig(engineUrl: urlB);
       await openEngineDialog(tester);

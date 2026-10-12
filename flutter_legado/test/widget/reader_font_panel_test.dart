@@ -90,14 +90,13 @@ void main() {
       expect(prefs.getInt('textBold'), 1);
 
       // ② 首行缩进 → 选「三字符」→ 持久化 paragraph_indent_chars=3
-      // （save() 同时写日夜桶键 reader_layout_day_* 与旧键 reader_adv_*）
+      // 保存统一的正文排版键。
       await tester.ensureVisible(find.text('首行缩进').last);
       await tester.tap(find.text('首行缩进').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('三字符').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(prefs.getInt('reader_layout_day_paragraph_indent_chars'), 3);
       expect(prefs.getInt('reader_adv_paragraph_indent_chars'), 3);
 
       // ④ 斜体开关（双基准补齐）→ 持久化 reader_adv_italic

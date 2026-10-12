@@ -3745,4 +3745,243 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookmarkAdded => 'Bookmark added';
+
+  @override
+  String get readAloudSettingsTitle => 'Read-aloud settings';
+
+  @override
+  String get readAloudPlaybackGroup => 'Playback and controls';
+
+  @override
+  String get readAloudFollowSystem => 'Use default speech rate';
+
+  @override
+  String get readAloudFollowSystemSummary =>
+      'Use the default rate. Turn off to adjust speech speed.';
+
+  @override
+  String get readAloudSpeed => 'Speech rate';
+
+  @override
+  String get readAloudParagraphInterval => 'Pause between paragraphs';
+
+  @override
+  String get readAloudSecondsUnit => 's';
+
+  @override
+  String get readAloudVoiceGroup => 'Engines and voices';
+
+  @override
+  String get readAloudEngines => 'Speech engines';
+
+  @override
+  String get readAloudEnginesSummary => 'Manage system and HTTP speech engines';
+
+  @override
+  String get readAloudSystemVoice => 'System voice';
+
+  @override
+  String get readAloudSystemVoiceSummary =>
+      'Choose a device engine and an installed voice';
+
+  @override
+  String get readAloudSystemAdjustmentGroup => 'System speech adjustments';
+
+  @override
+  String get readAloudPitch => 'Pitch';
+
+  @override
+  String get readAloudVolume => 'Volume';
+
+  @override
+  String readAloudSaveFailed(String error) {
+    return 'Could not save read-aloud settings: $error';
+  }
+
+  @override
+  String get readAloudPlayer => 'Read-aloud player';
+
+  @override
+  String get readAloudChapterText => 'Text';
+
+  @override
+  String get readAloudClassicPanel => 'Return to classic panel';
+
+  @override
+  String get readAloudPreviousParagraph => 'Previous paragraph';
+
+  @override
+  String get readAloudNextParagraph => 'Next paragraph';
+
+  @override
+  String get readAloudTextUnavailable =>
+      'Start reading aloud to display the chapter text';
+
+  @override
+  String readAloudParagraphProgress(int current, int total) {
+    return 'Paragraph $current/$total';
+  }
+
+  @override
+  String get readAloudTimer => 'Sleep timer';
+
+  @override
+  String readAloudMinutes(int minutes) {
+    return '$minutes minutes';
+  }
+
+  @override
+  String get readAloudCustomMinutes => 'Custom minutes';
+
+  @override
+  String readAloudTimerRange(int max) {
+    return 'Enter 1–$max minutes';
+  }
+
+  @override
+  String get readAloudStopAfterChapter => 'Stop after this chapter';
+
+  @override
+  String get readAloudCancelTimer => 'Cancel timer';
+
+  @override
+  String readAloudControlFailed(String error) {
+    return 'Read-aloud control failed: $error';
+  }
+
+  @override
+  String get readAloudStop => 'Stop reading aloud';
+
+  @override
+  String get readAloudCapsuleGroup => 'Playback capsule';
+
+  @override
+  String get readAloudCapsuleAutoCollapse => 'Auto-collapse capsule';
+
+  @override
+  String get readAloudCapsuleAutoCollapseSummary =>
+      'Collapse to the cover after 3 seconds of inactivity';
+
+  @override
+  String get readAloudDetachReminder => 'Keep speaking when browsing';
+
+  @override
+  String get readAloudDetachReminderSummary =>
+      'Browse without interrupting speech, then return to the spoken passage. When off, speech follows your reading position.';
+
+  @override
+  String get readAloudReturnToPosition => 'Go to speaking page';
+
+  @override
+  String get readAloudFromThisPage => 'Read from this page';
+
+  @override
+  String get readerMenuTheme => 'Menu colors';
+
+  @override
+  String get readerMenuFollowApp => 'Follow app';
+
+  @override
+  String get readerMenuFollowBackground => 'Follow reading background';
+
+  @override
+  String get readerMenuCustom => 'Custom';
+
+  @override
+  String get readerMenuPalette => 'Menu palette style';
+
+  @override
+  String get readerMenuTonalSpot => 'Tonal spot';
+
+  @override
+  String get readerMenuNeutral => 'Neutral';
+
+  @override
+  String get readerMenuVibrant => 'Vibrant';
+
+  @override
+  String get readerMenuExpressive => 'Expressive';
+
+  @override
+  String get readerMenuFidelity => 'Fidelity';
+
+  @override
+  String get readerMenuContent => 'Content';
+
+  @override
+  String get readerMenuRainbow => 'Rainbow';
+
+  @override
+  String get readerMenuFruitSalad => 'Fruit salad';
+
+  @override
+  String get readerMenuMonochrome => 'Monochrome';
+
+  @override
+  String get readerMenuColorMode => 'Custom color mode';
+
+  @override
+  String get readerMenuSeedOnly => 'Generate from accent';
+
+  @override
+  String get readerMenuManual => 'Set individual colors';
+
+  @override
+  String get readerMenuEditingMode => 'Edit colors for';
+
+  @override
+  String get readerMenuDay => 'Light mode';
+
+  @override
+  String get readerMenuNight => 'Dark mode';
+
+  @override
+  String get readerMenuAccent => 'Menu accent';
+
+  @override
+  String get readerMenuBackground => 'Menu background';
+
+  @override
+  String get readerMenuContainer => 'Popup background';
+
+  @override
+  String get readerMenuTitleColor => 'Top bar text color';
+
+  @override
+  String get readerMenuColorDefault => 'Default';
+
+  @override
+  String get readerMenuColorHex => 'Hex color';
+
+  @override
+  String get readerMenuColorInvalid => 'Enter a 6- or 8-digit hex color';
+
+  @override
+  String get eyeProtection => 'Eye comfort';
+
+  @override
+  String get eyeProtectionEnabled => 'Enable eye comfort';
+
+  @override
+  String get eyeProtectionEnabledSummary =>
+      'Apply a warm color filter without changing saved colors';
+
+  @override
+  String get eyeProtectionAutoNight => 'Follow dark mode';
+
+  @override
+  String get eyeProtectionIntensity => 'Filter intensity';
+
+  @override
+  String get eyeProtectionSchedule => 'Schedule';
+
+  @override
+  String get eyeProtectionScheduleSummary =>
+      'Apply only during the selected hours, including overnight';
+
+  @override
+  String get eyeProtectionStartTime => 'Start time';
+
+  @override
+  String get eyeProtectionEndTime => 'End time';
 }

@@ -1094,5 +1094,110 @@
   "bookmarkNoteSaveFailed": "Could not save. Your note is still here. Please try again.",
   "bookmarkNoteSaving": "Saving…",
   "bookmarkNoteSaved": "Note saved",
-  "bookmarkAdded": "Bookmark added"
+  "bookmarkAdded": "Bookmark added",
+  "readAloudSettingsTitle": "Read-aloud settings",
+  "readAloudPlaybackGroup": "Playback and controls",
+  "readAloudFollowSystem": "Use default speech rate",
+  "readAloudFollowSystemSummary": "Use the default rate. Turn off to adjust speech speed.",
+  "readAloudSpeed": "Speech rate",
+  "readAloudParagraphInterval": "Pause between paragraphs",
+  "readAloudSecondsUnit": "s",
+  "readAloudVoiceGroup": "Engines and voices",
+  "readAloudEngines": "Speech engines",
+  "readAloudEnginesSummary": "Manage system and HTTP speech engines",
+  "readAloudSystemVoice": "System voice",
+  "readAloudSystemVoiceSummary": "Choose a device engine and an installed voice",
+  "readAloudSystemAdjustmentGroup": "System speech adjustments",
+  "readAloudPitch": "Pitch",
+  "readAloudVolume": "Volume",
+  "readAloudSaveFailed": "Could not save read-aloud settings: {error}",
+  "readAloudPlayer": "Read-aloud player",
+  "readAloudChapterText": "Text",
+  "readAloudClassicPanel": "Return to classic panel",
+  "readAloudPreviousParagraph": "Previous paragraph",
+  "readAloudNextParagraph": "Next paragraph",
+  "readAloudTextUnavailable": "Start reading aloud to display the chapter text",
+  "readAloudParagraphProgress": "Paragraph {current}/{total}",
+  "@readAloudParagraphProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudTimer": "Sleep timer",
+  "readAloudMinutes": "{minutes} minutes",
+  "@readAloudMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudCustomMinutes": "Custom minutes",
+  "readAloudTimerRange": "Enter 1–{max} minutes",
+  "@readAloudTimerRange": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudStopAfterChapter": "Stop after this chapter",
+  "readAloudCancelTimer": "Cancel timer",
+  "readAloudControlFailed": "Read-aloud control failed: {error}",
+  "@readAloudControlFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudStop": "Stop reading aloud",
+  "readAloudCapsuleGroup": "Playback capsule",
+  "readAloudCapsuleAutoCollapse": "Auto-collapse capsule",
+  "readAloudCapsuleAutoCollapseSummary": "Collapse to the cover after 3 seconds of inactivity",
+  "readAloudDetachReminder": "Keep speaking when browsing",
+  "readAloudDetachReminderSummary": "Browse without interrupting speech, then return to the spoken passage. When off, speech follows your reading position.",
+  "readAloudReturnToPosition": "Go to speaking page",
+  "readAloudFromThisPage": "Read from this page",
+  "readerMenuTheme": "Menu colors",
+  "readerMenuFollowApp": "Follow app",
+  "readerMenuFollowBackground": "Follow reading background",
+  "readerMenuCustom": "Custom",
+  "readerMenuPalette": "Menu palette style",
+  "readerMenuTonalSpot": "Tonal spot",
+  "readerMenuNeutral": "Neutral",
+  "readerMenuVibrant": "Vibrant",
+  "readerMenuExpressive": "Expressive",
+  "readerMenuFidelity": "Fidelity",
+  "readerMenuContent": "Content",
+  "readerMenuRainbow": "Rainbow",
+  "readerMenuFruitSalad": "Fruit salad",
+  "readerMenuMonochrome": "Monochrome",
+  "readerMenuColorMode": "Custom color mode",
+  "readerMenuSeedOnly": "Generate from accent",
+  "readerMenuManual": "Set individual colors",
+  "readerMenuEditingMode": "Edit colors for",
+  "readerMenuDay": "Light mode",
+  "readerMenuNight": "Dark mode",
+  "readerMenuAccent": "Menu accent",
+  "readerMenuBackground": "Menu background",
+  "readerMenuContainer": "Popup background",
+  "readerMenuTitleColor": "Top bar text color",
+  "readerMenuColorDefault": "Default",
+  "readerMenuColorHex": "Hex color",
+  "readerMenuColorInvalid": "Enter a 6- or 8-digit hex color",
+  "eyeProtection": "Eye comfort",
+  "eyeProtectionEnabled": "Enable eye comfort",
+  "eyeProtectionEnabledSummary": "Apply a warm color filter without changing saved colors",
+  "eyeProtectionAutoNight": "Follow dark mode",
+  "eyeProtectionIntensity": "Filter intensity",
+  "eyeProtectionSchedule": "Schedule",
+  "eyeProtectionScheduleSummary": "Apply only during the selected hours, including overnight",
+  "eyeProtectionStartTime": "Start time",
+  "eyeProtectionEndTime": "End time"
 }

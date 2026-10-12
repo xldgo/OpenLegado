@@ -32,6 +32,36 @@
 
 ---
 
+## 阅读菜单局部主题（2026-10-13）
+
+正文继续使用阅读背景、文字和排版配置。菜单范围使用 `ReaderMenuTheme`：
+顶栏、底栏、亮度控件、书源徽章、朗读返回按钮及由菜单打开的弹层共用颜色角色。
+默认直接继承应用主题；跟随阅读背景时以正文纯色为种子生成完整 MD3 色板；
+自定义时可用日夜主色生成色板，或指定 `primary`、`surfaceContainerHigh`
+（菜单背景）、`surfaceContainerLow`（弹层与控件背景）。顶栏文字可单独覆盖，
+默认使用 `onSurface`，普通顶栏图标使用 `onSurfaceVariant`。
+
+菜单明暗跟随应用；默认模式保留应用纯黑配置，独立生成的菜单主题不额外套用纯黑，
+与上游 `ReadBookColorTheme` 保持一致。毛玻璃独立读取现有顶栏、底栏模糊半径及
+百分比不透明度，颜色配置不再决定是否启用模糊。正文分页树不进入菜单主题。
+
+参考：[上游 ReadBookColorTheme](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/ReadBookColorTheme.kt)。
+当前正文仅接入纯色背景，不扩展图片背景；配色复用现有 Dart 2021 色彩规范，
+不新增上游 2025 规范或 Liquid Glass 实现。旧 `readBarStyleFollowPage` 配置在读取时
+由独立迁移入口转换为菜单模式后移除；Rust、FFI 和数据库格式不变。
+
+阅读设置保留“背景与配色”二级页，集中放置正文背景、菜单配色、护眼模式三个卡片。
+护眼参数与应用外观设置共用，按上游 RGB 色温矩阵过滤全局画面一次；不修改保存的
+颜色、不叠加到局部主题。支持手动、跟随深色、强度与定时时段；关闭时不创建滤镜
+图层，定时时每分钟及回到前台重算生效状态。
+参考：[上游 EyeProtection](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/EyeProtection.kt)。
+
+正文排版统一为单套持久化配置，明暗切换不重载另一套边距和排版；菜单明暗颜色仍
+分别保存。“日夜共用排版”字段和分桶读写已移除；一次性迁移保留此前实际使用的
+布局，再清理旧键，运行时不保留双套排版逻辑。
+
+编写者：Codex｜2026-10-13
+
 ## 1. 内置调色板（12 套）
 
 数据来源：参考仓库 HapeLee/legado-with-MD3@`6dc297221a22e532354810fb2804592dd08e5a9d`

@@ -71,17 +71,11 @@ class ReaderAdvancedConfig {
   int paragraphIndent;
   bool textFullJustify;
 
-  // [UI-fix v2.0.4 | 2026-08-08] 界面面板（对标原版 ReadStyleDialog）新增：
-  // 文字字重（textBold：0中/1粗/2细，对标 TextFontWeightConverter）、
-  // 共用布局（shareLayout：原版语义为日间/夜间配置共用布局参数，桌面端
-  // 暂无日夜双配置体系，仅持久化）、自定义文字颜色（长按背景圆圈弹出的
-  // 自定义配色，ARGB 存储，0=跟随背景自动） — Qoder
+  /// 文字字重（0=常规、1=粗体、2=细体）与正文斜体。
   int textBold;
-
-  // [C3 斜体 | Qoder UI] 正文斜体（参考版行内字体面板「斜体」开关；原版无此配置，
-  // 按双基准口径（原版 + 参考版）补齐）
   bool italic;
-  bool shareLayout;
+
+  /// 自定义正文文字颜色；零值表示随阅读背景自动选择。
   int customTextColor;
 
   // [UI-fix v2.0.3 | 2026-08-06] 页面边距（对标原版 ReadBookConfig
@@ -169,8 +163,18 @@ class ReaderAdvancedConfig {
   /// 顶栏显示标题附加区（书名后追加章名，对标原版 showReadTitleAddition）
   bool showReadTitleAddition;
 
-  /// 工具栏样式跟随阅读页（背景/文字色跟随页面，对标原版 readBarStyleFollowPage）
-  bool readBarStyleFollowPage;
+  /// 菜单配色：0 跟随应用，1 从阅读背景生成，2 自定义。
+  int readBarStyle;
+  String readMenuPaletteStyle;
+  int readMenuColorMode;
+  int readMenuAccentColor;
+  int readMenuAccentColorNight;
+  int readMenuBgColor;
+  int readMenuBgColorNight;
+  int readMenuContainerColor;
+  int readMenuContainerColorNight;
+  int readMenuTextColor;
+  int readMenuTextColorNight;
 
   // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批（键名逐项对齐原版
   // pref_config_read.xml，平台受限项仅持久化并在 UI 中诚实标注）— Qoder
@@ -217,7 +221,6 @@ class ReaderAdvancedConfig {
     this.textFullJustify = true,
     this.textBold = 0,
     this.italic = false,
-    this.shareLayout = false,
     this.customTextColor = 0,
     this.pageMarginTop = 24,
     this.pageMarginBottom = 24,
@@ -268,7 +271,17 @@ class ReaderAdvancedConfig {
     this.brightnessMode = 0,
     this.brightnessOnLeft = false,
     this.showReadTitleAddition = true,
-    this.readBarStyleFollowPage = false,
+    this.readBarStyle = 0,
+    this.readMenuPaletteStyle = '',
+    this.readMenuColorMode = 0,
+    this.readMenuAccentColor = 0,
+    this.readMenuAccentColorNight = 0,
+    this.readMenuBgColor = 0,
+    this.readMenuBgColorNight = 0,
+    this.readMenuContainerColor = 0,
+    this.readMenuContainerColorNight = 0,
+    this.readMenuTextColor = 0,
+    this.readMenuTextColorNight = 0,
     this.volumeKeyPage = true,
     this.volumeKeyPageOnPlay = false,
     this.mouseWheelPage = true,
@@ -281,14 +294,9 @@ class ReaderAdvancedConfig {
     this.paddingDisplayCutouts = false,
   }) : tapActions = _copyTapActions(tapActions);
 
-  /// F6：布局字段前缀（对齐原版 shareConfig / durConfig）
-  /// shareLayout=true → 共用；否则按日/夜分桶。
-  static String layoutPrefix({
-    required bool shareLayout,
-    required bool isNight,
-  }) {
-    if (shareLayout) return 'reader_layout_share_';
-    return isNight ? 'reader_layout_night_' : 'reader_layout_day_';
+  static int _menuStyle(Object? value) {
+    final parsed = value is int ? value : int.tryParse('$value');
+    return parsed != null && parsed >= 0 && parsed <= 2 ? parsed : 0;
   }
 
   /// 各区域默认边距（对标 ReadBookConfig.Config 默认值）
@@ -301,18 +309,10 @@ class ReaderAdvancedConfig {
   static double defaultPaddingFor(PaddingRegion region, String side) =>
       regionDefaultPaddings()[region]![side]!;
 
-  /// 从持久化存储加载
-  ///
-  /// [isNight]：当前是否夜间阅读样式（决定非共用时的布局桶）；
-  /// 会写入 `reader_layout_is_night` 供后续 save 缺省使用。
-  static Future<ReaderAdvancedConfig> load({bool? isNight}) async {
+  /// 从持久化存储加载唯一一套排版；旧值只在迁移入口转换一次。
+  static Future<ReaderAdvancedConfig> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final shareLayout = prefs.getBool('shareLayout') ?? false;
-    final night = isNight ?? prefs.getBool('reader_layout_is_night') ?? false;
-    if (isNight != null) {
-      await prefs.setBool('reader_layout_is_night', isNight);
-    }
-    final lp = layoutPrefix(shareLayout: shareLayout, isNight: night);
+    await migrateReaderSettings(prefs);
 
     TapAction tap(String key, TapAction def) {
       final i = prefs.getInt('$_prefix$key');
@@ -395,12 +395,9 @@ class ReaderAdvancedConfig {
       await prefs.setBool(c2DefaultsMigratedKey, true);
     }
 
-    // F6：布局字段优先读日夜/共用桶，缺省回退 reader_adv_ 旧键（迁移）
+    // 日夜统一读取正文排版键。
     double layoutDouble(String key, double def) =>
-        (prefs.getDouble('$lp$key') ?? prefs.getDouble('$_prefix$key') ?? def)
-            .toDouble();
-    int layoutInt(String key, int def) =>
-        prefs.getInt('$lp$key') ?? prefs.getInt('$_prefix$key') ?? def;
+        (prefs.getDouble('$_prefix$key') ?? def).toDouble();
 
     double letterSpacingEm() {
       final raw = layoutDouble('letter_spacing', 0);
@@ -410,9 +407,7 @@ class ReaderAdvancedConfig {
     // [UI-fix v2.0.4 | 2026-08-08] 缩进档位兼容：新 int 键缺失时读取
     // 旧 bool 键（true→2 字符 / false→0），默认 2 字符 — Qoder
     int indentChars() {
-      final v =
-          prefs.getInt('${lp}paragraph_indent_chars') ??
-          prefs.getInt('${_prefix}paragraph_indent_chars');
+      final v = prefs.getInt('${_prefix}paragraph_indent_chars');
       if (v != null) return v.clamp(0, 3);
       final legacy = prefs.getBool('${_prefix}paragraph_indent');
       if (legacy == null) return 2;
@@ -429,11 +424,9 @@ class ReaderAdvancedConfig {
       letterSpacing: letterSpacingEm(),
       paragraphIndent: indentChars(),
       textFullJustify: prefs.getBool('${_prefix}text_full_justify') ?? true,
-      textBold: (prefs.getInt('${lp}textBold') ?? prefs.getInt('textBold') ?? 0)
-          .clamp(0, 2),
+      textBold: (prefs.getInt('textBold') ?? 0).clamp(0, 2),
       // [C3 斜体 | Qoder UI] 斜体（参考版行内面板开关；双基准补齐）
       italic: prefs.getBool('${_prefix}italic') ?? false,
-      shareLayout: shareLayout,
       customTextColor: prefs.getInt('${_prefix}custom_text_color') ?? 0,
       pageMarginTop: layoutDouble('margin_top', 24).clamp(0.0, 400.0),
       pageMarginBottom: layoutDouble('margin_bottom', 24).clamp(0.0, 400.0),
@@ -465,14 +458,8 @@ class ReaderAdvancedConfig {
         'footer_padding_right',
         16,
       ).clamp(0.0, 100.0),
-      showHeaderLine:
-          prefs.getBool('${lp}show_header_line') ??
-          prefs.getBool('showHeaderLine') ??
-          false,
-      showFooterLine:
-          prefs.getBool('${lp}show_footer_line') ??
-          prefs.getBool('showFooterLine') ??
-          true,
+      showHeaderLine: prefs.getBool('showHeaderLine') ?? false,
+      showFooterLine: prefs.getBool('showFooterLine') ?? true,
       headerMode: (prefs.getInt('headerMode') ?? 0).clamp(0, 2),
       footerMode: (prefs.getInt('footerMode') ?? 0).clamp(0, 2),
       tipHeaderLeft: prefs.getInt('tipHeaderLeft') ?? 2,
@@ -496,7 +483,7 @@ class ReaderAdvancedConfig {
       showProgress: prefs.getBool('${_prefix}show_progress') ?? false,
       showChapterName: prefs.getBool('${_prefix}show_chapter_name') ?? false,
       flipMode: FlipMode.fromIndex(
-        layoutInt('flip_mode', FlipMode.slide.index),
+        prefs.getInt('flip_mode') ?? FlipMode.slide.index,
       ),
       // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项读取（键名=原版键）— Qoder
       screenOrientation: (prefs.getInt('screenOrientation') ?? 0).clamp(0, 5),
@@ -513,7 +500,18 @@ class ReaderAdvancedConfig {
       brightnessMode: _brightnessMode(prefs.get('showBrightnessView')),
       brightnessOnLeft: prefs.getString('brightnessVwPos') == '0',
       showReadTitleAddition: prefs.getBool('showReadTitleAddition') ?? true,
-      readBarStyleFollowPage: prefs.getBool('readBarStyleFollowPage') ?? false,
+      readBarStyle: _menuStyle(prefs.get('readBarStyle')),
+      readMenuPaletteStyle: prefs.getString('readMenuPaletteStyle') ?? '',
+      readMenuColorMode: prefs.getInt('readMenuColorMode') ?? 0,
+      readMenuAccentColor: prefs.getInt('readMenuAccentColor') ?? 0,
+      readMenuAccentColorNight: prefs.getInt('readMenuAccentColorNight') ?? 0,
+      readMenuBgColor: prefs.getInt('readMenuBgColor') ?? 0,
+      readMenuBgColorNight: prefs.getInt('readMenuBgColorNight') ?? 0,
+      readMenuContainerColor: prefs.getInt('readMenuContainerColor') ?? 0,
+      readMenuContainerColorNight:
+          prefs.getInt('readMenuContainerColorNight') ?? 0,
+      readMenuTextColor: prefs.getInt('readMenuTextColor') ?? 0,
+      readMenuTextColorNight: prefs.getInt('readMenuTextColorNight') ?? 0,
       // [UI-fix v2.0.4 | 2026-08-08] 第②批 MoreConfig 项读取（键名=原版键，
       // 默认值对齐 pref_config_read.xml android:defaultValue）— Qoder
       volumeKeyPage: prefs.getBool('volumeKeyPage') ?? true,
@@ -532,16 +530,9 @@ class ReaderAdvancedConfig {
     );
   }
 
-  /// 持久化当前配置
-  ///
-  /// [isNight]：写入哪一套日夜布局桶（shareLayout=true 时忽略，写入共用桶）。
-  Future<void> save({bool? isNight}) async {
+  /// 保存唯一一套排版；正文与菜单的日夜颜色仍保持独立。
+  Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
-    final night = isNight ?? prefs.getBool('reader_layout_is_night') ?? false;
-    if (isNight != null) {
-      await prefs.setBool('reader_layout_is_night', isNight);
-    }
-    final lp = layoutPrefix(shareLayout: shareLayout, isNight: night);
 
     await prefs.setBool('${_prefix}auto_page_turn', autoPageTurn);
     await prefs.setDouble('${_prefix}auto_interval', autoPageTurnInterval);
@@ -554,37 +545,34 @@ class ReaderAdvancedConfig {
     await prefs.setInt('${_prefix}left_action', tapActions[3].index);
     await prefs.setInt('${_prefix}center_action', tapActions[4].index);
     await prefs.setInt('${_prefix}right_action', tapActions[5].index);
-    // F6：布局字段写入日夜/共用桶（并对齐旧 reader_adv_ 键便于未升级路径）
-    await prefs.setDouble('${lp}paragraph_spacing', paragraphSpacing);
+    // 边距和排版只保存一套。
     await prefs.setDouble('${_prefix}paragraph_spacing', paragraphSpacing);
-    await prefs.setDouble('${lp}letter_spacing', letterSpacing);
     await prefs.setDouble('${_prefix}letter_spacing', letterSpacing);
     // [UI-fix v2.0.4 | 2026-08-08] 写入即为 em 语义，同步置迁移标志，
     // 避免 save 先于 load 时新值被误当旧 px 二次换算 — Qoder
     await prefs.setBool('${_prefix}letter_spacing_migrated', true);
     // [UI-fix v2.0.4 | 2026-08-08] 缩进档位写新 int 键（旧 bool 键保留不再更新）— Qoder
-    await prefs.setInt('${lp}paragraph_indent_chars', paragraphIndent);
     await prefs.setInt('${_prefix}paragraph_indent_chars', paragraphIndent);
     await prefs.setBool('${_prefix}text_full_justify', textFullJustify);
-    await prefs.setDouble('${lp}margin_top', pageMarginTop);
-    await prefs.setDouble('${lp}margin_bottom', pageMarginBottom);
-    await prefs.setDouble('${lp}margin_left', pageMarginLeft);
-    await prefs.setDouble('${lp}margin_right', pageMarginRight);
     await prefs.setDouble('${_prefix}margin_top', pageMarginTop);
     await prefs.setDouble('${_prefix}margin_bottom', pageMarginBottom);
     await prefs.setDouble('${_prefix}margin_left', pageMarginLeft);
     await prefs.setDouble('${_prefix}margin_right', pageMarginRight);
-    await prefs.setDouble('${lp}header_padding_top', headerPaddingTop);
-    await prefs.setDouble('${lp}header_padding_bottom', headerPaddingBottom);
-    await prefs.setDouble('${lp}header_padding_left', headerPaddingLeft);
-    await prefs.setDouble('${lp}header_padding_right', headerPaddingRight);
-    await prefs.setDouble('${lp}footer_padding_top', footerPaddingTop);
-    await prefs.setDouble('${lp}footer_padding_bottom', footerPaddingBottom);
-    await prefs.setDouble('${lp}footer_padding_left', footerPaddingLeft);
-    await prefs.setDouble('${lp}footer_padding_right', footerPaddingRight);
-    await prefs.setBool('${lp}show_header_line', showHeaderLine);
+    await prefs.setDouble('${_prefix}header_padding_top', headerPaddingTop);
+    await prefs.setDouble(
+      '${_prefix}header_padding_bottom',
+      headerPaddingBottom,
+    );
+    await prefs.setDouble('${_prefix}header_padding_left', headerPaddingLeft);
+    await prefs.setDouble('${_prefix}header_padding_right', headerPaddingRight);
+    await prefs.setDouble('${_prefix}footer_padding_top', footerPaddingTop);
+    await prefs.setDouble(
+      '${_prefix}footer_padding_bottom',
+      footerPaddingBottom,
+    );
+    await prefs.setDouble('${_prefix}footer_padding_left', footerPaddingLeft);
+    await prefs.setDouble('${_prefix}footer_padding_right', footerPaddingRight);
     await prefs.setBool('showHeaderLine', showHeaderLine);
-    await prefs.setBool('${lp}show_footer_line', showFooterLine);
     await prefs.setBool('showFooterLine', showFooterLine);
     await prefs.setInt('headerMode', headerMode);
     await prefs.setInt('footerMode', footerMode);
@@ -603,7 +591,6 @@ class ReaderAdvancedConfig {
     await prefs.setBool('${_prefix}show_time', showTime);
     await prefs.setBool('${_prefix}show_progress', showProgress);
     await prefs.setBool('${_prefix}show_chapter_name', showChapterName);
-    await prefs.setInt('${lp}flip_mode', flipMode.index);
     await prefs.setInt('flip_mode', flipMode.index);
     // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项持久化（键名=原版键）— Qoder
     await prefs.setInt('screenOrientation', screenOrientation);
@@ -618,12 +605,23 @@ class ReaderAdvancedConfig {
     await prefs.setString('brightnessVwPos', brightnessOnLeft ? '0' : '1');
     await prefs.setBool('${_prefix}italic', italic);
     await prefs.setBool('showReadTitleAddition', showReadTitleAddition);
-    await prefs.setBool('readBarStyleFollowPage', readBarStyleFollowPage);
+    await prefs.setInt('readBarStyle', readBarStyle);
+    await prefs.setString('readMenuPaletteStyle', readMenuPaletteStyle);
+    await prefs.setInt('readMenuColorMode', readMenuColorMode);
+    await prefs.setInt('readMenuAccentColor', readMenuAccentColor);
+    await prefs.setInt('readMenuAccentColorNight', readMenuAccentColorNight);
+    await prefs.setInt('readMenuBgColor', readMenuBgColor);
+    await prefs.setInt('readMenuBgColorNight', readMenuBgColorNight);
+    await prefs.setInt('readMenuContainerColor', readMenuContainerColor);
+    await prefs.setInt(
+      'readMenuContainerColorNight',
+      readMenuContainerColorNight,
+    );
+    await prefs.setInt('readMenuTextColor', readMenuTextColor);
+    await prefs.setInt('readMenuTextColorNight', readMenuTextColorNight);
     // [UI-fix v2.0.4 | 2026-08-08] 界面面板 + 第②批 MoreConfig 项持久化
-    // （textBold/shareLayout 及第②批键名=原版键）— Qoder
-    await prefs.setInt('${lp}textBold', textBold);
+    // （字重及第②批键名=原版键）— Qoder
     await prefs.setInt('textBold', textBold);
-    await prefs.setBool('shareLayout', shareLayout);
     await prefs.setInt('${_prefix}custom_text_color', customTextColor);
     await prefs.setBool('volumeKeyPage', volumeKeyPage);
     await prefs.setBool('volumeKeyPageOnPlay', volumeKeyPageOnPlay);
@@ -648,7 +646,6 @@ class ReaderAdvancedConfig {
     textFullJustify: textFullJustify,
     textBold: textBold,
     italic: italic,
-    shareLayout: shareLayout,
     customTextColor: customTextColor,
     pageMarginTop: pageMarginTop,
     pageMarginBottom: pageMarginBottom,
@@ -693,7 +690,17 @@ class ReaderAdvancedConfig {
     brightnessMode: brightnessMode,
     brightnessOnLeft: brightnessOnLeft,
     showReadTitleAddition: showReadTitleAddition,
-    readBarStyleFollowPage: readBarStyleFollowPage,
+    readBarStyle: readBarStyle,
+    readMenuPaletteStyle: readMenuPaletteStyle,
+    readMenuColorMode: readMenuColorMode,
+    readMenuAccentColor: readMenuAccentColor,
+    readMenuAccentColorNight: readMenuAccentColorNight,
+    readMenuBgColor: readMenuBgColor,
+    readMenuBgColorNight: readMenuBgColorNight,
+    readMenuContainerColor: readMenuContainerColor,
+    readMenuContainerColorNight: readMenuContainerColorNight,
+    readMenuTextColor: readMenuTextColor,
+    readMenuTextColorNight: readMenuTextColorNight,
     volumeKeyPage: volumeKeyPage,
     volumeKeyPageOnPlay: volumeKeyPageOnPlay,
     mouseWheelPage: mouseWheelPage,
@@ -716,16 +723,11 @@ class ReaderAdvConfigNotifier extends Notifier<ReaderAdvancedConfig?> {
   ReaderAdvancedConfig? build() {
     // 异步自加载持久化配置；若 UI 已先行推送则不覆盖
     Future.microtask(() async {
-      // 无 BuildContext：用上次保存的日夜标志；阅读器进入时会按主题重载
+      // 首次恢复统一排版，不随明暗主题重载。
       final cfg = await ReaderAdvancedConfig.load();
       state ??= cfg;
     });
     return null;
-  }
-
-  /// F6：按日夜重载布局（主题切换后调用）
-  Future<void> reloadForNight(bool isNight) async {
-    state = await ReaderAdvancedConfig.load(isNight: isNight);
   }
 
   /// 推送最新配置（调用方负责持久化 save()）

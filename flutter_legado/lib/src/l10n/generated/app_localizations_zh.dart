@@ -3528,4 +3528,237 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookmarkAdded => '已添加书签';
+
+  @override
+  String get readAloudSettingsTitle => '朗读设置';
+
+  @override
+  String get readAloudPlaybackGroup => '播放与控制';
+
+  @override
+  String get readAloudFollowSystem => '语速跟随系统';
+
+  @override
+  String get readAloudFollowSystemSummary => '使用默认语速；关闭后可调整手动语速';
+
+  @override
+  String get readAloudSpeed => '语速';
+
+  @override
+  String get readAloudParagraphInterval => '段间停顿';
+
+  @override
+  String get readAloudSecondsUnit => '秒';
+
+  @override
+  String get readAloudVoiceGroup => '引擎与声音';
+
+  @override
+  String get readAloudEngines => '朗读引擎';
+
+  @override
+  String get readAloudEnginesSummary => '管理系统与 HTTP 朗读引擎';
+
+  @override
+  String get readAloudSystemVoice => '系统语音';
+
+  @override
+  String get readAloudSystemVoiceSummary => '选择设备引擎与已安装的音色';
+
+  @override
+  String get readAloudSystemAdjustmentGroup => '系统朗读调节';
+
+  @override
+  String get readAloudPitch => '音调';
+
+  @override
+  String get readAloudVolume => '音量';
+
+  @override
+  String readAloudSaveFailed(String error) {
+    return '保存朗读设置失败：$error';
+  }
+
+  @override
+  String get readAloudPlayer => '朗读播放器';
+
+  @override
+  String get readAloudChapterText => '正文';
+
+  @override
+  String get readAloudClassicPanel => '返回经典面板';
+
+  @override
+  String get readAloudPreviousParagraph => '上一段';
+
+  @override
+  String get readAloudNextParagraph => '下一段';
+
+  @override
+  String get readAloudTextUnavailable => '开始朗读后显示本章正文';
+
+  @override
+  String readAloudParagraphProgress(int current, int total) {
+    return '第 $current/$total 段';
+  }
+
+  @override
+  String get readAloudTimer => '定时停止';
+
+  @override
+  String readAloudMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
+  String get readAloudCustomMinutes => '自定义分钟';
+
+  @override
+  String readAloudTimerRange(int max) {
+    return '请输入 1–$max 分钟';
+  }
+
+  @override
+  String get readAloudStopAfterChapter => '读完本章后停止';
+
+  @override
+  String get readAloudCancelTimer => '取消定时';
+
+  @override
+  String readAloudControlFailed(String error) {
+    return '朗读操作失败：$error';
+  }
+
+  @override
+  String get readAloudStop => '停止朗读';
+
+  @override
+  String get readAloudCapsuleGroup => '播放胶囊';
+
+  @override
+  String get readAloudCapsuleAutoCollapse => '自动收起胶囊';
+
+  @override
+  String get readAloudCapsuleAutoCollapseSummary => '3 秒无操作后收起为封面';
+
+  @override
+  String get readAloudDetachReminder => '朗读脱离提醒';
+
+  @override
+  String get readAloudDetachReminderSummary =>
+      '手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读';
+
+  @override
+  String get readAloudReturnToPosition => '去朗读页';
+
+  @override
+  String get readAloudFromThisPage => '从本页读';
+
+  @override
+  String get readerMenuTheme => '菜单配色';
+
+  @override
+  String get readerMenuFollowApp => '跟随应用';
+
+  @override
+  String get readerMenuFollowBackground => '跟随阅读背景';
+
+  @override
+  String get readerMenuCustom => '自定义';
+
+  @override
+  String get readerMenuPalette => '菜单配色风格';
+
+  @override
+  String get readerMenuTonalSpot => '柔和';
+
+  @override
+  String get readerMenuNeutral => '中性';
+
+  @override
+  String get readerMenuVibrant => '鲜艳';
+
+  @override
+  String get readerMenuExpressive => '表现力';
+
+  @override
+  String get readerMenuFidelity => '保真';
+
+  @override
+  String get readerMenuContent => '内容';
+
+  @override
+  String get readerMenuRainbow => '彩虹';
+
+  @override
+  String get readerMenuFruitSalad => '水果沙拉';
+
+  @override
+  String get readerMenuMonochrome => '单色';
+
+  @override
+  String get readerMenuColorMode => '自定义方式';
+
+  @override
+  String get readerMenuSeedOnly => '由主色生成';
+
+  @override
+  String get readerMenuManual => '分别指定颜色';
+
+  @override
+  String get readerMenuEditingMode => '编辑配色';
+
+  @override
+  String get readerMenuDay => '浅色模式';
+
+  @override
+  String get readerMenuNight => '深色模式';
+
+  @override
+  String get readerMenuAccent => '菜单主色';
+
+  @override
+  String get readerMenuBackground => '菜单背景';
+
+  @override
+  String get readerMenuContainer => '弹层背景';
+
+  @override
+  String get readerMenuTitleColor => '顶栏文字颜色';
+
+  @override
+  String get readerMenuColorDefault => '默认';
+
+  @override
+  String get readerMenuColorHex => '十六进制颜色';
+
+  @override
+  String get readerMenuColorInvalid => '请输入 6 位或 8 位十六进制颜色';
+
+  @override
+  String get eyeProtection => '护眼模式';
+
+  @override
+  String get eyeProtectionEnabled => '启用护眼模式';
+
+  @override
+  String get eyeProtectionEnabledSummary => '为应用画面应用暖色滤镜，不改变原始配色';
+
+  @override
+  String get eyeProtectionAutoNight => '跟随深色模式';
+
+  @override
+  String get eyeProtectionIntensity => '滤镜强度';
+
+  @override
+  String get eyeProtectionSchedule => '定时启用';
+
+  @override
+  String get eyeProtectionScheduleSummary => '仅在指定时段生效，支持跨午夜';
+
+  @override
+  String get eyeProtectionStartTime => '开始时间';
+
+  @override
+  String get eyeProtectionEndTime => '结束时间';
 }

@@ -382,6 +382,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: context.l10n.readingInterfaceSummary,
                       onTap: () => ReaderSettingsSheet.showPage(context),
                     ),
+                    IosListTile(
+                      icon: Symbols.record_voice_over_rounded,
+                      title: context.l10n.readAloudSettingsTitle,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.readAloudSettings,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),

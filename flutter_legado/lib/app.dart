@@ -28,9 +28,11 @@ import 'src/theme/md3_colors.dart';
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
+import 'src/widgets/eye_protection_filter.dart';
 import 'src/widgets/crash_log_dialog.dart';
 import 'src/widgets/verification_code_listener.dart';
 import 'src/widgets/webview_bridge_listener.dart';
+import 'src/widgets/reader/read_aloud_capsule_host.dart';
 
 /// Legado App 入口 Widget
 class LegadoApp extends ConsumerStatefulWidget {
@@ -210,6 +212,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   /// - [V-B3-ROUTE] 悬浮窗回全屏门控（[scheduleFloatReturnNavigation]）——
   ///   确认闪屏 /welcome 已被替换出栈顶后才压入 /video。
   final TopRouteWatcher _topRouteWatcher = TopRouteWatcher();
+  final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
 
   @override
   void initState() {
@@ -265,6 +268,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    _readAloudCapsuleObserver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -408,7 +412,11 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
           // [P2-13b 2026-09-19] _topRouteWatcher：崩溃弹窗调度器（见
           // [LegadoApp.scheduleCrashLogDialog]）监听 didChangeTop，确认冷启动
           // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
-          navigatorObservers: [appRouteObserver, _topRouteWatcher],
+          navigatorObservers: [
+            appRouteObserver,
+            _topRouteWatcher,
+            _readAloudCapsuleObserver,
+          ],
           debugShowCheckedModeBanner: false,
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -441,6 +449,11 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             // Markdown 等第三方组件仍从上下文读取旧设计库主题与本地化。
             // ignore: deprecated_member_use
             wrapped = MaterialUiCompatibilityBridge(child: wrapped);
+            wrapped = ReadAloudCapsuleHost(
+              observer: _readAloudCapsuleObserver,
+              child: wrapped,
+            );
+            wrapped = EyeProtectionFilter(child: wrapped);
             if (scale == null) return wrapped;
             return MediaQuery(
               data: MediaQuery.of(context)

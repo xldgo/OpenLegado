@@ -7,11 +7,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../l10n/app_localization.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
+import '../../providers/ui_settings/eye_protection_notifier.dart';
 import '../../routes.dart';
 import '../../screens/reader_config_panel.dart';
 import '../app_scaffold.dart';
 import '../legado_app_bar.dart';
 import '../settings_widgets.dart';
+import '../eye_protection_settings.dart';
 import 'reader_tip_config_sheet.dart';
 
 part 'reader_settings_sheet_font_panel.part.dart';
@@ -21,7 +23,7 @@ part 'reader_settings_sheet_font_panel.part.dart';
 /// 完整阅读设置的分组；快捷面板复用同一套控件与配置。
 enum ReaderSettingsCategory {
   typography('字体与排版', '字体、字号、行距与段落样式', Icons.text_fields),
-  background('背景与配色', '预设背景与自定义文字颜色', Icons.palette_outlined),
+  background('背景与配色', '正文背景、阅读菜单与护眼模式', Icons.palette_outlined),
   layout('页面布局', '正文边距、章节标题、页眉与页脚', Icons.crop_free),
   interaction('翻页与操作', '翻页动画、点击区域与自动翻页', Icons.auto_stories_outlined),
   content('内容处理', '简繁转换与自动换源', Icons.article_outlined),
@@ -120,9 +122,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
 
   /// 持久化并推送共享 Provider（reader_screen 经 watch 实时应用）
   void _commitAdv(ReaderAdvancedConfig cfg) {
-    // F6：按当前主题写入日/夜或共用布局桶
-    final isNight = Theme.of(context).brightness == Brightness.dark;
-    unawaited(cfg.save(isNight: isNight));
+    unawaited(cfg.save());
     ref.read(readerAdvConfigProvider.notifier).apply(cfg);
   }
 
@@ -228,21 +228,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
-          SettingsGroup(
-            showDividers: false,
-            margin: EdgeInsets.zero,
-            children: [
-              SettingSwitchRow(
-                title: '日夜共用排版',
-                subtitle: adv.shareLayout
-                    ? '日间与夜间使用同一套边距和排版参数'
-                    : '日间与夜间分别保存边距和排版参数',
-                value: adv.shareLayout,
-                onChanged: (v) => _commitAdv(adv.copy()..shareLayout = v),
-              ),
-            ],
-          ),
         ],
       );
     }
@@ -267,6 +252,8 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       ],
       ReaderSettingsCategory.background => <Widget>[
         _buildBackgroundGroup(state, notifier, adv),
+        _configPanel(adv, ReaderConfigSection.menuTheme),
+        const EyeProtectionSettingsGroup(),
       ],
       ReaderSettingsCategory.interaction => <Widget>[
         _buildFlipGroup(state, notifier),
@@ -341,6 +328,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     ReaderNotifier notifier,
     ReaderAdvancedConfig adv,
   ) {
+    final eyeProtection = ref.watch(eyeProtectionProvider);
     return SettingsGroup(
       showDividers: false,
       children: [
@@ -352,45 +340,51 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.readerBackground,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '选择预设或自定义配色',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.readerBackground,
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          '选择预设或自定义配色',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
-                  // 月亮按钮：夜间/日间背景一键切换（对齐参考版）
-                  InkWell(
-                    onTap: () => notifier.updateBackgroundColor(
+                  IconButton(
+                    tooltip: context.l10n.eyeProtection,
+                    icon: const Icon(Icons.visibility_outlined),
+                    selectedIcon: const Icon(Icons.visibility_rounded),
+                    isSelected: eyeProtection.enabled,
+                    color: eyeProtection.enabled
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                    onPressed: () => ref
+                        .read(eyeProtectionProvider.notifier)
+                        .update(
+                          eyeProtection.copyWith(
+                            enabled: !eyeProtection.enabled,
+                          ),
+                        ),
+                    onLongPress: () => EyeProtectionSettingsGroup.show(context),
+                  ),
+                  IconButton(
+                    tooltip: state.isDarkBackground ? '日间背景' : '夜间背景',
+                    icon: const Icon(Icons.dark_mode_rounded),
+                    onPressed: () => notifier.updateBackgroundColor(
                       state.isDarkBackground
                           ? ReaderBackground.white
                           : ReaderBackground.dark,
-                    ),
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                      ),
-                      child: Icon(
-                        Icons.dark_mode_rounded,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
                     ),
                   ),
                 ],

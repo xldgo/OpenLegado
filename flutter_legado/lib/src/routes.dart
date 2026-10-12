@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'widgets/reader/read_aloud_player_transition.dart';
 
 import 'models/models.dart';
 import 'screens/about_screen.dart';
@@ -45,6 +46,8 @@ import 'screens/source_edit_screen.dart';
 import 'screens/rss_source_edit_screen.dart';
 import 'screens/source_debug_screen.dart';
 import 'screens/read_aloud_config_screen.dart';
+import 'screens/read_aloud_settings_screen.dart';
+import 'screens/read_aloud_player_screen.dart';
 import 'screens/theme_config_screen.dart';
 import 'screens/bottom_bar_skin_screen.dart';
 import 'screens/toc_screen.dart';
@@ -101,6 +104,8 @@ class AppRoutes {
   static const sourceDebug = '/sources/debug';
   static const rssSourceEdit = '/rss/edit';
   static const readAloudConfig = '/read_aloud_config';
+  static const readAloudSettings = '/read_aloud_settings';
+  static const readAloudPlayer = '/read_aloud_player';
   static const themeConfig = '/theme_config';
   static const bottomBarSkin = '/bottom_bar_skin';
   static const importBooks = '/import_books';
@@ -300,6 +305,8 @@ class AppRoutes {
       return RssSourceEditScreen(source: source);
     },
     readAloudConfig: (_) => const ReadAloudConfigScreen(),
+    readAloudSettings: (_) => const ReadAloudSettingsScreen(),
+    readAloudPlayer: (_) => const ReadAloudPlayerScreen(),
     themeConfig: (_) => const ThemeConfigScreen(),
     bottomBarSkin: (_) => const BottomBarSkinScreen(),
     importBooks: (_) => const ImportScreen(),
@@ -431,6 +438,9 @@ class AppRoutes {
   };
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
+    if (settings.name == readAloudPlayer) {
+      return ReadAloudPlayerRoute(settings: settings);
+    }
     // [A2 形态对齐 | full-stack-engineer + UI] 换源页改用「底部弹层」形态
     // （对标原版 ChangeBookSourceDialog BaseDialogFragment + 参考版 kazusa
     // 底部弹层实机截图）：非不透明路由承载——半透明遮罩压住前页、面板自底部

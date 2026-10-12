@@ -357,10 +357,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// 跳转到指定章节
-  Future<void> goToChapter(int index) async {
+  Future<void> goToChapter(int index, {int? sourceOffset}) async {
     if (index < 0 || index >= state.chapters.length) return;
     await _saveProgress();
-    _sourceAnchor = null;
+    _anchorBookUrl = state.currentBook?.bookUrl;
+    _sourceAnchor = sourceOffset == null
+        ? null
+        : ReaderSourceAnchor(
+            chapterId: chapterIdFor(state.chapters[index], index),
+            chapterIndex: index,
+            sourceOffset: sourceOffset,
+          );
     state = state.copyWith(
       currentChapterIndex: index,
       currentChapterPos: 0,

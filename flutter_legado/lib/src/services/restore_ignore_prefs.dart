@@ -31,6 +31,7 @@ class RestoreIgnorePrefs {
     'readAloudWakeLock',
     'audioPlayWakeLock',
     SettingsService.restoreIgnoreStorageKey,
+    'reader_unified_layout_v1',
   };
 
   /// 阅读界面相关键（对齐 BackupConfig.readPrefKeys + Flutter 阅读偏好）
@@ -61,6 +62,12 @@ class RestoreIgnorePrefs {
 
   /// 主题颜色相关键（对齐 BackupConfig.themePrefKeys）
   static const themePrefKeys = <String>{
+    'eyeProtectionEnabled',
+    'colorTemperature',
+    'eyeProtectionAutoNight',
+    'eyeProtectionSchedule',
+    'eyeProtectionStartTime',
+    'eyeProtectionEndTime',
     PrefKeys.cPrimary,
     PrefKeys.cAccent,
     PrefKeys.cBackground,
