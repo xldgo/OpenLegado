@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import 'zh_layout.dart';
+import 'reader/text_layout_environment.dart';
 
 /// 中文标点悬挂规则
 ///
@@ -168,6 +169,7 @@ class ParagraphConfig {
   // 由分页调用点注入（引擎不依赖 context，测试可空缺=不缩放不合并）— Qoder
   final TextStyle? baseStyle;
   final TextScaler? textScaler;
+  final TextLayoutEnvironment? textEnvironment;
 
   const ParagraphConfig({
     this.fontSize = 16.0,
@@ -189,6 +191,7 @@ class ParagraphConfig {
     this.hangingPunctuation = false,
     this.baseStyle,
     this.textScaler,
+    this.textEnvironment,
   });
 
   ParagraphConfig copyWith({
@@ -208,6 +211,7 @@ class ParagraphConfig {
     bool? hangingPunctuation,
     TextStyle? baseStyle,
     TextScaler? textScaler,
+    TextLayoutEnvironment? textEnvironment,
   }) {
     return ParagraphConfig(
       fontSize: fontSize ?? this.fontSize,
@@ -226,6 +230,7 @@ class ParagraphConfig {
       hangingPunctuation: hangingPunctuation ?? this.hangingPunctuation,
       baseStyle: baseStyle ?? this.baseStyle,
       textScaler: textScaler ?? this.textScaler,
+      textEnvironment: textEnvironment ?? this.textEnvironment,
     );
   }
 }
@@ -238,6 +243,7 @@ class LineInfo {
   final double height;
   final int startIndex;
   final int endIndex;
+  final double? baseline;
 
   /// 断行测量使用的虚拟前缀，不进入正文可选文字。
   final int virtualPrefixLength;
@@ -261,6 +267,7 @@ class LineInfo {
     required this.height,
     required this.startIndex,
     required this.endIndex,
+    this.baseline,
     this.hangingWidth = 0,
     this.virtualPrefixLength = 0,
     this.indentWidth = 0,
@@ -310,11 +317,13 @@ class PageInfo {
 
   /// 所有页面引用同一章节原文，选区从原文取值而非拼接排版字符。
   final String? sourceText;
+  final TextLayoutEnvironment? textEnvironment;
 
   const PageInfo({
     required this.paragraphs,
     required this.totalHeight,
     this.sourceText,
+    this.textEnvironment,
   });
 }
 
@@ -425,6 +434,13 @@ class CharWidthCache {
 class ParagraphLayoutEngine {
   final ParagraphConfig config;
   final BuildContext context;
+  late final TextLayoutEnvironment _environment =
+      config.textEnvironment ??
+      TextLayoutEnvironment(
+        baseStyle: config.baseStyle ?? const TextStyle(),
+        textScaler: config.textScaler ?? TextScaler.noScaling,
+        direction: TextDirection.ltr,
+      );
 
   /// 字符宽度缓存（移植自 TextMeasure.kt 三级缓存）
   final CharWidthCache _charWidthCache = CharWidthCache();
@@ -497,6 +513,7 @@ class ParagraphLayoutEngine {
               paragraphs: List.from(currentPageParagraphs),
               totalHeight: currentHeight,
               sourceText: content,
+              textEnvironment: _environment,
             ),
           );
           currentPageParagraphs = [];
@@ -533,6 +550,7 @@ class ParagraphLayoutEngine {
             paragraphs: List.from(currentPageParagraphs),
             totalHeight: currentHeight,
             sourceText: content,
+            textEnvironment: _environment,
           ),
         );
         currentPageParagraphs = [tagged];
@@ -550,6 +568,7 @@ class ParagraphLayoutEngine {
           paragraphs: currentPageParagraphs,
           totalHeight: currentHeight,
           sourceText: content,
+          textEnvironment: _environment,
         ),
       );
     }
@@ -601,6 +620,7 @@ class ParagraphLayoutEngine {
           ],
           totalHeight: height,
           sourceText: sourceText,
+          textEnvironment: _environment,
         ),
       );
       lineIdx = endIdx;
@@ -711,6 +731,9 @@ class ParagraphLayoutEngine {
           indentWidth: indentWidth,
           hangingWidth: line.hangingWidth,
           letterSpacing: spacing,
+          baseline: metrics.computeDistanceToActualBaseline(
+            TextBaseline.alphabetic,
+          ),
           isParagraphLastLine: last,
         ),
       );
@@ -770,7 +793,7 @@ class ParagraphLayoutEngine {
     if (words.isEmpty) return [];
 
     // [UI-fix v2.0.5 | 2026-08-10] useZhLayout=false：朴素按宽断行
-    //（无中文避头尾，对齐原版 useZhLayout=false 走 StaticLayout 语义）— Reasonix
+    //（无中文避头尾，仅按宽度与字形簇断行）— Reasonix
     final lines = config.useZhLayout
         ? _breakZhLayout(words, widths, availableWidth, hangingWidth)
         : _breakPlain(words, widths, availableWidth, hangingWidth);
@@ -786,7 +809,7 @@ class ParagraphLayoutEngine {
     );
   }
 
-  /// 朴素按宽断行（useZhLayout=false，对齐原版 StaticLayout 语义）
+  /// 朴素按宽断行（useZhLayout=false，不等同于 Android StaticLayout）
   List<LineInfo> _breakPlain(
     List<String> words,
     List<double> widths,
@@ -795,18 +818,13 @@ class ParagraphLayoutEngine {
   ) {
     final plainLines = <LineInfo>[];
     final textHeight = config.fontSize * config.lineHeight;
+    final offsets = TextClusterMap(words.join()).sourceOffsets;
     var lineStartIdx = 0;
     var lineWidth = 0.0;
     void flushLine(int endIdx) {
       final lineWords = words.sublist(lineStartIdx, endIdx);
-      var startOffset = 0;
-      for (var i = 0; i < lineStartIdx && i < words.length; i++) {
-        startOffset += words[i].length;
-      }
-      var endOffset = startOffset;
-      for (var i = lineStartIdx; i < endIdx && i < words.length; i++) {
-        endOffset += words[i].length;
-      }
+      final startOffset = offsets[lineStartIdx];
+      final endOffset = offsets[endIdx];
       plainLines.add(
         LineInfo(
           words: lineWords,
@@ -863,6 +881,7 @@ class ParagraphLayoutEngine {
     // 根据断行结果构建 LineInfo 列表
     final lines = <LineInfo>[];
     final textHeight = config.fontSize * config.lineHeight;
+    final offsets = TextClusterMap(words.join()).sourceOffsets;
 
     for (var lineIndex = 0; lineIndex < layout.lineCount; lineIndex++) {
       final lineStartIdx = layout.getLineStart(lineIndex);
@@ -876,14 +895,8 @@ class ParagraphLayoutEngine {
       final lineWidth = layout.getLineWidth(lineIndex);
 
       // 计算原始文本中的起止索引
-      var startOffset = 0;
-      for (var i = 0; i < lineStartIdx && i < words.length; i++) {
-        startOffset += words[i].length;
-      }
-      var endOffset = startOffset;
-      for (var i = lineStartIdx; i < lineEndIdx && i < words.length; i++) {
-        endOffset += words[i].length;
-      }
+      final startOffset = offsets[lineStartIdx];
+      final endOffset = offsets[lineEndIdx];
 
       lines.add(
         LineInfo(
@@ -920,15 +933,13 @@ class ParagraphLayoutEngine {
     double hangingWidth = 0,
   }) {
     if (lines.isEmpty) return lines;
-    final boundaries = <int>[0];
-    for (final character in text.characters) {
-      boundaries.add(boundaries.last + character.length);
-    }
+    final clusterMap = TextClusterMap(text);
+    final boundaries = clusterMap.sourceOffsets;
     final guarded = <LineInfo>[];
     var carried = -1;
     int fitEnd(int start, int end, double limit) {
-      final first = boundaries.indexOf(start);
-      var last = boundaries.indexOf(end);
+      final first = clusterMap.clusterIndex(start);
+      var last = clusterMap.clusterIndex(end);
       while (last > first + 1) {
         final painter = _measureLine(
           text.substring(start, boundaries[last]),
@@ -1015,7 +1026,7 @@ class ParagraphLayoutEngine {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: (config.baseStyle ?? const TextStyle()).merge(
+        style: _environment.baseStyle.merge(
           TextStyle(
             fontSize: config.fontSize,
             height: config.lineHeight,
@@ -1023,12 +1034,14 @@ class ParagraphLayoutEngine {
             fontFamily: config.fontFamily,
             fontWeight: config.fontWeight,
             fontStyle: config.fontStyle,
-            letterSpacing: letterSpacing == 0 ? null : letterSpacing,
+            letterSpacing: letterSpacing,
           ),
         ),
       ),
-      textDirection: TextDirection.ltr,
-      textScaler: config.textScaler ?? TextScaler.noScaling,
+      textDirection: _environment.direction,
+      locale: _environment.locale,
+      textHeightBehavior: _environment.heightBehavior,
+      textScaler: _environment.textScaler,
       maxLines: 1,
     )..layout();
     return painter;
@@ -1085,10 +1098,10 @@ class ParagraphLayoutEngine {
 
     // 与渲染侧 Text 同参：DefaultTextStyle（主题字体/回退链）打底，
     // 渲染 override（字号/字距/字体/字重）覆盖其上
-    final style = (config.baseStyle ?? const TextStyle()).merge(
+    final style = _environment.baseStyle.merge(
       TextStyle(
         fontSize: config.fontSize,
-        letterSpacing: config.letterSpacing != 0 ? config.letterSpacing : null,
+        letterSpacing: config.letterSpacing,
         fontFamily: config.fontFamily,
         fontWeight: config.fontWeight,
         fontStyle: config.fontStyle,
@@ -1097,8 +1110,10 @@ class ParagraphLayoutEngine {
 
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: config.textScaler ?? TextScaler.noScaling,
+      textDirection: _environment.direction,
+      locale: _environment.locale,
+      textHeightBehavior: _environment.heightBehavior,
+      textScaler: _environment.textScaler,
     );
     painter.layout(maxWidth: maxWidth);
 
@@ -1129,20 +1144,20 @@ class ParagraphLayoutEngine {
       // textScaler（与 _measureCharWidths / 渲染侧同参）— Qoder
       text: TextSpan(
         text: char,
-        style: (config.baseStyle ?? const TextStyle()).merge(
+        style: _environment.baseStyle.merge(
           TextStyle(
             fontSize: config.fontSize,
-            letterSpacing: config.letterSpacing != 0
-                ? config.letterSpacing
-                : null,
+            letterSpacing: config.letterSpacing,
             fontFamily: config.fontFamily,
             fontWeight: config.fontWeight,
             fontStyle: config.fontStyle,
           ),
         ),
       ),
-      textDirection: TextDirection.ltr,
-      textScaler: config.textScaler ?? TextScaler.noScaling,
+      textDirection: _environment.direction,
+      locale: _environment.locale,
+      textHeightBehavior: _environment.heightBehavior,
+      textScaler: _environment.textScaler,
     );
     painter.layout();
     final w = painter.width;
@@ -1272,15 +1287,6 @@ class _LineWidget extends StatelessWidget {
 
     // 两端对齐：计算额外字间距
     // 对应 Kotlin: residualWidth / gapCount
-    double extraLetterSpacing = 0.0;
-    if (isJustified && availableWidth > 0 && line.width < availableWidth) {
-      final residualWidth = availableWidth - line.width;
-      final gapCount = line.words.length - 1;
-      if (gapCount > 0) {
-        extraLetterSpacing = residualWidth / gapCount;
-      }
-    }
-
     return Container(
       height: line.height,
       decoration: BoxDecoration(color: config.backgroundColor),
@@ -1296,17 +1302,7 @@ class _LineWidget extends StatelessWidget {
                 fontFamily: config.fontFamily,
                 fontWeight: config.fontWeight,
                 fontStyle: config.fontStyle,
-                // [UI-fix v2.0.2 | 2026-08-06] 渲染字距 = 配置基础字距 + 两端对齐额外字距 — Qoder
-                letterSpacing:
-                    line.letterSpacing ??
-                    ((config.letterSpacing +
-                                (extraLetterSpacing > 0
-                                    ? extraLetterSpacing
-                                    : 0)) !=
-                            0
-                        ? config.letterSpacing +
-                              (extraLetterSpacing > 0 ? extraLetterSpacing : 0)
-                        : null),
+                letterSpacing: line.letterSpacing ?? config.letterSpacing,
               ),
             ),
     );

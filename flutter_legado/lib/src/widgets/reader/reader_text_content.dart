@@ -345,43 +345,19 @@ class ReaderTextContent extends StatelessWidget {
           for (var lineIdx = 0; lineIdx < para.lines.length; lineIdx++) {
             final line = para.lines[lineIdx];
             final text = line.selectableText;
-            final isLastLine = lineIdx == para.lines.length - 1;
-            final isSingleLine = para.lines.length == 1;
-
-            // 两端对齐：非最后一行且非单行时分配额外字间距
-            double extraLetterSpacing = 0.0;
-            // [UI-fix v2.0.2 | 2026-08-06] 关闭两端对齐时不再拉伸字距
-            // （对标 MoreConfig textFullJustify 开关） — Qoder
-            final shouldJustify =
-                justify &&
-                !(line.isParagraphLastLine ?? (isLastLine || isSingleLine));
-            if (shouldJustify && line.width > 0) {
-              if (line.width < availableWidth) {
-                final gapCount = line.words.length - 1;
-                if (gapCount > 0) {
-                  extraLetterSpacing = (availableWidth - line.width) / gapCount;
-                  // 限制最大字间距避免过度拉伸
-                  extraLetterSpacing = extraLetterSpacing.clamp(
-                    0.0,
-                    fontSize * 0.5,
-                  );
-                }
-              }
-            }
-
-            final textStyle = TextStyle(
-              fontSize: fontSize,
-              height: lineHeight,
-              color: textColor,
-              fontFamily: fontFamily,
-              fontWeight: fontWeight,
-              fontStyle: fontStyle,
-              letterSpacing:
-                  line.letterSpacing ??
-                  ((letterSpacing + extraLetterSpacing) != 0
-                      ? letterSpacing + extraLetterSpacing
-                      : null),
-            );
+            final environment = pageInfo.textEnvironment;
+            final textStyle = (environment?.baseStyle ?? const TextStyle())
+                .merge(
+                  TextStyle(
+                    fontSize: fontSize,
+                    height: lineHeight,
+                    color: textColor,
+                    fontFamily: fontFamily,
+                    fontWeight: fontWeight,
+                    fontStyle: fontStyle,
+                    letterSpacing: line.letterSpacing ?? letterSpacing,
+                  ),
+                );
             // 缩进用布局留白绘制，原生选区只能接触章节中的实际文字。
             final lineText = Padding(
               padding: EdgeInsets.only(left: line.indentWidth),
@@ -392,12 +368,17 @@ class ReaderTextContent extends StatelessWidget {
                       text,
                       style: textStyle,
                       selectionGeometry: selectionGeometry,
+                      environment: environment,
                     )
                   : Text(
                       text,
                       style: textStyle,
                       maxLines: 1,
                       overflow: TextOverflow.clip,
+                      textDirection: environment?.direction,
+                      locale: environment?.locale,
+                      textScaler: environment?.textScaler,
+                      textHeightBehavior: environment?.heightBehavior,
                     ),
             );
             lineWidgets.add(

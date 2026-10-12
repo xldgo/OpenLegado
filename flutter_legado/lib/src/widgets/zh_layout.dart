@@ -38,18 +38,48 @@ class ZhLayout {
   ///
   /// 对应 Kotlin postPanc — 这些标点应跟随前一个字，不能单独出现在下一行行首
   static const Set<String> postPanc = {
-    '，', '。', '：', '？', '！', '、', '\u201d', '\u2019', '）', '》', '}',
-    '】', ')', '>', ']', ',', '.', '?', '!', ':', '」', '；', ';',
+    '，',
+    '。',
+    '：',
+    '？',
+    '！',
+    '、',
+    '\u201d',
+    '\u2019',
+    '）',
+    '》',
+    '}',
+    '】',
+    ')',
+    '>',
+    ']',
+    ',',
+    '.',
+    '?',
+    '!',
+    ':',
+    '」',
+    '；',
+    ';',
   };
 
   /// 不能出现在行末的标点（前置标点）
   ///
   /// 对应 Kotlin prePanc — 这些标点应跟随后一个字，不能单独留在上一行行末
   static const Set<String> prePanc = {
-    '\u201c', '（', '《', '【', '\u2018', '(', '<', '[', '{', '「',
+    '\u201c',
+    '（',
+    '《',
+    '【',
+    '\u2018',
+    '(',
+    '<',
+    '[',
+    '{',
+    '「',
   };
 
-  /// 每行的起始字符索引
+  /// 每行的起始字形簇索引（不是 UTF-16 偏移）
   ///
   /// 对应 Kotlin lineStart: IntArray
   final List<int> lineStart;
@@ -88,7 +118,6 @@ class ZhLayout {
     var length = 0;
 
     for (var index = 0; index < words.length; index++) {
-      final s = words[index];
       final cw = widths[index];
       var breakMod = BreakMod.normal;
       var breakLine = false;
@@ -136,7 +165,8 @@ class ZhLayout {
                 _inCompressible(widths[index - 2], cnCharWidth))) {
           reCheck = true;
         }
-        if (_breakModOrdinal(breakMod) > _breakModOrdinal(BreakMod.breakMoreChar) &&
+        if (_breakModOrdinal(breakMod) >
+                _breakModOrdinal(BreakMod.breakMoreChar) &&
             index < words.length - 1 &&
             _isPostPanc(words[index + 1])) {
           reCheck = true;
@@ -153,7 +183,7 @@ class ZhLayout {
               cwPre = 0.0;
             } else {
               breakIndex++;
-              breakLength += words[i].length;
+              breakLength++;
               cwPre += widths[i];
             }
             if (!_isPostPanc(words[i]) && !_isPrePanc(words[i - 1])) {
@@ -183,7 +213,7 @@ class ZhLayout {
               lineStartArr = _growIntList(lineStartArr, newLen);
               lineWidthArr = _growDoubleList(lineWidthArr, newLen);
             }
-            lineStartArr[line + 1] = length - words[index - 1].length;
+            lineStartArr[line + 1] = length - 1;
             breakCharCnt = 2;
 
           case BreakMod.breakMoreChar:
@@ -205,7 +235,7 @@ class ZhLayout {
               lineStartArr = _growIntList(lineStartArr, newLen);
               lineWidthArr = _growDoubleList(lineWidthArr, newLen);
             }
-            lineStartArr[line + 1] = length + s.length;
+            lineStartArr[line + 1] = length + 1;
             breakCharCnt = 0;
 
           case BreakMod.cps2:
@@ -216,7 +246,7 @@ class ZhLayout {
               lineStartArr = _growIntList(lineStartArr, newLen);
               lineWidthArr = _growDoubleList(lineWidthArr, newLen);
             }
-            lineStartArr[line + 1] = length + s.length;
+            lineStartArr[line + 1] = length + 1;
             breakCharCnt = 0;
 
           case BreakMod.cps3:
@@ -227,7 +257,7 @@ class ZhLayout {
               lineStartArr = _growIntList(lineStartArr, newLen);
               lineWidthArr = _growDoubleList(lineWidthArr, newLen);
             }
-            lineStartArr[line + 1] = length + s.length;
+            lineStartArr[line + 1] = length + 1;
             breakCharCnt = 0;
         }
         breakLine = true;
@@ -254,7 +284,7 @@ class ZhLayout {
             lineStartArr = _growIntList(lineStartArr, newLen);
             lineWidthArr = _growDoubleList(lineWidthArr, newLen);
           }
-          lineStartArr[line + 1] = length + s.length;
+          lineStartArr[line + 1] = length + 1;
           lineWidthArr[line] = lineW - offset;
           lineW = offset;
           line++;
@@ -271,7 +301,7 @@ class ZhLayout {
           line++;
         }
       }
-      length += s.length;
+      length++;
       cwPre = cw;
     }
 

@@ -37,7 +37,8 @@ void main() {
                   height: 500,
                   child: MediaQuery(
                     data: MediaQueryData(
-                      size: Size(width, 500),
+                      // 屏幕可比阅读面板更大；分页必须消费面板约束。
+                      size: const Size(900, 900),
                       textScaler: TextScaler.linear(scale),
                     ),
                     child: ReaderPageView(

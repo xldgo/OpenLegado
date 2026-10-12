@@ -23,6 +23,7 @@ import 'turn/reader_turn_view.dart';
 import 'reader_text_content.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_region.dart';
+import 'text_layout_environment.dart';
 
 /// 阅读器内容区（分页 + 5 种翻页模式）
 ///
@@ -182,6 +183,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   Size? _paginatedScreenSize;
   TextScaler? _paginatedTextScaler;
   TextStyle? _paginatedBaseStyle;
+  TextLayoutEnvironment? _paginatedTextEnvironment;
   bool _paginatedBoldText = false;
 
   /// 分页对应的段距
@@ -420,7 +422,11 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   ///
   /// 移植自安卓端 TextChapterLayout 的排版触发时机：
   /// 章节加载完成、字体设置变更、屏幕尺寸变化
-  void _paginateIfNeeded(BuildContext context, ReaderState state) {
+  void _paginateIfNeeded(
+    BuildContext context,
+    ReaderState state,
+    Size viewportSize,
+  ) {
     final content = state.chapterContent;
     final fontSize = state.fontSize;
     final lineHeight = state.lineHeight;
@@ -452,10 +458,11 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // ChapterProvider.upLayout：0=单页、1=双页、2=横屏双页、3=平板或
     // 横屏双页；滚动模式 pageAnim==3 强制单页；桌面端以窗口宽 >=700
     // 作为平板语义）— Reasonix
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = viewportSize;
     final textScaler = MediaQuery.textScalerOf(context);
     final baseStyle = DefaultTextStyle.of(context).style;
     final boldText = MediaQuery.boldTextOf(context);
+    final environment = TextLayoutEnvironment.of(context);
     final doublePage = switch (widget.doubleHorizontalPage) {
       1 => state.pageTurnMode != PageTurnMode.scroll,
       2 =>
@@ -474,6 +481,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             screenSize != _paginatedScreenSize ||
             textScaler != _paginatedTextScaler ||
             baseStyle != _paginatedBaseStyle ||
+            environment != _paginatedTextEnvironment ||
             boldText != _paginatedBoldText ||
             fontSize != _paginatedFontSize ||
             lineHeight != _paginatedLineHeight ||
@@ -570,6 +578,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       // 继承 DefaultTextStyle 并应用系统文字缩放，测量侧同参注入 — Qoder
       baseStyle: baseStyle,
       textScaler: textScaler,
+      textEnvironment: environment,
     );
 
     // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 记录分页参数（相邻章预载复用
@@ -605,6 +614,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _paginatedScreenSize = screenSize;
     _paginatedTextScaler = textScaler;
     _paginatedBaseStyle = baseStyle;
+    _paginatedTextEnvironment = environment;
     _paginatedBoldText = boldText;
     _paginatedParagraphSpacing = spacing;
     _paginatedLetterSpacing = letterSpacing;
@@ -728,9 +738,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     ReaderState state, {
     required bool repaginate,
   }) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildContentInBounds(
+        context,
+        state,
+        constraints.biggest,
+        repaginate: repaginate,
+      ),
+    );
+  }
+
+  Widget _buildContentInBounds(
+    BuildContext context,
+    ReaderState state,
+    Size viewportSize, {
+    required bool repaginate,
+  }) {
     if (repaginate) {
-      // 排版引擎：检测是否需要重新分页
-      _paginateIfNeeded(context, state);
+      _paginateIfNeeded(context, state, viewportSize);
     }
 
     final Widget content;

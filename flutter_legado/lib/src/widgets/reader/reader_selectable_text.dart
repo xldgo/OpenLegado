@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'text_layout_environment.dart';
+
 TextStyle _effectiveReaderStyle(BuildContext context, TextStyle style) {
   final defaults = DefaultTextStyle.of(context);
   var effective = style.inherit ? defaults.style.merge(style) : style;
@@ -80,12 +82,14 @@ class ReaderLineText extends StatelessWidget {
   final String data;
   final TextStyle style;
   final ReaderSelectionGeometry? selectionGeometry;
+  final TextLayoutEnvironment? environment;
 
   const ReaderLineText(
     this.data, {
     super.key,
     required this.style,
     this.selectionGeometry,
+    this.environment,
   });
 
   @override
@@ -98,9 +102,12 @@ class ReaderLineText extends StatelessWidget {
       softWrap: defaults.softWrap,
       maxLines: 1,
       overflow: TextOverflow.clip,
-      textScaler: MediaQuery.textScalerOf(context),
+      textScaler: environment?.textScaler ?? MediaQuery.textScalerOf(context),
+      textDirection: environment?.direction,
+      locale: environment?.locale,
       textWidthBasis: defaults.textWidthBasis,
       textHeightBehavior:
+          environment?.heightBehavior ??
           defaults.textHeightBehavior ??
           DefaultTextHeightBehavior.maybeOf(context),
       selectionRegistrar: SelectionContainer.maybeOf(context),
