@@ -59,11 +59,21 @@ void main() {
 
     await pump(500, 1);
     final wide = key.currentState!.pageCount;
+    key.currentState!.goToPage(2);
+    await tester.pumpAndSettle();
+    final anchor = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderPageView)),
+    ).read(readerNotifierProvider.notifier).currentSourceOffset!;
+    expect(anchor, greaterThan(0));
     await pump(320, 1);
     final narrow = key.currentState!.pageCount;
     expect(narrow, greaterThan(wide));
+    expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
+    expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
     await pump(320, 2);
     expect(key.currentState!.pageCount, greaterThan(narrow));
+    expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
+    expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
     expect(tester.takeException(), isNull);
   });
 }

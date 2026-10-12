@@ -325,6 +325,25 @@ class PageInfo {
     this.sourceText,
     this.textEnvironment,
   });
+
+  int get sourceStart => paragraphs.isEmpty ? 0 : paragraphs.first.startIndex;
+  int get sourceEnd => paragraphs.isEmpty ? 0 : paragraphs.last.endIndex;
+}
+
+/// 原文空白间隙归到其后的正文页，超出末尾的锚点归到末页。
+int pageIndexForSourceOffset(List<PageInfo> pages, int sourceOffset) {
+  if (pages.isEmpty) return 0;
+  var low = 0;
+  var high = pages.length - 1;
+  while (low < high) {
+    final middle = (low + high) ~/ 2;
+    if (pages[middle].sourceEnd <= sourceOffset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
 }
 
 /// 清理显示空白后仍保留章节原文坐标的段落。

@@ -4,8 +4,7 @@ import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:material_ui/material_ui.dart'
     show Brightness, ThemeMode, WidgetsBinding;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -13,6 +12,7 @@ import '../../constants/pref_keys.dart';
 import '../../models/models.dart';
 import '../../services/rust_api.dart';
 import '../../services/settings_service.dart';
+import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import '../providers.dart';
 import '../theme/theme_notifier.dart';
@@ -30,6 +30,26 @@ export 'reader_state.dart';
 /// - 禁止包含业务计算（文本解析/净化/替换由 Rust 完成）
 class ReaderNotifier extends Notifier<ReaderState> {
   final SettingsService _settings = SettingsService();
+  final ReaderPositionStore _positionStore = ReaderPositionStore();
+  ReaderSourceAnchor? _sourceAnchor;
+  String? _anchorBookUrl;
+
+  static String chapterIdFor(BookChapter chapter, int index) =>
+      chapter.url.isNotEmpty ? chapter.url : '$index:${chapter.title}';
+
+  /// 页码只供翻页和旧进度兼容；重排使用这个原文位置。
+  int? get currentSourceOffset {
+    final chapter = state.currentChapter;
+    final anchor = _sourceAnchor;
+    if (chapter == null ||
+        anchor == null ||
+        _anchorBookUrl != state.currentBook?.bookUrl ||
+        anchor.chapterIndex != state.currentChapterIndex ||
+        anchor.chapterId != chapterIdFor(chapter, state.currentChapterIndex)) {
+      return null;
+    }
+    return anchor.sourceOffset;
+  }
 
   /// 跨章节连续分页器（维护全局页索引 ↔ 章节/页映射）
   final CrossChapterPaginator _paginator = CrossChapterPaginator();
@@ -100,24 +120,19 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // 延迟到 build() 返回后执行（state 初始化完成后才能访问）
     Future.microtask(_loadSettings);
     // 主题与纯黑开关即时影响默认背景和夜间预设，不覆盖自定义配色。
-    ref.listen(
-      themeNotifierProvider,
-      (previous, next) {
-        if (previous?.themeMode != next.themeMode) {
-          // 传入监听值（next.themeMode）而非重读持久化：setThemeMode
-          // 先更新内存状态（触发本监听）后异步落盘，此刻读 prefs 是旧值
-          unawaited(reapplyBackgroundForCurrentTheme(
-            themeMode: next.themeMode,
-          ));
-        }
-      },
-    );
-    ref.listen(
-      uiSettingsProvider.select((settings) => settings.themeAmoled),
-      (previous, next) {
-        unawaited(reapplyBackgroundForCurrentTheme(themeAmoled: next));
-      },
-    );
+    ref.listen(themeNotifierProvider, (previous, next) {
+      if (previous?.themeMode != next.themeMode) {
+        // 传入监听值（next.themeMode）而非重读持久化：setThemeMode
+        // 先更新内存状态（触发本监听）后异步落盘，此刻读 prefs 是旧值
+        unawaited(reapplyBackgroundForCurrentTheme(themeMode: next.themeMode));
+      }
+    });
+    ref.listen(uiSettingsProvider.select((settings) => settings.themeAmoled), (
+      previous,
+      next,
+    ) {
+      unawaited(reapplyBackgroundForCurrentTheme(themeAmoled: next));
+    });
     return const ReaderState();
   }
 
@@ -171,7 +186,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
     if (prefs.getBool('reader_bg_use_custom') ?? false) return;
     final storedIndex = await _settings.getBgColorIndexOrNull();
-    final hasExplicitIndex = storedIndex != null &&
+    final hasExplicitIndex =
+        storedIndex != null &&
         storedIndex >= 0 &&
         storedIndex < ReaderBackground.presets.length;
     if (hasExplicitIndex &&
@@ -207,8 +223,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Brightness _themeBrightness(ThemeMode mode) {
     Brightness platform;
     try {
-      platform =
-          WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      platform = WidgetsBinding.instance.platformDispatcher.platformBrightness;
     } catch (_) {
       platform = Brightness.light;
     }
@@ -232,6 +247,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// 防 A 的迟到结果覆盖已打开的 B（C1b 缺陷）。
   Future<void> openBook(Book book) async {
     final openSeq = ++_openSeq;
+    _sourceAnchor = null;
+    _anchorBookUrl = book.bookUrl;
     // [C1a-hunt | 2026-09-24] 换书判定：与当前书 bookUrl 不同才清旧书残留
     final isBookChange =
         state.currentBook == null || state.currentBook!.bookUrl != book.bookUrl;
@@ -273,6 +290,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
         chapterIndex = 0;
         chapterPos = 0;
       }
+      final anchor = await _positionStore.read(
+        book.bookUrl,
+        chapterIndex: chapterIndex,
+        legacyPageIndex: chapterPos,
+      );
+      if (openSeq != _openSeq || !ref.mounted) return;
+      _sourceAnchor = anchor;
       state = state.copyWith(
         chapters: chapters,
         currentChapterIndex: chapterIndex,
@@ -340,6 +364,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> goToChapter(int index) async {
     if (index < 0 || index >= state.chapters.length) return;
     await _saveProgress();
+    _sourceAnchor = null;
     state = state.copyWith(
       currentChapterIndex: index,
       currentChapterPos: 0,
@@ -360,6 +385,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }) async {
     if (chapterIndex < 0 || chapterIndex >= state.chapters.length) return;
     await _saveProgress();
+    _sourceAnchor = null;
     state = state.copyWith(
       currentChapterIndex: chapterIndex,
       currentChapterPos: chapterPos.clamp(0, 1 << 30),
@@ -413,8 +439,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final backgroundColor = index < 0
         ? color
         : resolveReaderBackground(
-            themeBrightness:
-                _themeBrightness(ref.read(themeNotifierProvider).themeMode),
+            themeBrightness: _themeBrightness(
+              ref.read(themeNotifierProvider).themeMode,
+            ),
             themeAmoled: ref.read(uiSettingsProvider).themeAmoled,
             storedBgIndex: index,
           );
@@ -423,8 +450,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
       _settings.setBgColorIndex(index);
       // [UI-fix v2.0.4 | 2026-08-08] 选中预设时清除自定义背景标志，
       // 下次启动按预设恢复 — Qoder
-      unawaited(SharedPreferences.getInstance()
-          .then((p) => p.setBool('reader_bg_use_custom', false)));
+      unawaited(
+        SharedPreferences.getInstance().then(
+          (p) => p.setBool('reader_bg_use_custom', false),
+        ),
+      );
       _pushReadBookConfig();
     }
   }
@@ -456,7 +486,19 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// 更新当前阅读位置（由 UI 层滚动/翻页时调用）
-  void updatePosition(int position) {
+  void updatePosition(int position, {int? sourceOffset}) {
+    final chapter = state.currentChapter;
+    if (sourceOffset != null && chapter != null) {
+      _anchorBookUrl = state.currentBook?.bookUrl;
+      _sourceAnchor = ReaderSourceAnchor(
+        chapterId: chapterIdFor(chapter, state.currentChapterIndex),
+        chapterIndex: state.currentChapterIndex,
+        sourceOffset: sourceOffset.clamp(0, state.chapterContent.length),
+        legacyPageIndex: position.clamp(0, 1 << 30),
+      );
+    } else {
+      _sourceAnchor = null;
+    }
     state = state.copyWith(currentChapterPos: position);
     // [F1-hunt F1 | 2026-09-24] 章内位置变化同样回写 currentBook，
     // 下游消费者（设置保存全行 updateBook 等）读到的进度保持鲜活
@@ -481,8 +523,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// 同步全局页信息到 State
   void _syncGlobalPageInfo() {
     final total = _paginator.totalPages();
-    final globalStart = _paginator.globalIndexForChapterStart(state.currentChapterIndex);
-    final globalIndex = globalStart >= 0 ? globalStart + state.currentChapterPos : state.globalPageIndex;
+    final globalStart = _paginator.globalIndexForChapterStart(
+      state.currentChapterIndex,
+    );
+    final globalIndex = globalStart >= 0
+        ? globalStart + state.currentChapterPos
+        : state.globalPageIndex;
     state = state.copyWith(
       totalPages: total,
       globalPageIndex: globalIndex.clamp(0, total > 0 ? total - 1 : 0),
@@ -504,6 +550,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (targetChapter != state.currentChapterIndex) {
       // 章节变化：加载新章节
       await _saveProgress();
+      _sourceAnchor = null;
       state = state.copyWith(
         currentChapterIndex: targetChapter,
         currentChapterPos: targetPage,
@@ -517,6 +564,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       await _saveProgress();
     } else {
       // 同章内翻页
+      _sourceAnchor = null;
       state = state.copyWith(
         currentChapterPos: targetPage,
         globalPageIndex: globalIndex,
@@ -752,11 +800,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
       // -1 不得持久化（修复前 -1 随 updateReadingProgress 写入
       // durChapterPos，下次 openBook 按非法位置定位）
       final pos = state.currentChapterPos < 0 ? 0 : state.currentChapterPos;
+      final anchor = currentSourceOffset == null ? null : _sourceAnchor;
       await api.updateReadingProgress(
         bookUrl: book.bookUrl,
         chapterIndex: state.currentChapterIndex,
         chapterPos: pos,
       );
+      if (anchor != null &&
+          _anchorBookUrl == book.bookUrl &&
+          anchor.chapterIndex == book.durChapterIndex &&
+          anchor.legacyPageIndex == pos) {
+        await _positionStore.save(book.bookUrl, anchor);
+      }
       await _upReadTime(book);
     } catch (_) {
       // 保存失败不阻断阅读流程
@@ -830,7 +885,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       if (delta <= 0) return;
       _baseReadTimeMs += delta;
       _readStartMs = now;
-      await ref.read(bookApiProvider).putReadRecord(
+      await ref
+          .read(bookApiProvider)
+          .putReadRecord(
             ReadRecord(
               bookName: book.name,
               readTime: _baseReadTimeMs,
@@ -888,7 +945,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
 /// final state = ref.watch(readerNotifierProvider);
 /// ref.read(readerNotifierProvider.notifier).openBook(book);
 /// ```
-final readerNotifierProvider =
-    NotifierProvider<ReaderNotifier, ReaderState>(
+final readerNotifierProvider = NotifierProvider<ReaderNotifier, ReaderState>(
   ReaderNotifier.new,
 );

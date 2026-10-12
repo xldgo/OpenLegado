@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,9 +26,7 @@ void main() {
     mockApi = MockRustApi();
     // 创建容器并覆盖 bookApiProvider 注入 mock
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
-      ],
+      overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
     addTearDown(container.dispose);
   });
@@ -66,12 +63,29 @@ void main() {
         .thenAnswer((_) async => chapters ?? testChapters);
     when(() => mockApi.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
-    when(() => mockApi.updateReadingProgress(
-          bookUrl: any(named: 'bookUrl'),
-          chapterIndex: any(named: 'chapterIndex'),
-          chapterPos: any(named: 'chapterPos'),
-        )).thenAnswer((_) async {});
+    when(
+      () => mockApi.updateReadingProgress(
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+        chapterPos: any(named: 'chapterPos'),
+      ),
+    ).thenAnswer((_) async {});
   }
+
+  test('保存并重新开书恢复原文锚点，历史页码和目录跳转不冒充锚点', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook.copyWith(durChapterPos: 3));
+    expect(readNotifier().currentSourceOffset, isNull);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().saveProgress();
+    final savedBook = readState().currentBook!;
+    readNotifier().updatePosition(0);
+    await readNotifier().openBook(savedBook);
+    expect(readNotifier().currentSourceOffset, 120);
+    expect(readState().currentChapterPos, 2);
+    await readNotifier().goToChapter(0);
+    expect(readNotifier().currentSourceOffset, isNull);
+  });
 
   group('ReaderState 初始状态', () {
     test('初始无当前书籍', () async {
@@ -170,7 +184,10 @@ void main() {
     });
 
     test('name 无效且 legacyIndex 有效时回退 legacyIndex', () {
-      expect(PageTurnMode.fromStorage('invalid_name', 2), PageTurnMode.simulate);
+      expect(
+        PageTurnMode.fromStorage('invalid_name', 2),
+        PageTurnMode.simulate,
+      );
     });
 
     test('name 和 legacyIndex 都无效时默认 cover', () {
@@ -496,11 +513,13 @@ void main() {
       container.read(readerNotifierProvider);
       await pumpInit();
       await readNotifier().saveProgress();
-      verifyNever(() => mockApi.updateReadingProgress(
-            bookUrl: any(named: 'bookUrl'),
-            chapterIndex: any(named: 'chapterIndex'),
-            chapterPos: any(named: 'chapterPos'),
-          ));
+      verifyNever(
+        () => mockApi.updateReadingProgress(
+          bookUrl: any(named: 'bookUrl'),
+          chapterIndex: any(named: 'chapterIndex'),
+          chapterPos: any(named: 'chapterPos'),
+        ),
+      );
     });
 
     test('有书籍时调用 API', () async {
@@ -512,11 +531,13 @@ void main() {
       await readNotifier().openBook(book);
       await readNotifier().saveProgress();
 
-      verify(() => mockApi.updateReadingProgress(
-            bookUrl: 'https://b.com/1',
-            chapterIndex: 0,
-            chapterPos: 0,
-          )).called(greaterThan(0));
+      verify(
+        () => mockApi.updateReadingProgress(
+          bookUrl: 'https://b.com/1',
+          chapterIndex: 0,
+          chapterPos: 0,
+        ),
+      ).called(greaterThan(0));
     });
   });
 
@@ -554,8 +575,10 @@ void main() {
     });
 
     test('标签列表与预设对应', () {
-      expect(ReaderBackground.labels.length,
-          equals(ReaderBackground.presets.length));
+      expect(
+        ReaderBackground.labels.length,
+        equals(ReaderBackground.presets.length),
+      );
     });
 
     test('预设包含白色与护眼色', () {
@@ -638,8 +661,7 @@ void main() {
       expect(readState().backgroundColor, equals(ReaderBackground.white));
     });
 
-    test('主题切换 深色→亮色 + 显式 green → 仍 green（尊重显式选择）',
-        () async {
+    test('主题切换 深色→亮色 + 显式 green → 仍 green（尊重显式选择）', () async {
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',
         'themeAmoled': true,
@@ -656,8 +678,7 @@ void main() {
       expect(readState().backgroundColor, equals(ReaderBackground.green));
     });
 
-    test('主题切换 深色→亮色 + 自定义背景 → 仍 custom（尊重显式选择）',
-        () async {
+    test('主题切换 深色→亮色 + 自定义背景 → 仍 custom（尊重显式选择）', () async {
       const custom = Color(0xFF232323);
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',

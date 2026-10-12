@@ -245,11 +245,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 当前章分页总数（进度条「调章内页」行为消费）
   int get pageCount => _paginatedPages.length;
 
+  /// 当前可见页的原文区间，用于阅读定位与回归验证。
+  (int, int) get currentSourceRange => _paginatedPages.isEmpty
+      ? (0, 0)
+      : (
+          _paginatedPages[_currentPageIndex].sourceStart,
+          _paginatedPages[_currentPageIndex].sourceEnd,
+        );
+
   /// 程序化跳页（进度条拖动/目录跳转等；直设索引=瞬时切换，
   /// 相邻步进翻页走 _turnViewKey.turnByAnim 保持动画）
   void _navigateToPage(int index) {
     setState(() => _currentPageIndex = index);
-    ref.read(readerNotifierProvider.notifier).updatePosition(index);
+    ref
+        .read(readerNotifierProvider.notifier)
+        .updatePosition(
+          index,
+          sourceOffset: _paginatedPages[index].sourceStart,
+        );
     // 跳页同样驱动相邻章预载
     _maybePreloadAdjacent(ref.read(readerNotifierProvider));
   }
@@ -596,6 +609,19 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _preloadingNext = false;
     _preloadingPrev = false;
 
+    final notifier = ref.read(readerNotifierProvider.notifier);
+    final sameChapter = chapterIndex == _paginatedChapterIndex;
+    final sourceAnchor =
+        notifier.currentSourceOffset ??
+        (sameChapter &&
+                state.currentChapterPos == _currentPageIndex &&
+                _paginatedPages.isNotEmpty
+            ? _paginatedPages[_currentPageIndex.clamp(
+                    0,
+                    _paginatedPages.length - 1,
+                  )]
+                  .sourceStart
+            : null);
     final engine = ParagraphLayoutEngine(config: config, context: context);
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
     final pages = engine.paginateChapter(
@@ -629,24 +655,33 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _paginatedDoublePage = doublePage;
     _paginatedUseZhLayout = widget.useZhLayout;
     _paginatedHangingPunctuation = widget.hangingPunctuation;
-    // [UI_SYNC_REFACTOR T3 修] 分页后按 currentChapterPos 定位：
-    // -1 = 哨兵跳末页（prevChapter 场景）；其他值 = 跳到对应页
-    final notifier = ref.read(readerNotifierProvider.notifier);
-    final chapterPos = ref.read(readerNotifierProvider).currentChapterPos;
-    if (chapterPos == -1 && _paginatedPages.isNotEmpty) {
-      // 哨兵：跳到本章最后一页
-      _currentPageIndex = _paginatedPages.length - 1;
-      Future(() => notifier.resetChapterPos());
-    } else if (chapterPos > 0 && chapterPos < _paginatedPages.length) {
-      _currentPageIndex = chapterPos;
+    // 有版本的原文锚点优先；未标记旧记录只作为历史页码消费。
+    final chapterPos = state.currentChapterPos;
+    if (chapterPos == -1 && pages.isNotEmpty) {
+      _currentPageIndex = pages.length - 1;
+    } else if (sourceAnchor != null) {
+      _currentPageIndex = pageIndexForSourceOffset(pages, sourceAnchor);
     } else {
-      _currentPageIndex = 0;
+      _currentPageIndex = pages.isEmpty
+          ? 0
+          : chapterPos.clamp(0, pages.length - 1);
     }
-
-    // 跨章节分页：注册本章页数到全局分页器
-    // 注：本方法在 build 阶段调用，不可同步修改 provider（会触发
-    // "modify a provider while the widget tree was building" 断言），延迟到下一帧
-    Future(() => notifier.updateChapterPageCount(chapterIndex, pages.length));
+    final resolvedAnchor =
+        sourceAnchor ??
+        (pages.isEmpty ? 0 : pages[_currentPageIndex].sourceStart);
+    final generation = _layoutGeneration;
+    final resolvedPage = _currentPageIndex;
+    final bookUrl = state.currentBook?.bookUrl;
+    Future(() {
+      if (!mounted || generation != _layoutGeneration) return;
+      final live = ref.read(readerNotifierProvider);
+      if (live.currentChapterIndex != chapterIndex ||
+          live.currentBook?.bookUrl != bookUrl) {
+        return;
+      }
+      notifier.updateChapterPageCount(chapterIndex, pages.length);
+      notifier.updatePosition(resolvedPage, sourceOffset: resolvedAnchor);
+    });
 
     // 章边界预载（页末预载下一章首屏 / 页首预载上一章末屏）
     _maybePreloadAdjacent(state, eager: true);
