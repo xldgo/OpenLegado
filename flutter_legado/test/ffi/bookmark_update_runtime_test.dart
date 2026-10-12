@@ -8,6 +8,7 @@ import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +28,7 @@ void main() {
       '.dart_tool/bookmark-update-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
     await bridge.dbOpen(path: '${directory.absolute.path}/bookmarks.db');
-    api = RustApi();
+    api = createBookApi(useMock: false) as RustApi;
   });
 
   test('连续更新保留原 id、创建时间和其他书签', () async {

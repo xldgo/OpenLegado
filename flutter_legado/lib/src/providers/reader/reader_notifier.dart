@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../bridge/ffi.dart';
 import '../../constants/pref_keys.dart';
 import '../../models/models.dart';
-import '../../services/rust_api.dart';
 import '../../services/settings_service.dart';
 import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
@@ -453,12 +452,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
-  /// 补推阅读配置注入（R 批 R4）：设置变更后同步 Rust 侧 JS 可见快照；
-  /// 仅 RustApi 支持，Mock 下为空操作；失败静默（尽力而为）。
+  /// 设置变更后通过注入接口刷新 JS 可见快照；Mock 保持空操作。
   void _pushReadBookConfig() {
     try {
-      final api = ref.read(bookApiProvider);
-      if (api is RustApi) unawaited(api.refreshReadBookConfig());
+      unawaited(
+        ref
+            .read(readingConfigSyncProvider)
+            .refreshReadBookConfig()
+            .catchError((Object _) {}),
+      );
     } catch (_) {}
   }
 

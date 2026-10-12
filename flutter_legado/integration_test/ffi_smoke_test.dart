@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ void main() {
     late RustApi api;
 
     setUpAll(() async {
-      api = RustApi();
+      api = createBookApi(useMock: false) as RustApi;
     });
 
     testWidgets('initialize() does not throw', (tester) async {

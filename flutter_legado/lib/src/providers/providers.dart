@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/book_api.dart';
-import '../services/book_api_bootstrap.dart';
+import '../app/bootstrap/book_api_bootstrap.dart';
+import '../data/bridge/runtime_configuration.dart';
 import '../services/settings_service.dart';
 
 /// BookApi 全局 Provider（Riverpod 注入层）
@@ -13,6 +14,11 @@ import '../services/settings_service.dart';
 ///
 /// 使用方式：在 Notifier 中通过 `ref.read(bookApiProvider)` 获取实例。
 final bookApiProvider = Provider<BookApi>((ref) => createBookApi());
+
+/// 配置刷新复用应用装配的实现；Mock 保持空操作。— Codex + UI
+final readingConfigSyncProvider = Provider<ReadingConfigSync>(
+  (ref) => readingConfigSyncFor(ref.watch(bookApiProvider)),
+);
 
 /// SettingsService 全局 Provider（F3-18：统一注入，禁止 UI 直接 new）
 final settingsProvider = Provider<SettingsService>((ref) => SettingsService());

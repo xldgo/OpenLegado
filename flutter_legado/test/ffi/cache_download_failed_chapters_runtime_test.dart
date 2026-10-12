@@ -23,6 +23,7 @@ import 'dart:io';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -68,7 +69,7 @@ void main() {
       dbFile.deleteSync();
     }
     await bridge.dbOpen(path: dbFile.path);
-    api = RustApi();
+    api = createBookApi(useMock: false) as RustApi;
   });
 
   group('失败章查询真实 DLL 运行时验证（契约 §2.43.8）', () {

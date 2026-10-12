@@ -9,7 +9,7 @@ import 'app.dart';
 import 'src/routes.dart';
 import 'src/providers/providers.dart';
 import 'src/services/book_api.dart';
-import 'src/services/book_api_bootstrap.dart';
+import 'src/app/bootstrap/book_api_bootstrap.dart';
 import 'src/services/crash_log_service.dart';
 
 void main() {

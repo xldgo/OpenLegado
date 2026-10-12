@@ -156,6 +156,13 @@
 
 ### 1.6.1 进程注入型 FFI（void，不经 BookApi，MD3 对齐 2026-09-04）
 
+> **FLUTTER-DATA-BOUNDARIES-20261012 接线冻结**：仅调整 Dart 内部职责，不新增或修改
+> FFI 签名、JSON 字段、BookApi 计数及数据库结构。应用 Bootstrap 依次调用原生运行时、
+> 数据库、目录与设备注入、主题配置及模式、阅读配置；设置层产生只含数据的快照，
+> Bridge 负责序列化及写入。阅读设置刷新经 `ReadingConfigSync` 接口委托同一实现，
+> 不通过具体 RustApi 类型识别；Mock 无注入动作。RustApi 生命周期由应用工厂注入，
+> `initialize()` 仍等待就绪后供根 ProviderScope 共享。非关键注入失败继续保留原回退。
+
 以下 6 个 `ffi.rs` 导出为 Flutter→Rust 单向进程级注入（返回 void，经 `bridge.*` 直调，不进 `BookApi` 抽象层与方法计数）：
 
 | FFI 函数 | 入参 | 说明 |
@@ -164,10 +171,10 @@
 | `set_theme_config` | theme_json（`get_theme_config` 同形 JSON） | Batch 0 R1：启动/切换调色板时注入当前 palette 亮色 role，JS `getThemeConfig()` 优先返回注入值，未注入回退 wh 默认 |
 | `set_theme_mode` | mode（"0"=跟随系统/"1"=亮/"2"=暗，对齐 Kotlin themeMode） | Batch 0 R2 + R 批 R3：`setThemeMode` 时注入，JS `getThemeMode()` 映射为 auto/light/dark（"0"→auto；未注入回退 light） |
 | `set_read_book_config` | read_json（`get_read_book_config` 同形 JSON） | R 批 R4：阅读配置变更时注入当前阅读配置，JS `getReadBookConfig()` 优先返回注入值，未注入回退硬编码默认 |
-| `set_image_cache_dir` | dir（应用缓存目录下 `image_cache` 子目录，P4-2a） | 与 `set_cache_dir` 同型的进程注入（`set_cache_dir` 服务 JS 缓存）：`saveImageCache`/`getImageCache`（§2.46）图片磁盘缓存落应用私有缓存目录；未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）。Dart 侧 `RustApi.initialize` 经 `path_provider` 注入 |
-| `set_audio_cache_dir` | dir（应用缓存目录下 `audio_cache` 子目录，B1） | 与 `set_image_cache_dir` 同型：`audioCacheQuery`/`audioCacheList`/`audioCacheClearChapter`/`audioCacheClearBook`（§2.47）音频章节文件缓存读取与 `audioCacheDownload`/`audioCacheCancel`（§2.48，B2）写入**共用此根目录**（写读同根同键）；未注入时回落 `<temp_dir>/legado-audio-cache`（一次性告警）。Dart 侧 `RustApi.initialize` 经 `path_provider` 注入 |
+| `set_image_cache_dir` | dir（应用缓存目录下 `image_cache` 子目录，P4-2a） | 与 `set_cache_dir` 同型的进程注入（`set_cache_dir` 服务 JS 缓存）：`saveImageCache`/`getImageCache`（§2.46）图片磁盘缓存落应用私有缓存目录；未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
+| `set_audio_cache_dir` | dir（应用缓存目录下 `audio_cache` 子目录，B1） | 与 `set_image_cache_dir` 同型：`audioCacheQuery`/`audioCacheList`/`audioCacheClearChapter`/`audioCacheClearBook`（§2.47）音频章节文件缓存读取与 `audioCacheDownload`/`audioCacheCancel`（§2.48，B2）写入**共用此根目录**（写读同根同键）；未注入时回落 `<temp_dir>/legado-audio-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 
-> 注入键集合约定（R 批 R5 登记）：`set_theme_config` JSON 必需键 `themeName/isNightTheme/primaryColor/accentColor/backgroundColor/bottomBackground/statusBarColor/navigationBarColor`；可选透传键 `paletteId/背景图路径/blur/圆角覆写` 等（Rust 不解释，原样透传 JS）；注入为进程内存级（RwLock），重启需 Flutter 在 `RustApi.init` 重注，注入前 JS 调用拿到 wh 默认。
+> 注入键集合约定（R 批 R5 登记）：`set_theme_config` JSON 必需键 `themeName/isNightTheme/primaryColor/accentColor/backgroundColor/bottomBackground/statusBarColor/navigationBarColor`；可选透传键 `paletteId/背景图路径/blur/圆角覆写` 等（Rust 不解释，原样透传 JS）；注入为进程内存级（RwLock），重启需 Flutter Bootstrap 重注，注入前 JS 调用拿到 wh 默认。
 >
 > `themeConfigList` 纯 Flutter 持久化（SharedPreferences），Rust 仅见合成后的单主题 JSON，不做调色板解析。
 >

@@ -51,6 +51,7 @@ import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/search/search_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 
 /// 固定书名字面量（与假站点 HTML 一一对应，硬断言基准）
@@ -268,7 +269,7 @@ void main() {
     debugPrint('[E2E] 本地假书源服务已启动: $base');
 
     // ── 2. 初始化 Rust 引擎 + 导入本地书源 ──
-    final api = RustApi();
+    final api = createBookApi(useMock: false) as RustApi;
     await tester.runAsync(() => api.initialize());
     int imported = 0;
     await tester.runAsync(() async {

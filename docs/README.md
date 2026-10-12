@@ -74,6 +74,7 @@
 | [VERSION_CONTROL.md](VERSION_CONTROL.md) | 项目版本控制记录 |
 | [TWO_TRACK_DEV_SPEC.md](TWO_TRACK_DEV_SPEC.md) | 双轨协作开发规范（UI 轨与 Rust 轨分离开发） |
 | [API_CONTRACT.md](API_CONTRACT.md) | BookApi 接口契约文档（UI 轨与 Rust 轨唯一接口基准） |
+| [FLUTTER_DATA_BOUNDARIES.md](FLUTTER_DATA_BOUNDARIES.md) | Flutter 初始化职责与数据访问渐进拆分方案；当前状态见 Active 计划 |
 | [api.md](api.md) | 阅读 Web API 说明及 Android 原版 Content Provider 参考；FFI 契约另见 API_CONTRACT.md |
 | [IOS_CI_SIGNING_SETUP.md](IOS_CI_SIGNING_SETUP.md) | iOS Build 签名与 IPA 交付；手动 iOS CI、诊断入口、真机安装与排障方法 |
 | [PYTHON_IOS_TOOLING_20261011.md](PYTHON_IOS_TOOLING_20261011.md) | iOS 正式静态库、来源元数据与应用 PDE 校验；保留 CocoaPods 与既有签名图标流程 |
