@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/flip_mode.dart';
+import '../l10n/app_localization.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
+import '../services/reader_settings_migration.dart';
 import '../widgets/reader/reader_brightness_control.dart';
+import '../widgets/reader/reader_menu_color_dialog.dart';
 import '../widgets/reader/reader_padding_config_sheet.dart';
 import '../widgets/reader/reader_tip_config_sheet.dart';
 import '../widgets/settings_widgets.dart';
@@ -60,6 +63,7 @@ enum ReaderConfigSection {
   screen,
   content,
   toolbar,
+  menuTheme,
   brightness,
   pageLayout,
 }
@@ -133,6 +137,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
 
   /// 简繁转换类型（0=不转换 1=繁转简 2=简转繁，对标原版 chineseConvertType）
   int _convertType = 0;
+
+  /// 未手动切换时，编辑当前应用明暗模式对应的菜单颜色。
+  bool? _menuColorNight;
 
   @override
   void initState() {
@@ -273,6 +280,15 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             showDividers: false,
             title: '菜单工具栏',
             children: [_buildToolbarOptions(showTitle: false)],
+          ),
+        ];
+        break;
+      case ReaderConfigSection.menuTheme:
+        children = [
+          SettingsGroup(
+            title: context.l10n.readerMenuTheme,
+            showDividers: false,
+            children: _buildMenuThemeOptions(),
           ),
         ];
         break;

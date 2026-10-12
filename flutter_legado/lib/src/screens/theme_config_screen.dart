@@ -1,3 +1,4 @@
+import '../widgets/eye_protection_settings.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
 // ThemeConfigFragment（24 项）：启动图标/欢迎页样式/沉浸式状态栏/沉浸式导航栏/
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
@@ -1002,6 +1003,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                     ],
                   ]),
+
+                  const SizedBox(height: 16),
+                  const EyeProtectionSettingsGroup(),
 
                   // === 自定义主题·白天（对齐原版 day category，themeConfigList
                   // 功能完整保留——UI_MD3_PLAN.md 第九节） ===

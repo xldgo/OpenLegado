@@ -262,7 +262,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           duration: const Duration(milliseconds: 180),
           opacity: _entered ? 1.0 : 0.0,
           child: Material(
-            color: theme.colorScheme.surface,
+            color: theme.colorScheme.surfaceContainerHigh,
             // 与 ReaderMenuPanel 一致：无阴影 + hairline 顶边
             elevation: 0,
             shape: Border(

@@ -57,7 +57,6 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
   final bool brightnessOnLeft;
   final String progressBehavior;
   final ValueChanged<int>? onSeekPage;
-  final bool styleFollowPage;
 
   const ReaderMenuPanel({
     super.key,
@@ -76,7 +75,6 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
     this.brightnessOnLeft = false,
     this.progressBehavior = 'chapter',
     this.onSeekPage,
-    this.styleFollowPage = false,
   });
 
   @override
@@ -153,18 +151,19 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         ? state.chapters[state.currentChapterIndex]
         : null;
     final cs = Theme.of(context).colorScheme;
-    final followColor = widget.styleFollowPage ? state.backgroundColor : null;
-    final foreground = widget.styleFollowPage ? state.textColor : null;
     final adv = ref.watch(readerAdvConfigProvider);
     final autoPageActive = adv?.autoPageTurn ?? false;
-    var barColor = followColor ?? cs.surface;
-    // [UI_SYNC_REFACTOR S2-2] 表面 Haze 档（实色等效）：enableBlur 时
-    // 半透明底（α 85/255，参考 readMenuBlurAlpha 默认）+ BackdropFilter(24)
-    final ui = uiSettingsListenable.value;
-    final useSurfaceBlur = ui.enableBlur && followColor == null;
-    if (useSurfaceBlur) {
-      barColor = barColor.withValues(alpha: 85 / 255);
-    }
+    final foreground = adv?.readBarStyle == 2 ? cs.primary : cs.onSurface;
+    final barColor = cs.surfaceContainerHigh;
+    // 毛玻璃只改变表面的透明度和模糊，不改变菜单配色来源。
+    final ui = ref.watch(uiSettingsProvider);
+    final useSurfaceBlur = ui.enableBlur;
+    final topColor = useSurfaceBlur
+        ? barColor.withValues(alpha: ui.topBarBlurAlpha / 100)
+        : barColor;
+    final bottomColor = useSurfaceBlur
+        ? barColor.withValues(alpha: ui.bottomBarBlurAlpha / 100)
+        : barColor;
 
     return Positioned.fill(
       child: AnimatedBuilder(
@@ -214,7 +213,23 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                       reverseCurve: Curves.easeInCubic,
                     ),
                   ),
-              child: _buildTopBar(context, barColor, book, chapter, notifier),
+              child: useSurfaceBlur
+                  ? ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: ui.topBarBlurRadius.toDouble(),
+                          sigmaY: ui.topBarBlurRadius.toDouble(),
+                        ),
+                        child: _buildTopBar(
+                          context,
+                          topColor,
+                          book,
+                          chapter,
+                          notifier,
+                        ),
+                      ),
+                    )
+                  : _buildTopBar(context, topColor, book, chapter, notifier),
             ),
             // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
             Expanded(
@@ -294,10 +309,13 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                             top: Radius.circular(32),
                           ),
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                            filter: ImageFilter.blur(
+                              sigmaX: ui.bottomBarBlurRadius.toDouble(),
+                              sigmaY: ui.bottomBarBlurRadius.toDouble(),
+                            ),
                             child: _panelSurface(
                               context,
-                              barColor,
+                              bottomColor,
                               foreground,
                               book,
                               chapter,
@@ -309,7 +327,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                         )
                       : _panelSurface(
                           context,
-                          barColor,
+                          bottomColor,
                           foreground,
                           book,
                           chapter,
@@ -423,6 +441,14 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     //（章名+书源徽标 / 章节链接），对齐参考版顶栏布局 — Qoder
     // [PARITY C2 M2] 移除来源 URL 全文行：参考版顶栏信息块只保留
     // 章节名 + 书源小字徽标，不再渲染章节链接全文（来源名并入小字行）。
+    final theme = Theme.of(context);
+    final config = ref.watch(readerAdvConfigProvider);
+    final customText = theme.brightness == Brightness.dark
+        ? config?.readMenuTextColorNight ?? 0
+        : config?.readMenuTextColor ?? 0;
+    final titleColor = customText == 0
+        ? theme.colorScheme.onSurface
+        : Color(customText);
     final sourceName = book?.originName ?? '';
     // [P2-9 | 2026-09-24] 在线书判定（对齐顶栏 isOnline 语义，WebDAV 视作
     // 本地）：本地书（loc_book/dav:）不显示换源/刷新正文（原版 ReadMenu
@@ -439,7 +465,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       chapter?.title ?? '',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.titleSmall,
+      style: theme.textTheme.titleSmall?.copyWith(color: titleColor),
     );
     final chapterTitleWidget = chapterUrl == null
         ? chapterTitle
@@ -488,7 +514,9 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                         book?.name ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: titleColor,
+                        ),
                       ),
                     ),
                   ),

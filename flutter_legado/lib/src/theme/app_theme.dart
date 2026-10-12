@@ -183,6 +183,29 @@ class AppTheme {
     );
   }
 
+  /// 通过同一装配入口生成局部主题，避免组件继续引用旧配色中的显式颜色。
+  static ThemeData withColorScheme(ThemeData base, ColorScheme scheme) {
+    final themed = _buildTheme(
+      brightness: scheme.brightness,
+      colorScheme: scheme,
+      scaffoldBackground: scheme.surface,
+      appBarBackground: scheme.surfaceContainerHigh,
+      appBarForeground: scheme.onSurface,
+      separator: scheme.outlineVariant,
+      cardColor: scheme.surfaceContainerLow,
+      tabBarBg: scheme.surfaceContainer,
+    );
+    return themed.copyWith(
+      textTheme: base.textTheme.apply(
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
+      ),
+      visualDensity: base.visualDensity,
+      materialTapTargetSize: base.materialTapTargetSize,
+      extensions: base.extensions.values,
+    );
+  }
+
   /// 根据背景明暗计算前景对比色（对齐原版 ColorUtils.isColorLight 逻辑）
   static Color _onColor(Color bg) =>
       ThemeData.estimateBrightnessForColor(bg) == Brightness.light

@@ -1621,4 +1621,112 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readAloudFromThisPage => '从本页读';
+
+  @override
+  String get readerMenuTheme => '菜单配色';
+
+  @override
+  String get readerMenuFollowApp => '跟随应用';
+
+  @override
+  String get readerMenuFollowBackground => '跟随阅读背景';
+
+  @override
+  String get readerMenuCustom => '自定义';
+
+  @override
+  String get readerMenuPalette => '菜单配色风格';
+
+  @override
+  String get readerMenuTonalSpot => '柔和';
+
+  @override
+  String get readerMenuNeutral => '中性';
+
+  @override
+  String get readerMenuVibrant => '鲜艳';
+
+  @override
+  String get readerMenuExpressive => '表现力';
+
+  @override
+  String get readerMenuFidelity => '保真';
+
+  @override
+  String get readerMenuContent => '内容';
+
+  @override
+  String get readerMenuRainbow => '彩虹';
+
+  @override
+  String get readerMenuFruitSalad => '水果沙拉';
+
+  @override
+  String get readerMenuMonochrome => '单色';
+
+  @override
+  String get readerMenuColorMode => '自定义方式';
+
+  @override
+  String get readerMenuSeedOnly => '由主色生成';
+
+  @override
+  String get readerMenuManual => '分别指定颜色';
+
+  @override
+  String get readerMenuEditingMode => '编辑配色';
+
+  @override
+  String get readerMenuDay => '浅色模式';
+
+  @override
+  String get readerMenuNight => '深色模式';
+
+  @override
+  String get readerMenuAccent => '菜单主色';
+
+  @override
+  String get readerMenuBackground => '菜单背景';
+
+  @override
+  String get readerMenuContainer => '弹层背景';
+
+  @override
+  String get readerMenuTitleColor => '顶栏文字颜色';
+
+  @override
+  String get readerMenuColorDefault => '默认';
+
+  @override
+  String get readerMenuColorHex => '十六进制颜色';
+
+  @override
+  String get readerMenuColorInvalid => '请输入 6 位或 8 位十六进制颜色';
+
+  @override
+  String get eyeProtection => '护眼模式';
+
+  @override
+  String get eyeProtectionEnabled => '启用护眼模式';
+
+  @override
+  String get eyeProtectionEnabledSummary => '为应用画面应用暖色滤镜，不改变原始配色';
+
+  @override
+  String get eyeProtectionAutoNight => '跟随深色模式';
+
+  @override
+  String get eyeProtectionIntensity => '滤镜强度';
+
+  @override
+  String get eyeProtectionSchedule => '定时启用';
+
+  @override
+  String get eyeProtectionScheduleSummary => '仅在指定时段生效，支持跨午夜';
+
+  @override
+  String get eyeProtectionStartTime => '开始时间';
+
+  @override
+  String get eyeProtectionEndTime => '结束时间';
 }

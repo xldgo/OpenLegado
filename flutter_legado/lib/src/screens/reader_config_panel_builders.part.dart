@@ -693,18 +693,184 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         value: _config.showReadTitleAddition,
         onChanged: null,
       ),
-      // 工具栏跟随页面（原版 readBarStyleFollowPage：顶/底栏背景与文字色
-      // 跟随当前阅读页配色，对标 ReadMenu immersiveMenu）
-      SettingSwitchRow(
-        title: '工具栏跟随页面',
-        subtitle: '顶/底栏配色跟随阅读页背景',
-        value: _config.readBarStyleFollowPage,
-        onChanged: (v) {
-          _config.readBarStyleFollowPage = v;
+    ],
+  );
+
+  List<Widget> _buildMenuThemeOptions() {
+    final l10n = context.l10n;
+    final night =
+        _menuColorNight ?? Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
+    final readingBackground = ref.watch(readerNotifierProvider).backgroundColor;
+    return [
+      SettingMenuRow<int>(
+        title: l10n.readerMenuTheme,
+        value: _config.readBarStyle,
+        options: {
+          0: l10n.readerMenuFollowApp,
+          1: l10n.readerMenuFollowBackground,
+          2: l10n.readerMenuCustom,
+        },
+        onChanged: (value) {
+          _config.readBarStyle = value;
           _commit();
         },
       ),
-    ],
+      if (_config.readBarStyle != 0)
+        SettingMenuRow<String>(
+          title: l10n.readerMenuPalette,
+          value: _config.readMenuPaletteStyle,
+          options: {
+            '': l10n.readerMenuFollowApp,
+            'tonalSpot': l10n.readerMenuTonalSpot,
+            'neutral': l10n.readerMenuNeutral,
+            'vibrant': l10n.readerMenuVibrant,
+            'expressive': l10n.readerMenuExpressive,
+            'fidelity': l10n.readerMenuFidelity,
+            'content': l10n.readerMenuContent,
+            'rainbow': l10n.readerMenuRainbow,
+            'fruitSalad': l10n.readerMenuFruitSalad,
+            'monochrome': l10n.readerMenuMonochrome,
+          },
+          onChanged: (value) {
+            _config.readMenuPaletteStyle = value;
+            _commit();
+          },
+        ),
+      if (_config.readBarStyle == 2) ...[
+        SettingMenuRow<int>(
+          title: l10n.readerMenuColorMode,
+          value: _config.readMenuColorMode,
+          options: {0: l10n.readerMenuSeedOnly, 1: l10n.readerMenuManual},
+          onChanged: (value) {
+            _config.readMenuColorMode = value;
+            _commit();
+          },
+        ),
+        SettingMenuRow<bool>(
+          title: l10n.readerMenuEditingMode,
+          value: night,
+          options: {false: l10n.readerMenuDay, true: l10n.readerMenuNight},
+          onChanged: (value) => setState(() => _menuColorNight = value),
+        ),
+        _menuColorRow(
+          l10n.readerMenuAccent,
+          night
+              ? _config.readMenuAccentColorNight
+              : _config.readMenuAccentColor,
+          colors.primary,
+          (value) {
+            if (night) {
+              _config.readMenuAccentColorNight = value;
+            } else {
+              _config.readMenuAccentColor = value;
+            }
+          },
+        ),
+        if (_config.readMenuColorMode != 0) ...[
+          _menuColorRow(
+            l10n.readerMenuBackground,
+            night ? _config.readMenuBgColorNight : _config.readMenuBgColor,
+            readingBackground,
+            (value) {
+              if (night) {
+                _config.readMenuBgColorNight = value;
+              } else {
+                _config.readMenuBgColor = value;
+              }
+            },
+          ),
+          _menuColorRow(
+            l10n.readerMenuContainer,
+            night
+                ? _config.readMenuContainerColorNight
+                : _config.readMenuContainerColor,
+            Color(
+              (night
+                          ? _config.readMenuBgColorNight
+                          : _config.readMenuBgColor) ==
+                      0
+                  ? readingBackground.toARGB32()
+                  : (night
+                        ? _config.readMenuBgColorNight
+                        : _config.readMenuBgColor),
+            ),
+            (value) {
+              if (night) {
+                _config.readMenuContainerColorNight = value;
+              } else {
+                _config.readMenuContainerColor = value;
+              }
+            },
+          ),
+        ],
+      ],
+      // 上游的标题文字覆盖独立于菜单背景模式；默认仍使用 onSurface。
+      if (_config.readBarStyle != 2)
+        SettingMenuRow<bool>(
+          title: l10n.readerMenuEditingMode,
+          value: night,
+          options: {false: l10n.readerMenuDay, true: l10n.readerMenuNight},
+          onChanged: (value) => setState(() => _menuColorNight = value),
+        ),
+      _menuColorRow(
+        l10n.readerMenuTitleColor,
+        night ? _config.readMenuTextColorNight : _config.readMenuTextColor,
+        colors.onSurface,
+        (value) {
+          if (night) {
+            _config.readMenuTextColorNight = value;
+          } else {
+            _config.readMenuTextColor = value;
+          }
+        },
+      ),
+    ];
+  }
+
+  Widget _menuColorRow(
+    String title,
+    int value,
+    Color fallback,
+    ValueChanged<int> apply,
+  ) => IosListTile(
+    title: title,
+    showChevron: false,
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value == 0
+              ? context.l10n.readerMenuColorDefault
+              : '#${value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: value == 0 ? fallback : Color(value),
+            shape: BoxShape.circle,
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+          ),
+        ),
+      ],
+    ),
+    onTap: () async {
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (_) => ReaderMenuColorDialog(
+          title: title,
+          value: value,
+          fallback: fallback,
+        ),
+      );
+      if (!mounted || picked == null) return;
+      apply(picked);
+      _commit();
+    },
   );
 
   Widget _buildBrightnessDisplayMenu() {

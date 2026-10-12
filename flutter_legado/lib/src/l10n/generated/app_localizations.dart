@@ -3044,6 +3044,222 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'从本页读'**
   String get readAloudFromThisPage;
+
+  /// No description provided for @readerMenuTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单配色'**
+  String get readerMenuTheme;
+
+  /// No description provided for @readerMenuFollowApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随应用'**
+  String get readerMenuFollowApp;
+
+  /// No description provided for @readerMenuFollowBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随阅读背景'**
+  String get readerMenuFollowBackground;
+
+  /// No description provided for @readerMenuCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get readerMenuCustom;
+
+  /// No description provided for @readerMenuPalette.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单配色风格'**
+  String get readerMenuPalette;
+
+  /// No description provided for @readerMenuTonalSpot.
+  ///
+  /// In zh, this message translates to:
+  /// **'柔和'**
+  String get readerMenuTonalSpot;
+
+  /// No description provided for @readerMenuNeutral.
+  ///
+  /// In zh, this message translates to:
+  /// **'中性'**
+  String get readerMenuNeutral;
+
+  /// No description provided for @readerMenuVibrant.
+  ///
+  /// In zh, this message translates to:
+  /// **'鲜艳'**
+  String get readerMenuVibrant;
+
+  /// No description provided for @readerMenuExpressive.
+  ///
+  /// In zh, this message translates to:
+  /// **'表现力'**
+  String get readerMenuExpressive;
+
+  /// No description provided for @readerMenuFidelity.
+  ///
+  /// In zh, this message translates to:
+  /// **'保真'**
+  String get readerMenuFidelity;
+
+  /// No description provided for @readerMenuContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容'**
+  String get readerMenuContent;
+
+  /// No description provided for @readerMenuRainbow.
+  ///
+  /// In zh, this message translates to:
+  /// **'彩虹'**
+  String get readerMenuRainbow;
+
+  /// No description provided for @readerMenuFruitSalad.
+  ///
+  /// In zh, this message translates to:
+  /// **'水果沙拉'**
+  String get readerMenuFruitSalad;
+
+  /// No description provided for @readerMenuMonochrome.
+  ///
+  /// In zh, this message translates to:
+  /// **'单色'**
+  String get readerMenuMonochrome;
+
+  /// No description provided for @readerMenuColorMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义方式'**
+  String get readerMenuColorMode;
+
+  /// No description provided for @readerMenuSeedOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'由主色生成'**
+  String get readerMenuSeedOnly;
+
+  /// No description provided for @readerMenuManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'分别指定颜色'**
+  String get readerMenuManual;
+
+  /// No description provided for @readerMenuEditingMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑配色'**
+  String get readerMenuEditingMode;
+
+  /// No description provided for @readerMenuDay.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色模式'**
+  String get readerMenuDay;
+
+  /// No description provided for @readerMenuNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色模式'**
+  String get readerMenuNight;
+
+  /// No description provided for @readerMenuAccent.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单主色'**
+  String get readerMenuAccent;
+
+  /// No description provided for @readerMenuBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'菜单背景'**
+  String get readerMenuBackground;
+
+  /// No description provided for @readerMenuContainer.
+  ///
+  /// In zh, this message translates to:
+  /// **'弹层背景'**
+  String get readerMenuContainer;
+
+  /// No description provided for @readerMenuTitleColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'顶栏文字颜色'**
+  String get readerMenuTitleColor;
+
+  /// No description provided for @readerMenuColorDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get readerMenuColorDefault;
+
+  /// No description provided for @readerMenuColorHex.
+  ///
+  /// In zh, this message translates to:
+  /// **'十六进制颜色'**
+  String get readerMenuColorHex;
+
+  /// No description provided for @readerMenuColorInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 6 位或 8 位十六进制颜色'**
+  String get readerMenuColorInvalid;
+
+  /// No description provided for @eyeProtection.
+  ///
+  /// In zh, this message translates to:
+  /// **'护眼模式'**
+  String get eyeProtection;
+
+  /// No description provided for @eyeProtectionEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用护眼模式'**
+  String get eyeProtectionEnabled;
+
+  /// No description provided for @eyeProtectionEnabledSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'为应用画面应用暖色滤镜，不改变原始配色'**
+  String get eyeProtectionEnabledSummary;
+
+  /// No description provided for @eyeProtectionAutoNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随深色模式'**
+  String get eyeProtectionAutoNight;
+
+  /// No description provided for @eyeProtectionIntensity.
+  ///
+  /// In zh, this message translates to:
+  /// **'滤镜强度'**
+  String get eyeProtectionIntensity;
+
+  /// No description provided for @eyeProtectionSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时启用'**
+  String get eyeProtectionSchedule;
+
+  /// No description provided for @eyeProtectionScheduleSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅在指定时段生效，支持跨午夜'**
+  String get eyeProtectionScheduleSummary;
+
+  /// No description provided for @eyeProtectionStartTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间'**
+  String get eyeProtectionStartTime;
+
+  /// No description provided for @eyeProtectionEndTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束时间'**
+  String get eyeProtectionEndTime;
 }
 
 class _AppLocalizationsDelegate

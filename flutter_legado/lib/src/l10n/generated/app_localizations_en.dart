@@ -1733,4 +1733,114 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readAloudFromThisPage => 'Read from this page';
+
+  @override
+  String get readerMenuTheme => 'Menu colors';
+
+  @override
+  String get readerMenuFollowApp => 'Follow app';
+
+  @override
+  String get readerMenuFollowBackground => 'Follow reading background';
+
+  @override
+  String get readerMenuCustom => 'Custom';
+
+  @override
+  String get readerMenuPalette => 'Menu palette style';
+
+  @override
+  String get readerMenuTonalSpot => 'Tonal spot';
+
+  @override
+  String get readerMenuNeutral => 'Neutral';
+
+  @override
+  String get readerMenuVibrant => 'Vibrant';
+
+  @override
+  String get readerMenuExpressive => 'Expressive';
+
+  @override
+  String get readerMenuFidelity => 'Fidelity';
+
+  @override
+  String get readerMenuContent => 'Content';
+
+  @override
+  String get readerMenuRainbow => 'Rainbow';
+
+  @override
+  String get readerMenuFruitSalad => 'Fruit salad';
+
+  @override
+  String get readerMenuMonochrome => 'Monochrome';
+
+  @override
+  String get readerMenuColorMode => 'Custom color mode';
+
+  @override
+  String get readerMenuSeedOnly => 'Generate from accent';
+
+  @override
+  String get readerMenuManual => 'Set individual colors';
+
+  @override
+  String get readerMenuEditingMode => 'Edit colors for';
+
+  @override
+  String get readerMenuDay => 'Light mode';
+
+  @override
+  String get readerMenuNight => 'Dark mode';
+
+  @override
+  String get readerMenuAccent => 'Menu accent';
+
+  @override
+  String get readerMenuBackground => 'Menu background';
+
+  @override
+  String get readerMenuContainer => 'Popup background';
+
+  @override
+  String get readerMenuTitleColor => 'Top bar text color';
+
+  @override
+  String get readerMenuColorDefault => 'Default';
+
+  @override
+  String get readerMenuColorHex => 'Hex color';
+
+  @override
+  String get readerMenuColorInvalid => 'Enter a 6- or 8-digit hex color';
+
+  @override
+  String get eyeProtection => 'Eye comfort';
+
+  @override
+  String get eyeProtectionEnabled => 'Enable eye comfort';
+
+  @override
+  String get eyeProtectionEnabledSummary =>
+      'Apply a warm color filter without changing saved colors';
+
+  @override
+  String get eyeProtectionAutoNight => 'Follow dark mode';
+
+  @override
+  String get eyeProtectionIntensity => 'Filter intensity';
+
+  @override
+  String get eyeProtectionSchedule => 'Schedule';
+
+  @override
+  String get eyeProtectionScheduleSummary =>
+      'Apply only during the selected hours, including overnight';
+
+  @override
+  String get eyeProtectionStartTime => 'Start time';
+
+  @override
+  String get eyeProtectionEndTime => 'End time';
 }

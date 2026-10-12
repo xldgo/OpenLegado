@@ -28,6 +28,7 @@ import '../widgets/reader/reader_page_view.dart';
 import '../widgets/reader/reader_settings_sheet.dart';
 import '../widgets/reader/reader_status_strip.dart';
 import '../widgets/reader/reader_menu_panel.dart';
+import '../widgets/reader/reader_menu_theme.dart';
 import '../widgets/reader/review_detail_sheet.dart';
 import '../utils/comic_image_utils.dart';
 import '../utils/source_login_prompt.dart';
@@ -102,8 +103,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   static const int _autoSwitchMaxAttempts = 3;
 
-  /// F6：跟踪主题日夜，变化时重载布局桶（shareLayout=false）
-  bool? _layoutIsNight;
+  bool _configLoaded = false;
 
   /// [P2-30] 退出判定进行中标记（防系统返回连点触发多路判定/重复弹窗）
   bool _exitPending = false;
@@ -121,12 +121,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Theme.of 不可在 initState 调用；首次与日夜切换时加载高级配置
-    final isNight = Theme.of(context).brightness == Brightness.dark;
-    if (_layoutIsNight == null || _layoutIsNight != isNight) {
+    if (!_configLoaded) {
+      _configLoaded = true;
       unawaited(_loadAdvancedConfig());
     }
-    _layoutIsNight = isNight;
   }
 
   @override
@@ -237,10 +235,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Future<void> _loadAdvancedConfig() async {
-    // F6：按当前主题亮度选择日/夜布局桶（shareLayout 时走共用桶）
-    final isNight = Theme.of(context).brightness == Brightness.dark;
-    _layoutIsNight = isNight;
-    final config = await ReaderAdvancedConfig.load(isNight: isNight);
+    final config = await ReaderAdvancedConfig.load();
     if (!mounted) return;
     setState(() => _advConfig = config);
     ref.read(readerAdvConfigProvider.notifier).apply(config);
@@ -771,95 +766,106 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 ),
                 // [UI_SYNC_REFACTOR S2-1] 单块底部面板（五分区，替代顶/底栏
                 // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
-                if (aloudActive && capsule.classicExpanded)
-                  ReadAloudBar(
-                    onDismiss: () => ref
-                        .read(readAloudCapsuleProvider.notifier)
-                        .showClassic(false),
-                    onOpenCatalog: () => unawaited(_openToc()),
-                    onBackstage: () {
-                      ref
-                          .read(readAloudCapsuleProvider.notifier)
-                          .showClassic(false);
-                      Navigator.of(context).maybePop();
-                    },
-                  )
-                else
-                  ReaderMenuPanel(
-                    visible: state.showControls,
-                    bottomAccessory:
-                        aloudActive && !audio.isStreamMode && !imageDominant
-                        ? ValueListenableBuilder<bool>(
-                            valueListenable: ref
-                                .read(audioNotifierProvider.notifier)
-                                .followReadAloud,
-                            builder: (context, following, _) {
-                              if (following) return const SizedBox.shrink();
-                              final colors = Theme.of(context).colorScheme;
-                              return SafeArea(
-                                top: false,
-                                bottom: false,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: 16,
-                                    bottom: 8,
-                                  ),
-                                  child: Wrap(
-                                    alignment: WrapAlignment.end,
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: [
-                                      _readAloudPositionChip(
-                                        colors,
-                                        icon: Icons.my_location,
-                                        label: context
-                                            .l10n
-                                            .readAloudReturnToPosition,
-                                        onPressed: audio.isLoading
-                                            ? null
-                                            : ref
-                                                  .read(
-                                                    audioNotifierProvider
-                                                        .notifier,
-                                                  )
-                                                  .restoreReadAloudFollow,
+                ReaderMenuTheme(
+                  config: cfg,
+                  readingBackground: state.backgroundColor,
+                  builder: (context) => aloudActive && capsule.classicExpanded
+                      ? ReadAloudBar(
+                          onDismiss: () => ref
+                              .read(readAloudCapsuleProvider.notifier)
+                              .showClassic(false),
+                          onOpenCatalog: () => unawaited(_openToc()),
+                          onBackstage: () {
+                            ref
+                                .read(readAloudCapsuleProvider.notifier)
+                                .showClassic(false);
+                            Navigator.of(context).maybePop();
+                          },
+                        )
+                      : ReaderMenuPanel(
+                          visible: state.showControls,
+                          bottomAccessory:
+                              aloudActive &&
+                                  !audio.isStreamMode &&
+                                  !imageDominant
+                              ? ValueListenableBuilder<bool>(
+                                  valueListenable: ref
+                                      .read(audioNotifierProvider.notifier)
+                                      .followReadAloud,
+                                  builder: (context, following, _) {
+                                    if (following) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return SafeArea(
+                                      top: false,
+                                      bottom: false,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 16,
+                                          bottom: 8,
+                                        ),
+                                        child: Wrap(
+                                          alignment: WrapAlignment.end,
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: [
+                                            _readAloudPositionChip(
+                                              context,
+                                              icon: Icons.my_location,
+                                              label: context
+                                                  .l10n
+                                                  .readAloudReturnToPosition,
+                                              onPressed: audio.isLoading
+                                                  ? null
+                                                  : ref
+                                                        .read(
+                                                          audioNotifierProvider
+                                                              .notifier,
+                                                        )
+                                                        .restoreReadAloudFollow,
+                                            ),
+                                            _readAloudPositionChip(
+                                              context,
+                                              icon: Icons.play_arrow,
+                                              label: context
+                                                  .l10n
+                                                  .readAloudFromThisPage,
+                                              onPressed:
+                                                  state.isLoading ||
+                                                      audio.isLoading
+                                                  ? null
+                                                  : () => unawaited(
+                                                      _readFromVisiblePage(),
+                                                    ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      _readAloudPositionChip(
-                                        colors,
-                                        icon: Icons.play_arrow,
-                                        label:
-                                            context.l10n.readAloudFromThisPage,
-                                        onPressed:
-                                            state.isLoading || audio.isLoading
-                                            ? null
-                                            : () => unawaited(
-                                                _readFromVisiblePage(),
-                                              ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : null,
-                    onBack: () => Navigator.of(context).maybePop(),
-                    onAddBookmark: () => _addBookmark(state),
-                    onOpenCatalog: () => unawaited(_openToc()),
-                    onOpenSettings: () => ReaderSettingsSheet.show(context),
-                    onOpenAdvancedConfig: () => _openAdvancedConfig(context),
-                    onOpenContentSearch: () => _openContentSearch(state),
-                    onReadAloud: _onReadAloudTap,
-                    onToggleAutoPage: _toggleAutoPage,
-                    onOpenReplaceRules: () =>
-                        Navigator.pushNamed(context, AppRoutes.replaceRules),
-                    brightnessMode: cfg.brightnessMode,
-                    brightnessOnLeft: cfg.brightnessOnLeft,
-                    progressBehavior: _advConfig.progressBarBehavior,
-                    onSeekPage: (page) =>
-                        _pageViewKey.currentState?.goToPage(page),
-                    styleFollowPage: _advConfig.readBarStyleFollowPage,
-                  ),
+                                    );
+                                  },
+                                )
+                              : null,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onAddBookmark: () => _addBookmark(state),
+                          onOpenCatalog: () => unawaited(_openToc()),
+                          onOpenSettings: () =>
+                              ReaderSettingsSheet.show(context),
+                          onOpenAdvancedConfig: () =>
+                              _openAdvancedConfig(context),
+                          onOpenContentSearch: () => _openContentSearch(state),
+                          onReadAloud: _onReadAloudTap,
+                          onToggleAutoPage: _toggleAutoPage,
+                          onOpenReplaceRules: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.replaceRules,
+                          ),
+                          brightnessMode: cfg.brightnessMode,
+                          brightnessOnLeft: cfg.brightnessOnLeft,
+                          progressBehavior: _advConfig.progressBarBehavior,
+                          onSeekPage: (page) =>
+                              _pageViewKey.currentState?.goToPage(page),
+                        ),
+                ),
               ],
             );
           },
@@ -869,16 +875,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Widget _readAloudPositionChip(
-    ColorScheme colors, {
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback? onPressed,
   }) => ActionChip(
-    avatar: Icon(icon, size: 16, color: colors.onSecondaryContainer),
+    avatar: Icon(
+      icon,
+      size: 16,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
     label: Text(label),
-    labelStyle: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: colors.onSecondaryContainer),
-    backgroundColor: colors.secondaryContainer,
+    labelStyle: Theme.of(context).textTheme.labelMedium,
     side: BorderSide.none,
     shape: const StadiumBorder(),
     onPressed: onPressed,

@@ -28,6 +28,7 @@ import 'src/theme/md3_colors.dart';
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
+import 'src/widgets/eye_protection_filter.dart';
 import 'src/widgets/crash_log_dialog.dart';
 import 'src/widgets/verification_code_listener.dart';
 import 'src/widgets/webview_bridge_listener.dart';
@@ -452,6 +453,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
               observer: _readAloudCapsuleObserver,
               child: wrapped,
             );
+            wrapped = EyeProtectionFilter(child: wrapped);
             if (scale == null) return wrapped;
             return MediaQuery(
               data: MediaQuery.of(context)
