@@ -2,6 +2,14 @@ import 'package:flutter/widgets.dart';
 
 import 'text_layout_environment.dart';
 
+/// 物理内容区不足以容纳一个完整字形或行时，提示扩大区域，禁止静默裁字。
+class ReaderLayoutBoundsException implements Exception {
+  final String message;
+  const ReaderLayoutBoundsException(this.message);
+  @override
+  String toString() => message;
+}
+
 /// 段末行内操作只占布局空间，不占章节原文长度。
 @immutable
 class InlineReview {

@@ -9,6 +9,28 @@ class TextLayoutEnvironment {
   final Locale? locale;
   final TextHeightBehavior? heightBehavior;
 
+  /// 颜色、阴影与装饰不影响断行；字体回退及变体属于几何参数。
+  Object get geometryKey => (
+    baseStyle.inherit,
+    baseStyle.fontSize,
+    baseStyle.fontFamily,
+    baseStyle.fontFamilyFallback?.join('\u0000'),
+    baseStyle.fontWeight,
+    baseStyle.fontStyle,
+    baseStyle.height,
+    baseStyle.leadingDistribution,
+    baseStyle.letterSpacing,
+    baseStyle.wordSpacing,
+    baseStyle.textBaseline,
+    baseStyle.locale,
+    baseStyle.fontFeatures?.toString(),
+    baseStyle.fontVariations?.toString(),
+    textScaler,
+    direction,
+    locale,
+    heightBehavior,
+  );
+
   const TextLayoutEnvironment({
     required this.baseStyle,
     required this.textScaler,
@@ -33,16 +55,10 @@ class TextLayoutEnvironment {
 
   @override
   bool operator ==(Object other) =>
-      other is TextLayoutEnvironment &&
-      baseStyle == other.baseStyle &&
-      textScaler == other.textScaler &&
-      direction == other.direction &&
-      locale == other.locale &&
-      heightBehavior == other.heightBehavior;
+      other is TextLayoutEnvironment && geometryKey == other.geometryKey;
 
   @override
-  int get hashCode =>
-      Object.hash(baseStyle, textScaler, direction, locale, heightBehavior);
+  int get hashCode => geometryKey.hashCode;
 }
 
 /// 字形簇边界只在此处转换为原文 UTF-16 偏移。

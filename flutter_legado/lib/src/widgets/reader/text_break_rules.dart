@@ -37,6 +37,8 @@ class TextBreakRules {
     ']',
     '}',
     '>',
+    "'",
+    '"',
   };
   static const opening = {
     '“',
@@ -58,6 +60,8 @@ class TextBreakRules {
     '{',
     '<',
     '‹',
+    "'",
+    '"',
   };
   static final _latin = RegExp(
     r"^[A-Za-z0-9\u00c0-\u024f\u1e00-\u1eff\u0300-\u036f'’]+$",

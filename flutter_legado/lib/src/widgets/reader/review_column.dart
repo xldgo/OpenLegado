@@ -41,7 +41,16 @@ class ReviewColumnBadge extends StatelessWidget {
   static (Size, double, Size) measure(BuildContext context) {
     final environment = TextLayoutEnvironment.of(context);
     final painter = TextPainter(
-      text: TextSpan(text: '999+', style: environment.baseStyle.merge(_style)),
+      text: TextSpan(
+        text: '999+',
+        style: environment.baseStyle
+            .merge(_style)
+            .copyWith(
+              fontWeight: MediaQuery.boldTextOf(context)
+                  ? FontWeight.bold
+                  : _style.fontWeight,
+            ),
+      ),
       textDirection: environment.direction,
       textScaler: environment.textScaler,
       locale: environment.locale,

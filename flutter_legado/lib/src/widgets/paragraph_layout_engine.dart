@@ -19,6 +19,7 @@ import 'reader/chapter_layout.dart';
 import 'reader/line_paginator.dart';
 import 'reader/text_break_rules.dart';
 import 'reader/line_text_span.dart';
+import 'reader/chapter_pagination_session.dart';
 export 'reader/chapter_layout.dart';
 
 /// 中文标点悬挂规则
@@ -309,6 +310,39 @@ class ParagraphLayoutEngine {
   final CharWidthCache _charWidthCache = CharWidthCache();
 
   ParagraphLayoutEngine({required this.config, required this.context});
+  int measurementCount = 0;
+  final Map<(String, double, double), double> _widthCache = {};
+
+  ChapterPaginationSession startChapter(
+    String content,
+    double width,
+    double height, {
+    double? firstPageHeight,
+    Map<int, InlineReview> paragraphReviews = const {},
+  }) => ChapterPaginationSession(
+    paragraphs: splitChapterParagraphs(content),
+    paginator: LinePaginator(
+      sourceText: content,
+      environment: _environment,
+      pageHeight: height,
+      firstPageHeight: firstPageHeight,
+      paragraphSpacing: config.paragraphSpacing,
+    ),
+    measure: (paragraph, index) =>
+        _layoutParagraph(paragraph, width, review: paragraphReviews[index]),
+  );
+
+  double _lineWidth(String text, double spacing, {double spaceExpansion = 0}) {
+    final key = (text, spacing, spaceExpansion);
+    final cached = _widthCache[key];
+    if (cached != null) return cached;
+    final painter = _measureLine(text, spacing, spaceExpansion: spaceExpansion);
+    final width = painter.width;
+    painter.dispose();
+    if (_widthCache.length >= 512) _widthCache.remove(_widthCache.keys.first);
+    _widthCache[key] = width;
+    return width;
+  }
 
   /// 获取字符宽度缓存（供测试使用）
   CharWidthCache get charWidthCache => _charWidthCache;
@@ -342,25 +376,17 @@ class ParagraphLayoutEngine {
     double? firstPageHeight,
     Map<int, InlineReview> paragraphReviews = const {},
   }) {
-    final builder = LinePaginator(
-      sourceText: content,
-      environment: _environment,
-      pageHeight: pageHeight,
+    final session = startChapter(
+      content,
+      availableWidth,
+      pageHeight,
       firstPageHeight: firstPageHeight,
-      paragraphSpacing: config.paragraphSpacing,
+      paragraphReviews: paragraphReviews,
     );
-    final paragraphs = splitChapterParagraphs(content);
-    for (var i = 0; i < paragraphs.length; i++) {
-      builder.addParagraph(
-        _layoutParagraph(
-          paragraphs[i],
-          availableWidth,
-          review: paragraphReviews[i + 1],
-        ),
-        i + 1,
-      );
+    while (!session.complete) {
+      session.advance();
     }
-    return builder.finish();
+    return session.pages;
   }
 
   /// 仅供未标记旧页码首次转换；普通排版不再走整段换页路径。
@@ -607,6 +633,10 @@ class ParagraphLayoutEngine {
         spacing,
         spaceExpansion: spaceExpansion,
       );
+      if (metrics.width - line.hangingWidth > availableWidth + 0.001) {
+        metrics.dispose();
+        throw const ReaderLayoutBoundsException('阅读区域太窄，请扩大窗口或减小字号');
+      }
       final textBaseline = metrics.computeDistanceToActualBaseline(
         TextBaseline.alphabetic,
       );
@@ -701,10 +731,7 @@ class ParagraphLayoutEngine {
   }
 
   double _measurePrefixWidth(String prefix) {
-    final painter = _measureLine(prefix, config.letterSpacing);
-    final width = painter.width;
-    painter.dispose();
-    return width;
+    return _lineWidth(prefix, config.letterSpacing);
   }
 
   /// 只回退末行的合法断点，使正文尾部和角标作为同一行落位。
@@ -716,10 +743,7 @@ class ParagraphLayoutEngine {
     final last = lines.last;
     final map = TextClusterMap(last.displayText);
     double measure(String text) {
-      final painter = _measureLine(text, config.letterSpacing);
-      final result = painter.width;
-      painter.dispose();
-      return result;
+      return _lineWidth(text, config.letterSpacing);
     }
 
     for (final slot in [review.size, review.compactSize]) {
@@ -983,12 +1007,12 @@ class ParagraphLayoutEngine {
       final first = clusterMap.clusterIndex(start);
       var last = clusterMap.clusterIndex(end);
       while (last > first + 1) {
-        final painter = _measureLine(
-          text.substring(start, boundaries[last]),
-          config.letterSpacing,
-        );
-        final fits = painter.width <= limit + 0.001;
-        painter.dispose();
+        final fits =
+            _lineWidth(
+              text.substring(start, boundaries[last]),
+              config.letterSpacing,
+            ) <=
+            limit + 0.001;
         if (fits) break;
         last--;
       }
@@ -1082,6 +1106,7 @@ class ParagraphLayoutEngine {
     double letterSpacing, {
     double spaceExpansion = 0,
   }) {
+    measurementCount++;
     final painter = TextPainter(
       text: readerLineSpan(
         text,
@@ -1118,19 +1143,17 @@ class ParagraphLayoutEngine {
       return (base, 0);
     }
     final limit = availableWidth + line.hangingWidth;
-    final natural = _measureLine(line.displayText, base);
-    final naturalWidth = natural.width;
-    natural.dispose();
+    final naturalWidth = _lineWidth(line.displayText, base);
     if (naturalWidth >= limit) return (base, 0);
     final wordSpacing =
         RegExp(r' +').allMatches(line.displayText.trim()).length > 1;
-    final probe = _measureLine(
-      line.displayText,
-      wordSpacing ? base : base + 1,
-      spaceExpansion: wordSpacing ? 1 : 0,
-    );
-    final increment = probe.width - naturalWidth;
-    probe.dispose();
+    final increment =
+        _lineWidth(
+          line.displayText,
+          wordSpacing ? base : base + 1,
+          spaceExpansion: wordSpacing ? 1 : 0,
+        ) -
+        naturalWidth;
     if (increment <= 0) return (base, 0);
     var high = math.min(
       (limit - naturalWidth) / increment,
@@ -1139,13 +1162,13 @@ class ParagraphLayoutEngine {
     var low = 0.0;
     for (var i = 0; i < 10; i++) {
       final candidate = i == 0 ? high : (low + high) / 2;
-      final painter = _measureLine(
-        line.displayText,
-        wordSpacing ? base : base + candidate,
-        spaceExpansion: wordSpacing ? candidate : 0,
-      );
-      final fits = painter.width <= limit + 0.001;
-      painter.dispose();
+      final fits =
+          _lineWidth(
+            line.displayText,
+            wordSpacing ? base : base + candidate,
+            spaceExpansion: wordSpacing ? candidate : 0,
+          ) <=
+          limit + 0.001;
       if (fits) {
         low = candidate;
         if (i == 0) break;
@@ -1166,6 +1189,7 @@ class ParagraphLayoutEngine {
   /// 渲染同一文字引擎、同一塑形上下文；并合并 DefaultTextStyle（主题
   /// 字体回退链）与 textScaler（系统文字缩放），与渲染侧 Text 完全同参。
   List<double> _measureCharWidths(String text, double maxWidth) {
+    measurementCount++;
     final widths = List<double>.filled(text.length, 0.0);
     if (text.isEmpty) return widths;
 
@@ -1209,34 +1233,8 @@ class ParagraphLayoutEngine {
   /// 测量单个字符宽度（用于中文字符参考宽度）
   ///
   /// 对应 Kotlin paint.measureText("一")
-  double _measureSingleChar(String char) {
-    final painter = TextPainter(
-      // [UI-fix v2.0.2 | 2026-08-06] 单字宽度测量同步字距/字体配置 — Qoder
-      // [UI-fix v2.0.4 | 2026-08-08] 同步字重（textBold） — Qoder
-      // [UI_SYNC_REFACTOR S4 修 | 2026-09-06] 同步 DefaultTextStyle 与
-      // textScaler（与 _measureCharWidths / 渲染侧同参）— Qoder
-      text: TextSpan(
-        text: char,
-        style: _environment.baseStyle.merge(
-          TextStyle(
-            fontSize: config.fontSize,
-            letterSpacing: config.letterSpacing,
-            fontFamily: config.fontFamily,
-            fontWeight: config.fontWeight,
-            fontStyle: config.fontStyle,
-          ),
-        ),
-      ),
-      textDirection: _environment.direction,
-      locale: _environment.locale,
-      textHeightBehavior: _environment.heightBehavior,
-      textScaler: _environment.textScaler,
-    );
-    painter.layout();
-    final w = painter.width;
-    painter.dispose();
-    return w;
-  }
+  double _measureSingleChar(String char) =>
+      _lineWidth(char, config.letterSpacing);
 
   /// 计算两端对齐的额外字间距
   ///

@@ -59,6 +59,12 @@ class LinePaginator {
     }
 
     for (final line in paragraph.lines) {
+      if (line.height > pageHeight + .001) {
+        throw const ReaderLayoutBoundsException('阅读区域太矮，请扩大窗口或减小字号');
+      }
+      if (_height == 0 && line.height > _capacity + .001) {
+        throw const ReaderLayoutBoundsException('章节标题后空间不足，请扩大窗口或减小字号');
+      }
       final gap = lines.isEmpty ? spacing : 0.0;
       if (_height > 0 && _height + gap + line.height > _capacity + .001) {
         flushFragment(false);

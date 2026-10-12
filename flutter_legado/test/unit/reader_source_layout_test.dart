@@ -5,6 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
+/// Text.rich 会在文本跨度外包主题跨度，探针沿继承链读取首字的生效样式。
+TextStyle _firstTextStyle(
+  TextSpan span, [
+  TextStyle inherited = const TextStyle(),
+]) {
+  final style = inherited.merge(span.style);
+  if (span.text?.isNotEmpty == true) return style;
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (child is TextSpan) return _firstTextStyle(child, style);
+  }
+  return style;
+}
+
 Future<List<PageInfo>> _layout(
   WidgetTester tester,
   String source, {
@@ -108,7 +121,7 @@ void main() {
         final original = TextPainter(
           text: TextSpan(
             text: line.displayText,
-            style: (paragraph.text as TextSpan).style,
+            style: _firstTextStyle(paragraph.text as TextSpan),
           ),
           textDirection: TextDirection.ltr,
           textScaler: TextScaler.linear(scale),

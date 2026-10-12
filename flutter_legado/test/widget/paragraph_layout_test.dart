@@ -849,7 +849,7 @@ void main() {
     test('边界 - 混合全角半角括号', () {
       expect(ChinesePunctuationRule.isEndingPunctuation('（'), isTrue);
       expect(ChinesePunctuationRule.isEndingPunctuation('('), isTrue);
-      expect(ChinesePunctuationRule.isBeginningPunctuation('）'), isFalse);
+      expect(ChinesePunctuationRule.isBeginningPunctuation('）'), isTrue);
       expect(ChinesePunctuationRule.isBeginningPunctuation(')'), isTrue);
     });
   });

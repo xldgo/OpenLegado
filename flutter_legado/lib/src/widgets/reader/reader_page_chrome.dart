@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../screens/reader_config_panel.dart';
+import 'text_layout_environment.dart';
+
+import 'dart:math' as math;
 
 /// 阅读页避让系统状态栏的顶部 inset（对标原版 TitleBar fitStatusBar /
 /// WindowInsetsCompat.Type.systemBars）。
@@ -41,8 +44,7 @@ double readerOverlayStatusBarInset(
 String? effectiveTitleFontFamily(
   ReaderPageChromeConfig chrome,
   String? bodyFontFamily,
-) =>
-    chrome.titleFont.isNotEmpty ? chrome.titleFont : bodyFontFamily;
+) => chrome.titleFont.isNotEmpty ? chrome.titleFont : bodyFontFamily;
 
 /// 阅读页页眉/页脚与标题样式（对标原版 ReadBookConfig + ReadTipConfig）
 class ReaderPageChromeConfig {
@@ -271,12 +273,18 @@ class ReaderPageTipBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showDivider && dividerOnTop) divider,
-          Row(
-            children: [
-              Expanded(child: _slot(leftTip, color, Alignment.centerLeft)),
-              Expanded(child: _slot(middleTip, color, Alignment.center)),
-              Expanded(child: _slot(rightTip, color, Alignment.centerRight)),
-            ],
+          SizedBox(
+            height: ReaderPageLayoutMetrics.measureTipBarHeight(
+              context: context,
+              padding: EdgeInsets.zero,
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _slot(leftTip, color, Alignment.centerLeft)),
+                Expanded(child: _slot(middleTip, color, Alignment.center)),
+                Expanded(child: _slot(rightTip, color, Alignment.centerRight)),
+              ],
+            ),
           ),
           if (showDivider && !dividerOnTop) divider,
         ],
@@ -327,12 +335,24 @@ class ReaderPageLayoutMetrics {
     required EdgeInsets padding,
     required BuildContext context,
   }) {
+    final environment = TextLayoutEnvironment.of(context);
     final painter = TextPainter(
-      text: TextSpan(text: '0', style: _tipStyle),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
+      text: TextSpan(
+        text: '汉0',
+        style: environment.baseStyle
+            .merge(_tipStyle)
+            .copyWith(
+              fontWeight: MediaQuery.boldTextOf(context)
+                  ? FontWeight.bold
+                  : environment.baseStyle.fontWeight,
+            ),
+      ),
+      textDirection: environment.direction,
+      textScaler: environment.textScaler,
+      locale: environment.locale,
+      textHeightBehavior: environment.heightBehavior,
     )..layout();
-    final line = painter.height;
+    final line = math.max(14.0, painter.height);
     painter.dispose();
     return padding.top + padding.bottom + line;
   }
@@ -344,7 +364,9 @@ class ReaderPageLayoutMetrics {
         text: '0/0',
         style: baseStyle.merge(_legacyIndicatorStyle),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+      textHeightBehavior: TextLayoutEnvironment.of(context).heightBehavior,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
     final h = 8 + painter.height;

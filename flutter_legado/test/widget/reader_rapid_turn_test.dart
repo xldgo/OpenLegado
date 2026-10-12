@@ -59,6 +59,8 @@ class _TurnHostState extends State<_TurnHost> {
   late int page = widget.initialPage;
   int nextChapterCalls = 0;
   int layoutGeneration = 0;
+  int? extendedPageCount;
+  void growPages() => setState(() => extendedPageCount = widget.pageCount + 8);
 
   void loadNextChapter() => setState(() {
     page = 0;
@@ -77,7 +79,7 @@ class _TurnHostState extends State<_TurnHost> {
             key: turnKey,
             mode: widget.mode,
             pageIndex: page,
-            pageCount: widget.pageCount,
+            pageCount: extendedPageCount ?? widget.pageCount,
             layoutGeneration: layoutGeneration,
             hasChapterPrev: false,
             hasChapterNext: widget.hasChapterNext,
@@ -126,6 +128,23 @@ Future<void> _swipeNext(WidgetTester tester, {bool pump = true}) async {
 }
 
 void main() {
+  testWidgets('分批追加页面不打断正在进行的拖动', (tester) async {
+    final key = GlobalKey<_TurnHostState>();
+    await tester.pumpWidget(_TurnHost(key: key, mode: PageTurnMode.cover));
+    await _warmSnapshots(tester);
+    final gesture = await tester.startGesture(const Offset(280, 220));
+    await gesture.moveTo(const Offset(240, 220));
+    await gesture.moveTo(const Offset(180, 220));
+    await tester.pump();
+    key.currentState!.growPages();
+    await tester.pump();
+    await gesture.moveTo(const Offset(80, 220));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(key.currentState!.page, 4);
+    expect(key.currentState!.committed, [4]);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('下一次按下完成上一轮有效翻页，并结束旧异步等待', (tester) async {
     final controller = PageTurnController();
     addTearDown(controller.dispose);

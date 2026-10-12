@@ -164,7 +164,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
     final acceptedPendingPage = _pendingPageIndex == widget.pageIndex;
     if (oldWidget.layoutGeneration != widget.layoutGeneration ||
         oldWidget.mode != widget.mode ||
-        oldWidget.pageCount != widget.pageCount ||
+        oldWidget.pageCount > widget.pageCount ||
         (pageChanged && !acceptedPendingPage)) {
       _turnGeneration++;
       _activePointer = null;
