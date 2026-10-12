@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
+import 'package:flutter_legado/src/l10n/generated/app_localizations.dart';
+import 'package:flutter_legado/src/l10n/app_strings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +51,31 @@ void main() {
     restarted.read(appLocaleProvider);
     await Future<void>.delayed(Duration.zero);
     expect(restarted.read(appLocaleProvider), 'en');
+  });
+
+  test('ARB 代理加载主入口文案与英文复数单位', () async {
+    final zh = await AppLocalizations.delegate.load(const Locale('zh'));
+    final en = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(zh.home, '首页');
+    expect(zh.my, '我的');
+    expect(zh.bookCount(2), '2 本');
+    expect(en.home, 'Home');
+    expect(en.my, 'Me');
+    expect(en.bookCount(1), '1 book');
+    expect(en.bookCount(2), '2 books');
+    expect(en.minuteCount(1), '1 minute');
+    expect(en.minuteCount(2), '2 minutes');
+    expect(en.gridColumnCount(3), 'Grid (3 columns)');
+    expect(AppLocalizations.supportedLocales.first, const Locale('zh'));
+  });
+
+  test('旧页面兼容入口与 ARB 使用同一份文案', () {
+    addTearDown(() => AppStrings.setLocale('zh'));
+    AppStrings.setLocale('en');
+    expect(AppStrings.my, lookupAppLocalizations(const Locale('en')).my);
+    expect(AppStrings.bookshelf, 'Bookshelf');
+    AppStrings.setLocale('zh');
+    expect(AppStrings.my, '我的');
   });
 
   test('独立 Material 与 Cupertino 的中文返回文案均可加载', () async {

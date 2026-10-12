@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
+import '../l10n/app_localization.dart';
+
 import '../models/models.dart';
 import '../providers/providers.dart';
 import 'group_manage_dialog.dart';
@@ -21,7 +23,7 @@ class ReplaceRuleGroupManageDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GroupManageDialog<ReplaceRule>(
-      itemNoun: '规则',
+      itemNoun: context.l10n.ruleNoun,
       items: rules,
       groupOf: (r) => r.group,
       copyWithGroup: (r, g) => r.copyWith(group: g),

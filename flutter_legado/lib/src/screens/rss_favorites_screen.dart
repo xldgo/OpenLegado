@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+import '../l10n/app_localization.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -48,8 +50,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
       setState(() {
         _stars = stars;
         _sourceNames = {
-          for (final s in sources) s.sourceUrl: s.sourceName,
-        };
+          for (final s in sources) s.sourceUrl: s.sourceName};
         _loading = false;
       });
     } catch (e) {
@@ -71,24 +72,26 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
   }
 
   String _displayName(String origin) =>
-      _sourceNames[origin] ?? (origin.isEmpty ? '未知来源' : origin);
+      _sourceNames[origin] ?? (origin.isEmpty ? context.l10n.unknownSource : origin);
 
   Future<void> _unstar(RssStar star) async {
     // 先从本地移除，提升响应速度
     setState(() => _stars.removeWhere((s) => s.link == star.link));
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       await ref.read(bookApiProvider).deleteRssStar(star.link);
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('已取消收藏'),
+        SnackBar(
+          content: Text(l10n.unfavorited),
           duration: Duration(seconds: 1),
         ),
       );
     } catch (e) {
       // 失败时恢复
       setState(() => _stars.add(star));
-      messenger.showSnackBar(SnackBar(content: Text('操作失败：$e')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.operationFailed(e.toString()))),
+      );
     }
   }
 
@@ -105,11 +108,11 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('RSS 收藏'),
+        title: Text(context.l10n.rssFavorites),
         actions: [
           IconButton(
             icon: const Icon(Symbols.refresh_rounded),
-            tooltip: '刷新',
+            tooltip: context.l10n.refresh,
             onPressed: _load,
           ),
         ],
@@ -120,16 +123,16 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const LoadingIndicator(message: '加载收藏...');
+      return LoadingIndicator(message: context.l10n.loadingFavorites);
     }
     if (_error != null) {
       return ErrorView(message: _error!, onRetry: _load);
     }
     if (_stars.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Symbols.star_outline_rounded,
-        title: '暂无收藏文章',
-        subtitle: '浏览 RSS 文章时点亮星标即可收藏',
+        title: context.l10n.emptyFavoriteArticles,
+        subtitle: context.l10n.favoriteArticlesHint,
       );
     }
 
@@ -204,8 +207,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     return Card(
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；边距 horizontal16（全局标尺）
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+        borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -221,7 +223,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      star.title.isEmpty ? '（无标题）' : star.title,
+                      star.title.isEmpty ? context.l10n.untitled : star.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -246,7 +248,8 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
                         children: [
                           Icon(Symbols.schedule_rounded,
                               // [LAYOUT_PLAN P2] 元信息图标走 onSurfaceVariant
-                              size: 14, color: colorScheme.onSurfaceVariant),
+                              size: 14, color: colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             star.pubDate!,
@@ -264,7 +267,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
               const SizedBox(width: 8),
               IconButton(
                 icon: Icon(Symbols.star_rounded, color: colorScheme.secondary),
-                tooltip: '取消收藏',
+                tooltip: context.l10n.unfavoriteAction,
                 onPressed: () => _unstar(star),
               ),
             ],

@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
@@ -96,7 +96,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('今日阅读目标'),
+          title: Text(context.l10n.todayReadingGoal),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -111,8 +111,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                     },
                     icon: const Icon(Icons.remove_circle_outline_rounded),
                   ),
-                  Text('$draft 分钟',
-                      style: Theme.of(dialogContext).textTheme.titleMedium),
+                  Text(
+                    context.l10n.minuteCount(draft),
+                    style: Theme.of(dialogContext).textTheme.titleMedium,
+                  ),
                   IconButton(
                     onPressed: () {
                       if (draft < 480) {
@@ -136,11 +138,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('确定'),
+              child: Text(context.l10n.confirm),
             ),
           ],
         ),
@@ -157,14 +159,16 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final records = ref.watch(
-        readRecordNotifierProvider.select((s) => s.records));
+      readRecordNotifierProvider.select((s) => s.records),
+    );
     final totalMs = ref.watch(
-        readRecordNotifierProvider.select((s) => s.totalReadTimeMs));
-    final books = ref.watch(
-        bookshelfNotifierProvider.select((s) => s.books));
+      readRecordNotifierProvider.select((s) => s.totalReadTimeMs),
+    );
+    final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
 
     // 最近阅读：按阅读记录 lastRead 取最近一本，回书架找同名书（拿完整 Book 对象开书）
-    final sorted = [...records]..sort((a, b) => b.lastRead.compareTo(a.lastRead));
+    final sorted = [...records]
+      ..sort((a, b) => b.lastRead.compareTo(a.lastRead));
     Book? recent;
     if (sorted.isNotEmpty) {
       final top = sorted.first;
@@ -176,8 +180,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         }
       }
     }
-    final readBooks =
-        records.where((r) => r.readTime > 0).length;
+    final readBooks = records.where((r) => r.readTime > 0).length;
     final totalHours = (totalMs / 3600000).toStringAsFixed(1);
     final goalSeconds = _goalMinutes * 60;
     final progress = goalSeconds <= 0
@@ -189,13 +192,13 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       appBar: LegadoAppBar(
         showBack: false,
         title: Text(
-          '首页',
+          context.l10n.home,
           style: Theme.of(context).textTheme.headlineMedium
               ?.copyWith(fontSize: 28),
         ),
         actions: [
           IconButton(
-            tooltip: '设置',
+            tooltip: context.l10n.settings,
             icon: const Icon(Icons.settings_rounded),
             onPressed: widget.onOpenSettings,
           ),
@@ -226,39 +229,41 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Symbols.menu_book_rounded,
-                                size: 18, color: cs.primary),
+                            Icon(
+                              Symbols.menu_book_rounded,
+                              size: 18,
+                              color: cs.primary,
+                            ),
                             const SizedBox(width: 6),
-                            Text('最近阅读',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(color: cs.primary)),
+                            Text(
+                              context.l10n.recentReading,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(color: cs.primary),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(recent.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          recent.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 4),
-                        Text(recent.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: cs.onSurfaceVariant)),
+                        Text(
+                          recent.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
                         if (recent.durChapterTitle != null) ...[
                           const SizedBox(height: 4),
                           Text(
                             recent.durChapterTitle!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
                         ],
@@ -284,14 +289,18 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('累计阅读',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall),
-                            Text('$readBooks 本',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium),
+                            Text(
+                              context.l10n.booksRead,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            Text(
+                              context.l10n.bookCount(readBooks),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                           ],
                         ),
                       ),
@@ -311,14 +320,18 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('阅读时长',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall),
-                            Text('$totalHours 小时',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium),
+                            Text(
+                              context.l10n.readingDuration,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            Text(
+                              context.l10n.hourCount(totalHours),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                           ],
                         ),
                       ),
@@ -339,9 +352,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                     // [1-2 ③] 参考版目标图标=同心圆靶形（radar），替换时钟形
                     Icon(Symbols.radar_rounded, color: cs.primary),
                     const SizedBox(width: 10),
-                    Text('今日阅读目标',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const Spacer(),
+                    Expanded(
+                      child: Text(
+                        context.l10n.todayReadingGoal,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
                     // [1-2 ③] 参考版编辑钮=白底圆形浮钮（表面色+投影），替换裸图标
                     _GoalEditFab(onTap: _editGoal),
                   ],
@@ -364,13 +380,13 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                             _todayLoaded
                                 ? '$todayMinutes / $_goalMinutes'
                                 : '— / $_goalMinutes',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
+                            style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
-                          Text('分钟',
-                              style: Theme.of(context).textTheme.bodySmall),
+                          Text(
+                            context.l10n.minutesUnit,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ],
                       ),
                     ),
@@ -385,12 +401,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '阅读热力图',
+                  context.l10n.readingHeatmap,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '每日阅读时长',
+                  context.l10n.dailyReadingDuration,
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -415,11 +431,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text('$percent%',
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: cs.onSurfaceVariant)),
+      child: Text(
+        '$percent%',
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: cs.onSurfaceVariant),
+      ),
     );
   }
 
@@ -446,10 +462,7 @@ class _HomeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
       ),
     );
   }
@@ -473,7 +486,7 @@ class _GoalEditFab extends StatelessWidget {
         width: 40,
         height: 40,
         child: IconButton(
-          tooltip: '编辑目标',
+          tooltip: context.l10n.editReadingGoal,
           icon: const Icon(Icons.edit_rounded, size: 20),
           color: cs.onSurface,
           onPressed: onTap,
@@ -498,8 +511,7 @@ class _GoalDialPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height * 0.72);
-    final radius =
-        (size.width < size.height ? size.width : size.height) * 0.62;
+    final radius = (size.width < size.height ? size.width : size.height) * 0.62;
     final rect = Rect.fromCircle(center: center, radius: radius);
     final track = Paint()
       ..style = PaintingStyle.stroke
@@ -559,10 +571,11 @@ class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
         final parts = date.split('-');
         if (parts.length != 3) continue;
         map[DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        )] = seconds;
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+              int.parse(parts[2]),
+            )] =
+            seconds;
       }
       setState(() => _dailySeconds = map);
     } catch (e) {
@@ -574,10 +587,9 @@ class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return Text(
-        '每日时长加载失败：$_error',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.error,
-            ),
+        context.l10n.dailyDurationLoadFailed(_error!),
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Theme.of(context).colorScheme.error),
       );
     }
     if (_dailySeconds == null) {

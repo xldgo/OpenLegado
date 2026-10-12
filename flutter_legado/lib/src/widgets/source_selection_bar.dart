@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../l10n/app_localization.dart';
+
 import 'app_menu.dart';
 
 /// 书源与订阅源共用的四项等宽多选操作栏。
@@ -94,29 +96,29 @@ class SourceSelectionBar extends StatelessWidget {
                 allSelected
                     ? Symbols.check_box_rounded
                     : Symbols.check_box_outline_blank_rounded,
-                '全选 $selectedCount/$totalCount',
+                context.l10n.selectAllCount(selectedCount, totalCount),
                 totalCount == 0 ? null : onToggleAll,
               ),
               action(
                 Symbols.flip_rounded,
-                '反选',
+                context.l10n.invertSelection,
                 totalCount == 0 ? null : onInvert,
               ),
               action(
                 Symbols.delete_rounded,
-                '删除',
+                context.l10n.delete,
                 selectedCount == 0 ? null : onDelete,
                 color: colors.error,
               ),
               Expanded(
                 child: AppMenuButton<String>(
-                  tooltip: '更多选项',
+                  tooltip: context.l10n.more,
                   enabled: selectedCount > 0,
                   onSelected: onMenuSelected,
                   itemBuilder: (_) => menuItems,
                   child: content(
                     Symbols.more_horiz_rounded,
-                    '更多',
+                    context.l10n.more,
                     colors.onSurface,
                     selectedCount > 0,
                   ),

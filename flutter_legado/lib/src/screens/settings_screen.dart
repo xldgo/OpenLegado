@@ -1,11 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/legado_app_bar.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
 
-import '../l10n/app_strings.dart';
+import '../widgets/legado_app_bar.dart';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../l10n/app_localization.dart';
 import '../routes.dart';
 import '../constants/pref_keys.dart';
 import '../utils/error_message.dart';
@@ -197,7 +198,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // "Instance of 'BridgeError'"，改用统一提取器暴露 Rust 侧可读原因
       // （如「数据库未初始化」「端口绑定失败」）。
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Web 服务切换失败: ${errorMessage(e)}')),
+        SnackBar(
+          content: Text(context.l10n.webServiceToggleFailed(errorMessage(e))),
+        ),
       );
     } finally {
       if (mounted) setState(() => _webServiceBusy = false);
@@ -209,12 +212,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 而不是让用户点开关撞「Instance of BridgeError」后再猜。
   String get _mcpServiceSubtitle {
     if (_mcpService && _mcpPort > 0) {
-      return '端口 $_mcpPort（带令牌保护的书源开发工具）';
+      return context.l10n.mcpServicePort(_mcpPort);
     }
     if (!_mcpTokenConfigured) {
-      return '需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）';
+      return context.l10n.mcpTokenRequired;
     }
-    return '带令牌保护的书源开发工具';
+    return context.l10n.mcpServiceSummary;
   }
 
   Future<void> _toggleMcpService(bool v) async {
@@ -243,7 +246,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // [2026-10-06 iOS 实测修复] 同 Web 开关：BridgeError 取 message，
       // 暴露 Rust 侧真实失败原因（token 未配置 / 端口占用 / 端口越界）。
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('MCP 服务切换失败: ${errorMessage(e)}')),
+        SnackBar(
+          content: Text(context.l10n.mcpServiceToggleFailed(errorMessage(e))),
+        ),
       );
     } finally {
       if (mounted) setState(() => _mcpServiceBusy = false);
@@ -270,9 +275,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String get _webServiceSubtitle {
     final baseSubtitle = _webService && _webServiceStatus.isNotEmpty
         ? _webServiceStatus
-        : '用浏览器写源或看书';
+        : context.l10n.webServiceSummary;
     return _webService && _webKeepAliveUnavailable
-        ? '$baseSubtitle · 后台保活不可用，请保持 App 打开'
+        ? context.l10n.webKeepAliveUnavailable(baseSubtitle)
         : baseSubtitle;
   }
 
@@ -283,14 +288,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       topBar: LegadoAppBar(
         showBack: false,
         title: Text(
-          AppStrings.my,
+          context.l10n.my,
           style: Theme.of(context).textTheme.headlineMedium
               ?.copyWith(fontSize: 28),
         ),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),
-            tooltip: '帮助',
+            tooltip: context.l10n.help,
             onPressed: _showHelp,
           ),
         ],
@@ -304,77 +309,84 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SettingsGroup(
-                  title: '内容与规则',
+                  title: context.l10n.contentAndRules,
                   children: [
                     IosListTile(
                       icon: Symbols.library_books_rounded,
-                      title: '书源管理',
-                      subtitle: '新建、导入、编辑或管理书源',
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.sources),
+                      title: context.l10n.sourceManagement,
+                      subtitle: context.l10n.sourceManagementSummary,
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.sources),
                     ),
                     IosListTile(
                       icon: Symbols.rss_feed_rounded,
-                      title: '订阅源管理',
-                      subtitle: '新建、导入、编辑或管理订阅源',
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.rssSourceManage),
+                      title: context.l10n.rssSourceManagement,
+                      subtitle: context.l10n.rssSourceManagementSummary,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.rssSourceManage,
+                      ),
                     ),
                     IosListTile(
                       icon: Symbols.toc_rounded,
-                      title: 'TXT 目录规则',
-                      subtitle: '配置 TXT 目录规则',
+                      title: context.l10n.txtTocRules,
+                      subtitle: context.l10n.txtTocRulesSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.txtTocRules),
                     ),
                     IosListTile(
                       icon: Symbols.find_replace_rounded,
-                      title: '替换净化',
-                      subtitle: '配置替换净化规则',
+                      title: context.l10n.replaceRules,
+                      subtitle: context.l10n.replaceRulesSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.replaceRules),
                     ),
                     IosListTile(
                       icon: Symbols.translate_rounded,
-                      title: '字典查询',
-                      subtitle: '按字典规则查询内容',
+                      title: context.l10n.dictionaryLookup,
+                      subtitle: context.l10n.dictionaryLookupSummary,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
                     ),
                     IosListTile(
                       icon: Symbols.manage_search_rounded,
-                      title: '字典规则',
-                      subtitle: '管理字典规则（增删改、启停、排序、导入）',
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.dictRule),
+                      title: context.l10n.dictionaryRules,
+                      subtitle: context.l10n.dictionaryRulesSummary,
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.dictRule),
                     ),
                     IosListTile(
                       icon: Icons.sell_rounded,
-                      title: '高亮标注',
-                      subtitle: '自动高亮标注规则',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.highlightRules),
+                      title: context.l10n.highlightRules,
+                      subtitle: context.l10n.highlightRulesSummary,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.highlightRules,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 SettingsGroup(
-                  title: '外观',
+                  title: context.l10n.appearance,
                   children: [
                     IosListTile(
                       icon: Symbols.palette_rounded,
-                      title: '外观',
-                      subtitle: '主题配色与显示模式',
+                      title: context.l10n.appearance,
+                      subtitle: context.l10n.appearanceSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.themeConfig),
                     ),
                     IosListTile(
                       icon: Symbols.style_rounded,
-                      title: '阅读界面',
-                      subtitle: '字体、配色、翻页与屏幕显示',
+                      title: context.l10n.readingInterface,
+                      subtitle: context.l10n.readingInterfaceSummary,
                       onTap: () => ReaderSettingsSheet.showPage(context),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 SettingsGroup(
-                  title: '同步与服务',
+                  title: context.l10n.syncAndServices,
                   children: [
                     SettingSwitchRow(
                       leading: _webServiceBusy
@@ -385,9 +397,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             )
                           : Icon(
                               Symbols.language_rounded,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
-                      title: 'Web 服务',
+                      title: context.l10n.webService,
                       subtitle: _webServiceSubtitle,
                       value: _webService,
                       onChanged: _webServiceBusy ? null : _toggleWebService,
@@ -401,26 +415,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             )
                           : Icon(
                               Symbols.cable_rounded,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
-                      title: 'MCP 服务',
+                      title: context.l10n.mcpService,
                       subtitle: _mcpServiceSubtitle,
                       value: _mcpService,
                       onChanged: _mcpServiceBusy ? null : _toggleMcpService,
                     ),
                     IosListTile(
                       icon: Symbols.backup_rounded,
-                      title: '备份与恢复',
-                      subtitle: 'WebDav 设置/导入旧版本数据',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.webdavSettings),
+                      title: context.l10n.backupAndRestore,
+                      subtitle: context.l10n.backupAndRestoreSummary,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.webdavSettings,
+                      ),
                     ),
                     IosListTile(
                       icon: Symbols.download_rounded,
-                      title: '缓存管理',
-                      subtitle: '书籍下载任务与缓存进度',
+                      title: context.l10n.cacheManagement,
+                      subtitle: context.l10n.cacheManagementSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.offlineCache),
                     ),
@@ -428,19 +444,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 SettingsGroup(
-                  title: '定时任务',
+                  title: context.l10n.scheduledTasks,
                   children: [
                     IosListTile(
                       icon: Symbols.schedule_rounded,
-                      title: '定时任务',
-                      subtitle: '管理按计划执行的 JavaScript 任务',
+                      title: context.l10n.scheduledTasks,
+                      subtitle: context.l10n.scheduledTasksSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.autoTasks),
                     ),
                     SettingSwitchRow(
                       icon: Symbols.autorenew_rounded,
-                      title: '运行定时任务',
-                      subtitle: '重启后保留计划；Android 可能延后实际执行时间',
+                      title: context.l10n.runScheduledTasks,
+                      subtitle: context.l10n.runScheduledTasksSummary,
                       value: _autoTaskService,
                       onChanged: _toggleAutoTaskService,
                     ),
@@ -449,44 +465,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
                 SettingsGroup(
                   key: _otherSectionKey,
-                  title: '其他',
+                  title: context.l10n.otherSettings,
                   children: [
                     IosListTile(
                       icon: Symbols.tune_rounded,
-                      title: '高级',
-                      subtitle: '功能相关的一些设置',
+                      title: context.l10n.advanced,
+                      subtitle: context.l10n.advancedSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.otherSettings),
                     ),
                     IosListTile(
                       icon: Symbols.bookmark_rounded,
-                      title: '书签',
-                      subtitle: '所有书签',
+                      title: context.l10n.bookmarks,
+                      subtitle: context.l10n.allBookmarks,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.bookmarks),
                     ),
                     IosListTile(
                       icon: Symbols.history_rounded,
-                      title: '阅读记录',
-                      subtitle: '阅读时间记录',
+                      title: context.l10n.readingRecords,
+                      subtitle: context.l10n.readingRecordsSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.readRecord),
                     ),
                     IosListTile(
                       icon: Symbols.folder_rounded,
-                      title: '文件管理',
-                      subtitle: '管理私有文件夹的文件',
+                      title: context.l10n.fileManagement,
+                      subtitle: context.l10n.fileManagementSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.fileManage),
                     ),
                     IosListTile(
                       icon: Symbols.info_rounded,
-                      title: '关于',
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+                      title: context.l10n.aboutSettings,
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.about),
                     ),
                     IosListTile(
                       icon: Symbols.logout_rounded,
-                      title: '退出',
+                      title: context.l10n.exitApp,
                       onTap: _confirmExit,
                     ),
                   ],
@@ -508,16 +525,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('退出'),
-        content: const Text('确定退出阅读吗？'),
+        title: Text(context.l10n.exitApp),
+        content: Text(context.l10n.confirmExitApp),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.cancel),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppStrings.confirm),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),

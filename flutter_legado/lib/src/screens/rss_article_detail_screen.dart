@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+import '../l10n/app_localization.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
@@ -130,12 +132,15 @@ class _RssArticleDetailScreenState
       if (!mounted) return;
       setState(() => _isStarred = !_isStarred);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isStarred ? '已收藏' : '已取消收藏')),
+        SnackBar(content: Text(_isStarred ? context.l10n.favorited : context.l10n.unfavorited,
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('收藏操作失败：$e')),
+          SnackBar(content: Text(context.l10n.favoriteOperationFailed(e.toString())),
+          ),
         );
       }
     } finally {
@@ -311,12 +316,14 @@ $htmlContent
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('文章详情'),
+        title: Text(context.l10n.articleDetails),
         actions: [
           // [UI-fix v2.0.2 | 2026-08-06] 收藏入口（对标原版 menu_rss_star）— Qoder
           IconButton(
-            icon: Icon(_isStarred ? Symbols.star_rounded : Symbols.star_rounded),
-            tooltip: _isStarred ? '取消收藏' : '收藏',
+            icon: Icon(_isStarred ? Symbols.star_rounded : Symbols.star_rounded,
+            ),
+            tooltip: _isStarred ? context.l10n.unfavoriteAction
+                : context.l10n.favoriteAction,
             onPressed: _starBusy ? null : _toggleStar,
           ),
           // 切换渲染模式按钮（仅在支持 WebView 且有内容时显示）
@@ -325,17 +332,18 @@ $htmlContent
               icon: Icon(
                 _useWebView ? Symbols.article_rounded : Symbols.web_rounded,
               ),
-              tooltip: _useWebView ? '切换为纯文本' : '切换为 WebView',
+              tooltip: _useWebView ? context.l10n.switchToPlainText
+                  : context.l10n.switchToWebView,
               onPressed: _toggleViewMode,
             ),
           IconButton(
             icon: const Icon(Symbols.open_in_browser_rounded),
-            tooltip: '在浏览器中打开',
+            tooltip: context.l10n.openInBrowser,
             onPressed: _openInBrowser,
           ),
           IconButton(
             icon: const Icon(Symbols.share_rounded),
-            tooltip: '分享',
+            tooltip: context.l10n.share,
             onPressed: () async {
               final uri = Uri.tryParse(widget.article.url);
               if (uri != null && await canLaunchUrl(uri)) {
@@ -399,7 +407,8 @@ $htmlContent
               if (widget.article.pubDate != null &&
                   widget.article.pubDate!.isNotEmpty) ...[
                 Icon(Symbols.schedule_rounded,
-                    size: 14, color: colorScheme.onSurfaceVariant),
+                    size: 14, color: colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -413,7 +422,8 @@ $htmlContent
               if (widget.sourceName.isNotEmpty) ...[
                 const SizedBox(width: 12),
                 Icon(Symbols.rss_feed_rounded,
-                    size: 14, color: colorScheme.onSurfaceVariant),
+                    size: 14, color: colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -476,11 +486,11 @@ $htmlContent
     if (html == null) {
       return EmptyState(
         icon: Symbols.article_rounded,
-        title: '暂无内容',
+        title: context.l10n.noContent,
         action: OutlinedButton.icon(
           onPressed: _openInBrowser,
           icon: const Icon(Symbols.open_in_browser_rounded),
-          label: const Text('在浏览器中查看原文'),
+          label: Text(context.l10n.viewOriginalInBrowser),
         ),
       );
     }
@@ -508,7 +518,7 @@ $htmlContent
                   size: 48, color: colorScheme.error),
               const SizedBox(height: 12),
               Text(
-                'WebView 加载失败',
+                context.l10n.webViewLoadFailed,
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -527,7 +537,7 @@ $htmlContent
               FilledButton.icon(
                 onPressed: _toggleViewMode,
                 icon: const Icon(Symbols.article_rounded),
-                label: const Text('切换为纯文本'),
+                label: Text(context.l10n.switchToPlainText),
               ),
             ],
           ),
@@ -544,8 +554,7 @@ $htmlContent
           Container(
             color: theme.scaffoldBackgroundColor.withAlpha(200),
             child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+              child: CircularProgressIndicator()),
           ),
       ],
     );
@@ -578,11 +587,12 @@ $htmlContent
               child: Row(
                 children: [
                   Icon(Symbols.info_rounded,
-                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                      size: 16, color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '当前平台不支持 WebView，已降级为纯文本显示',
+                      context.l10n.webViewUnavailableHint,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -606,7 +616,7 @@ $htmlContent
               child: FilledButton.icon(
                 onPressed: _openInBrowser,
                 icon: const Icon(Symbols.open_in_new_rounded),
-                label: const Text('查看原文链接'),
+                label: Text(context.l10n.viewOriginalLink),
               ),
             ),
           const SizedBox(height: 16),

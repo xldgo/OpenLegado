@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
@@ -63,28 +64,32 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
         actions: [
           IconButton(
             icon: const Icon(Symbols.refresh_rounded),
-            tooltip: '刷新',
+            tooltip: context.l10n.refresh,
             onPressed: () => notifier.refreshArticles(),
           ),
           // [UI-fix v2.0.2 | 2026-08-06] 文章列表菜单（对标原版
           // rss_articles.xml：登录/刷新排序/设置源变量/编辑源/切换布局/
           // 阅读记录/清空，不含搜索） — Qoder
           AppMenuButton<String>(
-            tooltip: '更多',
+            tooltip: context.l10n.more,
             onSelected: _handleMenu,
             itemBuilder: (_) => [
               // 对标原版 onMenuOpened：仅 loginUrl 非空时显示登录
               if ((widget.source.loginUrl ?? '').trim().isNotEmpty)
-                const AppMenuItem(value: 'login', child: Text('登录')),
-              const AppMenuItem(value: 'refreshSort', child: Text('刷新排序')),
-              const AppMenuItem(
-                value: 'setVariable',
-                child: Text('设置源变量'),
+                AppMenuItem(value: 'login', child: Text(context.l10n.login)),
+              AppMenuItem(value: 'refreshSort', child: Text(context.l10n.refreshSort),
               ),
-              const AppMenuItem(value: 'editSource', child: Text('编辑源')),
-              const AppMenuItem(value: 'switchLayout', child: Text('切换布局')),
-              const AppMenuItem(value: 'readRecord', child: Text('阅读记录')),
-              const AppMenuItem(value: 'clear', child: Text('清空')),
+              AppMenuItem(
+                value: 'setVariable',
+                child: Text(context.l10n.setSourceVariable),
+              ),
+              AppMenuItem(value: 'editSource', child: Text(context.l10n.editSource),
+              ),
+              AppMenuItem(value: 'switchLayout', child: Text(context.l10n.switchLayout),
+              ),
+              AppMenuItem(value: 'readRecord', child: Text(context.l10n.readingRecords),
+              ),
+              AppMenuItem(value: 'clear', child: Text(context.l10n.clear)),
             ],
           ),
         ],
@@ -92,7 +97,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
       body: Builder(
         builder: (context) {
           if (state.isLoadingArticles && state.articles.isEmpty) {
-            return const LoadingIndicator(message: '加载文章...');
+            return LoadingIndicator(message: context.l10n.loadingArticles);
           }
 
           if (state.error != null && state.articles.isEmpty) {
@@ -103,10 +108,10 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
           }
 
           if (state.articles.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Symbols.article_rounded,
-              title: '暂无文章',
-              subtitle: '下拉刷新获取最新内容',
+              title: context.l10n.emptyArticles,
+              subtitle: context.l10n.refreshArticlesHint,
             );
           }
 
@@ -150,7 +155,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
   }
 
   Widget _buildArticleItem(
-      BuildContext context, RssFeedArticle article, bool isRead) {
+      BuildContext context, RssFeedArticle article, bool isRead,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -203,7 +209,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Symbols.image_not_supported_rounded,
-                        color: colorScheme.onSurfaceVariant.withAlpha(128)),
+                        color: colorScheme.onSurfaceVariant.withAlpha(128),
+                    ),
                   ),
                 ),
               )
@@ -216,7 +223,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Symbols.article_rounded,
-                    color: colorScheme.onSurfaceVariant.withAlpha(128)),
+                    color: colorScheme.onSurfaceVariant.withAlpha(128),
+                ),
               ),
             const SizedBox(width: 12),
             // 文字内容
@@ -250,7 +258,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                   Row(
                     children: [
                       Icon(Symbols.schedule_rounded,
-                          size: 12, color: colorScheme.onSurfaceVariant),
+                          size: 12, color: colorScheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 4),
                       // 宽时间戳（ISO-8601）在窄屏下可能溢出：Flexible 收缩 + 省略号
                       Flexible(
@@ -265,10 +274,11 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                       if (isRead) ...[
                         const SizedBox(width: 8),
                         Icon(Symbols.check_circle_rounded,
-                            size: 12, color: colorScheme.primary),
+                            size: 12, color: colorScheme.primary,
+                        ),
                         const SizedBox(width: 2),
                         Text(
-                          '已读',
+                          context.l10n.readArticle,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.primary,
                           ),
@@ -447,28 +457,27 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     if (!mounted) return;
     final ctrl = TextEditingController(text: initial ?? '');
     final comment = (widget.source.variableComment ?? '').isEmpty
-        ? '源变量可在 JS 中通过 source.getVariable() 获取'
+        ? context.l10n.sourceVariableHint
         : widget.source.variableComment!;
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('设置源变量'),
+        title: Text(context.l10n.setSourceVariable),
         content: TextField(
           controller: ctrl,
           autofocus: false,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: comment,
-          ),
+            hintText: comment),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('保存'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -485,13 +494,14 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
       } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('源变量已保存')),
+          SnackBar(content: Text(context.l10n.sourceVariableSaved)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存源变量失败：$e')),
+          SnackBar(content: Text(context.l10n.sourceVariableSaveFailed(e.toString())),
+          ),
         );
       }
     }
@@ -507,7 +517,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('布局保存失败：$e')),
+          SnackBar(content: Text(context.l10n.layoutSaveFailed(e.toString()))),
         );
       }
     }
@@ -518,16 +528,16 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空'),
-        content: const Text('将清空本源本地缓存的文章列表，确定继续吗？'),
+        title: Text(context.l10n.clear),
+        content: Text(context.l10n.confirmClearArticles),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清空'),
+            child: Text(context.l10n.clear),
           ),
         ],
       ),
@@ -538,13 +548,13 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
       ref.read(rssNotifierProvider.notifier).refreshArticles();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('本源文章缓存已清空')),
+          SnackBar(content: Text(context.l10n.articleCacheCleared)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清空失败：$e')),
+          SnackBar(content: Text(context.l10n.clearFailed(e.toString()))),
         );
       }
     }
@@ -580,7 +590,7 @@ class _RssReadRecordDialogState extends ConsumerState<_RssReadRecordDialog> {
     final state = ref.watch(rssHistoryNotifierProvider);
     final records = state.records;
     return AlertDialog(
-      title: const Text('阅读记录'),
+      title: Text(context.l10n.readingRecords),
       content: SizedBox(
         width: double.maxFinite,
         child: state.isLoading
@@ -598,10 +608,10 @@ class _RssReadRecordDialogState extends ConsumerState<_RssReadRecordDialog> {
                     ),
                   )
                 : records.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(24),
-                          child: Text('暂无阅读记录'),
+                          child: Text(context.l10n.noReadingRecords),
                         ),
                       )
                     : ListView.builder(
@@ -630,7 +640,7 @@ class _RssReadRecordDialogState extends ConsumerState<_RssReadRecordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(context.l10n.close),
         ),
       ],
     );

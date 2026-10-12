@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import 'src/models/models.dart';
 import 'src/l10n/app_strings.dart';
+import 'src/l10n/app_localization.dart';
 import 'src/providers/app_locale_notifier.dart';
 import 'src/providers/providers.dart';
 import 'src/providers/ui_settings/ui_settings_notifier.dart';
@@ -397,7 +398,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
         );
 
         return MaterialApp(
-          title: 'Legado',
+          onGenerateTitle: (context) => context.l10n.appTitle,
           // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
           //（Task #114，服务层无 BuildContext） — QoderCN
           navigatorKey: PlatformBridgeService.navigatorKey,
@@ -409,7 +410,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
           // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
           navigatorObservers: [appRouteObserver, _topRouteWatcher],
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
           supportedLocales: appSupportedLocales,
           locale: locale,
           theme: lightTheme,

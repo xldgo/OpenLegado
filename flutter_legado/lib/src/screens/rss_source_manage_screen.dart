@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -133,8 +134,26 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     return set.toList();
   }
 
+  // 显示词与筛选控制值分离，保留旧中文查询并兼容英文输入。
+  String get _normalizedKeyword {
+    final current = context.l10n;
+    final english = lookupAppLocalizations(const Locale('en'));
+    final query = _keyword.trim();
+    final labels = {
+      current.enabled: '启用',
+      current.disabled: '禁用',
+      current.loginRequired: '需登录',
+      current.ungrouped: '未分组',
+      english.enabled: '启用',
+      english.disabled: '禁用',
+      english.loginRequired: '需登录',
+      english.ungrouped: '未分组',
+    };
+    return labels[query] ?? query;
+  }
+
   List<RssSource> get _filtered {
-    final kw = _keyword.trim();
+    final kw = _normalizedKeyword;
     if (kw.isEmpty) return _sources;
     switch (kw) {
       case '启用':
@@ -166,7 +185,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   /// 分组菜单点击 → 写入搜索框（对标原版 searchView.setQuery）
   void _setQuery(String query) {
-    _searchCtrl.text = query;
+    _searchCtrl.text = switch (query) {
+      '启用' => context.l10n.enabled,
+      '禁用' => context.l10n.disabled,
+      '需登录' => context.l10n.loginRequired,
+      '未分组' => context.l10n.ungrouped,
+      _ => query,
+    };
     setState(() => _keyword = query);
   }
 
@@ -193,15 +218,15 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       leading: _batchMode
           ? IconButton(
               icon: const Icon(Symbols.close_rounded),
-              tooltip: '退出选择模式',
+              tooltip: context.l10n.exitSelection,
               onPressed: _exitBatch,
             )
           : null,
-      title: const Text('订阅源管理'),
+      title: Text(context.l10n.rssSourceManagement),
       bottom: AppSearchRow(
         field: AppSearchField(
           controller: _searchCtrl,
-          hintText: '搜索订阅源',
+          hintText: context.l10n.searchRssSources,
           onChanged: (v) => setState(() => _keyword = v),
         ),
       ),
@@ -209,84 +234,92 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         // 分组菜单（对标原版 rss_source.xml menu_group 子菜单）
         AppMenuButton<String>(
           icon: const Icon(Symbols.groups_rounded),
-          tooltip: '分组',
+          tooltip: context.l10n.group,
           onSelected: _handleGroupAction,
           itemBuilder: (context) => [
-            const AppMenuItem(
+            AppMenuItem(
               enabled: false,
-              child: Text('分组', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(
+                context.l10n.group, style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-            const AppMenuItem(
-                value: 'group_manage', child: Text('分组管理')),
+            AppMenuItem(
+                value: 'group_manage', child: Text(context.l10n.groupManagement),
+            ),
             AppMenuItem(
               value: '启用',
-              checked: _keyword.trim() == '启用',
-              child: const Text('已启用'),
+              checked: _normalizedKeyword == '启用',
+              child: Text(context.l10n.enabled),
             ),
             AppMenuItem(
               value: '禁用',
-              checked: _keyword.trim() == '禁用',
-              child: const Text('已禁用'),
+              checked: _normalizedKeyword == '禁用',
+              child: Text(context.l10n.disabled),
             ),
             AppMenuItem(
               value: '需登录',
-              checked: _keyword.trim() == '需登录',
-              child: const Text('需登录'),
+              checked: _normalizedKeyword == '需登录',
+              child: Text(context.l10n.loginRequired),
             ),
             AppMenuItem(
               value: '未分组',
-              checked: _keyword.trim() == '未分组',
-              child: const Text('未分组'),
+              checked: _normalizedKeyword == '未分组',
+              child: Text(context.l10n.ungrouped),
             ),
             for (final group in _groups)
               AppMenuItem(
                 value: 'group:$group',
-                checked: _keyword.trim() == 'group:$group',
+                checked: _normalizedKeyword == 'group:$group',
                 child: Text(group),
               ),
           ],
         ),
         // 更多菜单（对标原版 rss_source.xml 溢出菜单）
         AppMenuButton<String>(
-          tooltip: '更多选项',
+          tooltip: context.l10n.more,
           onSelected: _handleAction,
           itemBuilder: (_) => [
-            const AppMenuItem(
+            AppMenuItem(
               value: 'new',
-              child: _MenuRow(icon: Symbols.add_rounded, label: '新增订阅源'),
+              child: _MenuRow(icon: Symbols.add_rounded, label: context.l10n.addRssSource,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_file',
-              child: _MenuRow(icon: Symbols.download_rounded, label: '本地导入'),
+              child: _MenuRow(icon: Symbols.download_rounded, label: context.l10n.importLocal,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_url',
               child: _MenuRow(
                 icon: Symbols.cloud_download_rounded,
-                label: '网络导入',
+                label: context.l10n.importOnline,
               ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_qr',
-              child: _MenuRow(icon: Symbols.qr_code_rounded, label: '二维码导入'),
+              child: _MenuRow(icon: Symbols.qr_code_rounded, label: context.l10n.importQrCode,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_default',
               child: _MenuRow(
                 icon: Symbols.auto_fix_high_rounded,
-                label: '导入默认规则',
+                label: context.l10n.importDefaultRules,
               ),
             ),
             // 规则订阅入口（对标原版 RssFragment 列表头部
             // 「规则订阅」header item → RuleSubActivity；Flutter 侧
             // 统一收进溢出菜单，iOS 菜单惯例）
-            const AppMenuItem(
+            AppMenuItem(
               value: 'rule_sub',
-              child: _MenuRow(icon: Symbols.rss_feed_rounded, label: '规则订阅'),
+              child: _MenuRow(icon: Symbols.rss_feed_rounded, label: context.l10n.ruleSubscriptions,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'help',
-              child: _MenuRow(icon: Symbols.help_rounded, label: '帮助'),
+              child: _MenuRow(icon: Symbols.help_rounded, label: context.l10n.help,
+              ),
             ),
           ],
         ),
@@ -322,25 +355,28 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       }),
       onDelete: () => _handleBatchAction('delete'),
       onMenuSelected: _handleBatchAction,
-      menuItems: const [
+      menuItems: [
         AppMenuItem(
-            value: 'enable', child: Text('启用选中')),
+            value: 'enable', child: Text(context.l10n.enableSelected)),
         AppMenuItem(
-            value: 'disable', child: Text('禁用选中')),
+            value: 'disable', child: Text(context.l10n.disableSelected),
+        ),
         AppMenuItem(
-            value: 'add_group', child: Text('添加到分组')),
+            value: 'add_group', child: Text(context.l10n.addToGroup)),
         AppMenuItem(
-            value: 'remove_group', child: Text('移除分组')),
+            value: 'remove_group', child: Text(context.l10n.removeGroup),
+        ),
         AppMenuItem(
-            value: 'top', child: Text('选中置顶')),
+            value: 'top', child: Text(context.l10n.pinSelected)),
         AppMenuItem(
-            value: 'bottom', child: Text('选中置底')),
+            value: 'bottom', child: Text(context.l10n.bottomSelected)),
         AppMenuItem(
-            value: 'export', child: Text('导出选中')),
+            value: 'export', child: Text(context.l10n.exportSelected)),
         AppMenuItem(
-            value: 'share', child: Text('分享源')),
+            value: 'share', child: Text(context.l10n.shareSources)),
         AppMenuItem(
-            value: 'select_range', child: Text('选择区间')),
+            value: 'select_range', child: Text(context.l10n.selectRange),
+        ),
       ],
     );
   }
@@ -351,7 +387,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   Widget _buildBody() {
     if (_loading && _sources.isEmpty) {
-      return const LoadingIndicator(message: '加载订阅源...');
+      return LoadingIndicator(message: context.l10n.loadingRssSources);
     }
     if (_error != null && _sources.isEmpty) {
       return ErrorView(message: _error!, onRetry: _load);
@@ -360,10 +396,10 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     if (list.isEmpty) {
       return EmptyState(
         icon: Symbols.rss_feed_rounded,
-        title: _sources.isEmpty ? '暂无订阅源' : '没有匹配的订阅源',
+        title: _sources.isEmpty ? context.l10n.emptyRssSources
+            : context.l10n.noMatchingRssSources,
         subtitle: _sources.isEmpty
-            ? '点击右上角菜单「新增订阅源」或导入订阅源'
-            : null,
+            ? context.l10n.addRssSourceHint : null,
       );
     }
     return Md3FastScroller(
@@ -384,7 +420,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   /// 列表项（对标原版 item_rss_source：勾选框 + 源名(分组) +
   /// Switch + 编辑 + 更多）
   Widget _buildSourceItem(BuildContext context, RssSource source,
-      {required int dragIndex}) {
+      {required int dragIndex,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final group = source.sourceGroup ?? '';
     final name = Container(
@@ -451,13 +488,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
               ),
               IconButton(
                 icon: const Icon(Symbols.edit_rounded, size: 20),
-                tooltip: '编辑',
+                tooltip: context.l10n.edit,
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _openEdit(source),
               ),
               IconButton(
                 icon: const Icon(Symbols.more_vert_rounded, size: 20),
-                tooltip: '更多选项',
+                tooltip: context.l10n.more,
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _showSourceMenu(source),
               ),
@@ -488,6 +525,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   }
 
   Future<void> _toggleSource(RssSource source) async {
+    final l10n = context.l10n;
     try {
       final api = ref.read(bookApiProvider);
       if (source.enabled) {
@@ -497,12 +535,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       }
       await _load();
     } catch (e) {
-      _toast('切换启用状态失败：$e');
+      _toast(l10n.sourceEnabledToggleFailed(e.toString()));
     }
   }
 
   /// 单项菜单（对标原版 rss_source_item.xml：置顶/置底/删除）
   Future<void> _showSourceMenu(RssSource source) async {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -516,18 +555,20 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             ),
             ListTile(
               leading: const Icon(Symbols.vertical_align_top_rounded),
-              title: const Text('置顶'),
+              title: Text(l10n.pinToTop),
               onTap: () => Navigator.pop(ctx, 'top'),
             ),
             ListTile(
               leading: const Icon(Symbols.vertical_align_bottom_rounded),
-              title: const Text('置底'),
+              title: Text(l10n.moveToBottom),
               onTap: () => Navigator.pop(ctx, 'bottom'),
             ),
             ListTile(
               leading: Icon(Symbols.delete_rounded, color: colorScheme.error),
               title:
-                  Text('删除', style: TextStyle(color: colorScheme.error)),
+                  Text(
+                l10n.delete, style: TextStyle(color: colorScheme.error),
+              ),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
           ],
@@ -547,9 +588,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       case 'delete':
         final confirmed = await showConfirmDialog(
           context,
-          title: '删除订阅源',
-          content: '确定要删除订阅源「${source.sourceName}」吗？',
-          confirmText: '删除',
+          title: l10n.deleteRssSources,
+          content: l10n.confirmDeleteNamedSource(source.sourceName),
+          confirmText: l10n.delete,
           isDestructive: true,
         );
         if (confirmed && mounted) {
@@ -557,7 +598,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             await ref.read(bookApiProvider).deleteRssSource(source.sourceUrl);
             await _load();
           } catch (e) {
-            _toast('删除失败：$e');
+            _toast(l10n.deleteFailed(e.toString()));
           }
         }
     }
@@ -602,6 +643,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   }
 
   Future<void> _saveOrder(List<RssSource> list) async {
+    final l10n = context.l10n;
     final changed = <RssSource>[];
     for (var i = 0; i < list.length; i++) {
       if (list[i].customOrder != i) {
@@ -622,7 +664,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (!mounted) return;
-      _toast('保存排序失败：$e');
+      _toast(l10n.sortSaveFailed(e.toString()));
       await _load();
     }
   }
@@ -639,7 +681,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       return;
     }
     // 再次点击当前过滤词时清除（原版无此行为，iOS 惯例补充）
-    if (_keyword.trim() == value) {
+    if (_normalizedKeyword == value) {
       _searchCtrl.clear();
       setState(() => _keyword = '');
       return;
@@ -673,8 +715,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   // ===== 批量操作（对标原版 rss_source_sel.xml） =====
 
   Future<void> _handleBatchAction(String action) async {
+    final l10n = context.l10n;
     if (_selected.isEmpty) {
-      _toast('请先选择订阅源');
+      _toast(l10n.selectRssSourcesFirst);
       return;
     }
     final api = ref.read(bookApiProvider);
@@ -695,9 +738,11 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             }
           }
           await _load();
-          _toast(enable ? '已启用所选订阅源' : '已禁用所选订阅源');
+          _toast(enable ? l10n.selectedRssSourcesEnabled
+                : l10n.selectedRssSourcesDisabled,
+          );
         } catch (e) {
-          _toast('操作失败：$e');
+          _toast(l10n.operationFailed(e.toString()));
         }
       case 'add_group':
         await _showAddGroupDialog();
@@ -716,9 +761,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       case 'delete':
         final confirmed = await showConfirmDialog(
           context,
-          title: '删除订阅源',
-          content: '确定要删除选中的 ${_selected.length} 个订阅源吗？',
-          confirmText: '删除',
+          title: l10n.deleteRssSources,
+          content: l10n.confirmDeleteRssSourceCount(_selected.length),
+          confirmText: l10n.delete,
           isDestructive: true,
         );
         if (!confirmed || !mounted) return;
@@ -728,9 +773,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
           }
           _exitBatch();
           await _load();
-          _toast('已删除所选订阅源');
+          _toast(l10n.selectedRssSourcesDeleted);
         } catch (e) {
-          _toast('删除失败：$e');
+          _toast(l10n.deleteFailed(e.toString()));
           await _load();
         }
     }
@@ -738,6 +783,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   /// 批量置顶/置底：重排整表 customOrder（对标原版 topSource/bottomSource）
   Future<void> _batchMove({required bool toTop}) async {
+    final l10n = context.l10n;
     final sel = _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
     final rest =
         _sources.where((s) => !_selected.contains(s.sourceUrl)).toList();
@@ -756,21 +802,23 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       for (final s in changed) {
         await api.updateRssSource(s);
       }
-      _toast(toTop ? '已置顶所选订阅源' : '已置底所选订阅源');
+      _toast(toTop ? l10n.selectedRssSourcesPinned : l10n.selectedRssSourcesBottom,
+      );
     } catch (e) {
-      _toast('操作失败：$e');
+      _toast(l10n.operationFailed(e.toString()));
       await _load();
     }
   }
 
   /// 添加到分组（对标原版 addGroups：合并进各源 sourceGroup）
   Future<void> _showAddGroupDialog() async {
+    final l10n = context.l10n;
     final group = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextPromptDialog(
-        title: '添加到分组',
-        hintText: '输入分组名称',
-        confirmLabel: '确定',
+      builder: (_) => _TextPromptDialog(
+        title: l10n.addToGroup,
+        hintText: l10n.groupNameHint,
+        confirmLabel: l10n.confirm,
         autofocus: true,
       ),
     );
@@ -785,26 +833,27 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         await api.updateRssSource(s.copyWith(sourceGroup: merged));
       }
       await _load();
-      _toast('已为所选订阅源添加分组「$name」');
+      _toast(l10n.addedSourceGroup(name));
     } catch (e) {
-      _toast('添加分组失败：$e');
+      _toast(l10n.addGroupFailed(e.toString()));
     }
   }
 
   /// 移除分组（对标原版 removeGroups：从选中源已有分组中选择）
   Future<void> _showRemoveGroupDialog() async {
+    final l10n = context.l10n;
     final groups = <String>{};
     for (final s in _sources.where((s) => _selected.contains(s.sourceUrl))) {
       groups.addAll(_splitGroups(s.sourceGroup));
     }
     if (groups.isEmpty) {
-      _toast('所选订阅源没有可移除的分组');
+      _toast(l10n.noRemovableSourceGroups);
       return;
     }
     final group = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('移除分组'),
+        title: Text(l10n.removeGroup),
         children: [
           for (final g in groups.toList()..sort())
             SimpleDialogOption(
@@ -824,38 +873,41 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         );
       }
       await _load();
-      _toast('已从所选订阅源移除分组「$group」');
+      _toast(l10n.removedSourceGroup(group));
     } catch (e) {
-      _toast('移除分组失败：$e');
+      _toast(l10n.removeGroupFailed(e.toString()));
     }
   }
 
   /// 导出选中（对标原版 exportSelection：JSON 复制到剪贴板）
   Future<void> _exportSelected() async {
+    final l10n = context.l10n;
     try {
       final selectedSources =
           _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
       final json = const JsonEncoder.withIndent('  ')
           .convert(selectedSources.map((s) => s.toJson()).toList());
       await Clipboard.setData(ClipboardData(text: json));
-      _toast('已导出 ${selectedSources.length} 个订阅源到剪贴板');
+      _toast(l10n.exportedRssSourcesToClipboard(selectedSources.length));
       _exitBatch();
     } catch (e) {
-      _toast('导出失败：$e');
+      _toast(l10n.exportFailed(e.toString()));
     }
   }
 
   /// 分享源（对标原版 shareSource）
   Future<void> _shareSelected() async {
+    final l10n = context.l10n;
     try {
       final selectedSources =
           _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
       final json = jsonEncode(selectedSources.map((s) => s.toJson()).toList());
       await SharePlus.instance.share(
-        ShareParams(text: json, subject: '订阅源分享（${selectedSources.length} 个）'),
+        ShareParams(text: json, subject: l10n.shareRssSourceCount(selectedSources.length),
+        ),
       );
     } catch (e) {
-      _toast('分享失败：$e');
+      _toast(l10n.shareFailed(e.toString()));
     }
   }
 
@@ -868,7 +920,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       if (_selected.contains(list[i].sourceUrl)) indexes.add(i);
     }
     if (indexes.length < 2) {
-      _toast('请先选择两个以上的订阅源');
+      _toast(context.l10n.selectTwoRssSourcesFirst);
       return;
     }
     final min = indexes.reduce((a, b) => a < b ? a : b);
@@ -903,15 +955,16 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   /// 候选订阅源 → 导入确认页（对标原版 comparisonSource 流程）
   Future<void> _parseAndConfirm(String text) async {
+    final l10n = context.l10n;
     List<Map<String, dynamic>> candidates;
     try {
       candidates = _parseSourcesText(text);
     } catch (e) {
-      _toast('格式错误，未解析到订阅源');
+      _toast(l10n.invalidRssSources);
       return;
     }
     if (candidates.isEmpty) {
-      _toast('格式错误，未解析到订阅源');
+      _toast(l10n.invalidRssSources);
       return;
     }
     if (!mounted) return;
@@ -925,25 +978,26 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     );
     if (ok == true && mounted) {
       await _load();
-      _toast('导入完成');
+      _toast(l10n.importFinished);
     }
   }
 
   /// 本地导入（对标原版 menu_import_local：txt/json 任选，解析层容错）
   Future<void> _importFromFile() async {
+    final l10n = context.l10n;
     try {
       final picked = await FilePicker.pickFile();
       if (picked == null) return;
       final path = picked.path;
       if (path == null) {
-        _toast('无法获取文件路径');
+        _toast(l10n.filePathUnavailable);
         return;
       }
       final text = await File(path).readAsString();
       if (!mounted) return;
       await _parseAndConfirm(text);
     } catch (e) {
-      _toast('从文件导入失败：$e');
+      _toast(l10n.importFromFileFailed(e.toString()));
     }
   }
 
@@ -973,6 +1027,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   }
 
   Future<void> _fetchFromUrl(String url) async {
+    final l10n = context.l10n;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -988,7 +1043,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(); // 关闭加载指示
       if (!response.isSuccess) {
-        _toast('获取订阅源失败：HTTP ${response.statusCode}');
+        _toast(l10n.fetchRssSourcesFailed("HTTP ${response.statusCode}"));
         return;
       }
       await _parseAndConfirm(response.body);
@@ -996,13 +1051,14 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      _toast('获取订阅源失败：$e');
+      _toast(l10n.fetchRssSourcesFailed(e.toString()));
     }
   }
 
   /// 二维码导入（对标原版 menu_import_qr）：
   /// HTTP URL → 远程拉取；JSON → 直接解析
   Future<void> _importFromQrCode() async {
+    final l10n = context.l10n;
     // [fix Task#24 | 2026-08-08] 去掉 <String> 泛型，避免 routes 表
     // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
     final raw = await Navigator.of(context).pushNamed(AppRoutes.qrcode);
@@ -1018,20 +1074,23 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       await _parseAndConfirm(trimmed);
       return;
     }
-    _toast('扫码内容不是可识别的订阅源数据');
+    _toast(l10n.invalidRssQrCode);
   }
 
   /// 导入默认规则（对标原版 menu_import_default →
   /// `RssSourceViewModel.importDefault` → `DefaultData.importDefaultRssSources`：
   /// 覆盖 `legado` 分组后灌入 assets 默认源，不经确认对话框）
   Future<void> _importDefault() async {
+    final l10n = context.l10n;
     try {
       final n = await syncDefaultRssSources(ref.read(bookApiProvider));
       await _load();
       if (!mounted) return;
-      _toast(n > 0 ? '已导入 $n 条默认订阅源' : '默认订阅源已同步');
+      _toast(n > 0 ? l10n.importedDefaultRssSourceCount(n)
+            : l10n.defaultRssSourcesSynced,
+      );
     } catch (e) {
-      _toast('导入默认规则失败：$e');
+      _toast(l10n.importDefaultRulesFailed(e.toString()));
     }
   }
 
@@ -1086,7 +1145,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('从 URL 导入订阅源'),
+      title: Text(context.l10n.importRssSourcesFromUrl),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -1096,13 +1155,16 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             TextField(
               controller: _controller,
               autofocus: widget.history.isEmpty,
-              decoration: const InputDecoration(hintText: '输入订阅源 URL 地址'),
+              decoration: InputDecoration(hintText: context.l10n.rssSourceUrlHint,
+              ),
               keyboardType: TextInputType.url,
             ),
             if (widget.history.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('历史记录',
-                  style: Theme.of(context).textTheme.labelMedium),
+              Text(
+                context.l10n.history,
+                  style: Theme.of(context).textTheme.labelMedium,
+              ),
               const SizedBox(height: 4),
               for (final url in widget.history)
                 InkWell(
@@ -1125,7 +1187,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -1133,7 +1195,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             if (text.isEmpty) return;
             Navigator.pop(context, text);
           },
-          child: const Text('导入'),
+          child: Text(context.l10n.importAction),
         ),
       ],
     );
@@ -1179,7 +1241,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () {

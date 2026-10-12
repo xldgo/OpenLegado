@@ -11,6 +11,8 @@
 /// 视觉：参考版单列列表行（图标 + 源名 + 右箭头）+ 顶栏嵌入式搜索 — Composer + UI
 library;
 
+import '../l10n/app_localization.dart';
+
 import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -98,15 +100,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           // DynamicTopAppBar：标题+搜索切换钮+bottomContent 展开行；
           // FilterChip 横滑条为常驻 bottom 追加）
           topBar: DynamicSearchAppBar(
-            title: '发现',
+            title: context.l10n.discover,
             // [UI_SYNC_REFACTOR S1b 修正] 对齐参考 ListScaffold：subtitle=
             // 当前分组、搜索行默认收起（切换钮展开）、分组筛选走下拉菜单
             //（非常驻 FilterChip 横条）
-            subtitle: state.selectedGroup.isEmpty ? '全部' : state.selectedGroup,
+            subtitle: state.selectedGroup.isEmpty ? context.l10n.allBooks
+                : state.selectedGroup,
             expanded: _searchExpanded,
             onExpandedChanged: (value) => setState(() => _searchExpanded = value),
             searchController: _searchController,
-            searchHint: '筛选发现源',
+            searchHint: context.l10n.filterDiscoverySources,
             onChanged: _onSearchChanged,
             onClear: () {
               _searchController.clear();
@@ -117,16 +120,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               // （对齐参考版/原版顶栏形态：搜索 + ⋮；原版 main_explore.xml 的
               //  menu_group 分组子菜单并入此处，文件夹图标能力无损收编）
               AppMenuButton<String>(
-                tooltip: '更多',
+                tooltip: context.l10n.more,
                 icon: const Icon(Symbols.more_vert_rounded),
                 onSelected: (group) {
                   ref.read(exploreNotifierProvider.notifier).selectGroup(group);
                   setState(() => _selectedCategory = null);
                 },
                 itemBuilder: (_) => [
-                  const AppMenuItem<String>(
+                  AppMenuItem<String>(
                     value: '',
-                    child: Text('全部'),
+                    child: Text(context.l10n.allBooks),
                   ),
                   for (final group in state.groups)
                     AppMenuItem<String>(value: group, child: Text(group)),
@@ -160,9 +163,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
     final bookSources = state.filteredBookSources;
     if (bookSources.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Symbols.library_books_rounded,
-        title: '当前没有发现源！',
+        title: context.l10n.emptyDiscoverySources,
         simple: true,
       );
     }
@@ -182,16 +185,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       children: [
         Flexible(
           flex: 2,
-          child: _buildSourceList(state, isTablet: true),
-        ),
+          child: _buildSourceList(state, isTablet: true)),
         VerticalDivider(width: 1, color: colorScheme.outlineVariant),
         Flexible(
           flex: 3,
           child: _selectedCategory == null
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Symbols.explore_rounded,
-                  title: '选择发现分类',
-                  subtitle: '展开左侧书源并点击分类，在此浏览书籍',
+                  title: context.l10n.selectDiscoveryCategory,
+                  subtitle: context.l10n.selectDiscoveryCategoryHint,
                   simple: true,
                 )
               : Column(
@@ -203,7 +205,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         border: Border(
                           bottom: BorderSide(
                             color: colorScheme.outlineVariant
-                                .withValues(alpha: 0.45),
+                                .withValues(alpha: 0.45,
+                            ),
                           ),
                         ),
                       ),
@@ -278,7 +281,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 onRefresh: () =>
                     ref.read(exploreNotifierProvider.notifier).reloadCategories(source),
                 onCategoryTap: (categoryName, categoryUrl) {
-                  _openExploreShow(source, categoryName, categoryUrl, isTablet);
+                  _openExploreShow(source, categoryName, categoryUrl, isTablet,
+                    );
                 },
               ),
             );
@@ -313,8 +317,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已卸载'),
+        SnackBar(
+          content: Text(context.l10n.sourceRemoved),
           duration: Duration(seconds: 1),
         ),
       );
@@ -335,15 +339,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       await api.updateBookSource(updated);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已置顶'),
+        SnackBar(
+          content: Text(context.l10n.sourcePinned),
           duration: Duration(seconds: 1),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('置顶失败: $e')),
+        SnackBar(content: Text(context.l10n.sourcePinFailed(e.toString()))),
       );
     }
   }
@@ -354,8 +358,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('登录成功'),
+        SnackBar(
+          content: Text(context.l10n.loginSuccess),
           duration: Duration(seconds: 1),
         ),
       );
@@ -480,7 +484,8 @@ class _SourceItemState extends ConsumerState<_SourceItem>
               constraints: const BoxConstraints(minHeight: 56),
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: _kRowHPadding),
+                    const EdgeInsets.symmetric(horizontal: _kRowHPadding,
+                  ),
                 child: Row(
                   children: [
                     // [B2-C1 2-1] 前置图标槽：参考版行内 24dp 圆角图标位
@@ -542,16 +547,16 @@ class _SourceItemState extends ConsumerState<_SourceItem>
 
   List<AppMenuEntry<String>> _buildItemMenu(BuildContext context) =>
 [
-        const AppMenuItem(value: 'edit', child: Text('编辑')),
-        const AppMenuItem(value: 'top', child: Text('置顶')),
+    AppMenuItem(value: 'edit', child: Text(context.l10n.edit)),
+    AppMenuItem(value: 'top', child: Text(context.l10n.pinToTop)),
         if (_hasLoginUrl)
-          const AppMenuItem(value: 'login', child: Text('登录')),
-        const AppMenuItem(value: 'search', child: Text('搜索')),
-        const AppMenuItem(value: 'refresh', child: Text('刷新')),
+      AppMenuItem(value: 'login', child: Text(context.l10n.login)),
+    AppMenuItem(value: 'search', child: Text(context.l10n.search)),
+    AppMenuItem(value: 'refresh', child: Text(context.l10n.refresh)),
         AppMenuItem(
           value: 'uninstall',
           child: Text(
-            '删除',
+        context.l10n.delete,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ),
@@ -597,8 +602,8 @@ class _SourceItemState extends ConsumerState<_SourceItem>
   Widget _buildCategoryList(ThemeData theme, ColorScheme colorScheme) {
     final sourceUrl = widget.source.bookSourceUrl;
     final loading = ref.watch(exploreNotifierProvider.select(
-      (s) => s.isLoadingCategories(sourceUrl),
-    ));
+      (s) => s.isLoadingCategories(sourceUrl)),
+    );
     if (loading) {
       return const Padding(
         padding: EdgeInsets.only(top: 8, bottom: 4),
@@ -616,14 +621,14 @@ class _SourceItemState extends ConsumerState<_SourceItem>
     }
 
     final categories = ref.watch(exploreNotifierProvider.select(
-          (s) => s.categoriesFor(sourceUrl),
-        )) ??
+          (s) => s.categoriesFor(sourceUrl)),
+        ) ??
         [];
     if (categories.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
         child: Text(
-          '无分类',
+          context.l10n.noCategories,
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
