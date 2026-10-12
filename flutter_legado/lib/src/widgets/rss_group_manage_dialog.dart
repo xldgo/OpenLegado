@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
+import '../l10n/app_localization.dart';
+
 import '../models/models.dart';
 import '../providers/providers.dart';
 import 'group_manage_dialog.dart';
@@ -22,7 +24,7 @@ class RssGroupManageDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GroupManageDialog<RssSource>(
-      itemNoun: '订阅源',
+      itemNoun: context.l10n.rssSourceNoun,
       items: sources,
       groupOf: (s) => s.sourceGroup,
       copyWithGroup: (s, g) => s.copyWith(sourceGroup: g),

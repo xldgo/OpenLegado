@@ -1,17 +1,19 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../bridge/ffi.dart' show BridgeError;
-import '../l10n/app_strings.dart';
+import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../providers/providers.dart';
@@ -23,6 +25,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/app_progress_indicator.dart';
 import '../widgets/book_grid_item.dart';
 import '../widgets/book_list_item.dart';
+import '../widgets/bookshelf_group_label.dart';
 import '../widgets/custom_refresh_indicator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
@@ -101,7 +104,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (controller == null || controller.indexIsChanging) return;
     final state = ref.read(bookshelfNotifierProvider);
     if (controller.index != state.selectedGroupIndex) {
-      ref.read(bookshelfNotifierProvider.notifier).selectGroup(controller.index);
+      ref
+          .read(bookshelfNotifierProvider.notifier)
+          .selectGroup(controller.index);
     }
   }
 
@@ -123,7 +128,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // sliver 形式并入下方 CustomScrollView（对齐参考 03/03b 截图：空态
     // 同样保留「书架」大标题 + 分组 tab 行）；加载/错误态保留标准
     // LegadoAppBar。
-    final plainAppBar = (state.isLoading && state.books.isEmpty) ||
+    final plainAppBar =
+        (state.isLoading && state.books.isEmpty) ||
         (state.error != null && state.books.isEmpty);
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -138,7 +144,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       // [骨架对齐 2.0.260 | 台账 1-3] 分组 tab 行常驻于 sliver 头部
       // （含空态）；标准栏（加载/错误态）仅显示「书架」大标题
       title: Text(
-        AppStrings.bookshelf,
+        context.l10n.bookshelf,
         style: Theme.of(context).textTheme.headlineMedium
             ?.copyWith(fontSize: 28),
       ),
@@ -158,22 +164,22 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     return [
       IconButton(
         icon: const Icon(Icons.select_all),
-        tooltip: '全选',
+        tooltip: context.l10n.selectAll,
         onPressed: notifier.selectAll,
       ),
       IconButton(
         icon: const Icon(Icons.flip_rounded),
-        tooltip: '反选',
+        tooltip: context.l10n.invertSelection,
         onPressed: notifier.invertSelection,
       ),
       IconButton(
         icon: const Icon(Icons.delete_rounded),
-        tooltip: '删除',
+        tooltip: context.l10n.delete,
         onPressed: () => _confirmDeleteSelected(context, ref),
       ),
       IconButton(
         icon: const Icon(Icons.close_rounded),
-        tooltip: '取消',
+        tooltip: context.l10n.cancel,
         onPressed: notifier.toggleBatchMode,
       ),
     ];
@@ -182,23 +188,25 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// [UI-fix 2.0.258] 选择模式删除确认（对齐原版批量删除前二次确认，
   /// 防误删；确认后逐本删除并退出选择模式）
   Future<void> _confirmDeleteSelected(
-      BuildContext context, WidgetRef ref) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final state = ref.read(bookshelfNotifierProvider);
     final count = state.selectedUrls.length;
     if (count == 0) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除书籍'),
-        content: Text('确定删除选中的 $count 本书籍吗？'),
+        title: Text(context.l10n.deleteBook),
+        content: Text(context.l10n.confirmDeleteSelectedBooks(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('删除'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -209,7 +217,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('已删除 $count 本书籍')));
+      ..showSnackBar(
+        SnackBar(content: Text(context.l10n.deletedBookCount(count))),
+      );
   }
 
   /// 分组 TabBar（对标原版 BookshelfFragment1：可滚动 TabLayout）
@@ -221,14 +231,19 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   Widget _buildGroupTabBar(BuildContext context, BookshelfState state) {
     final groups = state.groups.isNotEmpty
         ? state.groups
-        : const [BookGroup(groupId: BookGroupId.all, groupName: '全部')];
+        : [
+            BookGroup(
+              groupId: BookGroupId.all,
+              groupName: context.l10n.allBooks,
+            ),
+          ];
     final controller = _ensureTabController(groups.length);
-    _syncTabControllerIndex(state.selectedGroupIndex.clamp(0, groups.length - 1));
+    _syncTabControllerIndex(
+      state.selectedGroupIndex.clamp(0, groups.length - 1),
+    );
     final colorScheme = Theme.of(context).colorScheme;
     // [LAYOUT_MOTION_AUDIT L3] Tab 文案走 labelLargeEmphasized（M3 labelLarge + Medium 强调）
-    final labelStyle = Theme.of(context)
-        .textTheme
-        .labelLarge
+    final labelStyle = Theme.of(context).textTheme.labelLarge
         ?.copyWith(fontWeight: FontWeight.w500);
     // [parity C3 B1] 分组 tab 单组左对齐：根因——SliverAppBar.large 的 bottom 槽
     // 以「松约束」下发，M3 可滚动 TabBar 在松约束下收缩为内容宽度并被父级
@@ -239,32 +254,34 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     return SizedBox(
       width: double.infinity,
       child: TabBar(
-      controller: controller,
-      isScrollable: true, // 原版 tabMode = MODE_SCROLLABLE
-      tabAlignment: TabAlignment.start,
-      // [parity fix 2.0.264 补修 | 台账 1-3] tab 行左缘 20dp：参考 03b 首
-      // tab 墨迹 x≈59px@3x≈20dp（复审量测），此前 edgePadding 0 钉屏左缘
-      // （实测 x≈2px）贴死；可滚动 TabBar 下 padding 仅作用于首尾两 tab
-      // 边缘，故只加 left 不影响尾 tab
-      padding: const EdgeInsets.only(left: 20),
-      // [LAYOUT_MOTION_AUDIT L3] minTabWidth 0（Flutter 侧等价 labelPadding 置零）
-      labelPadding: EdgeInsets.zero,
-      // [LAYOUT_MOTION_AUDIT L3] 无分割线
-      dividerColor: Colors.transparent,
-      // [LAYOUT_MOTION_AUDIT L3] 无分割线
-      dividerHeight: 0,
-      // [LAYOUT_MOTION_AUDIT L3] 选中走 primary
-      labelColor: colorScheme.primary,
-      // [LAYOUT_MOTION_AUDIT L3] 未选中走 onSurfaceVariant
-      unselectedLabelColor: colorScheme.onSurfaceVariant,
-      // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
-      labelStyle: labelStyle,
-      // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
-      unselectedLabelStyle: labelStyle,
-      // [MD3 Batch 2] 前景走全局 tabBarTheme（onSurface/onSurfaceVariant +
-      // primary 指示器），与 M3 AppBar surface 背景配对，不再硬编码白色
-      // [骨架对齐 2.0.260] 选中 tab = primary 字色 + 短下划线（对齐参考 03b）
-      tabs: groups.map((g) => Tab(text: g.groupName)).toList(),
+        controller: controller,
+        isScrollable: true, // 原版 tabMode = MODE_SCROLLABLE
+        tabAlignment: TabAlignment.start,
+        // [parity fix 2.0.264 补修 | 台账 1-3] tab 行左缘 20dp：参考 03b 首
+        // tab 墨迹 x≈59px@3x≈20dp（复审量测），此前 edgePadding 0 钉屏左缘
+        // （实测 x≈2px）贴死；可滚动 TabBar 下 padding 仅作用于首尾两 tab
+        // 边缘，故只加 left 不影响尾 tab
+        padding: const EdgeInsets.only(left: 20),
+        // [LAYOUT_MOTION_AUDIT L3] minTabWidth 0（Flutter 侧等价 labelPadding 置零）
+        labelPadding: EdgeInsets.zero,
+        // [LAYOUT_MOTION_AUDIT L3] 无分割线
+        dividerColor: Colors.transparent,
+        // [LAYOUT_MOTION_AUDIT L3] 无分割线
+        dividerHeight: 0,
+        // [LAYOUT_MOTION_AUDIT L3] 选中走 primary
+        labelColor: colorScheme.primary,
+        // [LAYOUT_MOTION_AUDIT L3] 未选中走 onSurfaceVariant
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
+        labelStyle: labelStyle,
+        // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
+        unselectedLabelStyle: labelStyle,
+        // [MD3 Batch 2] 前景走全局 tabBarTheme（onSurface/onSurfaceVariant +
+        // primary 指示器），与 M3 AppBar surface 背景配对，不再硬编码白色
+        // [骨架对齐 2.0.260] 选中 tab = primary 字色 + 短下划线（对齐参考 03b）
+        tabs: groups
+            .map((g) => Tab(text: bookshelfGroupLabel(context, g)))
+            .toList(),
       ),
     );
   }
@@ -275,12 +292,12 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       // 自带搜索项，红线对齐；Dynamic 搜索行双入口并存——用户报障找不到搜索）
       IconButton(
         icon: const Icon(Symbols.search_rounded),
-        tooltip: AppStrings.search,
+        tooltip: context.l10n.search,
         onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
       ),
       // 原版 main_bookshelf.xml 无常驻视图切换按钮，网格/列表切换在溢出菜单「布局设置」
       AppMenuButton<String>(
-        tooltip: '更多',
+        tooltip: context.l10n.more,
         itemBuilder: (_) => _buildShelfMenuItems(),
         onSelected: (action) => _handleMenuAction(context, ref, action),
       ),
@@ -291,18 +308,34 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     AppMenuItem<String> item(String action, String label, IconData icon) =>
         AppMenuItem(value: action, leadingIcon: Icon(icon), child: Text(label));
     return [
-      item('remote', '远程书籍', Symbols.wifi_rounded),
-      item('import', AppStrings.addLocalBook, Symbols.save_rounded),
-      item('update_all', AppStrings.updateAll, Symbols.refresh_rounded),
-      item('layout', '布局设置', Symbols.grid_view_rounded),
-      item('groups', '分组管理', Symbols.view_carousel_rounded),
-      item('add_url', '添加网址', Symbols.link_rounded),
-      item('select_mode', '选择模式', Symbols.edit_rounded),
-      item('manage', AppStrings.manageBookshelf, Symbols.bookmarks_rounded),
-      item('offline_cache', '离线缓存', Symbols.download_for_offline_rounded),
-      item('export_list', '导出书单', Symbols.upload_file_rounded),
-      item('import_list', '导入书单', Symbols.cloud_download_rounded),
-      item('log', '日志', Symbols.history_rounded),
+      item('remote', context.l10n.remoteBooks, Symbols.wifi_rounded),
+      item('import', context.l10n.addLocalBook, Symbols.save_rounded),
+      item('update_all', context.l10n.updateAll, Symbols.refresh_rounded),
+      item('layout', context.l10n.layoutSettings, Symbols.grid_view_rounded),
+      item(
+        'groups',
+        context.l10n.groupManagement,
+        Symbols.view_carousel_rounded,
+      ),
+      item('add_url', context.l10n.addBookUrl, Symbols.link_rounded),
+      item('select_mode', context.l10n.selectionMode, Symbols.edit_rounded),
+      item('manage', context.l10n.manageBookshelf, Symbols.bookmarks_rounded),
+      item(
+        'offline_cache',
+        context.l10n.offlineCache,
+        Symbols.download_for_offline_rounded,
+      ),
+      item(
+        'export_list',
+        context.l10n.exportBookList,
+        Symbols.upload_file_rounded,
+      ),
+      item(
+        'import_list',
+        context.l10n.importBookList,
+        Symbols.cloud_download_rounded,
+      ),
+      item('log', context.l10n.logs, Symbols.history_rounded),
     ];
   }
 
@@ -365,7 +398,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                       Expanded(
                         child: EmptyState(
                           icon: Symbols.library_books_rounded,
-                          title: AppStrings.emptyBookshelf,
+                          title: context.l10n.emptyBookshelf,
                           kaomoji: true,
                         ),
                       ),
@@ -383,7 +416,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                       constrainedAxis: Axis.horizontal,
                       child: EmptyState(
                         icon: Symbols.library_books_rounded,
-                        title: AppStrings.emptyBookshelf,
+                        title: context.l10n.emptyBookshelf,
                         kaomoji: true,
                       ),
                     ),
@@ -419,7 +452,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                 ..._buildGroupedSlivers(context, ref, state, viewportWidth)
               else if (state.isGridView)
                 _buildGridSliver(
-                    context, ref, state.currentGroupBooks, viewportWidth)
+                  context,
+                  ref,
+                  state.currentGroupBooks,
+                  viewportWidth,
+                )
               else
                 _buildReorderableSliver(context, ref, state),
               // [UI_SYNC_REFACTOR T3] 底部批量工具条（batch 模式且选中时显示）
@@ -436,11 +473,14 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 书架标题与操作按钮同排，分组页签常驻工具栏下方。
   Widget _buildHeaderSliver(
-      BuildContext context, WidgetRef ref, BookshelfState state) {
+    BuildContext context,
+    WidgetRef ref,
+    BookshelfState state,
+  ) {
     return LegadoTabRootHeaderSliver(
       large: false,
       title: Text(
-        AppStrings.bookshelf,
+        context.l10n.bookshelf,
         style: Theme.of(context).textTheme.headlineMedium
             ?.copyWith(fontSize: 28),
       ),
@@ -457,7 +497,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   }
 
   Widget _buildGridSliver(
-      BuildContext context, WidgetRef ref, List<Book> books, double viewportWidth) {
+    BuildContext context,
+    WidgetRef ref,
+    List<Book> books,
+    double viewportWidth,
+  ) {
     // 按选定列数计算卡片宽高，保留封面 5:7 与书名行的高度。
     final columns = ref.watch(
       bookshelfNotifierProvider.select((state) => state.gridColumns),
@@ -489,7 +533,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     return cellWidth / (cellWidth * 7 / 5 + titleHeight);
   }
 
-  Widget _buildReorderableSliver(BuildContext context, WidgetRef ref, BookshelfState state) {
+  Widget _buildReorderableSliver(
+    BuildContext context,
+    WidgetRef ref,
+    BookshelfState state,
+  ) {
     final shelfBooks = state.currentGroupBooks;
     return SliverReorderableList(
       itemCount: shelfBooks.length,
@@ -503,12 +551,16 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       itemBuilder: (context, index) {
         final book = shelfBooks[index];
         // [UI_SYNC_REFACTOR T3] 批量模式点击 = 切换选中
-        final batch = ref.watch(bookshelfNotifierProvider
-            .select((s) => s.isBatchMode));
+        final batch = ref.watch(
+          bookshelfNotifierProvider.select((s) => s.isBatchMode),
+        );
         if (batch) {
           // [UI-fix 2.0.258] 列表勾选态：选中高亮 + 尾部对勾，点按切换
-          final selected = ref.watch(bookshelfNotifierProvider
-              .select((s) => s.selectedUrls.contains(book.bookUrl)));
+          final selected = ref.watch(
+            bookshelfNotifierProvider.select(
+              (s) => s.selectedUrls.contains(book.bookUrl),
+            ),
+          );
           return _buildBatchListItem(context, ref, book, selected);
         }
         return BookListItem(
@@ -524,8 +576,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   Widget _buildGridItem(BuildContext context, WidgetRef ref, Book book) {
     // [UI_SYNC_REFACTOR T3] 批量模式点击 = 切换选中
-    final batch = ref.watch(bookshelfNotifierProvider
-        .select((s) => s.isBatchMode));
+    final batch = ref.watch(
+      bookshelfNotifierProvider.select((s) => s.isBatchMode),
+    );
     if (batch) {
       return _buildBatchGridItem(context, ref, book);
     }
@@ -555,8 +608,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 对标原版 startActivityForBook：未读进书详页 + 立即自动开读（A4 对齐 B）；
   /// 已读按 BookType 分流到 video / audio / reader-comic / reader
   /// （勿固定文本阅读器）。— Reasonix + UI
-  Future<void> _openBook(
-      BuildContext context, WidgetRef ref, Book book) async {
+  Future<void> _openBook(BuildContext context, WidgetRef ref, Book book) async {
     if (book.durChapterIndex <= 0 && book.durChapterPos <= 0) {
       // [A4 对齐 B | 2026-09-21 裁决] 未读书单击 = 详情页 + 立即自动开读
       // （等价重构版 BookInfoPage(openReaderImmediately: true)）：详情页
@@ -592,8 +644,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       } catch (_) {}
     }
     if (!context.mounted) return;
-    final bookToOpen =
-        typeBits != 0 ? book.copyWith(bookType: typeBits) : book;
+    final bookToOpen = typeBits != 0 ? book.copyWith(bookType: typeBits) : book;
     final route = BookOpenUtils.routeForTypeBits(typeBits);
     if (BookOpenUtils.needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
@@ -617,22 +668,24 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 「刚读完的书」进度行/进度条随返回同步。不做整页重建、不新增 UI；
   /// 书若在阅读期间被移除，notifier 内部回退全量 refresh 保持一致。
   Future<void> _refreshBookOnReturn(
-      BuildContext context, WidgetRef ref, Book book) async {
+    BuildContext context,
+    WidgetRef ref,
+    Book book,
+  ) async {
     if (!context.mounted) return;
-    await ref.read(bookshelfNotifierProvider.notifier).refreshBook(book.bookUrl);
+    await ref
+        .read(bookshelfNotifierProvider.notifier)
+        .refreshBook(book.bookUrl);
   }
 
   /// 长按封面/书名直接打开书籍信息页（对齐安卓原版行为）
   void _openBookInfo(BuildContext context, Book book) {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.bookInfo,
-      arguments: book,
-    );
+    Navigator.pushNamed(context, AppRoutes.bookInfo, arguments: book);
   }
 
   /// 选择本地书籍文件并导入书架
   Future<void> _addLocalBook(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final notifier = ref.read(bookshelfNotifierProvider.notifier);
     final errorColor = Theme.of(context).colorScheme.error;
@@ -696,7 +749,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         } catch (e) {
           failures.add(file.name);
           if (failureDetails.length < 3) {
-            failureDetails.add('${file.name}：本地书持久化失败（$e）');
+            failureDetails.add(
+              l10n.localBookSaveFailed(file.name, e.toString()),
+            );
           }
           continue;
         }
@@ -717,13 +772,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     await notifier.refresh();
 
     final messages = <String>[];
-    if (successCount > 0) messages.add('已导入 $successCount 本书籍');
+    if (successCount > 0) messages.add(l10n.importedBookCount(successCount));
     if (failures.isNotEmpty) {
       final detail = failureDetails.join('；');
       final more = failures.length > failureDetails.length
-          ? ' 等 ${failures.length} 本'
+          ? l10n.importFailureMore(failures.length)
           : '';
-      messages.add('导入失败：$detail$more');
+      messages.add(l10n.importBookFailed(detail, more));
     }
     // [iOS 视角F C2] UI 提示：any 选择器下选到不可导入的扩展名时，
     // 显式说明「显示全部文件、仅电子书格式可导入」，避免静默困惑
@@ -745,8 +800,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
           .where((e) => e.isNotEmpty)
           .toSet();
       if (pickedExts.difference(importable).isNotEmpty) {
-        messages.add(
-            'iOS 选择器显示全部文件，仅电子书格式（epub/txt/mobi/azw3/azw/pdf/umd/cbz）可导入');
+        messages.add(l10n.iosBookPickerHint);
       }
     }
     if (messages.isEmpty) return;
@@ -764,10 +818,26 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// [viewportWidth] 视口实际宽度（[parity fix 2.0.264 补修] 网格 cell
   /// aspect 动态计算用，经上层 LayoutBuilder 传入）
   List<Widget> _buildGroupedSlivers(
-      BuildContext context, WidgetRef ref, BookshelfState state, double viewportWidth) {
+    BuildContext context,
+    WidgetRef ref,
+    BookshelfState state,
+    double viewportWidth,
+  ) {
     final groups = state.groupedBooks;
     final slivers = <Widget>[];
     for (final entry in groups.entries) {
+      final groupTitle = switch (state.groupMode) {
+        GroupMode.none => context.l10n.allBooks,
+        GroupMode.bySource
+            when entry.value.isNotEmpty &&
+                entry.value.first.originName.isEmpty =>
+          context.l10n.localBooks,
+        GroupMode.byGroup when entry.value.isNotEmpty =>
+          entry.value.first.group > 0
+              ? context.l10n.bookGroupNumber(entry.value.first.group)
+              : context.l10n.defaultBookGroup,
+        _ => entry.key,
+      };
       // 分组头
       slivers.add(
         SliverToBoxAdapter(
@@ -785,10 +855,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  entry.key,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  groupTitle,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -813,17 +882,25 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   }
 
   /// 列表模式（非拖拽，用于分组内展示）
-  Widget _buildListSliver(BuildContext context, WidgetRef ref, List<Book> books) {
+  Widget _buildListSliver(
+    BuildContext context,
+    WidgetRef ref,
+    List<Book> books,
+  ) {
     return SliverList.builder(
       itemCount: books.length,
       itemBuilder: (context, index) {
         final book = books[index];
         // [UI-fix 2.0.258] 选择模式下分组列表同样走勾选态（与主列表一致）
-        final batch = ref.watch(bookshelfNotifierProvider
-            .select((s) => s.isBatchMode));
+        final batch = ref.watch(
+          bookshelfNotifierProvider.select((s) => s.isBatchMode),
+        );
         if (batch) {
-          final selected = ref.watch(bookshelfNotifierProvider
-              .select((s) => s.selectedUrls.contains(book.bookUrl)));
+          final selected = ref.watch(
+            bookshelfNotifierProvider.select(
+              (s) => s.selectedUrls.contains(book.bookUrl),
+            ),
+          );
           return _buildBatchListItem(context, ref, book, selected);
         }
         return BookListItem(
@@ -883,7 +960,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('布局设置'),
+        title: Text(context.l10n.layoutSettings),
         content: SizedBox(
           width: 320,
           child: Column(
@@ -893,11 +970,14 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                 initialSelection: layout,
                 selectOnly: true,
                 expandedInsets: EdgeInsets.zero,
-                label: const Text('布局方式'),
+                label: Text(context.l10n.layoutStyle),
                 dropdownMenuEntries: [
-                  const DropdownMenuEntry(value: 0, label: '列表'),
+                  DropdownMenuEntry(value: 0, label: context.l10n.listLayout),
                   for (var columns = 2; columns <= 6; columns++)
-                    DropdownMenuEntry(value: columns, label: '网格（$columns 列）'),
+                    DropdownMenuEntry(
+                      value: columns,
+                      label: context.l10n.gridColumnCount(columns),
+                    ),
                 ],
                 onSelected: (value) {
                   if (value != null) layout = value;
@@ -908,11 +988,20 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                 initialSelection: groupMode,
                 selectOnly: true,
                 expandedInsets: EdgeInsets.zero,
-                label: const Text('分组方式'),
-                dropdownMenuEntries: const [
-                  DropdownMenuEntry(value: GroupMode.none, label: '不分组'),
-                  DropdownMenuEntry(value: GroupMode.bySource, label: '按来源分组'),
-                  DropdownMenuEntry(value: GroupMode.byGroup, label: '按分组显示'),
+                label: Text(context.l10n.groupStyle),
+                dropdownMenuEntries: [
+                  DropdownMenuEntry(
+                    value: GroupMode.none,
+                    label: context.l10n.groupByNone,
+                  ),
+                  DropdownMenuEntry(
+                    value: GroupMode.bySource,
+                    label: context.l10n.groupBySourceLabel,
+                  ),
+                  DropdownMenuEntry(
+                    value: GroupMode.byGroup,
+                    label: context.l10n.groupByGroup,
+                  ),
                 ],
                 onSelected: (value) {
                   if (value != null) groupMode = value;
@@ -924,21 +1013,23 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定'),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref.read(bookshelfNotifierProvider.notifier).setLayout(
-      isGridView: layout != 0,
-      gridColumns: layout == 0 ? state.gridColumns : layout,
-      groupMode: groupMode,
-    );
+    await ref
+        .read(bookshelfNotifierProvider.notifier)
+        .setLayout(
+          isGridView: layout != 0,
+          gridColumns: layout == 0 ? state.gridColumns : layout,
+          groupMode: groupMode,
+        );
   }
 
   /// 导出书单（对标 Kotlin BookshelfViewModel.exportBookshelf）：
@@ -947,17 +1038,19 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   Future<void> _exportBookshelf() async {
     final books = ref.read(bookshelfNotifierProvider).books;
     if (books.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('书架为空，无可导出的书单')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.emptyExportBookList)));
       return;
     }
     final data = books
-        .map((b) => {
-              'name': b.name,
-              'author': b.author,
-              'intro': b.customIntro ?? b.intro ?? '',
-            })
+        .map(
+          (b) => {
+            'name': b.name,
+            'author': b.author,
+            'intro': b.customIntro ?? b.intro ?? '',
+          },
+        )
         .toList();
     final json = const JsonEncoder.withIndent('  ').convert(data);
     await SharePlus.instance.share(
@@ -977,21 +1070,23 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 更新全部书籍目录（对标 Kotlin updateAllBooks：仅刷新允许更新的非本地书）
   Future<void> _updateAllBooks() async {
+    final l10n = context.l10n;
     final api = ref.read(bookApiProvider);
     final books = ref.read(bookshelfNotifierProvider).books;
     final targets = books
-        .where((b) =>
-            b.canUpdate &&
-            b.origin != BookType.localTag &&
-            !b.origin.startsWith(BookType.webDavTag))
+        .where(
+          (b) =>
+              b.canUpdate &&
+              b.origin != BookType.localTag &&
+              !b.origin.startsWith(BookType.webDavTag),
+        )
         .toList();
     if (targets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有需要更新的书籍')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.noBooksToUpdate)));
       return;
     }
-    final progress = ValueNotifier<String>('准备中...');
+    final progress = ValueNotifier<String>(l10n.preparing);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -1017,7 +1112,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     var ok = 0;
     for (var i = 0; i < targets.length; i++) {
       final book = targets[i];
-      progress.value = '正在更新 ${i + 1}/${targets.length}：${book.name}';
+      progress.value = l10n.updatingBook(i + 1, targets.length, book.name);
       try {
         await api.refreshToc(book.bookUrl, book.origin);
         ok++;
@@ -1033,7 +1128,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     progress.dispose();
     ref.read(bookshelfNotifierProvider.notifier).refresh();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('目录更新完成：成功 $ok/${targets.length} 本')),
+      SnackBar(content: Text(l10n.bookTocUpdateFinished(ok, targets.length))),
     );
   }
 
@@ -1044,7 +1139,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('添加网址'),
+        title: Text(context.l10n.addBookUrl),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1052,15 +1147,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               TextField(
                 controller: urlCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: '输入书籍详情页 URL（多行可加多本）',
-                ),
+                decoration: InputDecoration(hintText: context.l10n.bookUrlHint),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  hintText: '书名（可选，无法获取详情时兑底）',
+                decoration: InputDecoration(
+                  hintText: context.l10n.bookNameOptionalHint,
                 ),
               ),
             ],
@@ -1069,11 +1162,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定'),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -1095,8 +1188,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   Future<void> _addBooksByUrl(List<String> urls, String fallbackName) async {
     final api = ref.read(bookApiProvider);
     final messenger = ScaffoldMessenger.of(context);
-    final existingUrls =
-        ref.read(bookshelfNotifierProvider).books.map((b) => b.bookUrl).toSet();
+    final existingUrls = ref
+        .read(bookshelfNotifierProvider)
+        .books
+        .map((b) => b.bookUrl)
+        .toSet();
     List<BookSource> sources;
     try {
       sources = await api.getEnabledBookSources();
@@ -1115,10 +1211,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         final source = _matchSource(sources, url);
         Book? book;
         if (source != null) {
-          final json = await api.webbookInfo(
-            jsonEncode(source.toJson()),
-            url,
-          );
+          final json = await api.webbookInfo(jsonEncode(source.toJson()), url);
           book = Book.fromJson(jsonDecode(json) as Map<String, dynamic>);
         }
         // 无匹配书源时按输入书名创建裸 WebBook 入库（任务要求；
@@ -1139,7 +1232,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (!mounted) return;
     ref.read(bookshelfNotifierProvider.notifier).refresh();
     messenger.showSnackBar(
-      SnackBar(content: Text('添加网址完成：成功 $ok，跳过 $skip，失败 $fail')),
+      SnackBar(content: Text(context.l10n.addBookUrlFinished(ok, skip, fail))),
     );
   }
 
@@ -1172,15 +1265,15 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('导入书单'),
+        title: Text(context.l10n.importBookList),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: ctrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: '输入书单 URL 或 JSON 数组',
+              decoration: InputDecoration(
+                hintText: context.l10n.bookListInputHint,
               ),
             ),
             Align(
@@ -1200,7 +1293,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                     }
                   }
                 },
-                child: const Text('选择文件（txt/json）'),
+                child: Text(context.l10n.chooseBookListFile),
               ),
             ),
           ],
@@ -1208,11 +1301,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('导入'),
+            child: Text(context.l10n.importAction),
           ),
         ],
       ),
@@ -1235,7 +1328,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       } catch (e) {
         if (mounted) {
           messenger.showSnackBar(
-            SnackBar(content: Text('拉取书单失败: $e')),
+            SnackBar(
+              content: Text(context.l10n.bookListFetchFailed(e.toString())),
+            ),
           );
         }
         return;
@@ -1250,7 +1345,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (decoded is! List) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('书单格式不对（应为 URL 或 JSON 数组）')),
+          SnackBar(content: Text(context.l10n.invalidBookList)),
         );
       }
       return;
@@ -1296,14 +1391,19 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (!mounted) return;
     ref.read(bookshelfNotifierProvider.notifier).refresh();
     messenger.showSnackBar(
-      SnackBar(content: Text('书单导入完成：成功 $ok，跳过 $skip，失败 $fail')),
+      SnackBar(
+        content: Text(context.l10n.bookListImportFinished(ok, skip, fail)),
+      ),
     );
   }
 
   /// [UI_SYNC_REFACTOR T3] 批量模式网格瓦片（选中高亮 + 勾选角标）
   Widget _buildBatchGridItem(BuildContext context, WidgetRef ref, Book book) {
-    final selected = ref.watch(bookshelfNotifierProvider
-        .select((s) => s.selectedUrls.contains(book.bookUrl)));
+    final selected = ref.watch(
+      bookshelfNotifierProvider.select(
+        (s) => s.selectedUrls.contains(book.bookUrl),
+      ),
+    );
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => ref
@@ -1359,7 +1459,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 返回无 key 的 `Material`，导致选择模式下书卡列表整块空白（台账 1-5 P0
   /// 复审缺陷）。现给外层 `Material` 补上稳定 `ValueKey(bookUrl)` 修复。
   Widget _buildBatchListItem(
-      BuildContext context, WidgetRef ref, Book book, bool selected) {
+    BuildContext context,
+    WidgetRef ref,
+    Book book,
+    bool selected,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return Material(
       key: ValueKey(book.bookUrl),
@@ -1400,7 +1504,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 帧渲染中断），导致选择模式整屏灰白空白（台账 1-5 P0）。
   /// 现改为常规 Center 布局，不再依赖 Stack 定位。
   Widget _buildBatchSummaryCard(
-      BuildContext context, WidgetRef ref, BookshelfState state) {
+    BuildContext context,
+    WidgetRef ref,
+    BookshelfState state,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
@@ -1415,20 +1522,18 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
-                  tooltip: '退出选择',
+                  tooltip: context.l10n.exitSelection,
                   onPressed: () => ref
                       .read(bookshelfNotifierProvider.notifier)
                       .toggleBatchMode(),
                 ),
                 Text(
-                  '已选 ${state.selectedUrls.length} 本',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
+                  context.l10n.selectedBookCount(state.selectedUrls.length),
+                  style: Theme.of(context).textTheme.labelSmall
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  ' · 共 ${state.currentGroupBooks.length} 本',
+                  context.l10n.groupBookCount(state.currentGroupBooks.length),
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ],
@@ -1441,7 +1546,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// [UI_SYNC_REFACTOR T3] 底部批量工具条（对齐参考 SelectionBottomBar）
   Widget _buildBatchBottomBar(
-      BuildContext context, WidgetRef ref, BookshelfState state) {
+    BuildContext context,
+    WidgetRef ref,
+    BookshelfState state,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final count = state.selectedUrls.length;
     if (count == 0) return const SizedBox.shrink();
@@ -1458,29 +1566,29 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
           children: [
             IconButton(
               icon: const Icon(Icons.select_all),
-              tooltip: '全选',
+              tooltip: context.l10n.selectAll,
               onPressed: () =>
                   ref.read(bookshelfNotifierProvider.notifier).selectAll(),
             ),
             IconButton(
               icon: const Icon(Icons.flip_rounded),
-              tooltip: '反选',
+              tooltip: context.l10n.invertSelection,
               onPressed: () => ref
                   .read(bookshelfNotifierProvider.notifier)
                   .invertSelection(),
             ),
             IconButton(
               icon: const Icon(Icons.download_rounded),
-              tooltip: '批量下载',
+              tooltip: context.l10n.batchDownload,
               onPressed: count > 0
-                  ? () => _showSnack('批量下载 $count 本（对标原版批量下载）')
+                  ? () => _showSnack(context.l10n.batchDownloadCount(count))
                   : null,
             ),
             IconButton(
               icon: const Icon(Icons.drive_file_move_rounded),
-              tooltip: '移动分组',
+              tooltip: context.l10n.moveBookGroup,
               onPressed: count > 0
-                  ? () => _showSnack('移动分组 $count 本（对标原版 GroupSelectSheet）')
+                  ? () => _showSnack(context.l10n.moveBookGroupCount(count))
                   : null,
             ),
           ],

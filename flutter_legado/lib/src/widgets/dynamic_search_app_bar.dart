@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../l10n/app_localization.dart';
+
 import 'legado_app_bar.dart';
 import 'app_search_field.dart';
 
@@ -75,7 +77,8 @@ class DynamicSearchAppBar extends StatelessWidget
       actions: [
         // [UI_SYNC_REFACTOR S1b] 搜索切换钮（对齐参考 onSearchToggle）
         IconButton(
-          tooltip: expanded ? '收起搜索' : '展开搜索',
+          tooltip: expanded ? context.l10n.collapseSearch
+              : context.l10n.expandSearch,
           icon: Icon(
             expanded ? Symbols.search_off_rounded : Symbols.search_rounded,
           ),

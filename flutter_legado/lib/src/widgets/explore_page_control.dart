@@ -4,6 +4,8 @@
 /// + showMd3WheelPickerSheet（ListWheelScrollView 轮式选择，M3 底部弹层外壳）。
 library;
 
+import '../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -21,8 +23,7 @@ class ExplorePageControl extends ConsumerWidget {
   const ExplorePageControl({
     super.key,
     required this.args,
-    this.maxPage = 999,
-  });
+    this.maxPage = 999});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,7 +36,7 @@ class ExplorePageControl extends ConsumerWidget {
           ? null
           : () => _showPagePicker(context, ref, pageLabel),
       child: Text(
-        '第 $pageLabel 页',
+        context.l10n.pageNumber(pageLabel),
         style: theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w500,
         ),
@@ -50,11 +51,11 @@ class ExplorePageControl extends ConsumerWidget {
   ) async {
     final picked = await showMd3WheelPickerSheet(
       context: context,
-      title: '选择页码',
+      title: context.l10n.selectPage,
       itemCount: maxPage,
       initialIndex: currentPage.clamp(1, maxPage) - 1,
       itemBuilder: (ctx, i) => Text(
-        '第 ${i + 1} 页',
+        ctx.l10n.pageNumber(i + 1),
         style: Theme.of(ctx).textTheme.bodyLarge,
       ),
     );

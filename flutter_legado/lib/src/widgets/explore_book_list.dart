@@ -3,6 +3,8 @@
 /// iOS inset 列表：系统灰阶、hairline 分隔、中性交互色。
 library;
 
+import '../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -46,16 +48,18 @@ class _LoginRequiredView extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.lock_outline_rounded, size: 44, color: colorScheme.tertiary),
+            Icon(Symbols.lock_outline_rounded, size: 44, color: colorScheme.tertiary,
+            ),
             const SizedBox(height: 12),
             Text(
-              '书源需要登录',
+              context.l10n.sourceLoginRequired,
               style: textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+                  ?.copyWith(fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
-              message.isNotEmpty ? message : '登录后即可浏览该分类内容',
+              message.isNotEmpty ? message : context.l10n.sourceLoginRequiredHint,
               textAlign: TextAlign.center,
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
@@ -69,7 +73,7 @@ class _LoginRequiredView extends ConsumerWidget {
               children: [
                 OutlinedButton(
                   onPressed: onRetry,
-                  child: const Text('重试'),
+                  child: Text(context.l10n.retry),
                 ),
                 const SizedBox(width: 12),
                 FilledButton(
@@ -77,12 +81,13 @@ class _LoginRequiredView extends ConsumerWidget {
                       ? null
                       : () async {
                           final ok =
-                              await showSourceLogin(context, ref, source!);
+                              await showSourceLogin(context, ref, source!,
+                          );
                           if (ok && context.mounted) {
                             onRetry();
                           }
                         },
-                  child: const Text('去登录'),
+                  child: Text(context.l10n.goToLogin),
                 ),
               ],
             ),
@@ -195,10 +200,10 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
     }
 
     if (state.books.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Symbols.explore_rounded,
-        title: '暂无书籍',
-        subtitle: '该分类下没有找到书籍',
+        title: context.l10n.emptyBooks,
+        subtitle: context.l10n.emptyCategoryBooksHint,
       );
     }
 
@@ -216,15 +221,16 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
     if (visibleBooks.isEmpty) {
       return EmptyState(
         icon: Symbols.filter_alt_rounded,
-        title: '筛选后无匹配书籍',
-        subtitle: '已加载的书籍中没有匹配「${widget.filterKeyword}」',
+        title: context.l10n.noFilteredBooks,
+        subtitle: context.l10n.noLoadedBooksMatch(widget.filterKeyword),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TopNetworkLoadingBar(isLoading: state.isLoading && state.books.isNotEmpty),
+        TopNetworkLoadingBar(isLoading: state.isLoading && state.books.isNotEmpty,
+        ),
         Expanded(
           child: CustomRefreshIndicator(
             onRefresh: () =>
@@ -253,7 +259,8 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
 
                 final book = visibleBooks[index - 1];
                 final dedupeKey =
-                    exploreBookDedupeKey(book, listIndex: index - 1);
+                    exploreBookDedupeKey(book, listIndex: index - 1,
+                );
                 return RepaintBoundary(
                   child: _BookItem(
                     key: ValueKey(dedupeKey),
@@ -296,10 +303,9 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Center(
         child: Text(
-          '上滑加载上一页',
+          context.l10n.loadPreviousPageHint,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+                color: colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -322,12 +328,11 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
         child: Center(
           child: TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onSurface,
-            ),
+              foregroundColor: colorScheme.onSurface),
             onPressed: () => ref
                 .read(exploreShowNotifierProvider(args).notifier)
                 .loadMore(),
-            child: const Text('加载失败，点击重试'),
+            child: Text(context.l10n.tapToRetryLoad),
           ),
         ),
       );
@@ -458,7 +463,8 @@ class _BookItem extends ConsumerWidget {
                         book.latestChapterTitle!,
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.85),
+                              .withValues(alpha: 0.85,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -470,7 +476,8 @@ class _BookItem extends ConsumerWidget {
                         book.intro!,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.65),
+                              .withValues(alpha: 0.65,
+                          ),
                         ),
                         maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
@@ -495,7 +502,8 @@ class _BookItem extends ConsumerWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: colorScheme.onSurface
-                                    .withValues(alpha: 0.07),
+                                    .withValues(alpha: 0.07,
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(

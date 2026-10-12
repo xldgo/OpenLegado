@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../l10n/app_localization.dart';
+
 import 'confirm_dialog.dart';
 
 /// 安卓端 AppPattern.splitGroupRegex：[,;，；]
@@ -76,6 +78,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
   /// 分组重命名/删除：批量更新含该分组的所有条目
   /// （对标原版 viewModel.upGroup(oldGroup, newGroup)，null 表示删除）
   Future<void> _upGroup(String oldGroup, String? newGroup) async {
+    final l10n = context.l10n;
     setState(() => _busy = true);
     try {
       for (final item in _items) {
@@ -98,7 +101,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('操作失败：$e')));
+            .showSnackBar(SnackBar(content: Text(l10n.operationFailed(e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -107,14 +111,16 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
 
   /// 新增分组：把所有「无分组」条目统一归入该分组名
   Future<void> _addGroup() async {
+    final l10n = context.l10n;
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextInputDialog(title: '添加分组', hintText: '分组名称'),
+      builder: (_) =>
+          _TextInputDialog(title: l10n.addGroup, hintText: l10n.groupName),
     );
     if (name == null || name.isEmpty || !mounted) return;
     if (_groups.contains(name)) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('分组「$name」已存在')));
+          .showSnackBar(SnackBar(content: Text(l10n.groupAlreadyExists(name))));
       return;
     }
     setState(() => _busy = true);
@@ -132,14 +138,15 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
         setState(() {});
         if (moved == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('没有未分组的${widget.itemNoun}可归入该分组')),
+            SnackBar(content: Text(l10n.noUngroupedItems(widget.itemNoun))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('添加分组失败：$e')));
+            .showSnackBar(SnackBar(content: Text(l10n.addGroupFailed(e.toString()))),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -147,11 +154,12 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
   }
 
   Future<void> _rename(String group) async {
+    final l10n = context.l10n;
     final newName = await showDialog<String>(
       context: context,
       builder: (_) => _TextInputDialog(
-        title: '重命名分组',
-        hintText: '输入新分组名称',
+        title: l10n.renameGroup,
+        hintText: l10n.newGroupNameHint,
         initialText: group,
       ),
     );
@@ -159,19 +167,21 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       return;
     }
     if (_groups.contains(newName)) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('分组「$newName」已存在')));
+      ScaffoldMessenger.of(context,
+      )
+          .showSnackBar(SnackBar(content: Text(l10n.groupAlreadyExists(newName))));
       return;
     }
     await _upGroup(group, newName);
   }
 
   Future<void> _delete(String group) async {
+    final l10n = context.l10n;
     final confirmed = await showConfirmDialog(
       context,
-      title: '删除分组',
-      content: '确定要删除分组「$group」吗？分组内${widget.itemNoun}将移出该分组。',
-      confirmText: '删除',
+      title: l10n.deleteGroup,
+      content: l10n.confirmDeleteItemGroup(group, widget.itemNoun),
+      confirmText: l10n.delete,
       isDestructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -187,7 +197,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       // [LAYOUT_PLAN P2] 分组卡圆角统一 16dp（全局标尺）
       title: Row(
         children: [
-          const Expanded(child: Text('分组管理')),
+          Expanded(child: Text(context.l10n.groupManagement)),
           if (_busy)
             const Padding(
               padding: EdgeInsets.only(right: 8),
@@ -199,7 +209,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
             ),
           IconButton(
             icon: const Icon(Symbols.add_rounded),
-            tooltip: '添加分组',
+            tooltip: context.l10n.addGroup,
             visualDensity: VisualDensity.compact,
             onPressed: _busy ? null : _addGroup,
           ),
@@ -212,7 +222,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
-                    '暂无分组',
+                    context.l10n.emptyGroups,
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
                 ),
@@ -239,7 +249,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
                       children: [
                         IconButton(
                           icon: const Icon(Symbols.edit_rounded, size: 20),
-                          tooltip: '重命名',
+                          tooltip: context.l10n.rename,
                           visualDensity: VisualDensity.compact,
                           onPressed: _busy ? null : () => _rename(group),
                         ),
@@ -249,7 +259,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
                             size: 20,
                             color: scheme.error,
                           ),
-                          tooltip: '删除',
+                          tooltip: context.l10n.delete,
                           visualDensity: VisualDensity.compact,
                           onPressed: _busy ? null : () => _delete(group),
                         ),
@@ -262,7 +272,7 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, _changed),
-          child: const Text('关闭'),
+          child: Text(context.l10n.close),
         ),
       ],
     );
@@ -314,11 +324,11 @@ class _TextInputDialogState extends State<_TextInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: const Text('确定'),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );

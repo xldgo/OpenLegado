@@ -1,11 +1,14 @@
 import '../app_menu.dart';
+
 import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../l10n/app_localization.dart';
 import '../../services/bottom_bar_skin_service.dart';
+
 /// [UI_SYNC_REFACTOR S1c] 主框架导航组件族（对齐参考仓 ShortNavigationBar/
 /// AppNavigationBar/FloatingBottomBar/Rail）
 ///
@@ -20,11 +23,7 @@ class AppNavSpec {
   final String label;
   final String? skinSlot;
 
-  const AppNavSpec({
-    required this.symbol,
-    required this.label,
-    this.skinSlot,
-  });
+  const AppNavSpec({required this.symbol, required this.label, this.skinSlot});
 }
 
 /// 底栏皮肤图标（缺图回退系统 glyph；原 home_screen 私有件公共化）
@@ -299,25 +298,24 @@ class AppRailBar extends StatelessWidget {
           const SizedBox(height: 8),
           // 展开切换（railExtended 持久化）
           IconButton(
-            tooltip: extended ? '收起侧栏' : '展开侧栏',
-            icon: Icon(extended
-                ? Symbols.menu_open_rounded
-                : Symbols.menu_rounded),
+            tooltip: extended
+                ? context.l10n.collapseSidebar
+                : context.l10n.expandSidebar,
+            icon: Icon(
+              extended ? Symbols.menu_open_rounded : Symbols.menu_rounded,
+            ),
             onPressed: onToggleExtended,
           ),
           // 头部搜索钮（对齐参考 Rail header 搜索入口）
           IconButton(
-            tooltip: '搜索',
-            icon: Icon(
-              Symbols.search_rounded,
-              color: cs.onSurfaceVariant,
-            ),
+            tooltip: context.l10n.search,
+            icon: Icon(Symbols.search_rounded, color: cs.onSurfaceVariant),
             onPressed: onSearch,
           ),
           // 书架分组菜单（对齐参考 BookshelfRailGroupMenu）
           if (groups != null && groups!.isNotEmpty)
             AppMenuButton<int>(
-              tooltip: '书架分组',
+              tooltip: context.l10n.bookshelfGroups,
               icon: Icon(
                 Symbols.folder_copy_rounded,
                 color: cs.onSurfaceVariant,

@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/app_localization.dart';
+
 import 'settings_widgets.dart';
 
 /// M3 滚轮选择器底部弹层（UI_MD3_PLAN.md 全量清点：替换 CupertinoPicker 弹层）
@@ -42,11 +44,11 @@ Future<int?> showMd3WheelPickerSheet({
                   if (showCancel)
                     TextButton(
                       onPressed: () => Navigator.pop(sheetContext),
-                      child: const Text('取消'),
+                      child: Text(sheetContext.l10n.cancel),
                     ),
                   TextButton(
                     onPressed: () => Navigator.pop(sheetContext, picked),
-                    child: const Text('确定'),
+                    child: Text(sheetContext.l10n.confirm),
                   ),
                 ],
               ),
@@ -62,8 +64,7 @@ Future<int?> showMd3WheelPickerSheet({
                 childDelegate: ListWheelChildBuilderDelegate(
                   childCount: itemCount,
                   builder: (ctx, i) => Center(
-                    child: itemBuilder(ctx, i),
-                  ),
+                    child: itemBuilder(ctx, i)),
                 ),
               ),
             ),

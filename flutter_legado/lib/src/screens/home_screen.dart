@@ -5,10 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../l10n/app_strings.dart';
+import '../l10n/app_localization.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
 import '../routes.dart';
 import '../widgets/app_scaffold.dart';
+import '../widgets/bookshelf_group_label.dart';
 import '../widgets/navigation/app_navigation_bars.dart';
 import '../providers/bottom_bar_skin_notifier.dart';
 import '../providers/main_prefs_notifier.dart';
@@ -186,7 +187,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(AppStrings.doubleClickExit),
+          content: Text(context.l10n.doubleClickExit),
           duration: _exitInterval,
         ),
       );
@@ -325,17 +326,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // [UI_SYNC_REFACTOR S6] 首页页签底栏项（新皮肤槽位，无皮肤回退 symbol）
             _HomeTab.home => AppNavSpec(
                 symbol: Symbols.home_rounded,
-                label: '首页',
+                label: context.l10n.home,
                 skinSlot: 'home_page',
               ),
             _HomeTab.bookshelf => AppNavSpec(
                 symbol: Symbols.menu_book_rounded,
-                label: AppStrings.bookshelf,
+                label: context.l10n.bookshelf,
                 skinSlot: 'bookshelf',
               ),
             _HomeTab.explore => AppNavSpec(
                 symbol: Symbols.explore_rounded,
-                label: AppStrings.discover,
+                label: context.l10n.discover,
                 skinSlot: 'home',
               ),
             _HomeTab.rss => AppNavSpec(
@@ -344,12 +345,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // feed_rounded 为报纸/文档版式（参考判为「文档图标」），
                 // 改 rss_feed_rounded 对齐
                 symbol: Symbols.rss_feed_rounded,
-                label: AppStrings.rss,
+                label: context.l10n.rss,
                 skinSlot: 'notes',
               ),
             _HomeTab.my => AppNavSpec(
                 symbol: Symbols.person_rounded,
-                label: AppStrings.my,
+                label: context.l10n.my,
                 skinSlot: 'settings',
               ),
           },
@@ -383,7 +384,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .setRailExtended(!ui.railExtended),
       onSearch: () => Navigator.of(context).pushNamed(AppRoutes.search),
       groups: [
-        for (final g in bookshelf.groups) g.groupName,
+        for (final g in bookshelf.groups) bookshelfGroupLabel(context, g),
       ],
       selectedGroupIndex: bookshelf.selectedGroupIndex,
       onGroupSelected: (index) =>

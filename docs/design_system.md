@@ -23,8 +23,10 @@
 
 组件语言由 `appLocaleProvider` 统一选择中文、英文或跟随系统；应用启动恢复
 `app_locale`，设置变更即时通知 `MaterialApp`。`supportedLocales` 声明中文与英文，
-沿用独立设计库的 Material、Cupertino、Widgets 本地化代理；AppStrings 使用同一解析结果。
-跟随系统时响应系统语言变化，未支持的语言回退中文；保持现有中文文案范围。
+沿用独立设计库的 Material、Cupertino、Widgets 本地化代理，并注册 ARB 应用文案代理。
+跟随系统时响应系统语言变化，未支持的语言回退中文。新页面使用 `context.l10n`；
+`AppStrings` 暂时兼容未迁移页面，转发同一份生成资源。文案来源与生成方法见
+[多语言说明](LOCALIZATION.md)，分批覆盖及验收边界以 Active 计划为准。
 
 编写者：Codex UI｜2026-10-11
 

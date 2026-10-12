@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:convert';
 
@@ -113,6 +114,7 @@ class _RssSourceImportConfirmScreenState
   /// 不经 freezed 类型化往返，由 Rust 侧宽松反序列化兜底
   /// （第三方订阅源非常规字段）。
   Future<void> _confirmImport() async {
+    final l10n = context.l10n;
     if (_selectCount == 0) return;
     setState(() => _importing = true);
     try {
@@ -162,7 +164,7 @@ class _RssSourceImportConfirmScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$e')),
+          SnackBar(content: Text(l10n.rssSourceImportFailed(e.toString()))),
         );
       }
     } finally {
@@ -190,6 +192,7 @@ class _RssSourceImportConfirmScreenState
 
   /// 查看订阅源 JSON（对标原版 tvOpen → CodeDialog）：直接展示原始 JSON
   Future<void> _showSourceJson(Map<String, dynamic> raw) async {
+    final l10n = context.l10n;
     final json = const JsonEncoder.withIndent('  ').convert(raw);
     await showDialog<void>(
       context: context,
@@ -209,16 +212,15 @@ class _RssSourceImportConfirmScreenState
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: json));
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('已复制到剪贴板')),
-                );
+                ScaffoldMessenger.of(ctx,
+                ).showSnackBar(SnackBar(content: Text(l10n.copiedToClipboard)));
               }
             },
-            child: const Text('复制'),
+            child: Text(l10n.copy),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -232,49 +234,49 @@ class _RssSourceImportConfirmScreenState
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('导入订阅源'),
+        title: Text(context.l10n.importRssSources),
         actions: [
           // 自定义源分组（对标 menu_new_group，always 显示）
           TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onPrimary,
-            ),
+              foregroundColor: colorScheme.onPrimary),
             onPressed: _showCustomGroupDialog,
             child: Text(_groupName == null
-                ? '自定义源分组'
-                : '${_isAddGroup ? '+' : ''}$_groupName'),
+                ? context.l10n.customSourceGroup
+                  : '${_isAddGroup ? '+' : ''}$_groupName',
+            ),
           ),
           AppMenuButton<String>(
-            tooltip: '更多选项',
+            tooltip: context.l10n.more,
             // 菜单在顶栏下方展开，不覆盖顶栏
             onSelected: _handleMenu,
             itemBuilder: (_) => [
               AppMenuItem(
                 value: 'keep_name',
                 checked: _keepName,
-                child: const Text('保留原名'),
+                child: Text(context.l10n.keepSourceName),
               ),
               AppMenuItem(
                 value: 'keep_group',
                 checked: _keepGroup,
-                child: const Text('保留分组'),
+                child: Text(context.l10n.keepSourceGroup),
               ),
               AppMenuItem(
                 value: 'keep_enable',
                 checked: _keepEnable,
-                child: const Text('保留启用状态'),
+                child: Text(context.l10n.keepSourceEnabled),
               ),
               AppMenuItem(
                 value: 'show_comment',
                 checked: _showComment,
-                child: const Text('显示源注释'),
+                child: Text(context.l10n.showSourceComment),
               ),
             ],
           ),
         ],
       ),
       body: widget.sources.isEmpty
-          ? const Center(child: Text('格式错误，未解析到订阅源'))
+          ? Center(child: Text(context.l10n.invalidRssSources))
           : ListView.separated(
               // [LAYOUT_PLAN P2] 列表纵向留白 8dp；行 vertical12/horizontal8（见 _buildItem）
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -313,8 +315,14 @@ class _RssSourceImportConfirmScreenState
                     },
                     child: Text(
                       _isSelectAll
-                          ? '取消全选（$_selectCount/${widget.sources.length}）'
-                          : '全选（$_selectCount/${widget.sources.length}）',
+                          ? context.l10n.deselectAllCount(
+                              _selectCount,
+                              widget.sources.length,
+                            )
+                          : context.l10n.selectAllCount(
+                              _selectCount,
+                              widget.sources.length,
+                            ),
                     ),
                   ),
                 ),
@@ -322,7 +330,7 @@ class _RssSourceImportConfirmScreenState
                   onPressed: _importing
                       ? null
                       : () => Navigator.of(context).pop(false),
-                  child: const Text('取消'),
+                  child: Text(context.l10n.cancel),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -334,7 +342,7 @@ class _RssSourceImportConfirmScreenState
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('确认'),
+                      : Text(context.l10n.confirm),
                 ),
               ],
             ),
@@ -368,11 +376,17 @@ class _RssSourceImportConfirmScreenState
 
     final (label, color) = switch (status) {
       // [LAYOUT_PLAN P2] 状态色走 tonal：新增 primary、更新 tertiary、已有 onSurfaceVariant
-      _ImportStatus.isNew => ('新增', AppColorsExt.importNew(colorScheme)),
+      _ImportStatus.isNew => (
+        context.l10n.importStatusNew, AppColorsExt.importNew(colorScheme),
+      ),
       _ImportStatus.isUpdate =>
-        ('更新', AppColorsExt.importUpdate(colorScheme)),
+        (
+        context.l10n.importStatusUpdated, AppColorsExt.importUpdate(colorScheme),
+      ),
       _ImportStatus.exists =>
-        ('已有', colorScheme.onSurfaceVariant),
+        (
+        context.l10n.importStatusExisting, colorScheme.onSurfaceVariant,
+      ),
     };
 
     return InkWell(
@@ -422,13 +436,12 @@ class _RssSourceImportConfirmScreenState
                 label,
                 // [LAYOUT_PLAN P2] 状态标签走 labelSmall
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color,
-                    ),
+                      color: color),
               ),
             ),
             TextButton(
               onPressed: () => _showSourceJson(raw),
-              child: const Text('打开'),
+              child: Text(context.l10n.open),
             ),
           ],
         ),

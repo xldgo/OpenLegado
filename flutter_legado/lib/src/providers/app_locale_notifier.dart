@@ -2,12 +2,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../services/settings_service.dart';
+import '../l10n/generated/app_localizations.dart';
 
-const appSupportedLocales = [Locale('zh'), Locale('en')];
+const appSupportedLocales = AppLocalizations.supportedLocales;
 
 String _normalizeLocale(String value) {
   final language = value.replaceAll('_', '-').split('-').first;
-  return language == 'zh' || language == 'en' ? language : 'system';
+  return appSupportedLocales.any((locale) => locale.languageCode == language)
+      ? language
+      : 'system';
 }
 
 /// 应用文案与设计库组件共用语言解析，未支持的系统语言回退中文。
@@ -15,7 +18,9 @@ Locale resolveAppLocale(String preference, List<Locale> systemLocales) {
   final language = _normalizeLocale(preference);
   if (language != 'system') return Locale(language);
   for (final locale in systemLocales) {
-    if (locale.languageCode == 'zh' || locale.languageCode == 'en') {
+    if (appSupportedLocales.any(
+      (supported) => supported.languageCode == locale.languageCode,
+    )) {
       return Locale(locale.languageCode);
     }
   }

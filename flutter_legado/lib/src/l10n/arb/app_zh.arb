@@ -1,0 +1,2174 @@
+{
+  "@@locale": "zh",
+  "appTitle": "阅读",
+  "@appTitle": {
+    "description": "应用文案：阅读"
+  },
+  "bookshelf": "书架",
+  "@bookshelf": {
+    "description": "应用文案：书架"
+  },
+  "search": "搜索",
+  "@search": {
+    "description": "应用文案：搜索"
+  },
+  "sources": "书源",
+  "@sources": {
+    "description": "应用文案：书源"
+  },
+  "settings": "设置",
+  "@settings": {
+    "description": "应用文案：设置"
+  },
+  "my": "我的",
+  "@my": {
+    "description": "应用文案：我的"
+  },
+  "rss": "订阅",
+  "@rss": {
+    "description": "应用文案：订阅"
+  },
+  "discover": "发现",
+  "@discover": {
+    "description": "应用文案：发现"
+  },
+  "confirm": "确定",
+  "@confirm": {
+    "description": "应用文案：确定"
+  },
+  "cancel": "取消",
+  "@cancel": {
+    "description": "应用文案：取消"
+  },
+  "save": "保存",
+  "@save": {
+    "description": "应用文案：保存"
+  },
+  "delete": "删除",
+  "@delete": {
+    "description": "应用文案：删除"
+  },
+  "edit": "编辑",
+  "@edit": {
+    "description": "应用文案：编辑"
+  },
+  "loading": "加载中...",
+  "@loading": {
+    "description": "应用文案：加载中..."
+  },
+  "error": "错误",
+  "@error": {
+    "description": "应用文案：错误"
+  },
+  "noData": "暂无数据",
+  "@noData": {
+    "description": "应用文案：暂无数据"
+  },
+  "retry": "重试",
+  "@retry": {
+    "description": "应用文案：重试"
+  },
+  "loadFailed": "加载失败",
+  "@loadFailed": {
+    "description": "应用文案：加载失败"
+  },
+  "doubleClickExit": "再按一次退出程序",
+  "@doubleClickExit": {
+    "description": "应用文案：再按一次退出程序"
+  },
+  "bottomLine": "我是有底线的",
+  "@bottomLine": {
+    "description": "应用文案：我是有底线的"
+  },
+  "startReading": "开始阅读",
+  "@startReading": {
+    "description": "应用文案：开始阅读"
+  },
+  "addToBookshelf": "加入书架",
+  "@addToBookshelf": {
+    "description": "应用文案：加入书架"
+  },
+  "removeFromBookshelf": "移除",
+  "@removeFromBookshelf": {
+    "description": "应用文案：移除"
+  },
+  "updateToc": "更新目录",
+  "@updateToc": {
+    "description": "应用文案：更新目录"
+  },
+  "searchHint": "搜索书名或作者",
+  "@searchHint": {
+    "description": "应用文案：搜索书名或作者"
+  },
+  "groupByNone": "不分组",
+  "@groupByNone": {
+    "description": "应用文案：不分组"
+  },
+  "groupBySource": "按来源",
+  "@groupBySource": {
+    "description": "应用文案：按来源"
+  },
+  "groupByTag": "按分组",
+  "@groupByTag": {
+    "description": "应用文案：按分组"
+  },
+  "updateAll": "更新目录",
+  "@updateAll": {
+    "description": "应用文案：更新目录"
+  },
+  "manageBookshelf": "书架管理",
+  "@manageBookshelf": {
+    "description": "应用文案：书架管理"
+  },
+  "sourceManagement": "书源管理",
+  "@sourceManagement": {
+    "description": "应用文案：书源管理"
+  },
+  "groupByNoneLabel": "不分组",
+  "@groupByNoneLabel": {
+    "description": "应用文案：不分组"
+  },
+  "groupBySourceLabel": "按来源分组",
+  "@groupBySourceLabel": {
+    "description": "应用文案：按来源分组"
+  },
+  "groupByGroupLabel": "按分组分组",
+  "@groupByGroupLabel": {
+    "description": "应用文案：按分组分组"
+  },
+  "listView": "列表视图",
+  "@listView": {
+    "description": "应用文案：列表视图"
+  },
+  "gridView": "网格视图",
+  "@gridView": {
+    "description": "应用文案：网格视图"
+  },
+  "addBook": "添加书籍",
+  "@addBook": {
+    "description": "应用文案：添加书籍"
+  },
+  "addLocalBook": "添加本地",
+  "@addLocalBook": {
+    "description": "应用文案：添加本地"
+  },
+  "emptyBookshelf": "书架还空着，先去搜索书籍或从发现里添加吧！",
+  "@emptyBookshelf": {
+    "description": "应用文案：书架还空着，先去搜索书籍或从发现里添加吧！"
+  },
+  "emptyBookshelfHint": "",
+  "@emptyBookshelfHint": {
+    "description": "应用文案："
+  },
+  "loadingBookshelf": "加载书架...",
+  "@loadingBookshelf": {
+    "description": "应用文案：加载书架..."
+  },
+  "recentReading": "最近阅读",
+  "@recentReading": {
+    "description": "应用文案：最近阅读"
+  },
+  "allBooks": "全部",
+  "@allBooks": {
+    "description": "应用文案：全部"
+  },
+  "reading": "在读",
+  "@reading": {
+    "description": "应用文案：在读"
+  },
+  "unread": "未读",
+  "@unread": {
+    "description": "应用文案：未读"
+  },
+  "unknownChapter": "未知章节",
+  "@unknownChapter": {
+    "description": "应用文案：未知章节"
+  },
+  "pinToTop": "置顶",
+  "@pinToTop": {
+    "description": "应用文案：置顶"
+  },
+  "editInfo": "编辑信息",
+  "@editInfo": {
+    "description": "应用文案：编辑信息"
+  },
+  "group": "分组",
+  "@group": {
+    "description": "应用文案：分组"
+  },
+  "deleteBook": "删除书籍",
+  "@deleteBook": {
+    "description": "应用文案：删除书籍"
+  },
+  "confirmDeleteBook": "确定要从书架中删除",
+  "@confirmDeleteBook": {
+    "description": "应用文案：确定要从书架中删除"
+  },
+  "checkingUpdate": "正在检查更新...",
+  "@checkingUpdate": {
+    "description": "应用文案：正在检查更新..."
+  },
+  "selectLocalBook": "选择本地书籍文件",
+  "@selectLocalBook": {
+    "description": "应用文案：选择本地书籍文件"
+  },
+  "importSources": "导入书源",
+  "@importSources": {
+    "description": "应用文案：导入书源"
+  },
+  "exportSources": "导出书源",
+  "@exportSources": {
+    "description": "应用文案：导出书源"
+  },
+  "addSource": "添加书源",
+  "@addSource": {
+    "description": "应用文案：添加书源"
+  },
+  "sourceName": "书源名称",
+  "@sourceName": {
+    "description": "应用文案：书源名称"
+  },
+  "sourceUrl": "书源地址",
+  "@sourceUrl": {
+    "description": "应用文案：书源地址"
+  },
+  "sourceType": "书源类型",
+  "@sourceType": {
+    "description": "应用文案：书源类型"
+  },
+  "themeMode": "主题模式",
+  "@themeMode": {
+    "description": "应用文案：主题模式"
+  },
+  "themeSystem": "跟随系统",
+  "@themeSystem": {
+    "description": "应用文案：跟随系统"
+  },
+  "themeLight": "浅色",
+  "@themeLight": {
+    "description": "应用文案：浅色"
+  },
+  "themeDark": "深色",
+  "@themeDark": {
+    "description": "应用文案：深色"
+  },
+  "language": "语言",
+  "@language": {
+    "description": "应用文案：语言"
+  },
+  "langSystem": "跟随系统",
+  "@langSystem": {
+    "description": "应用文案：跟随系统"
+  },
+  "langChinese": "中文",
+  "@langChinese": {
+    "description": "应用文案：中文"
+  },
+  "langEnglish": "English",
+  "@langEnglish": {
+    "description": "应用文案：English"
+  },
+  "backup": "备份",
+  "@backup": {
+    "description": "应用文案：备份"
+  },
+  "restore": "恢复",
+  "@restore": {
+    "description": "应用文案：恢复"
+  },
+  "cloudSync": "云同步",
+  "@cloudSync": {
+    "description": "应用文案：云同步"
+  },
+  "clearCache": "清除缓存",
+  "@clearCache": {
+    "description": "应用文案：清除缓存"
+  },
+  "appearanceSettings": "外观设置",
+  "@appearanceSettings": {
+    "description": "应用文案：外观设置"
+  },
+  "readingSettings": "阅读设置",
+  "@readingSettings": {
+    "description": "应用文案：阅读设置"
+  },
+  "networkSettings": "网络设置",
+  "@networkSettings": {
+    "description": "应用文案：网络设置"
+  },
+  "dataManagement": "数据管理",
+  "@dataManagement": {
+    "description": "应用文案：数据管理"
+  },
+  "otherSettings": "其他",
+  "@otherSettings": {
+    "description": "应用文案：其他"
+  },
+  "aboutSettings": "关于",
+  "@aboutSettings": {
+    "description": "应用文案：关于"
+  },
+  "defaultFontSize": "默认字体大小",
+  "@defaultFontSize": {
+    "description": "应用文案：默认字体大小"
+  },
+  "defaultLineHeight": "默认行距",
+  "@defaultLineHeight": {
+    "description": "应用文案：默认行距"
+  },
+  "defaultBgColor": "默认背景色",
+  "@defaultBgColor": {
+    "description": "应用文案：默认背景色"
+  },
+  "whiteColor": "白色",
+  "@whiteColor": {
+    "description": "应用文案：白色"
+  },
+  "proxySettings": "代理设置",
+  "@proxySettings": {
+    "description": "应用文案：代理设置"
+  },
+  "noProxy": "不使用代理",
+  "@noProxy": {
+    "description": "应用文案：不使用代理"
+  },
+  "requestTimeout": "请求超时",
+  "@requestTimeout": {
+    "description": "应用文案：请求超时"
+  },
+  "seconds30": "30 秒",
+  "@seconds30": {
+    "description": "应用文案：30 秒"
+  },
+  "secondsUnit": "秒",
+  "@secondsUnit": {
+    "description": "应用文案：秒"
+  },
+  "backupData": "备份数据",
+  "@backupData": {
+    "description": "应用文案：备份数据"
+  },
+  "backupDataDesc": "备份书架和书源到本地",
+  "@backupDataDesc": {
+    "description": "应用文案：备份书架和书源到本地"
+  },
+  "restoreData": "恢复数据",
+  "@restoreData": {
+    "description": "应用文案：恢复数据"
+  },
+  "restoreDataDesc": "从备份文件恢复",
+  "@restoreDataDesc": {
+    "description": "应用文案：从备份文件恢复"
+  },
+  "clearCacheDesc": "清除临时文件和缓存数据",
+  "@clearCacheDesc": {
+    "description": "应用文案：清除临时文件和缓存数据"
+  },
+  "selectTheme": "选择主题模式",
+  "@selectTheme": {
+    "description": "应用文案：选择主题模式"
+  },
+  "backupSuccess": "备份成功",
+  "@backupSuccess": {
+    "description": "应用文案：备份成功"
+  },
+  "backupFailed": "备份失败",
+  "@backupFailed": {
+    "description": "应用文案：备份失败"
+  },
+  "restoreSuccess": "恢复成功",
+  "@restoreSuccess": {
+    "description": "应用文案：恢复成功"
+  },
+  "restoreFailed": "恢复失败",
+  "@restoreFailed": {
+    "description": "应用文案：恢复失败"
+  },
+  "pasteBackupJson": "粘贴备份 JSON 数据",
+  "@pasteBackupJson": {
+    "description": "应用文案：粘贴备份 JSON 数据"
+  },
+  "confirmClearCache": "确定要清除所有缓存数据吗？",
+  "@confirmClearCache": {
+    "description": "应用文案：确定要清除所有缓存数据吗？"
+  },
+  "cacheCleared": "缓存已清除",
+  "@cacheCleared": {
+    "description": "应用文案：缓存已清除"
+  },
+  "version": "版本",
+  "@version": {
+    "description": "应用文案：版本"
+  },
+  "license": "开源协议",
+  "@license": {
+    "description": "应用文案：开源协议"
+  },
+  "projectUrl": "项目地址",
+  "@projectUrl": {
+    "description": "应用文案：项目地址"
+  },
+  "syncNow": "立即同步",
+  "@syncNow": {
+    "description": "应用文案：立即同步"
+  },
+  "autoSync": "自动同步",
+  "@autoSync": {
+    "description": "应用文案：自动同步"
+  },
+  "autoSyncDesc": "定期同步书架数据",
+  "@autoSyncDesc": {
+    "description": "应用文案：定期同步书架数据"
+  },
+  "syncSuccess": "同步成功",
+  "@syncSuccess": {
+    "description": "应用文案：同步成功"
+  },
+  "saveConfig": "保存配置",
+  "@saveConfig": {
+    "description": "应用文案：保存配置"
+  },
+  "configSaved": "配置已保存",
+  "@configSaved": {
+    "description": "应用文案：配置已保存"
+  },
+  "uploadBookshelf": "上传书架",
+  "@uploadBookshelf": {
+    "description": "应用文案：上传书架"
+  },
+  "uploadBookshelfDesc": "将本地书架上传到 WebDAV",
+  "@uploadBookshelfDesc": {
+    "description": "应用文案：将本地书架上传到 WebDAV"
+  },
+  "downloadBookshelf": "下载书架",
+  "@downloadBookshelf": {
+    "description": "应用文案：下载书架"
+  },
+  "downloadBookshelfDesc": "从 WebDAV 下载书架覆盖本地",
+  "@downloadBookshelfDesc": {
+    "description": "应用文案：从 WebDAV 下载书架覆盖本地"
+  },
+  "mergeSync": "合并同步",
+  "@mergeSync": {
+    "description": "应用文案：合并同步"
+  },
+  "mergeSyncDesc": "双向合并本地与远程书架",
+  "@mergeSyncDesc": {
+    "description": "应用文案：双向合并本地与远程书架"
+  },
+  "webdavServerUrl": "WebDAV 服务器 URL",
+  "@webdavServerUrl": {
+    "description": "应用文案：WebDAV 服务器 URL"
+  },
+  "username": "用户名",
+  "@username": {
+    "description": "应用文案：用户名"
+  },
+  "password": "密码",
+  "@password": {
+    "description": "应用文案：密码"
+  },
+  "remoteDir": "远程目录",
+  "@remoteDir": {
+    "description": "应用文案：远程目录"
+  },
+  "lastSync": "上次同步",
+  "@lastSync": {
+    "description": "应用文案：上次同步"
+  },
+  "searchBookHint": "搜索书名、作者...",
+  "@searchBookHint": {
+    "description": "应用文案：搜索书名、作者..."
+  },
+  "searching": "搜索中...",
+  "@searching": {
+    "description": "应用文案：搜索中..."
+  },
+  "noResults": "未找到相关书籍",
+  "@noResults": {
+    "description": "应用文案：未找到相关书籍"
+  },
+  "noResultsHint": "换个关键词试试，或检查书源是否启用",
+  "@noResultsHint": {
+    "description": "应用文案：换个关键词试试，或检查书源是否启用"
+  },
+  "searchBooks": "搜索书籍",
+  "@searchBooks": {
+    "description": "应用文案：搜索书籍"
+  },
+  "searchBooksHint": "输入书名或作者名开始搜索",
+  "@searchBooksHint": {
+    "description": "应用文案：输入书名或作者名开始搜索"
+  },
+  "searchHistory": "搜索历史",
+  "@searchHistory": {
+    "description": "应用文案：搜索历史"
+  },
+  "clearHistory": "清空",
+  "@clearHistory": {
+    "description": "应用文案：清空"
+  },
+  "author": "作者",
+  "@author": {
+    "description": "应用文案：作者"
+  },
+  "source": "来源",
+  "@source": {
+    "description": "应用文案：来源"
+  },
+  "chapters": "章",
+  "@chapters": {
+    "description": "应用文案：章"
+  },
+  "addedToBookshelf": "已加入书架",
+  "@addedToBookshelf": {
+    "description": "应用文案：已加入书架"
+  },
+  "fontSize": "字体大小",
+  "@fontSize": {
+    "description": "应用文案：字体大小"
+  },
+  "lineHeight": "行距",
+  "@lineHeight": {
+    "description": "应用文案：行距"
+  },
+  "flipMode": "翻页模式",
+  "@flipMode": {
+    "description": "应用文案：翻页模式"
+  },
+  "scrollMode": "上下滚动",
+  "@scrollMode": {
+    "description": "应用文案：上下滚动"
+  },
+  "slideMode": "左右滑动",
+  "@slideMode": {
+    "description": "应用文案：左右滑动"
+  },
+  "simulateMode": "仿真翻页",
+  "@simulateMode": {
+    "description": "应用文案：仿真翻页"
+  },
+  "noneMode": "无动画",
+  "@noneMode": {
+    "description": "应用文案：无动画"
+  },
+  "coverMode": "覆盖",
+  "@coverMode": {
+    "description": "应用文案：覆盖"
+  },
+  "loadingChapter": "加载章节...",
+  "@loadingChapter": {
+    "description": "应用文案：加载章节..."
+  },
+  "noContent": "暂无内容",
+  "@noContent": {
+    "description": "应用文案：暂无内容"
+  },
+  "catalog": "目录",
+  "@catalog": {
+    "description": "应用文案：目录"
+  },
+  "nightMode": "夜间",
+  "@nightMode": {
+    "description": "应用文案：夜间"
+  },
+  "readAloud": "朗读",
+  "@readAloud": {
+    "description": "应用文案：朗读"
+  },
+  "interfaceSetting": "界面",
+  "@interfaceSetting": {
+    "description": "应用文案：界面"
+  },
+  "readingSettingsTitle": "阅读设置",
+  "@readingSettingsTitle": {
+    "description": "应用文案：阅读设置"
+  },
+  "fontSizeLabel": "字体大小",
+  "@fontSizeLabel": {
+    "description": "应用文案：字体大小"
+  },
+  "fontSmall": "小",
+  "@fontSmall": {
+    "description": "应用文案：小"
+  },
+  "fontLarge": "大",
+  "@fontLarge": {
+    "description": "应用文案：大"
+  },
+  "lineHeightLabel": "行距",
+  "@lineHeightLabel": {
+    "description": "应用文案：行距"
+  },
+  "bgColor": "背景色",
+  "@bgColor": {
+    "description": "应用文案：背景色"
+  },
+  "flipModeLabel": "翻页模式",
+  "@flipModeLabel": {
+    "description": "应用文案：翻页模式"
+  },
+  "previousChapter": "上一章",
+  "@previousChapter": {
+    "description": "应用文案：上一章"
+  },
+  "nextChapter": "下一章",
+  "@nextChapter": {
+    "description": "应用文案：下一章"
+  },
+  "noChapters": "暂无章节",
+  "@noChapters": {
+    "description": "应用文案：暂无章节"
+  },
+  "audioPlayer": "听书",
+  "@audioPlayer": {
+    "description": "应用文案：听书"
+  },
+  "play": "播放",
+  "@play": {
+    "description": "应用文案：播放"
+  },
+  "pause": "暂停",
+  "@pause": {
+    "description": "应用文案：暂停"
+  },
+  "prevChapterAudio": "上一章",
+  "@prevChapterAudio": {
+    "description": "应用文案：上一章"
+  },
+  "nextChapterAudio": "下一章",
+  "@nextChapterAudio": {
+    "description": "应用文案：下一章"
+  },
+  "home": "首页",
+  "@home": {
+    "description": "主界面文案：首页"
+  },
+  "help": "帮助",
+  "@help": {
+    "description": "主界面文案：帮助"
+  },
+  "contentAndRules": "内容与规则",
+  "@contentAndRules": {
+    "description": "主界面文案：内容与规则"
+  },
+  "rssSourceManagement": "订阅源管理",
+  "@rssSourceManagement": {
+    "description": "主界面文案：订阅源管理"
+  },
+  "sourceManagementSummary": "新建、导入、编辑或管理书源",
+  "@sourceManagementSummary": {
+    "description": "主界面文案：新建、导入、编辑或管理书源"
+  },
+  "rssSourceManagementSummary": "新建、导入、编辑或管理订阅源",
+  "@rssSourceManagementSummary": {
+    "description": "主界面文案：新建、导入、编辑或管理订阅源"
+  },
+  "txtTocRules": "TXT 目录规则",
+  "@txtTocRules": {
+    "description": "主界面文案：TXT 目录规则"
+  },
+  "txtTocRulesSummary": "配置 TXT 目录规则",
+  "@txtTocRulesSummary": {
+    "description": "主界面文案：配置 TXT 目录规则"
+  },
+  "replaceRules": "替换净化",
+  "@replaceRules": {
+    "description": "主界面文案：替换净化"
+  },
+  "replaceRulesSummary": "配置替换净化规则",
+  "@replaceRulesSummary": {
+    "description": "主界面文案：配置替换净化规则"
+  },
+  "dictionaryLookup": "字典查询",
+  "@dictionaryLookup": {
+    "description": "主界面文案：字典查询"
+  },
+  "dictionaryLookupSummary": "按字典规则查询内容",
+  "@dictionaryLookupSummary": {
+    "description": "主界面文案：按字典规则查询内容"
+  },
+  "dictionaryRules": "字典规则",
+  "@dictionaryRules": {
+    "description": "主界面文案：字典规则"
+  },
+  "dictionaryRulesSummary": "管理字典规则（增删改、启停、排序、导入）",
+  "@dictionaryRulesSummary": {
+    "description": "主界面文案：管理字典规则（增删改、启停、排序、导入）"
+  },
+  "highlightRules": "高亮标注",
+  "@highlightRules": {
+    "description": "主界面文案：高亮标注"
+  },
+  "highlightRulesSummary": "自动高亮标注规则",
+  "@highlightRulesSummary": {
+    "description": "主界面文案：自动高亮标注规则"
+  },
+  "appearance": "外观",
+  "@appearance": {
+    "description": "主界面文案：外观"
+  },
+  "appearanceSummary": "主题配色与显示模式",
+  "@appearanceSummary": {
+    "description": "主界面文案：主题配色与显示模式"
+  },
+  "readingInterface": "阅读界面",
+  "@readingInterface": {
+    "description": "主界面文案：阅读界面"
+  },
+  "readingInterfaceSummary": "字体、配色、翻页与屏幕显示",
+  "@readingInterfaceSummary": {
+    "description": "主界面文案：字体、配色、翻页与屏幕显示"
+  },
+  "syncAndServices": "同步与服务",
+  "@syncAndServices": {
+    "description": "主界面文案：同步与服务"
+  },
+  "webService": "Web 服务",
+  "@webService": {
+    "description": "主界面文案：Web 服务"
+  },
+  "mcpService": "MCP 服务",
+  "@mcpService": {
+    "description": "主界面文案：MCP 服务"
+  },
+  "backupAndRestore": "备份与恢复",
+  "@backupAndRestore": {
+    "description": "主界面文案：备份与恢复"
+  },
+  "backupAndRestoreSummary": "WebDav 设置/导入旧版本数据",
+  "@backupAndRestoreSummary": {
+    "description": "主界面文案：WebDav 设置/导入旧版本数据"
+  },
+  "cacheManagement": "缓存管理",
+  "@cacheManagement": {
+    "description": "主界面文案：缓存管理"
+  },
+  "cacheManagementSummary": "书籍下载任务与缓存进度",
+  "@cacheManagementSummary": {
+    "description": "主界面文案：书籍下载任务与缓存进度"
+  },
+  "scheduledTasks": "定时任务",
+  "@scheduledTasks": {
+    "description": "主界面文案：定时任务"
+  },
+  "scheduledTasksSummary": "管理按计划执行的 JavaScript 任务",
+  "@scheduledTasksSummary": {
+    "description": "主界面文案：管理按计划执行的 JavaScript 任务"
+  },
+  "runScheduledTasks": "运行定时任务",
+  "@runScheduledTasks": {
+    "description": "主界面文案：运行定时任务"
+  },
+  "runScheduledTasksSummary": "重启后保留计划；Android 可能延后实际执行时间",
+  "@runScheduledTasksSummary": {
+    "description": "主界面文案：重启后保留计划；Android 可能延后实际执行时间"
+  },
+  "advanced": "高级",
+  "@advanced": {
+    "description": "主界面文案：高级"
+  },
+  "advancedSummary": "功能相关的一些设置",
+  "@advancedSummary": {
+    "description": "主界面文案：功能相关的一些设置"
+  },
+  "bookmarks": "书签",
+  "@bookmarks": {
+    "description": "主界面文案：书签"
+  },
+  "allBookmarks": "所有书签",
+  "@allBookmarks": {
+    "description": "主界面文案：所有书签"
+  },
+  "readingRecords": "阅读记录",
+  "@readingRecords": {
+    "description": "主界面文案：阅读记录"
+  },
+  "readingRecordsSummary": "阅读时间记录",
+  "@readingRecordsSummary": {
+    "description": "主界面文案：阅读时间记录"
+  },
+  "fileManagement": "文件管理",
+  "@fileManagement": {
+    "description": "主界面文案：文件管理"
+  },
+  "fileManagementSummary": "管理私有文件夹的文件",
+  "@fileManagementSummary": {
+    "description": "主界面文案：管理私有文件夹的文件"
+  },
+  "exitApp": "退出",
+  "@exitApp": {
+    "description": "主界面文案：退出"
+  },
+  "confirmExitApp": "确定退出阅读吗？",
+  "@confirmExitApp": {
+    "description": "主界面文案：确定退出阅读吗？"
+  },
+  "webServiceSummary": "用浏览器写源或看书",
+  "@webServiceSummary": {
+    "description": "主界面文案：用浏览器写源或看书"
+  },
+  "mcpServiceSummary": "带令牌保护的书源开发工具",
+  "@mcpServiceSummary": {
+    "description": "主界面文案：带令牌保护的书源开发工具"
+  },
+  "mcpTokenRequired": "需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）",
+  "@mcpTokenRequired": {
+    "description": "主界面文案：需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）"
+  },
+  "booksRead": "累计阅读",
+  "@booksRead": {
+    "description": "主界面文案：累计阅读"
+  },
+  "readingDuration": "阅读时长",
+  "@readingDuration": {
+    "description": "主界面文案：阅读时长"
+  },
+  "todayReadingGoal": "今日阅读目标",
+  "@todayReadingGoal": {
+    "description": "主界面文案：今日阅读目标"
+  },
+  "minutesUnit": "分钟",
+  "@minutesUnit": {
+    "description": "主界面文案：分钟"
+  },
+  "readingHeatmap": "阅读热力图",
+  "@readingHeatmap": {
+    "description": "主界面文案：阅读热力图"
+  },
+  "dailyReadingDuration": "每日阅读时长",
+  "@dailyReadingDuration": {
+    "description": "主界面文案：每日阅读时长"
+  },
+  "editReadingGoal": "编辑目标",
+  "@editReadingGoal": {
+    "description": "主界面文案：编辑目标"
+  },
+  "heatmapLess": "少",
+  "@heatmapLess": {
+    "description": "主界面文案：少"
+  },
+  "heatmapMore": "多",
+  "@heatmapMore": {
+    "description": "主界面文案：多"
+  },
+  "heatmapBooksLegend": "多（格 = 当日阅读书籍数）",
+  "@heatmapBooksLegend": {
+    "description": "主界面文案：多（格 = 当日阅读书籍数）"
+  },
+  "selectAll": "全选",
+  "@selectAll": {
+    "description": "主界面文案：全选"
+  },
+  "invertSelection": "反选",
+  "@invertSelection": {
+    "description": "主界面文案：反选"
+  },
+  "more": "更多",
+  "@more": {
+    "description": "主界面文案：更多"
+  },
+  "remoteBooks": "远程书籍",
+  "@remoteBooks": {
+    "description": "主界面文案：远程书籍"
+  },
+  "layoutSettings": "布局设置",
+  "@layoutSettings": {
+    "description": "主界面文案：布局设置"
+  },
+  "groupManagement": "分组管理",
+  "@groupManagement": {
+    "description": "主界面文案：分组管理"
+  },
+  "addBookUrl": "添加网址",
+  "@addBookUrl": {
+    "description": "主界面文案：添加网址"
+  },
+  "selectionMode": "选择模式",
+  "@selectionMode": {
+    "description": "主界面文案：选择模式"
+  },
+  "offlineCache": "离线缓存",
+  "@offlineCache": {
+    "description": "主界面文案：离线缓存"
+  },
+  "exportBookList": "导出书单",
+  "@exportBookList": {
+    "description": "主界面文案：导出书单"
+  },
+  "importBookList": "导入书单",
+  "@importBookList": {
+    "description": "主界面文案：导入书单"
+  },
+  "logs": "日志",
+  "@logs": {
+    "description": "主界面文案：日志"
+  },
+  "layoutStyle": "布局方式",
+  "@layoutStyle": {
+    "description": "主界面文案：布局方式"
+  },
+  "listLayout": "列表",
+  "@listLayout": {
+    "description": "主界面文案：列表"
+  },
+  "groupStyle": "分组方式",
+  "@groupStyle": {
+    "description": "主界面文案：分组方式"
+  },
+  "groupByGroup": "按分组显示",
+  "@groupByGroup": {
+    "description": "主界面文案：按分组显示"
+  },
+  "emptyExportBookList": "书架为空，无可导出的书单",
+  "@emptyExportBookList": {
+    "description": "主界面文案：书架为空，无可导出的书单"
+  },
+  "noBooksToUpdate": "没有需要更新的书籍",
+  "@noBooksToUpdate": {
+    "description": "主界面文案：没有需要更新的书籍"
+  },
+  "preparing": "准备中...",
+  "@preparing": {
+    "description": "主界面文案：准备中..."
+  },
+  "bookUrlHint": "输入书籍详情页 URL（多行可加多本）",
+  "@bookUrlHint": {
+    "description": "主界面文案：输入书籍详情页 URL（多行可加多本）"
+  },
+  "bookNameOptionalHint": "书名（可选，无法获取详情时兑底）",
+  "@bookNameOptionalHint": {
+    "description": "主界面文案：书名（可选，无法获取详情时兑底）"
+  },
+  "bookListInputHint": "输入书单 URL 或 JSON 数组",
+  "@bookListInputHint": {
+    "description": "主界面文案：输入书单 URL 或 JSON 数组"
+  },
+  "chooseBookListFile": "选择文件（txt/json）",
+  "@chooseBookListFile": {
+    "description": "主界面文案：选择文件（txt/json）"
+  },
+  "importAction": "导入",
+  "@importAction": {
+    "description": "主界面文案：导入"
+  },
+  "invalidBookList": "书单格式不对（应为 URL 或 JSON 数组）",
+  "@invalidBookList": {
+    "description": "主界面文案：书单格式不对（应为 URL 或 JSON 数组）"
+  },
+  "exitSelection": "退出选择",
+  "@exitSelection": {
+    "description": "主界面文案：退出选择"
+  },
+  "batchDownload": "批量下载",
+  "@batchDownload": {
+    "description": "主界面文案：批量下载"
+  },
+  "moveBookGroup": "移动分组",
+  "@moveBookGroup": {
+    "description": "主界面文案：移动分组"
+  },
+  "iosBookPickerHint": "iOS 选择器显示全部文件，仅电子书格式（epub/txt/mobi/azw3/azw/pdf/umd/cbz）可导入",
+  "@iosBookPickerHint": {
+    "description": "主界面文案：iOS 选择器显示全部文件，仅电子书格式（epub/txt/mobi/azw3/azw/pdf/umd/cbz）可导入"
+  },
+  "bookCount": "{count} 本",
+  "@bookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "minuteCount": "{count} 分钟",
+  "@minuteCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hourCount": "{hours} 小时",
+  "@hourCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "secondCount": "{count} 秒",
+  "@secondCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hourMinuteCount": "{hours} 小时 {minutes} 分",
+  "@hourMinuteCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyDurationLoadFailed": "每日时长加载失败：{error}",
+  "@dailyDurationLoadFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webServiceToggleFailed": "Web 服务切换失败: {error}",
+  "@webServiceToggleFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpServiceToggleFailed": "MCP 服务切换失败: {error}",
+  "@mcpServiceToggleFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpServicePort": "端口 {port}（带令牌保护的书源开发工具）",
+  "@mcpServicePort": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "port": {
+        "type": "int"
+      }
+    }
+  },
+  "webKeepAliveUnavailable": "{status} · 后台保活不可用，请保持 App 打开",
+  "@webKeepAliveUnavailable": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteSelectedBooks": "确定删除选中的 {count} 本书籍吗？",
+  "@confirmDeleteSelectedBooks": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deletedBookCount": "已删除 {count} 本书籍",
+  "@deletedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gridColumnCount": "网格（{count} 列）",
+  "@gridColumnCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectedBookCount": "已选 {count} 本",
+  "@selectedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupBookCount": " · 共 {count} 本",
+  "@groupBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importedBookCount": "已导入 {count} 本书籍",
+  "@importedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailureMore": " 等 {count} 本",
+  "@importFailureMore": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importBookFailed": "导入失败：{detail}{more}",
+  "@importBookFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      },
+      "more": {
+        "type": "String"
+      }
+    }
+  },
+  "localBookSaveFailed": "{file}：本地书持久化失败（{error}）",
+  "@localBookSaveFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "updatingBook": "正在更新 {index}/{total}：{book}",
+  "@updatingBook": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "book": {
+        "type": "String"
+      }
+    }
+  },
+  "bookTocUpdateFinished": "目录更新完成：成功 {count}/{total} 本",
+  "@bookTocUpdateFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "addBookUrlFinished": "添加网址完成：成功 {success}，跳过 {skipped}，失败 {failed}",
+  "@addBookUrlFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "bookListImportFinished": "书单导入完成：成功 {success}，跳过 {skipped}，失败 {failed}",
+  "@bookListImportFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "bookListReadFailed": "读取书单文件失败: {error}",
+  "@bookListReadFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "bookListFetchFailed": "拉取书单失败: {error}",
+  "@bookListFetchFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "batchDownloadCount": "批量下载 {count} 本（对标原版批量下载）",
+  "@batchDownloadCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "moveBookGroupCount": "移动分组 {count} 本（对标原版 GroupSelectSheet）",
+  "@moveBookGroupCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "localBooks": "本地",
+  "@localBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "audioBooks": "音频",
+  "@audioBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "videoBooks": "视频",
+  "@videoBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "ungroupedOnlineBooks": "网络未分组",
+  "@ungroupedOnlineBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "ungroupedLocalBooks": "本地未分组",
+  "@ungroupedLocalBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "defaultBookGroup": "默认",
+  "@defaultBookGroup": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "collapseSidebar": "收起侧栏",
+  "@collapseSidebar": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "expandSidebar": "展开侧栏",
+  "@expandSidebar": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "bookshelfGroups": "书架分组",
+  "@bookshelfGroups": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "bookGroupNumber": "分组 {number}",
+  "@bookGroupNumber": {
+    "description": "按分组位掩码显示的默认分组标签，不用于重命名用户分组",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "refresh": "刷新",
+  "@refresh": {
+    "description": "发现与订阅浏览界面：刷新"
+  },
+  "login": "登录",
+  "@login": {
+    "description": "发现与订阅浏览界面：登录"
+  },
+  "close": "关闭",
+  "@close": {
+    "description": "发现与订阅浏览界面：关闭"
+  },
+  "clear": "清空",
+  "@clear": {
+    "description": "发现与订阅浏览界面：清空"
+  },
+  "clearAction": "清除",
+  "@clearAction": {
+    "description": "发现与订阅浏览界面：清除"
+  },
+  "notice": "提示",
+  "@notice": {
+    "description": "发现与订阅浏览界面：提示"
+  },
+  "favorites": "收藏",
+  "@favorites": {
+    "description": "发现与订阅浏览界面：收藏"
+  },
+  "favoriteAction": "收藏",
+  "@favoriteAction": {
+    "description": "发现与订阅浏览界面：收藏"
+  },
+  "unfavoriteAction": "取消收藏",
+  "@unfavoriteAction": {
+    "description": "发现与订阅浏览界面：取消收藏"
+  },
+  "favorited": "已收藏",
+  "@favorited": {
+    "description": "发现与订阅浏览界面：已收藏"
+  },
+  "unfavorited": "已取消收藏",
+  "@unfavorited": {
+    "description": "发现与订阅浏览界面：已取消收藏"
+  },
+  "rssFavorites": "RSS 收藏",
+  "@rssFavorites": {
+    "description": "发现与订阅浏览界面：RSS 收藏"
+  },
+  "ruleSubscriptions": "规则订阅",
+  "@ruleSubscriptions": {
+    "description": "发现与订阅浏览界面：规则订阅"
+  },
+  "filterDiscoverySources": "筛选发现源",
+  "@filterDiscoverySources": {
+    "description": "发现与订阅浏览界面：筛选发现源"
+  },
+  "emptyDiscoverySources": "当前没有发现源！",
+  "@emptyDiscoverySources": {
+    "description": "发现与订阅浏览界面：当前没有发现源！"
+  },
+  "selectDiscoveryCategory": "选择发现分类",
+  "@selectDiscoveryCategory": {
+    "description": "发现与订阅浏览界面：选择发现分类"
+  },
+  "selectDiscoveryCategoryHint": "展开左侧书源并点击分类，在此浏览书籍",
+  "@selectDiscoveryCategoryHint": {
+    "description": "发现与订阅浏览界面：展开左侧书源并点击分类，在此浏览书籍"
+  },
+  "sourceRemoved": "已卸载",
+  "@sourceRemoved": {
+    "description": "发现与订阅浏览界面：已卸载"
+  },
+  "sourcePinned": "已置顶",
+  "@sourcePinned": {
+    "description": "发现与订阅浏览界面：已置顶"
+  },
+  "loginSuccess": "登录成功",
+  "@loginSuccess": {
+    "description": "发现与订阅浏览界面：登录成功"
+  },
+  "noCategories": "无分类",
+  "@noCategories": {
+    "description": "发现与订阅浏览界面：无分类"
+  },
+  "noLoadedBooks": "没有已加载的书籍",
+  "@noLoadedBooks": {
+    "description": "发现与订阅浏览界面：没有已加载的书籍"
+  },
+  "invalidArguments": "参数错误",
+  "@invalidArguments": {
+    "description": "发现与订阅浏览界面：参数错误"
+  },
+  "missingDiscoveryCategory": "缺少发现分类参数",
+  "@missingDiscoveryCategory": {
+    "description": "发现与订阅浏览界面：缺少发现分类参数"
+  },
+  "filter": "筛选",
+  "@filter": {
+    "description": "发现与订阅浏览界面：筛选"
+  },
+  "switchComfortableLayout": "切换为舒适",
+  "@switchComfortableLayout": {
+    "description": "发现与订阅浏览界面：切换为舒适"
+  },
+  "switchCompactLayout": "切换为紧凑",
+  "@switchCompactLayout": {
+    "description": "发现与订阅浏览界面：切换为紧凑"
+  },
+  "loadedBooksFilterHint": "按关键字过滤已加载的书籍（匹配书名或作者，忽略英文字母大小写）",
+  "@loadedBooksFilterHint": {
+    "description": "发现与订阅浏览界面：按关键字过滤已加载的书籍（匹配书名或作者，忽略英文字母大小写）"
+  },
+  "filterKeywordHint": "关键字（留空=不过滤）",
+  "@filterKeywordHint": {
+    "description": "发现与订阅浏览界面：关键字（留空=不过滤）"
+  },
+  "sourceLoginRequired": "书源需要登录",
+  "@sourceLoginRequired": {
+    "description": "发现与订阅浏览界面：书源需要登录"
+  },
+  "sourceLoginRequiredHint": "登录后即可浏览该分类内容",
+  "@sourceLoginRequiredHint": {
+    "description": "发现与订阅浏览界面：登录后即可浏览该分类内容"
+  },
+  "goToLogin": "去登录",
+  "@goToLogin": {
+    "description": "发现与订阅浏览界面：去登录"
+  },
+  "emptyBooks": "暂无书籍",
+  "@emptyBooks": {
+    "description": "发现与订阅浏览界面：暂无书籍"
+  },
+  "emptyCategoryBooksHint": "该分类下没有找到书籍",
+  "@emptyCategoryBooksHint": {
+    "description": "发现与订阅浏览界面：该分类下没有找到书籍"
+  },
+  "noFilteredBooks": "筛选后无匹配书籍",
+  "@noFilteredBooks": {
+    "description": "发现与订阅浏览界面：筛选后无匹配书籍"
+  },
+  "loadPreviousPageHint": "上滑加载上一页",
+  "@loadPreviousPageHint": {
+    "description": "发现与订阅浏览界面：上滑加载上一页"
+  },
+  "tapToRetryLoad": "加载失败，点击重试",
+  "@tapToRetryLoad": {
+    "description": "发现与订阅浏览界面：加载失败，点击重试"
+  },
+  "discoveryCategoriesLoadFailed": "发现分类加载失败",
+  "@discoveryCategoriesLoadFailed": {
+    "description": "发现与订阅浏览界面：发现分类加载失败"
+  },
+  "selectPage": "选择页码",
+  "@selectPage": {
+    "description": "发现与订阅浏览界面：选择页码"
+  },
+  "collapseSearch": "收起搜索",
+  "@collapseSearch": {
+    "description": "发现与订阅浏览界面：收起搜索"
+  },
+  "expandSearch": "展开搜索",
+  "@expandSearch": {
+    "description": "发现与订阅浏览界面：展开搜索"
+  },
+  "changeSource": "换源",
+  "@changeSource": {
+    "description": "发现与订阅浏览界面：换源"
+  },
+  "deleteRssSource": "删除 RSS 源",
+  "@deleteRssSource": {
+    "description": "发现与订阅浏览界面：删除 RSS 源"
+  },
+  "loadingRssSources": "加载 RSS 源...",
+  "@loadingRssSources": {
+    "description": "发现与订阅浏览界面：加载 RSS 源..."
+  },
+  "emptyRssSources": "当前没有订阅源！",
+  "@emptyRssSources": {
+    "description": "发现与订阅浏览界面：当前没有订阅源！"
+  },
+  "emptyGroupRssSources": "当前分组暂无订阅源",
+  "@emptyGroupRssSources": {
+    "description": "发现与订阅浏览界面：当前分组暂无订阅源"
+  },
+  "noReadingRecords": "暂无阅读记录",
+  "@noReadingRecords": {
+    "description": "发现与订阅浏览界面：暂无阅读记录"
+  },
+  "untitled": "（无标题）",
+  "@untitled": {
+    "description": "发现与订阅浏览界面：（无标题）"
+  },
+  "refreshSort": "刷新排序",
+  "@refreshSort": {
+    "description": "发现与订阅浏览界面：刷新排序"
+  },
+  "setSourceVariable": "设置源变量",
+  "@setSourceVariable": {
+    "description": "发现与订阅浏览界面：设置源变量"
+  },
+  "editSource": "编辑源",
+  "@editSource": {
+    "description": "发现与订阅浏览界面：编辑源"
+  },
+  "switchLayout": "切换布局",
+  "@switchLayout": {
+    "description": "发现与订阅浏览界面：切换布局"
+  },
+  "loadingArticles": "加载文章...",
+  "@loadingArticles": {
+    "description": "发现与订阅浏览界面：加载文章..."
+  },
+  "emptyArticles": "暂无文章",
+  "@emptyArticles": {
+    "description": "发现与订阅浏览界面：暂无文章"
+  },
+  "refreshArticlesHint": "下拉刷新获取最新内容",
+  "@refreshArticlesHint": {
+    "description": "发现与订阅浏览界面：下拉刷新获取最新内容"
+  },
+  "readArticle": "已读",
+  "@readArticle": {
+    "description": "发现与订阅浏览界面：已读"
+  },
+  "sourceVariableHint": "源变量可在 JS 中通过 source.getVariable() 获取",
+  "@sourceVariableHint": {
+    "description": "发现与订阅浏览界面：源变量可在 JS 中通过 source.getVariable() 获取"
+  },
+  "sourceVariableSaved": "源变量已保存",
+  "@sourceVariableSaved": {
+    "description": "发现与订阅浏览界面：源变量已保存"
+  },
+  "confirmClearArticles": "将清空本源本地缓存的文章列表，确定继续吗？",
+  "@confirmClearArticles": {
+    "description": "发现与订阅浏览界面：将清空本源本地缓存的文章列表，确定继续吗？"
+  },
+  "articleCacheCleared": "本源文章缓存已清空",
+  "@articleCacheCleared": {
+    "description": "发现与订阅浏览界面：本源文章缓存已清空"
+  },
+  "unknownSource": "未知来源",
+  "@unknownSource": {
+    "description": "发现与订阅浏览界面：未知来源"
+  },
+  "loadingFavorites": "加载收藏...",
+  "@loadingFavorites": {
+    "description": "发现与订阅浏览界面：加载收藏..."
+  },
+  "emptyFavoriteArticles": "暂无收藏文章",
+  "@emptyFavoriteArticles": {
+    "description": "发现与订阅浏览界面：暂无收藏文章"
+  },
+  "favoriteArticlesHint": "浏览 RSS 文章时点亮星标即可收藏",
+  "@favoriteArticlesHint": {
+    "description": "发现与订阅浏览界面：浏览 RSS 文章时点亮星标即可收藏"
+  },
+  "articleDetails": "文章详情",
+  "@articleDetails": {
+    "description": "发现与订阅浏览界面：文章详情"
+  },
+  "switchToPlainText": "切换为纯文本",
+  "@switchToPlainText": {
+    "description": "发现与订阅浏览界面：切换为纯文本"
+  },
+  "switchToWebView": "切换为 WebView",
+  "@switchToWebView": {
+    "description": "发现与订阅浏览界面：切换为 WebView"
+  },
+  "openInBrowser": "在浏览器中打开",
+  "@openInBrowser": {
+    "description": "发现与订阅浏览界面：在浏览器中打开"
+  },
+  "share": "分享",
+  "@share": {
+    "description": "发现与订阅浏览界面：分享"
+  },
+  "viewOriginalInBrowser": "在浏览器中查看原文",
+  "@viewOriginalInBrowser": {
+    "description": "发现与订阅浏览界面：在浏览器中查看原文"
+  },
+  "webViewLoadFailed": "WebView 加载失败",
+  "@webViewLoadFailed": {
+    "description": "发现与订阅浏览界面：WebView 加载失败"
+  },
+  "webViewUnavailableHint": "当前平台不支持 WebView，已降级为纯文本显示",
+  "@webViewUnavailableHint": {
+    "description": "发现与订阅浏览界面：当前平台不支持 WebView，已降级为纯文本显示"
+  },
+  "viewOriginalLink": "查看原文链接",
+  "@viewOriginalLink": {
+    "description": "发现与订阅浏览界面：查看原文链接"
+  },
+  "sourcePinFailed": "置顶失败: {error}",
+  "@sourcePinFailed": {
+    "description": "发现与订阅浏览提示：置顶失败: {error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "addedToShelfCount": "已加入书架 {count} 本",
+  "@addedToShelfCount": {
+    "description": "发现与订阅浏览提示：已加入书架 {count} 本",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addToShelfFailed": "加入书架失败: {error}",
+  "@addToShelfFailed": {
+    "description": "发现与订阅浏览提示：加入书架失败: {error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "activeKeywordFilter": "筛选（已开启：{keyword}）",
+  "@activeKeywordFilter": {
+    "description": "发现与订阅浏览提示：筛选（已开启：{keyword}）",
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "noLoadedBooksMatch": "已加载的书籍中没有匹配「{keyword}」",
+  "@noLoadedBooksMatch": {
+    "description": "发现与订阅浏览提示：已加载的书籍中没有匹配「{keyword}」",
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "pageNumber": "第 {page} 页",
+  "@pageNumber": {
+    "description": "发现与订阅浏览提示：第 {page} 页",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "confirmDeleteNamedSource": "确定要删除「{name}」吗？",
+  "@confirmDeleteNamedSource": {
+    "description": "发现与订阅浏览提示：确定要删除「{name}」吗？",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotOpenLink": "无法打开链接：{url}",
+  "@cannotOpenLink": {
+    "description": "发现与订阅浏览提示：无法打开链接：{url}",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteReadingRecordCount": "确定要删除？\n{count} 条阅读记录",
+  "@confirmDeleteReadingRecordCount": {
+    "description": "发现与订阅浏览提示：确定要删除？\n{count} 条阅读记录",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sourceVariableSaveFailed": "保存源变量失败：{error}",
+  "@sourceVariableSaveFailed": {
+    "description": "发现与订阅浏览提示：保存源变量失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "layoutSaveFailed": "布局保存失败：{error}",
+  "@layoutSaveFailed": {
+    "description": "发现与订阅浏览提示：布局保存失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "clearFailed": "清空失败：{error}",
+  "@clearFailed": {
+    "description": "发现与订阅浏览提示：清空失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "operationFailed": "操作失败：{error}",
+  "@operationFailed": {
+    "description": "发现与订阅浏览提示：操作失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "favoriteOperationFailed": "收藏操作失败：{error}",
+  "@favoriteOperationFailed": {
+    "description": "发现与订阅浏览提示：收藏操作失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRssSources": "搜索订阅源",
+  "@searchRssSources": {
+    "description": "订阅源管理与共用分组界面：搜索订阅源"
+  },
+  "enabled": "已启用",
+  "@enabled": {
+    "description": "订阅源管理与共用分组界面：已启用"
+  },
+  "disabled": "已禁用",
+  "@disabled": {
+    "description": "订阅源管理与共用分组界面：已禁用"
+  },
+  "loginRequired": "需登录",
+  "@loginRequired": {
+    "description": "订阅源管理与共用分组界面：需登录"
+  },
+  "ungrouped": "未分组",
+  "@ungrouped": {
+    "description": "订阅源管理与共用分组界面：未分组"
+  },
+  "addRssSource": "新增订阅源",
+  "@addRssSource": {
+    "description": "订阅源管理与共用分组界面：新增订阅源"
+  },
+  "importLocal": "本地导入",
+  "@importLocal": {
+    "description": "订阅源管理与共用分组界面：本地导入"
+  },
+  "importOnline": "网络导入",
+  "@importOnline": {
+    "description": "订阅源管理与共用分组界面：网络导入"
+  },
+  "importQrCode": "二维码导入",
+  "@importQrCode": {
+    "description": "订阅源管理与共用分组界面：二维码导入"
+  },
+  "importDefaultRules": "导入默认规则",
+  "@importDefaultRules": {
+    "description": "订阅源管理与共用分组界面：导入默认规则"
+  },
+  "enableSelected": "启用选中",
+  "@enableSelected": {
+    "description": "订阅源管理与共用分组界面：启用选中"
+  },
+  "disableSelected": "禁用选中",
+  "@disableSelected": {
+    "description": "订阅源管理与共用分组界面：禁用选中"
+  },
+  "addToGroup": "添加到分组",
+  "@addToGroup": {
+    "description": "订阅源管理与共用分组界面：添加到分组"
+  },
+  "removeGroup": "移除分组",
+  "@removeGroup": {
+    "description": "订阅源管理与共用分组界面：移除分组"
+  },
+  "pinSelected": "选中置顶",
+  "@pinSelected": {
+    "description": "订阅源管理与共用分组界面：选中置顶"
+  },
+  "bottomSelected": "选中置底",
+  "@bottomSelected": {
+    "description": "订阅源管理与共用分组界面：选中置底"
+  },
+  "exportSelected": "导出选中",
+  "@exportSelected": {
+    "description": "订阅源管理与共用分组界面：导出选中"
+  },
+  "shareSources": "分享源",
+  "@shareSources": {
+    "description": "订阅源管理与共用分组界面：分享源"
+  },
+  "selectRange": "选择区间",
+  "@selectRange": {
+    "description": "订阅源管理与共用分组界面：选择区间"
+  },
+  "noMatchingRssSources": "没有匹配的订阅源",
+  "@noMatchingRssSources": {
+    "description": "订阅源管理与共用分组界面：没有匹配的订阅源"
+  },
+  "addRssSourceHint": "点击右上角菜单「新增订阅源」或导入订阅源",
+  "@addRssSourceHint": {
+    "description": "订阅源管理与共用分组界面：点击右上角菜单「新增订阅源」或导入订阅源"
+  },
+  "moveToBottom": "置底",
+  "@moveToBottom": {
+    "description": "订阅源管理与共用分组界面：置底"
+  },
+  "deleteRssSources": "删除订阅源",
+  "@deleteRssSources": {
+    "description": "订阅源管理与共用分组界面：删除订阅源"
+  },
+  "selectRssSourcesFirst": "请先选择订阅源",
+  "@selectRssSourcesFirst": {
+    "description": "订阅源管理与共用分组界面：请先选择订阅源"
+  },
+  "selectedRssSourcesEnabled": "已启用所选订阅源",
+  "@selectedRssSourcesEnabled": {
+    "description": "订阅源管理与共用分组界面：已启用所选订阅源"
+  },
+  "selectedRssSourcesDisabled": "已禁用所选订阅源",
+  "@selectedRssSourcesDisabled": {
+    "description": "订阅源管理与共用分组界面：已禁用所选订阅源"
+  },
+  "selectedRssSourcesDeleted": "已删除所选订阅源",
+  "@selectedRssSourcesDeleted": {
+    "description": "订阅源管理与共用分组界面：已删除所选订阅源"
+  },
+  "selectedRssSourcesPinned": "已置顶所选订阅源",
+  "@selectedRssSourcesPinned": {
+    "description": "订阅源管理与共用分组界面：已置顶所选订阅源"
+  },
+  "selectedRssSourcesBottom": "已置底所选订阅源",
+  "@selectedRssSourcesBottom": {
+    "description": "订阅源管理与共用分组界面：已置底所选订阅源"
+  },
+  "groupNameHint": "输入分组名称",
+  "@groupNameHint": {
+    "description": "订阅源管理与共用分组界面：输入分组名称"
+  },
+  "noRemovableSourceGroups": "所选订阅源没有可移除的分组",
+  "@noRemovableSourceGroups": {
+    "description": "订阅源管理与共用分组界面：所选订阅源没有可移除的分组"
+  },
+  "selectTwoRssSourcesFirst": "请先选择两个以上的订阅源",
+  "@selectTwoRssSourcesFirst": {
+    "description": "订阅源管理与共用分组界面：请先选择两个以上的订阅源"
+  },
+  "invalidRssSources": "格式错误，未解析到订阅源",
+  "@invalidRssSources": {
+    "description": "订阅源管理与共用分组界面：格式错误，未解析到订阅源"
+  },
+  "importFinished": "导入完成",
+  "@importFinished": {
+    "description": "订阅源管理与共用分组界面：导入完成"
+  },
+  "filePathUnavailable": "无法获取文件路径",
+  "@filePathUnavailable": {
+    "description": "订阅源管理与共用分组界面：无法获取文件路径"
+  },
+  "invalidRssQrCode": "扫码内容不是可识别的订阅源数据",
+  "@invalidRssQrCode": {
+    "description": "订阅源管理与共用分组界面：扫码内容不是可识别的订阅源数据"
+  },
+  "defaultRssSourcesSynced": "默认订阅源已同步",
+  "@defaultRssSourcesSynced": {
+    "description": "订阅源管理与共用分组界面：默认订阅源已同步"
+  },
+  "importRssSourcesFromUrl": "从 URL 导入订阅源",
+  "@importRssSourcesFromUrl": {
+    "description": "订阅源管理与共用分组界面：从 URL 导入订阅源"
+  },
+  "rssSourceUrlHint": "输入订阅源 URL 地址",
+  "@rssSourceUrlHint": {
+    "description": "订阅源管理与共用分组界面：输入订阅源 URL 地址"
+  },
+  "history": "历史记录",
+  "@history": {
+    "description": "订阅源管理与共用分组界面：历史记录"
+  },
+  "importRssSources": "导入订阅源",
+  "@importRssSources": {
+    "description": "订阅源管理与共用分组界面：导入订阅源"
+  },
+  "customSourceGroup": "自定义源分组",
+  "@customSourceGroup": {
+    "description": "订阅源管理与共用分组界面：自定义源分组"
+  },
+  "keepSourceName": "保留原名",
+  "@keepSourceName": {
+    "description": "订阅源管理与共用分组界面：保留原名"
+  },
+  "keepSourceGroup": "保留分组",
+  "@keepSourceGroup": {
+    "description": "订阅源管理与共用分组界面：保留分组"
+  },
+  "keepSourceEnabled": "保留启用状态",
+  "@keepSourceEnabled": {
+    "description": "订阅源管理与共用分组界面：保留启用状态"
+  },
+  "showSourceComment": "显示源注释",
+  "@showSourceComment": {
+    "description": "订阅源管理与共用分组界面：显示源注释"
+  },
+  "copiedToClipboard": "已复制到剪贴板",
+  "@copiedToClipboard": {
+    "description": "订阅源管理与共用分组界面：已复制到剪贴板"
+  },
+  "copy": "复制",
+  "@copy": {
+    "description": "订阅源管理与共用分组界面：复制"
+  },
+  "importStatusNew": "新增",
+  "@importStatusNew": {
+    "description": "订阅源管理与共用分组界面：新增"
+  },
+  "importStatusUpdated": "更新",
+  "@importStatusUpdated": {
+    "description": "订阅源管理与共用分组界面：更新"
+  },
+  "importStatusExisting": "已有",
+  "@importStatusExisting": {
+    "description": "订阅源管理与共用分组界面：已有"
+  },
+  "open": "打开",
+  "@open": {
+    "description": "订阅源管理与共用分组界面：打开"
+  },
+  "addGroup": "添加分组",
+  "@addGroup": {
+    "description": "订阅源管理与共用分组界面：添加分组"
+  },
+  "groupName": "分组名称",
+  "@groupName": {
+    "description": "订阅源管理与共用分组界面：分组名称"
+  },
+  "renameGroup": "重命名分组",
+  "@renameGroup": {
+    "description": "订阅源管理与共用分组界面：重命名分组"
+  },
+  "newGroupNameHint": "输入新分组名称",
+  "@newGroupNameHint": {
+    "description": "订阅源管理与共用分组界面：输入新分组名称"
+  },
+  "deleteGroup": "删除分组",
+  "@deleteGroup": {
+    "description": "订阅源管理与共用分组界面：删除分组"
+  },
+  "emptyGroups": "暂无分组",
+  "@emptyGroups": {
+    "description": "订阅源管理与共用分组界面：暂无分组"
+  },
+  "rename": "重命名",
+  "@rename": {
+    "description": "订阅源管理与共用分组界面：重命名"
+  },
+  "customSourceGroupName": "输入自定义源分组名称",
+  "@customSourceGroupName": {
+    "description": "订阅源管理与共用分组界面：输入自定义源分组名称"
+  },
+  "addGroupModeHint": "关闭替换分组 / 开启添加分组",
+  "@addGroupModeHint": {
+    "description": "订阅源管理与共用分组界面：关闭替换分组 / 开启添加分组"
+  },
+  "rssSourceNoun": "订阅源",
+  "@rssSourceNoun": {
+    "description": "订阅源管理与共用分组界面：订阅源"
+  },
+  "bookSourceNoun": "书源",
+  "@bookSourceNoun": {
+    "description": "订阅源管理与共用分组界面：书源"
+  },
+  "ruleNoun": "规则",
+  "@ruleNoun": {
+    "description": "订阅源管理与共用分组界面：规则"
+  },
+  "sourceEnabledToggleFailed": "切换启用状态失败：{error}",
+  "@sourceEnabledToggleFailed": {
+    "description": "订阅源管理与分组操作提示：切换启用状态失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFailed": "删除失败：{error}",
+  "@deleteFailed": {
+    "description": "订阅源管理与分组操作提示：删除失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sortSaveFailed": "保存排序失败：{error}",
+  "@sortSaveFailed": {
+    "description": "订阅源管理与分组操作提示：保存排序失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteRssSourceCount": "确定要删除选中的 {count} 个订阅源吗？",
+  "@confirmDeleteRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：确定要删除选中的 {count} 个订阅源吗？",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addedSourceGroup": "已为所选订阅源添加分组「{name}」",
+  "@addedSourceGroup": {
+    "description": "订阅源管理与分组操作提示：已为所选订阅源添加分组「{name}」",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addGroupFailed": "添加分组失败：{error}",
+  "@addGroupFailed": {
+    "description": "订阅源管理与分组操作提示：添加分组失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "removedSourceGroup": "已从所选订阅源移除分组「{name}」",
+  "@removedSourceGroup": {
+    "description": "订阅源管理与分组操作提示：已从所选订阅源移除分组「{name}」",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeGroupFailed": "移除分组失败：{error}",
+  "@removeGroupFailed": {
+    "description": "订阅源管理与分组操作提示：移除分组失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportedRssSourcesToClipboard": "已导出 {count} 个订阅源到剪贴板",
+  "@exportedRssSourcesToClipboard": {
+    "description": "订阅源管理与分组操作提示：已导出 {count} 个订阅源到剪贴板",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportFailed": "导出失败：{error}",
+  "@exportFailed": {
+    "description": "订阅源管理与分组操作提示：导出失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "shareRssSourceCount": "订阅源分享（{count} 个）",
+  "@shareRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：订阅源分享（{count} 个）",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shareFailed": "分享失败：{error}",
+  "@shareFailed": {
+    "description": "订阅源管理与分组操作提示：分享失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importFromFileFailed": "从文件导入失败：{error}",
+  "@importFromFileFailed": {
+    "description": "订阅源管理与分组操作提示：从文件导入失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchRssSourcesFailed": "获取订阅源失败：{error}",
+  "@fetchRssSourcesFailed": {
+    "description": "订阅源管理与分组操作提示：获取订阅源失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importedDefaultRssSourceCount": "已导入 {count} 条默认订阅源",
+  "@importedDefaultRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：已导入 {count} 条默认订阅源",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importDefaultRulesFailed": "导入默认规则失败：{error}",
+  "@importDefaultRulesFailed": {
+    "description": "订阅源管理与分组操作提示：导入默认规则失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "rssSourceImportFailed": "导入失败：{error}",
+  "@rssSourceImportFailed": {
+    "description": "订阅源管理与分组操作提示：导入失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "selectAllCount": "全选（{selected}/{total}）",
+  "@selectAllCount": {
+    "description": "订阅源管理与分组操作提示：全选（{selected}/{total}）",
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deselectAllCount": "取消全选（{selected}/{total}）",
+  "@deselectAllCount": {
+    "description": "订阅源管理与分组操作提示：取消全选（{selected}/{total}）",
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "groupAlreadyExists": "分组「{name}」已存在",
+  "@groupAlreadyExists": {
+    "description": "订阅源管理与分组操作提示：分组「{name}」已存在",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noUngroupedItems": "没有未分组的{noun}可归入该分组",
+  "@noUngroupedItems": {
+    "description": "订阅源管理与分组操作提示：没有未分组的{noun}可归入该分组",
+    "placeholders": {
+      "noun": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteItemGroup": "确定要删除分组「{name}」吗？分组内{noun}将移出该分组。",
+  "@confirmDeleteItemGroup": {
+    "description": "订阅源管理与分组操作提示：确定要删除分组「{name}」吗？分组内{noun}将移出该分组。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "noun": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 
 import '../constants/pref_keys.dart';
 import '../bridge/ffi.dart';
-import '../l10n/app_strings.dart';
+import '../l10n/app_localization.dart';
 import '../providers/app_locale_notifier.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/providers.dart';
@@ -194,7 +194,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: LegadoAppBar(title: const Text('高级')),
+      topBar: LegadoAppBar(title: Text(context.l10n.advanced)),
       body: IosGroupedBody(
         child: ListView(
           padding: const EdgeInsets.only(top: 16, bottom: 32),
@@ -532,11 +532,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   String get _localeLabel {
     switch (_localeValue) {
       case 'zh':
-        return AppStrings.langChinese;
+        return context.l10n.langChinese;
       case 'en':
-        return AppStrings.langEnglish;
+        return context.l10n.langEnglish;
       default:
-        return AppStrings.langSystem;
+        return context.l10n.langSystem;
     }
   }
 
@@ -834,7 +834,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.cancel),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -886,11 +886,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.cancel),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppStrings.confirm),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -1023,7 +1023,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(AppStrings.cancel),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -1034,7 +1034,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
               }
               Navigator.pop(ctx, parsed);
             },
-            child: Text(AppStrings.confirm),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -1064,11 +1064,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(AppStrings.cancel),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(AppStrings.confirm),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -1079,11 +1079,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text(AppStrings.language),
+        title: Text(context.l10n.language),
         children: [
-          _buildLocaleOption(ctx, 'system', AppStrings.langSystem),
-          _buildLocaleOption(ctx, 'zh', AppStrings.langChinese),
-          _buildLocaleOption(ctx, 'en', AppStrings.langEnglish),
+          _buildLocaleOption(ctx, 'system', context.l10n.langSystem),
+          _buildLocaleOption(ctx, 'zh', context.l10n.langChinese),
+          _buildLocaleOption(ctx, 'en', context.l10n.langEnglish),
         ],
       ),
     ).then((selectedLocale) async {
@@ -1292,11 +1292,11 @@ class _CheckSourceConfigDialogState extends State<_CheckSourceConfigDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppStrings.cancel),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _onConfirm,
-          child: Text(AppStrings.confirm),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );
@@ -1388,11 +1388,11 @@ class _McpPortDialogState extends State<_McpPortDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppStrings.cancel),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _confirm,
-          child: Text(AppStrings.confirm),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );
@@ -1452,11 +1452,11 @@ class _CustomHostsDialogState extends State<_CustomHostsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppStrings.cancel),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: Text(AppStrings.confirm),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );

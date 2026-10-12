@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/app_localization.dart';
+
 /// 热力图配色模式（对齐参考仓库 HeatmapMode）
 enum Md3HeatmapMode {
   /// 每日阅读时长（秒；数据源 readRecordDailyList，Rust 契约 2026-08-29）
@@ -100,11 +102,11 @@ class Md3HeatmapCalendar extends StatelessWidget {
     return 4;
   }
 
-  String _formatDuration(int seconds) {
-    if (seconds < 60) return '$seconds 秒';
+  String _formatDuration(BuildContext context, int seconds) {
+    if (seconds < 60) return context.l10n.secondCount(seconds);
     final m = seconds ~/ 60;
-    if (m < 60) return '$m 分钟';
-    return '${m ~/ 60} 小时 ${m % 60} 分';
+    if (m < 60) return context.l10n.minuteCount(m);
+    return context.l10n.hourMinuteCount(m ~/ 60, m % 60);
   }
 
   @override
@@ -138,9 +140,9 @@ class Md3HeatmapCalendar extends StatelessWidget {
     String tooltipFor(DateTime day, int level) {
       if (day.isAfter(todayDay)) return '';
       if (mode == Md3HeatmapMode.duration) {
-        return '${day.month}/${day.day} · ${_formatDuration(dailySeconds[day] ?? 0)}';
+        return '${day.month}/${day.day} · ${_formatDuration(context, dailySeconds[day] ?? 0)}';
       }
-      return '${day.month}/${day.day} · ${dailyCounts[day] ?? 0} 本';
+      return '${day.month}/${day.day} · ${context.l10n.bookCount(dailyCounts[day] ?? 0)}';
     }
 
     return Column(
@@ -192,10 +194,8 @@ class Md3HeatmapCalendar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Text(
-              '少',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
+              context.l10n.heatmapLess,
+              style: Theme.of(context).textTheme.labelSmall
                   ?.copyWith(color: scheme.onSurfaceVariant),
             ),
             for (var level = 0; level <= 4; level++)
@@ -212,11 +212,9 @@ class Md3HeatmapCalendar extends StatelessWidget {
               ),
             Text(
               mode == Md3HeatmapMode.duration
-                  ? '多'
-                  : '多（格 = 当日阅读书籍数）',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
+                  ? context.l10n.heatmapMore
+                  : context.l10n.heatmapBooksLegend,
+              style: Theme.of(context).textTheme.labelSmall
                   ?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],

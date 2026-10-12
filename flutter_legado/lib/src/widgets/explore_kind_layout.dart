@@ -5,6 +5,8 @@
 /// java.refreshExplore 触发分类重载。
 library;
 
+import '../l10n/app_localization.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -108,17 +110,16 @@ class ExploreKindLayout extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => AlertDialog(
-        title: const Text('发现分类加载失败'),
+        title: Text(context.l10n.discoveryCategoriesLoadFailed),
         content: SelectableText(
           message,
           style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-              ),
+                color: Theme.of(ctx).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('确定'),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -292,7 +293,8 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
   }
 
   String _resolveInitialLabel() {
-    final literal = ExploreKindActionRunner.literalViewName(widget.category.viewName);
+    final literal = ExploreKindActionRunner.literalViewName(widget.category.viewName,
+    );
     if (literal != null) return literal;
     return widget.fallback;
   }
@@ -306,8 +308,7 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
     try {
       final text = await ref.read(bookApiProvider).exploreEvalUiJs(
             sourceJson: widget.sourceJson,
-            jsStr: viewName,
-          );
+            jsStr: viewName);
       if (!mounted) return;
       setState(() {
         _label = text.isEmpty ? 'null' : text;
@@ -442,8 +443,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
     await ref.read(bookApiProvider).exploreInfoMapPut(
           widget.sourceUrl,
           widget.category.title,
-          value,
-        );
+          value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -491,7 +491,8 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
                 borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius),
+                    BorderRadius.circular(ExploreKindLayout._kChipRadius,
+                ),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -568,8 +569,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     await ref.read(bookApiProvider).exploreInfoMapPut(
           widget.sourceUrl,
           widget.category.title,
-          value,
-        );
+          value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -588,8 +588,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
   Future<void> _showPicker() async {
     if (_busy) return;
     final titleLabel = ExploreKindActionRunner.literalViewName(
-          widget.category.viewName,
-        ) ??
+          widget.category.viewName) ??
         widget.category.title;
 
     final picked = await showMd3WheelPickerSheet(
@@ -628,7 +627,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
                 borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius),
+                    BorderRadius.circular(ExploreKindLayout._kChipRadius,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -713,8 +713,7 @@ class _TextChipState extends ConsumerState<_TextChip> {
     ref.read(bookApiProvider).exploreInfoMapPut(
           widget.sourceUrl,
           widget.category.title,
-          text,
-        );
+          text);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     _debounce?.cancel();
@@ -762,7 +761,8 @@ class _TextChipState extends ConsumerState<_TextChip> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6,
+          ),
         ),
       ),
     );
