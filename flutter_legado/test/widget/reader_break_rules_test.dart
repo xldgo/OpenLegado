@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/zh_layout.dart';
 import 'package:flutter_legado/src/widgets/reader/text_break_rules.dart';
 import 'package:flutter_legado/src/widgets/reader/line_text_span.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
@@ -10,14 +9,6 @@ import 'package:flutter/rendering.dart' show RenderParagraph;
 
 void main() {
   test('中文初次断行和后续回退共享完整的避头尾集合', () {
-    expect(
-      identical(ZhLayout.postPanc, ChinesePunctuationRule.beginningPunctuation),
-      isTrue,
-    );
-    expect(
-      identical(ZhLayout.prePanc, ChinesePunctuationRule.endingPunctuation),
-      isTrue,
-    );
     for (final punctuation in ['”', '’', '）', '：', '；', '。']) {
       expect(TextBreakRules.forbidden('甲', punctuation), isTrue);
     }

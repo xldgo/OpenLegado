@@ -14,12 +14,12 @@ void main() {
         endIndex: 4,
         lines: [
           LineInfo(
-            words: ['　　相同正文'],
+            words: ['相同正文'],
             width: 90,
             height: 24,
             startIndex: 0,
             endIndex: 4,
-            virtualPrefixLength: 2,
+            indentWidth: 32,
           ),
         ],
       ),
@@ -29,12 +29,12 @@ void main() {
         endIndex: 10,
         lines: [
           LineInfo(
-            words: ['　　相同正文'],
+            words: ['相同正文'],
             width: 90,
             height: 24,
             startIndex: 6,
             endIndex: 10,
-            virtualPrefixLength: 2,
+            indentWidth: 32,
           ),
         ],
       ),

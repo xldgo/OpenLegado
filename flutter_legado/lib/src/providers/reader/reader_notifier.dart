@@ -37,7 +37,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   static String chapterIdFor(BookChapter chapter, int index) =>
       chapter.url.isNotEmpty ? chapter.url : '$index:${chapter.title}';
 
-  /// 页码只供翻页和旧进度兼容；重排使用这个原文位置。
+  /// 页码只供当前布局翻页；保存与重排使用原文锚点。
   int? get currentSourceOffset {
     final chapter = state.currentChapter;
     final anchor = _sourceAnchor;
@@ -285,22 +285,19 @@ class ReaderNotifier extends Notifier<ReaderState> {
         if (openSeq != _openSeq) return; // [C1b-hunt]
       }
       var chapterIndex = book.durChapterIndex;
-      var chapterPos = book.durChapterPos;
       if (chapterIndex >= chapters.length && chapters.isNotEmpty) {
         chapterIndex = 0;
-        chapterPos = 0;
       }
       final anchor = await _positionStore.read(
         book.bookUrl,
         chapterIndex: chapterIndex,
-        legacyPageIndex: chapterPos,
       );
       if (openSeq != _openSeq || !ref.mounted) return;
       _sourceAnchor = anchor;
       state = state.copyWith(
         chapters: chapters,
         currentChapterIndex: chapterIndex,
-        currentChapterPos: chapterPos,
+        currentChapterPos: 0,
       );
       await _loadChapterContent();
     } catch (e) {
@@ -378,17 +375,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await _saveProgress();
   }
 
-  /// 应用 WebDAV 云端进度（对齐原版 ReadBook.setProgress）
-  Future<void> applyBookProgress({
-    required int chapterIndex,
-    required int chapterPos,
-  }) async {
+  /// 云端记录没有原文锚点时，只恢复章节，不把历史页号套用到新布局。
+  Future<void> applyBookProgress({required int chapterIndex}) async {
     if (chapterIndex < 0 || chapterIndex >= state.chapters.length) return;
     await _saveProgress();
     _sourceAnchor = null;
     state = state.copyWith(
       currentChapterIndex: chapterIndex,
-      currentChapterPos: chapterPos.clamp(0, 1 << 30),
+      currentChapterPos: 0,
       isLoading: true,
       showControls: false,
     );
@@ -494,7 +488,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
         chapterId: chapterIdFor(chapter, state.currentChapterIndex),
         chapterIndex: state.currentChapterIndex,
         sourceOffset: sourceOffset.clamp(0, state.chapterContent.length),
-        legacyPageIndex: position.clamp(0, 1 << 30),
       );
     } else {
       _sourceAnchor = null;
@@ -808,9 +801,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
       );
       if (anchor != null &&
           _anchorBookUrl == book.bookUrl &&
-          anchor.chapterIndex == book.durChapterIndex &&
-          anchor.legacyPageIndex == pos) {
+          anchor.chapterIndex == book.durChapterIndex) {
         await _positionStore.save(book.bookUrl, anchor);
+      } else if (anchor == null) {
+        // 显式回到章首或应用云端章节后，旧锚点不能在重开书时复活。
+        await _positionStore.clear(book.bookUrl);
       }
       await _upReadTime(book);
     } catch (_) {

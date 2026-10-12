@@ -130,7 +130,8 @@ void main() {
     test('useZhLayout 开关：关闭后朴素断行行数不多于避头尾断行且行宽不越界', () {
       // [UI-fix v2.0.5 | 2026-08-10] 对齐原版 useZhLayout：true=中文避头尾
       // 断行（行首禁标点、提前换行）；false=朴素按宽断行 — Reasonix
-      final content = '测试段落，包含中文标点符号，用于验证分行开关行为差异。' * 6;      const width = 140.0, height = 600.0;
+      final content = '测试段落，包含中文标点符号，用于验证分行开关行为差异。' * 6;
+      const width = 140.0, height = 600.0;
       final zhEngine = ParagraphLayoutEngine(
         config: const ParagraphConfig(
           fontSize: 16.0,
@@ -157,9 +158,15 @@ void main() {
       final plainPages = plainEngine.paginateChapter(content, width, height);
       // 朴素断行无避头尾提前换行，行数/页数不多于避头尾模式
       final zhLines = zhPages.fold<int>(
-          0, (sum, p) => sum + p.paragraphs.fold<int>(0, (s, pa) => s + pa.lines.length));
+        0,
+        (sum, p) =>
+            sum + p.paragraphs.fold<int>(0, (s, pa) => s + pa.lines.length),
+      );
       final plainLines = plainPages.fold<int>(
-          0, (sum, p) => sum + p.paragraphs.fold<int>(0, (s, pa) => s + pa.lines.length));
+        0,
+        (sum, p) =>
+            sum + p.paragraphs.fold<int>(0, (s, pa) => s + pa.lines.length),
+      );
       expect(plainLines, lessThanOrEqualTo(zhLines));
       // 朴素断行行宽不越界
       for (final page in plainPages) {
@@ -175,16 +182,7 @@ void main() {
       }
     });
 
-    test('hangingPunctuation 悬挂：shouldHang 判定与首行悬挂宽度', () {
-      // [UI-fix v2.0.5 | 2026-08-10] 对齐原版 HangingPunctuationRule +
-      // ZhLayout.hangingWidth：段首 = 缩进全角空格 + 起始引号时首行悬挂 — Reasonix
-      // shouldHang 判定
-      expect(ChinesePunctuationRule.shouldHang('　　“引号开头', 2), isTrue);
-      expect(ChinesePunctuationRule.shouldHang('　　「引号开头', 2), isTrue);
-      expect(ChinesePunctuationRule.shouldHang('　　普通开头', 2), isFalse);
-      expect(ChinesePunctuationRule.shouldHang('“无缩进', 2), isFalse);
-      expect(ChinesePunctuationRule.shouldHang('　　“', 0), isFalse);
-      // 悬挂行为：段首行悬挂宽度 = 缩进宽度，且行宽不超过 可用宽 + 悬挂宽
+    test('段首悬挂只让出引号宽度并保留独立缩进', () {
       final hangEngine = ParagraphLayoutEngine(
         config: const ParagraphConfig(
           fontSize: 16.0,
@@ -312,30 +310,6 @@ void main() {
             }
           }
         }
-      }
-    });
-  });
-
-  group('paginateChapter - 与 layoutChapter 兼容性', () {
-    test('layoutChapter 返回 paginateChapter 的最后一页', () {
-      final engine = ParagraphLayoutEngine(
-        // [A-4] 颜色必填：显式传原默认值（白底/黑字）
-        config: const ParagraphConfig(
-          fontSize: 16.0,
-          lineHeight: 1.5,
-          backgroundColor: Colors.white,
-          textColor: Colors.black,
-        ),
-        context: _FakeBuildContext(),
-      );
-      final content = List.generate(5, (i) => '段落$i：${'文字' * 30}').join('\n\n');
-
-      final pages = engine.paginateChapter(content, 300.0, 400.0);
-      final lastPage = engine.layoutChapter(content, 300.0, 400.0);
-
-      if (pages.isNotEmpty) {
-        expect(lastPage.paragraphs.length, equals(pages.last.paragraphs.length));
-        expect(lastPage.totalHeight, closeTo(pages.last.totalHeight, 0.01));
       }
     });
   });

@@ -27,8 +27,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 
 void main() {
   group('ReaderAdvancedConfig.titleFont 持久化', () {
-    test('save 写键 titleFont（无前缀，对齐 titleMode/titleSize 系列）',
-        () async {
+    test('save 写键 titleFont（无前缀，对齐 titleMode/titleSize 系列）', () async {
       SharedPreferences.setMockInitialValues({});
       await ReaderAdvancedConfig(titleFont: 'KaiTi').save();
       final prefs = await SharedPreferences.getInstance();
@@ -88,8 +87,7 @@ void main() {
       );
     }
 
-    testWidgets('标题 TextStyle.fontFamily == 测量传入值（同参断言）',
-        (tester) async {
+    testWidgets('标题 TextStyle.fontFamily == 测量传入值（同参断言）', (tester) async {
       const chrome = ReaderPageChromeConfig(titleFont: 'KaiTi');
       const bodyFont = 'SimSun';
       // 测量侧（_computeFirstPageHeight）经同一单源计算的值
@@ -97,12 +95,8 @@ void main() {
       expect(effectiveTitleFontFamily(chrome, bodyFont), expected);
 
       await tester.pumpWidget(page(chrome: chrome, bodyFont: bodyFont));
-      final title = tester
-          .widget<Text>(find.text('第一章 标题'))
-          .style!
-          .fontFamily;
-      expect(title, expected,
-          reason: '标题渲染 fontFamily 须与测量传入值一致');
+      final title = tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
+      expect(title, expected, reason: '标题渲染 fontFamily 须与测量传入值一致');
     });
 
     testWidgets('标题字体空值=跟随正文字体（修复既有偏差）', (tester) async {
@@ -111,10 +105,8 @@ void main() {
       expect(effectiveTitleFontFamily(chrome, bodyFont), bodyFont);
 
       await tester.pumpWidget(page(chrome: chrome, bodyFont: bodyFont));
-      final title =
-          tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
-      expect(title, bodyFont,
-          reason: '空 titleFont 时标题应跟随正文字体（既有偏差修复）');
+      final title = tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
+      expect(title, bodyFont, reason: '空 titleFont 时标题应跟随正文字体（既有偏差修复）');
     });
   });
 
@@ -135,8 +127,7 @@ void main() {
   });
 
   group('Tt 面板标题字体行', () {
-    testWidgets('默认显示「跟随正文」，点按跳转 FontScreen(target: title)',
-        (tester) async {
+    testWidgets('默认显示「跟随正文」，点按跳转 FontScreen(target: title)', (tester) async {
       SharedPreferences.setMockInitialValues({});
       String? capturedArgs;
       await tester.pumpWidget(
@@ -152,7 +143,10 @@ void main() {
                 );
               }
               return MaterialPageRoute<void>(
-                builder: (_) => ReaderFontPanel(config: ReaderAdvancedConfig()),
+                builder: (_) => ReaderFontPanel(
+                  config: ReaderAdvancedConfig(),
+                  titleOnly: true,
+                ),
               );
             },
           ),
@@ -178,14 +172,16 @@ void main() {
         ProviderScope(
           overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
           child: MaterialApp(
-            home: ReaderFontPanel(config: ReaderAdvancedConfig()),
+            home: ReaderFontPanel(
+              config: ReaderAdvancedConfig(),
+              titleOnly: true,
+            ),
           ),
         ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('宋体'), findsOneWidget,
-          reason: '行值应显示字体名（Custom_ 前缀剥离）');
+      expect(find.text('宋体'), findsOneWidget, reason: '行值应显示字体名（Custom_ 前缀剥离）');
       expect(find.text('跟随正文'), findsNothing);
     });
   });

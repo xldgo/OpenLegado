@@ -71,9 +71,7 @@ class ReaderSelectionController extends ChangeNotifier
       if (length == 0) continue;
       if (offset < displayed + length ||
           (isEnd && offset == displayed + length)) {
-        return line.sourceOffset(
-          (offset - displayed).clamp(0, length) + line.virtualPrefixLength,
-        );
+        return line.sourceOffset((offset - displayed).clamp(0, length));
       }
       displayed += length;
     }

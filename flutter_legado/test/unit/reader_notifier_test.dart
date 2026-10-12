@@ -76,15 +76,34 @@ void main() {
     stubOpenBook(content: '章节正文' * 100);
     await readNotifier().openBook(testBook.copyWith(durChapterPos: 3));
     expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
     readNotifier().updatePosition(2, sourceOffset: 120);
     await readNotifier().saveProgress();
     final savedBook = readState().currentBook!;
     readNotifier().updatePosition(0);
     await readNotifier().openBook(savedBook);
     expect(readNotifier().currentSourceOffset, 120);
-    expect(readState().currentChapterPos, 2);
+    // 页码由新布局派生，开书只恢复原文锚点。
+    expect(readState().currentChapterPos, 0);
     await readNotifier().goToChapter(0);
     expect(readNotifier().currentSourceOffset, isNull);
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+  });
+
+  test('应用无原文坐标的云端章节后，不恢复同章的旧锚点', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().saveProgress();
+
+    await readNotifier().applyBookProgress(chapterIndex: 0);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
   });
 
   group('ReaderState 初始状态', () {

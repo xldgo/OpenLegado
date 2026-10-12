@@ -311,6 +311,8 @@ void main() {
   group('reloadAfterSourceChange（Fix B 换源后重载）', () {
     test('成功：getBook + getChapters + 强制刷新，currentBook/章节/位置更新', () async {
       await openBookBaseline();
+      // 验证本次阅读的真实位置；不再依赖打开旧记录时恢复历史页码。
+      container.read(readerNotifierProvider.notifier).updatePosition(3, sourceOffset: 1);
       when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => newToc);
       when(

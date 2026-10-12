@@ -1,49 +1,26 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/zh_layout.dart';
+import 'package:flutter_legado/src/widgets/reader/chinese_line_breaker.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
-  testWidgets('旧整段分页的页码先转原文锚点，再进入新连续分页', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            final engine = ParagraphLayoutEngine(
-              context: context,
-              config: const ParagraphConfig(
-                fontSize: 10,
-                lineHeight: 1,
-                paragraphSpacing: 0,
-                justify: false,
-                backgroundColor: Colors.white,
-                textColor: Colors.black,
-              ),
-            );
-            final source = '${'甲' * 12}\n${'乙' * 12}';
-            final anchor = engine.legacyPageSourceOffset(source, 20, 100, 1);
-            final pages = engine.paginateChapter(source, 20, 100);
-            expect(anchor, 13);
-            expect(pageIndexForSourceOffset(pages, anchor), 0);
-            return const SizedBox();
-          },
-        ),
-      ),
-    );
-  });
   test('中文断行返回字形簇索引，不把 UTF-16 长度混入索引', () {
     const text = '甲😀乙e\u0301丙👨‍👩‍👧‍👦丁';
     final clusters = text.characters.toList();
-    final layout = ZhLayout.compute(
-      words: clusters,
+    final layout = ChineseLineBreaker(
+      clusters: clusters,
       widths: List.filled(clusters.length, 10),
-      availableWidth: 20,
+      width: 20,
+      firstLineWidth: 20,
+      ideographWidth: 18,
     );
     final lines = [
-      for (var i = 0; i < layout.lineCount; i++)
-        clusters.sublist(layout.getLineStart(i), layout.getLineEnd(i)).join(),
+      for (var i = 0; i < layout.lineWidths.length; i++)
+        clusters
+            .sublist(layout.clusterStarts[i], layout.clusterStarts[i + 1])
+            .join(),
     ];
     expect(lines, ['甲😀', '乙e\u0301', '丙👨‍👩‍👧‍👦', '丁']);
     final mapping = TextClusterMap(text);

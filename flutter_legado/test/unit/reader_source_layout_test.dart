@@ -93,10 +93,11 @@ void main() {
     final pages = await _layout(tester, source);
     final paragraphs = pages.expand((p) => p.paragraphs).toList();
     final first = paragraphs.first.lines.first;
-    expect(first.displayText.startsWith('\u3000\u3000'), isTrue);
+    expect(first.displayText, '第一段。');
+    expect(first.indentWidth, greaterThan(0));
     expect(first.sourceOffset(0), 0);
-    expect(first.sourceOffset(2), 0);
-    expect(first.sourceOffset(3), 1);
+    expect(first.sourceOffset(2), 2);
+    expect(first.sourceOffset(3), 3);
     expect(paragraphs[1].startIndex, source.indexOf('第二段'));
   });
 
@@ -128,12 +129,7 @@ void main() {
           maxLines: 1,
         )..layout();
         final originalBox = original
-            .getBoxesForSelection(
-              TextSelection(
-                baseOffset: line.virtualPrefixLength,
-                extentOffset: line.virtualPrefixLength + 1,
-              ),
-            )
+            .getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: 1))
             .first;
         final renderedBox = paragraph
             .getBoxesForSelection(
@@ -144,7 +140,10 @@ void main() {
         expect(
           paragraph.localToGlobal(renderedBox.toRect().topLeft).dx -
               contentOrigin.dx,
-          closeTo(originalBox.left - line.hangingWidth, 0.01),
+          closeTo(
+            originalBox.left + line.indentWidth - line.hangingWidth,
+            0.01,
+          ),
         );
         original.dispose();
         expect(paragraph.didExceedMaxLines, isFalse);
@@ -208,7 +207,7 @@ void main() {
       expect(boundaries.contains(line.endIndex), isTrue);
       expect(
         source.substring(line.startIndex, line.endIndex),
-        line.displayText.substring(line.virtualPrefixLength),
+        line.displayText,
       );
     }
     expect(pages.every((p) => identical(p.sourceText, source)), isTrue);

@@ -48,7 +48,44 @@ class _Reader extends ReaderNotifier {
   void color() => state = state.copyWith(backgroundColor: Colors.black);
 }
 
+class _ReaderWithPageRequest extends _Reader {
+  @override
+  ReaderState build() => super.build().copyWith(currentChapterPos: 35);
+}
+
 void main() {
+  testWidgets('当前布局中的显式跳页等待分批页面就绪，再派生原文锚点', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final key = GlobalKey<ReaderPageViewState>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerNotifierProvider.overrideWith(_ReaderWithPageRequest.new),
+          bookApiProvider.overrideWithValue(_Api()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              height: 500,
+              child: ReaderPageView(key: key, paragraphSpacing: 8),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(key.currentState!.currentSourceRange.$1, greaterThan(0));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderPageView)),
+    );
+    expect(container.read(readerNotifierProvider).currentChapterPos, 35);
+    expect(
+      container.read(readerNotifierProvider.notifier).currentSourceOffset,
+      key.currentState!.currentSourceRange.$1,
+    );
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('相邻章完整布局命中，配色不重排，滚动重排保持原文位置', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();

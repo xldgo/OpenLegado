@@ -406,14 +406,8 @@ void main() {
     await tester.longPressAt(paragraph.localToGlobal(firstBox.center));
     await tester.pumpAndSettle();
     final range = paragraph.selections.first;
-    expect(
-      controller.selection!.start,
-      rightLine.sourceOffset(range.start + rightLine.virtualPrefixLength),
-    );
-    expect(
-      controller.selection!.end,
-      rightLine.sourceOffset(range.end + rightLine.virtualPrefixLength),
-    );
+    expect(controller.selection!.start, rightLine.sourceOffset(range.start));
+    expect(controller.selection!.end, rightLine.sourceOffset(range.end));
     _region(tester).selectAll();
     await tester.pumpAndSettle();
     final start = pages.first.paragraphs.first.lines.first.startIndex;

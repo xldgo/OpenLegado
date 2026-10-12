@@ -59,10 +59,7 @@ class LineInfo {
   final double textTop;
   final InlineReviewLayout? trailingReview;
 
-  /// 断行测量使用的虚拟前缀，不进入正文可选文字。
-  final int virtualPrefixLength;
-
-  /// 虚拟前缀在最终字距和文字缩放下的宽度，只用于布局留白。
+  /// 首行缩进的独立几何宽度，不改变正文和原文偏移。
   final double indentWidth;
 
   /// 最终绘制字距，分页与正文渲染共用。
@@ -72,8 +69,7 @@ class LineInfo {
   /// 跨页后仍保留原段落末行标记，避免页末续行被当成段末。
   final bool? isParagraphLastLine;
 
-  // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂宽度（>0 表示该行为悬挂行，
-  // 渲染侧行起点左移该宽度进入缩进区）— Reasonix
+  /// 引号进入缩进区的宽度；正文起点为 indentWidth - hangingWidth。
   final double hangingWidth;
 
   const LineInfo({
@@ -86,7 +82,6 @@ class LineInfo {
     this.textTop = 0,
     this.trailingReview,
     this.hangingWidth = 0,
-    this.virtualPrefixLength = 0,
     this.indentWidth = 0,
     this.letterSpacing,
     this.spaceExpansion = 0,
@@ -95,12 +90,11 @@ class LineInfo {
 
   String get displayText => words.join();
 
-  String get selectableText => displayText.substring(virtualPrefixLength);
+  String get selectableText => displayText;
 
   /// 将显示文本的 UTF-16 偏移转换为章节原文偏移。
   int sourceOffset(int displayOffset) =>
-      startIndex +
-      (displayOffset - virtualPrefixLength).clamp(0, endIndex - startIndex);
+      startIndex + displayOffset.clamp(0, endIndex - startIndex);
 }
 
 /// 段落信息

@@ -198,7 +198,6 @@ class _ReaderTopBarState extends ConsumerState<ReaderTopBar>
           if (go == true && context.mounted) {
             await ref.read(readerNotifierProvider.notifier).applyBookProgress(
                   chapterIndex: progress.durChapterIndex,
-                  chapterPos: progress.durChapterPos,
                 );
           }
         },

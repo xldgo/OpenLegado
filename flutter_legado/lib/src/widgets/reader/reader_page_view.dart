@@ -97,8 +97,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 双页模式档位（0-3）
   final int doubleHorizontalPage;
 
-  // [UI-fix v2.0.5 | 2026-08-10] 自定义中文分行开关（对标原版 useZhLayout：
-  // true=ZhLayout 避头尾断行；false=朴素按宽断行）— Reasonix
+  /// 中文分行开关：开启时使用中文断行核心，关闭时按簇宽断行。
   /// 自定义中文分行开关
   final bool useZhLayout;
 
@@ -743,7 +742,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final sameChapter =
         chapterIndex == _paginatedChapterIndex &&
         state.currentBook?.bookUrl == _paginatedBookUrl;
-    var sourceAnchor =
+    final sourceAnchor =
         notifier.currentSourceOffset ??
         (sameChapter &&
                 state.currentChapterPos == _currentPageIndex &&
@@ -755,15 +754,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   .sourceStart
             : null);
     final engine = ParagraphLayoutEngine(config: config, context: context);
-    if (sourceAnchor == null && !sameChapter && state.currentChapterPos > 0) {
-      sourceAnchor = engine.legacyPageSourceOffset(
-        content,
-        availableWidth,
-        availableHeight,
-        state.currentChapterPos,
-        firstPageHeight: firstPageHeight,
-      );
-    }
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
     final cacheKey = _chapterCacheKey(
       state,
@@ -804,6 +794,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         !_layoutComplete &&
         (pages.isEmpty ||
             state.currentChapterPos == -1 ||
+            (sourceAnchor == null && state.currentChapterPos >= pages.length) ||
             (sourceAnchor != null && pages.last.sourceEnd <= sourceAnchor));
 
     _paginatedPages = pages;
@@ -834,7 +825,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _paginatedUseZhLayout = widget.useZhLayout;
     _paginatedHangingPunctuation = widget.hangingPunctuation;
     _rebuildScrollLayout();
-    // 有版本的原文锚点优先；未标记旧记录只作为历史页码消费。
+    // 开书已经清除历史页码；这里的页号只表示当前布局中的显式跳页操作。
     final chapterPos = state.currentChapterPos;
     if (chapterPos == -1 && pages.isNotEmpty) {
       _currentPageIndex = pages.length - 1;
@@ -879,6 +870,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           bookUrl,
           sourceAnchor,
           chapterPos == -1,
+          chapterPos,
         ),
       );
     } else {
@@ -932,6 +924,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     String? bookUrl,
     int? anchor,
     bool lastPage,
+    int requestedPage,
   ) async {
     while (!session.complete && !session.cancelled) {
       await SchedulerBinding.instance.endOfFrame;
@@ -956,7 +949,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       final ready =
           pages.isNotEmpty &&
           (session.complete ||
-              (!lastPage && (anchor == null || pages.last.sourceEnd > anchor)));
+              (!lastPage &&
+                  (anchor != null
+                      ? pages.last.sourceEnd > anchor
+                      : requestedPage < pages.length)));
       if (!ready) continue;
       final wasWaiting = _waitingForAnchor;
       setState(() {
@@ -967,7 +963,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         if (wasWaiting) {
           _currentPageIndex = lastPage
               ? pages.length - 1
-              : pageIndexForSourceOffset(pages, anchor ?? 0);
+              : anchor != null
+              ? pageIndexForSourceOffset(pages, anchor)
+              : requestedPage.clamp(0, pages.length - 1);
         }
       });
       final notifier = ref.read(readerNotifierProvider.notifier);

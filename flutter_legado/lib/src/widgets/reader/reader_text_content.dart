@@ -360,7 +360,9 @@ class ReaderTextContent extends StatelessWidget {
                 );
             // 缩进用布局留白绘制，原生选区只能接触章节中的实际文字。
             final lineText = Padding(
-              padding: EdgeInsets.only(left: line.indentWidth),
+              padding: EdgeInsets.only(
+                left: line.indentWidth - line.hangingWidth,
+              ),
               child: text.isEmpty
                   ? const SizedBox.shrink()
                   : selectText && pageInfo.sourceText != null
@@ -390,18 +392,15 @@ class ReaderTextContent extends StatelessWidget {
               SizedBox(
                 width: availableWidth,
                 height: line.height,
-                // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂行：放宽宽度约束至
-                // availableWidth + hangingWidth 避免裁剪，行起点左移 hangingWidth
-                // 使起始引号悬挂进缩进区（对齐原版 TextLine.hangingPunctuation
-                // 语义）— Reasonix
+                // 正文和段评使用布局给定的同一行坐标，不改变正文宽度。
                 child: review != null
                     ? Stack(
                         clipBehavior: Clip.none,
                         children: [
                           Positioned(
-                            left: -line.hangingWidth,
+                            left: 0,
                             top: line.textTop,
-                            width: review.offset.dx + line.hangingWidth,
+                            width: review.offset.dx,
                             child: lineText,
                           ),
                           if (count > 0 && review.size.width > 0)
@@ -426,15 +425,6 @@ class ReaderTextContent extends StatelessWidget {
                             ),
                         ],
                       )
-                    : line.hangingWidth > 0
-                    ? OverflowBox(
-                        alignment: Alignment.centerLeft,
-                        maxWidth: availableWidth + line.hangingWidth,
-                        child: Transform.translate(
-                          offset: Offset(-line.hangingWidth, 0),
-                          child: lineText,
-                        ),
-                      )
                     : lineText,
               ),
             );
@@ -446,9 +436,7 @@ class ReaderTextContent extends StatelessWidget {
           final source = pageInfo.sourceText;
           final paraText = source != null
               ? source.substring(para.startIndex, para.endIndex)
-              : para.lines
-                    .map((l) => l.displayText.substring(l.virtualPrefixLength))
-                    .join();
+              : para.lines.map((l) => l.selectableText).join();
           final paragraphBody = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: lineWidgets,

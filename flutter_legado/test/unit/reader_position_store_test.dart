@@ -7,16 +7,9 @@ import 'package:flutter_legado/src/services/reader_position_store.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test('未标记旧页码不会被解释为原文字符偏移', () async {
-    expect(
-      await ReaderPositionStore().read(
-        'book',
-        chapterIndex: 2,
-        legacyPageIndex: 5,
-      ),
-      isNull,
-    );
+    expect(await ReaderPositionStore().read('book', chapterIndex: 2), isNull);
   });
-  test('锚点重启后可读，并拒绝外部改变的旧进度与错误坐标格式', () async {
+  test('锚点重启后可读，记录不保存页码，并拒绝错误章节与坐标格式', () async {
     final store = ReaderPositionStore();
     await store.save(
       'book',
@@ -24,42 +17,23 @@ void main() {
         chapterId: 'chapter-url',
         chapterIndex: 2,
         sourceOffset: 1234,
-        legacyPageIndex: 5,
       ),
     );
-    final restored = await ReaderPositionStore().read(
-      'book',
-      chapterIndex: 2,
-      legacyPageIndex: 5,
-    );
+    final restored = await ReaderPositionStore().read('book', chapterIndex: 2);
     expect(restored?.sourceOffset, 1234);
     expect(restored?.chapterId, 'chapter-url');
-    expect(
-      await store.read('book', chapterIndex: 3, legacyPageIndex: 5),
-      isNull,
-    );
-    expect(
-      await store.read('book', chapterIndex: 2, legacyPageIndex: 6),
-      isNull,
-    );
+    expect(await store.read('book', chapterIndex: 3), isNull);
     final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(ReaderPositionStore.keyFor('book')),
+      isNot(contains('legacyPageIndex')),
+    );
     await prefs.setString(
       ReaderPositionStore.keyFor('book'),
-      jsonEncode({
-        'version': 1,
-        'sourceOffset': 5,
-        'chapterIndex': 2,
-        'legacyPageIndex': 5,
-      }),
+      jsonEncode({'version': 1, 'sourceOffset': 5, 'chapterIndex': 2}),
     );
-    expect(
-      await store.read('book', chapterIndex: 2, legacyPageIndex: 5),
-      isNull,
-    );
+    expect(await store.read('book', chapterIndex: 2), isNull);
     await prefs.setString(ReaderPositionStore.keyFor('book'), '{');
-    expect(
-      await store.read('book', chapterIndex: 2, legacyPageIndex: 5),
-      isNull,
-    );
+    expect(await store.read('book', chapterIndex: 2), isNull);
   });
 }
