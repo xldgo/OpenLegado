@@ -7,8 +7,9 @@ import 'dart:io';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -19,32 +20,40 @@ void main() {
     return;
   }
 
-  late RustApi api;
+  late BookmarkRepository repository;
   setUpAll(() async {
-    final dll = File('../rust/target/debug/legado_ffi.dll').resolveSymbolicLinksSync();
+    final dll = File('../rust/target/debug/legado_ffi.dll')
+        .resolveSymbolicLinksSync();
     await RustLib.init(externalLibrary: ExternalLibrary.open(dll));
     await bridge.init();
     final directory = Directory(
       '.dart_tool/bookmark-update-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
     await bridge.dbOpen(path: '${directory.absolute.path}/bookmarks.db');
-    api = createBookApi(useMock: false) as RustApi;
+    final api = createBookApi(useMock: false);
+    repository = api.bookmarkRepository;
+    expect(repository, isA<RustBookmarkRepository>());
+    expect(api.bookmarkRepository, same(repository));
   });
 
   test('连续更新保留原 id、创建时间和其他书签', () async {
-    final added = await api.addBookmark(
+    final added = await repository.addBookmark(
       const Bookmark(bookName: '真实更新测试', bookText: '正文', content: '原备注'),
     );
-    final other = await api.addBookmark(
+    final other = await repository.addBookmark(
       const Bookmark(bookName: '真实更新测试', content: '其他书签'),
     );
-    final before = await api.getBookmarks('真实更新测试');
+    final before = await repository.getBookmarksByBook('真实更新测试', '');
     final original = before.singleWhere((b) => b.id == added.id);
     final untouched = before.singleWhere((b) => b.id == other.id);
 
-    await api.updateBookmark(added.copyWith(content: '新备注', chapterPos: 10));
-    await api.updateBookmark(added.copyWith(content: '再次更新', chapterPos: 20));
-    final after = await api.getBookmarks('真实更新测试');
+    await repository.updateBookmark(
+      added.copyWith(content: '新备注', chapterPos: 10),
+    );
+    await repository.updateBookmark(
+      added.copyWith(content: '再次更新', chapterPos: 20),
+    );
+    final after = await repository.getBookmarksByBook('真实更新测试', '');
     expect(after.length, 2);
     expect(
       after.singleWhere((b) => b.id == added.id),
@@ -54,15 +63,39 @@ void main() {
   });
 
   test('非法 JSON 与不存在的目标均失败，原记录完整保留', () async {
-    final before = await api.getAllBookmarks();
+    final before = await repository.getAllBookmarks();
     await expectLater(
       bridge.bookmarkUpdate(bookmarkJson: '{'),
       throwsA(anything),
     );
     await expectLater(
-      api.updateBookmark(const Bookmark(id: -1, content: '不存在')),
+      repository.updateBookmark(const Bookmark(id: -1, content: '不存在')),
       throwsA(anything),
     );
-    expect(await api.getAllBookmarks(), before);
+    expect(await repository.getAllBookmarks(), before);
+  });
+
+  test('窄接口查询隔离同名书，搜索及删除仍访问同一原生存储', () async {
+    final first = await repository.addBookmark(
+      const Bookmark(bookName: '双键测试', bookAuthor: '甲', content: '甲的唯一备注'),
+    );
+    final second = await repository.addBookmark(
+      const Bookmark(bookName: '双键测试', bookAuthor: '乙', content: '乙的唯一备注'),
+    );
+    final byAuthor = await repository.getBookmarksByBook('双键测试', '甲');
+    expect(byAuthor.map((b) => b.id), [first.id]);
+    expect(
+      (await repository.getBookmarksByBook('双键测试', '乙')).map((b) => b.id),
+      [second.id],
+    );
+    expect((await repository.searchBookmarks('甲的唯一备注')).map((b) => b.id), [
+      first.id,
+    ]);
+    await repository.deleteBookmark(first.id);
+    expect(await repository.getBookmarksByBook('双键测试', '甲'), isEmpty);
+    expect(
+      (await repository.getAllBookmarks()).any((b) => b.id == second.id),
+      isTrue,
+    );
   });
 }

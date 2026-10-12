@@ -1,85 +1,10 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiReaderData mixin：书签 / 替换规则 / 阅读器 / 配置 / 词典 / 日志 / 备份 / 阅读记录。
+// 本文件承载 RustApiReaderData mixin：替换规则 / 阅读器 / 配置 / 词典 / 日志 / 备份 / 阅读记录。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
 
 mixin RustApiReaderData on RustApiDecode implements BookApi {
-  // ========== 书签操作 ==========
-
-  /// 获取某本书的所有书签
-  @override
-  Future<List<Bookmark>> getBookmarks(String bookName) async {
-    final json = await bridge.bookmarkGetAll(bookName: bookName);
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => Bookmark.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 按书名+作者获取某本书的所有书签（契约 §2.7，台账 §5.14-2，Task #65）
-  ///
-  /// get_bookmarks_by_book FFI 返回裸 JSON Array，解析方式同
-  /// [getBookmarks]（bookmark_get_all）— Qoder
-  @override
-  Future<List<Bookmark>> getBookmarksByBook(
-    String bookName,
-    String bookAuthor,
-  ) async {
-    final json = await bridge.getBookmarksByBook(
-      bookName: bookName,
-      bookAuthor: bookAuthor,
-    );
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => Bookmark.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 获取所有书签
-  @override
-  Future<List<Bookmark>> getAllBookmarks() async {
-    final json = await bridge.bookmarkList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => Bookmark.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 添加书签
-  @override
-  Future<Bookmark> addBookmark(Bookmark bookmark) async {
-    final id = await bridge.bookmarkAdd(
-      bookName: bookmark.bookName,
-      bookAuthor: bookmark.bookAuthor,
-      chapterIndex: bookmark.chapterIndex,
-      chapterPos: bookmark.chapterPos,
-      chapterName: bookmark.chapterName,
-      bookText: bookmark.bookText,
-      content: bookmark.content,
-    );
-    return bookmark.copyWith(id: id);
-  }
-
-  /// 原子更新已有书签，保留 id 与创建时间。— Codex + Bridge
-  @override
-  Future<void> updateBookmark(Bookmark bookmark) =>
-      bridge.bookmarkUpdate(bookmarkJson: jsonEncode(bookmark.toJson()));
-
-  /// 删除书签
-  @override
-  Future<void> deleteBookmark(int id) => bridge.bookmarkDelete(bookmarkId: id);
-
-  /// 搜索书签
-  @override
-  Future<List<Bookmark>> searchBookmarks(String keyword) async {
-    final json = await bridge.bookmarkSearch(keyword: keyword);
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => Bookmark.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
   // ========== 替换规则操作 ==========
 
   /// 获取所有替换规则

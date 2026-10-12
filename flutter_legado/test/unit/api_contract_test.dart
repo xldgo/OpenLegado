@@ -28,6 +28,10 @@ void main() {
     _readWithParts('lib/src/services/mock_book_api.dart'),
     'MockBookApi',
   );
+  final bookmarkNames = _extractMethods(
+    _read('lib/src/domain/contracts/bookmark_repository.dart'),
+    'BookmarkRepository',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -167,19 +171,30 @@ void main() {
       );
     });
 
-    test('公共额外方法钉死：RustApi={toString, refreshReadBookConfig}，MockBookApi=∅', () {
-      final rExtra =
-          rNames.where((n) => !n.startsWith('_') && !bSet.contains(n)).toList()
-            ..sort();
-      expect(rExtra, [
-        'refreshReadBookConfig',
-        'toString',
-      ], reason: 'RustApi 公共额外方法集合漂移（新增/删除了 BookApi 之外的公共方法）：$rExtra');
-      final mExtra =
-          mNames.where((n) => !n.startsWith('_') && !bSet.contains(n)).toList()
-            ..sort();
-      expect(mExtra, isEmpty, reason: 'MockBookApi 出现 BookApi 之外的公共方法：$mExtra');
-    });
+    test(
+      '公共额外方法钉死：RustApi={toString, refreshReadBookConfig}，MockBookApi=∅',
+      () {
+        final rExtra =
+            rNames
+                .where((n) => !n.startsWith('_') && !bSet.contains(n))
+                .toList()
+              ..sort();
+        expect(rExtra, [
+          'refreshReadBookConfig',
+          'toString',
+        ], reason: 'RustApi 公共额外方法集合漂移（新增/删除了 BookApi 之外的公共方法）：$rExtra');
+        final mExtra =
+            mNames
+                .where((n) => !n.startsWith('_') && !bSet.contains(n))
+                .toList()
+              ..sort();
+        expect(
+          mExtra,
+          isEmpty,
+          reason: 'MockBookApi 出现 BookApi 之外的公共方法：$mExtra',
+        );
+      },
+    );
 
     test('每个 BookApi 方法都在契约中登记（直接行或 §1.7 等价对）', () {
       final unregistered =
@@ -260,6 +275,36 @@ void main() {
         bNames.length,
         reason: '文档声明 $docCount ≠ book_api.dart 实际 ${bNames.length}，请同步更新文档计数',
       );
+    });
+
+    test('书签六项由独立 Repository 承担，旧方法移除且计数闭合', () {
+      const expected = {
+        'getAllBookmarks',
+        'getBookmarksByBook',
+        'addBookmark',
+        'updateBookmark',
+        'deleteBookmark',
+        'searchBookmarks',
+      };
+      expect(bookmarkNames.toSet(), expected);
+      for (final implementation in ['rust', 'mock']) {
+        final methods = _extractMethods(
+          _read(
+            'lib/src/data/repositories/${implementation}_bookmark_repository.dart',
+          ),
+          implementation == 'rust'
+              ? 'RustBookmarkRepository'
+              : 'MockBookmarkRepository',
+        ).where((name) => !name.startsWith('_')).toSet();
+        expect(methods, expected);
+      }
+      expect(
+        bNames.toSet().intersection({...expected, 'getBookmarks'}),
+        isEmpty,
+      );
+      expect(allRowNames.containsAll(expected), isTrue);
+      // 三项纯 FFI 与缓存查询的双重登记不属于书签领域方法。
+      expect(statedTotal, bNames.length + bookmarkNames.length + 3 + 1);
     });
   });
 }

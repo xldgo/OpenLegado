@@ -19,7 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/services/book_api.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 
 void main() {
   // MockBookApi 构造经惰性样例资产读取（rootBundle）→ 需绑定初始化
@@ -48,7 +48,7 @@ void main() {
 
   group('RustApi FFI 不可用（契约 §2.49 降级不抛）', () {
     test('getVideoDanmaku 降级 null，不抛 FFI 异常', () async {
-      final api = RustApi();
+      final api = createBookApi(useMock: false);
       expect(
         await api.getVideoDanmaku(
           bookUrl: 'https://example.com/book',
@@ -78,7 +78,7 @@ void main() {
 
   group('RustApi FFI 不可用（契约 §2.50 降级不抛）', () {
     test('parseVideoDanmaku 降级 null，不抛 FFI 异常', () async {
-      final api = RustApi();
+      final api = createBookApi(useMock: false);
       expect(
         await api.parseVideoDanmaku(raw: '<i><d p="1,1,25,0">a</d></i>'),
         isNull,

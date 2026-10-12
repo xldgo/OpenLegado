@@ -3,14 +3,18 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/bookmark/bookmark_repository_provider.dart';
+import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
+import 'package:flutter_legado/src/widgets/bookmark_note_sheet.dart';
 
 class _Reader extends ReaderNotifier {
   @override
@@ -21,15 +25,10 @@ class _Reader extends ReaderNotifier {
   );
 }
 
-class _Api extends MockBookApi {
-  Bookmark? bookmark;
-  Map<String, dynamic>? highlight;
+class _Bookmarks extends Mock implements BookmarkRepository {}
 
-  @override
-  Future<Bookmark> addBookmark(Bookmark value) async {
-    bookmark = value;
-    return value;
-  }
+class _Api extends MockBookApi {
+  Map<String, dynamic>? highlight;
 
   @override
   Future<int> highlightAdd({required String highlightJson}) async {
@@ -38,12 +37,18 @@ class _Api extends MockBookApi {
   }
 }
 
-Future<void> _showToolbar(WidgetTester tester, _Api api) async {
+Future<void> _showToolbar(
+  WidgetTester tester,
+  _Api api, {
+  BookmarkRepository? bookmarks,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         readerNotifierProvider.overrideWith(_Reader.new),
         bookApiProvider.overrideWithValue(api),
+        if (bookmarks != null)
+          bookmarkRepositoryProvider.overrideWithValue(bookmarks),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -67,6 +72,7 @@ Future<void> _showToolbar(WidgetTester tester, _Api api) async {
 }
 
 void main() {
+  setUpAll(() => registerFallbackValue(const Bookmark()));
   setUp(
     () => SharedPreferences.setMockInitialValues({
       ReaderSelectionMenuConfig.storageKey: ReaderSelectionMenuConfig(
@@ -76,11 +82,59 @@ void main() {
   );
   testWidgets('书签保存精准选区的原文和全局起始偏移', (tester) async {
     final api = _Api();
-    await _showToolbar(tester, api);
+    final bookmarks = _Bookmarks();
+    when(() => bookmarks.addBookmark(any())).thenAnswer(
+      (invocation) async => invocation.positionalArguments.single as Bookmark,
+    );
+    await _showToolbar(tester, api, bookmarks: bookmarks);
     await tester.tap(find.text('书签'));
     await tester.pumpAndSettle();
-    expect(api.bookmark!.chapterPos, 102);
-    expect(api.bookmark!.bookText, '实际选区');
+    verifyNever(() => bookmarks.addBookmark(any()));
+    expect(find.byType(ReaderSelectionToolbar), findsNothing);
+    expect(find.byType(BookmarkNoteSheet), findsOneWidget);
+    final note = find.byKey(const ValueKey('bookmark-note'));
+    expect(tester.widget<TextField>(note).controller!.text, '');
+    await tester.enterText(note, '选区备注');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final saved =
+        verify(() => bookmarks.addBookmark(captureAny())).captured.single
+            as Bookmark;
+    expect(saved.chapterPos, 102);
+    expect(saved.bookText, '实际选区');
+    expect(saved.content, '选区备注');
+    expect(saved.bookName, '测试小说');
+    expect(saved.bookAuthor, '测试作者');
+    expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('选区新增取消不写入，直接保存时原文和空备注分离', (tester) async {
+    final api = _Api();
+    final bookmarks = _Bookmarks();
+    when(() => bookmarks.addBookmark(any())).thenAnswer(
+      (invocation) async => invocation.positionalArguments.single as Bookmark,
+    );
+    await _showToolbar(tester, api, bookmarks: bookmarks);
+    await tester.tap(find.text('书签'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    verifyNever(() => bookmarks.addBookmark(any()));
+    expect(find.byType(BookmarkNoteSheet), findsNothing);
+
+    await tester.tap(find.text('打开选区'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('书签'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final saved =
+        verify(() => bookmarks.addBookmark(captureAny())).captured.single
+            as Bookmark;
+    expect(saved.bookText, '实际选区');
+    expect(saved.content, '');
+    expect(saved.chapterPos, 102);
     expect(tester.takeException(), isNull);
   });
 

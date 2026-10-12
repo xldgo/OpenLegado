@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/services/export_service.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_legado/src/widgets/export_dialog.dart';
 
 /// 伪造的导出服务，用于测试
@@ -16,7 +17,7 @@ class FakeExportService extends ExportService {
   /// WebDAV 上传是否被调用
   bool webdavCalled = false;
 
-  FakeExportService() : super(RustApi());
+  FakeExportService() : super(createBookApi(useMock: false));
 
   @override
   List<String> get supportedFormats => ['txt', 'epub', 'html'];
@@ -74,7 +75,7 @@ void main() {
 
   setUp(() {
     fakeExportService = FakeExportService();
-    fakeRustApi = RustApi();
+    fakeRustApi = createBookApi(useMock: false) as RustApi;
   });
 
   /// 构建测试用 Widget

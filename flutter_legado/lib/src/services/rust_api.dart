@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../data/bridge/runtime_configuration.dart';
+import '../data/bridge/rust_json_decode.dart';
+import '../domain/contracts/bookmark_repository.dart';
 import 'bridge_http.dart';
 
 import '../bridge/rust_lib.dart' as bridge;
@@ -42,12 +44,16 @@ class RustApi
   factory RustApi({
     required Future<void> Function() initialize,
     required ReadingConfigSync readingConfigSync,
-  }) => RustApi._(initialize, readingConfigSync);
+    required BookmarkRepository bookmarkRepository,
+  }) => RustApi._(initialize, readingConfigSync, bookmarkRepository);
 
-  RustApi._(this._initialize, this._readingConfigSync);
+  RustApi._(this._initialize, this._readingConfigSync, this.bookmarkRepository);
 
   final Future<void> Function() _initialize;
   final ReadingConfigSync _readingConfigSync;
+
+  @override
+  final BookmarkRepository bookmarkRepository;
 
   /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
   @override

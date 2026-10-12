@@ -10,7 +10,7 @@ import '../models/models.dart';
 /// 书签导出服务（对齐原版 TocViewModel.saveBookmark / saveBookmarkMd）
 ///
 /// [Task #40 | 2026-08-09] 台账 §5.11-5 后置项接线：零契约变更，
-/// 复用现有 BookApi.getBookmarks（契约 §2.7）数据，纯 Dart 序列化 +
+/// 消费 BookmarkRepository 提供的书签数据（契约 §2.7），纯 Dart 序列化 +
 /// file_picker 选目录写文件 — QoderCN
 ///
 /// - 导出书签：Bookmark 列表 jsonEncode 为 JSON 数组（字段 camelCase，

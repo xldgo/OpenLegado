@@ -1,5 +1,6 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+import '../widgets/bookmark_note_sheet.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -15,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import '../constants/pref_keys.dart';
 import '../models/models.dart';
 import '../providers/bookmark/bookmark_notifier.dart';
+import '../providers/bookmark/bookmark_repository_provider.dart';
 import '../providers/providers.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';
@@ -33,7 +35,7 @@ import '../utils/book_open_utils.dart';
 ///   章节字数胶囊（[PARITY C2 T2]，受「加载字数」开关控制）、
 ///   缓存状态图标（[P2-28]，对齐原版 ChapterListAdapter.upHasCache 三态）
 ///   [PARITY C2 T4] 底部当前章节信息条 + 跳转顶/底已移除（跳转能力保留于目录 FAB）
-/// - 书签/标注 Tab：数据经 BookApi（bookmarkNotifier / highlightListByBook）
+/// - 书签 Tab 经 BookmarkRepository / bookmarkNotifier；标注经 BookApi.highlightListByBook
 /// - 溢出菜单对齐 book_toc.xml 顺序与条件显隐（随 Tab 切换，对齐 TocActivity.onMenuOpened）
 /// - 返回值：选中章节 index（int），供调用方走现有阅读跳转链路
 /// - [P2-28b] 章节行缓存状态三态（未缓存=离线下载图标⬇ / 已缓存=无图标 /
@@ -736,10 +738,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// [Task #40 | 2026-08-09] §5.11-5 — Qoder
   Future<void> _exportBookmarks({required bool asMarkdown}) async {
     try {
-      // 书签数据经 BookApi.getBookmarksByBook 获取（契约 §2.7，台账
+      // 书签数据经 BookmarkRepository.getBookmarksByBook 获取（契约 §2.7，台账
       // §5.14-2 Task #65：按书名+作者查询，规避同名书混入）
       final bookmarks = await ref
-          .read(bookApiProvider)
+          .read(bookmarkRepositoryProvider)
           .getBookmarksByBook(_book.name, _book.author);
       if (!mounted) return;
       if (bookmarks.isEmpty) {
@@ -1399,72 +1401,96 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 书签列表项（章节名/摘要/时间，复用 bookmark_screen 卡片样式）
   Widget _buildBookmarkTile(BuildContext context, Bookmark bookmark) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: InkWell(
-        // 点击跳转对应章节（返回 index 走调用方阅读链路）
-        onTap: () => Navigator.of(context).pop(bookmark.chapterIndex),
-        onLongPress: () async {
+    return AppMenuAnchor<String>(
+      itemBuilder: (ctx) => [
+        AppMenuItem(value: 'edit', child: Text(ctx.l10n.bookmarkEditNote)),
+        AppMenuItem(value: 'delete', child: Text(ctx.l10n.readerDeleteBookmark)),
+      ],
+      onSelected: (action) async {
+        if (action == 'edit') await _editBookmarkNote(bookmark);
+        if (action == 'delete') {
           final ok = await _confirmDeleteBookmark(bookmark);
           if (ok == true && mounted) {
-            ref
-                .read(bookmarkNotifierProvider.notifier)
-                .deleteBookmark(bookmark.id);
+            ref.read(bookmarkNotifierProvider.notifier).deleteBookmark(bookmark.id);
           }
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Symbols.bookmark_rounded,
-                      size: 16, color: theme.colorScheme.primary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      bookmark.chapterName,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        }
+      },
+      builder: (ctx, controller, child) => Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: InkWell(
+          // 点击跳转对应章节（返回 index 走调用方阅读链路）
+          onTap: () => Navigator.of(context).pop(bookmark.chapterIndex),
+          onLongPress: controller.open,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Symbols.bookmark_rounded,
+                        size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        bookmark.chapterName,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    // [Task #54 | 2026-08-10] 缺陷⑤修复：bookmark.time 已是
+                    // epoch 毫秒，删除多余的 ×1000 换算 — Qoder
+                    Text(_formatTime(bookmark.time),
+                        style: theme.textTheme.labelSmall),
+                  ],
+                ),
+                if (bookmark.bookText.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    bookmark.bookText,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  // [Task #54 | 2026-08-10] 缺陷⑤修复：bookmark.time 已是
-                  // epoch 毫秒，删除多余的 ×1000 换算 — Qoder
-                  Text(_formatTime(bookmark.time),
-                      style: theme.textTheme.labelSmall),
                 ],
-              ),
-              if (bookmark.bookText.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  bookmark.bookText,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                if (bookmark.content.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '备注: ${bookmark.content}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.secondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ],
-              if (bookmark.content.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '备注: ${bookmark.content}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.secondary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 编辑只改变备注，成功后更新当前列表。— Codex + UI
+  Future<void> _editBookmarkNote(Bookmark bookmark) async {
+    final notifier = ref.read(bookmarkNotifierProvider.notifier);
+    final saved = await BookmarkNoteSheet.show(
+      context: context,
+      bookText: bookmark.bookText,
+      chapterName: bookmark.chapterName,
+      initialNote: bookmark.content,
+      onSave: (note) => notifier.updateNote(bookmark, note),
+    );
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.bookmarkNoteSaved)),
     );
   }
 

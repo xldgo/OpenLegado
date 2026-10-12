@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import '../domain/contracts/bookmark_repository.dart';
 
 /// 书籍 API 抽象接口
 ///
@@ -7,6 +8,9 @@ import '../models/models.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  /// 共享应用装配的书签数据访问实例；书签 CRUD 由窄接口承担。
+  BookmarkRepository get bookmarkRepository;
+
   // ========== 初始化/版本 ==========
 
   /// 初始化运行时和数据库连接
@@ -477,33 +481,6 @@ abstract class BookApi {
     String query, {
     bool caseSensitive = false,
   });
-
-  // ========== 书签操作 ==========
-
-  /// 获取某本书的所有书签
-  Future<List<Bookmark>> getBookmarks(String bookName);
-
-  /// 按书名+作者获取某本书的所有书签（契约 §2.7 getBookmarksByBook，
-  /// 台账 §5.14-2，Task #65）
-  ///
-  /// 对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入；
-  /// [getBookmarks]（仅按书名）接口保留兼容。
-  Future<List<Bookmark>> getBookmarksByBook(String bookName, String bookAuthor);
-
-  /// 获取所有书签
-  Future<List<Bookmark>> getAllBookmarks();
-
-  /// 添加书签
-  Future<Bookmark> addBookmark(Bookmark bookmark);
-
-  /// 更新书签
-  Future<void> updateBookmark(Bookmark bookmark);
-
-  /// 删除书签
-  Future<void> deleteBookmark(int id);
-
-  /// 搜索书签
-  Future<List<Bookmark>> searchBookmarks(String keyword);
 
   // ========== 替换规则操作 ==========
 

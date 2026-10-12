@@ -8,7 +8,6 @@ mixin MockBookApiStore {
   final List<Book> _books = [];
   final List<BookSource> _sources = [];
   final List<RssSource> _rssSources = [];
-  final List<Bookmark> _bookmarks = [];
   final List<ReplaceRule> _replaceRules = [];
   final List<BookGroup> _bookGroups = [];
   final List<SearchKeyword> _searchHistory = [];

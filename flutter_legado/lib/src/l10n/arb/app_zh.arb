@@ -4301,5 +4301,23 @@
   "bookGroupHiddenOnShelf": "在书架隐藏",
   "@bookGroupHiddenOnShelf": {
     "description": "参考 HapeLee hide、bookshelf，按本页面实际显示语境组成完整文案。"
-  }
+  },
+  "bookmarkEditNote": "编辑备注",
+  "bookmarkOriginalText": "原文",
+  "bookmarkNoteLabel": "备注（可选）",
+  "bookmarkKeepEditing": "继续编辑",
+  "bookmarkDiscardNote": "备注尚未保存，放弃修改并关闭？",
+  "bookmarkNoteSaveFailed": "保存失败，输入已保留，请重试。",
+  "bookmarkNoteSaving": "正在保存…",
+  "bookmarkNoteSaved": "备注已保存",
+  "bookmarkAdded": "已添加书签",
+  "@bookmarkEditNote": {"description": "书签备注编辑面板"},
+  "@bookmarkOriginalText": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteLabel": {"description": "书签备注编辑面板"},
+  "@bookmarkKeepEditing": {"description": "书签备注编辑面板"},
+  "@bookmarkDiscardNote": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaveFailed": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaving": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaved": {"description": "书签备注编辑面板"},
+  "@bookmarkAdded": {"description": "书签备注编辑面板"}
 }

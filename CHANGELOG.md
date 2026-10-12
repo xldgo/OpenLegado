@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.373] - 2026-10-12
+## [2.0.373] - 2026-10-13
+
+### Added
+- [UI] 书签页与目录书签支持编辑、清空备注，保留原文、位置和创建时间。
+- [UI] 阅读选区新增书签前可填写备注，原文与备注分开保存；取消不创建记录。
 
 ### Fixed
 - [UI] 补齐书签、阅读记录及分组管理的对应中英文文案，书籍计数适配英文单复数。
@@ -10,6 +14,9 @@ All notable changes to this project will be documented in this file.
 - 修复启动初始化与业务 Provider 使用不同 BookApi 实例的问题，统一注入已经初始化的实例。
 
 ### Changed
+- [UI] 新增与编辑共用底部输入面板，保存失败保留输入并支持重试，防止重复提交及误关闭。
+- [UI] 备注面板顶部排列关闭、章节标题与保存，原文使用可复制的只读输入框。
+- [UI] 书签访问改用独立的 FRB 与 Mock 适配，删除巨大接口中的旧书签方法，共享同一数据实例。
 - Rust 工作区迁移到 2024 edition，统一格式化口径并更新兼容依赖；Rust 工具链继续使用 stable。
 - 升级 AES、CBC、ECB、DES 和 Base64，统一加密接口与工作区版本声明。
 - 升级 HTTP 中间件、WebSocket 测试客户端、PDF、7z 与 QuickJS；图片解码使用新版 image，PDF 接口直接接收像素，保留书源 JSONPath 方言及稳定 RSA 类型约束。

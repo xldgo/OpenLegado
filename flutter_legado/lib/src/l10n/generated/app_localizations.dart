@@ -6614,6 +6614,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'在书架隐藏'**
   String get bookGroupHiddenOnShelf;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑备注'**
+  String get bookmarkEditNote;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'原文'**
+  String get bookmarkOriginalText;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'备注（可选）'**
+  String get bookmarkNoteLabel;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'继续编辑'**
+  String get bookmarkKeepEditing;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'备注尚未保存，放弃修改并关闭？'**
+  String get bookmarkDiscardNote;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败，输入已保留，请重试。'**
+  String get bookmarkNoteSaveFailed;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存…'**
+  String get bookmarkNoteSaving;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'备注已保存'**
+  String get bookmarkNoteSaved;
+
+  /// 书签备注编辑面板
+  ///
+  /// In zh, this message translates to:
+  /// **'已添加书签'**
+  String get bookmarkAdded;
 }
 
 class _AppLocalizationsDelegate

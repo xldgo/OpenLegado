@@ -80,13 +80,13 @@
 
 ### 1.1 定位
 
-本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。所有跨轨数据流通均以 `BookApi` 抽象接口（`flutter_legado/lib/src/services/book_api.dart`）为准，本文档为其权威文字说明。
+本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository` 承担，本文档为其权威文字说明。
 
 ### 1.2 变更规则
 
 | 变更类型 | 规则 |
 |----------|------|
-| **新增 API** | Rust 轨可自由添加，但须同步：① 更新本文档 ② 补 `MockBookApi` 假实现 ③ `BookApi` 接口新增抽象方法 |
+| **新增 API** | Rust 轨可自由添加，但须同步：① 更新本文档 ② 补 `MockBookApi` 假实现 ③ 对应的 `BookApi` 或领域窄接口新增抽象方法 |
 | **修改/删除已有签名** | 破坏性变更，必须双轨评审确认后执行，PR 标注"破坏性变更"及影响范围 |
 
 详细流程参见 [TWO_TRACK_DEV_SPEC.md § 4 契约变更流程](TWO_TRACK_DEV_SPEC.md)。
@@ -207,8 +207,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **293 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293）。
-> 附录 §2.x 行合计 **295** = §2.x 实际方法行总数；其中 2 个为尚未封装进 BookApi 的纯 FFI（`chapterPayAction` / `rssUpdateSource`，见附录口径）。
+> BookApi 接口当前共 **286 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286）。
+> 附录 §2.x 行合计 **296** = BookApi 286 + BookmarkRepository 6 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -361,10 +361,25 @@
 
 ### 2.7 书签操作（7 个方法）
 
+> **书签直接适配接线冻结（2026-10-13）**：`BookmarkRepository` 暴露全部查询、
+> 书名与作者双键查询、新增、原子更新、删除及搜索六项操作。`RustBookmarkRepository`
+> 直接调用既有 FRB；MockBookmarkRepository 独立拥有会话内书签，沿用原 ID 分配、
+> 查询、延迟与更新语义。BookApi 仅暴露 `bookmarkRepository` 装配引用，七项旧书签
+> 方法删除；根实例中的同一个 Repository 由 Provider 共享，替换根实例时一起替换。
+> 不初始化或重新打开运行时与数据库，不新增缓存。临时 BookApiBookmarkRepository
+> 删除，不存在双向转发。仅按书名的旧查询不进入新接口；Rust 原 `bookmarkGetAll`
+> 导出保留。Rust FFI、FRB 生成物、错误传播、JSON 及数据库均不变；BookApi 方法
+> 计数由 293 减至 286，书签六项改由领域接口承担。
+
+> **备注编辑接线（2026-10-13）**：新增选区书签时 `bookText` 为选区原文，`content`
+> 为用户填写的备注（默认空串），`chapterPos` 保留选区 UTF-16 起始偏移。已有书签
+> 编辑只改变 `content`，其余字段不变；Notifier 在原子更新成功后刷新当前列表的
+> 对应记录，失败不更新列表。共用输入组件等待持久化成功才关闭，取消不写入。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `getBookmarks(String bookName)` | bookName | `Future<List<Bookmark>>` | 获取某本书的所有书签（仅按书名查询；同名书会混入，兼容保留，推荐用 `getBookmarksByBook`） |
-| `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签列表（遵守 §1.4 裸数组铁律）。既有 `getBookmarks` 签名保持不变，本方法为加法式新增。方案说明：不采用给 `getBookmarks` 追加可选参数方案，避免触碰既有冻结签名；新增独立方法对既有调用方零破坏（台账 §5.14-2，第三批后置项，Task #63，加法式新增） |
+| `bookmarkGetAll({required String bookName})`（仅 FRB） | bookName | `Future<String>` | 仅按书名返回裸 JSON 数组；Rust/FRB 导出保留，旧 BookApi.getBookmarks 已删除，应用使用领域接口的双键查询。 |
+| `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签列表（遵守 §1.4 裸数组铁律）。既有 Rust/FRB 双键查询签名不变；Dart 调用迁至 BookmarkRepository（历史来源：台账 §5.14-2，Task #63） |
 | `getAllBookmarks()` | 无 | `Future<List<Bookmark>>` | 获取所有书签 |
 | `addBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<Bookmark>` | 添加书签 |
 | `updateBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<void>` | 通过 FRB `bookmark_update(bookmark_json)` 原子更新已有书签；保留 id 与原有创建时间 time。非法 JSON、目标不存在或写入失败抛错，失败保留原记录，不执行删除后新增。 |
@@ -1143,8 +1158,10 @@
 | | **合计（§2.x 附录行合计）** | **296** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`，取代人工统计）：
-> - 附录行合计 **296** = §2.x 实际方法行总数；其中与 BookApi 同名 280（255 + 字典规则 7 + 书源作用域 1 + 替换规则预览 1 + 换源预拉缓存 2 + WebView cookie 回流 1 + 单章缓存失效 1 + 目录实时刷新 1 + 图片缓存 2 + 本地漫画页读取 1 + 音频缓存 4 + 音频缓存写入 2 + 视频弹幕 2；失败章查询经 §1.7 命名等价对登记）、§1.7 命名等价对的 FFI 登记名 10
->   （对应 9 个未同名登记的 BookApi 方法，`getCachedChapter` 另在 §2.16 同名登记）、登录四方法的 FFI 登记名 4（§1.7）、
->   尚未封装进 BookApi 的纯 FFI 2（`chapterPayAction` / `rssUpdateSource`）。
-> - BookApi 代码计数 **293** = 281 同名行（255 + 字典规则 7 + 书源作用域 1 + 替换规则预览 1 + 换源预拉缓存 2 + WebView cookie 回流 1 + 单章缓存失效 1 + 目录实时刷新 1 + 图片缓存 2 + 本地漫画页读取 1 + 音频缓存 4 + 音频缓存写入 2 + 视频弹幕 2；失败章查询经 §1.7 命名等价对登记）+ 9 命名等价（§1.7）+ 4 登录（§1.7）；测试自动强制两口径与闭合关系（§2.48 2 方法为契约先行，`book_api.dart` 实现批封装后程序化计数转齐）。
+
+> - 附录行合计 **296** = §2.x 实际方法行总数；保持既有行数，迁移只改变 Dart 的接口归属。
+> - BookApi 代码计数 **286**；BookmarkRepository 六项查询与写入独立计数；
+>   三个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource`；
+>   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
+> - 闭合关系为 **296 = 286 + 6 + 3 + 1**，测试同时核对书签接口、正式和 Mock 实现及旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

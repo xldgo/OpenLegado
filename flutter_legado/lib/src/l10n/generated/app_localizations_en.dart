@@ -3717,4 +3717,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookGroupHiddenOnShelf => 'Hidden on bookshelf';
+
+  @override
+  String get bookmarkEditNote => 'Edit note';
+
+  @override
+  String get bookmarkOriginalText => 'Original text';
+
+  @override
+  String get bookmarkNoteLabel => 'Note (optional)';
+
+  @override
+  String get bookmarkKeepEditing => 'Keep editing';
+
+  @override
+  String get bookmarkDiscardNote => 'Discard unsaved changes to this note?';
+
+  @override
+  String get bookmarkNoteSaveFailed =>
+      'Could not save. Your note is still here. Please try again.';
+
+  @override
+  String get bookmarkNoteSaving => 'Saving…';
+
+  @override
+  String get bookmarkNoteSaved => 'Note saved';
+
+  @override
+  String get bookmarkAdded => 'Bookmark added';
 }

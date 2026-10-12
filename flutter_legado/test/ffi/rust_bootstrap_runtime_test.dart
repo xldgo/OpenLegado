@@ -39,7 +39,7 @@ void main() {
     final api = createBookApi(useMock: false, bootstrap: startup);
     expect(await initializeBookApi(api: api), same(api));
     expect(await api.getVersion(), isNotEmpty);
-    expect(await api.getAllBookmarks(), isEmpty);
+    expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
     expect(
       jsonDecode(await api.evalJs('java.getThemeConfig()')),
       (await source.readThemeConfig()).fields,
@@ -60,7 +60,7 @@ void main() {
     );
     // 若再次加载 FRB，生成运行时会拒绝重复初始化；Bootstrap 必须直接返回。
     await api.initialize();
-    expect(await api.getAllBookmarks(), isEmpty);
+    expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
   });
 }
 

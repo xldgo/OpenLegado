@@ -295,7 +295,7 @@ void main() {
   });
 
   group('书签操作', () {
-    test('addBookmark/getBookmarks 读写一致', () async {
+    test('窄接口 addBookmark/getBookmarksByBook 读写一致', () async {
       final bm = Bookmark(
         bookName: '斗破苍穹',
         bookAuthor: '天蚕土豆',
@@ -305,15 +305,18 @@ void main() {
         bookText: '测试文本',
         content: '测试备注',
       );
-      await api.addBookmark(bm);
-      final list = await api.getBookmarks('斗破苍穹');
+      await api.bookmarkRepository.addBookmark(bm);
+      final list = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(list.length, 1);
       expect(list[0].content, '测试备注');
     });
 
     // [Task #65] 契约 §2.7 getBookmarksByBook（台账 §5.14-2）
     test('getBookmarksByBook 按书名+作者双键过滤', () async {
-      await api.addBookmark(
+      await api.bookmarkRepository.addBookmark(
         Bookmark(
           bookName: '斗破苍穹',
           bookAuthor: '天蚕土豆',
@@ -325,7 +328,7 @@ void main() {
         ),
       );
       // 同名不同作者不得混入（对齐原版 bookmarkDao.getByBook）
-      await api.addBookmark(
+      await api.bookmarkRepository.addBookmark(
         Bookmark(
           bookName: '斗破苍穹',
           bookAuthor: '同名作者',
@@ -336,10 +339,16 @@ void main() {
           content: '',
         ),
       );
-      final hit = await api.getBookmarksByBook('斗破苍穹', '天蚕土豆');
+      final hit = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(hit.length, 1);
       expect(hit[0].content, '命中');
-      final miss = await api.getBookmarksByBook('斗破苍穹', '不存在的作者');
+      final miss = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '不存在的作者',
+      );
       expect(miss, isEmpty);
     });
 
@@ -353,9 +362,9 @@ void main() {
         bookText: '',
         content: '',
       );
-      final added = await api.addBookmark(bm);
-      await api.deleteBookmark(added.id);
-      final list = await api.getAllBookmarks();
+      final added = await api.bookmarkRepository.addBookmark(bm);
+      await api.bookmarkRepository.deleteBookmark(added.id);
+      final list = await api.bookmarkRepository.getAllBookmarks();
       expect(list, isEmpty);
     });
   });

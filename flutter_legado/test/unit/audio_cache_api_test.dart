@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/services/book_api.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 
 void main() {
   // MockBookApi 构造经 _initMockData 惰性读取样例资产（rootBundle）
@@ -159,7 +160,7 @@ void main() {
 
   group('RustApi FFI 不可用（读面降级 / 写入面上抛，契约 §2.47/§2.48）', () {
     late RustApi api;
-    setUp(() => api = RustApi());
+    setUp(() => api = createBookApi(useMock: false) as RustApi);
 
     test('读面四方法降级为 false/空/0，不抛 FFI 异常', () async {
       expect(

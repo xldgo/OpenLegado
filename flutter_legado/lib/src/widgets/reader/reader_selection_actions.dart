@@ -11,8 +11,10 @@ import '../../providers/bookmark/bookmark_notifier.dart';
 import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
+import '../../l10n/app_localization.dart';
 import '../../services/book_api.dart';
 import '../dict_dialog.dart';
+import '../bookmark_note_sheet.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_menu_config.dart';
 
@@ -106,16 +108,25 @@ class ReaderSelectionActions {
             startParagraphText: selection.text,
           );
         case ReaderSelectionAction.bookmark:
-          await bookmark!.addBookmark(
-            bookName: state!.currentBook!.name,
-            bookAuthor: state.currentBook!.author,
-            chapterIndex: state.currentChapterIndex,
-            chapterPos: selection.start,
-            chapterName: state.currentChapter?.title ?? '',
+          final saved = await BookmarkNoteSheet.show(
+            context: context,
             bookText: selection.text,
-            content: selection.text,
+            chapterName: state!.currentChapter?.title ?? '',
+            onSave: (note) async {
+              await bookmark!.addBookmark(
+                bookName: state.currentBook!.name,
+                bookAuthor: state.currentBook!.author,
+                chapterIndex: state.currentChapterIndex,
+                chapterPos: selection.start,
+                chapterName: state.currentChapter?.title ?? '',
+                bookText: selection.text,
+                content: note,
+              );
+            },
           );
-          _toast('已添加书签');
+          if (saved == true && context.mounted) {
+            _toast(context.l10n.bookmarkAdded);
+          }
         case ReaderSelectionAction.highlight:
           await _highlight(state!, api!);
         case ReaderSelectionAction.dictionary:

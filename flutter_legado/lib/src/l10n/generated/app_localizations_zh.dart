@@ -3501,4 +3501,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookGroupHiddenOnShelf => '在书架隐藏';
+
+  @override
+  String get bookmarkEditNote => '编辑备注';
+
+  @override
+  String get bookmarkOriginalText => '原文';
+
+  @override
+  String get bookmarkNoteLabel => '备注（可选）';
+
+  @override
+  String get bookmarkKeepEditing => '继续编辑';
+
+  @override
+  String get bookmarkDiscardNote => '备注尚未保存，放弃修改并关闭？';
+
+  @override
+  String get bookmarkNoteSaveFailed => '保存失败，输入已保留，请重试。';
+
+  @override
+  String get bookmarkNoteSaving => '正在保存…';
+
+  @override
+  String get bookmarkNoteSaved => '备注已保存';
+
+  @override
+  String get bookmarkAdded => '已添加书签';
 }

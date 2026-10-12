@@ -1,58 +1,10 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiReaderData mixin：书签 / 替换规则 / 阅读器 / 配置 / 词典 / 备份 / 阅读记录。
+// 本文件承载 MockBookApiReaderData mixin：替换规则 / 阅读器 / 配置 / 词典 / 备份 / 阅读记录。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
 
 mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
-  // ========== 书签操作 ==========
-
-  @override
-  Future<List<Bookmark>> getBookmarks(String bookName) async =>
-      _bookmarks.where((b) => b.bookName == bookName).toList();
-
-  /// 按书名+作者获取书签（契约 §2.7，台账 §5.14-2，Task #65）
-  ///
-  /// Mock：短延迟后返回内存书签按 bookName + bookAuthor 双键过滤结果，
-  /// 无命中返回空列表（对齐原版 bookmarkDao.getByBook） — Qoder
-  @override
-  Future<List<Bookmark>> getBookmarksByBook(
-    String bookName,
-    String bookAuthor,
-  ) async {
-    await Future.delayed(const Duration(milliseconds: 50));
-    return _bookmarks
-        .where((b) => b.bookName == bookName && b.bookAuthor == bookAuthor)
-        .toList();
-  }
-
-  @override
-  Future<List<Bookmark>> getAllBookmarks() async => List.from(_bookmarks);
-
-  @override
-  Future<Bookmark> addBookmark(Bookmark bookmark) async {
-    final bm = bookmark.copyWith(id: _nextId++);
-    _bookmarks.add(bm);
-    return bm;
-  }
-
-  @override
-  Future<void> updateBookmark(Bookmark bookmark) async {
-    final idx = _bookmarks.indexWhere((b) => b.id == bookmark.id);
-    if (idx < 0) throw StateError('书签不存在: ${bookmark.id}');
-    _bookmarks[idx] = bookmark.copyWith(time: _bookmarks[idx].time);
-  }
-
-  @override
-  Future<void> deleteBookmark(int id) async {
-    _bookmarks.removeWhere((b) => b.id == id);
-  }
-
-  @override
-  Future<List<Bookmark>> searchBookmarks(String keyword) async => _bookmarks
-      .where((b) => b.content.contains(keyword) || b.bookText.contains(keyword))
-      .toList();
-
   // ========== 替换规则操作 ==========
 
   @override

@@ -1085,5 +1085,14 @@
   "bookGroupsEmpty": "No groups yet",
   "bookGroupBookCount": "{count, plural, =1{1 book} other{{count} books}}",
   "bookGroupShownOnShelf": "Shown on bookshelf",
-  "bookGroupHiddenOnShelf": "Hidden on bookshelf"
+  "bookGroupHiddenOnShelf": "Hidden on bookshelf",
+  "bookmarkEditNote": "Edit note",
+  "bookmarkOriginalText": "Original text",
+  "bookmarkNoteLabel": "Note (optional)",
+  "bookmarkKeepEditing": "Keep editing",
+  "bookmarkDiscardNote": "Discard unsaved changes to this note?",
+  "bookmarkNoteSaveFailed": "Could not save. Your note is still here. Please try again.",
+  "bookmarkNoteSaving": "Saving…",
+  "bookmarkNoteSaved": "Note saved",
+  "bookmarkAdded": "Bookmark added"
 }
