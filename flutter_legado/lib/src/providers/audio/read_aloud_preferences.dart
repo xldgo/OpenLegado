@@ -7,6 +7,7 @@ import '../providers.dart';
 class ReadAloudPreferences {
   const ReadAloudPreferences({
     this.followSystem = true,
+    this.detachReminder = true,
     this.manualSpeed = 1,
     this.paragraphIntervalMs = 0,
     this.loaded = false,
@@ -14,6 +15,7 @@ class ReadAloudPreferences {
   });
 
   final bool followSystem;
+  final bool detachReminder;
   final double manualSpeed;
   final int paragraphIntervalMs;
   final bool loaded;
@@ -24,12 +26,14 @@ class ReadAloudPreferences {
 
   ReadAloudPreferences copyWith({
     bool? followSystem,
+    bool? detachReminder,
     double? manualSpeed,
     int? paragraphIntervalMs,
     bool? loaded,
     bool? hasStoredManualSpeed,
   }) => ReadAloudPreferences(
     followSystem: followSystem ?? this.followSystem,
+    detachReminder: detachReminder ?? this.detachReminder,
     manualSpeed: manualSpeed ?? this.manualSpeed,
     paragraphIntervalMs: paragraphIntervalMs ?? this.paragraphIntervalMs,
     loaded: loaded ?? this.loaded,
@@ -55,6 +59,7 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
       api.getConfig('ttsFollowSys'),
       api.getConfig('ttsSpeechRate'),
       api.getConfig('ttsParagraphInterval'),
+      api.getConfig('readAloudDetachReminderEnabled'),
     ]);
     var follow = values[0];
     // 沿用原有偏好迁移，不因更换界面丢失用户选择。
@@ -70,6 +75,7 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
     if (!ref.mounted) return;
     final rate = int.tryParse(values[1] ?? '') ?? 5;
     state = ReadAloudPreferences(
+      detachReminder: values[3] != 'false' && values[3] != '0',
       followSystem:
           follow == null || follow.isEmpty || follow == 'true' || follow == '1',
       manualSpeed: ((rate + 5) / 10).clamp(0.5, 3),
@@ -92,6 +98,15 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
     });
     _writes = operation;
     return operation;
+  }
+
+  Future<void> setDetachReminder(bool value) async {
+    await load();
+    await _save(
+      'readAloudDetachReminderEnabled',
+      '$value',
+      () => state.copyWith(detachReminder: value),
+    );
   }
 
   Future<void> setFollowSystem(bool follow) async {

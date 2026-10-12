@@ -29,6 +29,8 @@ class ReaderTypographicPage extends StatelessWidget {
   final double paragraphSpacing;
   final Color backgroundColor;
   final Color textColor;
+  final (int, int)? readAloudRange;
+  final Color? readAloudColor;
 
   /// 全局页索引（跨章节连续编号，可选）
   final int? globalPageIndex;
@@ -73,6 +75,8 @@ class ReaderTypographicPage extends StatelessWidget {
     required this.paragraphSpacing,
     required this.backgroundColor,
     required this.textColor,
+    this.readAloudRange,
+    this.readAloudColor,
     this.globalPageIndex,
     this.globalTotalPages,
     this.contentPadding = const EdgeInsets.symmetric(
@@ -185,6 +189,8 @@ class ReaderTypographicPage extends StatelessWidget {
                       lineHeight: lineHeight,
                       paragraphSpacing: paragraphSpacing,
                       textColor: textColor,
+                      readAloudRange: readAloudRange,
+                      readAloudColor: readAloudColor,
                       selectText: selectText,
                       letterSpacing: letterSpacing,
                       fontFamily: fontFamily,
@@ -260,6 +266,8 @@ class ReaderTextContent extends StatelessWidget {
   final double lineHeight;
   final double paragraphSpacing;
   final Color textColor;
+  final (int, int)? readAloudRange;
+  final Color? readAloudColor;
 
   // [UI-fix v2.0.2 | 2026-08-06] 字距调节与字体选择接入渲染
   // （对标原版 ReadBookConfig.letterSpacing/textFont） — Qoder
@@ -293,6 +301,8 @@ class ReaderTextContent extends StatelessWidget {
     required this.lineHeight,
     required this.paragraphSpacing,
     required this.textColor,
+    this.readAloudRange,
+    this.readAloudColor,
     this.letterSpacing = 0.0,
     this.fontFamily,
     this.justify = true,
@@ -351,7 +361,12 @@ class ReaderTextContent extends StatelessWidget {
                   TextStyle(
                     fontSize: fontSize,
                     height: lineHeight,
-                    color: textColor,
+                    color:
+                        readAloudRange != null &&
+                            para.startIndex < readAloudRange!.$2 &&
+                            para.endIndex > readAloudRange!.$1
+                        ? readAloudColor ?? textColor
+                        : textColor,
                     fontFamily: fontFamily,
                     fontWeight: fontWeight,
                     fontStyle: fontStyle,

@@ -2242,5 +2242,9 @@
   "readAloudStop": "停止朗读",
   "readAloudCapsuleGroup": "播放胶囊",
   "readAloudCapsuleAutoCollapse": "自动收起胶囊",
-  "readAloudCapsuleAutoCollapseSummary": "3 秒无操作后收起为封面"
+  "readAloudCapsuleAutoCollapseSummary": "3 秒无操作后收起为封面",
+  "readAloudDetachReminder": "朗读脱离提醒",
+  "readAloudDetachReminderSummary": "手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读",
+  "readAloudReturnToPosition": "去朗读页",
+  "readAloudFromThisPage": "从本页读"
 }

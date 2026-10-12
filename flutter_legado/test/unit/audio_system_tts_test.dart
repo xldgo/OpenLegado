@@ -147,6 +147,78 @@ void main() {
     await flush();
   }
 
+  test('真实范围发布原文位置，手动切段后旧回调不能串入新段', () async {
+    await start();
+    final oldProgress = system.onProgress!;
+    oldProgress(1, 3);
+    expect(notifier().readAloudPosition.value!.offset, 1);
+    expect(notifier().readAloudPosition.value!.paragraphStart, 0);
+    expect(notifier().readAloudPosition.value!.paragraphEnd, 4);
+    await notifier().seekToParagraph(1);
+    expect(notifier().readAloudPosition.value!.paragraphStart, 6);
+    oldProgress(2, 4);
+    expect(notifier().readAloudPosition.value!.offset, 6);
+    system.onProgress!(1, 3);
+    expect(notifier().readAloudPosition.value!.offset, 7);
+    notifier().detachReadAloudFollow();
+    expect(notifier().followReadAloud.value, false);
+    final speaks = system.texts.length;
+    notifier().restoreReadAloudFollow();
+    expect(system.texts.length, speaks);
+    notifier().pause();
+    await flush();
+    system.onProgress!(2, 4);
+    expect(notifier().readAloudPosition.value!.offset, 7);
+    notifier().stop();
+    expect(notifier().readAloudPosition.value, isNull);
+  });
+
+  test('暂停时按章节原文定位仍保持暂停，恢复只读目标后缀', () async {
+    await start();
+    notifier().pause();
+    await flush();
+    await notifier().seekToChapterPosition(1, 2);
+    expect(container.read(audioNotifierProvider).state, PlayerState.paused);
+    expect(notifier().readAloudPosition.value!.chapterIndex, 1);
+    expect(notifier().readAloudPosition.value!.offset, 2);
+    final count = system.texts.length;
+    await notifier().resumeOrPlay();
+    await flush();
+    expect(system.texts.length, count + 1);
+    expect(system.texts.last, '章。');
+  });
+
+  test('HTTP 进度估算原文位置，切段后的旧音频事件被丢弃', () async {
+    await notifier().loadChapters('book');
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    await flush();
+    await notifier().play();
+    await flush();
+    final oldTag = player.currentTag;
+    player.onProgress!(
+      const Duration(seconds: 5),
+      const Duration(seconds: 10),
+      oldTag,
+    );
+    expect(notifier().readAloudPosition.value!.offset, 2);
+    await notifier().seekToParagraph(1);
+    player.onProgress!(
+      const Duration(seconds: 9),
+      const Duration(seconds: 10),
+      oldTag,
+    );
+    player.onCompleted!(oldTag);
+    await flush();
+    expect(notifier().readAloudPosition.value!.offset, 6);
+    expect(notifier().currentParagraphIndex, 1);
+    player.onProgress!(
+      const Duration(seconds: 5),
+      const Duration(seconds: 10),
+      player.currentTag,
+    );
+    expect(notifier().readAloudPosition.value!.offset, 8);
+  });
+
   test('播放器暂停中点击正文只移动位置，恢复后读目标段', () async {
     await start();
     notifier().pause();
@@ -475,7 +547,7 @@ void main() {
     await notifier().setGlobalTtsEngine(systemTtsEngineUrl);
     await flush();
     expect(system.texts.length, 2);
-    player.onCompleted?.call(null);
+    player.onCompleted?.call(player.currentTag);
     await flush();
     expect(system.texts.length, 2);
   });

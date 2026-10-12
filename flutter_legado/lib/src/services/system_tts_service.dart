@@ -55,6 +55,9 @@ class SystemTtsService {
   _Speech? _active;
   _Speech? _paused;
   int _generation = 0;
+
+  /// 回调坐标相对整次 speak 的原文，已包含分片与 Android 恢复偏移。
+  void Function(int start, int end)? onProgress;
   int _maxLength = 4000;
   double _normalRate = 0.5;
   double _maxRate = 1.0;
@@ -113,6 +116,7 @@ class SystemTtsService {
     }
     // 4.2.5 的 iOS stop 不结束等待完成的 Future，使用事件与终止屏障。
     await _plugin.awaitSpeakCompletion(false);
+    _plugin.setProgressHandler(_nativeProgress);
     _plugin.setCompletionHandler(
       () => _nativeFinished(SystemTtsOutcome.completed),
     );
@@ -245,6 +249,7 @@ class SystemTtsService {
     _cancelActive();
     _paused = null;
     final run = _Speech(++_generation, text, speed, pitch, volume);
+    run.onProgress = onProgress;
     _active = run;
     unawaited(_begin(run));
     return run.result.future;
@@ -263,7 +268,12 @@ class SystemTtsService {
             previous.volume,
           )
           ..parts = previous.parts
-          ..index = previous.index;
+          ..index = previous.index
+          ..partProgress = previous.partProgress
+          ..partResumeOffset = supportsEngineSelection && previous.nativePaused
+              ? previous.partProgress
+              : 0
+          ..onProgress = onProgress;
     _active = run;
     unawaited(_begin(run, resumeFrom: previous));
     return run.result.future;
@@ -301,6 +311,31 @@ class SystemTtsService {
     } catch (error, stack) {
       _finishError(run, error, stack);
     }
+  }
+
+  void _nativeProgress(String text, int start, int end, String word) {
+    final run = _active;
+    if (run == null ||
+        !_current(run) ||
+        _native == null ||
+        run.parts == null ||
+        run.index >= run.parts!.length) {
+      return;
+    }
+    final part = run.parts![run.index];
+    // 插件不暴露朗读 ID；停止屏障之外再核对实际送入的分片文本。
+    final expected = part.substring(run.partResumeOffset.clamp(0, part.length));
+    if (text != expected || start < 0 || end <= start || end > text.length) {
+      return;
+    }
+    final base = run.parts!
+        .take(run.index)
+        .fold<int>(0, (sum, part) => sum + part.length);
+    run.partProgress = run.partResumeOffset + start;
+    run.onProgress?.call(
+      base + run.partProgress,
+      base + run.partResumeOffset + end,
+    );
   }
 
   void _nativeFinished(SystemTtsOutcome outcome) {
@@ -357,6 +392,8 @@ class SystemTtsService {
         return;
       }
       run.index++;
+      run.partProgress = 0;
+      run.partResumeOffset = 0;
       if (run.index == run.parts!.length) {
         _finish(run, SystemTtsOutcome.completed);
       } else {
@@ -431,4 +468,7 @@ class _Speech {
   int index = 0;
   bool started = false;
   bool nativePaused = false;
+  int partProgress = 0;
+  int partResumeOffset = 0;
+  void Function(int start, int end)? onProgress;
 }

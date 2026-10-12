@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
+import '../l10n/app_localization.dart';
 import '../models/book.dart';
 import '../models/book_source.dart';
 import '../models/source_match.dart';
@@ -772,16 +773,76 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
                 if (aloudActive && capsule.classicExpanded)
                   ReadAloudBar(
-                    onDismiss: () => ref.read(readAloudCapsuleProvider.notifier).showClassic(false),
+                    onDismiss: () => ref
+                        .read(readAloudCapsuleProvider.notifier)
+                        .showClassic(false),
                     onOpenCatalog: () => unawaited(_openToc()),
                     onBackstage: () {
-                      ref.read(readAloudCapsuleProvider.notifier).showClassic(false);
+                      ref
+                          .read(readAloudCapsuleProvider.notifier)
+                          .showClassic(false);
                       Navigator.of(context).maybePop();
                     },
                   )
                 else
                   ReaderMenuPanel(
                     visible: state.showControls,
+                    bottomAccessory:
+                        aloudActive && !audio.isStreamMode && !imageDominant
+                        ? ValueListenableBuilder<bool>(
+                            valueListenable: ref
+                                .read(audioNotifierProvider.notifier)
+                                .followReadAloud,
+                            builder: (context, following, _) {
+                              if (following) return const SizedBox.shrink();
+                              final colors = Theme.of(context).colorScheme;
+                              return SafeArea(
+                                top: false,
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 16,
+                                    bottom: 8,
+                                  ),
+                                  child: Wrap(
+                                    alignment: WrapAlignment.end,
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      _readAloudPositionChip(
+                                        colors,
+                                        icon: Icons.my_location,
+                                        label: context
+                                            .l10n
+                                            .readAloudReturnToPosition,
+                                        onPressed: audio.isLoading
+                                            ? null
+                                            : ref
+                                                  .read(
+                                                    audioNotifierProvider
+                                                        .notifier,
+                                                  )
+                                                  .restoreReadAloudFollow,
+                                      ),
+                                      _readAloudPositionChip(
+                                        colors,
+                                        icon: Icons.play_arrow,
+                                        label:
+                                            context.l10n.readAloudFromThisPage,
+                                        onPressed:
+                                            state.isLoading || audio.isLoading
+                                            ? null
+                                            : () => unawaited(
+                                                _readFromVisiblePage(),
+                                              ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : null,
                     onBack: () => Navigator.of(context).maybePop(),
                     onAddBookmark: () => _addBookmark(state),
                     onOpenCatalog: () => unawaited(_openToc()),
@@ -805,6 +866,58 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         ),
       ),
     );
+  }
+
+  Widget _readAloudPositionChip(
+    ColorScheme colors, {
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) => ActionChip(
+    avatar: Icon(icon, size: 16, color: colors.onSecondaryContainer),
+    label: Text(label),
+    labelStyle: Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: colors.onSecondaryContainer),
+    backgroundColor: colors.secondaryContainer,
+    side: BorderSide.none,
+    shape: const StadiumBorder(),
+    onPressed: onPressed,
+  );
+
+  /// 从当前可见页的起点切换朗读；分页取页首，滚动取当前视口原文锚点。
+  Future<void> _readFromVisiblePage() async {
+    final reader = ref.read(readerNotifierProvider);
+    final bookUrl = reader.currentBook?.bookUrl;
+    final chapter = reader.currentChapterIndex;
+    final page = _pageViewKey.currentState;
+    if (reader.isLoading ||
+        bookUrl == null ||
+        page == null ||
+        page.pageCount == 0) {
+      return;
+    }
+    final offset = reader.pageTurnMode == PageTurnMode.scroll
+        ? ref.read(readerNotifierProvider.notifier).currentSourceOffset ?? 0
+        : page.currentSourceRange.$1;
+    final audio = ref.read(audioNotifierProvider.notifier);
+    try {
+      await audio.seekToChapterPosition(chapter, offset);
+      if (!mounted) return;
+      final current = ref.read(audioNotifierProvider);
+      if (current.bookUrl != bookUrl ||
+          current.currentIndex != chapter ||
+          (current.state != PlayerState.playing &&
+              current.state != PlayerState.paused)) {
+        return;
+      }
+      audio.restoreReadAloudFollow();
+      if (current.state == PlayerState.paused) await audio.resumeOrPlay();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.readAloudControlFailed('$error'))),
+      );
+    }
   }
 
   // ===== 交互 =====

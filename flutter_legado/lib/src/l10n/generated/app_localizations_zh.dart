@@ -1608,4 +1608,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readAloudCapsuleAutoCollapseSummary => '3 秒无操作后收起为封面';
+
+  @override
+  String get readAloudDetachReminder => '朗读脱离提醒';
+
+  @override
+  String get readAloudDetachReminderSummary =>
+      '手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读';
+
+  @override
+  String get readAloudReturnToPosition => '去朗读页';
+
+  @override
+  String get readAloudFromThisPage => '从本页读';
 }

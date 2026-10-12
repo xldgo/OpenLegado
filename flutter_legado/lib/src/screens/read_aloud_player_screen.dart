@@ -271,41 +271,20 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
         ),
       );
     }
-    final theme = Theme.of(context);
-    return ListView.builder(
-      key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: paragraphs.length,
-      itemBuilder: (context, index) {
-        final selected = index == notifier.currentParagraphIndex;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Material(
-            color: selected
-                ? theme.colorScheme.primaryContainer
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: enabled
-                  ? () => _run(() => notifier.seekToParagraph(index))
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  paragraphs[index],
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    height: 1.6,
-                    color: selected
-                        ? theme.colorScheme.onPrimaryContainer
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return ValueListenableBuilder(
+      valueListenable: notifier.readAloudPosition,
+      builder: (context, position, _) => _ReadAloudChapterText(
+        key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
+        paragraphs: paragraphs,
+        activeIndex:
+            position?.bookUrl == audio.bookUrl &&
+                position?.chapterIndex == audio.currentIndex
+            ? position!.paragraphIndex
+            : notifier.currentParagraphIndex,
+        onSeek: enabled
+            ? (index) => _run(() => notifier.seekToParagraph(index))
+            : null,
+      ),
     );
   }
 
@@ -555,4 +534,171 @@ class _ReadAloudCatalogState extends State<_ReadAloudCatalog> {
       onTap: widget.onSelect == null ? null : () => widget.onSelect!(index),
     ),
   );
+}
+
+/// 段落高度只在正文或排版参数改变时测量；播放范围回调复用缓存。
+class _ReadAloudChapterText extends StatefulWidget {
+  const _ReadAloudChapterText({
+    super.key,
+    required this.paragraphs,
+    required this.activeIndex,
+    this.onSeek,
+  });
+  final List<String> paragraphs;
+  final int activeIndex;
+  final ValueChanged<int>? onSeek;
+
+  @override
+  State<_ReadAloudChapterText> createState() => _ReadAloudChapterTextState();
+}
+
+class _ReadAloudChapterTextState extends State<_ReadAloudChapterText> {
+  final _scroll = ScrollController();
+  final List<double> _tops = [8];
+  final List<double> _heights = [];
+  Object? _metricsKey;
+  bool _pending = false;
+  bool _dragging = false;
+  int? _lastFollowed;
+
+  @override
+  void didUpdateWidget(covariant _ReadAloudChapterText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeIndex != widget.activeIndex) _scheduleFollow();
+  }
+
+  void _scheduleFollow() {
+    if (_pending) return;
+    _pending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pending = false;
+      if (!mounted ||
+          _dragging ||
+          !_scroll.hasClients ||
+          _tops.length <= widget.activeIndex) {
+        return;
+      }
+      if (_lastFollowed == widget.activeIndex) return;
+      _lastFollowed = widget.activeIndex;
+      final position = _scroll.position;
+      final target =
+          (_tops[widget.activeIndex] - position.viewportDimension * 0.32).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          );
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _scroll.jumpTo(target);
+      } else {
+        // 跨越很远时先靠近目标，避免整章高速掠过。
+        if ((target - _scroll.offset).abs() > position.viewportDimension * 2) {
+          _scroll.jumpTo(
+            (target + position.viewportDimension * 0.08).clamp(
+              position.minScrollExtent,
+              position.maxScrollExtent,
+            ),
+          );
+        }
+        unawaited(
+          _scroll.animateTo(
+            target,
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.fastOutSlowIn,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyLarge!.copyWith(height: 1.6);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final key = (
+          widget.paragraphs,
+          constraints.maxWidth,
+          style,
+          scaler,
+          direction,
+        );
+        if (_metricsKey != key) {
+          _metricsKey = key;
+          _tops
+            ..clear()
+            ..add(8);
+          _heights.clear();
+          final painter = TextPainter(
+            textDirection: direction,
+            textScaler: scaler,
+          );
+          for (final text in widget.paragraphs) {
+            painter.text = TextSpan(text: text, style: style);
+            painter.layout(
+              maxWidth: (constraints.maxWidth - 56).clamp(1, double.infinity),
+            );
+            final height = painter.height + 32;
+            _heights.add(height);
+            _tops.add(_tops.last + height);
+          }
+          painter.dispose();
+          _lastFollowed = null;
+        }
+        _scheduleFollow();
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth != 0) return false;
+            if (notification is ScrollStartNotification &&
+                notification.dragDetails != null) {
+              _dragging = true;
+            } else if (notification is ScrollEndNotification && _dragging) {
+              _dragging = false;
+              _scheduleFollow();
+            }
+            return false;
+          },
+          child: ListView.builder(
+            controller: _scroll,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: widget.paragraphs.length,
+            itemExtentBuilder: (index, _) => _heights[index],
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: widget.onSeek == null
+                      ? null
+                      : () => widget.onSeek!(index),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      widget.paragraphs[index],
+                      style: style.copyWith(
+                        color: index == widget.activeIndex
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.5,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

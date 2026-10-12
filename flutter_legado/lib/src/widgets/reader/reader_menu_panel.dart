@@ -43,6 +43,7 @@ part 'reader_menu_actions.part.dart';
 /// 常挂载+双向动画（visible 驱动）。
 class ReaderMenuPanel extends ConsumerStatefulWidget {
   final bool visible;
+  final Widget? bottomAccessory;
   final VoidCallback onBack;
   final VoidCallback onAddBookmark;
   final VoidCallback onOpenCatalog;
@@ -61,6 +62,7 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
   const ReaderMenuPanel({
     super.key,
     required this.visible,
+    this.bottomAccessory,
     required this.onBack,
     required this.onAddBookmark,
     required this.onOpenCatalog,
@@ -281,14 +283,31 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                       reverseCurve: Curves.easeInCubic,
                     ),
                   ),
-              child: useSurfaceBlur
-                  ? ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(32),
-                      ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                        child: _panelSurface(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.bottomAccessory != null) widget.bottomAccessory!,
+                  useSurfaceBlur
+                      ? ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(32),
+                          ),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                            child: _panelSurface(
+                              context,
+                              barColor,
+                              foreground,
+                              book,
+                              chapter,
+                              notifier,
+                              state,
+                              autoPageActive,
+                            ),
+                          ),
+                        )
+                      : _panelSurface(
                           context,
                           barColor,
                           foreground,
@@ -298,18 +317,8 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                           state,
                           autoPageActive,
                         ),
-                      ),
-                    )
-                  : _panelSurface(
-                      context,
-                      barColor,
-                      foreground,
-                      book,
-                      chapter,
-                      notifier,
-                      state,
-                      autoPageActive,
-                    ),
+                ],
+              ),
             ),
           ],
         ),

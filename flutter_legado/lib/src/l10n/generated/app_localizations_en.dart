@@ -1720,4 +1720,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get readAloudCapsuleAutoCollapseSummary =>
       'Collapse to the cover after 3 seconds of inactivity';
+
+  @override
+  String get readAloudDetachReminder => 'Keep speaking when browsing';
+
+  @override
+  String get readAloudDetachReminderSummary =>
+      'Browse without interrupting speech, then return to the spoken passage. When off, speech follows your reading position.';
+
+  @override
+  String get readAloudReturnToPosition => 'Go to speaking page';
+
+  @override
+  String get readAloudFromThisPage => 'Read from this page';
 }

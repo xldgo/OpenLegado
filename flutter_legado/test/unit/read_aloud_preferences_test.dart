@@ -35,6 +35,19 @@ void main() {
     addTearDown(container.dispose);
   });
 
+  test('朗读脱离提醒默认启用，关闭后可从持久化配置恢复', () async {
+    await notifier().load();
+    expect(state().detachReminder, true);
+    await notifier().setDetachReminder(false);
+    expect(saved['readAloudDetachReminderEnabled'], 'false');
+    final restored = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    addTearDown(restored.dispose);
+    await restored.read(readAloudPreferencesProvider.notifier).load();
+    expect(restored.read(readAloudPreferencesProvider).detachReminder, false);
+  });
+
   test('跟随模式切换保留手动语速，重建容器恢复偏好', () async {
     saved.addAll({
       'ttsFollowSys': 'false',

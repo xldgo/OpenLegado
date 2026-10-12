@@ -12,6 +12,8 @@ import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
+import '../../providers/audio/audio_notifier.dart';
+import '../../providers/audio/read_aloud_preferences.dart';
 import '../../routes.dart';
 import '../../screens/reader_config_panel.dart';
 import '../../widgets/error_view.dart';
@@ -196,6 +198,216 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   PageInfo? _scrollLayout;
   List<(double, int, int)> _scrollLinePositions = [];
   bool _restoringScroll = false;
+  late final AudioNotifier _audio;
+  bool _aloudFramePending = false;
+  int? _speechChapterTarget;
+  (String, int, int, int)? _aloudPaintKey;
+  int _manualNavigationGeneration = 0;
+  bool _aloudScrolling = false;
+  bool _manualScrollActive = false;
+  bool _manualChapterPending = false;
+
+  (int, int)? get _aloudRange {
+    final position = _audio.readAloudPosition.value;
+    if (position == null ||
+        position.bookUrl != _paginatedBookUrl ||
+        position.chapterIndex != _paginatedChapterIndex) {
+      return null;
+    }
+    return (position.paragraphStart, position.paragraphEnd);
+  }
+
+  void _scheduleAloudFollow() {
+    if (_aloudFramePending || !mounted) return;
+    _aloudFramePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _aloudFramePending = false;
+      if (mounted) unawaited(_applyAloudFollow());
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _applyAloudFollow() async {
+    final position = _audio.readAloudPosition.value;
+    final state = ref.read(readerNotifierProvider);
+    final audioState = ref.read(audioNotifierProvider);
+    final matches =
+        position != null &&
+        position.bookUrl == state.currentBook?.bookUrl &&
+        !audioState.isStreamMode &&
+        audioState.state != PlayerState.idle;
+    final paintKey = matches && position.chapterIndex == _paginatedChapterIndex
+        ? (
+            position.bookUrl,
+            position.chapterIndex,
+            position.paragraphStart,
+            position.paragraphEnd,
+          )
+        : null;
+    if (paintKey != _aloudPaintKey) {
+      setState(() {
+        _aloudPaintKey = paintKey;
+        _paintRevision++;
+      });
+    }
+    if (!matches || !_audio.followReadAloud.value || _manualScrollActive) {
+      return;
+    }
+    final reader = ref.read(readerNotifierProvider.notifier);
+    if (state.currentChapterIndex != position.chapterIndex) {
+      if (_speechChapterTarget != null) return;
+      _speechChapterTarget = position.chapterIndex;
+      try {
+        await reader.goToChapter(
+          position.chapterIndex,
+          sourceOffset: position.offset,
+        );
+      } finally {
+        _speechChapterTarget = null;
+        if (mounted) _scheduleAloudFollow();
+      }
+      return;
+    }
+    if (state.isLoading ||
+        _paginatedBookUrl != position.bookUrl ||
+        _paginatedPages.isEmpty ||
+        _paginatedChapterIndex != position.chapterIndex ||
+        _paginatedContent != state.chapterContent) {
+      return;
+    }
+    final page = pageIndexForSourceOffset(_paginatedPages, position.offset);
+    if (!_layoutComplete && position.offset >= _paginatedPages.last.sourceEnd) {
+      return;
+    }
+    if (state.pageTurnMode == PageTurnMode.scroll) {
+      if (!_scrollController.hasClients ||
+          _scrollLinePositions.isEmpty ||
+          _aloudScrolling) {
+        return;
+      }
+      final body = _scrollBodyKey.currentContext?.findRenderObject();
+      final viewport = context.findRenderObject();
+      if (body is! RenderBox || viewport is! RenderBox) return;
+      var lineIndex = 0;
+      for (var i = 0; i < _scrollLinePositions.length; i++) {
+        if (_scrollLinePositions[i].$2 > position.offset) break;
+        lineIndex = i;
+      }
+      final y =
+          body.localToGlobal(Offset(0, _scrollLinePositions[lineIndex].$1)).dy -
+          viewport.localToGlobal(Offset.zero).dy;
+      final height = _scrollController.position.viewportDimension;
+      if (y < height * 0.1 || y > height * 0.8) {
+        final target = (_scrollController.offset + y - height * 0.32).clamp(
+          _scrollController.position.minScrollExtent,
+          _scrollController.position.maxScrollExtent,
+        );
+        _aloudScrolling = true;
+        try {
+          if (widget.noAnimScroll || MediaQuery.disableAnimationsOf(context)) {
+            _scrollController.jumpTo(target);
+          } else {
+            await _scrollController.animateTo(
+              target,
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.fastOutSlowIn,
+            );
+          }
+        } finally {
+          _aloudScrolling = false;
+        }
+      }
+    } else {
+      final visible = _isDoublePage
+          ? page ~/ 2 == _currentPageIndex ~/ 2
+          : page == _currentPageIndex;
+      if (!visible && !_selectionController.value) {
+        setState(
+          () => _currentPageIndex = _isDoublePage ? page ~/ 2 * 2 : page,
+        );
+        reader.updatePosition(_currentPageIndex, sourceOffset: position.offset);
+      }
+    }
+  }
+
+  void _manualAloudNavigation() {
+    final audioState = ref.read(audioNotifierProvider);
+    final state = ref.read(readerNotifierProvider);
+    if (audioState.isStreamMode ||
+        audioState.state == PlayerState.idle ||
+        audioState.bookUrl != state.currentBook?.bookUrl ||
+        _speechChapterTarget != null) {
+      return;
+    }
+    _audio.detachReadAloudFollow();
+    final generation = ++_manualNavigationGeneration;
+    final reminder = ref.read(readAloudPreferencesProvider).detachReminder;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _manualScrollActive ||
+          generation != _manualNavigationGeneration) {
+        return;
+      }
+      final live = ref.read(readerNotifierProvider);
+      final position = _audio.readAloudPosition.value;
+      if (live.isLoading || live.currentBook?.bookUrl != audioState.bookUrl) {
+        return;
+      }
+      if (_paginatedChapterIndex != live.currentChapterIndex) return;
+      if (!reminder) {
+        unawaited(
+          _audio
+              .seekToChapterPosition(
+                live.currentChapterIndex,
+                ref.read(readerNotifierProvider.notifier).currentSourceOffset ??
+                    0,
+              )
+              .then((_) {
+                if (mounted && generation == _manualNavigationGeneration) {
+                  _audio.restoreReadAloudFollow();
+                }
+              }),
+        );
+      } else if (position != null &&
+          position.chapterIndex == live.currentChapterIndex &&
+          _paginatedPages.isNotEmpty) {
+        final page = pageIndexForSourceOffset(_paginatedPages, position.offset);
+        final visible = live.pageTurnMode == PageTurnMode.scroll
+            ? _visibleScrollContains(position.offset)
+            : (_isDoublePage
+                  ? page ~/ 2 == _currentPageIndex ~/ 2
+                  : page == _currentPageIndex);
+        if (visible) _audio.restoreReadAloudFollow();
+      }
+    });
+  }
+
+  void _detachForManualScroll() {
+    final audio = ref.read(audioNotifierProvider);
+    if (!audio.isStreamMode &&
+        audio.state != PlayerState.idle &&
+        audio.bookUrl ==
+            ref.read(readerNotifierProvider).currentBook?.bookUrl) {
+      _audio.detachReadAloudFollow();
+    }
+  }
+
+  bool _visibleScrollContains(int offset) {
+    if (!_scrollController.hasClients) return false;
+    final body = _scrollBodyKey.currentContext?.findRenderObject();
+    final viewport = context.findRenderObject();
+    if (body is! RenderBox || viewport is! RenderBox) return false;
+    var y = 0.0;
+    for (final line in _scrollLinePositions) {
+      if (line.$2 > offset) break;
+      y = line.$1;
+    }
+    final visibleY =
+        body.localToGlobal(Offset(0, y)).dy -
+        viewport.localToGlobal(Offset.zero).dy;
+    return visibleY >= 0 &&
+        visibleY < _scrollController.position.viewportDimension;
+  }
 
   // ===== 排版引擎分页状态 =====
 
@@ -294,6 +506,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           index,
           sourceOffset: _paginatedPages[index].sourceStart,
         );
+    _manualAloudNavigation();
     // 跳页同样驱动相邻章预载
     _maybePreloadAdjacent(ref.read(readerNotifierProvider));
   }
@@ -301,6 +514,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 滚动模式：按一屏高度滚动（前进/后退，动画随 noAnimScrollPage）
   void _scrollByViewport(bool forward) {
     if (!_scrollController.hasClients) return;
+    _detachForManualScroll();
     final pos = _scrollController.position;
     if (!pos.hasViewportDimension) return;
     final delta = forward ? pos.viewportDimension : -pos.viewportDimension;
@@ -310,12 +524,17 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     );
     if (widget.noAnimScroll) {
       _scrollController.jumpTo(target);
+      _manualAloudNavigation();
     } else {
-      _scrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      _scrollController
+          .animateTo(
+            target,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          )
+          .then((_) {
+            if (mounted) _manualAloudNavigation();
+          });
     }
   }
 
@@ -401,6 +620,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   @override
   void initState() {
     super.initState();
+    _audio = ref.read(audioNotifierProvider.notifier);
+    _audio.readAloudPosition.addListener(_scheduleAloudFollow);
+    _audio.followReadAloud.addListener(_scheduleAloudFollow);
     _scrollController.addListener(_saveScrollAnchor);
     unawaited(_refreshFontFamily());
   }
@@ -488,6 +710,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     }
     _layoutCache.clear();
     _selectionController.dispose();
+    _audio.readAloudPosition.removeListener(_scheduleAloudFollow);
+    _audio.followReadAloud.removeListener(_scheduleAloudFollow);
     _scrollController.dispose();
     super.dispose();
   }
@@ -1110,6 +1334,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   Widget build(BuildContext context) {
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
+    ref.listen(readerNotifierProvider, (previous, next) {
+      if (previous != null &&
+          previous.currentChapterIndex != next.currentChapterIndex &&
+          _speechChapterTarget == null) {
+        _manualChapterPending = true;
+        _manualAloudNavigation();
+      }
+    });
+    _scheduleAloudFollow();
 
     // [UI_SYNC_REFACTOR S4 修 | 2026-09-06] 章节切换加载中：保留上一章
     // 既有分页渲染（跳过重分页）——此前直接整树换成 LoadingIndicator，
@@ -1210,6 +1443,14 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   }) {
     if (repaginate) {
       _paginateIfNeeded(context, state, viewportSize);
+    }
+    if (_manualChapterPending &&
+        !state.isLoading &&
+        _paginatedChapterIndex == state.currentChapterIndex &&
+        _paginatedBookUrl == state.currentBook?.bookUrl &&
+        !_waitingForAnchor) {
+      _manualChapterPending = false;
+      _manualAloudNavigation();
     }
     if (_layoutError case final message?) {
       return Center(child: Text(message, textAlign: TextAlign.center));
@@ -1642,6 +1883,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             page,
             sourceOffset: _paginatedPages[page].sourceStart,
           );
+          _manualAloudNavigation();
           // 翻页不触发重分页 → 此处驱动相邻章预载（原仅分页触发导致章末无预载）
           _maybePreloadAdjacent(ref.read(readerNotifierProvider));
         },
@@ -1661,76 +1903,94 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
     return _contentViewport(
       context,
-      SingleChildScrollView(
-        controller: _scrollController,
-        // [UI-fix v2.0.3 | 2026-08-06] 滚动模式边距接页面边距配置 — Qoder
-        padding: EdgeInsets.only(
-          left: widget.marginLeft,
-          right: widget.marginRight,
-          top: widget.marginTop,
-          bottom: widget.marginBottom,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (state.currentChapter != null)
-              SelectionContainer.disabled(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Text(
-                    state.currentChapter!.title,
-                    style: TextStyle(
-                      fontSize: state.fontSize + 4,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                      // [A4 滚动模式标题字体 | full-stack-engineer] 标题
-                      // fontFamily 接 effectiveTitleFontFamily 单源（与
-                      // 分页模式渲染侧同参；空=跟随正文字体）。滚动模式
-                      // 不分页、无测量侧，故仅渲染侧取值。
-                      fontFamily: effectiveTitleFontFamily(
-                        widget.pageChrome,
-                        _fontFamily,
+      NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.depth != 0) return false;
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _manualScrollActive = true;
+            _manualNavigationGeneration++;
+            _detachForManualScroll();
+          } else if (notification is ScrollEndNotification &&
+              _manualScrollActive) {
+            _manualScrollActive = false;
+            _manualAloudNavigation();
+          }
+          return false;
+        },
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          // [UI-fix v2.0.3 | 2026-08-06] 滚动模式边距接页面边距配置 — Qoder
+          padding: EdgeInsets.only(
+            left: widget.marginLeft,
+            right: widget.marginRight,
+            top: widget.marginTop,
+            bottom: widget.marginBottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (state.currentChapter != null)
+                SelectionContainer.disabled(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Text(
+                      state.currentChapter!.title,
+                      style: TextStyle(
+                        fontSize: state.fontSize + 4,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                        // [A4 滚动模式标题字体 | full-stack-engineer] 标题
+                        // fontFamily 接 effectiveTitleFontFamily 单源（与
+                        // 分页模式渲染侧同参；空=跟随正文字体）。滚动模式
+                        // 不分页、无测量侧，故仅渲染侧取值。
+                        fontFamily: effectiveTitleFontFamily(
+                          widget.pageChrome,
+                          _fontFamily,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
-            if (_paginatedPages.isNotEmpty && _scrollLayout != null)
-              ReaderTextContent(
-                key: _scrollBodyKey,
-                pageInfo: _scrollLayout!,
-                fontSize: state.fontSize,
-                lineHeight: state.lineHeight,
-                paragraphSpacing: widget.paragraphSpacing,
-                textColor: textColor,
-                // [UI-fix v2.0.2 | 2026-08-06] 字距/字体/两端对齐透传到正文渲染 — Qoder
-                // [UI-fix v2.0.4 | 2026-08-08] 字距 em→px；字重接线 — Qoder
-                letterSpacing: widget.letterSpacing * state.fontSize,
-                fontFamily: _fontFamily,
-                fontWeight: _fontWeightFor(widget.textBold),
-                fontStyle: _fontStyleFor(widget.italic),
-                justify: widget.textFullJustify,
-                // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入长按选择 — Qoder
-                selectText: widget.selectText,
-                reviewCounts: widget.reviewCounts,
-                onReviewTap: widget.onReviewTap,
-              )
-            else if (!state.isLoading)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(48),
-                  child: Text(
-                    AppStrings.noContent,
-                    style: TextStyle(
-                      fontSize: state.fontSize,
-                      color: textColor.withValues(alpha: 0.5),
+              // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
+              if (_paginatedPages.isNotEmpty && _scrollLayout != null)
+                ReaderTextContent(
+                  key: _scrollBodyKey,
+                  pageInfo: _scrollLayout!,
+                  fontSize: state.fontSize,
+                  lineHeight: state.lineHeight,
+                  paragraphSpacing: widget.paragraphSpacing,
+                  textColor: textColor,
+                  readAloudRange: _aloudRange,
+                  readAloudColor: Theme.of(context).colorScheme.primary,
+                  // [UI-fix v2.0.2 | 2026-08-06] 字距/字体/两端对齐透传到正文渲染 — Qoder
+                  // [UI-fix v2.0.4 | 2026-08-08] 字距 em→px；字重接线 — Qoder
+                  letterSpacing: widget.letterSpacing * state.fontSize,
+                  fontFamily: _fontFamily,
+                  fontWeight: _fontWeightFor(widget.textBold),
+                  fontStyle: _fontStyleFor(widget.italic),
+                  justify: widget.textFullJustify,
+                  // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入长按选择 — Qoder
+                  selectText: widget.selectText,
+                  reviewCounts: widget.reviewCounts,
+                  onReviewTap: widget.onReviewTap,
+                )
+              else if (!state.isLoading)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(48),
+                    child: Text(
+                      AppStrings.noContent,
+                      style: TextStyle(
+                        fontSize: state.fontSize,
+                        color: textColor.withValues(alpha: 0.5),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 80),
-          ],
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
@@ -1778,6 +2038,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       // [UI-fix v2.0.4 | 2026-08-08] 文字色经自定义配色解析；字距/字体/
       // 对齐/字重透传到分页页渲染（与测量同参）— Qoder
       textColor: _resolveTextColor(state),
+      readAloudRange: _aloudRange,
+      readAloudColor: Theme.of(context).colorScheme.primary,
       letterSpacing: widget.letterSpacing * state.fontSize,
       fontFamily: _fontFamily,
       justify: widget.textFullJustify,

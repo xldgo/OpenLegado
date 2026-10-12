@@ -29,10 +29,12 @@ void main() {
   late void Function() completionHandler;
   late void Function() cancelHandler;
   late void Function() pauseHandler;
+  late void Function(String, int, int, String) progressHandler;
   int? nativeIndex;
   final cancelled = <int>{};
 
   setUpAll(() {
+    registerFallbackValue((String text, int start, int end, String word) {});
     registerFallbackValue(IosTextToSpeechAudioCategory.playback);
     registerFallbackValue(IosTextToSpeechAudioMode.spokenAudio);
   });
@@ -87,6 +89,11 @@ void main() {
     when(() => plugin.setCancelHandler(any())).thenAnswer((call) {
       cancelHandler = call.positionalArguments.first as void Function();
     });
+    when(() => plugin.setProgressHandler(any())).thenAnswer((call) {
+      progressHandler =
+          call.positionalArguments.first
+              as void Function(String, int, int, String);
+    });
     when(() => plugin.setPauseHandler(any())).thenAnswer((call) {
       pauseHandler = call.positionalArguments.first as void Function();
     });
@@ -123,6 +130,47 @@ void main() {
           return 1;
         });
     service = SystemTtsService(tts: plugin, platform: TargetPlatform.android);
+  });
+
+  test('分片范围回调映射回原文，停止后不发布旧位置', () async {
+    final positions = <(int, int)>[];
+    service.onProgress = (start, end) => positions.add((start, end));
+    final result = service.speak('第一句结束。第二句结束。');
+    await flush();
+    progressHandler(spoken[0], 1, 3, '一句');
+    expect(positions, [(1, 3)]);
+    requests[0].complete(1);
+    await flush();
+    progressHandler(spoken[0], 0, 1, '第');
+    expect(positions.length, 1);
+    progressHandler(spoken[1], 2, 4, '句结');
+    expect(positions.last, (spoken[0].length + 2, spoken[0].length + 4));
+    await service.stop();
+    progressHandler(spoken[1], 3, 5, '结束');
+    expect(positions.length, 2);
+    expect(await result, SystemTtsOutcome.cancelled);
+  });
+
+  test('Android 连续暂停后的后缀范围保留累计原文偏移', () async {
+    final positions = <int>[];
+    service.onProgress = (start, end) => positions.add(start);
+    final first = service.speak('中文朗读段落。');
+    await flush();
+    progressHandler('中文朗读段落。', 2, 4, '朗读');
+    await service.pause();
+    expect(await first, SystemTtsOutcome.paused);
+    final second = service.resume();
+    await flush();
+    progressHandler('朗读段落。', 1, 3, '读段');
+    expect(positions.last, 3);
+    await service.pause();
+    expect(await second, SystemTtsOutcome.paused);
+    final third = service.resume();
+    await flush();
+    progressHandler('读段落。', 1, 3, '段落');
+    expect(positions.last, 4);
+    await service.stop();
+    expect(await third, SystemTtsOutcome.cancelled);
   });
 
   test('优先离线中文，保持唯一媒体焦点并映射倍速', () async {

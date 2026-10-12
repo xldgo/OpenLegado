@@ -3020,6 +3020,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'3 秒无操作后收起为封面'**
   String get readAloudCapsuleAutoCollapseSummary;
+
+  /// No description provided for @readAloudDetachReminder.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读脱离提醒'**
+  String get readAloudDetachReminder;
+
+  /// No description provided for @readAloudDetachReminderSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读'**
+  String get readAloudDetachReminderSummary;
+
+  /// No description provided for @readAloudReturnToPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'去朗读页'**
+  String get readAloudReturnToPosition;
+
+  /// No description provided for @readAloudFromThisPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'从本页读'**
+  String get readAloudFromThisPage;
 }
 
 class _AppLocalizationsDelegate

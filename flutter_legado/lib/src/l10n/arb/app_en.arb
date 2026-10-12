@@ -517,5 +517,9 @@
   "readAloudStop": "Stop reading aloud",
   "readAloudCapsuleGroup": "Playback capsule",
   "readAloudCapsuleAutoCollapse": "Auto-collapse capsule",
-  "readAloudCapsuleAutoCollapseSummary": "Collapse to the cover after 3 seconds of inactivity"
+  "readAloudCapsuleAutoCollapseSummary": "Collapse to the cover after 3 seconds of inactivity",
+  "readAloudDetachReminder": "Keep speaking when browsing",
+  "readAloudDetachReminderSummary": "Browse without interrupting speech, then return to the spoken passage. When off, speech follows your reading position.",
+  "readAloudReturnToPosition": "Go to speaking page",
+  "readAloudFromThisPage": "Read from this page"
 }

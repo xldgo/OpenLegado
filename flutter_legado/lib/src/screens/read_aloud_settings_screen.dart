@@ -101,6 +101,18 @@ class _ReadAloudSettingsScreenState
                           _save(() => notifier.setReadAloudFollowSystem(value))
                     : null,
               ),
+              SettingSwitchRow(
+                title: strings.readAloudDetachReminder,
+                subtitle: strings.readAloudDetachReminderSummary,
+                value: preferences.detachReminder,
+                onChanged: enabled
+                    ? (value) => _save(
+                        () => ref
+                            .read(readAloudPreferencesProvider.notifier)
+                            .setDetachReminder(value),
+                      )
+                    : null,
+              ),
               SettingStepperRow(
                 title: strings.readAloudSpeed,
                 value: preferences.manualSpeed,
