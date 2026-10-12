@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "legado-layout",
     "legado-core",
     "legado-parser",
     "legado-net",
@@ -13,7 +14,7 @@ members = [
 ]
 
 [workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"

@@ -4,7 +4,7 @@ import '../../l10n/app_strings.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import 'review_column.dart';
 import 'reader_page_chrome.dart';
-import 'text_selection_panel.dart';
+import 'reader_selection_toolbar.dart';
 import 'reader_selection_region.dart';
 import 'reader_selectable_text.dart';
 import 'line_text_span.dart';
@@ -372,14 +372,23 @@ class ReaderTextContent extends StatelessWidget {
                       selectionGeometry: selectionGeometry,
                       environment: environment,
                       spaceExpansion: line.spaceExpansion,
+                      glyphs: line.glyphs,
                     )
-                  : Text.rich(
-                      readerLineSpan(text, textStyle, line.spaceExpansion),
+                  : ReaderSelectableText(
+                      text: readerLineSpan(
+                        text,
+                        textStyle,
+                        line.spaceExpansion,
+                      ),
+                      glyphs: line.glyphs,
+                      glyphStyle: textStyle,
                       maxLines: 1,
                       overflow: TextOverflow.visible,
                       textDirection: environment?.direction,
                       locale: environment?.locale,
-                      textScaler: environment?.textScaler,
+                      textScaler:
+                          environment?.textScaler ??
+                          MediaQuery.textScalerOf(context),
                       textHeightBehavior: environment?.heightBehavior,
                     ),
             );
@@ -479,88 +488,6 @@ class ReaderTextContent extends StatelessWidget {
           );
         }
         return selectableBody;
-      },
-    );
-  }
-}
-
-/// 滚动模式下的段落渲染（未分页时使用，应用配置的段落间距）
-class ReaderParagraphs extends StatelessWidget {
-  final String content;
-  final double fontSize;
-  final double lineHeight;
-  final double paragraphSpacing;
-  final Color textColor;
-
-  // [UI-fix v2.0.2 | 2026-08-06] 滚动回退渲染同步字距/字体 — Qoder
-  final double letterSpacing;
-  final String? fontFamily;
-
-  // [UI-fix v2.0.3 | 2026-08-08] 长按选择文本开关 — Qoder
-  final bool selectText;
-
-  // [UI-fix v2.0.4 | 2026-08-08] 文字字重（对标原版 textBold）— Qoder
-  final FontWeight? fontWeight;
-
-  // [C3 斜体 | Qoder UI] 正文斜体（与 fontWeight 同链路透传，测量/渲染同参）
-  final FontStyle? fontStyle;
-
-  const ReaderParagraphs({
-    super.key,
-    required this.content,
-    required this.fontSize,
-    required this.lineHeight,
-    required this.paragraphSpacing,
-    required this.textColor,
-    this.letterSpacing = 0.0,
-    this.fontFamily,
-    this.selectText = true,
-    this.fontWeight,
-    this.fontStyle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final engine = ParagraphLayoutEngine(
-          context: context,
-          config: ParagraphConfig(
-            fontSize: fontSize,
-            lineHeight: lineHeight,
-            paragraphSpacing: paragraphSpacing,
-            textColor: textColor,
-            backgroundColor: Colors.transparent,
-            letterSpacing: letterSpacing,
-            fontFamily: fontFamily,
-            fontWeight: MediaQuery.boldTextOf(context)
-                ? FontWeight.bold
-                : fontWeight,
-            fontStyle: fontStyle,
-            justify: false,
-            baseStyle: DefaultTextStyle.of(context).style,
-            textScaler: MediaQuery.textScalerOf(context),
-          ),
-        );
-        final pages = engine.paginateChapter(
-          content,
-          constraints.maxWidth,
-          double.infinity,
-        );
-        if (pages.isEmpty) return const SizedBox.shrink();
-        return ReaderTextContent(
-          pageInfo: pages.first,
-          fontSize: fontSize,
-          lineHeight: lineHeight,
-          paragraphSpacing: paragraphSpacing,
-          textColor: textColor,
-          letterSpacing: letterSpacing,
-          fontFamily: fontFamily,
-          fontWeight: fontWeight,
-          fontStyle: fontStyle,
-          justify: false,
-          selectText: selectText,
-        );
       },
     );
   }

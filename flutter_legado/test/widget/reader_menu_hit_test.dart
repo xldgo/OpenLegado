@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +86,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        builder: readerLayoutTestBuilder,
         onGenerateRoute: onGenerateRoute,
         home: Scaffold(
           // 同时覆盖祖先点击识别和翻页组件使用的原始指针事件。
@@ -157,10 +160,18 @@ Future<ProviderContainer> _pumpReader(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: ReaderScreen()),
+      child: const MaterialApp(
+        builder: readerLayoutTestBuilder,
+        home: ReaderScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
+  // 菜单手势从章内第二页开始，避免配置重排将旧初始页码归零。
+  if (mode != PageTurnMode.scroll) {
+    tester.state<ReaderPageViewState>(find.byType(ReaderPageView)).goToPage(1);
+    await tester.pumpAndSettle();
+  }
   return container;
 }
 
@@ -325,7 +336,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderScreen()),
+          child: const MaterialApp(
+            builder: readerLayoutTestBuilder,
+            home: ReaderScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();

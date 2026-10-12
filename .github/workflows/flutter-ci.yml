@@ -38,7 +38,13 @@ jobs:
         if: steps.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
         run: flutter analyze --no-fatal-infos
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.changes.outputs.flutter == 'true'
+        with:
+          toolchain: stable
       - name: Flutter test
         if: steps.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
-        run: flutter test
+        run: |
+          cargo build --locked --manifest-path ../rust/Cargo.toml -p legado-layout --example test_host
+          flutter test

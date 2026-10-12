@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../screens/reader_config_panel.dart';
 import '../settings_widgets.dart';
+import 'reader_padding_config_sheet.dart';
 
 /// 页眉/页脚提示项（对标原版 ReadTipConfig.tipValues）
 class ReadTipOption {
@@ -13,17 +14,26 @@ class ReadTipOption {
   const ReadTipOption(this.value, this.label);
 }
 
+/// 完整页面按布局分组展示；阅读状态条在屏幕与工具栏页单独展示。
+enum ReaderTipSection { all, title, header, footer, statusBar }
+
 /// 阅读提示信息配置（对标原版 TipConfigDialog + dialog_tip_config.xml）
 class ReaderTipConfigSheet extends ConsumerStatefulWidget {
   final ReaderAdvancedConfig config;
   final ValueChanged<ReaderAdvancedConfig>? onChanged;
   final bool embedded;
+  final ReaderTipSection section;
+  final bool showStatusBar;
+  final Widget? titleFont;
 
   const ReaderTipConfigSheet({
     super.key,
     required this.config,
     this.onChanged,
     this.embedded = false,
+    this.section = ReaderTipSection.all,
+    this.showStatusBar = true,
+    this.titleFont,
   });
 
   static Future<void> show(
@@ -90,224 +100,205 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     setState(() {});
   }
 
-  String _tipLabel(int value) {
-    for (final o in _tipOptions) {
-      if (o.value == value) return o.label;
-    }
-    return '无';
-  }
-
-  Future<void> _pickTip(
-    String title,
-    int current,
-    ValueChanged<int> onPick,
-  ) async {
-    final picked = await showDialog<int>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(title),
-        children: [
-          for (final o in _tipOptions)
-            ListTile(
-              title: Text(o.label),
-              trailing: current == o.value
-                  ? Icon(Icons.check, color: Theme.of(ctx).colorScheme.primary)
-                  : null,
-              onTap: () => Navigator.pop(ctx, o.value),
-            ),
-        ],
-      ),
-    );
-    if (picked != null) onPick(picked);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final groups = <Widget>[
+      if (widget.section == ReaderTipSection.all ||
+          widget.section == ReaderTipSection.title)
+        _titleGroup(),
+      if (widget.section == ReaderTipSection.all ||
+          widget.section == ReaderTipSection.header)
+        _edgeGroup(header: true),
+      if (widget.section == ReaderTipSection.all ||
+          widget.section == ReaderTipSection.footer)
+        _edgeGroup(header: false),
+      if (widget.section == ReaderTipSection.statusBar ||
+          (widget.section == ReaderTipSection.all && widget.showStatusBar))
+        _statusGroup(),
+    ];
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.embedded) const Center(child: IosGrabber()),
+        for (var i = 0; i < groups.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          groups[i],
+        ],
+      ],
+    );
+    if (widget.embedded) return content;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: widget.embedded
-            ? EdgeInsets.zero
-            : const EdgeInsets.fromLTRB(0, 8, 0, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!widget.embedded) const Center(child: IosGrabber()),
-            const SizedBox(height: 12),
-            if (!widget.embedded)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text('阅读提示信息', style: theme.textTheme.titleMedium),
-              ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('正文标题', style: theme.textTheme.titleSmall),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 0, label: Text('居左')),
-                  ButtonSegment(value: 1, label: Text('居中')),
-                  ButtonSegment(value: 2, label: Text('隐藏')),
-                ],
-                selected: {_config.titleMode.clamp(0, 2)},
-                onSelectionChanged: (sel) {
-                  _config.titleMode = sel.first;
-                  _commit();
-                },
-              ),
-            ),
-            if (_config.titleMode != 2) ...[
-              _stepRow('标题字号增量', _config.titleSize, 0, 20, (v) {
-                _config.titleSize = v;
-                _commit();
-              }, showPlus: true),
-              _stepRow('标题上边距', _config.titleTopSpacing, 0, 100, (v) {
-                _config.titleTopSpacing = v;
-                _commit();
-              }),
-              _stepRow('标题下边距', _config.titleBottomSpacing, 0, 100, (v) {
-                _config.titleBottomSpacing = v;
-                _commit();
-              }),
-            ],
-            const Divider(height: 24),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('页眉', style: theme.textTheme.titleSmall),
-            ),
-            _modeRow('页眉显示', _config.headerMode, (v) {
-              _config.headerMode = v;
-              _commit();
-            }),
-            if (_config.headerMode != 2) ...[
-              _tipRow('页眉左', _config.tipHeaderLeft, (v) {
-                _config.tipHeaderLeft = v;
-                _commit();
-              }),
-              _tipRow('页眉中', _config.tipHeaderMiddle, (v) {
-                _config.tipHeaderMiddle = v;
-                _commit();
-              }),
-              _tipRow('页眉右', _config.tipHeaderRight, (v) {
-                _config.tipHeaderRight = v;
-                _commit();
-              }),
-            ],
-            const Divider(height: 24),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('页脚', style: theme.textTheme.titleSmall),
-            ),
-            _modeRow('页脚显示', _config.footerMode, (v) {
-              _config.footerMode = v;
-              _commit();
-            }),
-            if (_config.footerMode != 2) ...[
-              _tipRow('页脚左', _config.tipFooterLeft, (v) {
-                _config.tipFooterLeft = v;
-                _commit();
-              }),
-              _tipRow('页脚中', _config.tipFooterMiddle, (v) {
-                _config.tipFooterMiddle = v;
-                _commit();
-              }),
-              _tipRow('页脚右', _config.tipFooterRight, (v) {
-                _config.tipFooterRight = v;
-                _commit();
-              }),
-            ],
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                '顶部状态条 · 隐藏阅读工具栏时显示',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            SettingSwitchRow(
-              title: '显示电量',
-              value: _config.showBattery,
-              onChanged: (v) {
-                _config.showBattery = v;
-                _commit();
-              },
-            ),
-            SettingSwitchRow(
-              title: '显示时间',
-              value: _config.showTime,
-              onChanged: (v) {
-                _config.showTime = v;
-                _commit();
-              },
-            ),
-            SettingSwitchRow(
-              title: '显示进度',
-              value: _config.showProgress,
-              onChanged: (v) {
-                _config.showProgress = v;
-                _commit();
-              },
-            ),
-            SettingSwitchRow(
-              title: '显示章节名',
-              value: _config.showChapterName,
-              onChanged: (v) {
-                _config.showChapterName = v;
-                _commit();
-              },
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: content,
       ),
     );
   }
 
-  Widget _modeRow(String label, int current, ValueChanged<int> onPick) {
-    return ListTile(
-      dense: true,
+  Widget _titleGroup() => SettingsGroup(
+    showDividers: false,
+    title: '章节标题',
+    children: [
+      SettingMenuRow<int>(
+        title: '显示与对齐',
+        value: _config.titleMode.clamp(0, 2),
+        options: const {0: '居左', 1: '居中', 2: '隐藏'},
+        onChanged: (value) {
+          _config.titleMode = value;
+          _commit();
+        },
+      ),
+      if (_config.titleMode != 2) ...[
+        if (widget.titleFont != null) widget.titleFont!,
+        _stepRow('标题字号增量', _config.titleSize, 0, 20, (value) {
+          _config.titleSize = value;
+          _commit();
+        }, showPlus: true),
+        const Divider(height: 16, indent: 16, endIndent: 16),
+        _stepRow('标题上间距', _config.titleTopSpacing, 0, 100, (value) {
+          _config.titleTopSpacing = value;
+          _commit();
+        }),
+        _stepRow('标题下间距', _config.titleBottomSpacing, 0, 100, (value) {
+          _config.titleBottomSpacing = value;
+          _commit();
+        }),
+        const Divider(height: 16, indent: 16, endIndent: 16),
+      ],
+    ],
+  );
 
-      title: Text(label, style: Theme.of(context).textTheme.titleMedium),
-      trailing: Text(_modeOptions[current.clamp(0, 2)] ?? '显示'),
-      onTap: () async {
-        final picked = await showDialog<int>(
-          context: context,
-          builder: (ctx) => SimpleDialog(
-            title: Text(label),
-            children: [
-              for (final e in _modeOptions.entries)
-                ListTile(
-                  title: Text(e.value),
-                  trailing: current == e.key
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(ctx).colorScheme.primary,
-                        )
-                      : null,
-                  onTap: () => Navigator.pop(ctx, e.key),
-                ),
-            ],
+  Widget _edgeGroup({required bool header}) {
+    final mode = header ? _config.headerMode : _config.footerMode;
+    final label = header ? '页眉' : '页脚';
+    return SettingsGroup(
+      showDividers: false,
+      title: label,
+      children: [
+        SettingMenuRow<int>(
+          title: '显示模式',
+          value: mode.clamp(0, 2),
+          options: _modeOptions,
+          onChanged: (value) {
+            if (header) {
+              _config.headerMode = value;
+            } else {
+              _config.footerMode = value;
+            }
+            _commit();
+          },
+        ),
+        if (mode != 2) ...[
+          _tipRow(
+            '左侧提示',
+            header ? _config.tipHeaderLeft : _config.tipFooterLeft,
+            (value) {
+              if (header) {
+                _config.tipHeaderLeft = value;
+              } else {
+                _config.tipFooterLeft = value;
+              }
+              _commit();
+            },
           ),
-        );
-        if (picked != null) onPick(picked);
-      },
+          _tipRow(
+            '中间提示',
+            header ? _config.tipHeaderMiddle : _config.tipFooterMiddle,
+            (value) {
+              if (header) {
+                _config.tipHeaderMiddle = value;
+              } else {
+                _config.tipFooterMiddle = value;
+              }
+              _commit();
+            },
+          ),
+          _tipRow(
+            '右侧提示',
+            header ? _config.tipHeaderRight : _config.tipFooterRight,
+            (value) {
+              if (header) {
+                _config.tipHeaderRight = value;
+              } else {
+                _config.tipFooterRight = value;
+              }
+              _commit();
+            },
+          ),
+          ReaderPaddingConfigSheet(
+            config: _config.copy(),
+            embedded: true,
+            region: header ? PaddingRegion.header : PaddingRegion.footer,
+            onChanged: (config) {
+              _config = config.copy();
+              _commit();
+            },
+          ),
+          SettingSwitchRow(
+            title: '显示分隔线',
+            value: header ? _config.showHeaderLine : _config.showFooterLine,
+            onChanged: (value) {
+              if (header) {
+                _config.showHeaderLine = value;
+              } else {
+                _config.showFooterLine = value;
+              }
+              _commit();
+            },
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _tipRow(String label, int current, ValueChanged<int> onPick) {
-    return ListTile(
-      dense: true,
+  Widget _statusGroup() => SettingsGroup(
+    title: '阅读状态条',
+    titleSuffix: '阅读菜单隐藏时显示',
+    showDividers: false,
+    children: [
+      SettingSwitchRow(
+        title: '显示电量',
+        value: _config.showBattery,
+        onChanged: (value) {
+          _config.showBattery = value;
+          _commit();
+        },
+      ),
+      SettingSwitchRow(
+        title: '显示时间',
+        value: _config.showTime,
+        onChanged: (value) {
+          _config.showTime = value;
+          _commit();
+        },
+      ),
+      SettingSwitchRow(
+        title: '显示进度',
+        value: _config.showProgress,
+        onChanged: (value) {
+          _config.showProgress = value;
+          _commit();
+        },
+      ),
+      SettingSwitchRow(
+        title: '显示章节名',
+        value: _config.showChapterName,
+        onChanged: (value) {
+          _config.showChapterName = value;
+          _commit();
+        },
+      ),
+    ],
+  );
 
-      title: Text(label, style: Theme.of(context).textTheme.titleMedium),
-      trailing: Text(_tipLabel(current)),
-      onTap: () => _pickTip(label, current, onPick),
-    );
-  }
+  Widget _tipRow(String label, int current, ValueChanged<int> onPick) =>
+      SettingMenuRow<int>(
+        title: label,
+        value: current,
+        options: {for (final option in _tipOptions) option.value: option.label},
+        onChanged: onPick,
+      );
 
   Widget _stepRow(
     String label,
@@ -316,27 +307,13 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     int max,
     ValueChanged<int> onChanged, {
     bool showPlus = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: value > min ? () => onChanged(value - 1) : null,
-            icon: const Icon(Icons.remove_circle_outline),
-          ),
-          Text(showPlus ? '+$value' : '$value'),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: value < max ? () => onChanged(value + 1) : null,
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-        ],
-      ),
-    );
-  }
+  }) => SettingStepperRow(
+    title: label,
+    value: value.toDouble(),
+    min: min.toDouble(),
+    max: max.toDouble(),
+    unit: showPlus ? null : 'dp',
+    showPlus: showPlus,
+    onChanged: (value) => onChanged(value.round()),
+  );
 }

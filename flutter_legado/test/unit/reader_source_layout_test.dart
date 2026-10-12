@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
+
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
@@ -34,9 +38,10 @@ Future<List<PageInfo>> _layout(
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-          child: Builder(
-            builder: (context) {
-              pages = ParagraphLayoutEngine(
+          child: LayoutTestBuilder(
+            builder: (context) async {
+              pages = (await ParagraphLayoutEngine(
+                transport: RustLayoutTestTransport.instance,
                 context: context,
                 config: ParagraphConfig(
                   fontSize: 16,
@@ -50,7 +55,7 @@ Future<List<PageInfo>> _layout(
                   baseStyle: DefaultTextStyle.of(context).style,
                   textScaler: MediaQuery.textScalerOf(context),
                 ),
-              ).paginateChapter(source, width, pageHeight);
+              ).paginateChapter(source, width, pageHeight));
               return !render
                   ? const SizedBox()
                   : SizedBox(
@@ -70,11 +75,12 @@ Future<List<PageInfo>> _layout(
       ),
     ),
   );
+  await tester.pumpAndSettle();
   return pages;
 }
 
 void main() {
-  test('分段保留混合换行、空白与重复段落的真实原文偏移', () {
+  test('分段保留混合换行、空白与重复段落的真实原文偏移', () async {
     const source = '\r\n　首段  \r\n\n重复段。\r重复段。\n\n';
     final paragraphs = splitChapterParagraphs(source);
     expect(paragraphs.map((p) => p.text), ['首段', '重复段。', '重复段。']);
@@ -114,10 +120,13 @@ void main() {
           render: true,
         );
         final line = pages.first.paragraphs.first.lines.first;
-        final richText = find.descendant(
-          of: find.text(line.selectableText).first,
-          matching: find.byType(RichText),
-        );
+        final richText = find
+            .byWidgetPredicate(
+              (w) =>
+                  w is ReaderSelectableText &&
+                  w.text.toPlainText() == line.selectableText,
+            )
+            .first;
         final paragraph = tester.renderObject<RenderParagraph>(richText);
         final original = TextPainter(
           text: TextSpan(

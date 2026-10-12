@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +15,7 @@ class _Reader extends ReaderNotifier {
   @override
   ReaderState build() => ReaderState(
     chapters: const [BookChapter(title: '测试章节', index: 0)],
-    chapterContent: List.filled(30, '这是用于检验字号缩放与屏幕尺寸变化的小说正文。').join('\n'),
+    chapterContent: List.filled(30, '这是用于检验字号缩放与屏幕尺寸变化的小说正文。' * 3).join('\n'),
     pageTurnMode: PageTurnMode.none,
   );
 }
@@ -30,6 +32,7 @@ void main() {
             bookApiProvider.overrideWithValue(MockBookApi()),
           ],
           child: MaterialApp(
+            builder: readerLayoutTestBuilder,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,

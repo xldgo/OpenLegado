@@ -8,9 +8,16 @@ import '../../services/system_brightness.dart';
 
 /// 设置页与阅读底栏共用的亮度控件。
 class ReaderBrightnessControl extends StatefulWidget {
-  const ReaderBrightnessControl({super.key, this.compact = false});
+  const ReaderBrightnessControl({
+    super.key,
+    this.compact = false,
+    this.vertical = false,
+    this.onSwitchSide,
+  });
 
   final bool compact;
+  final bool vertical;
+  final VoidCallback? onSwitchSide;
 
   @override
   State<ReaderBrightnessControl> createState() =>
@@ -93,7 +100,10 @@ class _ReaderBrightnessControlState extends State<ReaderBrightnessControl>
   }
 
   Future<void> _setBrightness(double brightness) async {
-    setState(() => _brightness = brightness);
+    setState(() {
+      _brightness = brightness;
+      _followSystem = false;
+    });
     try {
       await SystemBrightness.setBrightness(brightness);
     } catch (e) {
@@ -133,20 +143,34 @@ class _ReaderBrightnessControlState extends State<ReaderBrightnessControl>
     }
 
     if (widget.compact) {
+      final autoButton = IconButton(
+        icon: Icon(
+          _followSystem
+              ? Icons.brightness_auto
+              : Icons.brightness_auto_outlined,
+        ),
+        tooltip: _followSystem ? '改为手动亮度' : '跟随系统亮度',
+        onPressed: _busy
+            ? null
+            : () => unawaited(_setFollowSystem(!_followSystem)),
+      );
+      if (widget.vertical) {
+        return Column(
+          children: [
+            autoButton,
+            Expanded(child: RotatedBox(quarterTurns: 3, child: _slider())),
+            IconButton(
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: '切换亮度控件位置',
+              onPressed: widget.onSwitchSide,
+            ),
+          ],
+        );
+      }
       return Row(
         children: [
-          IconButton(
-            icon: Icon(
-              _followSystem
-                  ? Icons.brightness_auto
-                  : Icons.brightness_auto_outlined,
-            ),
-            tooltip: _followSystem ? '改为手动亮度' : '跟随系统亮度',
-            onPressed: _busy
-                ? null
-                : () => unawaited(_setFollowSystem(!_followSystem)),
-          ),
-          Expanded(child: _followSystem ? const Text('跟随系统亮度') : _slider()),
+          autoButton,
+          Expanded(child: _slider()),
         ],
       );
     }

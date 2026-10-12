@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../helpers/reader_layout_host.dart';
+
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 
 /// 固定文本用于同环境诊断，不把调试模式耗时作为发布性能结论。
@@ -13,10 +16,11 @@ void main() {
     ).join('\n');
     await tester.pumpWidget(
       MaterialApp(
-        home: Builder(
-          builder: (context) {
+        home: LayoutTestBuilder(
+          builder: (context) async {
             for (var round = 0; round < 4; round++) {
               final engine = ParagraphLayoutEngine(
+                transport: RustLayoutTestTransport.instance,
                 context: context,
                 config: const ParagraphConfig(
                   fontSize: 18,
@@ -36,7 +40,7 @@ void main() {
               );
               int? firstPage;
               while (!session.complete) {
-                session.advance(maxParagraphs: 1);
+                await session.advance(maxParagraphs: 8);
                 if (session.pages.isNotEmpty) {
                   firstPage ??= watch.elapsedMicroseconds;
                 }
@@ -68,5 +72,6 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
   });
 }

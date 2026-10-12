@@ -3,6 +3,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/services/reader_layout_service.dart';
+
+import '../helpers/reader_layout_host.dart';
+
+import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
 
 /// 斜体贯通测试（差异清单 C3 双基准补齐项）
 ///
@@ -26,21 +31,39 @@ void main() {
 
   testWidgets('正文段落渲染把 fontStyle 落到 TextStyle（渲染侧同参）', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ReaderParagraphs(
-            content: '第一段正文。\n第二段正文。',
-            fontSize: 18,
-            lineHeight: 1.6,
-            paragraphSpacing: 8,
-            textColor: Colors.black,
-            letterSpacing: 0,
-            fontStyle: FontStyle.italic,
+      ReaderLayoutTransportScope(
+        transport: RustLayoutTestTransport.instance,
+        child: MaterialApp(
+          home: Scaffold(
+            body: LayoutTestBuilder(
+              builder: (context) async {
+                final pages = await ParagraphLayoutEngine(
+                  context: context,
+                  config: ParagraphConfig(
+                    fontSize: 18,
+                    lineHeight: 1.6,
+                    paragraphSpacing: 8,
+                    textColor: Colors.black,
+                    backgroundColor: Colors.white,
+                    fontStyle: FontStyle.italic,
+                    textEnvironment: TextLayoutEnvironment.of(context),
+                  ),
+                ).paginateChapter('第一段正文。\n第二段正文。', 320, 580);
+                return ReaderTextContent(
+                  pageInfo: pages.first,
+                  fontSize: 18,
+                  lineHeight: 1.6,
+                  paragraphSpacing: 8,
+                  textColor: Colors.black,
+                  fontStyle: FontStyle.italic,
+                );
+              },
+            ),
           ),
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final paragraphs = tester
         .renderObjectList<RenderParagraph>(

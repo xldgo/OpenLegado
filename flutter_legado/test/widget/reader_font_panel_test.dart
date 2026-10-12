@@ -93,9 +93,8 @@ void main() {
       // （save() 同时写日夜桶键 reader_layout_day_* 与旧键 reader_adv_*）
       await tester.ensureVisible(find.text('首行缩进').last);
       await tester.tap(find.text('首行缩进').last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('三字符'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('三字符').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(prefs.getInt('reader_layout_day_paragraph_indent_chars'), 3);

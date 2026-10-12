@@ -10,6 +10,27 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `from`, `from`
 
+/// 创建阅读布局会话；平台测量与书籍数据库操作相互独立。
+Future<String> readerLayoutBegin({required String configJson}) =>
+    RustLib.instance.api.crateFfiReaderLayoutBegin(configJson: configJson);
+
+/// 批量推送已测量内容块，返回新增的最终页面。
+Future<String> readerLayoutPush({
+  required String sessionId,
+  required String blocksJson,
+}) => RustLib.instance.api.crateFfiReaderLayoutPush(
+  sessionId: sessionId,
+  blocksJson: blocksJson,
+);
+
+/// 收尾并释放会话，返回末页。
+Future<String> readerLayoutFinish({required String sessionId}) =>
+    RustLib.instance.api.crateFfiReaderLayoutFinish(sessionId: sessionId);
+
+/// 取消会话；重复取消不产生副作用。
+Future<void> readerLayoutCancel({required String sessionId}) =>
+    RustLib.instance.api.crateFfiReaderLayoutCancel(sessionId: sessionId);
+
 /// frb 桥接错误类型
 ///
 /// 所有桥接函数统一返回 `Result<T, BridgeError>`。

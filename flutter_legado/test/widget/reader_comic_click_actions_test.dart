@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // [P4-3 E5] 漫画屏九区点击 + 长按菜单（分享/复制/存图）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -212,7 +213,7 @@ class _ClickActionsMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+    child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
   );
 }
 

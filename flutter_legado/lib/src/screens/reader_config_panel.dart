@@ -13,6 +13,7 @@ import '../widgets/reader/reader_brightness_control.dart';
 import '../widgets/reader/reader_padding_config_sheet.dart';
 import '../widgets/reader/reader_tip_config_sheet.dart';
 import '../widgets/settings_widgets.dart';
+import '../widgets/app_menu.dart';
 part 'reader_config_panel_data.part.dart';
 part 'reader_config_panel_builders.part.dart';
 
@@ -60,13 +61,14 @@ enum ReaderConfigSection {
   content,
   toolbar,
   brightness,
+  pageLayout,
 }
 
 /// 阅读器高级配置面板
 ///
 /// 以底部弹出面板形式展示，支持：
 /// - 自动翻页（开关 / 间隔 / 方向）
-/// - 点击区域功能映射（左 / 中 / 右）
+/// - 点击区域功能映射（九宫格）
 /// - 段落间距调节
 /// - 状态栏提示栏项配置（电量 / 时间 / 进度 / 章节名）
 /// - 翻页模式选择（仿真 / 滑动 / 覆盖 / 无动画）
@@ -185,38 +187,101 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     switch (widget.section) {
       case ReaderConfigSection.typography:
         children = [
-          SettingsGroup(children: [_buildTypographyOptions()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildTypographyOptions()],
+          ),
         ];
         break;
       case ReaderConfigSection.interaction:
         children = [
-          SettingsGroup(children: [_buildAutoPageTurn()]),
+          SettingsGroup(showDividers: false, children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
-          SettingsGroup(children: [_buildTapZones()]),
+          SettingsGroup(showDividers: false, children: [_buildTapZones()]),
           const SizedBox(height: 12),
-          SettingsGroup(children: [_buildInteractionOptions()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildInteractionOptions()],
+          ),
         ];
         break;
       case ReaderConfigSection.screen:
         children = [
-          SettingsGroup(children: [_buildBrightnessControl()]),
+          SettingsGroup(
+            showDividers: false,
+            title: '屏幕与亮度',
+            children: [
+              _buildBrightnessControl(),
+              _buildScreenOptions(showTitle: false),
+            ],
+          ),
           const SizedBox(height: 12),
-          SettingsGroup(children: [_buildScreenOptions()]),
+          SettingsGroup(
+            showDividers: false,
+            title: '系统栏与安全区',
+            children: [_buildSystemBarOptions(showTitle: false)],
+          ),
+          const SizedBox(height: 12),
+          ReaderTipConfigSheet(
+            config: _config.copy(),
+            section: ReaderTipSection.statusBar,
+            embedded: true,
+            onChanged: (config) {
+              _config = config.copy();
+              _commit();
+            },
+          ),
+          const SizedBox(height: 12),
+          SettingsGroup(
+            showDividers: false,
+            title: '菜单工具栏',
+            children: [_buildToolbarOptions(showTitle: false)],
+          ),
+        ];
+        break;
+      case ReaderConfigSection.pageLayout:
+        children = [
+          SettingsGroup(
+            showDividers: false,
+            title: '正文区域',
+            children: [
+              _buildDoublePageOptions(),
+              ReaderPaddingConfigSheet(
+                config: _config.copy(),
+                embedded: true,
+                region: PaddingRegion.body,
+                onChanged: (config) {
+                  _config = config.copy();
+                  _commit();
+                },
+              ),
+            ],
+          ),
         ];
         break;
       case ReaderConfigSection.content:
         children = [
-          SettingsGroup(children: [_buildContentOptions()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildContentOptions()],
+          ),
         ];
         break;
       case ReaderConfigSection.toolbar:
         children = [
-          SettingsGroup(children: [_buildToolbarOptions()]),
+          SettingsGroup(
+            showDividers: false,
+            title: '菜单工具栏',
+            children: [_buildToolbarOptions(showTitle: false)],
+          ),
         ];
         break;
       case ReaderConfigSection.brightness:
         children = [
-          SettingsGroup(children: [_buildBrightnessControl()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildBrightnessControl()],
+          ),
         ];
         break;
       case ReaderConfigSection.margins:
@@ -244,24 +309,31 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
       case ReaderConfigSection.menu:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「菜单」页 — Qoder
         children = [
-          SettingsGroup(children: [_buildAutoPageTurn()]),
+          SettingsGroup(showDividers: false, children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
-          SettingsGroup(children: [_buildTapZones()]),
+          SettingsGroup(showDividers: false, children: [_buildTapZones()]),
           const SizedBox(height: 12),
-          SettingsGroup(children: [_buildBrightnessControl()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildBrightnessControl()],
+          ),
         ];
         break;
       case ReaderConfigSection.more:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「更多」页（排版与
         // 更多配置 + 页面边距入口）— Qoder
         children = [
-          SettingsGroup(children: [_buildTypography()]),
-          const SizedBox(height: 12),
-          SettingsGroup(children: [_buildParagraphSpacing()]),
-          const SizedBox(height: 12),
-          SettingsGroup(children: [_buildMoreConfig()]),
+          SettingsGroup(showDividers: false, children: [_buildTypography()]),
           const SizedBox(height: 12),
           SettingsGroup(
+            showDividers: false,
+            children: [_buildParagraphSpacing()],
+          ),
+          const SizedBox(height: 12),
+          SettingsGroup(showDividers: false, children: [_buildMoreConfig()]),
+          const SizedBox(height: 12),
+          SettingsGroup(
+            showDividers: false,
             children: [
               ListTile(
                 leading: const Icon(Icons.crop_free),
@@ -286,22 +358,26 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           Text('高级阅读设置', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp，使用 SettingsGroup）
-          SettingsGroup(children: [_buildFlipMode()]),
+          SettingsGroup(showDividers: false, children: [_buildFlipMode()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildAutoPageTurn()]),
+          SettingsGroup(showDividers: false, children: [_buildAutoPageTurn()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildTapZones()]),
+          SettingsGroup(showDividers: false, children: [_buildTapZones()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildParagraphSpacing()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildParagraphSpacing()],
+          ),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildTypography()]),
+          SettingsGroup(showDividers: false, children: [_buildTypography()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 跳转行两人一组进 Card 分组（圆角 16dp）
           SettingsGroup(
+            showDividers: false,
             children: [
               Column(
                 children: [
@@ -343,10 +419,13 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           ),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildMoreConfig()]),
+          SettingsGroup(showDividers: false, children: [_buildMoreConfig()]),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P1] 配置分组走 Card 分组（圆角 16dp）
-          SettingsGroup(children: [_buildBrightnessControl()]),
+          SettingsGroup(
+            showDividers: false,
+            children: [_buildBrightnessControl()],
+          ),
         ];
         break;
     }

@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // 一比一复刻 S7 验收：渲染矩阵补页（详情/阅读，UI_ONE_TO_ONE_CLONE_PLAN_
 // 20260905.md S7）——md3_acceptance_matrix 原有 4 页之外补关键改动两屏，
 // 断言无异常渲染（异常会被 flutter test 捕获）。
@@ -25,7 +26,7 @@ void main() {
   });
 
   Widget themeWrap(Widget child, {Brightness brightness = Brightness.light}) {
-    return MaterialApp(
+    return MaterialApp(builder: readerLayoutTestBuilder,
       theme: AppTheme.palette(
           brightness: brightness, palette: Md3Palettes.wh),
       darkTheme: AppTheme.palette(

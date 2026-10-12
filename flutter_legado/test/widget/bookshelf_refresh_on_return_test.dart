@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
@@ -73,7 +74,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: MaterialApp(
+        child: MaterialApp(builder: readerLayoutTestBuilder,
           home: const BookshelfScreen(),
           routes: {
             AppRoutes.bookInfo: (_) => const _StubPage(label: 'STUB_DETAIL'),

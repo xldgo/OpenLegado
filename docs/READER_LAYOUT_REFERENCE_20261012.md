@@ -1,70 +1,84 @@
 # 阅读排版参考与职责映射
 
-本轮按用户指定规则实现 Dart 文本排版与行内段评。状态只登记于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存来源与设计依据。
+任务状态只登记于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)。本文记录固定上游、实际模块边界及验证方法；应用版本保持 2.0.372+373。
 
-## 固定参考
+## 固定上游
 
-2026-10-12 读取 HapeLee/legado-with-MD3 的 `main` 提交 `070ca1a9b2e491654f70c105bca9939968023940`：
+本轮参考 HapeLee/legado-with-MD3 的固定提交 `070ca1a9b2e491654f70c105bca9939968023940`，不跟随 main 浮动。纯计算实现从原始 Kotlin 移植，保留 GPL-3.0 来源信息。
 
-| 上游源码 | 参考职责 | Dart 落点 |
-|---|---|---|
-| [ReaderTextShaper.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderTextShaper.kt) / [AndroidReaderTextShaper.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/platform/AndroidReaderTextShaper.kt) | 平台测量产出字形簇、宽度和字体度量，分页不依赖 Android Paint | Flutter TextPainter 与 TextLayoutEnvironment |
-| [ChineseLineBreaker.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ChineseLineBreaker.kt) | 簇边界与 UTF-16 偏移分别保存，断点考虑中文禁则和拉丁词界 | chinese_line_breaker.dart 移植推进与回退，TextBreakRules 统一合法断点 |
-| [ReaderPaginator.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderPaginator.kt) | 已测量行内项带尺寸/章节位置；会话逐行落位、形成页面并输出 | chapter_layout.dart、LinePaginator、分批排版会话 |
-| [ReaderChapterBlockMeasurer.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderChapterBlockMeasurer.kt) | 测量与分页可交错推进，测量缓存和取消由会话管理 | 行级测量复用与可取消章节布局 |
-
-## 本项目采用的规则
-
-1. 保留 Flutter 塑形、原生选区与翻页，不采用上游 Canvas 绘制。
-2. 中文断行核心用 Dart 移植上游推进、携带与回退逻辑；平台文字测量仍使用 Flutter。分页参考其逐行落位契约，不引入图片、HTML/CSS 和角色胶囊范围。
-3. 最终行宽、高、基线、缩进、字距及段评几何只由布局决定，绘制消费结果。
-4. 原文偏移使用 UTF-16；缩进和段评占视觉空间但不改变原文长度。段评由用户确认的段末回退、固定槽宽和显隐规则控制。
-5. 上游允许部分标点超宽，本轮按 Flutter 最终整行塑形核对，不裁字、不越界，不新增字形压缩。已有段首引号悬挂只让出引号自身宽度，不再抵消整段缩进。
-6. 按用户最新裁决删除历史分页与页码迁移。只恢复带坐标版本和章节标识的原文锚点；无有效锚点的旧记录从保存章节开头打开。数据库/云端负载未改结构，应用无原文坐标的云端记录时只恢复章节。当前布局的页号仍用于进度条和翻页。
-
-## 上游断行实证
-
-使用既有本地 Kotlin 编译器编译上述固定提交的原始 `ChineseLineBreaker.kt`，输入 23 组固定字形簇及宽度，导出簇断点、UTF-16 断点与行宽，保存为 `flutter_legado/test/fixtures/reader/md3_line_breaks.json`。Dart 对照测试逐项比较三种输出，覆盖独立首行容量、中文连续标点、拉丁单词、emoji、组合字符和 ZWJ 序列。
-
-这是纯断行算法的相同输入对照，不代表 Android 与 Flutter 的字体塑形一致。本地直引号沿用统一禁则；上游允许的超宽行进入 Flutter 整行校验后可继续回退。分页、原生选区和段评分别由项目定向回归验证，不宣称整套 Android 排版引擎已经逐字复刻。
-
-## 引号缩进与旧路径清理
-
-旧实现把全部缩进宽度作为 `hangingWidth`，渲染时再整体左移，抵消了首行缩进。修复后缩进、引号悬挂和正文起点分别保存为几何数据，不插入虚拟空格。24 组实际 RenderParagraph 坐标回归覆盖四种中英文引号、三档缩进与两档文字缩放；旧实现有 18 组失败，修复后全部通过。
-
-已删除 `zh_layout.dart`、历史整段分页及页号转换、虚拟前缀映射，以及没有生产调用方的仅返回末页接口和备用渲染器。显式回到章首和云端章节跳转会清除旧锚点，避免重新开书后恢复陈旧位置。
-
-## 同文本布局诊断
-
-基线取 `12d60d994` 的隔离引擎，新实现运行 `test/performance/reader_layout_benchmark_test.dart`。两者使用相同 6635 UTF-16 文本、120 段、320×580 内容区、首页 530、字号 18、行高 1.6、段距 8、缩进 36；先预热，再连续记录三轮。
-
-| 实现 | 首个完整页面计算耗时（ms） | 整章计算耗时（ms） | 测量次数 | 页数 |
-|---|---|---|---:|---:|
-| 原实现 | 159.910 / 131.308 / 125.409 | 159.910 / 131.308 / 125.409 | 2400 | 30 |
-| 缓存与分批会话实现（888f0f450） | 6.280 / 5.891 / 5.221 | 143.843 / 132.431 / 116.104 | 1591 | 27 |
-| MD3 断行核心与独立缩进 | 5.971 / 4.862 / 5.176 | 135.227 / 127.530 / 111.334 | 1442 | 27 |
-
-原实现完成整章后才提供页面，新会话在整章完成前可以输出完整页。页数变化来自连续逐行分页；测量次数减少约 33.7%。整章耗时区间重叠，不能据此证明整体更快。
-
-取消虚拟缩进的重复测量后，最新实现比原实现少约 39.9% 测量；上述调试耗时仍不足以证明发布环境的收益。
-
-上述是 `flutter test` 调试模式中的同步计算诊断，不包含界面帧调度和真实显示时间，不替代 profile 或设备性能采样。分批在段落边界让出执行权，单次平台文字测量和超长段落仍不可中断；深处锚点前的布局也必须先完成。
-
-## 仍存在的实现差异与 Rust 边界
-
-2026-10-12 重新读取上游 `main`，仍为以上固定提交，四个参考核心文件内容未变。当前对应的是中文断行的主要推进规则、两类坐标、首行独立容量及逐行分页职责；23 组同输入对照不构成所有输入等价证明。
-
-| 项目 | 当前差异及处理 |
+| 上游源码 | 当前落点与职责 |
 |---|---|
-| 平台塑形 | 上游 TextPaint 提供簇宽和字体度量；本项目 TextPainter 测量真实 Flutter 行，并把最终环境交给正文和选区。字体回退、字距和缩放的结果不保证逐像素一致。 |
-| 断点规则 | 本地禁则额外包含直引号等符号，拉丁词判定使用明确 Unicode 范围；上游按 Unicode 字符类别判断。窄标点回退条件、极窄首簇保护和 Float/整数容量也有适配差异，需继续扩大同输入对照覆盖。 |
-| 右边界策略 | 上游在部分禁则场景允许标点超宽；本项目继续整行塑形回退，优先满足不裁字、不越界。 |
-| 分页与行内模型 | 已实现普通段落逐行填页、独立行高、段评尾部回退；尚未复制上游全部 ReaderMeasuredBlock/ReaderElement 类型。段评是专门的尾部布局，通用行内图片、HTML、角色胶囊和页底对齐未纳入本轮。 |
-| 分层与调度 | LinePaginator 和 ChineseLineBreaker 已独立；Flutter 测量、对齐和段评仍集中于 ParagraphLayoutEngine，没有独立 TextShaper 接口。分批仅能在段落之间让出线程，超长段落和深处锚点前的测量仍可能阻塞。 |
-| 位置与同步 | 本地恢复使用版本化 UTF-16 锚点；无锚点记录只恢复章节。尚未扩展数据库与跨设备云同步协议，不宣称云端已同步原文锚点。 |
+| [ChineseLineBreaker.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ChineseLineBreaker.kt) | `rust/legado-layout/src/line_breaker.rs`：簇索引、UTF-16 断点、中文禁则、标点悬挂与拉丁词界 |
+| [ReaderPaginator.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderPaginator.kt) | `rust/legado-layout/src/paginator.rs`：逐行落位、段距、标题、分栏、页底对齐、通用内容块与会话输出 |
+| [ReaderTextShaper.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderTextShaper.kt) / [AndroidReaderTextShaper.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/platform/AndroidReaderTextShaper.kt) | `flutter_text_shaper.dart`：Flutter TextPainter 产出簇宽、字体度量与样式，不再决定断行或分页 |
+| [ReaderChapterBlockMeasurer.kt](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/core/layout/ReaderChapterBlockMeasurer.kt) | 内容与测量职责分别落于 `chapter_document.dart`、FlutterTextShaper；`chapter_pagination_session.dart` 分批推进与取消 |
 
-当前没有必须迁入 Rust 的排版模块。可作为后续候选的是使用已测量宽度的断行、已测量行的分页、索引与原文映射等纯数据计算；它们也可用 Dart isolate，是否值得迁移应由 profile 分项耗时决定。Flutter 的文字测量、Widget 和原生选区留在 UI 侧，不能把依赖 `dart:ui` 的整套引擎塞入普通 isolate，见 [Flutter 并发限制](https://docs.flutter.dev/perf/isolates)。若采用 Rust，需要一次批量传入段落/章节及测量数据、保持 UTF-16 契约并单独验证 FFI 成本。
+## 单一排版权威与模块边界
 
-`rust/legado-core/src/layout.rs` 的 LayoutEngine 仍按字号估算每行字数，并使用 Rust 字符串字节长度积累偏移；它由 Rust reader_state 消费，却不是 Flutter 正文的排版权威。不能直接接入替代真实 Flutter 字体测量，本轮未修改 Rust 或 FFI。
+```text
+章节原文 / 原文映射
+    → FlutterTextShaper：平台字体测量
+    → ReaderLayoutSession：异步批量协议
+    → legado-layout：中文断行、行内位置、逐行分页
+    → ChapterLayoutAdapter：最终几何与原文范围
+    → 正文渲染、原生选区、阅读锚点
+```
+
+`legado-layout` 不依赖 Flutter、FRB、数据库、网络或字体运行时。`legado-ffi/layout_bridge` 只管理隔离会话、输入限额和取消；四个入口的冻结契约见 [纯计算契约](READER_LAYOUT_CONTRACT_20261012.md) 与 `API_CONTRACT.md §1.3.1`。
+
+字形簇索引用于断行，UTF-16 偏移用于原文定位，两者显式分开。几何计算按上游 Float 使用 f32，并保留整数视口与整数除法顺序。Flutter 不再执行独立禁则修正、行尾回退或字距计算；每行的最终字形坐标同时服务绘制、选区和命中测试。
+
+通用内容块包括正文、行内段落、图片、空行、分隔线及显式分页；行内项包括文字、图片、角色标记、背景音乐标记及本项目段评。样式、链接、背景、基线和章节位置保存在模型中。当前小说适配器产生正文与段评输入；保留其他类型的计算能力不意味着本轮新增对应阅读功能或完整 EPUB/CSS 解析。
+
+高频字形采用结构字段与共享样式，FFI 将最终几何、原文位置、合并文字和低频附加字段分别传递；页面按编号引用共享缓冲，不添加格式标识或历史解析路径。紧凑存储只属于传输层，不改变上游核心的元素模型或几何。
+
+## 原始 Kotlin 对照
+
+`scripts/reader_layout_reference.py` 下载固定提交的原始 Kotlin，使用 Java 17 / Kotlin 2.3.0 编译执行。`Oracle.kt` 只适配输入与输出，不替换断行或分页算法；Compose Stable 注解使用无行为桩，测量模块仅取原始数据声明。
+
+已提交的 `rust/legado-layout/tests/fixtures/md3.json.gz` 保存上游 revision、源码 SHA-256、Java runtime 与 260 组期望结果，其中 180 组断行、80 组分页。覆盖中文连续标点、拉丁词界、emoji/组合字符、首行容量、不同样式/基线、标题、分栏、图片、行内图片、角色/音乐标记、空行、分隔线、分页及页底对齐。
+
+测试逐项比较簇边界、UTF-16 断点、页面身份、原文、元素类型与全部字段。几何误差仅允许 `max(0.0001, abs(expected) × 2 × f32::EPSILON)`，用于 Float 十进制输出舍入；不以截图、页数相同或自身 Rust 输出作为等价证据。另验证分批输出、取消、非法输入、段评扩展及压缩传输往返。
+
+重新生成夹具需要已有的 Kotlin/Gradle 编译器缓存：
+
+```powershell
+python scripts/reader_layout_reference.py --java-home '<本机 Java 17 目录>' --proxy http://127.0.0.1:7897
+```
+
+运行纯核心检查：
+
+```powershell
+cd rust
+cargo test -p legado-layout --all-targets
+cargo clippy -p legado-layout --all-targets -- -D warnings
+cargo build -p legado-layout --example test_host
+cd ../flutter_legado
+flutter test test/unit/reader_layout_service_test.dart test/widget/reader_native_selection_test.dart
+```
+
+Flutter Widget 测试通过注入传输层调用同一 Rust 核心测试宿主，避免测试环境另维护一份 Dart 算法；正式应用只调用 FRB native 实现。CI 的 Flutter 测试只补建该小型宿主，不额外构建完整原生应用。
+
+## 本轮数据所有权与缓存
+
+Rust已输出页面从会话移出，保留上游要求的一页延迟与绝对页编号；Flutter按只读视图消费共享
+数值缓冲，行文字与选择几何不再持有逐字副本。完整布局缓存同时限制三章与16 MiB估算预算，
+超大章节仍可阅读但不进入完整缓存；相邻章按距离串行预排。预算只约束缓存数据估算，不是RSS。
+性能数据和未验证范围见 [Profile结果](READER_LAYOUT_PROFILE_20261012.md)，状态只维护于Active。
+
+## 明确保留的差异
+
+- 平台测量：Flutter TextPainter 与 Android TextPaint 的字体回退、塑形、缩放和度量可以不同；相同测量输入的断行与分页对照必须通过。
+- 项目扩展：段评零原文长度、末尾合法正文同行、固定槽宽与紧凑图标；保留已授权的段首引号悬挂及现有关闭中文排版设置。默认中文路径仍使用上游算法，不用本地溢出修正改写结果。
+- 宿主 UI：Flutter 保留原生选区、独立章节标题、翻页动画与阅读设置；首页标题占位通过已测量内容块输入，不重写分页规则。
+- 阅读位置：使用章节标识与版本化 UTF-16 锚点；没有有效锚点的历史/云端记录只恢复章节，数据库与云同步格式保持原有边界。
+
+这些差异分别验证，不宣称不同平台的同一本书必然逐像素、逐页相同。Unicode 词界分类依据固定 Java 17 对照表，不以 Dart 的另一套字符分类替代。
+
+## 删除与性能口径
+
+已删除旧 `legado-core/src/layout.rs` 的按字号估字数算法，以及 Dart 重复的 ChineseLineBreaker、TextBreakRules、LinePaginator 和未分页回退渲染。Rust reader_state 只接收已排版的 UTF-16 页面范围，换章/关闭时清空旧范围；不再自行推测页数或使用 UTF-8 字节偏移。
+
+原六步的调试诊断与迁移前采样属于历史基线，不代表当前 Rust 实现的性能。实施前后以独立 Profile 包、同一设备/窗口/文本/字体配置比较，并记录编码、调用、Rust 计算、解码及真实帧；方法与结果见 [Profile 基准](READER_LAYOUT_PROFILE_20261012.md)。不预设 Rust 必然更快，单次超长段的平台测量仍不可中断，深处锚点仍需先排前文。
 
 编写者：Codex｜2026-10-12

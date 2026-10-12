@@ -2560,7 +2560,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   ///
   /// 字段取证：`Book.origin` = 书源 URL（不适合展示）；
   /// `Book.originName` = DB 源显示名（默认空串）。优先取已解析的
-  /// [_bookSource]（BookSource.bookSourceName，同 reader_top_bar.dart
+  /// [_bookSource]（BookSource.bookSourceName，同 reader_menu_actions.part.dart
   /// L728-729 先例 `(source?.bookSourceName ?? book.originName).trim()`）。
   /// 空值 / URL 形态（http 前缀）判为取不到 → 返回 null，
   /// 顶栏次行仅显示章节名（截图基准：取不到不显，不放假值）。

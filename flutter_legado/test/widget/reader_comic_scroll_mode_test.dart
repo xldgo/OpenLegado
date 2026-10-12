@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // [P4-3 E1] 漫画屏五翻页模式（对齐参考版 MangaScrollMode）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -146,7 +147,7 @@ void main() {
   Widget buildApp(ProviderContainer container) {
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+      child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
     );
   }
 

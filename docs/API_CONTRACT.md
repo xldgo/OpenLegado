@@ -95,6 +95,26 @@
 - Dart 侧负责 `jsonEncode` / `jsonDecode`，Rust 侧返回序列化后的 JSON 字符串。
 - 模型对象（Book、BookSource 等）通过各自 `toJson()` / `fromJson()` 完成序列化。
 
+### 1.3.1 阅读布局纯计算服务（2026-10-12 冻结）
+
+用户批准以独立 `legado-layout` 替换旧估算排版；平台文字测量留在 Flutter。
+该服务独立于书籍业务 `BookApi`，不修改其方法计数、数据库和书源协议。
+布局输入、输出及会话生命周期以 [阅读布局契约](READER_LAYOUT_CONTRACT_20261012.md) 为准。
+
+| Rust 导出 / Dart 名称 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| `reader_layout_begin` / `readerLayoutBegin` | `config_json: String` | `Result<String, BridgeError>` | 校验 v1 配置，创建隔离会话，返回会话标识 |
+| `reader_layout_push` / `readerLayoutPush` | `session_id: String, blocks_json: String` | `Result<String, BridgeError>` | 批量接受已测量内容块，返回新完成页面 |
+| `reader_layout_finish` / `readerLayoutFinish` | `session_id: String` | `Result<String, BridgeError>` | 收尾并释放会话，返回尚未输出页面 |
+| `reader_layout_cancel` / `readerLayoutCancel` | `session_id: String` | `Result<(), BridgeError>` | 取消并释放会话，重复取消无副作用 |
+
+复杂数据仍以 JSON String 传递；输出使用共享文字、样式及 Base64 小端数值列，
+页面按字形编号引用。不增加输出格式标识，不保留历史传输兼容；输入与四个导出签名不变。
+文本位置采用章节 UTF-16 偏移；虚拟缩进、
+段评与背景音乐胶囊没有原文长度。无效配置、未知 schema/类型、非有限几何、
+簇/宽度不匹配及不存在的会话必须报错，不回退旧算法。分页与断行以固定上游
+`070ca1a9b2e491654f70c105bca9939968023940` 的 Kotlin 执行结果校验。
+
 ### 1.4 已知双兼容点（重要警告）
 
 以下方法的 Rust 侧返回为 **Map 包装结构**（非裸 List），Dart 侧已做兼容处理（提取内部字段）：

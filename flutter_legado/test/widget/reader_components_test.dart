@@ -2,27 +2,23 @@ import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/screens/reader_config_panel.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_bottom_bar.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_top_bar.dart';
 
 import '../mocks/mocks.dart';
 
 /// 阅读器子组件 Widget 测试
 ///
-/// 验证 Phase 2.2 拆分出的真实组件（ReaderTopBar / ReaderBottomBar /
+/// 验证 Phase 2.2 拆分出的真实组件（ReaderMenuPanel /
 /// ReaderStatusStrip）在 Riverpod 架构下忠实渲染，
 /// 对齐重构前的界面样式（Phase 2.5 工具栏 + Phase 2.6 书签/进度跳转）。
 /// [UI-fix v2.0.4 | 2026-08-08] 对齐原版 ReadMenu：目录抽屉已删除
@@ -65,14 +61,16 @@ void main() {
         .thenAnswer((_) async => testChapters);
     when(() => mockApi.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
-    when(() => mockApi.updateReadingProgress(
-          bookUrl: any(named: 'bookUrl'),
-          chapterIndex: any(named: 'chapterIndex'),
-          chapterPos: any(named: 'chapterPos'),
-        )).thenAnswer((_) async {});
+    when(
+      () => mockApi.updateReadingProgress(
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+        chapterPos: any(named: 'chapterPos'),
+      ),
+    ).thenAnswer((_) async {});
   }
 
-  /// 将 Positioned 类组件包裹于 Stack（TopBar/BottomBar/StatusStrip 需要）
+  /// 将 Positioned 类组件包裹于 Stack（MenuPanel/StatusStrip 需要）
   Widget wrapStack(Widget child) {
     return UncontrolledProviderScope(
       container: container,
@@ -87,20 +85,18 @@ void main() {
     await tester.pump();
   }
 
-  group('ReaderTopBar（Phase 2.5 工具栏）', () {
+  group('ReaderMenuPanel 顶栏', () {
     // [UI-fix v2.0.4 | 2026-08-08] 顶栏对齐原版 ReadMenu：搜索/书签/高级
     // 设置常驻图标已迁出（书签→溢出菜单，搜索→底栏悬浮按钮），
     // 断言改为返回/溢出菜单/初始进度 — Qoder
     testWidgets('渲染返回/溢出菜单按钮与初始进度', (tester) async {
-      await tester.pumpWidget(wrapStack(ReaderTopBar(
-        onAddBookmark: () {},
-      )));
+      await tester.pumpWidget(wrapStack(buildReaderMenu(onAddBookmark: () {})));
       await tester.pump();
 
-      expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_back_rounded), findsOneWidget);
       expect(find.byType(AppMenuButton<String>), findsOneWidget);
       // 初始无书籍时进度为 0.0%
-      expect(find.text('0.0%'), findsOneWidget);
+      expect(find.byType(Slider), findsOneWidget);
     });
 
     testWidgets('edge-to-edge 下顶栏内容避让 viewPadding.top', (tester) async {
@@ -115,11 +111,7 @@ void main() {
                 viewPadding: EdgeInsets.only(top: statusBarHeight),
               ),
               child: Scaffold(
-                body: Stack(
-                  children: [
-                    ReaderTopBar(onAddBookmark: () {}),
-                  ],
-                ),
+                body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
               ),
             ),
           ),
@@ -127,19 +119,15 @@ void main() {
       );
       await tester.pump();
 
-      final safeArea = tester.widget<SafeArea>(find.byType(SafeArea));
-      expect(safeArea.minimum.top, statusBarHeight);
       expect(
-        tester.getTopLeft(find.byIcon(Icons.arrow_back_ios_new)).dy,
+        tester.getTopLeft(find.byIcon(Symbols.arrow_back_rounded)).dy,
         greaterThanOrEqualTo(statusBarHeight),
       );
     });
 
     testWidgets('打开书籍后显示书名', (tester) async {
       stubOpenBook();
-      await tester.pumpWidget(wrapStack(ReaderTopBar(
-        onAddBookmark: () {},
-      )));
+      await tester.pumpWidget(wrapStack(buildReaderMenu(onAddBookmark: () {})));
       await tester.pump();
 
       await openBookAndPump(tester);
@@ -150,77 +138,23 @@ void main() {
     });
   });
 
-  group('ReaderBottomBar（Phase 2.5/2.6 章节导航 + 功能按钮）', () {
-    testWidgets('渲染上一章/下一章/进度滑块与目录/朗读/界面/设置按钮', (tester) async {
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () {},
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () {},
-        onReadAloud: () {},
-      )));
-      await tester.pump();
-
-      expect(find.text(AppStrings.previousChapter), findsOneWidget);
-      expect(find.text(AppStrings.nextChapter), findsOneWidget);
-      expect(find.byType(Slider), findsOneWidget);
-      expect(find.byIcon(Icons.toc), findsOneWidget);
-      expect(find.byIcon(Icons.record_voice_over_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.palette_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.settings), findsOneWidget);
-      // [UI-fix v2.0.4 | 2026-08-08] 悬浮按钮行（对标原版
-      // fabSearch/fabNightTheme）自顶栏迁入底栏 — Qoder
-      expect(find.byIcon(Icons.search), findsOneWidget);
-      expect(find.byIcon(Icons.dark_mode), findsOneWidget);
-    });
-
-    // [UI-fix v2.0.4 | 2026-08-08] 夜间/搜索按钮测试自顶栏组迁入
-    // （入口位置对齐原版 ll_floating_button，功能不变） — Qoder
-    // [UI-FIX | 2026-08-13] 夜间按钮同步全局 ThemeMode（对齐原版
-    // AppConfig.isNightTheme + ThemeConfig.applyDayNight）— Qoder
-    testWidgets('点击夜间模式按钮切换全局主题与阅读页背景', (tester) async {
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () {},
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () {},
-        onReadAloud: () {},
-      )));
-      await tester.pump();
-
-      // 初始为浅色背景，显示 dark_mode 图标
-      expect(find.byIcon(Icons.dark_mode), findsOneWidget);
-      expect(
-        container.read(themeNotifierProvider).themeMode,
-        equals(ThemeMode.system),
-      );
-
-      await tester.tap(find.byIcon(Icons.dark_mode));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(
-        container.read(readerNotifierProvider).backgroundColor,
-        equals(ReaderBackground.dark),
-      );
-      expect(
-        container.read(themeNotifierProvider).themeMode,
-        equals(ThemeMode.dark),
-      );
-    });
-
+  group('ReaderMenuPanel 章节导航与操作', () {
     testWidgets('点击搜索按钮触发回调', (tester) async {
       var searchTapped = false;
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () {},
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () => searchTapped = true,
-        onReadAloud: () {},
-      )));
+      await tester.pumpWidget(
+        wrapStack(
+          buildReaderMenu(
+            onOpenCatalog: () {},
+            onOpenSettings: () {},
+            onOpenAdvancedConfig: () {},
+            onOpenContentSearch: () => searchTapped = true,
+            onReadAloud: () {},
+          ),
+        ),
+      );
       await tester.pump();
 
-      await tester.tap(find.byIcon(Icons.search));
+      await tester.tap(find.byIcon(Symbols.search_rounded));
       await tester.pump();
 
       expect(searchTapped, isTrue);
@@ -229,17 +163,21 @@ void main() {
     testWidgets('打开书籍后点击目录按钮触发回调', (tester) async {
       stubOpenBook();
       var catalogTapped = false;
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () => catalogTapped = true,
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () {},
-        onReadAloud: () {},
-      )));
+      await tester.pumpWidget(
+        wrapStack(
+          buildReaderMenu(
+            onOpenCatalog: () => catalogTapped = true,
+            onOpenSettings: () {},
+            onOpenAdvancedConfig: () {},
+            onOpenContentSearch: () {},
+            onReadAloud: () {},
+          ),
+        ),
+      );
       await tester.pump();
       await openBookAndPump(tester);
 
-      await tester.tap(find.byIcon(Icons.toc));
+      await tester.tap(find.byIcon(Symbols.format_list_bulleted_rounded));
       await tester.pump();
 
       expect(catalogTapped, isTrue);
@@ -247,39 +185,51 @@ void main() {
 
     testWidgets('第一章时上一章按钮禁用，下一章按钮可用', (tester) async {
       stubOpenBook();
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () {},
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () {},
-        onReadAloud: () {},
-      )));
+      await tester.pumpWidget(
+        wrapStack(
+          buildReaderMenu(
+            onOpenCatalog: () {},
+            onOpenSettings: () {},
+            onOpenAdvancedConfig: () {},
+            onOpenContentSearch: () {},
+            onReadAloud: () {},
+          ),
+        ),
+      );
       await tester.pump();
       await openBookAndPump(tester);
 
-      final prevButton = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, AppStrings.previousChapter),
+      final prevButton = tester.widget<IconButton>(
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '上一章'),
       );
-      final nextButton = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, AppStrings.nextChapter),
+      final nextButton = tester.widget<IconButton>(
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '下一章'),
       );
       expect(prevButton.onPressed, isNull);
       expect(nextButton.onPressed, isNotNull);
     });
 
     // 既有亮度行用例改用共用插件，验证跟随系统切换为手动亮度。
-    testWidgets('亮度行从跟随系统切换为手动调节',
-        (tester) async {
+    testWidgets('亮度行从跟随系统切换为手动调节', (tester) async {
       const channel = MethodChannel('github.com/aaassseee/screen_brightness');
-      const eventChannel = MethodChannel('github.com/aaassseee/screen_brightness/application_brightness_changed');
-      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const eventChannel = MethodChannel(
+        'github.com/aaassseee/screen_brightness/application_brightness_changed',
+      );
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       var changed = false;
       messenger.setMockMethodCallHandler(channel, (call) async {
         switch (call.method) {
-          case 'getApplicationScreenBrightness': return 0.5;
-          case 'hasApplicationScreenBrightnessChanged': return changed;
-          case 'setApplicationScreenBrightness': changed = true; return null;
-          case 'resetApplicationScreenBrightness': changed = false; return null;
+          case 'getApplicationScreenBrightness':
+            return 0.5;
+          case 'hasApplicationScreenBrightnessChanged':
+            return changed;
+          case 'setApplicationScreenBrightness':
+            changed = true;
+            return null;
+          case 'resetApplicationScreenBrightness':
+            changed = false;
+            return null;
         }
         return null;
       });
@@ -288,16 +238,21 @@ void main() {
         messenger.setMockMethodCallHandler(channel, null);
         messenger.setMockMethodCallHandler(eventChannel, null);
       });
-      await tester.pumpWidget(wrapStack(ReaderBottomBar(
-        onOpenCatalog: () {},
-        onOpenSettings: () {},
-        onOpenAdvancedConfig: () {},
-        onOpenContentSearch: () {},
-        onReadAloud: () {},
-      )));
+      await tester.pumpWidget(
+        wrapStack(
+          buildReaderMenu(
+            brightnessMode: 1,
+            onOpenCatalog: () {},
+            onOpenSettings: () {},
+            onOpenAdvancedConfig: () {},
+            onOpenContentSearch: () {},
+            onReadAloud: () {},
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('跟随系统亮度'), findsOneWidget);
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byIcon(Icons.brightness_auto), findsOneWidget);
+      expect(find.byType(Slider), findsNWidgets(2));
       await tester.tap(find.byIcon(Icons.brightness_auto));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.brightness_auto_outlined), findsOneWidget);
@@ -305,13 +260,77 @@ void main() {
     });
   });
 
+  group('书源菜单接线', () {
+    Future<void> openSourceMenu(WidgetTester tester, BookSource source) async {
+      stubOpenBook();
+      when(() => mockApi.getBookSources()).thenAnswer((_) async => [source]);
+      await container
+          .read(readerNotifierProvider.notifier)
+          .openBook(testBook.copyWith(originName: '测试源'));
+      await tester.pumpWidget(wrapStack(buildReaderMenu()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试源'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('缺少登录和购买配置时只显示编辑与禁用', (tester) async {
+      await openSourceMenu(
+        tester,
+        const BookSource(
+          bookSourceUrl: 'https://source.com',
+          bookSourceName: '测试源',
+        ),
+      );
+      expect(find.text('登录源'), findsNothing);
+      expect(find.text('章节购买'), findsNothing);
+      expect(find.text('编辑源'), findsOneWidget);
+      expect(find.text('禁用源'), findsOneWidget);
+    });
+
+    testWidgets('取消购买不执行书源购买动作', (tester) async {
+      await openSourceMenu(
+        tester,
+        const BookSource(
+          bookSourceUrl: 'https://source.com',
+          bookSourceName: '测试源',
+          loginUrl: 'https://source.com/login',
+          ruleContent: ContentRule(payAction: 'true'),
+        ),
+      );
+      expect(find.text('登录源'), findsOneWidget);
+      await tester.tap(find.text('章节购买'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      verifyNever(
+        () => mockApi.chapterPayAction(
+          bookUrl: any(named: 'bookUrl'),
+          chapterIndex: any(named: 'chapterIndex'),
+        ),
+      );
+    });
+  });
+
+  test('亮度三档保存并兼容旧布尔值，刘海扩展默认关闭', () async {
+    SharedPreferences.setMockInitialValues({'showBrightnessView': true});
+    final config = await ReaderAdvancedConfig.load();
+    expect(config.brightnessMode, 1);
+    expect(config.readBodyToLh, isFalse);
+    config.brightnessMode = 2;
+    config.brightnessOnLeft = true;
+    await config.save();
+    final restored = await ReaderAdvancedConfig.load();
+    expect(restored.brightnessMode, 2);
+    expect(restored.brightnessOnLeft, isTrue);
+  });
+
   group('ReaderStatusStrip（Phase 2.4/2.6 状态栏）', () {
     // [PARITY C2 R4] 状态行四开关默认关闭（参考无顶状态行）：默认配置不渲染内容，
     // 电量/进度等改为「开启开关才渲染」。
     testWidgets('默认配置（全关）不渲染内容', (tester) async {
-      await tester.pumpWidget(wrapStack(
-        ReaderStatusStrip(config: ReaderAdvancedConfig()),
-      ));
+      await tester.pumpWidget(
+        wrapStack(ReaderStatusStrip(config: ReaderAdvancedConfig())),
+      );
       await tester.pump();
 
       expect(find.byIcon(Icons.battery_std), findsNothing);

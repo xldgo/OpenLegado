@@ -53,7 +53,7 @@ def classify_paths(paths):
             integration_test = len(parts) > 3 and parts[2] == "tests"
             if not integration_test:
                 select("android_ffi", "windows_ffi", "ios_build")
-            if path.startswith("rust/legado-ffi/") and not integration_test:
+            if path.startswith("rust/legado-layout/") or (path.startswith("rust/legado-ffi/") and not integration_test):
                 select("flutter")
         elif path.startswith("flutter_legado/"):
             relative = path.removeprefix("flutter_legado/")

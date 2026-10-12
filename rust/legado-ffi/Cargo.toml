@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
+legado-layout = { path = "../legado-layout" }
 legado-core = { path = "../legado-core" }
 legado-parser = { path = "../legado-parser" }
 legado-net = { path = "../legado-net" }

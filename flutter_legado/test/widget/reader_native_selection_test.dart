@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
@@ -5,6 +7,7 @@ import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/reader/reader_state.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
@@ -12,7 +15,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.da
 import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/text_selection_panel.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 
 Future<void> _pumpReader(
@@ -38,9 +41,10 @@ Future<void> _pumpReader(
           body: SizedBox(
             width: 320,
             height: 500,
-            child: Builder(
-              builder: (context) {
-                final pages = ParagraphLayoutEngine(
+            child: LayoutTestBuilder(
+              builder: (context) async {
+                final pages = (await ParagraphLayoutEngine(
+                  transport: RustLayoutTestTransport.instance,
                   context: context,
                   config: ParagraphConfig(
                     fontSize: 16,
@@ -52,7 +56,7 @@ Future<void> _pumpReader(
                     textColor: Colors.black,
                     baseStyle: DefaultTextStyle.of(context).style,
                   ),
-                ).paginateChapter(source, 320, 500);
+                ).paginateChapter(source, 320, 500));
                 Widget body = ReaderTurnView(
                   mode: PageTurnMode.none,
                   pageIndex: 0,
@@ -102,6 +106,7 @@ void main() {
   late ReaderSelectionController controller;
   String? clipboard;
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     controller = ReaderSelectionController();
     clipboard = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -327,9 +332,10 @@ void main() {
       ProviderScope(
         child: MaterialApp(
           home: Scaffold(
-            body: Builder(
-              builder: (context) {
-                pages = ParagraphLayoutEngine(
+            body: LayoutTestBuilder(
+              builder: (context) async {
+                pages = (await ParagraphLayoutEngine(
+                  transport: RustLayoutTestTransport.instance,
                   context: context,
                   config: ParagraphConfig(
                     fontSize: 16,
@@ -339,7 +345,7 @@ void main() {
                     textColor: Colors.black,
                     baseStyle: DefaultTextStyle.of(context).style,
                   ),
-                ).paginateChapter(source, 240, 160).take(2).toList();
+                ).paginateChapter(source, 240, 160)).take(2).toList();
                 return ReaderSelectionRegion(
                   controller: controller,
                   pages: pages,

@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
@@ -24,9 +26,10 @@ void main() {
             home: Scaffold(
               body: MediaQuery(
                 data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                child: Builder(
-                  builder: (context) {
+                child: LayoutTestBuilder(
+                  builder: (context) async {
                     final engine = ParagraphLayoutEngine(
+                      transport: RustLayoutTestTransport.instance,
                       context: context,
                       config: ParagraphConfig(
                         fontSize: 16,
@@ -37,8 +40,8 @@ void main() {
                         textColor: Colors.black,
                       ),
                     );
-                    plain = engine.paginateChapter(source, 160, 1500);
-                    pages = engine.paginateChapter(
+                    plain = (await engine.paginateChapter(source, 160, 1500));
+                    pages = (await engine.paginateChapter(
                       source,
                       160,
                       1500,
@@ -47,7 +50,7 @@ void main() {
                         source,
                         {1: 23},
                       ),
-                    );
+                    ));
                     return SizedBox(
                       width: 160,
                       child: ReaderSelectionRegion(
@@ -112,9 +115,10 @@ void main() {
   testWidgets('段末正文与角标一起移页，正数槽宽固定，零评论无占位', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Builder(
-          builder: (context) {
+        home: LayoutTestBuilder(
+          builder: (context) async {
             final engine = ParagraphLayoutEngine(
+              transport: RustLayoutTestTransport.instance,
               context: context,
               config: const ParagraphConfig(
                 fontSize: 10,
@@ -133,12 +137,12 @@ void main() {
                 {1: count},
               );
               sizes.add(review[1]!.size);
-              final pages = engine.paginateChapter(
+              final pages = (await engine.paginateChapter(
                 source,
                 60,
                 22,
                 paragraphReviews: review,
-              );
+              ));
               final lines = pages
                   .expand((p) => p.paragraphs)
                   .expand((p) => p.lines)
@@ -150,7 +154,7 @@ void main() {
               expect(lines.map((l) => l.selectableText).join(), source);
             }
             expect(sizes.toSet(), hasLength(1));
-            final narrow = engine.paginateChapter(
+            final narrow = (await engine.paginateChapter(
               '甲乙',
               20,
               200,
@@ -159,7 +163,7 @@ void main() {
                 '甲乙',
                 {1: 1},
               ),
-            );
+            ));
             final tail = narrow.last.paragraphs.last.lines.last;
             expect(tail.selectableText, isNotEmpty);
             expect(tail.trailingReview!.compact, isTrue);

@@ -11,6 +11,23 @@
 
 use legado_core::error::{LegadoError, LegadoResult};
 
+/// 创建阅读布局会话；平台测量与书籍数据库操作相互独立。
+pub fn reader_layout_begin(config_json: String) -> Result<String, BridgeError> {
+    crate::layout_bridge::begin(&config_json)
+}
+/// 批量推送已测量内容块，返回新增的最终页面。
+pub fn reader_layout_push(session_id: String, blocks_json: String) -> Result<String, BridgeError> {
+    crate::layout_bridge::push(&session_id, &blocks_json)
+}
+/// 收尾并释放会话，返回末页。
+pub fn reader_layout_finish(session_id: String) -> Result<String, BridgeError> {
+    crate::layout_bridge::finish(&session_id)
+}
+/// 取消会话；重复取消不产生副作用。
+pub fn reader_layout_cancel(session_id: String) -> Result<(), BridgeError> {
+    crate::layout_bridge::cancel(&session_id)
+}
+
 // ─── BridgeError ──────────────────────────────────────────────
 
 /// frb 桥接错误类型

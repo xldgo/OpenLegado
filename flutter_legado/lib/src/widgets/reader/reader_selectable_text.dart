@@ -1,10 +1,12 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'text_layout_environment.dart';
 import 'line_text_span.dart';
+import 'reader_layout_element.dart';
 
 TextStyle _effectiveReaderStyle(BuildContext context, TextStyle style) {
   final defaults = DefaultTextStyle.of(context);
@@ -85,6 +87,7 @@ class ReaderLineText extends StatelessWidget {
   final ReaderSelectionGeometry? selectionGeometry;
   final TextLayoutEnvironment? environment;
   final double spaceExpansion;
+  final List<ReaderGlyph> glyphs;
 
   const ReaderLineText(
     this.data, {
@@ -93,6 +96,7 @@ class ReaderLineText extends StatelessWidget {
     this.selectionGeometry,
     this.environment,
     this.spaceExpansion = 0,
+    this.glyphs = const [],
   });
 
   @override
@@ -105,10 +109,12 @@ class ReaderLineText extends StatelessWidget {
         spaceExpansion,
       ),
       selectionGeometry: selectionGeometry,
+      glyphs: glyphs,
+      glyphStyle: _effectiveReaderStyle(context, style),
       textAlign: defaults.textAlign ?? TextAlign.start,
       softWrap: defaults.softWrap,
       maxLines: 1,
-      overflow: TextOverflow.clip,
+      overflow: TextOverflow.visible,
       textScaler: environment?.textScaler ?? MediaQuery.textScalerOf(context),
       textDirection: environment?.direction,
       locale: environment?.locale,
@@ -128,10 +134,12 @@ class ReaderLineText extends StatelessWidget {
 /// 阅读正文沿用原生选区，跨行共用字形高度并保留排版留白。
 class ReaderSelectableText extends RichText {
   final ReaderSelectionGeometry? selectionGeometry;
+  final List<ReaderGlyph> glyphs;
+  final TextStyle? glyphStyle;
 
   ReaderSelectableText({
     super.key,
-    required super.text,
+    required InlineSpan text,
     super.textAlign,
     super.textDirection,
     super.softWrap,
@@ -145,7 +153,16 @@ class ReaderSelectableText extends RichText {
     super.selectionRegistrar,
     super.selectionColor,
     this.selectionGeometry,
-  });
+    this.glyphs = const [],
+    this.glyphStyle,
+  }) : super(
+         text: glyphs.isEmpty
+             ? text
+             : TextSpan(
+                 text: text.toPlainText(),
+                 style: glyphStyle?.copyWith(color: const Color(0x00000000)),
+               ),
+       );
 
   ReaderSelectionGeometry? _geometry(BuildContext context) =>
       selectionGeometry ??
@@ -162,6 +179,8 @@ class ReaderSelectableText extends RichText {
       _ReaderRenderParagraph(
         text,
         _geometry(context),
+        glyphs: glyphs,
+        glyphStyle: glyphStyle,
         textAlign: textAlign,
         textDirection: textDirection ?? Directionality.of(context),
         softWrap: softWrap,
@@ -185,6 +204,7 @@ class ReaderSelectableText extends RichText {
     (renderObject as _ReaderRenderParagraph).selectionGeometry = _geometry(
       context,
     );
+    renderObject.updateGlyphs(glyphs, glyphStyle);
   }
 }
 
@@ -192,6 +212,8 @@ class _ReaderRenderParagraph extends RenderParagraph {
   _ReaderRenderParagraph(
     super.text,
     this._selectionGeometry, {
+    this.glyphs = const [],
+    this.glyphStyle,
     super.textAlign,
     required super.textDirection,
     super.softWrap,
@@ -208,6 +230,116 @@ class _ReaderRenderParagraph extends RenderParagraph {
   });
 
   ReaderSelectionGeometry? _selectionGeometry;
+  List<ReaderGlyph> glyphs;
+  TextStyle? glyphStyle;
+  final List<(TextPainter, Offset)> _runs = [];
+
+  void updateGlyphs(List<ReaderGlyph> value, TextStyle? style) {
+    if (identical(glyphs, value) && glyphStyle == style) return;
+    glyphs = value;
+    glyphStyle = style;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    for (final run in _runs) {
+      run.$1.dispose();
+    }
+    _runs.clear();
+    if (glyphs.isEmpty) return;
+    var index = 0;
+    while (index < glyphs.length) {
+      final from = index;
+      final gap = index + 1 < glyphs.length
+          ? glyphs[index + 1].bounds.left - glyphs[index].bounds.right
+          : 0.0;
+      index++;
+      while (index < glyphs.length &&
+          mapEquals(glyphs[index].style, glyphs[from].style) &&
+          glyphs[index].text != ' ' &&
+          glyphs[index - 1].text != ' ' &&
+          (glyphs[index].baseline - glyphs[from].baseline).abs() < .001 &&
+          (glyphs[index].bounds.left - glyphs[index - 1].bounds.right - gap)
+                  .abs() <
+              .001) {
+        index++;
+      }
+      final style = glyphStyle ?? const TextStyle();
+      final scale =
+          textScaler.scale(style.fontSize ?? 16) / (style.fontSize ?? 16);
+      final painter = TextPainter(
+        text: TextSpan(
+          text: glyphs.sublist(from, index).map((g) => g.text).join(),
+          style: style.copyWith(letterSpacing: gap / scale),
+        ),
+        textDirection: textDirection,
+        textScaler: textScaler,
+        locale: locale,
+        textHeightBehavior: textHeightBehavior,
+        maxLines: 1,
+      )..layout();
+      _runs.add((
+        painter,
+        Offset(
+          glyphs[from].bounds.left - gap / 2,
+          glyphs[from].baseline -
+              painter.computeDistanceToActualBaseline(TextBaseline.alphabetic),
+        ),
+      ));
+    }
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    // 父类保留原生选区、语义和手柄；透明正文不参与第二次落位。
+    super.paint(context, offset);
+    for (final (painter, position) in _runs) {
+      painter.paint(context.canvas, offset + position);
+    }
+  }
+
+  @override
+  TextPosition getPositionForOffset(Offset offset) {
+    if (glyphs.isEmpty) return super.getPositionForOffset(offset);
+    for (final glyph in glyphs) {
+      if (offset.dx < glyph.bounds.center.dx) {
+        return TextPosition(offset: glyph.start);
+      }
+      if (offset.dx < glyph.bounds.right) {
+        return TextPosition(offset: glyph.end);
+      }
+    }
+    return TextPosition(offset: glyphs.last.end);
+  }
+
+  @override
+  Offset getOffsetForCaret(TextPosition position, Rect caretPrototype) {
+    if (glyphs.isEmpty) {
+      return super.getOffsetForCaret(position, caretPrototype);
+    }
+    for (final glyph in glyphs) {
+      if (position.offset < glyph.end) {
+        return Offset(glyph.bounds.left, glyph.bounds.top);
+      }
+    }
+    return Offset(glyphs.last.bounds.right, glyphs.last.bounds.top);
+  }
+
+  @override
+  double getFullHeightForCaret(TextPosition position) => glyphs.isEmpty
+      ? super.getFullHeightForCaret(position)
+      : glyphs.first.bounds.height;
+
+  @override
+  void dispose() {
+    for (final run in _runs) {
+      run.$1.dispose();
+    }
+    _runs.clear();
+    super.dispose();
+  }
 
   set selectionGeometry(ReaderSelectionGeometry? value) {
     if (identical(value, _selectionGeometry)) return;
@@ -222,6 +354,45 @@ class _ReaderRenderParagraph extends RenderParagraph {
     ui.BoxHeightStyle boxHeightStyle = ui.BoxHeightStyle.tight,
     ui.BoxWidthStyle boxWidthStyle = ui.BoxWidthStyle.tight,
   }) {
+    if (glyphs.isNotEmpty) {
+      final geometry = _selectionGeometry;
+      final boxes = <ui.TextBox>[];
+      for (var i = 0; i < glyphs.length; i++) {
+        final glyph = glyphs[i];
+        if (glyph.end <= selection.start || glyph.start >= selection.end) {
+          continue;
+        }
+        final right = i + 1 < glyphs.length
+            ? glyphs[i + 1].bounds.left
+            : glyph.bounds.right;
+        final top = geometry == null
+            ? glyph.bounds.top
+            : glyph.baseline - geometry.ascent;
+        final bottom = geometry == null
+            ? glyph.bounds.bottom
+            : glyph.baseline + geometry.descent;
+        if (boxes.isNotEmpty &&
+            (boxes.last.right - glyph.bounds.left).abs() < .001 &&
+            (boxes.last.top - top).abs() < .001 &&
+            (boxes.last.bottom - bottom).abs() < .001) {
+          final last = boxes.removeLast();
+          boxes.add(
+            ui.TextBox.fromLTRBD(last.left, top, right, bottom, textDirection),
+          );
+        } else {
+          boxes.add(
+            ui.TextBox.fromLTRBD(
+              glyph.bounds.left,
+              top,
+              right,
+              bottom,
+              textDirection,
+            ),
+          );
+        }
+      }
+      return boxes;
+    }
     final boxes = super.getBoxesForSelection(
       selection,
       boxHeightStyle: boxHeightStyle,

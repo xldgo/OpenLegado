@@ -31,6 +31,8 @@ class RoutingTests(unittest.TestCase):
             "rust/legado-core/src/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/legado-ffi/src/ffi.rs": set(ci.TARGETS) - {"tooling"},
             "rust/legado-core/tests/reader.rs": {"rust"},
+            "rust/legado-layout/src/paginator.rs": {"flutter", "rust", "android_ffi", "windows_ffi", "ios_build"},
+            "rust/legado-layout/tests/upstream_parity.rs": {"flutter", "rust"},
             "rust/legado-core/src/tests/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/legado-server/assets/web/help/md/jsHelp.md": {"rust", "android_ffi", "windows_ffi", "ios_build"},
             "rust/Cargo.lock": {"rust", "android_ffi", "windows_ffi", "ios_build"},

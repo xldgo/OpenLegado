@@ -1,13 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart' show SelectionStatus;
+import 'package:flutter/rendering.dart' show SelectionStatus, SelectionGeometry;
 import 'package:flutter/services.dart';
 
 import '../paragraph_layout_engine.dart';
 import 'reader_selection_controller.dart';
-import 'text_selection_panel.dart';
+import 'reader_selection_toolbar.dart';
 
-/// 复用 Flutter 选区的高亮、跨行手柄与平台菜单定位。
+/// 复用 Flutter 选区的高亮和跨行手柄，原生锚点交给阅读菜单定位。
 class ReaderSelectionRegion extends StatefulWidget {
   final ReaderSelectionController? controller;
   final List<PageInfo> pages;
@@ -29,6 +29,7 @@ class ReaderSelectionRegion extends StatefulWidget {
 }
 
 class _ReaderSelectionRegionState extends State<ReaderSelectionRegion> {
+  final _focusNode = FocusNode();
   final _areaKey = GlobalKey<SelectionAreaState>();
   final _listener = SelectionListenerNotifier();
   late ReaderSelectionController _controller;
@@ -71,6 +72,7 @@ class _ReaderSelectionRegionState extends State<ReaderSelectionRegion> {
   void dispose() {
     _listener.removeListener(_onSelectionChanged);
     _listener.dispose();
+    _focusNode.dispose();
     _controller.detachClear(_clearNative);
     if (widget.controller == null) _controller.dispose();
     super.dispose();
@@ -94,23 +96,22 @@ class _ReaderSelectionRegionState extends State<ReaderSelectionRegion> {
         },
         child: SelectionArea(
           key: _areaKey,
+          focusNode: _focusNode,
           contextMenuBuilder: (context, region) {
             _onSelectionChanged();
             final selected = _controller.selection;
             if (selected == null) return const SizedBox.shrink();
-            return AdaptiveTextSelectionToolbar(
-              anchors: region.contextMenuAnchors,
-              children: [
-                ReaderSelectionToolbar(
-                  anchor: region.contextMenuAnchors.primaryAnchor,
-                  text: selected.text,
-                  chapterPos: selected.start,
-                  onDismiss: () {
-                    region.hideToolbar();
-                    _controller.clear();
-                  },
-                ),
-              ],
+            final anchors = region.contextMenuAnchors;
+            return ReaderSelectionToolbar(
+              anchor: anchors.primaryAnchor,
+              anchorBelow: anchors.secondaryAnchor,
+              selectionFocusNode: _focusNode,
+              text: selected.text,
+              chapterPos: selected.start,
+              onDismiss: () {
+                region.hideToolbar();
+                _controller.clear();
+              },
             );
           },
           child: Listener(
@@ -146,7 +147,7 @@ class ReaderSelectionTextGroup extends StatefulWidget {
 }
 
 class _ReaderSelectionTextGroupState extends State<ReaderSelectionTextGroup> {
-  final _delegate = StaticSelectionContainerDelegate();
+  final _delegate = _ReaderPageSelectionDelegate();
 
   @override
   void dispose() {
@@ -155,8 +156,24 @@ class _ReaderSelectionTextGroupState extends State<ReaderSelectionTextGroup> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      SelectionContainer(delegate: _delegate, child: widget.child);
+  Widget build(BuildContext context) {
+    final registrar = SelectionContainer.maybeOf(context);
+    if (registrar == null) {
+      return SelectionContainer.disabled(child: widget.child);
+    }
+    return SelectionContainer(
+      registrar: registrar,
+      delegate: _delegate,
+      child: widget.child,
+    );
+  }
+}
+
+/// 完整正文页作为一个可选单元先注册，再接收异步挂载的行。
+/// 避免多层容器在同一帧末依次注册，导致父级未看到正文内容。
+class _ReaderPageSelectionDelegate extends StaticSelectionContainerDelegate {
+  @override
+  SelectionGeometry get value => super.value.copyWith(hasContent: true);
 }
 
 class ReaderSelectionScope extends InheritedWidget {

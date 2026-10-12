@@ -7,7 +7,7 @@
 // - F1 ReaderState.currentBook 的进度字段在阅读过程中从不更新（_saveProgress
 //      只写库不回写 state）。currentBook 是下列调用点的「权威快照」：
 //      reader_page_view.dart ErrorView.onRetry → notifier.openBook(book)；
-//      reader_top_bar.dart:364-369 _updateBookConfig → api.updateBook(updated)；
+//      reader_menu_actions.part.dart _updateBookConfig → api.updateBook(updated)；
 //      reader_screen._doAutoChangeSource → notifier.openBook(updated)；
 //      reader_screen._openToc → TocScreen(arguments: book)。
 // - F2 章级加载无序列守卫：连续翻章（快速连点/自动翻页与手动叠加）时旧章的
@@ -122,7 +122,7 @@ void main() {
         2,
         reason:
             'currentBook.durChapterIndex 仍为 0（打开时值）——'
-            'reader_top_bar._updateBookConfig 会用该陈旧对象 updateBook，'
+            'reader_menu_actions._updateBookConfig 会用该陈旧对象 updateBook，'
             '而 Rust BookRepository::update 是 37 列全行 UPDATE（含 '
             'durChapterIndex=?21/durChapterPos=?24/durChapterTitle=?20）',
       );
@@ -170,7 +170,7 @@ void main() {
         written = invocation.positionalArguments.first as Book;
       });
 
-      // 复刻 reader_top_bar.dart:364-369 _updateBookConfig 的真实取数方式：
+      // 复刻 reader_menu_actions.part.dart _updateBookConfig 的真实取数方式：
       //   final book = ref.read(readerNotifierProvider).currentBook;
       //   await api.updateBook(book.copyWith(readConfig: transform(...)));
       final snapshot = readState().currentBook!;

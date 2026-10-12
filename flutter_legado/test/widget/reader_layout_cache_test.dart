@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,6 +66,7 @@ void main() {
           bookApiProvider.overrideWithValue(_Api()),
         ],
         child: MaterialApp(
+          builder: readerLayoutTestBuilder,
           home: Scaffold(
             body: SizedBox(
               width: 320,
@@ -101,6 +104,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: readerLayoutTestBuilder,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,

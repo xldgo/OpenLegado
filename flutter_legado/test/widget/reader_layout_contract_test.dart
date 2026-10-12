@@ -1,28 +1,14 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/chinese_line_breaker.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
-  test('中文断行返回字形簇索引，不把 UTF-16 长度混入索引', () {
+  test('中文断行返回字形簇索引，不把 UTF-16 长度混入索引', () async {
     const text = '甲😀乙e\u0301丙👨‍👩‍👧‍👦丁';
-    final clusters = text.characters.toList();
-    final layout = ChineseLineBreaker(
-      clusters: clusters,
-      widths: List.filled(clusters.length, 10),
-      width: 20,
-      firstLineWidth: 20,
-      ideographWidth: 18,
-    );
-    final lines = [
-      for (var i = 0; i < layout.lineWidths.length; i++)
-        clusters
-            .sublist(layout.clusterStarts[i], layout.clusterStarts[i + 1])
-            .join(),
-    ];
-    expect(lines, ['甲😀', '乙e\u0301', '丙👨‍👩‍👧‍👦', '丁']);
     final mapping = TextClusterMap(text);
     expect(mapping.sourceOffsets[2], 3);
     expect(mapping.clusterIndex(3), 2);
@@ -41,10 +27,11 @@ void main() {
             textHeightBehavior: const TextHeightBehavior(
               applyHeightToFirstAscent: false,
             ),
-            child: Builder(
-              builder: (context) {
+            child: LayoutTestBuilder(
+              builder: (context) async {
                 environment = TextLayoutEnvironment.of(context);
-                page = ParagraphLayoutEngine(
+                page = (await ParagraphLayoutEngine(
+                  transport: RustLayoutTestTransport.instance,
                   context: context,
                   config: ParagraphConfig(
                     fontSize: 16,
@@ -54,7 +41,7 @@ void main() {
                     textColor: Colors.black,
                     textEnvironment: environment,
                   ),
-                ).paginateChapter(source, 140, 400).first;
+                ).paginateChapter(source, 140, 400)).first;
                 return SizedBox(
                   width: 140,
                   child: ReaderTextContent(

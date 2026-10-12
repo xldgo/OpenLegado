@@ -4,6 +4,9 @@
 /// 供 Providers / Services 层测试使用。
 library;
 
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 
@@ -197,3 +200,26 @@ void registerFallbacks() {
   registerFallbackValue(const BookGroup());
   registerFallbackValue(FakeUri());
 }
+
+/// 旧顶/底栏回归统一挂载当前阅读菜单。
+ReaderMenuPanel buildReaderMenu({
+  VoidCallback? onAddBookmark,
+  VoidCallback? onOpenCatalog,
+  VoidCallback? onOpenSettings,
+  VoidCallback? onOpenAdvancedConfig,
+  VoidCallback? onOpenContentSearch,
+  VoidCallback? onReadAloud,
+  int brightnessMode = 0,
+}) => ReaderMenuPanel(
+  visible: true,
+  onBack: () {},
+  onAddBookmark: onAddBookmark ?? () {},
+  onOpenCatalog: onOpenCatalog ?? () {},
+  onOpenSettings: onOpenSettings ?? () {},
+  onOpenAdvancedConfig: onOpenAdvancedConfig ?? () {},
+  onOpenContentSearch: onOpenContentSearch ?? () {},
+  onReadAloud: onReadAloud ?? () {},
+  onToggleAutoPage: () {},
+  onOpenReplaceRules: () {},
+  brightnessMode: brightnessMode,
+);

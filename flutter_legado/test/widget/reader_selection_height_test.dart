@@ -1,3 +1,5 @@
+import '../helpers/reader_layout_host.dart';
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
@@ -23,9 +25,10 @@ void main() {
               child: child!,
             ),
             home: Scaffold(
-              body: Builder(
-                builder: (context) {
-                  page = ParagraphLayoutEngine(
+              body: LayoutTestBuilder(
+                builder: (context) async {
+                  page = (await ParagraphLayoutEngine(
+                    transport: RustLayoutTestTransport.instance,
                     context: context,
                     config: ParagraphConfig(
                       fontSize: 16,
@@ -40,7 +43,7 @@ void main() {
                       baseStyle: DefaultTextStyle.of(context).style,
                       textScaler: MediaQuery.textScalerOf(context),
                     ),
-                  ).paginateChapter(source, 500, 560).first;
+                  ).paginateChapter(source, 500, 560)).first;
                   return SizedBox(
                     width: 500,
                     child: ReaderTextContent(

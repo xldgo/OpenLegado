@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -141,7 +142,7 @@ class _NoSourceMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(
+    child: const MaterialApp(builder: readerLayoutTestBuilder,
       home: ReaderComicScreen(bookUrl: 'mock://comic/p43unify/err'),
     ),
   );

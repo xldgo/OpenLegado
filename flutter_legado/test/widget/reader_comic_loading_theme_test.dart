@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -147,12 +148,12 @@ class _NoSourceMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container, {Brightness? brightness}) {
   const home = ReaderComicScreen(bookUrl: 'mock://comic/p43unify/ring');
   if (brightness == null) {
-    return UncontrolledProviderScope(container: container, child: const MaterialApp(home: home));
+    return UncontrolledProviderScope(container: container, child: const MaterialApp(builder: readerLayoutTestBuilder, home: home));
   }
   final scheme = ColorScheme.fromSeed(seedColor: _kSeedColor, brightness: brightness);
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
+    child: MaterialApp(builder: readerLayoutTestBuilder,
       theme: ThemeData(colorScheme: scheme),
       home: home,
     ),

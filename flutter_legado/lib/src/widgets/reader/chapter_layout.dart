@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'text_layout_environment.dart';
+import 'reader_layout_element.dart';
 
 /// 物理内容区不足以容纳一个完整字形或行时，提示扩大区域，禁止静默裁字。
 class ReaderLayoutBoundsException implements Exception {
@@ -58,6 +59,7 @@ class LineInfo {
   final double? baseline;
   final double textTop;
   final InlineReviewLayout? trailingReview;
+  final List<ReaderGlyph> glyphs;
 
   /// 首行缩进的独立几何宽度，不改变正文和原文偏移。
   final double indentWidth;
@@ -81,6 +83,7 @@ class LineInfo {
     this.baseline,
     this.textTop = 0,
     this.trailingReview,
+    this.glyphs = const [],
     this.hangingWidth = 0,
     this.indentWidth = 0,
     this.letterSpacing,
@@ -134,12 +137,14 @@ class PageInfo {
   /// 所有页面引用同一章节原文，选区从原文取值而非拼接排版字符。
   final String? sourceText;
   final TextLayoutEnvironment? textEnvironment;
+  final List<ReaderLayoutElement> elements;
 
   const PageInfo({
     required this.paragraphs,
     required this.totalHeight,
     this.sourceText,
     this.textEnvironment,
+    this.elements = const [],
   });
 
   int get sourceStart => paragraphs.isEmpty ? 0 : paragraphs.first.startIndex;

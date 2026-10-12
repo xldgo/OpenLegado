@@ -166,7 +166,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   bool _layoutComplete = true;
   bool _waitingForAnchor = false;
   String? _layoutError;
-  bool _layoutFailedAtStart = false;
   int _fontRevision = 0;
   final Map<String, String> _loadedFontStamps = {};
   bool _fontRefreshRunning = false;
@@ -630,10 +629,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             widget.hangingPunctuation != _paginatedHangingPunctuation);
 
     if (!needRepaginate) {
-      if (_layoutFailedAtStart) {
-        _layoutError = null;
-        _layoutFailedAtStart = false;
-      }
+      if (content.isEmpty) _layoutError = null;
       return;
     }
 
@@ -675,7 +671,14 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         widget.marginTop -
         widget.marginBottom;
     if (availableWidth <= 0 || availableHeight <= 0) {
-      _layoutFailedAtStart = true;
+      _layoutGeneration++;
+      _layoutSession?.cancel();
+      _layoutSession = null;
+      for (final session in _preloadSessions) {
+        session.cancel();
+      }
+      // 记录失败视口，使恢复尺寸后重新命中原布局，旧任务不能覆盖错误状态。
+      _paginatedScreenSize = screenSize;
       _layoutError = '阅读区域太小，请扩大窗口或减小页边距';
       return;
     }
@@ -767,29 +770,23 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     );
     final cachedPages = _layoutCache.get(cacheKey);
     _layoutError = null;
-    _layoutFailedAtStart = false;
     ChapterPaginationSession? session;
     if (cachedPages == null) {
-      session = engine.startChapter(
-        content,
-        availableWidth,
-        availableHeight,
-        firstPageHeight: firstPageHeight,
-        paragraphReviews: reviews,
-      );
-      _layoutError = null;
       try {
-        session.advance();
-      } on ReaderLayoutBoundsException catch (error) {
-        session.cancel();
-        _layoutFailedAtStart = true;
-        _layoutError = error.message;
-        return;
+        session = engine.startChapter(
+          content,
+          availableWidth,
+          availableHeight,
+          firstPageHeight: firstPageHeight,
+          paragraphReviews: reviews,
+        );
+      } catch (error) {
+        _layoutError = '$error';
       }
     }
     _layoutSession = session;
     _layoutComplete = session == null || session.complete;
-    final pages = cachedPages ?? session!.pages;
+    final pages = cachedPages ?? session?.pages ?? const <PageInfo>[];
     _waitingForAnchor =
         !_layoutComplete &&
         (pages.isEmpty ||
@@ -939,10 +936,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         return;
       }
       try {
-        session.advance();
-      } on ReaderLayoutBoundsException catch (error) {
+        // 上游延迟一页输出；首屏允许测量更多短段，仍受八毫秒测量预算限制。
+        await session.advance(maxParagraphs: session.pages.isEmpty ? 16 : 8);
+        if (!mounted || generation != _layoutGeneration || session.cancelled) {
+          return;
+        }
+      } catch (error) {
         session.cancel();
-        setState(() => _layoutError = error.message);
+        if (!mounted || generation != _layoutGeneration) return;
+        setState(() => _layoutError = '正文排版失败：$error');
         return;
       }
       final pages = session.pages;
@@ -1407,6 +1409,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 章边界预载触发：末屏预载下一章首屏、首屏预载上一章末屏
   void _maybePreloadAdjacent(ReaderState state, {bool eager = false}) {
     if (_paginatedPages.isEmpty || state.currentBook == null) return;
+    // 两侧按距离串行预排，避免同时测量两章、保留两套在途布局。
+    if (_preloadingNext || _preloadingPrev) return;
     final screenIndex = _isDoublePage
         ? _currentPageIndex ~/ 2
         : _currentPageIndex;
@@ -1417,11 +1421,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     //（对齐原版三章窗口：章节打开即后台准备相邻章，章末翻页才来得及动画）
     final atLast = eager || screenIndex >= screenCount - 2;
     final atFirst = eager || screenIndex <= 1;
-    if (atLast && state.hasNextChapter && _nextChapterPreview == null) {
-      unawaited(_preloadAdjacent(state, 1));
-    }
-    if (atFirst && state.hasPreviousChapter && _prevChapterPreview == null) {
+    final needsNext =
+        atLast && state.hasNextChapter && _nextChapterPreview == null;
+    final needsPrev =
+        atFirst && state.hasPreviousChapter && _prevChapterPreview == null;
+    if (needsPrev &&
+        (!needsNext || screenIndex < screenCount - 1 - screenIndex)) {
       unawaited(_preloadAdjacent(state, -1));
+    } else if (needsNext) {
+      unawaited(_preloadAdjacent(state, 1));
     }
   }
 
@@ -1444,6 +1452,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final config = _pagedConfig;
     final availableWidth = _pagedWidth;
     final availableHeight = _pagedHeight;
+    var previewReady = false;
     try {
       if (book == null || config == null) return;
       if (target < 0 || target >= state.chapters.length) return;
@@ -1498,13 +1507,18 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
               session.cancel();
               return;
             }
-            session.advance();
+            await session.advance();
+            if (!mounted || generation != _layoutGeneration) {
+              session.cancel();
+              return;
+            }
           }
           if (session.cancelled) return;
           pages = session.pages;
           _layoutCache.put(cacheKey, pages);
           _layoutMeasurements += engine.measurementCount;
         } finally {
+          session.cancel();
           _preloadSessions.remove(session);
         }
       }
@@ -1537,6 +1551,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           _prevPreviewLayout = (info, pageIndex, pages!.length, title);
         }
       });
+      previewReady = true;
     } catch (_) {
       // 预载失败静默：章边界退化为瞬时填充
     } finally {
@@ -1545,6 +1560,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           _preloadingNext = false;
         } else {
           _preloadingPrev = false;
+        }
+        if (previewReady && mounted) {
+          _maybePreloadAdjacent(ref.read(readerNotifierProvider), eager: true);
         }
       }
     }
@@ -1697,21 +1715,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                 selectText: widget.selectText,
                 reviewCounts: widget.reviewCounts,
                 onReviewTap: widget.onReviewTap,
-              )
-            else if (state.chapterContent.isNotEmpty)
-              ReaderParagraphs(
-                content: state.chapterContent,
-                fontSize: state.fontSize,
-                lineHeight: state.lineHeight,
-                paragraphSpacing: widget.paragraphSpacing,
-                textColor: textColor,
-                // [UI-fix v2.0.4 | 2026-08-08] 字距 em→px；字重接线 — Qoder
-                letterSpacing: widget.letterSpacing * state.fontSize,
-                fontFamily: _fontFamily,
-                fontWeight: _fontWeightFor(widget.textBold),
-                fontStyle: _fontStyleFor(widget.italic),
-                // [UI-fix v2.0.3 | 2026-08-08] selectText 开关接入滚动回退渲染 — Qoder
-                selectText: widget.selectText,
               )
             else if (!state.isLoading)
               Center(

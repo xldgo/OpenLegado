@@ -13,6 +13,8 @@
 /// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
 library;
 
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,20 +46,19 @@ void main() {
 
   /// 滚动模式状态：单章 + 短正文（排版引擎分页出 1 页，标题块常显）
   ReaderState scrollState() => ReaderState(
-        chapters: const [BookChapter(title: chapterTitle, index: 0)],
-        chapterContent: '滚动模式正文第一段。\n第二段文字。',
-        pageTurnMode: PageTurnMode.scroll,
-      );
+    chapters: const [BookChapter(title: chapterTitle, index: 0)],
+    chapterContent: '滚动模式正文第一段。\n第二段文字。',
+    pageTurnMode: PageTurnMode.scroll,
+  );
 
   Widget wrap(ReaderState state, ReaderPageChromeConfig chrome) {
     return ProviderScope(
       overrides: [
-        readerNotifierProvider.overrideWith(
-          () => _FixedReaderNotifier(state),
-        ),
+        readerNotifierProvider.overrideWith(() => _FixedReaderNotifier(state)),
         bookApiProvider.overrideWithValue(MockBookApi()),
       ],
       child: MaterialApp(
+        builder: readerLayoutTestBuilder,
         home: ReaderPageView(
           paragraphSpacing: 8,
           pageChrome: chrome,
@@ -69,8 +70,7 @@ void main() {
   }
 
   group('A4 滚动模式标题字体（_buildScrollContent 标题块）', () {
-    testWidgets('titleFont 非空 → 滚动标题 fontFamily 与单源取值一致',
-        (tester) async {
+    testWidgets('titleFont 非空 → 滚动标题 fontFamily 与单源取值一致', (tester) async {
       SharedPreferences.setMockInitialValues({});
       const chrome = ReaderPageChromeConfig(titleFont: titleFont);
       // 单源函数（reader_page_chrome.dart effectiveTitleFontFamily）取值
@@ -80,8 +80,7 @@ void main() {
       await tester.pumpWidget(wrap(scrollState(), chrome));
       await tester.pumpAndSettle();
 
-      final titleStyle =
-          tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
       expect(
         titleStyle.fontFamily,
         expected,
@@ -89,13 +88,10 @@ void main() {
       );
     });
 
-    testWidgets('titleFont 空 → 滚动标题跟随正文字体（_fontFamily）',
-        (tester) async {
+    testWidgets('titleFont 空 → 滚动标题跟随正文字体（_fontFamily）', (tester) async {
       // 正文字体经 SharedPreferences reader_font_family 注入
       // （ReaderPageView._refreshFontFamily 异步读取后 setState 重建）
-      SharedPreferences.setMockInitialValues({
-        'reader_font_family': bodyFont,
-      });
+      SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
       const chrome = ReaderPageChromeConfig();
       final expected = effectiveTitleFontFamily(chrome, bodyFont);
       // 纯函数同参断言（仿 reader_title_font_test.dart：空 titleFont 跟随正文，
@@ -113,8 +109,7 @@ void main() {
       // 追加一次 pump 触发 elapse 使其触发，消除 "Timer still pending" 断言。
       await tester.pump(const Duration(seconds: 1));
 
-      final titleStyle =
-          tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
       expect(
         titleStyle.fontFamily,
         expected,

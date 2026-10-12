@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // [P4-3 E3] 自动翻页/自动滚动（整页行为）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -220,7 +221,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c1')),
+          child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c1')),
         ),
       );
       await tester.pumpAndSettle();
@@ -265,7 +266,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c2')),
+          child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c2')),
         ),
       );
       await tester.pumpAndSettle();
@@ -323,7 +324,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c3')),
+          child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c3')),
         ),
       );
       await tester.pumpAndSettle();
@@ -405,7 +406,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c4')),
+          child: const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c4')),
         ),
       );
       await tester.pumpAndSettle();
@@ -498,7 +499,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child:
-              const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c5')),
+              const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c5')),
         ),
       );
       await tester.pumpAndSettle();
@@ -617,7 +618,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child:
-              const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://c6')),
+              const MaterialApp(builder: readerLayoutTestBuilder, home: ReaderComicScreen(bookUrl: 'mock://c6')),
         ),
       );
       await tester.pumpAndSettle();

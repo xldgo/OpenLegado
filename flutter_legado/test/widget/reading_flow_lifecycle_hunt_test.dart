@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // 视角 C：阅读主流程「失败与边界 —— 进程生命周期」缺陷猎捕 —— 红态复现用例
 //
 // 本文件**故意断言「本应成立的不变量」**：当前实现不满足 → 用例红。
@@ -16,8 +17,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show SystemChannels, StringCodec;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -84,6 +84,7 @@ void main() {
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(api)],
         child: MaterialApp(
+          builder: readerLayoutTestBuilder,
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -104,8 +105,9 @@ void main() {
     await tester.tap(find.text('进入阅读'));
     await tester.pumpAndSettle();
 
-    final container =
-        ProviderScope.containerOf(tester.element(find.byType(ReaderScreen)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
     final notifier = container.read(readerNotifierProvider.notifier);
     await notifier.openBook(_book);
     await tester.pumpAndSettle();
@@ -156,8 +158,7 @@ void main() {
       expect(writes.last[1], 5, reason: '落库位置应为当前章内位置 5');
     });
 
-    testWidgets('[C3b] 对照组：系统返回退出阅读时确实落库（机制存在，仅后台事件未接线）',
-        (tester) async {
+    testWidgets('[C3b] 对照组：系统返回退出阅读时确实落库（机制存在，仅后台事件未接线）', (tester) async {
       final writes = <List<int>>[];
       final api = MockRustApi();
       stubApi(api, writes);

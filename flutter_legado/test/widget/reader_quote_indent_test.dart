@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
+
+import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
@@ -22,9 +26,10 @@ void main() {
                 home: Scaffold(
                   body: MediaQuery(
                     data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                    child: Builder(
-                      builder: (context) {
-                        page = ParagraphLayoutEngine(
+                    child: LayoutTestBuilder(
+                      builder: (context) async {
+                        page = (await ParagraphLayoutEngine(
+                          transport: RustLayoutTestTransport.instance,
                           context: context,
                           config: ParagraphConfig(
                             fontSize: 16,
@@ -37,7 +42,7 @@ void main() {
                             backgroundColor: Colors.white,
                             textColor: Colors.black,
                           ),
-                        ).paginateChapter(source, 300, 500).first;
+                        ).paginateChapter(source, 300, 500)).first;
                         return SizedBox(
                           width: 300,
                           child: ReaderTextContent(
@@ -55,10 +60,12 @@ void main() {
                 ),
               ),
             );
+            await tester.pumpAndSettle();
             final line = page.paragraphs.first.lines.first;
-            final rich = find.descendant(
-              of: find.text(line.selectableText),
-              matching: find.byType(RichText),
+            final rich = find.byWidgetPredicate(
+              (w) =>
+                  w is ReaderSelectableText &&
+                  w.text.toPlainText() == line.selectableText,
             );
             final render = tester.renderObject<RenderParagraph>(rich);
             final start = source.startsWith(quote) ? quote.length : 0;
@@ -75,7 +82,7 @@ void main() {
           }
 
           final plain = await position('正文保留首行缩进。', false);
-            final quoted = await position('$quote正文保留首行缩进。', true);
+          final quoted = await position('$quote正文保留首行缩进。', true);
           expect(quoted.$2, closeTo(plain.$2, 0.01));
           expect(quoted.$2, greaterThan(0));
         });

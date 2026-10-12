@@ -1,3 +1,4 @@
+import '../helpers/reader_layout_host.dart';
 // [P2-30 | 未入架书退出阅读缺「放入书架」提示] 退出判定 widget 测试
 //
 // 对齐原版 ReadBookActivity.finish() 三路语义（参考版 closeReadBook 同款）：
@@ -16,8 +17,7 @@
 // notShelf 位）——路由带入的内存 Book 是瘦壳，不可作为在架依据。
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,11 +85,15 @@ void main() {
   }
 
   /// 启动 App（首页按钮 push 真实 ReaderScreen，使 PopScope 可被触发）
-  Future<ProviderContainer> pumpReader(WidgetTester tester, MockRustApi api) async {
+  Future<ProviderContainer> pumpReader(
+    WidgetTester tester,
+    MockRustApi api,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(api)],
         child: MaterialApp(
+          builder: readerLayoutTestBuilder,
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -110,8 +114,9 @@ void main() {
     await tester.tap(find.text('进入阅读'));
     await tester.pumpAndSettle();
 
-    final container =
-        ProviderScope.containerOf(tester.element(find.byType(ReaderScreen)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
     final notifier = container.read(readerNotifierProvider.notifier);
     await notifier.openBook(_sessionBook);
     await tester.pumpAndSettle();
@@ -129,9 +134,7 @@ void main() {
   }
 
   group('P2-30 未入架书退出阅读「放入书架」提示', () {
-    testWidgets(
-        '未入架书退出：默认弹「放入书架」对话框（标题/正文/取消/确认齐备，修前红）',
-        (tester) async {
+    testWidgets('未入架书退出：默认弹「放入书架」对话框（标题/正文/取消/确认齐备，修前红）', (tester) async {
       final api = stubReaderApi();
       // 在架判定数据源：DB 记录带 notShelf 位 → 未入架
       when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
@@ -156,8 +159,7 @@ void main() {
       expect(find.byType(ReaderScreen), findsOneWidget);
     });
 
-    testWidgets('未入架书退出 + 确认：清 notShelf 位入架 + 进度落库 + 退出',
-        (tester) async {
+    testWidgets('未入架书退出 + 确认：清 notShelf 位入架 + 进度落库 + 退出', (tester) async {
       final api = stubReaderApi();
       when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       when(() => api.addBook(any())).thenAnswer((_) async => _sessionBook);
@@ -204,8 +206,7 @@ void main() {
       expect(find.byType(ReaderScreen), findsNothing);
     });
 
-    testWidgets('未入架书退出 + 取消：清理临时落库记录（书不残留）+ 退出',
-        (tester) async {
+    testWidgets('未入架书退出 + 取消：清理临时落库记录（书不残留）+ 退出', (tester) async {
       final api = stubReaderApi();
       when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
@@ -248,16 +249,10 @@ void main() {
           chapterPos: captureAny(named: 'chapterPos'),
         ),
       ).captured;
-      expect(
-        posWrites.last,
-        5,
-        reason: '已入架书退出仍须落库当前进度（现状不变）',
-      );
+      expect(posWrites.last, 5, reason: '已入架书退出仍须落库当前进度（现状不变）');
     });
 
-    testWidgets(
-        '未入架书退出 + 「返回时提示放入书架」开关关闭：静默退出且清理（无弹窗）',
-        (tester) async {
+    testWidgets('未入架书退出 + 「返回时提示放入书架」开关关闭：静默退出且清理（无弹窗）', (tester) async {
       SharedPreferences.setMockInitialValues({
         'enableReadRecord': false,
         'showAddToShelfAlert': false,
@@ -277,8 +272,7 @@ void main() {
       expect(find.byType(ReaderScreen), findsNothing);
     });
 
-    testWidgets('未入架书退出 + 确认入架失败：可见失败提示且不退出',
-        (tester) async {
+    testWidgets('未入架书退出 + 确认入架失败：可见失败提示且不退出', (tester) async {
       final api = stubReaderApi();
       when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       // 入架写库失败（addBook 抛异常 → bookshelfNotifier.addBook 返回 false）

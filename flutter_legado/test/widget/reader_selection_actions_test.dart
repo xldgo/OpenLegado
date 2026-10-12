@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/widgets/reader/text_selection_panel.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
 
 class _Reader extends ReaderNotifier {
   @override
@@ -35,7 +38,7 @@ class _Api extends MockBookApi {
   }
 }
 
-Future<SelectableText> _showPanel(WidgetTester tester, _Api api) async {
+Future<void> _showToolbar(WidgetTester tester, _Api api) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -46,10 +49,11 @@ Future<SelectableText> _showPanel(WidgetTester tester, _Api api) async {
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
-              onPressed: () => TextSelectionPanel.show(
+              onPressed: () => ReaderSelectionToolbar.show(
                 context,
-                text: '前缀实际选区后缀',
-                chapterPos: 100,
+                anchor: const Offset(200, 200),
+                text: '实际选区',
+                chapterPos: 102,
               ),
               child: const Text('打开选区'),
             ),
@@ -60,19 +64,19 @@ Future<SelectableText> _showPanel(WidgetTester tester, _Api api) async {
   );
   await tester.tap(find.text('打开选区'));
   await tester.pumpAndSettle();
-  final text = tester.widget<SelectableText>(find.byType(SelectableText));
-  text.onSelectionChanged!(
-    const TextSelection(baseOffset: 2, extentOffset: 6),
-    SelectionChangedCause.toolbar,
-  );
-  await tester.pumpAndSettle();
-  return text;
 }
 
 void main() {
-  testWidgets('书签保存细调选区的原文和全局起始偏移', (tester) async {
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      ReaderSelectionMenuConfig.storageKey: ReaderSelectionMenuConfig(
+        expanded: true,
+      ).encode(),
+    }),
+  );
+  testWidgets('书签保存精准选区的原文和全局起始偏移', (tester) async {
     final api = _Api();
-    await _showPanel(tester, api);
+    await _showToolbar(tester, api);
     await tester.tap(find.text('书签'));
     await tester.pumpAndSettle();
     expect(api.bookmark!.chapterPos, 102);
@@ -82,7 +86,7 @@ void main() {
 
   testWidgets('高亮使用打开笔记时的选区，焦点变化不会改成整段', (tester) async {
     final api = _Api();
-    final text = await _showPanel(tester, api);
+    await _showToolbar(tester, api);
     await tester.tap(find.text('高亮'));
     await tester.pumpAndSettle();
     final color = find.byWidgetPredicate(
@@ -93,10 +97,8 @@ void main() {
     );
     await tester.tap(color.first);
     await tester.pumpAndSettle();
-    text.onSelectionChanged!(
-      const TextSelection.collapsed(offset: 0),
-      SelectionChangedCause.tap,
-    );
+    // 高亮对话框已关闭浮窗，保存仍使用进入动作时的原文快照。
+    expect(find.byType(ReaderSelectionToolbar), findsNothing);
     await tester.enterText(find.byType(TextField), '选区笔记');
     await tester.tap(find.text('保存高亮'));
     await tester.pumpAndSettle();

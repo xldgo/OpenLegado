@@ -2075,6 +2075,7 @@ dependencies = [
  "des",
  "ecb",
  "fancy-regex",
+ "legado-layout",
  "lru",
  "md5",
  "regex",
@@ -2131,6 +2132,7 @@ dependencies = [
  "legado-db",
  "legado-fetcher",
  "legado-js",
+ "legado-layout",
  "legado-net",
  "legado-parser",
  "legado-server",
@@ -2183,6 +2185,17 @@ dependencies = [
  "url",
  "uuid",
  "zip",
+]
+
+[[package]]
+name = "legado-layout"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "flate2",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
