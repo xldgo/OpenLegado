@@ -12,9 +12,51 @@ class ReaderAdvancedConfig {
   bool autoPageTurnForward; // true=下一章 false=上一章
 
   // 点击区域映射
-  TapAction leftAction;
-  TapAction centerAction;
-  TapAction rightAction;
+  static const defaultTapActions = <TapAction>[
+    TapAction.prevPage,
+    TapAction.prevPage,
+    TapAction.nextPage,
+    TapAction.prevPage,
+    TapAction.toggleControls,
+    TapAction.nextPage,
+    TapAction.prevPage,
+    TapAction.nextPage,
+    TapAction.nextPage,
+  ];
+  final List<TapAction> tapActions;
+
+  /// 按实际正文区域的等分九宫格判断，保留左右边缘防误触。
+  TapAction actionForPosition(Offset position, Size size) {
+    if (!size.width.isFinite ||
+        !size.height.isFinite ||
+        size.width <= 0 ||
+        size.height <= 0 ||
+        !position.dx.isFinite ||
+        !position.dy.isFinite ||
+        position.dx < 0 ||
+        position.dy < 0 ||
+        position.dx >= size.width ||
+        position.dy >= size.height) {
+      return TapAction.none;
+    }
+    final deadZone = pageTouchClick.toDouble().clamp(
+      0.0,
+      (size.width / 2 - 1).clamp(0.0, double.infinity),
+    );
+    if (position.dx < deadZone || position.dx > size.width - deadZone) {
+      return TapAction.none;
+    }
+    final column = (position.dx / size.width * 3).floor().clamp(0, 2);
+    final row = (position.dy / size.height * 3).floor().clamp(0, 2);
+    return tapActions[row * 3 + column];
+  }
+
+  static List<TapAction> _copyTapActions(List<TapAction>? actions) {
+    if (actions != null && actions.length != 9) {
+      throw ArgumentError.value(actions.length, 'tapActions', '必须包含九个区域');
+    }
+    return List<TapAction>.of(actions ?? defaultTapActions, growable: false);
+  }
 
   // 段落间距
   double paragraphSpacing;
@@ -118,8 +160,11 @@ class ReaderAdvancedConfig {
   /// 长按选择文本（对标原版 selectText/textSelectAble）
   bool selectText;
 
-  /// 底栏亮度控件显隐（对标原版 showBrightnessView）
-  bool showBrightnessView;
+  /// 亮度控件：0 关闭，1 横向，2 纵向；保存键沿用上游。
+  int brightnessMode;
+
+  /// 竖向亮度控件是否置于左侧。
+  bool brightnessOnLeft;
 
   /// 顶栏显示标题附加区（书名后追加章名，对标原版 showReadTitleAddition）
   bool showReadTitleAddition;
@@ -133,7 +178,7 @@ class ReaderAdvancedConfig {
   /// 音量键翻页（对标原版 volumeKeyPage；桌面端无音量键，仅 Android 生效）
   bool volumeKeyPage;
 
-  /// 朗读时音量键翻页（对标原版 volumeKeyPageOnPlay；仅 Android 生效）
+  /// 朗读时音量键翻页（对标原版 volumeKeyPageOnPlay）
   bool volumeKeyPageOnPlay;
 
   /// 鼠标滚轮翻页（对标原版 mouseWheelPage，桌面端真实生效）
@@ -155,19 +200,17 @@ class ReaderAdvancedConfig {
   /// 边缘点击阈值（px，左右边缘多少距离不触发点击，对标原版 pageTouchClick）
   int pageTouchClick;
 
-  /// 扩展到刘海（正文延伸到刘海区域，对标原版 readBodyToLh；仅 Android 生效）
+  /// 扩展到刘海（正文延伸到刘海区域，对标原版 readBodyToLh）
   bool readBodyToLh;
 
-  /// 填充刘海区域（对标原版 paddingDisplayCutouts；仅 Android 生效）
+  /// 填充刘海区域（对标原版 paddingDisplayCutouts）
   bool paddingDisplayCutouts;
 
   ReaderAdvancedConfig({
     this.autoPageTurn = false,
     this.autoPageTurnInterval = 10,
     this.autoPageTurnForward = true,
-    this.leftAction = TapAction.prevPage,
-    this.centerAction = TapAction.toggleControls,
-    this.rightAction = TapAction.nextPage,
+    List<TapAction>? tapActions,
     this.paragraphSpacing = 2,
     this.letterSpacing = 0.1,
     this.paragraphIndent = 2,
@@ -222,7 +265,8 @@ class ReaderAdvancedConfig {
     this.selectText = true,
     // [PARITY C2 M5] 参考阅读器菜单该态未见亮度条：默认关闭菜单内亮度行，
     // 亮度控件改为用户按需开启（设置开关保留），对齐参考紧凑浮层形态。
-    this.showBrightnessView = false,
+    this.brightnessMode = 0,
+    this.brightnessOnLeft = false,
     this.showReadTitleAddition = true,
     this.readBarStyleFollowPage = false,
     this.volumeKeyPage = true,
@@ -233,38 +277,26 @@ class ReaderAdvancedConfig {
     this.hangingPunctuation = false,
     this.pageTouchSlop = 0,
     this.pageTouchClick = 0,
-    this.readBodyToLh = true,
+    this.readBodyToLh = false,
     this.paddingDisplayCutouts = false,
-  });
+  }) : tapActions = _copyTapActions(tapActions);
 
   /// F6：布局字段前缀（对齐原版 shareConfig / durConfig）
   /// shareLayout=true → 共用；否则按日/夜分桶。
-  static String layoutPrefix({required bool shareLayout, required bool isNight}) {
+  static String layoutPrefix({
+    required bool shareLayout,
+    required bool isNight,
+  }) {
     if (shareLayout) return 'reader_layout_share_';
     return isNight ? 'reader_layout_night_' : 'reader_layout_day_';
   }
 
   /// 各区域默认边距（对标 ReadBookConfig.Config 默认值）
   static Map<PaddingRegion, Map<String, double>> regionDefaultPaddings() => {
-        PaddingRegion.header: {
-          'top': 0,
-          'bottom': 0,
-          'left': 16,
-          'right': 16,
-        },
-        PaddingRegion.body: {
-          'top': 6,
-          'bottom': 6,
-          'left': 16,
-          'right': 16,
-        },
-        PaddingRegion.footer: {
-          'top': 6,
-          'bottom': 6,
-          'left': 16,
-          'right': 16,
-        },
-      };
+    PaddingRegion.header: {'top': 0, 'bottom': 0, 'left': 16, 'right': 16},
+    PaddingRegion.body: {'top': 6, 'bottom': 6, 'left': 16, 'right': 16},
+    PaddingRegion.footer: {'top': 6, 'bottom': 6, 'left': 16, 'right': 16},
+  };
 
   static double defaultPaddingFor(PaddingRegion region, String side) =>
       regionDefaultPaddings()[region]![side]!;
@@ -286,6 +318,30 @@ class ReaderAdvancedConfig {
       final i = prefs.getInt('$_prefix$key');
       if (i == null || i < 0 || i >= TapAction.values.length) return def;
       return TapAction.values[i];
+    }
+
+    List<TapAction> loadTapActions() {
+      final stored = prefs.getStringList('${_prefix}tap_actions_v1');
+      if (stored != null && stored.length == 9) {
+        final indices = stored.map(int.tryParse).toList();
+        if (indices.every(
+          (i) => i != null && i >= 0 && i < TapAction.values.length,
+        )) {
+          return indices.map((i) => TapAction.values[i!]).toList();
+        }
+      }
+      final columns = [
+        tap('left_action', TapAction.prevPage),
+        tap('center_action', TapAction.toggleControls),
+        tap('right_action', TapAction.nextPage),
+      ];
+      // 旧默认采用新九宫格；自定义三列沿用到每一行，不覆盖用户选择。
+      if (columns[0] == TapAction.prevPage &&
+          columns[1] == TapAction.toggleControls &&
+          columns[2] == TapAction.nextPage) {
+        return defaultTapActions;
+      }
+      return [...columns, ...columns, ...columns];
     }
 
     // [UI-fix v2.0.4 | 2026-08-08] 字距旧值一次性迁移：旧版以 px 存储
@@ -354,7 +410,8 @@ class ReaderAdvancedConfig {
     // [UI-fix v2.0.4 | 2026-08-08] 缩进档位兼容：新 int 键缺失时读取
     // 旧 bool 键（true→2 字符 / false→0），默认 2 字符 — Qoder
     int indentChars() {
-      final v = prefs.getInt('${lp}paragraph_indent_chars') ??
+      final v =
+          prefs.getInt('${lp}paragraph_indent_chars') ??
           prefs.getInt('${_prefix}paragraph_indent_chars');
       if (v != null) return v.clamp(0, 3);
       final legacy = prefs.getBool('${_prefix}paragraph_indent');
@@ -367,16 +424,12 @@ class ReaderAdvancedConfig {
       autoPageTurnInterval: (prefs.getDouble('${_prefix}auto_interval') ?? 10)
           .clamp(3.0, 120.0),
       autoPageTurnForward: prefs.getBool('${_prefix}auto_forward') ?? true,
-      leftAction: tap('left_action', TapAction.prevPage),
-      centerAction: tap('center_action', TapAction.toggleControls),
-      rightAction: tap('right_action', TapAction.nextPage),
+      tapActions: loadTapActions(),
       paragraphSpacing: layoutDouble('paragraph_spacing', 2).clamp(0.0, 48.0),
       letterSpacing: letterSpacingEm(),
       paragraphIndent: indentChars(),
       textFullJustify: prefs.getBool('${_prefix}text_full_justify') ?? true,
-      textBold: (prefs.getInt('${lp}textBold') ??
-              prefs.getInt('textBold') ??
-              0)
+      textBold: (prefs.getInt('${lp}textBold') ?? prefs.getInt('textBold') ?? 0)
           .clamp(0, 2),
       // [C3 斜体 | Qoder UI] 斜体（参考版行内面板开关；双基准补齐）
       italic: prefs.getBool('${_prefix}italic') ?? false,
@@ -387,21 +440,37 @@ class ReaderAdvancedConfig {
       pageMarginLeft: layoutDouble('margin_left', 20).clamp(0.0, 100.0),
       pageMarginRight: layoutDouble('margin_right', 20).clamp(0.0, 100.0),
       headerPaddingTop: layoutDouble('header_padding_top', 0).clamp(0.0, 400.0),
-      headerPaddingBottom:
-          layoutDouble('header_padding_bottom', 0).clamp(0.0, 400.0),
-      headerPaddingLeft: layoutDouble('header_padding_left', 16).clamp(0.0, 100.0),
-      headerPaddingRight:
-          layoutDouble('header_padding_right', 16).clamp(0.0, 100.0),
+      headerPaddingBottom: layoutDouble(
+        'header_padding_bottom',
+        0,
+      ).clamp(0.0, 400.0),
+      headerPaddingLeft: layoutDouble(
+        'header_padding_left',
+        16,
+      ).clamp(0.0, 100.0),
+      headerPaddingRight: layoutDouble(
+        'header_padding_right',
+        16,
+      ).clamp(0.0, 100.0),
       footerPaddingTop: layoutDouble('footer_padding_top', 6).clamp(0.0, 400.0),
-      footerPaddingBottom:
-          layoutDouble('footer_padding_bottom', 6).clamp(0.0, 400.0),
-      footerPaddingLeft: layoutDouble('footer_padding_left', 16).clamp(0.0, 100.0),
-      footerPaddingRight:
-          layoutDouble('footer_padding_right', 16).clamp(0.0, 100.0),
-      showHeaderLine: prefs.getBool('${lp}show_header_line') ??
+      footerPaddingBottom: layoutDouble(
+        'footer_padding_bottom',
+        6,
+      ).clamp(0.0, 400.0),
+      footerPaddingLeft: layoutDouble(
+        'footer_padding_left',
+        16,
+      ).clamp(0.0, 100.0),
+      footerPaddingRight: layoutDouble(
+        'footer_padding_right',
+        16,
+      ).clamp(0.0, 100.0),
+      showHeaderLine:
+          prefs.getBool('${lp}show_header_line') ??
           prefs.getBool('showHeaderLine') ??
           false,
-      showFooterLine: prefs.getBool('${lp}show_footer_line') ??
+      showFooterLine:
+          prefs.getBool('${lp}show_footer_line') ??
           prefs.getBool('showFooterLine') ??
           true,
       headerMode: (prefs.getInt('headerMode') ?? 0).clamp(0, 2),
@@ -416,7 +485,10 @@ class ReaderAdvancedConfig {
       titleMode: (prefs.getInt('titleMode') ?? 0).clamp(0, 2),
       titleSize: (prefs.getInt('titleSize') ?? 0).clamp(0, 20),
       titleTopSpacing: (prefs.getInt('titleTopSpacing') ?? 0).clamp(0, 100),
-      titleBottomSpacing: (prefs.getInt('titleBottomSpacing') ?? 0).clamp(0, 100),
+      titleBottomSpacing: (prefs.getInt('titleBottomSpacing') ?? 0).clamp(
+        0,
+        100,
+      ),
       titleFont: prefs.getString('titleFont') ?? '',
       // [C2 R4] 状态行四开关 load 缺省对齐构造器默认（关闭），参考该态无此信息行
       showBattery: prefs.getBool('${_prefix}show_battery') ?? false,
@@ -427,8 +499,7 @@ class ReaderAdvancedConfig {
         layoutInt('flip_mode', FlipMode.slide.index),
       ),
       // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项读取（键名=原版键）— Qoder
-      screenOrientation:
-          (prefs.getInt('screenOrientation') ?? 0).clamp(0, 5),
+      screenOrientation: (prefs.getInt('screenOrientation') ?? 0).clamp(0, 5),
       keepLight: prefs.getInt('keep_light') ?? 0,
       hideStatusBar: prefs.getBool('hideStatusBar') ?? false,
       hideNavigationBar: prefs.getBool('hideNavigationBar') ?? false,
@@ -439,7 +510,8 @@ class ReaderAdvancedConfig {
       autoChangeSource: prefs.getBool('autoChangeSource') ?? true,
       selectText: prefs.getBool('selectText') ?? true,
       // [PARITY C2 M5] load 缺省对齐构造器默认（关闭），参考菜单该态无亮度条。
-      showBrightnessView: prefs.getBool('showBrightnessView') ?? false,
+      brightnessMode: _brightnessMode(prefs.get('showBrightnessView')),
+      brightnessOnLeft: prefs.getString('brightnessVwPos') == '0',
       showReadTitleAddition: prefs.getBool('showReadTitleAddition') ?? true,
       readBarStyleFollowPage: prefs.getBool('readBarStyleFollowPage') ?? false,
       // [UI-fix v2.0.4 | 2026-08-08] 第②批 MoreConfig 项读取（键名=原版键，
@@ -447,13 +519,15 @@ class ReaderAdvancedConfig {
       volumeKeyPage: prefs.getBool('volumeKeyPage') ?? true,
       volumeKeyPageOnPlay: prefs.getBool('volumeKeyPageOnPlay') ?? false,
       mouseWheelPage: prefs.getBool('mouseWheelPage') ?? true,
-      doubleHorizontalPage:
-          (prefs.getInt('doubleHorizontalPage') ?? 0).clamp(0, 3),
+      doubleHorizontalPage: (prefs.getInt('doubleHorizontalPage') ?? 0).clamp(
+        0,
+        3,
+      ),
       useZhLayout: prefs.getBool('useZhLayout') ?? false,
       hangingPunctuation: prefs.getBool('hangingPunctuation') ?? false,
       pageTouchSlop: (prefs.getInt('pageTouchSlop') ?? 0).clamp(0, 9999),
       pageTouchClick: (prefs.getInt('pageTouchClick') ?? 0).clamp(0, 399),
-      readBodyToLh: prefs.getBool('readBodyToLh') ?? true,
+      readBodyToLh: prefs.getBool('readBodyToLh') ?? false,
       paddingDisplayCutouts: prefs.getBool('paddingDisplayCutouts') ?? false,
     );
   }
@@ -472,9 +546,14 @@ class ReaderAdvancedConfig {
     await prefs.setBool('${_prefix}auto_page_turn', autoPageTurn);
     await prefs.setDouble('${_prefix}auto_interval', autoPageTurnInterval);
     await prefs.setBool('${_prefix}auto_forward', autoPageTurnForward);
-    await prefs.setInt('${_prefix}left_action', leftAction.index);
-    await prefs.setInt('${_prefix}center_action', centerAction.index);
-    await prefs.setInt('${_prefix}right_action', rightAction.index);
+    await prefs.setStringList(
+      '${_prefix}tap_actions_v1',
+      tapActions.map((a) => a.index.toString()).toList(),
+    );
+    // 旧版本只能表达三列，以中间一行保留其可读取的动作。
+    await prefs.setInt('${_prefix}left_action', tapActions[3].index);
+    await prefs.setInt('${_prefix}center_action', tapActions[4].index);
+    await prefs.setInt('${_prefix}right_action', tapActions[5].index);
     // F6：布局字段写入日夜/共用桶（并对齐旧 reader_adv_ 键便于未升级路径）
     await prefs.setDouble('${lp}paragraph_spacing', paragraphSpacing);
     await prefs.setDouble('${_prefix}paragraph_spacing', paragraphSpacing);
@@ -535,7 +614,8 @@ class ReaderAdvancedConfig {
     await prefs.setBool('noAnimScrollPage', noAnimScrollPage);
     await prefs.setBool('autoChangeSource', autoChangeSource);
     await prefs.setBool('selectText', selectText);
-    await prefs.setBool('showBrightnessView', showBrightnessView);
+    await prefs.setString('showBrightnessView', '$brightnessMode');
+    await prefs.setString('brightnessVwPos', brightnessOnLeft ? '0' : '1');
     await prefs.setBool('${_prefix}italic', italic);
     await prefs.setBool('showReadTitleAddition', showReadTitleAddition);
     await prefs.setBool('readBarStyleFollowPage', readBarStyleFollowPage);
@@ -558,74 +638,73 @@ class ReaderAdvancedConfig {
   }
 
   ReaderAdvancedConfig copy() => ReaderAdvancedConfig(
-        autoPageTurn: autoPageTurn,
-        autoPageTurnInterval: autoPageTurnInterval,
-        autoPageTurnForward: autoPageTurnForward,
-        leftAction: leftAction,
-        centerAction: centerAction,
-        rightAction: rightAction,
-        paragraphSpacing: paragraphSpacing,
-        letterSpacing: letterSpacing,
-        paragraphIndent: paragraphIndent,
-        textFullJustify: textFullJustify,
-        textBold: textBold,
-        italic: italic,
-        shareLayout: shareLayout,
-        customTextColor: customTextColor,
-        pageMarginTop: pageMarginTop,
-        pageMarginBottom: pageMarginBottom,
-        pageMarginLeft: pageMarginLeft,
-        pageMarginRight: pageMarginRight,
-        headerPaddingTop: headerPaddingTop,
-        headerPaddingBottom: headerPaddingBottom,
-        headerPaddingLeft: headerPaddingLeft,
-        headerPaddingRight: headerPaddingRight,
-        footerPaddingTop: footerPaddingTop,
-        footerPaddingBottom: footerPaddingBottom,
-        footerPaddingLeft: footerPaddingLeft,
-        footerPaddingRight: footerPaddingRight,
-        showHeaderLine: showHeaderLine,
-        showFooterLine: showFooterLine,
-        headerMode: headerMode,
-        footerMode: footerMode,
-        tipHeaderLeft: tipHeaderLeft,
-        tipHeaderMiddle: tipHeaderMiddle,
-        tipHeaderRight: tipHeaderRight,
-        tipFooterLeft: tipFooterLeft,
-        tipFooterMiddle: tipFooterMiddle,
-        tipFooterRight: tipFooterRight,
-        titleMode: titleMode,
-        titleSize: titleSize,
-        titleTopSpacing: titleTopSpacing,
-        titleBottomSpacing: titleBottomSpacing,
-        titleFont: titleFont,
-        showBattery: showBattery,
-        showTime: showTime,
-        showProgress: showProgress,
-        showChapterName: showChapterName,
-        flipMode: flipMode,
-        screenOrientation: screenOrientation,
-        keepLight: keepLight,
-        hideStatusBar: hideStatusBar,
-        hideNavigationBar: hideNavigationBar,
-        progressBarBehavior: progressBarBehavior,
-        noAnimScrollPage: noAnimScrollPage,
-        autoChangeSource: autoChangeSource,
-        selectText: selectText,
-        showBrightnessView: showBrightnessView,
-        showReadTitleAddition: showReadTitleAddition,
-        readBarStyleFollowPage: readBarStyleFollowPage,
-        volumeKeyPage: volumeKeyPage,
-        volumeKeyPageOnPlay: volumeKeyPageOnPlay,
-        mouseWheelPage: mouseWheelPage,
-        doubleHorizontalPage: doubleHorizontalPage,
-        useZhLayout: useZhLayout,
-        hangingPunctuation: hangingPunctuation,
-        pageTouchSlop: pageTouchSlop,
-        pageTouchClick: pageTouchClick,
-        readBodyToLh: readBodyToLh,
-        paddingDisplayCutouts: paddingDisplayCutouts,
-      );
+    autoPageTurn: autoPageTurn,
+    autoPageTurnInterval: autoPageTurnInterval,
+    autoPageTurnForward: autoPageTurnForward,
+    tapActions: tapActions,
+    paragraphSpacing: paragraphSpacing,
+    letterSpacing: letterSpacing,
+    paragraphIndent: paragraphIndent,
+    textFullJustify: textFullJustify,
+    textBold: textBold,
+    italic: italic,
+    shareLayout: shareLayout,
+    customTextColor: customTextColor,
+    pageMarginTop: pageMarginTop,
+    pageMarginBottom: pageMarginBottom,
+    pageMarginLeft: pageMarginLeft,
+    pageMarginRight: pageMarginRight,
+    headerPaddingTop: headerPaddingTop,
+    headerPaddingBottom: headerPaddingBottom,
+    headerPaddingLeft: headerPaddingLeft,
+    headerPaddingRight: headerPaddingRight,
+    footerPaddingTop: footerPaddingTop,
+    footerPaddingBottom: footerPaddingBottom,
+    footerPaddingLeft: footerPaddingLeft,
+    footerPaddingRight: footerPaddingRight,
+    showHeaderLine: showHeaderLine,
+    showFooterLine: showFooterLine,
+    headerMode: headerMode,
+    footerMode: footerMode,
+    tipHeaderLeft: tipHeaderLeft,
+    tipHeaderMiddle: tipHeaderMiddle,
+    tipHeaderRight: tipHeaderRight,
+    tipFooterLeft: tipFooterLeft,
+    tipFooterMiddle: tipFooterMiddle,
+    tipFooterRight: tipFooterRight,
+    titleMode: titleMode,
+    titleSize: titleSize,
+    titleTopSpacing: titleTopSpacing,
+    titleBottomSpacing: titleBottomSpacing,
+    titleFont: titleFont,
+    showBattery: showBattery,
+    showTime: showTime,
+    showProgress: showProgress,
+    showChapterName: showChapterName,
+    flipMode: flipMode,
+    screenOrientation: screenOrientation,
+    keepLight: keepLight,
+    hideStatusBar: hideStatusBar,
+    hideNavigationBar: hideNavigationBar,
+    progressBarBehavior: progressBarBehavior,
+    noAnimScrollPage: noAnimScrollPage,
+    autoChangeSource: autoChangeSource,
+    selectText: selectText,
+    brightnessMode: brightnessMode,
+    brightnessOnLeft: brightnessOnLeft,
+    showReadTitleAddition: showReadTitleAddition,
+    readBarStyleFollowPage: readBarStyleFollowPage,
+    volumeKeyPage: volumeKeyPage,
+    volumeKeyPageOnPlay: volumeKeyPageOnPlay,
+    mouseWheelPage: mouseWheelPage,
+    doubleHorizontalPage: doubleHorizontalPage,
+    useZhLayout: useZhLayout,
+    hangingPunctuation: hangingPunctuation,
+    pageTouchSlop: pageTouchSlop,
+    pageTouchClick: pageTouchClick,
+    readBodyToLh: readBodyToLh,
+    paddingDisplayCutouts: paddingDisplayCutouts,
+  );
 }
 
 // [UI-fix v2.0.4 | 2026-08-08] 高级配置共享 Provider：界面 Sheet
@@ -656,5 +735,11 @@ class ReaderAdvConfigNotifier extends Notifier<ReaderAdvancedConfig?> {
 /// 阅读器高级配置共享 Provider（null 表示尚未完成首次加载）
 final readerAdvConfigProvider =
     NotifierProvider<ReaderAdvConfigNotifier, ReaderAdvancedConfig?>(
-  ReaderAdvConfigNotifier.new,
-);
+      ReaderAdvConfigNotifier.new,
+    );
+
+int _brightnessMode(Object? value) {
+  if (value is bool) return value ? 1 : 0;
+  final mode = int.tryParse('$value');
+  return mode != null && mode >= 0 && mode <= 2 ? mode : 0;
+}

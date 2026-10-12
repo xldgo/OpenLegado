@@ -1,13 +1,26 @@
 import '../app_menu.dart';
+
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../../providers/source/source_notifier.dart';
+import '../../providers/sync/sync_notifier.dart';
+import '../../screens/source_edit_screen.dart';
+import '../../utils/source_login_entry.dart';
+import '../../screens/webview_login_screen.dart';
+import '../help/help_assets.dart';
+import '../help/show_help.dart';
+import 'change_chapter_source_sheet.dart';
+import 'reader_brightness_control.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../routes.dart';
@@ -16,6 +29,8 @@ import 'change_source_flow.dart';
 import 'reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
 
+part 'reader_menu_actions.part.dart';
+
 /// [UI_SYNC_REFACTOR S2-1] 阅读菜单单块底部面板（对齐参考 ReadBookMenuBar）
 ///
 /// 结构：屏幕顶栏（返回/书名/换源/刷新正文/下载（离线缓存）/更多溢出 +
@@ -23,9 +38,8 @@ import 'reader_download_dialog.dart';
 /// 底部按钮按用户指定顺序排列：目录/全文搜索/自动翻页/朗读/设置。
 /// 键集沿用参考 ReadButtonConfigDelegate.kt:197-203（
 /// DEFAULT_ENABLED_BUTTON_IDS = search/auto_page/catalog/read_aloud/setting，
-/// 显示顺序 ReadBookContract.kt:404+ ReadBookButtonIds；无第二页、无字号/
-/// 亮度键；参考 showBrightnessView 默认 "0" 亮度隐藏，字号/亮度保留在读内
-/// 入口 ReaderSettingsSheet / ReaderConfigPanel）。
+/// 显示顺序沿用已确认的五键，不增加第二页。
+/// 亮度控件按配置显示横向底栏或纵向侧栏，默认关闭。
 /// 常挂载+双向动画（visible 驱动）。
 class ReaderMenuPanel extends ConsumerStatefulWidget {
   final bool visible;
@@ -38,7 +52,8 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
   final VoidCallback onReadAloud;
   final VoidCallback onToggleAutoPage;
   final VoidCallback onOpenReplaceRules;
-  final bool showBrightnessView;
+  final int brightnessMode;
+  final bool brightnessOnLeft;
   final String progressBehavior;
   final ValueChanged<int>? onSeekPage;
   final bool styleFollowPage;
@@ -55,7 +70,8 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
     required this.onReadAloud,
     required this.onToggleAutoPage,
     required this.onOpenReplaceRules,
-    this.showBrightnessView = true,
+    this.brightnessMode = 0,
+    this.brightnessOnLeft = false,
     this.progressBehavior = 'chapter',
     this.onSeekPage,
     this.styleFollowPage = false,
@@ -66,11 +82,26 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
 }
 
 class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, _ReaderMenuActions {
   final Set<int> _dismissalPointers = {};
   bool _popupMenuOpen = false;
 
-  void _onPopupMenuOpen() => setState(() => _popupMenuOpen = true);
+  void _onPopupMenuOpen() {
+    setState(() => _popupMenuOpen = true);
+    unawaited(_refreshMenuFlags());
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      Future.microtask(() {
+        if (mounted) {
+          return ref.read(syncNotifierProvider.notifier).loadConfig();
+        }
+      }),
+    );
+  }
 
   void _onPopupMenuClose() => setState(() => _popupMenuOpen = false);
 
@@ -95,7 +126,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
   void didUpdateWidget(covariant ReaderMenuPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.visible != widget.visible) {
-      if (!widget.visible) _popupMenuOpen = false;
+      if (!widget.visible) {
+        _popupMenuOpen = false;
+        _sourceActionMenuController.close();
+      }
       widget.visible ? _menuController.forward() : _menuController.reverse();
     }
   }
@@ -166,54 +200,117 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 顶栏置屏幕顶部（用户
             // 反馈①：此前误置于底部面板首行；对齐原版布局——← 居左，
             // 换源/刷新/缓存/更多 居右）— Qoder
-            _buildTopBar(context, barColor, book, chapter, notifier),
+            SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, -1),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: _menuController,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    ),
+                  ),
+              child: _buildTopBar(context, barColor, book, chapter, notifier),
+            ),
             // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
             Expanded(
               // 弹出菜单先消费外部手势；原始指针也不能传给阅读菜单与正文。
-              child: AbsorbPointer(
-                absorbing: _popupMenuOpen,
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) => _dismissFromPointer(event.pointer),
-                  onPointerUp: (event) => _releaseDismissalPointer(event.pointer),
-                  onPointerCancel: (event) => _releaseDismissalPointer(event.pointer),
-                  onPointerSignal: (_) => notifier.hideControls(),
-                  onPointerPanZoomStart: (event) =>
-                      _dismissFromPointer(event.pointer),
-                  onPointerPanZoomEnd: (event) =>
-                      _releaseDismissalPointer(event.pointer),
-                ),
-              ),
-            ),
-            useSurfaceBlur
-                ? ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AbsorbPointer(
+                    absorbing: _popupMenuOpen,
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (event) =>
+                          _dismissFromPointer(event.pointer),
+                      onPointerUp: (event) =>
+                          _releaseDismissalPointer(event.pointer),
+                      onPointerCancel: (event) =>
+                          _releaseDismissalPointer(event.pointer),
+                      onPointerSignal: (_) => notifier.hideControls(),
+                      onPointerPanZoomStart: (event) =>
+                          _dismissFromPointer(event.pointer),
+                      onPointerPanZoomEnd: (event) =>
+                          _releaseDismissalPointer(event.pointer),
                     ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: _panelSurface(
-                        context,
-                        barColor,
-                        foreground,
-                        book,
-                        chapter,
-                        notifier,
-                        state,
-                        autoPageActive,
+                  ),
+                  if (widget.brightnessMode == 2)
+                    Align(
+                      alignment: widget.brightnessOnLeft
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
+                      child: SafeArea(
+                        top: false,
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          child: SizedBox(
+                            width: 56,
+                            height: 240,
+                            child: Material(
+                              color: barColor,
+                              borderRadius: BorderRadius.circular(28),
+                              child: ReaderBrightnessControl(
+                                compact: true,
+                                vertical: true,
+                                onSwitchSide: _switchBrightnessSide,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  )
-                : _panelSurface(
-                    context,
-                    barColor,
-                    foreground,
-                    book,
-                    chapter,
-                    notifier,
-                    state,
-                    autoPageActive,
+                ],
+              ),
+            ),
+            SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: _menuController,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    ),
                   ),
+              child: useSurfaceBlur
+                  ? ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(32),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                        child: _panelSurface(
+                          context,
+                          barColor,
+                          foreground,
+                          book,
+                          chapter,
+                          notifier,
+                          state,
+                          autoPageActive,
+                        ),
+                      ),
+                    )
+                  : _panelSurface(
+                      context,
+                      barColor,
+                      foreground,
+                      book,
+                      chapter,
+                      notifier,
+                      state,
+                      autoPageActive,
+                    ),
+            ),
           ],
         ),
       ),
@@ -230,20 +327,28 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     ReaderState state,
     bool autoPageActive,
   ) {
-    // [PARITY A5] 面板键集对齐参考版：进度行 + 单行五键行动作行
-    //（参考版菜单无亮度/字号键与亮度竖条；亮度/字号保留在读内入口
-    // ReaderSettingsSheet / ReaderConfigPanel）。
+    // 亮度横条位于章节进度上方；背景延伸到系统导航区，内容仅避让一次。
     return Material(
       color: barColor,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       child: SafeArea(
         top: false,
+        minimum: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom,
+          left: MediaQuery.viewPaddingOf(context).left,
+          right: MediaQuery.viewPaddingOf(context).right,
+        ),
         child: IconTheme(
           data: IconThemeData(color: foreground),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.brightnessMode == 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: ReaderBrightnessControl(compact: true),
+                ),
               _buildProgressRow(context, notifier, state, foreground),
               _buildActionRow(context, foreground, autoPageActive),
             ],
@@ -262,8 +367,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
   // （clearSnackBars，离场/异常也不留残留）+ 结果去重（成功反馈只保留
   // 换源页「已切换到」，阅读器侧只弹失败条）。原 [P2-9 fix/fix2] 的
   // 无类型 pushNamed 与 10min 进行中条语义见 change_source_flow.dart。
-  Future<void> _changeSourceFlow(BuildContext context, Book book) =>
-      runChangeSourceFlow(ref, context, book);
 
   // [P2-9 | 2026-09-24] 刷新正文流程（Fix A）：强制联网抓取（绕过缓存，
   // 见 ReaderNotifier.refreshChapterContent）→ 显式成功反馈 / 失败反馈
@@ -281,10 +384,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     // 与换源流程 _applying 防重入同形态；notifier 侧 _refreshing 兜底）
     if (notifier.isRefreshing) return;
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('正在刷新正文…'),
-        duration: Duration(minutes: 10),
-      ),
+      const SnackBar(content: Text('正在刷新正文…'), duration: Duration(minutes: 10)),
     );
     final err = await notifier.refreshChapterContent();
     // [SB-HUNT | 2026-09-25] 必收清理（与换源流程统一）：先 clearSnackBars
@@ -319,7 +419,8 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     // 本地）：本地书（loc_book/dav:）不显示换源/刷新正文（原版 ReadMenu
     // 对本地书隐藏这两项入口）；notifier 侧守卫兜底
     // （refreshChapterContent 对本地书返回原因、不触网）
-    final isOnline = book != null &&
+    final isOnline =
+        book != null &&
         book.origin != BookType.localTag &&
         !book.origin.startsWith(BookType.webDavTag);
     final chapterUrl = isOnline && chapter != null && chapter.title.isNotEmpty
@@ -343,6 +444,8 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                   borderRadius: BorderRadius.circular(4),
                   onTap: () =>
                       unawaited(openReaderChapterUrl(context, chapterUrl)),
+                  onLongPress: () =>
+                      unawaited(_showChapterUrlMenu(context, chapterUrl)),
                   child: chapterTitle,
                 ),
               ),
@@ -352,6 +455,11 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       color: barColor,
       child: SafeArea(
         bottom: false,
+        minimum: EdgeInsets.only(
+          top: MediaQuery.viewPaddingOf(context).top,
+          left: MediaQuery.viewPaddingOf(context).left,
+          right: MediaQuery.viewPaddingOf(context).right,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -385,54 +493,39 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                   // （原实现未 await，换源后正文不刷新——缺陷根因 B）
                   // 换源闭包体保留 HEAD 基线缩进列（collection-if 后果
                   // 不重新缩进），避免 diff 引入纯空白行
-                  if (isOnline) IconButton(
-                    icon: const Icon(Symbols.swap_horiz_rounded),
-                    tooltip: '换源',
-                    onPressed: () => unawaited(_changeSourceFlow(context, book)),
-                  ),
+                  if (isOnline)
+                    IconButton(
+                      icon: const Icon(Symbols.swap_horiz_rounded),
+                      tooltip: '换源',
+                      onPressed: () => _showChangeSourceMenu(context, book),
+                    ),
                   // [P2-9 | 2026-09-24] 刷新正文 = 强制拉取（绕过缓存，
                   // 见 ReaderNotifier.refreshChapterContent），统一 Fix A
                   // 路径 + 可见反馈（进行中/成功/失败含原因）
-                  if (isOnline) IconButton(
-                    icon: const Icon(Symbols.refresh_rounded),
-                    tooltip: '刷新正文',
-                    onPressed: () => unawaited(_refreshContentFlow(context)),
-                  ),
+                  if (isOnline)
+                    IconButton(
+                      icon: const Icon(Symbols.refresh_rounded),
+                      tooltip: '刷新正文',
+                      onPressed: () => unawaited(_refreshContentFlow(context)),
+                    ),
                   // [P2-27 | 2026-09-28] 下载入口改弹「离线缓存」范围对话框
                   // （对齐原版 menu_download → showBookDownloadDialog /
                   // 参考版 DownloadSheet；默认起始 = 当前章，与原版一致），
                   // 移除自创的「直接缓存当前章」行为；共享实现见
                   // reader_download_dialog.dart（与顶栏下载钮同源）
-                  if (isOnline) IconButton(
-                    icon: const Icon(Symbols.download_rounded),
-                    tooltip: '下载（离线缓存）',
-                    onPressed: () => showReaderOfflineCacheDialog(context, ref),
-                  ),
+                  if (isOnline)
+                    IconButton(
+                      icon: const Icon(Symbols.download_rounded),
+                      tooltip: '下载（离线缓存）',
+                      onPressed: () =>
+                          showReaderOfflineCacheDialog(context, ref),
+                    ),
                   AppMenuButton<String>(
                     tooltip: '更多',
                     onOpen: _onPopupMenuOpen,
                     onClose: _onPopupMenuClose,
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'addBookmark':
-                          widget.onAddBookmark();
-                        case 'highlightRule':
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.highlightRules,
-                          );
-                        case 'replace':
-                          widget.onOpenReplaceRules();
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      AppMenuItem(value: 'addBookmark', child: Text('添加书签')),
-                      AppMenuItem(
-                        value: 'highlightRule',
-                        child: Text('高亮规则'),
-                      ),
-                      AppMenuItem(value: 'replace', child: Text('替换规则')),
-                    ],
+                    onSelected: _handleMenuAction,
+                    itemBuilder: (_) => _menuItems(book, isOnline),
                   ),
                 ],
               ),
@@ -445,25 +538,41 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: chapterTitleWidget,
-                        ),
+                        Expanded(child: chapterTitleWidget),
                         if (sourceName.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              sourceName,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onPrimary,
-                              ),
+                          Flexible(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: isOnline
+                                  ? AppMenuAnchor<String>(
+                                      controller: _sourceActionMenuController,
+                                      onOpen: () =>
+                                          setState(() => _popupMenuOpen = true),
+                                      onClose: _onPopupMenuClose,
+                                      itemBuilder: (_) =>
+                                          _sourceActionMenuItems(book),
+                                      onSelected: (value) => unawaited(
+                                        _handleSourceAction(
+                                          context,
+                                          book,
+                                          value,
+                                        ),
+                                      ),
+                                      builder: (context, controller, _) =>
+                                          InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            onTap: () => unawaited(
+                                              _showSourceMenu(context, book),
+                                            ),
+                                            child: _sourceBadge(
+                                              context,
+                                              sourceName,
+                                            ),
+                                          ),
+                                    )
+                                  : _sourceBadge(context, sourceName),
                             ),
                           ),
                       ],
@@ -475,6 +584,31 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         ),
       ),
     );
+  }
+
+  Widget _sourceBadge(BuildContext context, String name) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primary,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 12,
+        color: Theme.of(context).colorScheme.onPrimary,
+      ),
+    ),
+  );
+
+  void _switchBrightnessSide() {
+    final config = ref.read(readerAdvConfigProvider);
+    if (config == null) return;
+    final updated = config.copy()..brightnessOnLeft = !widget.brightnessOnLeft;
+    ref.read(readerAdvConfigProvider.notifier).apply(updated);
+    unawaited(updated.save());
   }
 
   // ── 分区：单行五键行动作行（[PARITY A5] 键集对齐参考版默认键集）──
@@ -526,9 +660,8 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: color),
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: color),
                 ),
               ],
             ),
@@ -544,9 +677,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       item(Symbols.format_list_bulleted_rounded, '目录', widget.onOpenCatalog),
       item(Symbols.search_rounded, '全文搜索', widget.onOpenContentSearch),
       item(
-        autoPageActive
-            ? Symbols.pause_rounded
-            : Symbols.play_arrow_rounded,
+        autoPageActive ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
         '自动翻页',
         widget.onToggleAutoPage,
         active: autoPageActive,
@@ -554,10 +685,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       item(Symbols.headphones_rounded, '朗读', widget.onReadAloud),
       item(Symbols.settings_rounded, '设置', widget.onOpenSettings),
     ];
-    return SizedBox(
-      height: 76,
-      child: Row(children: items),
-    );
+    return SizedBox(height: 76, child: Row(children: items));
   }
 
   // ── 分区：进度滑条行（page=调章内页 / chapter=调章节）──

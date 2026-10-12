@@ -22,8 +22,7 @@
 //（非编译错误）。
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,7 +33,6 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_top_bar.dart';
 
 import '../mocks/mocks.dart';
 
@@ -75,9 +73,8 @@ void stubOpenBook(MockRustApi api) {
       BookChapter(url: 'https://book.com/1/c2', title: '第二章', index: 1),
     ],
   );
-  when(
-    () => api.getChapterContentFull(any(), any()),
-  ).thenAnswer((_) async => '旧正文（缓存）');
+  when(() => api.getChapterContentFull(any(), any()))
+      .thenAnswer((_) async => '旧正文（缓存）');
   when(
     () => api.updateReadingProgress(
       bookUrl: any(named: 'bookUrl'),
@@ -95,29 +92,16 @@ ProviderContainer makeContainer(MockRustApi mockApi) {
 
 /// 组合树：菜单面板 + 顶栏同场景（两入口共用同一 notifier 实例 →
 /// 共享重入守卫生效面；顶栏在 Stack 上层，按钮可点）
-Widget wrapReader(ProviderContainer container, {RouteFactory? onGenerateRoute}) {
+Widget wrapReader(
+  ProviderContainer container, {
+  RouteFactory? onGenerateRoute,
+}) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
       onGenerateRoute: onGenerateRoute,
       home: Scaffold(
-        body: Stack(
-          children: [
-            ReaderMenuPanel(
-              visible: true,
-              onBack: () {},
-              onAddBookmark: () {},
-              onOpenCatalog: () {},
-              onOpenSettings: () {},
-              onOpenAdvancedConfig: () {},
-              onOpenContentSearch: () {},
-              onReadAloud: () {},
-              onToggleAutoPage: () {},
-              onOpenReplaceRules: () {},
-            ),
-            ReaderTopBar(onAddBookmark: () {}),
-          ],
-        ),
+        body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
       ),
     ),
   );
@@ -153,7 +137,7 @@ class _HomeState extends State<_Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.withReader
-          ? Stack(children: [ReaderTopBar(onAddBookmark: () {})])
+          ? Stack(children: [buildReaderMenu(onAddBookmark: () {})])
           : const SizedBox.shrink(),
     );
   }
@@ -200,9 +184,8 @@ class _PageContractChangeSourceState extends State<_PageContractChangeSource> {
     super.initState();
     Future.microtask(() {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已切换到「${widget.sourceName}」')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已切换到「${widget.sourceName}」')));
       Navigator.of(context).pop(widget.result);
     });
   }
@@ -226,20 +209,19 @@ RouteFactory autoPopRoute(Object? result) => (settings) {
 };
 
 /// 页侧成功契约路由（换源页弹「已切换到」后 pop 新 bookUrl）
-RouteFactory pageContractRoute(Object? result, String sourceName) => (
-  settings,
-) {
-  if (settings.name == AppRoutes.changeSource) {
-    return PageRouteBuilder<dynamic>(
-      settings: settings,
-      pageBuilder: (context, _, _) =>
-          _PageContractChangeSource(result: result, sourceName: sourceName),
-    );
-  }
-  return MaterialPageRoute<void>(
-    builder: (_) => const Scaffold(body: SizedBox.shrink()),
-  );
-};
+RouteFactory pageContractRoute(Object? result, String sourceName) =>
+    (settings) {
+      if (settings.name == AppRoutes.changeSource) {
+        return PageRouteBuilder<dynamic>(
+          settings: settings,
+          pageBuilder: (context, _, _) =>
+              _PageContractChangeSource(result: result, sourceName: sourceName),
+        );
+      }
+      return MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: SizedBox.shrink()),
+      );
+    };
 
 /// 菜单面板中部快捷「换源」钮（面板内第二处换源入口：顶栏行 IconButton
 /// 在先、中部快捷钮在后；位于屏幕中部，与顶栏按钮无命中区重叠）
@@ -252,7 +234,7 @@ Finder get _panelMidChangeSource => find
 
 /// 顶栏「换源」钮（顶栏树中唯一）
 Finder get _topBarChangeSource => find.descendant(
-  of: find.byType(ReaderTopBar),
+  of: find.byType(ReaderMenuPanel),
   matching: find.byTooltip('换源'),
 );
 
@@ -260,9 +242,7 @@ void main() {
   setUpAll(registerFallbacks);
 
   group('① 双入口连发（菜单在途 + 顶栏第二触发）', () {
-    testWidgets('getBook 只调一次、终态无残留结果条（改造前必红）', (
-      tester,
-    ) async {
+    testWidgets('getBook 只调一次、终态无残留结果条（改造前必红）', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
       final container = makeContainer(mockApi);
@@ -273,28 +253,34 @@ void main() {
       when(() => mockApi.getBook(any())).thenAnswer((_) {
         getBookSeq += 1;
         final delay = getBookSeq == 1 ? 8 : 12;
-        return Future<Book?>.delayed(Duration(seconds: delay), () => _newBookRecord);
+        return Future<Book?>.delayed(
+          Duration(seconds: delay),
+          () => _newBookRecord,
+        );
       });
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
 
       await tester.pumpWidget(
-        wrapReader(container, onGenerateRoute: autoPopRoute('https://book.com/1')),
+        wrapReader(
+          container,
+          onGenerateRoute: autoPopRoute('https://book.com/1'),
+        ),
       );
       await tester.pumpAndSettle();
 
       // A = 菜单面板中部快捷「换源」
       await tester.tap(_panelMidChangeSource);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('换书源'));
       await tester.pumpAndSettle(); // A 路由自动 pop + 重载启动（getBook#1 悬置 8s）
       expect(find.text('正在更换书源…'), findsOneWidget);
 
@@ -330,9 +316,7 @@ void main() {
   });
 
   group('② 残留回归（在途完成必清理）', () {
-    testWidgets('重载在途离场 → 无「正在更换书源…」残留（改造前必红）', (
-      tester,
-    ) async {
+    testWidgets('重载在途离场 → 无「正在更换书源…」残留（改造前必红）', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
       final container = makeContainer(mockApi);
@@ -340,24 +324,27 @@ void main() {
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 8s
       when(() => mockApi.getBook(any())).thenAnswer(
-        (_) =>
-            Future<Book?>.delayed(const Duration(seconds: 8), () => _newBookRecord),
+        (_) => Future<Book?>.delayed(
+          const Duration(seconds: 8),
+          () => _newBookRecord,
+        ),
       );
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
 
       await tester.pumpWidget(
-        _topBarTree(container, onGenerateRoute: autoPopRoute('https://book.com/1')),
+        _topBarTree(
+          container,
+          onGenerateRoute: autoPopRoute('https://book.com/1'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -390,9 +377,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('异常 + 离场 → 无任何条（改造前红：进行中条残留）', (
-      tester,
-    ) async {
+    testWidgets('异常 + 离场 → 无任何条（改造前红：进行中条残留）', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
       final container = makeContainer(mockApi);
@@ -400,18 +385,19 @@ void main() {
       stubOpenBook(mockApi);
       // 慢路径异常：getBook 延迟 4s 后失败（保证异常发生在离场之后，
       // 即「在途完成时 context 已 unmounted」路径）
-      when(() => mockApi.getBook(any())).thenAnswer(
-        (_) async {
-          await Future<void>.delayed(const Duration(seconds: 4));
-          throw const BridgeError(message: 'bridge 不可用');
-        },
-      );
+      when(() => mockApi.getBook(any())).thenAnswer((_) async {
+        await Future<void>.delayed(const Duration(seconds: 4));
+        throw const BridgeError(message: 'bridge 不可用');
+      });
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
 
       await tester.pumpWidget(
-        _topBarTree(container, onGenerateRoute: autoPopRoute('https://book.com/1')),
+        _topBarTree(
+          container,
+          onGenerateRoute: autoPopRoute('https://book.com/1'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -445,9 +431,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('取消（pop null）→ 无进行中条、getBook 未调用（回归护栏）', (
-      tester,
-    ) async {
+    testWidgets('取消（pop null）→ 无进行中条、getBook 未调用（回归护栏）', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
       final container = makeContainer(mockApi);
@@ -482,18 +466,15 @@ void main() {
       final container = makeContainer(mockApi);
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
-      when(
-        () => mockApi.getBook(any()),
-      ).thenAnswer((_) async => _newBookRecord);
+      when(() => mockApi.getBook(any()))
+          .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -528,15 +509,17 @@ void main() {
       final container = makeContainer(mockApi);
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
-      when(() => mockApi.getBook(any())).thenThrow(
-        const BridgeError(message: 'bridge 不可用'),
-      );
+      when(() => mockApi.getBook(any()))
+          .thenThrow(const BridgeError(message: 'bridge 不可用'));
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
 
       await tester.pumpWidget(
-        _topBarTree(container, onGenerateRoute: autoPopRoute('https://book.com/1')),
+        _topBarTree(
+          container,
+          onGenerateRoute: autoPopRoute('https://book.com/1'),
+        ),
       );
       await tester.pumpAndSettle();
 

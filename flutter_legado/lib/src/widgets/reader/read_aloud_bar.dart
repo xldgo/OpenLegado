@@ -422,7 +422,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           opacity: _entered ? 1.0 : 0.0,
           child: Material(
             color: theme.colorScheme.surface,
-            // 与 ReaderBottomBar 一致：无阴影 + hairline 顶边
+            // 与 ReaderMenuPanel 一致：无阴影 + hairline 顶边
             elevation: 0,
             shape: Border(
               top: BorderSide(

@@ -32,8 +32,7 @@
 // 文件可编译可运行，红 = 断言失败（非编译错误）。
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,7 +43,6 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_top_bar.dart';
 
 import '../mocks/mocks.dart';
 
@@ -100,9 +98,8 @@ const _localToc = [
 /// 打开书籍的最小 stub（对标 reader_notifier_test 的 stubOpenBook）
 void stubOpenBook(MockRustApi api, {String content = '旧正文（缓存）'}) {
   when(() => api.getChapters(any())).thenAnswer((_) async => _oldToc);
-  when(
-    () => api.getChapterContentFull(any(), any()),
-  ).thenAnswer((_) async => content);
+  when(() => api.getChapterContentFull(any(), any()))
+      .thenAnswer((_) async => content);
   when(
     () => api.updateReadingProgress(
       bookUrl: any(named: 'bookUrl'),
@@ -156,7 +153,7 @@ Widget wrapTopBar(ProviderContainer container) {
     container: container,
     child: MaterialApp(
       home: Scaffold(
-        body: Stack(children: [ReaderTopBar(onAddBookmark: () {})]),
+        body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
       ),
     ),
   );
@@ -196,12 +193,10 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // [STAGE3-C2B] 先失效当前章缓存行（≡ 上游 delContent），再联网抓取
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新正文（网络）');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新正文（网络）');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -216,9 +211,8 @@ void main() {
 
       // 强制拉取路径：[STAGE3-C2B] 先失效当前章缓存行（index=1，
       // ≡ 上游 delContent）+ 联网抓取当前章（url 属当前目录 c2）
-      verify(
-        () => mockApi.clearChapterCache('https://book.com/1', 1),
-      ).called(1);
+      verify(() => mockApi.clearChapterCache('https://book.com/1', 1))
+          .called(1);
       verify(
         () => mockApi.fetchChapterContent(
           'https://book.com/1',
@@ -246,18 +240,15 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 换源后的重载 stub
-      when(
-        () => mockApi.getBook(any()),
-      ).thenAnswer((_) async => _newBookRecord);
+      when(() => mockApi.getBook(any()))
+          .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -281,7 +272,9 @@ void main() {
               }
               return MaterialPageRoute<void>(
                 builder: (_) => Scaffold(
-                  body: Stack(children: [ReaderTopBar(onAddBookmark: () {})]),
+                  body: Stack(
+                    children: [buildReaderMenu(onAddBookmark: () {})],
+                  ),
                 ),
               );
             },
@@ -328,12 +321,10 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // [STAGE3-C2B] 刷新先失效当前章缓存行（≡ 上游 delContent）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新正文（网络）');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新正文（网络）');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -341,7 +332,7 @@ void main() {
       await tester.pumpWidget(wrapTopBar(container));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新正文'));
       await tester.pumpAndSettle();
 
       expect(container.read(readerNotifierProvider).chapterContent, '新正文（网络）');
@@ -360,12 +351,10 @@ void main() {
       stubOpenBook(mockApi);
       // [STAGE3-C2B] 刷新先失效当前章缓存行；失败仅当前章缓存丢失，
       // 不做整书清理（对齐上游 delContent 失败语义）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenThrow(const BridgeError(message: '404: 源不可达'));
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenThrow(const BridgeError(message: '404: 源不可达'));
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -373,7 +362,7 @@ void main() {
       await tester.pumpWidget(wrapTopBar(container));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新正文'));
       await tester.pumpAndSettle();
 
       // 失败原因可见（非静默）
@@ -409,18 +398,15 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 换源后的重载 stub（openBook 先取 _oldToc，重载时取 _newToc）
-      when(
-        () => mockApi.getBook(any()),
-      ).thenAnswer((_) async => _newBookRecord);
+      when(() => mockApi.getBook(any()))
+          .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -451,10 +437,10 @@ void main() {
       // 在线书渲染两处换源入口（顶栏 IconButton + 中部快捷钮），
       // 此处只取顶栏 IconButton
       await tester.tap(
-        find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == '换源',
-        ),
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '换源'),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('换书源'));
       // 改造前此处抛 "type _ChangeSourceSheetRoute is not a subtype
       // of type 'Route<String?>?' in type cast" —— 必须无异常才算不崩溃
       final exception = tester.takeException();
@@ -482,19 +468,14 @@ void main() {
   });
 
   group('⑤ 本地书不渲染换源/刷新/缓存入口（隐藏而非置灰）', () {
-    testWidgets('本地书菜单面板：三项在线书入口不渲染，其余入口保留', (
-      tester,
-    ) async {
+    testWidgets('本地书菜单面板：三项在线书入口不渲染，其余入口保留', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
       final container = makeContainer(mockApi);
       addTearDown(container.dispose);
-      when(
-        () => mockApi.getChapters(any()),
-      ).thenAnswer((_) async => _localToc);
-      when(
-        () => mockApi.getChapterContentFull(any(), any()),
-      ).thenAnswer((_) async => '本地正文');
+      when(() => mockApi.getChapters(any())).thenAnswer((_) async => _localToc);
+      when(() => mockApi.getChapterContentFull(any(), any()))
+          .thenAnswer((_) async => '本地正文');
       when(
         () => mockApi.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
@@ -543,21 +524,19 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 6s（> SnackBar 默认 4s 自动消失时长）
-      when(
-        () => mockApi.getBook(any()),
-      ).thenAnswer(
-        (_) =>
-            Future<Book?>.delayed(const Duration(seconds: 6), () => _newBookRecord),
+      when(() => mockApi.getBook(any())).thenAnswer(
+        (_) => Future<Book?>.delayed(
+          const Duration(seconds: 6),
+          () => _newBookRecord,
+        ),
       );
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -582,10 +561,10 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == '换源',
-        ),
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '换源'),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('换书源'));
       await tester.pumpAndSettle(); // 换源路由自动 pop + 重载启动（getBook 悬置）
       // 慢路径推进（1s 粒度，对齐真机 16ms 帧节奏：自动消失后的队列
       // 移除帧先于慢 mock 完成时刻落地；粗粒度 5s/2s pump 会让移除帧
@@ -620,19 +599,13 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // [STAGE3-C2B] 刷新先失效当前章缓存行（≡ 上游 delContent）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
       // 慢路径：fetchChapterContent 延迟 7s（> 4s 自动消失时长；取 7s
       // 保证完成时刻晚于队列移除帧，旧 close() 代码必踩空队列）
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer(
+      when(() => mockApi.fetchChapterContent(any(), any(), any())).thenAnswer(
         (_) =>
-            Future<String>.delayed(
-              const Duration(seconds: 7),
-              () => '新正文（网络）',
-            ),
+            Future<String>.delayed(const Duration(seconds: 7), () => '新正文（网络）'),
       );
 
       final notifier = container.read(readerNotifierProvider.notifier);
@@ -655,10 +628,7 @@ void main() {
       final exception = tester.takeException();
       expect(exception, isNull);
       expect(find.textContaining('正文已刷新'), findsOneWidget);
-      expect(
-        container.read(readerNotifierProvider).chapterContent,
-        '新正文（网络）',
-      );
+      expect(container.read(readerNotifierProvider).chapterContent, '新正文（网络）');
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
     });
@@ -670,21 +640,19 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 6s（> 4s 自动消失时长）
-      when(
-        () => mockApi.getBook(any()),
-      ).thenAnswer(
-        (_) =>
-            Future<Book?>.delayed(const Duration(seconds: 6), () => _newBookRecord),
+      when(() => mockApi.getBook(any())).thenAnswer(
+        (_) => Future<Book?>.delayed(
+          const Duration(seconds: 6),
+          () => _newBookRecord,
+        ),
       );
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => '新源新正文');
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -703,7 +671,9 @@ void main() {
               }
               return MaterialPageRoute<void>(
                 builder: (_) => Scaffold(
-                  body: Stack(children: [ReaderTopBar(onAddBookmark: () {})]),
+                  body: Stack(
+                    children: [buildReaderMenu(onAddBookmark: () {})],
+                  ),
                 ),
               );
             },
@@ -747,19 +717,13 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // [STAGE3-C2B] 刷新先失效当前章缓存行（≡ 上游 delContent）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
       // 慢路径：fetchChapterContent 延迟 7s（> 4s 自动消失时长；取 7s
       // 保证完成时刻晚于队列移除帧，旧 close() 代码必踩空队列）
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer(
+      when(() => mockApi.fetchChapterContent(any(), any(), any())).thenAnswer(
         (_) =>
-            Future<String>.delayed(
-              const Duration(seconds: 7),
-              () => '新正文（网络）',
-            ),
+            Future<String>.delayed(const Duration(seconds: 7), () => '新正文（网络）'),
       );
 
       final notifier = container.read(readerNotifierProvider.notifier);
@@ -768,7 +732,7 @@ void main() {
       await tester.pumpWidget(wrapTopBar(container));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新正文'));
       await tester.pump(); // 进行中条开始入场
       // 慢路径推进（1s 粒度，对齐真机 16ms 帧节奏：自动消失后的队列
       // 移除帧先于慢 mock 完成时刻落地；粗粒度 pump 会测不出竞态）：
@@ -782,10 +746,7 @@ void main() {
       final exception = tester.takeException();
       expect(exception, isNull);
       expect(find.textContaining('正文已刷新'), findsOneWidget);
-      expect(
-        container.read(readerNotifierProvider).chapterContent,
-        '新正文（网络）',
-      );
+      expect(container.read(readerNotifierProvider).chapterContent, '新正文（网络）');
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
     });

@@ -1,5 +1,5 @@
 // 字体设置复用原有字号、字距、缩进、斜体和字重配置。
-// 标题字体单独归入标题与信息；简繁转换归入内容与工具栏。
+// 标题字体归入页面布局；简繁转换归入内容处理。
 // 本文件与阅读设置主文件共享导入和配置提交方法。
 part of 'reader_settings_sheet.dart';
 
@@ -15,6 +15,7 @@ class ReaderFontPanel extends ConsumerStatefulWidget {
   final ReaderFontPanelCommit? onChanged;
 
   final bool titleOnly;
+  final bool embedded;
   final Widget? fontSizeControl;
   final Widget? lineHeightControl;
 
@@ -23,6 +24,7 @@ class ReaderFontPanel extends ConsumerStatefulWidget {
     required this.config,
     this.onChanged,
     this.titleOnly = false,
+    this.embedded = false,
     this.fontSizeControl,
     this.lineHeightControl,
   });
@@ -161,20 +163,20 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.titleOnly) {
-      return SettingsGroup(
-        children: [
-          _row(
-            title: '标题字体',
-            value: _titleFontLabel,
-            onTap: () => _selectFont(title: true),
-          ),
-        ],
+      final row = _row(
+        title: '标题字体',
+        value: _titleFontLabel,
+        onTap: () => _selectFont(title: true),
       );
+      return widget.embedded
+          ? row
+          : SettingsGroup(showDividers: false, children: [row]);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SettingsGroup(
+          showDividers: false,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -241,6 +243,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
         ),
         const SizedBox(height: 12),
         SettingsGroup(
+          showDividers: false,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -275,63 +278,21 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                     setState(() {});
                   },
                 ),
-                _row(
+                SettingMenuRow<int>(
                   title: '首行缩进',
-                  value: _indentLabel(_config.paragraphIndent),
-                  onTap: () => _showChoiceDialog(
-                    title: '首行缩进',
-                    current: _config.paragraphIndent,
-                    options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
-                    onPick: (value) {
-                      _config.paragraphIndent = value;
-                      _commit();
-                      setState(() {});
-                    },
-                  ),
+                  value: _config.paragraphIndent,
+                  options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
+                  onChanged: (value) {
+                    _config.paragraphIndent = value;
+                    _commit();
+                    setState(() {});
+                  },
                 ),
               ],
             ),
           ],
         ),
       ],
-    );
-  }
-
-  /// 缩进档位显示文案（对标 reader_config_panel._indentLabel）
-  String _indentLabel(int v) {
-    const labels = ['无缩进', '一字符', '二字符', '三字符'];
-    if (v < 0 || v >= labels.length) return '二字符';
-    return labels[v];
-  }
-
-  /// 单选对话框（对标原版 selector 交互，形态与既有面板一致）
-  void _showChoiceDialog<T>({
-    required String title,
-    required T current,
-    required Map<T, String> options,
-    required ValueChanged<T> onPick,
-  }) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text(title),
-        children: [
-          for (final entry in options.entries)
-            ListTile(
-              title: Text(entry.value),
-              trailing: current == entry.key
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(dialogContext).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () {
-                Navigator.pop(dialogContext);
-                onPick(entry.key);
-              },
-            ),
-        ],
-      ),
     );
   }
 }

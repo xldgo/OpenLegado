@@ -29,8 +29,6 @@ import '../services/launcher_icon_service.dart';
 import '../services/settings_service.dart';
 import '../theme/md3_colors.dart';
 import '../widgets/settings_widgets.dart';
-import '../widgets/app_menu.dart';
-import '../widgets/setting_cards.dart' show LabelMediumEmphasized;
 
 /// 主题设置页面（对齐原版 ThemeConfigFragment）
 ///
@@ -721,48 +719,24 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                     // change_icon_summary=切换软件显示在桌面的图标；
                     // Android/iOS 支持，Windows 等桌面端整项隐藏）
                     if (LauncherIconService.isSupported)
-                      AppMenuAnchor<String>(
-                        itemBuilder: (_) => [
+                      SettingMenuRow<String>(
+                        title: '切换图标',
+                        subtitle: '切换软件显示在桌面的图标',
+                        value: _launcherIcon,
+                        options: {
                           for (var i = 0; i < _launcherIcons.length; i++)
-                            AppMenuItem(
-                              value: _launcherIcons[i],
-                              checked: _launcherIcon == _launcherIcons[i],
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _launcherIconPreview(_launcherIcons[i]),
-                                  const SizedBox(width: 12),
-                                  Text(_launcherIconLabels[i]),
-                                ],
-                              ),
-                            ),
-                        ],
-                        onSelected: _setLauncherIcon,
-                        builder: (_, controller, _) => IosListTile(
-                          title: '切换图标',
-                          subtitle: '切换软件显示在桌面的图标',
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _launcherIconPreview(_launcherIcon, size: 32),
-                              const SizedBox(width: 8),
-                              Text(
-                                _launcherIconLabels[_launcherIcons
-                                    .indexOf(_launcherIcon)
-                                    .clamp(0, 6)],
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMediumEmphasized
-                                    ?.copyWith(
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          onTap: () => controller.isOpen
-                              ? controller.close()
-                              : controller.open(),
+                            _launcherIcons[i]: _launcherIconLabels[i],
+                        },
+                        valuePreview: _launcherIconPreview(_launcherIcon, size: 32),
+                        optionBuilder: (value, label) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _launcherIconPreview(value),
+                            const SizedBox(width: 12),
+                            Text(label),
+                          ],
                         ),
+                        onChanged: _setLauncherIcon,
                       ),
                     // 字体大小（参考 font_scale=字体大小；摘要半角冒号对齐
                     // font_scale_summary「当前字体大小: %.1f」，见 theme_state）

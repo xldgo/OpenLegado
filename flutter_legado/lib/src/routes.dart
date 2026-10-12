@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'models/models.dart';
@@ -67,10 +66,7 @@ class BookInfoArgs {
   /// 目录就绪后自动跳转阅读器（默认 false）
   final bool openReaderImmediately;
 
-  const BookInfoArgs({
-    required this.book,
-    this.openReaderImmediately = false,
-  });
+  const BookInfoArgs({required this.book, this.openReaderImmediately = false});
 }
 
 /// 路由配置
@@ -434,20 +430,6 @@ class AppRoutes {
     webdavSettings: (_) => const WebDavSettingsScreen(),
   };
 
-  // [UI-fix v2.0.167] 转场时长分档（对齐参考仓 NavDisplay：默认 700ms 交叉
-  // 淡入淡出 / BookInfo 条件 300ms / ReadBook 600ms）。MaterialPageRoute 硬编码
-  // 300ms 不可配，routes: map 写法无法分档——故改走 onGenerateRoute + 子类覆盖。
-  /// Android 转场时长分档；非 Android 返回 null（维持平台默认 300ms）。
-  @visibleForTesting
-  static Duration? tieredTransitionDurationFor(String? name) {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
-    return switch (name) {
-      reader || readerComic => const Duration(milliseconds: 600),
-      bookInfo => const Duration(milliseconds: 300),
-      _ => const Duration(milliseconds: 700),
-    };
-  }
-
   static Route<dynamic> generateRoute(RouteSettings settings) {
     // [A2 形态对齐 | full-stack-engineer + UI] 换源页改用「底部弹层」形态
     // （对标原版 ChangeBookSourceDialog BaseDialogFragment + 参考版 kazusa
@@ -460,11 +442,7 @@ class AppRoutes {
       );
     }
     final builder = routes[settings.name] ?? (_) => const HomeScreen();
-    return _TieredRoute<void>(
-      builder: builder,
-      settings: settings,
-      duration: tieredTransitionDurationFor(settings.name),
-    );
+    return MaterialPageRoute<dynamic>(builder: builder, settings: settings);
   }
 }
 
@@ -506,20 +484,4 @@ class _ChangeSourceSheetRoute extends PageRouteBuilder<dynamic> {
            );
          },
        );
-}
-
-/// 转场时长可覆盖的 MaterialPageRoute（[UI-fix v2.0.167]，配合主题层
-/// 全站 crossfade builder；duration 为 null 时维持平台默认 300ms——
-/// iOS/桌面不参与分档，避免改变既有手感）
-class _TieredRoute<T> extends MaterialPageRoute<T> {
-  _TieredRoute({
-    required super.builder,
-    required super.settings,
-    this.duration,
-  });
-
-  final Duration? duration;
-
-  @override
-  Duration get transitionDuration => duration ?? super.transitionDuration;
 }

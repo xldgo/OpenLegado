@@ -4,8 +4,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../models/book.dart';
@@ -52,6 +51,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 阅读器高级配置（自动翻页/点击区域/段距/状态栏）
   ReaderAdvancedConfig _advConfig = ReaderAdvancedConfig();
 
+  Size? _insetViewportSize;
+  EdgeInsets _bodySystemInsets = EdgeInsets.zero;
+
+  /// 系统栏开关不改变正文分页；方向或窗口尺寸变化后重新采样。
+  EdgeInsets _stableBodyInsets(BuildContext context) {
+    final media = MediaQuery.of(context);
+    if (_insetViewportSize != media.size) {
+      _insetViewportSize = media.size;
+      _bodySystemInsets = media.viewPadding;
+    } else {
+      final current = media.viewPadding;
+      _bodySystemInsets = EdgeInsets.fromLTRB(
+        math.max(_bodySystemInsets.left, current.left),
+        math.max(_bodySystemInsets.top, current.top),
+        math.max(_bodySystemInsets.right, current.right),
+        math.max(_bodySystemInsets.bottom, current.bottom),
+      );
+    }
+    return _bodySystemInsets;
+  }
+
   /// 自动翻页定时器
   Timer? _autoTimer;
 
@@ -64,7 +84,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// [UI-fix v2.0.1 | 2026-08-06] 朗读控制条是否被手动收起
   /// （收起后朗读继续，再次点击底栏朗读按钮重新展开） — Qoder
   bool _aloudBarHidden = false;
-
 
   /// 段评摘要（P2-9 ruleReview；禁止接本地 CommentService）
   Map<int, int> _reviewCounts = {};
@@ -115,9 +134,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didChangePlatformBrightness() {
     // 跟随系统时同步正文默认配色，显式主题与自定义背景由解析器保留。
-    unawaited(ref
-        .read(readerNotifierProvider.notifier)
-        .reapplyBackgroundForCurrentTheme());
+    unawaited(
+      ref
+          .read(readerNotifierProvider.notifier)
+          .reapplyBackgroundForCurrentTheme(),
+    );
   }
 
   @override
@@ -131,9 +152,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     // 对标原版 ReadBookActivity 退出时 upSystemUiMode 还原）— Qoder
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(const []);
-    unawaited(SystemBrightness.setFollowSystem(true).catchError((Object error) {
-      debugPrint('退出阅读时恢复系统亮度失败: $error');
-    }));
+    unawaited(
+      SystemBrightness.setFollowSystem(true).catchError((Object error) {
+        debugPrint('退出阅读时恢复系统亮度失败: $error');
+      }),
+    );
     super.dispose();
   }
 
@@ -174,18 +197,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// [menuVisible] 为 true 时强制显示状态栏（对标原版
   /// `upSystemUiVisibility(toolBarHide=false)`，ReadMenu 展开时不隐藏状态栏）。
-  void _applySystemChrome(
-    ReaderAdvancedConfig cfg, {
-    bool? menuVisible,
-  }) {
+  void _applySystemChrome(ReaderAdvancedConfig cfg, {bool? menuVisible}) {
     final showMenu =
         menuVisible ?? ref.read(readerNotifierProvider).showControls;
     final overlays = <SystemUiOverlay>[];
     if (!cfg.hideStatusBar || showMenu) overlays.add(SystemUiOverlay.top);
-    if (!cfg.hideNavigationBar) overlays.add(SystemUiOverlay.bottom);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: overlays);
+    if (!cfg.hideNavigationBar || showMenu) {
+      overlays.add(SystemUiOverlay.bottom);
+    }
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: overlays,
+    );
     SystemChrome.setPreferredOrientations(
-        _orientationsFor(cfg.screenOrientation));
+      _orientationsFor(cfg.screenOrientation),
+    );
     // keep_light（保持亮屏）：项目未引入 wakelock 依赖（不改 pubspec），
     // 设置仅持久化，待平台能力接入后生效（与 audio_screen audioWakeLock
     // 标注一致，诚实标注平台限制）— Qoder
@@ -266,7 +292,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     });
   }
 
-
   /// 加载当前章段评摘要（对齐 ReadBookActivity.loadReviewSummaryIfNeeded）
   Future<void> _loadReviewSummary() async {
     final token = ++_reviewLoadToken;
@@ -304,7 +329,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }
       final rr = matched.ruleReview;
       final isJs = (matched.mainJs ?? '').trim().isNotEmpty;
-      final enabled = isJs ||
+      final enabled =
+          isJs ||
           (rr != null &&
               rr.enabled &&
               (rr.reviewSummaryUrl ?? '').trim().isNotEmpty);
@@ -458,8 +484,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       // inBookshelf=false 语义；未入架书不会走到删除在架书的分支）
       var inShelf = false;
       try {
-        final dbBook =
-            await ref.read(bookApiProvider).getBook(book.bookUrl);
+        final dbBook = await ref.read(bookApiProvider).getBook(book.bookUrl);
         inShelf = BookOpenUtils.isInBookshelf(dbBook);
       } catch (_) {
         inShelf = false;
@@ -472,10 +497,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         return;
       }
       // 未入架：读「返回时提示放入书架」开关（既有设置项，默认开启）
-      final showAlert = await ref.read(settingsProvider).getBoolPref(
-            PrefKeys.showAddToShelfAlert,
-            defaultValue: true,
-          );
+      final showAlert = await ref
+          .read(settingsProvider)
+          .getBoolPref(PrefKeys.showAddToShelfAlert, defaultValue: true);
       if (!context.mounted) return;
       if (!showAlert) {
         // 开关关 → 静默退出且书不残留（对齐原版第二路）
@@ -489,7 +513,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (confirmed) {
         // 确认 → 入架（复用 book_info_screen 同款调用：清 notShelf 位 +
         // addBook 原地 upsert，不会级联删章节目录）→ 落库进度 → 退出
-        final ok = await ref.read(bookshelfNotifierProvider.notifier).addBook(
+        final ok = await ref
+            .read(bookshelfNotifierProvider.notifier)
+            .addBook(
               book.copyWith(bookType: book.bookType & ~BookType.notShelf),
             );
         if (!context.mounted) return;
@@ -497,9 +523,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           // 入架失败：可见提示且不退出（项目规则：用户可见失败必须提示）
           final err = ref.read(bookshelfNotifierProvider).error;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(err != null ? '加入书架失败：$err' : '加入书架失败'),
-            ),
+            SnackBar(content: Text(err != null ? '加入书架失败：$err' : '加入书架失败')),
           );
           return;
         }
@@ -560,14 +584,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     // 朗读控制条显隐依赖全局朗读状态（朗读进行中时替代底部功能栏）
     final audio = ref.watch(audioNotifierProvider);
     final book = state.currentBook;
-    final aloudActive = book != null &&
+    final aloudActive =
+        book != null &&
         audio.bookUrl == book.bookUrl &&
         audio.state != PlayerState.idle;
 
     _maybePreloadAdjacentChapters(state);
 
     // 必应漫画等：正文仅为 <img> HTML 时勿走文本排版（会刷裸标签）
-    final imageDominant = book != null &&
+    final imageDominant =
+        book != null &&
         !state.isLoading &&
         state.chapterContent.isNotEmpty &&
         isImageDominantContent(state.chapterContent);
@@ -582,14 +608,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }
     });
     // 工具栏显隐时同步系统状态栏（对标原版 ReadMenu 动画回调 upSystemUiVisibility）
-    ref.listen(
-      readerNotifierProvider.select((s) => s.showControls),
-      (prev, next) {
-        if (prev != next) {
-          _applySystemChrome(_advConfig, menuVisible: next);
-        }
-      },
-    );
+    ref.listen(readerNotifierProvider.select((s) => s.showControls), (
+      prev,
+      next,
+    ) {
+      if (prev != next) {
+        _applySystemChrome(_advConfig, menuVisible: next);
+      }
+    });
 
     return PopScope<Object?>(
       // [P2-30] 退出判定统一收敛到 onPopInvokedWithResult（canPop=false 使
@@ -611,190 +637,169 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         // F6：刘海/挖孔边距（paddingDisplayCutouts / readBodyToLh）
         body: Builder(
           builder: (context) {
-            final cfg =
-                ref.watch(readerAdvConfigProvider) ?? _advConfig;
-            Widget body = Stack(
-            children: [
-              if (imageDominant)
-                ReaderImageDominantBody(
-                  content: state.chapterContent,
-                  book: book,
-                  imageStyle: book.readConfig?.imageStyle,
-                  onToggleControls: notifier.toggleControls,
-                  hasNextChapter: state.hasNextChapter,
-                  hasPrevChapter: state.hasPreviousChapter,
-                  onNextChapter: notifier.nextChapter,
-                  onPrevChapter: notifier.prevChapter,
-                )
-              else
-              GestureDetector(
-                onTapUp: (details) => _handleTap(context, details),
-                child: ReaderPageView(
-                onTapUp: (details) => _handleTap(context, details),
-                key: _pageViewKey,
-                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
-                // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
-                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
-                //（同步可靠），解析结果作兜底 — Qoder
-                // [UI-fix v2.0.4 | 2026-08-08] 共享配置源：面板/界面 Sheet 的
-                // 修改统一推送 readerAdvConfigProvider，watch 触发重建并同步
-                // _advConfig（Stack 子级按序求值，后续 ReaderStatusStrip 等
-                // 消费点拿到最新配置；provider 未加载完成时兜底用自加载值）— Qoder
-                paragraphSpacing: (_advConfig =
-                        ref.watch(readerAdvConfigProvider) ?? _advConfig)
-                    .paragraphSpacing,
-                // [UI-fix v2.0.2 | 2026-08-06] 阅读配置面板新增排版参数接入分页渲染 — Qoder
-                letterSpacing: _advConfig.letterSpacing,
-                paragraphIndent: _advConfig.paragraphIndent,
-                textFullJustify: _advConfig.textFullJustify,
-                // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
-                marginTop: _advConfig.pageMarginTop,
-                marginBottom: _advConfig.pageMarginBottom,
-                marginLeft: _advConfig.pageMarginLeft,
-                marginRight: _advConfig.pageMarginRight,
-                pageChrome: ReaderPageChromeConfig.fromAdvanced(_advConfig),
-                readBodyToLh: cfg.readBodyToLh,
-                // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
-                // 文本开关与滚动翻页无动画接入内容区 — Qoder
-                selectText: _advConfig.selectText,
-                noAnimScroll: _advConfig.noAnimScrollPage,
-                // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
-                // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
-                textBold: _advConfig.textBold,
-                // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
-                italic: _advConfig.italic,
-                customTextColor: _advConfig.customTextColor,
-                mouseWheelPage: _advConfig.mouseWheelPage,
-                // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
-                // doubleHorizontalPage 0-3 档）— Reasonix
-                doubleHorizontalPage: _advConfig.doubleHorizontalPage,
-                // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
-                // useZhLayout）— Reasonix
-                useZhLayout: _advConfig.useZhLayout,
-                // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂透传（对标原版
-                // hangingPunctuation）— Reasonix
-                hangingPunctuation: _advConfig.hangingPunctuation,
-                reviewCounts: _reviewCounts,
-                onReviewTap: _onReviewTap,
-                ),
-              ),
-              if (!state.showControls)
-                ReaderStatusStrip(
-                  config: _advConfig,
-                  readBodyToLh: cfg.readBodyToLh,
-                ),
-              // [LAYOUT_PLAN P4] 全局页胶囊：showControls 条件挂载保持不变；
-              // 进度指示 220ms 透明度动效缺口：胶囊随菜单同挂载/卸载，进场已由
-              // 顶/底栏 slide+fade 覆盖，独立 fade 待后续统一补（登记缺口，不大改）。
-              // [LAYOUT_PLAN P4] 搜索 pill 缺口：底栏全文搜索为 mini FAB（非 pill
-              // 形态），pill 化待设计收敛，暂不改结构。
-              // 全局页码指示器（跨章节连续分页已注册时显示）
-              if (state.showControls && state.totalPages > 0 && !imageDominant)
-                Positioned(
-                  bottom: 80,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
+            final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
+            final bodyInsets = _stableBodyInsets(context);
+            final avoidTop = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
+            final avoidSides = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
+            final avoidBottom =
+                !cfg.hideNavigationBar || cfg.paddingDisplayCutouts;
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: MediaQuery.removeViewPadding(
+                    context: context,
+                    removeTop: avoidTop,
+                    removeLeft: avoidSides,
+                    removeRight: avoidSides,
+                    removeBottom: avoidBottom,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        top: avoidTop ? bodyInsets.top : 0,
+                        left: avoidSides ? bodyInsets.left : 0,
+                        right: avoidSides ? bodyInsets.right : 0,
+                        bottom: avoidBottom ? bodyInsets.bottom : 0,
                       ),
-                      decoration: BoxDecoration(
-                        // [深色主题 Batch A-3] black54 → onSurfaceVariant：
-                        // 亮态 def #53433E（深色胶囊，观感等效旧 black54+白字）；
-                        // 暗态 def #D8C4BE（修复旧 black54 在黑底上近不可见），
-                        // 深色观感留 Batch B 对照参考阅读器截图复核
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '全局页 ${state.globalPageIndex + 1} / ${state.totalPages}',
-                        // [深色主题 Batch A-3] 白字 → surface（亮态 #F5F5F5≈白；
-                        // 暗态 #424242 深字，与 onSurfaceVariant 亮底互为对比）
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.surface,
-                          fontSize: 12,
-                        ),
+                      child: Stack(
+                        children: [
+                          if (imageDominant)
+                            ReaderImageDominantBody(
+                              content: state.chapterContent,
+                              book: book,
+                              imageStyle: book.readConfig?.imageStyle,
+                              onToggleControls: notifier.toggleControls,
+                              hasNextChapter: state.hasNextChapter,
+                              hasPrevChapter: state.hasPreviousChapter,
+                              onNextChapter: notifier.nextChapter,
+                              onPrevChapter: notifier.prevChapter,
+                            )
+                          else
+                            GestureDetector(
+                              onTapUp: (details) =>
+                                  _handleTap(context, details),
+                              child: ReaderPageView(
+                                onTapUp: (details) =>
+                                    _handleTap(context, details),
+                                key: _pageViewKey,
+                                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
+                                // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
+                                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
+                                //（同步可靠），解析结果作兜底 — Qoder
+                                // [UI-fix v2.0.4 | 2026-08-08] 共享配置源：面板/界面 Sheet 的
+                                // 修改统一推送 readerAdvConfigProvider，watch 触发重建并同步
+                                // _advConfig（Stack 子级按序求值，后续 ReaderStatusStrip 等
+                                // 消费点拿到最新配置；provider 未加载完成时兜底用自加载值）— Qoder
+                                paragraphSpacing:
+                                    (_advConfig =
+                                            ref.watch(
+                                              readerAdvConfigProvider,
+                                            ) ??
+                                            _advConfig)
+                                        .paragraphSpacing,
+                                // [UI-fix v2.0.2 | 2026-08-06] 阅读配置面板新增排版参数接入分页渲染 — Qoder
+                                letterSpacing: _advConfig.letterSpacing,
+                                paragraphIndent: _advConfig.paragraphIndent,
+                                textFullJustify: _advConfig.textFullJustify,
+                                // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
+                                marginTop: _advConfig.pageMarginTop,
+                                marginBottom: _advConfig.pageMarginBottom,
+                                marginLeft: _advConfig.pageMarginLeft,
+                                marginRight: _advConfig.pageMarginRight,
+                                pageChrome: ReaderPageChromeConfig.fromAdvanced(
+                                  _advConfig,
+                                ),
+                                readBodyToLh: cfg.readBodyToLh,
+                                // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
+                                // 文本开关与滚动翻页无动画接入内容区 — Qoder
+                                selectText: _advConfig.selectText,
+                                noAnimScroll: _advConfig.noAnimScrollPage,
+                                // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
+                                // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
+                                textBold: _advConfig.textBold,
+                                // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
+                                italic: _advConfig.italic,
+                                customTextColor: _advConfig.customTextColor,
+                                mouseWheelPage: _advConfig.mouseWheelPage,
+                                // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
+                                // doubleHorizontalPage 0-3 档）— Reasonix
+                                doubleHorizontalPage:
+                                    _advConfig.doubleHorizontalPage,
+                                // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
+                                // useZhLayout）— Reasonix
+                                useZhLayout: _advConfig.useZhLayout,
+                                // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂透传（对标原版
+                                // hangingPunctuation）— Reasonix
+                                hangingPunctuation:
+                                    _advConfig.hangingPunctuation,
+                                reviewCounts: _reviewCounts,
+                                onReviewTap: _onReviewTap,
+                              ),
+                            ),
+                          if (!state.showControls)
+                            ReaderStatusStrip(
+                              config: _advConfig,
+                              readBodyToLh: cfg.readBodyToLh,
+                            ),
+                          // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
+                          //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
+                          // 步进与 目录/停止/设置 快捷操作（对齐参考版「即开即调」形态）
+                          if (_advConfig.autoPageTurn &&
+                              !state.showControls &&
+                              !aloudActive)
+                            Positioned(
+                              bottom: 24,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                // 浮条自身消费点击：避免点在标签/空白处透传到正文显隐手势
+                                child: GestureDetector(
+                                  onTap: () {},
+                                  child: AutoTurnPanel(
+                                    intervalSeconds:
+                                        _advConfig.autoPageTurnInterval,
+                                    onIntervalChanged: _setAutoPageInterval,
+                                    onStop: _toggleAutoPage,
+                                    onOpenCatalog: () => unawaited(_openToc()),
+                                    onOpenSettings: () =>
+                                        ReaderSettingsSheet.show(context),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
-              //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
-              // 步进与 目录/停止/设置 快捷操作（对齐参考版「即开即调」形态）
-              if (_advConfig.autoPageTurn &&
-                  !state.showControls &&
-                  !aloudActive)
-                Positioned(
-                  bottom: 24,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    // 浮条自身消费点击：避免点在标签/空白处透传到正文显隐手势
-                    child: GestureDetector(
-                      onTap: () {},
-                      child: AutoTurnPanel(
-                        intervalSeconds: _advConfig.autoPageTurnInterval,
-                        onIntervalChanged: _setAutoPageInterval,
-                        onStop: _toggleAutoPage,
-                        onOpenCatalog: () => unawaited(_openToc()),
-                        onOpenSettings: () => ReaderSettingsSheet.show(context),
-                      ),
-                    ),
+                // [UI_SYNC_REFACTOR S2-1] 单块底部面板（五分区，替代顶/底栏
+                // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
+                if (aloudActive && !_aloudBarHidden)
+                  ReadAloudBar(
+                    onDismiss: () => setState(() => _aloudBarHidden = true),
+                    onOpenCatalog: () => unawaited(_openToc()),
+                    onBackstage: () => Navigator.of(context).maybePop(),
+                  )
+                else
+                  ReaderMenuPanel(
+                    visible: state.showControls,
+                    onBack: () => Navigator.of(context).maybePop(),
+                    onAddBookmark: () => _addBookmark(state),
+                    onOpenCatalog: () => unawaited(_openToc()),
+                    onOpenSettings: () => ReaderSettingsSheet.show(context),
+                    onOpenAdvancedConfig: () => _openAdvancedConfig(context),
+                    onOpenContentSearch: () => _openContentSearch(state),
+                    onReadAloud: _onReadAloudTap,
+                    onToggleAutoPage: _toggleAutoPage,
+                    onOpenReplaceRules: () =>
+                        Navigator.pushNamed(context, AppRoutes.replaceRules),
+                    brightnessMode: cfg.brightnessMode,
+                    brightnessOnLeft: cfg.brightnessOnLeft,
+                    progressBehavior: _advConfig.progressBarBehavior,
+                    onSeekPage: (page) =>
+                        _pageViewKey.currentState?.goToPage(page),
+                    styleFollowPage: _advConfig.readBarStyleFollowPage,
                   ),
-                ),
-              // [UI_SYNC_REFACTOR S2-1] 单块底部面板（五分区，替代顶/底栏
-              // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
-              if (aloudActive && !_aloudBarHidden)
-                ReadAloudBar(
-                  onDismiss: () => setState(() => _aloudBarHidden = true),
-                  onOpenCatalog: () => unawaited(_openToc()),
-                  onBackstage: () => Navigator.of(context).maybePop(),
-                )
-              else
-                ReaderMenuPanel(
-                  visible: state.showControls,
-                  onBack: () => Navigator.of(context).maybePop(),
-                  onAddBookmark: () => _addBookmark(state),
-                  onOpenCatalog: () => unawaited(_openToc()),
-                  onOpenSettings: () => ReaderSettingsSheet.show(context),
-                  onOpenAdvancedConfig: () => _openAdvancedConfig(context),
-                  onOpenContentSearch: () => _openContentSearch(state),
-                  onReadAloud: _onReadAloudTap,
-                  onToggleAutoPage: _toggleAutoPage,
-                  onOpenReplaceRules: () =>
-                      Navigator.pushNamed(context, AppRoutes.replaceRules),
-                  showBrightnessView: _advConfig.showBrightnessView,
-                  progressBehavior: _advConfig.progressBarBehavior,
-                  onSeekPage: (page) =>
-                      _pageViewKey.currentState?.goToPage(page),
-                  styleFollowPage: _advConfig.readBarStyleFollowPage,
-                ),
-            ],
-        );
-            // F6：填充刘海 / 扩展到刘海
-            if (cfg.paddingDisplayCutouts) {
-              final vp = MediaQuery.viewPaddingOf(context);
-              body = Padding(
-                padding: EdgeInsets.only(
-                  top: cfg.readBodyToLh ? 0 : vp.top,
-                  left: vp.left,
-                  right: vp.right,
-                  bottom: vp.bottom,
-                ),
-                child: body,
-              );
-            } else if (!cfg.readBodyToLh) {
-              body = SafeArea(
-                left: true,
-                right: true,
-                top: true,
-                bottom: false,
-                child: body,
-              );
-            }
-            return body;
+              ],
+            );
           },
         ),
       ),
@@ -811,8 +816,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _openToc() async {
     final book = ref.read(readerNotifierProvider).currentBook;
     if (book == null) return;
-    final result =
-        await Navigator.pushNamed(context, AppRoutes.toc, arguments: book);
+    final result = await Navigator.pushNamed(
+      context,
+      AppRoutes.toc,
+      arguments: book,
+    );
     if (!mounted) return;
     if (result is int) {
       await ref.read(readerNotifierProvider.notifier).goToChapter(result);
@@ -828,7 +836,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final state = ref.read(readerNotifierProvider);
     final audio = ref.read(audioNotifierProvider);
     final book = state.currentBook;
-    final aloudActive = book != null &&
+    final aloudActive =
+        book != null &&
         audio.bookUrl == book.bookUrl &&
         audio.state != PlayerState.idle;
 
@@ -868,13 +877,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _startReadAloud(ReaderState state) async {
     final book = state.currentBook;
     if (book == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法启动朗读：未打开书籍')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('无法启动朗读：未打开书籍')));
       return;
     }
     setState(() => _aloudBarHidden = false);
-    await ref.read(audioNotifierProvider.notifier).startReadAloud(
+    await ref
+        .read(audioNotifierProvider.notifier)
+        .startReadAloud(
           bookUrl: book.bookUrl,
           bookName: book.name,
           chapterIndex: state.currentChapterIndex,
@@ -890,33 +900,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     if (_pageViewKey.currentState?.consumeSelectionTap() ?? false) return;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final tapX = details.globalPosition.dx;
     final pageView = _pageViewKey.currentState;
-
-    // [fix Task#41 | 2026-08-09] pageTouchClick 消费点（对标原版
-    // ReadView.setRect9x：左右边缘 pageTouchClick px 内不落入任何点击
-    // 分区，即该条带内的点击不触发任何动作）；默认值 0 与原版一致，
-    // 不影响既有左 30%/中 40%/右 30% 分区
-    // [fix Task#45 | 2026-08-09] 死区钳制到半屏以内（M2）：阈值最大
-    // 399，窄窗口下左右死区重叠会吞掉全部点击（含中央菜单唤出），
-    // 钳制后中央至少保留 2px 可点击区；默认 0 行为不变 — Qoder
-    final deadZone = math.min(
-      _advConfig.pageTouchClick.toDouble(),
-      screenWidth / 2 - 1,
+    final body = _pageViewKey.currentContext?.findRenderObject();
+    if (body is! RenderBox || !body.hasSize) return;
+    final action = _advConfig.actionForPosition(
+      body.globalToLocal(details.globalPosition),
+      body.size,
     );
-    if (deadZone > 0 && (tapX < deadZone || tapX > screenWidth - deadZone)) {
-      return;
-    }
-
-    TapAction action;
-    if (tapX < screenWidth * 0.3) {
-      action = _advConfig.leftAction;
-    } else if (tapX > screenWidth * 0.7) {
-      action = _advConfig.rightAction;
-    } else {
-      action = _advConfig.centerAction;
-    }
 
     switch (action) {
       case TapAction.none:
@@ -947,15 +937,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final book = state.currentBook;
     final chapter = state.currentChapter;
     if (book == null || chapter == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法添加书签：未打开书籍')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('无法添加书签：未打开书籍')));
       return;
     }
     final content = state.chapterContent;
     final summary = content.length > 100 ? content.substring(0, 100) : content;
 
-    ref.read(bookmarkNotifierProvider.notifier).addBookmark(
+    ref
+        .read(bookmarkNotifierProvider.notifier)
+        .addBookmark(
           bookName: book.name,
           bookAuthor: book.author,
           chapterIndex: state.currentChapterIndex,
@@ -963,20 +954,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           chapterName: chapter.title,
           bookText: summary,
         );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已添加书签：${chapter.title}')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('已添加书签：${chapter.title}')));
   }
 
   /// 打开正文搜索页面
   void _openContentSearch(ReaderState state) {
     final book = state.currentBook;
     if (book == null) return;
-    Navigator.pushNamed(
-      context,
-      AppRoutes.searchContent,
-      arguments: book,
-    );
+    Navigator.pushNamed(context, AppRoutes.searchContent, arguments: book);
   }
 
   /// 进入完整阅读设置，返回后同步系统显示与自动翻页。
@@ -1048,9 +1034,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _autoSwitching = true;
     try {
       final api = ref.read(bookApiProvider);
-      final matches = (await api.searchSource(book.name, book.author))
-          .map(SourceMatch.fromJson)
-          .toList();
+      final matches = (await api.searchSource(
+        book.name,
+        book.author,
+      )).map(SourceMatch.fromJson).toList();
       SourceMatch? target;
       for (final m in matches) {
         if (m.sourceUrl.isNotEmpty && m.sourceUrl != book.origin) {
@@ -1060,9 +1047,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }
       if (!mounted) return;
       if (target == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('自动换源：无可用替代书源')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('自动换源：无可用替代书源')));
         return;
       }
       final updatedJson = await api.switchSource(
@@ -1100,9 +1086,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _autoSwitchAttempts = 0;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('自动换源失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('自动换源失败: $e')));
       }
     } finally {
       _autoSwitching = false;

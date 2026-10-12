@@ -11,7 +11,6 @@ import '../../screens/reader_config_panel.dart';
 import '../app_scaffold.dart';
 import '../legado_app_bar.dart';
 import '../settings_widgets.dart';
-import 'reader_padding_config_sheet.dart';
 import 'reader_tip_config_sheet.dart';
 
 part 'reader_settings_sheet_font_panel.part.dart';
@@ -22,11 +21,10 @@ part 'reader_settings_sheet_font_panel.part.dart';
 enum ReaderSettingsCategory {
   typography('字体与排版', '字体、字号、行距与段落样式', Icons.text_fields),
   background('背景与配色', '预设背景与自定义文字颜色', Icons.palette_outlined),
+  layout('页面布局', '正文边距、章节标题、页眉与页脚', Icons.crop_free),
   interaction('翻页与操作', '翻页动画、点击区域与自动翻页', Icons.auto_stories_outlined),
-  information('标题与信息', '章节标题、页眉页脚与状态条', Icons.info_outline),
-  screen('页面与屏幕', '边距、亮度、屏幕方向与系统栏', Icons.phone_android),
-  content('内容与工具栏', '简繁转换、换源与工具栏显示', Icons.tune),
-  margins('页面边距', '页眉、正文与页脚边距', Icons.crop_free);
+  content('内容处理', '简繁转换与自动换源', Icons.article_outlined),
+  screen('屏幕与工具栏', '亮度、系统栏、状态条与菜单工具栏', Icons.phone_android);
 
   const ReaderSettingsCategory(this.title, this.summary, this.icon);
   final String title;
@@ -173,6 +171,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             _configPanel(adv, ReaderConfigSection.brightness),
             const SizedBox(height: 12),
             SettingsGroup(
+              showDividers: false,
               margin: EdgeInsets.zero,
               children: [
                 IosListTile(
@@ -215,21 +214,22 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       return Column(
         children: [
           SettingsGroup(
+            showDividers: false,
             margin: EdgeInsets.zero,
             children: [
               for (final item in ReaderSettingsCategory.values)
-                if (item != ReaderSettingsCategory.margins)
-                  IosListTile(
-                    icon: item.icon,
-                    title: item.title,
-                    subtitle: item.summary,
-                    onTap: () =>
-                        ReaderSettingsSheet.showPage(context, category: item),
-                  ),
+                IosListTile(
+                  icon: item.icon,
+                  title: item.title,
+                  subtitle: item.summary,
+                  onTap: () =>
+                      ReaderSettingsSheet.showPage(context, category: item),
+                ),
             ],
           ),
           const SizedBox(height: 16),
           SettingsGroup(
+            showDividers: false,
             margin: EdgeInsets.zero,
             children: [
               SettingSwitchRow(
@@ -271,54 +271,26 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         _buildFlipGroup(state, notifier),
         _configPanel(adv, ReaderConfigSection.interaction),
       ],
-      ReaderSettingsCategory.information => <Widget>[
-        if (adv.titleMode != 2)
-          ReaderFontPanel(
+      ReaderSettingsCategory.layout => <Widget>[
+        _configPanel(adv, ReaderConfigSection.pageLayout),
+        ReaderTipConfigSheet(
+          config: adv.copy(),
+          onChanged: _commitAdv,
+          embedded: true,
+          showStatusBar: false,
+          titleFont: ReaderFontPanel(
             config: adv.copy(),
             onChanged: _commitAdv,
             titleOnly: true,
+            embedded: true,
           ),
-        SettingsGroup(
-          children: [
-            ReaderTipConfigSheet(
-              config: adv.copy(),
-              onChanged: _commitAdv,
-              embedded: true,
-            ),
-          ],
         ),
       ],
       ReaderSettingsCategory.screen => <Widget>[
-        SettingsGroup(
-          margin: EdgeInsets.zero,
-          children: [
-            IosListTile(
-              icon: Icons.crop_free,
-              title: '页面边距',
-              subtitle: '页眉、正文与页脚',
-              onTap: () => ReaderSettingsSheet.showPage(
-                context,
-                category: ReaderSettingsCategory.margins,
-              ),
-            ),
-          ],
-        ),
         _configPanel(adv, ReaderConfigSection.screen),
       ],
       ReaderSettingsCategory.content => <Widget>[
         _configPanel(adv, ReaderConfigSection.content),
-        _configPanel(adv, ReaderConfigSection.toolbar),
-      ],
-      ReaderSettingsCategory.margins => <Widget>[
-        SettingsGroup(
-          children: [
-            ReaderPaddingConfigSheet(
-              config: adv.copy(),
-              onChanged: _commitAdv,
-              embedded: true,
-            ),
-          ],
-        ),
       ],
     };
     return Column(
@@ -334,64 +306,32 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
 
   Widget _buildFlipGroup(ReaderState state, ReaderNotifier notifier) =>
       SettingsGroup(
+        showDividers: false,
         children: [
-          ListTile(
-            leading: const Icon(Icons.auto_stories_outlined),
-            title: Text('翻页动画', style: Theme.of(context).textTheme.titleMedium),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_flipLabels[state.pageTurnMode] ?? '覆盖'),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-            onTap: () => _showFlipPicker(state, notifier),
+          SettingMenuRow<PageTurnMode>(
+            title: '翻页动画',
+            icon: Icons.auto_stories_outlined,
+            value: state.pageTurnMode,
+            options: _flipLabels,
+            onChanged: notifier.updatePageTurnMode,
           ),
         ],
       );
 
   /// 快捷面板和字体分组共用字号步进控件。
   Widget _buildFontSizeGroup(ReaderState state, ReaderNotifier notifier) =>
-      SettingsGroup(children: [_buildFontSizeControl(state, notifier)]);
+      SettingsGroup(
+        showDividers: false,
+        children: [_buildFontSizeControl(state, notifier)],
+      );
 
   Widget _buildFontSizeControl(ReaderState state, ReaderNotifier notifier) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text('字号', style: Theme.of(context).textTheme.titleMedium),
-            ),
-            IconButton(
-              tooltip: '减小字号',
-              onPressed: state.fontSize > 12
-                  ? () => notifier.updateFontSize(
-                      (state.fontSize - 1).clamp(12.0, 32.0),
-                    )
-                  : null,
-              icon: const Icon(Icons.remove_rounded),
-            ),
-            SizedBox(
-              width: 48,
-              child: Text(
-                state.fontSize.round().toString(),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge
-                    ?.copyWith(color: Theme.of(context).colorScheme.primary),
-              ),
-            ),
-            IconButton(
-              tooltip: '增大字号',
-              onPressed: state.fontSize < 32
-                  ? () => notifier.updateFontSize(
-                      (state.fontSize + 1).clamp(12.0, 32.0),
-                    )
-                  : null,
-              icon: const Icon(Icons.add_rounded),
-            ),
-          ],
-        ),
+      SettingStepperRow(
+        title: '字号',
+        value: state.fontSize,
+        min: 12,
+        max: 32,
+        onChanged: notifier.updateFontSize,
       );
 
   /// 背景分组：标题 + 长按自定义提示 + 月亮夜间切换 + 预设 chips
@@ -401,6 +341,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     ReaderAdvancedConfig adv,
   ) {
     return SettingsGroup(
+      showDividers: false,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,7 +462,8 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         : Colors.white70;
     return GestureDetector(
       onLongPress: () => _showCustomColorDialog(context, null, notifier, state),
-      onTap: () => notifier.updateBackgroundColor(ReaderBackground.presets[index]),
+      onTap: () =>
+          notifier.updateBackgroundColor(ReaderBackground.presets[index]),
       child: Container(
         width: 64,
         height: 56,
@@ -561,32 +503,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 翻页动画五选弹窗（顺序对齐原版 page_anim 数组）
-  void _showFlipPicker(ReaderState state, ReaderNotifier notifier) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('翻页动画'),
-        children: [
-          for (final mode in PageTurnMode.values)
-            ListTile(
-              title: Text(_flipLabels[mode] ?? mode.name),
-              trailing: state.pageTurnMode == mode
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(dialogContext).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () {
-                Navigator.pop(dialogContext);
-                notifier.updatePageTurnMode(mode);
-              },
-            ),
-        ],
       ),
     );
   }

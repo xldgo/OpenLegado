@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
 
+import 'app_menu.dart';
 import 'setting_cards.dart';
 
 /// 跨平台分组列表组件库。
@@ -118,6 +119,10 @@ class IosSectionFooter extends StatelessWidget {
 class SettingsGroup extends StatelessWidget {
   /// 可选的卡片内标题，不参与设置行之间的分隔线。
   final String? title;
+
+  /// 标题后的小字号说明，与标题同行，空间不足时自然换行。
+  final String? titleSuffix;
+  final bool showDividers;
   final List<Widget> children;
   final double? separatorIndent;
   final EdgeInsets margin;
@@ -127,6 +132,8 @@ class SettingsGroup extends StatelessWidget {
     super.key,
     required this.children,
     this.title,
+    this.titleSuffix,
+    this.showDividers = true,
     this.separatorIndent,
     this.margin = const EdgeInsets.symmetric(horizontal: 0),
     this.flat = false,
@@ -134,7 +141,9 @@ class SettingsGroup extends StatelessWidget {
 
   bool _hasLeading(Widget row) => switch (row) {
     IosListTile(:final icon, :final leading) => icon != null || leading != null,
-    SettingSwitchRow(:final icon, :final leading) => icon != null || leading != null,
+    SettingSwitchRow(:final icon, :final leading) =>
+      icon != null || leading != null,
+    SettingMenuRow(:final icon) => icon != null,
     ListTile(:final leading) => leading != null,
     _ => false,
   };
@@ -144,31 +153,47 @@ class SettingsGroup extends StatelessWidget {
     final theme = Theme.of(context);
     final rows = <Widget>[];
     if (title != null) {
-      rows.add(Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Text(
-            title!,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text.rich(
+              TextSpan(
+                text: title!,
+                children: [
+                  if (titleSuffix != null)
+                    TextSpan(
+                      text: ' · $titleSuffix',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),
-      ));
+      );
     }
     for (var i = 0; i < children.length; i++) {
       rows.add(children[i]);
-      if (i != children.length - 1) {
+      if (showDividers && i != children.length - 1) {
         // 图标行的文字起点为 16dp 内边距 + 24dp 图标列 + 16dp 间距。
-        final hasLeading = _hasLeading(children[i]) || _hasLeading(children[i + 1]);
-        rows.add(Divider(
-          height: 0.5,
-          thickness: 0.5,
-          indent: separatorIndent ?? (hasLeading ? 56 : 16),
-          endIndent: 16,
-          color: theme.dividerColor,
-        ));
+        final hasLeading =
+            _hasLeading(children[i]) || _hasLeading(children[i + 1]);
+        rows.add(
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            indent: separatorIndent ?? (hasLeading ? 56 : 16),
+            endIndent: 16,
+            color: theme.dividerColor,
+          ),
+        );
       }
     }
 
@@ -360,6 +385,146 @@ class IosListTile extends StatelessWidget {
       enabled: enabled,
       dense: dense,
       contentPadding: contentPadding,
+    );
+  }
+}
+
+/// 单选菜单设置行：整行打开菜单，右侧显示当前值，不绘制跳转箭头。
+/// 配置保存由调用方负责；选项与当前值可附带图标预览。
+class SettingMenuRow<T> extends StatelessWidget {
+  const SettingMenuRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.subtitle,
+    this.icon,
+    this.valuePreview,
+    this.optionBuilder,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T>? onChanged;
+  final Widget? valuePreview;
+  final Widget Function(T value, String label)? optionBuilder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => AppMenuAnchor<T>(
+      itemBuilder: (_) => [
+        for (final entry in options.entries)
+          AppMenuItem(
+            value: entry.key,
+            checked: entry.key == value,
+            enabled: onChanged != null,
+            child:
+                optionBuilder?.call(entry.key, entry.value) ??
+                Text(entry.value),
+          ),
+      ],
+      onSelected: onChanged,
+      builder: (context, controller, _) => IosListTile(
+        title: title,
+        subtitle: subtitle,
+        icon: icon,
+        showChevron: false,
+        enabled: onChanged != null,
+        trailing: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.48),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (valuePreview != null) ...[
+                valuePreview!,
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  options[value] ?? '未设置',
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        onTap: onChanged == null
+            ? null
+            : () => controller.isOpen ? controller.close() : controller.open(),
+      ),
+    ),
+  );
+}
+
+/// 数值步进设置行：名称、减号、带单位的当前值和加号。
+/// 只负责步进与边界限制，联动及持久化交给调用方。
+class SettingStepperRow extends StatelessWidget {
+  const SettingStepperRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.step = 1,
+    this.unit,
+    this.showPlus = false,
+  }) : assert(min <= max),
+       assert(step > 0);
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+  final double step;
+  final String? unit;
+  final bool showPlus;
+  final ValueChanged<double>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final number = value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
+    final label =
+        '${showPlus && value >= 0 ? '+' : ''}$number${unit == null ? '' : ' $unit'}';
+    return IosListTile(
+      title: title,
+      showChevron: false,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: '减小$title',
+            onPressed: onChanged != null && value > min
+                ? () => onChanged!((value - step).clamp(min, max))
+                : null,
+            icon: const Icon(Icons.remove_rounded),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+            ),
+          ),
+          IconButton(
+            tooltip: '增大$title',
+            onPressed: onChanged != null && value < max
+                ? () => onChanged!((value + step).clamp(min, max))
+                : null,
+            icon: const Icon(Icons.add_rounded),
+          ),
+        ],
+      ),
     );
   }
 }

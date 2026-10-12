@@ -8,7 +8,7 @@ import '../settings_widgets.dart';
 
 /// 页面边距配置（对标原版 PaddingConfigDialog + dialog_read_padding.xml）
 ///
-/// - 页眉/正文/页脚三 Tab
+/// - 嵌入分组时直接显示区域，独立入口保留标准分段选择器
 /// - 四向 ± 步进（DetailSeekBar 语义：上/下 0-400，左/右 0-100）
 /// - 左右联动开关、页眉/页脚显示分隔线开关
 class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
@@ -16,11 +16,15 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
   final ValueChanged<ReaderAdvancedConfig>? onChanged;
   final bool embedded;
 
+  /// 指定区域时直接显示对应边距，不再绘制区域切换控件。
+  final PaddingRegion? region;
+
   const ReaderPaddingConfigSheet({
     super.key,
     required this.config,
     this.onChanged,
     this.embedded = false,
+    this.region,
   });
 
   static Future<void> show(
@@ -60,6 +64,7 @@ class _ReaderPaddingConfigSheetState
   @override
   void initState() {
     super.initState();
+    _region = widget.region ?? PaddingRegion.body;
     _syncLockLrFromRegion();
   }
 
@@ -73,6 +78,10 @@ class _ReaderPaddingConfigSheetState
   void didUpdateWidget(covariant ReaderPaddingConfigSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     _config = widget.config.copy();
+    if (oldWidget.region != widget.region) {
+      _region = widget.region ?? PaddingRegion.body;
+      _syncLockLrFromRegion();
+    }
   }
 
   void _commit() {
@@ -161,9 +170,9 @@ class _ReaderPaddingConfigSheetState
     }
   }
 
-  void _adjust(_Side side, int delta) {
+  void _updatePadding(_Side side, double proposedValue) {
     final max = (side == _Side.left || side == _Side.right) ? 100.0 : 400.0;
-    var value = (_paddingFor(_region, side) + delta).clamp(0.0, max);
+    final value = proposedValue.clamp(0.0, max);
     _setPadding(_region, side, value);
     if (_lockLr && (side == _Side.left || side == _Side.right)) {
       final other = side == _Side.left ? _Side.right : _Side.left;
@@ -192,152 +201,103 @@ class _ReaderPaddingConfigSheetState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final fixedRegion = widget.region != null;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.embedded) const Center(child: IosGrabber()),
+        if (!fixedRegion) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '页面边距',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '恢复默认边距',
+                  onPressed: _resetRegion,
+                  icon: const Icon(Icons.restore),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SegmentedButton<PaddingRegion>(
+              segments: const [
+                ButtonSegment(value: PaddingRegion.header, label: Text('页眉')),
+                ButtonSegment(value: PaddingRegion.body, label: Text('正文')),
+                ButtonSegment(value: PaddingRegion.footer, label: Text('页脚')),
+              ],
+              selected: {_region},
+              onSelectionChanged: (selected) {
+                setState(() {
+                  _region = selected.first;
+                  _syncLockLrFromRegion();
+                });
+              },
+            ),
+          ),
+        ],
+        const Divider(height: 16, indent: 16, endIndent: 16),
+        _paddingRow('上边距', _Side.top),
+        _paddingRow('下边距', _Side.bottom),
+        _paddingRow('左边距', _Side.left),
+        _paddingRow('右边距', _Side.right),
+        const Divider(height: 16, indent: 16, endIndent: 16),
+        SettingSwitchRow(
+          title: '左右边距联动',
+          value: _lockLr,
+          onChanged: (v) => setState(() => _lockLr = v),
+        ),
+        if (fixedRegion)
+          IosListTile(
+            title: '恢复默认边距',
+            trailing: const Icon(Icons.restore),
+            showChevron: false,
+            onTap: _resetRegion,
+          ),
+        if (!fixedRegion && _region == PaddingRegion.header)
+          _lineSwitch(header: true)
+        else if (!fixedRegion && _region == PaddingRegion.footer)
+          _lineSwitch(header: false),
+      ],
+    );
+    if (widget.embedded) return content;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: widget.embedded
-            ? EdgeInsets.zero
-            : const EdgeInsets.fromLTRB(0, 8, 0, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!widget.embedded) const Center(child: IosGrabber()),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.embedded ? '调整边距' : '页面边距',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '恢复默认',
-                    onPressed: _resetRegion,
-                    icon: const Icon(Icons.restore),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  _regionTab(PaddingRegion.header, '页眉'),
-                  const SizedBox(width: 4),
-                  _regionTab(PaddingRegion.body, '正文'),
-                  const SizedBox(width: 4),
-                  _regionTab(PaddingRegion.footer, '页脚'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            _seekRow('上边距', _Side.top, Icons.arrow_upward),
-            _seekRow('下边距', _Side.bottom, Icons.arrow_downward),
-            _seekRow('左边距', _Side.left, Icons.arrow_back),
-            _seekRow('右边距', _Side.right, Icons.arrow_forward),
-            SettingSwitchRow(
-              title: '左右边距联动',
-              value: _lockLr,
-              onChanged: (v) => setState(() => _lockLr = v),
-            ),
-            if (_region == PaddingRegion.header)
-              SettingSwitchRow(
-                title: '显示页眉分隔线',
-                value: _config.showHeaderLine,
-                onChanged: (v) {
-                  _config.showHeaderLine = v;
-                  _commit();
-                },
-              )
-            else if (_region == PaddingRegion.footer)
-              SettingSwitchRow(
-                title: '显示页脚分隔线',
-                value: _config.showFooterLine,
-                onChanged: (v) {
-                  _config.showFooterLine = v;
-                  _commit();
-                },
-              ),
-          ],
-        ),
+        padding: const EdgeInsets.only(bottom: 24),
+        child: content,
       ),
     );
   }
 
-  Widget _regionTab(PaddingRegion region, String label) {
-    final selected = _region == region;
-    final theme = Theme.of(context);
-    return Expanded(
-      child: Material(
-        color: selected ? theme.colorScheme.primary : Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            setState(() {
-              _region = region;
-              _syncLockLrFromRegion();
-            });
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: selected
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _lineSwitch({required bool header}) => SettingSwitchRow(
+    title: header ? '显示页眉分隔线' : '显示页脚分隔线',
+    value: header ? _config.showHeaderLine : _config.showFooterLine,
+    onChanged: (value) {
+      if (header) {
+        _config.showHeaderLine = value;
+      } else {
+        _config.showFooterLine = value;
+      }
+      _commit();
+    },
+  );
 
-  Widget _seekRow(String label, _Side side, IconData icon) {
-    final value = _paddingFor(_region, side).round();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 56,
-            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _adjust(side, -1),
-            icon: const Icon(Icons.remove_circle_outline),
-          ),
-          SizedBox(
-            width: 48,
-            child: Text(
-              '$value',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _adjust(side, 1),
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _paddingRow(String label, _Side side) => SettingStepperRow(
+    title: label,
+    value: _paddingFor(_region, side),
+    min: 0,
+    max: side == _Side.left || side == _Side.right ? 100 : 400,
+    unit: 'dp',
+    onChanged: (value) => _updatePadding(side, value),
+  );
 }
 
 enum _Side { top, bottom, left, right }

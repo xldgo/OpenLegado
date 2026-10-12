@@ -161,6 +161,11 @@ Future<ProviderContainer> _pumpReader(
     ),
   );
   await tester.pumpAndSettle();
+  // 菜单手势从章内第二页开始，避免配置重排将旧初始页码归零。
+  if (mode != PageTurnMode.scroll) {
+    tester.state<ReaderPageViewState>(find.byType(ReaderPageView)).goToPage(1);
+    await tester.pumpAndSettle();
+  }
   return container;
 }
 

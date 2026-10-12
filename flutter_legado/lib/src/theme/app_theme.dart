@@ -5,43 +5,6 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 import 'app_typography.dart';
 import 'md3_colors.dart';
 
-/// Android 页面转场（对齐 HapeLee MainActivity NavDisplay 实际行为）
-///
-/// 参考仓库源核实（navigation3 1.1.7 NavDisplay.android.kt）：所有转场均为
-/// 「进页 fade in + 被覆盖页同步 fade out」的交叉淡入淡出——默认 700ms，
-/// BookInfo 条件 300ms、ReadBook 600ms（时长分档在 routes.dart 注册）；
-/// 缓动对齐 Compose tween 默认 FastOutSlowIn；scale 仅预测式返回手势使用。
-/// [UI-fix v2.0.167] 原 slide480+fade360 / pop scale0.8 标尺与参考仓库源不符，
-/// 按主源修正为统一 crossfade（pop 时主/次动画自然反转，无需单独分支）。
-class _LegadoAndroidTransitionsBuilder extends PageTransitionsBuilder {
-  const _LegadoAndroidTransitionsBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    // 进页：本路由 primary 0→1 淡入；被覆盖：secondary 0→1 → 本路由 1→0 淡出。
-    // pop 时两个动画反向播放，天然得到「本路由淡出 + 底页淡入」。
-    final fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: animation, curve: Curves.fastOutSlowIn),
-    );
-    final fadeBelow = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(parent: secondaryAnimation, curve: Curves.fastOutSlowIn),
-    );
-    return FadeTransition(
-      opacity: fade,
-      child: FadeTransition(
-        opacity: fadeBelow,
-        child: child,
-      ),
-    );
-  }
-}
-
 /// 应用主题定义（Material Design 3 Expressive）
 ///
 /// 集中管理按调色板装配的 light/dark ThemeData（UI_MD3_PLAN.md Batch 0）：
@@ -223,8 +186,8 @@ class AppTheme {
   /// 根据背景明暗计算前景对比色（对齐原版 ColorUtils.isColorLight 逻辑）
   static Color _onColor(Color bg) =>
       ThemeData.estimateBrightnessForColor(bg) == Brightness.light
-          ? Colors.black87
-          : Colors.white;
+      ? Colors.black87
+      : Colors.white;
 
   /// 构建 ThemeData 通用方法（MD3 Expressive 视觉层）
   static ThemeData _buildTheme({
@@ -258,15 +221,6 @@ class AppTheme {
       dividerColor: separator,
       splashFactory: InkSparkle.splashFactory,
 
-      // 页面转场 —— 全站 crossfade（对齐参考仓 NavDisplay 实际行为）
-      // [UI-fix v2.0.167] 进页淡入 + 被覆盖页同步淡出；时长分档（默认 700/
-      // 详情 300/阅读 600）在 routes.dart 注册；iOS/桌面走各平台默认。
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: _LegadoAndroidTransitionsBuilder(),
-        },
-      ),
-
       // AppBar 主题 —— 标准 M3：surface 底 + onSurface 前景，滚动时 tonal 抬升
       appBarTheme: AppBarTheme(
         backgroundColor: appBarBackground,
@@ -274,10 +228,12 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 3,
         centerTitle: false,
-        titleTextStyle: AppTypography.lightTextTheme.titleLarge
-            ?.copyWith(color: appBarForeground),
-        toolbarTextStyle: AppTypography.lightTextTheme.bodyLarge
-            ?.copyWith(color: appBarForeground),
+        titleTextStyle: AppTypography.lightTextTheme.titleLarge?.copyWith(
+          color: appBarForeground,
+        ),
+        toolbarTextStyle: AppTypography.lightTextTheme.bodyLarge?.copyWith(
+          color: appBarForeground,
+        ),
         // 浅色导航栏 → 深色状态栏图标；暗色导航栏 → 浅色状态栏图标
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
@@ -396,8 +352,10 @@ class AppTheme {
         labelStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
 
       // ListTile 主题 —— M3 规格（图标 onSurfaceVariant）
@@ -411,11 +369,7 @@ class AppTheme {
       ),
 
       // 分割线主题 —— M3 outlineVariant 1px
-      dividerTheme: DividerThemeData(
-        color: separator,
-        thickness: 1,
-        space: 1,
-      ),
+      dividerTheme: DividerThemeData(color: separator, thickness: 1, space: 1),
 
       // FloatingActionButton 主题
       // [LAYOUT_MOTION_AUDIT L1] 前景走 primary（HapeLee container=primaryContainer,
@@ -424,9 +378,7 @@ class AppTheme {
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.primary,
         elevation: 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       // Dialog 主题 —— Expressive extraLarge 大圆角
@@ -495,10 +447,7 @@ class AppTheme {
           color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(4),
         ),
-        textStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 12,
-        ),
+        textStyle: TextStyle(color: colorScheme.onSurface, fontSize: 12),
       ),
 
       // Chip 主题 —— M3 默认（选中态 secondaryContainer 落地）
@@ -517,9 +466,7 @@ class AppTheme {
           color: colorScheme.onSecondaryContainer,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         side: BorderSide(color: colorScheme.outline),
       ),
 
@@ -549,9 +496,7 @@ class AppTheme {
           }
           return null;
         }),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(2),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
       ),
 
       // Radio 主题 —— 跟随 primary（M3 默认，显式声明）
@@ -589,9 +534,7 @@ class AppTheme {
           colorScheme.surfaceContainerLow,
         ),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32),
-          ),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
         ),
         hintStyle: WidgetStateProperty.all(
           AppTypography.lightTextTheme.bodyMedium?.copyWith(
@@ -607,7 +550,9 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 16),
           ),
-          textStyle: WidgetStatePropertyAll(AppTypography.lightTextTheme.bodyMedium),
+          textStyle: WidgetStatePropertyAll(
+            AppTypography.lightTextTheme.bodyMedium,
+          ),
           shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
         ),
       ),

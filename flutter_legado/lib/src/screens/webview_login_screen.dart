@@ -1,7 +1,7 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
-
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -41,6 +41,10 @@ class WebViewLoginScreen extends StatefulWidget {
   /// BookApi（putLoginHeader 落库）
   final BookApi api;
 
+  /// 书源网页共用 Cookie 接线，购买页可隐藏登录专用操作。
+  final String? title;
+  final bool showLoginActions;
+
   const WebViewLoginScreen({
     super.key,
     required this.sourceUrl,
@@ -48,6 +52,8 @@ class WebViewLoginScreen extends StatefulWidget {
     required this.loginUrl,
     this.header,
     required this.api,
+    this.title,
+    this.showLoginActions = true,
   });
 
   /// 解析书源 header 字段为附加请求头（对齐原版 toWebViewRequestConfig：
@@ -185,8 +191,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   Future<void> _syncCookie(String url) async {
     if (Platform.isIOS) {
       try {
-        final raw = await _controller
-            .runJavaScriptReturningResult('document.cookie');
+        final raw = await _controller.runJavaScriptReturningResult(
+          'document.cookie',
+        );
         final cookie = raw.toString();
         if (cookie.isEmpty || cookie == 'null') return;
         await widget.api.putLoginHeader(
@@ -244,7 +251,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: Text('登录 ${widget.sourceName}'),
+        title: Text(widget.title ?? '登录 ${widget.sourceName}'),
         actions: [
           if (_checking)
             const Padding(
@@ -257,11 +264,12 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
                 ),
               ),
             ),
-          IconButton(
-            icon: const Icon(Symbols.fact_check_rounded),
-            tooltip: '检测',
-            onPressed: _checking ? null : _verify,
-          ),
+          if (widget.showLoginActions)
+            IconButton(
+              icon: const Icon(Symbols.fact_check_rounded),
+              tooltip: '检测',
+              onPressed: _checking ? null : _verify,
+            ),
           AppMenuButton<String>(
             tooltip: '更多选项',
             // [LAYOUT_PLAN P2] 菜单在顶栏下方展开，不覆盖顶栏
@@ -273,12 +281,10 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
                   _openExternal();
               }
             },
-            itemBuilder: (_) => const [
-              AppMenuItem(value: 'manual', child: Text('手动编辑 Cookie')),
-              AppMenuItem(
-                value: 'open_external',
-                child: Text('在浏览器中打开'),
-              ),
+            itemBuilder: (_) => [
+              if (widget.showLoginActions)
+                const AppMenuItem(value: 'manual', child: Text('手动编辑 Cookie')),
+              const AppMenuItem(value: 'open_external', child: Text('在浏览器中打开')),
             ],
           ),
         ],
@@ -288,7 +294,9 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   }
 
   Future<void> _openExternal() async {
-    final uri = Uri.tryParse(resolveAbsoluteUrl(widget.sourceUrl, widget.loginUrl));
+    final uri = Uri.tryParse(
+      resolveAbsoluteUrl(widget.sourceUrl, widget.loginUrl),
+    );
     if (uri != null && await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

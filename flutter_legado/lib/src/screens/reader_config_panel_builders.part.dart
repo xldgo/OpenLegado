@@ -123,55 +123,117 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   // ===== 点击区域 =====
 
   Widget _buildTapZones() {
+    const positions = ['左上', '上中', '右上', '左中', '中间', '右中', '左下', '下中', '右下'];
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('点击区域', Icons.touch_app_outlined),
-        _tapZoneRow('左侧区域', _config.leftAction, (a) {
-          _config.leftAction = a;
-          _commit();
-        }),
-        _tapZoneRow('中间区域', _config.centerAction, (a) {
-          _config.centerAction = a;
-          _commit();
-        }),
-        _tapZoneRow('右侧区域', _config.rightAction, (a) {
-          _config.rightAction = a;
-          _commit();
-        }),
+        Row(
+          children: [
+            Expanded(child: _sectionTitle('点击区域', Icons.touch_app_outlined)),
+            IconButton(
+              tooltip: '恢复默认点击区域',
+              icon: const Icon(Icons.restore),
+              onPressed: () {
+                _config.tapActions.setRange(
+                  0,
+                  9,
+                  ReaderAdvancedConfig.defaultTapActions,
+                );
+                _commit();
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            children: [
+              Text('点击任意区域更换动作', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              AspectRatio(
+                aspectRatio: 1,
+                child: Column(
+                  spacing: 6,
+                  children: [
+                    for (var row = 0; row < 3; row++)
+                      Expanded(
+                        child: Row(
+                          spacing: 6,
+                          children: [
+                            for (var column = 0; column < 3; column++)
+                              Expanded(
+                                child: _tapZoneCell(
+                                  row * 3 + column,
+                                  positions[row * 3 + column],
+                                  colors,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _tapZoneRow(
-    String label,
-    TapAction current,
-    ValueChanged<TapAction> onPick,
-  ) {
-    // 控件自身保留水平边距，不依赖整组包裹。
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+  Widget _tapZoneCell(int index, String position, ColorScheme colors) {
+    final action = _config.tapActions[index];
+    final (icon, label) = switch (action) {
+      TapAction.none => (Icons.block_outlined, '无操作'),
+      TapAction.prevPage => (Icons.arrow_back, '上一页'),
+      TapAction.nextPage => (Icons.arrow_forward, '下一页'),
+      TapAction.toggleControls => (Icons.menu, '菜单'),
+      TapAction.openCatalog => (Icons.list, '目录'),
+    };
+    final menuAction = action == TapAction.toggleControls;
+    return AppMenuAnchor<TapAction>(
+      itemBuilder: (_) => [
+        for (final option in TapAction.values)
+          AppMenuItem(
+            value: option,
+            checked: option == action,
+            child: Text(option.label),
           ),
-          Expanded(
-            child: DropdownMenu<TapAction>(
-              initialSelection: current,
-              selectOnly: true,
-              expandedInsets: EdgeInsets.zero,
-              onSelected: (a) {
-                if (a != null) onPick(a);
-              },
-              dropdownMenuEntries: [
-                for (final a in TapAction.values)
-                  DropdownMenuEntry(value: a, label: a.label),
+      ],
+      onSelected: (value) {
+        _config.tapActions[index] = value;
+        _commit();
+      },
+      builder: (_, controller, _) => SizedBox.expand(
+        child: Tooltip(
+          message: '$position：$label',
+          child: FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.all(8),
+              backgroundColor: menuAction
+                  ? colors.tertiaryContainer
+                  : colors.secondaryContainer,
+              foregroundColor: menuAction
+                  ? colors.onTertiaryContainer
+                  : colors.onSecondaryContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon),
+                const SizedBox(height: 8),
+                Text(label, textAlign: TextAlign.center),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -275,26 +337,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         ),
         // 首行缩进（对标原版 tvTextIndent 缩进选择器）
         // [UI-fix v2.0.4 | 2026-08-08] bool 开关升级为 0-3 字符档位 — Qoder
-        _moreRow('首行缩进', _indentLabel(_config.paragraphIndent), () {
-          _showChoiceDialog<int>(
-            title: '首行缩进',
-            current: _config.paragraphIndent,
-            options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
-            onPick: (v) {
-              _config.paragraphIndent = v;
-              _commit();
-            },
-          );
-        }),
+        SettingMenuRow<int>(
+          title: '首行缩进',
+          value: _config.paragraphIndent,
+          options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
+          onChanged: (value) {
+            _config.paragraphIndent = value;
+            _commit();
+          },
+        ),
       ],
     );
-  }
-
-  /// 缩进档位显示文案
-  String _indentLabel(int v) {
-    const labels = ['无缩进', '一字符', '二字符', '三字符'];
-    if (v < 0 || v >= labels.length) return '二字符';
-    return labels[v];
   }
 
   // ===== 更多配置（对标原版 MoreConfigDialog） =====
@@ -306,6 +359,8 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       _buildTypographyOptions(),
       _buildInteractionOptions(),
       _buildScreenOptions(),
+      _buildSystemBarOptions(),
+      _buildDoublePageOptions(),
       _buildContentOptions(),
       _buildToolbarOptions(),
     ],
@@ -411,7 +466,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         },
       ),
       if (_config.volumeKeyPage)
-        // 朗读时音量键翻页（原版 volumeKeyPageOnPlay；仅 Android 生效）
+        // 朗读时音量键翻页（原版 volumeKeyPageOnPlay）
         SettingSwitchRow(
           title: '朗读时音量键翻页',
           subtitle: '仅 Android 生效',
@@ -456,52 +511,55 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     ],
   );
 
-  Widget _buildScreenOptions() => Column(
+  Widget _buildScreenOptions({bool showTitle = true}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _sectionTitle('屏幕显示', Icons.phone_android),
+      if (showTitle) _sectionTitle('屏幕与亮度', Icons.phone_android),
       // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批无平台依赖项：
       // 按原版 pref_config_read.xml 项序与文案补齐，每项真实生效
       // （对标 MoreConfigDialog.onSharedPreferenceChanged 事件语义）— Qoder
       // 屏幕方向（原版第 1 项 screenOrientation）
-      _moreRow('屏幕方向', _orientationLabel(_config.screenOrientation), () {
-        _showChoiceDialog<int>(
-          title: '屏幕方向',
-          current: _config.screenOrientation,
-          options: const {
-            0: '跟随系统',
-            1: '竖屏',
-            2: '横屏',
-            3: '自动(传感器)',
-            4: '反向竖屏',
-            5: '反向横屏',
-          },
-          onPick: (v) {
-            _config.screenOrientation = v;
-            _commit();
-          },
-        );
-      }),
+      SettingMenuRow<int>(
+        title: '屏幕方向',
+        value: _config.screenOrientation,
+        options: const {
+          0: '跟随系统',
+          1: '竖屏',
+          2: '横屏',
+          3: '自动(传感器)',
+          4: '反向竖屏',
+          5: '反向横屏',
+        },
+        onChanged: (value) {
+          _config.screenOrientation = value;
+          _commit();
+        },
+      ),
       // 保持亮屏（原版第 2 项 keep_light；平台限制诚实标注：项目未引入
       // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
       // 与 audio_screen 的 audioWakeLock 标注一致）
-      _moreRow('保持亮屏', _keepLightLabel(_config.keepLight), () {
-        _showChoiceDialog<int>(
-          title: '保持亮屏',
-          current: _config.keepLight,
-          options: const {
-            0: '默认',
-            60: '1 分钟',
-            300: '5 分钟',
-            600: '10 分钟',
-            -1: '常亮',
-          },
-          onPick: (v) {
-            _config.keepLight = v;
-            _commit();
-          },
-        );
-      }),
+      SettingMenuRow<int>(
+        title: '保持亮屏',
+        value: _config.keepLight,
+        options: const {
+          0: '默认',
+          60: '1 分钟',
+          300: '5 分钟',
+          600: '10 分钟',
+          -1: '常亮',
+        },
+        onChanged: (value) {
+          _config.keepLight = value;
+          _commit();
+        },
+      ),
+    ],
+  );
+
+  Widget _buildSystemBarOptions({bool showTitle = true}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (showTitle) _sectionTitle('系统栏与安全区', Icons.fullscreen),
       // 隐藏状态栏（原版第 3 项：SystemUiMode 移除顶部 overlay）
       SettingSwitchRow(
         title: '隐藏状态栏',
@@ -525,39 +583,37 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
       // pref_config_read.xml 项序与文案补齐，平台受限项以副标题
       // 灰字诚实标注（不引入新依赖）— Qoder
-      // 扩展到刘海（原版 readBodyToLh；仅 Android 生效）
+      // 扩展到刘海（原版 readBodyToLh）
       SettingSwitchRow(
         title: '扩展到刘海',
-        subtitle: '正文延伸到刘海区域（仅 Android 生效）',
+        subtitle: '正文延伸到刘海区域',
         value: _config.readBodyToLh,
         onChanged: (v) {
           _config.readBodyToLh = v;
           _commit();
         },
       ),
-      // 填充刘海区域（原版 paddingDisplayCutouts；仅 Android 生效）
+      // 填充刘海区域（原版 paddingDisplayCutouts）
       SettingSwitchRow(
         title: '填充刘海区域',
-        subtitle: '页面边距避开刘海区域（仅 Android 生效）',
+        subtitle: '页面边距避开刘海区域',
         value: _config.paddingDisplayCutouts,
         onChanged: (v) {
           _config.paddingDisplayCutouts = v;
           _commit();
         },
       ),
-      // 平板/横屏双页（原版 doubleHorizontalPage，4 档；已接入渲染）
-      _moreRow('平板/横屏双页', _doublePageLabel(_config.doubleHorizontalPage), () {
-        _showChoiceDialog<int>(
-          title: '平板/横屏双页',
-          current: _config.doubleHorizontalPage,
-          options: const {0: '全局单页', 1: '全局双页', 2: '横屏双页', 3: '平板/横屏双页'},
-          onPick: (v) {
-            _config.doubleHorizontalPage = v;
-            _commit();
-          },
-        );
-      }),
     ],
+  );
+
+  Widget _buildDoublePageOptions() => SettingMenuRow<int>(
+    title: '平板/横屏双页',
+    value: _config.doubleHorizontalPage,
+    options: const {0: '全局单页', 1: '全局双页', 2: '横屏双页', 3: '平板/横屏双页'},
+    onChanged: (value) {
+      _config.doubleHorizontalPage = value;
+      _commit();
+    },
   );
 
   Widget _buildContentOptions() => Column(
@@ -616,45 +672,26 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     ],
   );
 
-  Widget _buildToolbarOptions() => Column(
+  Widget _buildToolbarOptions({bool showTitle = true}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _sectionTitle('阅读工具栏', Icons.view_quilt_outlined),
+      if (showTitle) _sectionTitle('菜单工具栏', Icons.view_quilt_outlined),
       // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
-      _moreRow(
-        '进度条行为',
-        _config.progressBarBehavior == 'page' ? '调章内页' : '调章节',
-        () {
-          _showChoiceDialog<String>(
-            title: '进度条行为',
-            current: _config.progressBarBehavior,
-            options: const {'page': '调章内页', 'chapter': '调章节'},
-            onPick: (v) {
-              _config.progressBarBehavior = v;
-              _commit();
-            },
-          );
-        },
-      ),
-      // 显示亮度控件（原版 showBrightnessView：底栏亮度行显隐）
-      SettingSwitchRow(
-        title: '显示亮度控件',
-        subtitle: '底栏显示亮度调节滑条',
-        value: _config.showBrightnessView,
-        onChanged: (v) {
-          _config.showBrightnessView = v;
+      SettingMenuRow<String>(
+        title: '进度条行为',
+        value: _config.progressBarBehavior,
+        options: const {'page': '调章内页', 'chapter': '调章节'},
+        onChanged: (value) {
+          _config.progressBarBehavior = value;
           _commit();
         },
       ),
-      // 显示标题附加区（原版 showReadTitleAddition：顶栏书名后追加章名）
+      _buildBrightnessDisplayMenu(),
       SettingSwitchRow(
         title: '显示标题附加区',
-        subtitle: '顶栏书名后显示当前章名',
+        subtitle: '暂未接入，后续随顶栏布局配置实现',
         value: _config.showReadTitleAddition,
-        onChanged: (v) {
-          _config.showReadTitleAddition = v;
-          _commit();
-        },
+        onChanged: null,
       ),
       // 工具栏跟随页面（原版 readBarStyleFollowPage：顶/底栏背景与文字色
       // 跟随当前阅读页配色，对标 ReadMenu immersiveMenu）
@@ -670,14 +707,25 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     ],
   );
 
-  // ===== MoreConfig 第②批辅助构建方法 =====
-
-  /// 双页模式档位显示文案（对齐原版 R.array.double_page_title）
-  String _doublePageLabel(int v) {
-    const labels = ['全局单页', '全局双页', '横屏双页', '平板/横屏双页'];
-    if (v < 0 || v >= labels.length) return '全局单页';
-    return labels[v];
+  Widget _buildBrightnessDisplayMenu() {
+    const options = {0: '关闭', 1: '横向', 2: '纵向·左侧', 3: '纵向·右侧'};
+    final current = _config.brightnessMode == 2
+        ? (_config.brightnessOnLeft ? 2 : 3)
+        : _config.brightnessMode;
+    return SettingMenuRow<int>(
+      title: '亮度控件',
+      value: current,
+      options: options,
+      onChanged: (value) {
+        _config.brightnessMode = value < 2 ? value : 2;
+        // 关闭或横向时保留原先的侧栏位置。
+        if (value >= 2) _config.brightnessOnLeft = value == 2;
+        _commit();
+      },
+    );
   }
+
+  // ===== MoreConfig 第②批辅助构建方法 =====
 
   /// 数值输入对话框（对标原版 NumberPickerDialog，桌面端用文本输入）
   void _showNumberDialog({
@@ -718,91 +766,14 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
   // ===== MoreConfig 第①批辅助构建方法 =====
 
-  String _orientationLabel(int v) {
-    const labels = ['跟随系统', '竖屏', '横屏', '自动(传感器)', '反向竖屏', '反向横屏'];
-    if (v < 0 || v >= labels.length) return '跟随系统';
-    return labels[v];
-  }
-
-  String _keepLightLabel(int v) {
-    switch (v) {
-      case 60:
-        return '1 分钟';
-      case 300:
-        return '5 分钟';
-      case 600:
-        return '10 分钟';
-      case -1:
-        return '常亮';
-      default:
-        return '默认';
-    }
-  }
-
-  /// 列表选择行（当前值 + 点击弹出单选对话框）
-  Widget _moreRow(String title, String current, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        // 控件自身保留水平边距，不依赖整组包裹。
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            Text(
-              current,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 20,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 单选对话框（对标原版 ListPreference 弹层选择交互；
-  /// [UI-fix v2.0.4 | 2026-08-08] RadioListTile 改 ListTile+勾选，
-  /// 避开 groupValue/onChanged 弃用 API — Qoder）
-  void _showChoiceDialog<T>({
-    required String title,
-    required T current,
-    required Map<T, String> options,
-    required ValueChanged<T> onPick,
-  }) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text(title),
-        children: [
-          for (final entry in options.entries)
-            ListTile(
-              title: Text(entry.value),
-              trailing: current == entry.key
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(dialogContext).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () {
-                Navigator.pop(dialogContext);
-                onPick(entry.key);
-              },
-            ),
-        ],
-      ),
-    );
-  }
+  /// 数值设置继续使用输入对话框，行布局复用统一设置行。
+  Widget _moreRow(String title, String current, VoidCallback onTap) =>
+      IosListTile(
+        title: title,
+        value: current,
+        showChevron: false,
+        onTap: onTap,
+      );
 
   // ===== 亮度控制 =====
 
