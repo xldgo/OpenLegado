@@ -383,14 +383,52 @@ class ReaderTextContent extends StatelessWidget {
                       textHeightBehavior: environment?.heightBehavior,
                     ),
             );
+            final review = line.trailingReview;
+            final count = review == null
+                ? 0
+                : (reviewCounts?[review.element.reviewKey] ??
+                      review.element.count);
             lineWidgets.add(
               SizedBox(
+                width: availableWidth,
                 height: line.height,
                 // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂行：放宽宽度约束至
                 // availableWidth + hangingWidth 避免裁剪，行起点左移 hangingWidth
                 // 使起始引号悬挂进缩进区（对齐原版 TextLine.hangingPunctuation
                 // 语义）— Reasonix
-                child: line.hangingWidth > 0
+                child: review != null
+                    ? Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned(
+                            left: -line.hangingWidth,
+                            top: line.textTop,
+                            width: review.offset.dx + line.hangingWidth,
+                            child: lineText,
+                          ),
+                          if (count > 0 && review.size.width > 0)
+                            Positioned(
+                              left: review.offset.dx,
+                              top: review.offset.dy,
+                              width: review.size.width,
+                              height: review.size.height,
+                              child: SelectionContainer.disabled(
+                                child: ReviewColumnBadge(
+                                  count: count,
+                                  layoutSize: review.size,
+                                  compact: review.compact,
+                                  onTap: onReviewTap == null
+                                      ? null
+                                      : () => onReviewTap!(
+                                          review.element.reviewKey,
+                                          count,
+                                        ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : line.hangingWidth > 0
                     ? OverflowBox(
                         alignment: Alignment.centerLeft,
                         maxWidth: availableWidth + line.hangingWidth,
@@ -413,36 +451,12 @@ class ReaderTextContent extends StatelessWidget {
               : para.lines
                     .map((l) => l.displayText.substring(l.virtualPrefixLength))
                     .join();
-          final reviewCount =
-              (para.isParagraphEnd &&
-                  para.chapterParagraphIndex > 0 &&
-                  reviewCounts != null)
-              ? (reviewCounts![para.chapterParagraphIndex] ?? 0)
-              : 0;
           final paragraphBody = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: lineWidgets,
           );
           // 原生选区覆盖正文；段评角标与翻页快照不参与显示偏移计算。
-          Widget paragraphContent = reviewCount > 0
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(child: paragraphBody),
-                    SelectionContainer.disabled(
-                      child: ReviewColumnBadge(
-                        count: reviewCount,
-                        onTap: onReviewTap == null
-                            ? null
-                            : () => onReviewTap!(
-                                para.chapterParagraphIndex,
-                                reviewCount,
-                              ),
-                      ),
-                    ),
-                  ],
-                )
-              : paragraphBody;
+          Widget paragraphContent = paragraphBody;
           if (selectText &&
               source == null &&
               ReaderSelectionScope.maybeOf(context) == null &&

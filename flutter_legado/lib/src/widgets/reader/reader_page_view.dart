@@ -24,6 +24,7 @@ import 'reader_text_content.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_region.dart';
 import 'text_layout_environment.dart';
+import 'review_column.dart';
 
 /// 阅读器内容区（分页 + 5 种翻页模式）
 ///
@@ -150,6 +151,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   bool _preloadingNext = false;
   bool _preloadingPrev = false;
   int _layoutGeneration = 0;
+  String _reviewGeometryKey = '';
+  String _reviewPaintKey = '';
+  int _paintRevision = 0;
 
   /// 最近一次分页参数（相邻章预载复用同参；翻页回调触发预载时也需读取）
   ParagraphConfig? _pagedConfig;
@@ -476,6 +480,21 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final baseStyle = DefaultTextStyle.of(context).style;
     final boldText = MediaQuery.boldTextOf(context);
     final environment = TextLayoutEnvironment.of(context);
+    final reviews = ReviewColumnBadge.measureParagraphs(
+      context,
+      content,
+      widget.reviewCounts,
+    );
+    final reviewKey = reviews.entries
+        .map((e) => '${e.key}:${e.value.size}')
+        .join(',');
+    final paintKey = reviews.entries
+        .map((e) => '${e.key}:${e.value.count}')
+        .join(',');
+    if (paintKey != _reviewPaintKey) {
+      _reviewPaintKey = paintKey;
+      _paintRevision++;
+    }
     final doublePage = switch (widget.doubleHorizontalPage) {
       1 => state.pageTurnMode != PageTurnMode.scroll,
       2 =>
@@ -490,6 +509,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final needRepaginate =
         content.isNotEmpty &&
         (content != _paginatedContent ||
+            reviewKey != _reviewGeometryKey ||
             chapterIndex != _paginatedChapterIndex ||
             screenSize != _paginatedScreenSize ||
             textScaler != _paginatedTextScaler ||
@@ -634,9 +654,11 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       availableWidth,
       availableHeight,
       firstPageHeight: firstPageHeight,
+      paragraphReviews: reviews,
     );
 
     _paginatedPages = pages;
+    _reviewGeometryKey = reviewKey;
     _paginatedContent = content;
     _paginatedChapterIndex = chapterIndex;
     _paginatedChapterTitle = state.currentChapter?.title;
@@ -1151,6 +1173,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         key: _turnViewKey,
         selectionActive: _selectionController,
         layoutGeneration: _layoutGeneration,
+        paintRevision: _paintRevision,
         mode: state.pageTurnMode,
         pageIndex: screenIndex,
         pageCount: screenCount,
@@ -1161,7 +1184,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         onPageChanged: (i) {
           final page = _isDoublePage ? i * 2 : i;
           setState(() => _currentPageIndex = page);
-          notifier.updatePosition(page);
+          notifier.updatePosition(
+            page,
+            sourceOffset: _paginatedPages[page].sourceStart,
+          );
           // 翻页不触发重分页 → 此处驱动相邻章预载（原仅分页触发导致章末无预载）
           _maybePreloadAdjacent(ref.read(readerNotifierProvider));
         },

@@ -7,6 +7,7 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 class _Reader extends ReaderNotifier {
   @override
@@ -21,7 +22,7 @@ void main() {
   testWidgets('系统字体缩放和屏幕宽度变化会使真实阅读器重新分页', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();
-    Future<void> pump(double width, double scale) async {
+    Future<void> pump(double width, double scale, {int count = 0}) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -45,6 +46,7 @@ void main() {
                       key: key,
                       paragraphSpacing: 8,
                       selectText: false,
+                      reviewCounts: {1: count},
                     ),
                   ),
                 ),
@@ -68,6 +70,23 @@ void main() {
     await pump(320, 1);
     final narrow = key.currentState!.pageCount;
     expect(narrow, greaterThan(wide));
+    expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
+    expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
+    await pump(320, 2, count: 9);
+    final layout = tester
+        .widget<ReaderTextContent>(find.byType(ReaderTextContent).first)
+        .pageInfo;
+    await pump(320, 2, count: 1000);
+    expect(
+      identical(
+        layout,
+        tester
+            .widget<ReaderTextContent>(find.byType(ReaderTextContent).first)
+            .pageInfo,
+      ),
+      isTrue,
+    );
+    await pump(320, 2);
     expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
     expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
     await pump(320, 2);

@@ -387,14 +387,24 @@ void main() {
           ),
         )
         .first;
-    await tester.longPress(rightText);
-    await tester.pumpAndSettle();
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(
         of: rightText,
         matching: find.byWidgetPredicate((widget) => widget is RichText),
       ),
     );
+    // 短行容器现在保留完整正文宽度，长按实际字形而非行末空白。
+    final firstBox = paragraph
+        .getBoxesForSelection(
+          TextSelection(
+            baseOffset: 0,
+            extentOffset: rightLine.selectableText.characters.first.length,
+          ),
+        )
+        .first
+        .toRect();
+    await tester.longPressAt(paragraph.localToGlobal(firstBox.center));
+    await tester.pumpAndSettle();
     final range = paragraph.selections.first;
     expect(
       controller.selection!.start,

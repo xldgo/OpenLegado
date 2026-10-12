@@ -33,6 +33,7 @@ class ReaderTurnView extends StatefulWidget {
     this.chapterNextPage,
     this.selectionActive,
     this.layoutGeneration = 0,
+    this.paintRevision = 0,
   });
 
   final PageTurnMode mode;
@@ -62,6 +63,9 @@ class ReaderTurnView extends StatefulWidget {
 
   /// 即使页数不变，正文重排也要使旧翻页位图失效。
   final int layoutGeneration;
+
+  /// 评论数量等仅改变绘制的内容也需要更新翻页快照。
+  final int paintRevision;
 
   @override
   State<ReaderTurnView> createState() => ReaderTurnViewState();
@@ -201,6 +205,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
     if (oldWidget.pageIndex != widget.pageIndex ||
         oldWidget.pageCount != widget.pageCount ||
         oldWidget.mode != widget.mode ||
+        oldWidget.paintRevision != widget.paintRevision ||
         oldWidget.layoutGeneration != widget.layoutGeneration ||
         oldWidget.backPageColor != widget.backPageColor ||
         oldWidget.chapterNextPage != widget.chapterNextPage ||

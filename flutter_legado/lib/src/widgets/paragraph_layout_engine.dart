@@ -17,6 +17,7 @@ import 'zh_layout.dart';
 import 'reader/text_layout_environment.dart';
 import 'reader/chapter_layout.dart';
 import 'reader/line_paginator.dart';
+import 'reader/text_break_rules.dart';
 export 'reader/chapter_layout.dart';
 
 /// 中文标点悬挂规则
@@ -378,6 +379,7 @@ class ParagraphLayoutEngine {
     double availableWidth,
     double pageHeight, {
     double? firstPageHeight,
+    Map<int, InlineReview> paragraphReviews = const {},
   }) {
     final builder = LinePaginator(
       sourceText: content,
@@ -389,7 +391,11 @@ class ParagraphLayoutEngine {
     final paragraphs = splitChapterParagraphs(content);
     for (var i = 0; i < paragraphs.length; i++) {
       builder.addParagraph(
-        _layoutParagraph(paragraphs[i], availableWidth),
+        _layoutParagraph(
+          paragraphs[i],
+          availableWidth,
+          review: paragraphReviews[i + 1],
+        ),
         i + 1,
       );
     }
@@ -578,8 +584,9 @@ class ParagraphLayoutEngine {
   /// - 行高计算（对应 Kotlin textHeight * lineSpacingExtra）
   ParagraphInfo _layoutParagraph(
     SourceParagraph paragraph,
-    double availableWidth,
-  ) {
+    double availableWidth, {
+    InlineReview? review,
+  }) {
     final trimmedPara = paragraph.text;
     if (trimmedPara.isEmpty) {
       return const ParagraphInfo(
@@ -619,6 +626,9 @@ class ParagraphLayoutEngine {
       availableWidth,
       hangingWidth: hangingWidth,
     );
+    final reviewSize = review == null
+        ? null
+        : _placeReviewTail(layoutLines, availableWidth, review);
 
     // 计算总高度（对应 Kotlin durY += textHeight * lineSpacingExtra）
     final prefixLength = processableText.length - trimmedPara.length;
@@ -628,6 +638,16 @@ class ParagraphLayoutEngine {
       final last = i == layoutLines.length - 1;
       final spacing = _justifiedSpacing(line, availableWidth, !last);
       final metrics = _measureLine(line.displayText, spacing);
+      final textBaseline = metrics.computeDistanceToActualBaseline(
+        TextBaseline.alphabetic,
+      );
+      final rowBaseline = last && review != null
+          ? math.max(textBaseline, review.baseline)
+          : textBaseline;
+      final textTop = rowBaseline - textBaseline;
+      final reviewTop = last && review != null
+          ? rowBaseline - review.baseline
+          : 0.0;
       final virtualPrefixLength = (prefixLength - line.startIndex).clamp(
         0,
         line.endIndex - line.startIndex,
@@ -662,7 +682,12 @@ class ParagraphLayoutEngine {
         LineInfo(
           words: line.words,
           width: metrics.width,
-          height: metrics.height,
+          height: last && reviewSize != null
+              ? math.max(
+                  textTop + metrics.height,
+                  reviewTop + reviewSize.height,
+                )
+              : metrics.height,
           startIndex:
               paragraph.startIndex +
               (line.startIndex - prefixLength).clamp(0, trimmedPara.length),
@@ -673,9 +698,16 @@ class ParagraphLayoutEngine {
           indentWidth: indentWidth,
           hangingWidth: line.hangingWidth,
           letterSpacing: spacing,
-          baseline: metrics.computeDistanceToActualBaseline(
-            TextBaseline.alphabetic,
-          ),
+          baseline: rowBaseline,
+          textTop: textTop,
+          trailingReview: last && review != null && reviewSize != null
+              ? InlineReviewLayout(
+                  element: review,
+                  offset: Offset(metrics.width - line.hangingWidth, reviewTop),
+                  size: reviewSize,
+                  compact: reviewSize != review.size,
+                )
+              : null,
           isParagraphLastLine: last,
         ),
       );
@@ -699,6 +731,99 @@ class ParagraphLayoutEngine {
     final width = painter.width;
     painter.dispose();
     return width;
+  }
+
+  /// 只回退末行的合法断点，使正文尾部和角标作为同一行落位。
+  Size _placeReviewTail(
+    List<LineInfo> lines,
+    double width,
+    InlineReview review,
+  ) {
+    final last = lines.last;
+    final map = TextClusterMap(last.displayText);
+    double measure(String text) {
+      final painter = _measureLine(text, config.letterSpacing);
+      final result = painter.width;
+      painter.dispose();
+      return result;
+    }
+
+    for (final slot in [review.size, review.compactSize]) {
+      if (measure(last.displayText) - last.hangingWidth + slot.width <=
+          width + 0.001) {
+        return slot;
+      }
+      for (var cut = map.clusters.length - 1; cut > 0; cut--) {
+        final before = map.clusters[cut - 1];
+        final after = map.clusters[cut];
+        if (TextBreakRules.forbidden(before, after) ||
+            TextBreakRules.insideWord(before, after)) {
+          continue;
+        }
+        final offset = map.sourceOffsets[cut];
+        final suffix = last.displayText.substring(offset);
+        if (measure(suffix) + slot.width > width + 0.001) continue;
+        lines.removeLast();
+        lines.add(
+          LineInfo(
+            words: map.clusters.sublist(0, cut),
+            width: 0,
+            height: 0,
+            startIndex: last.startIndex,
+            endIndex: last.startIndex + offset,
+            hangingWidth: last.hangingWidth,
+          ),
+        );
+        lines.add(
+          LineInfo(
+            words: map.clusters.sublist(cut),
+            width: 0,
+            height: 0,
+            startIndex: last.startIndex + offset,
+            endIndex: last.endIndex,
+          ),
+        );
+        return slot;
+      }
+    }
+    // 单词连同紧凑角标也超宽时，才允许按字形簇拆开超长尾部。
+    for (var cut = map.clusters.length - 1; cut > 0; cut--) {
+      if (TextBreakRules.forbidden(map.clusters[cut - 1], map.clusters[cut]))
+        continue;
+      final offset = map.sourceOffsets[cut];
+      final tailWidth = measure(last.displayText.substring(offset));
+      if (tailWidth >= width) continue;
+      lines.removeLast();
+      lines.add(
+        LineInfo(
+          words: map.clusters.sublist(0, cut),
+          width: 0,
+          height: 0,
+          startIndex: last.startIndex,
+          endIndex: last.startIndex + offset,
+          hangingWidth: last.hangingWidth,
+        ),
+      );
+      lines.add(
+        LineInfo(
+          words: map.clusters.sublist(cut),
+          width: 0,
+          height: 0,
+          startIndex: last.startIndex + offset,
+          endIndex: last.endIndex,
+        ),
+      );
+      return Size(
+        math.min(review.compactSize.width, width - tailWidth),
+        review.compactSize.height,
+      );
+    }
+    // 极窄窗口保留正文，不制造独立角标行；图标缩到实际剩余空间。
+    // 若文字自身已占满，明确省去无法容纳的操作，后续扩大窗口可恢复。
+    return Size(
+      math.max(0, width - measure(last.displayText) + last.hangingWidth),
+      review.compactSize.height,
+    );
   }
 
   /// 分行算法（使用 ZhLayout 中文断行引擎）

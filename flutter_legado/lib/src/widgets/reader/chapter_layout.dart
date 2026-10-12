@@ -2,6 +2,43 @@ import 'package:flutter/widgets.dart';
 
 import 'text_layout_environment.dart';
 
+/// 段末行内操作只占布局空间，不占章节原文长度。
+@immutable
+class InlineReview {
+  final int paragraphId;
+  final int reviewKey;
+  final int sourceAnchor;
+  final int count;
+  final Size size;
+  final Size compactSize;
+  final double baseline;
+
+  const InlineReview({
+    required this.paragraphId,
+    required this.reviewKey,
+    required this.sourceAnchor,
+    required this.count,
+    required this.size,
+    required this.compactSize,
+    required this.baseline,
+  });
+}
+
+@immutable
+class InlineReviewLayout {
+  final InlineReview element;
+  final Offset offset;
+  final Size size;
+  final bool compact;
+
+  const InlineReviewLayout({
+    required this.element,
+    required this.offset,
+    required this.size,
+    this.compact = false,
+  });
+}
+
 /// 行信息
 @immutable
 class LineInfo {
@@ -11,6 +48,8 @@ class LineInfo {
   final int startIndex;
   final int endIndex;
   final double? baseline;
+  final double textTop;
+  final InlineReviewLayout? trailingReview;
 
   /// 断行测量使用的虚拟前缀，不进入正文可选文字。
   final int virtualPrefixLength;
@@ -35,6 +74,8 @@ class LineInfo {
     required this.startIndex,
     required this.endIndex,
     this.baseline,
+    this.textTop = 0,
+    this.trailingReview,
     this.hangingWidth = 0,
     this.virtualPrefixLength = 0,
     this.indentWidth = 0,
