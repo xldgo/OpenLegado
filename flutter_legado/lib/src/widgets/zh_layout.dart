@@ -6,6 +6,8 @@
 /// 核心算法：逐字累加宽度 → 超宽时判断断行模式（6种）→ 处理标点避头尾
 library;
 
+import 'reader/text_break_rules.dart';
+
 /// 断行模式
 ///
 /// 对应 Kotlin ZhLayout.BreakMod
@@ -37,47 +39,8 @@ class ZhLayout {
   /// 不能出现在行首的标点（后置标点）
   ///
   /// 对应 Kotlin postPanc — 这些标点应跟随前一个字，不能单独出现在下一行行首
-  static const Set<String> postPanc = {
-    '，',
-    '。',
-    '：',
-    '？',
-    '！',
-    '、',
-    '\u201d',
-    '\u2019',
-    '）',
-    '》',
-    '}',
-    '】',
-    ')',
-    '>',
-    ']',
-    ',',
-    '.',
-    '?',
-    '!',
-    ':',
-    '」',
-    '；',
-    ';',
-  };
-
-  /// 不能出现在行末的标点（前置标点）
-  ///
-  /// 对应 Kotlin prePanc — 这些标点应跟随后一个字，不能单独留在上一行行末
-  static const Set<String> prePanc = {
-    '\u201c',
-    '（',
-    '《',
-    '【',
-    '\u2018',
-    '(',
-    '<',
-    '[',
-    '{',
-    '「',
-  };
+  static const Set<String> postPanc = TextBreakRules.closing;
+  static const Set<String> prePanc = TextBreakRules.opening;
 
   /// 每行的起始字形簇索引（不是 UTF-16 偏移）
   ///

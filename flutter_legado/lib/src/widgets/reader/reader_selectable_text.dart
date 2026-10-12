@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'text_layout_environment.dart';
+import 'line_text_span.dart';
 
 TextStyle _effectiveReaderStyle(BuildContext context, TextStyle style) {
   final defaults = DefaultTextStyle.of(context);
@@ -83,6 +84,7 @@ class ReaderLineText extends StatelessWidget {
   final TextStyle style;
   final ReaderSelectionGeometry? selectionGeometry;
   final TextLayoutEnvironment? environment;
+  final double spaceExpansion;
 
   const ReaderLineText(
     this.data, {
@@ -90,13 +92,18 @@ class ReaderLineText extends StatelessWidget {
     required this.style,
     this.selectionGeometry,
     this.environment,
+    this.spaceExpansion = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final defaults = DefaultTextStyle.of(context);
     return ReaderSelectableText(
-      text: TextSpan(text: data, style: _effectiveReaderStyle(context, style)),
+      text: readerLineSpan(
+        data,
+        _effectiveReaderStyle(context, style),
+        spaceExpansion,
+      ),
       selectionGeometry: selectionGeometry,
       textAlign: defaults.textAlign ?? TextAlign.start,
       softWrap: defaults.softWrap,

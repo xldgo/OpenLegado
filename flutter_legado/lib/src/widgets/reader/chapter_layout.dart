@@ -59,6 +59,7 @@ class LineInfo {
 
   /// 最终绘制字距，分页与正文渲染共用。
   final double? letterSpacing;
+  final double spaceExpansion;
 
   /// 跨页后仍保留原段落末行标记，避免页末续行被当成段末。
   final bool? isParagraphLastLine;
@@ -80,6 +81,7 @@ class LineInfo {
     this.virtualPrefixLength = 0,
     this.indentWidth = 0,
     this.letterSpacing,
+    this.spaceExpansion = 0,
     this.isParagraphLastLine,
   });
 

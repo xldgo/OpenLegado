@@ -18,6 +18,7 @@ import 'reader/text_layout_environment.dart';
 import 'reader/chapter_layout.dart';
 import 'reader/line_paginator.dart';
 import 'reader/text_break_rules.dart';
+import 'reader/line_text_span.dart';
 export 'reader/chapter_layout.dart';
 
 /// 中文标点悬挂规则
@@ -25,48 +26,8 @@ export 'reader/chapter_layout.dart';
 /// 移植自 HangingPunctuationRule.kt
 class ChinesePunctuationRule {
   /// 不能出现在行首的标点
-  static const Set<String> beginningPunctuation = {
-    '，',
-    '、',
-    '。',
-    '？',
-    '！',
-    '…',
-    '〃',
-    '』',
-    '「」',
-    '」',
-    ',',
-    "'",
-    '"',
-    ')',
-    '〕',
-    '】',
-    '}',
-    '〉',
-    '》',
-  };
-
-  /// 不能出现在行末的标点
-  static const Set<String> endingPunctuation = {
-    '（',
-    '〔',
-    '「',
-    '《',
-    '『',
-    '【',
-    '｛',
-    '〈',
-    '(',
-    '[',
-    '{',
-    '‹',
-    '<',
-    '',
-    "'",
-    '"',
-    '•',
-  };
+  static const Set<String> beginningPunctuation = TextBreakRules.closing;
+  static const Set<String> endingPunctuation = TextBreakRules.opening;
 
   /// 检查字符是否为行首标点
   static bool isBeginningPunctuation(String char) =>
@@ -636,8 +597,16 @@ class ParagraphLayoutEngine {
     for (var i = 0; i < layoutLines.length; i++) {
       final line = layoutLines[i];
       final last = i == layoutLines.length - 1;
-      final spacing = _justifiedSpacing(line, availableWidth, !last);
-      final metrics = _measureLine(line.displayText, spacing);
+      final (spacing, spaceExpansion) = _justifiedSpacing(
+        line,
+        availableWidth,
+        !last,
+      );
+      final metrics = _measureLine(
+        line.displayText,
+        spacing,
+        spaceExpansion: spaceExpansion,
+      );
       final textBaseline = metrics.computeDistanceToActualBaseline(
         TextBaseline.alphabetic,
       );
@@ -659,7 +628,11 @@ class ParagraphLayoutEngine {
           indentWidth = metrics.width;
         } else {
           // 字距会影响首字左右的半个间距，不能直接用插入点作为留白宽度。
-          final textMetrics = _measureLine(selectableText, spacing);
+          final textMetrics = _measureLine(
+            selectableText,
+            spacing,
+            spaceExpansion: spaceExpansion,
+          );
           final firstLength = selectableText.characters.first.length;
           final originalBox = metrics
               .getBoxesForSelection(
@@ -698,6 +671,7 @@ class ParagraphLayoutEngine {
           indentWidth: indentWidth,
           hangingWidth: line.hangingWidth,
           letterSpacing: spacing,
+          spaceExpansion: spaceExpansion,
           baseline: rowBaseline,
           textTop: textTop,
           trailingReview: last && review != null && reviewSize != null
@@ -788,8 +762,9 @@ class ParagraphLayoutEngine {
     }
     // 单词连同紧凑角标也超宽时，才允许按字形簇拆开超长尾部。
     for (var cut = map.clusters.length - 1; cut > 0; cut--) {
-      if (TextBreakRules.forbidden(map.clusters[cut - 1], map.clusters[cut]))
+      if (TextBreakRules.forbidden(map.clusters[cut - 1], map.clusters[cut])) {
         continue;
+      }
       final offset = map.sourceOffsets[cut];
       final tailWidth = measure(last.displayText.substring(offset));
       if (tailWidth >= width) continue;
@@ -1017,14 +992,27 @@ class ParagraphLayoutEngine {
         if (fits) break;
         last--;
       }
+      if (last < clusterMap.clusters.length &&
+          TextBreakRules.insideWord(
+            clusterMap.clusters[last - 1],
+            clusterMap.clusters[last],
+          )) {
+        var wordStart = last;
+        while (wordStart > first &&
+            TextBreakRules.insideWord(
+              clusterMap.clusters[wordStart - 1],
+              clusterMap.clusters[wordStart],
+            )) {
+          wordStart--;
+        }
+        if (wordStart > first) last = wordStart;
+      }
       while (last > first + 1 &&
-          boundaries[last] < text.length &&
-          (ChinesePunctuationRule.isBeginningPunctuation(
-                text[boundaries[last]],
-              ) ||
-              ChinesePunctuationRule.isEndingPunctuation(
-                text[boundaries[last] - 1],
-              ))) {
+          last < clusterMap.clusters.length &&
+          TextBreakRules.forbidden(
+            clusterMap.clusters[last - 1],
+            clusterMap.clusters[last],
+          )) {
         last--;
       }
       return boundaries[last];
@@ -1089,11 +1077,15 @@ class ParagraphLayoutEngine {
   }
 
   /// 使用最终绘制样式测量整行，文字缩放和字体回退参与高度与宽度。
-  TextPainter _measureLine(String text, double letterSpacing) {
+  TextPainter _measureLine(
+    String text,
+    double letterSpacing, {
+    double spaceExpansion = 0,
+  }) {
     final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: _environment.baseStyle.merge(
+      text: readerLineSpan(
+        text,
+        _environment.baseStyle.merge(
           TextStyle(
             fontSize: config.fontSize,
             height: config.lineHeight,
@@ -1104,6 +1096,7 @@ class ParagraphLayoutEngine {
             letterSpacing: letterSpacing,
           ),
         ),
+        spaceExpansion,
       ),
       textDirection: _environment.direction,
       locale: _environment.locale,
@@ -1115,29 +1108,42 @@ class ParagraphLayoutEngine {
   }
 
   /// 根据实际文字引擎的字距增量求对齐值，避免字体缩放后再次超宽。
-  double _justifiedSpacing(
+  (double, double) _justifiedSpacing(
     LineInfo line,
     double availableWidth,
     bool eligible,
   ) {
     final base = config.letterSpacing;
-    if (!config.justify || !eligible || line.words.length <= 1) return base;
+    if (!config.justify || !eligible || line.words.length <= 1) {
+      return (base, 0);
+    }
     final limit = availableWidth + line.hangingWidth;
     final natural = _measureLine(line.displayText, base);
     final naturalWidth = natural.width;
     natural.dispose();
-    if (naturalWidth >= limit) return base;
-    final probe = _measureLine(line.displayText, base + 1);
+    if (naturalWidth >= limit) return (base, 0);
+    final wordSpacing =
+        RegExp(r' +').allMatches(line.displayText.trim()).length > 1;
+    final probe = _measureLine(
+      line.displayText,
+      wordSpacing ? base : base + 1,
+      spaceExpansion: wordSpacing ? 1 : 0,
+    );
     final increment = probe.width - naturalWidth;
     probe.dispose();
-    if (increment <= 0) return base;
-    var high =
-        base +
-        math.min((limit - naturalWidth) / increment, config.fontSize * 0.5);
-    var low = base;
+    if (increment <= 0) return (base, 0);
+    var high = math.min(
+      (limit - naturalWidth) / increment,
+      config.fontSize * 0.5,
+    );
+    var low = 0.0;
     for (var i = 0; i < 10; i++) {
       final candidate = i == 0 ? high : (low + high) / 2;
-      final painter = _measureLine(line.displayText, candidate);
+      final painter = _measureLine(
+        line.displayText,
+        wordSpacing ? base : base + candidate,
+        spaceExpansion: wordSpacing ? candidate : 0,
+      );
       final fits = painter.width <= limit + 0.001;
       painter.dispose();
       if (fits) {
@@ -1147,7 +1153,7 @@ class ParagraphLayoutEngine {
         high = candidate;
       }
     }
-    return low;
+    return (wordSpacing ? base : base + low, wordSpacing ? low : 0);
   }
 
   /// 测量每个字符的宽度（整段同源测量，无逐字缓存）

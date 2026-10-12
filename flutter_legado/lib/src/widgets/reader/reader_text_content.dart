@@ -7,6 +7,7 @@ import 'reader_page_chrome.dart';
 import 'text_selection_panel.dart';
 import 'reader_selection_region.dart';
 import 'reader_selectable_text.dart';
+import 'line_text_span.dart';
 
 /// 段评角标点击（段落索引 1-based、评论数）
 typedef ReviewTapCallback = void Function(int paragraphIndex, int count);
@@ -178,23 +179,20 @@ class ReaderTypographicPage extends StatelessWidget {
                       ),
                     ),
                   Expanded(
-                    child: ClipRect(
-                      // 防分页测量与渲染亚像素差导致的行溢出条纹
-                      child: ReaderTextContent(
-                        pageInfo: info,
-                        fontSize: fontSize,
-                        lineHeight: lineHeight,
-                        paragraphSpacing: paragraphSpacing,
-                        textColor: textColor,
-                        selectText: selectText,
-                        letterSpacing: letterSpacing,
-                        fontFamily: fontFamily,
-                        justify: justify,
-                        fontWeight: fontWeight,
-                        fontStyle: fontStyle,
-                        reviewCounts: reviewCounts,
-                        onReviewTap: onReviewTap,
-                      ),
+                    child: ReaderTextContent(
+                      pageInfo: info,
+                      fontSize: fontSize,
+                      lineHeight: lineHeight,
+                      paragraphSpacing: paragraphSpacing,
+                      textColor: textColor,
+                      selectText: selectText,
+                      letterSpacing: letterSpacing,
+                      fontFamily: fontFamily,
+                      justify: justify,
+                      fontWeight: fontWeight,
+                      fontStyle: fontStyle,
+                      reviewCounts: reviewCounts,
+                      onReviewTap: onReviewTap,
                     ),
                   ),
                   if (!showFooter)
@@ -371,12 +369,12 @@ class ReaderTextContent extends StatelessWidget {
                       style: textStyle,
                       selectionGeometry: selectionGeometry,
                       environment: environment,
+                      spaceExpansion: line.spaceExpansion,
                     )
-                  : Text(
-                      text,
-                      style: textStyle,
+                  : Text.rich(
+                      readerLineSpan(text, textStyle, line.spaceExpansion),
                       maxLines: 1,
-                      overflow: TextOverflow.clip,
+                      overflow: TextOverflow.visible,
                       textDirection: environment?.direction,
                       locale: environment?.locale,
                       textScaler: environment?.textScaler,
