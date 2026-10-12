@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -80,77 +81,94 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     final filtered = _applyFilters(state.rules);
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: _batchMode ? _buildBatchAppBar() : LegadoAppBar(
-        title: const Text('替换净化'),
-        bottom: AppSearchRow(
-          field: AppSearchField(
-            controller: _searchCtrl,
-            hintText: '搜索规则',
-            onChanged: (v) => setState(() => _filter = v.trim()),
-          ),
-        ),
-        actions: [
-          // [UI-fix v2.0.2 | 2026-08-06] 分组筛选入口（对标原版 menu_group）— Qoder
-          AppMenuButton<String?>(
-            tooltip: '分组筛选',
-            icon: Icon(
-              _groupFilter == null ? Symbols.filter_list_rounded : Symbols.filter_alt_rounded,
+      topBar: _batchMode
+          ? _buildBatchAppBar()
+          : LegadoAppBar(
+              title: Text(context.l10n.replaceRules),
+              bottom: AppSearchRow(
+                field: AppSearchField(
+                  controller: _searchCtrl,
+                  hintText: '搜索规则',
+                  onChanged: (v) => setState(() => _filter = v.trim()),
+                ),
+              ),
+              actions: [
+                // [UI-fix v2.0.2 | 2026-08-06] 分组筛选入口（对标原版 menu_group）— Qoder
+                AppMenuButton<String?>(
+                  tooltip: '分组筛选',
+                  icon: Icon(
+                    _groupFilter == null
+                        ? Symbols.filter_list_rounded
+                        : Symbols.filter_alt_rounded,
+                  ),
+                  onSelected: (v) => setState(() => _groupFilter = v),
+                  itemBuilder: (_) => [
+                    AppMenuItem<String?>(
+                      value: null,
+                      child: Text(context.l10n.allBooks),
+                    ),
+                    AppMenuItem<String?>(
+                      value: '__enabled__',
+                      child: Text(context.l10n.editorEnable),
+                    ),
+                    AppMenuItem<String?>(
+                      value: '__disabled__',
+                      child: Text(context.l10n.ruleFilterDisabled),
+                    ),
+                    AppMenuItem<String?>(
+                      value: '__null__',
+                      child: Text(context.l10n.ruleNoGroup),
+                    ),
+                    for (final g in _collectGroups(state.rules))
+                      AppMenuItem<String?>(value: g, child: Text('分组：$g')),
+                  ],
+                ),
+                // P2-12：分组管理（对标原版 menu_group_manage → GroupManageDialog）
+                IconButton(
+                  icon: const Icon(Symbols.folder_rounded),
+                  tooltip: context.l10n.groupManagement,
+                  onPressed: () => _showGroupManage(context, state.rules),
+                ),
+                // [UI-fix v2.0.2 | 2026-08-06] 导入入口接 ReplaceRuleImportConfirmScreen
+                // （对标原版 ReplaceRuleActivity menu_import：本地/网络/二维码均已接通） — Qoder
+                AppMenuButton<String>(
+                  tooltip: context.l10n.importAction,
+                  icon: const Icon(Symbols.file_download_rounded),
+                  onSelected: _handleImportMenu,
+                  itemBuilder: (_) => [
+                    AppMenuItem(
+                      value: 'local',
+                      child: Text(context.l10n.importLocal),
+                    ),
+                    AppMenuItem(
+                      value: 'online',
+                      child: Text(context.l10n.importOnline),
+                    ),
+                    AppMenuItem(
+                      value: 'qrcode',
+                      child: Text(context.l10n.importQrCode),
+                    ),
+                  ],
+                ),
+                // [UI-fix v2.0.2 | 2026-08-06] 批量模式入口 — Qoder
+                IconButton(
+                  icon: const Icon(Symbols.checklist_rounded),
+                  tooltip: '批量操作',
+                  onPressed: () => setState(() => _batchMode = true),
+                ),
+                IconButton(
+                  icon: const Icon(Symbols.help_rounded),
+                  tooltip: context.l10n.help,
+                  onPressed: () =>
+                      showHelp(context, HelpAssets.replaceRuleHelp),
+                ),
+                // [A3 形态对齐 | full-stack-engineer + UI] 新增入口跳整页编辑器
+                IconButton(
+                  icon: const Icon(Symbols.add_rounded),
+                  onPressed: () => ReplaceRuleEditScreen.open(context),
+                ),
+              ],
             ),
-            onSelected: (v) => setState(() => _groupFilter = v),
-            itemBuilder: (_) => [
-              const AppMenuItem<String?>(value: null, child: Text('全部')),
-              const AppMenuItem<String?>(
-                value: '__enabled__',
-                child: Text('启用'),
-              ),
-              const AppMenuItem<String?>(
-                value: '__disabled__',
-                child: Text('禁用'),
-              ),
-              const AppMenuItem<String?>(
-                value: '__null__',
-                child: Text('无分组'),
-              ),
-              for (final g in _collectGroups(state.rules))
-                AppMenuItem<String?>(value: g, child: Text('分组：$g')),
-            ],
-          ),
-          // P2-12：分组管理（对标原版 menu_group_manage → GroupManageDialog）
-          IconButton(
-            icon: const Icon(Symbols.folder_rounded),
-            tooltip: '分组管理',
-            onPressed: () => _showGroupManage(context, state.rules),
-          ),
-          // [UI-fix v2.0.2 | 2026-08-06] 导入入口接 ReplaceRuleImportConfirmScreen
-          // （对标原版 ReplaceRuleActivity menu_import：本地/网络/二维码均已接通） — Qoder
-          AppMenuButton<String>(
-            tooltip: '导入',
-            icon: const Icon(Symbols.file_download_rounded),
-            onSelected: _handleImportMenu,
-            itemBuilder: (_) => const [
-              AppMenuItem(value: 'local', child: Text('本地导入')),
-              AppMenuItem(value: 'online', child: Text('网络导入')),
-              AppMenuItem(value: 'qrcode', child: Text('二维码导入')),
-            ],
-          ),
-          // [UI-fix v2.0.2 | 2026-08-06] 批量模式入口 — Qoder
-          IconButton(
-            icon: const Icon(Symbols.checklist_rounded),
-            tooltip: '批量操作',
-            onPressed: () => setState(() => _batchMode = true),
-          ),
-          IconButton(
-            icon: const Icon(Symbols.help_rounded),
-            tooltip: '帮助',
-            onPressed: () => showHelp(context, HelpAssets.replaceRuleHelp),
-          ),
-          // [A3 形态对齐 | full-stack-engineer + UI] 新增入口跳整页编辑器
-          IconButton(
-            icon: const Icon(Symbols.add_rounded),
-            onPressed: () => ReplaceRuleEditScreen.open(context),
-          ),
-        ],
-      ),
       body: Builder(
         builder: (context) {
           if (state.loading) {
@@ -171,7 +189,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => notifier.load(),
-                    child: const Text('重试'),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ),
@@ -371,14 +389,14 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     return LegadoAppBar(
       leading: IconButton(
         icon: const Icon(Symbols.close_rounded),
-        tooltip: '退出批量模式',
+        tooltip: context.l10n.ruleExitBatchMode,
         onPressed: _exitBatch,
       ),
       title: Text('已选择 ${_selected.length} 项'),
       actions: [
         IconButton(
           icon: const Icon(Symbols.select_all_rounded),
-          tooltip: '全选',
+          tooltip: context.l10n.selectAll,
           onPressed: () {
             final state = ref.read(replaceRuleNotifierProvider);
             setState(() {
@@ -389,12 +407,24 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         AppMenuButton<String>(
           tooltip: '批量操作',
           onSelected: _handleBatchAction,
-          itemBuilder: (_) => const [
-            AppMenuItem(value: 'enable', child: Text('启用选中')),
-            AppMenuItem(value: 'disable', child: Text('禁用选中')),
-            AppMenuItem(value: 'top', child: Text('置顶')),
-            AppMenuItem(value: 'bottom', child: Text('置底')),
-            AppMenuItem(value: 'export', child: Text('导出选中')),
+          itemBuilder: (_) => [
+            AppMenuItem(
+              value: 'enable',
+              child: Text(context.l10n.enableSelected),
+            ),
+            AppMenuItem(
+              value: 'disable',
+              child: Text(context.l10n.disableSelected),
+            ),
+            AppMenuItem(value: 'top', child: Text(context.l10n.pinToTop)),
+            AppMenuItem(
+              value: 'bottom',
+              child: Text(context.l10n.moveToBottom),
+            ),
+            AppMenuItem(
+              value: 'export',
+              child: Text(context.l10n.exportSelected),
+            ),
           ],
         ),
       ],
@@ -645,17 +675,16 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               provider.deleteRule(rule.id);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('规则已删除')));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('规则已删除')));
             },
-            child: const Text('删除'),
+            child: Text(ctx.l10n.delete),
           ),
         ],
       ),
@@ -700,9 +729,7 @@ class _ReplaceRuleTile extends StatelessWidget {
     return Card(
       color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；边距 horizontal16（全局标尺）
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: InkWell(
         onTap: batchMode ? onSelect : onEdit,
@@ -714,10 +741,7 @@ class _ReplaceRuleTile extends StatelessWidget {
             children: [
               // [UI-fix v2.0.2 | 2026-08-06] 批量模式显示选中框，否则排序手柄 — Qoder
               if (batchMode)
-                Checkbox(
-                  value: selected,
-                  onChanged: (_) => onSelect?.call(),
-                )
+                Checkbox(value: selected, onChanged: (_) => onSelect?.call())
               else
                 // 排序手柄
                 ReorderableDragStartListener(
@@ -739,7 +763,7 @@ class _ReplaceRuleTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${rule.isRegex ? "正则" : "文本"}: ${rule.pattern} → ${rule.replacement}',
+                      '${rule.isRegex ? context.l10n.searchUseRegex : context.l10n.editorText}: ${rule.pattern} → ${rule.replacement}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
                         color: theme.colorScheme.onSurfaceVariant,
@@ -769,7 +793,7 @@ class _ReplaceRuleTile extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   visualDensity: VisualDensity.compact,
-                  tooltip: '编辑',
+                  tooltip: context.l10n.edit,
                   onPressed: onEdit,
                 ),
                 // 更多菜单（对标 iv_menu_more）
@@ -779,12 +803,15 @@ class _ReplaceRuleTile extends StatelessWidget {
                     size: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  tooltip: '更多',
+                  tooltip: context.l10n.more,
                   onSelected: (v) {
                     if (v == 'delete') onDelete();
                   },
-                  itemBuilder: (_) => const [
-                    AppMenuItem(value: 'delete', child: Text('删除')),
+                  itemBuilder: (_) => [
+                    AppMenuItem(
+                      value: 'delete',
+                      child: Text(context.l10n.delete),
+                    ),
                   ],
                 ),
               ],
@@ -829,15 +856,13 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             TextField(
               controller: _controller,
               autofocus: widget.history.isEmpty,
-              decoration: const InputDecoration(
-                hintText: '输入替换规则 URL 地址',
-              ),
+              decoration: const InputDecoration(hintText: '输入替换规则 URL 地址'),
               keyboardType: TextInputType.url,
             ),
             if (widget.history.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                '历史记录',
+                context.l10n.history,
                 style: Theme.of(context).textTheme.labelMedium,
               ),
               const SizedBox(height: 4),
@@ -862,7 +887,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -870,7 +895,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             if (url.isEmpty) return;
             Navigator.pop(context, url);
           },
-          child: const Text('导入'),
+          child: Text(context.l10n.importAction),
         ),
       ],
     );

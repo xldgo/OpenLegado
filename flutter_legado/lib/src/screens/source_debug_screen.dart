@@ -1,9 +1,13 @@
+import '../l10n/app_localization.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
@@ -55,6 +59,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
     String message, {
     _DebugLogLevel level = _DebugLogLevel.info,
   }) {
+    if (!mounted) return;
     setState(() {
       _logs.add(
         _DebugLogEntry(time: DateTime.now(), message: message, level: level),
@@ -87,15 +92,16 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
   }
 
   Future<void> _runDebug() async {
+    final l10n = context.l10n;
     final sourceUrl = _sourceUrlCtrl.text.trim();
     final keyword = _keywordCtrl.text.trim();
 
     if (sourceUrl.isEmpty) {
-      _appendLog('错误：请输入书源 URL', level: _DebugLogLevel.error);
+      _appendLog(l10n.debugBookSourceUrlRequired, level: _DebugLogLevel.error);
       return;
     }
     if (keyword.isEmpty) {
-      _appendLog('错误：请输入搜索关键词', level: _DebugLogLevel.error);
+      _appendLog(l10n.debugKeywordRequired, level: _DebugLogLevel.error);
       return;
     }
 
@@ -104,39 +110,44 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
       _logs.clear();
     });
 
-    _appendLog('⇒开始调试');
+    _appendLog(l10n.debugStarting);
 
     StreamSubscription<Map<String, dynamic>>? sub;
     try {
       final api = ref.read(bookApiProvider);
-      sub = api.debugBookSourceStream(sourceUrl, keyword).listen(
-        (item) {
-          if (!mounted) return;
-          final state = item['state'] is int
-              ? item['state'] as int
-              : int.tryParse('${item['state']}') ?? 1;
-          final msg = (item['msg'] ?? '').toString();
-          if (msg.isEmpty) return;
-          final level = state < 0
-              ? _DebugLogLevel.error
-              : state >= 1000
+      sub = api
+          .debugBookSourceStream(sourceUrl, keyword)
+          .listen(
+            (item) {
+              if (!mounted) return;
+              final state = item['state'] is int
+                  ? item['state'] as int
+                  : int.tryParse('${item['state']}') ?? 1;
+              final msg = (item['msg'] ?? '').toString();
+              if (msg.isEmpty) return;
+              final level = state < 0
+                  ? _DebugLogLevel.error
+                  : state >= 1000
                   ? _DebugLogLevel.success
                   : _DebugLogLevel.info;
-          _appendLog(msg, level: level);
-        },
-        onError: (Object e) {
-          if (!mounted) return;
-          _appendLog('异常: ${_errMsg(e)}', level: _DebugLogLevel.error);
-        },
-        onDone: () {
-          if (!mounted) return;
-          setState(() => _running = false);
-        },
-        cancelOnError: true,
-      );
+              _appendLog(msg, level: level);
+            },
+            onError: (Object e) {
+              if (!mounted) return;
+              _appendLog(
+                l10n.debugException(_errMsg(e)),
+                level: _DebugLogLevel.error,
+              );
+            },
+            onDone: () {
+              if (!mounted) return;
+              setState(() => _running = false);
+            },
+            cancelOnError: true,
+          );
       await sub.asFuture<void>();
     } catch (e) {
-      _appendLog('异常: ${_errMsg(e)}', level: _DebugLogLevel.error);
+      _appendLog(l10n.debugException(_errMsg(e)), level: _DebugLogLevel.error);
     } finally {
       await sub?.cancel();
       if (mounted) {
@@ -162,17 +173,17 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('书源调试'),
+        title: Text(context.l10n.bookSourceDebugTitle),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),
-            tooltip: '帮助',
+            tooltip: context.l10n.help,
             onPressed: () => showHelp(context, HelpAssets.debugHelp),
           ),
           // 清除日志按钮
           IconButton(
             icon: const Icon(Symbols.delete_rounded),
-            tooltip: '清空日志',
+            tooltip: context.l10n.clearDebugLogs,
             onPressed: _logs.isEmpty
                 ? null
                 : () => setState(() => _logs.clear()),
@@ -190,10 +201,10 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                 TextField(
                   controller: _sourceUrlCtrl,
                   // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme，不手写边框
-                  decoration: const InputDecoration(
-                    labelText: '书源 URL',
-                    hintText: '输入要调试的书源地址',
-                    prefixIcon: Icon(Symbols.link_rounded),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.debugBookSourceUrlLabel,
+                    hintText: context.l10n.debugBookSourceUrlHint,
+                    prefixIcon: const Icon(Symbols.link_rounded),
                     isDense: true,
                   ),
                 ),
@@ -204,10 +215,10 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                       child: TextField(
                         controller: _keywordCtrl,
                         // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme，不手写边框
-                        decoration: const InputDecoration(
-                          labelText: '搜索关键词',
-                          hintText: '关键词 / URL / ++目录 / --正文',
-                          prefixIcon: Icon(Symbols.search_rounded),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.debugKeywordLabel,
+                          hintText: context.l10n.debugKeywordHint,
+                          prefixIcon: const Icon(Symbols.search_rounded),
                           isDense: true,
                         ),
                         onSubmitted: (_) => _runDebug(),
@@ -223,7 +234,11 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Symbols.play_arrow_rounded),
-                      label: Text(_running ? '停止' : '调试'),
+                      label: Text(
+                        _running
+                            ? context.l10n.stopAction
+                            : context.l10n.debugAction,
+                      ),
                     ),
                   ],
                 ),
@@ -243,7 +258,8 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                 TextButton(
                   onPressed: () {
                     setState(() {
-                      if (_enabledLevels.length == _DebugLogLevel.values.length) {
+                      if (_enabledLevels.length ==
+                          _DebugLogLevel.values.length) {
                         _enabledLevels.clear();
                       } else {
                         _enabledLevels
@@ -258,8 +274,8 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                   ),
                   child: Text(
                     _enabledLevels.length == _DebugLogLevel.values.length
-                        ? '全不选'
-                        : '全选',
+                        ? context.l10n.deselectAll
+                        : context.l10n.selectAll,
                     style: theme.textTheme.labelSmall,
                   ),
                 ),
@@ -273,7 +289,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 4),
                           child: FilterChip(
-                            label: Text(level.label),
+                            label: Text(level.label(context.l10n)),
                             selected: _enabledLevels.contains(level),
                             onSelected: (selected) {
                               setState(() {
@@ -285,7 +301,8 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                               });
                             },
                             selectedColor: level.chipColor(theme),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                             labelStyle: TextStyle(
                               fontSize: 11,
@@ -303,7 +320,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                 const SizedBox(width: 8),
                 // 日志计数
                 Text(
-                  '${filteredLogs.length} / ${_logs.length} 条',
+                  context.l10n.debugLogCount(filteredLogs.length, _logs.length),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -317,7 +334,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
             child: _logs.isEmpty
                 ? Center(
                     child: Text(
-                      '输入书源 URL 和关键词后点击"调试"开始',
+                      context.l10n.debugBookSourceEmptyHint,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -326,7 +343,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
                 : filteredLogs.isEmpty
                 ? Center(
                     child: Text(
-                      '没有匹配的日志条目',
+                      context.l10n.debugNoMatchingLogs,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -413,12 +430,12 @@ enum _DebugLogLevel {
   error;
 
   /// 显示标签
-  String get label {
+  String label(AppLocalizations l10n) {
     switch (this) {
       case _DebugLogLevel.info:
         return 'INFO';
       case _DebugLogLevel.success:
-        return '成功';
+        return l10n.debugLogSuccess;
       case _DebugLogLevel.warn:
         return 'WARN';
       case _DebugLogLevel.error:

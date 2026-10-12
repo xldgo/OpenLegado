@@ -1,3 +1,5 @@
+import '../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../bridge/ffi.dart' show BridgeError;
@@ -14,13 +16,13 @@ bool isSourceLoginRequiredError(Object? error) {
       msg.contains('1012');
 }
 
-String sourceLoginRequiredMessage(Object? error) {
+String sourceLoginRequiredMessage(Object? error, {String? fallback}) {
   if (error is BridgeError && error.message.isNotEmpty) {
     return error.message;
   }
   final s = error?.toString() ?? '';
   if (s.contains('书源需要登录')) return s;
-  return '书源需要登录，请先在书源菜单中登录后重试';
+  return fallback ?? '书源需要登录，请先在书源菜单中登录后重试';
 }
 
 /// 弹出登录提示并可选跳转 [SourceLoginScreen]（对齐原版 LoginSourceException 引导）。
@@ -35,16 +37,21 @@ Future<void> promptSourceLoginIfNeeded(
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('需要登录'),
-      content: Text(sourceLoginRequiredMessage(error)),
+      title: Text(ctx.l10n.loginRequiredTitle),
+      content: Text(
+        sourceLoginRequiredMessage(
+          error,
+          fallback: ctx.l10n.sourceLoginRetryHint,
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
+          child: Text(ctx.l10n.cancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('去登录'),
+          child: Text(ctx.l10n.goToLogin),
         ),
       ],
     ),

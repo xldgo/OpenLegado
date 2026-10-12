@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_localization.dart';
 import '../models/flip_mode.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
@@ -129,7 +130,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   late ReaderAdvancedConfig _config = widget.config.copy();
 
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
-  String _fontLabel = '默认字体';
+  String? _fontLabel;
 
   /// 简繁转换类型（0=不转换 1=繁转简 2=简转繁，对标原版 chineseConvertType）
   int _convertType = 0;

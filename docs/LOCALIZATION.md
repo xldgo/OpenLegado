@@ -51,7 +51,19 @@ flutter gen-l10n
 
 | 本应用文案 | HapeLee 键 | 英文参考 |
 |---|---|---|
+| 源名称 / 地址 / 分组 | `source_name` / `source_url` / `source_group` | Source name / Source URL / Source group |
+| 编辑器页签 | `source_tab_base` / `source_tab_info` / `source_tab_toc` / `source_tab_content` | Basic / Details / Chapters / Content |
+| 书籍与章节字段 | `r_book_list` / `r_book_name` / `r_author` / `rule_chapter_list` | Book list / Book title / Author / Chapter list |
+| 订阅规则字段 | `r_articles` / `r_title` / `r_description` / `r_content` | Article list / Title / Description / Content |
+| 搜索范围 / 精准搜索 | `search_scope` / `precision_search` | Search scope / Precise search |
+| 搜索结果与书源进度 | `search_result_count` / `search_source_progress` | Results / Progress |
+| 清空搜索历史 | `sure_clear_search_history` | Clear all search history? |
+| 空结果范围引导 | `search_empty_scope_disable_precision` / `search_empty_scope_switch_all` | Disable precise search? / Search all groups? |
+| 正文搜索 | `search_content` / `search_content_size` | Search content / Search results |
 | 发现 / 订阅 / RSS 收藏 | `discovery` / `rss` / `rss_star` | Discovery / RSS Feeds / RSS Favorites |
+| 调试 / 调试结束 | `debug` / `debug_source` / `debug_finished` | Debug / Debug source / Debug finished |
+| 登录源 / 登录错误 | `login_source` / `source_no_login` / `login_error` | Log in to / No login URL / Login error |
+| 查看 / 删除登录头 | `show_login_header` / `del_login_header` / `login_header` | View / Delete login headers |
 | 登录 / 源变量 | `login` / `set_source_variable` | Log in / Set source variable |
 | 保留原名 / 分组 / 启用状态 | `keep_original_name` / `keep_group` / `keep_enable` | Keep existing names / groups / enabled state |
 | 本地 / 网络导入 | `import_local` / `import_on_line` | Import from file / URL |
@@ -66,6 +78,72 @@ flutter gen-l10n
 例如本应用“高级”按语义使用 Advanced，“替换净化”使用 Replacement Rules。
 订阅源导入选项中的“保留”指保留本地已有值，英文补充 existing 避免歧义；
 网络导入按实际 URL 输入行为使用 Import from URL。参考原意，不机械照抄不自然的译文。
+
+搜索与正文搜索的菜单值、范围标识及屏蔽词不随语言改变；用户输入的历史关键词、
+书源名称和自定义分组仍是数据。搜索计数、失败计数与正文匹配数使用完整的 ICU
+句子，避免拼接英文单位；失败原因保留底层原文，仅本地化外围提示。
+
+源编辑器的字段描述在构建界面时使用当前资源；控制器仍按原字段键保留输入。
+初始化、快照和保存使用稳定键，不依赖译文。字段括号内的协议标识、URL 示例的
+规则变量、JSON/JS/CSS 内容保持原样；必填反馈使用完整句子模板。
+源提供的注释或变量说明按用户数据显示，仅应用自带的兜底说明进行本地化。
+
+经典与 V2 登录表单的行名、选择项及默认值来自书源协议，保持原文与稳定键。
+只翻译应用自身的外围标题、菜单、校验及兜底提示；不能按表单文字猜译或修改 JS。
+Cookie/Header/Token、源提示、网页内容和 Rust 日志同样保持原样。应用自带调试
+日志在执行前固定语言快照，计数和文章提示使用完整模板与英文复数。
+
+阅读器与高级设置按用户要求，只补齐能与上游明确对应的文案。除字符串外，
+同时核对固定版本的 [英文数组](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/res/values/arrays.xml)
+及 [中文数组](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/res/values-zh-rCN/arrays.xml)。
+本批新增阅读设置 90 条、高级设置 46 条资源，合计 911 个中英文键。
+
+| 语境 | 对应的上游键或数组 |
+|---|---|
+| 翻页动画、字号、字重及斜体 | `page_anim`、`font_size`、`font_weight`、`read_config_italic`、`text_font_weight` |
+| 页眉页脚、四侧边距及提示项 | `header`、`footer`、`padding_top/bottom/left/right`、`read_tip` |
+| 屏幕方向、亮屏时长、双页与简繁转换 | `screen_direction`、`screen_time_out`、`double_page_title`、`chinese_mode` |
+| 状态栏、导航栏及刘海区域 | `pt_hide_status_bar`、`pt_hide_navigation_bar`、`read_body_to_lh`、`padding_display_cutouts` |
+| 进度条、工具栏与亮度方向 | `progress_bar_behavior`、`adjust_chapter_page/index`、`read_bar_style_follow_page`、`brightness_bar_off/horizontal` |
+| 首页行为、本地密码及源编辑器 | `main_activity`、`pt_auto_refresh`、`pt_default_read`、`default_home_page`、`set_local_password`、`source_edit_text_max_line` |
+| 缓存、朗读、搜索数据与日志 | `bitmap_cache_size`、`image_retain_number`、`pre_download`、`ignore_audio_focus_title`、`auto_clear_expired`、`record_log`、`record_heap_dump_t` |
+
+字重的 Regular 对应字重数组，不能复用朗读设置中的 General；页眉页脚提示项
+按实际含义对应数组，不能照搬上游数组下标覆盖已有配置编号。字号、边距、字重、
+缩进、方向、超时与提示项的数值和偏好键保持原样；首页显示名与稳定 ID 分离。
+默认字体只在渲染时取译文，真实字体名与用户数据不变，不在初始化阶段读取本地化上下文。
+
+暂留阅读设置重新设计的分类标题与说明、中文排版说明、九宫格位置与扩展动作、
+章节进度组合、竖向亮度左右组合、本应用特有服务说明及部分异步操作反馈。
+这些内容没有完整对应或仍需核对行为，本轮不猜译；英文模式仍可能出现这些中文。
+后续获得明确语义后继续补齐，不将本批视为阅读器或全应用国际化完成。
+
+本次继续对照外观、书源管理、替换规则、TXT 目录规则、字典规则、WebDAV、
+阅读目录与菜单、漫画设置；共对齐 224 个文案，接入 356 处显示位置，新增 146 条、
+复用 78 条现有资源，中英文合计 1057 个键。通用取消、保存、导入、分组等操作
+复用已有资源；不同语境的匹配规则、主题封面规则和阅读替换规则使用各自对应项。
+
+| 页面语境 | HapeLee 参考键 |
+|---|---|
+| 外观、纯黑、顶栏／底栏、容器 | `pure_black`、`top_bar_button_style`、`top_bar_opacity`、`bottom_bar_opacity`、`base_card_corner_radius` |
+| 书源筛选、批量操作与排序 | `book_source_manage`、`enabled_explore`、`disabled_explore`、`enable_selection`、`disable_selection`、`sort_manual`、`sort_by_name`、`sort_by_respondTime` |
+| 规则编辑与默认导入 | `rule_name`、`match_pattern`、`replace_to`、`specific_scope`、`exclude_scope`、`copy_rule`、`import_default_rule`、`dict_rule` |
+| WebDAV 与备份选项 | `web_dav_set`、`web_dav_url`、`web_dav_account`、`web_dav_pw`、`webdav_device_name`、`restore_ignore`、`only_latest_backup_t`、`auto_check_new_backup_t` |
+| 目录、书签及阅读菜单 | `chapter_list`、`bookmark`、`locate_current_reading`、`use_replace_rule`、`load_word_count`、`edit_content`、`disable_source`、`book_change_source` |
+| 漫画显示与交互 | `manga_setting`、`enable_manga_gray`、`disable_manga_scale`、`disable_manga_scroll_animation`、`manga_cross_fade`、`manga_reader_hide_footer` |
+
+本应用“复制规则”对应上游“拷贝规则”、“发现已启用”对应“已启用发现”，属于
+同一操作或状态的标签变体；保留本应用中文，使用已核对功能的英文术语。目录页签、
+默认规则导入和选中状态的显示同样接入资源。完整逐项索引及原始中英文参考保存在
+本 worktree 的忽略目录 `flutter_legado/build/localization-align-plan.json`。
+
+书源“未分组”用于旧筛选的内部值保持中文，只有显示标签本地化；菜单动作值、
+规则 JSON 字段、查询地址、凭据、分组名和书籍数据不改。原有漫画预览章节名与
+数字也不在本批改动中。弹窗优先使用弹窗上下文，默认、选中与取消选中分支分别核对。
+
+继续暂留本应用 JSON 主题导出说明（上游完整主题包包含图片、字体等，行为不同）、
+电子纸近似效果、同步增强说明、规则即时预览和超时说明，以及未核对的异步反馈。
+中文相同不代表功能等价，不将原始错误或服务返回文本按词条猜译。
 
 订阅源管理的筛选控制值保持旧中文兼容，显示词来自 ARB；英文输入别名也从
 生成资源读取。禁止把菜单动作值、配置键或书源规则字段翻译成当前界面语言。

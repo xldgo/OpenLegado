@@ -1604,4 +1604,2000 @@ class AppLocalizationsEn extends AppLocalizations {
   String confirmDeleteItemGroup(String name, String noun) {
     return 'Delete group “$name”? Its $noun will be removed from this group.';
   }
+
+  @override
+  String get searchScope => 'Search scope';
+
+  @override
+  String get stopSearch => 'Stop searching';
+
+  @override
+  String get loadNextPage => 'Load next page';
+
+  @override
+  String get preciseSearch => 'Precise search';
+
+  @override
+  String get markReadBooks => 'Mark books already read';
+
+  @override
+  String get appLog => 'Logs';
+
+  @override
+  String get searchResultFilter => 'Filter search results';
+
+  @override
+  String get searchResultFilterActive => 'Filter search results (enabled)';
+
+  @override
+  String get copySourceFailures => 'Copy all failure details';
+
+  @override
+  String get searchBookOrAuthor => 'Search book title or author';
+
+  @override
+  String get noMatchingSearchHistory => 'No matching search history';
+
+  @override
+  String get clearSearchHistory => 'Clear search history';
+
+  @override
+  String get confirmClearSearchHistory => 'Clear all search history?';
+
+  @override
+  String get emptySearchResults => 'No search results';
+
+  @override
+  String get disablePreciseSearch => 'Disable precise search';
+
+  @override
+  String get switchAllSearchGroups => 'Search all groups';
+
+  @override
+  String get specifiedBookSources => 'Selected book sources';
+
+  @override
+  String get currentBookSource => 'Current book source';
+
+  @override
+  String get allBookSources => 'All book sources';
+
+  @override
+  String get searchBookSources => 'Search book sources';
+
+  @override
+  String get noMatchingBookSources => 'No matching book sources';
+
+  @override
+  String get noGroupedBookSources => 'No book source groups';
+
+  @override
+  String get searchBlockedWords => 'Blocked search terms';
+
+  @override
+  String get searchBlockedWordsHelp =>
+      'Enter one plain-text term per line. Matches book titles, authors or category labels, ignoring letter case.';
+
+  @override
+  String get searchBlockedWordsHint => 'Blocked terms (one per line)';
+
+  @override
+  String get searchContent => 'Search content';
+
+  @override
+  String get searchOptions => 'Search options';
+
+  @override
+  String get searchUseReplacement => 'Replacement rules';
+
+  @override
+  String get searchUseRegex => 'Regular expression';
+
+  @override
+  String get searchCurrentChapter => 'Current chapter only';
+
+  @override
+  String get searchCachedChapters => 'Cached chapters of this book';
+
+  @override
+  String get searchNetworkChapters => 'All chapters, including online';
+
+  @override
+  String get searchPlaceholder => 'Search...';
+
+  @override
+  String get searchResultsTruncated => '(truncated)';
+
+  @override
+  String get searchContentHint => 'Enter a keyword to search the book';
+
+  @override
+  String get searchThisBookOnly => 'This book only';
+
+  @override
+  String get displayListSeparator => ', ';
+
+  @override
+  String searchProgressSummary(int count, int searched, int total) {
+    return 'Results $count · Progress $searched/$total';
+  }
+
+  @override
+  String searchLoginRequiredCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count book sources require login. Log in from their menus, then try again.',
+      one: 'One book source requires login. Log in from its menu, then try again.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String bookSourceSearchFailed(String error) {
+    return 'Book source search failed: $error';
+  }
+
+  @override
+  String bookSourceSearchFailureCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count book sources failed. Tap to expand.',
+      one: 'One book source failed. Tap to expand.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String copiedSourceFailureCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Copied $count book source failures',
+      one: 'Copied one book source failure',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String searchGroupCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count groups',
+      one: 'One group',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String searchSourceCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count book sources',
+      one: 'One book source',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String latestChapterLabel(String chapter) {
+    return 'Latest: $chapter';
+  }
+
+  @override
+  String bookSourcesLoadFailed(String error) {
+    return 'Failed to load book sources: $error';
+  }
+
+  @override
+  String deletedSearchKeyword(String keyword) {
+    return 'Deleted “$keyword”';
+  }
+
+  @override
+  String emptySearchDisablePrecision(String scope) {
+    return 'No results in $scope. Disable precise search?';
+  }
+
+  @override
+  String emptySearchSwitchAllGroups(String scope) {
+    return 'No results in $scope. Search all groups?';
+  }
+
+  @override
+  String scanningSearchChapters(int scanned, int total) {
+    return 'Scanning chapters $scanned / $total ...';
+  }
+
+  @override
+  String noContentMatches(String keyword) {
+    return 'No content found for “$keyword”';
+  }
+
+  @override
+  String contentMatchCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count matches',
+      one: 'One match',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get editorSourceUrl => 'Source URL';
+
+  @override
+  String get editorSourceName => 'Source name';
+
+  @override
+  String get editorSourceGroup => 'Source group';
+
+  @override
+  String get editorSourceComment => 'Source comment';
+
+  @override
+  String get editorLoginUrl => 'Login URL';
+
+  @override
+  String get editorLoginUi => 'Login interface';
+
+  @override
+  String get editorLoginCheckJs => 'Login check JS';
+
+  @override
+  String get editorCoverDecode => 'Cover decryption';
+
+  @override
+  String get editorBookUrlPattern => 'Book URL pattern';
+
+  @override
+  String get editorHeader => 'Request headers';
+
+  @override
+  String get editorVariableComment => 'Variable description';
+
+  @override
+  String get editorConcurrentRate => 'Concurrency rate';
+
+  @override
+  String get editorSearchUrl => 'Search URL';
+
+  @override
+  String get editorCheckKeyword => 'Validation keyword';
+
+  @override
+  String get editorBookList => 'Book list rule';
+
+  @override
+  String get editorBookName => 'Book title rule';
+
+  @override
+  String get editorAuthor => 'Author rule';
+
+  @override
+  String get editorKind => 'Category rule';
+
+  @override
+  String get editorWordCount => 'Word count rule';
+
+  @override
+  String get editorLastChapter => 'Latest chapter rule';
+
+  @override
+  String get editorIntro => 'Description rule';
+
+  @override
+  String get editorCoverUrl => 'Cover rule';
+
+  @override
+  String get editorBookUrl => 'Book details URL rule';
+
+  @override
+  String get editorExploreUrl => 'Discovery URL rule';
+
+  @override
+  String get editorInfoInit => 'Preprocessing rule';
+
+  @override
+  String get editorTocUrl => 'Chapter list URL rule';
+
+  @override
+  String get editorCanRename => 'Allow changing title and author';
+
+  @override
+  String get editorDownloadUrls => 'Download URL rule';
+
+  @override
+  String get editorPreUpdateJs => 'Before-update JS';
+
+  @override
+  String get editorChapterList => 'Chapter list rule';
+
+  @override
+  String get editorChapterName => 'Chapter title rule';
+
+  @override
+  String get editorChapterUrl => 'Chapter URL rule';
+
+  @override
+  String get editorFormatJs => 'Formatting rule';
+
+  @override
+  String get editorIsVolume => 'Volume marker';
+
+  @override
+  String get editorChapterInfo => 'Chapter information';
+
+  @override
+  String get editorIsVip => 'VIP marker';
+
+  @override
+  String get editorIsPay => 'Purchase marker';
+
+  @override
+  String get editorNextTocUrl => 'Next chapter list page rule';
+
+  @override
+  String get editorContent => 'Book content rule';
+
+  @override
+  String get editorNextContentUrl => 'Next content page URL rule';
+
+  @override
+  String get editorSubContent => 'Supplementary content rule';
+
+  @override
+  String get editorReplaceRegex => 'Replacement rule';
+
+  @override
+  String get editorTitle => 'Title';
+
+  @override
+  String get editorSourceRegex => 'Resource pattern';
+
+  @override
+  String get editorImageStyle => 'Image style';
+
+  @override
+  String get editorImageDecode => 'Image decryption';
+
+  @override
+  String get editorWebJs => 'WebView JS';
+
+  @override
+  String get editorPayAction => 'Purchase action';
+
+  @override
+  String get editorCallbackJs => 'Callback action';
+
+  @override
+  String get editorReviewSummaryUrl => 'Paragraph comment summary URL';
+
+  @override
+  String get editorSummaryList => 'Paragraph comment summary list';
+
+  @override
+  String get editorParagraphIndex => 'Paragraph index';
+
+  @override
+  String get editorSummaryCount => 'Paragraph comment count';
+
+  @override
+  String get editorParagraphData => 'Paragraph data';
+
+  @override
+  String get editorReviewDetailUrl => 'Paragraph comment details URL';
+
+  @override
+  String get editorReviewNextPage => 'Next paragraph comment page URL';
+
+  @override
+  String get editorDetailList => 'Paragraph comment details list';
+
+  @override
+  String get editorCommentId => 'Comment ID';
+
+  @override
+  String get editorAvatar => 'Avatar';
+
+  @override
+  String get editorNickname => 'Nickname';
+
+  @override
+  String get editorBadge => 'Badge';
+
+  @override
+  String get editorCommentContent => 'Comment content protocol';
+
+  @override
+  String get editorReviewQuoteUrl => 'Paragraph comment reply URL';
+
+  @override
+  String get editorReplyList => 'Reply list';
+
+  @override
+  String get editorReplyId => 'Reply ID';
+
+  @override
+  String get editorReplyAvatar => 'Reply avatar';
+
+  @override
+  String get editorReplyName => 'Reply nickname';
+
+  @override
+  String get editorReplyBadge => 'Reply badge';
+
+  @override
+  String get editorReplyContent => 'Reply content protocol';
+
+  @override
+  String get editorIcon => 'Icon';
+
+  @override
+  String get editorIconUrl => 'Icon URL';
+
+  @override
+  String get editorSortUrl => 'Category URL';
+
+  @override
+  String get editorLoginDetectionJs => 'Login check JS';
+
+  @override
+  String get editorCoverDecodeJs => 'Cover decode JS';
+
+  @override
+  String get editorRssVariableComment => 'Source variable description';
+
+  @override
+  String get editorJsLibrary => 'JS library';
+
+  @override
+  String get editorStartHtml => 'Initial HTML';
+
+  @override
+  String get editorStartStyle => 'Initial style';
+
+  @override
+  String get editorStartJs => 'Initial JS';
+
+  @override
+  String get editorPreloadJs => 'Preload JS';
+
+  @override
+  String get editorArticleList => 'Article list rule';
+
+  @override
+  String get editorNextPage => 'Next page rule';
+
+  @override
+  String get editorTitleRule => 'Title rule';
+
+  @override
+  String get editorDateRule => 'Date rule';
+
+  @override
+  String get editorDescriptionRule => 'Description rule';
+
+  @override
+  String get editorImageRule => 'Image rule';
+
+  @override
+  String get editorLinkRule => 'Link rule';
+
+  @override
+  String get editorContentRule => 'Content rule';
+
+  @override
+  String get editorStyle => 'Style';
+
+  @override
+  String get editorInjectJs => 'Injected JS';
+
+  @override
+  String get editorContentWhitelist => 'Content allowlist';
+
+  @override
+  String get editorContentBlacklist => 'Content blocklist';
+
+  @override
+  String get editorOverrideUrl => 'URL interception';
+
+  @override
+  String get editorType => 'Type';
+
+  @override
+  String get editorText => 'Text';
+
+  @override
+  String get editorAudio => 'Audio';
+
+  @override
+  String get editorImage => 'Image';
+
+  @override
+  String get editorFile => 'File';
+
+  @override
+  String get editorVideo => 'Video';
+
+  @override
+  String get editorWeb => 'Web page';
+
+  @override
+  String get editorList => 'List';
+
+  @override
+  String get editorSingleColumn => 'One column';
+
+  @override
+  String get editorTwoColumns => 'Two columns';
+
+  @override
+  String get editorWaterfall => 'Masonry';
+
+  @override
+  String get editorThreeColumns => 'Three columns';
+
+  @override
+  String get editorBasic => 'Basic';
+
+  @override
+  String get editorDetails => 'Details';
+
+  @override
+  String get editorChapters => 'Chapters';
+
+  @override
+  String get editorBookContent => 'Content';
+
+  @override
+  String get editorPreprocess => 'Preprocessing';
+
+  @override
+  String get editorListRules => 'List rules';
+
+  @override
+  String get editorReviewRules => 'Paragraph comment rules';
+
+  @override
+  String get editorEnable => 'Enable';
+
+  @override
+  String get editorReviews => 'Paragraph comments';
+
+  @override
+  String get editorEventListener => 'Event listener';
+
+  @override
+  String get editorCustomButton => 'Custom button';
+
+  @override
+  String get editorOptions => 'Options';
+
+  @override
+  String get editorSingleUrl => 'Single URL';
+
+  @override
+  String get editorPreload => 'Preload';
+
+  @override
+  String get editorEnableJs => 'Enable JS';
+
+  @override
+  String get editorLoadBaseUrl => 'Load with base URL';
+
+  @override
+  String get editorShowWebLog => 'Show web logs';
+
+  @override
+  String get editorCacheFirst => 'Prefer cache';
+
+  @override
+  String editorFieldLabel(String label, String field) {
+    return '$label ($field)';
+  }
+
+  @override
+  String enterEditorField(String label) {
+    return 'Enter $label';
+  }
+
+  @override
+  String editorSettingsSummary(String summary, String action) {
+    return 'Settings, $summary, $action';
+  }
+
+  @override
+  String get editorCollapse => 'Collapse';
+
+  @override
+  String get editorExpand => 'Expand';
+
+  @override
+  String get editorJsonHint => 'JSON format';
+
+  @override
+  String get editorSearchUrlHint =>
+      'Example: https://example.com/search?q=searchKey';
+
+  @override
+  String get editorExploreUrlHint =>
+      'Example: Category::https://example.com/sort\nOr a URL';
+
+  @override
+  String get editorGroupHint => 'Separate groups with commas';
+
+  @override
+  String get editorSortHint => 'Category::rule';
+
+  @override
+  String get editorRateHint => 'Example: 16/s';
+
+  @override
+  String get editorJsLibraryHint => 'JavaScript libraries used by the source';
+
+  @override
+  String get editorArticlesHint => 'ruleArticles, for example item or //item';
+
+  @override
+  String get editorCssHint => 'Article page CSS';
+
+  @override
+  String get newBookSource => 'New book source';
+
+  @override
+  String get editBookSource => 'Edit book source';
+
+  @override
+  String get newRssSource => 'New RSS source';
+
+  @override
+  String get editRssSource => 'Edit RSS source';
+
+  @override
+  String get editSourceContent => 'Edit content';
+
+  @override
+  String get debugSource => 'Debug source';
+
+  @override
+  String get moreOptions => 'More options';
+
+  @override
+  String get testSource => 'Test';
+
+  @override
+  String get bookSourceCreated => 'Book source created';
+
+  @override
+  String get bookSourceSaved => 'Book source saved';
+
+  @override
+  String get rssSourceUpdated => 'RSS source updated';
+
+  @override
+  String get rssSourceAdded => 'RSS source added';
+
+  @override
+  String sourceSaveFailed(String error) {
+    return 'Failed to save: $error';
+  }
+
+  @override
+  String get clearCookies => 'Clear cookies';
+
+  @override
+  String get cookiesCleared => 'Cookies cleared';
+
+  @override
+  String clearCookiesFailed(String error) {
+    return 'Failed to clear cookies: $error';
+  }
+
+  @override
+  String get autoComplete => 'Autocomplete';
+
+  @override
+  String get autoCompleteEnabled => 'Autocomplete enabled';
+
+  @override
+  String get autoCompleteDisabled => 'Autocomplete disabled';
+
+  @override
+  String get copySource => 'Copy source';
+
+  @override
+  String get pasteSource => 'Paste source';
+
+  @override
+  String get importSourceQr => 'Import QR code';
+
+  @override
+  String get shareSourceQr => 'Share QR code';
+
+  @override
+  String get shareSourceText => 'Share text';
+
+  @override
+  String get shareBookSource => 'Share book source';
+
+  @override
+  String get enterBookSourceUrlFirst => 'Enter the book source URL first';
+
+  @override
+  String get enterSourceUrlFirst => 'Enter the source URL first';
+
+  @override
+  String get sourceVariableCleared => 'Source variable cleared';
+
+  @override
+  String get sourceVariableInputHint =>
+      'Enter a source variable (leave empty to clear)';
+
+  @override
+  String get qrTooLong =>
+      'Content is too long for a QR code. Share it as text instead.';
+
+  @override
+  String get qrGenerateFailed => 'Failed to generate QR code';
+
+  @override
+  String get shareImage => 'Share image';
+
+  @override
+  String get clipboardEmpty => 'Clipboard is empty';
+
+  @override
+  String pastedBookSource(String name) {
+    return 'Pasted book source: $name';
+  }
+
+  @override
+  String get clipboardInvalidBookSource =>
+      'Clipboard does not contain valid book source JSON';
+
+  @override
+  String get bookSourceShareSubject => 'Book source';
+
+  @override
+  String importedBookSource(String name) {
+    return 'Imported book source: $name';
+  }
+
+  @override
+  String get qrInvalidBookSource =>
+      'QR code does not contain valid book source JSON';
+
+  @override
+  String get sourceProtocolImportHint =>
+      'Use Associated import for legado protocol links';
+
+  @override
+  String get sourceUrlImportHint =>
+      'Import URLs from the book source management page';
+
+  @override
+  String sourceSearchOpenFailed(String error) {
+    return 'Failed to open search: $error';
+  }
+
+  @override
+  String sourceDebugFailed(String error) {
+    return 'Failed to debug source: $error';
+  }
+
+  @override
+  String get focusSourceFieldFirst => 'Select the field you want to edit first';
+
+  @override
+  String get bookSourceNotFound =>
+      'Book source not found. It may have been deleted.';
+
+  @override
+  String get enterSourceName => 'Enter a source name';
+
+  @override
+  String get enterSourceUrl => 'Enter a source URL';
+
+  @override
+  String get unsavedChanges => 'Unsaved changes';
+
+  @override
+  String get discardSourceChanges => 'Discard unsaved changes and leave?';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get testSourceUrlRequired => 'Enter the source URL first';
+
+  @override
+  String get sourceTestNoArticles =>
+      'Connected, but no articles were found. The rules may need configuration.';
+
+  @override
+  String get untitledArticle => '(Untitled)';
+
+  @override
+  String sourceTestArticles(int count, String titles) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Fetched $count articles:\n$titles',
+      one: 'Fetched one article:\n$titles',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sourceTestFailed(String error) {
+    return 'Test failed: $error';
+  }
+
+  @override
+  String get copiedRssSource => 'RSS source copied to clipboard';
+
+  @override
+  String rssSourceShareSubject(String name) {
+    return 'RSS source: $name';
+  }
+
+  @override
+  String get pastedRssSource => 'RSS source pasted from clipboard';
+
+  @override
+  String pasteRssSourceFailed(String error) {
+    return 'Failed to paste valid RSS source JSON from clipboard: $error';
+  }
+
+  @override
+  String get bookSourceDebugTitle => 'Book source debug';
+
+  @override
+  String get rssSourceDebugTitle => 'RSS source debug';
+
+  @override
+  String get clearDebugLogs => 'Clear logs';
+
+  @override
+  String get debugBookSourceUrlLabel => 'Book source URL';
+
+  @override
+  String get debugBookSourceUrlHint => 'Enter the book source URL to debug';
+
+  @override
+  String get debugKeywordLabel => 'Search keyword';
+
+  @override
+  String get debugKeywordHint => 'Keyword / URL / ++chapter list / --content';
+
+  @override
+  String get debugAction => 'Debug';
+
+  @override
+  String get stopAction => 'Stop';
+
+  @override
+  String get debugRunning => 'Running';
+
+  @override
+  String get deselectAll => 'Deselect all';
+
+  @override
+  String get debugLogSuccess => 'Success';
+
+  @override
+  String debugLogCount(int visible, int total) {
+    return '$visible / $total logs';
+  }
+
+  @override
+  String get debugBookSourceEmptyHint =>
+      'Enter a book source URL and keyword, then tap Debug';
+
+  @override
+  String get debugNoMatchingLogs => 'No logs match the selected filters';
+
+  @override
+  String get debugRssEmptyHint => 'Tap Debug to start';
+
+  @override
+  String get debugBookSourceUrlRequired => 'Error: Enter a book source URL';
+
+  @override
+  String get debugKeywordRequired => 'Error: Enter a search keyword';
+
+  @override
+  String get debugStarting => '⇒Starting debug';
+
+  @override
+  String debugException(String error) {
+    return 'Exception: $error';
+  }
+
+  @override
+  String get debugRssUrlRequired => 'Error: Enter an RSS source URL first';
+
+  @override
+  String get debugRssStarting => '=== Starting RSS source debug ===';
+
+  @override
+  String debugSourceAddress(String url) {
+    return 'Source URL: $url';
+  }
+
+  @override
+  String get debugRssQuery => '[1/2] Looking up registered RSS sources...';
+
+  @override
+  String get debugRssUnregistered =>
+      'This RSS source is not registered; fetching directly from its URL';
+
+  @override
+  String debugSourceName(String name) {
+    return 'Source name: $name';
+  }
+
+  @override
+  String get debugRssFetch => '[2/2] Fetching articles...';
+
+  @override
+  String get debugRssNoArticles =>
+      'No articles found (rules may be missing or the source may be unreachable)';
+
+  @override
+  String debugRssArticlesFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Fetch complete: $count articles',
+      one: 'Fetch complete: 1 article',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String debugArticleLink(String url) {
+    return '      Link: $url';
+  }
+
+  @override
+  String debugRssArticlesOmitted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '  ... ($count more articles omitted)',
+      one: '  ... (1 more article omitted)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get debugFinished => '=== Debug finished ===';
+
+  @override
+  String loginToSource(String source) {
+    return 'Log in to $source';
+  }
+
+  @override
+  String get manualLoginInput => 'Manual input';
+
+  @override
+  String get loginLink => 'Login URL';
+
+  @override
+  String get sourceLoginLinkMissing => 'This book source has no login URL';
+
+  @override
+  String get sourceLoginLinkInvalid => 'Invalid login URL';
+
+  @override
+  String get sourceLoginLinkOpenFailed => 'Unable to open the login URL';
+
+  @override
+  String get cookieNameRequired => 'Enter a Cookie name';
+
+  @override
+  String get headerNameRequired => 'Enter a header name';
+
+  @override
+  String get loginInfoSaved => 'Login information saved';
+
+  @override
+  String get loginSaveFailed => 'Unable to save. Please try again';
+
+  @override
+  String get saveLoginInfo => 'Save login information';
+
+  @override
+  String get optionalLoginToken => 'Token (optional)';
+
+  @override
+  String get loginTokenHint => 'Bearer Token / API key';
+
+  @override
+  String get loginCookies => 'Cookies';
+
+  @override
+  String get loginCookieNameHint => 'Name';
+
+  @override
+  String get loginCookieValueHint => 'Value';
+
+  @override
+  String get optionalLoginHeaders => 'Headers (optional)';
+
+  @override
+  String get loginHeaderNameHint => 'Header name';
+
+  @override
+  String get loginHeaderValueHint => 'Header value';
+
+  @override
+  String get browserLoginInstructions =>
+      'After logging in through your browser, copy the Cookie and paste it into the Manual input tab.';
+
+  @override
+  String loginActionFailed(String error) {
+    return 'Action failed: $error';
+  }
+
+  @override
+  String sourceLoginFailed(String error) {
+    return 'Login error: $error';
+  }
+
+  @override
+  String get loginHeader => 'Login headers';
+
+  @override
+  String get loginNoValue => '(none)';
+
+  @override
+  String get loginHeaderDeleted => 'Login headers deleted';
+
+  @override
+  String get loginInfoCleared => 'Login information cleared';
+
+  @override
+  String get viewLoginHeader => 'View login headers';
+
+  @override
+  String get deleteLoginHeader => 'Delete login headers';
+
+  @override
+  String get clearLoginInfo => 'Clear login information';
+
+  @override
+  String loginFormParseFailed(String error) {
+    return 'Unable to parse the login form: $error';
+  }
+
+  @override
+  String get sourceLoginFormMissing => 'This book source has no login form';
+
+  @override
+  String loginButtonCountdown(String label, int seconds) {
+    return '$label (${seconds}s)';
+  }
+
+  @override
+  String get loginCheckCompleted => 'Login check complete';
+
+  @override
+  String openingExternalApp(String url) {
+    return 'Opening in another app: $url';
+  }
+
+  @override
+  String loginPageLoadFailed(String error) {
+    return 'Unable to load the page: $error';
+  }
+
+  @override
+  String get checkingLoginCookies => 'Checking Cookies…';
+
+  @override
+  String get checkLoginAction => 'Check';
+
+  @override
+  String get editLoginCookies => 'Edit Cookies manually';
+
+  @override
+  String get loginRequiredTitle => 'Login required';
+
+  @override
+  String get sourceLoginRetryHint =>
+      'This book source requires login. Log in from the source menu, then try again.';
+
+  @override
+  String get loginFailed => 'Login failed';
+
+  @override
+  String loginFormTitle(String source) {
+    return 'Log in to $source';
+  }
+
+  @override
+  String get confirmLoginAction => 'Confirm';
+
+  @override
+  String get readerSlide => 'Slide';
+
+  @override
+  String get readerSimulation => 'Simulation';
+
+  @override
+  String get readerScroll => 'Scroll';
+
+  @override
+  String get readerPageAnimation => 'Page turn animation';
+
+  @override
+  String get readerFontSize => 'Font size';
+
+  @override
+  String get readerBackground => 'Background';
+
+  @override
+  String get readerTextColor => 'Text color';
+
+  @override
+  String get readerBackgroundColor => 'Background color';
+
+  @override
+  String get readerDone => 'Done';
+
+  @override
+  String get readerAuto => 'Auto';
+
+  @override
+  String get readerDefaultFont => 'Default font';
+
+  @override
+  String get readerFont => 'Font';
+
+  @override
+  String get readerFontWeight => 'Font weight';
+
+  @override
+  String get readerItalic => 'Italic';
+
+  @override
+  String get readerWeightLight => 'Light';
+
+  @override
+  String get readerWeightRegular => 'Regular';
+
+  @override
+  String get readerWeightBold => 'Bold';
+
+  @override
+  String get readerIndentNone => 'None';
+
+  @override
+  String get readerIndentOne => '1 character';
+
+  @override
+  String get readerIndentTwo => '2 characters';
+
+  @override
+  String get readerIndentThree => '3 characters';
+
+  @override
+  String get readerParagraphSpacing => 'Paragraph spacing';
+
+  @override
+  String get readerHeader => 'Header';
+
+  @override
+  String get readerFooter => 'Footer';
+
+  @override
+  String get readerBody => 'Content';
+
+  @override
+  String get readerPaddingTop => 'Top';
+
+  @override
+  String get readerPaddingBottom => 'Bottom';
+
+  @override
+  String get readerPaddingLeft => 'Left';
+
+  @override
+  String get readerPaddingRight => 'Right';
+
+  @override
+  String get readerTipNone => 'None';
+
+  @override
+  String get readerTipBookName => 'Book name';
+
+  @override
+  String get readerTipChapterName => 'Chapter title';
+
+  @override
+  String get readerTipTime => 'Time';
+
+  @override
+  String get readerTipBatteryIcon => 'Battery icon';
+
+  @override
+  String get readerTipBatteryPercent => 'Battery percentage';
+
+  @override
+  String get readerTipPages => 'Pages';
+
+  @override
+  String get readerTipProgress => 'Reading progress';
+
+  @override
+  String get readerTipPagesProgress => 'Pages and progress';
+
+  @override
+  String get readerTipTimeBattery => 'Time and battery';
+
+  @override
+  String get readerTipTimeBatteryPercent => 'Time and battery percentage';
+
+  @override
+  String get readerHideWithStatusBar => 'Hide when the status bar is visible';
+
+  @override
+  String get readerShow => 'Show';
+
+  @override
+  String get readerHide => 'Hide';
+
+  @override
+  String get readerChapterTitle => 'Chapter title';
+
+  @override
+  String get readerAlignLeft => 'Left';
+
+  @override
+  String get readerAlignCenter => 'Center';
+
+  @override
+  String get readerShowDivider => 'Show divider';
+
+  @override
+  String get readerAutoPageTurn => 'Auto page turn';
+
+  @override
+  String get readerNoAction => 'None';
+
+  @override
+  String get readerPreviousPage => 'Previous page';
+
+  @override
+  String get readerNextPage => 'Next page';
+
+  @override
+  String get readerMenu => 'Menu';
+
+  @override
+  String get readerTapAreas => 'Tap areas';
+
+  @override
+  String get readerSelectText => 'Long press to select text';
+
+  @override
+  String get readerMouseWheelPage => 'Turn pages with the mouse wheel';
+
+  @override
+  String get readerVolumeKeyPage => 'Turn pages with volume keys';
+
+  @override
+  String get readerVolumeKeyPageReading =>
+      'Turn pages with volume keys during read aloud';
+
+  @override
+  String get readerPageTouchSlop => 'Swipe threshold';
+
+  @override
+  String get readerPageTouchSlopDialog =>
+      'Swipe threshold (0 = system default)';
+
+  @override
+  String get readerScreenOrientation => 'Screen orientation';
+
+  @override
+  String get readerPortrait => 'Portrait';
+
+  @override
+  String get readerLandscape => 'Landscape';
+
+  @override
+  String get readerSensor => 'Auto (sensor)';
+
+  @override
+  String get readerPortraitReversed => 'Reversed portrait';
+
+  @override
+  String get readerLandscapeReversed => 'Reversed landscape';
+
+  @override
+  String get readerKeepAwake => 'Keep screen awake';
+
+  @override
+  String get readerDefault => 'Default';
+
+  @override
+  String get readerAwakeMinute => '1 min';
+
+  @override
+  String get readerAwakeFiveMinutes => '5 min';
+
+  @override
+  String get readerAwakeTenMinutes => '10 min';
+
+  @override
+  String get readerAwakeAlways => 'Always';
+
+  @override
+  String get readerHideStatusBar => 'Hide status bar';
+
+  @override
+  String get readerHideNavigationBar => 'Hide navigation bar';
+
+  @override
+  String get readerExtendCutout => 'Extend to display cutout';
+
+  @override
+  String get readerFillCutout => 'Fill display cutout';
+
+  @override
+  String get readerDualPageMode => 'Dual pages on tablet or in landscape';
+
+  @override
+  String get readerSinglePage => 'Single page';
+
+  @override
+  String get readerDoublePage => 'Dual pages';
+
+  @override
+  String get readerLandscapeDoublePage => 'Dual pages in landscape';
+
+  @override
+  String get readerChineseConversion => 'Simplified/traditional conversion';
+
+  @override
+  String get readerNoConversion => 'Off';
+
+  @override
+  String get readerToSimplified => 'Traditional to simplified';
+
+  @override
+  String get readerToTraditional => 'Simplified to traditional';
+
+  @override
+  String get readerAutoChangeSource => 'Change source automatically';
+
+  @override
+  String get readerProgressBarBehavior => 'Progress bar behavior';
+
+  @override
+  String get readerAdjustChapterPage => 'Adjust page within chapter';
+
+  @override
+  String get readerAdjustChapterIndex => 'Adjust chapter';
+
+  @override
+  String get readerToolbarFollowPage => 'Toolbar follows reading page';
+
+  @override
+  String get readerBrightnessOff => 'Off';
+
+  @override
+  String get readerBrightnessHorizontal => 'Horizontal';
+
+  @override
+  String get advancedMainScreen => 'Start page';
+
+  @override
+  String get advancedAutoRefresh => 'Auto refresh';
+
+  @override
+  String get advancedAutoRefreshDescription =>
+      'Update books when opening the app';
+
+  @override
+  String get advancedRecentReading => 'Open recent reading automatically';
+
+  @override
+  String get advancedRecentReadingDescription =>
+      'Use the bookshelf as the default start page';
+
+  @override
+  String get advancedShowDiscovery => 'Show Discovery';
+
+  @override
+  String get advancedShowRss => 'Show RSS feeds';
+
+  @override
+  String get advancedDefaultHomePage => 'Default start page';
+
+  @override
+  String get advancedDefaultHomePageDialog => 'Default start page';
+
+  @override
+  String get advancedLocalPassword => 'Set local password';
+
+  @override
+  String get advancedLocalPasswordDescription =>
+      'The local password encrypts and decrypts sensitive backup data. Use the same password on devices that sync with each other.';
+
+  @override
+  String get advancedUserAgent => 'User agent';
+
+  @override
+  String get advancedBookSaveLocation => 'Book save location';
+
+  @override
+  String get advancedBookSaveLocationDescription =>
+      'Where books opened from other apps are saved';
+
+  @override
+  String get advancedSourceEditorMaxLines => 'Maximum source editor lines';
+
+  @override
+  String get advancedCheckSourceSettings => 'Source check settings';
+
+  @override
+  String get advancedAntiAlias => 'Anti-aliasing';
+
+  @override
+  String get advancedAntiAliasDescription => 'Smooth image edges when drawing';
+
+  @override
+  String get advancedBitmapCache => 'Image cache size';
+
+  @override
+  String get advancedMangaRetention => 'Manga chapter retention';
+
+  @override
+  String get advancedPreDownload => 'Download ahead';
+
+  @override
+  String get advancedReplaceByDefault => 'Enable replacement rules by default';
+
+  @override
+  String get advancedReplaceByDefaultDescription =>
+      'Apply replacement rules to newly added books';
+
+  @override
+  String get advancedHeadsetAlways => 'Always respond to headset buttons';
+
+  @override
+  String get advancedHeadsetAlwaysDescription =>
+      'Respond to headset buttons even after leaving the app';
+
+  @override
+  String get advancedHeadsetReadAloud =>
+      'Start read aloud with headset buttons';
+
+  @override
+  String get advancedHeadsetReadAloudDescription =>
+      'Use headset buttons to start read aloud';
+
+  @override
+  String get advancedIgnoreAudioFocus => 'Ignore audio focus';
+
+  @override
+  String get advancedIgnoreAudioFocusDescription =>
+      'Allow audio playback alongside other apps';
+
+  @override
+  String get advancedClearExpiredSearch =>
+      'Clear expired search data automatically';
+
+  @override
+  String get advancedClearExpiredSearchDescription =>
+      'Search data older than one day';
+
+  @override
+  String get advancedAddToShelfPrompt =>
+      'Prompt to add to bookshelf when returning';
+
+  @override
+  String get advancedAddToShelfPromptDescription =>
+      'When returning from a book outside the bookshelf, ask whether to add it';
+
+  @override
+  String get advancedMangaViewer => 'Manga viewer';
+
+  @override
+  String get advancedWebPort => 'Web port';
+
+  @override
+  String get advancedClearCache => 'Clear cache';
+
+  @override
+  String get advancedClearCacheDescription =>
+      'Clear downloaded book and font caches';
+
+  @override
+  String get advancedClearWebView => 'Clear WebView data';
+
+  @override
+  String get advancedClearWebViewDescription =>
+      'Clear all data from the built-in browser';
+
+  @override
+  String get advancedShrinkDatabase => 'Compact database';
+
+  @override
+  String get advancedShrinkDatabaseDescription =>
+      'Reduce the database file size';
+
+  @override
+  String get advancedSearchTextActions => 'Show search in text actions';
+
+  @override
+  String get advancedRecordLog => 'Record logs';
+
+  @override
+  String get advancedRecordDebugLog => 'Record debug logs';
+
+  @override
+  String get advancedHeapDump => 'Capture heap dumps';
+
+  @override
+  String get advancedHeapDumpDescription =>
+      'Save a heap dump when the app runs out of memory';
+
+  @override
+  String get themeTopBarButtonStyle => 'Top Bar Button Style';
+
+  @override
+  String get themeTopBarOpacity => 'Top Bar Opacity';
+
+  @override
+  String get themeBottomBarOpacity => 'Bottom Bar Opacity';
+
+  @override
+  String get themeBaseCardCornerRadius => 'Card corner radius';
+
+  @override
+  String get themePureBlack => 'True black dark mode';
+
+  @override
+  String get themeChangeIcon => 'Change Icon';
+
+  @override
+  String get themeChangeIconSummary =>
+      'Change the app icon shown on the home screen';
+
+  @override
+  String get themeManagement => 'Theme Management';
+
+  @override
+  String get themeManagementDescription => 'Use, save, import or share themes';
+
+  @override
+  String get themeImportTheme => 'Import theme';
+
+  @override
+  String get themeWelcomeStyle => 'Launch screen style';
+
+  @override
+  String get themeImmersionStatusBar => 'Immersive status bar';
+
+  @override
+  String get themeStatusBarImmersion => 'Make the status bar transparent';
+
+  @override
+  String get themeImmNavigationBar => 'Immersive navigation bar';
+
+  @override
+  String get themeImmersiveNavigationDescription =>
+      'Make the navigation bar transparent';
+
+  @override
+  String get themeBarElevation => 'Navigation bar shadow';
+
+  @override
+  String get themeCoverConfig => 'Cover settings';
+
+  @override
+  String get themeCoverConfigSummary =>
+      'General cover rules and default cover style';
+
+  @override
+  String get themeMergeTopBarActions => 'Merge Top Bar Buttons';
+
+  @override
+  String get themeFloatingBottomBar => 'Floating Bottom Bar';
+
+  @override
+  String get themeBookInfoPage => 'Book details';
+
+  @override
+  String get themeBookInfoFollowCoverColor => 'Use colors from book cover';
+
+  @override
+  String get themeBookInfoFollowCoverColorSummary =>
+      'Applied only while a background cover is visible';
+
+  @override
+  String get themeBookInfoNetworkCoverBackground => 'Network cover background';
+
+  @override
+  String get themeBookInfoDefaultCoverBackground => 'Default cover background';
+
+  @override
+  String get themeContainerSettings => 'Container';
+
+  @override
+  String get themeBlurEffects => 'Blur Effects';
+
+  @override
+  String get themePrimary => 'Primary';
+
+  @override
+  String get themeAccent => 'Accent';
+
+  @override
+  String get themeNavbarColor => 'Bottom action bar color';
+
+  @override
+  String get themeBackgroundImage => 'Background Image';
+
+  @override
+  String get themeRestoreDefault => 'Restore default';
+
+  @override
+  String get themeCoverRule => 'Cover rules';
+
+  @override
+  String get themeThemeName => 'Theme name';
+
+  @override
+  String get themeSelectImage => 'Select a picture';
+
+  @override
+  String get sourceSort => 'Sort';
+
+  @override
+  String get sourceGroupSourcesByDomain => 'Group sources by domain';
+
+  @override
+  String get sourceEnableSelection => 'Enable selected';
+
+  @override
+  String get sourceDisableSelection => 'Disable selected';
+
+  @override
+  String get sourceEnableExplore => 'Enable Discovery';
+
+  @override
+  String get sourceDisableExplore => 'Disable Discovery';
+
+  @override
+  String get sourceSelectionToTop => 'Move selected to top';
+
+  @override
+  String get sourceSelectionToBottom => 'Move selected to bottom';
+
+  @override
+  String get sourceExportSelection => 'Export selected';
+
+  @override
+  String get sourceShareSelectedSource => 'Share selected sources';
+
+  @override
+  String get sourceCheckSelectSource => 'Check selected sources';
+
+  @override
+  String get sourceCheckSelectedInterval =>
+      'Select the range between selected sources';
+
+  @override
+  String get sourceMoreMenu => 'More options';
+
+  @override
+  String get sourceTagExploreEnabled => 'Discovery enabled indicator';
+
+  @override
+  String get sourceDescendingOrder => 'Descending';
+
+  @override
+  String get sourceSortManual => 'Manual order';
+
+  @override
+  String get sourceSortByUpdate => 'By update time';
+
+  @override
+  String get ruleName => 'Rule Name';
+
+  @override
+  String get ruleMatchPattern => 'Match Pattern';
+
+  @override
+  String get ruleReplaceTo => 'Replacement';
+
+  @override
+  String get ruleSpecificScope => 'Specific scope';
+
+  @override
+  String get ruleExcludeScope => 'Excluded scope';
+
+  @override
+  String get ruleEditReplaceRule => 'Edit replacement rule';
+
+  @override
+  String get rulePasteRule => 'Paste Rule';
+
+  @override
+  String get ruleUseRegex => 'Use regular expressions';
+
+  @override
+  String get ruleMoreActions => 'More Actions';
+
+  @override
+  String get ruleEditRule => 'Edit Rule';
+
+  @override
+  String get ruleRegexPattern => 'Regular expression';
+
+  @override
+  String get ruleAdd => 'Add';
+
+  @override
+  String get ruleNewRule => 'New Rule';
+
+  @override
+  String get ruleDeleteSelected => 'Delete Selected';
+
+  @override
+  String get backupTesting => 'Testing…';
+
+  @override
+  String get backupMenuImportOldVersion => 'Import Legacy Data';
+
+  @override
+  String get backupWebdavDeviceName => 'Device Name';
+
+  @override
+  String get backupPath => 'Backup location';
+
+  @override
+  String get backupSelectBackupPath => 'Select a backup location';
+
+  @override
+  String get backupSummary => 'Back up locally and to WebDAV';
+
+  @override
+  String get backupRestoreIgnore => 'Items excluded from restore';
+
+  @override
+  String get backupKeepLatest => 'Keep Only the Latest Backup';
+
+  @override
+  String get backupKeepLatestDescription =>
+      'Keep only the latest local backup file';
+
+  @override
+  String get backupCheckNew => 'Auto-Check for New Backups';
+
+  @override
+  String get backupCheckNewDescription =>
+      'Check for new backups when opening the app and ask whether to restore them';
+
+  @override
+  String get readerUseReplaceRule => 'Use Replacement Rules';
+
+  @override
+  String get readerLoadWordCount => 'Load word count';
+
+  @override
+  String get readerExport => 'Export';
+
+  @override
+  String get readerLocateCurrentReading => 'Go to the current reading position';
+
+  @override
+  String get readerMoveToTop => 'Move to Top';
+
+  @override
+  String get readerMoveToBottom => 'Move to Bottom';
+
+  @override
+  String get readerDownloadAll => 'Download all chapters';
+
+  @override
+  String get readerNoBookmark => 'No Bookmarks';
+
+  @override
+  String get readerSyncProgress => 'Sync reading progress';
+
+  @override
+  String get readerChapterChangeSource => 'Change source for this chapter';
+
+  @override
+  String get readerSetCharset => 'Text encoding';
+
+  @override
+  String get readerDisableSource => 'Disable source';
+
+  @override
+  String get readerOpenFun => 'Open with';
+
+  @override
+  String get readerBookmarkAdd => 'Add bookmark';
+
+  @override
+  String get readerHighlightRuleConfig => 'Highlight Rules';
+
+  @override
+  String get readerReplaceRuleTitleSetting => 'Replace Rules';
+
+  @override
+  String get readerCoverBookProgress => 'Overwrite cloud progress';
+
+  @override
+  String get readerReverseContent => 'Reverse content';
+
+  @override
+  String get readerReSegment => 'Split paragraphs again';
+
+  @override
+  String get mangaSetting => 'Manga Reading Settings';
+
+  @override
+  String get mangaReadType => 'Reading mode';
+
+  @override
+  String get mangaEnableMangaGray => 'Grayscale';
+
+  @override
+  String get mangaBrightness => 'Brightness';
+
+  @override
+  String get mangaDisableMangaClickScroll => 'Disable Tap to Turn Page';
+
+  @override
+  String get mangaDisableMangaScale => 'Disable Manga Zoom';
+
+  @override
+  String get mangaDisableMangaScrollAnimation => 'Disable Page Turn Animation';
+
+  @override
+  String get mangaHideMangaTitle => 'Hide Manga List Titles';
+
+  @override
+  String get mangaReverseVolumeKeyPage =>
+      'Reverse volume key page turn direction';
+
+  @override
+  String get mangaLongClick => 'Long press to save image';
+
+  @override
+  String get mangaCrossFade => 'Disable Loading Fade-In Animation';
+
+  @override
+  String get mangaColorFilter => 'Filter';
+
+  @override
+  String get mangaReaderLeftAlign => 'Left aligned';
+
+  @override
+  String get mangaReaderHideFooter => 'Hide footer';
+
+  @override
+  String get mangaCheckPageLabel => 'Pages';
+
+  @override
+  String get mangaCheckChapterLabel => 'Chapter';
+
+  @override
+  String get mangaCheckProgressLabel => 'Overall progress';
+
+  @override
+  String get sourceExitSelection => 'Exit selection mode';
+
+  @override
+  String get ruleExitBatchMode => 'Exit batch mode';
+
+  @override
+  String get ruleExitSelection => 'Exit selection mode';
+
+  @override
+  String get sourceDiscoveryEnabled => 'Discovery enabled';
+
+  @override
+  String get sourceDiscoveryDisabled => 'Discovery disabled';
+
+  @override
+  String get sourceSortName => 'By name';
+
+  @override
+  String get sourceSortResponseTime => 'By response time';
+
+  @override
+  String get ruleCopyRule => 'Copy rule';
+
+  @override
+  String get ruleImportDefault => 'Import default rules';
+
+  @override
+  String get dictionaryRuleManagement => 'Dictionary rule management';
+
+  @override
+  String get ruleImportOnline => 'Import from URL';
+
+  @override
+  String get webdavSettings => 'WebDAV settings';
+
+  @override
+  String get webdavServerAddress => 'WebDAV server address';
+
+  @override
+  String get webdavServerAddressHint => 'Enter your server address';
+
+  @override
+  String get webdavAccount => 'WebDAV account';
+
+  @override
+  String get webdavAccountHint => 'Enter your WebDAV account';
+
+  @override
+  String get webdavPassword => 'WebDAV password';
+
+  @override
+  String get webdavPasswordHint => 'Enter your password';
+
+  @override
+  String get webdavTestConfig => 'Test configuration';
+
+  @override
+  String get webdavSyncProgress => 'Sync reading progress';
+
+  @override
+  String get readerSplitLongChapters => 'Split long chapters';
+
+  @override
+  String get readerReverseChapterOrder => 'Reverse chapter order';
+
+  @override
+  String get readerDeleteBookmark => 'Delete bookmark';
+
+  @override
+  String get readerChangeBookSource => 'Change book source';
+
+  @override
+  String get readerPurchaseChapter => 'Purchase chapter';
+
+  @override
+  String get readerRemoveDuplicateTitle => 'Remove duplicate title';
+
+  @override
+  String get ruleFilterDisabled => 'Disabled';
+
+  @override
+  String get ruleNoGroup => 'Ungrouped';
+
+  @override
+  String get ruleNoGroupOption => '(Ungrouped)';
+
+  @override
+  String get ruleFullscreenEditor => 'Fullscreen editor';
+
+  @override
+  String get ruleAddReplacement => 'Add replacement rule';
+
+  @override
+  String get ruleAddRule => 'Add rule';
+
+  @override
+  String get ruleDeselectAll => 'Deselect all';
 }

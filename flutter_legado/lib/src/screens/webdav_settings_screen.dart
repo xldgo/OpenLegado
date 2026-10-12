@@ -1,3 +1,4 @@
+import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -126,9 +127,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       builder: (ctx) => AlertDialog(
         // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
         backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Text(title),
         content: TextField(
           controller: controller,
@@ -139,11 +138,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('确定'),
+            child: Text(ctx.l10n.confirm),
           ),
         ],
       ),
@@ -455,7 +454,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final theme = Theme.of(context);
     final (label, color) = switch (_testStatus) {
       _WebDavTestStatus.notTested => ('未测试', null),
-      _WebDavTestStatus.testing => ('测试中…', null),
+      _WebDavTestStatus.testing => (context.l10n.backupTesting, null),
       _WebDavTestStatus.success => ('✓ 连接成功', theme.colorScheme.primary),
       _WebDavTestStatus.failed => ('✗ 失败', theme.colorScheme.error),
     };
@@ -477,11 +476,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: const Text('备份与恢复'),
+        title: Text(context.l10n.backupAndRestore),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),
-            tooltip: '帮助',
+            tooltip: context.l10n.help,
             onPressed: _showHelp,
           ),
           AppMenuButton<String>(
@@ -493,15 +492,12 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   Navigator.pushNamed(context, AppRoutes.appLog);
               }
             },
-            itemBuilder: (ctx) => const [
+            itemBuilder: (ctx) => [
               AppMenuItem(
                 value: 'import_old',
-                child: Text('导入旧版数据'),
+                child: Text(ctx.l10n.backupMenuImportOldVersion),
               ),
-              AppMenuItem(
-                value: 'log',
-                child: Text('日志'),
-              ),
+              AppMenuItem(value: 'log', child: Text(ctx.l10n.logs)),
             ],
           ),
         ],
@@ -513,32 +509,38 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
           padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             SettingsGroup(
-              title: 'WebDAV 设置',
+              title: context.l10n.webdavSettings,
               children: [
                 IosListTile(
-                  title: 'WebDAV 服务器地址',
-                  subtitle: _url.isEmpty ? '输入你的服务器地址' : _url,
+                  title: context.l10n.webdavServerAddress,
+                  subtitle: _url.isEmpty
+                      ? context.l10n.webdavServerAddressHint
+                      : _url,
                   onTap: () => _editTextPref(
-                    title: 'WebDAV 服务器地址',
+                    title: context.l10n.webdavServerAddress,
                     initial: _url,
                     hint: 'https://dav.example.com/',
                     onSaved: (v) => _url = v,
                   ),
                 ),
                 IosListTile(
-                  title: 'WebDAV 账号',
-                  subtitle: _user.isEmpty ? '输入你的 WebDAV 账号' : _user,
+                  title: context.l10n.webdavAccount,
+                  subtitle: _user.isEmpty
+                      ? context.l10n.webdavAccountHint
+                      : _user,
                   onTap: () => _editTextPref(
-                    title: 'WebDAV 账号',
+                    title: context.l10n.webdavAccount,
                     initial: _user,
                     onSaved: (v) => _user = v,
                   ),
                 ),
                 IosListTile(
-                  title: 'WebDAV 密码',
-                  subtitle: _pass.isEmpty ? '输入你的密码' : '*' * _pass.length,
+                  title: context.l10n.webdavPassword,
+                  subtitle: _pass.isEmpty
+                      ? context.l10n.webdavPasswordHint
+                      : '*' * _pass.length,
                   onTap: () => _editTextPref(
-                    title: 'WebDAV 密码',
+                    title: context.l10n.webdavPassword,
                     initial: _pass,
                     obscure: true,
                     onSaved: (v) => _pass = v,
@@ -555,17 +557,17 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   ),
                 ),
                 IosListTile(
-                  title: '设备名称',
+                  title: context.l10n.backupWebdavDeviceName,
                   subtitle: _device.isEmpty ? '用于区分不同设备的备份' : _device,
                   onTap: () => _editTextPref(
-                    title: '设备名称',
+                    title: context.l10n.backupWebdavDeviceName,
                     initial: _device,
                     onSaved: (v) => _device = v,
                   ),
                 ),
                 // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（纯客户端）
                 IosListTile(
-                  title: '测试配置',
+                  title: context.l10n.webdavTestConfig,
                   subtitle: '连接测试服务器地址与账号',
                   trailing: _buildTestStatusLabel(),
                   // 测试期间禁用防重入
@@ -574,7 +576,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                       : _testWebDavConnection,
                 ),
                 SettingSwitchRow(
-                  title: '同步书籍进度',
+                  title: context.l10n.webdavSyncProgress,
                   subtitle: '在多设备间同步书籍阅读进度',
                   value: syncState.syncBookProgress,
                   onChanged: (v) => notifier.setSyncBookProgress(v),
@@ -592,36 +594,37 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
             const SizedBox(height: 16),
             SettingsGroup(
-              title: '备份与恢复',
+              title: context.l10n.backupAndRestore,
               children: [
                 IosListTile(
-                  title: '备份路径',
-                  subtitle:
-                      _backupPath.isEmpty ? '请选择备份路径' : _backupPath,
+                  title: context.l10n.backupPath,
+                  subtitle: _backupPath.isEmpty
+                      ? context.l10n.backupSelectBackupPath
+                      : _backupPath,
                   onTap: _busy ? null : _pickBackupPath,
                 ),
                 IosListTile(
-                  title: '备份',
-                  subtitle: '本地和 WebDav 一起备份',
+                  title: context.l10n.backup,
+                  subtitle: context.l10n.backupSummary,
                   onTap: _busy ? null : _doLocalBackup,
                 ),
                 // 短按 WebDAV 优先；长按本地恢复
                 GestureDetector(
                   onLongPress: _busy ? null : _doRestoreFromLocal,
                   child: IosListTile(
-                    title: '恢复',
+                    title: context.l10n.restore,
                     subtitle: '优先从 WebDav 恢复，长按从本地恢复',
                     onTap: _busy ? null : _doRestore,
                   ),
                 ),
                 IosListTile(
-                  title: '恢复忽略列表',
+                  title: context.l10n.backupRestoreIgnore,
                   subtitle: '恢复时忽略一些内容不恢复，方便不同手机配置不同',
                   onTap: _busy ? null : _showRestoreIgnore,
                 ),
                 SettingSwitchRow(
-                  title: '仅保留最新备份',
-                  subtitle: '本地备份仅保留最新备份文件',
+                  title: context.l10n.backupKeepLatest,
+                  subtitle: context.l10n.backupKeepLatestDescription,
                   value: _onlyLatestBackup,
                   onChanged: (v) {
                     setState(() => _onlyLatestBackup = v);
@@ -629,8 +632,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   },
                 ),
                 SettingSwitchRow(
-                  title: '自动检查新备份',
-                  subtitle: '打开软件时检查是否有新备份，有新备份时提示是否更新',
+                  title: context.l10n.backupCheckNew,
+                  subtitle: context.l10n.backupCheckNewDescription,
                   value: _autoCheckNewBackup,
                   onChanged: (v) {
                     setState(() => _autoCheckNewBackup = v);

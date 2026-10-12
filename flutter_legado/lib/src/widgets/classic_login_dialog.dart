@@ -1,4 +1,6 @@
+import '../l10n/app_localization.dart';
 import 'app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -53,17 +55,17 @@ class LoginRowUi {
   final double flexGrow; // style.layout_flexGrow（默认 1）
 
   LoginRowUi.fromJson(Map<String, dynamic> json)
-      : name = (json['name'] ?? '').toString(),
-        type = (json['type'] ?? 'text').toString(),
-        action = (json['action'] ?? '').toString(),
-        defaultValue = (json['default'] ?? '').toString(),
-        viewName = (json['viewName'] ?? '').toString(),
-        chars = (json['chars'] is List)
-            ? (json['chars'] as List)
+    : name = (json['name'] ?? '').toString(),
+      type = (json['type'] ?? 'text').toString(),
+      action = (json['action'] ?? '').toString(),
+      defaultValue = (json['default'] ?? '').toString(),
+      viewName = (json['viewName'] ?? '').toString(),
+      chars = (json['chars'] is List)
+          ? (json['chars'] as List)
                 .whereType<dynamic>()
                 .map((e) => e.toString())
                 .toList()
-            : const [],
+          : const [],
         flexBasisPercent = _numOr(json['style']?['layout_flexBasisPercent'], 0.4),
         flexGrow = _numOr(json['style']?['layout_flexGrow'], 1);
 
@@ -83,6 +85,7 @@ class LoginRowUi {
 class ClassicLoginDialogState extends State<ClassicLoginDialog> {
   List<LoginRowUi> _rows = [];
   final Map<String, TextEditingController> _controllers = {};
+
   /// select/toggle 当前值（key = row name）
   final Map<String, String> _picked = {};
   bool _busy = false;
@@ -243,6 +246,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
 
   /// 按钮点击（对齐原版 handleButtonClick：绝对 URL 打开浏览器，否则执行 JS）
   Future<void> _onButtonTap(LoginRowUi row) async {
+    final l10n = context.l10n;
     if (_busy) return;
     final action = row.action.trim();
     if (action.isEmpty) return;
@@ -256,7 +260,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
     try {
       await _runAction(action);
     } catch (e) {
-      _snack('动作执行失败：$e');
+      _snack(l10n.loginActionFailed(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -264,6 +268,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
 
   /// 顶栏 ✓：保存登录信息 + 执行 login.apply(this)（对齐原版 login(source)）
   Future<void> _onConfirm() async {
+    final l10n = context.l10n;
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -282,7 +287,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) _snack('登录出错：$e');
+      if (mounted) _snack(l10n.sourceLoginFailed(e.toString()));
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -312,6 +317,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
   // ─── 菜单项（对齐原版 source_login 菜单） ──────────────────────────
 
   Future<void> _menuAction(String value) async {
+    final l10n = context.l10n;
     switch (value) {
       case 'view_header':
         final header = await widget.api.getLoginHeader(source.bookSourceUrl);
@@ -319,25 +325,25 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('登录头'),
+            title: Text(ctx.l10n.loginHeader),
             content: SingleChildScrollView(
-              child: Text(header.isEmpty ? '（无）' : header),
+              child: Text(header.isEmpty ? ctx.l10n.loginNoValue : header),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('关闭'),
+                child: Text(ctx.l10n.close),
               ),
             ],
           ),
         );
       case 'del_header':
         await widget.api.putLoginHeader(source.bookSourceUrl, '');
-        _snack('登录头已删除');
+        _snack(l10n.loginHeaderDeleted);
       case 'clear_info':
         await widget.api.putLoginInfo(source.bookSourceUrl, '');
         await widget.api.putLoginHeader(source.bookSourceUrl, '');
-        _snack('登录信息已清除');
+        _snack(l10n.loginInfoCleared);
       case 'log':
         await Navigator.of(context).pushNamed(AppRoutes.appLog);
     }
@@ -358,7 +364,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
             // 对齐原版 SourceLoginDialog 标题「登录 <源名>」；
             // 无左上关闭按钮（原版仅右上 确认 + 更多选项）
             automaticallyImplyLeading: false,
-            title: Text('登录 ${source.bookSourceName}'),
+            title: Text(context.l10n.loginToSource(source.bookSourceName)),
             actions: [
               if (_busy)
                 const Padding(
@@ -374,17 +380,26 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
               IconButton(
                 icon: const Icon(Symbols.check_rounded),
                 // 对齐原版顶栏「确认」
-                tooltip: '确认',
+                tooltip: context.l10n.confirmLoginAction,
                 onPressed: _busy ? null : _onConfirm,
               ),
               AppMenuButton<String>(
-                tooltip: '更多选项',
+                tooltip: context.l10n.moreOptions,
                 onSelected: _menuAction,
-                itemBuilder: (_) => const [
-                  AppMenuItem(value: 'view_header', child: Text('查看登录头')),
-                  AppMenuItem(value: 'del_header', child: Text('删除登录头')),
-                  AppMenuItem(value: 'clear_info', child: Text('清除登录信息')),
-                  AppMenuItem(value: 'log', child: Text('日志')),
+                itemBuilder: (ctx) => [
+                  AppMenuItem(
+                    value: 'view_header',
+                    child: Text(ctx.l10n.viewLoginHeader),
+                  ),
+                  AppMenuItem(
+                    value: 'del_header',
+                    child: Text(ctx.l10n.deleteLoginHeader),
+                  ),
+                  AppMenuItem(
+                    value: 'clear_info',
+                    child: Text(ctx.l10n.clearLoginInfo),
+                  ),
+                  AppMenuItem(value: 'log', child: Text(ctx.l10n.logs)),
                 ],
               ),
             ],
@@ -404,7 +419,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            '登录表单解析失败：$_loadError',
+            context.l10n.loginFormParseFailed(_loadError!),
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.error),
           ),
@@ -412,7 +427,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
       );
     }
     if (_rows.isEmpty) {
-      return const Center(child: Text('该书源未配置登录表单'));
+      return Center(child: Text(context.l10n.sourceLoginFormMissing));
     }
 
     // 对齐原版 SourceLoginV2Delegate：按 loginUi 数组原序逐行渲染，
@@ -435,7 +450,8 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
                     SizedBox(
                       width: row.fullWidth
                           ? maxWidth
-                          : (maxWidth - gap) * row.flexBasisPercent.clamp(0.2, 0.9),
+                          : (maxWidth - gap) *
+                                row.flexBasisPercent.clamp(0.2, 0.9),
                       child: _buildGridButton(row, colorScheme),
                     )
                   else if (row.type != 'toggle')

@@ -48,7 +48,7 @@ extension _SourceEditLoad on _SourceEditScreenState {
         _populateFields(source);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到书源，可能已被删除')),
+          SnackBar(content: Text(context.l10n.bookSourceNotFound)),
         );
       }
     });
@@ -68,8 +68,10 @@ extension _SourceEditLoad on _SourceEditScreenState {
     _cookieJar = source.enabledCookieJar ?? false;
     _eventListener = source.eventListener;
     _customButton = source.customButton;
-    _bookSourceType =
-        source.bookSourceType.clamp(0, _SourceEditScreenState._typeLabels.length - 1);
+    _bookSourceType = source.bookSourceType.clamp(
+      0,
+      _SourceEditScreenState._typeCount - 1,
+    );
     setState(() {});
   }
 }

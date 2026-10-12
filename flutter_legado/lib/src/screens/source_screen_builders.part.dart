@@ -13,25 +13,27 @@ extension _SourceBuilders on _SourceScreenState {
       leading: state.batchMode
           ? IconButton(
               icon: const Icon(Symbols.close_rounded),
-              tooltip: '退出选择模式',
+              tooltip: context.l10n.sourceExitSelection,
               onPressed: () =>
                   ref.read(sourceNotifierProvider.notifier).exitBatchMode(),
             )
           : null,
-      title: const Text('书源管理'),
+      title: Text(context.l10n.sourceManagement),
       bottom: AppSearchRow(
         field: AppSearchField(
           controller: _searchCtrl,
-          hintText: '搜索书源',
-          onChanged: (v) => ref.read(sourceNotifierProvider.notifier).setFilter(v),
-          onClear: () => ref.read(sourceNotifierProvider.notifier).clearFilter(),
+          hintText: context.l10n.searchBookSources,
+          onChanged: (v) =>
+              ref.read(sourceNotifierProvider.notifier).setFilter(v),
+          onClear: () =>
+              ref.read(sourceNotifierProvider.notifier).clearFilter(),
         ),
       ),
       actions: [
         // 安卓原版 book_source.xml：排序按钮常驻顶栏（action_sort）
         AppMenuButton<String>(
           icon: const Icon(Symbols.sort_rounded),
-          tooltip: '排序',
+          tooltip: context.l10n.sourceSort,
           // 菜单在顶栏下方展开，不覆盖顶栏
           onSelected: (value) => _handleSortAction(context, value),
           itemBuilder: (_) => _buildSortMenuItems(context),
@@ -39,45 +41,50 @@ extension _SourceBuilders on _SourceScreenState {
         // 安卓原版：分组按钮常驻顶栏（menu_group 子菜单）
         AppMenuButton<String>(
           icon: const Icon(Symbols.groups_rounded),
-          tooltip: '分组',
+          tooltip: context.l10n.group,
           // 菜单在顶栏下方展开，不覆盖顶栏
           onSelected: (value) => _handleGroupAction(context, value),
           itemBuilder: (context) => [
-            const AppMenuItem(
+            AppMenuItem(
               enabled: false,
-              child:
-                  Text('分组', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(
+                context.l10n.group,
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-            const AppMenuItem(value: 'group_manage', child: Text('分组管理')),
+            AppMenuItem(
+              value: 'group_manage',
+              child: Text(context.l10n.groupManagement),
+            ),
             AppMenuItem(
               value: SourceSpecialGroup.enabled,
               checked: state.selectedGroup == SourceSpecialGroup.enabled,
-              child: const Text('已启用'),
+              child: Text(context.l10n.enabled),
             ),
             AppMenuItem(
               value: SourceSpecialGroup.disabled,
               checked: state.selectedGroup == SourceSpecialGroup.disabled,
-              child: const Text('已禁用'),
+              child: Text(context.l10n.disabled),
             ),
             AppMenuItem(
               value: SourceSpecialGroup.login,
               checked: state.selectedGroup == SourceSpecialGroup.login,
-              child: const Text('需登录'),
+              child: Text(context.l10n.loginRequired),
             ),
             AppMenuItem(
               value: '未分组',
               checked: state.selectedGroup == '未分组',
-              child: const Text('未分组'),
+              child: Text(context.l10n.ungrouped),
             ),
             AppMenuItem(
               value: SourceSpecialGroup.exploreOn,
               checked: state.selectedGroup == SourceSpecialGroup.exploreOn,
-              child: const Text('发现已启用'),
+              child: Text(context.l10n.sourceDiscoveryEnabled),
             ),
             AppMenuItem(
               value: SourceSpecialGroup.exploreOff,
               checked: state.selectedGroup == SourceSpecialGroup.exploreOff,
-              child: const Text('发现已禁用'),
+              child: Text(context.l10n.sourceDiscoveryDisabled),
             ),
             for (final group in state.groups.where((g) => g != '未分组'))
               AppMenuItem(
@@ -90,49 +97,67 @@ extension _SourceBuilders on _SourceScreenState {
         AppMenuButton<String>(
           // 原版无 tooltip 时系统默认提示 Show menu（长按被误读为
           // "shou menu"），此处显式指定中文提示
-          tooltip: '更多选项',
+          tooltip: context.l10n.moreOptions,
           // 菜单在顶栏下方展开，不覆盖顶栏（默认 over 会盖住搜索栏）
           onSelected: (value) => _handleAction(context, value),
           itemBuilder: (_) => [
             // 对标原版 book_source.xml 溢出菜单（JS 书源编辑器未移植前隐藏入口，避免假菜单）
-            const AppMenuItem(
+            AppMenuItem(
               value: 'new',
-              child: _MenuRow(icon: Symbols.add_rounded, label: '新建书源'),
+              child: _MenuRow(
+                icon: Symbols.add_rounded,
+                label: context.l10n.newBookSource,
+              ),
             ),
             const AppMenuItem(
               value: 'new_js',
               child: _MenuRow(icon: Symbols.code_rounded, label: '新建 JS 书源'),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_file',
-              child: _MenuRow(icon: Symbols.download_rounded, label: '本地导入'),
+              child: _MenuRow(
+                icon: Symbols.download_rounded,
+                label: context.l10n.importLocal,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_url',
-              child:
-                  _MenuRow(icon: Symbols.cloud_download_rounded, label: '网络导入'),
+              child: _MenuRow(
+                icon: Symbols.cloud_download_rounded,
+                label: context.l10n.importOnline,
+              ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'import_qr',
-              child: _MenuRow(icon: Symbols.qr_code_rounded, label: '二维码导入'),
+              child: _MenuRow(
+                icon: Symbols.qr_code_rounded,
+                label: context.l10n.importQrCode,
+              ),
             ),
             AppMenuItem(
               value: 'select_mode',
               child: _MenuRow(
                 icon: Symbols.checklist_rounded,
-                label: state.batchMode ? '退出选择模式' : '选择模式',
+                label: state.batchMode
+                    ? context.l10n.sourceExitSelection
+                    : context.l10n.selectionMode,
               ),
             ),
             AppMenuItem(
               value: 'group_by_domain',
               child: _MenuRow(
                 icon: Symbols.domain_rounded,
-                label: _groupByDomain ? '按域名分组显示 ✓' : '按域名分组显示',
+                label: _groupByDomain
+                    ? '${context.l10n.sourceGroupSourcesByDomain} ✓'
+                    : context.l10n.sourceGroupSourcesByDomain,
               ),
             ),
-            const AppMenuItem(
+            AppMenuItem(
               value: 'help',
-              child: _MenuRow(icon: Symbols.help_rounded, label: '帮助'),
+              child: _MenuRow(
+                icon: Symbols.help_rounded,
+                label: context.l10n.help,
+              ),
             ),
           ],
         ),
@@ -157,34 +182,52 @@ extension _SourceBuilders on _SourceScreenState {
       onInvert: notifier.revertSelection,
       onDelete: () => _handleBatchAction(context, 'delete'),
       onMenuSelected: (value) => _handleBatchAction(context, value),
-      menuItems: const [
+      menuItems: [
         // 对标原版 book_source_sel.xml 12 项选择操作
-        AppMenuItem(value: 'enable', child: Text('启用所选')),
-        AppMenuItem(value: 'disable', child: Text('禁用所选')),
         AppMenuItem(
-          value: 'add_group',
-          child: Text('添加分组'),
+          value: 'enable',
+          child: Text(context.l10n.sourceEnableSelection),
         ),
         AppMenuItem(
+          value: 'disable',
+          child: Text(context.l10n.sourceDisableSelection),
+        ),
+        AppMenuItem(value: 'add_group', child: Text(context.l10n.addGroup)),
+        AppMenuItem(
           value: 'remove_group',
-          child: Text('移除分组'),
+          child: Text(context.l10n.removeGroup),
         ),
         AppMenuItem(
           value: 'enable_explore',
-          child: Text('启用发现'),
+          child: Text(context.l10n.sourceEnableExplore),
         ),
         AppMenuItem(
           value: 'disable_explore',
-          child: Text('禁用发现'),
+          child: Text(context.l10n.sourceDisableExplore),
         ),
-        AppMenuItem(value: 'top', child: Text('置顶所选')),
-        AppMenuItem(value: 'bottom', child: Text('置底所选')),
-        AppMenuItem(value: 'export', child: Text('导出所选')),
-        AppMenuItem(value: 'share', child: Text('分享选中源')),
-        AppMenuItem(value: 'check', child: Text('校验所选')),
+        AppMenuItem(
+          value: 'top',
+          child: Text(context.l10n.sourceSelectionToTop),
+        ),
+        AppMenuItem(
+          value: 'bottom',
+          child: Text(context.l10n.sourceSelectionToBottom),
+        ),
+        AppMenuItem(
+          value: 'export',
+          child: Text(context.l10n.sourceExportSelection),
+        ),
+        AppMenuItem(
+          value: 'share',
+          child: Text(context.l10n.sourceShareSelectedSource),
+        ),
+        AppMenuItem(
+          value: 'check',
+          child: Text(context.l10n.sourceCheckSelectSource),
+        ),
         AppMenuItem(
           value: 'select_range',
-          child: Text('选中所选区间'),
+          child: Text(context.l10n.sourceCheckSelectedInterval),
         ),
       ],
     );
@@ -290,33 +333,30 @@ extension _SourceBuilders on _SourceScreenState {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              if (checking) const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              if (checking)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               if (checking) const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   checking
                       ? '校验中 ${checkState.done}/${checkState.total}：'
-                          '${checkState.currentName}'
+                            '${checkState.currentName}'
                       : '校验结束：${checkState.done}/${checkState.total}'
-                          '，失效 ${checkState.invalidCount} 个',
+                            '，失效 ${checkState.invalidCount} 个',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.onSurface,
-                  ),
+                  style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
                 ),
               ),
               if (checking)
                 TextButton(
-                  onPressed: () => ref
-                      .read(checkSourceNotifierProvider.notifier)
-                      .cancel(),
-                  child: const Text('取消'),
+                  onPressed: () =>
+                      ref.read(checkSourceNotifierProvider.notifier).cancel(),
+                  child: Text(context.l10n.cancel),
                 )
               else
                 IconButton(
@@ -479,8 +519,9 @@ extension _SourceBuilders on _SourceScreenState {
     final hasExplore =
         source.exploreUrl != null && source.exploreUrl!.isNotEmpty;
     // 校验结果消息（对标原版列表项 checkSourceMessage：绿=通过，红=失效）
-    final checkMessage =
-        ref.watch(checkSourceNotifierProvider).messages[source.bookSourceUrl];
+    final checkMessage = ref
+        .watch(checkSourceNotifierProvider)
+        .messages[source.bookSourceUrl];
     Widget name = Container(
       color: Colors.transparent,
       constraints: const BoxConstraints(minHeight: 48),
@@ -496,7 +537,9 @@ extension _SourceBuilders on _SourceScreenState {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: checkMessage.ok ? colorScheme.primary : colorScheme.error,
+                color: checkMessage.ok
+                    ? colorScheme.primary
+                    : colorScheme.error,
               ),
             ),
         ],
@@ -514,7 +557,8 @@ extension _SourceBuilders on _SourceScreenState {
       child: InkWell(
         onTap: () {
           if (state.batchMode) {
-            ref.read(sourceNotifierProvider.notifier)
+            ref
+                .read(sourceNotifierProvider.notifier)
                 .toggleSelection(source.bookSourceUrl);
             return;
           }
@@ -551,7 +595,7 @@ extension _SourceBuilders on _SourceScreenState {
               // 编辑图标（对标 iv_edit）
               IconButton(
                 icon: const Icon(Symbols.edit_rounded, size: 20),
-                tooltip: '编辑',
+                tooltip: context.l10n.edit,
                 visualDensity: VisualDensity.compact,
                 onPressed: () {
                   Navigator.of(context).push(
@@ -569,7 +613,7 @@ extension _SourceBuilders on _SourceScreenState {
                   IconButton(
                     icon: const Icon(Symbols.more_vert_rounded, size: 20),
                     // 对齐原版内容描述「更多菜单」
-                    tooltip: '更多菜单',
+                    tooltip: context.l10n.sourceMoreMenu,
                     visualDensity: VisualDensity.compact,
                     onPressed: () => _showSourceMenu(context, source),
                   ),
@@ -580,7 +624,7 @@ extension _SourceBuilders on _SourceScreenState {
                       child: Semantics(
                         // 对齐原版「标志:发现已启用」内容描述
                         label: source.enabledExplore
-                            ? '标志:发现已启用'
+                            ? context.l10n.sourceTagExploreEnabled
                             : '标志:发现未启用',
                         child: Container(
                           width: 8,
@@ -613,8 +657,7 @@ extension _SourceBuilders on _SourceScreenState {
     final colorScheme = Theme.of(context).colorScheme;
     final manualSort = state.sort == SourceSort.manual;
     final hasLoginUrl = (source.loginUrl ?? '').trim().isNotEmpty;
-    final hasExplore =
-        (source.exploreUrl ?? '').trim().isNotEmpty;
+    final hasExplore = (source.exploreUrl ?? '').trim().isNotEmpty;
 
     // [统一壳 B2a] 自造壳（IosGrabber+滚动列）迁移统一 AppBottomSheet
     // （对齐参考版 AppModalBottomSheet 语义；把手由主题统一提供），
@@ -625,45 +668,52 @@ extension _SourceBuilders on _SourceScreenState {
       children: [
         ListTile(
           leading: const Icon(Symbols.vertical_align_top_rounded),
-          title: const Text('置顶'),
+          title: Text(context.l10n.pinToTop),
           enabled: manualSort,
           onTap: () => Navigator.pop(context, 'top'),
         ),
         ListTile(
           leading: const Icon(Symbols.vertical_align_bottom_rounded),
-          title: const Text('置底'),
+          title: Text(context.l10n.moveToBottom),
           enabled: manualSort,
           onTap: () => Navigator.pop(context, 'bottom'),
         ),
         if (hasLoginUrl)
           ListTile(
             leading: const Icon(Symbols.person_rounded),
-            title: const Text('登录'),
+            title: Text(context.l10n.login),
             onTap: () => Navigator.pop(context, 'login'),
           ),
         ListTile(
           leading: const Icon(Symbols.search_rounded),
-          title: const Text('搜索'),
+          title: Text(context.l10n.search),
           onTap: () => Navigator.pop(context, 'search'),
         ),
         ListTile(
           leading: const Icon(Symbols.bug_report_rounded),
-          title: const Text('调试'),
+          title: Text(context.l10n.debugAction),
           onTap: () => Navigator.pop(context, 'debug'),
         ),
         ListTile(
           leading: Icon(Symbols.delete_rounded, color: colorScheme.error),
-          title: Text('删除',
-              style: TextStyle(color: colorScheme.error)),
+          title: Text(
+            context.l10n.delete,
+            style: TextStyle(color: colorScheme.error),
+          ),
           onTap: () => Navigator.pop(context, 'delete'),
         ),
         if (hasExplore)
           ListTile(
-            leading: Icon(source.enabledExplore
-                ? Symbols.explore_off_rounded
-                : Symbols.explore_rounded),
-            title:
-                Text(source.enabledExplore ? '禁用发现' : '启用发现'),
+            leading: Icon(
+              source.enabledExplore
+                  ? Symbols.explore_off_rounded
+                  : Symbols.explore_rounded,
+            ),
+            title: Text(
+              source.enabledExplore
+                  ? context.l10n.sourceDisableExplore
+                  : context.l10n.sourceEnableExplore,
+            ),
             onTap: () => Navigator.pop(context, 'toggle_explore'),
           ),
       ],
@@ -701,7 +751,7 @@ extension _SourceBuilders on _SourceScreenState {
           context,
           title: '删除书源',
           content: '确定要删除书源「${source.bookSourceName}」吗？',
-          confirmText: '删除',
+          confirmText: context.l10n.delete,
           isDestructive: true,
         );
         if (confirmed && context.mounted) {

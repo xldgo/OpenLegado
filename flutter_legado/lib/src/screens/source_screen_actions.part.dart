@@ -119,18 +119,18 @@ extension _SourceActions on _SourceScreenState {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
-            const Text('降序'),
+            Text(context.l10n.sourceDescendingOrder),
           ],
         ),
       ),
       const AppMenuDivider(),
-      sortItem(SourceSort.manual, '手动排序'),
+      sortItem(SourceSort.manual, context.l10n.sourceSortManual),
       sortItem(SourceSort.weight, '自动排序（权重）'),
-      sortItem(SourceSort.name, '按名称'),
+      sortItem(SourceSort.name, context.l10n.sourceSortName),
       sortItem(SourceSort.url, '按 URL'),
-      sortItem(SourceSort.update, '按更新时间'),
+      sortItem(SourceSort.update, context.l10n.sourceSortByUpdate),
       sortItem(SourceSort.enable, '按启用状态'),
-      sortItem(SourceSort.respond, '按响应时间'),
+      sortItem(SourceSort.respond, context.l10n.sourceSortResponseTime),
     ];
   }
 
@@ -155,9 +155,8 @@ extension _SourceActions on _SourceScreenState {
     final notifier = ref.read(sourceNotifierProvider.notifier);
     final state = ref.read(sourceNotifierProvider);
     if (state.selectedCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择书源')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先选择书源')));
       return;
     }
 
@@ -165,17 +164,15 @@ extension _SourceActions on _SourceScreenState {
       case 'enable':
         await notifier.batchEnable();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已启用所选书源')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已启用所选书源')));
         }
         break;
       case 'disable':
         await notifier.batchDisable();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已禁用所选书源')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已禁用所选书源')));
         }
         break;
       case 'add_group':
@@ -187,33 +184,29 @@ extension _SourceActions on _SourceScreenState {
       case 'enable_explore':
         await notifier.batchToggleExplore(true);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已启用所选书源发现')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已启用所选书源发现')));
         }
         break;
       case 'disable_explore':
         await notifier.batchToggleExplore(false);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已禁用所选书源发现')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已禁用所选书源发现')));
         }
         break;
       case 'top':
         await notifier.batchMoveSelection(toTop: true);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已置顶所选书源')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已置顶所选书源')));
         }
         break;
       case 'bottom':
         await notifier.batchMoveSelection(toTop: false);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已置底所选书源')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已置底所选书源')));
         }
         break;
       case 'export':
@@ -234,15 +227,14 @@ extension _SourceActions on _SourceScreenState {
           context,
           title: '删除书源',
           content: '确定要删除选中的 ${state.selectedCount} 个书源吗？',
-          confirmText: '删除',
+          confirmText: context.l10n.delete,
           isDestructive: true,
         );
         if (confirmed && context.mounted) {
           await notifier.batchDelete();
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已删除所选书源')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('已删除所选书源')));
           }
         }
         break;
@@ -293,10 +285,10 @@ extension _SourceActions on _SourceScreenState {
     // controller 由对话框内容组件自持（随子树卸载释放）
     final group = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextPromptDialog(
-        title: '添加分组',
-        hintText: '输入分组名称',
-        confirmLabel: '确定',
+      builder: (_) => _TextPromptDialog(
+        title: context.l10n.addGroup,
+        hintText: context.l10n.groupNameHint,
+        confirmLabel: context.l10n.confirm,
         autofocus: true,
       ),
     );
@@ -305,9 +297,8 @@ extension _SourceActions on _SourceScreenState {
     final notifier = ref.read(sourceNotifierProvider.notifier);
     await notifier.batchAddGroup(group);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已为所选书源添加分组「$group」')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已为所选书源添加分组「$group」')));
     }
   }
 
@@ -318,24 +309,24 @@ extension _SourceActions on _SourceScreenState {
     final groups = <String>{};
     for (final source in state.sources) {
       if (!state.selectedUrls.contains(source.bookSourceUrl)) continue;
-      for (final g in (source.bookSourceGroup ?? '')
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)) {
+      for (final g
+          in (source.bookSourceGroup ?? '')
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)) {
         groups.add(g);
       }
     }
     if (groups.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('所选书源没有可移除的分组')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('所选书源没有可移除的分组')));
       return;
     }
 
     final group = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('移除分组'),
+        title: Text(ctx.l10n.removeGroup),
         children: [
           for (final g in groups.toList()..sort())
             SimpleDialogOption(
@@ -350,9 +341,8 @@ extension _SourceActions on _SourceScreenState {
     final notifier = ref.read(sourceNotifierProvider.notifier);
     await notifier.batchRemoveGroup(group);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已从所选书源移除分组「$group」')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已从所选书源移除分组「$group」')));
     }
   }
 
@@ -390,19 +380,21 @@ extension _SourceActions on _SourceScreenState {
     // 它，会触发 "used after disposed" 及 _dependents 断言级联
     final url = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextPromptDialog(
+      builder: (_) => _TextPromptDialog(
         title: '从 URL 导入书源',
         hintText: '输入书源 URL 地址',
-        confirmLabel: '导入',
+        confirmLabel: context.l10n.importAction,
         requireNonEmpty: true,
       ),
     );
     if (url == null || url.trim().isEmpty || !context.mounted) return;
     // 对标原版：先拉取候选书源，进入导入确认页由用户勾选后入库
-    await _fetchAndConfirm(() => ref
-        .read(sourceNotifierProvider.notifier)
-        .importService
-        .fetchSourcesFromUrl(url.trim()));
+    await _fetchAndConfirm(
+      () => ref
+          .read(sourceNotifierProvider.notifier)
+          .importService
+          .fetchSourcesFromUrl(url.trim()),
+    );
   }
 
   /// 从本地文件导入书源（对标 Android menu_import_local，txt/json）
@@ -504,18 +496,14 @@ extension _SourceActions on _SourceScreenState {
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('获取书源失败：$e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('获取书源失败：$e')));
       return;
     }
     if (!mounted) return;
     Navigator.of(context).pop(); // 关闭加载指示
 
     if (sources.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到书源')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到书源')));
       return;
     }
 
@@ -529,7 +517,9 @@ extension _SourceActions on _SourceScreenState {
       ),
     );
     if (ok == true && mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('导入完成')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.l10n.importFinished)),
+      );
     }
   }
 

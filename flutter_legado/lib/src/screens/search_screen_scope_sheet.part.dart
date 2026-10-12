@@ -128,7 +128,7 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
     for (final s in widget.sources) {
       if (urls.contains(s.bookSourceUrl)) return s.bookSourceName;
     }
-    return '当前书源';
+    return context.l10n.currentBookSource;
   }
 
   /// [1-6 ①] 范围快捷节（原 ⋮ 动态范围项并入 ◯ 弹层）：
@@ -146,7 +146,7 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
         ),
       _quickRow(
         scheme,
-        label: '全部书源',
+        label: context.l10n.allBookSources,
         checked: st.selectedGroups.isEmpty && st.selectedSourceUrls.isEmpty,
         onTap: _onQuickAllSourcesTapped,
       ),
@@ -196,8 +196,7 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  color: scheme.onSurface,
-                ),
+                  color: scheme.onSurface),
               ),
             ),
           ],
@@ -246,11 +245,10 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Text(
-            '搜索范围',
+            context.l10n.searchScope,
             // [P1b] 17/w600 硬编码收敛至字阶 titleMedium（M3 区块标题）
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: scheme.onSurface,
-            ),
+              color: scheme.onSurface),
           ),
         ),
         // [1-6 ①] 范围快捷节（原 ⋮ 动态范围项：当前书源/全部书源/各分组并入 ◯ 弹层）
@@ -267,13 +265,17 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
             ),
             child: Row(
               children: [
-                _segmentButton('分组', !_sourceMode, () => setState(() {
+                _segmentButton(
+                  context.l10n.group, !_sourceMode, () => setState(() {
                   _sourceMode = false;
-                })),
+                }),
+                ),
                 const SizedBox(width: 3),
-                _segmentButton('书源', _sourceMode, () => setState(() {
+                _segmentButton(
+                  context.l10n.sources, _sourceMode, () => setState(() {
                   _sourceMode = true;
-                })),
+                }),
+                ),
               ],
             ),
           ),
@@ -285,20 +287,24 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
               controller: _queryController,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: '搜索书源',
+                hintText: context.l10n.searchBookSources,
                 hintStyle: TextStyle(
-                    fontSize: 14, color: scheme.onSurface.withValues(alpha: 0.5)),
+                    fontSize: 14, color: scheme.onSurface.withValues(alpha: 0.5),
+                ),
                 prefixIcon: Icon(Symbols.search_rounded, size: 20,
-                    color: scheme.onSurface.withValues(alpha: 0.5)),
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                ),
                 // [B3] 弹层内筛选框：三态显式无边框，防主题底线式渗入
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
+                    horizontal: 12, vertical: 8,
+                ),
                 filled: true,
-                fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4,
+                ),
               ),
             ),
           ),
@@ -322,9 +328,13 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                           Padding(
                             padding: const EdgeInsets.all(24),
                             child: Center(
-                              child: Text('无匹配书源', style: TextStyle(
+                              child: Text(
+                                context.l10n.noMatchingBookSources, style: TextStyle(
                                   color:
-                                      scheme.onSurface.withValues(alpha: 0.5))),
+                                      scheme.onSurface.withValues(alpha: 0.5,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                       ],
@@ -348,8 +358,11 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                         Padding(
                           padding: const EdgeInsets.all(24),
                           child: Center(
-                            child: Text('无分组书源', style: TextStyle(
-                                color: scheme.onSurface.withValues(alpha: 0.5))),
+                            child: Text(
+                              context.l10n.noGroupedBookSources, style: TextStyle(
+                                color: scheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -363,20 +376,29 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
             children: [
               TextButton(
                 onPressed: _onAllSources,
-                child: Text('全部书源', style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.7))),
+                child: Text(
+                  context.l10n.allBookSources, style: TextStyle(
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
               ),
               const Spacer(),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text('取消', style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.7))),
+                child: Text(
+                  context.l10n.cancel, style: TextStyle(
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: _onOk,
-                child: Text('确定', style: TextStyle(
-                    color: scheme.primary, fontWeight: FontWeight.w600)),
+                child: Text(
+                  context.l10n.confirm, style: TextStyle(
+                    color: scheme.primary, fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),

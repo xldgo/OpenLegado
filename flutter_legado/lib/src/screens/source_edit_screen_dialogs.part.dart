@@ -41,15 +41,17 @@ class _SourceVariableDialogState extends State<_SourceVariableDialog> {
             Text(
               widget.comment,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
               maxLines: 6,
               autofocus: true,
-              decoration: const InputDecoration(hintText: '输入源变量（空则清除）'),
+              decoration: InputDecoration(
+                hintText: context.l10n.sourceVariableInputHint,
+              ),
             ),
           ],
         ),
@@ -57,11 +59,11 @@ class _SourceVariableDialogState extends State<_SourceVariableDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('确定'),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );
@@ -76,6 +78,7 @@ class _QrShareDialog extends StatelessWidget {
   const _QrShareDialog({required this.title, required this.payload});
 
   Future<void> _shareImage(BuildContext context) async {
+    final l10n = context.l10n;
     try {
       final painter = QrPainter(
         data: payload,
@@ -96,7 +99,7 @@ class _QrShareDialog extends StatelessWidget {
       if (imageData == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('二维码生成失败')));
+              .showSnackBar(SnackBar(content: Text(l10n.qrGenerateFailed)));
         }
         return;
       }
@@ -111,8 +114,9 @@ class _QrShareDialog extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('分享失败：$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.shareFailed(e.toString()))));
       }
     }
   }
@@ -135,11 +139,11 @@ class _QrShareDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(context.l10n.close),
         ),
         FilledButton(
           onPressed: () => _shareImage(context),
-          child: const Text('分享图片'),
+          child: Text(context.l10n.shareImage),
         ),
       ],
     );

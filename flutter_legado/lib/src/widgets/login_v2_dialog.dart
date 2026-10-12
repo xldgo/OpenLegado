@@ -1,3 +1,5 @@
+import '../l10n/app_localization.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -36,6 +38,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   final Map<String, String> _selects = {};
   String? _error;
   bool _busy = false;
+
   /// action → 剩余秒数（对标 SourceLoginV2Delegate.countdownLeft）
   final Map<String, int> _countdownLeft = {};
   final Map<String, Timer> _countdownTimers = {};
@@ -152,8 +155,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
         'stateJson': _stateJson,
         'formJson': _formJson(),
       });
-      final resJson =
-          await widget.api.loginActionV2(widget.sourceJson, input);
+      final resJson = await widget.api.loginActionV2(widget.sourceJson, input);
       final res = jsonDecode(resJson);
       if (!mounted) return;
       if (res is! Map) {
@@ -165,12 +167,11 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
         return;
       }
       if (res['error'] is Map) {
-        final msgs = (res['error'] as Map)
-            .values
+        final msgs = (res['error'] as Map).values
             .map((v) => v.toString())
             .where((v) => v.isNotEmpty);
         setState(() {
-          _error = msgs.isEmpty ? '登录失败' : msgs.join('\n');
+          _error = msgs.isEmpty ? '' : msgs.join('\n');
           _busy = false;
         });
         return;
@@ -198,7 +199,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('登录 - ${widget.sourceName}'),
+      title: Text(context.l10n.loginFormTitle(widget.sourceName)),
       content: SizedBox(
         width: 360,
         child: _busy && _rows.isEmpty
@@ -215,7 +216,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
-                          _error!,
+                          _error!.isEmpty ? context.l10n.loginFailed : _error!,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                             fontSize: 12,
@@ -230,7 +231,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context, false),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
       ],
     );
@@ -285,7 +286,10 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
         }
         final left = _countdownLeft[action] ?? 0;
         final label = left > 0
-            ? '${_buttonLabels[action] ?? name} (${left}s)'
+            ? context.l10n.loginButtonCountdown(
+                _buttonLabels[action] ?? name,
+                left,
+              )
             : (_buttonLabels[action] ?? name);
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),

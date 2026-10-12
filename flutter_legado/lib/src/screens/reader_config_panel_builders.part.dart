@@ -31,7 +31,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('翻页模式', Icons.auto_stories_outlined),
+        _sectionTitle(context.l10n.flipMode, Icons.auto_stories_outlined),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: SegmentedButton<FlipMode>(
@@ -39,7 +39,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               for (final mode in FlipMode.values)
                 ButtonSegment(
                   value: mode,
-                  label: Text(mode.displayName),
+                  label: Text(switch (mode) {
+                    FlipMode.simulation => context.l10n.readerSimulation,
+                    FlipMode.slide => context.l10n.readerSlide,
+                    FlipMode.cover => context.l10n.coverMode,
+                    FlipMode.none => context.l10n.noneMode,
+                    FlipMode.scroll => context.l10n.readerScroll,
+                  }),
                   icon: Text(mode.icon),
                 ),
             ],
@@ -60,7 +66,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('自动翻页', Icons.timer_outlined),
+        _sectionTitle(context.l10n.readerAutoPageTurn, Icons.timer_outlined),
         SettingSwitchRow(
           title: '启用自动翻页',
           value: _config.autoPageTurn,
@@ -101,9 +107,15 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
                 const SizedBox(width: 12),
                 Expanded(
                   child: SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: true, label: Text('下一章')),
-                      ButtonSegment(value: false, label: Text('上一章')),
+                    segments: [
+                      ButtonSegment(
+                        value: true,
+                        label: Text(context.l10n.nextChapter),
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        label: Text(context.l10n.previousChapter),
+                      ),
                     ],
                     selected: {_config.autoPageTurnForward},
                     onSelectionChanged: (sel) {
@@ -130,7 +142,12 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       children: [
         Row(
           children: [
-            Expanded(child: _sectionTitle('点击区域', Icons.touch_app_outlined)),
+            Expanded(
+              child: _sectionTitle(
+                context.l10n.readerTapAreas,
+                Icons.touch_app_outlined,
+              ),
+            ),
             IconButton(
               tooltip: '恢复默认点击区域',
               icon: const Icon(Icons.restore),
@@ -186,11 +203,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   Widget _tapZoneCell(int index, String position, ColorScheme colors) {
     final action = _config.tapActions[index];
     final (icon, label) = switch (action) {
-      TapAction.none => (Icons.block_outlined, '无操作'),
-      TapAction.prevPage => (Icons.arrow_back, '上一页'),
-      TapAction.nextPage => (Icons.arrow_forward, '下一页'),
-      TapAction.toggleControls => (Icons.menu, '菜单'),
-      TapAction.openCatalog => (Icons.list, '目录'),
+      TapAction.none => (Icons.block_outlined, context.l10n.readerNoAction),
+      TapAction.prevPage => (Icons.arrow_back, context.l10n.readerPreviousPage),
+      TapAction.nextPage => (Icons.arrow_forward, context.l10n.readerNextPage),
+      TapAction.toggleControls => (Icons.menu, context.l10n.readerMenu),
+      TapAction.openCatalog => (Icons.list, context.l10n.catalog),
     };
     final menuAction = action == TapAction.toggleControls;
     return AppMenuAnchor<TapAction>(
@@ -249,7 +266,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
-              Text('小', style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                context.l10n.fontSmall,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               Expanded(
                 child: Slider(
                   value: _config.paragraphSpacing,
@@ -263,7 +283,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
                   },
                 ),
               ),
-              Text('大', style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                context.l10n.fontLarge,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               SizedBox(
                 width: 48,
                 child: Text(
@@ -293,7 +316,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
           leading: const Icon(Icons.font_download_outlined, size: 20),
           title: Text('阅读字体', style: Theme.of(context).textTheme.titleMedium),
-          subtitle: Text(_fontLabel),
+          subtitle: Text(_fontLabel ?? context.l10n.readerDefaultFont),
           trailing: const Icon(Icons.chevron_right),
           onTap: () async {
             await Navigator.pushNamed(context, AppRoutes.fonts);
@@ -340,7 +363,12 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         SettingMenuRow<int>(
           title: '首行缩进',
           value: _config.paragraphIndent,
-          options: const {0: '无缩进', 1: '一字符', 2: '二字符', 3: '三字符'},
+          options: {
+            0: context.l10n.readerIndentNone,
+            1: context.l10n.readerIndentOne,
+            2: context.l10n.readerIndentTwo,
+            3: context.l10n.readerIndentThree,
+          },
           onChanged: (value) {
             _config.paragraphIndent = value;
             _commit();
@@ -427,7 +455,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       _sectionTitle('操作选项', Icons.touch_app_outlined),
       // 长按选择文本（原版 selectText：长按正文选区面板启停）
       SettingSwitchRow(
-        title: '长按选择文本',
+        title: context.l10n.readerSelectText,
         subtitle: '长按正文段落弹出选择面板',
         value: _config.selectText,
         onChanged: (v) {
@@ -447,7 +475,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       ),
       // 鼠标滚轮翻页（原版 mouseWheelPage；桌面端真实生效）
       SettingSwitchRow(
-        title: '鼠标滚轮翻页',
+        title: context.l10n.readerMouseWheelPage,
         subtitle: '分页模式下滚轮上下滚动翻页',
         value: _config.mouseWheelPage,
         onChanged: (v) {
@@ -457,7 +485,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       ),
       // 音量键翻页（原版 volumeKeyPage；桌面端无音量键事件）
       SettingSwitchRow(
-        title: '音量键翻页',
+        title: context.l10n.readerVolumeKeyPage,
         subtitle: '仅 Android 生效',
         value: _config.volumeKeyPage,
         onChanged: (v) {
@@ -468,7 +496,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       if (_config.volumeKeyPage)
         // 朗读时音量键翻页（原版 volumeKeyPageOnPlay）
         SettingSwitchRow(
-          title: '朗读时音量键翻页',
+          title: context.l10n.readerVolumeKeyPageReading,
           subtitle: '仅 Android 生效',
           value: _config.volumeKeyPageOnPlay,
           onChanged: (v) {
@@ -480,11 +508,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 0=系统默认值；[fix Task#41 | 2026-08-09] 已经 reader_page_view
       // 的 MediaQuery.gestureSettings 覆写拖拽识别阈值，修改即时生效）
       _moreRow(
-        '滑动翻页阈值',
+        context.l10n.readerPageTouchSlop,
         _config.pageTouchSlop == 0 ? '系统默认' : '${_config.pageTouchSlop}px',
         () {
           _showNumberDialog(
-            title: '滑动翻页阈值（0 = 系统默认值）',
+            title: context.l10n.readerPageTouchSlopDialog,
             current: _config.pageTouchSlop,
             max: 9999,
             onPick: (v) {
@@ -520,15 +548,15 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // （对标 MoreConfigDialog.onSharedPreferenceChanged 事件语义）— Qoder
       // 屏幕方向（原版第 1 项 screenOrientation）
       SettingMenuRow<int>(
-        title: '屏幕方向',
+        title: context.l10n.readerScreenOrientation,
         value: _config.screenOrientation,
-        options: const {
-          0: '跟随系统',
-          1: '竖屏',
-          2: '横屏',
-          3: '自动(传感器)',
-          4: '反向竖屏',
-          5: '反向横屏',
+        options: {
+          0: context.l10n.themeSystem,
+          1: context.l10n.readerPortrait,
+          2: context.l10n.readerLandscape,
+          3: context.l10n.readerSensor,
+          4: context.l10n.readerPortraitReversed,
+          5: context.l10n.readerLandscapeReversed,
         },
         onChanged: (value) {
           _config.screenOrientation = value;
@@ -539,14 +567,14 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
       // 与 audio_screen 的 audioWakeLock 标注一致）
       SettingMenuRow<int>(
-        title: '保持亮屏',
+        title: context.l10n.readerKeepAwake,
         value: _config.keepLight,
-        options: const {
-          0: '默认',
-          60: '1 分钟',
-          300: '5 分钟',
-          600: '10 分钟',
-          -1: '常亮',
+        options: {
+          0: context.l10n.readerDefault,
+          60: context.l10n.readerAwakeMinute,
+          300: context.l10n.readerAwakeFiveMinutes,
+          600: context.l10n.readerAwakeTenMinutes,
+          -1: context.l10n.readerAwakeAlways,
         },
         onChanged: (value) {
           _config.keepLight = value;
@@ -562,7 +590,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       if (showTitle) _sectionTitle('系统栏与安全区', Icons.fullscreen),
       // 隐藏状态栏（原版第 3 项：SystemUiMode 移除顶部 overlay）
       SettingSwitchRow(
-        title: '隐藏状态栏',
+        title: context.l10n.readerHideStatusBar,
         subtitle: '阅读时隐藏系统状态栏',
         value: _config.hideStatusBar,
         onChanged: (v) {
@@ -572,7 +600,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       ),
       // 隐藏导航栏（原版第 4 项：SystemUiMode 移除底部 overlay）
       SettingSwitchRow(
-        title: '隐藏导航栏',
+        title: context.l10n.readerHideNavigationBar,
         subtitle: '阅读时隐藏系统导航栏',
         value: _config.hideNavigationBar,
         onChanged: (v) {
@@ -585,7 +613,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 灰字诚实标注（不引入新依赖）— Qoder
       // 扩展到刘海（原版 readBodyToLh）
       SettingSwitchRow(
-        title: '扩展到刘海',
+        title: context.l10n.readerExtendCutout,
         subtitle: '正文延伸到刘海区域',
         value: _config.readBodyToLh,
         onChanged: (v) {
@@ -595,7 +623,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       ),
       // 填充刘海区域（原版 paddingDisplayCutouts）
       SettingSwitchRow(
-        title: '填充刘海区域',
+        title: context.l10n.readerFillCutout,
         subtitle: '页面边距避开刘海区域',
         value: _config.paddingDisplayCutouts,
         onChanged: (v) {
@@ -607,9 +635,14 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   );
 
   Widget _buildDoublePageOptions() => SettingMenuRow<int>(
-    title: '平板/横屏双页',
+    title: context.l10n.readerDualPageMode,
     value: _config.doubleHorizontalPage,
-    options: const {0: '全局单页', 1: '全局双页', 2: '横屏双页', 3: '平板/横屏双页'},
+    options: {
+      0: context.l10n.readerSinglePage,
+      1: context.l10n.readerDoublePage,
+      2: context.l10n.readerLandscapeDoublePage,
+      3: context.l10n.readerDualPageMode,
+    },
     onChanged: (value) {
       _config.doubleHorizontalPage = value;
       _commit();
@@ -626,13 +659,25 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('简繁转换', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              context.l10n.readerChineseConversion,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('不转换')),
-                ButtonSegment(value: 1, label: Text('繁→简')),
-                ButtonSegment(value: 2, label: Text('简→繁')),
+              segments: [
+                ButtonSegment(
+                  value: 0,
+                  label: Text(context.l10n.readerNoConversion),
+                ),
+                ButtonSegment(
+                  value: 1,
+                  label: Text(context.l10n.readerToSimplified),
+                ),
+                ButtonSegment(
+                  value: 2,
+                  label: Text(context.l10n.readerToTraditional),
+                ),
               ],
               selected: {_convertType},
               onSelectionChanged: (sel) async {
@@ -661,7 +706,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       ),
       // 自动换源（原版 autoChangeSource：章节加载失败自动切换书源）
       SettingSwitchRow(
-        title: '自动换源',
+        title: context.l10n.readerAutoChangeSource,
         subtitle: '章节加载失败时自动切换书源',
         value: _config.autoChangeSource,
         onChanged: (v) {
@@ -678,9 +723,12 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       if (showTitle) _sectionTitle('菜单工具栏', Icons.view_quilt_outlined),
       // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
       SettingMenuRow<String>(
-        title: '进度条行为',
+        title: context.l10n.readerProgressBarBehavior,
         value: _config.progressBarBehavior,
-        options: const {'page': '调章内页', 'chapter': '调章节'},
+        options: {
+          'page': context.l10n.readerAdjustChapterPage,
+          'chapter': context.l10n.readerAdjustChapterIndex,
+        },
         onChanged: (value) {
           _config.progressBarBehavior = value;
           _commit();
@@ -696,7 +744,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 工具栏跟随页面（原版 readBarStyleFollowPage：顶/底栏背景与文字色
       // 跟随当前阅读页配色，对标 ReadMenu immersiveMenu）
       SettingSwitchRow(
-        title: '工具栏跟随页面',
+        title: context.l10n.readerToolbarFollowPage,
         subtitle: '顶/底栏配色跟随阅读页背景',
         value: _config.readBarStyleFollowPage,
         onChanged: (v) {
@@ -708,7 +756,12 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   );
 
   Widget _buildBrightnessDisplayMenu() {
-    const options = {0: '关闭', 1: '横向', 2: '纵向·左侧', 3: '纵向·右侧'};
+    final options = {
+      0: context.l10n.readerBrightnessOff,
+      1: context.l10n.readerBrightnessHorizontal,
+      2: '纵向·左侧',
+      3: '纵向·右侧',
+    };
     final current = _config.brightnessMode == 2
         ? (_config.brightnessOnLeft ? 2 : 3)
         : _config.brightnessMode;
@@ -749,7 +802,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(dialogContext.l10n.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -757,7 +810,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               Navigator.pop(dialogContext);
               onPick(v.clamp(0, max));
             },
-            child: const Text('确定'),
+            child: Text(dialogContext.l10n.confirm),
           ),
         ],
       ),
