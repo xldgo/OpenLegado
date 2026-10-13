@@ -48,7 +48,7 @@ BookApi 生命周期签名与正式启动时实例身份不变；新增的 Dart 
 
 第二步使用临时 `BookApiBookmarkRepository` 适配器，所有方法
 单向委托当前 BookApi，不另存状态，不初始化或重新打开数据库，不重写 CRUD。
-`providers/bookmark/bookmark_repository_provider.dart` 通过 Riverpod 监听根
+第二步的 `providers/bookmark/bookmark_repository_provider.dart` 通过 Riverpod 监听根
 BookApi Provider 并装配适配器；测试可直接覆盖窄接口，无需实现巨大 BookApi。
 
 书签 Notifier 与目录导出改读窄接口。书签页、目录书签 Tab、正文菜单及选区
@@ -72,6 +72,20 @@ BookApi 只提供 `bookmarkRepository` 引用，Provider 直接共享这个引�
 旧 BookApi 的七项书签方法、原业务 part 中的书签实现和临时适配器删除。
 旧 Rust/FRB 的仅按书名查询导出保留，不进入新领域接口，不修改原生契约。
 不允许 Repository 反向调用 BookApi，不存在双向转发或两套 CRUD。
+
+## 第四步的书签功能目录
+
+书签页面、Notifier、State、对应 Freezed 生成物和 Repository Provider 集中到
+`lib/src/features/bookmarks/`，备注面板放在其 `widgets/` 子目录。
+`bookmarks.dart` 作为对外入口，显式导出页面、Notifier、状态、注入 Provider
+与备注面板；目录页、阅读器、路由和相关测试通过此入口引用所需能力。
+功能内部使用直接文件引用，不反向导入对外入口，也不保留旧目录的转发文件。
+
+领域接口和正式、Mock 数据实现仍位于 `domain/contracts/`、
+`data/repositories/`；共用控件及书签导出格式工具保留原位置。
+同一 Provider 声明只移动一次，不重复装配，不改变其生命周期或实例身份。
+State 和生成物一起移动，`part` / `part of` 的文件名保持一致，生成内容不手改。
+这一步只调整文件位置与 import/export，不修改状态转换、字段、文案或界面布局。
 
 ## 经授权追加的备注编辑
 

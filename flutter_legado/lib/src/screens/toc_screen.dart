@@ -1,6 +1,6 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
-import '../widgets/bookmark_note_sheet.dart';
+import '../features/bookmarks/bookmarks.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -15,8 +15,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 
 import '../constants/pref_keys.dart';
 import '../models/models.dart';
-import '../providers/bookmark/bookmark_notifier.dart';
-import '../providers/bookmark/bookmark_repository_provider.dart';
 import '../providers/providers.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';

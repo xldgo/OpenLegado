@@ -7,14 +7,13 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/bookmark/bookmark_repository_provider.dart';
+import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
-import 'package:flutter_legado/src/widgets/bookmark_note_sheet.dart';
 
 class _Reader extends ReaderNotifier {
   @override

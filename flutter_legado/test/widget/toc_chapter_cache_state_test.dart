@@ -3,6 +3,7 @@
 // 指定的文件」），显式 .dart 扩展名为当前可编译形态；存量测试文件沿用
 // 无扩展名形态系旧工具链产物，未动。
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
@@ -12,6 +13,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mocks/mocks.dart';
+
+class _MockBookmarks extends Mock implements BookmarkRepository {}
 
 /// 目录页章节行缓存状态指示测试（用户验收 P2-28b 三态 → P2-29 五态 →
 /// P2-29b 互斥分支与着色修正，对齐参考版 ReaderBookSheet.kt
@@ -56,6 +59,7 @@ import '../mocks/mocks.dart';
 /// 检查同时充当「dispose 后不再轮询」的证明）。
 void main() {
   late MockRustApi mockApi;
+  late _MockBookmarks mockBookmarks;
   late ProviderContainer container;
 
   setUpAll(registerFallbacks);
@@ -63,6 +67,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    mockBookmarks = _MockBookmarks();
+    when(() => mockApi.bookmarkRepository).thenReturn(mockBookmarks);
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -194,7 +200,7 @@ void main() {
     );
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
   }
 
@@ -412,7 +418,7 @@ void main() {
     );
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     await tester.pumpWidget(
@@ -509,7 +515,7 @@ void main() {
     );
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     // 当前章设为第一章（u0 已缓存）：第四章/第三章均未缓存 → 两行 ⬇
@@ -718,7 +724,7 @@ void main() {
     );
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
@@ -1000,7 +1006,7 @@ void main() {
     );
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
     when(() => mockApi.cacheDownloadStart(bookUrl, 2, 2))
         .thenAnswer((_) async => 7);

@@ -7,14 +7,13 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/audio/audio_notifier.dart';
-import '../../providers/bookmark/bookmark_notifier.dart';
+import '../../features/bookmarks/bookmarks.dart';
 import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
 import '../../l10n/app_localization.dart';
 import '../../services/book_api.dart';
 import '../dict_dialog.dart';
-import '../bookmark_note_sheet.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_menu_config.dart';
 

@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 
 /// 新增书签与编辑备注共用输入，保存完成前保留当前输入。— Codex + UI
 class BookmarkNoteSheet extends StatefulWidget {

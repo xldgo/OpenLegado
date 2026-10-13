@@ -1,17 +1,18 @@
-import '../l10n/app_localization.dart';
+import '../../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/app_search_field.dart';
-import '../widgets/md3_fast_scroller.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+import '../../widgets/app_search_field.dart';
+import '../../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../models/models.dart';
-import '../providers/bookmark/bookmark_notifier.dart';
-import '../widgets/app_menu.dart';
-import '../widgets/bookmark_note_sheet.dart';
+import '../../models/models.dart';
+import '../../widgets/app_menu.dart';
+import 'bookmark_notifier.dart';
+import 'bookmark_state.dart';
+import 'widgets/bookmark_note_sheet.dart';
 
 /// 书签管理页面
 class BookmarkScreen extends ConsumerStatefulWidget {

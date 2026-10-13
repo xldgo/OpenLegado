@@ -15,8 +15,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
-import 'package:flutter_legado/src/providers/bookmark/bookmark_notifier.dart';
-import 'package:flutter_legado/src/providers/bookmark/bookmark_repository_provider.dart';
+import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 
 /// 单独模拟书签接口，不依赖原生库或巨大 BookApi。— Codex + UI

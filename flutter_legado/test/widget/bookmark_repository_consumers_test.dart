@@ -1,8 +1,7 @@
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookmark/bookmark_repository_provider.dart';
+import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/bookmark_screen.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Bookmarks extends Mock implements BookmarkRepository {}
+
+class _RootBookmarks extends _Bookmarks {
+  @override
+  Future<List<Bookmark>> getBookmarksByBook(String name, String author) =>
+      throw StateError('书签必须读取注入的窄接口');
+}
 
 const _book = Book(
   bookUrl: 'local://book',
@@ -30,8 +35,10 @@ const _bookmark = Bookmark(
   content: '备注',
 );
 
-/// 目录其他数据保持旧接口，书签方法若被误用则直接报错。— Codex + UI
+/// 目录其他数据走根对象；书签误用根 Repository 时直接报错。— Codex + UI
 class _TocApi extends MockBookApi {
+  _TocApi() : super(bookmarkRepository: _RootBookmarks());
+
   @override
   Future<Book?> getBook(String bookUrl) async => _book;
 
@@ -39,10 +46,6 @@ class _TocApi extends MockBookApi {
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
     const BookChapter(url: 'local://chapter', title: '正文章节', index: 0),
   ];
-
-  @override
-  Future<List<Bookmark>> getBookmarksByBook(String name, String author) =>
-      throw StateError('书签必须读取注入的窄接口');
 }
 
 void main() {

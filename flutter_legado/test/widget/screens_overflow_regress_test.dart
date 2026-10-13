@@ -29,7 +29,7 @@ import 'package:flutter_legado/src/screens/audio_screen.dart';
 import 'package:flutter_legado/src/screens/auto_task_screen.dart';
 import 'package:flutter_legado/src/screens/book_group_screen.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
-import 'package:flutter_legado/src/screens/bookmark_screen.dart';
+import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/screens/bookshelf_manage_screen.dart';
 import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
 import 'package:flutter_legado/src/screens/bottom_bar_skin_assign_screen.dart';

@@ -16,7 +16,7 @@ import 'screens/cache_download_screen.dart';
 import 'screens/cache_settings_screen.dart';
 import 'screens/offline_cache_screen.dart';
 import 'screens/edit_book_info_screen.dart';
-import 'screens/bookmark_screen.dart';
+import 'features/bookmarks/bookmarks.dart';
 import 'screens/change_cover_screen.dart';
 import 'screens/change_source_screen.dart';
 import 'screens/explore_show_screen.dart';

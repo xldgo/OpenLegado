@@ -6,8 +6,6 @@ import '../../models/models.dart';
 import 'bookmark_repository_provider.dart';
 import 'bookmark_state.dart';
 
-export 'bookmark_state.dart';
-
 /// 书签 Riverpod Notifier
 ///
 /// 职责严格限定（对齐原 BookmarkProvider 行为）：

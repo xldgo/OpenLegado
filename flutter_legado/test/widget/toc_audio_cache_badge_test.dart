@@ -1,6 +1,7 @@
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2）对无扩展名包导入解析失败，
 // 显式 .dart 扩展名为当前可编译形态（同 toc_chapter_cache_state_test.dart）。
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
@@ -11,6 +12,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mocks/mocks.dart';
+
+class _MockBookmarks extends Mock implements BookmarkRepository {}
 
 /// 听书目录页音频缓存徽标测试（[B1-TOC] 2026-10-04）
 ///
@@ -42,6 +45,7 @@ import '../mocks/mocks.dart';
 /// 同时证明 dispose 后不再轮询）。
 void main() {
   late MockRustApi mockApi;
+  late _MockBookmarks mockBookmarks;
   late ProviderContainer container;
 
   /// 数据源调用计数：证明音频书命中 audioCacheList、非音频书/本地书零调用
@@ -53,6 +57,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    mockBookmarks = _MockBookmarks();
+    when(() => mockApi.bookmarkRepository).thenReturn(mockBookmarks);
     audioListCalls = 0;
     cachedUrlsCalls = 0;
     container = ProviderContainer(
@@ -135,7 +141,7 @@ void main() {
     });
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('听书', '作者A'))
+    when(() => mockBookmarks.getBookmarksByBook('听书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
   }
 
