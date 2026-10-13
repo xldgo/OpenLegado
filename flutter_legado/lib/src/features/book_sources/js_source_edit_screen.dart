@@ -3,18 +3,18 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../models/models.dart';
-import '../providers/providers.dart';
-import '../providers/source/source_notifier.dart';
-import '../widgets/source_rule_help_sheet.dart';
-import 'code_edit_screen.dart';
-import 'curl_analyze_url_sheet.dart';
-import 'source_debug_screen.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import 'source_notifier.dart';
+import 'widgets/source_rule_help_sheet.dart';
+import '../../screens/code_edit_screen.dart';
+import '../../screens/curl_analyze_url_sheet.dart';
+import '../../screens/source_debug_screen.dart';
 
 /// JS 单文件书源编辑（对标原版 JsSourceEditActivity 最小可用）
 ///

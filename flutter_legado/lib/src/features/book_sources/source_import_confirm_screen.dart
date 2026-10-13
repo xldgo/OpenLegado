@@ -1,17 +1,18 @@
-import '../widgets/app_menu.dart';
+import '../../theme/import_status_colors.dart';
+import '../../widgets/app_menu.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../models/models.dart';
-import '../providers/source/source_notifier.dart';
-import '../services/source_import_service.dart';
-import '../widgets/custom_group_dialog.dart';
+import '../../models/models.dart';
+import 'source_notifier.dart';
+import '../../services/source_import_service.dart';
+import '../../widgets/custom_group_dialog.dart';
 
 /// 书源导入状态（对标原版 ImportBookSourceStatus）
 enum _ImportStatus {
@@ -462,13 +463,3 @@ class _SourceImportConfirmScreenState
     );
   }
 }
-
-/// 导入状态标签配色（亮暗自适应）
-/// [UI_MD3_ALIGNMENT_PLAN.md Batch B B5] 新增=primary、更新=tertiary，亮暗自适应
-abstract final class AppColorsExt {
-  static Color importNew(ColorScheme scheme) => scheme.primary;
-
-  static Color importUpdate(ColorScheme scheme) => scheme.tertiary;
-}
-
-

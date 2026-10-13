@@ -7,7 +7,7 @@ import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../services/book_api.dart';
 import '../providers.dart';
-import '../source/source_notifier.dart';
+import '../../features/book_sources/book_sources.dart';
 import 'explore_state.dart';
 
 export 'explore_state.dart';

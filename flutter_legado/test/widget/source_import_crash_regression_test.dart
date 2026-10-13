@@ -15,8 +15,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/source_import_confirm_screen.dart';
-import 'package:flutter_legado/src/screens/source_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/services/source_import_service.dart';
 
 import '../mocks/mocks.dart';

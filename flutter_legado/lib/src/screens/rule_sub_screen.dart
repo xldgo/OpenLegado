@@ -12,7 +12,7 @@ import '../providers/providers.dart';
 
 import '../models/models.dart';
 import '../providers/rule_sub/rule_sub_notifier.dart';
-import '../providers/source/source_notifier.dart';
+import '../features/book_sources/book_sources.dart';
 import '../services/source_import_service.dart' show SourcePreview;
 import '../widgets/confirm_dialog.dart';
 import '../widgets/empty_state.dart';
@@ -20,7 +20,6 @@ import '../widgets/error_view.dart';
 import '../widgets/loading_indicator.dart';
 import 'rss_source_import_confirm_screen.dart';
 import 'replace_rule_import_confirm_screen.dart';
-import 'source_import_confirm_screen.dart';
 
 /// 规则订阅管理页（对标原版 RuleSubActivity）
 ///

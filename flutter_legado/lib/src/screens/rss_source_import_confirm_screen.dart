@@ -13,7 +13,7 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../providers/rss/rss_notifier.dart';
 import '../widgets/custom_group_dialog.dart';
-import 'source_import_confirm_screen.dart' show AppColorsExt;
+import '../theme/import_status_colors.dart' show AppColorsExt;
 
 /// 订阅源导入状态（对标原版 ImportRssSourceDialog 状态展示）
 enum _ImportStatus {

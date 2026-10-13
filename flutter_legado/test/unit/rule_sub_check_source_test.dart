@@ -18,7 +18,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/source/source_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/providers/source_check/check_source_notifier.dart';
 import 'package:flutter_legado/src/providers/rule_sub/rule_sub_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';

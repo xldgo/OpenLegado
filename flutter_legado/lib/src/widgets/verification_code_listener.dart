@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
 import '../providers/providers.dart';
-import '../providers/source/source_notifier.dart';
+import '../features/book_sources/book_sources.dart';
 
 /// 全局验证码请求监听器（对标 Kotlin SourceVerificationHelp 全局监听）
 ///

@@ -210,6 +210,24 @@ MockBookSourceStore 拥有唯一源列表，原默认种子与校验任务借用
 格式。现有消费者与隔离数据库的 Windows FFI 回归保护行为，移动端构建及
 真实站点验收另行执行，不修改 Rust/FRB、版本或依赖。
 
+## 第十三步的书源功能目录
+
+管理、编辑、导入确认和 JS 编辑四个页面及其七个 part 文件，SourceNotifier、
+SourceState 及 Freezed 生成物集中到 `features/book_sources/`；书源卡片、规则
+帮助面板和书源分组管理包装放入该功能的 `widgets/`。登录、调试、校验与
+SourceImportService 保留现有路径，这批不改其实现或生命周期。
+
+`book_sources.dart` 显式导出页面、状态、Notifier、Repository Provider 与需要
+跨功能引用的专用组件；外部消费者使用该入口，内部直接引用所需文件，不反向
+导入自身入口。所有旧路径移除，无转发文件；part 与 part of 保持同库关系。
+共享的 SourceEditor、SourceSelectionBar、GroupManageDialog 保留 widgets。
+AppColorsExt 是三种导入确认共用的配色辅助，抽至 `theme/import_status_colors.dart`，
+书源、订阅源及替换规则均直接引用它，避免为共用配色依赖另一个功能的页面。
+
+本批只调整路径、import/export 与共享辅助类位置；方法体、状态字段、规则字段、
+页面布局、导航参数和异常处理保持。完整生成使用原锁文件和 Pub 镜像复核，
+重复生成不产生新内容；不手工改写生成物或升级依赖。任务状态与证据见 Active。
+
 ## 经授权追加的备注编辑
 
 书签页、目录书签列表及阅读选区新增共用底部输入面板。界面只处理原文呈现、

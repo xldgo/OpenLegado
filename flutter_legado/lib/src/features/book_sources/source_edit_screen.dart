@@ -1,5 +1,5 @@
-import '../l10n/app_localization.dart';
-import '../widgets/app_menu.dart';
+import '../../l10n/app_localization.dart';
+import '../../widgets/app_menu.dart';
 
 import 'dart:convert';
 import 'dart:io';
@@ -8,8 +8,8 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -18,17 +18,17 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/models.dart';
-import '../providers/explore/explore_notifier.dart';
-import '../providers/providers.dart';
-import '../providers/search/search_notifier.dart';
-import '../providers/source/source_notifier.dart';
-import '../routes.dart';
-import '../utils/source_login_entry.dart';
-import '../widgets/help/help_assets.dart';
-import '../widgets/help/show_help.dart';
-import '../utils/source_field_code_edit.dart';
-import '../widgets/source_editor.dart';
+import '../../models/models.dart';
+import '../../providers/explore/explore_notifier.dart';
+import '../../providers/providers.dart';
+import '../../providers/search/search_notifier.dart';
+import 'source_notifier.dart';
+import '../../routes.dart';
+import '../../utils/source_login_entry.dart';
+import '../../widgets/help/help_assets.dart';
+import '../../widgets/help/show_help.dart';
+import '../../utils/source_field_code_edit.dart';
+import '../../widgets/source_editor.dart';
 part 'source_edit_screen_load.part.dart';
 part 'source_edit_screen_actions.part.dart';
 part 'source_edit_screen_builders.part.dart';

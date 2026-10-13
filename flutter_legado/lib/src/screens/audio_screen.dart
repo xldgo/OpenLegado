@@ -17,7 +17,7 @@ import '../utils/audio_skip_policy.dart';
 import '../routes.dart';
 import '../l10n/app_localization.dart';
 import '../services/audio_cache_events.dart';
-import 'source_edit_screen.dart';
+import '../features/book_sources/book_sources.dart';
 import 'source_login_screen.dart';
 
 /// 预设定时时长（分钟）

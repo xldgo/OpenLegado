@@ -12,7 +12,7 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../providers/replace_rule/replace_rule_notifier.dart';
 import '../widgets/custom_group_dialog.dart';
-import 'source_import_confirm_screen.dart' show AppColorsExt;
+import '../theme/import_status_colors.dart' show AppColorsExt;
 
 /// 替换规则导入状态（对标原版 ImportReplaceRuleDialog 状态展示）
 enum _ImportStatus {

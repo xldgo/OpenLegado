@@ -14,9 +14,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../providers/source/source_notifier.dart';
+import '../../features/book_sources/book_sources.dart';
 import '../../providers/sync/sync_notifier.dart';
-import '../../screens/source_edit_screen.dart';
 import '../../utils/source_login_entry.dart';
 import '../../screens/webview_login_screen.dart';
 import '../help/help_assets.dart';

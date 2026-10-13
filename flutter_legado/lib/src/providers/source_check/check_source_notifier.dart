@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers.dart';
-import '../source/source_notifier.dart';
+import '../../features/book_sources/book_sources.dart';
 
 /// 单个书源的校验结果消息（对标原版列表项 checkSourceMessage 展示）
 class CheckSourceMessage {

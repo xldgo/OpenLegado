@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/source_card.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 void main() {
   Widget buildTestWidget({

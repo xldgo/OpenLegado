@@ -1,4 +1,4 @@
-import '../../features/book_sources/book_sources.dart';
+import 'book_source_repository_provider.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -10,7 +10,7 @@ import '../../models/models.dart';
 import '../../services/backup_service.dart';
 import '../../services/book_api.dart' show BookApi;
 import '../../services/source_import_service.dart';
-import '../providers.dart';
+import '../../providers/providers.dart';
 import 'source_state.dart';
 
 export 'source_state.dart';

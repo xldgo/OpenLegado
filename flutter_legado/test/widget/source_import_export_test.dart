@@ -12,7 +12,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/qrcode_screen.dart';
-import 'package:flutter_legado/src/screens/source_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
 

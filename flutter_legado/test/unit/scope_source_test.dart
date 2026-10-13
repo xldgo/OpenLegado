@@ -22,7 +22,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/source_import_service.dart';
-import 'package:flutter_legado/src/providers/source/source_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';

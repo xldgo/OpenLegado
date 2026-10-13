@@ -19,6 +19,7 @@ class RoutingTests(unittest.TestCase):
             ".github/scripts/ci_changes.py": {"tooling"},
             ".github/scripts/test_ci_changes.py": {"tooling"},
             "flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart": {"flutter", "ios_build"},
+            "flutter_legado/lib/src/features/book_sources/source_screen.dart": {"flutter", "ios_build"},
             "flutter_legado/test/widget/bookshelf_test.dart": {"flutter"},
             "flutter_legado/assets/updateLog.md": {"flutter", "ios_build"},
             "flutter_legado/android/app/build.gradle.kts": {"android_ffi"},
