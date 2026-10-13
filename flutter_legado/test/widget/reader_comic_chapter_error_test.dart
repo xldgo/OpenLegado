@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -82,7 +83,8 @@ class _ChapterErrorMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -182,15 +184,14 @@ Widget _buildApp(ProviderContainer container) {
 /// widget 测试的 fake async 里 `pumpAndSettle` 无法让图片获得真实高度
 /// （同 reader_comic_progress_preload_test 先例）
 Future<void> _settleWithImageDecode(WidgetTester tester) async {
-  await tester.runAsync(() => Future<void>.delayed(
-    const Duration(milliseconds: 300),
-  ));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 300)),
+  );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('E4 非卷章 0 图：进入错误态（正文没有图片）+ 章级重试恢复',
-      (tester) async {
+  testWidgets('E4 非卷章 0 图：进入错误态（正文没有图片）+ 章级重试恢复', (tester) async {
     const ch2 = 'https://manga.example.com/comic/e4/ch/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),
@@ -215,8 +216,7 @@ void main() {
     // MangaChapterPageLoader L36-38 同条件 throw → Failed 全屏错误 + 重试）
     expect(find.byType(ErrorView), findsOneWidget);
     expect(find.text('正文没有图片'), findsOneWidget);
-    expect(find.text('暂无图片'), findsNothing,
-        reason: '非卷章 0 图应进错误态，而非「暂无图片」导航页');
+    expect(find.text('暂无图片'), findsNothing, reason: '非卷章 0 图应进错误态，而非「暂无图片」导航页');
 
     // 点「重试」：章级重试（只重拉章节正文，不重拉书籍信息/目录），恢复出图
     await tester.tap(find.text('重试'));
@@ -230,8 +230,7 @@ void main() {
     expect(find.byType(Image, skipOffstage: false), findsWidgets);
   });
 
-  testWidgets('E4 卷章（isVolume）0 图：显示章节标题分隔页（非错误、非暂无图片）',
-      (tester) async {
+  testWidgets('E4 卷章（isVolume）0 图：显示章节标题分隔页（非错误、非暂无图片）', (tester) async {
     const vol = 'https://manga.example.com/comic/e4/vol/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),
@@ -252,15 +251,17 @@ void main() {
     // ReaderLoading 分隔页、标题=章名；参考版 L452-460 ChapterEdge
     // "volume:..." message=chapterTitle）：显示章节标题，非错误态
     expect(find.byType(ErrorView), findsNothing);
-    expect(find.text('暂无图片'), findsNothing,
-        reason: '卷章 0 图应显示标题分隔页，而非误导性的「暂无图片」');
+    expect(
+      find.text('暂无图片'),
+      findsNothing,
+      reason: '卷章 0 图应显示标题分隔页，而非误导性的「暂无图片」',
+    );
     expect(find.text('第一卷'), findsOneWidget, reason: '分隔页显示章节标题');
     // 分隔页保留章节导航（用户需跳过分隔章继续阅读）
     expect(find.text('下一章'), findsOneWidget);
   });
 
-  testWidgets('E4 章节正文获取失败：错误态 + 章级重试（非书级重载）',
-      (tester) async {
+  testWidgets('E4 章节正文获取失败：错误态 + 章级重试（非书级重载）', (tester) async {
     const ch2 = 'https://manga.example.com/comic/e4/ch/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),

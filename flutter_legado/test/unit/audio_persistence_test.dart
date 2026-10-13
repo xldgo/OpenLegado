@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // A2/A3 听书偏好持久化与进度写入测试（音频轨道 A2/A3 批）
 //
 // A2：
@@ -11,8 +12,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // - TTS 模式不写流媒体进度键（键语义为毫秒播放位置）
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -55,15 +55,16 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
       ],
     );
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
     when(() => mockApi.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
+          final index = invocation.positionalArguments[1] as int;
+          return {
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          };
+        });
     when(() => mockApi.getAudioProgress(any(), any()))
         .thenAnswer((_) async => null);
     when(() => mockApi.saveAudioProgress(any(), any(), any()))
@@ -75,13 +76,17 @@ void main() {
   }
 
   group('A2 播放模式/语速持久化', () {
-    testWidgets('setMode 经 audioWithPlayMode 合并 readConfig 并 updateBook', (tester) async {
+    testWidgets('setMode 经 audioWithPlayMode 合并 readConfig 并 updateBook', (
+      tester,
+    ) async {
       Map<String, dynamic>? mergedJson;
       Book? savedBook;
-      when(() => mockApi.audioWithPlayMode(
-            readConfig: any(named: 'readConfig'),
-            playMode: any(named: 'playMode'),
-          )).thenAnswer((invocation) async {
+      when(
+        () => mockApi.audioWithPlayMode(
+          readConfig: any(named: 'readConfig'),
+          playMode: any(named: 'playMode'),
+        ),
+      ).thenAnswer((invocation) async {
         final raw = invocation.namedArguments[#readConfig] as String?;
         final map = raw == null || raw.isEmpty
             ? <String, dynamic>{}
@@ -90,15 +95,18 @@ void main() {
         mergedJson = map;
         return jsonEncode(map);
       });
-      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
-        savedBook = invocation.positionalArguments[0] as Book;
-      });
+      when(() => mockApi.bookshelfRepository.updateBook(any()))
+          .thenAnswer((invocation) async {
+            savedBook = invocation.positionalArguments[0] as Book;
+          });
 
-      readNotifier().bindBook(const Book(
-        bookUrl: 'url',
-        name: '测试书',
-        readConfig: ReadConfig(playMode: 0, openCredits: 15),
-      ));
+      readNotifier().bindBook(
+        const Book(
+          bookUrl: 'url',
+          name: '测试书',
+          readConfig: ReadConfig(playMode: 0, openCredits: 15),
+        ),
+      );
 
       await readNotifier().setMode(AudioPlayMode.shuffle);
 
@@ -108,18 +116,23 @@ void main() {
       expect(mergedJson?['openCredits'], 15);
       expect(savedBook?.readConfig?.playMode, 2);
       expect(savedBook?.readConfig?.openCredits, 15);
-      verify(() => mockApi.audioWithPlayMode(
-            readConfig: any(named: 'readConfig'),
-            playMode: 2,
-          )).called(1);
+      verify(
+        () => mockApi.audioWithPlayMode(
+          readConfig: any(named: 'readConfig'),
+          playMode: 2,
+        ),
+      ).called(1);
       verify(() => mockApi.bookshelfRepository.updateBook(any())).called(1);
     });
 
-    testWidgets('updateConfig(speed) 防抖合并后写 ReadConfig.playSpeed', (tester) async {
+    testWidgets('updateConfig(speed) 防抖合并后写 ReadConfig.playSpeed', (
+      tester,
+    ) async {
       Book? savedBook;
-      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
-        savedBook = invocation.positionalArguments[0] as Book;
-      });
+      when(() => mockApi.bookshelfRepository.updateBook(any()))
+          .thenAnswer((invocation) async {
+            savedBook = invocation.positionalArguments[0] as Book;
+          });
 
       readNotifier().bindBook(const Book(bookUrl: 'url', name: '测试书'));
 
@@ -136,11 +149,13 @@ void main() {
     });
 
     test('applyBookPreferences 读回播放模式与语速', () async {
-      await readNotifier().applyBookPreferences(const Book(
-        bookUrl: 'url',
-        name: '测试书',
-        readConfig: ReadConfig(playMode: 2, playSpeed: 1.5),
-      ));
+      await readNotifier().applyBookPreferences(
+        const Book(
+          bookUrl: 'url',
+          name: '测试书',
+          readConfig: ReadConfig(playMode: 2, playSpeed: 1.5),
+        ),
+      );
 
       expect(readState().mode, AudioPlayMode.shuffle);
       expect(readState().config.speed, 1.5);
@@ -161,15 +176,20 @@ void main() {
       expect(readState().config.speed, 2.0);
     });
 
-    test('applyBookPreferences 越界 playMode 回退 sequential（兼容原版 LIST_LOOP=3）', () async {
-      await readNotifier().applyBookPreferences(const Book(
-        bookUrl: 'url',
-        name: '测试书',
-        readConfig: ReadConfig(playMode: 3),
-      ));
+    test(
+      'applyBookPreferences 越界 playMode 回退 sequential（兼容原版 LIST_LOOP=3）',
+      () async {
+        await readNotifier().applyBookPreferences(
+          const Book(
+            bookUrl: 'url',
+            name: '测试书',
+            readConfig: ReadConfig(playMode: 3),
+          ),
+        );
 
-      expect(readState().mode, AudioPlayMode.sequential);
-    });
+        expect(readState().mode, AudioPlayMode.sequential);
+      },
+    );
   });
 
   group('A3 流媒体进度写入', () {
@@ -293,24 +313,29 @@ void main() {
     });
 
     testWidgets('TTS 模式完成/停止不写流媒体进度键（键语义为毫秒）', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
-        (_) async => [const BookChapter(title: '第一章', index: 0)],
-      );
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.getChapters(any()))
+          .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
-      when(() => mockApi.httpTtsSynthesizer.synthesize(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
 
       await readNotifier().loadChapters('url');
-      readNotifier()
-          .updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       await readNotifier().play();
 
       fakePlayer.completePlayback();

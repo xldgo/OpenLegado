@@ -15,8 +15,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 计时推进用 testWidgets 的 FakeAsync（tester.pump(duration) 推时钟），
 // 播放器经 streamAudioPlayerProvider 注入 Fake，不触真实 video_player 平台通道。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -60,15 +59,16 @@ void main() {
         (i) => BookChapter(title: 'ch${i + 1}', index: i),
       ),
     );
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
     when(() => mockApi.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
+          final index = invocation.positionalArguments[1] as int;
+          return {
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          };
+        });
     when(() => mockApi.getAudioProgress(any(), any()))
         .thenAnswer((_) async => null);
     when(() => mockApi.saveAudioProgress(any(), any(), any()))
@@ -151,20 +151,27 @@ void main() {
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
-      when(() => mockApi.httpTtsSynthesizer.synthesize(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
 
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       await readNotifier().play();
       expect(readState().isStreamMode, isFalse);
       readNotifier().startChapterStop(1);
@@ -188,16 +195,17 @@ void main() {
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any()))
           .thenAnswer((invocation) async {
-        final index = invocation.positionalArguments[1] as int;
-        return {
-          'mediaUrl': 'https://cdn.example.com/$index.mp3',
-          'isVolume': false,
-        };
-      });
+            final index = invocation.positionalArguments[1] as int;
+            return {
+              'mediaUrl': 'https://cdn.example.com/$index.mp3',
+              'isVolume': false,
+            };
+          });
       when(() => mockApi.getAudioProgress(any(), any()))
           .thenAnswer((_) async => null);
       when(() => mockApi.saveAudioProgress(any(), any(), any()))

@@ -1,3 +1,5 @@
+import 'mock_read_aloud_voice_repository.dart';
+
 import 'dart:convert';
 
 import '../../domain/contracts/http_tts_repository.dart';
@@ -7,8 +9,9 @@ import '../../models/models.dart';
 final class MockHttpTtsRepository implements HttpTtsRepository {
   MockHttpTtsRepository({
     required this.nextId,
+    MockReadAloudVoiceRepository? voiceCatalog,
     bool withDefaultEngines = false,
-  }) {
+  }) : voiceCatalog = voiceCatalog ?? MockReadAloudVoiceRepository() {
     if (withDefaultEngines) {
       // ── HTTP TTS 引擎（来源：app/src/main/assets/defaultData/httpTTS.json）──
       _httpTtsList.addAll([
@@ -29,6 +32,7 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
   }
 
   final int Function() nextId;
+  final MockReadAloudVoiceRepository voiceCatalog;
   final List<HttpTts> _httpTtsList = [];
 
   int _allocateNewId() {
@@ -84,6 +88,7 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
   @override
   Future<void> deleteHttpTts(int id) async {
     _httpTtsList.removeWhere((t) => t.id == id);
+    voiceCatalog.clearHttp(id);
   }
 
   @override
@@ -96,7 +101,8 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
       }
       final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
       if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
-      await addHttpTts(parsed);
+      final saved = await addHttpTts(parsed);
+      voiceCatalog.importHttp(saved.id, Map<String, dynamic>.from(item));
       count++;
     }
     return count;

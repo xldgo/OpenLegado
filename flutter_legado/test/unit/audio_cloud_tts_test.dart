@@ -1,0 +1,82 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
+import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/models/models.dart';
+
+import '../mocks/mocks.dart';
+
+class _Synth implements CloudTtsSynthesizer {
+  final inputs = <String>[];
+  @override
+  Future<HttpTtsSynthesisResult> synthesize({
+    required String engineId,
+    required String text,
+    HttpTtsCancellation? cancellation,
+  }) async {
+    inputs.add('$engineId:$text');
+    return const HttpTtsAudio(audioPath: '/cache/cloud.wav');
+  }
+}
+
+Future<void> flush() async {
+  for (var i = 0; i < 25; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+void main() {
+  setUpAll(registerFallbacks);
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test('云端选择清旧 HTTP ID，当前段/续播/切段共用原媒体会话', () async {
+    SharedPreferences.setMockInitialValues({});
+    final api = MockRustApi();
+    final config = <String, String>{'appTtsEngineId': '99'};
+    when(() => api.getConfig(any()))
+        .thenAnswer((c) async => config[c.positionalArguments[0]]);
+    when(() => api.setConfig(any(), any())).thenAnswer((c) async {
+      config[c.positionalArguments[0] as String] =
+          c.positionalArguments[1] as String;
+    });
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.getChapters(any()))
+        .thenAnswer((_) async => const [BookChapter(title: '章节', index: 0)]);
+    when(() => api.getChapterContentFull(any(), any()))
+        .thenAnswer((_) async => '第一段。\n第二段。');
+    final synth = _Synth();
+    final player = FakeStreamAudioPlayer();
+    final container = ProviderContainer(
+      overrides: [
+        bookApiProvider.overrideWithValue(api),
+        cloudTtsSynthesizerProvider.overrideWithValue(synth),
+        streamAudioPlayerProvider.overrideWithValue(player),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(audioNotifierProvider.notifier);
+    await notifier.loadChapters('book');
+    await notifier.setGlobalTtsEngine('cloud://cloud1');
+    expect(config['appTtsEngineId'], '');
+    expect(await notifier.resolveTtsEngineId(), isNull);
+    await notifier.play();
+    await flush();
+    expect(synth.inputs, ['cloud1:第一段。']);
+    expect(player.playedLocalFiles, hasLength(1));
+    notifier.pause();
+    await flush();
+    await notifier.resumeOrPlay();
+    await flush();
+    expect(synth.inputs, hasLength(1));
+    player.completePlayback();
+    await flush();
+    expect(synth.inputs, ['cloud1:第一段。', 'cloud1:第二段。']);
+    notifier.stop();
+    await flush();
+  });
+}

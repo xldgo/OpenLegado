@@ -1,4 +1,9 @@
+import '../features/read_aloud/cloud_tts_screen.dart';
+import '../features/read_aloud/read_aloud_voice_screen.dart';
+import '../features/read_aloud/tts_cache_screen.dart';
+
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -9,7 +14,9 @@ import '../providers/audio/audio_notifier.dart';
 import '../providers/audio/read_aloud_preferences.dart';
 import '../providers/audio/read_aloud_capsule.dart';
 import '../routes.dart';
+
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/settings_widgets.dart';
@@ -144,6 +151,70 @@ class _ReadAloudSettingsScreenState
           ),
           const SizedBox(height: 16),
           SettingsGroup(
+            title: '音频缓存',
+            showDividers: false,
+            children: [
+              SettingStepperRow(
+                title: '预下载章节数',
+                value: preferences.audioPreDownloadNum.toDouble(),
+                min: 0,
+                max: 100,
+                step: 1,
+                unit: '章',
+                onChanged: enabled
+                    ? (v) => _save(() async {
+                        await ref
+                            .read(readAloudPreferencesProvider.notifier)
+                            .setAudioPreDownloadNum(v.round());
+                        await notifier.refreshHttpPrefetchSettings();
+                      })
+                    : null,
+              ),
+              SettingStepperRow(
+                title: '预合成并发',
+                value: preferences.ttsPreSynthesisConcurrency.toDouble(),
+                min: 1,
+                max: 8,
+                step: 1,
+                onChanged: enabled
+                    ? (v) => _save(() async {
+                        await ref
+                            .read(readAloudPreferencesProvider.notifier)
+                            .setTtsPreSynthesisConcurrency(v.round());
+                        await notifier.refreshHttpPrefetchSettings();
+                      })
+                    : null,
+              ),
+              SettingStepperRow(
+                title: '音频缓存保留时间',
+                value: preferences.audioCacheCleanTime.toDouble(),
+                min: 0,
+                max: 1440,
+                step: 1,
+                unit: '分钟',
+                onChanged: enabled
+                    ? (v) => _save(() async {
+                        await ref
+                            .read(readAloudPreferencesProvider.notifier)
+                            .setAudioCacheCleanTime(v.round());
+                        await notifier.refreshHttpPrefetchSettings();
+                      })
+                    : null,
+              ),
+              SettingTile(
+                icon: Icons.audio_file_outlined,
+                title: '朗读缓存',
+                subtitle: '查看音频与预合成日志，管理缓存',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TtsCacheScreen(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SettingsGroup(
             title: strings.readAloudCapsuleGroup,
             children: [
               SettingSwitchRow(
@@ -170,6 +241,17 @@ class _ReadAloudSettingsScreenState
                 subtitle: strings.readAloudEnginesSummary,
                 onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.readAloudConfig),
+              ),
+              SettingTile(icon:Icons.cloud_outlined,title:context.l10n.cloudTtsTitle,subtitle:context.l10n.cloudTtsSummary,onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const CloudTtsScreen()))),
+              SettingTile(
+                icon: Icons.record_voice_over_outlined,
+                title: '音色目录',
+                subtitle: '选择发音人与情感，管理系统和 HTTP 音色',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ReadAloudVoiceScreen(),
+                  ),
+                ),
               ),
               if (system.isSupported)
                 SettingTile(

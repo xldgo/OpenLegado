@@ -1,20 +1,34 @@
+import '../../../domain/contracts/tts_cache_repository.dart';
+
 /// 一段朗读的不可变输入，不携带书籍、章节或持久化状态。— Codex + UI
 final class ReadAloudRequest {
   const ReadAloudRequest({
     required this.text,
-    required this.engineUrl,
+    this.engineId = 0,
+    this.engineUrl = '',
     this.speed = 1.0,
     this.pitch = 1.0,
     this.volume = 1.0,
     this.voiceName,
+    this.toneId,
+    this.speakerName,
+    this.emotionTag,
+    this.cacheContext,
+    this.sourceVersion,
   });
 
   final String text;
+  final int engineId;
   final String engineUrl;
   final double speed;
   final double pitch;
   final double volume;
   final String? voiceName;
+  final String? toneId;
+  final String? speakerName;
+  final String? emotionTag;
+  final TtsCacheContext? cacheContext;
+  final String? sourceVersion;
 }
 
 /// 起播结果与自然完成分开；无音频由原播放协调层决定如何提示和推进。

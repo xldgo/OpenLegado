@@ -1,0 +1,263 @@
+//! 云端引擎只存元数据和设备凭据引用，不保存 API Key。
+use legado_core::{LegadoError, LegadoResult, cloud_tts::*};
+use rusqlite::{Connection, OptionalExtension, params};
+use serde::{Deserialize, Serialize};
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CloudTtsMetadata {
+    pub id: String,
+    pub name: String,
+    pub provider: CloudTtsProviderType,
+    pub base_url: String,
+    pub model: String,
+    pub options_json: String,
+    pub region: String,
+    pub app_id: String,
+    pub enabled: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub credential_key: String,
+}
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CloudVoiceOptions {
+    pub voice_id: Option<String>,
+    pub style: Option<String>,
+    pub instructions: Option<String>,
+    pub speed: Option<f64>,
+    pub format: Option<String>,
+}
+impl CloudTtsMetadata {
+    pub fn engine(&self, api_key: String) -> CloudTtsEngine {
+        CloudTtsEngine {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            provider: self.provider,
+            base_url: self.base_url.clone(),
+            api_key,
+            model: self.model.clone(),
+            enabled: self.enabled,
+        }
+    }
+    pub fn request(&self, text: String) -> LegadoResult<CloudTtsSynthesisRequest> {
+        let options: CloudVoiceOptions = serde_json::from_str(&self.options_json)?;
+        Ok(CloudTtsSynthesisRequest {
+            text,
+            voice_id: options.voice_id.unwrap_or_else(|| {
+                match self.provider {
+                    CloudTtsProviderType::OpenAiSpeech => "alloy",
+                    CloudTtsProviderType::Mimo => "mimo_default",
+                }
+                .into()
+            }),
+            style: options.style.unwrap_or_default(),
+            instructions: options.instructions.unwrap_or_default(),
+            speed: options.speed.unwrap_or(1.0),
+            format: options.format.unwrap_or_else(|| {
+                match self.provider {
+                    CloudTtsProviderType::OpenAiSpeech => "mp3",
+                    CloudTtsProviderType::Mimo => "wav",
+                }
+                .into()
+            }),
+            ..Default::default()
+        })
+    }
+    pub fn validate(&self) -> LegadoResult<()> {
+        if self.id.is_empty()
+            || self.id.len() > 128
+            || !self
+                .id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+            || self.name.trim().is_empty()
+        {
+            return Err(LegadoError::Ffi("云端引擎 ID 或名称无效".into()));
+        }
+        if !self.credential_key.starts_with("cloud-tts:")
+            || self.credential_key.len() < 20
+            || !self
+                .credential_key
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_:-".contains(&b))
+        {
+            return Err(LegadoError::Ffi("云端凭据引用无效".into()));
+        }
+        let mut engine = self.engine("validation-only".into());
+        engine.enabled = true;
+        cloud_tts_provider(self.provider).prepare(&engine, &self.request("配置校验".into())?)?;
+        Ok(())
+    }
+}
+pub struct CloudTtsRepository<'a> {
+    conn: &'a Connection,
+}
+fn db(e: rusqlite::Error) -> LegadoError {
+    LegadoError::Database(e.to_string())
+}
+fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+impl<'a> CloudTtsRepository<'a> {
+    pub fn new(conn: &'a Connection) -> Self {
+        Self { conn }
+    }
+    pub fn list(&self) -> LegadoResult<Vec<CloudTtsMetadata>> {
+        let mut statement=self.conn.prepare("SELECT id,name,provider,baseUrl,model,optionsJson,region,appId,enabled,createdAt,updatedAt,credentialKey FROM cloud_tts_engines ORDER BY createdAt,id").map_err(db)?;
+        let rows = statement
+            .query_map([], |r| {
+                let provider: String = r.get(2)?;
+                let provider =
+                    serde_json::from_value(serde_json::json!(provider)).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            2,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?;
+                Ok(CloudTtsMetadata {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    provider,
+                    base_url: r.get(3)?,
+                    model: r.get(4)?,
+                    options_json: r.get(5)?,
+                    region: r.get(6)?,
+                    app_id: r.get(7)?,
+                    enabled: r.get(8)?,
+                    created_at: r.get(9)?,
+                    updated_at: r.get(10)?,
+                    credential_key: r.get(11)?,
+                })
+            })
+            .map_err(db)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(db)
+    }
+    pub fn get(&self, id: &str) -> LegadoResult<CloudTtsMetadata> {
+        self.list()?
+            .into_iter()
+            .find(|e| e.id == id)
+            .ok_or_else(|| LegadoError::Ffi("云端朗读引擎不存在".into()))
+    }
+    pub fn save(&self, engine: &CloudTtsMetadata) -> LegadoResult<()> {
+        engine.validate()?;
+        let provider = serde_json::to_value(engine.provider)?
+            .as_str()
+            .unwrap()
+            .to_string();
+        let previous: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT provider FROM cloud_tts_engines WHERE id=?1",
+                [&engine.id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(db)?;
+        if previous.is_some_and(|previous| previous != provider) {
+            return Err(LegadoError::Ffi(
+                "已保存引擎不能更换 Provider，请新建引擎".into(),
+            ));
+        }
+        let timestamp = now();
+        self.conn.execute("INSERT INTO cloud_tts_engines(id,name,provider,baseUrl,model,optionsJson,region,appId,enabled,createdAt,updatedAt,credentialKey) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,?11) ON CONFLICT(id) DO UPDATE SET name=excluded.name,provider=excluded.provider,baseUrl=excluded.baseUrl,model=excluded.model,optionsJson=excluded.optionsJson,region=excluded.region,appId=excluded.appId,enabled=excluded.enabled,updatedAt=excluded.updatedAt,credentialKey=excluded.credentialKey",params![engine.id,engine.name,provider,engine.base_url,engine.model,engine.options_json,engine.region,engine.app_id,engine.enabled,timestamp,engine.credential_key]).map_err(db)?;
+        Ok(())
+    }
+    pub fn delete(&self, id: &str) -> LegadoResult<bool> {
+        Ok(self
+            .conn
+            .execute("DELETE FROM cloud_tts_engines WHERE id=?1", [id])
+            .map_err(db)?
+            > 0)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn metadata() -> CloudTtsMetadata {
+        CloudTtsMetadata {
+            id: "cloud-test".into(),
+            name: "云端".into(),
+            provider: CloudTtsProviderType::OpenAiSpeech,
+            base_url: String::new(),
+            model: "gpt-4o-mini-tts".into(),
+            options_json: r#"{"voiceId":"coral","format":"wav"}"#.into(),
+            region: String::new(),
+            app_id: String::new(),
+            enabled: true,
+            created_at: 0,
+            updated_at: 0,
+            credential_key: "cloud-tts:cloud-test:fixture".into(),
+        }
+    }
+    #[test]
+    fn metadata_crud_preserves_identity_and_rejects_credentials() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let r = CloudTtsRepository::new(&c);
+        let mut e = metadata();
+        r.save(&e).unwrap();
+        let created = r.get(&e.id).unwrap().created_at;
+        e.name = "修改".into();
+        e.enabled = false;
+        r.save(&e).unwrap();
+        assert_eq!(r.get(&e.id).unwrap().created_at, created);
+        assert!(!r.get(&e.id).unwrap().enabled);
+        let json = serde_json::to_value(&e).unwrap();
+        let mut with_secret = json.clone();
+        with_secret["apiKey"] = serde_json::json!("private");
+        assert!(serde_json::from_value::<CloudTtsMetadata>(with_secret).is_err());
+        e.options_json = r#"{"apiKey":"private"}"#.into();
+        assert!(r.save(&e).is_err());
+        assert_eq!(r.get(&e.id).unwrap().options_json, metadata().options_json);
+        assert!(r.delete(&e.id).unwrap());
+        assert!(!r.delete(&e.id).unwrap());
+    }
+    #[test]
+    fn options_and_address_validated_before_save() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let r = CloudTtsRepository::new(&c);
+        let mut e = metadata();
+        for options in [
+            "[]",
+            r#"{"speed":5}"#,
+            r#"{"format":"json"}"#,
+            r#"{"voiceId":""}"#,
+        ] {
+            e.options_json = options.into();
+            assert!(r.save(&e).is_err());
+        }
+        assert!(r.list().unwrap().is_empty());
+    }
+    #[test]
+    fn mimo_metadata_defaults_and_provider_identity_are_preserved() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&c);
+        let mut m = metadata();
+        m.provider = CloudTtsProviderType::Mimo;
+        m.model = "mimo-v2.5-tts".into();
+        m.options_json = "{}".into();
+        repo.save(&m).unwrap();
+        let saved = repo.get(&m.id).unwrap();
+        let request = saved.request("中文".into()).unwrap();
+        assert_eq!(request.voice_id, "mimo_default");
+        assert_eq!(request.format, "wav");
+        m.provider = CloudTtsProviderType::OpenAiSpeech;
+        assert!(repo.save(&m).is_err());
+        assert_eq!(
+            repo.get(&m.id).unwrap().provider,
+            CloudTtsProviderType::Mimo
+        );
+        m.provider = CloudTtsProviderType::Mimo;
+        m.options_json = r#"{"format":"mp3"}"#.into();
+        assert!(repo.save(&m).is_err());
+    }
+}

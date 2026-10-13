@@ -14,27 +14,12 @@ const kHttpTtsSeedVersion = 1;
 /// 默认 HTTP TTS 引擎种子（对齐 `app/src/main/assets/defaultData/httpTTS.json`）
 const kDefaultHttpTtsAsset = 'assets/default_data/httpTTS.json';
 
-/// 判断引擎 URL 模板是否与当前 Rust 合成管线兼容（仅用于自动选默认引擎）。
-///
-/// Rust `tts_speak` 的能力边界（rust/legado-core/src/tts_speak.rs）：
-/// 纯 GET URL + `{{speakText}}`/`{{text}}`/`{{speakSpeed}}`/`{{speed}}`
-/// 占位符替换。原版种子引擎依赖其不支持的能力——
-/// `url,{json}` POST 模板、`@js:` 动态 URL、loginUrl 登录链路——
-/// 被选中即合成失败（QA 实测种子「1.百度」无参数返回错误 JSON）。
-/// 因此自动选默认引擎时必须跳过这些模板，避免让用户误以为引擎可用。
+/// 支持的请求规则形态，仅判断语法入口；不保证账号、凭据或远程服务可用。
 bool isCompatibleHttpTtsEngineUrl(String url) {
-  final trimmed = url.trim();
-  if (trimmed.isEmpty) return false;
-  if (!trimmed.startsWith('http')) return false;
-  if (trimmed.startsWith('@js:')) return false;
-  // `url,{...}`：原版 AnalyzeUrl 的 POST/body 模板形态，Rust 管线不支持
-  final commaIndex = trimmed.indexOf(',');
-  if (commaIndex >= 0 &&
-      trimmed.substring(commaIndex + 1).trimLeft().startsWith('{')) {
-    return false;
-  }
-  // 无文本占位符则朗读文本无法带入请求，必然不可用
-  return trimmed.contains('{{text}}') || trimmed.contains('{{speakText}}');
+  final rule = url.trim();
+  if (rule.isEmpty) return false;
+  if (rule.startsWith('@js:') || rule.startsWith('<js>')) return true;
+  return rule.startsWith('http://') || rule.startsWith('https://');
 }
 
 /// 导入原版 httpTTS 种子（对齐 Android `DefaultData.importDefaultHttpTts`）。
@@ -107,10 +92,7 @@ Future<int> syncDefaultHttpTts(
       final url = rawUrl.trim();
       if (name.isEmpty || url.isEmpty) continue;
 
-      final parsed = HttpTts.fromJson(seed).copyWith(
-        name: name,
-        url: url,
-      );
+      final parsed = HttpTts.fromJson(seed).copyWith(name: name, url: url);
 
       // 稳定身份防护：若已有记录中已存在该 ID（如负数预设 ID）或相同的名称+URL，跳过导入以保护用户配置
       if (parsed.id != 0 && existingIds.contains(parsed.id)) {
@@ -121,7 +103,16 @@ Future<int> syncDefaultHttpTts(
         continue;
       }
 
-      await api.addHttpTts(parsed);
+      if (seed.containsKey('speakersJson') ||
+          seed.containsKey('emotionsJson')) {
+        await api.importHttpTts(
+          jsonEncode([
+            {...seed, ...parsed.toJson()},
+          ]),
+        );
+      } else {
+        await api.addHttpTts(parsed);
+      }
       if (parsed.id != 0) existingIds.add(parsed.id);
       existingNameUrls.add(nameUrlKey);
       imported++;

@@ -35,6 +35,25 @@ void main() {
     addTearDown(container.dispose);
   });
 
+  test('预下载、并发与保留时间按上游默认，持久化后重建恢复', () async {
+    await notifier().load();
+    expect(state().audioPreDownloadNum, 10);
+    expect(state().ttsPreSynthesisConcurrency, 3);
+    expect(state().audioCacheCleanTime, 10);
+    await notifier().setAudioPreDownloadNum(0);
+    await notifier().setTtsPreSynthesisConcurrency(8);
+    await notifier().setAudioCacheCleanTime(0);
+    final restored = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    addTearDown(restored.dispose);
+    await restored.read(readAloudPreferencesProvider.notifier).load();
+    final value = restored.read(readAloudPreferencesProvider);
+    expect(value.audioPreDownloadNum, 0);
+    expect(value.ttsPreSynthesisConcurrency, 8);
+    expect(value.audioCacheCleanTime, 0);
+  });
+
   test('朗读脱离提醒默认启用，关闭后可从持久化配置恢复', () async {
     await notifier().load();
     expect(state().detachReminder, true);

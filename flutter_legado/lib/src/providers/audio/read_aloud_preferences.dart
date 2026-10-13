@@ -10,6 +10,9 @@ class ReadAloudPreferences {
     this.detachReminder = true,
     this.manualSpeed = 1,
     this.paragraphIntervalMs = 0,
+    this.audioPreDownloadNum = 10,
+    this.ttsPreSynthesisConcurrency = 3,
+    this.audioCacheCleanTime = 10,
     this.loaded = false,
     this.hasStoredManualSpeed = false,
   });
@@ -18,6 +21,9 @@ class ReadAloudPreferences {
   final bool detachReminder;
   final double manualSpeed;
   final int paragraphIntervalMs;
+  final int audioPreDownloadNum,
+      ttsPreSynthesisConcurrency,
+      audioCacheCleanTime;
   final bool loaded;
   final bool hasStoredManualSpeed;
 
@@ -29,6 +35,9 @@ class ReadAloudPreferences {
     bool? detachReminder,
     double? manualSpeed,
     int? paragraphIntervalMs,
+    int? audioPreDownloadNum,
+    int? ttsPreSynthesisConcurrency,
+    int? audioCacheCleanTime,
     bool? loaded,
     bool? hasStoredManualSpeed,
   }) => ReadAloudPreferences(
@@ -36,6 +45,10 @@ class ReadAloudPreferences {
     detachReminder: detachReminder ?? this.detachReminder,
     manualSpeed: manualSpeed ?? this.manualSpeed,
     paragraphIntervalMs: paragraphIntervalMs ?? this.paragraphIntervalMs,
+    audioPreDownloadNum: audioPreDownloadNum ?? this.audioPreDownloadNum,
+    ttsPreSynthesisConcurrency:
+        ttsPreSynthesisConcurrency ?? this.ttsPreSynthesisConcurrency,
+    audioCacheCleanTime: audioCacheCleanTime ?? this.audioCacheCleanTime,
     loaded: loaded ?? this.loaded,
     hasStoredManualSpeed: hasStoredManualSpeed ?? this.hasStoredManualSpeed,
   );
@@ -60,6 +73,9 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
       api.getConfig('ttsSpeechRate'),
       api.getConfig('ttsParagraphInterval'),
       api.getConfig('readAloudDetachReminderEnabled'),
+      api.getConfig('audioPreDownloadNum'),
+      api.getConfig('ttsPreSynthesisConcurrency'),
+      api.getConfig('audioCacheCleanTime'),
     ]);
     var follow = values[0];
     // 沿用原有偏好迁移，不因更换界面丢失用户选择。
@@ -80,6 +96,12 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
           follow == null || follow.isEmpty || follow == 'true' || follow == '1',
       manualSpeed: ((rate + 5) / 10).clamp(0.5, 3),
       paragraphIntervalMs: (int.tryParse(values[2] ?? '') ?? 0).clamp(0, 5000),
+      audioPreDownloadNum: (int.tryParse(values[4] ?? '') ?? 10).clamp(0, 100),
+      ttsPreSynthesisConcurrency: (int.tryParse(values[5] ?? '') ?? 3).clamp(
+        1,
+        8,
+      ),
+      audioCacheCleanTime: (int.tryParse(values[6] ?? '') ?? 10).clamp(0, 1440),
       loaded: true,
       hasStoredManualSpeed: values[1] != null && values[1]!.isNotEmpty,
     );
@@ -98,6 +120,36 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
     });
     _writes = operation;
     return operation;
+  }
+
+  Future<void> setAudioPreDownloadNum(int value) async {
+    await load();
+    final n = value.clamp(0, 100);
+    await _save(
+      'audioPreDownloadNum',
+      '$n',
+      () => state.copyWith(audioPreDownloadNum: n),
+    );
+  }
+
+  Future<void> setTtsPreSynthesisConcurrency(int value) async {
+    await load();
+    final n = value.clamp(1, 8);
+    await _save(
+      'ttsPreSynthesisConcurrency',
+      '$n',
+      () => state.copyWith(ttsPreSynthesisConcurrency: n),
+    );
+  }
+
+  Future<void> setAudioCacheCleanTime(int value) async {
+    await load();
+    final n = value.clamp(0, 1440);
+    await _save(
+      'audioCacheCleanTime',
+      '$n',
+      () => state.copyWith(audioCacheCleanTime: n),
+    );
   }
 
   Future<void> setDetachReminder(bool value) async {

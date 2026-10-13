@@ -1679,19 +1679,110 @@ Future<bool> httpTtsSetEnabled({
 }) =>
     RustLib.instance.api.crateFfiFfiHttpTtsSetEnabled(id: id, enabled: enabled);
 
-/// TTS 真实合成：url 模板替换（speakText/speakSpeed）→ HTTP 拉取音频 → 本地缓存
+/// TTS 真实合成：读取数据库 HttpTts 配置，经 legado-fetcher 完整上下文与 AnalyzeUrl 执行网络合成与校验
 ///
 /// 返回合成结果 JSON（camelCase）：
 /// `{"audioPath": "...", "fromCache": false, "contentType": "audio/mpeg"}`
 /// 缓存命中时不发起网络请求。
 Future<String> ttsSpeak({
+  required PlatformInt64 engineId,
+  required TtsRequest request,
   required String text,
-  required String engineUrl,
-  required double speed,
+  String? toneId,
+  String? speakerName,
+  String? emotionTag,
 }) => RustLib.instance.api.crateFfiFfiTtsSpeak(
+  engineId: engineId,
+  request: request,
   text: text,
-  engineUrl: engineUrl,
-  speed: speed,
+  toneId: toneId,
+  speakerName: speakerName,
+  emotionTag: emotionTag,
+);
+
+/// 云端元数据，不返回平台凭据。
+Future<String> cloudTtsList() => RustLib.instance.api.crateFfiFfiCloudTtsList();
+
+Future<void> cloudTtsSave({required String engineJson}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsSave(engineJson: engineJson);
+
+Future<bool> cloudTtsDelete({required String id}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsDelete(id: id);
+
+Future<String> cloudTtsVoices({required String provider}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsVoices(provider: provider);
+
+/// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
+Future<String> cloudTtsSpeak({
+  required String engineId,
+  required String apiKey,
+  required String requestJson,
+  required TtsRequest request,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsSpeak(
+  engineId: engineId,
+  apiKey: apiKey,
+  requestJson: requestJson,
+  request: request,
+);
+
+/// 全量音色目录，包括用户排除项。
+Future<String> readAloudVoiceList() =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceList();
+
+/// 同步当前设备引擎音色，不覆盖用户标记。
+Future<void> readAloudVoiceSyncSystem({
+  required String engineId,
+  required String entriesJson,
+}) => RustLib.instance.api.crateFfiFfiReadAloudVoiceSyncSystem(
+  engineId: engineId,
+  entriesJson: entriesJson,
+);
+
+/// 修改用户启用与排除状态。
+Future<bool> readAloudVoiceSetFlags({
+  required String id,
+  required bool enabled,
+  required bool excluded,
+}) => RustLib.instance.api.crateFfiFfiReadAloudVoiceSetFlags(
+  id: id,
+  enabled: enabled,
+  excluded: excluded,
+);
+
+/// 登记朗读缓存的书章段索引。
+Future<void> ttsCacheRecord({
+  required String audioPath,
+  required String contextJson,
+}) => RustLib.instance.api.crateFfiFfiTtsCacheRecord(
+  audioPath: audioPath,
+  contextJson: contextJson,
+);
+
+/// 只读列出已发布音频缓存。
+Future<String> ttsCacheList() => RustLib.instance.api.crateFfiFfiTtsCacheList();
+
+/// 清理缓存，保留活动请求、播放租约及明确指定的当前章。
+Future<String> ttsCacheClear({
+  String? name,
+  BigInt? beforeTimestampMs,
+  String? keepBookUrl,
+  int? keepChapterIndex,
+}) => RustLib.instance.api.crateFfiFfiTtsCacheClear(
+  name: name,
+  beforeTimestampMs: beforeTimestampMs,
+  keepBookUrl: keepBookUrl,
+  keepChapterIndex: keepChapterIndex,
+);
+
+/// HTTP TTS 登录操作：ID 查库，复用登录存储与经典/V2 控件协议。
+Future<String> httpTtsLogin({
+  required PlatformInt64 engineId,
+  required String operation,
+  required String payload,
+}) => RustLib.instance.api.crateFfiFfiHttpTtsLogin(
+  engineId: engineId,
+  operation: operation,
+  payload: payload,
 );
 
 /// 设置 TTS 音频缓存目录（全局生效）

@@ -1,4 +1,8 @@
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../features/read_aloud/cloud_tts_providers.dart';
+
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -6,7 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/misc.dart';
 import '../../models/tts_engine_option.dart';
+
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+
 import '../../providers/audio/audio_notifier.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../routes.dart';
@@ -99,13 +105,23 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
       if (mounted) _snack('HTTP 朗读引擎列表加载失败: $e');
     }
     if (!mounted) return;
+    List<CloudTtsEngine> cloudEngines = [];
+    try {
+      cloudEngines = await ref.read(cloudTtsRepositoryProvider).list();
+    } catch (error) {
+      if (mounted) _snack('云端朗读引擎列表加载失败: $error');
+    }
+    if (!mounted) return;
     final engines = <TtsEngineOption>[
+      for (final engine in cloudEngines.where((e) => e.enabled))
+        TtsEngineOption(name: engine.name, url: engine.selection),
       if (ref.read(systemTtsServiceProvider).isSupported)
         const TtsEngineOption(name: '系统 TTS', url: systemTtsEngineUrl),
       for (final engine in httpEngines)
         TtsEngineOption(
           name: engine.name,
           url: normalizeTtsEngineUrl(engine.url),
+          id: engine.id,
         ),
     ];
     if (engines.isEmpty) {
@@ -117,8 +133,24 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     // （SpeakEngineDialog.kt:57）；此前只看全局内存值，书级生效时会高亮错误项。
     final notifier = ref.read(audioNotifierProvider.notifier);
     final currentUrl = normalizeTtsEngineUrl(notifier.resolveTtsEngineUrl());
+    final currentEngineId = await notifier.resolveTtsEngineId();
     TtsEngineOption? currentEngine;
-    if (currentUrl.isNotEmpty) {
+    if (currentUrl == systemTtsEngineUrl) {
+      for (final engine in engines) {
+        if (engine.url == systemTtsEngineUrl) {
+          currentEngine = engine;
+          break;
+        }
+      }
+    } else if (currentEngineId != null) {
+      for (final engine in engines) {
+        if (engine.id == currentEngineId) {
+          currentEngine = engine;
+          break;
+        }
+      }
+    }
+    if (currentEngine == null && currentUrl.isNotEmpty) {
       for (final engine in engines) {
         if (normalizeTtsEngineUrl(engine.url) == currentUrl) {
           currentEngine = engine;
@@ -128,28 +160,44 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     }
     // 双持久化按钮作用的引擎（dialog 回调闭包捕获需 final）
     final selectedEngine = currentEngine;
+    if (!mounted) return;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
         title: const Text('选择朗读引擎'),
         children: [
           RadioGroup<String>(
-            groupValue: currentEngine?.url,
+            groupValue: currentEngine != null
+                ? (currentEngine.id != null
+                      ? 'id:${currentEngine.id}'
+                      : currentEngine.url)
+                : null,
             onChanged: (v) {
               // [UX 修复 | 2026-10-03] 未选中项：RadioGroup 回传新值；已选中项：
               // RadioListTile 开启 toggleable 后回传 null（点已选项不产生新值）。
               // 两种点击都要关闭对话框——对齐原版 SpeakEngineDialog 点击任意项
               // 均 upTts（已选项为幂等重确认），此前已选项点击走不到关闭逻辑。
-              final url = v ?? currentEngine?.url;
-              if (url == null) return;
-              final engine = engines.firstWhere((e) => e.url == url);
+              final key =
+                  v ??
+                  (currentEngine != null
+                      ? (currentEngine.id != null
+                            ? 'id:${currentEngine.id}'
+                            : currentEngine.url)
+                      : null);
+              if (key == null) return;
+              final engine = engines.firstWhere(
+                (e) => (e.id != null ? 'id:${e.id}' : e.url) == key,
+                orElse: () => engines.first,
+              );
               Navigator.pop(dialogContext);
               // [P0 | 2026-10-03] 只存裸 URL：合成管线（Rust tts_speak）把
               // engineUrl 当 URL 模板与缓存键，存「名称,URL」必然合成失败。
               // [引擎双持久化 | 2026-10-04] 快捷切换按原版「全局」语义落库
               // （先清书级覆盖再写全局，SpeakEngineDialog.kt:171-177）：书级
               // 优先下若只写全局内存值，该书仍会继续用书级引擎，切换不生效。
-              unawaited(notifier.setGlobalTtsEngine(engine.url));
+              unawaited(
+                notifier.setGlobalTtsEngine(engine.url, engineId: engine.id),
+              );
               _snack('已切换引擎：${engine.name}');
             },
             child: Column(
@@ -158,7 +206,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                 for (final engine in engines)
                   RadioListTile<String>(
                     title: Text(engine.name),
-                    value: engine.url,
+                    value: engine.id != null ? 'id:${engine.id}' : engine.url,
                     // 已选中项默认吞掉点击（Flutter _handleListTileTap 对
                     // checked 且非 toggleable 直接 return，本版 RadioListTile
                     // 未暴露 onTap 参数）；toggleable 让已选项点击回传 null，
@@ -225,9 +273,9 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     final notifier = ref.read(audioNotifierProvider.notifier);
     var ok = true;
     if (bookLevel) {
-      ok = await notifier.setBookTtsEngine(engine.url);
+      ok = await notifier.setBookTtsEngine(engine.url, engineId: engine.id);
     } else {
-      await notifier.setGlobalTtsEngine(engine.url);
+      await notifier.setGlobalTtsEngine(engine.url, engineId: engine.id);
     }
     if (!mounted) return;
     navigator.pop();

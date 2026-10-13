@@ -1,3 +1,5 @@
+import 'http_tts_login.dart';
+
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -13,7 +15,9 @@ import 'http_tts_seed.dart';
 import 'http_tts_repository_provider.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/system_tts_settings_dialog.dart';
+
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+
 import '../../widgets/help/help_assets.dart';
 import '../../widgets/help/show_help.dart';
 
@@ -32,12 +36,11 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
   List<HttpTts> _engines = [];
   bool _loading = true;
 
-  /// 当前选中引擎（归一后的裸 URL）；null = 未选中任何引擎
-  ///
-  /// 行点击只更新选中态（对齐原版 SpeakEngineDialog.kt:315-326 的 upTts：
-  /// 仅对话框内选中，不持久化）；持久化由底部「书」/「全局」按钮显式触发
-  /// （SpeakEngineDialog.kt:164-177）。
-  String? _selectedUrl;
+  /// 当前选中 HTTP TTS 引擎 ID；null = 未选中 HTTP TTS 引擎
+  int? _selectedEngineId;
+
+  /// 是否选中系统 TTS
+  bool _selectedIsSystem = false;
 
   /// 是否存在可写书级的当前书（「书」按钮可用性；无书时禁用）
   bool _hasBook = false;
@@ -58,26 +61,52 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
       final list = await api.getHttpTts();
       final notifier = ref.read(audioNotifierProvider.notifier);
       // [引擎双持久化 | 2026-10-04] 初始选中态 = 有效引擎（书级优先、空则
-      // 全局回退），对齐原版对话框 `ttsEngine = ReadAloud.ttsEngine`；
-      // 有效值已不在引擎列表中（被删/失效）时不选中，避免把失效 URL 再写回。
-      final effective = await notifier.loadEffectiveTtsEngineUrl();
-      final listedUrls = list.map((e) => normalizeTtsEngineUrl(e.url)).toSet();
-      if (ref.read(systemTtsServiceProvider).isSupported) {
-        listedUrls.add(systemTtsEngineUrl);
+      // 全局回退），优先以数值 engineId 匹配，避免同 URL 不同 Header 的引擎串选
+      final effectiveUrl = await notifier.loadEffectiveTtsEngineUrl();
+      final effectiveId = await notifier.resolveTtsEngineId();
+
+      int? selectedId;
+      bool selectedIsSystem = false;
+      if (effectiveUrl == systemTtsEngineUrl) {
+        selectedIsSystem = true;
+      } else if (effectiveId != null && list.any((e) => e.id == effectiveId)) {
+        selectedId = effectiveId;
+      } else if (effectiveUrl.isNotEmpty) {
+        final match = list
+            .where(
+              (e) =>
+                  normalizeTtsEngineUrl(e.url) == effectiveUrl ||
+                  e.url == effectiveUrl,
+            )
+            .firstOrNull;
+        selectedId = match?.id;
       }
+
+      if (!mounted) return;
       setState(() {
         _engines = list;
-        _selectedUrl = effective.isNotEmpty && listedUrls.contains(effective)
-            ? effective
-            : null;
+        _selectedEngineId = selectedId;
+        _selectedIsSystem = selectedIsSystem;
         _hasBook = notifier.hasCurrentBook;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('加载朗读引擎失败: $e')));
+      }
+    }
+  }
+
+  Future<void> _loginEngine(HttpTts engine) async {
+    try {
+      await showHttpTtsLogin(context, ref, engine);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('登录失败：$error')));
       }
     }
   }
@@ -141,18 +170,28 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     }
   }
 
+  bool get _hasSelection => _selectedIsSystem || _selectedEngineId != null;
+
   /// 「书」按钮：只写当前书 readConfig.ttsEngine
   ///
   /// 对齐原版 SpeakEngineDialog.kt:164-170（`ReadBook.book?.setTtsEngine(...)`，
   /// 不改全局值）；无当前书时不写并如实提示（原版空安全 no-op，本项目页面
   /// 需要可见反馈）。
   Future<void> _applyBookEngine() async {
-    final url = _selectedUrl;
-    if (url == null) return;
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await ref
-        .read(audioNotifierProvider.notifier)
-        .setBookTtsEngine(url);
+    final notifier = ref.read(audioNotifierProvider.notifier);
+    bool ok = false;
+    if (_selectedIsSystem) {
+      ok = await notifier.setBookTtsEngine(systemTtsEngineUrl);
+    } else if (_selectedEngineId != null) {
+      final selected = _engines
+          .where((e) => e.id == _selectedEngineId)
+          .firstOrNull;
+      if (selected == null) return;
+      ok = await notifier.setBookTtsEngine(selected.url, engineId: selected.id);
+    } else {
+      return;
+    }
     if (!mounted) return;
     if (!ok) {
       messenger.showSnackBar(const SnackBar(content: Text('未打开书籍，无法设为本书引擎')));
@@ -167,10 +206,19 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
   /// 对齐原版 SpeakEngineDialog.kt:171-177（`setTtsEngine(null)` +
   /// `AppConfig.ttsEngine = ttsEngine`）。
   Future<void> _applyGlobalEngine() async {
-    final url = _selectedUrl;
-    if (url == null) return;
     final messenger = ScaffoldMessenger.of(context);
-    await ref.read(audioNotifierProvider.notifier).setGlobalTtsEngine(url);
+    final notifier = ref.read(audioNotifierProvider.notifier);
+    if (_selectedIsSystem) {
+      await notifier.setGlobalTtsEngine(systemTtsEngineUrl);
+    } else if (_selectedEngineId != null) {
+      final selected = _engines
+          .where((e) => e.id == _selectedEngineId)
+          .firstOrNull;
+      if (selected == null) return;
+      await notifier.setGlobalTtsEngine(selected.url, engineId: selected.id);
+    } else {
+      return;
+    }
     if (!mounted) return;
     messenger.showSnackBar(const SnackBar(content: Text('已设为全局引擎')));
   }
@@ -213,14 +261,14 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
           child: Row(
             children: [
               TextButton(
-                onPressed: (_selectedUrl == null || !_hasBook)
+                onPressed: (!_hasSelection || !_hasBook)
                     ? null
                     : _applyBookEngine,
                 child: const Text('书'),
               ),
               const Spacer(),
               TextButton(
-                onPressed: _selectedUrl == null ? null : _applyGlobalEngine,
+                onPressed: !_hasSelection ? null : _applyGlobalEngine,
                 child: const Text('全局'),
               ),
             ],
@@ -267,16 +315,18 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
-                      selected: _selectedUrl == systemTtsEngineUrl,
+                      selected: _selectedIsSystem,
                       leading: Icon(
-                        _selectedUrl == systemTtsEngineUrl
+                        _selectedIsSystem
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                       ),
                       title: const Text('系统 TTS'),
                       subtitle: const Text('使用设备语音，支持已安装的中文音色'),
-                      onTap: () =>
-                          setState(() => _selectedUrl = systemTtsEngineUrl),
+                      onTap: () => setState(() {
+                        _selectedIsSystem = true;
+                        _selectedEngineId = null;
+                      }),
                       trailing: IconButton(
                         icon: const Icon(Symbols.settings_rounded),
                         tooltip: '系统语音设置',
@@ -292,9 +342,8 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
                   );
                 }
                 final engine = _engines[index - (hasSystem ? 1 : 0)];
-                final engineUrl = normalizeTtsEngineUrl(engine.url);
                 final isSelected =
-                    _selectedUrl != null && engineUrl == _selectedUrl;
+                    !_selectedIsSystem && _selectedEngineId == engine.id;
                 return Card(
                   // [LAYOUT_PLAN P1] 分组间距 12dp
                   margin: const EdgeInsets.only(bottom: 12),
@@ -303,7 +352,10 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
                     // （对齐原版 SpeakEngineDialog.kt:315-326 的 upTts：
                     // 不持久化、不关闭），持久化交底部「书」/「全局」。
                     selected: isSelected,
-                    onTap: () => setState(() => _selectedUrl = engineUrl),
+                    onTap: () => setState(() {
+                      _selectedIsSystem = false;
+                      _selectedEngineId = engine.id;
+                    }),
                     // 选中控件对齐原版行布局的 ThemeRadioButton
                     // （item_http_tts.xml:14-20），替代纯装饰性头像
                     leading: Icon(
@@ -329,6 +381,13 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if ((engine.loginUrl ?? '').isNotEmpty ||
+                            (engine.loginUi ?? '').isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Symbols.login_rounded, size: 20),
+                            tooltip: '登录',
+                            onPressed: () => _loginEngine(engine),
+                          ),
                         IconButton(
                           icon: const Icon(Symbols.edit_rounded, size: 20),
                           tooltip: '编辑',
@@ -368,6 +427,8 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
   late TextEditingController _urlCtrl;
   late TextEditingController _headerCtrl;
   late TextEditingController _contentTypeCtrl;
+  late Map<String, TextEditingController> _advanced;
+  bool _cookieJar = false;
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -378,6 +439,18 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
     _urlCtrl = TextEditingController(text: e?.url ?? '');
     _headerCtrl = TextEditingController(text: e?.header ?? '');
     _contentTypeCtrl = TextEditingController(text: e?.contentType ?? '');
+    _cookieJar = e?.enabledCookieJar ?? false;
+    _advanced = {
+      '源级语速': TextEditingController(text: e?.speed?.toString() ?? ''),
+      '合成线程数': TextEditingController(
+        text: (e?.synthesisThreadCount ?? 1).toString(),
+      ),
+      '并发率': TextEditingController(text: e?.concurrentRate ?? ''),
+      '登录地址或脚本': TextEditingController(text: e?.loginUrl ?? ''),
+      '登录表单': TextEditingController(text: e?.loginUi ?? ''),
+      '登录响应校验': TextEditingController(text: e?.loginCheckJs ?? ''),
+      'JS 库': TextEditingController(text: e?.jsLib ?? ''),
+    };
   }
 
   @override
@@ -386,14 +459,30 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
     _urlCtrl.dispose();
     _headerCtrl.dispose();
     _contentTypeCtrl.dispose();
+    for (final controller in _advanced.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    String? value(String key) {
+      final v = _advanced[key]!.text.trim();
+      return v.isEmpty ? null : v;
+    }
+
     final base = widget.engine ?? const HttpTts();
     final tts = base.copyWith(
+      speed: int.tryParse(_advanced['源级语速']!.text.trim()),
+      synthesisThreadCount: int.parse(_advanced['合成线程数']!.text.trim()),
+      concurrentRate: value('并发率'),
+      loginUrl: value('登录地址或脚本'),
+      loginUi: value('登录表单'),
+      loginCheckJs: value('登录响应校验'),
+      jsLib: value('JS 库'),
+      enabledCookieJar: _cookieJar,
       name: _nameCtrl.text.trim(),
       url: _urlCtrl.text.trim(),
       header: _headerCtrl.text.trim().isNotEmpty
@@ -415,54 +504,95 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
         width: 400,
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: '名称 *',
-                  hintText: '例如：Edge TTS',
-                  isDense: true,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '名称 *',
+                    hintText: '例如：Edge TTS',
+                    isDense: true,
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? '请输入名称' : null,
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? '请输入名称' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _urlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL *',
-                  hintText: 'http://localhost:1234/tts?text={{text}}',
-                  isDense: true,
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _urlCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'URL *',
+                    hintText: 'http://localhost:1234/tts?text={{text}}',
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.url,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return '请输入 URL';
+                    if (!isCompatibleHttpTtsEngineUrl(v)) {
+                      return '请输入 HTTP URL 或 JS 请求规则';
+                    }
+                    return null;
+                  },
                 ),
-                keyboardType: TextInputType.url,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return '请输入 URL';
-                  if (!v.trim().startsWith('http')) return 'URL 必须以 http(s) 开头';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _contentTypeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Content-Type',
-                  hintText: '可选，例如 audio/mpeg',
-                  isDense: true,
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _contentTypeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Content-Type',
+                    hintText: '可选，例如 audio/mpeg',
+                    isDense: true,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _headerCtrl,
-                decoration: const InputDecoration(
-                  labelText: '请求头 (JSON)',
-                  hintText: '可选，例如 {"Authorization":"Bearer xxx"}',
-                  isDense: true,
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _headerCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '请求头 (JSON)',
+                    hintText: '可选，例如 {"Authorization":"Bearer xxx"}',
+                    isDense: true,
+                  ),
+                  maxLines: 2,
                 ),
-                maxLines: 2,
-              ),
-            ],
+                ExpansionTile(
+                  title: const Text('高级配置'),
+                  children: [
+                    for (final entry in _advanced.entries)
+                      TextFormField(
+                        controller: entry.value,
+                        decoration: InputDecoration(labelText: entry.key),
+                        maxLines:
+                            entry.key == '源级语速' ||
+                                entry.key == '合成线程数' ||
+                                entry.key == '并发率'
+                            ? 1
+                            : 3,
+                        validator: (value) {
+                          if (entry.key == '合成线程数') {
+                            final count = int.tryParse(value?.trim() ?? '');
+                            if (count == null || count < 1 || count > 8) {
+                              return '请输入 1 到 8';
+                            }
+                          }
+                          if (entry.key == '源级语速' &&
+                              (value ?? '').trim().isNotEmpty) {
+                            final speed = int.tryParse(value!.trim());
+                            if (speed == null || speed < 0 || speed > 80) {
+                              return '请输入 0 到 80，留空使用默认';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    SwitchListTile(
+                      title: const Text('保存响应 Cookie'),
+                      value: _cookieJar,
+                      onChanged: (value) => setState(() => _cookieJar = value),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 // [漫画设置作用域 2026-10-01] 漫画屏「本书覆盖 + 全局回退」端到端接线
 //
 // 语义（用户裁决 + 参考版取证，legado-with-MD3）：
@@ -35,10 +36,7 @@ BookSource _buildComicSource() {
     bookSourceGroup: '漫画',
     bookSourceType: 2,
     enabled: true,
-    ruleContent: ContentRule(
-      content: '.x',
-      imageDecode: 'decode(result);',
-    ),
+    ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
     customOrder: 0,
     lastUpdateTime: 0,
     respondTime: 0,
@@ -78,7 +76,9 @@ class _ScopeMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook, updateBook: _fixtureUpdateBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+    updateBook: _fixtureUpdateBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -160,7 +160,9 @@ class _ScopeMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+    child: const MaterialApp(
+      home: ReaderComicScreen(bookUrl: 'mock://comic/1'),
+    ),
   );
 }
 
@@ -186,11 +188,10 @@ Axis _pageViewAxis(WidgetTester tester) =>
 
 /// 条漫列表中每侧 sidePadding% 的水平 padding（测试视口 800×600）
 Finder _sidePaddingWrapper(int percent) => find.byWidgetPredicate(
-      (w) =>
-          w is Padding &&
-          w.padding ==
-              EdgeInsets.symmetric(horizontal: 800.0 * percent / 100.0),
-    );
+  (w) =>
+      w is Padding &&
+      w.padding == EdgeInsets.symmetric(horizontal: 800.0 * percent / 100.0),
+);
 
 void main() {
   group('[漫画设置作用域] 读取优先级', () {
@@ -207,8 +208,11 @@ void main() {
       await _pumpScreen(tester, api, container);
 
       expect(find.byType(PageView), findsOneWidget);
-      expect(_pageViewAxis(tester), Axis.horizontal,
-          reason: '全局 1（从左到右）→ 横向 PageView');
+      expect(
+        _pageViewAxis(tester),
+        Axis.horizontal,
+        reason: '全局 1（从左到右）→ 横向 PageView',
+      );
       expect(api.bookUpdates, isEmpty);
     });
 
@@ -217,9 +221,7 @@ void main() {
         source: _buildComicSource(),
         // 全局 = 1（横向），书级 = 3（从上到下纵向）
         configs: const {'mangaScrollMode': '1'},
-        book: _buildBook(
-          readConfig: const ReadConfig(mangaScrollMode: 3),
-        ),
+        book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 3)),
       );
       final container = ProviderContainer(
         overrides: [bookApiProvider.overrideWithValue(api)],
@@ -228,12 +230,12 @@ void main() {
       await _pumpScreen(tester, api, container);
 
       expect(find.byType(PageView), findsOneWidget);
-      expect(_pageViewAxis(tester), Axis.vertical,
-          reason: '书级 3（从上到下）应覆盖全局 1');
+      expect(_pageViewAxis(tester), Axis.vertical, reason: '书级 3（从上到下）应覆盖全局 1');
     });
 
-    testWidgets('书级 webtoonSidePaddingDp 覆盖全局 mangaSidePadding',
-        (tester) async {
+    testWidgets('书级 webtoonSidePaddingDp 覆盖全局 mangaSidePadding', (
+      tester,
+    ) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4', 'mangaSidePadding': '0'},
@@ -248,8 +250,11 @@ void main() {
       await _pumpScreen(tester, api, container);
 
       // 书级 20%（每侧 160px），全局 0% 不生效
-      expect(_sidePaddingWrapper(20), findsOneWidget,
-          reason: '书级留白 20% 应覆盖全局 0');
+      expect(
+        _sidePaddingWrapper(20),
+        findsOneWidget,
+        reason: '书级留白 20% 应覆盖全局 0',
+      );
       expect(
         find.ancestor(
           of: find.byType(ListView),
@@ -271,14 +276,16 @@ void main() {
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(_pageViewAxis(tester), Axis.horizontal,
-          reason: '非法书级模式按未覆盖处理，回退全局 1');
+      expect(
+        _pageViewAxis(tester),
+        Axis.horizontal,
+        reason: '非法书级模式按未覆盖处理，回退全局 1',
+      );
     });
   });
 
   group('[漫画设置作用域] 面板清除覆盖 → 立即回退全局', () {
-    testWidgets('书级模式 3 → 点「跟随全局」：清除 readConfig 键并回退全局 1',
-        (tester) async {
+    testWidgets('书级模式 3 → 点「跟随全局」：清除 readConfig 键并回退全局 1', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '1'},
@@ -301,8 +308,9 @@ void main() {
       expect(_pageViewAxis(tester), Axis.vertical);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')));
+      await tester.tap(
+        find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
+      );
       await tester.pumpAndSettle();
 
       // 书级键被删除（清除覆盖，不写默认值冒充清除）
@@ -328,8 +336,7 @@ void main() {
       );
     });
 
-    testWidgets('书级留白 20 → 点「跟随全局」：清除键并回退全局 5',
-        (tester) async {
+    testWidgets('书级留白 20 → 点「跟随全局」：清除键并回退全局 5', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4', 'mangaSidePadding': '5'},
@@ -345,8 +352,9 @@ void main() {
       expect(_sidePaddingWrapper(20), findsOneWidget);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')));
+      await tester.tap(
+        find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')),
+      );
       await tester.pumpAndSettle();
 
       expect(api.bookUpdates, hasLength(1));
@@ -358,8 +366,7 @@ void main() {
   });
 
   group('[漫画设置作用域] 书级写入语义', () {
-    testWidgets('点「本书」物化覆盖：保留其他 readConfig/进度字段，仅加目标键',
-        (tester) async {
+    testWidgets('点「本书」物化覆盖：保留其他 readConfig/进度字段，仅加目标键', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '2'},
@@ -383,8 +390,7 @@ void main() {
       expect(_pageViewAxis(tester), Axis.horizontal);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaScrollMode-scopeBook')));
+      await tester.tap(find.byKey(const ValueKey('mangaScrollMode-scopeBook')));
       await tester.pumpAndSettle();
 
       expect(api.bookUpdates, hasLength(1));
@@ -406,8 +412,7 @@ void main() {
       );
     });
 
-    testWidgets('「本书」作用下改模式只回写书级 readConfig（不 setConfig）',
-        (tester) async {
+    testWidgets('「本书」作用下改模式只回写书级 readConfig（不 setConfig）', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4'},
@@ -435,10 +440,8 @@ void main() {
     });
   });
 
-  group('[漫画设置作用域] 三项全局键仍只 setConfig（不产生书级回写）',
-      () {
-    testWidgets('长按存图 / 自动速度 / 九区点击动作 → 仅全局 setConfig',
-        (tester) async {
+  group('[漫画设置作用域] 三项全局键仍只 setConfig（不产生书级回写）', () {
+    testWidgets('长按存图 / 自动速度 / 九区点击动作 → 仅全局 setConfig', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '1'},
@@ -463,10 +466,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(autoSwitch);
       await tester.pumpAndSettle();
-      final autoTile =
-          find.ancestor(of: find.text('自动速度'), matching: find.byType(Column)).first;
-      final speedSlider =
-          find.descendant(of: autoTile, matching: find.byType(Slider));
+      final autoTile = find
+          .ancestor(of: find.text('自动速度'), matching: find.byType(Column))
+          .first;
+      final speedSlider = find.descendant(
+        of: autoTile,
+        matching: find.byType(Slider),
+      );
       await tester.ensureVisible(speedSlider);
       await tester.pumpAndSettle();
       await tester.drag(speedSlider, const Offset(600, 0));
@@ -508,8 +514,7 @@ void main() {
         const Offset(0, -250),
       );
       await tester.pumpAndSettle();
-      await tester
-          .tap(find.byKey(const ValueKey('mangaClickActionCell-0')));
+      await tester.tap(find.byKey(const ValueKey('mangaClickActionCell-0')));
       await tester.pumpAndSettle();
       expect(
         api.configWrites.any((w) => w.first == 'mangaClickActions'),
@@ -517,8 +522,7 @@ void main() {
       );
 
       // 三项均未产生书级 updateBook
-      expect(api.bookUpdates, isEmpty,
-          reason: '长按存图/自动速度/九区点击动作保持全局，不得书级回写');
+      expect(api.bookUpdates, isEmpty, reason: '长按存图/自动速度/九区点击动作保持全局，不得书级回写');
     });
   });
 }

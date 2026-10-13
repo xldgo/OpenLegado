@@ -3984,4 +3984,86 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eyeProtectionEndTime => 'End time';
+
+  @override
+  String get cloudTtsTitle => 'Cloud TTS engines';
+
+  @override
+  String get cloudTtsSummary => 'Configure cloud voices and preview speech';
+
+  @override
+  String get cloudTtsAdd => 'Add cloud engine';
+
+  @override
+  String get cloudTtsEdit => 'Edit cloud engine';
+
+  @override
+  String get cloudTtsName => 'Name';
+
+  @override
+  String get cloudTtsBaseUrl => 'Base URL (empty for the official endpoint)';
+
+  @override
+  String get cloudTtsModel => 'Model';
+
+  @override
+  String get cloudTtsApiKey => 'API key (leave empty to keep when editing)';
+
+  @override
+  String get cloudTtsVoice => 'Voice ID';
+
+  @override
+  String get cloudTtsSpeed => 'Synthesis speed';
+
+  @override
+  String get cloudTtsFormat => 'Audio format';
+
+  @override
+  String get cloudTtsStyle => 'Style';
+
+  @override
+  String get cloudTtsInstructions => 'Speech instructions';
+
+  @override
+  String get cloudTtsPreview => 'Preview';
+
+  @override
+  String get cloudTtsPreviewText => 'Preview text';
+
+  @override
+  String get cloudTtsStop => 'Stop preview';
+
+  @override
+  String get cloudTtsEmpty => 'No cloud TTS engines';
+
+  @override
+  String get cloudTtsEnabled => 'Enabled';
+
+  @override
+  String get cloudTtsDelete => 'Delete';
+
+  @override
+  String get cloudTtsDeleteConfirm =>
+      'Delete this cloud engine and its device credentials?';
+
+  @override
+  String get cloudTtsSave => 'Save';
+
+  @override
+  String get cloudTtsCancel => 'Cancel';
+
+  @override
+  String get cloudTtsBook => 'This book';
+
+  @override
+  String get cloudTtsGlobal => 'Global';
+
+  @override
+  String get cloudTtsSample => 'Hello, this is a cloud speech preview.';
+
+  @override
+  String get cloudTtsProvider => 'Provider';
+
+  @override
+  String get cloudTtsVoiceLoadFailed => 'Voice catalog failed to load';
 }

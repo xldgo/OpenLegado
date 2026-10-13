@@ -8,12 +8,16 @@ import 'system_tts.dart';
 
 /// 系统朗读的唯一插件实例；媒体焦点与通知仍由 AudioService 管理。— Codex + UI
 class SystemTtsService implements SystemTts {
-  SystemTtsService({this._tts, TargetPlatform? platform})
-    : _platform = platform ?? defaultTargetPlatform;
+  SystemTtsService({
+    this._tts,
+    this.excludedVoiceKeys,
+    TargetPlatform? platform,
+  }) : _platform = platform ?? defaultTargetPlatform;
 
   static const _engineKey = 'system_tts_engine';
   static const _voiceKey = 'system_tts_voice';
   final TargetPlatform _platform;
+  final Future<Set<String>> Function(String engine)? excludedVoiceKeys;
   FlutterTts? _tts;
   FlutterTts get _plugin => _tts ??= FlutterTts();
   Future<void>? _initialization;
@@ -101,6 +105,23 @@ class SystemTtsService implements SystemTts {
     final range = await _plugin.getSpeechRateValidRange;
     _normalRate = range.normal;
     _maxRate = range.max;
+    // 插件错误事件没有朗读 ID；错误只终止当前声音，不用于推进段落。
+    _plugin.setErrorHandler((message) {
+      _nativeFinished(SystemTtsOutcome.cancelled);
+      final active = _active;
+      if (active != null) {
+        _finishError(active, StateError('系统朗读失败：$message'), StackTrace.current);
+        unawaited(
+          stop().catchError((Object error) {
+            debugPrint('系统朗读停止失败：$error');
+          }),
+        );
+      }
+    });
+  }
+
+  /// 目录发现独立于当前选择；已失效的音色不能阻止用户打开目录重新选择。
+  Future<void> _loadVoices() async {
     final rawVoices = await _plugin.getVoices;
     _voices =
         [
@@ -112,7 +133,16 @@ class SystemTtsService implements SystemTts {
             ]
             .where((voice) => voice.name.isNotEmpty && voice.locale.isNotEmpty)
             .toList();
-    final chinese = _voices
+  }
+
+  Future<void> _selectVoice() async {
+    await _loadVoices();
+    final excluded = await excludedVoiceKeys?.call(_engine) ?? <String>{};
+    if (_voice.isNotEmpty && excluded.contains(_voice)) {
+      throw StateError('所选系统音色已禁用或排除，请重新选择音色');
+    }
+    final allowed = _voices.where((v) => !excluded.contains(v.key)).toList();
+    final chinese = allowed
         .where(
           (v) => v.locale.toLowerCase().replaceAll('_', '-').startsWith('zh'),
         )
@@ -127,31 +157,22 @@ class SystemTtsService implements SystemTts {
       return rank(a).compareTo(rank(b));
     });
     SystemTtsVoice? chosen;
-    for (final voice in _voices) {
+    for (final voice in allowed) {
       if (voice.key == _voice) chosen = voice;
+    }
+    if (_voice.isNotEmpty && chosen == null) {
+      throw StateError('所选系统音色已不可用，请重新选择音色');
     }
     chosen ??= chinese.isEmpty ? null : chinese.first;
     if (chosen != null) {
       _accept(await _plugin.setVoice(chosen.toMap()), '中文语音不可用');
     } else {
+      if (excluded.isNotEmpty) throw StateError('没有可用的中文系统音色，请恢复或安装中文语音');
       if (await _plugin.isLanguageAvailable('zh-CN') != true) {
         throw StateError('未找到中文系统语音，请在系统设置安装中文语音');
       }
       _accept(await _plugin.setLanguage('zh-CN'), '中文语音不可用');
     }
-    // 插件错误事件没有朗读 ID；错误只终止当前声音，不用于推进段落。
-    _plugin.setErrorHandler((message) {
-      _nativeFinished(SystemTtsOutcome.cancelled);
-      final active = _active;
-      if (active != null) {
-        _finishError(active, StateError('系统朗读失败：$message'), StackTrace.current);
-        unawaited(
-          stop().catchError((Object error) {
-            debugPrint('系统朗读停止失败：$error');
-          }),
-        );
-      }
-    });
   }
 
   static void _accept(dynamic result, String message) {
@@ -169,6 +190,7 @@ class SystemTtsService implements SystemTts {
   @override
   Future<List<SystemTtsVoice>> getVoices() async {
     await initialize();
+    await _serialize(_loadVoices);
     return List.unmodifiable(_voices);
   }
 
@@ -179,11 +201,8 @@ class SystemTtsService implements SystemTts {
   }) async {
     await stop();
     final prefs = await SharedPreferences.getInstance();
-    if (engine != _engine) {
-      await prefs.setString(_voiceKey, '');
-    } else {
-      await prefs.setString(_voiceKey, voice);
-    }
+    // 明确选择音色时随引擎一起保存；单独切引擎由设置界面传空音色。
+    await prefs.setString(_voiceKey, voice);
     await prefs.setString(_engineKey, engine);
     _initialization = null;
     await initialize();
@@ -264,6 +283,9 @@ class SystemTtsService implements SystemTts {
         await initialize();
         if (!_current(run)) return;
         if (resumeFrom?.nativePaused != true) await _stopNative();
+        if (!_current(run)) return;
+        // 起播重读目录用户标记；恢复原生暂停内容时不改变原 utterance 音色。
+        if (resumeFrom?.nativePaused != true) await _selectVoice();
         if (!_current(run)) return;
         if (_platform == TargetPlatform.iOS) {
           // 中断可能使共享会话失活，开始与恢复时重新激活。

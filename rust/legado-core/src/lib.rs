@@ -59,6 +59,11 @@ pub mod source_lock;
 pub mod source_login;
 pub mod source_matcher;
 pub mod toc_updater;
+pub mod cloud_tts;
+pub mod cloud_tts_openai;
+pub mod cloud_tts_mimo;
+pub mod tts_cache;
+pub mod tts_catalog;
 /// HTTP TTS 语音合成管线（url 模板替换 + 音频缓存，网络层注入）
 pub mod tts_speak;
 pub mod types;

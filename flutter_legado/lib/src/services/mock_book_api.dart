@@ -1,3 +1,8 @@
+import '../data/repositories/mock_cloud_tts_repository.dart';
+import '../domain/contracts/cloud_tts_repository.dart';
+import '../data/repositories/mock_read_aloud_voice_repository.dart';
+import '../data/repositories/mock_tts_cache_repository.dart';
+import '../domain/contracts/tts_cache_repository.dart';
 import '../data/services/mock_source_checker.dart';
 import '../domain/contracts/source_checker.dart';
 import '../data/repositories/mock_book_source_repository.dart';
@@ -71,6 +76,7 @@ class MockBookApi
         MockBookApiSyncTools,
         MockBookApiContentExt
     implements BookApi {
+  @override final CloudTtsRepository cloudTtsRepository=MockCloudTtsRepository();
   MockBookApi({
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,
@@ -87,10 +93,12 @@ class MockBookApi
         bookmarkRepository ?? MockBookmarkRepository(nextId: () => _nextId++);
     this.readRecordRepository =
         readRecordRepository ?? MockReadRecordRepository();
+    readAloudVoiceRepository=MockReadAloudVoiceRepository();
     this.httpTtsRepository =
         httpTtsRepository ??
         MockHttpTtsRepository(
           nextId: () => _nextId++,
+          voiceCatalog:readAloudVoiceRepository,
           withDefaultEngines: true,
         );
     this.httpTtsSynthesizer =
@@ -112,9 +120,13 @@ class MockBookApi
 
   @override
   late final HttpTtsRepository httpTtsRepository;
+  @override late final MockReadAloudVoiceRepository readAloudVoiceRepository;
 
   @override
   late final HttpTtsSynthesizer httpTtsSynthesizer;
+
+  @override
+  TtsCacheRepository get ttsCacheRepository => const MockTtsCacheRepository();
 
   @override
   late final BookshelfRepository bookshelfRepository;

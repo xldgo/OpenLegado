@@ -453,6 +453,27 @@ mod quickjs_engine {
             }
         }
 
+        /// 为宿主的独立请求会话安装字符串参数回调，不共享到其他 JS 引擎。
+        pub fn register_string_callback(
+            &self,
+            name: &str,
+            callback: std::sync::Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>,
+        ) -> LegadoResult<()> {
+            self.context.with(|ctx| {
+                let function = rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'_>, input: String| {
+                        callback(&input)
+                            .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                    },
+                )
+                .map_err(|e| LegadoError::JsEngine(format!("宿主回调注册失败：{e}")))?;
+                ctx.globals()
+                    .set(name, function)
+                    .map_err(|e| LegadoError::JsEngine(format!("宿主回调挂载失败：{e}")))
+            })
+        }
+
         /// JS 语法检查（只编译不执行）
         ///
         /// 借助 `Function` 构造器：仅将源码作为函数体解析编译，不执行任何代码。

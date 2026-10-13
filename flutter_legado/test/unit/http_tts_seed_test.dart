@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // D3 缺陷回归：Flutter 轨 httpTTS 种子导入与可用性如实登记。
 //
 // 背景（QA 证据 .tmp/tts_qa/device_legado.db / screen_12_ttsconfig.png）：
@@ -192,17 +193,8 @@ void main() {
         ],
       );
       final json = jsonEncode([
-        {
-          'id': -100,
-          'name': '1.百度',
-          'url': _seedBaiduUrl,
-          'header': '{}',
-        },
-        {
-          'id': -29,
-          'name': '2.阿里云语音',
-          'url': 'https://nls.example.com/tts',
-        },
+        {'id': -100, 'name': '1.百度', 'url': _seedBaiduUrl, 'header': '{}'},
+        {'id': -29, 'name': '2.阿里云语音', 'url': 'https://nls.example.com/tts'},
       ]);
 
       final count = await syncDefaultHttpTts(
@@ -303,21 +295,21 @@ void main() {
   });
 
   group('引擎 URL 兼容性判定（自动选默认引擎）', () {
-    test('原版种子模板均不兼容（POST/@js/无占位符）', () {
-      expect(isCompatibleHttpTtsEngineUrl(_seedBaiduUrl), isFalse);
+    test('POST、JS 和 HTTP 入口受支持，空和非 HTTP 规则拒绝', () {
+      expect(isCompatibleHttpTtsEngineUrl(_seedBaiduUrl), isTrue);
       expect(
         isCompatibleHttpTtsEngineUrl(
           'https://nls-gateway.example.com/tts,{"method":"POST"}',
         ),
-        isFalse,
+        isTrue,
       );
       expect(
         isCompatibleHttpTtsEngineUrl('@js:apiurl(speakText,speakSpeed)'),
-        isFalse,
+        isTrue,
       );
       expect(
         isCompatibleHttpTtsEngineUrl('http://tts.example.com/tts'),
-        isFalse,
+        isTrue,
       );
       expect(isCompatibleHttpTtsEngineUrl(''), isFalse);
       expect(
@@ -366,11 +358,14 @@ void main() {
 
       when(() => api.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => api.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(
         () => api.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -381,9 +376,9 @@ void main() {
       ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
     });
 
-    test('库中只有不兼容种子 → 不自动选中，保持无引擎降级（不冒充可用）', () async {
+    test('库中只有无效请求入口 → 不自动选中，保持无引擎提示', () async {
       when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
-        (_) async => [HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl)],
+        (_) async => [HttpTts(id: -100, name: '无效入口', url: 'ftp://invalid')],
       );
 
       await container
@@ -397,6 +392,8 @@ void main() {
       // [A4 批 2026-10-03] 由「静默降级」改为「温和提示」（用户裁决）
       verifyNever(
         () => api.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -411,7 +408,7 @@ void main() {
     test('库中含兼容引擎 → 跳过不兼容项选中兼容项', () async {
       when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
         (_) async => [
-          HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl),
+          HttpTts(id: -100, name: '无效入口', url: 'ftp://invalid'),
           HttpTts(
             id: 5,
             name: '本地引擎',

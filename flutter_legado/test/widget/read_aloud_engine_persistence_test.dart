@@ -69,7 +69,8 @@ void main() {
     when(() => audioService.dispose()).thenAnswer((_) async {});
     when(() => api.httpTtsRepository.getHttpTts())
         .thenAnswer((_) async => [engineA, engineB]);
-    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
     when(() => api.getConfig(any())).thenAnswer((invocation) async {
       final key = invocation.positionalArguments[0] as String;
       return configStore[key];
@@ -79,9 +80,10 @@ void main() {
       final value = invocation.positionalArguments[1] as String;
       configStore[key] = value;
     });
-    when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
-      savedBooks.add(invocation.positionalArguments[0] as Book);
-    });
+    when(() => api.bookshelfRepository.updateBook(any()))
+        .thenAnswer((invocation) async {
+          savedBooks.add(invocation.positionalArguments[0] as Book);
+        });
   });
 
   AudioNotifier readNotifier() =>
@@ -139,7 +141,7 @@ void main() {
 
       expect(savedBooks, hasLength(1));
       expect(savedBooks.single.bookUrl, bookUrl);
-      expect(savedBooks.single.readConfig?.ttsEngine, urlB);
+      expect(savedBooks.single.readConfig?.ttsEngine, '2');
       // 全局内存值保持「书」按钮前的状态（原版不改 AppConfig）
       expect(container.read(audioNotifierProvider).config.engineUrl, urlB);
       expect(find.text('已设为本书引擎：引擎乙'), findsOneWidget);
@@ -261,7 +263,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(savedBooks, hasLength(1));
-      expect(savedBooks.single.readConfig?.ttsEngine, urlB);
+      expect(savedBooks.single.readConfig?.ttsEngine, '2');
       expect(find.text('已设为本书引擎'), findsOneWidget);
       await settleSnackBar(tester);
     });
@@ -315,13 +317,12 @@ void main() {
           .thenAnswer((_) async => List.of(currentList));
 
       HttpTts? updatedArg;
-      when(() => api.httpTtsRepository.updateHttpTts(any())).thenAnswer((
-        invocation,
-      ) async {
-        final arg = invocation.positionalArguments[0] as HttpTts;
-        updatedArg = arg;
-        currentList = [arg];
-      });
+      when(() => api.httpTtsRepository.updateHttpTts(any()))
+          .thenAnswer((invocation) async {
+            final arg = invocation.positionalArguments[0] as HttpTts;
+            updatedArg = arg;
+            currentList = [arg];
+          });
 
       await pumpScreen(tester);
       await tester.tap(find.byTooltip('编辑').first);

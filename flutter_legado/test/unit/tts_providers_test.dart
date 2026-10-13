@@ -22,6 +22,7 @@ void main() {
     final api = createBookApi(useMock: true);
     expect(api.httpTtsSynthesizer, isA<MockHttpTtsSynthesizer>());
     final result = await api.httpTtsSynthesizer.synthesize(
+      engineId: 1,
       text: '正文',
       engineUrl: 'http://tts',
     ) as HttpTtsNoAudio;

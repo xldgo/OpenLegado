@@ -5,10 +5,12 @@
 //! - `MigrationRegistry` 注册表管理所有版本间的迁移
 //! - 使用 SQLite `user_version` PRAGMA 追踪当前版本
 
+pub mod cloud_tts_v112;
 pub mod daily_seconds_v107;
 pub mod http_tts_columns_v110;
 pub mod migrations;
 pub mod origin_book_url_v109;
+pub mod read_aloud_voices_v111;
 pub mod room_align_v105;
 pub mod schema_align_v104;
 pub mod scope_source_v108;
@@ -71,6 +73,8 @@ impl MigrationRegistry {
         self.register(Box::new(scope_source_v108::Migration107To108));
         self.register(Box::new(origin_book_url_v109::Migration108To109));
         self.register(Box::new(http_tts_columns_v110::Migration109To110));
+        self.register(Box::new(read_aloud_voices_v111::Migration110To111));
+        self.register(Box::new(cloud_tts_v112::Migration111To112));
     }
 
     /// 注册单个迁移
@@ -304,7 +308,7 @@ mod tests {
     fn test_migration_registry_list() {
         let registry = MigrationRegistry::new();
         let list = registry.list_migrations();
-        assert_eq!(list.len(), 20);
+        assert_eq!(list.len(), (crate::schema::SCHEMA_VERSION-90) as usize);
         assert_eq!(list[0].0, 90);
         assert_eq!(list[0].1, 91);
     }

@@ -4,11 +4,16 @@
 /// 供 Providers / Services 层测试使用。
 library;
 
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
+import 'package:flutter_legado/src/data/repositories/mock_tts_cache_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/source_checker.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
-
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
@@ -24,7 +29,11 @@ import 'package:flutter_legado/src/services/stream_audio_player.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 /// RustApi 的 mock 实现
-class MockHttpTtsRepository extends Mock implements HttpTtsRepository {}
+class MockHttpTtsRepository extends Mock implements HttpTtsRepository {
+  MockHttpTtsRepository() {
+    when(() => getHttpTts()).thenAnswer((_) async => const []);
+  }
+}
 
 class MockHttpTtsSynthesizer extends Mock implements HttpTtsSynthesizer {}
 
@@ -37,6 +46,12 @@ class _MockBookSourceRepository extends Mock implements BookSourceRepository {}
 class SourceCheckerMock extends Mock implements SourceChecker {}
 
 class MockRustApi extends Mock implements RustApi {
+  @override final CloudTtsRepository cloudTtsRepository=MockCloudTtsRepository();
+  @override
+  final ReadAloudVoiceRepository readAloudVoiceRepository =
+      MockReadAloudVoiceRepository(supportsCatalog: false);
+  @override
+  final TtsCacheRepository ttsCacheRepository = const MockTtsCacheRepository();
   @override
   final SourceChecker sourceChecker = SourceCheckerMock();
   @override
@@ -84,6 +99,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   void Function(Duration position, Duration duration, Object? tag)? onProgress;
 
   /// 当前装载绑定的归属标识（模拟真实播放器闭包捕获的 tag，stop 后清空）
+  @override
   Object? currentTag;
 
   /// 每次 playUrl/playLocalFile 绑定的归属标识（供测试取旧章 tag 模拟迟到回调）
@@ -97,6 +113,8 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
 
   /// 置为非空后 [playUrl] 抛出该异常（模拟网络流播放失败）
   Object? playUrlError;
+  Future<void>? pauseBarrier;
+  Object? resumeError;
 
   @override
   Future<void> playUrl(String url, {double speed = 1.0, Object? tag}) async {
@@ -131,6 +149,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   @override
   Future<void> pause() async {
     pauseCount++;
+    await pauseBarrier;
     isPlaying = false;
   }
 
@@ -138,6 +157,18 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   Future<void> resume() async {
     resumeCount++;
     isPlaying = true;
+  }
+
+  @override
+  Future<bool> resumeWithTag({
+    required Object previousTag,
+    required Object tag,
+  }) async {
+    if (!isInitialized || !identical(currentTag, previousTag)) return false;
+    if (resumeError != null) throw resumeError!;
+    currentTag = tag;
+    await resume();
+    return true;
   }
 
   @override
@@ -224,6 +255,7 @@ class FakeUri extends Fake implements Uri {}
 
 /// 注册所有 fallback 值（在 setUpAll 中调用）
 void registerFallbacks() {
+  registerFallbackValue(HttpTtsCancellation());
   registerFallbackValue(FakeBook());
   registerFallbackValue(FakeRssSource());
   registerFallbackValue(FakeHttpTts());

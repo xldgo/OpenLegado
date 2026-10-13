@@ -108,6 +108,10 @@ State 和生成物一起移动，`part` / `part of` 的文件名保持一致，�
 
 ## 第六步的朗读引擎边界
 
+> 2026-10-13 T2a/T2b 后继约束：HTTP 不再执行失败 GET 探活；合成结果显式区分音频、失败、空产物、Mock 与取消。`HttpTtsCancellation` 由段落引擎持有，正式适配器映射到同步可取消的 FRB 请求句柄；Rust 统一源变量/登录、请求规则、重试、限流与缓存。登录控件增加 `SourceLoginSession` 窄接口，TTS 适配使用 `httpTts:<id>`，不构造 BookSource。下文第六～八步保留当时结构提取的说明，当前协议以 API_CONTRACT §2.42 为准。
+
+
+
 用户调整领域顺序，先处理朗读引擎，书架与分组后置。按职责分三批推进：
 
 1. `HttpTtsRepository` 管理 HTTP 引擎配置，正式实现直接使用已有 FRB，
@@ -149,6 +153,22 @@ AudioNotifier 继续拥有正文队列、原文映射、段间停顿、定时、
 异步控制错误也校验发起时的 token / 合成代数：当前系统错误保留原提示，当前
 HTTP 暂停或停止错误改为可见提示并保持暂停/空闲，旧会话错误只记诊断日志，
 不再改写新会话；文件播放控制错误不作为未处理的 Future 错误逃逸。
+
+HTTP 原位续播继续沿用该边界：适配器保留已加载段落的音频与请求文字长度，
+暂停使旧回调会话失效，恢复在同一播放器上换绑新会话而不重新合成。
+AudioNotifier 保留原请求的段内起点与章内映射，按会话等待暂停确认；停止、
+切章、换段与换引擎清除旧暂停屏障。共享播放器核对预期 tag 后才允许换绑，
+音频书的普通 resume 不受影响。装载未完成时暂停取消请求并停止，后续重新起播；
+插件平台替身覆盖 Dart 协议，Android/iOS 的后台与真实中断仍需设备验收。
+方法与来源见 [朗读对齐文档](TTS_ALIGNMENT.md)，任务状态只维护 Active 计划。
+
+HTTP 预合成由独立 `HttpTtsSynthesisQueue` 管理前台优先、任务提升、并发与窗口取消；
+AudioNotifier 提供正文/配置快照及章节加载入口，不保存第二份音频缓存。
+Rust 仍是规则求值、音频文件和索引的权威，`TtsCacheRepository` 提供窄接口，
+管理页与设置页不直接操作文件系统。音频的原生句柄移交成可释放租约，播放后
+停止播放器再释放；后台只完成索引登记并释放。清理保护合成中与播放中音频，
+退出清理使用捕获的配置和状态快照，不再访问已销毁 Ref。即听即焚和分钟保留
+消费上游设置键，不添加数据库迁移。方法与接口详见 API_CONTRACT §2.42。
 
 ## 第九步的书架与分组边界
 
@@ -348,4 +368,60 @@ Mock 显式取消仍为空操作，UI 通过订阅及会话代数停止接收；
 - 现有 DLL 执行真实书签查询、连续更新、搜索和删除，启动与配置刷新仍正常。
 - 目录、选区及备注面板回归通过；不以组件测试或 Windows FFI 代替移动设备验收。
 
+## 音色目录边界（T4a）
+
+ReadAloudVoiceRepository 独立于 HTTP 源配置、合成和平台 TTS。Rust core
+解析源目录，DB 在保存源的同一事务同步目录；FFI 只转 JSON 和传递平台发现结果。
+Flutter 原始导入保留目录字段，普通 HttpTts 仍为 16 字段，不重复存目录。
+系统插件发现真实设备音色，Rust 不访问插件；Mock 只在会话内模拟目录。
+
+HTTP 每引擎选择以既有 config 持久化，由消费时解析为 ReadAloudRequest 参数；
+不在 TtsConfig 再保存另一份 tone/speaker/emotion 权威副本。发音人、情感与
+源上下文进入合成缓存，播放器倍速仍独立。目录页只展示、选择及委托标记更新，
+不复制 SQL 或 HTTP 业务规则。源级 catalog 的无效/空输入遵循上游 no-op；
+显式失效系统选择在播放时报错，发现目录仍可恢复，无自动历史回填。
+
+三个目录 FRB 方法与 schema v111 见 API_CONTRACT §2.42；当前状态仅在 Active。
+
+## 云端 Provider 边界（T4b-1）
+
+Rust core 只准备请求、声明音色和适配音频格式；fetcher 注入异步传输，并复用
+既有缓存门禁/租约与取消。不把云端配置保存成 HTTP TTS，不由页面发送 provider
+网络请求，不让 Provider 反向依赖 FFI。T4b-1 的 CloudTtsEngine 是 Provider 内存输入；T4b-2 新增独立元数据模型，
+凭据由设备安全存储拥有，配置元数据、原生合成与 ReadAloudEngine 各走窄接口。
+
 编写者：Codex｜2026-10-13
+
+## 云端产品边界（T4b-2）
+
+CloudTtsRepository 只访问独立云端元数据；CloudTtsCredentialStore 只访问设备安全存储。
+CloudTtsSettings 负责串行协调两者及失败补偿，不承诺跨存储崩溃原子性。
+读取 API Key 只发生在合成前，不回显到编辑器，不进入普通配置 JSON 或 optionsJson。
+Rust 合成重新查当前元数据并检查 credentialKey，防止读取期间配置更新后使用旧密钥。
+
+CloudReadAloudEngine 处理一个段落内的长文本分片，不读取书章、不改变正文队列。
+FileReadAloudEngine 复用 HTTP/云端的播放、暂停恢复与租约协议；AudioNotifier
+继续拥有选段、切章、媒体会话、焦点和定时。共用播放器由协调层停止一次，两个
+文件引擎共享停止屏障再释放租约。云端尚无后台预合成窗口，HTTP 队列保持原有职责。
+试听有独立播放器与会话，退出时取消请求，不把试听完成回写到正文队列。
+
+云端结果/取消暂复用 HttpTtsSynthesisResult、HttpTtsCancellation，避免增加第二套
+文件租约；这不代表复用 HTTP 源表、Cookie 或源规则。平台插件/设备行为及真实云账号
+另行验收；普通配置备份不含 API Key，恢复元数据后可能需要重新填写设备凭据。
+
+编写者：Codex｜2026-10-14
+
+## MiMo Provider 扩展（T4b-3）
+
+云端元数据校验、音色发现和执行均通过 Rust core 的 cloud_tts_provider 分派。
+PreparedCloudSpeech 明确鉴权头和响应类型；fetcher 负责网络/取消，Provider
+负责 SSE/Base64/PCM→WAV 纯计算，Flutter 页面不解析网络协议。OpenAI 保持
+直接音频与 Bearer，MiMo 使用 api-key 与 EventStream，错误文本门禁按类型隔离。
+
+Flutter CloudTtsProviderProfile 只定义表单默认值与可选格式/风格，不发送请求。
+新建时切换服务商清空地址/密钥并重新读取目录，保存后元数据 Provider 不可改；
+如需另一服务新建配置。共享 CloudReadAloudEngine、FileReadAloudEngine、凭据
+存储与租约不再增设一套。MiMo 源 speed 不生效，播放倍速仍独立由播放器实现。
+云端目录附加 styles/sampleRate 是描述信息，FRB 五个签名、schema v112 不变。
+
+编写者：Codex｜2026-10-14

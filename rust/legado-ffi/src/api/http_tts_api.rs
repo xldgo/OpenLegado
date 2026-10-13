@@ -30,10 +30,24 @@ pub fn add_http_tts(name: &str, url: &str) -> LegadoResult<i64> {
 /// 添加或覆盖完整 HTTP TTS 源 JSON，返回最终 ID
 pub fn add_http_tts_json(http_tts_json: &str) -> LegadoResult<i64> {
     let tts: HttpTts = serde_json::from_str(http_tts_json)?;
-    with_database(|db| {
-        let repo = HttpTtsRepository::new(db.connection());
-        repo.insert_entity(&tts)
-    })
+    let id = with_database(|db| {
+        let tx = db
+            .connection()
+            .unchecked_transaction()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        let id = HttpTtsRepository::new(&tx).insert_entity(&tts)?;
+        let draft = legado_core::tts_catalog::parse(&serde_json::from_str(http_tts_json)?);
+        legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
+            .sync_http(id, &draft, tts.last_update_time)?;
+        tx.commit()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        Ok(id)
+    })?;
+    super::source_rate_limit::registry().refresh(
+        &format!("httpTts:{id}"),
+        tts.concurrent_rate.as_deref().unwrap_or(""),
+    );
+    Ok(id)
 }
 
 /// 更新 HTTP TTS 源（仅更新名称与 URL）
@@ -47,18 +61,48 @@ pub fn update_http_tts(id: i64, name: &str, url: &str) -> LegadoResult<bool> {
 /// 按 ID 原地更新完整 HTTP TTS 源 JSON
 pub fn update_http_tts_json(http_tts_json: &str) -> LegadoResult<bool> {
     let tts: HttpTts = serde_json::from_str(http_tts_json)?;
-    with_database(|db| {
-        let repo = HttpTtsRepository::new(db.connection());
-        repo.update_entity(&tts)
-    })
+    let updated = with_database(|db| {
+        let tx = db
+            .connection()
+            .unchecked_transaction()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        let updated = HttpTtsRepository::new(&tx).update_entity(&tts)?;
+        if updated {
+            let draft = legado_core::tts_catalog::parse(&serde_json::from_str(http_tts_json)?);
+            legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
+                .sync_http(tts.id, &draft, tts.last_update_time)?;
+        }
+        tx.commit()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        Ok(updated)
+    })?;
+    if updated {
+        super::source_rate_limit::registry().refresh(
+            &format!("httpTts:{}", tts.id),
+            tts.concurrent_rate.as_deref().unwrap_or(""),
+        );
+    }
+    Ok(updated)
 }
 
 /// 删除 HTTP TTS 源
 pub fn delete_http_tts(id: i64) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = HttpTtsRepository::new(db.connection());
-        repo.delete(id)
-    })
+    let deleted = with_database(|db| {
+        let tx = db
+            .connection()
+            .unchecked_transaction()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        let deleted = HttpTtsRepository::new(&tx).delete(id)?;
+        legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
+            .clear_http(id)?;
+        tx.commit()
+            .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+        Ok(deleted)
+    })?;
+    if deleted {
+        super::source_rate_limit::registry().remove(&format!("httpTts:{id}"));
+    }
+    Ok(deleted)
 }
 
 /// 设置 HTTP TTS 源启用/禁用
@@ -182,5 +226,40 @@ mod tests {
         assert!(crate::ffi::ffi::http_tts_update("{".to_string()).is_err());
 
         assert!(delete_http_tts(-1029).unwrap());
+    }
+    #[test]
+    fn catalog_import_preserves_flags_and_delete_cleans_only_engine() {
+        let _guard = crate::db_state::ensure_test_db();
+        let raw=serde_json::json!({"id":-98124,"name":"目录源","url":"https://tts","speakersJson":r#"[{"speakerName":"中文","toneID":"zh-a"}]"#, "emotionsJson":r#"[{"emotionName":"高兴","emotionTag":"happy"}]"#}).to_string();
+        add_http_tts_json(&raw).unwrap();
+        let id =
+            legado_db::repository::read_aloud_voice_repository::stable_id("http", "-98124", "zh-a");
+        super::super::read_aloud_voice_api::set_flags(&id, false, true).unwrap();
+        add_http_tts_json(&raw).unwrap();
+        update_http_tts_json(r#"{"id":-98124,"name":"改名","url":"https://new"}"#).unwrap();
+        let rows: Vec<legado_db::repository::read_aloud_voice_repository::ReadAloudVoice> =
+            serde_json::from_str(&super::super::read_aloud_voice_api::list().unwrap()).unwrap();
+        let voice = rows.iter().find(|v| v.id == id).unwrap();
+        assert!(!voice.enabled);
+        assert!(voice.excluded);
+        assert!(voice.emotion_catalog_json.contains("happy"));
+        delete_http_tts(-98124).unwrap();
+        let rows: Vec<serde_json::Value> =
+            serde_json::from_str(&super::super::read_aloud_voice_api::list().unwrap()).unwrap();
+        assert!(rows.iter().all(|v| v["id"] != id));
+    }
+    #[test]
+    fn catalog_save_failure_rolls_back_source() {
+        let _guard = crate::db_state::ensure_test_db();
+        with_database(|db|{db.connection().execute_batch("CREATE TEMP TRIGGER reject_catalog BEFORE INSERT ON read_aloud_voices BEGIN SELECT RAISE(ABORT,'catalog fixture'); END;").map_err(|e|legado_core::LegadoError::Database(e.to_string()))?;
+            // 同一连接直接使用事务，FFI closure 换池连接不能共享 TEMP trigger。
+            let tx=db.connection().unchecked_transaction().unwrap();
+            let tts=HttpTts{id:-98125,name:"不应残留".into(),url:"https://tts".into(),..Default::default()};
+            HttpTtsRepository::new(&tx).insert_entity(&tts).unwrap();
+            let draft=legado_core::tts_catalog::parse(&serde_json::json!({"speakersJson":r#"[{"name":"甲","toneID":"a"}]"#}));
+            assert!(legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx).sync_http(-98125,&draft,0).is_err());
+            drop(tx);
+            assert!(HttpTtsRepository::new(db.connection()).find_all()?.iter().all(|v|v.id!= -98125));
+            db.connection().execute_batch("DROP TRIGGER reject_catalog").unwrap();Ok(())}).unwrap();
     }
 }

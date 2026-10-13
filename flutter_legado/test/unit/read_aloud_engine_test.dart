@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
+
 import 'dart:async';
 
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
@@ -9,6 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../mocks/mocks.dart';
+
+class _Lease implements TtsAudioLease {
+  int releases = 0;
+  @override
+  Future<void> release() async {
+    releases++;
+  }
+}
 
 class _Callbacks {
   bool current = true;
@@ -80,6 +90,7 @@ class _System extends Fake implements SystemTts {
 
 const _request = ReadAloudRequest(
   text: '甲😀乙丁',
+  engineId: 1,
   engineUrl: 'https://tts/{text}',
   speed: 1.25,
   pitch: 1.1,
@@ -141,6 +152,8 @@ void main() {
     Future<HttpTtsSynthesisResult> synthesisCall(
       MockHttpTtsSynthesizer service,
     ) => service.synthesize(
+      cancellation: any(named: 'cancellation'),
+      engineId: any(named: 'engineId'),
       text: any(named: 'text'),
       engineUrl: any(named: 'engineUrl'),
       speed: any(named: 'speed'),
@@ -164,7 +177,7 @@ void main() {
       );
     });
 
-    test('参数完整交给合成，缓存音频播放固定 1 倍速，回调由共享播放器分发', () async {
+    test('参数完整交给合成，音频播放使用全局倍速，回调由共享播放器分发', () async {
       void completed(Object? tag) {}
       player.onCompleted = completed;
       expect(
@@ -173,6 +186,8 @@ void main() {
       );
       verify(
         () => synthesis.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: _request.engineId,
           text: _request.text,
           engineUrl: _request.engineUrl,
           speed: 1.25,
@@ -183,7 +198,7 @@ void main() {
       ).called(1);
       expect(player.playedLocalFiles.single, (
         path: '/cache/a.wav',
-        speed: 1.0,
+        speed: 1.25,
       ));
       expect(player.onCompleted, same(completed));
       expect(callbacks.completions, 0);
@@ -204,6 +219,22 @@ void main() {
         expect(callbacks.completions, 0);
       });
     }
+
+    test('服务器或规则失败保留原错误，不转换为空音频', () async {
+      final error = StateError('服务端配额已用完');
+      when(() => synthesisCall(synthesis)).thenAnswer(
+        (_) async => HttpTtsNoAudio(
+          HttpTtsNoAudioReason.synthesisFailed,
+          synthesisError: error,
+        ),
+      );
+      await expectLater(
+        engine.speak(_request, callbacks.session),
+        throwsA(same(error)),
+      );
+      expect(player.playedLocalFiles, isEmpty);
+      expect(callbacks.completions, 0);
+    });
 
     test('空白产物路径也返回无音频', () async {
       when(() => synthesisCall(synthesis))
@@ -236,10 +267,20 @@ void main() {
     for (final stop in [false, true]) {
       test('${stop ? '停止' : '代数失效'}后迟到的合成不能装载播放器', () async {
         final pending = Completer<HttpTtsSynthesisResult>();
-        when(() => synthesisCall(synthesis)).thenAnswer((_) => pending.future);
+        HttpTtsCancellation? cancellation;
+        when(() => synthesisCall(synthesis)).thenAnswer((call) {
+          cancellation =
+              call.namedArguments[#cancellation] as HttpTtsCancellation;
+          return pending.future;
+        });
         final started = engine.speak(_request, callbacks.session);
         if (stop) {
           await engine.stop();
+          expect(
+            cancellation?.isCancelled,
+            isTrue,
+            reason: '停止必须取消实际合成，不只丢弃回调',
+          );
         } else {
           callbacks.current = false;
         }
@@ -280,18 +321,131 @@ void main() {
       expect(next.offsets, isEmpty);
     });
 
-    test('HTTP 暂停停止文件，恢复能力明确为重播；旧事件无效', () async {
+    test('HTTP 原位暂停续播，不重新合成或加载；旧回调无效', () async {
       await engine.speak(_request, callbacks.session);
       final tag = player.currentTag;
+      player.position = const Duration(seconds: 4);
       await engine.pause();
-      expect(engine.canResume, isFalse);
-      expect(player.stopCount, 1);
+      expect(engine.canResume, isTrue);
+      expect(player.pauseCount, 1);
+      expect(player.stopCount, 0);
       engine.handleCompleted(tag);
       expect(callbacks.completions, 0);
-      await expectLater(
-        engine.resume(callbacks.session),
-        throwsUnsupportedError,
+      final resumed = _Callbacks();
+      expect(await engine.resume(resumed.session), ReadAloudStart.started);
+      expect(player.position, const Duration(seconds: 4));
+      expect(player.resumeCount, 1);
+      expect(player.playedLocalFiles, hasLength(1));
+      verify(() => synthesisCall(synthesis)).called(1);
+      engine.handleProgress(
+        const Duration(seconds: 5),
+        const Duration(seconds: 10),
+        tag,
       );
+      engine.handleCompleted(tag);
+      engine.handleProgress(
+        const Duration(seconds: 5),
+        const Duration(seconds: 10),
+        player.currentTag,
+      );
+      engine.handleCompleted(player.currentTag);
+      engine.handleCompleted(player.currentTag);
+      expect(callbacks.offsets, isEmpty);
+      expect(resumed.offsets, [2]);
+      expect(resumed.completions, 1);
+    });
+
+    test('快速恢复等待平台暂停确认，等待中停止则不续播', () async {
+      for (final stopWhilePausing in [false, true]) {
+        await engine.speak(_request, _Callbacks().session);
+        final barrier = Completer<void>();
+        player.pauseBarrier = barrier.future;
+        final pause = engine.pause();
+        final resumes = player.resumeCount;
+        final resume = engine.resume(_Callbacks().session);
+        await _flush();
+        expect(player.resumeCount, resumes);
+        if (stopWhilePausing) await engine.stop();
+        barrier.complete();
+        await pause;
+        expect(
+          await resume,
+          stopWhilePausing ? ReadAloudStart.cancelled : ReadAloudStart.started,
+        );
+        expect(player.resumeCount, resumes + (stopWhilePausing ? 0 : 1));
+      }
+    });
+
+    test('合成未完成时暂停取消请求，旧产物不进入播放器', () async {
+      final result = Completer<HttpTtsSynthesisResult>();
+      late HttpTtsCancellation cancellation;
+      when(() => synthesisCall(synthesis)).thenAnswer((call) {
+        cancellation =
+            call.namedArguments[#cancellation] as HttpTtsCancellation;
+        return result.future;
+      });
+      final speech = engine.speak(_request, callbacks.session);
+      await engine.pause();
+      expect(cancellation.isCancelled, isTrue);
+      expect(engine.canResume, isFalse);
+      result.complete(const HttpTtsAudio(audioPath: '/cache/late.wav'));
+      expect(await speech, ReadAloudStart.cancelled);
+      expect(player.playedLocalFiles, isEmpty);
+      expect(
+        await engine.resume(_Callbacks().session),
+        ReadAloudStart.cancelled,
+      );
+    });
+
+    test('共享播放器被音频书替换后不恢复或消费旧会话', () async {
+      await engine.speak(_request, callbacks.session);
+      await engine.pause();
+      await player.playUrl('https://cdn.example.com/book.mp3', tag: Object());
+      expect(engine.canResume, isFalse);
+      expect(
+        await engine.resume(_Callbacks().session),
+        ReadAloudStart.cancelled,
+      );
+      expect(player.resumeCount, 0);
+    });
+
+    test('原位恢复失败保留异常，不会推进正文', () async {
+      await engine.speak(_request, callbacks.session);
+      await engine.pause();
+      final resumed = _Callbacks();
+      final error = StateError('设备恢复失败');
+      player.resumeError = error;
+      await expectLater(engine.resume(resumed.session), throwsA(same(error)));
+      expect(callbacks.completions, 0);
+      expect(resumed.completions, 0);
+    });
+
+    test('音频租约在原位暂停时保留，停止和加载失败各释放一次', () async {
+      final lease = _Lease();
+      when(() => synthesisCall(synthesis)).thenAnswer(
+        (_) async => HttpTtsAudio(audioPath: '/cache/a.wav', lease: lease),
+      );
+      await engine.speak(_request, callbacks.session);
+      await engine.pause();
+      expect(lease.releases, 0);
+      await engine.resume(_Callbacks().session);
+      expect(lease.releases, 0);
+      await engine.stop();
+      expect(lease.releases, 1);
+      await engine.stop();
+      expect(lease.releases, 1);
+      final failed = _Lease();
+      when(() => synthesisCall(synthesis)).thenAnswer(
+        (_) async => HttpTtsAudio(audioPath: '/cache/fail.wav', lease: failed),
+      );
+      player.playLocalError = StateError('加载失败');
+      await expectLater(
+        engine.speak(_request, _Callbacks().session),
+        throwsStateError,
+      );
+      expect(failed.releases, 1);
+      await engine.stop();
+      expect(failed.releases, 1);
     });
 
     test('后续段落读取新的合成注入，不冻结根装配', () async {

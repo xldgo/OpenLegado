@@ -10,8 +10,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 1) normalizeTtsEngineUrl：裸 URL 无损、「名称,URL」还原、名称含逗号仍正确、
 //    非 http(s) 形态不做猜测性截断；
 // 2) AudioNotifier 合成链路确实把归一后的裸 URL 传给 audioSpeak（mock 断言）。
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -29,7 +28,9 @@ void main() {
       const bare = 'http://192.168.1.2:8770/tts?text={{text}}';
       expect(normalizeTtsEngineUrl(bare), bare);
       expect(
-        normalizeTtsEngineUrl('  https://tts.example.com/api?text={{speakText}}  '),
+        normalizeTtsEngineUrl(
+          '  https://tts.example.com/api?text={{speakText}}  ',
+        ),
         'https://tts.example.com/api?text={{speakText}}',
       );
       expect(normalizeTtsEngineUrl(''), isEmpty);
@@ -92,22 +93,25 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      when(() => mockApi.getChapters(any())).thenAnswer(
-        (_) async => [const BookChapter(title: '第一章', index: 0)],
-      );
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.getChapters(any()))
+          .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
-      when(() => mockApi.httpTtsSynthesizer.synthesize(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((invocation) async {
-        receivedEngineUrls
-            .add(invocation.namedArguments[#engineUrl] as String);
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((invocation) async {
+        receivedEngineUrls.add(invocation.namedArguments[#engineUrl] as String);
         return HttpTtsAudio(audioPath: '/tmp/tts/para.mp3');
       });
     });
@@ -138,10 +142,9 @@ void main() {
     testWidgets('裸 URL（新选择器形态）原样传给 audioSpeak', (tester) async {
       await speakWith('https://tts.example.com/api?text={{speakText}}');
 
-      expect(
-        receivedEngineUrls,
-        ['https://tts.example.com/api?text={{speakText}}'],
-      );
+      expect(receivedEngineUrls, [
+        'https://tts.example.com/api?text={{speakText}}',
+      ]);
     });
   });
 }

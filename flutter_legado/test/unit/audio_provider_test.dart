@@ -9,8 +9,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // AudioService 依赖走 audioServiceProvider，默认单例在测试环境未初始化，
 // 其所有平台通道调用均为静默 no-op（与原测试使用真实单例的行为一致），
 // 故此处无需 override audioServiceProvider。
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -184,7 +183,8 @@ void main() {
   group('AudioNotifier loadChapters（mock API）', () {
     setUp(() {
       // loadChapters 会 getBook 推断音频书 type 位；未 stub 时 mocktail 抛错吞进 error 态
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
     });
 
     test('loadChapters 成功加载章节列表', () async {
@@ -222,8 +222,7 @@ void main() {
     });
 
     test('loadChapters 失败时设置错误状态', () async {
-      when(() => mockApi.getChapters(any()))
-          .thenThrow(Exception('加载失败'));
+      when(() => mockApi.getChapters(any())).thenThrow(Exception('加载失败'));
 
       await readNotifier().loadChapters('https://book.com/bad');
 
@@ -256,9 +255,7 @@ void main() {
     });
 
     test('loadChapters 后 currentChapter 正确', () async {
-      final chapters = [
-        const BookChapter(title: '第一章', index: 0),
-      ];
+      final chapters = [const BookChapter(title: '第一章', index: 0)];
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
@@ -288,17 +285,24 @@ void main() {
         const BookChapter(title: 'ch3', index: 2),
       ];
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '章节正文内容');
-      when(() => mockApi.httpTtsSynthesizer.synthesize(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult));
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult),
+      );
     });
 
     test('play 无章节时不执行', () async {
@@ -544,23 +548,29 @@ void main() {
 
   group('PlayerState 枚举', () {
     test('包含所有预期状态', () {
-      expect(PlayerState.values, containsAll([
-        PlayerState.idle,
-        PlayerState.playing,
-        PlayerState.paused,
-        PlayerState.loading,
-        PlayerState.error,
-      ]));
+      expect(
+        PlayerState.values,
+        containsAll([
+          PlayerState.idle,
+          PlayerState.playing,
+          PlayerState.paused,
+          PlayerState.loading,
+          PlayerState.error,
+        ]),
+      );
     });
   });
 
   group('AudioPlayMode 枚举', () {
     test('包含所有预期模式', () {
-      expect(AudioPlayMode.values, containsAll([
-        AudioPlayMode.sequential,
-        AudioPlayMode.singleLoop,
-        AudioPlayMode.shuffle,
-      ]));
+      expect(
+        AudioPlayMode.values,
+        containsAll([
+          AudioPlayMode.sequential,
+          AudioPlayMode.singleLoop,
+          AudioPlayMode.shuffle,
+        ]),
+      );
     });
   });
 }

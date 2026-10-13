@@ -70,7 +70,17 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
       }
       final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
       if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
-      await addHttpTts(parsed);
+      final normalized = parsed.copyWith(
+        synthesisThreadCount: parsed.synthesisThreadCount.clamp(
+          1,
+          kMaxHttpTtsSynthesisThreadCount,
+        ),
+      );
+      final payload = normalized.toJson();
+      for (final key in ['speakersJson', 'emotionsJson']) {
+        if (item.containsKey(key)) payload[key] = item[key];
+      }
+      await bridge.httpTtsAdd(httpTtsJson: jsonEncode(payload));
       count++;
     }
     return count;

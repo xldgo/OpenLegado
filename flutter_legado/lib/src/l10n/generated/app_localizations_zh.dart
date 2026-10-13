@@ -3761,4 +3761,85 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get eyeProtectionEndTime => '结束时间';
+
+  @override
+  String get cloudTtsTitle => '云端朗读引擎';
+
+  @override
+  String get cloudTtsSummary => '配置云端语音、音色与试听';
+
+  @override
+  String get cloudTtsAdd => '添加云端引擎';
+
+  @override
+  String get cloudTtsEdit => '编辑云端引擎';
+
+  @override
+  String get cloudTtsName => '名称';
+
+  @override
+  String get cloudTtsBaseUrl => '服务地址（留空使用官方地址）';
+
+  @override
+  String get cloudTtsModel => '模型';
+
+  @override
+  String get cloudTtsApiKey => 'API Key（编辑时留空保留）';
+
+  @override
+  String get cloudTtsVoice => '音色 ID';
+
+  @override
+  String get cloudTtsSpeed => '合成语速';
+
+  @override
+  String get cloudTtsFormat => '音频格式';
+
+  @override
+  String get cloudTtsStyle => '风格';
+
+  @override
+  String get cloudTtsInstructions => '朗读指令';
+
+  @override
+  String get cloudTtsPreview => '试听';
+
+  @override
+  String get cloudTtsPreviewText => '试听文本';
+
+  @override
+  String get cloudTtsStop => '停止试听';
+
+  @override
+  String get cloudTtsEmpty => '暂无云端朗读引擎';
+
+  @override
+  String get cloudTtsEnabled => '启用';
+
+  @override
+  String get cloudTtsDelete => '删除';
+
+  @override
+  String get cloudTtsDeleteConfirm => '确定删除此云端引擎及设备凭据？';
+
+  @override
+  String get cloudTtsSave => '保存';
+
+  @override
+  String get cloudTtsCancel => '取消';
+
+  @override
+  String get cloudTtsBook => '本书';
+
+  @override
+  String get cloudTtsGlobal => '全局';
+
+  @override
+  String get cloudTtsSample => '你好，这是云端朗读试听。';
+
+  @override
+  String get cloudTtsProvider => '服务商';
+
+  @override
+  String get cloudTtsVoiceLoadFailed => '音色目录加载失败';
 }

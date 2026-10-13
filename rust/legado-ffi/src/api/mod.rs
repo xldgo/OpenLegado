@@ -25,6 +25,7 @@ pub mod explore_api;
 pub mod explore_info_map;
 pub mod highlight_api;
 pub mod http_tts_api;
+pub mod http_tts_runtime;
 pub mod image_api;
 pub mod image_cache_api;
 pub mod js_source_config_api;
@@ -32,6 +33,7 @@ pub mod log_api;
 pub mod net_api;
 pub mod pay_action_api;
 pub mod pre_update;
+pub mod read_aloud_voice_api;
 pub mod read_record_api;
 pub mod reader;
 pub mod replace_rule_api;
@@ -53,6 +55,7 @@ pub mod source_login_v1_api;
 pub mod source_login_v2_api;
 pub mod source_rate_limit;
 pub mod source_switch;
+pub mod tts_cache_api;
 pub mod tts_speak_api;
 pub mod txt_search_api;
 pub mod verification_api;
@@ -69,3 +72,5 @@ mod s0_fixture_tests;
 /// [回归 2026-09-17] get_chapters_with_vars「已解析目录页」语义（方案 A）
 #[cfg(test)]
 mod toc_no_rederive_tests;
+
+pub mod cloud_tts_api;

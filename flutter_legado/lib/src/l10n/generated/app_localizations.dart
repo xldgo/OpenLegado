@@ -7112,6 +7112,168 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'结束时间'**
   String get eyeProtectionEndTime;
+
+  /// No description provided for @cloudTtsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端朗读引擎'**
+  String get cloudTtsTitle;
+
+  /// No description provided for @cloudTtsSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置云端语音、音色与试听'**
+  String get cloudTtsSummary;
+
+  /// No description provided for @cloudTtsAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加云端引擎'**
+  String get cloudTtsAdd;
+
+  /// No description provided for @cloudTtsEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑云端引擎'**
+  String get cloudTtsEdit;
+
+  /// No description provided for @cloudTtsName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get cloudTtsName;
+
+  /// No description provided for @cloudTtsBaseUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务地址（留空使用官方地址）'**
+  String get cloudTtsBaseUrl;
+
+  /// No description provided for @cloudTtsModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get cloudTtsModel;
+
+  /// No description provided for @cloudTtsApiKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'API Key（编辑时留空保留）'**
+  String get cloudTtsApiKey;
+
+  /// No description provided for @cloudTtsVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色 ID'**
+  String get cloudTtsVoice;
+
+  /// No description provided for @cloudTtsSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成语速'**
+  String get cloudTtsSpeed;
+
+  /// No description provided for @cloudTtsFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频格式'**
+  String get cloudTtsFormat;
+
+  /// No description provided for @cloudTtsStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'风格'**
+  String get cloudTtsStyle;
+
+  /// No description provided for @cloudTtsInstructions.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读指令'**
+  String get cloudTtsInstructions;
+
+  /// No description provided for @cloudTtsPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'试听'**
+  String get cloudTtsPreview;
+
+  /// No description provided for @cloudTtsPreviewText.
+  ///
+  /// In zh, this message translates to:
+  /// **'试听文本'**
+  String get cloudTtsPreviewText;
+
+  /// No description provided for @cloudTtsStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止试听'**
+  String get cloudTtsStop;
+
+  /// No description provided for @cloudTtsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无云端朗读引擎'**
+  String get cloudTtsEmpty;
+
+  /// No description provided for @cloudTtsEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get cloudTtsEnabled;
+
+  /// No description provided for @cloudTtsDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get cloudTtsDelete;
+
+  /// No description provided for @cloudTtsDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除此云端引擎及设备凭据？'**
+  String get cloudTtsDeleteConfirm;
+
+  /// No description provided for @cloudTtsSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get cloudTtsSave;
+
+  /// No description provided for @cloudTtsCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get cloudTtsCancel;
+
+  /// No description provided for @cloudTtsBook.
+  ///
+  /// In zh, this message translates to:
+  /// **'本书'**
+  String get cloudTtsBook;
+
+  /// No description provided for @cloudTtsGlobal.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局'**
+  String get cloudTtsGlobal;
+
+  /// No description provided for @cloudTtsSample.
+  ///
+  /// In zh, this message translates to:
+  /// **'你好，这是云端朗读试听。'**
+  String get cloudTtsSample;
+
+  /// No description provided for @cloudTtsProvider.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务商'**
+  String get cloudTtsProvider;
+
+  /// No description provided for @cloudTtsVoiceLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色目录加载失败'**
+  String get cloudTtsVoiceLoadFailed;
 }
 
 class _AppLocalizationsDelegate
