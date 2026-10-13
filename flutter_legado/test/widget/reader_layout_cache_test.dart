@@ -10,6 +10,7 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 
 final sources = List.generate(
   3,
@@ -115,6 +116,7 @@ void main() {
                     key: key,
                     paragraphSpacing: 8,
                     selectText: false,
+                    contentInsets: const EdgeInsets.fromLTRB(12, 40, 12, 20),
                   ),
                 ),
               ),
@@ -129,6 +131,22 @@ void main() {
     expect(key.currentState!.layoutComplete, isTrue);
     final measurements = key.currentState!.layoutMeasurements;
     final notifier = container.read(readerNotifierProvider.notifier) as _Reader;
+    final preview = tester
+        .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+        .chapterNextPage;
+    expect(preview, isNotNull);
+    notifier.toggleControls();
+    await tester.pumpAndSettle();
+    expect(
+      identical(
+        preview,
+        tester
+            .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+            .chapterNextPage,
+      ),
+      isTrue,
+    );
+    expect(key.currentState!.layoutMeasurements, measurements);
     notifier.color();
     await tester.pumpAndSettle();
     expect(key.currentState!.layoutMeasurements, measurements);

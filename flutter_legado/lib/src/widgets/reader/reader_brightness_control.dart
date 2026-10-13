@@ -8,6 +8,9 @@ import '../../services/system_brightness.dart';
 
 /// 设置页与阅读底栏共用的亮度控件。
 class ReaderBrightnessControl extends StatefulWidget {
+  /// 胶囊宽度与端部区域同宽，使图标圆心与端部圆角圆心重合。
+  static const double verticalWidth = 56;
+
   const ReaderBrightnessControl({
     super.key,
     this.compact = false,
@@ -114,6 +117,7 @@ class _ReaderBrightnessControlState extends State<ReaderBrightnessControl>
   }
 
   Widget _slider() => Slider(
+    padding: widget.vertical ? const EdgeInsets.symmetric(horizontal: 8) : null,
     value: _brightness,
     label: '${(_brightness * 100).round()}%',
     onChangeStart: _busy ? null : (_) => _dragging = true,
@@ -156,13 +160,22 @@ class _ReaderBrightnessControlState extends State<ReaderBrightnessControl>
       );
       if (widget.vertical) {
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            autoButton,
+            SizedBox.square(
+              dimension: ReaderBrightnessControl.verticalWidth,
+              child: Center(child: autoButton),
+            ),
             Expanded(child: RotatedBox(quarterTurns: 3, child: _slider())),
-            IconButton(
-              icon: const Icon(Icons.swap_horiz),
-              tooltip: '切换亮度控件位置',
-              onPressed: widget.onSwitchSide,
+            SizedBox.square(
+              dimension: ReaderBrightnessControl.verticalWidth,
+              child: Center(
+                child: IconButton(
+                  icon: const Icon(Icons.swap_horiz),
+                  tooltip: '切换亮度控件位置',
+                  onPressed: widget.onSwitchSide,
+                ),
+              ),
             ),
           ],
         );

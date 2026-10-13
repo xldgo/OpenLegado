@@ -50,6 +50,66 @@
 - **范围**：设备与模拟器工作流统一选择当前镜像预装的 Xcode 26.6；按用户要求不增加平台检查步骤，保留已有版本与 SDK 输出。
 - **状态**：YAML 解析及与 HEAD 的配置比较通过，两条工作流仅变更 DEVELOPER_DIR；git diff --check 通过。用户已授权提交、推送并触发 iOS Build，实际构建结果以该提交对应的 Actions 运行为准。
 
+编写者：Codex｜2026-10-14
+
+> 2026-10-14 交付：用户已授权将下述阅读动画、亮度控件、默认主题、导出布局及缓存搜索调整合为一个本地提交；这覆盖各条目实施时暂不提交的约束，按用户后续要求合并到主目录 feature/ui-reader-selection，未推送。定向验证与官方模拟器安装记录见各条目，视觉仍以用户人工验收为准。输入框主题整理为下一步建议，尚未开始。
+
+### UI-CHIP-DEFAULT-THEME-20261014：恢复标准标签默认主题与导出主操作（P2）
+
+- **授权与基线**：用户确认导出按钮改用 FilledButton，并同意继续主题整理第 1 项；在 reader-overlay / feature/ui-reader-refinement、`45392da97` 上保留全部现有修改，不使用子代理，不提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围**：导出确认按钮从 ElevatedButton 改为 FilledButton，回调和导出业务不变；删除 AppTheme 的全局 ChipThemeData，对标准单选、筛选、操作和输入标签采用 material_ui 1.6 的 M3 默认状态配色、描边、形状与内边距。核对依赖源码确认单选/筛选标签的文字按选中状态及 ColorScheme 解析，替代旧版暗色问题的显式覆盖。页面扫描未发现需删除的普通标准 Chip 重复样式；书源/订阅源调试的日志级别语义颜色与紧凑布局保留，发现自绘分类及 TagChip 不在本轮标准组件主题范围。输入框、弹层表面及其他主题覆盖暂不调整。
+- **状态与验证**：四个 Dart 修改文件定向分析无问题，32 项既有应用主题、阅读局部主题和导出回归通过。现有导出默认格式用例补充浅色、深色及深色局部色板下的真实标签文字颜色验证；确认操作用例继续验证导出调用，未新增测试文件。JDK 25 增量 APK 31 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验；已覆盖安装实时确认的官方 Legado_API_36（emulator-5556）并冷启动正常（8172ms），近期日志未见崩溃或布局异常，git diff --check 通过。未自动操作页面，实际标签与按钮效果待用户人工检查，iOS 未实测；未提交、合并或推送。证据位于 flutter_legado/build/chip-default-theme-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。
+
+编写者：Codex｜2026-10-14
+
+### UI-OFFLINE-CACHE-SEARCH-20261013：离线缓存页搜索与手动刷新（P2）
+
+- **授权与基线**：用户要求缓存页增加搜索，并询问下拉刷新作用；在 reader-overlay / feature/ui-reader-refinement、`45392da97` 实施，保留已有未提交修改。不使用子代理，不提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围**：顶栏复用 DynamicSearchAppBar，搜索框默认隐藏，点击搜索按钮展开，收起时清空筛选并恢复列表。按书名、作者即时筛选，忽略首尾空格及英文大小写，支持清除和无匹配提示。搜索只影响显示，不改变全部缓存、缓存当前章节之后和停止全部下载的操作范围，不增加输入时的后端请求。按用户追加要求移除下拉刷新及其空列表滚动容器，保留既有两秒轮询与顶栏刷新按钮；刷新仅重新读取书架、缓存计数和下载状态，不更新目录或启动下载。未修改 Rust/FFI、导出按钮类型或缓存业务。
+- **状态与验证**：两个修改文件定向分析无问题，缓存页六项既有测试通过；在既有用例中补充书名/作者筛选、大小写和空格处理、清空恢复、无匹配、搜索不请求后端及筛选后批量操作范围验证，未新增测试文件。JDK 25 增量 APK 30 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验。覆盖安装实时确认的官方 Legado_API_36（emulator-5556），冷启动 Status: ok（8035ms），近期日志未见崩溃或布局异常。未自动操作页面，搜索和下拉效果待用户人工检查，iOS 未实测；git diff --check 通过，未提交、合并或推送。证据位于 flutter_legado/build/offline-cache-search-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。
+
+- **追加调整与验证（2026-10-14）**：用户要求删除下拉刷新，并将搜索框改为默认隐藏、按钮展开；移除刷新包装及其滚动占位，复用现有动态搜索顶栏，收起时清空筛选，隐藏后不占布局高度。既有测试同步覆盖默认隐藏、收起恢复和再次展开为空，定向分析及六项回归通过。增量 APK 38 秒通过，原生库校验通过，已覆盖安装官方模拟器并冷启动正常（7284ms），界面效果待用户人工检查。证据位于 flutter_legado/build/offline-cache-search-toggle-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；未提交、合并或推送。
+
+编写者：Codex｜2026-10-14
+
+### UI-BUTTON-DEFAULT-THEME-20261013：恢复四类按钮默认主题（P2）
+
+- **授权与基线**：用户确认分析范围后要求实施；在 reader-overlay / feature/ui-reader-refinement、`45392da97` 上保留全部尚未提交的阅读器及控件主题修改。不使用子代理，不提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围**：删除 AppTheme 对 ElevatedButton、FilledButton、OutlinedButton 和 TextButton 的全局样式覆盖，背景、前景、阴影、状态描边、文字、尺寸及内边距按当前 ColorScheme/TextTheme 的 M3 默认规则解析。ElevatedButton 恢复容器底色、主色文字和轻微阴影；局部红色删除按钮、朗读紧凑工具按钮和阅读九宫格设计保留。不改变各按钮回调、页面结构、应用字阶、卡片或输入框主题。
+- **状态与验证**：按钮主题修改已实现，首轮发现的导出布局告警已按下述方案修复，视觉待人工复验。AppTheme 定向分析无问题，30 项既有应用/阅读主题与阅读组件回归通过；JDK 25 增量 APK 34 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验。覆盖安装实时确认的官方 Legado_API_36（emulator-5556），冷启动 Status: ok（9631ms）；近期运行日志记录底部 404px RenderFlex 溢出，不能记为无布局异常；版本仍为 2.0.373+374。主要人工对比入口为离线缓存导出确认、保存主题确认/取消、关联导入文件/剪贴板按钮及阅读内容编辑保存/取消。不新增布局测试、不自动操作页面，iOS 未实测；未提交、合并或推送。证据在 flutter_legado/build/button-default-theme-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。
+- **导出布局定位与修复**：用户确认告警来自书籍导出对话框；现有 ExportDialog 将长表单直接放入不可滚动 Column，原测试用 1200×1600 窗口避开溢出。表单改为 Flexible 内的滚动区域，标题与确认/取消固定，保留导出业务及默认按钮类型。既有测试改用 360×640 手机尺寸及 AppTheme，操作屏外复选框前滚动到该项；首次交互用例因未滚动失败，适配后 14 项通过，两文件定向分析通过，未新增测试文件。修复后 APK 增量编译 29 秒及原生库校验通过，已覆盖安装官方模拟器并启动正常，近期日志未见崩溃或布局异常；实际导出对话框效果仍待用户复验。证据在 flutter_legado/build/button-default-theme-export-{analysis,tests,tests-final,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；未提交、合并或推送。
+
+编写者：Codex｜2026-10-13
+
+### UI-CONTROL-DEFAULT-COLORS-20261013：恢复控件默认状态与配色（P2）
+
+- **授权与基线**：用户同意先调整控件状态和默认配色看效果，明确先不设置 noOverlay；在 reader-overlay / feature/ui-reader-refinement、`45392da97` 实施，保留已有翻页、亮度条和进度条修改，不使用子代理、不提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围**：AppTheme 删除 Switch 颜色回调、Checkbox/Radio 填充色、IconButton 前景色和 Slider 三项颜色覆盖。Slider 仅保留新版外观开关，Checkbox 保留原形状；应用色板与阅读器局部主题继续提供 ColorScheme，状态由组件默认解析。保留字体、布局、其他组件主题和默认按压反馈。
+- **追加授权**：用户随后要求主题使用 noOverlay，覆盖实施阶段暂不设置的限制；在全局 SliderTheme 配置 SliderComponentShape.noOverlay，取消普通滑块与阅读底栏进度条的圆形按压状态层，保留新版滑块自身形状变化与其他默认状态配色。竖排亮度条仍显式两端留白 8dp，240dp 正常高度下轨道仍为 112dp；未单独覆盖留白的滑条由默认布局按新形状重新计算。
+- **noOverlay 验证**：初次分析发现 noOverlay 不是编译期常量，移除 SliderThemeData 的 const 后定向分析通过；JDK 25 增量 APK 27 秒通过（25 项执行、381 项复用），原生库复用校验通过，已安装官方模拟器并冷启动正常，近期日志未见崩溃或布局异常。仅做必要定向检查，未新增或重复运行布局测试；按压效果仍由用户人工确认。证据位于 flutter_legado/build/slider-no-overlay-{analysis,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；未提交、合并或推送。
+- **状态与验证**：实现与最小验证通过，外观与状态效果待用户人工检查。调整既有主题测试中针对被删除覆盖的断言，三个文件定向分析通过，30 项既有主题/阅读组件回归通过。首次及一次重试的自动批准审核均超时，命令未执行；用户解除环境限制后完成验证。JDK 25 增量 APK 44 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验；覆盖安装实时确认的官方 Legado_API_36（emulator-5556），冷启动 Status: ok（6933ms），进程正常且近期日志未见崩溃或布局异常。包含先前底栏进度条恢复默认的修改；未自动操作界面，iOS 未实测，未提交、合并或推送。证据在 flutter_legado/build/control-default-colors-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。
+
+编写者：Codex｜2026-10-13
+
+### UI-READER-BRIGHTNESS-SIDE-20261013：竖排亮度控件动效与端部对齐（P2）
+
+- **授权与基线**：用户要求参照上游增加从左/右移入的亮度条动画，并对齐两端图标按钮圆心；沿用 reader-overlay / feature/ui-reader-refinement、`45392da97`，保留尚未提交的全屏翻页修复。不使用子代理，不提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围与方案**：调整 ReaderMenuPanel 的竖排侧栏动画与 ReaderBrightnessControl 的端部布局；复用菜单 220/180ms 和现有淡入淡出，按所在侧移入/移出；56dp 胶囊两端按钮各在 56dp 区域中央，与 28dp 圆角半径对应。用户随后指出滑块外观问题，确认 material_ui 1.6 默认 2023 版 M3 外观，用户进一步授权全局默认启用新版 M3，year2023=false 集中配置在 AppTheme 装配入口，删除亮度控件局部版本开关，应用及阅读器局部换色主题统一继承；漫画专用 SliderTheme 改从当前主题 copyWith，保留专用进度外观。该入口的弃用标记仅在全局配置行说明和忽略，不修改库源码。竖排两端明确留白 8dp，240dp 正常高度下轨道区域为 112dp。保留亮度服务、自动亮度与切换位置行为，横排及设置页只同步新版滑块外观。
+- **状态与验证**：实现与最小验证通过，动效及圆心对齐待用户人工检查。两个相关文件定向分析无问题，43 项既有阅读组件/菜单点击回归通过，不新增布局测试。JDK 25 增量 Debug APK 29 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验；已覆盖安装实时确认的官方 Legado_API_36（emulator-5556），冷启动成功，应用进程正常且近期日志未见崩溃或布局异常。未自动操作界面，iOS 未实测；证据位于 flutter_legado/build/reader-brightness-side-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。翻页画布修复随本 APK 一并保留，未提交、合并或推送。
+- **上游依据**：[ReadBookMenuBar 的侧向移入/移出](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/ReadBookMenuBar.kt)。
+- **全局滑块补充验证**：全局装配入口及漫画主题继承定向分析通过，30 项既有应用主题、阅读局部主题与组件回归通过；最终 APK 增量编译 31 秒通过，原生库复用校验通过，已安装并冷启动官方模拟器，近期日志未见崩溃或布局异常。证据在 flutter_legado/build/slider-global-md3-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log。普通滑块统一新版默认；阅读、视频、漫画的专用进度形状保留，未修改第三方库。弃用忽略只集中在 AppTheme 一处；外观仍待人工检查，未提交、合并或推送。
+- **按压反馈补充**：用户要求删除全局 Slider 的 overlayColor 覆盖，普通滑块使用 material_ui 默认状态反馈；保留专用进度条已有配置。定向分析通过，用户随后要求编译安装；JDK 25 增量 APK 28 秒通过，包内原生库校验通过，已覆盖安装官方 Legado_API_36（实时确认 emulator-5556）并冷启动成功，近期应用日志未见崩溃或布局异常，版本仍为 2.0.373+374。证据位于 flutter_legado/build/slider-default-feedback-{analysis,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；未提交、合并或推送。
+- **阅读进度补充授权**：用户要求底栏进度滑条也使用默认；删除 ReaderMenuPanel 的局部 SliderTheme，轨道、滑块、颜色、按压反馈及留白继承全局新版 M3，保留章节/页数分段、跳转回调与两侧章节按钮。定向分析通过；未重新编译安装，未提交、合并或推送。
+
+编写者：Codex｜2026-10-13
+
+### UI-READER-FULL-PAGE-TURN-20261013：翻页画布与内容避让分离（P1）
+
+- **授权与基线**：用户同意按上游修复翻页动画避开刘海/导航栏区域的问题；在 reader-overlay / feature/ui-reader-refinement、`45392da97` 实施，不使用子代理，不提交、合并或推送，版本保持 `2.0.373+374`。
+- **根因与方案**：ReaderScreen 与 ReaderPageView 的外层 Padding 同时缩小翻页画布及快照。让翻页宿主覆盖完整视口，仅在每页内容内部保留避让；分页测量扣除相同边距，双页与相邻章预览共用该路径。滚动内容保留避让并同步保存/恢复位置的顶部坐标，状态条与自动翻页浮层保留原位置。
+- **状态与验证**：实现及最小验证通过，视觉效果待人工检查。定向分析无问题，两轮既有重排、选区、快速翻页、快照、布局缓存、底部边距及退出回归共 47 项通过；增强已有重排/缓存用例，不新增测试文件。JDK 25 增量 Debug APK 31 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验。覆盖安装官方 Legado_API_36（实时确认 emulator-5556），冷启动 Status: ok（8995ms），进程存活且近期日志未见崩溃或布局异常；未自动操作页面，iOS 未实测。证据在 flutter_legado/build/reader-full-page-turn-{analysis-final,tests,final-tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；不改 Rust/FFI、配置存储与系统栏显隐 API，未提交、合并或推送。
+- **上游依据**：`HapeLee/legado-with-MD3` 的 `070ca1a9b`：[全屏画布接线](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt)、[页面背景与内容裁剪](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/ReaderCanvasSurface.kt)。
+
 编写者：Codex｜2026-10-13
 
 ### UI-READER-BOTTOM-CUTOUT-20261013：分离导航栏与底部屏幕缺口避让（P1）

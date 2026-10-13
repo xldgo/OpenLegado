@@ -10,6 +10,7 @@ import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 
 class _Reader extends ReaderNotifier {
   @override
@@ -24,7 +25,13 @@ void main() {
   testWidgets('系统字体缩放和屏幕宽度变化会使真实阅读器重新分页', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();
-    Future<void> pump(double width, double scale, {int count = 0}) async {
+    Future<void> pump(
+      double width,
+      double scale, {
+      int count = 0,
+      EdgeInsets insets = EdgeInsets.zero,
+      bool outerInsets = false,
+    }) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -45,11 +52,15 @@ void main() {
                       size: const Size(900, 900),
                       textScaler: TextScaler.linear(scale),
                     ),
-                    child: ReaderPageView(
-                      key: key,
-                      paragraphSpacing: 8,
-                      selectText: false,
-                      reviewCounts: {1: count},
+                    child: Padding(
+                      padding: outerInsets ? insets : EdgeInsets.zero,
+                      child: ReaderPageView(
+                        key: key,
+                        paragraphSpacing: 8,
+                        selectText: false,
+                        reviewCounts: {1: count},
+                        contentInsets: outerInsets ? null : insets,
+                      ),
                     ),
                   ),
                 ),
@@ -96,6 +107,16 @@ void main() {
     expect(key.currentState!.pageCount, greaterThan(narrow));
     expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
     expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
+    // 同样的内容容量下，内部避让应保持分页和位置，但扩大翻页画布。
+    const insets = EdgeInsets.fromLTRB(12, 40, 16, 20);
+    await pump(500, 1, insets: insets, outerInsets: true);
+    final insetPageCount = key.currentState!.pageCount;
+    final insetSourceRange = key.currentState!.currentSourceRange;
+    expect(tester.getSize(find.byType(ReaderTurnView)), const Size(472, 440));
+    await pump(500, 1, insets: insets);
+    expect(key.currentState!.pageCount, insetPageCount);
+    expect(key.currentState!.currentSourceRange, insetSourceRange);
+    expect(tester.getSize(find.byType(ReaderTurnView)), const Size(500, 500));
     expect(tester.takeException(), isNull);
   });
 }

@@ -395,9 +395,27 @@ Flutter 无 Expressive shape scale preset，经 component theme 显式落地（`
 - 圆角 20，elevation 0，无边框
 - 分隔线：`outlineVariant` 1px（带缩进）
 
-### 5.4 ElevatedButton / FilledButton / OutlinedButton
-- 主按钮：`primary` 底 + `onPrimary` 前景，StadiumBorder，elevation 0
-- 轮廓按钮：`primary` 前景 + `outlineVariant` 边线
+### 5.4 ElevatedButton / FilledButton / OutlinedButton / TextButton
+
+四类按钮使用当前 ColorScheme 与 TextTheme 的 M3 默认样式，不在全局重复指定
+颜色、形状、尺寸、状态描边或阴影。页面局部明确设置的错误色、紧凑布局和
+功能选项形状继续优先生效。
+
+- ElevatedButton：`surfaceContainerLow` 底、`primary` 前景，普通态 elevation 1。
+- FilledButton：`primary` 底、`onPrimary` 前景；tonal 变体使用对应容器颜色。
+- OutlinedButton：`primary` 前景，默认状态描边；禁用态按组件规则减弱。
+- TextButton：默认文字按钮颜色和状态反馈，尺寸及内边距由组件解析。
+
+导出对话框的确认操作使用 FilledButton，取消使用 TextButton，通过组件类型
+区分操作重点，沿用当前主题颜色。
+
+### 5.4.1 Chip（标签与筛选）
+
+标准 Chip、ChoiceChip、FilterChip、ActionChip 和 InputChip 使用 material_ui 的
+M3 默认样式，颜色、描边、形状与内边距不在全局统一覆写。标签文字根据当前
+ColorScheme/TextTheme 和选中状态解析，应用明暗主题与阅读器局部主题沿用同一规则。
+普通单选与筛选的选中容器使用 secondaryContainer，前景使用 onSecondaryContainer。
+日志级别的语义颜色、紧凑工具栏及专用自绘分类控件保留各自用途，不套用普通标签规则。
 
 ### 5.5 InputDecoration（输入框）
 - 普通设置、表单与对话框输入统一使用 `surfaceContainerLow` 填充，四角圆角 12dp。
@@ -426,6 +444,17 @@ Flutter 无 Expressive shape scale preset，经 component theme 显式落地（`
 - 选中/指示器：`primary`；未选中：`onSurfaceVariant`；indicatorSize label
 
 ### 5.12 Switch / Checkbox / Radio / Slider / Progress
+
+Slider 与 RangeSlider 的新版 M3 默认外观由 AppTheme 的 sliderTheme 统一启用，
+局部主题通过同一装配入口继承。当前 material_ui 1.6 需要 year2023=false；
+仅在该配置行说明并忽略弃用标记，控件不重复声明版本开关。
+专用进度控件可保留已有轨道与滑块形状，局部 SliderTheme 从当前主题 copyWith，
+避免新建完整主题而丢失全局默认设置。
+
+Slider、Switch、Checkbox、Radio 和 IconButton 不在全局覆盖配色与交互状态，
+由组件根据当前 ColorScheme 解析选中、禁用、按压、悬停与焦点状态。
+Slider 保留新版外观开关，按用户授权使用 noOverlay 取消圆形按压状态层，
+其他默认状态反馈仍由组件解析；Checkbox 保留现有形状。
 - 跟随 M3 默认主题（不再覆写为 iOS 绿等自定义色）
 
 ### 5.13 PopupMenu / DropdownMenu

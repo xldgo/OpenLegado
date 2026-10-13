@@ -1,13 +1,15 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../widgets/dynamic_search_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -15,7 +17,6 @@ import '../providers/sync/sync_notifier.dart';
 import '../routes.dart';
 import '../services/export_service.dart';
 import '../utils/book_open_utils.dart';
-import '../widgets/custom_refresh_indicator.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/loading_indicator.dart';
 
@@ -37,8 +38,7 @@ class OfflineCacheScreen extends ConsumerStatefulWidget {
   const OfflineCacheScreen({super.key});
 
   @override
-  ConsumerState<OfflineCacheScreen> createState() =>
-      _OfflineCacheScreenState();
+  ConsumerState<OfflineCacheScreen> createState() => _OfflineCacheScreenState();
 }
 
 /// 缓存下载任务快照（camelCase 对齐 Rust CacheDownloadTask）
@@ -58,12 +58,12 @@ class _DownloadTask {
   });
 
   factory _DownloadTask.fromJson(Map<String, dynamic> json) => _DownloadTask(
-        taskId: (json['taskId'] as num?)?.toInt() ?? 0,
-        bookUrl: json['bookUrl'] as String? ?? '',
-        status: json['status'] as String? ?? 'unknown',
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        completed: (json['completed'] as num?)?.toInt() ?? 0,
-      );
+    taskId: (json['taskId'] as num?)?.toInt() ?? 0,
+    bookUrl: json['bookUrl'] as String? ?? '',
+    status: json['status'] as String? ?? 'unknown',
+    total: (json['total'] as num?)?.toInt() ?? 0,
+    completed: (json['completed'] as num?)?.toInt() ?? 0,
+  );
 
   bool get isRunning => status == 'running';
 }
@@ -82,6 +82,9 @@ class _BookEntry {
 }
 
 class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+  bool _searchExpanded = false;
   List<_BookEntry> _entries = [];
   bool _loading = true;
   Timer? _timer;
@@ -99,6 +102,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -108,8 +112,9 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       final api = ref.read(bookApiProvider);
       final books = await api.bookshelfRepository.getBooks();
       // 原版 initBookData 过滤音频书（音频书缓存走听书链路）
-      final visible =
-          books.where((b) => (b.bookType & BookType.audio) == 0).toList();
+      final visible = books
+          .where((b) => (b.bookType & BookType.audio) == 0)
+          .toList();
 
       // 任务快照：bookUrl → 进行中任务（对齐原版 CacheBook.cacheBookMap）
       final tasks = <String, _DownloadTask>{};
@@ -150,14 +155,17 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ===== 下载操作（对齐原版 CacheAdapter.registerListener / CacheActivity） =====
 
   /// 单本缓存下载：download_all（0..末章）或 download_after（当前章..末章）
-  Future<void> _startBookCache(_BookEntry entry,
-      {bool afterCurrent = false}) async {
+  Future<void> _startBookCache(
+    _BookEntry entry, {
+    bool afterCurrent = false,
+  }) async {
     final book = entry.book;
     final total = book.totalChapterNum;
     if (total <= 0) {
@@ -206,7 +214,8 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(afterCurrent ? '缓存所有书籍当前章节之后' : '缓存所有书籍'),
         content: Text(
-            '将缓存书架全部 ${targets.length} 本书${afterCurrent ? '（当前章节之后）' : ''}，是否继续？'),
+          '将缓存书架全部 ${targets.length} 本书${afterCurrent ? '（当前章节之后）' : ''}，是否继续？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -310,10 +319,28 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final visibleEntries = _entries.where((entry) {
+      return entry.book.name.toLowerCase().contains(_query) ||
+          entry.book.author.toLowerCase().contains(_query);
+    }).toList();
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: LegadoAppBar(
-        title: const Text('离线缓存'),
+      topBar: DynamicSearchAppBar(
+        title: '离线缓存',
+        searchController: _searchController,
+        searchHint: '搜索书名或作者',
+        expanded: _searchExpanded,
+        onChanged: (value) =>
+            setState(() => _query = value.trim().toLowerCase()),
+        onExpandedChanged: (expanded) {
+          setState(() {
+            _searchExpanded = expanded;
+            if (!expanded) {
+              _searchController.clear();
+              _query = '';
+            }
+          });
+        },
         actions: [
           IconButton(
             tooltip: '刷新',
@@ -325,8 +352,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
             onSelected: _handleMenu,
             itemBuilder: (_) => const [
               AppMenuItem(value: 'download_all', child: Text('全部缓存')),
-              AppMenuItem(
-                  value: 'download_after', child: Text('缓存当前章节之后')),
+              AppMenuItem(value: 'download_after', child: Text('缓存当前章节之后')),
               AppMenuItem(value: 'stop_all', child: Text('停止全部下载')),
               AppMenuDivider(),
               AppMenuItem(value: 'queue', child: Text('下载队列')),
@@ -336,44 +362,46 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       ),
       body: _loading
           ? const LoadingIndicator()
-          : _entries.isEmpty
-              ? _buildEmpty(cs)
-              // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
-              : CustomRefreshIndicator(
-                  onRefresh: () async => _refresh(),
-                  child: ListView.separated(
-                    // [LAYOUT_PLAN P3] 页面水平边距16dp（行内 ListTile 默认 horizontal16）
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _entries.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant.withValues(alpha: 0.3),
-                    ),
-                    itemBuilder: (context, index) =>
-                        _buildTile(_entries[index]),
-                  ),
-                ),
+          : visibleEntries.isEmpty
+          ? _buildEmpty(cs)
+          : ListView.separated(
+              // [LAYOUT_PLAN P3] 页面水平边距16dp（行内 ListTile 默认 horizontal16）
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: visibleEntries.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant
+                indent: 16,
+                endIndent: 16,
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+              ),
+              itemBuilder: (context, index) =>
+                  _buildTile(visibleEntries[index]),
+            ),
     );
   }
 
   Widget _buildEmpty(ColorScheme cs) {
+    final noMatch = _entries.isNotEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.cloud_off_rounded, size: 64, color: cs.outlineVariant),
+          Icon(
+            noMatch ? Symbols.search_off_rounded : Symbols.cloud_off_rounded,
+            size: 64,
+            color: cs.outlineVariant,
+          ),
           const SizedBox(height: 12),
           // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-          Text('书架暂无书籍', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            noMatch ? '没有匹配的书籍' : '书架暂无书籍',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 4),
           Text(
-            '在书架添加书籍后，可在此缓存离线阅读',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
+            noMatch ? '请尝试其他书名或作者' : '在书架添加书籍后，可在此缓存离线阅读',
+            style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
@@ -420,9 +448,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
+            style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 2),
@@ -432,8 +458,8 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
             overflow: TextOverflow.ellipsis,
             // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale + 状态色走 tonal
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: entry.task != null ? cs.primary : cs.onSurfaceVariant,
-                ),
+              color: entry.task != null ? cs.primary : cs.onSurfaceVariant,
+            ),
           ),
         ],
       ),
