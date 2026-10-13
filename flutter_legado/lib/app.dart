@@ -20,11 +20,10 @@ import 'src/services/deep_link_service.dart';
 import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
 import 'src/theme/app_theme.dart';
-import 'src/theme/theme_engine_parameterized.dart';
+import 'src/theme/app_theme_resolver.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 
-import 'src/theme/md3_colors.dart';
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
@@ -321,83 +320,46 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       WidgetsBinding.instance.platformDispatcher.locales,
     );
     AppStrings.setLocale(locale.languageCode);
-    // [UI-FIX v2.0.5 | 2026-08-08] 自定义主题颜色接入 MaterialApp（对齐原版
-    // ThemeConfigFragment 日间/夜间颜色配置，设置页修改后全局即时生效） — Qoder
     final themeColors = ref.watch(themeColorsProvider);
-    Color? c(int? argb) => argb != null ? Color(argb) : null;
+    final uiSettings = ref.watch(uiSettingsProvider);
+    Color? color(int? argb) => argb == null ? null : Color(argb);
+    final preferences = AppThemePreferences(
+      paletteId: themeState.paletteId,
+      style: uiSettings.themeStyle,
+      contrastLevel: double.tryParse(uiSettings.themeContrastLevel) ?? 0,
+      amoledDark: uiSettings.themeAmoled,
+      followWallpaper: uiSettings.wallpaperColorFollow,
+      cardRadius: uiSettings.overrideBaseCardCornerRadius
+          ? uiSettings.baseCardCornerRadius.toDouble()
+          : AppTheme.defaultCardRadius,
+      lightColors: ThemeColorOverrides(
+        primary: color(themeColors.primary),
+        accent: color(themeColors.accent),
+        background: color(themeColors.background),
+        bottomBackground: color(themeColors.bottomBackground),
+      ),
+      darkColors: ThemeColorOverrides(
+        primary: color(themeColors.primaryNight),
+        accent: color(themeColors.accentNight),
+        background: color(themeColors.backgroundNight),
+        bottomBackground: color(themeColors.bottomBackgroundNight),
+      ),
+    );
 
-    // [MD3 Batch 0 | 2026-08-28] 按 paletteId 装配内置 MD3 调色板
-    //（阶段D 2.0.270 起默认 def「默认」；自定义 themeConfigList 4 色仍可叠加，
-    // 自定义已应用色优先于内置 palette role——UI_MD3_PLAN.md 第九节并存模型）
-    final palette = Md3Palettes.byId(themeState.paletteId);
-    // [UI_SYNC_REFACTOR S4] 主题引擎参数化：themeStyle 非 none 时按
-    // paletteStyle/contrastLevel 从调色板锚点 seed 生成明暗两套角色
-    //（material_color_utilities Scheme* 类，对齐参考 ThemeEngine）；
-    // 纯黑模式由 AppTheme 统一装配。并存模型保持：动态壁纸 > 自定义四色 > 参数化
-    // seed > 内置色板（自定义四色仍叠加于参数化结果之上）
-    final uiTheme = ref.watch(uiSettingsProvider);
-    var effectivePalette = palette;
-    if (uiTheme.themeStyle != 'none') {
-      final seed = c(themeColors.primary) != null
-          ? c(themeColors.primary)!.toARGB32()
-          : palette.seed;
-      final contrast = double.tryParse(uiTheme.themeContrastLevel) ?? 0.0;
-      final generated = buildParameterizedRoles(
-        style: uiTheme.themeStyle,
-        seed: seed,
-        contrastLevel: contrast,
-      );
-      effectivePalette = Md3Palette(
-        id: '${palette.id}__param',
-        label: palette.label,
-        seed: seed,
-        light: generated.light,
-        dark: generated.dark,
-      );
-    }
-
-    // P1-8：有背景图时 Scaffold 透明，露出全局壁纸层（对齐原版
-    // BaseActivity.upBackgroundImage → decorView.background）
-    // [UI_SYNC_REFACTOR R1] 跟随壁纸取色（Material You）：开关开启且系统
-    // 提供动态色板时，primary/accent 取动态色 role，其余 role 沿用内置
-    // palette；关闭或无动态色板时维持原并存模型（自定义四色 > palette）
+    // 平台动态色与本地背景图由应用入口提供，主题解析只消费绘制输入。
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        final uiSettings = ref.watch(uiSettingsProvider);
-        final followWallpaper = uiSettings.wallpaperColorFollow;
+        final themes = resolveAppThemes(
+          preferences: preferences,
+          lightDynamic: lightDynamic,
+          darkDynamic: darkDynamic,
+        );
         final lightTheme = _withOptionalTransparentScaffold(
-          AppTheme.palette(
-            brightness: Brightness.light,
-            palette: effectivePalette,
-            primary: followWallpaper
-                ? lightDynamic?.primary
-                : c(themeColors.primary),
-            accent: followWallpaper
-                ? lightDynamic?.tertiary
-                : c(themeColors.accent),
-            background: followWallpaper ? null : c(themeColors.background),
-            bottomBackground: followWallpaper
-                ? null
-                : c(themeColors.bottomBackground),
-          ),
+          themes.light,
           themeColors.bgImage,
         );
         final darkTheme = _withOptionalTransparentScaffold(
-          AppTheme.palette(
-            brightness: Brightness.dark,
-            palette: effectivePalette,
-            amoledDark: uiTheme.themeAmoled,
-            primary: followWallpaper
-                ? darkDynamic?.primary
-                : c(themeColors.primaryNight),
-            accent: followWallpaper
-                ? darkDynamic?.tertiary
-                : c(themeColors.accentNight),
-            background: followWallpaper ? null : c(themeColors.backgroundNight),
-            bottomBackground: followWallpaper
-                ? null
-                : c(themeColors.bottomBackgroundNight),
-          ),
+          themes.dark,
           themeColors.bgImageNight,
         );
 

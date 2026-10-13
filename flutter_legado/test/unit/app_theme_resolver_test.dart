@@ -1,0 +1,220 @@
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
+import 'package:flutter_legado/src/theme/app_theme_resolver.dart';
+import 'package:flutter_legado/src/theme/md3_colors.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const day = ThemeColorOverrides(
+    primary: Color(0xFF123456),
+    accent: Color(0xFFABCDEF),
+    background: Color(0xFFF0E0D0),
+    bottomBackground: Color(0xFFE0D0C0),
+  );
+  const night = ThemeColorOverrides(
+    primary: Color(0xFF654321),
+    accent: Color(0xFFEDCBA0),
+    background: Color(0xFF121314),
+    bottomBackground: Color(0xFF242526),
+  );
+
+  BorderRadiusGeometry? cardRadius(ThemeData theme) =>
+      (theme.cardTheme.shape as RoundedRectangleBorder).borderRadius;
+
+  void expectCustomColors(ThemeData theme, ThemeColorOverrides colors) {
+    expect(theme.appBarTheme.backgroundColor, colors.primary);
+    expect(theme.colorScheme.primary, colors.accent);
+    expect(theme.scaffoldBackgroundColor, colors.background);
+    expect(theme.navigationBarTheme.backgroundColor, colors.bottomBackground);
+  }
+
+  test('全部内置色板与未知 ID 保留明暗角色及默认组件样式', () {
+    for (final id in [...Md3Palettes.all.map((p) => p.id), 'unknown']) {
+      final themes = resolveAppThemes(
+        preferences: AppThemePreferences(paletteId: id),
+      );
+      final palette = Md3Palettes.byId(id);
+      for (final theme in [themes.light, themes.dark]) {
+        final original = AppTheme.palette(
+          brightness: theme.brightness,
+          palette: palette,
+        );
+        expect(theme.colorScheme, original.colorScheme, reason: id);
+        expect(theme.appBarTheme, original.appBarTheme, reason: id);
+        expect(theme.cardTheme, original.cardTheme, reason: id);
+        expect(theme.inputDecorationTheme, original.inputDecorationTheme);
+        expect(theme.pageTransitionsTheme, original.pageTransitionsTheme);
+      }
+    }
+  });
+
+  test('四色配置区分日夜；强调色与标题栏主色保持原有映射', () {
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        lightColors: day,
+        darkColors: night,
+      ),
+    );
+    expectCustomColors(themes.light, day);
+    expectCustomColors(themes.dark, night);
+    expect(themes.light.colorScheme.onPrimary, Colors.black87);
+    expect(themes.light.appBarTheme.foregroundColor, Colors.white);
+  });
+
+  test('动态色缺失时保留全部自定义颜色', () {
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        followWallpaper: true,
+        lightColors: day,
+        darkColors: night,
+      ),
+    );
+    expectCustomColors(themes.light, day);
+    expectCustomColors(themes.dark, night);
+  });
+
+  test('动态色按对应亮度生效，缺失的一侧独立回退', () {
+    final dynamic = ColorScheme.fromSeed(seedColor: Colors.green);
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        followWallpaper: true,
+        lightColors: day,
+        darkColors: night,
+      ),
+      lightDynamic: dynamic,
+    );
+    expect(themes.light.appBarTheme.backgroundColor, dynamic.primary);
+    expect(themes.light.colorScheme.primary, dynamic.tertiary);
+    expect(
+      themes.light.scaffoldBackgroundColor,
+      Color(Md3Palettes.def.light.surface),
+    );
+    expect(
+      themes.light.navigationBarTheme.backgroundColor,
+      Color(Md3Palettes.def.light.surfaceContainer),
+    );
+    expectCustomColors(themes.dark, night);
+  });
+
+  test('未开启壁纸取色时忽略平台动态色', () {
+    final dynamic = ColorScheme.fromSeed(seedColor: Colors.green);
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        lightColors: day,
+        darkColors: night,
+      ),
+      lightDynamic: dynamic,
+      darkDynamic: dynamic,
+    );
+    expectCustomColors(themes.light, day);
+    expectCustomColors(themes.dark, night);
+  });
+
+  test('参数化风格和对比度生效，自定义四色继续覆盖生成结果', () {
+    final standard = resolveAppThemes(
+      preferences: const AppThemePreferences(style: 'tonalSpot'),
+    );
+    final highContrast = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        style: 'tonalSpot',
+        contrastLevel: 0.5,
+      ),
+    );
+    final monochrome = resolveAppThemes(
+      preferences: const AppThemePreferences(style: 'monochrome'),
+    );
+    expect(
+      standard.light.colorScheme.outline,
+      isNot(highContrast.light.colorScheme.outline),
+    );
+    expect(
+      standard.dark.colorScheme.outline,
+      isNot(highContrast.dark.colorScheme.outline),
+    );
+    expect(
+      standard.light.colorScheme.primary,
+      isNot(monochrome.light.colorScheme.primary),
+    );
+    final custom = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        style: 'expressive',
+        contrastLevel: 0.5,
+        lightColors: day,
+        darkColors: night,
+      ),
+    );
+    expectCustomColors(custom.light, day);
+    expectCustomColors(custom.dark, night);
+  });
+
+  test('日间主色作为共同种子，夜间主色只覆盖夜间标题栏', () {
+    final first = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        style: 'tonalSpot',
+        lightColors: day,
+        darkColors: night,
+      ),
+    );
+    final changedNight = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        style: 'tonalSpot',
+        lightColors: day,
+        darkColors: ThemeColorOverrides(primary: Colors.blue),
+      ),
+    );
+    expect(first.light.colorScheme, changedNight.light.colorScheme);
+    expect(
+      first.dark.colorScheme.tertiary,
+      changedNight.dark.colorScheme.tertiary,
+    );
+    expect(changedNight.dark.appBarTheme.backgroundColor, Colors.blue);
+  });
+
+  test('纯黑对默认和参数化主题生效，自定义背景仍有更高优先级', () {
+    for (final style in ['none', 'tonalSpot']) {
+      final themes = resolveAppThemes(
+        preferences: AppThemePreferences(style: style, amoledDark: true),
+      );
+      expect(themes.dark.colorScheme.surface, Colors.black);
+      expect(themes.dark.scaffoldBackgroundColor, Colors.black);
+      expect(themes.dark.cardTheme.color, const Color(0xFF0A0A0A));
+      expect(themes.light.colorScheme.surface, isNot(Colors.black));
+      final custom = resolveAppThemes(
+        preferences: AppThemePreferences(
+          style: style,
+          amoledDark: true,
+          darkColors: night,
+        ),
+      );
+      expectCustomColors(custom.dark, night);
+    }
+  });
+
+  test('组件装配只使用显式圆角，局部换色继承已解析形状', () {
+    final previous = uiSettingsListenable.value;
+    addTearDown(() => uiSettingsListenable.value = previous);
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(cardRadius: 8),
+    );
+    uiSettingsListenable.value = const UiSettingsState(
+      overrideBaseCardCornerRadius: true,
+      baseCardCornerRadius: 30,
+    );
+    final repeated = resolveAppThemes(
+      preferences: const AppThemePreferences(cardRadius: 8),
+    );
+    expect(cardRadius(themes.light), BorderRadius.circular(8));
+    expect(cardRadius(themes.dark), BorderRadius.circular(8));
+    expect(themes.light.cardTheme, repeated.light.cardTheme);
+    expect(cardRadius(AppTheme.light), BorderRadius.circular(20));
+    final local = AppTheme.withColorScheme(
+      themes.dark,
+      ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+    );
+    expect(local.cardTheme.shape, themes.dark.cardTheme.shape);
+    expect(local.cardTheme.color, local.colorScheme.surfaceContainerLow);
+  });
+}
