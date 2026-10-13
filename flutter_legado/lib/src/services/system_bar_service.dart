@@ -24,6 +24,20 @@ class SystemBarService {
   /// 原版 status_bar_bag（非沉浸式 + fullScreen 时的状态栏底色）
   static const Color statusBarBag = Color(0x19000000);
 
+  /// Android 返回物理像素的底部屏幕缺口高度，不包含导航栏占位。
+  static Future<double> displayCutoutBottomInset() async {
+    if (!Platform.isAndroid) return 0;
+    try {
+      final bottom = await _channel.invokeMethod<num>(
+        'getDisplayCutoutBottomInset',
+      );
+      return (bottom ?? 0).toDouble().clamp(0, double.infinity);
+    } catch (error) {
+      debugPrint('读取底部屏幕缺口失败: $error');
+      return 0;
+    }
+  }
+
   /// 阅读页面独立控制显隐；原生前台恢复不再写入全局窗口设置。
   static Future<void> applyReader({
     required bool statusBarVisible,

@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-READER-BOTTOM-CUTOUT-20261013：分离导航栏与底部屏幕缺口避让（P1）
+
+- **授权与基线**：用户指出开启填充刘海区域后仍保留导航栏底部安全边距的偏差，继续在 reader-overlay / feature/ui-reader-refinement、`6cf7beb93` 修复；用户随后授权本地提交，不使用子代理，不合并或推送，版本保持 `2.0.373+374`。
+- **根因与范围**：旧 avoidBottom 条件将填充刘海与导航栏避让合并，直接使用完整 viewPadding.bottom。新增 Android 系统栏通道只读方法，获取 DisplayCutout.safeInsetBottom 物理像素；正文根据隐藏导航栏与填充刘海分别选择占位，系统安全边距与缺口取最大值避免重复叠加。按视口/像素比变化采样，保护异步结果和销毁；菜单显隐不重采样。只修正正文外层底部避让，页脚自身下边距、顶部/侧边规则、Rust/FFI 与数据协议不变。
+- **状态与验证**：实现及最小验证通过，视觉行为待用户人工检查。定向分析无问题，四项纯边距逻辑与既有阅读回归共 29 项通过；JDK 25 增量 APK 编译成功（43 秒，28 项执行、378 项复用），复用已有 Rust 库并通过 APK 原生库校验。已覆盖安装到实时确认的官方模拟器 Legado_API_36（emulator-5556），冷启动成功，近期应用日志未见崩溃或布局异常；未自动操作阅读界面，iOS 与真实底部缺口设备未实测。证据位于 flutter_legado/build/reader-bottom-cutout-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；随本次修复提交到 worktree 分支，不合并或推送。
+- **来源与边界**：Android 使用官方 [DisplayCutout 接口](https://developer.android.com/reference/android/view/DisplayCutout#getSafeInsetBottom())，来源语义参照 [上游避让策略](https://github.com/HapeLee/legado-with-MD3/blob/main/app/src/main/java/io/legado/app/ui/book/read/ReaderContentAvoidancePolicy.kt)。非 Android 不将底部手势安全区当成屏幕缺口；不改变系统栏显示请求及 Android 16 的平台限制。
+
+编写者：Codex｜2026-10-13
+
 ### UI-SYSTEM-BAR-OWNERSHIP-20261013：应用与阅读器系统栏控制归属（P2）
 
 - **授权与基线**：用户要求继续系统栏任务，沿用 reader-overlay / feature/ui-reader-refinement、基线 `c87c88c50`，保留上一批尚未提交的系统栏状态修复。不使用子代理、不自动提交、合并或推送，版本保持 `2.0.373+374`。

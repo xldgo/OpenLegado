@@ -22,6 +22,7 @@ import '../providers/reader/reader_notifier.dart';
 import '../providers/theme/system_bar_controller.dart';
 import '../routes.dart';
 import '../services/system_brightness.dart';
+import '../services/system_bar_service.dart';
 import '../utils/book_open_utils.dart';
 import '../utils/app_route_observer.dart';
 import '../widgets/reader/read_aloud_bar.dart';
@@ -64,13 +65,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Size? _insetViewportSize;
   EdgeInsets _bodySystemInsets = EdgeInsets.zero;
+  double? _cutoutPixelRatio;
+  double _cutoutBottomInset = 0;
+  int _cutoutGeneration = 0;
 
   /// 系统栏开关不改变正文分页；方向或窗口尺寸变化后重新采样。
   EdgeInsets _stableBodyInsets(BuildContext context) {
     final media = MediaQuery.of(context);
-    if (_insetViewportSize != media.size) {
+    if (_insetViewportSize != media.size ||
+        _cutoutPixelRatio != media.devicePixelRatio) {
       _insetViewportSize = media.size;
+      _cutoutPixelRatio = media.devicePixelRatio;
       _bodySystemInsets = media.viewPadding;
+      _cutoutBottomInset = 0;
+      unawaited(
+        _loadCutoutBottomInset(++_cutoutGeneration, media.devicePixelRatio),
+      );
     } else {
       final current = media.viewPadding;
       _bodySystemInsets = EdgeInsets.fromLTRB(
@@ -81,6 +91,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       );
     }
     return _bodySystemInsets;
+  }
+
+  Future<void> _loadCutoutBottomInset(int generation, double pixelRatio) async {
+    final physical = await SystemBarService.displayCutoutBottomInset();
+    if (!mounted || generation != _cutoutGeneration) return;
+    final logical = physical / pixelRatio;
+    if (logical != _cutoutBottomInset) {
+      setState(() => _cutoutBottomInset = logical);
+    }
   }
 
   /// 自动翻页定时器
@@ -154,6 +173,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   void dispose() {
+    _cutoutGeneration++;
     systemBarRouteObserver.unsubscribe(this);
     _systemBars.releaseReader(_systemBarOwner);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
@@ -674,6 +694,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             final avoidSides = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
             final avoidBottom =
                 !cfg.hideNavigationBar || cfg.paddingDisplayCutouts;
+            final bottomInset = readerContentBottomInset(
+              systemBottomInset: bodyInsets.bottom,
+              cutoutBottomInset: _cutoutBottomInset,
+              hideNavigationBar: cfg.hideNavigationBar,
+              paddingDisplayCutouts: cfg.paddingDisplayCutouts,
+            );
             return Stack(
               children: [
                 Positioned.fill(
@@ -688,7 +714,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                         top: avoidTop ? bodyInsets.top : 0,
                         left: avoidSides ? bodyInsets.left : 0,
                         right: avoidSides ? bodyInsets.right : 0,
-                        bottom: avoidBottom ? bodyInsets.bottom : 0,
+                        bottom: bottomInset,
                       ),
                       child: Stack(
                         children: [

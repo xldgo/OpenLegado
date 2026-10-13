@@ -234,6 +234,15 @@ open class MainActivity : FlutterActivity() {
 
     private fun handleSystemBarCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "getDisplayCutoutBottomInset" -> {
+                // 只读取真实屏幕缺口；导航栏和键盘不属于这里的避让尺寸。
+                val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.decorView.rootWindowInsets?.displayCutout?.safeInsetBottom ?: 0
+                } else {
+                    0
+                }
+                result.success(bottom)
+            }
             "reader" -> {
                 // 阅读器接管显隐；不让全局 decorFits 设置约束正文布局。
                 systemBarReaderActive = true
