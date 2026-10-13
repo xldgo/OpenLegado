@@ -283,7 +283,7 @@ onSurfaceVariant，无图标、不可点击、不参与行间分隔线。
 规则高亮与选中状态保留语义色。普通列表由行内容负责水平留白，避免列表和行双重缩进；
 带勾选框的行保留控件所需边距。书源及订阅源现有分割线右侧同样留 16dp。
 
-免责声明和更新日志复用 HelpScreen 的 Markdown 弹窗，不使用普通文本的独立底部弹层；
+免责声明和更新日志复用 HelpScreen 的 Markdown 内容与共用 Sheet 入口；
 标题、列表、链接、主题及关闭图标沿用帮助文档查看器。
 
 ### 1.7 阅读设置（2026-10-11）
@@ -439,6 +439,12 @@ ColorScheme/TextTheme 和选中状态解析，应用明暗主题与阅读器局�
 
 ### 5.10 BottomSheet
 - 背景：`surfaceContainerLow`，顶部圆角 28；拖拽把手 = IosGrabber（32×4，`onSurfaceVariant`）
+
+帮助文档、更新日志与免责声明统一通过 showHelpDocument 打开标准模态 Sheet，
+继承入口主题和全局 Sheet 形状、底色、把手及默认动画。竖屏正文容器采用安全区域
+及把手后约 90% 的可用高度，横屏采用全部可用高度；宽屏沿用 M3 默认 640dp 宽度
+上限并居中。标题栏固定，保留目录、源码与关闭图标按钮，正文独立滚动，底部避让
+系统区域；文档内容不再嵌套 Dialog。
 
 ### 5.11 TabBar
 - 选中/指示器：`primary`；未选中：`onSurfaceVariant`；indicatorSize label

@@ -4,12 +4,12 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
 import '../providers/providers.dart';
-import '../widgets/custom_refresh_indicator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_indicator.dart';
@@ -49,8 +49,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
       if (!mounted) return;
       setState(() {
         _stars = stars;
-        _sourceNames = {
-          for (final s in sources) s.sourceUrl: s.sourceName};
+        _sourceNames = {for (final s in sources) s.sourceUrl: s.sourceName};
         _loading = false;
       });
     } catch (e) {
@@ -72,7 +71,8 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
   }
 
   String _displayName(String origin) =>
-      _sourceNames[origin] ?? (origin.isEmpty ? context.l10n.unknownSource : origin);
+      _sourceNames[origin] ??
+      (origin.isEmpty ? context.l10n.unknownSource : origin);
 
   Future<void> _unstar(RssStar star) async {
     // 先从本地移除，提升响应速度
@@ -90,7 +90,8 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     } catch (e) {
       // 失败时恢复
       setState(() => _stars.add(star));
-      messenger.showSnackBar(SnackBar(content: Text(l10n.operationFailed(e.toString()))),
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.operationFailed(e.toString()))),
       );
     }
   }
@@ -107,16 +108,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
   Widget build(BuildContext context) {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: LegadoAppBar(
-        title: Text(context.l10n.rssFavorites),
-        actions: [
-          IconButton(
-            icon: const Icon(Symbols.refresh_rounded),
-            tooltip: context.l10n.refresh,
-            onPressed: _load,
-          ),
-        ],
-      ),
+      topBar: LegadoAppBar(title: Text(context.l10n.rssFavorites)),
       body: _buildBody(),
     );
   }
@@ -137,20 +129,16 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     }
 
     final grouped = _grouped;
-    // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
-    return CustomRefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          for (final entry in grouped.entries) ...[
-            _buildGroupHeader(entry.key, entry.value.length),
-            for (final star in entry.value) _buildStarTile(star),
-            const SizedBox(height: 8),
-          ],
+    return ListView(
+      // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        for (final entry in grouped.entries) ...[
+          _buildGroupHeader(entry.key, entry.value.length),
+          for (final star in entry.value) _buildStarTile(star),
+          const SizedBox(height: 8),
         ],
-      ),
+      ],
     );
   }
 
@@ -206,8 +194,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     final colorScheme = theme.colorScheme;
     return Card(
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；边距 horizontal16（全局标尺）
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -246,9 +233,11 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Symbols.schedule_rounded,
-                              // [LAYOUT_PLAN P2] 元信息图标走 onSurfaceVariant
-                              size: 14, color: colorScheme.onSurfaceVariant,
+                          Icon(
+                            Symbols.schedule_rounded,
+                            // [LAYOUT_PLAN P2] 元信息图标走 onSurfaceVariant
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
                           Text(

@@ -1,10 +1,11 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localization.dart';
@@ -14,7 +15,6 @@ import '../providers/rss_history/rss_history_notifier.dart';
 import '../routes.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/confirm_dialog.dart';
-import '../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
 import '../widgets/empty_state.dart';
 import '../widgets/dynamic_search_app_bar.dart';
 import '../widgets/error_view.dart';
@@ -56,9 +56,10 @@ class _RssScreenState extends ConsumerState<RssScreen> {
     final key = _searchKey.trim().toLowerCase();
     if (key.isEmpty) return sources;
     return sources
-        .where((s) =>
-            s.sourceName.toLowerCase().contains(key) ||
-            s.sourceUrl.toLowerCase().contains(key),
+        .where(
+          (s) =>
+              s.sourceName.toLowerCase().contains(key) ||
+              s.sourceUrl.toLowerCase().contains(key),
         )
         .toList();
   }
@@ -79,7 +80,9 @@ class _RssScreenState extends ConsumerState<RssScreen> {
           FilledButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              ref.read(rssNotifierProvider.notifier).removeSource(source.sourceUrl);
+              ref
+                  .read(rssNotifierProvider.notifier)
+                  .removeSource(source.sourceUrl);
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
@@ -140,7 +143,8 @@ class _RssScreenState extends ConsumerState<RssScreen> {
               color: Theme.of(context).colorScheme.onSurface,
             ),
             tooltip: context.l10n.favorites,
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.rssFavorites),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.rssFavorites),
           ),
           // 分组筛选：对齐原版 RssFragment 的分组菜单（ic_groups 图标，linkedSetOf 保序聚合）
           AppMenuButton<String?>(
@@ -157,9 +161,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                 child: Text(context.l10n.allBooks),
               ),
               for (final group in state.groups)
-                AppMenuItem<String?>(
-                  value: group,
-                  child: Text(group)),
+                AppMenuItem<String?>(value: group, child: Text(group)),
             ],
           ),
           // 原版 menu_rss_config：齿轮图标即订阅源管理入口，
@@ -197,71 +199,63 @@ class _RssScreenState extends ConsumerState<RssScreen> {
           final displaySources = _applySearch(state.filteredSources);
           final emptyMsg = state.isEmpty
               ? context.l10n.emptyRssSources
-              : (displaySources.isEmpty ? context.l10n.emptyGroupRssSources
+              : (displaySources.isEmpty
+                    ? context.l10n.emptyGroupRssSources
                     : null);
 
-          // [LAYOUT_PLAN P4] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
           // [UI_SYNC_REFACTOR T1] 一比一对齐参考 RssScreen：头部双卡
           //（规则订阅|收藏，span 全宽）+ Adaptive 72dp 小瓦片网格
-          return CustomRefreshIndicator(
-            onRefresh: () => notifier.loadSources(),
-            child: CustomScrollView(
-              // 空态也允许下拉刷新（AlwaysScrollable）
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  child: Row(
+                    children: [
+                      _buildEntryCard(
+                        context,
+                        Icons.subscriptions,
+                        context.l10n.ruleSubscriptions,
+                        () => Navigator.pushNamed(context, AppRoutes.ruleSub),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildEntryCard(
+                        context,
+                        Icons.star,
+                        context.l10n.favorites,
+                        () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.rssFavorites,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 72,
+                  mainAxisExtent: 120,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final source = displaySources[index];
+                  return _buildSourceItem(context, source);
+                }, childCount: displaySources.length),
+              ),
+              if (emptyMsg != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: Row(
-                      children: [
-                        _buildEntryCard(
-                          context,
-                          Icons.subscriptions,
-                          context.l10n.ruleSubscriptions,
-                          () => Navigator.pushNamed(
-                              context, AppRoutes.ruleSub),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildEntryCard(
-                          context,
-                          Icons.star,
-                          context.l10n.favorites,
-                          () => Navigator.pushNamed(
-                              context, AppRoutes.rssFavorites,
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(top: 48),
+                    child: EmptyState(
+                      icon: Symbols.rss_feed_rounded,
+                      title: emptyMsg,
+                      simple: true,
                     ),
                   ),
                 ),
-                SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 72,
-                    mainAxisExtent: 120,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final source = displaySources[index];
-                      return _buildSourceItem(context, source);
-                    },
-                    childCount: displaySources.length),
-                ),
-                if (emptyMsg != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 48),
-                      child: EmptyState(
-                        icon: Symbols.rss_feed_rounded,
-                        title: emptyMsg,
-                        simple: true,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            ],
           );
         },
       ),
@@ -274,8 +268,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
       if (!mounted) return;
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => RssArticlesScreen(source: source)),
+        MaterialPageRoute(builder: (_) => RssArticlesScreen(source: source)),
       );
       return;
     }
@@ -283,10 +276,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
     if (url.toLowerCase().startsWith('http://') ||
         url.toLowerCase().startsWith('https://')) {
       if (!mounted) return;
-      await Navigator.pushNamed(
-        context,
-        AppRoutes.browser,
-        arguments: url);
+      await Navigator.pushNamed(context, AppRoutes.browser, arguments: url);
       return;
     }
     final uri = Uri.tryParse(url);
@@ -330,10 +320,10 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                 const SizedBox(width: 12),
                 Flexible(
                   child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600),
-                      ),
+                    label,
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -386,7 +376,9 @@ class _RssScreenState extends ConsumerState<RssScreen> {
 
   /// 占位图标：显示源名称首字母（iOS 风格柔和填充底）
   Widget _buildPlaceholderIcon(
-      BuildContext context, RssSource source, ColorScheme colorScheme,
+    BuildContext context,
+    RssSource source,
+    ColorScheme colorScheme,
   ) {
     return Container(
       width: 48,
@@ -400,8 +392,8 @@ class _RssScreenState extends ConsumerState<RssScreen> {
           source.sourceName.isNotEmpty
               ? source.sourceName[0].toUpperCase()
               : 'R',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant),
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -490,8 +482,8 @@ class _ReadRecordDialogState extends ConsumerState<_ReadRecordDialog> {
                   Expanded(
                     child: Text(
                       context.l10n.readingRecords,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                   TextButton(
@@ -551,8 +543,7 @@ class _ReadRecordDialogState extends ConsumerState<_ReadRecordDialog> {
         return InkWell(
           onTap: () => _openRecord(record),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -568,8 +559,8 @@ class _ReadRecordDialogState extends ConsumerState<_ReadRecordDialog> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

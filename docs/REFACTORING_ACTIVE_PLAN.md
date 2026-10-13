@@ -1,5 +1,27 @@
 # Legado 后续重构执行计划（Active）
 
+> 2026-10-14 交付：用户已授权将 Markdown 阅读 Sheet 与订阅首页/收藏页刷新整理合为一个本地提交，并合并到主目录 feature/ui-reader-selection，覆盖本批实施时暂不提交的约束；未授权推送。原验证记录与人工验收边界保留。
+
+### UI-MARKDOWN-HELP-SHEET-20261014：统一 Markdown 阅读弹层（P2）
+
+- **授权与基线**：用户同意帮助文档改为 Sheet，并确认横屏接线；在 reader-overlay / feature/ui-reader-refinement、`64e4d98a3` 实施，保留订阅首页与收藏页移除刷新修改。不使用子代理，不提交或推送，版本不变。
+- **范围**：showHelpDocument 统一帮助、存储说明、更新日志和免责声明入口，使用原生模态底部 Sheet，继承入口主题及默认宽屏 640dp 宽度限制。竖屏采用安全区域及把手后约 90% 可用高度，横屏采用全部可用高度，保留系统区域避让；底部安全区域独立保留。HelpScreen 移除 Dialog 外壳，固定共用顶栏及目录/源码/关闭按钮，正文沿用既有滚动与 Markdown 渲染。背景与标题栏使用 Sheet 容器色，不修改文档资产、章节切分或外链逻辑。
+- **验证与状态**：五个修改页面/帮助入口定向分析无问题，五项既有 Markdown 渲染与章节切分测试通过，未新增布局测试。JDK 25 增量 APK 36 秒通过（25 项执行、381 项复用），复用已验证的新 Rust 库，包内校验通过，已覆盖安装实时确认的官方 Legado_API_36（emulator-5556），保留应用数据。首次启动等待超时，但应用进程存活且近期日志未见崩溃、布局或桥接异常；再次启动确认 Status: ok，并通过系统 Activity 状态确认应用已在前台。未自动操作页面，横竖屏、目录抽屉、源码返回和阅读局部配色效果待用户人工检查，iOS 未实测；git diff --check 通过，未提交或推送。证据位于 flutter_legado/build/markdown-help-sheet-{analysis,tests,apk-jdk25,apk-verification,install-official,start-official,start-confirm-official,runtime-official}.log。
+
+编写者：Codex｜2026-10-14
+
+### UI-RSS-HOME-REFRESH-20261014：移除订阅首页冗余下拉刷新（P2）
+
+- **授权与基线**：用户确认订阅首页下拉仅重读本地订阅源，要求移除；在 reader-overlay / feature/ui-reader-refinement、`64e4d98a3` 实施。不使用子代理，不提交或推送，版本不变。
+- **范围**：RssScreen 删除 CustomRefreshIndicator、相关导入与强制滚动配置，直接使用原 CustomScrollView。保留进入页面、从订阅源管理返回时的加载以及错误重试；订阅文章列表的下拉内容刷新不变。
+- **验证与状态**：单文件定向分析无问题，git diff --check 通过；不新增布局测试，尚未重新编译安装，实际滚动效果待用户检查。证据位于 flutter_legado/build/rss-home-remove-refresh-analysis.log。
+
+- **收藏页追加**：用户进一步要求移除 RSS 收藏页的两处冗余刷新；RssFavoritesScreen 删除顶栏刷新按钮、下拉刷新包装及相关导入，保留进入时加载、取消收藏即时更新和失败重试。单文件定向分析通过，未新增测试或重新编译安装，未提交或推送。证据位于 flutter_legado/build/rss-favorites-remove-refresh-analysis.log。
+
+- **本批安装**：订阅首页与收藏页调整已随 UI-MARKDOWN-HELP-SHEET-20261014 的最终 APK 编译安装，实际交互仍待用户人工检查；前述未安装状态为实施时记录。
+
+编写者：Codex｜2026-10-14
+
 ### UI-READ-RECORD-MODES-20261013：阅读记录上游三视图对齐（P1）
 
 - **授权与状态**：用户要求参照上游实现，当前feature/ui-home-overview/291c2a6af继续，保留既有未提交整改。代码实现与定向验证已通过，设备页面视觉待后续验收；不使用子代理、不更新版本、不提交/推送。

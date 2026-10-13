@@ -1,9 +1,10 @@
 import 'package:material_ui/material_ui.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../routes.dart';
@@ -11,7 +12,7 @@ import '../services/app_update_service.dart';
 import '../services/crash_log_service.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/update_dialog.dart';
-import '../widgets/help/help_screen.dart';
+import '../widgets/help/show_help.dart';
 
 /// 关于页面（对齐原版 about.xml + AboutFragment）
 ///
@@ -76,16 +77,14 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       if (!mounted) return;
       setState(() => _checkingUpdate = false);
       if (info == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('当前已是最新版本 v$version')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('当前已是最新版本 v$version')));
         return;
       }
       if (await service.isIgnored(info.tagName)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已忽略版本 ${info.tagName}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已忽略版本 ${info.tagName}')));
         return;
       }
       if (!mounted) return;
@@ -93,21 +92,16 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _checkingUpdate = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('检查更新\n$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('检查更新\n$e')));
     }
   }
 
   Future<void> _showMarkdown(String title, String assetPath) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => HelpScreen(title: title, assetPath: assetPath),
-    );
+    await showHelpDocument(context, title: title, assetPath: assetPath);
   }
 
-  Future<void> _showUpdateLog() =>
-      _showMarkdown('更新日志', 'assets/updateLog.md');
+  Future<void> _showUpdateLog() => _showMarkdown('更新日志', 'assets/updateLog.md');
 
   Future<void> _showDisclaimer() =>
       _showMarkdown('免责声明', 'assets/disclaimer.md');
@@ -117,29 +111,23 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       final path = await CrashLogService.instance.exportLogsToFile();
       if (!mounted) return;
       if (path == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('未开启日志记录，请去其他设置里打开记录日志'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未开启日志记录，请去其他设置里打开记录日志')));
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('日志已导出：$path')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('日志已导出：$path')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存日志失败：$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存日志失败：$e')));
     }
   }
 
   void _createHeapDumpPlaceholder() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('创建堆转储暂不可用（需 Android 堆转储能力；请先开启「记录堆转储」）'),
-      ),
+      const SnackBar(content: Text('创建堆转储暂不可用（需 Android 堆转储能力；请先开启「记录堆转储」）')),
     );
   }
 
@@ -162,9 +150,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 ),
                 SettingTile(
                   title: '更新日志',
-                  subtitle: _appVersion.isEmpty
-                      ? '版本 …'
-                      : '版本 $_appVersion',
+                  subtitle: _appVersion.isEmpty ? '版本 …' : '版本 $_appVersion',
                   onTap: _showUpdateLog,
                 ),
                 SettingTile(
@@ -186,17 +172,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               children: [
                 SettingTile(
                   title: '崩溃日志',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.appLog),
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.appLog),
                 ),
-                SettingTile(
-                  title: '保存日志',
-                  onTap: _saveLog,
-                ),
-                SettingTile(
-                  title: '创建堆转储',
-                  onTap: _createHeapDumpPlaceholder,
-                ),
+                SettingTile(title: '保存日志', onTap: _saveLog),
+                SettingTile(title: '创建堆转储', onTap: _createHeapDumpPlaceholder),
                 SettingTile(
                   title: '用户隐私与协议',
                   onTap: () => _launch(_privacyUrl),
@@ -210,10 +189,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     applicationLegalese: 'GNU General Public License v3.0',
                   ),
                 ),
-                SettingTile(
-                  title: '免责声明',
-                  onTap: _showDisclaimer,
-                ),
+                SettingTile(title: '免责声明', onTap: _showDisclaimer),
               ],
             ),
           ],
