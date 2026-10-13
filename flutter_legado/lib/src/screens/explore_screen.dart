@@ -330,13 +330,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Future<void> _onTopSource(BookSource source) async {
     try {
       final api = ref.read(bookApiProvider);
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       var minOrder = 0;
       for (final s in sources) {
         if (s.customOrder < minOrder) minOrder = s.customOrder;
       }
       final updated = source.copyWith(customOrder: minOrder - 1);
-      await api.updateBookSource(updated);
+      await api.bookSourceRepository.updateBookSource(updated);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

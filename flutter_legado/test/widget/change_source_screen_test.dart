@@ -24,12 +24,12 @@ void main() {
     addTearDown(container.dispose);
 
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
     when(
       () => mockApi.updateSearchBookScore(any(), any()),
     ).thenAnswer((_) async {});
     when(() => mockApi.deleteSearchBook(any())).thenAnswer((_) async {});
-    when(() => mockApi.disableBookSource(any())).thenAnswer((_) async {});
+    when(() => mockApi.bookSourceRepository.disableBookSource(any())).thenAnswer((_) async {});
     when(
       () => mockApi.switchSource(any(), any(), any()),
     ).thenAnswer((_) async => '{"bookUrl":"https://b.com/book"}');
@@ -235,7 +235,7 @@ void main() {
       await tester.tap(find.text('禁用书源'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.disableBookSource('https://b.com')).called(1);
+      verify(() => mockApi.bookSourceRepository.disableBookSource('https://b.com')).called(1);
       expect(find.text('B源'), findsNothing);
     });
 

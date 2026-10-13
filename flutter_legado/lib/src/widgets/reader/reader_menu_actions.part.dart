@@ -495,7 +495,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     // 查找当前书籍对应书源（失败时仍提供编辑/禁用入口）
     BookSource? source;
     try {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == sourceUrl) {
           source = s;
@@ -570,7 +570,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         );
       case 'disableSource':
         try {
-          await api.disableBookSource(sourceUrl);
+          await api.bookSourceRepository.disableBookSource(sourceUrl);
           if (!mounted) return;
           await ref.read(sourceNotifierProvider.notifier).loadSources();
           if (context.mounted) {

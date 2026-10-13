@@ -46,7 +46,7 @@ void main() {
   testWidgets('发现页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const [
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const [
           BookSource(
               bookSourceUrl: 'u1',
               bookSourceName: '书源一',

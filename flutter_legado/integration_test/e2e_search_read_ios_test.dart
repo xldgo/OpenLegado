@@ -273,7 +273,7 @@ void main() {
     await tester.runAsync(() => api.initialize());
     int imported = 0;
     await tester.runAsync(() async {
-      imported = await api.importBookSources(_sourceJson(base));
+      imported = await api.bookSourceRepository.importBookSources(_sourceJson(base));
     });
     expect(
       imported,

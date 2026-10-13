@@ -1,3 +1,5 @@
+import '../data/repositories/mock_book_source_repository.dart';
+import '../domain/contracts/book_source_repository.dart';
 import '../data/repositories/mock_bookshelf_repository.dart';
 import '../data/repositories/mock_book_group_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
@@ -90,6 +92,11 @@ class MockBookApi
         );
     this.httpTtsSynthesizer =
         httpTtsSynthesizer ?? const MockHttpTtsSynthesizer();
+    _bookSourceStore = MockBookSourceStore();
+    bookSourceRepository = MockBookSourceRepository(
+      store: _bookSourceStore,
+      writeConfig: (key, value) => _configs[key] = value,
+    );
     _initMockData();
   }
 
@@ -110,6 +117,9 @@ class MockBookApi
 
   @override
   late final BookGroupRepository bookGroupRepository;
+
+  @override
+  late final BookSourceRepository bookSourceRepository;
 
   // ========== 初始化/版本 ==========
 

@@ -302,7 +302,7 @@ class _AssociationImportDialogState
   Future<void> _ensureLocalBookSources() async {
     if (_localBookSources != null) return;
     try {
-      final list = await ref.read(bookApiProvider).getBookSources();
+      final list = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
       _localBookSources = {for (final s in list) s.bookSourceUrl: s};
     } catch (_) {
       _localBookSources = const {};

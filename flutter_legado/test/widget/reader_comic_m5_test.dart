@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 // [P4-3 M5] 音量键翻页行为 + 九宫格点击区编辑器
 //
@@ -39,6 +40,13 @@ const _kPngBase64 =
 
 /// M5 测试 Mock：3 章 × 3 图；记录配置写入
 class _M5MockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -54,8 +62,7 @@ class _M5MockApi extends MockBookApi {
   final List<List<String>> configWrites;
   final Map<String, String> _configs;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
         BookSource(
           bookSourceUrl: 'https://manga.example.com',
           bookSourceName: '测试漫画源',

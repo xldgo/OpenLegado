@@ -45,7 +45,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final api = ref.read(bookApiProvider);
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       if (!ref.mounted) return;
       final exploreSources = sources
           .where((s) =>
@@ -186,7 +186,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
   Future<bool> uninstallSource(String sourceUrl) async {
     try {
       final api = ref.read(bookApiProvider);
-      await api.deleteBookSource(sourceUrl);
+      await api.bookSourceRepository.deleteBookSource(sourceUrl);
       state = state.copyWith(
         bookSources: state.bookSources
             .where((s) => s.bookSourceUrl != sourceUrl)

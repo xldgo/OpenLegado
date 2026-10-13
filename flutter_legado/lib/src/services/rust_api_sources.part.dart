@@ -7,56 +7,6 @@ part of 'rust_api.dart';
 mixin RustApiSources on RustApiDecode implements BookApi {
   // ========== 书源操作 ==========
 
-  /// 获取所有书源
-  @override
-  Future<List<BookSource>> getBookSources() async {
-    final json = await bridge.sourceList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => BookSource.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 获取所有启用的书源
-  @override
-  Future<List<BookSource>> getEnabledBookSources() async {
-    final json = await bridge.sourceListEnabled();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => BookSource.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 添加书源
-  @override
-  Future<BookSource> addBookSource(BookSource source) async {
-    final json = await bridge.sourceAdd(
-      sourceJson: jsonEncode(source.toJson()),
-    );
-    CoverDecodeLoader.invalidateSourceRegistry();
-    return BookSource.fromJson(_decodeMap(json, 'bookApi'));
-  }
-
-  /// 更新书源
-  @override
-  Future<void> updateBookSource(BookSource source) async {
-    await bridge.sourceUpdate(sourceJson: jsonEncode(source.toJson()));
-    CoverDecodeLoader.invalidateSourceRegistry();
-  }
-
-  /// 设置书源自定义变量（契约 §2.3，台账 §5.11-3，Task #65）
-  ///
-  /// 直通 set_source_variable FFI（单列 UPDATE，空串=清除）；
-  /// 书源不存在/写入失败由 Rust 侧抛 BridgeError — Qoder
-  @override
-  Future<void> setSourceVariable(String sourceUrl, String variable) async {
-    await bridge.setSourceVariable(
-      sourceUrl: sourceUrl,
-      variable: variable,
-    );
-    CoverDecodeLoader.invalidateSourceRegistry();
-  }
-
   /// 清除 Cookie（契约 §2.3 clearCookie，对齐原版 CookieStore.removeCookie）
   @override
   Future<void> clearCookie(String url) => bridge.clearCookie(url: url);
@@ -71,49 +21,6 @@ mixin RustApiSources on RustApiDecode implements BookApi {
   @override
   Future<String> analyzeUrlToCurl(String text) =>
       bridge.analyzeUrlToCurl(text: text);
-
-  /// 删除书源
-  @override
-  Future<void> deleteBookSource(String sourceUrl) async {
-    await bridge.sourceDelete(sourceUrl: sourceUrl);
-    CoverDecodeLoader.invalidateSourceRegistry();
-  }
-
-  /// 启用书源
-  @override
-  Future<void> enableBookSource(String sourceUrl) async {
-    await bridge.sourceEnable(sourceUrl: sourceUrl);
-    CoverDecodeLoader.invalidateSourceRegistry();
-  }
-
-  /// 禁用书源
-  @override
-  Future<void> disableBookSource(String sourceUrl) async {
-    await bridge.sourceDisable(sourceUrl: sourceUrl);
-    CoverDecodeLoader.invalidateSourceRegistry();
-  }
-
-  /// 批量导入书源，返回成功导入的数量
-  @override
-  Future<int> importBookSources(String jsonArray) async {
-    final count = await bridge.sourceImport(jsonArray: jsonArray);
-    CoverDecodeLoader.invalidateSourceRegistry();
-    return count;
-  }
-
-  /// 导出所有书源为 JSON 数组
-  @override
-  Future<String> exportBookSources() => bridge.sourceExport();
-
-  /// 书源排序（将排序偏好存入配置）
-  @override
-  Future<void> sortBookSources(int sortKey, bool ascending) async {
-    await bridge.configSet(key: 'source_sort_key', value: sortKey.toString());
-    await bridge.configSet(
-      key: 'source_sort_ascending',
-      value: ascending.toString(),
-    );
-  }
 
   /// 提取 JS 单文件书源配置（返回 BookSource JSON，需 QuickJS 构建）
   @override

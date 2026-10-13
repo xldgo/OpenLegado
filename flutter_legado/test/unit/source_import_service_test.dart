@@ -112,7 +112,7 @@ void main() {
 
   group('SourceImportService importFromJson', () {
     test('导入有效书源数组成功', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
 
       final jsonStr = '''
       [
@@ -130,7 +130,7 @@ void main() {
     });
 
     test('导入单个书源对象成功', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
 
       final jsonStr = '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
       final result = await service.importFromJson(jsonStr);
@@ -155,7 +155,7 @@ void main() {
     });
 
     test('数组中含非对象项标记为失败', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
 
       final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}, "invalid"]';
       final result = await service.importFromJson(jsonStr);
@@ -175,7 +175,7 @@ void main() {
     });
 
     test('API 调用失败标记为失败', () async {
-      when(() => mockApi.importBookSources(any())).thenThrow(Exception('API错误'));
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenThrow(Exception('API错误'));
 
       final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}]';
       final result = await service.importFromJson(jsonStr);

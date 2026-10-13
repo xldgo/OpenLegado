@@ -36,7 +36,7 @@ void main() {
     when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
     when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-    when(() => mockApi.getEnabledBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer((_) async => []);
     // 错误批次路径先 appLogPush 再记账——不打桩回调会在记账前抛异常
     when(() => mockApi.appLogPush(
             level: any(named: 'level'), message: any(named: 'message')))

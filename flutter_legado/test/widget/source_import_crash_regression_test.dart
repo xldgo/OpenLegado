@@ -37,7 +37,7 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {
@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(
       of: find.byType(AppBar),
-      matching: find.byIcon(Icons.more_vert),
+      matching: find.byTooltip('更多选项'),
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.text('网络导入'));
@@ -103,7 +103,7 @@ void main() {
 
     await tester.tap(find.descendant(
       of: find.byType(AppBar),
-      matching: find.byIcon(Icons.more_vert),
+      matching: find.byTooltip('更多选项'),
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.text('二维码导入'));
@@ -122,7 +122,7 @@ void main() {
       (tester) async {
     // 第三方书源字符串数字字段（yckceo_7631 形态）：预览解析不再全灭，
     // 确认导入时选中项的原始 JSON（含字符串数字）直传 Rust 宽松兜底
-    when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+    when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
     final raw = <String, dynamic>{
       'bookSourceUrl': 'https://www.qianyezw.com',
       'bookSourceName': '新御书屋(千夜)',
@@ -153,7 +153,7 @@ void main() {
 
     // 验证 importBookSources 收到的是原始 JSON（字符串数字原样保留）
     final captured = verify(
-      () => mockApi.importBookSources(captureAny()),
+      () => mockApi.bookSourceRepository.importBookSources(captureAny()),
     ).captured;
     expect(captured, isNotEmpty);
     final passed = captured.single as String;

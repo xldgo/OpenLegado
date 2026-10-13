@@ -95,7 +95,7 @@ void main() {
   testWidgets('在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新',
       (tester) async {
     final api = MockRustApi();
-    when(() => api.getBookSources()).thenAnswer(
+    when(() => api.bookSourceRepository.getBookSources()).thenAnswer(
       (_) async => const [
         BookSource(
           bookSourceUrl: 'https://video.example.com',
@@ -125,7 +125,7 @@ void main() {
     expect(argBook.bookUrl, book.bookUrl);
     expect(argBook.bookType & BookType.video, BookType.video);
     expect(argBook.bookType & BookType.text, 0);
-    verify(() => api.getBookSources()).called(1);
+    verify(() => api.bookSourceRepository.getBookSources()).called(1);
   });
 
   testWidgets('欢迎页口径：全局 navigatorKey + 跳过未读进详情 → 文本阅读器',
@@ -224,7 +224,7 @@ void main() {
     expect(observer.lastArguments, book.bookUrl);
     // 不走文本阅读器装载（needsReaderNotifier=false）
     expect(reader.openedBook, isNull);
-    verifyNever(() => api.getBookSources());
+    verifyNever(() => api.bookSourceRepository.getBookSources());
   });
 }
 

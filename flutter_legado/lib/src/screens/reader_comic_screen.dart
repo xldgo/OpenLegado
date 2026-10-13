@@ -1209,7 +1209,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       if ((_imageHeaders.isEmpty || _bookSource == null) &&
           _book != null &&
           _book!.origin.isNotEmpty) {
-        final sources = await api.getBookSources();
+        final sources = await api.bookSourceRepository.getBookSources();
         for (final s in sources) {
           if (s.bookSourceUrl == _book!.origin) {
             _bookSource = s;

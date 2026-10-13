@@ -58,7 +58,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
     try {
       List<String>? sourceUrls;
       if (group.isNotEmpty) {
-        final sources = await ref.read(bookApiProvider).getEnabledBookSources();
+        final sources = await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
         sourceUrls = sources
             .where((s) {
               final g = s.bookSourceGroup ?? '';
@@ -89,7 +89,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
       if (sourceUrls == null) {
         try {
           searchingCount =
-              (await ref.read(bookApiProvider).getEnabledBookSources()).length;
+              (await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources()).length;
         } catch (_) {
           searchingCount = 0;
         }
@@ -243,7 +243,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
 
   /// 禁用书源并从列表移除
   Future<void> disableAndRemove(SourceMatch match) async {
-    await ref.read(bookApiProvider).disableBookSource(match.sourceUrl);
+    await ref.read(bookApiProvider).bookSourceRepository.disableBookSource(match.sourceUrl);
     state = state.copyWith(
       results: state.results.where((r) => r.bookUrl != match.bookUrl).toList(),
     );

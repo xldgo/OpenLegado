@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 // [漫画设置作用域 2026-10-01] 漫画屏「本书覆盖 + 全局回退」端到端接线
 //
@@ -69,6 +70,13 @@ Book _buildBook({
 /// [漫画设置作用域] Mock：可注入书籍（含 readConfig）/全局配置，
 /// 记录 setConfig 与 updateBook 调用（区分全局键写入与书级回写）
 class _ScopeMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook, updateBook: _fixtureUpdateBook,
   );
@@ -93,8 +101,7 @@ class _ScopeMockApi extends MockBookApi {
 
   final List<List<int>> progressCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => _book;
 

@@ -189,7 +189,7 @@ void main() {
       ).called(1);
     });
     test('分组搜索：分号/全角逗号组名的源不被 Dart 预过滤剔除（审计 D1）', () async {
-      when(() => mockApi.getEnabledBookSources()).thenAnswer(
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer(
         (_) async => const [
           BookSource(
             bookSourceUrl: 'https://semi.com',

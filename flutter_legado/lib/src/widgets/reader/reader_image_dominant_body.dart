@@ -78,7 +78,7 @@ class _ReaderImageDominantBodyState
     final origin = widget.book.origin;
     if (origin.isEmpty) return;
     try {
-      final sources = await ref.read(bookApiProvider).getBookSources();
+      final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == origin) {
           if (mounted) setState(() => _bookSource = s);

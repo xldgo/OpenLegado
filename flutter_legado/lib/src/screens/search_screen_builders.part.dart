@@ -877,7 +877,7 @@ extension _SearchBuilders on _SearchScreenState {
   Future<void> _showSearchScopeDialog() async {
     List<BookSource> sources;
     try {
-      sources = await ref.read(bookApiProvider).getEnabledBookSources();
+      sources = await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

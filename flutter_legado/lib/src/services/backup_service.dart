@@ -17,7 +17,7 @@ class BackupService {
 
   /// 导出书源数据
   Future<String> exportSources() async {
-    return await _api.exportBookSources();
+    return await _api.bookSourceRepository.exportBookSources();
   }
 
   /// 导出选中书源为 JSON
@@ -25,7 +25,7 @@ class BackupService {
   /// [sourceUrls] 要导出的书源 URL 列表。
   /// 返回格式化的 JSON 字符串。
   Future<String> exportSelectedSources(List<String> sourceUrls) async {
-    final allSources = await _api.getBookSources();
+    final allSources = await _api.bookSourceRepository.getBookSources();
     final selected = allSources
         .where((s) => sourceUrls.contains(s.bookSourceUrl))
         .toList();
@@ -40,14 +40,14 @@ class BackupService {
 
   /// 导出全部书源为格式化 JSON
   Future<String> exportAllSourcesFormatted() async {
-    final allSources = await _api.getBookSources();
+    final allSources = await _api.bookSourceRepository.getBookSources();
     final jsonList = allSources.map((s) => s.toJson()).toList();
     return const JsonEncoder.withIndent('  ').convert(jsonList);
   }
 
   /// 导入书源数据，返回导入数量
   Future<int> importSources(String json) async {
-    return await _api.importBookSources(json);
+    return await _api.bookSourceRepository.importBookSources(json);
   }
 
   /// 完整备份（书籍 + 书源 + 元信息）

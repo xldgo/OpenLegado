@@ -83,7 +83,7 @@ void main() {
   testWidgets('发现页有数据亮色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const [
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const [
           BookSource(
               bookSourceUrl: 'u1',
               bookSourceName: '书源一',
@@ -129,7 +129,7 @@ void main() {
   testWidgets('发现页有数据暗色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const [
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const [
           BookSource(
               bookSourceUrl: 'u1',
               bookSourceName: '书源一',

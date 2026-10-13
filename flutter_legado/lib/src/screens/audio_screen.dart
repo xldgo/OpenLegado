@@ -857,7 +857,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     }
     BookSource? source;
     try {
-      final sources = await ref.read(bookApiProvider).getBookSources();
+      final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
       source =
           sources.where((s) => s.bookSourceUrl == _origin).firstOrNull;
     } catch (_) {}

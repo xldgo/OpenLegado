@@ -28,7 +28,7 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -129,12 +129,12 @@ void main() {
 
       expect(find.text('请输入源名称（sourceName）'), findsOneWidget);
       expect(find.text('请输入源 URL（sourceUrl）'), findsOneWidget);
-      verifyNever(() => mockApi.addBookSource(any()));
+      verifyNever(() => mockApi.bookSourceRepository.addBookSource(any()));
     });
 
     testWidgets('填写名称与 URL 后保存成功创建书源', (tester) async {
       when(
-        () => mockApi.addBookSource(any()),
+        () => mockApi.bookSourceRepository.addBookSource(any()),
       ).thenAnswer((inv) async => inv.positionalArguments[0] as BookSource);
       await pumpEdit(tester);
 
@@ -152,7 +152,7 @@ void main() {
 
       expect(find.text('书源已创建'), findsOneWidget);
       final captured =
-          verify(() => mockApi.addBookSource(captureAny())).captured.single
+          verify(() => mockApi.bookSourceRepository.addBookSource(captureAny())).captured.single
               as BookSource;
       expect(captured.bookSourceName, '测试书源');
       expect(captured.bookSourceUrl, 'https://test.com');
@@ -174,7 +174,7 @@ void main() {
         ruleBookInfo: BookInfoRule(init: '.init', tocUrl: '.toc'),
         ruleReview: ReviewRule(enabled: true, reviewSummaryUrl: '.review-summary'),
       );
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => [source]);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [source]);
       // 预加载书源到 notifier 状态
       await container.read(sourceNotifierProvider.notifier).loadSources();
 

@@ -120,7 +120,7 @@ void main() {
       when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.getEnabledBookSources())
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources())
           .thenAnswer((_) async => []);
       final container = ProviderContainer(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

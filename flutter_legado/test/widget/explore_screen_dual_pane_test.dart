@@ -32,7 +32,7 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
   });
 
   Widget buildApp() {
@@ -78,7 +78,7 @@ void main() {
       exploreUrl: '分类::https://login.com/explore',
       loginUrl: 'https://login.com/login',
     );
-    when(() => mockApi.getBookSources())
+    when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => [...sources, loginSource]);
 
     tester.view.physicalSize = const Size(400, 800);

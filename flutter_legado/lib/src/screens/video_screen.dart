@@ -451,7 +451,7 @@ class _VideoScreenState extends State<VideoScreen> {
       final api = ProviderScope.containerOf(context).read(bookApiProvider);
       if (_sourceHeaders.isEmpty && book.origin.isNotEmpty) {
         try {
-          final sources = await api.getBookSources();
+          final sources = await api.bookSourceRepository.getBookSources();
           for (final s in sources) {
             if (s.bookSourceUrl == book.origin &&
                 s.header != null &&

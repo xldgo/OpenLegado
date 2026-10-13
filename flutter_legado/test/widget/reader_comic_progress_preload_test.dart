@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
@@ -68,6 +69,13 @@ BookSource _comicSource() {
 
 /// 测试 Mock：注入三章漫画书，记录进度保存 / 相邻章预载 / 解码调用
 class _ProgressMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -92,8 +100,7 @@ class _ProgressMockApi extends MockBookApi {
 
   final List<String> decodeCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [_comicSource()];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [_comicSource()];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 

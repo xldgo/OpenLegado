@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 import 'package:material_ui/material_ui.dart';
@@ -68,6 +69,13 @@ Finder _assetFinder() {
 /// `_buildImageErrorPlaceholder` 展示重试形态；解码异常文案本身不驻留，
 /// 落定态为固定文案「图片加载失败」+ 重试）。
 class _FailingDecodeMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -80,8 +88,7 @@ class _FailingDecodeMockApi extends MockBookApi {
   final List<BookChapter> chapters;
   final String imageSrc;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
         BookSource(
           bookSourceUrl: book.origin,
           bookSourceName: book.originName,
@@ -120,6 +127,13 @@ class _FailingDecodeMockApi extends MockBookApi {
 ///   `_buildImageErrorPlaceholder`；
 /// - [book.origin] 为空 → 走 CachedNetworkImage 直连（加载占位 = 骨架块）。
 class _NoSourceMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -132,8 +146,7 @@ class _NoSourceMockApi extends MockBookApi {
   final List<BookChapter> chapters;
   final String imageSrc;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => const [];
+  Future<List<BookSource>> _fixtureGetBookSources() async => const [];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 

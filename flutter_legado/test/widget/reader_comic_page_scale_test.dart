@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 // [P4-3 E2] 分页适配类型（设置项 + 持久化，整页行为）
 //
@@ -32,6 +33,13 @@ const _kPngBase64 =
 
 /// 页面适配测试 Mock：可注入配置（翻页模式/适配类型），记录配置写入
 class _ScaleMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -49,8 +57,7 @@ class _ScaleMockApi extends MockBookApi {
   final List<List<String>> configWrites;
   final Map<String, String> _configs;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
         BookSource(
           bookSourceUrl: 'https://manga.example.com',
           bookSourceName: '测试漫画源',

@@ -453,7 +453,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       if (input == null || !mounted) return;
       await ref
           .read(bookApiProvider)
-          .setSourceVariable(source.bookSourceUrl, input);
+          .bookSourceRepository.setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       setState(() => _preservedVariable = input);
       ScaffoldMessenger.of(context).showSnackBar(

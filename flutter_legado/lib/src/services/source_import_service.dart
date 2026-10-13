@@ -230,7 +230,7 @@ class SourceImportService {
             (item['bookSourceName'] as String?) ?? '',
             (item['bookSourceUrl'] as String?) ?? '',
           );
-          await _api.importBookSources('[$applied]');
+          await _api.bookSourceRepository.importBookSources('[$applied]');
           success++;
         } catch (e) {
           failed++;

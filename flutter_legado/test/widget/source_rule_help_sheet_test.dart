@@ -19,7 +19,7 @@ import '../mocks/mocks.dart';
 void main() {
   testWidgets('JS 书源编辑页：帮助入口可点且弹层含三块标题', (tester) async {
     final mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
 
     await tester.pumpWidget(
       ProviderScope(

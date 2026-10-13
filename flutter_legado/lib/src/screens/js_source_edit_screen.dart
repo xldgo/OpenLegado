@@ -64,7 +64,7 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
     try {
       final url = _openedSourceUrl;
       if (url != null && url.isNotEmpty) {
-        final sources = await ref.read(bookApiProvider).getBookSources();
+        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
         final hit = sources.where((s) => s.bookSourceUrl == url).firstOrNull;
         final js = hit?.mainJs?.trim();
         _controller.text =
@@ -126,13 +126,13 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
         return;
       }
 
-      final existing = await api.getBookSources();
+      final existing = await api.bookSourceRepository.getBookSources();
       final exists =
           existing.any((s) => s.bookSourceUrl == source.bookSourceUrl);
       if (exists) {
-        await api.updateBookSource(source);
+        await api.bookSourceRepository.updateBookSource(source);
       } else {
-        await api.addBookSource(source);
+        await api.bookSourceRepository.addBookSource(source);
       }
       _openedSourceUrl = source.bookSourceUrl;
       // 刷新书源列表

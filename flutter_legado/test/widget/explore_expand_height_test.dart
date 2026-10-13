@@ -49,7 +49,7 @@ void main() {
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
     addTearDown(container.dispose);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => [kaixinSource]);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [kaixinSource]);
     when(
       () => mockApi.exploreParseUrl(any(), sourceJson: any(named: 'sourceJson')),
     ).thenAnswer(

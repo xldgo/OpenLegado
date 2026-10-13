@@ -55,7 +55,7 @@ void main() {
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
     when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
     // 写库失败（DB 异常 / 磁盘满 / 桥接错误）
     when(() => mockApi.bookshelfRepository.addBook(any())).thenThrow(

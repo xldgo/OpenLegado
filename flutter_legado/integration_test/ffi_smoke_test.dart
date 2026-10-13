@@ -47,7 +47,7 @@ void main() {
     testWidgets('getBookSources() FFI round-trip', (tester) async {
       await api.initialize();
       // Empty DB returning [] is valid.
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       expect(sources, isA<List>());
     });
   });

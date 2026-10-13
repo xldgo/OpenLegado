@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 // [P4-3 M2] 漫画菜单按用户截图重构（实心顶栏 + 两段底栏 + 目录 sheet）
 //
@@ -50,6 +51,13 @@ const _kPngBase64 =
 /// 菜单对齐测试 Mock：可注入配置/章节数，记录进度写入、配置写入与
 /// 章节正文抓取（刷新键断言 fetchChapterContent 次数）
 class _MenuMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -84,8 +92,7 @@ class _MenuMockApi extends MockBookApi {
   final Map<String, String> _configs;
   final int chapterCount;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
         BookSource(
           bookSourceUrl: 'https://manga.example.com',
           bookSourceName: '测试漫画源',

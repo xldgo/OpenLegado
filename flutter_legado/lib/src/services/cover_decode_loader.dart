@@ -133,7 +133,7 @@ class CoverDecodeLoader {
     final gen = ++_registryGeneration;
     final fut = () async {
       try {
-        final sources = await api.getBookSources();
+        final sources = await api.bookSourceRepository.getBookSources();
         final reg = <String, String>{};
         for (final s in sources) {
           reg[s.bookSourceUrl] =
@@ -155,7 +155,7 @@ class CoverDecodeLoader {
 
   /// 书源数据变更（增/删/改/导入/同步）后调用，使注册表失效。
   ///
-  /// 由 [RustApi] 的各变更方法统一触发；对齐原版 BookSourceRepository
+  /// 由应用装配到书源 Repository 的成功写入通知统一触发；对齐原版 BookSourceRepository
   /// 「内存列表随 DB 变更即时刷新」的语义。
   static void invalidateSourceRegistry() {
     _sourceRegistry = null;

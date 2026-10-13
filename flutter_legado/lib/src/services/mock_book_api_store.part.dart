@@ -7,7 +7,8 @@ mixin MockBookApiStore {
 
   late final MockBookshelfStore _bookshelfStore;
   List<Book> get _books => _bookshelfStore.books;
-  final List<BookSource> _sources = [];
+  late final MockBookSourceStore _bookSourceStore;
+  List<BookSource> get _sources => _bookSourceStore.sources;
   final List<RssSource> _rssSources = [];
   final List<ReplaceRule> _replaceRules = [];
   final List<SearchKeyword> _searchHistory = [];

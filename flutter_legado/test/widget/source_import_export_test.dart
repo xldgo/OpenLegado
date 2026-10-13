@@ -52,7 +52,7 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {
@@ -73,7 +73,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AppBar),
-          matching: find.byIcon(Icons.more_vert),
+          matching: find.byTooltip('更多选项'),
         ),
       );
       await tester.pumpAndSettle();
@@ -82,7 +82,7 @@ void main() {
 
       expect(picker.pickCalls, 1);
       expect(find.textContaining('从文件导入失败'), findsNothing);
-      verifyNever(() => mockApi.importBookSources(any()));
+      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
     });
 
     testWidgets('菜单与原版对齐：含新建 JS 书源入口', (tester) async {
@@ -93,7 +93,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AppBar),
-          matching: find.byIcon(Icons.more_vert),
+          matching: find.byTooltip('更多选项'),
         ),
       );
       await tester.pumpAndSettle();

@@ -41,7 +41,7 @@ void main() {
 
   group('ExploreNotifier 初始状态', () {
     test('初始书源列表为空且各展示字段为默认值', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -91,7 +91,7 @@ void main() {
           bookSourceGroup: '都市',
         ),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -128,7 +128,7 @@ void main() {
           bookSourceGroup: null, // 无分组
         ),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -137,7 +137,7 @@ void main() {
     });
 
     test('加载失败时设置错误', () async {
-      when(() => mockApi.getBookSources()).thenThrow(Exception('网络异常'));
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenThrow(Exception('网络异常'));
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -173,7 +173,7 @@ void main() {
     ];
 
     setUp(() async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
       container.read(exploreNotifierProvider);
       await pumpInit();
     });
@@ -245,7 +245,7 @@ void main() {
     ];
 
     setUp(() async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
       container.read(exploreNotifierProvider);
       await pumpInit();
     });
@@ -297,8 +297,8 @@ void main() {
           exploreUrl: 'https://s2.com/e',
         ),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
-      when(() => mockApi.deleteBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any())).thenAnswer((_) async {});
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -318,8 +318,8 @@ void main() {
           exploreUrl: 'https://s1.com/e',
         ),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
-      when(() => mockApi.deleteBookSource(any()))
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
           .thenThrow(Exception('删除失败'));
 
       container.read(exploreNotifierProvider);
@@ -335,7 +335,7 @@ void main() {
 
   group('ExploreNotifier refresh', () {
     test('refresh 重新加载书源', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => [
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
             const BookSource(
               bookSourceUrl: 'https://s1.com',
               bookSourceName: '源1',
@@ -348,7 +348,7 @@ void main() {
       await pumpInit();
       expect(readState().bookSources.length, equals(1));
 
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       await readNotifier().refresh();
 
       expect(readState().bookSources, isEmpty);
@@ -364,7 +364,7 @@ void main() {
     );
 
     test('成功解析并缓存分类', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       when(() => mockApi.exploreParseUrl(
             any(),
             sourceJson: any(named: 'sourceJson'),
@@ -388,7 +388,7 @@ void main() {
     });
 
     test('exploreUrl 为空时缓存空分类且不调用 API', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -408,7 +408,7 @@ void main() {
     });
 
     test('幂等：已缓存时不重复请求', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       when(() => mockApi.exploreParseUrl(
             any(),
             sourceJson: any(named: 'sourceJson'),
@@ -428,7 +428,7 @@ void main() {
     });
 
     test('解析失败时展示 ERROR 分类（对齐 Android）', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       when(() => mockApi.exploreParseUrl(
             any(),
             sourceJson: any(named: 'sourceJson'),
@@ -446,7 +446,7 @@ void main() {
     });
 
     test('ERROR 缓存失败后可重试（非幂等阻塞）', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       var calls = 0;
       when(() => mockApi.exploreParseUrl(
             any(),
@@ -471,7 +471,7 @@ void main() {
     });
 
     test('@js: 书源传递 sourceJson', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       when(() => mockApi.exploreParseUrl(
             any(),
             sourceJson: any(named: 'sourceJson'),
@@ -499,7 +499,7 @@ void main() {
     });
 
     test('reloadCategories 强制重新解析', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
       when(() => mockApi.exploreParseUrl(
             any(),
             sourceJson: any(named: 'sourceJson'),

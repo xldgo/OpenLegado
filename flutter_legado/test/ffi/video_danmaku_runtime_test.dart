@@ -127,7 +127,7 @@ void main() {
 
     try {
       // 1. 视频书源（bookSourceType=4）
-      final imported = await api.importBookSources(
+      final imported = await api.bookSourceRepository.importBookSources(
         jsonEncode([
           {
             'bookSourceUrl': base,

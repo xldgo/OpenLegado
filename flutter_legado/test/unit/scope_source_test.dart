@@ -153,7 +153,7 @@ void main() {
           .thenAnswer((_) async => applied);
       // 捕获实际交给 importBookSources 的 payload
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });
@@ -176,7 +176,7 @@ void main() {
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenAnswer((_) async => original);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });
@@ -195,7 +195,7 @@ void main() {
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenThrow(Exception('FFI 未就绪'));
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });
@@ -213,7 +213,7 @@ void main() {
       // applyReplaceRulesToSource 会被调用（经由 importFromJson 内同一挂钩点）
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenAnswer((inv) async => inv.positionalArguments.first as String);
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
       // importFromUrl/importFromFile 依赖网络/文件系统，此处以 importFromJson
       // 的委托关系佐证（见 service 源码 importFromUrl→importFromJson、
       // importFromFile→importFromJson），不重复真实 IO
@@ -240,7 +240,7 @@ void main() {
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
       );
       addTearDown(container.dispose);
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
     });
 
     SourceNotifier readNotifier() =>
@@ -252,7 +252,7 @@ void main() {
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenAnswer((_) async => applied);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });
@@ -271,7 +271,7 @@ void main() {
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenAnswer((inv) async => inv.positionalArguments.first as String);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });
@@ -288,7 +288,7 @@ void main() {
       when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
           .thenThrow(Exception('FFI 未就绪'));
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
+      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((inv) async {
         importedPayload = inv.positionalArguments.first as String;
         return 1;
       });

@@ -748,7 +748,7 @@ void main() {
           bookSourceGroup: '都市',
         ),
       ];
-      when(() => mockApi.getEnabledBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer((_) async => sources);
 
       container.read(searchNotifierProvider);
       await pumpInit();
@@ -771,7 +771,7 @@ void main() {
           bookSourceGroup: '玄幻,仙侠',
         ),
       ];
-      when(() => mockApi.getEnabledBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer((_) async => sources);
 
       container.read(searchNotifierProvider);
       await pumpInit();
@@ -787,7 +787,7 @@ void main() {
     });
 
     test('选中分组但解析结果为空时设置错误提示', () async {
-      when(() => mockApi.getEnabledBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer((_) async => []);
 
       container.read(searchNotifierProvider);
       await pumpInit();
@@ -803,7 +803,7 @@ void main() {
     });
 
     test('分组解析失败时仅使用直接选中的书源', () async {
-      when(() => mockApi.getEnabledBookSources())
+      when(() => mockApi.bookSourceRepository.getEnabledBookSources())
           .thenThrow(Exception('DB error'));
 
       container.read(searchNotifierProvider);

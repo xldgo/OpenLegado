@@ -152,7 +152,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       // 源分组从启用书源的 bookSourceGroup 字段聚合（对标原版
       // flowEnabledGroups）；[审计 D1] 分组分隔符全集 ,;，；，对齐原版
       // splitGroupRegex（仅英文逗号会漏分号分组的组名）
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       final groups = <String>{};
       for (final s in sources) {
         if (!s.enabled) continue;

@@ -28,7 +28,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {

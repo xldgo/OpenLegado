@@ -1,3 +1,4 @@
+import '../../features/book_sources/book_sources.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -17,7 +18,7 @@ export 'source_state.dart';
 /// 书源管理 Riverpod Notifier
 ///
 /// 职责（对标 Android BookSourceActivity）：
-/// - 调用 BookApi → 接收纯数据 → 更新 immutable State
+/// - 书源读写调用窄 Repository，其他能力仍使用原入口 → 更新 immutable State
 /// - 管理 UI 状态（loading/error/data 三态）
 /// - 管理搜索过滤、分组筛选、排序
 /// - 批量操作（启用/禁用/删除/导出）
@@ -44,7 +45,7 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> loadSources() async {
     state = state.copyWith(loading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final sources = await api.getBookSources();
       // [Task #70 D2 加固 | 2026-08-10] 防御性守卫：内存已有书源时，
       // 空列表返回视为异常时序（如 DB 未就绪）不覆盖，避免显示层
@@ -69,7 +70,7 @@ class SourceNotifier extends Notifier<SourceState> {
     final source = state.sources[index];
     final updated = source.copyWith(enabled: !source.enabled);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       await api.updateBookSource(updated);
       final newSources = List<BookSource>.of(state.sources);
       newSources[index] = updated;
@@ -82,7 +83,7 @@ class SourceNotifier extends Notifier<SourceState> {
   /// 删除书源
   Future<void> deleteSource(String sourceUrl) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       await api.deleteBookSource(sourceUrl);
       final selected = {...state.selectedUrls}..remove(sourceUrl);
       state = state.copyWith(
@@ -100,7 +101,7 @@ class SourceNotifier extends Notifier<SourceState> {
   /// 保存书源（新建或更新）
   Future<void> saveSource(BookSource source) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final index = state.sources
           .indexWhere((s) => s.bookSourceUrl == source.bookSourceUrl);
       if (index == -1) {
@@ -140,9 +141,9 @@ class SourceNotifier extends Notifier<SourceState> {
       // 同样须在交 importBookSources 前对每项应用「书源作用域」替换规则；
       // 解析/替换失败保持原文，绝不中断导入
       final payload = await _applySourceReplaceRules(api, jsonContent);
-      await api.importBookSources(payload);
+      await api.bookSourceRepository.importBookSources(payload);
       // 重新加载书源列表
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       state = state.copyWith(sources: sources, loading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), loading: false);
@@ -192,7 +193,7 @@ class SourceNotifier extends Notifier<SourceState> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await importService.importFromJson(jsonStr);
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       // 重新加载书源列表
       final sources = await api.getBookSources();
       state = state.copyWith(
@@ -218,7 +219,7 @@ class SourceNotifier extends Notifier<SourceState> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await importService.importFromUrl(url);
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final sources = await api.getBookSources();
       state = state.copyWith(
         sources: sources,
@@ -243,7 +244,7 @@ class SourceNotifier extends Notifier<SourceState> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await importService.importFromFile(filePath);
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final sources = await api.getBookSources();
       state = state.copyWith(
         sources: sources,
@@ -323,7 +324,7 @@ class SourceNotifier extends Notifier<SourceState> {
       error: null,
     );
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final sourcesByUrl = {
         for (final source in state.sources) source.bookSourceUrl: source,
       };
@@ -423,7 +424,7 @@ class SourceNotifier extends Notifier<SourceState> {
     final source = state.sources[index];
     final updated = source.copyWith(enabledExplore: !source.enabledExplore);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       await api.updateBookSource(updated);
       final newSources = List<BookSource>.of(state.sources);
       newSources[index] = updated;
@@ -437,7 +438,7 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> batchEnable() async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
         final index =
@@ -465,7 +466,7 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> batchDisable() async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
         final index =
@@ -493,7 +494,7 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> batchDelete() async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
         await api.deleteBookSource(url);
@@ -515,7 +516,7 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> batchToggleExplore(bool enable) async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
         final index =
@@ -560,7 +561,7 @@ class SourceNotifier extends Notifier<SourceState> {
   }) async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final ordered = List<BookSource>.of(state.sources)
         ..sort((a, b) => a.customOrder.compareTo(b.customOrder));
       final selected = ordered
@@ -613,7 +614,7 @@ class SourceNotifier extends Notifier<SourceState> {
   ) async {
     state = state.copyWith(loading: true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
         final index =
@@ -652,7 +653,7 @@ class SourceNotifier extends Notifier<SourceState> {
     final name = group.trim();
     if (name.isEmpty || urls.isEmpty) return;
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in urls) {
         final index =

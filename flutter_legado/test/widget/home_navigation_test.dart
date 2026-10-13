@@ -37,7 +37,7 @@ void main() {
       ],
     );
     when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）
     when(() => mockApi.readRecordRepository)

@@ -54,7 +54,7 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources())
+    when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => [c8Source]);
     when(() => mockApi.exploreParseUrl(any(), sourceJson: any(named: 'sourceJson')))
         .thenAnswer((_) async => [

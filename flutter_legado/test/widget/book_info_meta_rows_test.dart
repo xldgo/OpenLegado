@@ -76,7 +76,7 @@ void main() {
   void stubBook(Book book, [List<BookChapter> chapters = const []]) {
     when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
     when(
       () => mockApi.sourceCallBackBtn(
         event: any(named: 'event'),

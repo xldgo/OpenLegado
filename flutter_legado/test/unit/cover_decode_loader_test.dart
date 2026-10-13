@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -201,11 +202,17 @@ void main() {
 }
 
 class _CountingSourcesApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   int getSourcesCount = 0;
 
-  @override
-  Future<List<BookSource>> getBookSources() async {
+  Future<List<BookSource>> _fixtureGetBookSources() async {
     getSourcesCount++;
-    return super.getBookSources();
+    return super.bookSourceRepository.getBookSources();
   }
 }

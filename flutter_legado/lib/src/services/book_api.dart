@@ -1,3 +1,4 @@
+import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
 import '../models/models.dart';
@@ -13,6 +14,9 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  /// 共享书源配置访问，登录与校验仍由各自能力承担。
+  BookSourceRepository get bookSourceRepository;
+
   /// 共享书架数据访问，不持有阅读器会话状态。
   BookshelfRepository get bookshelfRepository;
 
@@ -41,25 +45,6 @@ abstract class BookApi {
 
   // ========== 书源操作 ==========
 
-  /// 获取所有书源
-  Future<List<BookSource>> getBookSources();
-
-  /// 获取所有启用的书源
-  Future<List<BookSource>> getEnabledBookSources();
-
-  /// 添加书源
-  Future<BookSource> addBookSource(BookSource source);
-
-  /// 更新书源
-  Future<void> updateBookSource(BookSource source);
-
-  /// 设置书源自定义变量（契约 §2.3 setSourceVariable，台账 §5.11-3，Task #63 冻结 / #64-65 实现）
-  ///
-  /// 对齐原版 `source.setVariable`：单列 UPDATE 语义仅更新 `variable` 单列，
-  /// 规避 updateBookSource 全行更新风险；[variable] 为空串表示清除。
-  /// 错误码：书源不存在 → Internal；写入失败 → Db。
-  Future<void> setSourceVariable(String sourceUrl, String variable);
-
   /// 清除指定 URL 所属二级域名的 Cookie（契约 §2.3 clearCookie，2026-08-12 P1-2）
   ///
   /// 对齐原版 `CookieStore.removeCookie` / 编辑页 `menu_clear_cookie`。
@@ -73,24 +58,6 @@ abstract class BookApi {
 
   /// AnalyzeUrl → cURL（契约 §2.3 analyzeUrlToCurl，2026-08-12 P1-14）
   Future<String> analyzeUrlToCurl(String text);
-
-  /// 删除书源
-  Future<void> deleteBookSource(String sourceUrl);
-
-  /// 启用书源
-  Future<void> enableBookSource(String sourceUrl);
-
-  /// 禁用书源
-  Future<void> disableBookSource(String sourceUrl);
-
-  /// 批量导入书源，返回成功导入的数量
-  Future<int> importBookSources(String jsonArray);
-
-  /// 导出所有书源为 JSON 数组
-  Future<String> exportBookSources();
-
-  /// 书源排序
-  Future<void> sortBookSources(int sortKey, bool ascending);
 
   /// 提取 JS 单文件书源配置（返回 BookSource JSON，需 QuickJS 构建）
   Future<String> extractJsSource(String content);

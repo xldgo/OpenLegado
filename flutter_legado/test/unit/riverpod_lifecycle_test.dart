@@ -42,7 +42,7 @@ void main() {
           await gate.future;
           return [];
         });
-        when(api.getBookSources).thenAnswer((_) async {
+        when(api.bookSourceRepository.getBookSources).thenAnswer((_) async {
           await gate.future;
           return [];
         });

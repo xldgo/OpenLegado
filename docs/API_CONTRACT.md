@@ -8,6 +8,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-13 | **书源数据访问冻结**：BookSourceRepository 承担既有列表/启用列表、增改删、启停、导入导出、排序偏好与源变量十一项操作；正式实现直连现有 FRB，写入成功后通过应用装配的回调保持封面注册表失效时序。Mock 与校验、默认种子共用唯一源列表，排序配置共用原存储；根只提供共享引用，删除旧十一项方法。登录、校验、JS 解析、搜索及替换规则保持既有入口，不改变 Rust/FRB、数据库或书源语义。 |
 | 2026-10-13 | **书架功能目录冻结**：三个页面、书架/管理状态及注入入口集中至 `features/bookshelf/`，外部经 `bookshelf.dart` 引用。书架专用网格/列表项及分组名称辅助函数归入其 widgets，共享封面保留；只改路径和 import/export，领域接口、根实例、Provider 生命周期、状态及 Rust/FRB 契约不变。 |
 | 2026-10-13 | **书架与分组直接适配冻结**：十项书架及五项分组操作由独立正式/Mock Repository 承担，根 BookApi 提供共享引用，删除旧十五项方法与临时适配器。正式调用沿用现有 FRB，Mock 书籍存储与加载守卫供进度、章节和本地导入共用；分组种子与 ID 分配保持。迁移阅读器、详情、朗读、记录、备份、同步等剩余消费者；书籍 JSON、排序、异常、进度写入及分组能力差异不变，Rust/FRB 和数据库不变。 |
 | 2026-10-13 | **书架与分组窄接口第一批冻结**：新增 Dart 内部 BookshelfRepository（§2.2 十项）与 BookGroupRepository（§2.14 四项及既有 bookGroupSetShow）。本批单向适配现有 BookApi，迁移书架、管理和分组消费者；保留参数、返回值、异常、排序和分组显隐能力差异。旧方法供阅读器、详情、朗读、备份与同步继续使用，不重复计入契约总数；不修改 Rust/FRB、JSON、数据库或进度规则。 |
@@ -212,8 +213,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **254 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254）。
-> 附录 §2.x 行合计 **294** = BookApi 254 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
+> BookApi 接口当前共 **243 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243）。
+> 附录 §2.x 行合计 **294** = BookApi 243 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -240,6 +241,8 @@
 | `reorderBooks(List<Map<String, dynamic>> orders)` | orders: `[{bookUrl, order}, ...]` | `Future<void>` | 批量持久化拖拽排序（对齐原版 BookAdapter.swap 后 updateBook） |
 
 ### 2.3 书源操作（33 个方法）
+
+> 其中列表、启用列表、增改删、启停、导入导出、排序偏好与源变量十一项由 BookSourceRepository 承担；正式/Mock 保持既有存储语义，其他能力仍使用原入口。旧根方法已删除。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -1186,8 +1189,8 @@
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`，取代人工统计）：
 
 > - 附录行合计 **294** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
-> - BookApi 代码计数 **254**；书签六项、阅读记录五项、HTTP 配置七项、合成一项、书架十项、分组五项由独立接口承担；
+> - BookApi 代码计数 **243**；书签六项、阅读记录五项、HTTP 配置七项、合成一项、书架十项、分组五项、书源十一项由独立接口承担；
 >   四个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource` / `ttsSpeak`，另有 Runtime 缓存设置一项；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **294 = 254 + 6 + 5 + 7 + 1 + 10 + 5 + 4 + 1 + 1**：BookApi、书签、记录、引擎配置、合成、书架、分组、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
+> - 闭合关系为 **294 = 243 + 6 + 5 + 7 + 1 + 10 + 5 + 11 + 4 + 1 + 1**：BookApi、书签、记录、引擎配置、合成、书架、分组、书源、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

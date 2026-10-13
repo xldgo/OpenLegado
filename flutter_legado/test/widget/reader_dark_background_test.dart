@@ -49,7 +49,7 @@ void main() {
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
     when(() => mockApi.getChapterContent(any(), any()))
         .thenAnswer((_) async => '正文内容');
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
   }
 

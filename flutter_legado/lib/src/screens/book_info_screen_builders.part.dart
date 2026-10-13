@@ -337,7 +337,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'sourceVariable':
         // [Task #63 冻结 / #64-65 实现 | 2026-08-10] 设置源变量接通（台账 §5.11-3，对齐原版
-        // BookInfoActivity.setSourceVariable + setVariable 的 source 分支：
+        // BookInfoActivity.bookSourceRepository.setSourceVariable + setVariable 的 source 分支：
         // bookSource.setVariable 后保存） — Qoder
         await _setSourceVariable();
         break;
@@ -414,7 +414,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       // 单列 UPDATE 语义（契约 §2.3）：仅改 variable 列，空串=清除；
       // 规避 updateBookSource 全行更新覆盖其它字段的风险
-      await api.setSourceVariable(source.bookSourceUrl, input);
+      await api.bookSourceRepository.setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       // 刷新本地书源状态（重载页面数据，书源查询自然带出新 variable；
       // 评审 C1：variable 非空串语义，空串即已清除，不再传 null）
@@ -1589,7 +1589,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       if (!mounted) return;
       BookSource? source;
       try {
-        final sources = await ref.read(bookApiProvider).getBookSources();
+        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
         for (final s in sources) {
           if (s.bookSourceUrl == book.origin) {
             source = s;
@@ -1770,7 +1770,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final api = ref.read(bookApiProvider);
     BookSource? source;
     try {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {
           source = s;

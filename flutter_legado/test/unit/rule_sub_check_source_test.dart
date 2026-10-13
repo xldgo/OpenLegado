@@ -317,8 +317,8 @@ void main() {
         container.read(sourceNotifierProvider.notifier);
 
     Future<void> loadWith(List<BookSource> sources) async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
-      when(() => mockApi.updateBookSource(any()))
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
           .thenAnswer((_) async {});
       await readNotifier().loadSources();
     }
@@ -336,7 +336,7 @@ void main() {
       await readNotifier().addGroupToUrls({'https://b'}, '失效');
 
       final captured = verify(
-        () => mockApi.updateBookSource(captureAny()),
+        () => mockApi.bookSourceRepository.updateBookSource(captureAny()),
       ).captured.single as BookSource;
       expect(captured.bookSourceGroup, equals('玄幻,失效'));
       expect(
@@ -356,7 +356,7 @@ void main() {
       ]);
 
       await readNotifier().addGroupToUrls({'https://a'}, '失效');
-      verifyNever(() => mockApi.updateBookSource(any()));
+      verifyNever(() => mockApi.bookSourceRepository.updateBookSource(any()));
     });
 
     test('不退出批量模式、不清空选择', () async {
@@ -377,7 +377,7 @@ void main() {
         const BookSource(bookSourceUrl: 'https://a', bookSourceName: 'A'),
       ]);
       await readNotifier().addGroupToUrls({'https://a'}, '  ');
-      verifyNever(() => mockApi.updateBookSource(any()));
+      verifyNever(() => mockApi.bookSourceRepository.updateBookSource(any()));
     });
   });
 }

@@ -1,3 +1,5 @@
+import '../../data/repositories/rust_book_source_repository.dart';
+import '../../services/cover_decode_loader.dart';
 import '../../data/repositories/rust_bookshelf_repository.dart';
 import '../../data/repositories/rust_book_group_repository.dart';
 import '../../data/bridge/runtime_configuration.dart';
@@ -35,6 +37,9 @@ BookApi createBookApi({
     httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
     bookshelfRepository: const RustBookshelfRepository(),
     bookGroupRepository: const RustBookGroupRepository(),
+    bookSourceRepository: const RustBookSourceRepository(
+      onSourcesChanged: CoverDecodeLoader.invalidateSourceRegistry,
+    ),
   );
 }
 

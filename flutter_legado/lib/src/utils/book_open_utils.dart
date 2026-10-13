@@ -290,7 +290,7 @@ class BookOpenUtils {
     var typeBits = typeBitsOf(book);
     if (isOnlineBook(book)) {
       try {
-        final sources = await ref.read(bookApiProvider).getBookSources();
+        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
         String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
         final o = norm(book.origin);
         for (final s in sources) {

@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
@@ -16,6 +17,13 @@ const _kPngBase64 =
 
 /// 模拟设备实测：DB 无章节（getChapters=[]），须 refreshToc 自愈后才能出图
 class _EmptyTocThenRefreshApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -32,8 +40,7 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
   final List<String> refreshCalls;
   final List<String> decodeCalls;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,

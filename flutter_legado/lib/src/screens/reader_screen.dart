@@ -305,7 +305,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     try {
       final api = ref.read(bookApiProvider);
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       BookSource? matched;
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {
@@ -1117,7 +1117,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     BookSource? source;
     try {
-      final sources = await ref.read(bookApiProvider).getBookSources();
+      final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {
           source = s;

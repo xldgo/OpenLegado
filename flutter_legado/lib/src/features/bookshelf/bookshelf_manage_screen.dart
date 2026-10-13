@@ -178,7 +178,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
   Future<void> _switchSelectedSource(BookshelfManageState state) async {
     List<BookSource> sources;
     try {
-      sources = await ref.read(bookApiProvider).getEnabledBookSources();
+      sources = await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -407,7 +407,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
         );
         return;
       }
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       final used = sources
           .where((s) => origins.contains(s.bookSourceUrl))
           .map((s) => s.toJson())

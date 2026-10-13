@@ -534,7 +534,7 @@ class SearchNotifier extends Notifier<SearchState> {
     if (groups.isNotEmpty) {
       try {
         final allSources =
-            await ref.read(bookApiProvider).getEnabledBookSources();
+            await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
         for (final source in allSources) {
           final group = source.bookSourceGroup;
           if (group != null && group.isNotEmpty) {

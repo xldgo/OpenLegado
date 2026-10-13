@@ -27,7 +27,7 @@ class BookSourceGroupManageDialog extends ConsumerWidget {
       items: sources,
       groupOf: (s) => s.bookSourceGroup,
       copyWithGroup: (s, g) => s.copyWith(bookSourceGroup: g),
-      update: (s) => ref.read(bookApiProvider).updateBookSource(s),
+      update: (s) => ref.read(bookApiProvider).bookSourceRepository.updateBookSource(s),
     );
   }
 }

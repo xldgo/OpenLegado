@@ -7,42 +7,6 @@ part of 'mock_book_api.dart';
 mixin MockBookApiSources on MockBookApiStore implements BookApi {
   // ========== 书源操作 ==========
 
-  @override
-  Future<List<BookSource>> getBookSources() async => List.from(_sources);
-
-  @override
-  Future<List<BookSource>> getEnabledBookSources() async =>
-      _sources.where((s) => s.enabled).toList();
-
-  @override
-  Future<BookSource> addBookSource(BookSource source) async {
-    _sources.add(source);
-    return source;
-  }
-
-  @override
-  Future<void> updateBookSource(BookSource source) async {
-    final idx = _sources.indexWhere(
-      (s) => s.bookSourceUrl == source.bookSourceUrl,
-    );
-    if (idx >= 0) _sources[idx] = source;
-  }
-
-  /// 设置书源自定义变量（契约 §2.3，台账 §5.11-3，Task #63 冻结 / #64-65 实现）
-  ///
-  /// Mock：短延迟模拟 FFI 往返；命中内存书源时同步回写 variable 字段
-  /// （空串=清除，对齐 Rust 单列 UPDATE 语义）；书源不存在时抛错，
-  /// 对齐 Rust Internal 语义（评审 S1） — Qoder
-  @override
-  Future<void> setSourceVariable(String sourceUrl, String variable) async {
-    await Future.delayed(const Duration(milliseconds: 50));
-    final idx = _sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
-    if (idx < 0) {
-      throw Exception('书源不存在: $sourceUrl');
-    }
-    _sources[idx] = _sources[idx].copyWith(variable: variable);
-  }
-
   /// Mock：短延迟；无真实 Cookie 存储，调用即成功（对齐 void 语义）
   @override
   Future<void> clearCookie(String url) async {
@@ -104,39 +68,6 @@ mixin MockBookApiSources on MockBookApiStore implements BookApi {
     }
     final quoted = url.contains('?') || url.contains(' ') ? "'$url'" : url;
     return follow ? 'curl -g -L $quoted' : 'curl -g $quoted';
-  }
-
-  @override
-  Future<void> deleteBookSource(String sourceUrl) async {
-    _sources.removeWhere((s) => s.bookSourceUrl == sourceUrl);
-  }
-
-  @override
-  Future<void> enableBookSource(String sourceUrl) async {
-    final idx = _sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
-    if (idx >= 0) _sources[idx] = _sources[idx].copyWith(enabled: true);
-  }
-
-  @override
-  Future<void> disableBookSource(String sourceUrl) async {
-    final idx = _sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
-    if (idx >= 0) _sources[idx] = _sources[idx].copyWith(enabled: false);
-  }
-
-  @override
-  Future<int> importBookSources(String jsonArray) async {
-    final list = jsonDecode(jsonArray) as List<dynamic>;
-    return list.length;
-  }
-
-  @override
-  Future<String> exportBookSources() async =>
-      jsonEncode(_sources.map((s) => s.toJson()).toList());
-
-  @override
-  Future<void> sortBookSources(int sortKey, bool ascending) async {
-    _configs['source_sort_key'] = sortKey.toString();
-    _configs['source_sort_ascending'] = ascending.toString();
   }
 
   @override

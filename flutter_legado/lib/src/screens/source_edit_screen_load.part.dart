@@ -32,7 +32,7 @@ extension _SourceEditLoad on _SourceEditScreenState {
       if (source == null) {
         try {
           final api = ref.read(bookApiProvider);
-          final sources = await api.getBookSources();
+          final sources = await api.bookSourceRepository.getBookSources();
           for (final s in sources) {
             if (s.bookSourceUrl == widget.sourceUrl) {
               source = s;

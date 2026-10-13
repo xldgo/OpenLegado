@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
@@ -32,6 +33,13 @@ const _kEntry1 = 'cbz://02.png';
 
 /// 测试专用 MockBookApi：本地 cbz 书 + `cbz://` 正文章节 + 读页计数/失败注入
 class _CbzMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -57,8 +65,7 @@ class _CbzMockApi extends MockBookApi {
   /// cbzReadPage 调用序列（`path|entry`，用于缓存命中零重复调用断言）
   final List<String> readCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => const <BookSource>[];
+  Future<List<BookSource>> _fixtureGetBookSources() async => const <BookSource>[];
 
   @override
   Future<String?> getConfig(String key) async {

@@ -254,7 +254,7 @@ class SyncNotifier extends Notifier<SyncState> {
       final remote = jsonDecode(result) as Map<String, dynamic>;
       final remoteSources = remote['sources']?.toString() ?? '';
       if (remoteSources.isNotEmpty && remoteSources != '[]') {
-        imported = await api.importBookSources(remoteSources);
+        imported = await api.bookSourceRepository.importBookSources(remoteSources);
       }
       await _markSyncSuccess();
       return '恢复完成，回写 $imported 条书源';
@@ -270,7 +270,7 @@ class SyncNotifier extends Notifier<SyncState> {
   Future<(String, String)> _collectLocalData() async {
     final api = ref.read(bookApiProvider);
     final books = await api.bookshelfRepository.getBooks();
-    final sources = await api.getBookSources();
+    final sources = await api.bookSourceRepository.getBookSources();
     final localBooks = jsonEncode(books.map((e) => e.toJson()).toList());
     final localSources = jsonEncode(sources.map((e) => e.toJson()).toList());
     return (localBooks, localSources);

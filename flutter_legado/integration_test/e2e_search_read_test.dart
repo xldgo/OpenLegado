@@ -41,7 +41,7 @@ void main() {
           .get(Uri.parse(_sourceUrl))
           .timeout(const Duration(seconds: 30));
       expect(resp.statusCode, 200, reason: '书源下载失败: HTTP ${resp.statusCode}');
-      final n = await api.importBookSources(resp.body);
+      final n = await api.bookSourceRepository.importBookSources(resp.body);
       debugPrint('[E2E] 导入书源数量: $n');
       expect(n, greaterThanOrEqualTo(1), reason: '书源导入失败');
     });

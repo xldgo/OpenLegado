@@ -632,7 +632,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (BookOpenUtils.isOnlineBook(book)) {
       try {
         final api = ref.read(bookApiProvider);
-        final sources = await api.getBookSources();
+        final sources = await api.bookSourceRepository.getBookSources();
         // 去掉尾斜杠，避免 `https://ukuzy.com/` 与 origin 失配 — Reasonix + UI
         String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
         final o = norm(book.origin);
@@ -1197,7 +1197,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         .toSet();
     List<BookSource> sources;
     try {
-      sources = await api.getEnabledBookSources();
+      sources = await api.bookSourceRepository.getEnabledBookSources();
     } catch (_) {
       sources = const [];
     }
@@ -1357,7 +1357,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final existing = shelf.map((b) => '${b.name}|${b.author}').toSet();
     List<String> enabledUrls;
     try {
-      enabledUrls = (await api.getEnabledBookSources())
+      enabledUrls = (await api.bookSourceRepository.getEnabledBookSources())
           .map((s) => s.bookSourceUrl)
           .toList();
     } catch (_) {

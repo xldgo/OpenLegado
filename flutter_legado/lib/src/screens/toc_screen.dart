@@ -516,7 +516,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   Future<List<BookChapter>> _fetchWebChaptersOnline(BookApi api) async {
     BookSource? source;
     try {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       final o = _book.origin.trim().replaceAll(RegExp(r'/+$'), '');
       for (final s in sources) {
         final u = s.bookSourceUrl.trim().replaceAll(RegExp(r'/+$'), '');

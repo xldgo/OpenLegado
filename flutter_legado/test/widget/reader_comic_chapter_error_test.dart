@@ -1,3 +1,4 @@
+import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
@@ -73,6 +74,13 @@ Book _e4Book({int chapterIndex = 0}) {
 /// - 记录 getBook / getChapters / fetchChapterContent 调用计数，用于甄别
 ///   「章级重试」（只重拉章节正文）与「书级重试」（重拉书籍信息 + 目录）。
 class _ChapterErrorMockApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   late final _fixtureShelf = TestBookshelfRepository(
     delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
   );
@@ -99,8 +107,7 @@ class _ChapterErrorMockApi extends MockBookApi {
   final Map<String, int> contentCalls = {};
   final Map<String, int> _counts = {};
 
-  @override
-  Future<List<BookSource>> getBookSources() async {
+  Future<List<BookSource>> _fixtureGetBookSources() async {
     // 提供与书籍 origin 匹配的书源：图片渲染走 FFI 解码链路
     //（_DecodedComicImage → fetchImageWithDecode，桩返回 1x1 PNG）
     return [

@@ -326,7 +326,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
       return _BookInfoScreenState._sourceByOriginCache[key];
     }
     try {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       for (final s in sources) {
         final u = s.bookSourceUrl.trim().replaceAll(RegExp(r'/+$'), '');
         if (u == key || s.bookSourceUrl == origin) {

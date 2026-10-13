@@ -52,6 +52,10 @@ void main() {
     _read('lib/src/domain/contracts/book_group_repository.dart'),
     'BookGroupRepository',
   );
+  final bookSourceNames = _extractMethods(
+    _read('lib/src/domain/contracts/book_source_repository.dart'),
+    'BookSourceRepository',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -333,6 +337,7 @@ void main() {
             synthesisNames.length +
             bookshelfNames.length +
             bookGroupNames.length +
+            bookSourceNames.length +
             4 +
             1 +
             1,
@@ -405,6 +410,7 @@ void main() {
       for (final entry in [
         ('bookshelf', 'BookshelfRepository', 'RustBookshelfRepository', 'MockBookshelfRepository', 10),
         ('book_group', 'BookGroupRepository', 'RustBookGroupRepository', 'MockBookGroupRepository', 5),
+        ('book_source', 'BookSourceRepository', 'RustBookSourceRepository', 'MockBookSourceRepository', 11),
       ]) {
         final methods = _extractMethods(
           _read('lib/src/domain/contracts/${entry.$1}_repository.dart'), entry.$2,

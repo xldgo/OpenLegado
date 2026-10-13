@@ -72,7 +72,7 @@ void main() {
     when(() => api.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
     when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
-    when(() => api.getBookSources()).thenAnswer((_) async => const []);
+    when(() => api.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
     when(() => api.getConfig(any())).thenAnswer((_) async => '');
     when(
       () => api.updateReadingProgress(

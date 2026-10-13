@@ -109,48 +109,48 @@ void main() {
 
   group('书源操作', () {
     test('getBookSources 返回 3 个预置书源', () async {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       expect(sources.length, 3);
     });
 
     test('getEnabledBookSources 只返回启用的', () async {
-      final sources = await api.getEnabledBookSources();
+      final sources = await api.bookSourceRepository.getEnabledBookSources();
       expect(sources.length, 2);
     });
 
     test('enableBookSource/disableBookSource 切换状态', () async {
-      await api.disableBookSource('https://www.kaixin7days.com');
-      var enabled = await api.getEnabledBookSources();
+      await api.bookSourceRepository.disableBookSource('https://www.kaixin7days.com');
+      var enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 1);
 
-      await api.enableBookSource('https://www.kaixin7days.com');
-      enabled = await api.getEnabledBookSources();
+      await api.bookSourceRepository.enableBookSource('https://www.kaixin7days.com');
+      enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 2);
     });
 
     test('importBookSources 返回导入数量', () async {
-      final count = await api.importBookSources('[{},{}]');
+      final count = await api.bookSourceRepository.importBookSources('[{},{}]');
       expect(count, 2);
     });
 
     test('exportBookSources 返回 JSON', () async {
-      final json = await api.exportBookSources();
+      final json = await api.bookSourceRepository.exportBookSources();
       expect(json, contains('笔趣阁'));
     });
 
     // [Task #63 冻结 / #64-65 实现，#68 评审 S1/C1 语义对齐]
     // 契约 §2.3 setSourceVariable（台账 §5.11-3）
     test('setSourceVariable 写入/清除书源变量', () async {
-      await api.setSourceVariable('https://www.kaixin7days.com', 'key=value');
-      var sources = await api.getBookSources();
+      await api.bookSourceRepository.setSourceVariable('https://www.kaixin7days.com', 'key=value');
+      var sources = await api.bookSourceRepository.getBookSources();
       final src = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
       );
       expect(src.variable, 'key=value');
 
       // 空串=清除（对齐 Rust 单列 UPDATE 语义；C1 后 variable 为非空串）
-      await api.setSourceVariable('https://www.kaixin7days.com', '');
-      sources = await api.getBookSources();
+      await api.bookSourceRepository.setSourceVariable('https://www.kaixin7days.com', '');
+      sources = await api.bookSourceRepository.getBookSources();
       final cleared = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
       );
@@ -160,7 +160,7 @@ void main() {
     // 评审 S1：书源不存在时抛错，对齐 Rust Internal 语义
     test('setSourceVariable 书源不存在时抛错', () async {
       await expectLater(
-        api.setSourceVariable('https://not-exist.example.com', 'x'),
+        api.bookSourceRepository.setSourceVariable('https://not-exist.example.com', 'x'),
         throwsException,
       );
     });

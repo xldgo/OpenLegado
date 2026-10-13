@@ -42,13 +42,13 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [
           const Book(bookUrl: 'b1', name: '书1'),
         ]);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => [
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
           const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '源A'),
         ]);
     when(() => mockApi.webdavFullSync(any(), any(), any())).thenAnswer(
       (_) async => '{"books":"[]","sources":$remoteSources}',
     );
-    when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+    when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
   }
 
   group('SyncNotifier 初始状态', () {
@@ -252,7 +252,7 @@ void main() {
 
       expect(readState().status, equals(SyncStatus.success));
       expect(msg, contains('回写 1 条书源'));
-      verify(() => mockApi.importBookSources(any())).called(1);
+      verify(() => mockApi.bookSourceRepository.importBookSources(any())).called(1);
     });
 
     test('restoreFromWebDav 远端书源为空时不回写', () async {
@@ -263,7 +263,7 @@ void main() {
 
       expect(readState().status, equals(SyncStatus.success));
       expect(msg, contains('回写 0 条书源'));
-      verifyNever(() => mockApi.importBookSources(any()));
+      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
     });
   });
 

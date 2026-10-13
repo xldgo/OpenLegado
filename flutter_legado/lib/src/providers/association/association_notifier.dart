@@ -200,7 +200,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       switch (type) {
         case ImportType.bookSource:
           final map = <String, BookSource>{};
-          for (final s in await _api.getBookSources()) {
+          for (final s in await _api.bookSourceRepository.getBookSources()) {
             map[s.bookSourceUrl] = s;
           }
           return map;

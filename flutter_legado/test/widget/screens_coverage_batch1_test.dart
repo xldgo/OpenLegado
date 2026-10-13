@@ -327,7 +327,7 @@ void main() {
                 title: '第一章 开端'),
           ]);
       when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: orderBook)));
       await tester.pumpAndSettle();
@@ -386,7 +386,7 @@ void main() {
       when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => tagBook);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
       when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: tagBook)));
       await tester.pumpAndSettle();
@@ -447,7 +447,7 @@ void main() {
                     title: i == 50 ? '第五十一章 大结局' : '第${i + 1}章'),
               ));
       when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: e5Book)));
       await tester.pumpAndSettle();
@@ -499,7 +499,7 @@ void main() {
               BookChapter(
                   bookUrl: 'u1', index: 0, title: '第一章', url: 'c1'),
             ]);
-        when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+        when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
         when(() => mockApi.fetchChapterContent(any(), any(), any()))
             .thenAnswer((_) async => '正文内容');
         when(() => mockApi.getChapterContent(any(), any()))
@@ -582,7 +582,7 @@ void main() {
             origin: 'https://manga-source.com');
         stubCommon(book);
         when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
-        when(() => mockApi.getBookSources()).thenAnswer((_) async => [
+        when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
               const BookSource(
                 bookSourceUrl: 'https://manga-source.com',
                 bookSourceName: '漫画源',
@@ -633,7 +633,7 @@ void main() {
         when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
         when(() => mockApi.getChapters(any()))
             .thenAnswer((_) async => chapters);
-        when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+        when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
         when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
         when(() => mockApi.fetchChapterContent(any(), any(), any()))
             .thenAnswer((_) async => '正文内容');

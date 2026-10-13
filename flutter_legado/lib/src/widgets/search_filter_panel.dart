@@ -61,7 +61,7 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
   Future<void> _loadSources() async {
     try {
       final api = ref.read(bookApiProvider);
-      final sources = await api.getEnabledBookSources();
+      final sources = await api.bookSourceRepository.getEnabledBookSources();
       if (mounted) {
         setState(() {
           _sources = sources;

@@ -163,7 +163,7 @@ void main() {
     final mockApi = MockRustApi();
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
     when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     when(() => mockApi.readRecordRepository)
         .thenReturn(MockReadRecordRepository());
