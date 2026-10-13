@@ -72,7 +72,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final coverUrl = book.customCoverUrl ?? book.coverUrl;
     final hasCover = coverUrl != null && coverUrl.isNotEmpty;
     final isDefaultCover = !hasCover;
-    final ui = uiSettingsListenable.value;
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.details);
     final mode = isDefaultCover
         ? ui.bookInfoDefaultCoverBackground
         : ui.bookInfoNetworkCoverBackground;
@@ -707,10 +707,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         ValueListenableBuilder<double>(
           valueListenable: _topCollapse,
           builder: (context, t, _) {
-            final topStyle =
-                uiSettingsListenable.value.topBarButtonStyle;
-            final topMerge =
-                uiSettingsListenable.value.mergeTopBarActions;
+            final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
+            final topStyle = ui.topBarButtonStyle;
+            final topMerge = ui.mergeTopBarActions;
             final barColor = Color.lerp(
               Colors.transparent,
               cs.surfaceContainer,

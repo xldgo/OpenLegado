@@ -10,7 +10,7 @@ import 'src/l10n/app_strings.dart';
 import 'src/l10n/app_localization.dart';
 import 'src/providers/app_locale_notifier.dart';
 import 'src/providers/providers.dart';
-import 'src/providers/ui_settings/ui_settings_notifier.dart';
+import 'src/providers/theme/app_theme_preferences_provider.dart';
 import 'src/providers/theme/theme_colors_notifier.dart';
 import 'src/providers/theme/theme_notifier.dart';
 import 'src/routes.dart';
@@ -19,7 +19,6 @@ import 'src/services/auto_task_scheduler.dart';
 import 'src/services/deep_link_service.dart';
 import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
-import 'src/theme/app_theme.dart';
 import 'src/theme/app_theme_resolver.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
@@ -27,6 +26,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
+import 'src/widgets/ui_settings_scope.dart';
 import 'src/widgets/eye_protection_filter.dart';
 import 'src/widgets/crash_log_dialog.dart';
 import 'src/widgets/verification_code_listener.dart';
@@ -321,30 +321,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     );
     AppStrings.setLocale(locale.languageCode);
     final themeColors = ref.watch(themeColorsProvider);
-    final uiSettings = ref.watch(uiSettingsProvider);
-    Color? color(int? argb) => argb == null ? null : Color(argb);
-    final preferences = AppThemePreferences(
-      paletteId: themeState.paletteId,
-      style: uiSettings.themeStyle,
-      contrastLevel: double.tryParse(uiSettings.themeContrastLevel) ?? 0,
-      amoledDark: uiSettings.themeAmoled,
-      followWallpaper: uiSettings.wallpaperColorFollow,
-      cardRadius: uiSettings.overrideBaseCardCornerRadius
-          ? uiSettings.baseCardCornerRadius.toDouble()
-          : AppTheme.defaultCardRadius,
-      lightColors: ThemeColorOverrides(
-        primary: color(themeColors.primary),
-        accent: color(themeColors.accent),
-        background: color(themeColors.background),
-        bottomBackground: color(themeColors.bottomBackground),
-      ),
-      darkColors: ThemeColorOverrides(
-        primary: color(themeColors.primaryNight),
-        accent: color(themeColors.accentNight),
-        background: color(themeColors.backgroundNight),
-        bottomBackground: color(themeColors.bottomBackgroundNight),
-      ),
-    );
+    final preferences = ref.watch(appThemePreferencesProvider);
 
     // 平台动态色与本地背景图由应用入口提供，主题解析只消费绘制输入。
     return DynamicColorBuilder(
@@ -416,6 +393,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
               child: wrapped,
             );
             wrapped = EyeProtectionFilter(child: wrapped);
+            wrapped = UiSettingsHost(child: wrapped);
             if (scale == null) return wrapped;
             return MediaQuery(
               data: MediaQuery.of(context)

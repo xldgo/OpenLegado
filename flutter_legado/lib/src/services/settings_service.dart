@@ -860,6 +860,18 @@ class SettingsService {
     }
   }
 
+  /// 批量保存主题颜色；错误由调用方处理，不吞掉部分写入失败。
+  Future<void> setColorPrefs(Map<String, int?> colors) async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final entry in colors.entries) {
+      final value = entry.value;
+      final saved = value == null
+          ? await prefs.remove(entry.key)
+          : await prefs.setInt(entry.key, value);
+      if (!saved) throw StateError('主题颜色保存失败：${entry.key}');
+    }
+  }
+
   /// 移除偏好（恢复默认，对齐原版 removePref）
   Future<void> removePref(String key) async {
     try {

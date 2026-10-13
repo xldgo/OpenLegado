@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/app_theme_resolver.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
@@ -194,14 +193,8 @@ void main() {
   });
 
   test('组件装配只使用显式圆角，局部换色继承已解析形状', () {
-    final previous = uiSettingsListenable.value;
-    addTearDown(() => uiSettingsListenable.value = previous);
     final themes = resolveAppThemes(
       preferences: const AppThemePreferences(cardRadius: 8),
-    );
-    uiSettingsListenable.value = const UiSettingsState(
-      overrideBaseCardCornerRadius: true,
-      baseCardCornerRadius: 30,
     );
     final repeated = resolveAppThemes(
       preferences: const AppThemePreferences(cardRadius: 8),

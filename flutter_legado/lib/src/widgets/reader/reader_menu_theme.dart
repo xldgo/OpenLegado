@@ -5,6 +5,7 @@ import '../../screens/reader_config_panel.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/md3_colors.dart';
 import '../../theme/theme_engine_parameterized.dart';
+import '../ui_settings_scope.dart';
 
 /// 对齐上游 ReadBookColorTheme：正文背景作为种子，菜单仍使用完整的颜色角色。
 ThemeData resolveReaderMenuTheme({
@@ -86,49 +87,45 @@ class _ReaderMenuThemeHostState extends State<ReaderMenuThemeHost> {
   @override
   Widget build(BuildContext context) {
     final appTheme = Theme.of(context);
-    return ValueListenableBuilder<UiSettingsState>(
-      valueListenable: uiSettingsListenable,
-      builder: (context, ui, _) {
-        final config = widget.config;
-        final key = (
-          appTheme,
-          widget.readingBackground,
-          config.readBarStyle,
-          config.readMenuPaletteStyle,
-          config.readMenuColorMode,
-          config.readMenuAccentColor,
-          config.readMenuAccentColorNight,
-          config.readMenuBgColor,
-          config.readMenuBgColorNight,
-          config.readMenuContainerColor,
-          config.readMenuContainerColorNight,
-          ui.themeStyle,
-          ui.themeContrastLevel,
-        );
-        if (_key != key) {
-          _key = key;
-          _theme = resolveReaderMenuTheme(
-            appTheme: appTheme,
-            readingBackground: widget.readingBackground,
-            config: config,
-            ui: ui,
-          );
-        }
-        return Theme(
-          data: _theme!,
-          child: Builder(
-            builder: (menuContext) => _ReaderMenuThemeScope(
-              theme: _theme!,
-              menuContext: menuContext,
-              // 正文和分页保留原主题；只有菜单及其浮层消费菜单主题。
-              child: Theme(
-                data: appTheme,
-                child: Builder(builder: widget.builder),
-              ),
-            ),
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.readerTheme);
+    final config = widget.config;
+    final key = (
+      appTheme,
+      widget.readingBackground,
+      config.readBarStyle,
+      config.readMenuPaletteStyle,
+      config.readMenuColorMode,
+      config.readMenuAccentColor,
+      config.readMenuAccentColorNight,
+      config.readMenuBgColor,
+      config.readMenuBgColorNight,
+      config.readMenuContainerColor,
+      config.readMenuContainerColorNight,
+      ui.themeStyle,
+      ui.themeContrastLevel,
+    );
+    if (_key != key) {
+      _key = key;
+      _theme = resolveReaderMenuTheme(
+        appTheme: appTheme,
+        readingBackground: widget.readingBackground,
+        config: config,
+        ui: ui,
+      );
+    }
+    return Theme(
+      data: _theme!,
+      child: Builder(
+        builder: (menuContext) => _ReaderMenuThemeScope(
+          theme: _theme!,
+          menuContext: menuContext,
+          // 正文和分页保留原主题；只有菜单及其浮层消费菜单主题。
+          child: Theme(
+            data: appTheme,
+            child: Builder(builder: widget.builder),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

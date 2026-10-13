@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../providers/ui_settings/ui_settings_notifier.dart';
 import '../screens/home_screen.dart';
 import 'top_bar_button.dart';
+import 'ui_settings_scope.dart';
 
 /// Legado 统一顶栏
 ///
@@ -22,9 +23,7 @@ import 'top_bar_button.dart';
 /// [UI_SYNC_REFACTOR B2] actions/leading 统一经 TopBarActionStyler 注入
 /// 5 档按钮样式与 merge 胶囊（设置即时全局生效）；背景按 topBarOpacity
 /// 混入透明度；显式 [actionsStyle]/[mergeActions] 参数可覆盖全局设置。
-/// 设置读取走全局 [uiSettingsListenable]（组件不依赖 Riverpod scope，
-/// 58+ 使用点与既有无 ProviderScope 测试保持兼容），变化时经
-/// ValueListenableBuilder 原位重建。
+/// 从页面内 [UiSettingsScope] 订阅顶栏设置，独立使用时沿用默认值。
 class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
   const LegadoAppBar({
     super.key,
@@ -54,10 +53,13 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleTextStyle,
     this.systemOverlayStyle,
     this.forceMaterialTransparency,
+
     /// 显式控制返回；null 时按 Tab 根 / Navigator.canPop 推断
     this.showBack,
+
     /// 覆盖全局顶栏按钮样式（null = 跟随主题设置）
     this.actionsStyle,
+
     /// 覆盖全局 merge 胶囊开关（null = 跟随主题设置）
     this.mergeActions,
   });
@@ -150,83 +152,80 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<UiSettingsState>(
-      valueListenable: uiSettingsListenable,
-      builder: (context, ui, _) {
-        final style = actionsStyle ?? ui.topBarButtonStyle;
-        final merge = mergeActions ?? ui.mergeTopBarActions;
-        var bg = backgroundColor ??
-            Theme.of(context).appBarTheme.backgroundColor ??
-            Theme.of(context).colorScheme.surface;
-        // [UI_SYNC_REFACTOR B2] 顶栏不透明度（0-100，100=不变）
-        if (ui.topBarOpacity < 100 && bg != Colors.transparent) {
-          bg = bg.withValues(alpha: ui.topBarOpacity / 100);
-        }
-        // [UI_SYNC_REFACTOR R1] 毛玻璃：enableBlur 开启且非透明背景时，
-        // 半透明底（topBarBlurAlpha/255）+ BackdropFilter（topBarBlurRadius）
-        final useBlur = ui.enableBlur && bg != Colors.transparent;
-        if (useBlur) {
-          bg = bg.withValues(alpha: ui.topBarBlurAlpha / 255);
-        }
-        final isLight =
-            ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
-        final effectiveOverlay = systemOverlayStyle ??
-            SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness:
-                  isLight ? Brightness.dark : Brightness.light,
-              statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
-            );
-
-        Widget bar = AppBar(
-          leading: _buildLeading(context, style: style, merge: merge),
-          automaticallyImplyLeading: false,
-          title: _safeTitle(title),
-          actions: TopBarActionStyler.styleActions(
-            context,
-            actions,
-            style: style,
-            merge: merge,
-          ),
-          flexibleSpace: flexibleSpace,
-          bottom: bottom,
-          elevation: elevation,
-          scrolledUnderElevation: scrolledUnderElevation,
-          shadowColor: shadowColor,
-          surfaceTintColor: surfaceTintColor,
-          shape: shape,
-          backgroundColor: bg,
-          foregroundColor: foregroundColor,
-          iconTheme: iconTheme,
-          actionsIconTheme: actionsIconTheme,
-          primary: primary,
-          centerTitle: centerTitle,
-          excludeHeaderSemantics: excludeHeaderSemantics,
-          titleSpacing: titleSpacing,
-          toolbarOpacity: toolbarOpacity,
-          bottomOpacity: bottomOpacity,
-          toolbarHeight: toolbarHeight,
-          leadingWidth: leadingWidth,
-          toolbarTextStyle: toolbarTextStyle,
-          titleTextStyle: titleTextStyle,
-          systemOverlayStyle: effectiveOverlay,
-          forceMaterialTransparency: forceMaterialTransparency ?? false,
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
+    final style = actionsStyle ?? ui.topBarButtonStyle;
+    final merge = mergeActions ?? ui.mergeTopBarActions;
+    var bg =
+        backgroundColor ??
+        Theme.of(context).appBarTheme.backgroundColor ??
+        Theme.of(context).colorScheme.surface;
+    // [UI_SYNC_REFACTOR B2] 顶栏不透明度（0-100，100=不变）
+    if (ui.topBarOpacity < 100 && bg != Colors.transparent) {
+      bg = bg.withValues(alpha: ui.topBarOpacity / 100);
+    }
+    // [UI_SYNC_REFACTOR R1] 毛玻璃：enableBlur 开启且非透明背景时，
+    // 半透明底（topBarBlurAlpha/255）+ BackdropFilter（topBarBlurRadius）
+    final useBlur = ui.enableBlur && bg != Colors.transparent;
+    if (useBlur) {
+      bg = bg.withValues(alpha: ui.topBarBlurAlpha / 255);
+    }
+    final isLight =
+        ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
+    final effectiveOverlay =
+        systemOverlayStyle ??
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+          statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
         );
-        // [UI_SYNC_REFACTOR R1] 毛玻璃包裹（实色半透明底 + 背后内容模糊）
-        if (useBlur) {
-          bar = ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: ui.topBarBlurRadius.toDouble(),
-                sigmaY: ui.topBarBlurRadius.toDouble(),
-              ),
-              child: bar,
-            ),
-          );
-        }
-        return bar;
-      },
+
+    Widget bar = AppBar(
+      leading: _buildLeading(context, style: style, merge: merge),
+      automaticallyImplyLeading: false,
+      title: _safeTitle(title),
+      actions: TopBarActionStyler.styleActions(
+        context,
+        actions,
+        style: style,
+        merge: merge,
+      ),
+      flexibleSpace: flexibleSpace,
+      bottom: bottom,
+      elevation: elevation,
+      scrolledUnderElevation: scrolledUnderElevation,
+      shadowColor: shadowColor,
+      surfaceTintColor: surfaceTintColor,
+      shape: shape,
+      backgroundColor: bg,
+      foregroundColor: foregroundColor,
+      iconTheme: iconTheme,
+      actionsIconTheme: actionsIconTheme,
+      primary: primary,
+      centerTitle: centerTitle,
+      excludeHeaderSemantics: excludeHeaderSemantics,
+      titleSpacing: titleSpacing,
+      toolbarOpacity: toolbarOpacity,
+      bottomOpacity: bottomOpacity,
+      toolbarHeight: toolbarHeight,
+      leadingWidth: leadingWidth,
+      toolbarTextStyle: toolbarTextStyle,
+      titleTextStyle: titleTextStyle,
+      systemOverlayStyle: effectiveOverlay,
+      forceMaterialTransparency: forceMaterialTransparency ?? false,
     );
+    // [UI_SYNC_REFACTOR R1] 毛玻璃包裹（实色半透明底 + 背后内容模糊）
+    if (useBlur) {
+      bar = ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: ui.topBarBlurRadius.toDouble(),
+            sigmaY: ui.topBarBlurRadius.toDouble(),
+          ),
+          child: bar,
+        ),
+      );
+    }
+    return bar;
   }
 
   @override
@@ -241,7 +240,8 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 /// 系统栏样式：按 AppBar 背景明暗计算（浅底深图标 / 深底浅图标）
 SystemUiOverlayStyle _legadoSystemOverlay(BuildContext context) {
-  final bg = Theme.of(context).appBarTheme.backgroundColor ??
+  final bg =
+      Theme.of(context).appBarTheme.backgroundColor ??
       Theme.of(context).colorScheme.surface;
   final isLight = ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
   return SystemUiOverlayStyle(
@@ -277,26 +277,6 @@ Widget _largeTitleThemeOverride(
     ),
     child: child,
   );
-}
-
-/// 顶栏设置监听 State 基类：uiSettings 变化时重建（sliver 场景无法用
-/// ValueListenableBuilder 直包，经 setState 原位重建）
-mixin _UiSettingsListener<T extends StatefulWidget> on State<T> {
-  @override
-  void initState() {
-    super.initState();
-    uiSettingsListenable.addListener(_onUiSettingsChanged);
-  }
-
-  @override
-  void dispose() {
-    uiSettingsListenable.removeListener(_onUiSettingsChanged);
-    super.dispose();
-  }
-
-  void _onUiSettingsChanged() {
-    if (mounted) setState(() {});
-  }
 }
 
 /// 主 Tab 根页可折叠 LargeTitle 头部 sliver（UI_MD3_PLAN.md Batch 1 顶栏决策）
@@ -368,11 +348,10 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
       _LegadoTabRootHeaderSliverState();
 }
 
-class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver>
-    with _UiSettingsListener {
+class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
   @override
   Widget build(BuildContext context) {
-    final ui = uiSettingsListenable.value;
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
     final overlay = _legadoSystemOverlay(context);
     final cs = Theme.of(context).colorScheme;
     final styledActions = TopBarActionStyler.styleActions(
@@ -460,11 +439,10 @@ class LegadoLargeTitleScroll extends StatefulWidget {
   State<LegadoLargeTitleScroll> createState() => _LegadoLargeTitleScrollState();
 }
 
-class _LegadoLargeTitleScrollState extends State<LegadoLargeTitleScroll>
-    with _UiSettingsListener {
+class _LegadoLargeTitleScrollState extends State<LegadoLargeTitleScroll> {
   @override
   Widget build(BuildContext context) {
-    final ui = uiSettingsListenable.value;
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
     final cs = Theme.of(context).colorScheme;
     final styledActions = TopBarActionStyler.styleActions(
       context,
