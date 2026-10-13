@@ -15,6 +15,18 @@ import 'dart:math' as math;
 double readerSystemStatusBarInset(BuildContext context) =>
     MediaQuery.viewPaddingOf(context).top;
 
+/// 隐藏导航栏时只保留真实缺口；系统安全边距已包含缺口时不重复叠加。
+double readerContentBottomInset({
+  required double systemBottomInset,
+  required double cutoutBottomInset,
+  required bool hideNavigationBar,
+  required bool paddingDisplayCutouts,
+}) {
+  final navigation = hideNavigationBar ? 0.0 : systemBottomInset;
+  final cutout = paddingDisplayCutouts ? cutoutBottomInset : 0.0;
+  return math.max(navigation, cutout);
+}
+
 /// 正文区稳定顶 inset：readBodyToLh 且未隐藏状态栏时预留（不随工具栏显隐
 /// 变化，避免切换 ReadMenu 时正文上跳；外层 SafeArea 已避让时不再重复）。
 double readerContentStatusBarInset(
