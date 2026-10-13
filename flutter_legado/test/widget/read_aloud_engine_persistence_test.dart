@@ -18,9 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/http_tts_seed.dart';
+import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/read_aloud_config_screen.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
 import '../mocks/mocks.dart';
@@ -68,7 +67,8 @@ void main() {
     addTearDown(container.dispose);
 
     when(() => audioService.dispose()).thenAnswer((_) async {});
-    when(() => api.getHttpTts()).thenAnswer((_) async => [engineA, engineB]);
+    when(() => api.httpTtsRepository.getHttpTts())
+        .thenAnswer((_) async => [engineA, engineB]);
     when(() => api.getBook(any())).thenAnswer((_) async => null);
     when(() => api.getConfig(any())).thenAnswer((invocation) async {
       final key = invocation.positionalArguments[0] as String;
@@ -210,7 +210,8 @@ void main() {
     testWidgets('不支持系统 TTS 的平台仍显示 HTTP 空列表提示', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
-        when(() => api.getHttpTts()).thenAnswer((_) async => []);
+        when(() => api.httpTtsRepository.getHttpTts())
+            .thenAnswer((_) async => []);
         await pumpScreen(tester);
         expect(find.text('暂无朗读引擎'), findsOneWidget);
         expect(find.text('系统 TTS'), findsNothing);

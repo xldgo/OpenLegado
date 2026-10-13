@@ -1,20 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../models/models.dart';
-import '../providers/audio/audio_notifier.dart';
-import '../providers/audio/http_tts_seed.dart';
-import '../providers/providers.dart';
-import '../widgets/app_progress_indicator.dart';
-import '../widgets/system_tts_settings_dialog.dart';
-import '../services/system_tts_service.dart';
-import '../widgets/help/help_assets.dart';
-import '../widgets/help/show_help.dart';
+import '../../models/models.dart';
+import '../../providers/audio/audio_notifier.dart';
+import 'http_tts_seed.dart';
+import 'http_tts_repository_provider.dart';
+import '../../widgets/app_progress_indicator.dart';
+import '../../widgets/system_tts_settings_dialog.dart';
+import '../../services/system_tts_service.dart';
+import '../../widgets/help/help_assets.dart';
+import '../../widgets/help/show_help.dart';
 
 /// 朗读引擎配置页面
 ///
@@ -50,7 +50,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
   Future<void> _loadEngines() async {
     setState(() => _loading = true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(httpTtsRepositoryProvider);
       // [D3 | 2026-10-03] 首启导入原版 httpTTS 种子（版本门控），
       // 与 dict/rss/txtToc 对齐：进入配置页即可见默认数据
       await ensureDefaultHttpTts(api);
@@ -83,7 +83,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
 
   Future<void> _deleteEngine(HttpTts engine) async {
     final messenger = ScaffoldMessenger.of(context);
-    final api = ref.read(bookApiProvider);
+    final api = ref.read(httpTtsRepositoryProvider);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -116,7 +116,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
 
   Future<void> _addOrEditEngine([HttpTts? existing]) async {
     final messenger = ScaffoldMessenger.of(context);
-    final api = ref.read(bookApiProvider);
+    final api = ref.read(httpTtsRepositoryProvider);
 
     final result = await showDialog<HttpTts>(
       context: context,

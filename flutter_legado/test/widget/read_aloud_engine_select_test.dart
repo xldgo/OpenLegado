@@ -49,7 +49,7 @@ void main() {
 
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
     when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
-    when(() => api.getHttpTts()).thenAnswer(
+    when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => [const HttpTts(id: 1, name: engineName, url: engineUrl)],
     );
     when(() => audioService.dispose()).thenAnswer((_) async {});
@@ -117,7 +117,7 @@ void main() {
   });
 
   testWidgets('没有 HTTP 引擎时可选择系统 TTS，并保存固定标识', (tester) async {
-    when(() => api.getHttpTts()).thenAnswer((_) async => []);
+    when(() => api.httpTtsRepository.getHttpTts()).thenAnswer((_) async => []);
     await pumpBar(tester);
     await openEngineDialog(tester);
     expect(find.text('系统 TTS'), findsOneWidget);
@@ -129,7 +129,7 @@ void main() {
     );
     verify(() => api.setConfig(kTtsEngineConfigKey, systemTtsEngineUrl))
         .called(1);
-    verifyNever(() => api.addHttpTts(any()));
+    verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     await settleSnackBar(tester);
   });
 

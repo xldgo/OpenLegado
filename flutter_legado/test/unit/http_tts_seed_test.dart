@@ -16,15 +16,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/http_tts_seed.dart';
+import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
@@ -63,12 +62,14 @@ void main() {
       api = MockRustApi();
       added = [];
       nextId = 100;
-      when(() => api.getHttpTts()).thenAnswer((_) async => []);
-      when(() => api.addHttpTts(any())).thenAnswer((invocation) async {
-        final tts = invocation.positionalArguments[0] as HttpTts;
-        added.add(tts);
-        return tts.copyWith(id: nextId++);
-      });
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => []);
+      when(() => api.httpTtsRepository.addHttpTts(any()))
+          .thenAnswer((invocation) async {
+            final tts = invocation.positionalArguments[0] as HttpTts;
+            added.add(tts);
+            return tts.copyWith(id: nextId++);
+          });
     });
 
     test('非空种子：按原版形态导入 name/url（不做启用态标记）', () async {
@@ -87,23 +88,47 @@ void main() {
         },
       ]);
 
-      final count = await syncDefaultHttpTts(api, jsonOverride: json);
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
 
       expect(count, 2);
       expect(added.map((e) => e.name), ['1.百度', '2.阿里云语音']);
       expect(added.first.url, _seedBaiduUrl);
       // 不做启用态写入：原版 HttpTTS.kt 无 isEnabled 概念（Dart 侧模型亦无
       // 该字段），写 httpTTS.isEnabled 列无消费方，属无效调用
-      verifyNever(() => api.httpTtsSetEnabled(any(), any()));
+      verifyNever(() => api.httpTtsRepository.httpTtsSetEnabled(any(), any()));
     });
 
     test('空种子 / 空串 / 非法 JSON：返回 0 且不写库、不抛出', () async {
-      expect(await syncDefaultHttpTts(api, jsonOverride: ''), 0);
-      expect(await syncDefaultHttpTts(api, jsonOverride: '   '), 0);
-      expect(await syncDefaultHttpTts(api, jsonOverride: '[]'), 0);
-      expect(await syncDefaultHttpTts(api, jsonOverride: 'not-json'), 0);
-      expect(await syncDefaultHttpTts(api, jsonOverride: '{"a":1}'), 0);
-      verifyNever(() => api.addHttpTts(any()));
+      expect(
+        await syncDefaultHttpTts(api.httpTtsRepository, jsonOverride: ''),
+        0,
+      );
+      expect(
+        await syncDefaultHttpTts(api.httpTtsRepository, jsonOverride: '   '),
+        0,
+      );
+      expect(
+        await syncDefaultHttpTts(api.httpTtsRepository, jsonOverride: '[]'),
+        0,
+      );
+      expect(
+        await syncDefaultHttpTts(
+          api.httpTtsRepository,
+          jsonOverride: 'not-json',
+        ),
+        0,
+      );
+      expect(
+        await syncDefaultHttpTts(
+          api.httpTtsRepository,
+          jsonOverride: '{"a":1}',
+        ),
+        0,
+      );
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     });
 
     test('缺 name/url 的条目被过滤', () async {
@@ -115,24 +140,29 @@ void main() {
       ]
       ''';
 
-      final count = await syncDefaultHttpTts(api, jsonOverride: json);
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
 
       expect(count, 1);
       expect(added.single.name, 'C');
     });
 
     test('幂等：库中已有同名同 URL 时跳过', () async {
-      when(() => api.getHttpTts()).thenAnswer(
-        (_) async => [HttpTts(name: '1.百度', url: _seedBaiduUrl)],
-      );
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => [HttpTts(name: '1.百度', url: _seedBaiduUrl)]);
       final json = jsonEncode([
         {'id': -100, 'name': '1.百度', 'url': _seedBaiduUrl},
       ]);
 
-      final count = await syncDefaultHttpTts(api, jsonOverride: json);
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
 
       expect(count, 0);
-      verifyNever(() => api.addHttpTts(any()));
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     });
   });
 
@@ -140,8 +170,9 @@ void main() {
     late MockRustApi api;
     setUp(() {
       api = MockRustApi();
-      when(() => api.getHttpTts()).thenAnswer((_) async => []);
-      when(() => api.addHttpTts(any())).thenAnswer(
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => []);
+      when(() => api.httpTtsRepository.addHttpTts(any())).thenAnswer(
         (invocation) async =>
             (invocation.positionalArguments[0] as HttpTts).copyWith(id: 1),
       );
@@ -149,14 +180,15 @@ void main() {
 
     test('首启导入一次并写版本号，再次调用不再导入', () async {
       SharedPreferences.setMockInitialValues({});
-      const json = '[{"id": -100, "name": "1.百度", "url": "http://a/tts?t={{speakText}}"}]';
+      const json =
+          '[{"id": -100, "name": "1.百度", "url": "http://a/tts?t={{speakText}}"}]';
 
-      await ensureDefaultHttpTts(api, jsonOverride: json);
-      verify(() => api.addHttpTts(any())).called(1);
-      verifyNever(() => api.httpTtsSetEnabled(any(), any()));
+      await ensureDefaultHttpTts(api.httpTtsRepository, jsonOverride: json);
+      verify(() => api.httpTtsRepository.addHttpTts(any())).called(1);
+      verifyNever(() => api.httpTtsRepository.httpTtsSetEnabled(any(), any()));
 
-      await ensureDefaultHttpTts(api, jsonOverride: json);
-      verifyNever(() => api.addHttpTts(any()));
+      await ensureDefaultHttpTts(api.httpTtsRepository, jsonOverride: json);
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(kHttpTtsSeedVersionKey), kHttpTtsSeedVersion);
@@ -167,9 +199,12 @@ void main() {
         kHttpTtsSeedVersionKey: kHttpTtsSeedVersion,
       });
 
-      await ensureDefaultHttpTts(api, jsonOverride: '[{"name":"x","url":"http://x"}]');
+      await ensureDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: '[{"name":"x","url":"http://x"}]',
+      );
 
-      verifyNever(() => api.getHttpTts());
+      verifyNever(() => api.httpTtsRepository.getHttpTts());
     });
   });
 
@@ -182,22 +217,32 @@ void main() {
         ),
         isFalse,
       );
-      expect(isCompatibleHttpTtsEngineUrl('@js:apiurl(speakText,speakSpeed)'),
-          isFalse);
-      expect(isCompatibleHttpTtsEngineUrl('http://tts.example.com/tts'), isFalse);
+      expect(
+        isCompatibleHttpTtsEngineUrl('@js:apiurl(speakText,speakSpeed)'),
+        isFalse,
+      );
+      expect(
+        isCompatibleHttpTtsEngineUrl('http://tts.example.com/tts'),
+        isFalse,
+      );
       expect(isCompatibleHttpTtsEngineUrl(''), isFalse);
-      expect(isCompatibleHttpTtsEngineUrl('ftp://tts.example.com/{{text}}'),
-          isFalse);
+      expect(
+        isCompatibleHttpTtsEngineUrl('ftp://tts.example.com/{{text}}'),
+        isFalse,
+      );
     });
 
     test('GET + 文本占位符（Rust 管线支持）为兼容', () {
       expect(
-        isCompatibleHttpTtsEngineUrl('http://192.168.1.2:8770/tts?text={{text}}&speed={{speed}}'),
+        isCompatibleHttpTtsEngineUrl(
+          'http://192.168.1.2:8770/tts?text={{text}}&speed={{speed}}',
+        ),
         isTrue,
       );
       expect(
         isCompatibleHttpTtsEngineUrl(
-            'https://tts.example.com/api?text={{speakText}}&speed={{speakSpeed}}'),
+          'https://tts.example.com/api?text={{speakText}}&speed={{speakSpeed}}',
+        ),
         isTrue,
       );
     });
@@ -225,32 +270,26 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      when(() => api.getChapters(any())).thenAnswer(
-        (_) async => [const BookChapter(title: '第一章', index: 0)],
-      );
+      when(() => api.getChapters(any()))
+          .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => api.getBook(any())).thenAnswer((_) async => null);
       when(() => api.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
-      when(() => api.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => '/tmp/tts/para.mp3');
+      when(
+        () => api.audioSpeak(
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((_) async => '/tmp/tts/para.mp3');
     });
 
-    test('库中只有不兼容种子 → 不自动选中，保持无引擎降级（不冒充可用）',
-        () async {
-      when(() => api.getHttpTts()).thenAnswer(
-        (_) async => [
-          HttpTts(
-            id: -100,
-            name: '1.百度',
-            url: _seedBaiduUrl,
-          ),
-        ],
+    test('库中只有不兼容种子 → 不自动选中，保持无引擎降级（不冒充可用）', () async {
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
+        (_) async => [HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl)],
       );
 
       await container
@@ -262,19 +301,21 @@ void main() {
       expect(state.state, PlayerState.playing);
       // 无可用引擎：不调用合成（降级估算），并给用户可见的一次性提示
       // [A4 批 2026-10-03] 由「静默降级」改为「温和提示」（用户裁决）
-      verifyNever(() => api.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          ));
+      verifyNever(
+        () => api.audioSpeak(
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      );
       expect(state.errorMessage, kNoUsableEngineHint);
     });
 
     test('库中含兼容引擎 → 跳过不兼容项选中兼容项', () async {
-      when(() => api.getHttpTts()).thenAnswer(
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
         (_) async => [
           HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl),
           HttpTts(
@@ -290,7 +331,10 @@ void main() {
           .startReadAloud(bookUrl: 'url', bookName: '书');
 
       final state = container.read(audioNotifierProvider);
-      expect(state.config.engineUrl, 'http://192.168.1.2:8770/tts?text={{text}}');
+      expect(
+        state.config.engineUrl,
+        'http://192.168.1.2:8770/tts?text={{text}}',
+      );
       expect(fakePlayer.playedLocalFiles, hasLength(1));
     });
   });

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/models.dart';
-import '../../services/book_api.dart';
+import '../../domain/contracts/http_tts_repository.dart';
 
 /// 对齐 Android `LocalConfig.needUpHttpTts` 的版本号（首启/升级导入种子）
 const kHttpTtsSeedVersionKey = 'httpTtsSeedVersion';
@@ -48,7 +48,10 @@ bool isCompatibleHttpTtsEngineUrl(String url) {
 /// `httpTTS.isEnabled`，而无任何消费方（列表走 find_all、合成不读该列）——
 /// 属无效写入，已移除。可用性由 [isCompatibleHttpTtsEngineUrl] 在自动选
 /// 默认引擎时按 URL 模板能力把关。
-Future<int> syncDefaultHttpTts(BookApi api, {String? jsonOverride}) async {
+Future<int> syncDefaultHttpTts(
+  HttpTtsRepository api, {
+  String? jsonOverride,
+}) async {
   String text;
   if (jsonOverride != null) {
     text = jsonOverride;
@@ -69,9 +72,11 @@ Future<int> syncDefaultHttpTts(BookApi api, {String? jsonOverride}) async {
     if (decoded is! List) return 0;
     seeds = decoded
         .whereType<Map<String, dynamic>>()
-        .where((item) =>
-            ((item['name'] as String?)?.trim() ?? '').isNotEmpty &&
-            ((item['url'] as String?)?.trim() ?? '').isNotEmpty)
+        .where(
+          (item) =>
+              ((item['name'] as String?)?.trim() ?? '').isNotEmpty &&
+              ((item['url'] as String?)?.trim() ?? '').isNotEmpty,
+        )
         .toList();
   } catch (e) {
     debugPrint('httpTTS 种子 JSON 解析失败，跳过导入: $e');
@@ -107,7 +112,10 @@ Future<int> syncDefaultHttpTts(BookApi api, {String? jsonOverride}) async {
 ///
 /// [jsonOverride] 仅测试/迁移用：显式种子 JSON 覆盖资源读取。
 /// 失败不阻塞朗读链路（调用方仍按无引擎降级估算）。
-Future<void> ensureDefaultHttpTts(BookApi api, {String? jsonOverride}) async {
+Future<void> ensureDefaultHttpTts(
+  HttpTtsRepository api, {
+  String? jsonOverride,
+}) async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final version = prefs.getInt(kHttpTtsSeedVersionKey) ?? 0;

@@ -5,8 +5,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../models/models.dart';
 import '../data/repositories/mock_bookmark_repository.dart';
 import '../data/repositories/mock_read_record_repository.dart';
+import '../data/repositories/mock_http_tts_repository.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
+import '../domain/contracts/http_tts_repository.dart';
 import 'book_api.dart';
 
 part 'mock_book_api_store.part.dart';
@@ -62,11 +64,18 @@ class MockBookApi
   MockBookApi({
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,
+    HttpTtsRepository? httpTtsRepository,
   }) {
     this.bookmarkRepository =
         bookmarkRepository ?? MockBookmarkRepository(nextId: () => _nextId++);
     this.readRecordRepository =
         readRecordRepository ?? MockReadRecordRepository();
+    this.httpTtsRepository =
+        httpTtsRepository ??
+        MockHttpTtsRepository(
+          nextId: () => _nextId++,
+          withDefaultEngines: true,
+        );
     _initMockData();
   }
 
@@ -75,6 +84,9 @@ class MockBookApi
 
   @override
   late final ReadRecordRepository readRecordRepository;
+
+  @override
+  late final HttpTtsRepository httpTtsRepository;
 
   // ========== 初始化/版本 ==========
 

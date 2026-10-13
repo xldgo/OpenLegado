@@ -36,6 +36,10 @@ void main() {
     _read('lib/src/domain/contracts/read_record_repository.dart'),
     'ReadRecordRepository',
   );
+  final httpTtsNames = _extractMethods(
+    _read('lib/src/domain/contracts/http_tts_repository.dart'),
+    'HttpTtsRepository',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -310,7 +314,12 @@ void main() {
       // 三项纯 FFI 与缓存查询的双重登记不属于书签领域方法。
       expect(
         statedTotal,
-        bNames.length + bookmarkNames.length + readRecordNames.length + 3 + 1,
+        bNames.length +
+            bookmarkNames.length +
+            readRecordNames.length +
+            httpTtsNames.length +
+            3 +
+            1,
       );
     });
 
@@ -342,6 +351,38 @@ void main() {
       }
       expect(allRowNames.containsAll(expected), isTrue);
       expect(allRowNames, isNot(contains('recordReadingTime')));
+    });
+
+    test('HTTP 引擎七项由独立 Repository 承担，旧方法及列表别名移除', () {
+      const expected = {
+        'getHttpTts',
+        'addHttpTts',
+        'updateHttpTts',
+        'deleteHttpTts',
+        'importHttpTts',
+        'exportHttpTts',
+        'httpTtsSetEnabled',
+      };
+      expect(httpTtsNames.toSet(), expected);
+      for (final implementation in ['rust', 'mock']) {
+        final methods = _extractMethods(
+          _read(
+            'lib/src/data/repositories/${implementation}_http_tts_repository.dart',
+          ),
+          implementation == 'rust'
+              ? 'RustHttpTtsRepository'
+              : 'MockHttpTtsRepository',
+        ).where((name) => !name.startsWith('_')).toSet();
+        expect(methods, expected);
+      }
+      for (final methods in [bNames, rNames, mNames]) {
+        expect(
+          methods.toSet().intersection({...expected, 'getHttpTtsList'}),
+          isEmpty,
+        );
+      }
+      expect(allRowNames.containsAll(expected), isTrue);
+      expect(allRowNames, isNot(contains('getHttpTtsList')));
     });
   });
 }

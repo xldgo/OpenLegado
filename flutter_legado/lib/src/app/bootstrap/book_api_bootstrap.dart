@@ -2,6 +2,7 @@ import '../../data/bridge/runtime_configuration.dart';
 import '../../data/bridge/rust_runtime.dart';
 import '../../data/repositories/rust_bookmark_repository.dart';
 import '../../data/repositories/rust_read_record_repository.dart';
+import '../../data/repositories/rust_http_tts_repository.dart';
 import '../../platform/app_environment.dart';
 import '../../services/book_api.dart';
 import '../../services/mock_book_api.dart';
@@ -27,6 +28,7 @@ BookApi createBookApi({
     readingConfigSync: startup.configurationSync,
     bookmarkRepository: const RustBookmarkRepository(),
     readRecordRepository: const RustReadRecordRepository(),
+    httpTtsRepository: const RustHttpTtsRepository(),
   );
 }
 

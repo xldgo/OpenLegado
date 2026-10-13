@@ -11,6 +11,7 @@ import '../../models/book_source.dart';
 import '../../models/misc.dart';
 import '../../models/rss_source.dart';
 import '../../services/book_api.dart';
+import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../services/bridge_http.dart';
 import '../../services/source_import_service.dart';
 import '../providers.dart';
@@ -217,7 +218,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
           return map;
         case ImportType.httpTts:
           final map = <String, HttpTts>{};
-          for (final t in await _api.getHttpTts()) {
+          for (final t in await ref.read(httpTtsRepositoryProvider).getHttpTts()) {
             map[t.name] = t;
           }
           return map;
@@ -502,7 +503,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
     ImportType type,
     List<Map<String, dynamic>> items,
   ) async {
-    final n = await _api.importHttpTts(jsonEncode(items));
+    final n = await ref.read(httpTtsRepositoryProvider).importHttpTts(jsonEncode(items));
     return ImportResult(
       total: items.length,
       success: n.clamp(0, items.length),

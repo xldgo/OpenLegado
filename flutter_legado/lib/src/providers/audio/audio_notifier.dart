@@ -13,7 +13,8 @@ import '../../utils/audio_skip_policy.dart';
 import '../../utils/read_aloud_text.dart';
 import '../providers.dart';
 import 'audio_state.dart';
-import 'http_tts_seed.dart';
+import '../../features/read_aloud/http_tts_seed.dart';
+import '../../features/read_aloud/http_tts_repository_provider.dart';
 import 'read_aloud_preferences.dart';
 import 'read_aloud_position.dart';
 
@@ -628,8 +629,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     try {
       // [D3 | 2026-10-03] 首启/升级导入原版 httpTTS 种子（版本门控；
       // 失败不阻塞，仍按无引擎降级估算）。
-      await ensureDefaultHttpTts(_api);
-      final list = await _api.getHttpTts();
+      final engines = ref.read(httpTtsRepositoryProvider);
+      await ensureDefaultHttpTts(engines);
+      final list = await engines.getHttpTts();
       if (_disposed || token != _playToken) return;
       if (list.isEmpty) return;
       // [D3] 种子依赖 Rust 合成管线不支持的能力（POST/@js/loginUrl），

@@ -423,17 +423,17 @@ void main() {
 
   group('HTTP TTS', () {
     test('addHttpTts/getHttpTts 读写一致', () async {
-      await api.addHttpTts(
+      await api.httpTtsRepository.addHttpTts(
         HttpTts(name: '测试引擎', url: 'http://tts.example.com'),
       );
-      final list = await api.getHttpTts();
+      final list = await api.httpTtsRepository.getHttpTts();
       // 预置 2 个真实 TTS 引擎 + 新增 1 个
       expect(list.length, 3);
       expect(list.last.name, '测试引擎');
     });
 
     test('预置 TTS 引擎来自 Android 真实样本', () async {
-      final list = await api.getHttpTts();
+      final list = await api.httpTtsRepository.getHttpTts();
       expect(list.length, 2);
       expect(list[0].name, '1.百度');
       expect(list[0].contentType, 'audio/wav');

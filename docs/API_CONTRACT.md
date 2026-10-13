@@ -80,7 +80,7 @@
 
 ### 1.1 定位
 
-本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository` 承担，本文档为其权威文字说明。
+本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository`、HTTP 引擎配置由 `HttpTtsRepository` 承担，本文档为其权威文字说明。
 
 ### 1.2 变更规则
 
@@ -207,8 +207,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **280 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280）。
-> 附录 §2.x 行合计 **295** = BookApi 280 + BookmarkRepository 6 + ReadRecordRepository 5 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart `recordReadingTime` 别名使登记减少一行。
+> BookApi 接口当前共 **272 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272）。
+> 附录 §2.x 行合计 **294** = BookApi 272 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -580,12 +580,20 @@
 | `parseEpub(String filePath)` | filePath | `Future<List<BookChapter>>` | 解析 EPUB 文件 |
 | `exportBook(String bookUrl, String format, String outDir)` | bookUrl, format, outDir | `Future<String>` | 导出书籍（将章节内容写入文件） |
 
-### 2.25 HTTP TTS（7 个方法）
+### 2.25 HTTP TTS（6 个方法）
+
+> **2026-10-13 Dart 领域接线冻结**：本节六项及 §2.41 的
+> `httpTtsSetEnabled` 迁入 `HttpTtsRepository`；根 BookApi 只提供共享
+> `httpTtsRepository` 引用。正式实现直接调用已有 FRB，Mock 独立拥有
+> 唯一引擎列表，保留默认样例和根对象 ID 分配。无调用方的
+> `getHttpTtsList` 列表别名删除。初始化、Rust/FRB、数据库、模型字段和
+> 导入/导出语义不变；系统 TTS 不是 HTTP 配置，不写入此 Repository。
+> HTTP 合成和播放会话另行拆分，本批不改变合成回退、计时、媒体会话，
+> 或书级/全局选择的持久化方式。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `getHttpTts()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置 |
-| `getHttpTtsList()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置（别名） |
 | `addHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<HttpTts>` | 添加 HTTP TTS 配置 |
 | `updateHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<void>` | 更新 HTTP TTS 配置 |
 | `deleteHttpTts(int id)` | id | `Future<void>` | 删除 HTTP TTS 配置 |
@@ -1140,7 +1148,7 @@
 | 21 | JS 引擎 | 2 |
 | 22 | 服务器管理 | 5 |
 | 23 | 书籍格式解析 | 3 |
-| 24 | HTTP TTS | 7 |
+| 24 | HTTP TTS | 6 |
 | 25 | 音频播放 | 4 |
 | 26 | WebDAV 云同步 | 7 |
 | 29 | 下载管理器 | 7 |
@@ -1164,13 +1172,13 @@
 | 47 | 音频章节预下载 | 2 |
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
-| | **合计（§2.x 附录行合计）** | **295** |
+| | **合计（§2.x 附录行合计）** | **294** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`，取代人工统计）：
 
-> - 附录行合计 **295** = §2.x 实际方法行总数；删除无调用方的阅读记录别名，其余迁移只改变 Dart 接口归属。
-> - BookApi 代码计数 **280**；BookmarkRepository 六项、ReadRecordRepository 五项独立计数；
+> - 附录行合计 **294** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
+> - BookApi 代码计数 **272**；BookmarkRepository 六项、ReadRecordRepository 五项、HttpTtsRepository 七项独立计数；
 >   三个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource`；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **295 = 280 + 6 + 5 + 3 + 1**，测试同时核对各领域接口、正式和 Mock 实现及旧方法移除。
+> - 闭合关系为 **294 = 272 + 6 + 5 + 7 + 3 + 1**，测试同时核对各领域接口、正式和 Mock 实现及旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

@@ -7,7 +7,7 @@ import '../../models/misc.dart';
 import '../../models/tts_engine_option.dart';
 import '../../services/system_tts_service.dart';
 import '../../providers/audio/audio_notifier.dart';
-import '../../providers/providers.dart';
+import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../routes.dart';
 import '../../l10n/app_localization.dart';
 import '../app_progress_indicator.dart';
@@ -93,7 +93,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
   Future<void> _showEngineDialog() async {
     List<HttpTts> httpEngines = [];
     try {
-      httpEngines = await ref.read(bookApiProvider).getHttpTts();
+      httpEngines = await ref.read(httpTtsRepositoryProvider).getHttpTts();
     } catch (e) {
       if (mounted) _snack('HTTP 朗读引擎列表加载失败: $e');
     }

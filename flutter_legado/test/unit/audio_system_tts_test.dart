@@ -577,7 +577,7 @@ void main() {
     verify(() => api.setConfig(kTtsEngineConfigKey, systemTtsEngineUrl))
         .called(1);
     expect(notifier().resolveTtsEngineUrl(), systemTtsEngineUrl);
-    verifyNever(() => api.getHttpTts());
+    verifyNever(() => api.httpTtsRepository.getHttpTts());
   });
 
   test('暂停时切换引擎不会自动开始，恢复才播放新路径', () async {

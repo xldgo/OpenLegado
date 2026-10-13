@@ -1,5 +1,5 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / HTTP TTS / 音频播放。
+// 本文件承载 RustApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / TTS 合成 / 音频播放。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
@@ -256,70 +256,6 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
     }
     return filePath;
   }
-
-  // ========== HTTP TTS ==========
-
-  /// 获取所有 HTTP TTS 配置
-  @override
-  Future<List<HttpTts>> getHttpTts() async {
-    final json = await bridge.httpTtsList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => HttpTts.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 获取所有 HTTP TTS 配置（别名）
-  @override
-  Future<List<HttpTts>> getHttpTtsList() => getHttpTts();
-
-  /// 添加 HTTP TTS 配置
-  @override
-  Future<HttpTts> addHttpTts(HttpTts tts) async {
-    final id = await bridge.httpTtsAdd(name: tts.name, url: tts.url);
-    return tts.copyWith(id: id.toInt());
-  }
-
-  /// 更新 HTTP TTS 配置
-  @override
-  Future<void> updateHttpTts(HttpTts tts) async {
-    await bridge.httpTtsUpdate(id: tts.id, name: tts.name, url: tts.url);
-  }
-
-  /// 删除 HTTP TTS 配置
-  @override
-  Future<void> deleteHttpTts(int id) async {
-    await bridge.httpTtsDelete(id: id);
-  }
-
-  /// 导入 HTTP TTS 配置（解析 JSON 数组并逐条添加）
-  @override
-  Future<int> importHttpTts(String json) async {
-    final list = _decodeList(json, 'bookApi');
-    var count = 0;
-    for (final item in list) {
-      final m = item as Map<String, dynamic>;
-      final name = m['name'] as String? ?? '';
-      final url = m['url'] as String? ?? '';
-      if (name.isNotEmpty && url.isNotEmpty) {
-        await bridge.httpTtsAdd(name: name, url: url);
-        count++;
-      }
-    }
-    return count;
-  }
-
-  /// 导出 HTTP TTS 配置（返回 JSON 数组）
-  @override
-  Future<String> exportHttpTts() async {
-    final list = await getHttpTts();
-    return jsonEncode(list.map((e) => e.toJson()).toList());
-  }
-
-  /// 设置 HTTP TTS 源启用/禁用（F3-20）
-  @override
-  Future<bool> httpTtsSetEnabled(int id, bool enabled) =>
-      bridge.httpTtsSetEnabled(id: id, enabled: enabled);
 
   // ========== 音频播放 ==========
 

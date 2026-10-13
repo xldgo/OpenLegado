@@ -1,6 +1,7 @@
 import '../models/models.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
+import '../domain/contracts/http_tts_repository.dart';
 
 /// 书籍 API 抽象接口
 ///
@@ -14,6 +15,9 @@ abstract class BookApi {
 
   /// 共享应用装配的阅读记录实例；数据读写由窄接口承担。
   ReadRecordRepository get readRecordRepository;
+
+  /// 共享 HTTP 朗读引擎配置实例，不包含系统语音或播放状态。
+  HttpTtsRepository get httpTtsRepository;
 
   // ========== 初始化/版本 ==========
 
@@ -1120,32 +1124,6 @@ abstract class BookApi {
 
   /// 导出书籍（将章节内容写入文件）
   Future<String> exportBook(String bookUrl, String format, String outDir);
-
-  // ========== HTTP TTS ==========
-
-  /// 获取所有 HTTP TTS 配置
-  Future<List<HttpTts>> getHttpTts();
-
-  /// 获取所有 HTTP TTS 配置（别名）
-  Future<List<HttpTts>> getHttpTtsList();
-
-  /// 添加 HTTP TTS 配置
-  Future<HttpTts> addHttpTts(HttpTts tts);
-
-  /// 更新 HTTP TTS 配置
-  Future<void> updateHttpTts(HttpTts tts);
-
-  /// 删除 HTTP TTS 配置
-  Future<void> deleteHttpTts(int id);
-
-  /// 导入 HTTP TTS 配置
-  Future<int> importHttpTts(String json);
-
-  /// 导出 HTTP TTS 配置
-  Future<String> exportHttpTts();
-
-  /// 设置 HTTP TTS 源启用/禁用（F3-20）
-  Future<bool> httpTtsSetEnabled(int id, bool enabled);
 
   // ========== 音频播放 ==========
 

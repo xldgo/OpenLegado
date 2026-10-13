@@ -71,16 +71,15 @@ void main() {
       expect(readState().errorMessage, kNoUsableEngineHint);
       expect(hintTransitions, 1);
 
-      // 第一段完成 → 第二段（仍无引擎）：提示不得重复出现
-      fakePlayer.completePlayback();
-      await tester.pump();
+      // 无引擎使用估算计时；播放器没有启动，完成事件不能推进段落。
+      expect(fakePlayer.playedLocalFiles, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
       expect(readNotifier().currentParagraphIndex, 1);
       expect(hintTransitions, 1);
 
       // 末段完成 → stop，提示仍为同一条
-      fakePlayer.completePlayback();
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
       expect(readState().errorMessage, kNoUsableEngineHint);
       expect(hintTransitions, 1);
@@ -128,7 +127,7 @@ void main() {
       );
       addTearDown(localContainer.dispose);
 
-      when(() => mockApi.getHttpTts()).thenAnswer((_) async => []);
+      when(() => mockApi.httpTtsRepository.getHttpTts()).thenAnswer((_) async => []);
       stubChapter();
 
       final notifier = localContainer.read(audioNotifierProvider.notifier);

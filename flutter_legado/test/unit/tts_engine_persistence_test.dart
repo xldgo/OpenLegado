@@ -20,7 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/http_tts_seed.dart';
+import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
@@ -146,7 +146,7 @@ void main() {
       when(() => api.getBook('book-b')).thenAnswer(
         (_) async => const Book(bookUrl: 'book-b', name: 'B'),
       );
-      when(() => api.getHttpTts()).thenAnswer(
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
         (_) async => [const HttpTts(id: 1, name: 'G', url: urlG)],
       );
 
@@ -195,7 +195,7 @@ void main() {
         (_) async => const Book(bookUrl: 'book-c', name: 'C'),
       );
       // 若持久化值读回成功，不应再走自动选默认引擎
-      when(() => api.getHttpTts()).thenAnswer(
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
         (_) async => [const HttpTts(id: 1, name: 'G', url: urlG)],
       );
 
@@ -203,7 +203,7 @@ void main() {
 
       expect(receivedEngineUrls, [urlP]);
       expect(readState().config.engineUrl, urlP);
-      verifyNever(() => api.getHttpTts());
+      verifyNever(() => api.httpTtsRepository.getHttpTts());
       readNotifier().stop();
     });
     testWidgets('听书页 TTS 入口（play 直调）：全局为空时读回持久化全局值',

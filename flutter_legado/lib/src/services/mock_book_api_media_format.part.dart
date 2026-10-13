@@ -1,5 +1,5 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / HTTP TTS / 音频播放。
+// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / TTS 合成 / 音频播放。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
@@ -188,45 +188,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
   ) async {
     return '$outDir/export_mock.$format';
   }
-
-  // ========== HTTP TTS ==========
-
-  @override
-  Future<List<HttpTts>> getHttpTts() async => List.from(_httpTtsList);
-
-  @override
-  Future<List<HttpTts>> getHttpTtsList() async => getHttpTts();
-
-  @override
-  Future<HttpTts> addHttpTts(HttpTts tts) async {
-    final t = tts.copyWith(id: _nextId++);
-    _httpTtsList.add(t);
-    return t;
-  }
-
-  @override
-  Future<void> updateHttpTts(HttpTts tts) async {
-    final idx = _httpTtsList.indexWhere((t) => t.id == tts.id);
-    if (idx >= 0) _httpTtsList[idx] = tts;
-  }
-
-  @override
-  Future<void> deleteHttpTts(int id) async {
-    _httpTtsList.removeWhere((t) => t.id == id);
-  }
-
-  @override
-  Future<int> importHttpTts(String json) async {
-    final list = jsonDecode(json) as List<dynamic>;
-    return list.length;
-  }
-
-  @override
-  Future<String> exportHttpTts() async =>
-      jsonEncode(_httpTtsList.map((t) => t.toJson()).toList());
-
-  @override
-  Future<bool> httpTtsSetEnabled(int id, bool enabled) async => true;
 
   // ========== 音频播放 ==========
 

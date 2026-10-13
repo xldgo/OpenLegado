@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 import 'widgets/reader/read_aloud_player_transition.dart';
 
 import 'models/models.dart';
@@ -45,7 +46,7 @@ import 'screens/source_screen.dart';
 import 'screens/source_edit_screen.dart';
 import 'screens/rss_source_edit_screen.dart';
 import 'screens/source_debug_screen.dart';
-import 'screens/read_aloud_config_screen.dart';
+import 'features/read_aloud/read_aloud.dart';
 import 'screens/read_aloud_settings_screen.dart';
 import 'screens/read_aloud_player_screen.dart';
 import 'screens/theme_config_screen.dart';

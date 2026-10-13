@@ -12,7 +12,6 @@ mixin MockBookApiStore {
   final List<BookGroup> _bookGroups = [];
   final List<SearchKeyword> _searchHistory = [];
   final List<RssStar> _rssStars = [];
-  final List<HttpTts> _httpTtsList = [];
   // 字典规则内存态（契约 §2.45：dictRule* 七方法；REPLACE by name 语义）
   final List<Map<String, dynamic>> _dictRules = [];
   final Map<String, String> _configs = {};
@@ -146,24 +145,6 @@ mixin MockBookApiStore {
         singleUrl: true,
         enableJs: true,
         customOrder: 5,
-      ),
-    ]);
-
-    // ── HTTP TTS 引擎（来源：app/src/main/assets/defaultData/httpTTS.json）──
-    _httpTtsList.addAll([
-      HttpTts(
-        id: -100,
-        name: '1.百度',
-        url:
-            'http://tts.baidu.com/text2audio,{"method": "POST","body": "tex={{java.encodeURI(java.encodeURI(speakText))}}&spd={{(speakSpeed + 5) / 10 + 4}}&per=3&cuid=baidu_speech_demo&idx=1&cod=2&lan=zh&ctp=1&pdt=160&vol=5&aue=6&pit=5&_res_tag_=audio"}',
-        contentType: 'audio/wav',
-      ),
-      HttpTts(
-        id: -29,
-        name: '2.阿里云语音',
-        url:
-            'https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/tts,{"method": "POST","body": {"appkey":"{{source.getLoginInfoMap().get(\'AppKey\')}}","text":"{{speakText}}","format":"mp3","volume":100,"speech_rate":{{String((speakSpeed) * 20 - 400)}} }}',
-        contentType: 'audio/mpeg',
       ),
     ]);
 

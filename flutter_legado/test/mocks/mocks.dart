@@ -11,12 +11,18 @@ import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_repository.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 import 'package:flutter_legado/src/services/stream_audio_player.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 /// RustApi 的 mock 实现
-class MockRustApi extends Mock implements RustApi {}
+class MockHttpTtsRepository extends Mock implements HttpTtsRepository {}
+
+class MockRustApi extends Mock implements RustApi {
+  @override
+  final HttpTtsRepository httpTtsRepository = MockHttpTtsRepository();
+}
 
 /// AudioService 的 mock 实现
 class MockAudioService extends Mock implements AudioService {}
