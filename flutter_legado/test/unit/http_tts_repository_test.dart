@@ -128,6 +128,28 @@ void main() {
     );
   });
 
+  test('Mock 导入无 ID 条目时跳过已被占用的正 ID，绝不覆盖已有记录', () async {
+    var nextId = 1;
+    final repository = MockHttpTtsRepository(nextId: () => nextId++);
+    // 预置显式 ID=1 的已有引擎
+    await repository.addHttpTts(
+      const HttpTts(id: 1, name: '预置引擎', url: 'http://orig'),
+    );
+    // 导入无 ID 条目（id 为 0 或未提供，nextId 首次生成也是 1）
+    final count = await repository.importHttpTts(
+      jsonEncode([
+        {'name': '导入的新引擎', 'url': 'http://imported'},
+      ]),
+    );
+    expect(count, 1);
+    final all = await repository.getHttpTts();
+    expect(all, hasLength(2));
+    expect(all[0].id, 1);
+    expect(all[0].name, '预置引擎');
+    expect(all[1].id, 2);
+    expect(all[1].name, '导入的新引擎');
+  });
+
   test('HTTP 配置与书签沿用根对象的同一 ID 分配，不改变其他领域', () async {
     final api = MockBookApi();
     final first = await api.httpTtsRepository.addHttpTts(

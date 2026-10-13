@@ -593,11 +593,7 @@ mod tests {
             current_time_millis()
         ));
         let _ = std::fs::remove_file(&db_path);
-        let db1 = crate::init_database(db_path.to_str().unwrap()).unwrap();
-        let db2 = crate::init_database(db_path.to_str().unwrap()).unwrap();
-
-        let repo1 = HttpTtsRepository::new(db1.connection());
-        let repo2 = HttpTtsRepository::new(db2.connection());
+        let db_init = crate::init_database(db_path.to_str().unwrap()).unwrap();
 
         // 先插入负 ID 种子，验证自动分配的正 ID 从 1 起算，不受负 ID 干扰
         let seed = HttpTts {
@@ -606,43 +602,73 @@ mod tests {
             url: "http://baidu.example/tts".to_string(),
             ..HttpTts::default()
         };
-        assert_eq!(repo1.insert_entity(&seed).unwrap(), -100);
+        assert_eq!(
+            HttpTtsRepository::new(db_init.connection())
+                .insert_entity(&seed)
+                .unwrap(),
+            -100
+        );
+        drop(db_init);
 
-        // 两个独立连接先后/交错执行 id=0 自动新增，均应分配唯一正 ID 且不覆盖彼此
-        let first_auto = HttpTts {
-            id: 0,
-            name: "用户新增A".to_string(),
-            url: "http://user-a.example/tts".to_string(),
-            ..HttpTts::default()
-        };
-        let second_auto = HttpTts {
-            id: 0,
-            name: "用户新增B".to_string(),
-            url: "http://user-b.example/tts".to_string(),
-            ..HttpTts::default()
-        };
+        // 8 个并发线程，每个线程独立打开连接并并发插入 10 条 id=0 记录（共 80 条）
+        const THREAD_COUNT: usize = 8;
+        const INSERTS_PER_THREAD: usize = 10;
+        let mut handles = Vec::with_capacity(THREAD_COUNT);
 
-        let id_a = repo1.insert_entity(&first_auto).unwrap();
-        let id_b = repo2.insert_entity(&second_auto).unwrap();
-        assert_eq!(id_a, 1);
-        assert_eq!(id_b, 2);
+        for t_idx in 0..THREAD_COUNT {
+            let path_str = db_path.to_str().unwrap().to_string();
+            handles.push(std::thread::spawn(move || {
+                let db = crate::init_database(&path_str).unwrap();
+                let repo = HttpTtsRepository::new(db.connection());
+                let mut inserted_ids = Vec::with_capacity(INSERTS_PER_THREAD);
+                for i in 0..INSERTS_PER_THREAD {
+                    let entity = HttpTts {
+                        id: 0,
+                        name: format!("线程{t_idx}-记录{i}"),
+                        url: format!("http://thread{t_idx}.example/tts/{i}"),
+                        ..HttpTts::default()
+                    };
+                    let id = repo.insert_entity(&entity).unwrap();
+                    assert!(id > 0);
+                    inserted_ids.push(id);
+                }
+                inserted_ids
+            }));
+        }
+
+        let mut all_inserted_ids = Vec::with_capacity(THREAD_COUNT * INSERTS_PER_THREAD);
+        for h in handles {
+            let ids = h.join().unwrap();
+            all_inserted_ids.extend(ids);
+        }
+
+        let unique_ids: std::collections::HashSet<i64> =
+            all_inserted_ids.iter().copied().collect();
+        assert_eq!(unique_ids.len(), THREAD_COUNT * INSERTS_PER_THREAD);
+
+        let verify_db = crate::init_database(db_path.to_str().unwrap()).unwrap();
+        let verify_repo = HttpTtsRepository::new(verify_db.connection());
+        let all = verify_repo.find_all().unwrap();
+        // 80 条自动新增 + 1 条负数种子 = 81 条
+        assert_eq!(all.len(), THREAD_COUNT * INSERTS_PER_THREAD + 1);
+
+        let seed_loaded = verify_repo.find_by_id(-100).unwrap().unwrap();
+        assert_eq!(seed_loaded.name, "百度种子");
 
         // 非 replace 模式下，显式向已有 ID 插入必须报主键冲突错误，绝不静默覆盖
-        let err = repo1
-            .execute_insert_with_id(id_a, &second_auto, 1700000000000, false)
+        let any_existing_id = all_inserted_ids[0];
+        let duplicate = HttpTts {
+            id: any_existing_id,
+            name: "尝试覆盖".to_string(),
+            url: "http://dup".to_string(),
+            ..HttpTts::default()
+        };
+        let err = verify_repo
+            .execute_insert_with_id(any_existing_id, &duplicate, 1700000000000, false)
             .unwrap_err();
         assert!(err.to_string().contains("UNIQUE constraint failed"));
 
-        // 校验全部 3 条记录完好无损，A 未被覆盖
-        let all = repo1.find_all().unwrap();
-        assert_eq!(all.len(), 3);
-        let loaded_a = repo1.find_by_id(id_a).unwrap().unwrap();
-        let loaded_b = repo1.find_by_id(id_b).unwrap().unwrap();
-        assert_eq!(loaded_a.name, "用户新增A");
-        assert_eq!(loaded_b.name, "用户新增B");
-
-        drop(db1);
-        drop(db2);
+        drop(verify_db);
         let _ = std::fs::remove_file(&db_path);
     }
 }

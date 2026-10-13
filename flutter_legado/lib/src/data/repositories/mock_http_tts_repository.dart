@@ -96,20 +96,7 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
       }
       final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
       if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
-      final normalized = parsed.copyWith(
-        id: parsed.id != 0 ? parsed.id : nextId(),
-        synthesisThreadCount: parsed.synthesisThreadCount.clamp(
-          1,
-          kMaxHttpTtsSynthesisThreadCount,
-        ),
-      );
-      final existingIdx =
-          _httpTtsList.indexWhere((t) => t.id == normalized.id);
-      if (existingIdx >= 0) {
-        _httpTtsList[existingIdx] = normalized;
-      } else {
-        _httpTtsList.add(normalized);
-      }
+      await addHttpTts(parsed);
       count++;
     }
     return count;
