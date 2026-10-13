@@ -8,6 +8,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-13 | **HTTP TTS 批次 T1 全字段持久化与原地更新契约冻结**：保留 `HttpTtsRepository` 七项方法签名及方法计数不变；FRB `http_tts_add(http_tts_json: String) → Result<i64, BridgeError>` 与 `http_tts_update(http_tts_json: String) → Result<bool, BridgeError>` 升级为完整 `HttpTts` JSON 载荷，`http_tts_list()` 返回统一 camelCase JSON 数组。数据库 `httpTTS` 升级至 v110（新库建表 + `Migration109To110` + `repair_legacy_columns` 补齐 `speed` 可空整型与 `synthesisThreadCount` 默认 1）；完整读写 `id`、`name`、`url`、`contentType`、`pauseDuration`（Rust 扩展保留，默认 0）、`concurrentRate`、`loginUrl`、`loginUi`（导入兼容 JSON 数组自动序列化为字符串）、`header`、`jsLib`、`enabledCookieJar`、`loginCheckJs`、`speed`、`synthesisThreadCount`（1..8 clamp，默认 1）、`lastUpdateTime`、`isEnabled`（Rust 扩展保留，默认 true）。`updateHttpTts` 按 `id` 原地 UPDATE 全部字段并刷新 `lastUpdateTime`；目标 `id` 不存在（返回 `false`）、JSON 非法或写库失败均抛错，不删除或覆盖既有记录。配置页编辑改为 `copyWith` 原地更新，保留未展示高级字段与原 ID。 |
 | 2026-10-13 | **书源校验边界冻结**：Dart 内部 SourceChecker 接收既有单源校验、批量进度流与取消三项能力；正式直接调用原 FRB 并复用 JSON 守卫，Mock 与书源 Repository 共用唯一存储，根仅提供共享引用、删除旧三项方法。Notifier 捕获发起校验的实例，以会话代数过滤迟到事件；准备期间重复启动被拒绝，取消完成前不启动下一轮，清除/销毁解除旧订阅。保留配置键、默认值、事件 JSON、结果文案和正常完成的失效分组回写；Rust 进程级取消与 Mock 原取消空操作保持，不变更 Rust/FRB 或数据库。 |
 | 2026-10-13 | **书源导入职责冻结**：ImportResult/SourcePreview 独立为纯数据模型，SourceImportParser 统一预览和必填校验；导入服务只接收 BookSourceRepository、文本 GET、文件读取及书源替换规则回调，应用装配绑定同一根实例。保留宽松原始 JSON、逐条替换再入库、成功计数及失败边界；文件缺失与读取失败、HTTP 状态及原实际超时提示保持，不增加 BookApi 或 Rust/FRB 方法、不改变数据库或批量事务。 |
 | 2026-10-13 | **书源功能目录冻结**：四个管理/编辑/导入页面及 part、状态和专用组件归入 `features/book_sources/`，外部经 `book_sources.dart` 使用；共用编辑器/选择栏保留，导入状态颜色抽到 theme。只改路径与共享辅助类位置，Provider/Controller 生命周期、方法体、源配置、导入语义及契约计数不变。 |
@@ -597,23 +598,27 @@
 
 ### 2.25 HTTP TTS（6 个方法）
 
-> **2026-10-13 Dart 领域接线冻结**：本节六项及 §2.41 的
-> `httpTtsSetEnabled` 迁入 `HttpTtsRepository`；根 BookApi 只提供共享
-> `httpTtsRepository` 引用。正式实现直接调用已有 FRB，Mock 独立拥有
-> 唯一引擎列表，保留默认样例和根对象 ID 分配。无调用方的
-> `getHttpTtsList` 列表别名删除。初始化、Rust/FRB、数据库、模型字段和
-> 导入/导出语义不变；系统 TTS 不是 HTTP 配置，不写入此 Repository。
-> HTTP 合成和播放会话另行拆分，本批不改变合成回退、计时、媒体会话，
-> 或书级/全局选择的持久化方式。
+> **2026-10-13 批次 T1 全字段持久化与原地更新冻结**：本节六项及 §2.41 的
+> `httpTtsSetEnabled` 由 `HttpTtsRepository` 承担；根 BookApi 只提供共享
+> `httpTtsRepository` 引用。`httpTTS` 表升级至 Schema v110（补齐 `speed`、
+> `synthesisThreadCount`），FRB `httpTtsAdd(httpTtsJson:)` 与
+> `httpTtsUpdate(httpTtsJson:)` 接收完整 `HttpTts` JSON，`httpTtsList()`
+> 输出统一 camelCase 字段：`id`、`name`、`url`、`contentType`、
+> `pauseDuration`（默认 0）、`concurrentRate`（默认 `"0"`）、`loginUrl`、
+> `loginUi`（兼容上游 JSON 数组导入并序列化为字符串）、`header`、`jsLib`、
+> `enabledCookieJar`（默认 `false`）、`loginCheckJs`、`speed`（可空整型）、
+> `synthesisThreadCount`（1..8 clamp，默认 1）、`lastUpdateTime`、
+> `isEnabled`（默认 `true`）。`updateHttpTts` 按 `id` 原地更新，目标不存在
+> 或写入失败均抛错（正式与 Mock 一致）；配置编辑使用 `copyWith` 保留未展示字段。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `getHttpTts()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置 |
-| `addHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<HttpTts>` | 添加 HTTP TTS 配置 |
-| `updateHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<void>` | 更新 HTTP TTS 配置 |
+| `getHttpTts()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置（完整 camelCase 字段） |
+| `addHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<HttpTts>` | 添加或保存完整 HTTP TTS 配置（`id != 0` 保留输入 ID，否则分配新 ID） |
+| `updateHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<void>` | 按 `id` 原地更新完整 HTTP TTS 配置；目标不存在或失败抛错 |
 | `deleteHttpTts(int id)` | id | `Future<void>` | 删除 HTTP TTS 配置 |
-| `importHttpTts(String json)` | json: JSON 字符串 | `Future<int>` | 导入 HTTP TTS 配置，返回成功数量 |
-| `exportHttpTts()` | 无 | `Future<String>` | 导出 HTTP TTS 配置 |
+| `importHttpTts(String json)` | json: JSON 字符串 | `Future<int>` | 导入完整 HTTP TTS 配置（兼容数组 `loginUi`），返回成功数量 |
+| `exportHttpTts()` | 无 | `Future<String>` | 导出完整 HTTP TTS 配置 JSON 数组 |
 
 ### 2.26 音频播放（4 个方法）
 

@@ -17,12 +17,24 @@ void main() {
   });
   tearDown(RustLib.dispose);
 
-  test('列表与导出保持裸数组、完整字段，不缓存查询', () async {
+  test('列表与导出保持裸数组、完整 camelCase 字段，不缓存查询', () async {
     const row = HttpTts(
       id: 17,
       name: '测试',
       url: 'http://a',
       contentType: 'audio/wav',
+      pauseDuration: 120,
+      concurrentRate: '1500',
+      loginUrl: 'function login(){}',
+      loginUi: '[{"name":"AppKey","type":"text"}]',
+      header: '{"Authorization":"Bearer token"}',
+      jsLib: 'var v = 1;',
+      enabledCookieJar: true,
+      loginCheckJs: 'result',
+      speed: 15,
+      synthesisThreadCount: 4,
+      lastUpdateTime: 1700000001234,
+      isEnabled: false,
     );
     when(() => bridge.crateFfiFfiHttpTtsList())
         .thenAnswer((_) async => jsonEncode([row.toJson()]));
@@ -34,81 +46,145 @@ void main() {
     verifyNoMoreInteractions(bridge);
   });
 
-  test('新增仍只传 name/url，结果保留输入字段并采用原生 ID', () async {
+  test('新增传递完整 HttpTts JSON（含并发 clamp），结果保留输入字段并采用原生 ID', () async {
     const input = HttpTts(
       id: -5,
       name: '测试',
       url: 'http://a',
       contentType: 'audio/wav',
+      pauseDuration: 200,
+      concurrentRate: '1000',
+      loginUrl: 'function login(){}',
+      loginUi: '[{"name":"Key"}]',
+      header: '{"X-Test":"1"}',
+      jsLib: 'var a = 2;',
+      enabledCookieJar: true,
+      loginCheckJs: 'result',
+      speed: 20,
+      synthesisThreadCount: 15,
+      lastUpdateTime: 1700000000000,
+      isEnabled: false,
     );
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: input.name, url: input.url))
-        .thenAnswer((_) async => 17);
-    expect(await repository.addHttpTts(input), input.copyWith(id: 17));
-    verify(() => bridge.crateFfiFfiHttpTtsAdd(name: input.name, url: input.url))
-        .called(1);
+    final expectedNormalized = input.copyWith(synthesisThreadCount: 8);
+    when(
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: jsonEncode(expectedNormalized.toJson()),
+      ),
+    ).thenAnswer((_) async => 17);
+    expect(
+      await repository.addHttpTts(input),
+      expectedNormalized.copyWith(id: 17),
+    );
+    verify(
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: jsonEncode(expectedNormalized.toJson()),
+      ),
+    ).called(1);
     verifyNoMoreInteractions(bridge);
   });
 
-  test('更新删除保留 void 语义，启用操作原样返回 bool', () async {
-    const row = HttpTts(id: 17, name: '修改', url: 'http://b');
-    when(
-      () =>
-          bridge.crateFfiFfiHttpTtsUpdate(id: 17, name: row.name, url: row.url),
-    ).thenAnswer((_) async => false);
+  test('原地更新成功返回 void；目标不存在返回 false 时抛 StateError，不伪装成功', () async {
+    const row = HttpTts(
+      id: 17,
+      name: '修改',
+      url: 'http://b',
+      header: '{"X":"Y"}',
+      speed: 12,
+      synthesisThreadCount: 3,
+    );
+    final payload = jsonEncode(row.toJson());
+    when(() => bridge.crateFfiFfiHttpTtsUpdate(httpTtsJson: payload))
+        .thenAnswer((_) async => true);
+    await repository.updateHttpTts(row);
+
+    when(() => bridge.crateFfiFfiHttpTtsUpdate(httpTtsJson: payload))
+        .thenAnswer((_) async => false);
+    await expectLater(repository.updateHttpTts(row), throwsStateError);
+
     when(() => bridge.crateFfiFfiHttpTtsDelete(id: 17))
         .thenAnswer((_) async => false);
     when(() => bridge.crateFfiFfiHttpTtsSetEnabled(id: 17, enabled: false))
         .thenAnswer((_) async => false);
-    await repository.updateHttpTts(row);
     await repository.deleteHttpTts(row.id);
     expect(await repository.httpTtsSetEnabled(row.id, false), isFalse);
-    verify(
-      () =>
-          bridge.crateFfiFfiHttpTtsUpdate(id: 17, name: row.name, url: row.url),
-    ).called(1);
+    verify(() => bridge.crateFfiFfiHttpTtsUpdate(httpTtsJson: payload))
+        .called(2);
     verify(() => bridge.crateFfiFfiHttpTtsDelete(id: 17)).called(1);
     verify(() => bridge.crateFfiFfiHttpTtsSetEnabled(id: 17, enabled: false))
         .called(1);
     verifyNoMoreInteractions(bridge);
   });
 
-  test('导入依次保留原值，跳过缺 name/url，不擅自增加事务', () async {
-    final imported = <String>[];
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: '甲', url: 'http://a'))
-        .thenAnswer((_) async {
-          imported.add('甲');
-          return 1;
-        });
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: ' 乙 ', url: 'http://b'))
-        .thenAnswer((_) async {
-          imported.add(' 乙 ');
-          return 2;
-        });
-    expect(
-      await repository.importHttpTts(
-        '[{"name":"甲","url":"http://a"},{"name":""},{"url":"http://skip"},{"name":" 乙 ","url":"http://b"}]',
+  test('导入完整保留全字段及数组 loginUi，跳过缺 name/url 条目', () async {
+    final payloads = <Map<String, dynamic>>[];
+    when(
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: any(named: 'httpTtsJson'),
       ),
-      2,
+    ).thenAnswer((invocation) async {
+      final jsonStr = invocation.namedArguments[#httpTtsJson] as String;
+      payloads.add(jsonDecode(jsonStr) as Map<String, dynamic>);
+      return payloads.length;
+    });
+
+    final count = await repository.importHttpTts(
+      jsonEncode([
+        {
+          'id': -29,
+          'name': '甲',
+          'url': 'http://a',
+          'contentType': 'audio/mpeg',
+          'loginUi': [
+            {'name': 'AppKey', 'type': 'text'},
+          ],
+          'header': '{"Auth":"1"}',
+          'speed': 10,
+          'synthesisThreadCount': 99,
+          'pauseDuration': 80,
+          'isEnabled': false,
+        },
+        {'name': ''},
+        {'url': 'http://skip'},
+        {'name': ' 乙 ', 'url': 'http://b'},
+      ]),
     );
-    expect(imported, ['甲', ' 乙 ']);
+    expect(count, 2);
+    expect(payloads[0]['id'], -29);
+    expect(payloads[0]['name'], '甲');
+    expect(payloads[0]['loginUi'], '[{"name":"AppKey","type":"text"}]');
+    expect(payloads[0]['header'], '{"Auth":"1"}');
+    expect(payloads[0]['speed'], 10);
+    expect(payloads[0]['synthesisThreadCount'], 8);
+    expect(payloads[0]['pauseDuration'], 80);
+    expect(payloads[0]['isEnabled'], false);
+    expect(payloads[1]['name'], ' 乙 ');
+    expect(payloads[1]['url'], 'http://b');
   });
 
   test('导入失败立即上抛，已完成写入不回滚，后续条目不执行', () async {
     final failure = StateError('写入失败');
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: '甲', url: 'http://a'))
-        .thenAnswer((_) async => 1);
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: '乙', url: 'http://b'))
-        .thenAnswer((_) async => throw failure);
+    var calls = 0;
+    when(
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: any(named: 'httpTtsJson'),
+      ),
+    ).thenAnswer((_) async {
+      calls++;
+      if (calls == 2) throw failure;
+      return calls;
+    });
     await expectLater(
       repository.importHttpTts(
         '[{"name":"甲","url":"http://a"},{"name":"乙","url":"http://b"},{"name":"丙","url":"http://c"}]',
       ),
       throwsA(same(failure)),
     );
-    verify(() => bridge.crateFfiFfiHttpTtsAdd(name: '甲', url: 'http://a'))
-        .called(1);
-    verify(() => bridge.crateFfiFfiHttpTtsAdd(name: '乙', url: 'http://b'))
-        .called(1);
+    expect(calls, 2);
+    verify(
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: any(named: 'httpTtsJson'),
+      ),
+    ).called(2);
     verifyNoMoreInteractions(bridge);
   });
 
@@ -124,10 +200,15 @@ void main() {
     final failure = StateError('数据库失败');
     when(() => bridge.crateFfiFfiHttpTtsList())
         .thenAnswer((_) async => throw failure);
-    when(() => bridge.crateFfiFfiHttpTtsAdd(name: '甲', url: 'http://a'))
-        .thenAnswer((_) async => throw failure);
     when(
-      () => bridge.crateFfiFfiHttpTtsUpdate(id: 17, name: '甲', url: 'http://a'),
+      () => bridge.crateFfiFfiHttpTtsAdd(
+        httpTtsJson: any(named: 'httpTtsJson'),
+      ),
+    ).thenAnswer((_) async => throw failure);
+    when(
+      () => bridge.crateFfiFfiHttpTtsUpdate(
+        httpTtsJson: any(named: 'httpTtsJson'),
+      ),
     ).thenAnswer((_) async => throw failure);
     when(() => bridge.crateFfiFfiHttpTtsDelete(id: 17))
         .thenAnswer((_) async => throw failure);

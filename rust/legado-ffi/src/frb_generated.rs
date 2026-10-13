@@ -4671,12 +4671,11 @@ fn wire__crate__ffi__ffi__http_tts_add_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_name = <String>::sse_decode(&mut deserializer);
-            let api_url = <String>::sse_decode(&mut deserializer);
+            let api_http_tts_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::http_tts_add(api_name, api_url)?;
+                    let output_ok = crate::ffi::ffi::http_tts_add(api_http_tts_json)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -4804,13 +4803,11 @@ fn wire__crate__ffi__ffi__http_tts_update_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_id = <i64>::sse_decode(&mut deserializer);
-            let api_name = <String>::sse_decode(&mut deserializer);
-            let api_url = <String>::sse_decode(&mut deserializer);
+            let api_http_tts_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::http_tts_update(api_id, api_name, api_url)?;
+                    let output_ok = crate::ffi::ffi::http_tts_update(api_http_tts_json)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }

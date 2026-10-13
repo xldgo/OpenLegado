@@ -563,10 +563,7 @@ abstract class RustLibApi extends BaseApi {
     required String body,
   });
 
-  Future<PlatformInt64> crateFfiFfiHttpTtsAdd({
-    required String name,
-    required String url,
-  });
+  Future<PlatformInt64> crateFfiFfiHttpTtsAdd({required String httpTtsJson});
 
   Future<bool> crateFfiFfiHttpTtsDelete({required PlatformInt64 id});
 
@@ -577,11 +574,7 @@ abstract class RustLibApi extends BaseApi {
     required bool enabled,
   });
 
-  Future<bool> crateFfiFfiHttpTtsUpdate({
-    required PlatformInt64 id,
-    required String name,
-    required String url,
-  });
+  Future<bool> crateFfiFfiHttpTtsUpdate({required String httpTtsJson});
 
   Future<String> crateFfiFfiImportDetectFormat({required String filePath});
 
@@ -5424,16 +5417,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "http_post", argNames: ["url", "body"]);
 
   @override
-  Future<PlatformInt64> crateFfiFfiHttpTtsAdd({
-    required String name,
-    required String url,
-  }) {
+  Future<PlatformInt64> crateFfiFfiHttpTtsAdd({required String httpTtsJson}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(name, serializer);
-          sse_encode_String(url, serializer);
+          sse_encode_String(httpTtsJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -5446,14 +5435,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHttpTtsAddConstMeta,
-        argValues: [name, url],
+        argValues: [httpTtsJson],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateFfiFfiHttpTtsAddConstMeta =>
-      const TaskConstMeta(debugName: "http_tts_add", argNames: ["name", "url"]);
+      const TaskConstMeta(debugName: "http_tts_add", argNames: ["httpTtsJson"]);
 
   @override
   Future<bool> crateFfiFfiHttpTtsDelete({required PlatformInt64 id}) {
@@ -5546,18 +5535,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<bool> crateFfiFfiHttpTtsUpdate({
-    required PlatformInt64 id,
-    required String name,
-    required String url,
-  }) {
+  Future<bool> crateFfiFfiHttpTtsUpdate({required String httpTtsJson}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(id, serializer);
-          sse_encode_String(name, serializer);
-          sse_encode_String(url, serializer);
+          sse_encode_String(httpTtsJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -5570,7 +5553,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHttpTtsUpdateConstMeta,
-        argValues: [id, name, url],
+        argValues: [httpTtsJson],
         apiImpl: this,
       ),
     );
@@ -5578,7 +5561,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateFfiFfiHttpTtsUpdateConstMeta => const TaskConstMeta(
     debugName: "http_tts_update",
-    argNames: ["id", "name", "url"],
+    argNames: ["httpTtsJson"],
   );
 
   @override

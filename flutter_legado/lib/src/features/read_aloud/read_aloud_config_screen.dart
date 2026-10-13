@@ -128,10 +128,10 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
 
     try {
       if (existing != null) {
-        // 编辑：先删后加
-        await api.deleteHttpTts(existing.id);
+        await api.updateHttpTts(result);
+      } else {
+        await api.addHttpTts(result);
       }
-      await api.addHttpTts(result);
       await _loadEngines();
       messenger.showSnackBar(
         SnackBar(content: Text(existing != null ? '已更新' : '已添加')),
@@ -392,8 +392,8 @@ class _TtsEditDialogState extends State<_TtsEditDialog> {
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final tts = HttpTts(
-      id: widget.engine?.id ?? 0,
+    final base = widget.engine ?? const HttpTts();
+    final tts = base.copyWith(
       name: _nameCtrl.text.trim(),
       url: _urlCtrl.text.trim(),
       header: _headerCtrl.text.trim().isNotEmpty

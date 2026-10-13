@@ -77,6 +77,8 @@ impl DefaultDataManager {
                 header TEXT,
                 jsLib TEXT,
                 enabledCookieJar INTEGER DEFAULT 0,
+                speed INTEGER,
+                synthesisThreadCount INTEGER NOT NULL DEFAULT 1,
                 lastUpdateTime INTEGER NOT NULL DEFAULT 0,
                 isEnabled INTEGER NOT NULL DEFAULT 1,
                 PRIMARY KEY(id)
@@ -198,17 +200,12 @@ impl DefaultDataManager {
             return Ok(false);
         }
 
-        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("");
-        let content_type = item.get("contentType").and_then(|v| v.as_str());
-        let header = item.get("header").and_then(|v| v.as_str());
-        let login_url = item.get("loginUrl").and_then(|v| v.as_str());
-
-        conn.execute(
-            "INSERT INTO httpTTS (id, name, url, contentType, header, loginUrl) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params![id, name, url, content_type, header, login_url],
-        )
-        .map_err(|e| format!("插入 httpTTS 失败: {e}"))?;
+        let mut parsed: crate::HttpTts = serde_json::from_value(item.clone())
+            .map_err(|e| format!("解析 httpTTS 失败: {e}"))?;
+        parsed.id = id;
+        crate::HttpTtsRepository::new(conn)
+            .insert_entity(&parsed)
+            .map_err(|e| format!("插入 httpTTS 失败: {e}"))?;
 
         Ok(true)
     }

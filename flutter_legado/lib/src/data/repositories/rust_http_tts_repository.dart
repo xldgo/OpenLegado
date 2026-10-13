@@ -21,17 +21,36 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
         .toList();
   }
 
-  /// 添加 HTTP TTS 配置
+  /// 添加 HTTP TTS 配置（保存完整字段，返回携带最终 ID 的对象）
   @override
   Future<HttpTts> addHttpTts(HttpTts tts) async {
-    final id = await bridge.httpTtsAdd(name: tts.name, url: tts.url);
-    return tts.copyWith(id: id.toInt());
+    final normalized = tts.copyWith(
+      synthesisThreadCount: tts.synthesisThreadCount.clamp(
+        1,
+        kMaxHttpTtsSynthesisThreadCount,
+      ),
+    );
+    final id = await bridge.httpTtsAdd(
+      httpTtsJson: jsonEncode(normalized.toJson()),
+    );
+    return normalized.copyWith(id: id.toInt());
   }
 
-  /// 更新 HTTP TTS 配置
+  /// 按 ID 原地更新 HTTP TTS 配置；目标不存在或底层失败均抛错
   @override
   Future<void> updateHttpTts(HttpTts tts) async {
-    await bridge.httpTtsUpdate(id: tts.id, name: tts.name, url: tts.url);
+    final normalized = tts.copyWith(
+      synthesisThreadCount: tts.synthesisThreadCount.clamp(
+        1,
+        kMaxHttpTtsSynthesisThreadCount,
+      ),
+    );
+    final updated = await bridge.httpTtsUpdate(
+      httpTtsJson: jsonEncode(normalized.toJson()),
+    );
+    if (!updated) {
+      throw StateError('HTTP TTS 引擎不存在: id=${tts.id}');
+    }
   }
 
   /// 删除 HTTP TTS 配置
@@ -40,19 +59,19 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
     await bridge.httpTtsDelete(id: id);
   }
 
-  /// 导入 HTTP TTS 配置（解析 JSON 数组并逐条添加）
+  /// 导入 HTTP TTS 配置（解析 JSON 数组，完整保留全字段及数组 loginUi）
   @override
   Future<int> importHttpTts(String json) async {
     final list = decodeRustJsonList(json, 'bookApi');
     var count = 0;
     for (final item in list) {
-      final m = item as Map<String, dynamic>;
-      final name = m['name'] as String? ?? '';
-      final url = m['url'] as String? ?? '';
-      if (name.isNotEmpty && url.isNotEmpty) {
-        await bridge.httpTtsAdd(name: name, url: url);
-        count++;
+      if (item is! Map) {
+        throw const FormatException('HTTP TTS 导入条目不是 JSON 对象');
       }
+      final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
+      if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
+      await addHttpTts(parsed);
+      count++;
     }
     return count;
   }

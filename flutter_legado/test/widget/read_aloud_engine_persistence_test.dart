@@ -288,5 +288,86 @@ void main() {
       expect(find.text('已设为全局引擎'), findsOneWidget);
       await settleSnackBar(tester);
     });
+
+    testWidgets('编辑引擎：走 updateHttpTts 原地更新，保留 ID 与未展示高级字段；失败不删除原配置', (
+      tester,
+    ) async {
+      const richEngine = HttpTts(
+        id: 101,
+        name: '富字段引擎',
+        url: 'http://rich.example/tts?text={{text}}',
+        contentType: 'audio/mpeg',
+        pauseDuration: 180,
+        concurrentRate: '1500',
+        loginUrl: 'function login(){}',
+        loginUi: '[{"name":"AppKey","type":"text"}]',
+        header: '{"Authorization":"Bearer old"}',
+        jsLib: 'var rich = 1;',
+        enabledCookieJar: true,
+        loginCheckJs: 'result',
+        speed: 16,
+        synthesisThreadCount: 4,
+        lastUpdateTime: 1700000000111,
+        isEnabled: false,
+      );
+      var currentList = <HttpTts>[richEngine];
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => List.of(currentList));
+
+      HttpTts? updatedArg;
+      when(() => api.httpTtsRepository.updateHttpTts(any())).thenAnswer((
+        invocation,
+      ) async {
+        final arg = invocation.positionalArguments[0] as HttpTts;
+        updatedArg = arg;
+        currentList = [arg];
+      });
+
+      await pumpScreen(tester);
+      await tester.tap(find.byTooltip('编辑').first);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, '名称 *'),
+        '富字段引擎-已改',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      verifyNever(() => api.httpTtsRepository.deleteHttpTts(any()));
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
+      verify(() => api.httpTtsRepository.updateHttpTts(any())).called(1);
+      expect(updatedArg, isNotNull);
+      expect(updatedArg!.id, 101);
+      expect(updatedArg!.name, '富字段引擎-已改');
+      expect(updatedArg!.pauseDuration, 180);
+      expect(updatedArg!.concurrentRate, '1500');
+      expect(updatedArg!.loginUrl, 'function login(){}');
+      expect(updatedArg!.loginUi, '[{"name":"AppKey","type":"text"}]');
+      expect(updatedArg!.jsLib, 'var rich = 1;');
+      expect(updatedArg!.enabledCookieJar, isTrue);
+      expect(updatedArg!.loginCheckJs, 'result');
+      expect(updatedArg!.speed, 16);
+      expect(updatedArg!.synthesisThreadCount, 4);
+      expect(updatedArg!.isEnabled, isFalse);
+      await settleSnackBar(tester);
+
+      // 模拟更新失败：原记录保持不丢失，不调用删除
+      when(() => api.httpTtsRepository.updateHttpTts(any()))
+          .thenThrow(StateError('写库失败'));
+      await tester.tap(find.byTooltip('编辑').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, '名称 *'),
+        '富字段引擎-失败尝试',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      verifyNever(() => api.httpTtsRepository.deleteHttpTts(any()));
+      expect(find.text('富字段引擎-已改'), findsOneWidget);
+      expect(find.textContaining('保存失败'), findsOneWidget);
+      await settleSnackBar(tester);
+    });
   });
 }

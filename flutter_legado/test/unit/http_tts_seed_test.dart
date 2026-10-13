@@ -73,7 +73,7 @@ void main() {
           });
     });
 
-    test('非空种子：按原版形态导入 name/url（不做启用态标记）', () async {
+    test('非空种子：按原版形态全量导入全字段（含数组 loginUi，不做额外启用态写入）', () async {
       final json = jsonEncode([
         {
           'id': -100,
@@ -85,7 +85,14 @@ void main() {
           'id': -29,
           'name': '2.阿里云语音',
           'url': 'https://nls.example.com/tts',
+          'contentType': 'audio/mpeg',
           'loginUrl': 'function login(){}',
+          'loginUi': [
+            {'name': 'AppKey', 'type': 'text'},
+          ],
+          'loginCheckJs': 'result',
+          'speed': 10,
+          'synthesisThreadCount': 4,
         },
       ]);
 
@@ -96,9 +103,16 @@ void main() {
 
       expect(count, 2);
       expect(added.map((e) => e.name), ['1.百度', '2.阿里云语音']);
+      expect(added.first.id, -100);
       expect(added.first.url, _seedBaiduUrl);
-      // 不做启用态写入：原版 HttpTTS.kt 无 isEnabled 概念（Dart 侧模型亦无
-      // 该字段），写 httpTTS.isEnabled 列无消费方，属无效调用
+      expect(added.first.contentType, 'audio/wav');
+      expect(added[1].id, -29);
+      expect(added[1].loginUrl, 'function login(){}');
+      expect(added[1].loginUi, '[{"name":"AppKey","type":"text"}]');
+      expect(added[1].loginCheckJs, 'result');
+      expect(added[1].speed, 10);
+      expect(added[1].synthesisThreadCount, 4);
+      // 不做启用态写入：原版 HttpTTS.kt 无 isEnabled 概念，可用性由 URL 兼容性判定把关
       verifyNever(() => api.httpTtsRepository.httpTtsSetEnabled(any(), any()));
     });
 

@@ -1660,17 +1660,13 @@ Future<String> configGetAll() => RustLib.instance.api.crateFfiFfiConfigGetAll();
 /// 获取所有 HTTP TTS 源（JSON 数组）
 Future<String> httpTtsList() => RustLib.instance.api.crateFfiFfiHttpTtsList();
 
-/// 添加 HTTP TTS 源，返回新 ID
-Future<PlatformInt64> httpTtsAdd({required String name, required String url}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsAdd(name: name, url: url);
+/// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
+Future<PlatformInt64> httpTtsAdd({required String httpTtsJson}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsAdd(httpTtsJson: httpTtsJson);
 
-/// 更新 HTTP TTS 源
-Future<bool> httpTtsUpdate({
-  required PlatformInt64 id,
-  required String name,
-  required String url,
-}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(id: id, name: name, url: url);
+/// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
+Future<bool> httpTtsUpdate({required String httpTtsJson}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(httpTtsJson: httpTtsJson);
 
 /// 删除 HTTP TTS 源
 Future<bool> httpTtsDelete({required PlatformInt64 id}) =>

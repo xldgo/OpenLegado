@@ -96,12 +96,19 @@ _HttpTts _$HttpTtsFromJson(Map<String, dynamic> json) => _HttpTts(
   pauseDuration: (json['pauseDuration'] as num?)?.toInt() ?? 0,
   concurrentRate: json['concurrentRate'] as String?,
   loginUrl: json['loginUrl'] as String?,
-  loginUi: json['loginUi'] as String?,
+  loginUi: _httpTtsLoginUiFromJson(json['loginUi']),
   header: json['header'] as String?,
   jsLib: json['jsLib'] as String?,
-  enabledCookieJar: json['enabledCookieJar'] as bool?,
+  enabledCookieJar: _httpTtsNullableBoolFromJson(json['enabledCookieJar']),
   loginCheckJs: json['loginCheckJs'] as String?,
+  speed: (json['speed'] as num?)?.toInt(),
+  synthesisThreadCount: json['synthesisThreadCount'] == null
+      ? 1
+      : _httpTtsSynthesisThreadCountFromJson(json['synthesisThreadCount']),
   lastUpdateTime: (json['lastUpdateTime'] as num?)?.toInt() ?? 0,
+  isEnabled: json['isEnabled'] == null
+      ? true
+      : _httpTtsEnabledFromJson(json['isEnabled']),
 );
 
 Map<String, dynamic> _$HttpTtsToJson(_HttpTts instance) => <String, dynamic>{
@@ -117,7 +124,10 @@ Map<String, dynamic> _$HttpTtsToJson(_HttpTts instance) => <String, dynamic>{
   'jsLib': instance.jsLib,
   'enabledCookieJar': instance.enabledCookieJar,
   'loginCheckJs': instance.loginCheckJs,
+  'speed': instance.speed,
+  'synthesisThreadCount': instance.synthesisThreadCount,
   'lastUpdateTime': instance.lastUpdateTime,
+  'isEnabled': instance.isEnabled,
 };
 
 _Bookmark _$BookmarkFromJson(Map<String, dynamic> json) => _Bookmark(

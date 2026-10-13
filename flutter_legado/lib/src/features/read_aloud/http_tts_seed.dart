@@ -95,14 +95,16 @@ Future<int> syncDefaultHttpTts(
 
   var imported = 0;
   for (final seed in seeds) {
-    final name = (seed['name'] as String).trim();
-    final url = (seed['url'] as String).trim();
-    if (!existing.add('$name\u0000$url')) continue;
+    final parsed = HttpTts.fromJson(seed).copyWith(
+      name: (seed['name'] as String).trim(),
+      url: (seed['url'] as String).trim(),
+    );
+    if (!existing.add('${parsed.name}\u0000${parsed.url}')) continue;
     try {
-      await api.addHttpTts(HttpTts(name: name, url: url));
+      await api.addHttpTts(parsed);
       imported++;
     } catch (e) {
-      debugPrint('httpTTS 种子导入失败（$name）: $e');
+      debugPrint('httpTTS 种子导入失败（${parsed.name}）: $e');
     }
   }
   return imported;

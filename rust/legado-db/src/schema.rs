@@ -31,7 +31,9 @@ use legado_core::{LegadoError, LegadoResult};
 /// - v109：books 补 `originBookUrl` 列（P2-8 换源根因修复：当前书源下该书的
 ///   详情页地址，换源事务写入；换源后 bookUrl 稳定主键保持旧源地址，
 ///   「抓取书籍页」路径优先用本列，为空回退 bookUrl，Migration108To109）
-pub const SCHEMA_VERSION: u32 = 109;
+/// - v110：httpTTS 补 `speed` 与 `synthesisThreadCount` 列（批次 T1：对齐上游
+///   HttpTTS 实体的源级语速与合成并发上限，保留 pauseDuration/isEnabled，Migration109To110）
+pub const SCHEMA_VERSION: u32 = 110;
 
 /// 初始化全部 Schema（创建所有表）
 pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
@@ -525,7 +527,7 @@ CREATE TABLE IF NOT EXISTS caches (
 CREATE INDEX IF NOT EXISTS idx_caches_deadline ON caches(deadline);
 ";
 
-/// httpTTS 表（对齐 Room v95 列集；`isEnabled` 为 Rust 轨超集，支撑启用开关 API）
+/// httpTTS 表（对齐 Room v95 + 上游 speed/synthesisThreadCount；`pauseDuration`/`isEnabled` 为 Rust 轨保留列）
 pub const CREATE_HTTP_TTS: &str = "
 CREATE TABLE IF NOT EXISTS httpTTS (
     id INTEGER NOT NULL,
@@ -540,6 +542,8 @@ CREATE TABLE IF NOT EXISTS httpTTS (
     jsLib TEXT,
     enabledCookieJar INTEGER DEFAULT 0,
     loginCheckJs TEXT,
+    speed INTEGER,
+    synthesisThreadCount INTEGER NOT NULL DEFAULT 1,
     lastUpdateTime INTEGER NOT NULL DEFAULT 0,
     isEnabled INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY(id)

@@ -159,7 +159,7 @@ pub async fn list_engines(
             id: t.id,
             name: t.name,
             url_template: t.url,
-            content_type: t.content_type,
+            content_type: t.content_type.unwrap_or_default(),
             is_enabled: t.is_enabled,
         })
         .collect();

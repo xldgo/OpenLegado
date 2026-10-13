@@ -2166,15 +2166,15 @@ pub mod ffi {
         to_json(&list)
     }
 
-    /// 添加 HTTP TTS 源，返回新 ID
-    pub fn http_tts_add(name: String, url: String) -> Result<i64, BridgeError> {
-        let id = crate::api::http_tts_api::add_http_tts(&name, &url)?;
+    /// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
+    pub fn http_tts_add(http_tts_json: String) -> Result<i64, BridgeError> {
+        let id = crate::api::http_tts_api::add_http_tts_json(&http_tts_json)?;
         Ok(id)
     }
 
-    /// 更新 HTTP TTS 源
-    pub fn http_tts_update(id: i64, name: String, url: String) -> Result<bool, BridgeError> {
-        let ok = crate::api::http_tts_api::update_http_tts(id, &name, &url)?;
+    /// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
+    pub fn http_tts_update(http_tts_json: String) -> Result<bool, BridgeError> {
+        let ok = crate::api::http_tts_api::update_http_tts_json(&http_tts_json)?;
         Ok(ok)
     }
 
