@@ -37,6 +37,7 @@ open class MainActivity : FlutterActivity() {
     private var systemBarStatusColor = Color.TRANSPARENT
     private var systemBarNavColor = Color.TRANSPARENT
     private var systemBarLightIcons = false
+    private var systemBarReaderActive = false
 
     companion object {
         private const val CHANNEL_WEBVIEW = "legado/webview"
@@ -217,7 +218,7 @@ open class MainActivity : FlutterActivity() {
     override fun onPostResume() {
         super.onPostResume()
         // 从其他 Activity 返回时复用 Dart 侧最近一次配置
-        applySystemBarFromState()
+        if (!systemBarReaderActive) applySystemBarFromState()
     }
 
 
@@ -233,7 +234,22 @@ open class MainActivity : FlutterActivity() {
 
     private fun handleSystemBarCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "reader" -> {
+                // 阅读器接管显隐；不让全局 decorFits 设置约束正文布局。
+                systemBarReaderActive = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    window.setDecorFitsSystemWindows(false)
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility =
+                        window.decorView.systemUiVisibility or
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                }
+                result.success(null)
+            }
             "apply" -> {
+                systemBarReaderActive = false
                 systemBarTransparent =
                     call.argument<Boolean>("transparentStatusBar") ?: true
                 systemBarImmNav =

@@ -25,7 +25,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/screens/reader_screen.dart';
+import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/utils/app_route_observer.dart';
 
 import '../mocks/mocks.dart';
 
@@ -72,7 +75,8 @@ void main() {
     when(() => api.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
     when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
-    when(() => api.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
     when(() => api.getConfig(any())).thenAnswer((_) async => '');
     when(
       () => api.updateReadingProgress(
@@ -87,12 +91,18 @@ void main() {
   /// 启动 App（首页按钮 push 真实 ReaderScreen，使 PopScope 可被触发）
   Future<ProviderContainer> pumpReader(
     WidgetTester tester,
-    MockRustApi api,
-  ) async {
+    MockRustApi api, {
+    SystemBarController? systemBars,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: [
+          bookApiProvider.overrideWithValue(api),
+          if (systemBars != null)
+            systemBarControllerProvider.overrideWithValue(systemBars),
+        ],
         child: MaterialApp(
+          navigatorObservers: [systemBarRouteObserver],
           builder: readerLayoutTestBuilder,
           home: Builder(
             builder: (context) => Scaffold(
@@ -136,9 +146,22 @@ void main() {
   group('P2-30 未入架书退出阅读「放入书架」提示', () {
     testWidgets('未入架书退出：默认弹「放入书架」对话框（标题/正文/取消/确认齐备，修前红）', (tester) async {
       final api = stubReaderApi();
+      final applied = <String>[];
+      final systemBars = SystemBarController(
+        applyApplication: (_) async => applied.add('应用'),
+        applyReader: (_) async => applied.add('阅读'),
+      );
+      addTearDown(systemBars.dispose);
+      systemBars.updateApplication((
+        transparentStatusBar: false,
+        immNavigationBar: false,
+        appBarColor: Colors.white,
+        navigationBarColor: Colors.white,
+      ));
       // 在架判定数据源：DB 记录带 notShelf 位 → 未入架
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
-      final container = await pumpReader(tester, api);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _notShelfDbBook);
+      final container = await pumpReader(tester, api, systemBars: systemBars);
       addTearDown(container.dispose);
 
       await popReader(tester);
@@ -157,15 +180,20 @@ void main() {
       expect(find.text('确认'), findsOneWidget);
       // 弹窗阻断退出：阅读器路由仍在
       expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(applied.last, '阅读', reason: '退出确认弹窗不交还阅读页面的系统栏归属');
     });
 
     testWidgets('未入架书退出 + 确认：清 notShelf 位入架 + 进度落库 + 退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
-      when(() => api.bookshelfRepository.addBook(any())).thenAnswer((_) async => _sessionBook);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.addBook(any()))
+          .thenAnswer((_) async => _sessionBook);
       // 确认路径会读 bookshelfNotifier（首次 build 触发列表/分组加载桩）
-      when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
-      when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => api.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => const []);
+      when(() => api.bookGroupRepository.getBookGroups())
+          .thenAnswer((_) async => const []);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
       // 开读后设一个可区分的章内位置（openBook 自身会落一次 pos=0，
@@ -178,7 +206,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // 入架：addBook 被调用且 notShelf 位已清（upsert 不级联删章节目录）
-      final captured = verify(() => api.bookshelfRepository.addBook(captureAny())).captured;
+      final captured = verify(
+        () => api.bookshelfRepository.addBook(captureAny()),
+      ).captured;
       expect(captured, hasLength(1), reason: '确认必须调用 addBook 入架一次');
       final added = captured.single as Book;
       expect(
@@ -208,7 +238,8 @@ void main() {
 
     testWidgets('未入架书退出 + 取消：清理临时落库记录（书不残留）+ 退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -217,7 +248,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // 取消 → 未入架书不残留：deleteBook 清理本次会话的临时记录
-      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl)).called(1);
+      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl))
+          .called(1);
       // 未确认入架
       verifyNever(() => api.bookshelfRepository.addBook(any()));
       // 已退出
@@ -226,18 +258,60 @@ void main() {
 
     testWidgets('已入架书退出：直接退出（无弹窗、无删除、进度落库）', (tester) async {
       final api = stubReaderApi();
+      final applied = <String>[];
+      final systemBars = SystemBarController(
+        applyApplication: (bars) async =>
+            applied.add(bars.appBarColor == Colors.black ? '应用夜间' : '应用日间'),
+        applyReader: (_) async => applied.add('阅读'),
+      );
+      addTearDown(systemBars.dispose);
+      systemBars.updateApplication((
+        transparentStatusBar: false,
+        immNavigationBar: false,
+        appBarColor: Colors.white,
+        navigationBarColor: Colors.white,
+      ));
       // DB 记录无 notShelf 位 → 已入架
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _shelfDbBook);
-      final container = await pumpReader(tester, api);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _shelfDbBook);
+      final container = await pumpReader(tester, api, systemBars: systemBars);
       addTearDown(container.dispose);
       container.read(readerNotifierProvider.notifier).updatePosition(5);
       await tester.pump();
+
+      systemBars.updateApplication((
+        transparentStatusBar: true,
+        immNavigationBar: true,
+        appBarColor: Colors.black,
+        navigationBarColor: Colors.black,
+      ));
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      final sheet = AppRoutes.generateRoute(
+        const RouteSettings(name: AppRoutes.changeSource),
+      );
+      // 验证真实换源 Sheet 的路由类型，不构建需要另行初始化的换源业务。
+      systemBarRouteObserver.didPush(sheet, null);
+      await tester.pump();
+      expect(applied.last, '阅读');
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('独立页面')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(applied.last, '应用夜间');
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(applied.last, '阅读');
+
+      systemBarRouteObserver.didPop(sheet, null);
 
       await popReader(tester);
 
       // 无弹窗（现状不变：已入架书直接退出）
       expect(find.text('放入书架'), findsNothing);
       expect(find.byType(ReaderScreen), findsNothing);
+      expect(applied.last, '应用夜间', reason: '阅读器退出恢复最新应用设置');
       // 不动书架数据
       verifyNever(() => api.bookshelfRepository.addBook(any()));
       verifyNever(() => api.bookshelfRepository.deleteBook(any()));
@@ -258,7 +332,8 @@ void main() {
         'showAddToShelfAlert': false,
       });
       final api = stubReaderApi();
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -267,16 +342,19 @@ void main() {
       // 开关关 → 无弹窗
       expect(find.text('放入书架'), findsNothing);
       // 静默退出且未入架书不残留
-      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl)).called(1);
+      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl))
+          .called(1);
       verifyNever(() => api.bookshelfRepository.addBook(any()));
       expect(find.byType(ReaderScreen), findsNothing);
     });
 
     testWidgets('未入架书退出 + 确认入架失败：可见失败提示且不退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => _notShelfDbBook);
       // 入架写库失败（addBook 抛异常 → bookshelfNotifier.addBook 返回 false）
-      when(() => api.bookshelfRepository.addBook(any())).thenThrow(StateError('db write failed'));
+      when(() => api.bookshelfRepository.addBook(any()))
+          .thenThrow(StateError('db write failed'));
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 

@@ -353,6 +353,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
           // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
           navigatorObservers: [
             appRouteObserver,
+            systemBarRouteObserver,
             _topRouteWatcher,
             _readAloudCapsuleObserver,
           ],

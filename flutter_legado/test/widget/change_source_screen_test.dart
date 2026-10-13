@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -24,15 +23,15 @@ void main() {
     addTearDown(container.dispose);
 
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-    when(
-      () => mockApi.updateSearchBookScore(any(), any()),
-    ).thenAnswer((_) async {});
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.updateSearchBookScore(any(), any()))
+        .thenAnswer((_) async {});
     when(() => mockApi.deleteSearchBook(any())).thenAnswer((_) async {});
-    when(() => mockApi.bookSourceRepository.disableBookSource(any())).thenAnswer((_) async {});
-    when(
-      () => mockApi.switchSource(any(), any(), any()),
-    ).thenAnswer((_) async => '{"bookUrl":"https://b.com/book"}');
+    when(() => mockApi.bookSourceRepository.disableBookSource(any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.switchSource(any(), any(), any()))
+        .thenAnswer((_) async => '{"bookUrl":"https://b.com/book"}');
   });
 
   Map<String, dynamic> rawMatch({
@@ -124,19 +123,20 @@ void main() {
                 builder: (_) => const Text('HOME_PAGE'),
               );
             }
-            return MaterialPageRoute<void>(
-              builder: (_) => ChangeSourceScreen(
-                bookName: '斗破苍穹',
-                author: '天蚕土豆',
-                currentSourceUrl: currentSourceUrl,
-              ),
-            );
+            return AppRoutes.generateRoute(settings);
           },
         ),
       ),
     );
     final navState = tester.state<NavigatorState>(find.byType(Navigator));
-    navState.pushNamed('/change_source');
+    navState.pushNamed(
+      AppRoutes.changeSource,
+      arguments: {
+        'bookName': '斗破苍穹',
+        'author': '天蚕土豆',
+        'currentSourceUrl': currentSourceUrl,
+      },
+    );
     await tester.pumpAndSettle();
   }
 
@@ -184,8 +184,15 @@ void main() {
         const RouteSettings(name: AppRoutes.changeSource),
       );
       // 非不透明（opaque: false）→ 前页保持可见，由屏障压暗
-      expect(route, isA<PageRoute>());
-      expect((route as PageRoute).opaque, isFalse);
+      expect(route, isA<PopupRoute>());
+      final popup = route as PopupRoute;
+      expect(popup.opaque, isFalse);
+      expect(popup.barrierColor, Colors.black54);
+      expect(popup.transitionDuration, const Duration(milliseconds: 300));
+      expect(
+        popup.reverseTransitionDuration,
+        const Duration(milliseconds: 250),
+      );
     });
 
     test('generateRoute 其余路由仍为普通整页路由', () {
@@ -209,9 +216,8 @@ void main() {
       await tester.tap(find.byTooltip('赞').first);
       await tester.pumpAndSettle();
 
-      verify(
-        () => mockApi.updateSearchBookScore('https://a.com/book', 1),
-      ).called(1);
+      verify(() => mockApi.updateSearchBookScore('https://a.com/book', 1))
+          .called(1);
     });
 
     testWidgets('长按显示五项操作菜单', (tester) async {
@@ -235,7 +241,9 @@ void main() {
       await tester.tap(find.text('禁用书源'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.bookSourceRepository.disableBookSource('https://b.com')).called(1);
+      verify(
+        () => mockApi.bookSourceRepository.disableBookSource('https://b.com'),
+      ).called(1);
       expect(find.text('B源'), findsNothing);
     });
 
@@ -327,7 +335,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // 未达阈值：仍停留在换源弹层，回弹回位
-      expect(find.text('HOME_PAGE'), findsNothing);
+      // 真实 PopupRoute 保留下方页面，用当前活动路由判断弹层是否仍然打开。
+      final screen = find.byType(ChangeSourceScreen);
+      expect(screen, findsOneWidget);
+      expect(ModalRoute.of(tester.element(screen))?.isCurrent, isTrue);
       expect(find.text('A源'), findsWidgets);
     });
 

@@ -1,5 +1,29 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-SYSTEM-BAR-OWNERSHIP-20261013：应用与阅读器系统栏控制归属（P2）
+
+- **授权与基线**：用户要求继续系统栏任务，沿用 reader-overlay / feature/ui-reader-refinement、基线 `c87c88c50`，保留上一批尚未提交的系统栏状态修复。不使用子代理、不自动提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围与方案**：全局 Binder 只提交当前主题及系统栏偏好，阅读器按完整页面路由可见性暂时接管显隐，共享控制器串行下发请求；退出或被其他页面覆盖时恢复最新应用设置，返回阅读器或前台时恢复当前请求。独立 PageRoute 观察器不受弹窗/Sheet 影响；Android 原生前台恢复避让阅读器归属，iOS 退出阅读器显式恢复系统栏显示。保留现有菜单配色、隐藏开关及方向语义，不改 Rust/FFI、存储键或依赖。
+- **状态与实现**：控制归属与平台接线实现通过定向验证，设备交互待用户人工检查。SystemBarController 保留最新应用样式，并按页面所有者管理阅读显隐；同一队列串行下发，未执行的过期请求跳过。Binder 合并同帧更新，在 Theme 重建后读取颜色；恢复前台重新下发当前请求。阅读器按路由暂停/恢复控制，退出不再固定写入 edgeToEdge；Android reader 通道使 onPostResume 避让全局窗口样式，iOS 应用恢复显式显示系统栏。
+- **弹层补充授权与审计**：用户要求优化使用 PageRoute 的 Sheet，并检查同类问题一并修改。全库扫描确认仅换源 Sheet 属于这种误用；ReadAloudPlayerRoute 是因胶囊动画透明的独立全屏页面，保留 PageRoute，其余模态入口已使用标准 Dialog/BottomSheet。换源改为 PopupRoute，命名路由、参数、动态返回结果、black54 遮罩、300/250ms 及双向曲线保留；动画曲线随路由复用并释放。删除临时特殊标记，观察器只记录独立页面，以处理弹层上方打开页面的归属，不依赖名字。
+- **验证**：控制归属与平台调用 7 项、上一批状态读写 8 项、已有外观 3 项、增强的既有阅读退出 6 项、换源页面与路由 12 项，去重共 36 项通过；11 个相关文件最终定向分析及 git diff --check 通过。已有换源关闭用例原用不透明 MaterialPageRoute，现改用生产 PopupRoute；短距离回弹断言改为当前活动弹层，保留背景页显示的正确语义。覆盖真实换源路由分类、透明朗读页面、弹层上的页面跳转、返回和退出恢复；未新增布局测试。日志在忽略目录 `flutter_legado/build/system-bar-{ownership-tests,ownership-reader-tests,ownership-analysis,popup-analysis,popup-tests,popup-tests-final}.log`。
+- **平台边界**：Android 16 / target 36 下 Flutter 手动系统栏模式受平台限制，本批保持已有请求方式，不宣称解决所有隐藏栏能力；后续平台有效性核对与外观无消费者选项整理另行处理。Rust/FRB、配置键、原配色和版本不变，提交与合并授权见下。
+- **构建与安装**：系统栏接线首次 Debug 构建 33 秒通过，随后用户追加 PopupRoute 整理，最终代码增量更新 29 秒通过（25 项执行、381 项复用）；JDK 25 / Java 与 JVM 17 目标保持，现有 Rust 库复用且 APK 包内 ELF/strip 来源摘要校验通过。实时确认官方 Legado_API_36 / emulator-5556 后覆盖安装 Success，冷启动 Status: ok（9675ms），主进程存活，启动日志未见致命、未处理异常或布局溢出；实际版本仍为 `2.0.373+374`，用户数据保留。未自动操作页面，系统栏切换、进出阅读器、换源 Sheet 动画及 iOS 实机行为待人工检查。日志在忽略目录 `flutter_legado/build/system-bar-{ownership-apk-jdk25,popup-apk-jdk25,popup-apk-verification,popup-install-official,popup-start-official,popup-runtime-official}.log`。
+
+编写者：Codex｜2026-10-13
+
+- **提交与合并授权（2026-10-13）**：用户要求将系统栏状态读写、控制归属与换源弹层整理合为一条本地提交，并合并到主目录 feature/ui-reader-selection；覆盖上述实施阶段暂不提交、合并的限制，不推送、不触发远程 CI。主目录的并行任务及未提交修改保留，提交记录以 Git 为准，移动设备交互仍待人工检查。
+
+### UI-SYSTEM-BAR-STATE-20261013：系统栏偏好异步状态整理（P2）
+
+- **授权与基线**：用户要求从主目录更新基线并在 worktree 开始已说明的系统栏状态任务；reader-overlay / feature/ui-reader-refinement 已快进到主目录已提交的 `c87c88c50`，不带入主目录未提交的订阅页面修改。不使用子代理，不自动提交、合并或推送，版本保持 `2.0.373+374`。
+- **范围与方案**：仅整理 SystemBarNotifier 的两个沉浸式开关，复用 settingsProvider 与现有保存队列；即时发布用户选择，序列化读写，保护加载期间的新修改及销毁/重建后的状态。保留配置键、默认值、界面和平台接线；系统栏控制归属及无实际消费者的外观选项另行处理，不改 Rust/FFI 或原生窗口逻辑。
+- **状态与实现**：实现与定向验证通过，设备交互待用户人工检查。共享设置服务注入后保留旧异步算法的首次回归 7 项中 6 项失败，确认旧加载覆盖、慢写入延迟发布、重新加载读回旧偏好及销毁后回写异常。现复用 SettingsWriteQueue 串行读写，两个开关即时发布；按字段操作修订数保护加载期间的修改，按作用域与加载代次忽略过期结果，后台初始加载异常记录诊断。已请求的保存继续执行，不在完成后覆盖状态；保留 SettingsService 原有宽容写入语义，不宣称新增写入失败检测或磁盘回滚。
+- **验证**：新增 8 项必要异步逻辑回归，覆盖已有值与默认值、启动期间显式选择默认值、慢保存顺序、保存后重新读取、作用域销毁、重叠加载、设置服务替换及抛错后继续保存；连同既有主题状态和外观页面回归共 19 项通过。四个相关文件定向静态分析及 git diff --check 通过。日志在忽略目录 `flutter_legado/build/system-bar-state-{before,tests,analysis}.log`；未新增布局测试，未运行全量 CI。
+- **构建与安装**：JDK 25、Java/JVM 17 目标下 Debug APK 编译成功（36 秒，26 项执行、380 项复用），复用现有 Rust 库，包内 ELF 与 strip 来源摘要校验通过。首轮遇到文件选择插件 Kotlin 缓存关闭错误，仅重试命令使用 kotlin.incremental=false，未改项目配置。实时确认官方 AVD Legado_API_36 / emulator-5556 后覆盖安装 Success 并保留数据，冷启动 Status: ok（6577ms）、主进程存活，启动日志未见致命、未处理异常或布局溢出；实际版本保持 `2.0.373+374`。未自动操作页面，开关即时反馈、退出重进及平台视觉效果仍待用户人工检查。日志在忽略目录 `flutter_legado/build/system-bar-state-{apk-jdk25,apk-jdk25-retry,apk-verification,install-official,start-official,runtime-official}.log`；本项未提交、合并或推送。
+
+编写者：Codex｜2026-10-13
+
 ### UI-READER-CONFIG-BOUNDARY-20261013：阅读配置模型、存储与状态入口拆分（P2）
 
 - **授权与基线**：用户要求提交 E 后继续本项；E 已本地提交为 `8256aab46`，同一 reader-overlay worktree 起始干净。本批不使用子代理、不自动提交、合并或推送，版本保持 `2.0.373+374`；保留现有界面、字段、键、默认值、迁移规则与阅读行为，Rust/FFI 不变。
