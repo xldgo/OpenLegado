@@ -80,7 +80,7 @@
 
 ### 1.1 定位
 
-本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository` 承担，本文档为其权威文字说明。
+本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository` 承担，本文档为其权威文字说明。
 
 ### 1.2 变更规则
 
@@ -207,8 +207,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **286 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286）。
-> 附录 §2.x 行合计 **296** = BookApi 286 + BookmarkRepository 6 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变。
+> BookApi 接口当前共 **280 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280）。
+> 附录 §2.x 行合计 **295** = BookApi 280 + BookmarkRepository 6 + ReadRecordRepository 5 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart `recordReadingTime` 别名使登记减少一行。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -437,7 +437,17 @@
 | `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。**P2-4（2026-08-13）**：UI 先读 `SettingsService.restoreIgnore`；`localBook` 预过滤备份 JSON 本地书；其余 ignore 键在应用备份内 `appPrefs` 时经 `RestoreIgnorePrefs.keyIsNotIgnore` 跳过（对齐 BackupConfig）；再调用本方法恢复业务表（无需改 FFI 签名） |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<String>`（统计 JSON） | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回 JSON：`{books, bookSources, replaceRules, messages: string[]}` |
 
-### 2.12 阅读记录（6 个方法）
+### 2.12 阅读记录（5 个方法）
+
+> **阅读记录直接适配接线冻结（2026-10-13）**：`ReadRecordRepository` 承担下列
+> 五项操作，正式实现直接调用现有 FRB，沿用同一运行时与数据库，不自行初始化、
+> 缓存或重写聚合。BookApi 只提供 `readRecordRepository` 装配引用，Provider 共享
+> 根实例中的同一对象并跟随根实例替换。页面、首页及阅读器计时改读窄接口。
+> readTime 仍为累计毫秒；正式写入仍只传 bookName/readTime，由 Rust 决定
+> lastRead/deviceId 和当日整秒增量。Mock 保留按书名替换、完整保存输入记录、
+> 查询返回列表副本及每日列表为空的现有行为，不伪造每日统计。
+> 无代码调用方的 `recordReadingTime(bookName, seconds)` 别名删除，不加入新接口；
+> 不修改 Rust/FRB、数据库结构、阅读计时与每日累计规则。书架查书仍用现有书架入口。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -445,7 +455,6 @@
 | `putReadRecord(ReadRecord record)` | record: ReadRecord 对象 | `Future<void>` | 更新阅读记录；**（热力图每日时长契约，2026-08-29；单位口径 2026-09-11 修复）**写路径同步累加当日 readRecordDaily（增量 = 新 readTime − 旧 readTime，**按整秒差值入账**——readTime 为毫秒、readRecordDaily 为秒，仅增量 > 0 时累加，本地时区 YYYY-MM-DD） |
 | `deleteReadRecord(String bookName)` | bookName | `Future<void>` | 删除阅读记录 |
 | `clearReadRecords()` | 无 | `Future<void>` | 清空阅读记录 |
-| `recordReadingTime(String bookName, int seconds)` | bookName, seconds | `Future<void>` | 记录阅读时长（对齐原版 ReadRecord，非统计子系统） |
 | `readRecordDailyList(int year)` | year：年份 | `Future<List<Map<String, dynamic>>>`（`[{date, seconds}]`，日期升序） | **新增（热力图每日时长契约，2026-08-29，U 侧 UI_MD3_PLAN 登记；单位归一 2026-09-11）**：按年查询每日阅读秒数（readRecordDaily 表：`date TEXT PK` + `durationSeconds INTEGER`）；由 `putReadRecord` 写路径自动累加，UI 轨热力图「每日时长」配色模式数据源。存量毫秒值经 DB v107 迁移归一为秒（见更新记录） |
 
 ### 2.13 RSS 收藏操作（4 个方法）
@@ -1119,7 +1128,7 @@
 | 9 | 阅读器操作 | 12 |
 | 10 | 配置操作 | 4 |
 | 11 | 备份操作 | 3 |
-| 12 | 阅读记录 | 6 |
+| 12 | 阅读记录 | 5 |
 | 13 | RSS 收藏操作 | 4 |
 | 14 | 书籍分组 | 4 |
 | 15 | 搜索历史 | 5 |
@@ -1155,13 +1164,13 @@
 | 47 | 音频章节预下载 | 2 |
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
-| | **合计（§2.x 附录行合计）** | **296** |
+| | **合计（§2.x 附录行合计）** | **295** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`，取代人工统计）：
 
-> - 附录行合计 **296** = §2.x 实际方法行总数；保持既有行数，迁移只改变 Dart 的接口归属。
-> - BookApi 代码计数 **286**；BookmarkRepository 六项查询与写入独立计数；
+> - 附录行合计 **295** = §2.x 实际方法行总数；删除无调用方的阅读记录别名，其余迁移只改变 Dart 接口归属。
+> - BookApi 代码计数 **280**；BookmarkRepository 六项、ReadRecordRepository 五项独立计数；
 >   三个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource`；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **296 = 286 + 6 + 3 + 1**，测试同时核对书签接口、正式和 Mock 实现及旧方法移除。
+> - 闭合关系为 **295 = 280 + 6 + 5 + 3 + 1**，测试同时核对各领域接口、正式和 Mock 实现及旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

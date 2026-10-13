@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/read_record_daily_view.dart';
+import 'package:flutter_legado/src/features/read_records/read_records.dart';
 
 void main() {
   group('groupDailyByDay 按天分组', () {

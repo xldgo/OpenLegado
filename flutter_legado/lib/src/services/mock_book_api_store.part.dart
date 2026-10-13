@@ -11,7 +11,6 @@ mixin MockBookApiStore {
   final List<ReplaceRule> _replaceRules = [];
   final List<BookGroup> _bookGroups = [];
   final List<SearchKeyword> _searchHistory = [];
-  final List<ReadRecord> _readRecords = [];
   final List<RssStar> _rssStars = [];
   final List<HttpTts> _httpTtsList = [];
   // 字典规则内存态（契约 §2.45：dictRule* 七方法；REPLACE by name 语义）

@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
@@ -39,9 +40,8 @@ void main() {
     when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）
-    when(() => mockApi.getReadRecords()).thenAnswer((_) async => []);
-    when(() => mockApi.readRecordDailyList(any()))
-        .thenAnswer((_) async => []);
+    when(() => mockApi.readRecordRepository)
+        .thenReturn(MockReadRecordRepository());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

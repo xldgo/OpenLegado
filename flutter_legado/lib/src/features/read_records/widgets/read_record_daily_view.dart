@@ -1,4 +1,4 @@
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 

@@ -32,6 +32,10 @@ void main() {
     _read('lib/src/domain/contracts/bookmark_repository.dart'),
     'BookmarkRepository',
   );
+  final readRecordNames = _extractMethods(
+    _read('lib/src/domain/contracts/read_record_repository.dart'),
+    'ReadRecordRepository',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -304,7 +308,40 @@ void main() {
       );
       expect(allRowNames.containsAll(expected), isTrue);
       // 三项纯 FFI 与缓存查询的双重登记不属于书签领域方法。
-      expect(statedTotal, bNames.length + bookmarkNames.length + 3 + 1);
+      expect(
+        statedTotal,
+        bNames.length + bookmarkNames.length + readRecordNames.length + 3 + 1,
+      );
+    });
+
+    test('阅读记录五项由独立 Repository 承担，旧方法与冗余别名移除', () {
+      const expected = {
+        'getReadRecords',
+        'putReadRecord',
+        'deleteReadRecord',
+        'clearReadRecords',
+        'readRecordDailyList',
+      };
+      expect(readRecordNames.toSet(), expected);
+      for (final implementation in ['rust', 'mock']) {
+        final methods = _extractMethods(
+          _read(
+            'lib/src/data/repositories/${implementation}_read_record_repository.dart',
+          ),
+          implementation == 'rust'
+              ? 'RustReadRecordRepository'
+              : 'MockReadRecordRepository',
+        ).where((name) => !name.startsWith('_')).toSet();
+        expect(methods, expected);
+      }
+      for (final methods in [bNames, rNames, mNames]) {
+        expect(
+          methods.toSet().intersection({...expected, 'recordReadingTime'}),
+          isEmpty,
+        );
+      }
+      expect(allRowNames.containsAll(expected), isTrue);
+      expect(allRowNames, isNot(contains('recordReadingTime')));
     });
   });
 }

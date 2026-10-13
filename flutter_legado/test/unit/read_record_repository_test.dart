@@ -1,0 +1,89 @@
+import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
+import 'package:flutter_legado/src/data/repositories/rust_read_record_repository.dart';
+import 'package:flutter_legado/src/features/read_records/read_records.dart';
+import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('工厂装配正式实现，Mock 会话分别拥有独立存储', () async {
+    expect(
+      createBookApi(useMock: false).readRecordRepository,
+      isA<RustReadRecordRepository>(),
+    );
+    final first = createBookApi(useMock: true);
+    final second = createBookApi(useMock: true);
+    await first.readRecordRepository.putReadRecord(
+      const ReadRecord(bookName: '独立', readTime: 123),
+    );
+    expect(await second.readRecordRepository.getReadRecords(), isEmpty);
+  });
+
+  test('Mock 按书名替换并完整保留字段，列表副本不能改写存储', () async {
+    final repository = MockReadRecordRepository();
+    const original = ReadRecord(
+      bookName: '甲',
+      deviceId: '设备1',
+      readTime: 2000,
+      lastRead: 12,
+    );
+    const other = ReadRecord(bookName: '乙', readTime: 3000);
+    await repository.putReadRecord(original);
+    await repository.putReadRecord(other);
+    final replacement = original.copyWith(
+      deviceId: '设备2',
+      readTime: 4999,
+      lastRead: 99,
+    );
+    await repository.putReadRecord(replacement);
+    expect(await repository.getReadRecords(), [other, replacement]);
+    (await repository.getReadRecords()).clear();
+    expect(await repository.getReadRecords(), [other, replacement]);
+    await repository.deleteReadRecord('不存在');
+    await repository.deleteReadRecord('甲');
+    expect(await repository.getReadRecords(), [other]);
+    await repository.clearReadRecords();
+    expect(await repository.getReadRecords(), isEmpty);
+  });
+
+  test('Mock 每日数据保持原空列表语义，不伪造持久化统计', () async {
+    final repository = MockReadRecordRepository();
+    await repository.putReadRecord(
+      const ReadRecord(bookName: '测试', readTime: 5000),
+    );
+    expect(await repository.readRecordDailyList(2026), isEmpty);
+    expect(await repository.readRecordDailyList(2025), isEmpty);
+  });
+
+  test('多个消费者共享根 Repository，根替换后跟随且不重新初始化', () async {
+    final first = _Api();
+    final container = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(first)],
+    );
+    addTearDown(container.dispose);
+    final consumer = Provider((ref) => ref.watch(readRecordRepositoryProvider));
+    final repository = container.read(consumer);
+    expect(repository, same(first.readRecordRepository));
+    expect(container.read(readRecordRepositoryProvider), same(repository));
+    await repository.putReadRecord(
+      const ReadRecord(bookName: '旧会话', readTime: 42),
+    );
+    final second = _Api();
+    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    expect(container.read(consumer), same(second.readRecordRepository));
+    expect(await container.read(consumer).getReadRecords(), isEmpty);
+    expect((await repository.getReadRecords()).single.bookName, '旧会话');
+    expect(first.initializations, 0);
+    expect(second.initializations, 0);
+  });
+}
+
+class _Api extends MockBookApi {
+  int initializations = 0;
+
+  @override
+  Future<void> initialize() async => initializations++;
+}

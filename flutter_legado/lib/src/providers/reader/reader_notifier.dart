@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../bridge/ffi.dart';
 import '../../constants/pref_keys.dart';
 import '../../models/models.dart';
+import '../../features/read_records/read_record_repository_provider.dart';
 import '../../services/settings_service.dart';
 import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
@@ -864,7 +865,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     try {
       final enable = await _settings.getEnableReadRecord();
       if (!enable) return;
-      final records = await ref.read(bookApiProvider).getReadRecords();
+      final records = await ref.read(readRecordRepositoryProvider).getReadRecords();
       for (final r in records) {
         if (r.bookName == book.name) {
           _baseReadTimeMs += r.readTime;
@@ -890,7 +891,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       _baseReadTimeMs += delta;
       _readStartMs = now;
       await ref
-          .read(bookApiProvider)
+          .read(readRecordRepositoryProvider)
           .putReadRecord(
             ReadRecord(
               bookName: book.name,

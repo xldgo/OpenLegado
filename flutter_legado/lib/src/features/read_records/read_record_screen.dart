@@ -1,30 +1,31 @@
-import '../l10n/app_localization.dart';
-import '../widgets/app_menu.dart';
+import '../../l10n/app_localization.dart';
+import '../../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'read_record_daily_view.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/app_search_field.dart';
+import 'widgets/read_record_daily_view.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+import '../../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../models/models.dart';
-import '../providers/providers.dart';
-import '../providers/read_record/read_record_notifier.dart';
-import '../routes.dart';
-import '../utils/book_open_utils.dart';
-import '../widgets/custom_refresh_indicator.dart';
-import '../widgets/md3_fast_scroller.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/error_view.dart';
-import '../widgets/loading_indicator.dart';
+import '../../models/models.dart';
+import 'read_record_repository_provider.dart';
+import 'read_record_notifier.dart';
+import 'read_record_state.dart';
+import '../../routes.dart';
+import '../../utils/book_open_utils.dart';
+import '../../widgets/custom_refresh_indicator.dart';
+import '../../widgets/md3_fast_scroller.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/loading_indicator.dart';
 
 /// 阅读记录页（对齐原版 `ReadRecordActivity`）
 ///
 /// 功能：总时长、可搜索书单、按书名/时长/最后阅读排序、
 /// 启用记录开关、清空单本/全部；点击进阅读或搜索。
-/// UI 仅渲染与交互；数据经 [ReadRecordNotifier] → BookApi。
+/// UI 仅渲染与交互；数据经 [ReadRecordNotifier] → ReadRecordRepository。
 /// — Auto + UI
 class ReadRecordScreen extends ConsumerStatefulWidget {
   const ReadRecordScreen({super.key});
@@ -48,7 +49,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   Future<void> _loadDailyForView() async {
     try {
       final list = await ref
-          .read(bookApiProvider)
+          .read(readRecordRepositoryProvider)
           .readRecordDailyList(DateTime.now().year);
       if (!mounted) return;
       setState(() => _daily = list);

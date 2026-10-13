@@ -87,6 +87,25 @@ BookApi 只提供 `bookmarkRepository` 引用，Provider 直接共享这个引�
 State 和生成物一起移动，`part` / `part of` 的文件名保持一致，生成内容不手改。
 这一步只调整文件位置与 import/export，不修改状态转换、字段、文案或界面布局。
 
+## 第五步的阅读记录边界
+
+`ReadRecordRepository` 负责全量查询、累计时长写入、按书名删除、清空及按年查询
+每日秒数。正式实现直接使用现有五项 FRB，并复用 JSON 解码守卫；不打开数据库、
+初始化运行时、增加缓存或在 Dart 重算每日时长。根对象只保留共享 Repository
+装配引用，Provider 跟随根实例替换。Mock 的唯一记录列表迁入独立实现，保留
+原来按书名替换及每日列表为空的语义，不增加另一份统计状态。
+
+阅读记录页、按天视图、Notifier、State 和注入入口集中到
+`lib/src/features/read_records/`，外部通过 `read_records.dart` 使用功能。
+首页、热力图和阅读器的记录读写改用窄接口；书架查书继续用现有书架入口，
+排序、同名时长合并、记录开关、累计毫秒、失败不阻断阅读等行为保持原样。
+旧 BookApi 六项阅读记录方法及两份业务 part 实现删除；其中无代码调用方、
+重复写入同一 FRB 的 `recordReadingTime` 别名不进入新接口。
+
+正式存储与 Mock 的既有差异保持明确：Rust 决定 lastRead/deviceId 并按整秒差值
+累计每日时长，Mock 完整保存输入记录；不会把 Mock 的行为误作移动平台证据。
+本轮只改 Dart 接线，不修改 Rust/FRB、数据库、进度坐标、应用版本或 UI。
+
 ## 经授权追加的备注编辑
 
 书签页、目录书签列表及阅读选区新增共用底部输入面板。界面只处理原文呈现、

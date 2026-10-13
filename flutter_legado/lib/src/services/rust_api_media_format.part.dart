@@ -257,14 +257,6 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
     return filePath;
   }
 
-  // ========== 阅读记录 ==========
-
-  /// 记录阅读时长（通过 readRecordUpsert 实现）
-  @override
-  Future<void> recordReadingTime(String bookName, int seconds) async {
-    await bridge.readRecordUpsert(bookName: bookName, readTime: seconds);
-  }
-
   // ========== HTTP TTS ==========
 
   /// 获取所有 HTTP TTS 配置

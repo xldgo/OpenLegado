@@ -28,7 +28,7 @@ import 'screens/home_screen.dart';
 import 'screens/import_screen.dart';
 import 'screens/qrcode_screen.dart';
 import 'screens/search_content_screen.dart';
-import 'screens/read_record_screen.dart';
+import 'features/read_records/read_records.dart';
 import 'screens/reader_screen.dart';
 import 'screens/reader_comic_screen.dart';
 import 'screens/remote_book_screen.dart';

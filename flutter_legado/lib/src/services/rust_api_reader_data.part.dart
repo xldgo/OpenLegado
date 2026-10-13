@@ -428,43 +428,4 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
     return list.map((e) => e.toString()).toList();
   }
 
-  // ========== 阅读记录 ==========
-
-  /// 获取所有阅读记录
-  @override
-  Future<List<ReadRecord>> getReadRecords() async {
-    final json = await bridge.readRecordList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => ReadRecord.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 更新阅读记录
-  @override
-  Future<void> putReadRecord(ReadRecord record) async {
-    await bridge.readRecordUpsert(
-      bookName: record.bookName,
-      readTime: record.readTime,
-    );
-  }
-
-  /// 删除阅读记录
-  @override
-  Future<void> deleteReadRecord(String bookName) async {
-    await bridge.readRecordDelete(bookName: bookName);
-  }
-
-  /// 清空阅读记录
-  @override
-  Future<void> clearReadRecords() async {
-    await bridge.readRecordClear();
-  }
-
-  /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
-  @override
-  Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async {
-    final json = await bridge.readRecordDailyList(year: year);
-    return _decodeList(json, 'bookApi').cast<Map<String, dynamic>>();
-  }
 }

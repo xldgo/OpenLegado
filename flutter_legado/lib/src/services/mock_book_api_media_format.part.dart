@@ -189,9 +189,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
     return '$outDir/export_mock.$format';
   }
 
-  @override
-  Future<void> recordReadingTime(String bookName, int seconds) async {}
-
   // ========== HTTP TTS ==========
 
   @override

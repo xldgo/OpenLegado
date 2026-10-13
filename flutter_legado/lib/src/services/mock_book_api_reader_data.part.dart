@@ -442,28 +442,4 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
     });
   }
 
-  // ========== 阅读记录 ==========
-
-  @override
-  Future<List<ReadRecord>> getReadRecords() async => List.from(_readRecords);
-
-  @override
-  Future<void> putReadRecord(ReadRecord record) async {
-    _readRecords.removeWhere((r) => r.bookName == record.bookName);
-    _readRecords.add(record);
-  }
-
-  @override
-  Future<void> deleteReadRecord(String bookName) async {
-    _readRecords.removeWhere((r) => r.bookName == bookName);
-  }
-
-  @override
-  Future<void> clearReadRecords() async {
-    _readRecords.clear();
-  }
-
-  @override
-  Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async =>
-      const [];
 }

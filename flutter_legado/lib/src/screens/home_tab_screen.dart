@@ -6,8 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../providers/providers.dart';
-import '../providers/read_record/read_record_notifier.dart';
+import '../features/read_records/read_records.dart';
 import '../utils/book_open_utils.dart';
 import '../utils/error_message.dart';
 import '../widgets/book_cover.dart';
@@ -56,7 +55,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       await ref.read(readRecordNotifierProvider.notifier).load();
       final year = DateTime.now().year;
       final daily = await ref
-          .read(bookApiProvider)
+          .read(readRecordRepositoryProvider)
           .readRecordDailyList(year)
           .catchError((_) => <Map<String, dynamic>>[]);
       if (!mounted) return;
@@ -560,7 +559,7 @@ class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
   Future<void> _loadDaily() async {
     try {
       final list = await ref
-          .read(bookApiProvider)
+          .read(readRecordRepositoryProvider)
           .readRecordDailyList(DateTime.now().year);
       if (!mounted) return;
       final map = <DateTime, int>{};

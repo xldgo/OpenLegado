@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_screen.dart';
@@ -154,14 +155,18 @@ void main() {
   });
 
   testWidgets('迁移屏 HomeScreen：经壳渲染且结构与迁移前逐参数一致', (tester) async {
+    // 本用例核对手机底栏；宽窗口会按现有设置切换侧栏。
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
     when(() => mockApi.getBooks()).thenAnswer((_) async => []);
     when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-    when(() => mockApi.getReadRecords()).thenAnswer((_) async => []);
-    when(() => mockApi.readRecordDailyList(any())).thenAnswer((_) async => []);
+    when(() => mockApi.readRecordRepository)
+        .thenReturn(MockReadRecordRepository());
 
     await tester.pumpWidget(
       ProviderScope(

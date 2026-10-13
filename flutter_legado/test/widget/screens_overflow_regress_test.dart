@@ -56,7 +56,7 @@ import 'package:flutter_legado/src/screens/offline_cache_screen.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
 import 'package:flutter_legado/src/screens/qrcode_screen.dart';
 import 'package:flutter_legado/src/screens/read_aloud_config_screen.dart';
-import 'package:flutter_legado/src/screens/read_record_screen.dart';
+import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/remote_book_screen.dart';
 import 'package:flutter_legado/src/screens/replace_rules_screen.dart';

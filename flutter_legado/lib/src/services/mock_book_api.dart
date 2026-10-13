@@ -4,7 +4,9 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/models.dart';
 import '../data/repositories/mock_bookmark_repository.dart';
+import '../data/repositories/mock_read_record_repository.dart';
 import '../domain/contracts/bookmark_repository.dart';
+import '../domain/contracts/read_record_repository.dart';
 import 'book_api.dart';
 
 part 'mock_book_api_store.part.dart';
@@ -57,14 +59,22 @@ class MockBookApi
         MockBookApiSyncTools,
         MockBookApiContentExt
     implements BookApi {
-  MockBookApi({BookmarkRepository? bookmarkRepository}) {
+  MockBookApi({
+    BookmarkRepository? bookmarkRepository,
+    ReadRecordRepository? readRecordRepository,
+  }) {
     this.bookmarkRepository =
         bookmarkRepository ?? MockBookmarkRepository(nextId: () => _nextId++);
+    this.readRecordRepository =
+        readRecordRepository ?? MockReadRecordRepository();
     _initMockData();
   }
 
   @override
   late final BookmarkRepository bookmarkRepository;
+
+  @override
+  late final ReadRecordRepository readRecordRepository;
 
   // ========== 初始化/版本 ==========
 

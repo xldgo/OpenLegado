@@ -1,5 +1,6 @@
 import '../models/models.dart';
 import '../domain/contracts/bookmark_repository.dart';
+import '../domain/contracts/read_record_repository.dart';
 
 /// 书籍 API 抽象接口
 ///
@@ -10,6 +11,9 @@ import '../domain/contracts/bookmark_repository.dart';
 abstract class BookApi {
   /// 共享应用装配的书签数据访问实例；书签 CRUD 由窄接口承担。
   BookmarkRepository get bookmarkRepository;
+
+  /// 共享应用装配的阅读记录实例；数据读写由窄接口承担。
+  ReadRecordRepository get readRecordRepository;
 
   // ========== 初始化/版本 ==========
 
@@ -681,25 +685,6 @@ abstract class BookApi {
   /// 返回统计 JSON：`{books, bookSources, replaceRules, messages}`。
   Future<String> importOldData(String dirPath);
 
-  // ========== 阅读记录 ==========
-
-  /// 获取所有阅读记录
-  Future<List<ReadRecord>> getReadRecords();
-
-  /// 更新阅读记录
-  Future<void> putReadRecord(ReadRecord record);
-
-  /// 删除阅读记录
-  Future<void> deleteReadRecord(String bookName);
-
-  /// 清空阅读记录
-  Future<void> clearReadRecords();
-
-  /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
-  ///
-  /// 对齐 API_CONTRACT `readRecordDailyList`；返回 `[{date, seconds}]`（按日期升序）。
-  Future<List<Map<String, dynamic>>> readRecordDailyList(int year);
-
   // ========== RSS 收藏操作 ==========
 
   /// 获取所有 RSS 收藏
@@ -1135,9 +1120,6 @@ abstract class BookApi {
 
   /// 导出书籍（将章节内容写入文件）
   Future<String> exportBook(String bookUrl, String format, String outDir);
-
-  /// 记录阅读时长（经 readRecordUpsert，对齐原版 ReadRecord）
-  Future<void> recordReadingTime(String bookName, int seconds);
 
   // ========== HTTP TTS ==========
 

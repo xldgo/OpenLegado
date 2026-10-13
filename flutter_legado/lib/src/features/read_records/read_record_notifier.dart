@@ -4,14 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../services/settings_service.dart';
-import '../providers.dart';
+import '../../providers/providers.dart';
+import 'read_record_repository_provider.dart';
 import 'read_record_state.dart';
-
-export 'read_record_state.dart';
 
 /// 阅读记录 Riverpod Notifier（对齐原版 ReadRecordActivity）
 ///
-/// 职责：经 BookApi 读写 readRecord；搜索/排序在本层完成；
+/// 职责：经 ReadRecordRepository 读写 readRecord；搜索/排序在本层完成；
 /// 偏好 `enableReadRecord` / `readRecordSort` 经 SettingsService 持久化。
 class ReadRecordNotifier extends Notifier<ReadRecordState> {
   final SettingsService _settings = SettingsService();
@@ -28,8 +27,8 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
     try {
       final sort = _sortFromRaw(await _settings.getReadRecordSort());
       final enable = await _settings.getEnableReadRecord();
-      final api = ref.read(bookApiProvider);
-      final raw = await api.getReadRecords();
+      final repository = ref.read(readRecordRepositoryProvider);
+      final raw = await repository.getReadRecords();
       _all = _toShowList(raw);
       final total = _all.fold<int>(0, (sum, r) => sum + r.readTime);
       final filtered = _applyFilterAndSort(
@@ -80,7 +79,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
   /// 删除单本书记录（对齐 deleteByName）
   Future<void> deleteByName(String bookName) async {
     try {
-      await ref.read(bookApiProvider).deleteReadRecord(bookName);
+      await ref.read(readRecordRepositoryProvider).deleteReadRecord(bookName);
       await load();
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
@@ -90,7 +89,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
   /// 清空全部（对齐 clear）
   Future<void> clearAll() async {
     try {
-      await ref.read(bookApiProvider).clearReadRecords();
+      await ref.read(readRecordRepositoryProvider).clearReadRecords();
       await load();
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
