@@ -1636,17 +1636,26 @@ mixin _$HttpTts {
   String? get concurrentRate;
   @JsonKey(name: 'loginUrl')
   String? get loginUrl;
-  @JsonKey(name: 'loginUi')
+  @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
   String? get loginUi;
   String? get header;
   @JsonKey(name: 'jsLib')
   String? get jsLib;
-  @JsonKey(name: 'enabledCookieJar')
+  @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
   bool? get enabledCookieJar;
   @JsonKey(name: 'loginCheckJs')
   String? get loginCheckJs;
+  @JsonKey(name: 'speed')
+  int? get speed;
+  @JsonKey(
+    name: 'synthesisThreadCount',
+    fromJson: _httpTtsSynthesisThreadCountFromJson,
+  )
+  int get synthesisThreadCount;
   @JsonKey(name: 'lastUpdateTime')
   int get lastUpdateTime;
+  @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+  bool get isEnabled;
 
   /// Create a copy of HttpTts
   /// with the given fields replaced by the non-null parameter values.
@@ -1685,8 +1694,17 @@ mixin _$HttpTts {
                 other.enabledCookieJar == _this.enabledCookieJar) &&
             (identical(other.loginCheckJs, _this.loginCheckJs) ||
                 other.loginCheckJs == _this.loginCheckJs) &&
+            (identical(other.speed, _this.speed) ||
+                other.speed == _this.speed) &&
+            (identical(
+                  other.synthesisThreadCount,
+                  _this.synthesisThreadCount,
+                ) ||
+                other.synthesisThreadCount == _this.synthesisThreadCount) &&
             (identical(other.lastUpdateTime, _this.lastUpdateTime) ||
-                other.lastUpdateTime == _this.lastUpdateTime));
+                other.lastUpdateTime == _this.lastUpdateTime) &&
+            (identical(other.isEnabled, _this.isEnabled) ||
+                other.isEnabled == _this.isEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1707,14 +1725,17 @@ mixin _$HttpTts {
       _this.jsLib,
       _this.enabledCookieJar,
       _this.loginCheckJs,
+      _this.speed,
+      _this.synthesisThreadCount,
       _this.lastUpdateTime,
+      _this.isEnabled,
     );
   }
 
   @override
   String toString() {
     final _this = this as HttpTts;
-    return 'HttpTts(id: ${_this.id}, name: ${_this.name}, url: ${_this.url}, contentType: ${_this.contentType}, pauseDuration: ${_this.pauseDuration}, concurrentRate: ${_this.concurrentRate}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, header: ${_this.header}, jsLib: ${_this.jsLib}, enabledCookieJar: ${_this.enabledCookieJar}, loginCheckJs: ${_this.loginCheckJs}, lastUpdateTime: ${_this.lastUpdateTime})';
+    return 'HttpTts(id: ${_this.id}, name: ${_this.name}, url: ${_this.url}, contentType: ${_this.contentType}, pauseDuration: ${_this.pauseDuration}, concurrentRate: ${_this.concurrentRate}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, header: ${_this.header}, jsLib: ${_this.jsLib}, enabledCookieJar: ${_this.enabledCookieJar}, loginCheckJs: ${_this.loginCheckJs}, speed: ${_this.speed}, synthesisThreadCount: ${_this.synthesisThreadCount}, lastUpdateTime: ${_this.lastUpdateTime}, isEnabled: ${_this.isEnabled})';
   }
 }
 
@@ -1731,12 +1752,22 @@ abstract mixin class $HttpTtsCopyWith<$Res> {
     @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   });
 }
 
@@ -1764,7 +1795,10 @@ class _$HttpTtsCopyWithImpl<$Res> implements $HttpTtsCopyWith<$Res> {
     Object? jsLib = freezed,
     Object? enabledCookieJar = freezed,
     Object? loginCheckJs = freezed,
+    Object? speed = freezed,
+    Object? synthesisThreadCount = null,
     Object? lastUpdateTime = null,
+    Object? isEnabled = null,
   }) {
     return _then(
       HttpTts(
@@ -1816,10 +1850,22 @@ class _$HttpTtsCopyWithImpl<$Res> implements $HttpTtsCopyWith<$Res> {
             ? _self.loginCheckJs
             : loginCheckJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        speed: freezed == speed
+            ? _self.speed
+            : speed // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        synthesisThreadCount: null == synthesisThreadCount
+            ? _self.synthesisThreadCount
+            : synthesisThreadCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         lastUpdateTime: null == lastUpdateTime
             ? _self.lastUpdateTime
             : lastUpdateTime // ignore: cast_nullable_to_non_nullable
                   as int,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -1926,12 +1972,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )?
     $default, {
     required TResult orElse(),
@@ -1952,7 +2008,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         return orElse();
@@ -1982,12 +2041,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )
     $default,
   ) {
@@ -2007,7 +2076,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         throw StateError('Unexpected subclass');
@@ -2036,12 +2108,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )?
     $default,
   ) {
@@ -2061,7 +2143,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         return null;
@@ -2080,12 +2165,21 @@ class _HttpTts implements HttpTts {
     @JsonKey(name: 'pauseDuration') this.pauseDuration = 0,
     @JsonKey(name: 'concurrentRate') this.concurrentRate,
     @JsonKey(name: 'loginUrl') this.loginUrl,
-    @JsonKey(name: 'loginUi') this.loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson) this.loginUi,
     this.header,
     @JsonKey(name: 'jsLib') this.jsLib,
-    @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    this.enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
+    @JsonKey(name: 'speed') this.speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    this.synthesisThreadCount = 1,
     @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    this.isEnabled = true,
   });
   factory _HttpTts.fromJson(Map<String, dynamic> json) =>
       _$HttpTtsFromJson(json);
@@ -2112,7 +2206,7 @@ class _HttpTts implements HttpTts {
   @JsonKey(name: 'loginUrl')
   final String? loginUrl;
   @override
-  @JsonKey(name: 'loginUi')
+  @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
   final String? loginUi;
   @override
   final String? header;
@@ -2120,14 +2214,26 @@ class _HttpTts implements HttpTts {
   @JsonKey(name: 'jsLib')
   final String? jsLib;
   @override
-  @JsonKey(name: 'enabledCookieJar')
+  @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
   final bool? enabledCookieJar;
   @override
   @JsonKey(name: 'loginCheckJs')
   final String? loginCheckJs;
   @override
+  @JsonKey(name: 'speed')
+  final int? speed;
+  @override
+  @JsonKey(
+    name: 'synthesisThreadCount',
+    fromJson: _httpTtsSynthesisThreadCountFromJson,
+  )
+  final int synthesisThreadCount;
+  @override
   @JsonKey(name: 'lastUpdateTime')
   final int lastUpdateTime;
+  @override
+  @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+  final bool isEnabled;
 
   /// Create a copy of HttpTts
   /// with the given fields replaced by the non-null parameter values.
@@ -2165,8 +2271,13 @@ class _HttpTts implements HttpTts {
                 other.enabledCookieJar == enabledCookieJar) &&
             (identical(other.loginCheckJs, loginCheckJs) ||
                 other.loginCheckJs == loginCheckJs) &&
+            (identical(other.speed, speed) || other.speed == speed) &&
+            (identical(other.synthesisThreadCount, synthesisThreadCount) ||
+                other.synthesisThreadCount == synthesisThreadCount) &&
             (identical(other.lastUpdateTime, lastUpdateTime) ||
-                other.lastUpdateTime == lastUpdateTime));
+                other.lastUpdateTime == lastUpdateTime) &&
+            (identical(other.isEnabled, isEnabled) ||
+                other.isEnabled == isEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2186,13 +2297,16 @@ class _HttpTts implements HttpTts {
       jsLib,
       enabledCookieJar,
       loginCheckJs,
+      speed,
+      synthesisThreadCount,
       lastUpdateTime,
+      isEnabled,
     );
   }
 
   @override
   String toString() {
-    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, lastUpdateTime: $lastUpdateTime)';
+    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, speed: $speed, synthesisThreadCount: $synthesisThreadCount, lastUpdateTime: $lastUpdateTime, isEnabled: $isEnabled)';
   }
 }
 
@@ -2210,12 +2324,22 @@ abstract mixin class _$HttpTtsCopyWith<$Res> implements $HttpTtsCopyWith<$Res> {
     @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   });
 }
 
@@ -2243,7 +2367,10 @@ class __$HttpTtsCopyWithImpl<$Res> implements _$HttpTtsCopyWith<$Res> {
     Object? jsLib = freezed,
     Object? enabledCookieJar = freezed,
     Object? loginCheckJs = freezed,
+    Object? speed = freezed,
+    Object? synthesisThreadCount = null,
     Object? lastUpdateTime = null,
+    Object? isEnabled = null,
   }) {
     return _then(
       _HttpTts(
@@ -2295,10 +2422,22 @@ class __$HttpTtsCopyWithImpl<$Res> implements _$HttpTtsCopyWith<$Res> {
             ? _self.loginCheckJs
             : loginCheckJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        speed: freezed == speed
+            ? _self.speed
+            : speed // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        synthesisThreadCount: null == synthesisThreadCount
+            ? _self.synthesisThreadCount
+            : synthesisThreadCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         lastUpdateTime: null == lastUpdateTime
             ? _self.lastUpdateTime
             : lastUpdateTime // ignore: cast_nullable_to_non_nullable
                   as int,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }

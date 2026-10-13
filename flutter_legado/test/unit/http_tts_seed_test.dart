@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // D3 缺陷回归：Flutter 轨 httpTTS 种子导入与可用性如实登记。
 //
 // 背景（QA 证据 .tmp/tts_qa/device_legado.db / screen_12_ttsconfig.png）：
@@ -73,7 +74,7 @@ void main() {
           });
     });
 
-    test('非空种子：按原版形态导入 name/url（不做启用态标记）', () async {
+    test('非空种子：按原版形态全量导入全字段（含数组 loginUi，不做额外启用态写入）', () async {
       final json = jsonEncode([
         {
           'id': -100,
@@ -85,7 +86,14 @@ void main() {
           'id': -29,
           'name': '2.阿里云语音',
           'url': 'https://nls.example.com/tts',
+          'contentType': 'audio/mpeg',
           'loginUrl': 'function login(){}',
+          'loginUi': [
+            {'name': 'AppKey', 'type': 'text'},
+          ],
+          'loginCheckJs': 'result',
+          'speed': 10,
+          'synthesisThreadCount': 4,
         },
       ]);
 
@@ -96,9 +104,16 @@ void main() {
 
       expect(count, 2);
       expect(added.map((e) => e.name), ['1.百度', '2.阿里云语音']);
+      expect(added.first.id, -100);
       expect(added.first.url, _seedBaiduUrl);
-      // 不做启用态写入：原版 HttpTTS.kt 无 isEnabled 概念（Dart 侧模型亦无
-      // 该字段），写 httpTTS.isEnabled 列无消费方，属无效调用
+      expect(added.first.contentType, 'audio/wav');
+      expect(added[1].id, -29);
+      expect(added[1].loginUrl, 'function login(){}');
+      expect(added[1].loginUi, '[{"name":"AppKey","type":"text"}]');
+      expect(added[1].loginCheckJs, 'result');
+      expect(added[1].speed, 10);
+      expect(added[1].synthesisThreadCount, 4);
+      // 不做启用态写入：原版 HttpTTS.kt 无 isEnabled 概念，可用性由 URL 兼容性判定把关
       verifyNever(() => api.httpTtsRepository.httpTtsSetEnabled(any(), any()));
     });
 
@@ -165,6 +180,76 @@ void main() {
       expect(count, 0);
       verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     });
+
+    test('保护用户配置：用户修改已有同 ID 引擎的名称、URL 或 Header 后，自动同步不会覆盖该引擎', () async {
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
+        (_) async => const [
+          HttpTts(
+            id: -100,
+            name: '1.百度-用户定制',
+            url: 'https://custom.baidu.example/tts?text={{text}}',
+            header: '{"Authorization":"Bearer user-secret"}',
+          ),
+        ],
+      );
+      final json = jsonEncode([
+        {'id': -100, 'name': '1.百度', 'url': _seedBaiduUrl, 'header': '{}'},
+        {'id': -29, 'name': '2.阿里云语音', 'url': 'https://nls.example.com/tts'},
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 1);
+      expect(added, hasLength(1));
+      expect(added.single.id, -29);
+      expect(added.single.name, '2.阿里云语音');
+    });
+
+    test('读取现有配置失败时立即中止并返回 0，绝不按空库继续覆盖写入', () async {
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenThrow(StateError('数据库繁忙'));
+      final json = jsonEncode([
+        {'id': -100, 'name': '1.百度', 'url': _seedBaiduUrl},
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 0);
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
+    });
+
+    test('单条种子字段解析错误不会中断后续有效种子的导入', () async {
+      final json = jsonEncode([
+        {
+          'id': -100,
+          'name': '损坏条目',
+          'url': 'http://broken.example/tts',
+          'speed': 'not-an-int',
+        },
+        {
+          'id': -29,
+          'name': '2.阿里云语音',
+          'url': 'https://nls.example.com/tts',
+          'speed': 10,
+        },
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 1);
+      expect(added, hasLength(1));
+      expect(added.single.id, -29);
+      expect(added.single.name, '2.阿里云语音');
+    });
   });
 
   group('ensureDefaultHttpTts 版本门控', () {
@@ -210,21 +295,21 @@ void main() {
   });
 
   group('引擎 URL 兼容性判定（自动选默认引擎）', () {
-    test('原版种子模板均不兼容（POST/@js/无占位符）', () {
-      expect(isCompatibleHttpTtsEngineUrl(_seedBaiduUrl), isFalse);
+    test('POST、JS 和 HTTP 入口受支持，空和非 HTTP 规则拒绝', () {
+      expect(isCompatibleHttpTtsEngineUrl(_seedBaiduUrl), isTrue);
       expect(
         isCompatibleHttpTtsEngineUrl(
           'https://nls-gateway.example.com/tts,{"method":"POST"}',
         ),
-        isFalse,
+        isTrue,
       );
       expect(
         isCompatibleHttpTtsEngineUrl('@js:apiurl(speakText,speakSpeed)'),
-        isFalse,
+        isTrue,
       );
       expect(
         isCompatibleHttpTtsEngineUrl('http://tts.example.com/tts'),
-        isFalse,
+        isTrue,
       );
       expect(isCompatibleHttpTtsEngineUrl(''), isFalse);
       expect(
@@ -273,11 +358,14 @@ void main() {
 
       when(() => api.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
-      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+      when(() => api.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
       when(() => api.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(
         () => api.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -288,9 +376,9 @@ void main() {
       ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
     });
 
-    test('库中只有不兼容种子 → 不自动选中，保持无引擎降级（不冒充可用）', () async {
+    test('库中只有无效请求入口 → 不自动选中，保持无引擎提示', () async {
       when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
-        (_) async => [HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl)],
+        (_) async => [HttpTts(id: -100, name: '无效入口', url: 'ftp://invalid')],
       );
 
       await container
@@ -304,6 +392,8 @@ void main() {
       // [A4 批 2026-10-03] 由「静默降级」改为「温和提示」（用户裁决）
       verifyNever(
         () => api.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -318,7 +408,7 @@ void main() {
     test('库中含兼容引擎 → 跳过不兼容项选中兼容项', () async {
       when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
         (_) async => [
-          HttpTts(id: -100, name: '1.百度', url: _seedBaiduUrl),
+          HttpTts(id: -100, name: '无效入口', url: 'ftp://invalid'),
           HttpTts(
             id: 5,
             name: '本地引擎',

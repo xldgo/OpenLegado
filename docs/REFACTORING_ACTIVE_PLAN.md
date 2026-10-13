@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-INTEGRATION-20261014：朗读与主目录合并（P1）
+
+- **状态与授权**：整合代码与本地验证通过；本轮在主目录形成 merge 提交，再将当前朗读 worktree 快进至同一提交。用户授权合并并同步，使用 merge 保留原始历史，不推送、不触发 CI。合并前主目录 feature/ui-reader-selection / 311e96f5a，朗读 reimplement_tts_t2a_task / 4456c33de，两边工作区干净。
+- **范围与冲突解决**：阅读记录三视图/每日明细、控件/Markdown 和最新书源凭据边界保留，接入 HTTP/OpenAI/MiMo。ClassicLoginDialog 仍通过书源 Repository/动作回调，TTS 走独立 SourceLoginSession；WebView 保留 Repository 并接可选 TTS 会话，不恢复 BookApi 的旧凭据方法。DB 保留 chrono 与 sha2，schema v112 同时包含阅读记录明细和音色/云端元数据表。两个分支的新文案合并后生成完整本地化；配对 FRB 2.13 从合并源码重生成，hash 1268550618，不拼接函数序号。
+- **契约门禁修正**：HTTP 合成文件包含取消对象和 DTO，测试改为只提取 HttpTtsSynthesizer 接口，避免把取消对象三项方法算进领域接口。§2.42 主表四项与朗读扩展分开登记，附录闭合为 301；根 BookApi 236 项，书源登录四项独立，纯 FFI 请求创建/登录另计。14 项契约测试通过，不删除校验或放宽异常。
+- **验证与证据**：Flutter 朗读、书源/TTS 登录、阅读记录/总览整合集最初 497 项通过、3 项契约失败；修正后全部 14 项契约复验通过，合计覆盖的 500 项均已分轮通过，未重复累加。启动装配/Mock 根能力另做 134 项定向回归通过，结果见 flutter_legado/build/tts-merge-bootstrap-tests.log。全模块静态分析无问题；Rust core806/DB356/QuickJS fetcher136 项通过。5 项真实 Windows FRB fixture（MiMo/OpenAI/HTTP、书源凭据、阅读记录）通过；新 DLL 与 Cargo 产物 SHA-256 一致。日志在 flutter_legado/build/tts-merge-{pub-get,codegen,analyze-final,flutter-tests,contract-tests,real-ffi,bootstrap-tests}.log、rust/target/tts-merge-native-tests.log。无独立子代理审查，按用户约束不使用子代理。
+- **构建限制**：新 Windows 原生编译与 DLL 复制成功，FRB 真实调用通过，但 rust/target/debug/legado_ffi.dll.meta 旧文件权限拒绝读取/替换，默认 Windows 发布/只读元数据门禁没有完成；不称工具构建全成功。日志 tts-merge-native-build-final.log。该权限属于忽略的本地产物，不修改 Git 跟踪的构建算法、不自动结束应用或删除用户配置。下次使用默认 Windows 构建入口前需要处理此文件权限；Android/iOS 和设备/真实云账号验收仍按前批未测边界保留。
+- **交付边界**：版本保持 2.0.373+374；不创建新分支，不改写任一历史，不触及其他 worktree。同步后当前朗读分支与主目录指向同一合并提交；工作树不携带冲突标记或未提交解决结果。
+
+编写者：Codex｜2026-10-14
+
+
 > 2026-10-14 交付：用户已授权将 Markdown 阅读 Sheet 与订阅首页/收藏页刷新整理合为一个本地提交，并合并到主目录 feature/ui-reader-selection，覆盖本批实施时暂不提交的约束；未授权推送。原验证记录与人工验收边界保留。
 
 ### UI-MARKDOWN-HELP-SHEET-20261014：统一 Markdown 阅读弹层（P2）
@@ -43,6 +55,61 @@
 - **每日卡片最终安装（2026-10-14）**：用户授权编译安装每日汇总、时间线及此前成就卡撤销后的最新代码；Android x86_64 Debug APK在JDK 25下30秒构建通过（25项执行、381项复用），包内Rust来源校验通过。再次实时确认官方Legado_API_36 / emulator-5556后覆盖安装并启动，6项冒烟检查通过，近期日志未见崩溃。版本保持2.0.373+374，应用数据保留；未自动操作页面，布局体验待用户实测。日志在忽略目录 read-record-grouped-cards-{apk,apk-verification,install}.log，未提交、推送或触发CI。
 
 - **提交与合并授权（2026-10-14）**：用户授权将home-overview当前全部相关改动本地提交，并合并到主目录feature/ui-reader-selection；覆盖前述未提交/未合并限制，不推送。提交范围包含初始首页/总览成果后的真实每日明细整改、会话数据链、三视图UI与最终模拟器安装结果。主目录起始干净，38090e258为本工作树祖先，采用快进合并，提交与集成SHA以Git记录为准。已记录未实测的视觉边界保留，应用版本2.0.373+374不变。
+> **2026-10-14 本地提交授权**：用户在 MiMo 本地验收后明确要求提交 commit。
+> 将当前 worktree 的 HTTP 规则/登录、播放续播、预合成/缓存、音色目录、
+> OpenAI/MiMo 与平台凭据接线合并为一个本地提交：
+> `feat(ui): 完善朗读引擎并接入 OpenAI 与 MiMo`。
+> 版本保持 2.0.373+374；不推送、不触发 CI，不包含主目录另一任务的改动。
+> 下列各批“不提交”的记录是实施时的约束，此次提交授权覆盖这些记录；
+> 真账号、设备凭据和移动后台验证仍按各批未测边界保留。
+
+
+### TTS-T4B3-MIMO-20261014：MiMo 云端朗读（P1）
+
+- **状态与授权**：本批 MiMo 代码与本地验证完成，待用户审阅；真实账号/设备验收未完成。用户明确优先 MiMo；当前分支 reimplement_tts_t2a_task，起止 HEAD 均为 3613d12fb7f5c4c086499c45b799ebfeb5f4a7d1，保留全部前批未提交差异。不使用子代理，不提交、推送、触发 CI 或移动构建，版本保持 2.0.373+374。
+- **原生实现**：实施前更新 API_CONTRACT §2.42；新增 core/cloud_tts_mimo.rs，与 OpenAI 共用 Provider 分派、传输、缓存和取消。MiMo POST /chat/completions、api-key 鉴权；instructions 为 user，风格前缀及正文为 assistant，pcm16/voice/stream=true。SSE Base64 按序拼接 PCM，24kHz 单声道 WAV 适配；拒绝错误、坏 JSON/Base64、空/截断流及不支持格式，不缓存部分音频。取消沿用当前网络/租约门禁。参数、音色与风格对照固定上游 070ca1a，官方协议依据和与上游严格失败差异见 TTS_ALIGNMENT。
+- **产品接线**：现有云端配置页支持 OpenAI/MiMo，MiMo 默认 mimo-v2.5-tts/mimo_default/WAV、九音色与八风格快捷项；源速度不发送且隐藏该控件，播放器倍速保持有效。新建切换 Provider 清空旧地址/密钥并重载目录，编辑固定 Provider，DB/Mock 同样拒绝跨服务商替换。复用当前设备凭据、配置保存补偿、试听与 CloudReadAloudEngine，不新增 HTTP 源记录。schema v112 和五个 FRB 签名保持，hash 1678668258 未变，无需重新生成绑定，无新增依赖。
+- **顺带修复**：用户询问前批 Clippy 三处嵌套 if 后合并条件：tts_catalog 发音人/情感去重两处与 tts_speak 旧缓存路径清理一处。行为、去重顺序和清理条件不变；严格 clippy -D warnings 已通过，不将旧告警留作最终门禁例外。
+- **验证与复核**：Rust core 全 lib **806 项**、DB 全 lib **341 项**、QuickJS fetcher 全 lib **136 项**通过；其中云端筛选 core10/DB3/fetcher10，不重复累加。Flutter 朗读相关回归 **352 项**通过，最终地址清理后的配置/凭据 **11 项**复验通过（计数重叠）。全模块 analyze 无问题；严格 core Clippy 无告警。最终 Windows DLL 重建与源码指纹/摘要门禁通过；当前库 MiMo/OpenAI/既有 HTTP 的真实 FRB fixture **3 项**通过，验证 MiMo api-key（无 Bearer/Cookie）、完整消息体、SSE/WAV、缓存命中、坏流拒绝和元数据/凭据路径。git diff --check 通过，暂存区为空；只做本地代码复核，没有独立子代理审查。
+- **证据**：本 worktree 忽略目录 rust/target/tts-mimo-{native-tests,core-regression,db-fetcher-regression,clippy-final}.log；flutter_legado/build/tts-mimo-{playback-regression,ui-final,analyze-final,native-build-final,real-ffi-final}.log。初次 fixture PCM 样本值不一致已修正后复验；初次严格 Clippy 告警记录只作追溯，以最终无告警为准。
+- **未测、回滚与后续**：未调用真实 MiMo/OpenAI 账号，没有移动端/Flutter 桌面宿主构建、真实平台凭据、音色效果、锁屏/后台/中断或播放器解码实测；SSE 收齐后才播放，不是边生成边播放。云端预合成、其他五家 Provider、多角色/Voice Design/克隆/BGM/音效未实现。回滚限本批 Provider、分派与表单接线，不覆盖前批成果，不删设备凭据或库表；三处独立风格修复可单独保留。后续继续其他 Provider，或按用户安排真实账号/设备验收。
+
+编写者：Codex｜2026-10-14
+
+### TTS-T4B2-20261014：云端配置、安全凭据与播放接线（P1）
+
+- **状态与授权**：本批 OpenAI 接入代码与本地验证完成，待用户审阅；完整 T4b 和移动设备验收未完成。沿用 reimplement_tts_t2a_task，起止 HEAD 均为 3613d12fb7f5c4c086499c45b799ebfeb5f4a7d1，保留前批全部未提交修改。不使用子代理，不提交、推送、触发 CI 或构建移动应用；版本 2.0.373+374。
+- **契约与原生边界**：先冻结 API_CONTRACT §2.42，再新增独立 cloud_tts_engines 元数据表/schema v112、CloudTtsRepository 和五个 FRB 方法。拒绝普通元数据/选项中的明文密钥，源语速与音色等选项从当前 DB 读取；调用方凭据引用必须仍匹配 DB，避免配置更换期间混用旧密钥。FRB 2.13.0 配对生成，Dart/Rust contentHash 均为 1678668258；不是手改生成物。
+- **凭据与平台接线**：新增 CloudTtsCredentialStore、CloudTtsSettings 和平台适配，使用 flutter_secure_storage 11.2.0；Android 独立存储命名空间及定向备份排除，iOS 首次解锁后本设备 Keychain 与三个 Runner 配置 entitlement，macOS 使用现有系统 Keychain。其余包版本不升级；characters 1.4.1 由已锁定的传递依赖转为直接依赖。新引用先写安全存储、后写 DB；失败清理新引用，成功后清理旧引用，空编辑保留凭据。跨存储不能保证进程崩溃下原子性，清理失败明确报告实际提交状态，不自动回填历史凭据。
+- **产品与播放**：朗读设置新增 OpenAI 云端配置/编辑/试听入口，支持地址、模型、音色、源速度、指令与格式。cloud://<ID> 接入现有书级/全局选择与持久化，不写入 httpTTS。HTTP 与云端复用 FileReadAloudEngine；共用播放器只停止一次，停止完成后释放各自租约。CloudReadAloudEngine 对超长段落按字形簇安全分片，进度保持段内 UTF-16，最后分片完成才推进正文；已加载音频原位暂停/恢复，播放器倍速不改变合成缓存。试听独立播放器，先暂停正文；失败与退出取消旧会话，迟到音频不再开播。云端列表加载失败不阻断 HTTP 选择。
+- **验证与复核**：Flutter 朗读定向回归 **350 项**通过（含本批与前批相关用例，不累加重复运行）；数据库全 lib **340 项**通过。Windows 原生库重建和源码指纹/摘要门禁通过，当前 DLL 的云端与既有 HTTP 真实 FRB fixture **2 项**通过，覆盖 SQLite 配置、源参数、请求、音频缓存、租约、凭据引用变更与禁用。全模块 flutter analyze **无问题**。复核修正试听异常状态、编辑防重入、共享停止屏障；两项旧选择器断言更新为前批已采用的稳定 ID 匹配。git diff --check 通过，暂存区为空，未取得独立子代理审查。
+- **证据**：本 worktree 忽略目录 rust/target/tts-t4b2-{native-check,db-tests}.log，flutter_legado/build/tts-t4b2-{pub-get,codegen,native-build-final,playback-regression-final,real-ffi-final,final-analyze,final-interaction}.log。测试中的安全存储使用内存/插件替身，本机 HTTP 返回 fixture 音频，不代表真实云账号、解码器或设备密钥库验收。
+- **未测、回滚与下一批**：未构建 Android/iOS/macOS 或 Flutter Windows 宿主，新增插件在这些宿主上的编译、真实设备凭据读写、锁屏/中断和真实云账号尚待实测。云端尚未接入后台预合成窗口，HTTP 现有窗口保留；合成期间暂停允许重新起播当前段。跨存储进程崩溃可能遗留孤立凭据，当前不新增自动修复。回滚只撤本批接线及新增模块，保留前批成果；不要自动删除设备凭据或数据库表。后续按固定上游逐家增加 Provider；用户随后优先 MiMo，见 TTS-T4B3-MIMO-20261014；多角色、BGM 与音效另行安排。
+
+编写者：Codex｜2026-10-14
+
+
+### TTS-T4B1-20261013：OpenAI Speech 原生 Provider 基础（P1）
+
+- **状态与授权**：本批代码与本地验证完成，待用户审阅；沿用 reimplement_tts_t2a_task / 3613d12fb，保留前批全部未提交差异。不使用子代理、不自动提交、推送、CI 或设备构建，版本保持 2.0.373+374。
+- **实现文件与边界**：实施前冻结 API_CONTRACT §2.42 内部接口。新增 core/cloud_tts.rs（纯模型/Provider/PCM）和 cloud_tts_openai.rs（OpenAI 请求/格式），fetcher/cloud_tts.rs（异步传输/缓存/取消）及独立 tests.rs。本批没有新 FRB 方法、数据库表、Dart 产品代码或云端配置入口，不将 HTTP 源伪装成云端源。元数据模型仅是当前 Provider 的内存输入，凭据不持久化。
+- **请求与格式**：对照固定上游 070ca1a 的模型、13 个音色、自定义 voice_、速度和六种格式；tts-1 不发送 instructions。新 transport 独立客户端/120 秒超时，不共享书源 Cookie，默认正常 TLS 验证、不跟随请求重定向。额外本地文本上限校验，PCM 原样样本补 WAV 头、Opus 使用 Ogg 后缀，以复用现有缓存/播放器格式；具体差异及官方依据在 TTS_ALIGNMENT 明确记录。
+- **缓存与取消**：复用 TtsCancellation/synthesis_lock/SpeakCache/TtsCache，不维护另一套目录门禁。相同输入并发只发一次；等待锁和网络均可取消，预取消不建目录、不触网。身份包含实际请求和凭据，忽略 OpenAI 未消费的 pitch/volume 等字段；更换凭据或情感指令独立缓存。成功返回活动租约，释放后可清理；缓存命中前检查启用态与必填参数。错误状态、空音频及 JSON/text/明显误标 JSON/HTML 拒绝落盘，不回显响应体凭据。
+- **实际验证**：core 全 lib **800 项**、开启 QuickJS 的 fetcher 全 lib **134 项**通过，包含本批纯协议 **4 项**及网络/缓存 **8 项**，不重复累加。非 QuickJS 云端筛选 **8 项**复验通过，离线编译检查通过。Windows DLL 重建和只读门禁通过；既有 HTTP TTS/音色目录真实 FRB **1 项**通过，只证明原链路兼容，不称云端 FRB 测试。FRB hash 仍为 -1503981228，没有重生成。新直接依赖 url/sha2 均来自现有锁定版本；Cargo.lock 只增加依赖边，没有包升级。
+- **证据与复核**：日志在忽略目录 rust/target/tts-t4b1-{check,core-tests,fetcher-tests,core-regression,fetcher-regression,fetcher-no-quickjs-final}.log、flutter_legado/build/tts-t4b1-{native-build,existing-ffi-regression}.log。本地差异复核和 git diff --check 通过，无独立子代理审查。修正本批契约插入的标题级别，并修复前批 HTTP 测试仅 QuickJS 使用的导入门控；不改原 HTTP 实现行为。
+- **未测与下一批**：未调用真实 OpenAI/兼容云账号，没有移动平台、真实云音频解码或后台实测。本批结束时尚无云端产品入口；后续接线记录见 TTS-T4B2-20261014，完整 T4b 仍未完成，其他 Provider 逐个实施。保留多角色、BGM、音效为后续任务，不一次实现七家。回滚只针对本批新增模块与依赖边，不覆盖前五批成果。
+
+编写者：Codex｜2026-10-13
+
+### TTS-T4A-20261013：统一音色目录与发音人、情感选择（P1）
+
+- **授权与基线**：用户继续朗读对齐任务；沿用 `reimplement_tts_t2a_task` / `3613d12fb`，保留 T2a/T2b/T3a/T3b 未提交差异。上游固定 `070ca1a9b2e491654f70c105bca9939968023940`。不使用子代理、不自动提交、推送、CI 或设备构建；版本保持 `2.0.373+374`。
+- **契约与存储**：实施前冻结 API_CONTRACT §2.42；schema v111 仅新增独立 read_aloud_voices 表与索引，不回填旧目录、不扩展 HTTP 16 字段模型。Rust 解析字符串内嵌 speakersJson/emotionsJson，平铺优先、别名与分组支持、同 ID 首项保留。没有有效发音人不清空已有目录；新源/编辑/默认种子与目录同事务，删源同步清理自己的目录。系统发现从 Flutter 注入，消失标不可用，重现保留禁用/排除/创建时间；元数据变化更新修订号。稳定 ID 对齐上游 SHA-256/NUL 分隔定义。
+- **边界与消费**：新增 ReadAloudVoiceRepository 正式/Mock 窄接口、三个薄 FRB 方法及目录 Provider。导入和 Flutter 默认种子保留原始目录字段；普通编辑保留已导入目录。HTTP 选择以 ttsVoice:<引擎ID> 保存在既有设置，不改书级/全局引擎归属。toneId/speakerName/emotionTag 进入当前段、预合成和原有 Rust 合成缓存键；不存在的情感不能作为合法选择保存。删除/禁用/排除已选 HTTP 音色保留选择记录，使用引擎默认参数并提示，不改选另一目录音色。
+- **平台与界面**：朗读设置新增目录入口，可选择 HTTP 发音人/情感、恢复默认、禁用、排除和恢复，并显示持久化选中状态。系统目录发现独立于当前选择的播放校验，新装语音可重新读取；显式失效/排除的系统音色起播报错，不自动换声，默认选择避开禁用/排除。沿用现有系统插件、引擎设置与播放会话，无新原生桥或 synthesizeToFile。系统目录刷新只发现当前设备引擎，其他引擎先通过既有设置切换。
+- **验证**：14 份定向 Flutter 单元/控件文件共 **172 项通过**，最终 Flutter analyze 无问题；Rust DB **338 项**、纯目录解析 **2 项**、HTTP FFI **4 项**通过。Windows QuickJS DLL 重建和只读门禁通过；真实 FRB/本机 HTTP fixture **1 项通过**，包含原下载/取消/登录/租约回归、目录导入/标记/删除、发音人和情感实际 query、同参数缓存命中及情感变化独立缓存、系统目录同步/消失/重现。FRB 2.13.0 成对生成，hash `-1503981228`。crypto 3.0.7 与 sha2 0.11.0 从已锁定依赖显式直连，没有升级包版本。
+- **证据与过程**：日志在忽略目录 `flutter_legado/build/tts-t4a-{final-regression,analysis-final,native-build-final,real-ffi-final}.log`，`rust/target/tts-t4a-{db-tests-final,catalog-tests,ffi-catalog-tests}.log`。复核修复禁用开关未更新播放、目录被失效选择阻塞、保存非法情感、重复 TtsConfig 权威状态及默认数据入口漏目录。中间测试导入/替身 dispose 遗漏与命令工作目录错误已修正；不将中间失败列作通过证据。此前自动审批服务配置故障已恢复，最终命令正常获批执行。
+- **状态与未测边界**：本批代码及上述本地验证完成，待用户审阅和移动设备验收；未提交、无独立子代理审查。Android/iOS 真实音色、语音安装/切换、锁屏后台、中断与公开源未测；目录同步 fixture 不等于系统插件实测。没有云端 Provider、角色/BGM/音效或历史兼容回填。下一批 T4b 按上游逐个 Provider 实现，先选一条请求和格式链路，不一次实现七家。回滚只针对本批差异，FFI 生成物和 native 库配对重建，保留前四批工作。
 
 编写者：Codex｜2026-10-13
 
@@ -131,6 +198,50 @@
 - **根因与方案**：ReaderScreen 与 ReaderPageView 的外层 Padding 同时缩小翻页画布及快照。让翻页宿主覆盖完整视口，仅在每页内容内部保留避让；分页测量扣除相同边距，双页与相邻章预览共用该路径。滚动内容保留避让并同步保存/恢复位置的顶部坐标，状态条与自动翻页浮层保留原位置。
 - **状态与验证**：实现及最小验证通过，视觉效果待人工检查。定向分析无问题，两轮既有重排、选区、快速翻页、快照、布局缓存、底部边距及退出回归共 47 项通过；增强已有重排/缓存用例，不新增测试文件。JDK 25 增量 Debug APK 31 秒通过（25 项执行、381 项复用），复用 Rust 库并通过包内校验。覆盖安装官方 Legado_API_36（实时确认 emulator-5556），冷启动 Status: ok（8995ms），进程存活且近期日志未见崩溃或布局异常；未自动操作页面，iOS 未实测。证据在 flutter_legado/build/reader-full-page-turn-{analysis-final,tests,final-tests,apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log；不改 Rust/FFI、配置存储与系统栏显隐 API，未提交、合并或推送。
 - **上游依据**：`HapeLee/legado-with-MD3` 的 `070ca1a9b`：[全屏画布接线](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt)、[页面背景与内容裁剪](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/feature/reader/ReaderCanvasSurface.kt)。
+### TTS-T3B-20261013：HTTP 有界预合成与缓存管理（P1）
+
+- **授权与基线**：用户要求继续下一步 T3b；沿用 `reimplement_tts_t2a_task` / `3613d12fb`，保留 T2a/T2b/T3a 未提交修改。上游固定 `070ca1a9b2e491654f70c105bca9939968023940`。不使用子代理，不自动提交、推送、全量 CI 或设备构建，版本保持 `2.0.373+374`。
+- **边界与实现**：实施前冻结 API_CONTRACT §2.42，新增缓存 record/list/clear 三个 FRB 薄接口和成功音频租约。Rust core 新 `tts_cache` 负责目录索引、原子发布及清理门禁，FFI 仅读目录配置和转 JSON；无数据库迁移或历史回填。Dart 新 TtsCacheRepository 及正式/Mock 实现，通过根装配统一注入；HttpTtsAudio 移交租约，停止播放器后释放，加载失败或取消及时释放。FRB 2.13.0 成对生成，hash `1993971577`，没有升级依赖。
+- **调度与界面**：独立 HttpTtsSynthesisQueue 对前台/后台共用并发上限，优先当前段，同输入可提升后台任务，不重复合成；起播后预合成当前章剩余段及设定后续章，按章加载且按并发批次创建任务。默认后续 10 章、全局并发 3、源上限 1..8。后台失败 500ms 后重试一次，连续三章多数段失败停止；错误日志有界。暂停/手动定位/切章/换书/换源/退出取消旧窗，不将旧结果扩展成新请求。朗读设置新增章数/并发/分钟保留及缓存入口；缓存页显示关联书章、大小、正文、时间与日志，可删单项/清空，活动项禁删。
+- **生命周期**：分钟保留默认 10，保护当前章、活动请求与播放租约；0 即听即焚，起手清扫残留，停止/退出等待取消结束并释放播放器租约后清理。合成期间保守保护该目录所有音频，临时文件不参与音频扫描。一个音频可关联多个书章段；退出捕获配置与状态，不访问失效 Ref。损坏 JSON/外部文件/非法名称拒绝操作，不伪装成空成功。
+- **验证**：最终 15 个定向 Flutter 文件共 **218 项通过**，Flutter analyze 无问题；Rust 新缓存 5 项通过，QuickJS FFI 编译检查通过。最终 Windows DLL 构建与只读门禁通过；真实 FRB/本机 HTTP fixture **1 项通过**，覆盖下载/缓存命中/取消/登录、JSON 索引、多书关联、租约防删、幂等释放及释放后清理。对应忽略目录日志：`flutter_legado/build/tts-t3b-{final-regression,analysis-final,native-build-final,real-ffi-final}.log`、`rust/target/tts-t3b-cache-tests-final.log`。前序中间验证与重复复验不累加测试数。
+- **审查与状态**：本地代码复核及上述验证完成，**待用户审阅/设备复验**，未 commit。复核发现退出读取失效 Ref、换书入口未取消窗口、旧停止清理可能误清新会话，均已修复并通过最终回归；初轮编译/测试的类型、导入与断言错误也已修复，不作为通过证据。未派独立审查子代理。
+- **未测边界与下一步**：没有 Android/iOS 真机、后台锁屏、耳机、实际公开源、云账号测试。窗口取消会停止旧 TTS 请求并丢弃旧正文结果，但已在途的章节正文抓取和同步 JS 宿主调用尚不能强制中断。后台不复制上游无声占位文件，保持已确认前台失败提示/估算规则。下一批 T4a 对照上游音色目录；随后逐个云端 Provider，不宣称完整上游功能复刻完成。方法见 [朗读对齐文档](TTS_ALIGNMENT.md)，回滚仅针对本批差异并配对重生成/重建 FFI，不能覆盖 T2a/T2b/T3a。
+
+编写者：Codex｜2026-10-13
+
+### TTS-T3A-20261013：HTTP 朗读原位暂停与续播（P1）
+
+- **授权与基线**：用户同意继续对照上游；沿用 `reimplement_tts_t2a_task` / `3613d12fb`，保留未提交 T2a/T2b。上游固定 `070ca1a9b2e491654f70c105bca9939968023940`。不使用子代理，不自动提交/推送、触发 CI 或运行设备构建；版本保持 `2.0.373+374`。
+- **实现范围**：仅改 Dart 播放边界与相关测试，不变更 Rust/FRB、数据库、依赖或 UI 布局。HttpReadAloudEngine 对已加载段落调用 pause，保留音频及位置；续播等待本会话暂停确认，换绑新的 ReadAloudSession，不重新合成或加载。合成/装载尚未完成则取消并停止，恢复重新起播；停止、换段、切章和切引擎使旧段失效。
+- **播放器与协调层**：StreamAudioPlayer 新增带预期归属校验的 resumeWithTag，替换监听闭包并保留原音频控制器。初始化/替换装载期间停止后，迟到结果不能开播；段尾不足 200ms 的暂停不再被当作自然完成。AudioNotifier 同时失效两条 TTS 路径，按会话管理暂停屏障；原位恢复继续使用原请求段内起点，保留 UTF-16 原文映射。HTTP 引擎 ID/URL、音色及合成参数变化重启，纯 HTTP 播放倍速变化保留音频。
+- **验证证据**：最终 11 个定向测试文件共 **197 项通过**（核心/焦点/系统五组 90 项，其余切章、定时、持久化六组 107 项，无重复累加）；九个路径定向 Flutter analyze 无问题。日志在忽略目录 `flutter_legado/build/tts-t3a-{final-tests,other-regression,analysis-final}.log`。测试使用真实 StreamAudioPlayer 加插件平台替身，以及 AudioNotifier/Fake 播放器；不称为设备实测。覆盖位置与控制器保留、回调重绑、段内起点、快速恢复等待、等待中停止、换段/换源、焦点失去及恢复、暂停错误隔离和系统/音频书回归。
+- **审查与边界**：本地代码复核完成；未使用独立子代理审查。初轮测试复现暂停后手动换段/HTTP 换源仍复用旧音频，扩展回归发现过期暂停屏障阻塞新会话；均已修复并通过上述最终测试。Android/iOS 原生播放器的后台、锁屏、耳机及真实焦点中断仍待设备验收，未运行全量 CI。既有 HTTP 失败提示与估算推进保持原样。
+- **状态与下一步**：T3a 代码和本地验证完成，未提交，待用户审阅。下一批 T3b 对照上游实现有界预合成与缓存管理；默认预下载是 10 章、全局合成并发是 3，不采用此前五段默认值。回滚仅针对本轮暂停/续播差异，不覆盖已有 T2a/T2b。方法与上游来源见 [朗读对齐文档](TTS_ALIGNMENT.md)。
+
+编写者：Codex｜2026-10-13
+
+### TTS-T2B-20261013：HTTP TTS 源规则、登录与请求取消（P1）
+
+- **授权与基线**：用户同意继续 T2b；沿用 `reimplement_tts_t2a_task` / `3613d12fb` 和未提交的 T2a 修复。不使用子代理，不自动提交/推送或触发全量 CI，不改 SDK/依赖版本，应用保持 `2.0.373+374`。
+- **契约与边界**：先更新 API_CONTRACT §2.42，新增单次请求原生取消句柄与 HTTP TTS 登录操作。Rust 按 ID 查当前配置；fetcher 分为源上下文、传输、二进制响应、取消与阶段编排模块。源变量通过宿主存储落库；登录缓存复用现有设施，以 `httpTts:<id>` 区分 HTTP 引擎及书源，不创建伪 BookSource。Cookie 按域共享，启用标记只控制响应写回。
+- **实现**：source/java 的常用源方法、jsLib 顶层上下文、动态 Header、登录 Header 合并与 URL 选项覆盖；loginCheckJs 响应对象及二进制数据保留，支持 token 过期后 source.login / getHeaderMap / getResponse 重请求和 initUrl 重解析。首发和刷新共用 300 秒请求超时、源限流与连接/超时最多五次重试。相同输入用弱引用锁去重，缓存临时文件完整写入后原子发布，缓存键增加登录/源状态。停止、切引擎和换段取消等待/网络，并返回明确取消结果，不进入失败估算；失败结果从旧 probeOnly 改为 synthesisFailed。
+- **UI 与共享控件**：管理页增加登录入口及源级语速、合成线程数、并发率、登录脚本/UI、响应校验、jsLib、Cookie 写回选项；编辑仍原地更新并保留 ID。经典/V2/WebView 登录控件通过 SourceLoginSession 复用，原书源调用保留；TTS 登录动作使用线程局部收集，不污染书源全局动作队列。默认规则筛选放行 POST/JS，不把语法支持当成远程可用证明。
+- **验证**：最终 Flutter 静态分析无问题；已改动回归与既有书源登录共 254 项通过，新 TTS 登录控件 2 项通过；强化取消的引擎及适配器/真实 FFI 最后复验 34 项通过（与前述有重叠，不累加计数）。Rust TTS fetcher/FFI 23 项通过；共享 core/net/parser 的 lib 回归通过（core 789、parser 324），随后原子缓存扩展名清理与动作线程隔离各 1 项通过；无 QuickJS fetcher 编译通过且无新增警告。最终 DLL 构建与门禁通过；真实 Windows FRB 测试覆盖中文/emoji、下载/缓存、倍速独立、错误响应不探活、在途取消不落盘、登录信息保存和 Header 实际注入。Rust/Dart FRB hash 均为 `-35577062`；生成器 2.13.0，pubspec/lockfile 未变；Cargo.lock 仍仅保留先前 T2a 的 fetcher md5 依赖接线。
+- **验证过程修正**：生成入口的 enforce-lockfile 检出本机 Pub 来源与已有清华源锁文件不一致；保留锁文件，使用已有依赖与固定版本生成器完成配对生成，不更新依赖。中间编辑辅助脚本曾写错 Rust 宿主内容和测试模块/导入路径，已修复后重新通过回归；不将中间失败当成成功证据。真实 FFI 日志发现初始化完成值导致 Java 代理 toJSON 的误记录，改为无返回值初始化，最后复验不再出现该记录。
+- **状态与未测边界**：T2b 代码和上述本地验证完成，待用户审阅，仍无新 commit。Android/iOS 的网页登录、后台/锁屏、中断与实际公开源/云账号未测；同步 jsLib 下载或 java.ajax 等宿主调用不能强制中断，完成后检查取消，不宣称整个上游宿主 API 已逐项复刻。相关测试以本机 fixture 为准，不声称内置源全都开箱可用。
+- **回滚与下一步**：本轮没有数据库 schema 变更或历史迁移；回滚只能针对本批拥有的文件/差异，保留原 T2a 工作，FFI 生成物和 DLL 必须配对重建。下一步 T3a HTTP 原位暂停恢复，重点重新绑定播放器 tag 与恢复会话；然后 T3b 有界预合成/缓存管理，再做音色目录和逐个云端 Provider。方法与固定上游 SHA 见 [朗读对齐文档](TTS_ALIGNMENT.md)。
+
+编写者：Codex｜2026-10-13
+
+### TTS-T2A-20261013：TTS 规则管线复审与基线同步（P1）
+
+- **授权与基线**：用户要求在既有 worktree rebase 到主目录阅读器分支最新提交，继续按上游复刻、审查修复并整理后续计划。不使用子代理，不自动提交或推送，版本保持 `2.0.373+374`。主目录目标为 `45392da97`；原 T1 HEAD `c33fc0e17` 重放为 `3613d12fb`，原 T2a 未提交修改已恢复。
+- **保留与冲突处理**：rebase 保留双方 API 契约记录；恢复 T2a 时沿用主目录新的 BookshelfRepository 调用和对应测试，不恢复已删除的 BookApi 书架方法。原工作区内容备份在主目录忽略目录 `build/tts-rebase-backup/20261013-190404`；原 stash `65ed123de21945edaa9aaeb973a21385f292d4d0` 保留，供用户核对。
+- **本轮修复**：书级选择保存数字 ID，删除/读取失败的全局 ID 不按同 URL 改选另一引擎；JS 简单属性与复杂表达式共用安全变量注入；缓存键统一结构化序列化并包含 jsLib 和音色边界；HTTP 引擎保留合成失败原因；MIME 去除参数后完整正则匹配，修复合法音频误拒绝与类型前缀误接受。
+- **实际验证**：本轮 `flutter analyze --no-pub` 无问题；17 份已改动单元/控件测试共 242 项通过，包含系统语音、播放/焦点/定时、选择持久化以及 rebase 接线；Rust `legado-parser --lib` 324 项通过，QuickJS 开启的 fetcher/FFI TTS 筛选回归 15 项通过（9+6，含本机 HTTP fixture）。首次批量 Flutter 命令重复路径前缀，测试未加载，修正路径后以上最终运行通过；不把它列作产品失败或验证成功。
+- **状态与边界**：T2a 当前缺陷已修复并通过上述定向复验，完整上游源上下文仍未实现；此前“完整管线、独立审查闭环”的原实现自述不作为本次验收。Android/iOS 设备、后台/锁屏、中断与真实公开源未测；不触发全量 CI，不宣称全引擎对齐完成。Windows 新 DLL 构建与产物门禁通过（2 分 23 秒）；`http_tts_synthesizer_runtime_test.dart` 真实 Dart→FRB→数据库→HTTP→缓存回归 1 项通过，验证 Unicode 正文、源级语速、改变全局播放倍速仍命中同一缓存，以及错误响应不发 GET 探活。Rust/Dart FRB hash 均为 `-155515503`；最终 git diff --check 通过。
+- **接下来的任务**：优先 T2b 源上下文/登录/Header/Cookie/限流/取消与缓存并发基础，再做 T3a HTTP 原位续播、T3b 有界预合成与缓存页、T4a 音色目录、T4b 云端 Provider。具体职责、上游固定 SHA 与验收见 [朗读对齐方法](TTS_ALIGNMENT.md)。阶段状态只在本条维护。
 
 编写者：Codex｜2026-10-13
 

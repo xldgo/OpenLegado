@@ -1270,5 +1270,32 @@
       }
     }
   },
-  "readRecordUnknownAuthor": "Unknown author"
+  "readRecordUnknownAuthor": "Unknown author",
+  "cloudTtsTitle": "Cloud TTS engines",
+  "cloudTtsSummary": "Configure cloud voices and preview speech",
+  "cloudTtsAdd": "Add cloud engine",
+  "cloudTtsEdit": "Edit cloud engine",
+  "cloudTtsName": "Name",
+  "cloudTtsBaseUrl": "Base URL (empty for the official endpoint)",
+  "cloudTtsModel": "Model",
+  "cloudTtsApiKey": "API key (leave empty to keep when editing)",
+  "cloudTtsVoice": "Voice ID",
+  "cloudTtsSpeed": "Synthesis speed",
+  "cloudTtsFormat": "Audio format",
+  "cloudTtsStyle": "Style",
+  "cloudTtsInstructions": "Speech instructions",
+  "cloudTtsPreview": "Preview",
+  "cloudTtsPreviewText": "Preview text",
+  "cloudTtsStop": "Stop preview",
+  "cloudTtsEmpty": "No cloud TTS engines",
+  "cloudTtsEnabled": "Enabled",
+  "cloudTtsDelete": "Delete",
+  "cloudTtsDeleteConfirm": "Delete this cloud engine and its device credentials?",
+  "cloudTtsSave": "Save",
+  "cloudTtsCancel": "Cancel",
+  "cloudTtsBook": "This book",
+  "cloudTtsGlobal": "Global",
+  "cloudTtsSample": "Hello, this is a cloud speech preview.",
+  "cloudTtsProvider": "Provider",
+  "cloudTtsVoiceLoadFailed": "Voice catalog failed to load"
 }

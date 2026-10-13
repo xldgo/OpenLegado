@@ -14,6 +14,11 @@ import 'local_media_source.dart';
 class StreamAudioPlayer {
   VideoPlayerController? _controller;
   VoidCallback? _listener;
+  Object? _tag;
+  int _loadGeneration = 0;
+
+  /// 当前装载的回调归属，用于共享播放器的会话核对。
+  Object? get currentTag => _tag;
 
   /// 播放完成回调，携带本次装载绑定的归属标识 [tag]（原样回传，播放器不解释）
   void Function(Object? tag)? onCompleted;
@@ -39,8 +44,9 @@ class StreamAudioPlayer {
   /// 播放器不请求焦点、也不因焦点变化自行暂停；外部应用抢占焦点仍会送达
   /// 桥，Dart 侧 pause 语义不变（听书流模式与 TTS 路径同源受益）。
   @visibleForTesting
-  static final VideoPlayerOptions playbackOptions =
-      VideoPlayerOptions(mixWithOthers: true);
+  static final VideoPlayerOptions playbackOptions = VideoPlayerOptions(
+    mixWithOthers: true,
+  );
 
   bool get isInitialized => _controller?.value.isInitialized ?? false;
   bool get isPlaying => _controller?.value.isPlaying ?? false;
@@ -61,7 +67,9 @@ class StreamAudioPlayer {
     if (trimmed.isEmpty) {
       throw ArgumentError('播放地址为空');
     }
-    await stop();
+    final generation = ++_loadGeneration;
+    await _releaseController();
+    if (generation != _loadGeneration) return;
     _currentUrl = trimmed;
     _completionFired = false;
     final c = VideoPlayerController.networkUrl(
@@ -75,8 +83,8 @@ class StreamAudioPlayer {
   ///
   /// 支持绝对路径与 `file://` URI（平台差异见局部导入的
   /// `local_media_source_io.dart` / `_web.dart`）。
-  /// [speed] 默认 1.0：TTS 语速已由合成侧（engineUrl 模板 speakSpeed）
-  /// 应用，播放侧不再二次变速。[tag] 语义同 [playUrl]（TTS 路径一般为 null）。
+  /// [speed] 为全局播放倍速，源级合成语速由合成侧独立处理。
+  /// [tag] 绑定段落会话，暂停续播时显式换绑而不重新加载文件。
   Future<void> playLocalFile(
     String path, {
     double speed = 1.0,
@@ -86,7 +94,9 @@ class StreamAudioPlayer {
     if (trimmed.isEmpty) {
       throw ArgumentError('本地播放路径为空');
     }
-    await stop();
+    final generation = ++_loadGeneration;
+    await _releaseController();
+    if (generation != _loadGeneration) return;
     _currentUrl = trimmed;
     _completionFired = false;
     final c = createLocalFileController(
@@ -104,24 +114,51 @@ class StreamAudioPlayer {
   ) async {
     _controller = c;
     await c.initialize();
+    if (!identical(_controller, c)) return;
     await c.setPlaybackSpeed(speed <= 0 ? 1.0 : speed);
-    _listener = () {
-      if (_controller != c) return;
+    if (!identical(_controller, c)) return;
+    _bindListener(c, tag);
+    await c.play();
+  }
+
+  void _bindListener(VideoPlayerController c, Object? tag) {
+    final oldListener = _listener;
+    if (oldListener != null) c.removeListener(oldListener);
+    _tag = tag;
+    late final VoidCallback listener;
+    listener = () {
+      if (!identical(_controller, c) || !identical(_listener, listener)) return;
       final v = c.value;
       // tag 随本次装载的监听闭包捕获：旧控制器的事件带旧归属
       onProgress?.call(v.position, v.duration, tag);
+      // 进度处理可能同步切换会话；旧监听不得再消费完成事件。
+      if (!identical(_controller, c) || !identical(_listener, listener)) return;
       if (!_completionFired &&
           v.isInitialized &&
           v.duration > Duration.zero &&
-          (v.isCompleted ||
-              v.position >= v.duration - const Duration(milliseconds: 200)) &&
+          (v.isCompleted || v.position >= v.duration) &&
           !v.isPlaying) {
         _completionFired = true;
         onCompleted?.call(tag);
       }
     };
-    c.addListener(_listener!);
+    _listener = listener;
+    c.addListener(listener);
+  }
+
+  /// 在同一音频上换绑段落会话；预期归属不匹配时拒绝恢复其他播放。
+  Future<bool> resumeWithTag({
+    required Object previousTag,
+    required Object tag,
+  }) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized || !identical(_tag, previousTag)) {
+      return false;
+    }
+    _completionFired = false;
+    _bindListener(c, tag);
     await c.play();
+    return identical(_controller, c) && identical(_tag, tag);
   }
 
   Future<void> pause() async {
@@ -142,11 +179,17 @@ class StreamAudioPlayer {
     await _controller?.seekTo(position);
   }
 
-  Future<void> stop() async {
+  Future<void> stop() {
+    _loadGeneration++;
+    return _releaseController();
+  }
+
+  Future<void> _releaseController() async {
     final c = _controller;
     final l = _listener;
     _controller = null;
     _listener = null;
+    _tag = null;
     _currentUrl = null;
     _completionFired = false;
     if (c != null) {

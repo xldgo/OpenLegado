@@ -28,23 +28,47 @@ void main() {
     expect(await second.getHttpTts(), seeds);
   });
 
-  test('Mock CRUD 保留字段与顺序，查询副本不能改写存储', () async {
+  test('Mock CRUD 保留全部高级字段与顺序（id=0 分配新 ID，id!=0 保留），更新不存在 ID 抛错且不改写存储', () async {
     var nextId = 42;
     final repository = MockHttpTtsRepository(nextId: () => nextId++);
     const input = HttpTts(
-      id: -1,
+      id: 0,
       name: '甲',
       url: 'http://a',
       contentType: 'audio/wav',
+      pauseDuration: 150,
+      concurrentRate: '1500',
+      loginUrl: 'function login(){}',
+      loginUi: '[{"name":"AppKey","type":"text"}]',
+      header: '{"Authorization":"Bearer token"}',
+      jsLib: 'var v = 1;',
+      enabledCookieJar: true,
+      loginCheckJs: 'result',
+      speed: 18,
+      synthesisThreadCount: 12,
+      lastUpdateTime: 1700000000000,
+      isEnabled: false,
     );
     final first = await repository.addHttpTts(input);
     final second = await repository.addHttpTts(
-      const HttpTts(name: '乙', url: 'http://b'),
+      const HttpTts(id: -29, name: '乙', url: 'http://b'),
     );
-    expect(first, input.copyWith(id: 42));
-    final updated = first.copyWith(name: '修改', url: 'http://new');
+    expect(
+      first,
+      input.copyWith(id: 42, synthesisThreadCount: 8),
+    );
+    expect(second.id, -29);
+    final updated = first.copyWith(
+      name: '修改',
+      url: 'http://new',
+      speed: 25,
+      synthesisThreadCount: 4,
+    );
     await repository.updateHttpTts(updated);
-    await repository.updateHttpTts(const HttpTts(id: 999, name: '不存在'));
+    await expectLater(
+      repository.updateHttpTts(const HttpTts(id: 999, name: '不存在')),
+      throwsStateError,
+    );
     final expected = [updated, second];
     expect(await repository.getHttpTts(), expected);
     (await repository.getHttpTts()).clear();
@@ -58,14 +82,42 @@ void main() {
     expect(await repository.getHttpTts(), [second]);
   });
 
-  test('Mock 导入只返回数量，启用操作维持原空实现，不伪造落库', () async {
-    final repository = MockHttpTtsRepository(nextId: () => 1);
+  test('Mock 导入完整保留字段、支持数组 loginUi 并更新启用态', () async {
+    var nextId = 10;
+    final repository = MockHttpTtsRepository(nextId: () => nextId++);
     expect(
-      await repository.importHttpTts('[{"name":"仅统计","url":"http://a"}]'),
+      await repository.importHttpTts(
+        jsonEncode([
+          {
+            'id': -29,
+            'name': '阿里云',
+            'url': 'https://nls.example.com/tts',
+            'contentType': 'audio/mpeg',
+            'loginUi': [
+              {'name': 'AppKey', 'type': 'text'},
+            ],
+            'speed': 10,
+            'synthesisThreadCount': 99,
+            'pauseDuration': 120,
+            'isEnabled': false,
+          },
+          {'name': '', 'url': 'http://skip'},
+        ]),
+      ),
       1,
     );
-    expect(await repository.getHttpTts(), isEmpty);
-    expect(await repository.httpTtsSetEnabled(99, false), isTrue);
+    final stored = (await repository.getHttpTts()).single;
+    expect(stored.id, -29);
+    expect(stored.name, '阿里云');
+    expect(stored.loginUi, '[{"name":"AppKey","type":"text"}]');
+    expect(stored.speed, 10);
+    expect(stored.synthesisThreadCount, 8);
+    expect(stored.pauseDuration, 120);
+    expect(stored.isEnabled, isFalse);
+
+    expect(await repository.httpTtsSetEnabled(-29, true), isTrue);
+    expect((await repository.getHttpTts()).single.isEnabled, isTrue);
+
     await expectLater(
       repository.importHttpTts('不是JSON'),
       throwsFormatException,
@@ -74,7 +126,28 @@ void main() {
       repository.importHttpTts('{}'),
       throwsA(isA<TypeError>()),
     );
-    expect(await repository.getHttpTts(), isEmpty);
+  });
+
+  test('Mock 导入无 ID 条目时跳过已被占用的正 ID，绝不覆盖已有记录', () async {
+    var nextId = 1;
+    final repository = MockHttpTtsRepository(nextId: () => nextId++);
+    // 预置显式 ID=1 的已有引擎
+    await repository.addHttpTts(
+      const HttpTts(id: 1, name: '预置引擎', url: 'http://orig'),
+    );
+    // 导入无 ID 条目（id 为 0 或未提供，nextId 首次生成也是 1）
+    final count = await repository.importHttpTts(
+      jsonEncode([
+        {'name': '导入的新引擎', 'url': 'http://imported'},
+      ]),
+    );
+    expect(count, 1);
+    final all = await repository.getHttpTts();
+    expect(all, hasLength(2));
+    expect(all[0].id, 1);
+    expect(all[0].name, '预置引擎');
+    expect(all[1].id, 2);
+    expect(all[1].name, '导入的新引擎');
   });
 
   test('HTTP 配置与书签沿用根对象的同一 ID 分配，不改变其他领域', () async {

@@ -141,6 +141,24 @@ pub async fn send_raw(
     analyze_url: &AnalyzeUrl,
     headers: Option<HashMap<String, String>>,
 ) -> LegadoResult<LegadoRawResponse> {
+    send_raw_internal(client, analyze_url, headers, None).await
+}
+
+pub async fn send_raw_with_timeout(
+    client: &LegadoClient,
+    analyze_url: &AnalyzeUrl,
+    headers: Option<HashMap<String, String>>,
+    timeout: std::time::Duration,
+) -> LegadoResult<LegadoRawResponse> {
+    send_raw_internal(client, analyze_url, headers, Some(timeout)).await
+}
+
+async fn send_raw_internal(
+    client: &LegadoClient,
+    analyze_url: &AnalyzeUrl,
+    headers: Option<HashMap<String, String>>,
+    timeout: Option<std::time::Duration>,
+) -> LegadoResult<LegadoRawResponse> {
     // data: URI 短路：本地解码、绝不进 reqwest（P2-15，实机 builder error）
     if let Some(result) = data_uri_body(analyze_url) {
         return Ok(LegadoRawResponse {
@@ -159,11 +177,13 @@ pub async fn send_raw(
         let headers = headers.clone();
         async move {
             if is_post {
-                effective.post_raw(&url, &body, headers).await
+                effective
+                    .post_raw_with_timeout(&url, &body, headers, timeout)
+                    .await
             } else {
                 // 现状口径：非 POST（含 HEAD/GET）一律按 GET 发送，与既有
                 // 调用点逐字一致（HEAD 支持不在本批范围）
-                effective.get_raw(&url, headers).await
+                effective.get_raw_with_timeout(&url, headers, timeout).await
             }
         }
     })

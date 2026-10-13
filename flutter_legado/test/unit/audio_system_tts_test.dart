@@ -1,5 +1,6 @@
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -67,23 +68,11 @@ Future<void> flush() async {
   }
 }
 
-class _ControlledPlayer extends FakeStreamAudioPlayer {
-  Future<void>? pendingStop;
-
-  @override
-  Future<void> stop() async {
-    final pending = pendingStop;
-    pendingStop = null;
-    await super.stop();
-    await pending;
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late MockRustApi api;
   late FakeSystemTts system;
-  late _ControlledPlayer player;
+  late FakeStreamAudioPlayer player;
   late ProviderContainer container;
   late MockAudioService audio;
   late StreamController<AudioFocusEvent> focus;
@@ -96,7 +85,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
     system = FakeSystemTts();
-    player = _ControlledPlayer();
+    player = FakeStreamAudioPlayer();
     audio = MockAudioService();
     focus = StreamController<AudioFocusEvent>.broadcast();
     buttons = StreamController<MediaButtonEvent>.broadcast();
@@ -125,7 +114,8 @@ void main() {
         const BookChapter(title: '第二章', index: 1),
       ],
     );
-    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
     when(() => api.getChapterContentFull(any(), any())).thenAnswer(
       (call) async =>
           call.positionalArguments[1] == 0 ? '第一段。\n\n第二段。' : '下一章。',
@@ -134,6 +124,8 @@ void main() {
     when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
     when(
       () => api.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
         text: any(named: 'text'),
         engineUrl: any(named: 'engineUrl'),
         speed: any(named: 'speed'),
@@ -321,6 +313,8 @@ void main() {
     await flush();
     verify(
       () => api.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
         text: '正文。',
         engineUrl: 'https://tts/{{text}}',
         speed: 1,
@@ -400,7 +394,9 @@ void main() {
     player.onCompleted!(tag);
     player.onCompleted!(tag);
     player.onProgress!(
-      const Duration(seconds: 8), const Duration(seconds: 10), tag,
+      const Duration(seconds: 8),
+      const Duration(seconds: 10),
+      tag,
     );
     await flush();
     expect(notifier().currentParagraphIndex, 1);
@@ -444,11 +440,18 @@ void main() {
 
   test('切换系统引擎后迟到的 HTTP 合成错误不写入当前会话', () async {
     final pending = Completer<HttpTtsSynthesisResult>();
-    when(() => api.httpTtsSynthesizer.synthesize(
-      text: any(named: 'text'), engineUrl: any(named: 'engineUrl'),
-      speed: any(named: 'speed'), pitch: any(named: 'pitch'),
-      volume: any(named: 'volume'), voiceName: any(named: 'voiceName'),
-    )).thenAnswer((_) => pending.future);
+    when(
+      () => api.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
+        text: any(named: 'text'),
+        engineUrl: any(named: 'engineUrl'),
+        speed: any(named: 'speed'),
+        pitch: any(named: 'pitch'),
+        volume: any(named: 'volume'),
+        voiceName: any(named: 'voiceName'),
+      ),
+    ).thenAnswer((_) => pending.future);
     await notifier().loadChapters('book');
     notifier().updateConfig(engineUrl: 'https://tts.test');
     final playing = notifier().play();
@@ -469,12 +472,12 @@ void main() {
     notifier().updateConfig(engineUrl: 'https://tts.test');
     await notifier().play();
     final pending = Completer<void>();
-    player.pendingStop = pending.future;
+    player.pauseBarrier = pending.future;
     notifier().pause();
-    pending.completeError(StateError('文件播放停止失败'));
+    pending.completeError(StateError('文件播放暂停失败'));
     await flush();
     expect(state().state, PlayerState.paused);
-    expect(state().errorMessage, contains('文件播放停止失败'));
+    expect(state().errorMessage, contains('文件播放暂停失败'));
   });
 
   test('旧 HTTP 暂停控制失败不能改写恢复后的播放状态', () async {
@@ -482,10 +485,12 @@ void main() {
     notifier().updateConfig(engineUrl: 'https://tts.test');
     await notifier().play();
     final pending = Completer<void>();
-    player.pendingStop = pending.future;
+    player.pauseBarrier = pending.future;
     notifier().pause();
+    notifier().updateConfig(engineUrl: 'https://other.tts.test', engineId: 2);
+    await flush();
     await notifier().resumeOrPlay();
-    pending.completeError(StateError('旧文件播放停止失败'));
+    pending.completeError(StateError('旧文件播放暂停失败'));
     await flush();
     expect(state().state, PlayerState.playing);
     expect(state().errorMessage, isNull);
@@ -543,6 +548,8 @@ void main() {
     expect(player.playedLocalFiles, isEmpty);
     verifyNever(
       () => api.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
         text: any(named: 'text'),
         engineUrl: any(named: 'engineUrl'),
         speed: any(named: 'speed'),
@@ -686,10 +693,12 @@ void main() {
 
   test('书级与全局系统引擎分别持久化，恢复不需要 HTTP 数据行', () async {
     Book saved = const Book(bookUrl: 'book', name: '小说');
-    when(() => api.bookshelfRepository.getBook('book')).thenAnswer((_) async => saved);
-    when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((call) async {
-      saved = call.positionalArguments.first as Book;
-    });
+    when(() => api.bookshelfRepository.getBook('book'))
+        .thenAnswer((_) async => saved);
+    when(() => api.bookshelfRepository.updateBook(any()))
+        .thenAnswer((call) async {
+          saved = call.positionalArguments.first as Book;
+        });
     await notifier().loadChapters('book');
     expect(await notifier().setBookTtsEngine(systemTtsEngineUrl), true);
     expect(saved.readConfig?.ttsEngine, systemTtsEngineUrl);

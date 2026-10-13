@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   dynamic_color
+  flutter_secure_storage_windows
   flutter_tts
   screen_brightness_windows
   share_plus

@@ -906,7 +906,10 @@ mod tests {
         conn.pragma_update(None, "user_version", 103).unwrap();
         let registry = MigrationRegistry::new();
         registry.migrate_to_latest(conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
         assert_eq!(
             primary_key_columns(conn, "rssArticles").unwrap(),
             vec!["origin", "link", "sort"]

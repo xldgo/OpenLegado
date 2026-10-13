@@ -1,9 +1,9 @@
-//! HTTP TTS 语音合成管线 API（Task #113 批次 2 缺口②）
+//! HTTP TTS 语音合成管线 API（Task #113 批次 2 缺口② / T2a）
 //!
-//! 对照 Kotlin 原版 `HttpReadAloudService.getSpeakStream`：
-//! url 模板替换（speakText/speakSpeed）→ HTTP 拉取音频二进制（legado-net `get_raw`）
-//! → Content-Type 校验 → MD5 命名本地缓存。合成/缓存纯逻辑位于
-//! `legado_core::tts_speak`，本模块负责注入共享 HTTP 客户端与全局缓存目录。
+//! 对照 Kotlin 原版 `HttpReadAloudService.getSpeakStream` 与 `AnalyzeUrl`：
+//! 1. 以 `engine_id: i64` 为唯一主身份，查库获取完整 `HttpTts` 实体。
+//! 2. 委托给 `legado_fetcher::fetch_tts_audio` 执行完整 TTS 请求管线（变量替换、内嵌 JS、@Header、@Body、POST/GET、MIME 校验与缓存落盘）。
+//! 3. 保持返回值 `TtsSpeakDto`（camelCase 对齐 Dart 侧解析约定）。
 
 use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
@@ -11,7 +11,7 @@ use std::sync::{OnceLock, RwLock};
 use serde::Serialize;
 
 use legado_core::LegadoResult;
-use legado_core::tts_speak::{self, SpeakResponse};
+use legado_fetcher::TtsSpeakContext;
 
 /// TTS 合成结果 DTO（camelCase 对齐 Dart 侧解析约定，见 API_CONTRACT §2.42）
 #[derive(Debug, Clone, Serialize)]
@@ -51,34 +51,63 @@ pub fn set_tts_cache_dir(path: &str) -> LegadoResult<bool> {
 
 /// TTS 真实合成：返回本地音频文件路径（缓存命中时免网络请求）
 ///
+/// - `engine_id`: 数据库 HTTP TTS 引擎 ID
 /// - `text`: 朗读文本
-/// - `engine_url`: 引擎 URL 模板（`{{speakText}}` / `{{text}}` / `{{speakSpeed}}` / `{{speed}}` 占位符）
-/// - `speed`: 语速
-pub fn tts_speak(text: &str, engine_url: &str, speed: f64) -> LegadoResult<TtsSpeakDto> {
+/// - `tone_id`: 音色 ID（可选）
+/// - `speaker_name`: 发音人名称（可选）
+/// - `emotion_tag`: 情感标签（可选）
+pub fn tts_speak(
+    engine_id: i64,
+    text: &str,
+    tone_id: Option<String>,
+    speaker_name: Option<String>,
+    emotion_tag: Option<String>,
+) -> LegadoResult<TtsSpeakDto> {
+    tts_speak_controlled(
+        engine_id,
+        text,
+        tone_id,
+        speaker_name,
+        emotion_tag,
+        &legado_fetcher::tts_control::TtsCancellation::default(),
+    )
+}
+
+pub fn tts_speak_controlled(
+    engine_id: i64,
+    text: &str,
+    tone_id: Option<String>,
+    speaker_name: Option<String>,
+    emotion_tag: Option<String>,
+    cancellation: &legado_fetcher::tts_control::TtsCancellation,
+) -> LegadoResult<TtsSpeakDto> {
+    cancellation.check()?;
+    let config = super::http_tts_runtime::config_for(engine_id)?;
+    let speak_speed = config.effective_speed();
+    let context = TtsSpeakContext::new(
+        text,
+        speak_speed,
+        tone_id.as_deref(),
+        speaker_name.as_deref(),
+        emotion_tag.as_deref(),
+    );
+
     let cache_dir = tts_cache_dir();
-    let engine_url = engine_url.to_string();
-    let result = tts_speak::speak_text(&engine_url, text, speed, &cache_dir, |url| {
-        // 同步签名适配：FFI 调用线程内 block_on 共享 tokio runtime（同 rss.rs 模式）
-        let raw = crate::runtime::block_on(async {
-            let client = crate::http_state::shared_client()?;
-            // 写侧 CookieJar 门控残差核实（批 2 收尾）：上游
-            // `HttpReadAloudService.getSpeakStream` 以 `AnalyzeUrl(source = httpTts)`
-            // 按 `HttpTTS.enabledCookieJar` 门控写回；但本 FFI 入口签名仅接收
-            // `engine_url`（ffi.rs:2013 / bridge.rs:1263 / Dart ffi.dart:1551），
-            // 调用点不持 HttpTTS 对象或 id，运行面 `legado_db::HttpTts`
-            // （http_tts_repository.rs:10）亦未暴露 enabledCookieJar 列
-            // （列在 httpTTS 表内但 SELECT 不含）——无源上下文可判定，
-            // 故保持无标记（None headers）：响应 Set-Cookie 不写回，
-            // 读侧按域 cookie 注入不受影响。接线需先扩展 FFI 入口传
-            // HttpTTS id/开关（跨轨契约变更，超出本批）。
-            client.get_raw(url, None).await
-        })?;
-        Ok(SpeakResponse {
-            status: raw.status,
-            content_type: raw.content_type().cloned().unwrap_or_default(),
-            body: raw.body,
-        })
+    let result = crate::runtime::block_on(async {
+        let client = crate::http_state::shared_client()?;
+        legado_fetcher::tts_fetcher::fetch_tts_audio_controlled(
+            &client,
+            &config,
+            &context,
+            &cache_dir,
+            None,
+            std::sync::Arc::new(super::http_tts_runtime::DbTtsSourceStore),
+            super::source_rate_limit::registry(),
+            cancellation,
+        )
+        .await
     })?;
+
     Ok(TtsSpeakDto {
         audio_path: result.audio_path.to_string_lossy().to_string(),
         from_cache: result.from_cache,
@@ -112,6 +141,7 @@ mod tests {
     #[test]
     fn test_tts_speak_cache_hit_without_network() {
         let _guard = TTS_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _db_guard = crate::db_state::ensure_test_db();
         // 独立缓存目录：预置缓存文件后调用 tts_speak，应命中缓存且不触网
         let dir =
             std::env::temp_dir().join(format!("legado_tts_api_hit_test_{}", std::process::id()));
@@ -119,11 +149,26 @@ mod tests {
         assert!(set_tts_cache_dir(dir.to_str().unwrap()).unwrap());
 
         let template = "https://tts.example.com/api?text={{speakText}}";
-        let key = tts_speak::speak_cache_key(template, "缓存命中测试", 1.0);
+        let engine_id = crate::db_state::with_database(|db| {
+            let repo = legado_db::HttpTtsRepository::new(db.connection());
+            let entity = legado_db::HttpTts {
+                id: -9999,
+                name: "CacheHitEngine".into(),
+                url: template.into(),
+                speed: Some(0), // (0) + 5 = 5
+                ..Default::default()
+            };
+            repo.insert_entity(&entity)
+        })
+        .unwrap();
+
+        let config = crate::api::http_tts_runtime::config_for(engine_id).unwrap();
+        let context = TtsSpeakContext::new("缓存命中测试", 5, None, None, None);
+        let key = legado_fetcher::tts_cache_key_from_context(&config, &context);
         let cache_file = dir.join(format!("tts_{}.mp3", key));
         std::fs::write(&cache_file, b"FAKE_MP3").unwrap();
 
-        let dto = tts_speak("缓存命中测试", template, 1.0).unwrap();
+        let dto = tts_speak(engine_id, "缓存命中测试", None, None, None).unwrap();
         assert!(dto.from_cache);
         assert_eq!(dto.audio_path, cache_file.to_string_lossy().to_string());
         assert_eq!(dto.content_type, "audio/mpeg");
@@ -135,9 +180,33 @@ mod tests {
     }
 
     #[test]
+    fn test_tts_speak_engine_not_found() {
+        let _guard = TTS_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _db_guard = crate::db_state::ensure_test_db();
+        let err = tts_speak(99999999, "测试文本", None, None, None).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("未找到 ID 为 99999999 的 HTTP TTS 引擎配置")
+        );
+    }
+
+    #[test]
     fn test_tts_speak_empty_text_error() {
         let _guard = TTS_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        let err = tts_speak("  ", "https://tts.example.com/{{text}}", 1.0).unwrap_err();
+        let _db_guard = crate::db_state::ensure_test_db();
+        let engine_id = crate::db_state::with_database(|db| {
+            let repo = legado_db::HttpTtsRepository::new(db.connection());
+            let entity = legado_db::HttpTts {
+                id: -9998,
+                name: "EmptyTextEngine".into(),
+                url: "https://tts.example.com/api".into(),
+                ..Default::default()
+            };
+            repo.insert_entity(&entity)
+        })
+        .unwrap();
+
+        let err = tts_speak(engine_id, "  ", None, None, None).unwrap_err();
         assert!(err.to_string().contains("朗读文本为空"));
     }
 }

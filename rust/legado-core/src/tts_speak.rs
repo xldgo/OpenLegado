@@ -174,17 +174,45 @@ impl SpeakCache {
 
     /// 写入缓存文件并返回路径（同键旧扩展名文件先清理，避免残留）
     pub fn put(&self, key: &str, ext: &str, bytes: &[u8]) -> LegadoResult<PathBuf> {
-        std::fs::create_dir_all(&self.dir)?;
-        if let Some(old) = self.get(key) {
-            let new_name = format!("{}{}.{}", SPEAK_CACHE_PREFIX, key, ext);
-            if old.file_name().map(|n| n.to_string_lossy().to_string()) != Some(new_name) {
-                std::fs::remove_file(&old).ok();
-            }
+        use std::io::Write;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        if bytes.is_empty() {
+            return Err(LegadoError::ContentEmpty("拒绝缓存空音频".into()));
         }
+        std::fs::create_dir_all(&self.dir)?;
+        let old = self.get(key);
         let path = self
             .dir
             .join(format!("{}{}.{}", SPEAK_CACHE_PREFIX, key, ext));
-        std::fs::write(&path, bytes)?;
+        let temp = self.dir.join(format!(
+            ".tts_{}_{}_{}.part",
+            key,
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        struct TempFile(PathBuf);
+        impl Drop for TempFile {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        let cleanup = TempFile(temp.clone());
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        // 完整写入之后才发布；扫描不识别 .part 临时文件。
+        std::fs::rename(&temp, &path)?;
+        drop(cleanup);
+        if let Some(old) = old
+            && old != path
+        {
+            let _ = std::fs::remove_file(old);
+        }
         Ok(path)
     }
 
@@ -421,6 +449,13 @@ mod tests {
         assert!(path.exists());
         assert_eq!(cache.get("abc"), Some(path.clone()));
 
+        // 原子替换后旧扩展名不能残留，临时文件不得被扫描命中。
+        let updated = cache.put("abc", "wav", b"NEW_AUDIO").unwrap();
+        assert!(!path.exists());
+        assert_eq!(cache.get("abc"), Some(updated));
+        assert!(cache.put("empty", "mp3", b"").is_err());
+        std::fs::write(dir.join(".tts_incomplete.part"), b"partial").unwrap();
+        assert!(cache.get("incomplete").is_none());
         // 空文件视为未命中
         let empty = dir.join("tts_emptykey.mp3");
         std::fs::write(&empty, b"").unwrap();

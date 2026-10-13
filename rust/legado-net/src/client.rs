@@ -445,6 +445,15 @@ impl LegadoClient {
         url: &str,
         headers: Option<HashMap<String, String>>,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        self.get_raw_with_timeout(url, headers, None).await
+    }
+
+    pub async fn get_raw_with_timeout(
+        &self,
+        url: &str,
+        headers: Option<HashMap<String, String>>,
+        timeout: Option<Duration>,
+    ) -> LegadoResult<crate::response::LegadoRawResponse> {
         let client = self.client.clone();
         let cookie_store = self.cookie_store.clone();
         // 写侧门控：请求头携带 CookieJar 标记才写回响应 cookie
@@ -462,6 +471,9 @@ impl LegadoClient {
                 let mut req = client.get(&url);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
+                if let Some(timeout) = timeout {
+                    req = req.timeout(timeout);
+                }
                 req.send().await
             }
         };
@@ -494,6 +506,16 @@ impl LegadoClient {
         body: &str,
         headers: Option<HashMap<String, String>>,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        self.post_raw_with_timeout(url, body, headers, None).await
+    }
+
+    pub async fn post_raw_with_timeout(
+        &self,
+        url: &str,
+        body: &str,
+        headers: Option<HashMap<String, String>>,
+        timeout: Option<Duration>,
+    ) -> LegadoResult<crate::response::LegadoRawResponse> {
         let client = self.client.clone();
         let cookie_store = self.cookie_store.clone();
         // 写侧门控：请求头携带 CookieJar 标记才写回响应 cookie
@@ -513,6 +535,9 @@ impl LegadoClient {
                 let mut req = client.post(&url).body(body);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
+                if let Some(timeout) = timeout {
+                    req = req.timeout(timeout);
+                }
                 req.send().await
             }
         };

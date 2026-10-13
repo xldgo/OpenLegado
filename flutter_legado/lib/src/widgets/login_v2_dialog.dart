@@ -1,3 +1,4 @@
+import '../domain/contracts/source_login_session.dart';
 import '../l10n/app_localization.dart';
 
 import 'dart:async';
@@ -16,7 +17,8 @@ import '../services/book_api.dart';
 /// 公共组件：书籍详情页与发现页共用登录入口（2026-08-14 发现页修复 R2，
 /// 自 book_info_screen 提取）。— DeepSeek Harness + UI
 class LoginV2Dialog extends StatefulWidget {
-  final BookApi api;
+  final BookApi? api;
+  final SourceLoginSession? session;
   final String sourceJson;
   final String sourceName;
 
@@ -25,7 +27,12 @@ class LoginV2Dialog extends StatefulWidget {
     required this.api,
     required this.sourceJson,
     required this.sourceName,
-  });
+  }) : session = null;
+
+  LoginV2Dialog.session({super.key, required SourceLoginSession this.session})
+    : api = null,
+      sourceJson = '',
+      sourceName = session.name;
 
   @override
   State<LoginV2Dialog> createState() => LoginV2DialogState();
@@ -89,13 +96,15 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   Future<void> _loadUi() async {
     setState(() => _busy = true);
     try {
-      final json = await widget.api.loginUiV2(widget.sourceJson, _stateJson);
+      final json =
+          await (widget.session?.loadUi(_stateJson) ??
+              widget.api!.loginUiV2(widget.sourceJson, _stateJson));
       final data = jsonDecode(json);
       final rows = (data is Map && data['rows'] is List)
           ? (data['rows'] as List)
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList()
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
           : <Map<String, dynamic>>[];
       if (!mounted) return;
       // 预填默认值（text/password → 控制器；select → 选中项）
@@ -155,7 +164,9 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
         'stateJson': _stateJson,
         'formJson': _formJson(),
       });
-      final resJson = await widget.api.loginActionV2(widget.sourceJson, input);
+      final resJson =
+          await (widget.session?.executeV2(input) ??
+              widget.api!.loginActionV2(widget.sourceJson, input));
       final res = jsonDecode(resJson);
       if (!mounted) return;
       if (res is! Map) {

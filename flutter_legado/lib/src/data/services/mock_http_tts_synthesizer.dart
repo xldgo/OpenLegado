@@ -6,11 +6,16 @@ class MockHttpTtsSynthesizer implements HttpTtsSynthesizer {
 
   @override
   Future<HttpTtsSynthesisResult> synthesize({
+    required int engineId,
     required String text,
-    required String engineUrl,
+    String? engineUrl,
     double speed = 1.0,
     double pitch = 1.0,
     double volume = 1.0,
     String? voiceName,
+    String? toneId,
+    String? speakerName,
+    String? emotionTag,
+    HttpTtsCancellation? cancellation,
   }) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.mock);
 }

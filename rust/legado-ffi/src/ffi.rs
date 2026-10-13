@@ -28,6 +28,28 @@ pub fn reader_layout_cancel(session_id: String) -> Result<(), BridgeError> {
     crate::layout_bridge::cancel(&session_id)
 }
 
+/// 单次 TTS 请求的取消句柄；同步取消不排在耗时合成线程之后。
+#[flutter_rust_bridge::frb(opaque)]
+pub struct TtsRequest {
+    inner: std::sync::Arc<legado_fetcher::tts_control::TtsCancellation>,
+    lease: std::sync::Mutex<Option<legado_core::tts_cache::AudioLease>>,
+}
+
+impl TtsRequest {
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn cancel(&self) {
+        self.inner.cancel();
+    }
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn tts_request_new() -> TtsRequest {
+    TtsRequest {
+        inner: std::sync::Arc::new(Default::default()),
+        lease: std::sync::Mutex::new(None),
+    }
+}
+
 // ─── BridgeError ──────────────────────────────────────────────
 
 /// frb 桥接错误类型
@@ -2232,15 +2254,15 @@ pub mod ffi {
         to_json(&list)
     }
 
-    /// 添加 HTTP TTS 源，返回新 ID
-    pub fn http_tts_add(name: String, url: String) -> Result<i64, BridgeError> {
-        let id = crate::api::http_tts_api::add_http_tts(&name, &url)?;
+    /// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
+    pub fn http_tts_add(http_tts_json: String) -> Result<i64, BridgeError> {
+        let id = crate::api::http_tts_api::add_http_tts_json(&http_tts_json)?;
         Ok(id)
     }
 
-    /// 更新 HTTP TTS 源
-    pub fn http_tts_update(id: i64, name: String, url: String) -> Result<bool, BridgeError> {
-        let ok = crate::api::http_tts_api::update_http_tts(id, &name, &url)?;
+    /// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
+    pub fn http_tts_update(http_tts_json: String) -> Result<bool, BridgeError> {
+        let ok = crate::api::http_tts_api::update_http_tts_json(&http_tts_json)?;
         Ok(ok)
     }
 
@@ -2258,14 +2280,127 @@ pub mod ffi {
 
     // ─── TTS 真实合成管线（Task #113 缺口②，API_CONTRACT §2.42）─────
 
-    /// TTS 真实合成：url 模板替换（speakText/speakSpeed）→ HTTP 拉取音频 → 本地缓存
+    /// TTS 真实合成：读取数据库 HttpTts 配置，经 legado-fetcher 完整上下文与 AnalyzeUrl 执行网络合成与校验
     ///
     /// 返回合成结果 JSON（camelCase）：
     /// `{"audioPath": "...", "fromCache": false, "contentType": "audio/mpeg"}`
     /// 缓存命中时不发起网络请求。
-    pub fn tts_speak(text: String, engine_url: String, speed: f64) -> Result<String, BridgeError> {
-        let dto = crate::api::tts_speak_api::tts_speak(&text, &engine_url, speed)?;
+    pub fn tts_speak(
+        engine_id: i64,
+        request: &super::TtsRequest,
+        text: String,
+        tone_id: Option<String>,
+        speaker_name: Option<String>,
+        emotion_tag: Option<String>,
+    ) -> Result<String, BridgeError> {
+        let cache = crate::api::tts_cache_api::cache()?;
+        let _activity = cache.activity();
+        let dto = crate::api::tts_speak_api::tts_speak_controlled(
+            engine_id,
+            &text,
+            tone_id,
+            speaker_name,
+            emotion_tag,
+            &request.inner,
+        )?;
+        request.inner.check()?;
+        *request.lease.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some(cache.pin(std::path::Path::new(&dto.audio_path))?);
         to_json(&dto)
+    }
+
+    /// 云端元数据，不返回平台凭据。
+    pub fn cloud_tts_list() -> Result<String, BridgeError> {
+        Ok(crate::api::cloud_tts_api::list()?)
+    }
+    pub fn cloud_tts_save(engine_json: String) -> Result<(), BridgeError> {
+        Ok(crate::api::cloud_tts_api::save(&engine_json)?)
+    }
+    pub fn cloud_tts_delete(id: String) -> Result<bool, BridgeError> {
+        Ok(crate::api::cloud_tts_api::delete(&id)?)
+    }
+    pub fn cloud_tts_voices(provider: String) -> Result<String, BridgeError> {
+        Ok(crate::api::cloud_tts_api::voices(&provider)?)
+    }
+    /// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
+    pub fn cloud_tts_speak(
+        engine_id: String,
+        api_key: String,
+        request_json: String,
+        request: &super::TtsRequest,
+    ) -> Result<String, BridgeError> {
+        let result =
+            crate::api::cloud_tts_api::speak(&engine_id, api_key, &request_json, &request.inner)?;
+        request.inner.check()?;
+        let dto = crate::api::tts_speak_api::TtsSpeakDto {
+            audio_path: result.audio_path.to_string_lossy().to_string(),
+            from_cache: result.from_cache,
+            content_type: result.content_type,
+        };
+        *request.lease.lock().unwrap_or_else(|e| e.into_inner()) = Some(result.lease);
+        to_json(&dto)
+    }
+
+    /// 全量音色目录，包括用户排除项。
+    pub fn read_aloud_voice_list() -> Result<String, BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::list()?)
+    }
+    /// 同步当前设备引擎音色，不覆盖用户标记。
+    pub fn read_aloud_voice_sync_system(
+        engine_id: String,
+        entries_json: String,
+    ) -> Result<(), BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::sync_system(
+            &engine_id,
+            &entries_json,
+        )?)
+    }
+    /// 修改用户启用与排除状态。
+    pub fn read_aloud_voice_set_flags(
+        id: String,
+        enabled: bool,
+        excluded: bool,
+    ) -> Result<bool, BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::set_flags(
+            &id, enabled, excluded,
+        )?)
+    }
+
+    /// 登记朗读缓存的书章段索引。
+    pub fn tts_cache_record(audio_path: String, context_json: String) -> Result<(), BridgeError> {
+        Ok(crate::api::tts_cache_api::record(
+            &audio_path,
+            &context_json,
+        )?)
+    }
+    /// 只读列出已发布音频缓存。
+    pub fn tts_cache_list() -> Result<String, BridgeError> {
+        Ok(crate::api::tts_cache_api::list()?)
+    }
+    /// 清理缓存，保留活动请求、播放租约及明确指定的当前章。
+    pub fn tts_cache_clear(
+        name: Option<String>,
+        before_timestamp_ms: Option<u64>,
+        keep_book_url: Option<String>,
+        keep_chapter_index: Option<u32>,
+    ) -> Result<String, BridgeError> {
+        Ok(crate::api::tts_cache_api::clear(
+            name,
+            before_timestamp_ms,
+            keep_book_url,
+            keep_chapter_index,
+        )?)
+    }
+
+    /// HTTP TTS 登录操作：ID 查库，复用登录存储与经典/V2 控件协议。
+    pub fn http_tts_login(
+        engine_id: i64,
+        operation: String,
+        payload: String,
+    ) -> Result<String, BridgeError> {
+        Ok(crate::api::http_tts_runtime::login(
+            engine_id, &operation, &payload,
+        )?)
     }
 
     /// 设置 TTS 音频缓存目录（全局生效）

@@ -1,4 +1,7 @@
 import '../domain/contracts/source_login_repository.dart';
+import '../domain/contracts/cloud_tts_repository.dart';
+import '../domain/contracts/read_aloud_voice_repository.dart';
+import '../domain/contracts/tts_cache_repository.dart';
 import '../domain/contracts/source_checker.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
@@ -16,6 +19,8 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  CloudTtsRepository get cloudTtsRepository;
+
   /// 共享书源配置访问，登录与校验仍由各自能力承担。
   BookSourceRepository get bookSourceRepository;
 
@@ -39,9 +44,11 @@ abstract class BookApi {
 
   /// 共享 HTTP 朗读引擎配置实例，不包含系统语音或播放状态。
   HttpTtsRepository get httpTtsRepository;
+  ReadAloudVoiceRepository get readAloudVoiceRepository;
 
   /// 共享 HTTP 合成能力；缓存目录由应用生命周期单独注入。
   HttpTtsSynthesizer get httpTtsSynthesizer;
+  TtsCacheRepository get ttsCacheRepository;
 
   // ========== 初始化/版本 ==========
 

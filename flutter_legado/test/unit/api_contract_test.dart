@@ -41,7 +41,10 @@ void main() {
     'HttpTtsRepository',
   );
   final synthesisNames = _extractMethods(
-    _read('lib/src/domain/contracts/http_tts_synthesizer.dart'),
+    _interfaceSource(
+      _read('lib/src/domain/contracts/http_tts_synthesizer.dart'),
+      'HttpTtsSynthesizer',
+    ),
     'HttpTtsSynthesizer',
   );
   final bookshelfNames = _extractMethods(
@@ -350,7 +353,7 @@ void main() {
             bookSourceNames.length +
             sourceCheckerNames.length +
             sourceLoginNames.length +
-            4 +
+            6 +
             1 +
             1,
       );
@@ -494,19 +497,33 @@ void main() {
     });
 
     test('登录凭据四项独立，根旧方法移除且两种实现完整', () {
-      const expected = {'getLoginInfo', 'getLoginHeader', 'putLoginInfo', 'putLoginHeader'};
+      const expected = {
+        'getLoginInfo',
+        'getLoginHeader',
+        'putLoginInfo',
+        'putLoginHeader',
+      };
       expect(sourceLoginNames.toSet(), expected);
       for (final implementation in ['rust', 'mock']) {
         final methods = _extractMethods(
-          _read('lib/src/data/repositories/${implementation}_source_login_repository.dart'),
-          implementation == 'rust' ? 'RustSourceLoginRepository' : 'MockSourceLoginRepository',
+          _read(
+            'lib/src/data/repositories/${implementation}_source_login_repository.dart',
+          ),
+          implementation == 'rust'
+              ? 'RustSourceLoginRepository'
+              : 'MockSourceLoginRepository',
         ).where((name) => !name.startsWith('_')).toSet();
         expect(methods, expected);
       }
       for (final names in [bNames, rNames, mNames]) {
         expect(names.toSet().intersection(expected), isEmpty);
       }
-      expect(expected.every((name) => allRowNames.contains(name) || pairs.containsKey(name)), isTrue);
+      expect(
+        expected.every(
+          (name) => allRowNames.contains(name) || pairs.containsKey(name),
+        ),
+        isTrue,
+      );
     });
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {
@@ -617,6 +634,15 @@ bool _candidate(String line) {
   if (c0 == 64 || c0 == 125 || c0 == 123) return false; // @ } {
   if (rest.startsWith('//') || rest.startsWith('*')) return false;
   return line.contains('(');
+}
+
+/// 同文件包含 DTO 与取消对象时，只统计指定接口本身的领域方法。
+String _interfaceSource(String src, String name) {
+  final start = src.indexOf('abstract interface class $name {');
+  if (start < 0) throw StateError('未找到接口 $name');
+  final end = src.indexOf('\n}', start);
+  if (end < 0) throw StateError('接口 $name 未闭合');
+  return src.substring(start, end + 2);
 }
 
 List<String> _extractMethods(String src, String className) {

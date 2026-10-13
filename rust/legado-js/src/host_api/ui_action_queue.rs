@@ -18,6 +18,25 @@ static COLLECTING: AtomicBool = AtomicBool::new(false);
 static REFRESH_EXPLORE: AtomicBool = AtomicBool::new(false);
 static QUEUE: Mutex<Vec<Value>> = Mutex::new(Vec::new());
 
+thread_local! {
+    static LOCAL_ACTIONS: std::cell::RefCell<Option<Vec<Value>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// 独立宿主动作在当前 JS 线程收集；作用域结束后恢复外层，不改旧全局队列。
+pub fn collect_local<R>(operation: impl FnOnce() -> R) -> (R, Vec<Value>) {
+    struct Guard(Option<Vec<Value>>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            LOCAL_ACTIONS.with(|cell| *cell.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = LOCAL_ACTIONS.with(|cell| cell.replace(Some(Vec::new())));
+    let _guard = Guard(previous);
+    let result = operation();
+    let actions = LOCAL_ACTIONS.with(|cell| cell.borrow_mut().take().unwrap_or_default());
+    (result, actions)
+}
+
 /// 开启收集并清空旧队列（对齐一次 `callBackBtn` 会话）
 pub fn begin_collect() {
     COLLECTING.store(true, Ordering::SeqCst);
@@ -29,11 +48,23 @@ pub fn begin_collect() {
 
 /// 是否正在收集（供宿主 API 决定是否入队）
 pub fn is_collecting() -> bool {
-    COLLECTING.load(Ordering::SeqCst)
+    LOCAL_ACTIONS.with(|cell| cell.borrow().is_some()) || COLLECTING.load(Ordering::SeqCst)
 }
 
 /// 入队一个结构化 action（仅在收集开启时生效）
 pub fn push_action(action: Value) {
+    let local = LOCAL_ACTIONS.with(|cell| {
+        let mut guard = cell.borrow_mut();
+        if let Some(queue) = guard.as_mut() {
+            queue.push(action.clone());
+            true
+        } else {
+            false
+        }
+    });
+    if local {
+        return;
+    }
     if !is_collecting() {
         return;
     }
@@ -130,5 +161,24 @@ mod tests {
         assert_eq!(actions[0]["action"], "refreshBookInfo");
         assert_eq!(actions[1]["action"], "openBrowser");
         assert!(end_collect().is_empty());
+    }
+    #[test]
+    fn local_actions_are_isolated_across_threads_and_nested_scopes() {
+        let (value, outer) = collect_local(|| {
+            push_action(serde_json::json!({"action":"outer"}));
+            let (_, inner) = collect_local(|| push_action(serde_json::json!({"action":"inner"})));
+            assert_eq!(inner[0]["action"], "inner");
+            let other = std::thread::spawn(|| {
+                collect_local(|| push_action(serde_json::json!({"action":"other"})))
+            })
+            .join()
+            .unwrap();
+            assert_eq!(other.1[0]["action"], "other");
+            push_action(serde_json::json!({"action":"outer-end"}));
+            42
+        });
+        assert_eq!(value, 42);
+        assert_eq!(outer.len(), 2);
+        assert_eq!(outer[0]["action"], "outer");
     }
 }

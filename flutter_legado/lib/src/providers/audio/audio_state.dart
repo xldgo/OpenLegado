@@ -3,20 +3,10 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'audio_state.freezed.dart';
 
 /// 播放状态
-enum PlayerState {
-  idle,
-  playing,
-  paused,
-  loading,
-  error,
-}
+enum PlayerState { idle, playing, paused, loading, error }
 
 /// 播放模式
-enum AudioPlayMode {
-  sequential,
-  singleLoop,
-  shuffle,
-}
+enum AudioPlayMode { sequential, singleLoop, shuffle }
 
 /// 定时停止模式（A4 批：计时下沉 Notifier，供听书页与阅读器等入口共享）
 enum SleepTimerMode {
@@ -33,6 +23,7 @@ enum SleepTimerMode {
 /// TTS 配置
 class TtsConfig {
   String engineUrl;
+  int? engineId;
   String? voiceName;
   double speed;
   double pitch;
@@ -40,6 +31,7 @@ class TtsConfig {
 
   TtsConfig({
     this.engineUrl = '',
+    this.engineId,
     this.voiceName,
     this.speed = 1.0,
     this.pitch = 1.0,
@@ -47,12 +39,13 @@ class TtsConfig {
   });
 
   Map<String, dynamic> toJson() => {
-        'engine_url': engineUrl,
-        'voice_name': voiceName,
-        'speed': speed,
-        'pitch': pitch,
-        'volume': volume,
-      };
+    'engine_url': engineUrl,
+    'engine_id': engineId,
+    'voice_name': voiceName,
+    'speed': speed,
+    'pitch': pitch,
+    'volume': volume,
+  };
 }
 
 /// 音频章节信息

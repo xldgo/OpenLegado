@@ -1,3 +1,11 @@
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../features/read_aloud/cloud_tts_providers.dart';
+import '../../features/read_aloud/playback/cloud_read_aloud_engine.dart';
+import '../../features/read_aloud/http_tts_voice_selection.dart';
+import '../../domain/contracts/read_aloud_voice_repository.dart';
+import '../../domain/contracts/tts_cache_repository.dart';
+import '../../features/read_aloud/playback/http_tts_synthesis_queue.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -92,6 +100,9 @@ const int kMaxChapterStopCount = 99;
 /// [引擎双持久化 | 2026-10-04]
 const String kTtsEngineConfigKey = 'appTtsEngine';
 
+/// 全局稳定 HTTP TTS 引擎 ID 持久化键
+const String kTtsEngineIdConfigKey = 'appTtsEngineId';
+
 /// 恢复进度「接近章尾」容差（毫秒）
 ///
 /// [P1 竞态修复 | 2026-10-03] 存量进度 ≥ duration - 该值 时视为「本章已播完」，
@@ -149,6 +160,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   late final StreamAudioPlayer _streamPlayer;
   late final SystemReadAloudEngine _systemEngine;
   late final HttpReadAloudEngine _httpEngine;
+  late final CloudReadAloudEngine _cloudEngine;
+  late final HttpTtsSynthesisQueue _synthesisQueue;
+  int _cacheRetentionMinutes = 10;
+  bool _cachePrepared = false;
+  List<String> get prefetchDiagnostics => _synthesisQueue.diagnostics;
   bool _resumeAfterInterruption = false;
 
   StreamSubscription<MediaButtonEvent>? _mediaButtonSub;
@@ -202,7 +218,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     );
   }
 
-  ReadAloudSession _createReadAloudSession(int token, int gen, String engineUrl) {
+  ReadAloudSession _createReadAloudSession(
+    int token,
+    int gen,
+    String engineUrl,
+  ) {
     final unit = _paragraphUnits[_paragraphIndex];
     final base = unit.start + _paragraphStartOffset;
     return ReadAloudSession(
@@ -216,13 +236,17 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       onCompleted: () => unawaited(_onParagraphFinished()),
       onError: (error) {
         pause();
-        state = state.copyWith(errorMessage: '系统朗读不可用：$error');
+        state = state.copyWith(errorMessage: '朗读不可用：$error');
       },
     );
   }
 
   ReadAloudEngine _engineForUrl(String engineUrl) =>
-      engineUrl == systemTtsEngineUrl ? _systemEngine : _httpEngine;
+      engineUrl == systemTtsEngineUrl
+      ? _systemEngine
+      : isCloudTts(engineUrl)
+      ? _cloudEngine
+      : _httpEngine;
 
   int _paragraphIndex = 0;
   int _paragraphStartOffset = 0;
@@ -239,6 +263,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 段落级合成/播放代数：手动切段时使旧的在途合成失效，避免旧段覆盖新段
   int _speakGeneration = 0;
+  // 快速暂停/恢复也必须等待平台暂停确认，不重新合成已加载段落。
+  Future<void> _ttsPauseBarrier = Future.value();
   int? _pendingParagraphIndex;
   int? _pendingChapterPos;
   bool _waitingForParagraph = false;
@@ -355,9 +381,19 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _audioService = ref.read(audioServiceProvider);
     _streamPlayer = ref.read(streamAudioPlayerProvider);
     _systemEngine = SystemReadAloudEngine(ref.read(systemTtsServiceProvider));
+    _synthesisQueue = HttpTtsSynthesisQueue(
+      synthesizer: () => ref.read(httpTtsSynthesizerProvider),
+      cache: () => _api.ttsCacheRepository,
+    );
     _httpEngine = HttpReadAloudEngine(
+      queue: _synthesisQueue,
       synthesizer: () => ref.read(httpTtsSynthesizerProvider),
       player: _streamPlayer,
+    );
+    _cloudEngine = CloudReadAloudEngine(
+      synthesizer: () => ref.read(cloudTtsSynthesizerProvider),
+      player: _streamPlayer,
+      cache: () => _api.ttsCacheRepository,
     );
     // 完成回调按当前模式分发：音频书 → 下一章；TTS → 下一段
     _streamPlayer.onCompleted = (tag) {
@@ -369,11 +405,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         return;
       }
       _httpEngine.handleCompleted(tag);
+      _cloudEngine.handleCompleted(tag);
     };
     _streamPlayer.onProgress = (pos, dur, tag) {
       if (_disposed) return;
       if (!state.isStreamMode) {
-        if (state.isPlaying) _httpEngine.handleProgress(pos, dur, tag);
+        if (state.isPlaying) {
+          _httpEngine.handleProgress(pos, dur, tag);
+          _cloudEngine.handleProgress(pos, dur, tag);
+        }
         return;
       }
       // [P1] 回调必须归属当前章：切章瞬间旧播放器 stop 前送达的最终回调
@@ -410,7 +450,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _audioFocusSub?.cancel();
       _paragraphTimer?.cancel();
       _observeReadAloudControl(_systemEngine.dispose());
-      unawaited(_streamPlayer.dispose());
+      _synthesisQueue.cancelAll();
+      final snapshot = _stateForDispose;
+      unawaited(
+        _stopFileTts().then((_) async {
+          if (snapshot != null) {
+            await _cleanTtsCache(snapshot, _cacheRetentionMinutes);
+          }
+        }),
+      );
       _audioService.dispose();
     });
     return initialState;
@@ -470,6 +518,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> loadChapters(String bookUrl) async {
+    _synthesisQueue.cancelAll();
+    _cachePrepared = false;
     if (state.bookUrl != bookUrl) {
       _playToken++;
       _speakGeneration++;
@@ -478,7 +528,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         final token = _playToken;
         await _systemEngine.stop();
         if (_disposed || token != _playToken) return;
-        await _httpEngine.stop();
+        await _stopFileTts();
         if (_disposed || token != _playToken) return;
       }
       // A4：切换书籍视为新朗读会话，重置无引擎提示的一次性标记
@@ -536,6 +586,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     int? startChapterPos,
     String? startParagraphText,
   }) async {
+    _synthesisQueue.cancelAll();
+    _cachePrepared = false;
     _readAloudSession++;
     restoreReadAloudFollow();
     readAloudPosition.value = null;
@@ -547,7 +599,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _paragraphTimer?.cancel();
     await _systemEngine.stop();
     if (_disposed || token != _playToken) return;
-    await _httpEngine.stop();
+    await _stopFileTts();
     if (_disposed || token != _playToken) return;
     final needReload = state.chapters.isEmpty || state.bookUrl != bookUrl;
     state = state.copyWith(
@@ -637,13 +689,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final list = await engines.getHttpTts();
       if (_disposed || token != _playToken) return;
       if (list.isEmpty) return;
-      // [D3] 种子依赖 Rust 合成管线不支持的能力（POST/@js/loginUrl），
-      // 自动选默认时只接受「GET + 文本占位符」兼容模板——
-      // 避免把失效引擎当作可用（QA 实测种子「1.百度」返回错误 JSON）。
+      // 规则语法能力已接入 POST/JS；远程可用性由合成响应和登录状态判断。
       final compatible = list.where((e) => isCompatibleHttpTtsEngineUrl(e.url));
       if (compatible.isEmpty) return;
-      final url = compatible.first.url.trim();
-      if (url.isNotEmpty) updateConfig(engineUrl: url);
+      final defaultEngine = compatible.first;
+      final url = defaultEngine.url.trim();
+      if (url.isNotEmpty) {
+        updateConfig(engineUrl: url, engineId: defaultEngine.id);
+      }
     } catch (e) {
       debugPrint('获取默认朗读引擎失败: $e');
     }
@@ -673,6 +726,56 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     return normalizeTtsEngineUrl(state.config.engineUrl);
   }
 
+  /// 解析当前生效的 HTTP TTS 引擎 ID（数值标识稳定，支持合法非零负数）
+  Future<int?> resolveTtsEngineId() async {
+    final engineUrl = resolveTtsEngineUrl();
+    if (engineUrl.isEmpty ||
+        engineUrl == systemTtsEngineUrl ||
+        isCloudTts(engineUrl)) {
+      return null;
+    }
+    // 1. 如果 URL 是纯数字 ID（兼容存 ID 场景）
+    final parsedId = int.tryParse(engineUrl);
+    if (parsedId != null && parsedId != 0) {
+      try {
+        final repo = ref.read(httpTtsRepositoryProvider);
+        final list = await repo.getHttpTts();
+        if (list.any((item) => item.id == parsedId)) {
+          return parsedId;
+        }
+      } catch (e) {
+        debugPrint('resolveTtsEngineId 校验 ID 失败: $e');
+      }
+      debugPrint('resolveTtsEngineId: 未在仓库中找到 ID 为 $parsedId 的引擎');
+      return null;
+    }
+    // 2. 如果 config 中已显式配置合法 engineId，且匹配当前生效引擎 URL
+    if (state.config.engineId != null &&
+        state.config.engineId != 0 &&
+        (normalizeTtsEngineUrl(state.config.engineUrl) == engineUrl ||
+            state.config.engineUrl == engineUrl ||
+            engineUrl.isEmpty)) {
+      return state.config.engineId;
+    }
+    // 3. 从 HTTP TTS 仓库匹配 URL 获取 ID
+    try {
+      final repo = ref.read(httpTtsRepositoryProvider);
+      final list = await repo.getHttpTts();
+      final normalized = normalizeTtsEngineUrl(engineUrl);
+      for (final item in list) {
+        if (item.id != 0 &&
+            (normalizeTtsEngineUrl(item.url) == normalized ||
+                item.url == engineUrl)) {
+          return item.id;
+        }
+      }
+    } catch (e) {
+      debugPrint('resolveTtsEngineId 查找引擎失败: $e');
+    }
+    debugPrint('resolveTtsEngineId: 未在仓库中找到匹配引擎 (url: $engineUrl)');
+    return null;
+  }
+
   /// 是否存在可写书级的当前书（UI「书」按钮可用性判定）
   bool get hasCurrentBook => _currentBookUrl().isNotEmpty;
 
@@ -684,14 +787,19 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 回写 readConfig 列（rust/legado-ffi/src/api/bookshelf.rs:68，
   /// rust/legado-db/.../book_repository.rs update）。无当前书返回 false
   /// （对齐原版 `ReadBook.book?.` 空安全语义，不静默假装成功）。
-  Future<bool> setBookTtsEngine(String engineUrl) async {
+  Future<bool> setBookTtsEngine(String engineUrl, {int? engineId}) async {
     final url = normalizeTtsEngineUrl(engineUrl);
-    if (url.isEmpty) return false;
+    if (url.isEmpty && (engineId == null || engineId == 0)) return false;
     final book = await _currentBookForEngine();
     if (book == null) return false;
     try {
       final cfg = book.readConfig ?? const ReadConfig();
-      final updated = book.copyWith(readConfig: cfg.copyWith(ttsEngine: url));
+      final selection = engineId != null && engineId != 0
+          ? engineId.toString()
+          : url;
+      final updated = book.copyWith(
+        readConfig: cfg.copyWith(ttsEngine: selection),
+      );
       _book = updated;
       await _api.bookshelfRepository.updateBook(updated);
       await restartCurrentTts();
@@ -723,15 +831,22 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   ///
   /// 同步策略照原版：先清当前书书级覆盖，再把所选引擎写全局。全局值双写——
   /// 内存 [AudioState.config].engineUrl（既有消费路径不变）+ config 存储
-  /// [kTtsEngineConfigKey]（重启后由 [_restorePersistedGlobalEngine] 读回，
-  /// 对齐原版 AppConfig.ttsEngine 持久化语义）。
-  Future<void> setGlobalTtsEngine(String engineUrl) async {
+  /// [kTtsEngineConfigKey] 与稳定 [kTtsEngineIdConfigKey]（重启后由
+  /// [_restorePersistedGlobalEngine] 读回，对齐原版 AppConfig.ttsEngine 持久化语义）。
+  Future<void> setGlobalTtsEngine(String engineUrl, {int? engineId}) async {
     final url = normalizeTtsEngineUrl(engineUrl);
-    if (url.isEmpty) return;
+    if (url.isEmpty && (engineId == null || engineId == 0)) return;
     await clearBookTtsEngine();
-    updateConfig(engineUrl: url, restartPlayback: false);
+    updateConfig(engineUrl: url, engineId: engineId, restartPlayback: false);
     try {
-      await _api.setConfig(kTtsEngineConfigKey, url);
+      if (url.isNotEmpty) {
+        await _api.setConfig(kTtsEngineConfigKey, url);
+      }
+      if (engineId != null && engineId != 0) {
+        await _api.setConfig(kTtsEngineIdConfigKey, engineId.toString());
+      } else if (url == systemTtsEngineUrl || isCloudTts(url)) {
+        await _api.setConfig(kTtsEngineIdConfigKey, '');
+      }
     } catch (e) {
       debugPrint('持久化全局朗读引擎失败: $e');
     }
@@ -780,6 +895,35 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<String> _restorePersistedGlobalEngine() async {
     final token = _playToken;
     try {
+      final rawId = await _api.getConfig(kTtsEngineIdConfigKey);
+      final parsedId = rawId != null ? int.tryParse(rawId) : null;
+      if (parsedId != null && parsedId != 0) {
+        try {
+          final repo = ref.read(httpTtsRepositoryProvider);
+          final list = await repo.getHttpTts();
+          final matched = list.where((e) => e.id == parsedId).firstOrNull;
+          if (matched != null) {
+            if (_disposed || token != _playToken) return '';
+            final url = normalizeTtsEngineUrl(matched.url);
+            updateConfig(
+              engineUrl: url,
+              engineId: matched.id,
+              restartPlayback: false,
+            );
+            return url;
+          }
+        } catch (error) {
+          debugPrint('读取已保存的朗读引擎失败，保留 ID：$error');
+        }
+        // 保留失效身份，让后续校验明确报错；不得按相同 URL 换成另一引擎。
+        if (_disposed || token != _playToken) return '';
+        updateConfig(
+          engineUrl: parsedId.toString(),
+          engineId: parsedId,
+          restartPlayback: false,
+        );
+        return parsedId.toString();
+      }
       final raw = await _api.getConfig(kTtsEngineConfigKey);
       if (_disposed || token != _playToken) return '';
       final url = normalizeTtsEngineUrl(raw ?? '');
@@ -932,9 +1076,23 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }) async {
     state = state.copyWith(state: PlayerState.loading);
     final token = ++_playToken;
+    _synthesisQueue.cancelAll();
     // 切章/重播入口先停掉上一段残留音频：新段合成期间保持静默而非叠音
     if (!await _stopTtsPaths(token)) return;
     try {
+      if (!_cachePrepared && _api.ttsCacheRepository.supportsAudioFiles) {
+        await ref.read(readAloudPreferencesProvider.notifier).load();
+        if (token != _playToken || _disposed) return;
+        _cacheRetentionMinutes = ref
+            .read(readAloudPreferencesProvider)
+            .audioCacheCleanTime;
+        if (_cacheRetentionMinutes <= 0) {
+          await _synthesisQueue.whenIdle();
+          if (token != _playToken || _disposed) return;
+          await _api.ttsCacheRepository.clear();
+        }
+        _cachePrepared = true;
+      }
       final content = await _ensureChapterContent(state.currentIndex);
       if (token != _playToken || _disposed) return;
       final units = splitReadAloudParagraphs(content);
@@ -1076,18 +1234,59 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final session = _createReadAloudSession(token, gen, engineUrl);
     Object? failure;
     try {
-      final result = await engine.speak(
-        ReadAloudRequest(
+      final engineId = await resolveTtsEngineId() ?? 0;
+      final source =
+          engineUrl == systemTtsEngineUrl ||
+              isCloudTts(engineUrl) ||
+              !_api.ttsCacheRepository.supportsAudioFiles
+          ? null
+          : (await ref.read(httpTtsRepositoryProvider).getHttpTts())
+                .where((e) => e.id == engineId)
+                .firstOrNull;
+      if (_isSpeakStale(token, gen)) return;
+      if (source != null) {
+        await ref.read(readAloudPreferencesProvider.notifier).load();
+        if (_isSpeakStale(token, gen)) return;
+        _synthesisQueue.configure(
+          source.synthesisThreadCount <
+                  ref
+                      .read(readAloudPreferencesProvider)
+                      .ttsPreSynthesisConcurrency
+              ? source.synthesisThreadCount
+              : ref
+                    .read(readAloudPreferencesProvider)
+                    .ttsPreSynthesisConcurrency,
+        );
+      }
+      final voice = engineUrl == systemTtsEngineUrl || isCloudTts(engineUrl)
+          ? const HttpTtsVoiceResolution()
+          : await _httpVoice(engineId);
+      if (_isSpeakStale(token, gen)) return;
+      final request = ReadAloudRequest(
+        toneId: voice.voice?.speakerId,
+        speakerName: voice.voice?.displayName,
+        emotionTag: voice.emotionTag,
+        text: text,
+        engineId: engineId,
+        engineUrl: engineUrl,
+        speed: config.speed,
+        pitch: config.pitch,
+        volume: config.volume,
+        voiceName: config.voiceName,
+        sourceVersion: source == null ? null : jsonEncode(source.toJson()),
+        cacheContext: TtsCacheContext(
+          bookUrl: state.bookUrl,
+          bookName: state.bookName,
+          chapterIndex: state.currentIndex,
+          chapterTitle: state.currentChapter?.title ?? '',
+          paragraphIndex: _paragraphIndex,
           text: text,
-          engineUrl: engineUrl,
-          speed: config.speed,
-          pitch: config.pitch,
-          volume: config.volume,
-          voiceName: config.voiceName,
         ),
-        session,
       );
-      if (_isSpeakStale(token, gen) || result == ReadAloudStart.cancelled) return;
+      final result = await engine.speak(request, session);
+      if (_isSpeakStale(token, gen) || result == ReadAloudStart.cancelled) {
+        return;
+      }
       if (engineUrl == systemTtsEngineUrl) return;
       if (result == ReadAloudStart.started) {
         // [A4] 真实播放恢复：允许后续再次提示（如引擎后续被移除）
@@ -1095,6 +1294,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         if (state.errorMessage != null) {
           // 上一段降级/无引擎提示在恢复真实播放后清除
           state = state.copyWith(errorMessage: null);
+        }
+        if (voice.warning != null) {
+          state = state.copyWith(errorMessage: voice.warning);
+        }
+        if (source != null) {
+          _startHttpPrefetch(request, source.synthesisThreadCount);
         }
         // 正常路径到此为止：推进由统一段落会话完成回调触发。
         return;
@@ -1117,14 +1322,212 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _scheduleEstimateAdvance(text, config.speed, token, gen);
   }
 
+  void _startHttpPrefetch(ReadAloudRequest request, int sourceConcurrency) {
+    final preferences = ref.read(readAloudPreferencesProvider);
+    _cacheRetentionMinutes = preferences.audioCacheCleanTime;
+    if (preferences.audioPreDownloadNum <= 0) {
+      _synthesisQueue.cancelBackground();
+      return;
+    }
+    final bookUrl = state.bookUrl, bookName = state.bookName;
+    final index = state.currentIndex;
+    final chapters = List<AudioChapter>.of(state.chapters);
+    final paragraphs = List<String>.of(_paragraphs);
+    final paragraphIndex = _paragraphIndex;
+    final api = _api;
+    final key = jsonEncode([
+      bookUrl,
+      index,
+      request.sourceVersion,
+      request.voiceName,
+      request.toneId,
+      request.speakerName,
+      request.emotionTag,
+      request.pitch,
+      request.volume,
+    ]);
+    ReadAloudRequest cue(String text, int chapter, int paragraph) =>
+        ReadAloudRequest(
+          text: text,
+          engineId: request.engineId,
+          engineUrl: request.engineUrl,
+          sourceVersion: request.sourceVersion,
+          speed: request.speed,
+          pitch: request.pitch,
+          volume: request.volume,
+          voiceName: request.voiceName,
+          toneId: request.toneId,
+          speakerName: request.speakerName,
+          emotionTag: request.emotionTag,
+          cacheContext: TtsCacheContext(
+            bookUrl: bookUrl,
+            bookName: bookName,
+            chapterIndex: chapter,
+            chapterTitle: chapters[chapter].title,
+            paragraphIndex: paragraph,
+            text: text,
+          ),
+        );
+    Stream<List<ReadAloudRequest>> window() async* {
+      yield [
+        for (var p = paragraphIndex + 1; p < paragraphs.length; p++)
+          cue(paragraphs[p], index, p),
+      ];
+      for (
+        var i = index + 1;
+        i < chapters.length && i <= index + preferences.audioPreDownloadNum;
+        i++
+      ) {
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        final chapter = chapters[i];
+        final text = chapter.text.isNotEmpty
+            ? chapter.text
+            : await (isLocalBookUrl(bookUrl)
+                  ? api.getChapterContent(bookUrl, i)
+                  : api.getChapterContentFull(bookUrl, i));
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        final units = splitReadAloudParagraphs(text);
+        yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];
+      }
+    }
+
+    _synthesisQueue.startWindow(
+      key: key,
+      concurrency: sourceConcurrency < preferences.ttsPreSynthesisConcurrency
+          ? sourceConcurrency
+          : preferences.ttsPreSynthesisConcurrency,
+      chapters: window(),
+    );
+  }
+
+  Future<void> refreshHttpPrefetchSettings() async {
+    if (_disposed) return;
+    final token = _playToken, gen = _speakGeneration;
+    _cacheRetentionMinutes = ref
+        .read(readAloudPreferencesProvider)
+        .audioCacheCleanTime;
+    _synthesisQueue.cancelBackground();
+    if (!_disposed &&
+        state.isPlaying &&
+        !state.isStreamMode &&
+        resolveTtsEngineUrl() != systemTtsEngineUrl) {
+      final id = await resolveTtsEngineId();
+      if (_isSpeakStale(token, gen) || !state.isPlaying || id == null) return;
+      final sources = await ref.read(httpTtsRepositoryProvider).getHttpTts();
+      final source = sources.where((s) => s.id == id).firstOrNull;
+      if (_isSpeakStale(token, gen) || !state.isPlaying || source == null) {
+        return;
+      }
+      final voice = await _httpVoice(id);
+      if (_isSpeakStale(token, gen) || !state.isPlaying) return;
+      final config = state.config;
+      _startHttpPrefetch(
+        ReadAloudRequest(
+          text: '',
+          toneId: voice.voice?.speakerId,
+          speakerName: voice.voice?.displayName,
+          emotionTag: voice.emotionTag,
+          engineId: id,
+          engineUrl: source.url,
+          sourceVersion: jsonEncode(source.toJson()),
+          speed: config.speed,
+          pitch: config.pitch,
+          volume: config.volume,
+          voiceName: config.voiceName,
+        ),
+        source.synthesisThreadCount,
+      );
+    }
+  }
+
+  Future<void> _cleanTtsCache(
+    AudioState snapshot,
+    int minutes, {
+    int? token,
+  }) async {
+    final api = _apiCache;
+    if (api == null || !api.ttsCacheRepository.supportsAudioFiles) return;
+    try {
+      await _synthesisQueue.whenIdle();
+      if (token != null && token != _playToken) return;
+      await api.ttsCacheRepository.clear(
+        beforeTimestampMs: minutes <= 0
+            ? null
+            : DateTime.now().millisecondsSinceEpoch - minutes * 60000,
+        keepBookUrl: minutes <= 0 ? null : snapshot.bookUrl,
+        keepChapterIndex: minutes <= 0 ? null : snapshot.currentIndex,
+      );
+    } catch (error) {
+      debugPrint('朗读缓存清理失败：$error');
+    }
+  }
+
+  Future<HttpTtsVoiceResolution> _httpVoice(int id) async {
+    if (!_api.readAloudVoiceRepository.supportsCatalog) {
+      return const HttpTtsVoiceResolution();
+    }
+    final raw = await _api.getConfig(HttpTtsVoiceSelection.key(id));
+    if (raw == null || raw.isEmpty) return const HttpTtsVoiceResolution();
+    final selection = HttpTtsVoiceSelection.decode(raw);
+    return resolveHttpTtsVoice(
+      id,
+      await _api.readAloudVoiceRepository.list(),
+      selection,
+    );
+  }
+
+  Future<void> setHttpTtsVoice(
+    int id,
+    ReadAloudVoice? voice, {
+    String? emotionTag,
+  }) async {
+    if (voice != null &&
+        (voice.engineType != 'http' ||
+            voice.engineId != '$id' ||
+            !voice.selectable)) {
+      throw StateError('该音色不能用于此引擎');
+    }
+    if (voice != null) {
+      final resolution = resolveHttpTtsVoice(id, [
+        voice,
+      ], HttpTtsVoiceSelection(voice.id, emotionTag: emotionTag));
+      if (resolution.warning != null) throw StateError(resolution.warning!);
+    }
+    await _api.setConfig(
+      HttpTtsVoiceSelection.key(id),
+      voice == null
+          ? ''
+          : HttpTtsVoiceSelection(voice.id, emotionTag: emotionTag).encode(),
+    );
+    if (_disposed ||
+        state.isStreamMode ||
+        resolveTtsEngineUrl() == systemTtsEngineUrl) {
+      return;
+    }
+    final token = _playToken;
+    if (await resolveTtsEngineId() == id && !_disposed && token == _playToken) {
+      await restartCurrentTts();
+    }
+  }
+
+  Future<void> _stopFileTts() {
+    final stopped = _streamPlayer.stop();
+    return Future.wait([
+      _httpEngine.stop(playbackStopped: stopped),
+      _cloudEngine.stop(playbackStopped: stopped),
+    ]).then((_) {});
+  }
+
   Future<bool> _stopTtsPaths(int token, {int? generation}) async {
+    // 旧会话的暂停屏障不能阻塞切章、换引擎后的新会话。
+    _ttsPauseBarrier = Future.value();
     bool stale() =>
         token != _playToken ||
         _disposed ||
         (generation != null && generation != _speakGeneration);
     try {
-      await _systemEngine.stop();
-      await _httpEngine.stop();
+      // 同时失效两条路径，不能等待系统停止后才让旧 HTTP 续播失效。
+      await Future.wait([_systemEngine.stop(), _stopFileTts()]);
     } catch (error) {
       if (stale()) return false;
       pause();
@@ -1211,6 +1614,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 用户更改引擎或语音时失效旧请求，并按当前段重启；暂停时保持暂停。
   Future<void> restartCurrentTts() async {
+    _synthesisQueue.cancelBackground();
     if (_disposed || state.isStreamMode) return;
     final playing = state.isPlaying || state.state == PlayerState.loading;
     final token = ++_playToken;
@@ -1288,6 +1692,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 手动页面跟读共用既有会话；暂停时只定位，不重新起播。
   Future<void> seekToChapterPosition(int chapterIndex, int offset) async {
+    _synthesisQueue.cancelBackground();
     if (state.isStreamMode ||
         state.state == PlayerState.idle ||
         chapterIndex < 0 ||
@@ -1309,6 +1714,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 播放器拖动进度与点击正文共用此入口；暂停中移动后仍保持暂停。
   Future<void> seekToParagraph(int index) async {
+    _synthesisQueue.cancelBackground();
     if (state.isStreamMode ||
         state.isLoading ||
         index < 0 ||
@@ -1329,6 +1735,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> nextParagraph() async {
+    _synthesisQueue.cancelBackground();
     if (state.isStreamMode) return;
     if (_paragraphs.isEmpty || state.state == PlayerState.idle) return;
     if (_paragraphIndex < _paragraphs.length - 1) {
@@ -1337,9 +1744,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _publishReadAloudPosition();
       notifyListeners();
       if (state.state == PlayerState.paused) {
+        _ttsPauseBarrier = Future.value();
         _playToken++;
         _speakGeneration++;
         _observeReadAloudControl(_systemEngine.stop());
+        _observeReadAloudControl(_stopFileTts(), errorPrefix: '音频播放控制失败');
       }
       final token = _playToken;
       if (state.isPlaying) await _speakCurrentParagraph(token);
@@ -1352,6 +1761,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> prevParagraph() async {
+    _synthesisQueue.cancelBackground();
     if (state.isStreamMode) return;
     if (_paragraphs.isEmpty || state.state == PlayerState.idle) return;
     if (_paragraphIndex > 0) {
@@ -1360,9 +1770,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _publishReadAloudPosition();
       notifyListeners();
       if (state.state == PlayerState.paused) {
+        _ttsPauseBarrier = Future.value();
         _playToken++;
         _speakGeneration++;
         _observeReadAloudControl(_systemEngine.stop());
+        _observeReadAloudControl(_stopFileTts(), errorPrefix: '音频播放控制失败');
       }
       final token = _playToken;
       if (state.isPlaying) await _speakCurrentParagraph(token);
@@ -1591,6 +2003,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   void pause({bool dueToInterruption = false}) {
+    _synthesisQueue.cancelBackground();
     _resumeAfterInterruption = dueToInterruption && state.isPlaying;
     if (state.state == PlayerState.playing ||
         state.state == PlayerState.loading) {
@@ -1603,14 +2016,17 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _playToken++;
         _speakGeneration++;
         // 段间等待已经指向下一段，不保存上一段的原生暂停会话。
-        _observeReadAloudControl(
-          _waitingForParagraph ? _systemEngine.stop() : _systemEngine.pause(),
-        );
+        final waiting = _waitingForParagraph;
+        _ttsPauseBarrier = Future.wait([
+          waiting ? _systemEngine.stop() : _systemEngine.pause(),
+          waiting
+              ? _stopFileTts()
+              : (isCloudTts(resolveTtsEngineUrl())
+                    ? _cloudEngine.pause()
+                    : _httpEngine.pause()),
+        ]).then<void>((_) {});
+        _observeReadAloudControl(_ttsPauseBarrier, errorPrefix: '朗读暂停失败');
         _waitingForParagraph = false;
-        // TTS 本地播放：立即停掉当前段音频（恢复时由 play() 重播当前段）
-        _observeReadAloudControl(
-          _httpEngine.pause(), errorPrefix: '音频播放控制失败',
-        );
       }
       state = state.copyWith(state: PlayerState.paused);
       _audioService.notifyPaused();
@@ -1619,19 +2035,38 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   Future<void> resumeOrPlay() async {
     _resumeAfterInterruption = false;
-    if (state.state == PlayerState.paused &&
-        !state.isStreamMode &&
-        resolveTtsEngineUrl() == systemTtsEngineUrl &&
-        _systemEngine.canResume) {
-      final token = ++_playToken;
-      final gen = ++_speakGeneration;
-      state = state.copyWith(state: PlayerState.playing, errorMessage: null);
-      await _syncMediaSession();
-      if (_isSpeakStale(token, gen)) return;
-      await _systemEngine.resume(
-        _createReadAloudSession(token, gen, systemTtsEngineUrl),
-      );
-      return;
+    if (state.state == PlayerState.paused && !state.isStreamMode) {
+      final pausedToken = _playToken;
+      final pausedGeneration = _speakGeneration;
+      try {
+        await _ttsPauseBarrier;
+      } catch (_) {
+        // 暂停错误由控制观察器显示，不冒充成功续播。
+        return;
+      }
+      if (_isSpeakStale(pausedToken, pausedGeneration) ||
+          state.state != PlayerState.paused) {
+        return;
+      }
+      final engineUrl = resolveTtsEngineUrl();
+      final engine = _engineForUrl(engineUrl);
+      if (engine.canResume) {
+        final token = ++_playToken;
+        final gen = ++_speakGeneration;
+        state = state.copyWith(state: PlayerState.playing, errorMessage: null);
+        await _syncMediaSession();
+        if (_isSpeakStale(token, gen)) return;
+        final session = _createReadAloudSession(token, gen, engineUrl);
+        try {
+          await engine.resume(session);
+          if (!_isSpeakStale(token, gen) && engineUrl != systemTtsEngineUrl) {
+            unawaited(refreshHttpPrefetchSettings());
+          }
+        } catch (error) {
+          session.fail(error);
+        }
+        return;
+      }
     }
     if (state.state == PlayerState.paused &&
         state.isStreamMode &&
@@ -1645,6 +2080,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   void stop() {
+    _synthesisQueue.cancelAll();
+    final cacheSnapshot = state;
+    final retentionMinutes = ref
+        .read(readAloudPreferencesProvider)
+        .audioCacheCleanTime;
+    _cacheRetentionMinutes = retentionMinutes;
+    _cachePrepared = false;
+    _ttsPauseBarrier = Future.value();
     _paragraphTimer?.cancel();
     // [A4] 停止即结束本次定时（对齐原版 TTS 服务 onDestroy 清空
     // timeMinute/chapterStopTimer，BaseReadAloudService.kt:309-313）
@@ -1658,6 +2101,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _resumeAfterInterruption = false;
     _playToken++;
     _speakGeneration++;
+    final stopToken = _playToken;
     _observeReadAloudControl(_systemEngine.stop());
     _paragraphs = [];
     _paragraphUnits = [];
@@ -1669,7 +2113,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _pendingParagraphIndex = null;
     _waitingForParagraph = false;
     _observeReadAloudControl(
-      _httpEngine.stop(), errorPrefix: '音频播放控制失败',
+      _stopFileTts().then(
+        (_) =>
+            _cleanTtsCache(cacheSnapshot, retentionMinutes, token: stopToken),
+      ),
+      errorPrefix: '音频播放控制失败',
     );
     notifyListeners();
     state = state.copyWith(
@@ -1684,6 +2132,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> next() async {
+    _synthesisQueue.cancelBackground();
     if (!state.hasNext && state.mode != AudioPlayMode.singleLoop) return;
     if (!state.isStreamMode) {
       _playToken++;
@@ -1704,6 +2153,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> previous() async {
+    _synthesisQueue.cancelBackground();
     if (!state.hasPrevious) return;
     if (!state.isStreamMode) {
       _playToken++;
@@ -1720,6 +2170,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> jumpTo(int index) async {
+    _synthesisQueue.cancelBackground();
     if (index < 0 || index >= state.chapters.length) return;
     if (!state.isStreamMode) {
       _playToken++;
@@ -1742,8 +2193,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     await _persistPlayMode(mode);
   }
 
+  /// 调整朗读与听书倍速（对齐原版全局/书级倍速调节）
+  void setSpeechRate(double speed) {
+    updateConfig(speed: speed);
+  }
+
   void updateConfig({
     String? engineUrl,
+    int? engineId,
     String? voiceName,
     double? speed,
     double? pitch,
@@ -1755,6 +2212,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final oldEngine = resolveTtsEngineUrl();
     final updated = TtsConfig(
       engineUrl: engineUrl ?? config.engineUrl,
+      engineId: engineId ?? (engineUrl != null ? null : config.engineId),
       voiceName: voiceName ?? config.voiceName,
       speed: speed != null ? speed.clamp(0.5, 3.0) : config.speed,
       pitch: pitch != null ? pitch.clamp(0.5, 2.0) : config.pitch,
@@ -1766,11 +2224,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
             state.state == PlayerState.paused ||
             state.state == PlayerState.loading) &&
         !state.isStreamMode &&
-        (oldEngine == systemTtsEngineUrl ||
-            resolveTtsEngineUrl() == systemTtsEngineUrl) &&
-        (engineUrl != null ||
+        (oldEngine != resolveTtsEngineUrl() ||
+            config.engineId != updated.engineId ||
+            config.voiceName != updated.voiceName ||
+            config.pitch != updated.pitch ||
+            config.volume != updated.volume ||
             (resolveTtsEngineUrl() == systemTtsEngineUrl &&
-                (speed != null || pitch != null || volume != null)))) {
+                config.speed != updated.speed))) {
       _observeReadAloudControl(restartCurrentTts());
     }
     if (engineUrl != null && updated.engineUrl.trim().isNotEmpty) {
@@ -1783,8 +2243,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (speed != null && persistBookSpeed) {
       _scheduleSpeedPersist(updated.speed);
     }
-    if (state.isStreamMode && speed != null && _streamPlayer.isInitialized) {
-      unawaited(_streamPlayer.setSpeed(updated.speed));
+    if (speed != null && _streamPlayer.isInitialized) {
+      if (state.isStreamMode || resolveTtsEngineUrl() != systemTtsEngineUrl) {
+        unawaited(_streamPlayer.setSpeed(updated.speed));
+      }
     }
   }
 
@@ -2020,7 +2482,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _disposed = true;
     _paragraphTimer?.cancel();
     _observeReadAloudControl(_systemEngine.dispose());
-    unawaited(_streamPlayer.dispose());
+    _synthesisQueue.cancelAll();
+    final snapshot = _stateForDispose;
+    unawaited(
+      _stopFileTts().then((_) async {
+        if (snapshot != null) {
+          await _cleanTtsCache(snapshot, _cacheRetentionMinutes);
+        }
+      }),
+    );
     super.dispose();
   }
 }

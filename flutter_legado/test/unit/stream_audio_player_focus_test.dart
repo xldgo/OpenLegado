@@ -62,6 +62,77 @@ void main() {
     expect(fakePlatform.mixWithOthersCalls, [true]);
     expect(fakePlatform.createdCount, 1);
   });
+  test('原位续播保留位置和控制器，回调仅绑定新会话并且只完成一次', () async {
+    final player = StreamAudioPlayer();
+    addTearDown(player.dispose);
+    final oldTag = Object(), tag = Object();
+    final completions = <Object?>[];
+    final progress = <Object?>[];
+    player.onCompleted = completions.add;
+    player.onProgress = (_, _, tag) => progress.add(tag);
+    await player.playLocalFile('/tmp/tts/para.wav', tag: oldTag);
+    await player.seek(const Duration(milliseconds: 900));
+    await player.pause();
+    // 离末尾不足 200ms 的暂停不能被误判为自然完成。
+    expect(completions, isEmpty);
+    progress.clear();
+    expect(await player.resumeWithTag(previousTag: oldTag, tag: tag), isTrue);
+    expect(player.position, const Duration(milliseconds: 900));
+    expect(fakePlatform.createdCount, 1);
+    expect(progress, isNotEmpty);
+    expect(progress, everyElement(same(tag)));
+    fakePlatform.emit(1, VideoEvent(eventType: VideoEventType.completed));
+    await Future<void>.delayed(Duration.zero);
+    expect(completions, [same(tag)]);
+    fakePlatform.emit(1, VideoEvent(eventType: VideoEventType.completed));
+    await Future<void>.delayed(Duration.zero);
+    expect(completions, hasLength(1));
+  });
+
+  test('预期标签不匹配不能恢复共享播放器；普通音频书续播保留原标签', () async {
+    final player = StreamAudioPlayer();
+    addTearDown(player.dispose);
+    final tag = Object();
+    await player.playUrl('https://cdn.example.com/book.mp3', tag: tag);
+    await player.pause();
+    final plays = fakePlatform.plays.length;
+    expect(
+      await player.resumeWithTag(previousTag: Object(), tag: Object()),
+      isFalse,
+    );
+    expect(fakePlatform.plays.length, plays);
+    await player.resume();
+    expect(player.currentTag, same(tag));
+    expect(fakePlatform.createdCount, 1);
+  });
+
+  test('初始化期间停止，不会在迟到的初始化完成后重新播放', () async {
+    fakePlatform.autoInitialize = false;
+    final player = StreamAudioPlayer();
+    final load = player.playLocalFile('/tmp/tts/late.wav', tag: Object());
+    await Future<void>.delayed(Duration.zero);
+    expect(fakePlatform.createdCount, 1);
+    final stop = player.stop();
+    fakePlatform.initialize(1);
+    await load;
+    await stop;
+    expect(fakePlatform.plays, isEmpty);
+    expect(player.isInitialized, isFalse);
+  });
+
+  test('替换音频仍在释放旧控制器时停止，不创建新控制器', () async {
+    final player = StreamAudioPlayer();
+    await player.playLocalFile('/tmp/tts/first.wav');
+    fakePlatform.pauseBarrier = Completer<void>();
+    final replacement = player.playLocalFile('/tmp/tts/second.wav');
+    await Future<void>.delayed(Duration.zero);
+    await player.stop();
+    fakePlatform.pauseBarrier!.complete();
+    await replacement;
+    expect(fakePlatform.createdCount, 1);
+    expect(fakePlatform.plays, [1]);
+    expect(player.currentUrl, isNull);
+  });
 }
 
 /// 记录 setMixWithOthers / createWithOptions 的最小 Fake 平台实现。
@@ -73,6 +144,20 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   final Map<int, StreamController<VideoEvent>> _events = {};
   int createdCount = 0;
   int _nextId = 1;
+  bool autoInitialize = true;
+  Completer<void>? pauseBarrier;
+  final plays = <int>[];
+  final positions = <int, Duration>{};
+
+  void emit(int id, VideoEvent event) => _events[id]!.add(event);
+  void initialize(int id) => emit(
+    id,
+    VideoEvent(
+      eventType: VideoEventType.initialized,
+      duration: const Duration(seconds: 1),
+      size: const Size(16, 16),
+    ),
+  );
 
   @override
   Future<void> init() async {}
@@ -88,13 +173,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
     final id = _nextId++;
     final controller = StreamController<VideoEvent>();
     _events[id] = controller;
-    controller.add(
-      VideoEvent(
-        eventType: VideoEventType.initialized,
-        duration: const Duration(seconds: 1),
-        size: const Size(16, 16),
-      ),
-    );
+    if (autoInitialize) initialize(id);
     return id;
   }
 
@@ -111,20 +190,25 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   Future<void> setLooping(int playerId, bool looping) async {}
 
   @override
-  Future<void> play(int playerId) async {}
+  Future<void> play(int playerId) async => plays.add(playerId);
 
   @override
-  Future<void> pause(int playerId) async {}
+  Future<void> pause(int playerId) async {
+    await pauseBarrier?.future;
+  }
 
   @override
   Future<void> setVolume(int playerId, double volume) async {}
 
   @override
-  Future<void> seekTo(int playerId, Duration position) async {}
+  Future<void> seekTo(int playerId, Duration position) async {
+    positions[playerId] = position;
+  }
 
   @override
   Future<void> setPlaybackSpeed(int playerId, double speed) async {}
 
   @override
-  Future<Duration> getPosition(int playerId) async => Duration.zero;
+  Future<Duration> getPosition(int playerId) async =>
+      positions[playerId] ?? Duration.zero;
 }

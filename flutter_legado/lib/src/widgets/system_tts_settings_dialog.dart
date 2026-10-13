@@ -60,7 +60,9 @@ class _SystemTtsSettingsState extends State<_SystemTtsSettings> {
       try {
         await widget.service.saveSettings(
           engine: engine ?? widget.service.selectedEngine,
-          voice: voice ?? widget.service.selectedVoice,
+          voice: engine != null && engine != widget.service.selectedEngine
+              ? ''
+              : voice ?? widget.service.selectedVoice,
         );
       } finally {
         await widget.onChanged();

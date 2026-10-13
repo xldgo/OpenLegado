@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // P0 缺陷回归：在线书 TTS 朗读合成文本为章节 URL JSON 元数据（2026-10-03）
 //
 // 根因：在线书走 BookApi.getChapterContent（Rust get_chapter_content 在线分支）
@@ -18,8 +19,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 5) 选段朗读：startParagraphText 在纯正文上能命中对应段落起播。
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,18 +67,23 @@ void main() {
         const BookChapter(title: '第二章', index: 1),
       ],
     );
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
   }
 
   void stubAudioSpeak() {
-    when(() => mockApi.httpTtsSynthesizer.synthesize(
-          text: any(named: 'text'),
-          engineUrl: any(named: 'engineUrl'),
-          speed: any(named: 'speed'),
-          pitch: any(named: 'pitch'),
-          volume: any(named: 'volume'),
-          voiceName: any(named: 'voiceName'),
-        )).thenAnswer((invocation) async {
+    when(
+      () => mockApi.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
+        text: any(named: 'text'),
+        engineUrl: any(named: 'engineUrl'),
+        speed: any(named: 'speed'),
+        pitch: any(named: 'pitch'),
+        volume: any(named: 'volume'),
+        voiceName: any(named: 'voiceName'),
+      ),
+    ).thenAnswer((invocation) async {
       speakTexts.add(invocation.namedArguments[#text] as String);
       return HttpTtsAudio(audioPath: '/tmp/tts/para_${speakTexts.length}.mp3');
     });

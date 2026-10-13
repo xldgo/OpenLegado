@@ -133,6 +133,7 @@ pub struct TemplateContext {
 }
 
 /// URL 分析器
+#[derive(Clone)]
 pub struct AnalyzeUrl {
     /// 原始 URL 规则
     rule_url: String,
@@ -316,6 +317,16 @@ impl AnalyzeUrl {
         // 7. 替换 body 中的变量
         if let Some(ref body) = instance.body {
             let body = Self::replace_body_vars(body, variables);
+            let body = if !body.trim().starts_with('{') && !body.trim().starts_with('[') {
+                let candidate = format!("{{{}}}", body.trim());
+                if serde_json::from_str::<serde_json::Value>(&candidate).is_ok() {
+                    candidate
+                } else {
+                    body
+                }
+            } else {
+                body
+            };
             instance.body = Some(body);
         }
 
@@ -432,12 +443,12 @@ impl AnalyzeUrl {
     /// 替换 body 中的变量
     fn replace_body_vars(body: &str, variables: &HashMap<String, String>) -> String {
         let mut result = body.to_string();
-        // 替换 {key} 变量
-        result = Self::replace_brace_vars(&result, variables);
-        // 替换 ${key} 变量
-        result = Self::replace_dollar_vars(&result, variables);
-        // 替换 {{expression}}
+        // 1. 优先替换 {{expression}} 内嵌表达式（防止单花括号匹配破坏双花括号）
         result = Self::replace_inner_expressions(&result, variables);
+        // 2. 替换 ${key} 变量
+        result = Self::replace_dollar_vars(&result, variables);
+        // 3. 替换 {key} 变量
+        result = Self::replace_brace_vars(&result, variables);
         result
     }
 
@@ -607,6 +618,11 @@ impl AnalyzeUrl {
             self.proxy = Some(proxy);
         }
 
+        // 如果存在 body 且未显式指定其他方法，则默认为 POST
+        if self.body.is_some() && self.method == RequestMethod::Get {
+            self.method = RequestMethod::Post;
+        }
+
         // 处理查询参数
         match self.method {
             RequestMethod::Post => {
@@ -624,6 +640,10 @@ impl AnalyzeUrl {
                         self.headers
                             .entry("Content-Type".to_string())
                             .or_insert_with(|| "application/x-www-form-urlencoded".to_string());
+                    } else if is_json && !has_content_type {
+                        self.headers
+                            .entry("Content-Type".to_string())
+                            .or_insert_with(|| "application/json; charset=utf-8".to_string());
                     }
                 }
             }
@@ -1195,7 +1215,11 @@ impl AnalyzeUrl {
             if !valid {
                 continue;
             }
-            if let Ok(lit) = serde_json::to_string(value) {
+            if (name == "speakSpeed" || name == "speed" || name == "page")
+                && value.parse::<i64>().is_ok()
+            {
+                prologue.push_str(&format!("globalThis.{name} = {value};\n"));
+            } else if let Ok(lit) = serde_json::to_string(value) {
                 // [能力对账批次 2 | #850] 属性注入替代顶层 var：不注册 QuickJS
                 // 全局 var 条目，书源块顶层 `let key` 不再触发同脚本
                 // `invalid redefinition of global identifier`（属性存在对裸
@@ -1443,38 +1467,15 @@ new Function('__legadoCode', 'return eval(__legadoCode);')({block_lit})"
                     v.clone()
                 } else {
                     // 求值 JS 全局变量（jsLib 已执行定义；不存在 → undefined → 空串）
-                    js_executor.execute_js(expr).unwrap_or_default()
+                    js_executor
+                        .execute_js(&format!("{}{expr}", Self::js_variable_prologue(variables)))
+                        .unwrap_or_default()
                 }
             } else {
                 // 复杂表达式：用 JS 引擎执行
                 // 先构建变量注入前缀（纯整数以数字注入，对齐原版 page 数值语义，
                 // 保证 `page > 1` 等比较与算术表达式正确求值）
-                let mut js_code = String::new();
-                for (k, v) in variables {
-                    // [能力对账批次 2 | #702/#850] 对齐 js_variable_prologue：
-                    // globalThis 属性注入（不注册全局 var 条目，避免与块内
-                    // 顶层 let 冲突）；非标识符键（如复合键）改下标注入，
-                    // 替代此前必然产生非法 JS 的 `var <非标识符>`
-                    let is_ident = k
-                        .chars()
-                        .next()
-                        .is_some_and(|c| c == '_' || c == '$' || c.is_ascii_alphabetic())
-                        && k.chars()
-                            .all(|c| c == '_' || c == '$' || c.is_ascii_alphanumeric());
-                    if !is_ident {
-                        let k_lit = serde_json::to_string(k).unwrap_or_else(|_| "\"\"".to_string());
-                        let v_lit = serde_json::to_string(v).unwrap_or_else(|_| "\"\"".to_string());
-                        js_code.push_str(&format!("globalThis[{k_lit}] = {v_lit};\n"));
-                        continue;
-                    }
-                    if v.parse::<i64>().is_ok() {
-                        js_code.push_str(&format!("globalThis.{k} = {v};\n"));
-                    } else {
-                        // 转义单引号
-                        let escaped = v.replace('\\', "\\\\").replace('\'', "\\'");
-                        js_code.push_str(&format!("globalThis.{k} = '{escaped}';\n"));
-                    }
-                }
+                let mut js_code = Self::js_variable_prologue(variables);
                 js_code.push_str(expr);
 
                 // 对齐原版 AnalyzeUrl.kt replaceKeyPageJs：evalJS 失败/null → 空串，
@@ -2210,6 +2211,23 @@ mod tests {
         assert_eq!(body.unwrap(), r#""key":"value""#);
     }
 
+    #[test]
+    fn test_parse_at_body_json_post() {
+        let parsed = AnalyzeUrl::parse(
+            r#"https://example.com/api @Body:{"text": "hello", "rate": 10}"#,
+            &HashMap::new(),
+            1,
+        )
+        .unwrap();
+        assert_eq!(parsed.url(), "https://example.com/api");
+        assert_eq!(parsed.method(), &RequestMethod::Post);
+        assert_eq!(parsed.request_body(), r#"{"text": "hello", "rate": 10}"#);
+        assert_eq!(
+            parsed.headers().get("Content-Type").map(|s| s.as_str()),
+            Some("application/json; charset=utf-8")
+        );
+    }
+
     // --- 12. 查询参数解析 ---
     #[test]
     fn test_query_params() {
@@ -2808,8 +2826,58 @@ mod tests {
             "page 应以数字注入: {code}"
         );
         assert!(
-            code.contains("globalThis.key = '重生';"),
+            code.contains(r#"globalThis.key = "重生";"#),
             "key 应以字符串注入: {code}"
+        );
+    }
+
+    #[test]
+    fn test_tts_js_variable_types_and_escaping() {
+        let mut vars = HashMap::new();
+        vars.insert("speakText".to_string(), "12345".to_string());
+        vars.insert("speakSpeed".to_string(), "10".to_string());
+        vars.insert("speed".to_string(), "10".to_string());
+        vars.insert(
+            "multiline".to_string(),
+            "第一行\n第二行\"引用\"\\反斜杠".to_string(),
+        );
+
+        // 1. replace_inner_expressions_with_js 生成验证
+        let out = AnalyzeUrl::replace_inner_expressions_with_js(
+            "{{speakText.split('')}}|{{speakSpeed + 5}}|{{multiline}}",
+            &vars,
+            &EchoJsExecutor,
+        );
+        assert!(
+            out.contains(r#"globalThis.speakText = "12345";"#),
+            "纯数字正文 speakText 必须作为带引号的字符串字面量注入，不能是 Number: {out}"
+        );
+        assert!(
+            out.contains("globalThis.speakSpeed = 10;"),
+            "speakSpeed 必须以无引号整数数值注入: {out}"
+        );
+        assert!(
+            out.contains("globalThis.speed = 10;"),
+            "speed 必须以无引号整数数值注入: {out}"
+        );
+        assert!(
+            out.contains(r#"globalThis.multiline = "第一行\n第二行\"引用\"\\反斜杠";"#),
+            "多行文本换行符与引号必须被安全转义: {out}"
+        );
+
+        // 2. js_variable_prologue 生成验证
+        let prologue = AnalyzeUrl::js_variable_prologue(&vars);
+        assert!(
+            prologue.contains(r#"globalThis.speakText = "12345";"#),
+            "prologue 必须将 speakText 注入为字符串: {prologue}"
+        );
+        assert!(
+            prologue.contains("globalThis.speakSpeed = 10;"),
+            "prologue 必须将 speakSpeed 注入为整数: {prologue}"
+        );
+        assert!(
+            prologue.contains(r#"globalThis.multiline = "第一行\n第二行\"引用\"\\反斜杠";"#),
+            "prologue 必须安全转义多行换行与引号: {prologue}"
         );
     }
 

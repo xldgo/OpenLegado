@@ -1,8 +1,15 @@
 import '../domain/contracts/source_login_repository.dart';
+import '../domain/contracts/cloud_tts_repository.dart';
+import '../data/repositories/rust_cloud_tts_repository.dart';
+import '../data/repositories/rust_read_aloud_voice_repository.dart';
+import '../domain/contracts/read_aloud_voice_repository.dart';
+import '../data/repositories/rust_tts_cache_repository.dart';
+import '../domain/contracts/tts_cache_repository.dart';
 import '../domain/contracts/source_checker.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -47,6 +54,8 @@ class RustApi
         RustApiSyncTools,
         RustApiContentExt
     implements BookApi, ReadingConfigSync {
+  @override
+  CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
     required Future<void> Function() initialize,
     required ReadingConfigSync readingConfigSync,
@@ -98,9 +107,15 @@ class RustApi
 
   @override
   final HttpTtsRepository httpTtsRepository;
+  @override
+  ReadAloudVoiceRepository get readAloudVoiceRepository =>
+      const RustReadAloudVoiceRepository();
 
   @override
   final HttpTtsSynthesizer httpTtsSynthesizer;
+
+  @override
+  TtsCacheRepository get ttsCacheRepository => const RustTtsCacheRepository();
 
   @override
   final BookshelfRepository bookshelfRepository;

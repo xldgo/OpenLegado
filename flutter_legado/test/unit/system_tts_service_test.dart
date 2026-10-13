@@ -374,6 +374,60 @@ void main() {
     }
   });
 
+  test('被排除的显式选择仍可发现目录，但起播拒绝换音色', () async {
+    const voice = SystemTtsVoice(name: '离线中文', locale: 'zh-CN');
+    SharedPreferences.setMockInitialValues({'system_tts_voice': voice.key});
+    service = SystemTtsService(
+      tts: plugin,
+      platform: TargetPlatform.android,
+      excludedVoiceKeys: (_) async => {voice.key},
+    );
+    expect(await service.getVoices(), hasLength(2));
+    await expectLater(service.speak('中文'), throwsStateError);
+    expect(chosenVoices, isEmpty);
+    expect(spoken, isEmpty);
+  });
+  test('失效音色不自动替换，设备新目录可重新发现', () async {
+    SharedPreferences.setMockInitialValues({'system_tts_voice': 'removed'});
+    await expectLater(service.speak('中文'), throwsStateError);
+    expect(chosenVoices, isEmpty);
+    voices = [
+      {'name': '新装中文', 'locale': 'zh-CN'},
+    ];
+    expect((await service.getVoices()).single.name, '新装中文');
+  });
+  test('默认选择避开排除音色，后续起播重新读取标记', () async {
+    final excluded = <String>{};
+    service = SystemTtsService(
+      tts: plugin,
+      platform: TargetPlatform.android,
+      excludedVoiceKeys: (_) async => excluded,
+    );
+    final first = service.speak('第一段');
+    await flush();
+    requests.last.complete(1);
+    await first;
+    excluded.add(const SystemTtsVoice(name: '离线中文', locale: 'zh-CN').key);
+    final second = service.speak('第二段');
+    await flush();
+    expect(chosenVoices.last['name'], '联网中文');
+    requests.last.complete(1);
+    await second;
+    excluded.add(const SystemTtsVoice(name: '联网中文', locale: 'zh-CN').key);
+    await expectLater(service.speak('第三段'), throwsStateError);
+    verifyNever(() => plugin.setLanguage(any()));
+  });
+  test('引擎与显式音色一同保存，不因引擎变化清空选择', () async {
+    const voice = SystemTtsVoice(name: '联网中文', locale: 'zh-CN');
+    await service.saveSettings(engine: 'test.engine', voice: voice.key);
+    final request = service.speak('明确选择');
+    await flush();
+    expect(chosenVoices.last['name'], '联网中文');
+    requests.last.complete(1);
+    await request;
+    expect(service.selectedVoice, voice.key);
+  });
+
   test('倍速遵循平台范围与正常值', () {
     expect(SystemTtsService.speechRate(1, 0.5, 1), 0.5);
     expect(SystemTtsService.speechRate(3, 0.5, 1), 1);

@@ -1,3 +1,4 @@
+import '../domain/contracts/source_login_session.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
@@ -39,8 +40,9 @@ class WebViewLoginScreen extends StatefulWidget {
   /// 书源 header 字段原始值（JSON 或 kv 串，解析失败忽略）
   final String? header;
 
-  /// 原始凭据存储（putLoginHeader 落库）
+  /// 普通书源凭据与 TTS 会话分开，不依赖根 API。
   final SourceLoginRepository repository;
+  final SourceLoginSession? loginSession;
 
   /// 书源网页共用 Cookie 接线，购买页可隐藏登录专用操作。
   final String? title;
@@ -53,6 +55,7 @@ class WebViewLoginScreen extends StatefulWidget {
     required this.loginUrl,
     this.header,
     required this.repository,
+    this.loginSession,
     this.title,
     this.showLoginActions = true,
   });
@@ -195,6 +198,10 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   /// webview_flutter 不暴露读取接口——经 JS document.cookie 读取
   /// （局限：httpOnly Cookie 读不到，该类登录态需源在 JS 侧可续期；
   /// Android 通道含 httpOnly 无此限制）
+  Future<void> _saveLoginHeader(String json) =>
+      widget.loginSession?.putHeader(json) ??
+      widget.repository.putLoginHeader(widget.sourceUrl, json);
+
   Future<void> _syncCookie(String url) async {
     if (Platform.isIOS) {
       try {
@@ -203,10 +210,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
         );
         final cookie = raw.toString();
         if (cookie.isEmpty || cookie == 'null') return;
-        await widget.repository.putLoginHeader(
-          widget.sourceUrl,
-          jsonEncode({'Cookie': cookie}),
-        );
+        await _saveLoginHeader(jsonEncode({'Cookie': cookie}));
       } catch (_) {
         // Cookie 读取/落库失败不阻断页面（对齐原版尽力而为语义）
       }
@@ -215,10 +219,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     try {
       final cookie = await PlatformChannel.getCookie(url);
       if (cookie.isEmpty) return;
-      await widget.repository.putLoginHeader(
-        widget.sourceUrl,
-        jsonEncode({'Cookie': cookie}),
-      );
+      await _saveLoginHeader(jsonEncode({'Cookie': cookie}));
     } catch (_) {
       // Cookie 读取/落库失败不阻断页面（对齐原版尽力而为语义）
     }
@@ -241,6 +242,35 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   }
 
   Future<void> _openManual() async {
+    if (widget.loginSession != null) {
+      final controller = TextEditingController(
+        text: await widget.loginSession!.getHeader(),
+      );
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      final value = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('登录请求头'),
+          content: TextField(controller: controller, maxLines: 5),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      controller.dispose();
+      if (value != null) await widget.loginSession!.putHeader(value);
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => SourceLoginScreen(

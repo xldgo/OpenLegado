@@ -11,6 +11,7 @@
 | 2026-10-13 | **阅读记录上游三视图/会话契约冻结**：新增真实会话查询、每日单书删除和原始会话集合删除三项；累计写入带副本URL及章节序号。新增时段与累计/每日数据原子提交，重复快照不计时，删除按作者/设备隔离并同步四表，跨午夜每日删除裁剪原会话。不补造旧会话。领域方法7→10，附录296→299。 |
 | 2026-10-13 | **阅读记录明细契约冻结（加法式，+2 方法；契约先行）**：补齐阅读记录单书每日明细（readRecordDetail）数据链与写入跨午夜原子事务语义。书籍身份由 `(bookName, author)` 标识，阅读器保存时透传真实 author；`putReadRecord` 写入事务计算有效增量 `delta = 新 readTime − 旧 readTime`，`delta <= 0` 幂等忽略；以 `[startTime, endTime]` 判断是否跨本地午夜，跨午夜时原子拆分毫秒至对应日期，单事务原子更新 `readRecord`、`readRecordDetail` 及 `readRecordDaily`，失败全量回滚；`deleteReadRecord` 级联删除指定书籍在 `readRecordDetail` 的所有明细；`clearReadRecords` 同时清空三表。新增 `getReadRecordDetails(int year)` 与 `getAllReadRecordDetails()`（均返回毫秒单位 `List<ReadRecordDetail>`）。§2.12 方法数 5→**7**，附录合计 294→**296**，ReadRecordRepository 口径 5→**7**（契约先行，实现批封装后程序化计数转齐）。 |
 | 2026-10-14 | **书源登录凭据边界冻结**：SourceLoginRepository 承担既有信息/登录头四项原始 JSON 读写，正式直接 FRB、Mock 保留唯一存储；转换与旧配置回退/顺序保存提取到独立模块，根仅分享引用、移除旧四项方法。手动编辑状态按书源 URL 隔离并过滤过期加载，空凭据清空，保存固定快照、重复调用共用在途结果；经典表单和 WebView 改用凭据接口，经典 JS 求值单独注入。保留 JSON、键、Header→Info 两次写入及部分成功/失败语义；动态登录、Rust/FRB、数据库、版本和依赖保持。 |
+| 2026-10-13 | **HTTP TTS 批次 T1 全字段持久化与原地更新契约冻结**：保留 `HttpTtsRepository` 七项方法签名及方法计数不变；FRB `http_tts_add(http_tts_json: String) → Result<i64, BridgeError>` 与 `http_tts_update(http_tts_json: String) → Result<bool, BridgeError>` 升级为完整 `HttpTts` JSON 载荷，`http_tts_list()` 返回统一 camelCase JSON 数组。数据库 `httpTTS` 升级至 v110（新库建表 + `Migration109To110` + `repair_legacy_columns` 补齐 `speed` 可空整型与 `synthesisThreadCount` 默认 1）；完整读写 `id`、`name`、`url`、`contentType`、`pauseDuration`（Rust 扩展保留，默认 0）、`concurrentRate`、`loginUrl`、`loginUi`（导入兼容 JSON 数组自动序列化为字符串）、`header`、`jsLib`、`enabledCookieJar`、`loginCheckJs`、`speed`、`synthesisThreadCount`（1..8 clamp，默认 1）、`lastUpdateTime`、`isEnabled`（Rust 扩展保留，默认 true）。`updateHttpTts` 按 `id` 原地 UPDATE 全部字段并刷新 `lastUpdateTime`；目标 `id` 不存在（返回 `false`）、JSON 非法或写库失败均抛错，不删除或覆盖既有记录。配置页编辑改为 `copyWith` 原地更新，保留未展示高级字段与原 ID。 |
 | 2026-10-13 | **书源校验边界冻结**：Dart 内部 SourceChecker 接收既有单源校验、批量进度流与取消三项能力；正式直接调用原 FRB 并复用 JSON 守卫，Mock 与书源 Repository 共用唯一存储，根仅提供共享引用、删除旧三项方法。Notifier 捕获发起校验的实例，以会话代数过滤迟到事件；准备期间重复启动被拒绝，取消完成前不启动下一轮，清除/销毁解除旧订阅。保留配置键、默认值、事件 JSON、结果文案和正常完成的失效分组回写；Rust 进程级取消与 Mock 原取消空操作保持，不变更 Rust/FRB 或数据库。 |
 | 2026-10-13 | **书源导入职责冻结**：ImportResult/SourcePreview 独立为纯数据模型，SourceImportParser 统一预览和必填校验；导入服务只接收 BookSourceRepository、文本 GET、文件读取及书源替换规则回调，应用装配绑定同一根实例。保留宽松原始 JSON、逐条替换再入库、成功计数及失败边界；文件缺失与读取失败、HTTP 状态及原实际超时提示保持，不增加 BookApi 或 Rust/FRB 方法、不改变数据库或批量事务。 |
 | 2026-10-13 | **书源功能目录冻结**：四个管理/编辑/导入页面及 part、状态和专用组件归入 `features/book_sources/`，外部经 `book_sources.dart` 使用；共用编辑器/选择栏保留，导入状态颜色抽到 theme。只改路径与共享辅助类位置，Provider/Controller 生命周期、方法体、源配置、导入语义及契约计数不变。 |
@@ -19,7 +20,7 @@
 | 2026-10-13 | **书架与分组直接适配冻结**：十项书架及五项分组操作由独立正式/Mock Repository 承担，根 BookApi 提供共享引用，删除旧十五项方法与临时适配器。正式调用沿用现有 FRB，Mock 书籍存储与加载守卫供进度、章节和本地导入共用；分组种子与 ID 分配保持。迁移阅读器、详情、朗读、记录、备份、同步等剩余消费者；书籍 JSON、排序、异常、进度写入及分组能力差异不变，Rust/FRB 和数据库不变。 |
 | 2026-10-13 | **书架与分组窄接口第一批冻结**：新增 Dart 内部 BookshelfRepository（§2.2 十项）与 BookGroupRepository（§2.14 四项及既有 bookGroupSetShow）。本批单向适配现有 BookApi，迁移书架、管理和分组消费者；保留参数、返回值、异常、排序和分组显隐能力差异。旧方法供阅读器、详情、朗读、备份与同步继续使用，不重复计入契约总数；不修改 Rust/FRB、JSON、数据库或进度规则。 |
 | 2026-10-13 | **朗读边界第三批冻结**：新增 Dart 内部 `ReadAloudEngine` 播放协议与段落 `ReadAloudSession`。HTTP 本地播放和系统朗读统一起播、完成、进度与控制入口，会话沿用播放 token / 合成代数判定过期，完成只消费一次；系统暂停续读与 HTTP 暂停重播、合成失败策略保持。控制异常按发起会话过滤，当前 HTTP 暂停/停止异常显示提示并保持暂停/空闲，不再逃逸为未处理异步错误。音频书和媒体会话不重构，不增加 BookApi 或 Rust/FRB 方法，签名、JSON、缓存和数据库不变。 |
-| 2026-10-13 | **朗读边界第二批冻结**：HTTP 合成迁入 `HttpTtsSynthesizer.synthesize`，结果区分本地音频（路径、缓存命中、MIME）与无音频（空产物、探活成功或 Mock）。保留 Rust 合成失败后的 GET 探活、30 秒超时及播放器估算推进；探活不等同合成成功。移除 BookApi 的 `audioSpeak`、无应用调用方的 `ttsSpeak` / `ttsSetCacheDir` 包装；原生两项导出保留，缓存目录仍由 NativeRustRuntime 初始化。系统 TTS 提取平台接口和独立注入，插件实现、设置键、进度与停止屏障保持；不修改 Rust/FRB、数据库或播放协议。 |
+| 2026-10-13 | **朗读边界第二批冻结（当时行为，后被本日 T2a/T2b 契约取代）**：HTTP 合成迁入 `HttpTtsSynthesizer.synthesize`，结果区分本地音频（路径、缓存命中、MIME）与无音频（空产物、探活成功或 Mock）。保留 Rust 合成失败后的 GET 探活、30 秒超时及播放器估算推进；探活不等同合成成功。移除 BookApi 的 `audioSpeak`、无应用调用方的 `ttsSpeak` / `ttsSetCacheDir` 包装；原生两项导出保留，缓存目录仍由 NativeRustRuntime 初始化。系统 TTS 提取平台接口和独立注入，插件实现、设置键、进度与停止屏障保持；不修改 Rust/FRB、数据库或播放协议。 |
 | 2026-10-12 | **RUST-EDITION-20261012 工具链与旧 C ABI 清理范围**：工作区自有 crate 迁移 Rust 2024，沿用 stable，更新兼容依赖；FRB runtime/codegen 保持 2.13.0 配对。移除无项目内调用方的旧 `bridge.rs` C ABI 模块及其 182 个函数定义（181 个独立导出符号），不保留旧符号兼容层。现用 `crate::ffi`、FRB/PDE 入口、业务签名与 JSON、数据库结构保持不变（本日新增书签更新入口除外）；生成绑定由固定生成器重新产生。 |
 | 2026-10-12 | **API-LIFECYCLE-20261012 书签更新契约冻结**：保留 `BookApi.updateBookmark(Bookmark)` 签名，新增 FRB `bookmark_update(bookmark_json: String) → Result<(), BridgeError>`，Dart 绑定为 `bookmarkUpdate(bookmarkJson:)`。按现有 Bookmark JSON 字段传入，以 id 定位并用单条 UPDATE 修改书籍、章节、正文和备注；id 与数据库原有 time 不变，输入 time 不参与更新。JSON 非法、目标不存在或数据库写入失败均抛错，失败不删除或新增记录。Mock 同步此语义；数据库结构与 BookApi 方法计数不变。初始化后将同一 BookApi 实例注入 Provider，不增加业务接口。 |
 | 2026-10-10 | **FRB-UPGRADE-20261010 工具链升级范围冻结**：用户已同意 Dart 下限提高至 3.13、FRB Dart/Rust runtime 与 codegen 同步至 2.13.0。重新生成双方绑定并重建原生库；现有 BookApi/FFI 方法签名、JSON 字段、错误与事件流语义、数据库格式保持不变。版本、生成器内部实现和 content hash 可由同次生成更新，禁止手改生成物；生成前后核对导出方法并执行真实 FFI 回归。本条不增加业务 API，方法表与计数不变。 |
@@ -638,29 +639,33 @@
 
 ### 2.25 HTTP TTS（6 个方法）
 
-> **2026-10-13 Dart 领域接线冻结**：本节六项及 §2.41 的
-> `httpTtsSetEnabled` 迁入 `HttpTtsRepository`；根 BookApi 只提供共享
-> `httpTtsRepository` 引用。正式实现直接调用已有 FRB，Mock 独立拥有
-> 唯一引擎列表，保留默认样例和根对象 ID 分配。无调用方的
-> `getHttpTtsList` 列表别名删除。初始化、Rust/FRB、数据库、模型字段和
-> 导入/导出语义不变；系统 TTS 不是 HTTP 配置，不写入此 Repository。
-> HTTP 合成和播放会话另行拆分，本批不改变合成回退、计时、媒体会话，
-> 或书级/全局选择的持久化方式。
+> **2026-10-13 批次 T1 全字段持久化与原地更新冻结**：本节六项及 §2.41 的
+> `httpTtsSetEnabled` 由 `HttpTtsRepository` 承担；根 BookApi 只提供共享
+> `httpTtsRepository` 引用。`httpTTS` 表升级至 Schema v110（补齐 `speed`、
+> `synthesisThreadCount`），FRB `httpTtsAdd(httpTtsJson:)` 与
+> `httpTtsUpdate(httpTtsJson:)` 接收完整 `HttpTts` JSON，`httpTtsList()`
+> 输出统一 camelCase 字段：`id`、`name`、`url`、`contentType`、
+> `pauseDuration`（默认 0）、`concurrentRate`（默认 `"0"`）、`loginUrl`、
+> `loginUi`（兼容上游 JSON 数组导入并序列化为字符串）、`header`、`jsLib`、
+> `enabledCookieJar`（默认 `false`）、`loginCheckJs`、`speed`（可空整型）、
+> `synthesisThreadCount`（1..8 clamp，默认 1）、`lastUpdateTime`、
+> `isEnabled`（默认 `true`）。`updateHttpTts` 按 `id` 原地更新，目标不存在
+> 或写入失败均抛错（正式与 Mock 一致）；配置编辑使用 `copyWith` 保留未展示字段。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `getHttpTts()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置 |
-| `addHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<HttpTts>` | 添加 HTTP TTS 配置 |
-| `updateHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<void>` | 更新 HTTP TTS 配置 |
+| `getHttpTts()` | 无 | `Future<List<HttpTts>>` | 获取所有 HTTP TTS 配置（完整 camelCase 字段） |
+| `addHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<HttpTts>` | 添加或保存完整 HTTP TTS 配置（`id != 0` 保留输入 ID，否则分配新 ID） |
+| `updateHttpTts(HttpTts tts)` | tts: HttpTts 对象 | `Future<void>` | 按 `id` 原地更新完整 HTTP TTS 配置；目标不存在或失败抛错 |
 | `deleteHttpTts(int id)` | id | `Future<void>` | 删除 HTTP TTS 配置 |
-| `importHttpTts(String json)` | json: JSON 字符串 | `Future<int>` | 导入 HTTP TTS 配置，返回成功数量 |
-| `exportHttpTts()` | 无 | `Future<String>` | 导出 HTTP TTS 配置 |
+| `importHttpTts(String json)` | json: JSON 字符串 | `Future<int>` | 导入完整 HTTP TTS 配置（兼容数组 `loginUi`），返回成功数量 |
+| `exportHttpTts()` | 无 | `Future<String>` | 导出完整 HTTP TTS 配置 JSON 数组 |
 
 ### 2.26 音频播放（4 个方法）
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `synthesize({required String text, required String engineUrl, double speed = 1.0, double pitch = 1.0, double volume = 1.0, String? voiceName})` | text, engineUrl, speed, pitch, volume, voiceName | `Future<HttpTtsSynthesisResult>` | `HttpTtsSynthesizer` 的 HTTP 合成入口；`HttpTtsAudio` 提供路径、缓存命中及 MIME；`HttpTtsNoAudio` 区分空产物、探活成功和 Mock。失败探活仍抛错；播放会话继续原提示和估算规则。系统 TTS 不走此接口。 |
+| `synthesize({required int engineId, required String text, String? engineUrl, double speed = 1.0, double pitch = 1.0, double volume = 1.0, String? voiceName, String? toneId, String? speakerName, String? emotionTag, HttpTtsCancellation? cancellation})` | 稳定 ID、正文、播放参数、音色上下文、取消状态 | `Future<HttpTtsSynthesisResult>` | `HttpTtsSynthesizer` 执行 HTTP 合成；`HttpTtsAudio` 提供路径、缓存命中及 MIME。`HttpTtsNoAudio` 区分 emptyResult/synthesisFailed/mock；真实失败保留原始错误，没有 GET 探活。`HttpTtsCancelled` 不起播、不进入失败估算。播放参数由播放器消费，源级语速从数据库读取。系统 TTS 不走此接口。 |
 | `getAudioChapterMedia(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>>` | **音频书章节取址**（对齐原版 `AudioPlay` → `WebBook.getContent`）。Rust FFI：`audioGetChapterMedia` → JSON。返回字段（camelCase）：`chapterIndex` / `title` / **`mediaUrl`**（可播地址，即 getContent 正文 trim）/ `url`（章节页 URL，兼容旧字段）/ `resourceUrl` / `isVolume`（卷章无媒体，调用方应跳过）/ `fromCache` / `lyric` / `sourceUrl`。流程：查章 → 卷章短路 → DB 章节内容缓存命中则直接作 `mediaUrl` → 否则按 `book.origin` 书源 `getContent`（**正文规则为空时回退章节 URL**，对齐 Kotlin）→ 写入缓存。空 `mediaUrl` 且非卷章表示取址失败。错误码：章节/书籍不存在 → Database；书源网络/解析失败向上抛。与 HTTP TTS 合成分流：仅 `BookType.audio` 走本接口流媒体 |
 | `getAudioProgress(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>?>` | 获取音频播放进度 |
 | `saveAudioProgress(String bookUrl, int chapterIndex, int positionMs)` | bookUrl, chapterIndex, positionMs | `Future<void>` | 保存音频播放进度 |
@@ -857,20 +862,85 @@
 | `httpTtsSetEnabled` | HTTP TTS（§2.25 扩展） | 启用/禁用 HTTP TTS 配置——✅ 已封装 `BookApi.httpTtsSetEnabled`（F3-20） |
 | `dictLookup` | 词典（§3 需求 4） | 词典释义查询——✅ 已封装 `BookApi.dictLookup`（F3-10 补登记） |
 
-### 2.42 TTS 真实合成管线（Task #113 批次 2 缺口②，2 个方法）
+### 2.42 TTS 合成、请求取消与登录管线（4 个方法）
 
 > 对齐 Kotlin 原版 `HttpReadAloudService.getSpeakStream` + `AnalyzeUrl(speakText/speakSpeed)` 模型：
 > url 模板占位符替换 → HTTP 请求获取音频二进制 → Content-Type 校验（`application/json` / `text/*` 视为服务器报错）→
-> 以「模板+文本+语速」MD5 命名缓存到本地（命中直接返回路径，避免重复请求）。
-> Flutter 由 `HttpTtsSynthesizer.synthesize`（§2.26）调用此真实管线。合成或解码失败后保留既有 GET 探活；探活成功返回无音频结果，不能当成本地产物。播放会话保留用户提示与估算推进，本批不调整回退策略。
+> 以结构化请求配置、正文、源级语速、音色上下文和运行态登录/源变量的 MD5 命名缓存到本地（命中直接返回路径，避免重复请求）。
+> 全局播放倍速不参与网络合成与缓存键，由播放端独立应用。
+> Flutter 由 `HttpTtsSynthesizer.synthesize`（§2.26）调用此真实管线。服务器返回 json/text 时携带响应体文本；MIME 不匹配或配置无效时携带对应校验原因抛出 BridgeError。MIME 先去除参数，再按 contentType 正则完整匹配。
 >
-> **占位符约定**：`{{speakText}}` / `{{text}}`（朗读文本，URL 编码后替换）、`{{speakSpeed}}` / `{{speed}}`（语速）。
+> **2026-10-13 审查修复约定**：HTTP 书级选择在 `readConfig.ttsEngine` 保存非零有符号 ID 字符串，系统保留 `system://default`；有效 ID 被删除或读取失败时不按 URL 改选其他引擎。缓存输入以结构化 JSON 序列化，覆盖完整请求配置（包括 jsLib）、正文、源级语速与音色上下文；全局播放倍速继续排除。JS 属性表达式和复杂表达式使用同一份安全变量绑定。合成错误保留原始原因，不作为成功探活或空产物吞掉。
+>
+> **T2b 请求与登录契约（2026-10-13 冻结）**：Rust 以数据库 HTTP TTS ID 构造 BaseSource，来源键 `httpTts:<id>`，不得保存为书源。`source`/`java` 可访问 getKey/getTag、源变量、登录 Header/信息及 login；源变量由宿主注入的存储落库。Header 优先级为源规则 → 登录 Header → URL 选项（大小写不敏感覆盖）；无效 Header 抛错。Cookie 延续域名共享和写侧 enabledCookieJar 门控，不隔离同域 Cookie。loginCheckJs 接收二进制响应对象（code/header/headers/body/request/newBuilder），返回修改后的响应；字符串/布尔完成值拒绝，正文不经过有损 UTF-8 转换。
+>
+> `ttsRequestNew()` 同步创建独立原生请求句柄，句柄 `cancel()` 同步置位；`ttsSpeak` 接收该句柄，等待同输入门禁、限流、网络和重试均可取消，取消不落盘、不进入失败估算。原生句柄释放随 FRB 生命周期，不建立全局请求 ID 表。源规则 JS 为同步沙箱执行，不能强制中断已进入的 JS 宿主调用；完成阶段再次检查取消。
+>
+> `httpTtsLogin({engineId, operation, payload})` 以 ID 读取当前配置；operation 为 ui（经典/V2 UI JSON）、action（V2 命令）、eval（经典按钮脚本，返回 result/actions）、headers（源规则与登录 Header 合并后的请求头）、info/header（读回）、putInfo/putHeader（写入）。未知操作和不存在 ID 抛错。现有登录控件通过回调适配复用，不改变书源登录接口。登录 UI 不把凭据写入 HTTP TTS 普通配置。
+>
+> **TTS 规则上下文约定**：
+> - `speakText` / `text`：朗读文本
+> - `speakSpeed` / `speed`：源级语速刻度 `(httpTts.speed ?? 5) + 5`
+> - `currentToneID`：音色 ID（可选，默认空串）
+> - `currentSpeakerName`：发音人名称（可选，默认空串）
+> - `currentEmotionTag`：情感标签（可选，默认空串）
+> - 支持 URL 模板、`@Header`、`@Body`、POST/GET 方法及 `@js:` / `{{js}}` 规则求值。
 > **缓存目录**：默认为系统临时目录下 `legado_tts_cache`，由 Bootstrap 经 NativeRustRuntime 的 `setTtsCacheDirectory` 调用 `ttsSetCacheDir` 注入应用缓存目录。合成接口不初始化运行时、不改变目录或另存缓存。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `ttsSpeak({required String text, required String engineUrl, required double speed})` | text: 朗读文本，engineUrl: 引擎 URL 模板，speed: 语速 | `Future<String>` | 原生 TTS 真实合成的 JSON 导出；Flutter 由 HttpTtsSynthesizer 转成明确结果，无直接 Map 包装。返回字段（camelCase）：`audioPath: String`（本地音频文件绝对路径）/ `fromCache: bool`（是否缓存命中）/ `contentType: String`（音频 MIME 类型）。服务器返回 json/text 时以响应体文本抛出 BridgeError |
+| `ttsSpeak({required int engineId, required String text, required TtsRequest request, String? toneId, String? speakerName, String? emotionTag})` | engineId: 引擎 ID，text: 朗读文本，toneId: 音色 ID（可选），speakerName: 发音人（可选），emotionTag: 情感标签（可选） | `Future<String>` | 原生 TTS 真实合成的 JSON 导出；根据 engineId 读取数据库 HttpTts 配置，经 `legado-fetcher` 的 TTS 变量上下文与 AnalyzeUrl 执行网络合成与校验；T2b 已接入 Source 常用 API、动态 Header、登录响应脚本、源限流与取消；同步 JS 宿主调用不能强制中断。返回字段（camelCase）：`audioPath: String`（本地音频文件绝对路径）/ `fromCache: bool`（是否缓存命中）/ `contentType: String`（音频 MIME 类型）。服务器返回 json/text 时携带响应体；其他校验失败携带对应原因抛出 BridgeError |
+| `ttsRequestNew()` / `TtsRequest.cancel()` | 无 / 当前原生句柄 | 同步 `TtsRequest` / `void` | 创建和取消单次请求；不得复用已取消句柄。取消/失败在 finally 释放；成功交给音频租约，播放停止或预合成索引登记后释放。 |
+| `httpTtsLogin({required int engineId, required String operation, required String payload})` | ID、上述操作名与载荷字符串 | `Future<String>` | 当前配置按 ID 查库；经典/V2 登录描述、动作、源规则 Header 及独立登录信息。未知操作、无效载荷及无对应引擎抛错。 |
 | `ttsSetCacheDir({required String path})` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
+
+### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
+
+**T3b 朗读缓存与预合成（2026-10-13，实施前冻结）**：不更改 ttsSpeak 入参及三个 JSON 字段。单次 TtsRequest 在成功合成后持有返回文件的缓存租约；RustHttpTtsSynthesizer 将句柄所有权交给 HttpTtsAudio.lease，停止播放器后释放；预合成登记索引后立即释放，取消/失败在 finally 释放。请求期间保护缓存读取与发布，避免清理竞争；此保护是进程内文件生命周期，不是另一份播放状态或数据库事实。
+
+| 原生方法 | 返回 | 约束 |
+|---|---|---|
+| `ttsCacheRecord(audioPath, contextJson)` | `Future<void>` | context 为 bookUrl/bookName/chapterIndex/chapterTitle/paragraphIndex/text，章段索引非负；仅接受当前缓存目录中的正规音频文件。一个文件可关联多个书/章/段，索引用独立 JSON 原子发布，不改数据库 schema。 |
+| `ttsCacheList()` | `Future<String>` | JSON 数组：name/sizeBytes/modifiedAtMs/protected/contexts。只列已发布的非空音频，不将 .part/索引文件当成音频；没有索引的缓存可列为 contexts=[]，不回填历史数据。 |
+| `ttsCacheClear({String? name, BigInt? beforeTimestampMs, String? keepBookUrl, int? keepChapterIndex})` | `Future<String>` | 不传 name 清理全部或过期项；传 name 删除单文件。返回 removedFiles/removedBytes/skippedFiles；保护请求中与租约持有的文件，不删活动临时文件。拒绝目录穿越和不合法文件名，不读取或删除音频符号链接，索引符号链接报错；删除失败抛 BridgeError，不伪装成功。 |
+
+TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Repository 对时间戳使用 int，Rust u64 经 FRB 生成为 BigInt，由正式适配器转换；keepBookUrl/keepChapterIndex 成对用于保留当前章。缓存保留 `audioCacheCleanTime` 单位分钟，默认 10，0 为即听即焚：停止并释放活动租约后清理；保留模式保护当前章，清理其他过期项。预下载 `audioPreDownloadNum` 默认 10 章；预合成 `ttsPreSynthesisConcurrency` 默认 3，与源 synthesisThreadCount 取小（1..8）。全局播放倍速不改变合成身份。调度只改变请求顺序，不改 Rust 规则求值、缓存键或音频格式；同输入优先复用排队/在途任务，取消不转失败估算。预合成失败不改变当前播放器状态。
+
+**T4a 音色目录（2026-10-13，实施前冻结）**：新增独立 `read_aloud_voices` 表（schema v111，仅建表，不回填历史目录），HTTP 16 字段及表列保持不变。导入 HTTP 源的原始 JSON 中 speakersJson/emotionsJson 在 Rust 解析并同步；按上游仅接受字符串内嵌 JSON，支持平铺/分组与字段别名，平铺优先、同 ID 首项保留。没有有效 speaker 时不清空目录；正常编辑不丢既有音色；删除引擎清理其目录。源与目录保存处于同一事务，不能只保存其中一半。
+
+目录行字段：id/engineType/engineId/speakerId/displayName/traitsJson/emotionCatalogJson/managedBy/enabled/available/excluded/revision/createdAt/updatedAt。稳定 ID 对齐 SpeechIdentity：`voice:` + SHA256(`engineType + NUL + engineId + NUL + speakerId`) 前 32 小写十六进制字符。HTTP 的 engineId 是数据库整数的字符串，speakerId 是 toneID；系统 engineId 为 `system:<设备引擎>`，speakerId 优先设备 identifier，否则 name。系统发现由现有 SystemTts 平台接口负责，Rust 不访问 TTS 插件。
+
+| 新增原生接口 | 返回/约束 |
+|---|---|
+| `readAloudVoiceList()` | Future<String>，全量目录 JSON 数组，包括排除项；可选候选必须 enabled && available && !excluded。 |
+| `readAloudVoiceSyncSystem(engineId, entriesJson)` | Future<void>，仅同步给定系统引擎；输入 speakerId/displayName/traitsJson。保留已存在行的 enabled/excluded/createdAt，缺失系统项标为不可用，不删除用户偏好。 |
+| `readAloudVoiceSetFlags(id, enabled, excluded)` | Future<bool>，只改用户标记；ID 不存在返回 false，不伪造新目录行。 |
+
+`ReadAloudVoiceRepository` 窄接口提供查询、系统同步和标记修改，HTTP 导入同步不经过 UI 算法。源级目录情感列表挂到该源每个音色，传入 toneId/speakerName/emotionTag 三项均进入已有 ReadAloudRequest 与 Rust 合成上下文/缓存键。选择按引擎持久化；换引擎不沿用上一源 toneID，选中不可用/排除音色不静默替换，保持默认参数并给出提示。系统选择复用 saveSettings；目录发现不依赖所选音色能成功播放，起播/非原生暂停恢复时校验当前设备目录和用户标记。显式系统音色消失、禁用或排除时保留选择并报错，不自动换声；默认选择避开不可选项。暂不实现系统音频文件合成或新原生桥。
+
+**T4b-1 原生云端合成基础（2026-10-13，实施前冻结）**：本批仅新增 Rust 内部 CloudTtsProvider/OpenAI Speech 与可注入网络传输，不新增 FRB 方法、数据库表或用户入口。参考上游固定 070ca1a 的 OpenAiCloudTtsProvider；模型、音色、请求和格式语义以 TTS_ALIGNMENT 的明确清单为准。凭据仅作为调用输入，在内存准备 Authorization；Debug 和可导出 JSON 不含凭据。缓存身份包含引擎、目标、实际请求与凭据摘要，不将明文凭据落盘。缓存命中仍须先验证引擎启用、必填参数和凭据。取消覆盖锁等待和网络；结果使用既有 TtsCache 活动门禁/音频租约和 SpeakCache 原子发布。此内部接口不是已开放给 Flutter 的云端功能；后续安全存储、CloudTtsRepository、FRB 和 CloudReadAloudEngine 需分别冻结契约。
+
+**T4b-2 云端配置与播放（2026-10-14，实施前冻结）**：schema v112 新增 cloud_tts_engines 元数据表，仅建表、不回填。字段 id/name/provider/baseUrl/model/optionsJson/region/appId/enabled/createdAt/updatedAt/credentialKey；不保存 apiKey 或 secretKey。T4b-2 首批 provider 为 openai_speech，T4b-3 增加 mimo，未知类型拒绝。ID 为 1..128 ASCII 字母/数字/下划线/连字符；credentialKey 为独立平台安全存储引用。正常保存保留 createdAt、更新 updatedAt；optionsJson 必须是合法对象，不接受私有凭据字段。
+
+| 新增方法 | 返回与约束 |
+|---|---|
+| cloudTtsList() | Future<String>，元数据 JSON 数组，无明文凭据。 |
+| cloudTtsSave(engineJson) | Future<void>，按 ID 原地保存元数据；拒绝载荷中 apiKey/secretKey，完整字段 camelCase。 |
+| cloudTtsDelete(id) | Future<bool>，只删指定元数据，不读取平台凭据。 |
+| cloudTtsVoices(provider) | Future<String>，当前 Provider 静态音色数组 id/displayName/styles/sampleRate（可选）；未知 Provider 抛错。 |
+| cloudTtsSpeak(engineId,apiKey,requestJson,request:TtsRequest) | Future<String>，从 DB 读取当前配置并检查启用；apiKey 仅作为临时输入。requestJson 仅含 text/credentialKey；源语速、音色、格式/指令由当前 DB optionsJson 产生，credentialKey 必须仍匹配 DB，拒绝读取期间已替换的凭据；结果 audioPath/fromCache/contentType，成功租约交给同一个 TtsRequest，沿用取消与释放机制。 |
+
+CloudTtsRepository 窄接口仅管理元数据；CloudTtsCredentialStore 独立管理设备凭据；CloudTtsSettings 协调版本化引用写入：新凭据保存成功后再写 DB，DB 失败删除新引用、保留旧配置；DB 成功后清理旧凭据。删除先删元数据，再删凭据；后者失败明确提示已删配置而凭据清理失败，不伪装回滚或跨存储事务。不会读取历史凭据，不做明文存储回退。
+
+选择使用 cloud://<ID>，复用当前书级/全局引擎设置，云端选择清空旧 HTTP 数值 ID；不保存为 httpTTS。CloudReadAloudEngine 实现现有 ReadAloudEngine 协议，复用共享文件播放器、媒体会话、缓存索引/租约和定时；停止/换源使旧回调失效。长段按 UTF-16/字形簇安全分片，段内完成只推进分片，整段全部播放完成才调用现有切段逻辑。云端合成参数源于 optionsJson，播放倍速仍独立。试听使用独立播放器和取消会话，不接管正文的完成回调；进入试听先暂停已有朗读。设备凭据、后台行为及真实云账号另行验收。
+
+
+**T4b-3 MiMo（2026-10-14，实施前冻结）**：用户指定下一家优先 MiMo。provider 新增 `mimo`，schema v112 和五个 FRB 方法签名保持；未知 Provider 仍拒绝。默认模型 mimo-v2.5-tts、默认音色 mimo_default、输出仅 wav，音色目录对照固定上游九项；目录可附 styles/sampleRate，既有 id/displayName 保留。配置页按 Provider 提供默认模型/音色与格式，新建时可选择 Provider，并清空前一服务的地址和密钥；已保存的 Provider 在 UI/DB 均保持不变，需要更换时新建引擎，防止空密钥编辑把上一服务的凭据发送到另一服务。
+
+MiMo 源选项保留 voiceId/style/instructions/format，format 为 wav；源 speed 不改变请求（上游未消费），配置页不显示该无效控制，播放倍速仍由播放器处理。Rust 准备 POST /chat/completions（兼容显式完整端点），使用 api-key 头，不添加 Bearer。instructions 作为可选 user 消息，style 非空时以 `(style)` 前缀进入 assistant 正文，audio 为 pcm16/voice，stream=true。网络传输只遵从 Provider 明确的鉴权头与响应类型，不让页面实现 SSE 或 Base64。
+
+Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺序拼接 Base64 PCM，使用 24kHz/16-bit/单声道/小端 WAV 适配。错误事件、坏 JSON/Base64、空音频或未完成流不能落盘；完成以 [DONE] 或 finish_reason=stop 为证，拒绝 length 等截断原因。保留 120 秒超时、完整响应后播放、取消、缓存去重/原子提交及租约，不新增边合成边播放或云端后台预合成。OpenAI 仍使用 Bearer 与直接音频响应，其原有 JSON/text 错误拒绝不能因 SSE 支持而放宽。不调用真实云账号。
+
 
 ### 2.43 缓存写/购买/批量下载/导出扩展（Task #136 R5+R6+R7+R8，11 个方法）
 
@@ -1220,7 +1290,7 @@
 | 39 | 规则订阅 | 7 |
 | 40 | 本地 TXT 全文搜索 | 4 |
 | 41 | 契约外已实现 FFI 补登记（§2.41，待 BookApi 封装） | 5 |
-| 42 | TTS 真实合成管线 | 2 |
+| 42 | TTS 合成、请求取消与登录管线 | 4 |
 | 43 | 缓存写/购买/批量下载/导出扩展（§2.43，Task #136） | 11 |
 | 44 | 字典规则操作 | 7 |
 | 45 | 图片磁盘缓存 | 2 |
@@ -1228,13 +1298,25 @@
 | 47 | 音频章节预下载 | 2 |
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
-| | **合计（§2.x 附录行合计）** | **299** |
+| | **合计（§2.x 附录行合计）** | **301** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`、2026-10-13 UI-HOME-OVERVIEW-A1 增 §2.12 阅读记录单书每日明细 2 方法 `getReadRecordDetails`/`getAllReadRecordDetails`，取代人工统计）：
 
-> - 附录行合计 **299** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
-> - BookApi 代码计数 **240**；书签六项、阅读记录十项（原五项 + 每日单书明细两项 + 会话/删除三项）、HTTP 配置七项、合成一项、书架十项、分组五项、书源十一项及书源校验三项由独立接口承担；
->   四个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource` / `ttsSpeak`，另有 Runtime 缓存设置一项；
+> - 附录行合计 **301** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
+> - BookApi 代码计数 **236**；书签六项、阅读记录十项（原五项 + 每日单书明细两项 + 会话/删除三项）、HTTP 配置七项、合成一项、书架十项、分组五项、书源十一项及书源校验三项由独立接口承担；
+>   六个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource` / `ttsSpeak` / `ttsRequestNew` / `httpTtsLogin`，另有 Runtime 缓存设置一项；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **299 = 240 + 6 + 10 + 7 + 1 + 10 + 5 + 11 + 3 + 4 + 1 + 1**：BookApi、书签、记录（含每日明细）、引擎配置、合成、书架、分组、书源、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
+> - 闭合关系为 **301 = 236 + 6 + 10 + 7 + 1 + 10 + 5 + 11 + 3 + 4 + 6 + 1 + 1**：BookApi、书签、记录（含每日明细）、引擎配置、合成、书架、分组、书源、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除；书源登录四项从根移入独立接口，TTS 请求创建/登录两项为纯 FFI。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。
+
+## 2026-10-14 朗读合并接线补充（实施前确认）
+
+主目录 SourceLoginRepository 的四项原始凭据读写保留，BookApi 不恢复旧方法。
+ClassicLoginDialog 默认入口继续注入凭据 Repository 和动作求值回调；新增
+session 构造接受 TTS SourceLoginSession，两个来源共用既有表单逻辑。
+WebView 同时接受书源 Repository 与可选 TTS 会话，TTS 读写通过会话，
+普通书源仍走原 Repository；不把 HTTP TTS 伪装为书源。阅读记录三视图
+与朗读新增的 FFI 方法全部保留，配对绑定从合并源码重新生成。
+schema v112 保留阅读记录明细与两个朗读目录/元数据表，不覆盖任一建表。
+
+编写者：Codex｜2026-10-14

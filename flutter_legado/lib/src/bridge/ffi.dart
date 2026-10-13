@@ -31,6 +31,13 @@ Future<String> readerLayoutFinish({required String sessionId}) =>
 Future<void> readerLayoutCancel({required String sessionId}) =>
     RustLib.instance.api.crateFfiReaderLayoutCancel(sessionId: sessionId);
 
+TtsRequest ttsRequestNew() => RustLib.instance.api.crateFfiTtsRequestNew();
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TtsRequest>>
+abstract class TtsRequest implements RustOpaqueInterface {
+  void cancel();
+}
+
 /// frb 桥接错误类型
 ///
 /// 所有桥接函数统一返回 `Result<T, BridgeError>`。

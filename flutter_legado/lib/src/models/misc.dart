@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'rule/rule.dart';
@@ -162,6 +164,36 @@ abstract class ReplaceRule with _$ReplaceRule {
 
 // ─── HttpTTS ──────────────────────────────────────────────
 
+/// 合成并发上限（对齐上游 `HttpTTS.MAX_SYNTHESIS_THREAD_COUNT`）
+const int kMaxHttpTtsSynthesisThreadCount = 8;
+
+String? _httpTtsLoginUiFromJson(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is List) return jsonEncode(value);
+  return value.toString();
+}
+
+bool? _httpTtsNullableBoolFromJson(Object? value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value.toInt() != 0;
+  if (value is String) {
+    final trimmed = value.trim().toLowerCase();
+    if (trimmed == 'true' || trimmed == '1') return true;
+    if (trimmed == 'false' || trimmed == '0') return false;
+  }
+  return null;
+}
+
+bool _httpTtsEnabledFromJson(Object? value) =>
+    _httpTtsNullableBoolFromJson(value) ?? true;
+
+int _httpTtsSynthesisThreadCountFromJson(Object? value) {
+  final raw = (value as num?)?.toInt() ?? 1;
+  return raw.clamp(1, kMaxHttpTtsSynthesisThreadCount);
+}
+
 /// 在线朗读引擎
 @freezed
 abstract class HttpTts with _$HttpTts {
@@ -173,12 +205,24 @@ abstract class HttpTts with _$HttpTts {
     @Default(0) @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @Default(1)
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @Default(0) @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @Default(true)
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   }) = _HttpTts;
 
   factory HttpTts.fromJson(Map<String, dynamic> json) =>

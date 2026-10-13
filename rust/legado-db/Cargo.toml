@@ -13,3 +13,6 @@ serde_json = { workspace = true }
 regex = { workspace = true }
 md5 = "0.8.1"
 chrono = "0.4"
+
+# 音色稳定标识与上游 SpeechIdentity 一致，复用锁定的 SHA-256 crate。
+sha2 = "0.11"
