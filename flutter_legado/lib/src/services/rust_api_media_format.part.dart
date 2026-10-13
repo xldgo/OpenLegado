@@ -223,7 +223,7 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
     String format,
     String outDir,
   ) async {
-    final book = await getBook(bookUrl);
+    final book = await bookshelfRepository.getBook(bookUrl);
     final bookName = book?.name ?? 'export';
     final chapters = await getChapters(bookUrl);
     final dir = Directory(outDir);

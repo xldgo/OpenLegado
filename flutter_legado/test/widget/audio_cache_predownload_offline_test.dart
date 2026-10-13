@@ -161,7 +161,7 @@ void main() {
       when(() => mockApi.getChapters(any())).thenAnswer(
         (_) async => [const BookChapter(title: '第一章', index: 0)],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer(
         (_) async => {'mediaUrl': '', 'isVolume': false},
@@ -189,7 +189,7 @@ void main() {
         const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
       ];
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       // P2-4：已缓存跳过改为逐章按 key 查询（audioCacheList 下标会错位）
       when(() => mockApi.audioCacheQuery(
@@ -259,7 +259,7 @@ void main() {
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.audioCacheQuery(
             bookUrl: any(named: 'bookUrl'),
@@ -302,7 +302,7 @@ void main() {
         const BookChapter(title: '第一章', index: 0, url: 'https://x/new-key'),
       ];
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       // 旧实现按下标跳过：audioCacheList 报告下标 0 已缓存 → 会漏下本章
       when(() => mockApi.audioCacheList(bookUrl: any(named: 'bookUrl')))
@@ -357,7 +357,7 @@ void main() {
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.audioCacheQuery(
             bookUrl: any(named: 'bookUrl'),
@@ -422,7 +422,7 @@ void main() {
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.audioCacheQuery(
             bookUrl: any(named: 'bookUrl'),
@@ -485,7 +485,7 @@ void main() {
       when(() => mockApi.getChapters(any())).thenAnswer(
         (_) async => [const BookChapter(title: '第一章', index: 0, url: 'https://x/1')],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer(
         (_) async => {'mediaUrl': '', 'isVolume': false},
@@ -516,7 +516,7 @@ void main() {
       when(() => mockApi.getChapters(any())).thenAnswer(
         (_) async => [const BookChapter(title: '第一章', index: 0, url: 'https://x/1')],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer(
         (_) async => {'mediaUrl': '', 'isVolume': false},

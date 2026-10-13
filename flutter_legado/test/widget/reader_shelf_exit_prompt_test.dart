@@ -137,7 +137,7 @@ void main() {
     testWidgets('未入架书退出：默认弹「放入书架」对话框（标题/正文/取消/确认齐备，修前红）', (tester) async {
       final api = stubReaderApi();
       // 在架判定数据源：DB 记录带 notShelf 位 → 未入架
-      when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -161,11 +161,11 @@ void main() {
 
     testWidgets('未入架书退出 + 确认：清 notShelf 位入架 + 进度落库 + 退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
-      when(() => api.addBook(any())).thenAnswer((_) async => _sessionBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.addBook(any())).thenAnswer((_) async => _sessionBook);
       // 确认路径会读 bookshelfNotifier（首次 build 触发列表/分组加载桩）
-      when(() => api.getBooks()).thenAnswer((_) async => const []);
-      when(() => api.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
+      when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
       // 开读后设一个可区分的章内位置（openBook 自身会落一次 pos=0，
@@ -178,7 +178,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 入架：addBook 被调用且 notShelf 位已清（upsert 不级联删章节目录）
-      final captured = verify(() => api.addBook(captureAny())).captured;
+      final captured = verify(() => api.bookshelfRepository.addBook(captureAny())).captured;
       expect(captured, hasLength(1), reason: '确认必须调用 addBook 入架一次');
       final added = captured.single as Book;
       expect(
@@ -201,14 +201,14 @@ void main() {
         reason: '退出落库的最后一次 updateReadingProgress 应为章内位置 5',
       );
       // 入架成功不删除记录
-      verifyNever(() => api.deleteBook(any()));
+      verifyNever(() => api.bookshelfRepository.deleteBook(any()));
       // 已退出：阅读器路由已 pop
       expect(find.byType(ReaderScreen), findsNothing);
     });
 
     testWidgets('未入架书退出 + 取消：清理临时落库记录（书不残留）+ 退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -217,9 +217,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // 取消 → 未入架书不残留：deleteBook 清理本次会话的临时记录
-      verify(() => api.deleteBook(_sessionBook.bookUrl)).called(1);
+      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl)).called(1);
       // 未确认入架
-      verifyNever(() => api.addBook(any()));
+      verifyNever(() => api.bookshelfRepository.addBook(any()));
       // 已退出
       expect(find.byType(ReaderScreen), findsNothing);
     });
@@ -227,7 +227,7 @@ void main() {
     testWidgets('已入架书退出：直接退出（无弹窗、无删除、进度落库）', (tester) async {
       final api = stubReaderApi();
       // DB 记录无 notShelf 位 → 已入架
-      when(() => api.getBook(any())).thenAnswer((_) async => _shelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _shelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
       container.read(readerNotifierProvider.notifier).updatePosition(5);
@@ -239,8 +239,8 @@ void main() {
       expect(find.text('放入书架'), findsNothing);
       expect(find.byType(ReaderScreen), findsNothing);
       // 不动书架数据
-      verifyNever(() => api.addBook(any()));
-      verifyNever(() => api.deleteBook(any()));
+      verifyNever(() => api.bookshelfRepository.addBook(any()));
+      verifyNever(() => api.bookshelfRepository.deleteBook(any()));
       // 进度仍落库（退出写当前章内位置 5，区别于开读的 0）
       final posWrites = verify(
         () => api.updateReadingProgress(
@@ -258,7 +258,7 @@ void main() {
         'showAddToShelfAlert': false,
       });
       final api = stubReaderApi();
-      when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -267,16 +267,16 @@ void main() {
       // 开关关 → 无弹窗
       expect(find.text('放入书架'), findsNothing);
       // 静默退出且未入架书不残留
-      verify(() => api.deleteBook(_sessionBook.bookUrl)).called(1);
-      verifyNever(() => api.addBook(any()));
+      verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl)).called(1);
+      verifyNever(() => api.bookshelfRepository.addBook(any()));
       expect(find.byType(ReaderScreen), findsNothing);
     });
 
     testWidgets('未入架书退出 + 确认入架失败：可见失败提示且不退出', (tester) async {
       final api = stubReaderApi();
-      when(() => api.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
+      when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _notShelfDbBook);
       // 入架写库失败（addBook 抛异常 → bookshelfNotifier.addBook 返回 false）
-      when(() => api.addBook(any())).thenThrow(StateError('db write failed'));
+      when(() => api.bookshelfRepository.addBook(any())).thenThrow(StateError('db write failed'));
       final container = await pumpReader(tester, api);
       addTearDown(container.dispose);
 
@@ -288,7 +288,7 @@ void main() {
       expect(find.textContaining('加入书架失败'), findsOneWidget);
       // 不退出、不删除（留给用户重试或再次退出）
       expect(find.byType(ReaderScreen), findsOneWidget);
-      verifyNever(() => api.deleteBook(any()));
+      verifyNever(() => api.bookshelfRepository.deleteBook(any()));
     });
   });
 }

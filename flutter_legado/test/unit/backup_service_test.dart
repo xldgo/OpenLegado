@@ -29,7 +29,7 @@ void main() {
 
   group('BackupService exportBooks', () {
     test('导出书架数据为 JSON 数组', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => [
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [
             const Book(bookUrl: 'http://b1.com', name: '书1'),
             const Book(bookUrl: 'http://b2.com', name: '书2'),
           ]);
@@ -42,7 +42,7 @@ void main() {
     });
 
     test('空书架导出为空数组', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
 
       final result = await service.exportBooks();
       expect(result, equals('[]'));
@@ -119,7 +119,7 @@ void main() {
 
   group('BackupService fullBackup', () {
     test('完整备份包含版本和时间戳', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
       when(() => mockApi.exportBookSources()).thenAnswer((_) async => '[]');
 
       final result = await service.fullBackup();

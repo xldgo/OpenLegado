@@ -125,7 +125,7 @@ void main() {
         const BookChapter(title: '第二章', index: 1),
       ],
     );
-    when(() => api.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => api.getChapterContentFull(any(), any())).thenAnswer(
       (call) async =>
           call.positionalArguments[1] == 0 ? '第一段。\n\n第二段。' : '下一章。',
@@ -507,7 +507,7 @@ void main() {
 
   test('旧书级手动语速迁移到独立偏好，跟随开关不会丢失原值', () async {
     when(() => api.getConfig('ttsFollowSys')).thenAnswer((_) async => 'false');
-    when(() => api.getBook('book')).thenAnswer(
+    when(() => api.bookshelfRepository.getBook('book')).thenAnswer(
       (_) async => const Book(
         bookUrl: 'book',
         name: '小说',
@@ -686,8 +686,8 @@ void main() {
 
   test('书级与全局系统引擎分别持久化，恢复不需要 HTTP 数据行', () async {
     Book saved = const Book(bookUrl: 'book', name: '小说');
-    when(() => api.getBook('book')).thenAnswer((_) async => saved);
-    when(() => api.updateBook(any())).thenAnswer((call) async {
+    when(() => api.bookshelfRepository.getBook('book')).thenAnswer((_) async => saved);
+    when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((call) async {
       saved = call.positionalArguments.first as Book;
     });
     await notifier().loadChapters('book');

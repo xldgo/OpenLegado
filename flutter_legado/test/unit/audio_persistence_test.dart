@@ -55,7 +55,7 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
       ],
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
       final index = invocation.positionalArguments[1] as int;
@@ -90,7 +90,7 @@ void main() {
         mergedJson = map;
         return jsonEncode(map);
       });
-      when(() => mockApi.updateBook(any())).thenAnswer((invocation) async {
+      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
         savedBook = invocation.positionalArguments[0] as Book;
       });
 
@@ -112,12 +112,12 @@ void main() {
             readConfig: any(named: 'readConfig'),
             playMode: 2,
           )).called(1);
-      verify(() => mockApi.updateBook(any())).called(1);
+      verify(() => mockApi.bookshelfRepository.updateBook(any())).called(1);
     });
 
     testWidgets('updateConfig(speed) 防抖合并后写 ReadConfig.playSpeed', (tester) async {
       Book? savedBook;
-      when(() => mockApi.updateBook(any())).thenAnswer((invocation) async {
+      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
         savedBook = invocation.positionalArguments[0] as Book;
       });
 
@@ -127,11 +127,11 @@ void main() {
       readNotifier().updateConfig(speed: 2.0);
       // 防抖窗口内不写库（合并同一次拖动）
       await tester.pump(const Duration(milliseconds: 300));
-      verifyNever(() => mockApi.updateBook(any()));
+      verifyNever(() => mockApi.bookshelfRepository.updateBook(any()));
 
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
-      verify(() => mockApi.updateBook(any())).called(1);
+      verify(() => mockApi.bookshelfRepository.updateBook(any())).called(1);
       expect(savedBook?.readConfig?.playSpeed, 2.0);
     });
 
@@ -147,7 +147,7 @@ void main() {
     });
 
     test('applyBookPreferences 无 Book 对象时经 getBook 读回', () async {
-      when(() => mockApi.getBook('url')).thenAnswer(
+      when(() => mockApi.bookshelfRepository.getBook('url')).thenAnswer(
         (_) async => const Book(
           bookUrl: 'url',
           name: '测试书',
@@ -296,7 +296,7 @@ void main() {
       when(() => mockApi.getChapters(any())).thenAnswer(
         (_) async => [const BookChapter(title: '第一章', index: 0)],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
       when(() => mockApi.httpTtsSynthesizer.synthesize(

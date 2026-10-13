@@ -1,3 +1,4 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
 import '../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -114,7 +115,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
   Future<void> _showGroupPicker(BookshelfManageState state) async {
     List<BookGroup> groups;
     try {
-      groups = await ref.read(bookApiProvider).getBookGroups();
+      groups = await ref.read(bookGroupRepositoryProvider).getBookGroups();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -395,7 +396,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final api = ref.read(bookApiProvider);
-      final books = await api.getBooks();
+      final books = await ref.read(bookshelfRepositoryProvider).getBooks();
       final origins = books
           .map((b) => b.origin)
           .where((o) => o.isNotEmpty)
@@ -595,7 +596,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await ref.read(bookApiProvider).deleteBook(book.bookUrl);
+      await ref.read(bookshelfRepositoryProvider).deleteBook(book.bookUrl);
       await _notifier.load();
     } catch (e) {
       if (mounted) {

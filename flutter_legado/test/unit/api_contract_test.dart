@@ -44,6 +44,14 @@ void main() {
     _read('lib/src/domain/contracts/http_tts_synthesizer.dart'),
     'HttpTtsSynthesizer',
   );
+  final bookshelfNames = _extractMethods(
+    _read('lib/src/domain/contracts/bookshelf_repository.dart'),
+    'BookshelfRepository',
+  );
+  final bookGroupNames = _extractMethods(
+    _read('lib/src/domain/contracts/book_group_repository.dart'),
+    'BookGroupRepository',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -323,6 +331,8 @@ void main() {
             readRecordNames.length +
             httpTtsNames.length +
             synthesisNames.length +
+            bookshelfNames.length +
+            bookGroupNames.length +
             4 +
             1 +
             1,
@@ -389,6 +399,29 @@ void main() {
       }
       expect(allRowNames.containsAll(expected), isTrue);
       expect(allRowNames, isNot(contains('getHttpTtsList')));
+    });
+
+    test('书架与分组由直接 Repository 承担，旧方法与临时适配移除', () {
+      for (final entry in [
+        ('bookshelf', 'BookshelfRepository', 'RustBookshelfRepository', 'MockBookshelfRepository', 10),
+        ('book_group', 'BookGroupRepository', 'RustBookGroupRepository', 'MockBookGroupRepository', 5),
+      ]) {
+        final methods = _extractMethods(
+          _read('lib/src/domain/contracts/${entry.$1}_repository.dart'), entry.$2,
+        );
+        expect(methods.length, entry.$5);
+        for (final implementation in [('rust',entry.$3),('mock',entry.$4)]) {
+          final adapterMethods = _extractMethods(
+            _read('lib/src/data/repositories/${implementation.$1}_${entry.$1}_repository.dart'), implementation.$2,
+          ).where((n) => n!='ensureLoaded').toSet();
+          expect(adapterMethods, methods.toSet());
+        }
+        for (final oldMethods in [bNames,rNames,mNames]) {
+          expect(oldMethods.toSet().intersection(methods.toSet()), isEmpty);
+        }
+        expect(File('lib/src/data/repositories/book_api_${entry.$1}_repository.dart').existsSync(), isFalse);
+        expect(allRowNames.containsAll(methods), isTrue);
+      }
     });
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {

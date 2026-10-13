@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 // [P4-3 M2] 漫画菜单按用户截图重构（实心顶栏 + 两段底栏 + 目录 sheet）
 //
 // 视觉基准 = 用户截图（参考版 APK kazusa 3.26.15；本地参考源码快照滞后，
@@ -49,6 +50,12 @@ const _kPngBase64 =
 /// 菜单对齐测试 Mock：可注入配置/章节数，记录进度写入、配置写入与
 /// 章节正文抓取（刷新键断言 fetchChapterContent 次数）
 class _MenuMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _MenuMockApi({
     required this.progressCalls,
     required this.configWrites,
@@ -96,8 +103,7 @@ class _MenuMockApi extends MockBookApi {
         ),
       ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async {
+  Future<Book?> _fixtureGetBook(String bookUrl) async {
     bookLoads.add(bookUrl);
     return Book(
         bookUrl: bookUrl,

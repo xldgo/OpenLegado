@@ -587,7 +587,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   Future<bool> _updateBookReadConfigField(String key, int? value) async {
     try {
       final api = ref.read(bookApiProvider);
-      final fresh = await api.getBook(_activeBookUrl);
+      final fresh = await api.bookshelfRepository.getBook(_activeBookUrl);
       if (fresh == null) return false;
       final map = Map<String, dynamic>.from(
         fresh.readConfig?.toJson() ?? const <String, dynamic>{},
@@ -600,7 +600,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final updated = fresh.copyWith(
         readConfig: map.isEmpty ? null : ReadConfig.fromJson(map),
       );
-      await api.updateBook(updated);
+      await api.bookshelfRepository.updateBook(updated);
       _book = updated;
       return true;
     } catch (_) {
@@ -1121,7 +1121,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     try {
       final api = ref.read(bookApiProvider);
       // 获取书籍信息（[P4-3 M3 修2] 走活跃 bookUrl，换源后按新源重载）
-      _book = await api.getBook(_activeBookUrl);
+      _book = await api.bookshelfRepository.getBook(_activeBookUrl);
       if (_book == null) {
         setState(() {
           _error = '未找到书籍信息';

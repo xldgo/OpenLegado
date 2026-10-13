@@ -95,7 +95,7 @@ void main() {
       when(() => mockApi.getChapters(any())).thenAnswer(
         (_) async => [const BookChapter(title: '第一章', index: 0)],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(() => mockApi.httpTtsSynthesizer.synthesize(

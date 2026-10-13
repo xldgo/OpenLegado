@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 import 'dart:convert';
 
@@ -74,6 +75,12 @@ List<BookChapter> _chapters(String baseUrl) => [
 /// 足够长可断言。[tag] 隔离静态解码缓存（ComicImageDecodeCache 以
 /// bookSourceUrl+url 为键），避免 dark/light 两用例互相命中缓存。
 class _SlowDecodeMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _SlowDecodeMockApi(this.book, this.chapters, this.tag);
 
   final Book book;
@@ -95,8 +102,7 @@ class _SlowDecodeMockApi extends MockBookApi {
         ),
       ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;
@@ -120,6 +126,12 @@ class _SlowDecodeMockApi extends MockBookApi {
 
 /// 图三：无书源、无 origin → 直连路径（CachedNetworkImage 骨架块）
 class _NoSourceMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _NoSourceMockApi(this.book, this.chapters, this.imageSrc);
 
   final Book book;
@@ -129,8 +141,7 @@ class _NoSourceMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => const [];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;

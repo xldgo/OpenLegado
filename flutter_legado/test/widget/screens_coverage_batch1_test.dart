@@ -66,11 +66,11 @@ void main() {
 
   group('BookGroupScreen', () {
     void stubBooks(List<Book> books) {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => books);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => books);
     }
 
     testWidgets('渲染分组列表（名称/书籍数）', (tester) async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const [
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const [
             BookGroup(groupId: 1, groupName: '武侠', order: 0),
             BookGroup(groupId: 2, groupName: '科幻', order: 1),
           ]);
@@ -85,7 +85,7 @@ void main() {
     });
 
     testWidgets('空分组显示空态', (tester) async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
       stubBooks([]);
 
       await tester.pumpWidget(wrap(const BookGroupScreen()));
@@ -95,7 +95,7 @@ void main() {
     });
 
     testWidgets('加载失败显示错误与重试', (tester) async {
-      when(() => mockApi.getBookGroups()).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenThrow(Exception('ffi'));
       stubBooks([]);
 
       await tester.pumpWidget(wrap(const BookGroupScreen()));
@@ -105,8 +105,8 @@ void main() {
     });
 
     testWidgets('新建分组对话框保存调用 addBookGroup', (tester) async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
-      when(() => mockApi.addBookGroup(any()))
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+      when(() => mockApi.bookGroupRepository.addBookGroup(any()))
           .thenAnswer((_) async => const BookGroup(groupName: '新分组'));
       stubBooks([]);
 
@@ -125,24 +125,27 @@ void main() {
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
-      final captured = verify(() => mockApi.addBookGroup(captureAny()))
+      final captured = verify(() => mockApi.bookGroupRepository.addBookGroup(captureAny()))
           .captured
           .single as BookGroup;
       expect(captured.groupName, equals('新分组'));
     });
 
     testWidgets('删除分组确认后调用 deleteBookGroup', (tester) async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const [
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const [
             BookGroup(groupId: 7, groupName: '待删', order: 0),
           ]);
-      when(() => mockApi.deleteBookGroup(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookGroupRepository.deleteBookGroup(any())).thenAnswer((_) async {});
       stubBooks([]);
 
       await tester.pumpWidget(wrap(const BookGroupScreen()));
       await tester.pumpAndSettle();
 
       // 分组项的更多菜单（删除入口）
-      await tester.tap(find.byIcon(Icons.more_vert).first);
+      await tester.tap(find.descendant(
+        of: find.byKey(const ValueKey(7)),
+        matching: find.byTooltip('更多操作'),
+      ));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除').last);
       await tester.pumpAndSettle();
@@ -151,7 +154,7 @@ void main() {
       await tester.tap(find.text('删除').last);
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.deleteBookGroup(7)).called(1);
+      verify(() => mockApi.bookGroupRepository.deleteBookGroup(7)).called(1);
     });
   });
 
@@ -167,7 +170,7 @@ void main() {
 
     testWidgets('渲染书名/作者/简介（getBook 兜底 widget.book）',
         (tester) async {
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
@@ -182,13 +185,13 @@ void main() {
     // 章节列表（列表在独立 TocScreen）；章数由「共 N 章」行承载
     testWidgets('目录入口仅「查看目录」卡（独立目录行已移除，不内嵌章节列表）',
         (tester) async {
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => const [
             BookChapter(bookUrl: 'https://src.com/book/1', index: 0, title: '第一章 开端'),
             BookChapter(bookUrl: 'https://src.com/book/1', index: 1, title: '第二章 发展'),
           ]);
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
       await tester.pumpAndSettle();
@@ -212,10 +215,10 @@ void main() {
     });
 
     testWidgets('目录为空时点击「查看目录」提示目录为空', (tester) async {
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
       await tester.pumpAndSettle();
@@ -259,7 +262,7 @@ void main() {
         origin: 'https://src.com',
         originName: '测试源',
       );
-      when(() => mockApi.getBook(any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => bookWithIntro);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
 
@@ -316,14 +319,14 @@ void main() {
         latestChapterTitle: '第五十一章 完结',
         intro: '版块顺序验证简介正文。',
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => orderBook);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => orderBook);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => const [
             BookChapter(
                 bookUrl: 'https://src.com/book/order',
                 index: 0,
                 title: '第一章 开端'),
           ]);
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
       when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: orderBook)));
@@ -380,9 +383,9 @@ void main() {
         kind: '奇幻,武侠,历史,都市,科幻,悬疑,游戏,其他,言情',
         totalChapterNum: 51,
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => tagBook);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => tagBook);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
       when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: tagBook)));
@@ -434,7 +437,7 @@ void main() {
         totalChapterNum: 51,
         latestChapterTitle: '已完结', // 状态词而非章节标题
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => e5Book);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => e5Book);
       when(() => mockApi.getChapters(any())).thenAnswer(
           (_) async => List.generate(
                 51,
@@ -443,7 +446,7 @@ void main() {
                     index: i,
                     title: i == 50 ? '第五十一章 大结局' : '第${i + 1}章'),
               ));
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
       when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: e5Book)));
@@ -491,7 +494,7 @@ void main() {
       }
 
       void stubCommon(Book book) {
-        when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+        when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
         when(() => mockApi.getChapters(any())).thenAnswer((_) async => const [
               BookChapter(
                   bookUrl: 'u1', index: 0, title: '第一章', url: 'c1'),
@@ -501,10 +504,10 @@ void main() {
             .thenAnswer((_) async => '正文内容');
         when(() => mockApi.getChapterContent(any(), any()))
             .thenAnswer((_) async => '正文内容');
-        when(() => mockApi.addBook(any())).thenAnswer((inv) async {
+        when(() => mockApi.bookshelfRepository.addBook(any())).thenAnswer((inv) async {
           return inv.positionalArguments[0] as Book;
         });
-        when(() => mockApi.updateBook(any())).thenAnswer((_) async {});
+        when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((_) async {});
         when(() => mockApi.refreshToc(any(), any()))
             .thenAnswer((_) async => []);
       }
@@ -578,7 +581,7 @@ void main() {
             bookType: BookType.notShelf, // 1024：缺类型位
             origin: 'https://manga-source.com');
         stubCommon(book);
-        when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+        when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
         when(() => mockApi.getBookSources()).thenAnswer((_) async => [
               const BookSource(
                 bookSourceUrl: 'https://manga-source.com',
@@ -627,19 +630,19 @@ void main() {
       }
 
       void stubAutoStart(Book book, List<BookChapter> chapters) {
-        when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+        when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
         when(() => mockApi.getChapters(any()))
             .thenAnswer((_) async => chapters);
         when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
-        when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+        when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
         when(() => mockApi.fetchChapterContent(any(), any(), any()))
             .thenAnswer((_) async => '正文内容');
         when(() => mockApi.getChapterContent(any(), any()))
             .thenAnswer((_) async => '正文内容');
-        when(() => mockApi.addBook(any())).thenAnswer((inv) async {
+        when(() => mockApi.bookshelfRepository.addBook(any())).thenAnswer((inv) async {
           return inv.positionalArguments[0] as Book;
         });
-        when(() => mockApi.updateBook(any())).thenAnswer((_) async {});
+        when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((_) async {});
         when(() => mockApi.refreshToc(any(), any()))
             .thenAnswer((_) async => const []);
       }

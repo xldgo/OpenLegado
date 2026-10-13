@@ -153,7 +153,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       if (decoded is! List) {
         throw Exception('目录列表格式错误');
       }
-      final shelf = await api.getBooks();
+      final shelf = await api.bookshelfRepository.getBooks();
       final onShelf = <String>{};
       for (final b in shelf) {
         if (b.origin.startsWith(BookType.webDavTag)) {
@@ -320,7 +320,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         final remoteUrl = state.serverId == SettingsService.defaultRemoteServerId
             ? '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}${item.relativePath}'
             : item.relativePath;
-        await api.updateBook(book.copyWith(
+        await api.bookshelfRepository.updateBook(book.copyWith(
           origin: BookType.webDavTag + remoteUrl,
           originName: item.filename,
         ));

@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 // [漫画设置作用域 2026-10-01] 漫画屏「本书覆盖 + 全局回退」端到端接线
 //
 // 语义（用户裁决 + 参考版取证，legado-with-MD3）：
@@ -68,12 +69,17 @@ Book _buildBook({
 /// [漫画设置作用域] Mock：可注入书籍（含 readConfig）/全局配置，
 /// 记录 setConfig 与 updateBook 调用（区分全局键写入与书级回写）
 class _ScopeMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook, updateBook: _fixtureUpdateBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ScopeMockApi({
     required this.source,
     Map<String, String>? configs,
-    Book? book,
-  })  : _configs = Map<String, String>.from(configs ?? const {}),
-        _book = book;
+    this._book,
+  }) : _configs = Map<String, String>.from(configs ?? const {});
 
   final BookSource source;
   final Map<String, String> _configs;
@@ -90,11 +96,9 @@ class _ScopeMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => _book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => _book;
 
-  @override
-  Future<void> updateBook(Book book) async {
+  Future<void> _fixtureUpdateBook(Book book) async {
     bookUpdates.add(book);
     _book = book;
   }

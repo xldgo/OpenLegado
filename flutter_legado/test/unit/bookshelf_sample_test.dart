@@ -176,7 +176,7 @@ void main() {
   group('drop-in 集成（MockBookApi 消费样例）', () {
     test('MockBookApi.getBooks 返回样例全部 10 本且章节缓存就绪', () async {
       final api = MockBookApi();
-      final loaded = await api.getBooks();
+      final loaded = await api.bookshelfRepository.getBooks();
       expect(loaded.length, 10);
       expect(loaded.first.name, '示例书籍 01');
       expect(loaded.last.name, '示例书籍 10');

@@ -68,13 +68,13 @@ void main() {
 
   /// 预载书架分组（分组 chip 读取 bookshelfNotifierProvider.groups）
   Future<void> loadGroups(List<BookGroup> groups) async {
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => groups);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => groups);
     await container.read(bookshelfNotifierProvider.notifier).refresh();
   }
 
   void stubBook(Book book, [List<BookChapter> chapters = const []]) {
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
     when(

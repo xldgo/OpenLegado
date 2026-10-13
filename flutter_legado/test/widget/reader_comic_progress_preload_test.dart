@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -67,6 +68,12 @@ BookSource _comicSource() {
 
 /// 测试 Mock：注入三章漫画书，记录进度保存 / 相邻章预载 / 解码调用
 class _ProgressMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ProgressMockApi({
     required this.book,
     this.failPreloadFor = const <int>{},
@@ -88,8 +95,7 @@ class _ProgressMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => [_comicSource()];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => _kChapters;

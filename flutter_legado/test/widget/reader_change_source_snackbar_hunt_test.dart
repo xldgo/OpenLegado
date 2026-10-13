@@ -250,7 +250,7 @@ void main() {
       stubOpenBook(mockApi);
       // 错峰慢路径：A（菜单入口）getBook 8s，B（顶栏入口）getBook 12s
       var getBookSeq = 0;
-      when(() => mockApi.getBook(any())).thenAnswer((_) {
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) {
         getBookSeq += 1;
         final delay = getBookSeq == 1 ? 8 : 12;
         return Future<Book?>.delayed(
@@ -298,7 +298,7 @@ void main() {
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
-      verify(() => mockApi.getBook(any())).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook(any())).called(1);
 
       // t≈13（B 的 12s 完成）：阅读器侧不应有「已更换书源…」结果条
       //（改造前红：A 结果条 4s 过期后 B 的「已更换书源：源B」浮现 =
@@ -323,7 +323,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 8s
-      when(() => mockApi.getBook(any())).thenAnswer(
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer(
         (_) => Future<Book?>.delayed(
           const Duration(seconds: 8),
           () => _newBookRecord,
@@ -385,7 +385,7 @@ void main() {
       stubOpenBook(mockApi);
       // 慢路径异常：getBook 延迟 4s 后失败（保证异常发生在离场之后，
       // 即「在途完成时 context 已 unmounted」路径）
-      when(() => mockApi.getBook(any())).thenAnswer((_) async {
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async {
         await Future<void>.delayed(const Duration(seconds: 4));
         throw const BridgeError(message: 'bridge 不可用');
       });
@@ -452,7 +452,7 @@ void main() {
       await tester.pumpAndSettle(); // 路由 pop null → 取消
       expect(find.text('正在更换书源…'), findsNothing);
       // mocktail：零次调用断言用 verifyNever（.called(0) 会抛错）
-      verifyNever(() => mockApi.getBook(any()));
+      verifyNever(() => mockApi.bookshelfRepository.getBook(any()));
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
@@ -466,7 +466,7 @@ void main() {
       final container = makeContainer(mockApi);
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
-      when(() => mockApi.getBook(any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
@@ -509,7 +509,7 @@ void main() {
       final container = makeContainer(mockApi);
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
-      when(() => mockApi.getBook(any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenThrow(const BridgeError(message: 'bridge 不可用'));
 
       final notifier = container.read(readerNotifierProvider.notifier);

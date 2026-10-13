@@ -1,3 +1,7 @@
+import '../data/repositories/mock_bookshelf_repository.dart';
+import '../data/repositories/mock_book_group_repository.dart';
+import '../domain/contracts/bookshelf_repository.dart';
+import '../domain/contracts/book_group_repository.dart';
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -69,6 +73,11 @@ class MockBookApi
     HttpTtsRepository? httpTtsRepository,
     HttpTtsSynthesizer? httpTtsSynthesizer,
   }) {
+    _bookshelfStore = MockBookshelfStore(load: _loadBookshelfSample);
+    bookshelfRepository = MockBookshelfRepository(store: _bookshelfStore);
+    bookGroupRepository = MockBookGroupRepository(
+      nextId: () => _nextId++, withDefaultGroups: true,
+    );
     this.bookmarkRepository =
         bookmarkRepository ?? MockBookmarkRepository(nextId: () => _nextId++);
     this.readRecordRepository =
@@ -95,6 +104,12 @@ class MockBookApi
 
   @override
   late final HttpTtsSynthesizer httpTtsSynthesizer;
+
+  @override
+  late final BookshelfRepository bookshelfRepository;
+
+  @override
+  late final BookGroupRepository bookGroupRepository;
 
   // ========== 初始化/版本 ==========
 

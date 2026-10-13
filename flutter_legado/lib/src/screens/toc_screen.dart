@@ -220,7 +220,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   Future<void> _initBookshelfState() async {
     try {
       final dbBook =
-          await ref.read(bookApiProvider).getBook(_book.bookUrl);
+          await ref.read(bookApiProvider).bookshelfRepository.getBook(_book.bookUrl);
       if (!mounted) return;
       setState(() {
         _inBookshelf =
@@ -372,7 +372,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   Future<void> _refreshOnReshow() async {
     try {
       final api = ref.read(bookApiProvider);
-      final fresh = await api.getBook(_book.bookUrl);
+      final fresh = await api.bookshelfRepository.getBook(_book.bookUrl);
       if (!mounted) return;
       if (fresh != null) setState(() => _book = fresh);
       // [P2-28] 刷新缓存 URL 集（本地书恒视为已缓存，对齐原版 isLocalBook，不查询）
@@ -781,7 +781,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 经 BookApi 更新书籍并同步本页状态
   Future<void> _updateBook(Book updated) async {
     try {
-      await ref.read(bookApiProvider).updateBook(updated);
+      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
       if (mounted) setState(() => _book = updated);
     } catch (e) {
       if (mounted) {

@@ -60,7 +60,7 @@ void main() {
         (i) => BookChapter(title: 'ch${i + 1}', index: i),
       ),
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
       final index = invocation.positionalArguments[1] as int;
@@ -151,7 +151,7 @@ void main() {
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
       when(() => mockApi.httpTtsSynthesizer.synthesize(
@@ -188,7 +188,7 @@ void main() {
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any()))
           .thenAnswer((invocation) async {

@@ -212,7 +212,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       readConfig: transform(book.readConfig ?? const ReadConfig()),
     );
     try {
-      await ref.read(bookApiProvider).updateBook(updated);
+      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
       final notifier = ref.read(readerNotifierProvider.notifier);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
@@ -470,7 +470,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (book == null) return;
     final updated = book.copyWith(charset: charset);
     try {
-      await ref.read(bookApiProvider).updateBook(updated);
+      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
       final notifier = ref.read(readerNotifierProvider.notifier);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=

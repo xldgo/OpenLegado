@@ -22,8 +22,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     records = _Records();
     api = MockRustApi();
-    when(() => api.getBooks()).thenAnswer((_) async => []);
-    when(() => api.getBookGroups()).thenAnswer((_) async => []);
+    when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+    when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     when(() => records.getReadRecords()).thenAnswer(
       (_) async => [const ReadRecord(bookName: '窄接口小说', readTime: 5000)],
     );

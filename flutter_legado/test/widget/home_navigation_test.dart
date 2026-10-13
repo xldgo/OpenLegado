@@ -30,13 +30,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.getBooks()).thenAnswer(
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
       (_) async => [
         for (var i = 0; i < 30; i++)
           Book(bookUrl: 'u$i', name: '书籍$i'),
       ],
     );
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）

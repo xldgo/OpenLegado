@@ -1,3 +1,5 @@
+import '../../data/repositories/rust_bookshelf_repository.dart';
+import '../../data/repositories/rust_book_group_repository.dart';
 import '../../data/bridge/runtime_configuration.dart';
 import '../../data/services/rust_http_tts_synthesizer.dart';
 import '../../data/bridge/rust_runtime.dart';
@@ -31,6 +33,8 @@ BookApi createBookApi({
     readRecordRepository: const RustReadRecordRepository(),
     httpTtsRepository: const RustHttpTtsRepository(),
     httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
+    bookshelfRepository: const RustBookshelfRepository(),
+    bookGroupRepository: const RustBookGroupRepository(),
   );
 }
 

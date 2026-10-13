@@ -1,3 +1,4 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
@@ -10,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../providers/providers.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/empty_state.dart';
@@ -48,7 +48,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       _error = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookGroupRepositoryProvider);
       final groups = await api.getBookGroups();
       if (!mounted) return;
       setState(() {
@@ -129,7 +129,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     if (name.isEmpty) return;
     if (!mounted) return;
 
-    final api = ref.read(bookApiProvider);
+    final api = ref.read(bookGroupRepositoryProvider);
     try {
       if (isEdit) {
         await api.updateBookGroup(
@@ -171,7 +171,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     if (!confirmed) return;
     if (!mounted) return;
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookGroupRepositoryProvider);
       await api.deleteBookGroup(group.groupId);
       await _loadGroups();
     } catch (e) {
@@ -181,7 +181,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
 
   Future<void> _toggleShow(BookGroup group) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookGroupRepositoryProvider);
       await api.updateBookGroup(group.copyWith(show: !group.show));
       await _loadGroups();
     } catch (e) {
@@ -192,7 +192,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
   /// 拖拽排序后持久化 order
   Future<void> _persistOrder(List<BookGroup> reordered) async {
     setState(() => _groups = reordered);
-    final api = ref.read(bookApiProvider);
+    final api = ref.read(bookGroupRepositoryProvider);
     try {
       for (var i = 0; i < reordered.length; i++) {
         final g = reordered[i];
@@ -462,7 +462,7 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     if (confirmed != true) return;
     if (!mounted) return;
 
-    final api = ref.read(bookApiProvider);
+    final api = ref.read(bookshelfRepositoryProvider);
     try {
       for (final book in books) {
         final shouldIn = selected.contains(book.bookUrl);

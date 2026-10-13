@@ -719,7 +719,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       // 1) 重读书籍记录（换源事务后的新记录）
-      final newBook = await api.getBook(bookUrl);
+      final newBook = await api.bookshelfRepository.getBook(bookUrl);
       if (newBook == null) {
         throw StateError('读取书籍记录失败');
       }

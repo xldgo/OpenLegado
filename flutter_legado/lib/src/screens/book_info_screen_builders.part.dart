@@ -274,7 +274,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
             applyBookInfoCanUpdateToggle(book, inBookshelf: _inBookshelf);
         setState(() => _loadedBook = toggledCanUpdate);
         if (_inBookshelf) {
-          await api.updateBook(toggledCanUpdate);
+          await api.bookshelfRepository.updateBook(toggledCanUpdate);
           if (mounted) _reload();
         }
         break;
@@ -289,7 +289,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           ),
         );
         if (_inBookshelf) {
-          await api.updateBook(toggledSplit);
+          await api.bookshelfRepository.updateBook(toggledSplit);
         } else {
           setState(() => _loadedBook = toggledSplit);
         }
@@ -504,10 +504,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       // 回写 book.origin（webDav 标记 + 远程完整地址）；从库中读回完整 Book
       // 再 copyWith，防全行覆盖（与 _setBookVariable 同模式）
-      final full = await api.getBook(book.bookUrl) ?? book;
+      final full = await api.bookshelfRepository.getBook(book.bookUrl) ?? book;
       final remoteUrl =
           '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}$remotePath';
-      await api.updateBook(full.copyWith(
+      await api.bookshelfRepository.updateBook(full.copyWith(
         origin: BookType.webDavTag + remoteUrl,
         // 对齐原版：刷新最后检查时间，使之比远程书籍的时间新
         lastCheckTime: DateTime.now().millisecondsSinceEpoch,
@@ -600,7 +600,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     try {
       // 从库中读回完整 Book（含 readConfig 等）仅改 variable 后回写
-      final full = await api.getBook(book.bookUrl) ?? book;
+      final full = await api.bookshelfRepository.getBook(book.bookUrl) ?? book;
       // putCustomVariable 语义：其余键原样保留，仅回写 custom 键
       final varMap = _parseVariableMap(full.variable);
       if (input.isEmpty) {
@@ -608,7 +608,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       } else {
         varMap['custom'] = input;
       }
-      await api.updateBook(full.copyWith(variable: jsonEncode(varMap)));
+      await api.bookshelfRepository.updateBook(full.copyWith(variable: jsonEncode(varMap)));
       if (!mounted) return;
       _reload();
       _snack('书籍变量已保存');
@@ -1514,7 +1514,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     setState(() => _loadedBook = updated);
     if (_inBookshelf) {
       try {
-        await ref.read(bookApiProvider).updateBook(updated);
+        await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
       } catch (e) {
         debugPrint('保存封面失败: $e');
       }
@@ -1622,7 +1622,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (!_inBookshelf) {
       try {
         final api = ref.read(bookApiProvider);
-        await api.addBook(
+        await api.bookshelfRepository.addBook(
           book.copyWith(bookType: book.bookType | BookType.notShelf),
         );
       } catch (e) {
@@ -1732,7 +1732,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final updated = book.copyWith(group: selected);
     // 对齐原版 upGroup：在架 saveBook；未在架且 groupId>0 则 addToBookshelf — Cursor UI
     if (_inBookshelf) {
-      await ref.read(bookApiProvider).updateBook(updated);
+      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
     } else if (selected > 0) {
       // [F1-hunt F3 | 2026-09-24] 同 _toggleShelf：写库失败不得把本地
       // 状态翻成在架（假成功），改弹失败提示
@@ -1800,7 +1800,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final book = _loadedBook;
     if (book == null) return;
     try {
-      await ref.read(bookApiProvider).topBook(book.bookUrl);
+      await ref.read(bookApiProvider).bookshelfRepository.topBook(book.bookUrl);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已置顶')),
@@ -1867,17 +1867,17 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     try {
       if (_isOnlineBook(book)) {
-        final existing = await api.getBook(book.bookUrl);
+        final existing = await api.bookshelfRepository.getBook(book.bookUrl);
         if (existing == null) {
           // 以正确类型位 + notShelf 位标记临时落库：阅读器 DB 依赖成立
           // （按 origin 取正文），但不进书架列表；用户显式「加入书架」时再
           // 清标记转正（见 _toggleShelf）。
-          await api.addBook(
+          await api.bookshelfRepository.addBook(
               book.copyWith(bookType: typeBits | BookType.notShelf));
         } else if (typeBits != 0 &&
             (existing.bookType & typeMask) != typeBits) {
           // 缺类型位，或文本→图片提升（必应漫画）→ 回填媒体位
-          await api.updateBook(existing.copyWith(
+          await api.bookshelfRepository.updateBook(existing.copyWith(
               bookType: (existing.bookType & ~typeMask) | typeBits));
         }
         // 漫画/视频等非文本阅读器只收 bookUrl，不会走 ReaderNotifier 的

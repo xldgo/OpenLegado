@@ -23,7 +23,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     // 书架初始化会加载分组（顶栏 Tab 数据源），默认返回空列表
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     // 创建容器并覆盖 bookApiProvider 注入 mock
     container = ProviderContainer(
       overrides: [
@@ -53,7 +53,7 @@ void main() {
 
   group('BookshelfNotifier 初始化', () {
     test('build() 后自动加载书籍', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => testBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => testBooks);
 
       // 触发 Notifier 创建
       container.read(bookshelfNotifierProvider);
@@ -62,11 +62,11 @@ void main() {
       expect(readState().books, hasLength(3));
       expect(readState().isLoading, isFalse);
       expect(readState().error, isNull);
-      verify(() => mockApi.getBooks()).called(1);
+      verify(() => mockApi.bookshelfRepository.getBooks()).called(1);
     });
 
     test('初始状态：列表视图 + 不分组（对齐原版 bookshelfLayout=0）', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 
@@ -75,7 +75,7 @@ void main() {
     });
 
     test('加载失败时设置 error', () async {
-      when(() => mockApi.getBooks()).thenThrow(
+      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(
         const BridgeError(message: '数据库连接失败'),
       );
 
@@ -88,7 +88,7 @@ void main() {
     });
 
     test('非 BridgeError 异常也能正确映射', () async {
-      when(() => mockApi.getBooks()).thenThrow(Exception('网络超时'));
+      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('网络超时'));
 
       container.read(bookshelfNotifierProvider);
       await pumpInit();
@@ -100,14 +100,14 @@ void main() {
 
   group('BookshelfNotifier 书籍操作', () {
     setUp(() {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => testBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => testBooks);
       container.read(bookshelfNotifierProvider);
     });
 
     test('refresh 重新加载书籍', () async {
       await pumpInit();
       final newBooks = [const Book(name: '新书', bookUrl: 'book://new')];
-      when(() => mockApi.getBooks()).thenAnswer((_) async => newBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => newBooks);
 
       await readNotifier().refresh();
 
@@ -118,7 +118,7 @@ void main() {
     test('addBook 成功后追加到列表', () async {
       await pumpInit();
       const newBook = Book(name: ' added', bookUrl: 'book://added');
-      when(() => mockApi.addBook(any())).thenAnswer((_) async => newBook);
+      when(() => mockApi.bookshelfRepository.addBook(any())).thenAnswer((_) async => newBook);
 
       await readNotifier().addBook(newBook);
 
@@ -128,7 +128,7 @@ void main() {
 
     test('addBook 失败时设置 error', () async {
       await pumpInit();
-      when(() => mockApi.addBook(any())).thenThrow(
+      when(() => mockApi.bookshelfRepository.addBook(any())).thenThrow(
         const BridgeError(message: '添加失败'),
       );
 
@@ -140,7 +140,7 @@ void main() {
 
     test('removeBook 成功后从列表移除', () async {
       await pumpInit();
-      when(() => mockApi.deleteBook('book://2')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('book://2')).thenAnswer((_) async {});
 
       await readNotifier().removeBook('book://2');
 
@@ -150,7 +150,7 @@ void main() {
 
     test('removeBook 失败时设置 error 且列表不变', () async {
       await pumpInit();
-      when(() => mockApi.deleteBook(any())).thenThrow(
+      when(() => mockApi.bookshelfRepository.deleteBook(any())).thenThrow(
         const BridgeError(message: '删除失败'),
       );
 
@@ -193,8 +193,8 @@ void main() {
 
   group('BookshelfNotifier 展示层状态', () {
     setUp(() {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => testBooks);
-      when(() => mockApi.reorderBooks(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => testBooks);
+      when(() => mockApi.bookshelfRepository.reorderBooks(any())).thenAnswer((_) async {});
       container.read(bookshelfNotifierProvider);
     });
 
@@ -246,7 +246,7 @@ void main() {
     test('clearError 清除错误', () async {
       await pumpInit();
       // 手动制造错误状态
-      when(() => mockApi.getBooks()).thenThrow(Exception('err'));
+      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('err'));
       await readNotifier().refresh();
       expect(readState().error, isNotNull);
 
@@ -282,7 +282,7 @@ void main() {
 
   group('BookshelfNotifier 批量选择（选择模式）', () {
     setUp(() {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => testBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => testBooks);
       container.read(bookshelfNotifierProvider);
     });
 
@@ -330,16 +330,16 @@ void main() {
       readNotifier().toggleSelect('book://1');
       readNotifier().toggleSelect('book://2');
 
-      when(() => mockApi.deleteBook('book://1')).thenAnswer((_) async {});
-      when(() => mockApi.deleteBook('book://2')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('book://1')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('book://2')).thenAnswer((_) async {});
       // 删除后重拉的数据源（仅剩 book://3）
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [testBooks[2]]);
 
       await readNotifier().deleteSelectedBooks();
 
-      verify(() => mockApi.deleteBook('book://1')).called(1);
-      verify(() => mockApi.deleteBook('book://2')).called(1);
+      verify(() => mockApi.bookshelfRepository.deleteBook('book://1')).called(1);
+      verify(() => mockApi.bookshelfRepository.deleteBook('book://2')).called(1);
       expect(readState().isBatchMode, isFalse);
       expect(readState().selectedUrls, isEmpty);
       expect(readState().books.map((b) => b.bookUrl), contains('book://3'));
@@ -351,7 +351,7 @@ void main() {
 
       await readNotifier().deleteSelectedBooks();
 
-      verifyNever(() => mockApi.deleteBook(any()));
+      verifyNever(() => mockApi.bookshelfRepository.deleteBook(any()));
       expect(readState().isBatchMode, isTrue);
       expect(readState().books, hasLength(testBooks.length));
     });
@@ -361,7 +361,7 @@ void main() {
       readNotifier().toggleBatchMode();
       readNotifier().toggleSelect('book://1');
 
-      when(() => mockApi.deleteBook('book://1'))
+      when(() => mockApi.bookshelfRepository.deleteBook('book://1'))
           .thenThrow(const BridgeError(message: '删除失败'));
 
       await readNotifier().deleteSelectedBooks();
@@ -372,7 +372,7 @@ void main() {
 
   group('BookshelfNotifier 分组展示', () {
     setUp(() {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => testBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => testBooks);
       container.read(bookshelfNotifierProvider);
     });
 
@@ -401,7 +401,7 @@ void main() {
     });
 
     test('isEmpty 扩展：无书且不在加载时为空', () async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
       // 重新创建容器
       container.dispose();
       container = ProviderContainer(
@@ -427,11 +427,11 @@ void main() {
     ];
 
     setUp(() {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => groupedBooks);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => groupedBooks);
     });
 
     test('多分组时 hasGroupTabs 为真且隐藏组不展示', () async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => multiGroups);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => multiGroups);
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 
@@ -454,7 +454,7 @@ void main() {
     });
 
     test('自定义分组缺少「全部」组时自动置顶补齐', () async {
-      when(() => mockApi.getBookGroups()).thenAnswer(
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer(
         (_) async => [const BookGroup(groupId: 1, groupName: '科幻', order: 1)],
       );
       // 重建容器以重新加载分组
@@ -471,7 +471,7 @@ void main() {
     });
 
     test('selectGroup 切换当前分组并持久化', () async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => multiGroups);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => multiGroups);
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 
@@ -482,7 +482,7 @@ void main() {
     });
 
     test('自定义分组按位掩码过滤 currentGroupBooks', () async {
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => multiGroups);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => multiGroups);
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 
@@ -495,7 +495,7 @@ void main() {
 
     test('初始化时恢复上次选中的 Tab 位置', () async {
       SharedPreferences.setMockInitialValues({'bookshelf_tab_position': 1});
-      when(() => mockApi.getBookGroups()).thenAnswer((_) async => multiGroups);
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => multiGroups);
       container.read(bookshelfNotifierProvider);
       await pumpInit();
 

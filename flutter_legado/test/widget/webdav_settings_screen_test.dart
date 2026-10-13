@@ -27,7 +27,7 @@ void main() {
     // 页面 initState 会触发 SyncNotifier.loadConfig 与 CrashLogService 读偏好
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
   });
 

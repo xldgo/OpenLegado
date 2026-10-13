@@ -31,7 +31,7 @@ mixin MockBookApiContentExt on MockBookApiStore implements BookApi {
       }
       return null;
     }
-    final book = await getBook(requestedBookUrl);
+    final book = await bookshelfRepository.getBook(requestedBookUrl);
     return book?.toJson();
   }
 

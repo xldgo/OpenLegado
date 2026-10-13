@@ -41,7 +41,7 @@ void main() {
 
   group('BookshelfManageScreen', () {
     testWidgets('加载书籍列表并显示书名/作者', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
             Book(bookUrl: 'u1', name: '斗破苍穹', author: '天蚕土豆'),
             Book(bookUrl: 'u2', name: '完美世界', author: '辰东'),
           ]);
@@ -57,7 +57,7 @@ void main() {
     });
 
     testWidgets('空书架显示空态', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -66,7 +66,7 @@ void main() {
     });
 
     testWidgets('加载失败显示错误与重试', (tester) async {
-      when(() => mockApi.getBooks()).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('ffi'));
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -75,7 +75,7 @@ void main() {
     });
 
     testWidgets('勾选书籍后显示底部操作栏（删除/分组/置顶）', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
             Book(bookUrl: 'u1', name: '书一'),
           ]);
 
@@ -97,7 +97,7 @@ void main() {
     });
 
     testWidgets('全选复选框勾选全部书籍', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
             Book(bookUrl: 'u1', name: '书一'),
             Book(bookUrl: 'u2', name: '书二'),
           ]);
@@ -122,10 +122,10 @@ void main() {
     });
 
     testWidgets('置顶选中书籍调用 topBook', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
             Book(bookUrl: 'u1', name: '书一'),
           ]);
-      when(() => mockApi.topBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.topBook(any())).thenAnswer((_) async {});
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -135,14 +135,14 @@ void main() {
       await tester.tap(find.text('置顶'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.topBook('u1')).called(1);
+      verify(() => mockApi.bookshelfRepository.topBook('u1')).called(1);
       expect(find.text('已置顶'), findsOneWidget);
     });
   });
 
   group('RemoteBookScreen', () {
     testWidgets('渲染远程书籍页与筛选框', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RemoteBookScreen()));
       // init→未配置 WebDAV 后展示空态/提示（避免无限 spinner）
@@ -158,7 +158,7 @@ void main() {
     });
 
     testWidgets('顶栏含刷新与服务器配置入口', (tester) async {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RemoteBookScreen()));
       await tester.pump();

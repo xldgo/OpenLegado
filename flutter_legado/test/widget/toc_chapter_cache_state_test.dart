@@ -182,7 +182,7 @@ void main() {
     List<int> downloading = const [],
     List<int> failed = const [],
   }) {
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => makeBook());
     when(() => mockApi.getChapters(bookUrl)).thenAnswer(
       (_) async => chapters,
     );
@@ -408,7 +408,7 @@ void main() {
       const BookChapter(
           url: 'u2', title: '第三章', index: 2, bookUrl: bookUrl),
     ];
-    when(() => mockApi.getBook(any()))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => makeBook(origin: BookType.localTag, dur: 1));
     when(() => mockApi.getChapters(bookUrl)).thenAnswer(
       (_) async => localChapters,
@@ -488,7 +488,7 @@ void main() {
     // 首次查询仅 u0 已缓存（u3 未缓存 → 行内 ⬇ 图标）；
     // 轮询起 u3 新缓存（模拟批量离线缓存逐章落库）
     var urlsPollCount = 0;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => makeBook());
     when(() => mockApi.getChapters(bookUrl))
         .thenAnswer((_) async => chapters);
     when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer((_) async {
@@ -710,7 +710,7 @@ void main() {
     // 数据链闭环：初始无失败 → 轮询拉取到 [2] → 红色重试图标出现；
     // 重试后（任务取章清除失败标记）下一轮轮询集合空 → 图标消失
     var hasFailure = false;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => makeBook());
     when(() => mockApi.getChapters(bookUrl))
         .thenAnswer((_) async => makeChapters());
     when(() => mockApi.listCachedChapterUrls(bookUrl))
@@ -984,7 +984,7 @@ void main() {
     // （参考版 SUCCESS 态 :1069-1071）
     var tapped = false;
     var done = false;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => makeBook());
     when(() => mockApi.getChapters(bookUrl))
         .thenAnswer((_) async => makeChapters());
     when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer(

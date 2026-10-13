@@ -184,7 +184,7 @@ void main() {
   group('AudioNotifier loadChapters（mock API）', () {
     setUp(() {
       // loadChapters 会 getBook 推断音频书 type 位；未 stub 时 mocktail 抛错吞进 error 态
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     });
 
     test('loadChapters 成功加载章节列表', () async {
@@ -288,7 +288,7 @@ void main() {
         const BookChapter(title: 'ch3', index: 2),
       ];
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '章节正文内容');
       when(() => mockApi.httpTtsSynthesizer.synthesize(

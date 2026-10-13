@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
@@ -37,10 +38,15 @@ const _bookmark = Bookmark(
 
 /// 目录其他数据走根对象；书签误用根 Repository 时直接报错。— Codex + UI
 class _TocApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _TocApi() : super(bookmarkRepository: _RootBookmarks());
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => _book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => _book;
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
@@ -155,7 +161,7 @@ void main() {
           note.isEmpty ? '新备注' : '备注',
         );
         await tester.enterText(input, note);
-        await tester.tap(find.widgetWithText(FilledButton, '保存'));
+        await tester.tap(find.byTooltip('保存'));
         await tester.pumpAndSettle();
         verify(
           () => repository.updateBookmark(_bookmark.copyWith(content: note)),

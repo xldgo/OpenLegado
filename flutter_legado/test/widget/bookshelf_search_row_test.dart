@@ -20,10 +20,10 @@ void main() {
   testWidgets('无分组：顶栏搜索图标可见（页内搜索行已移除）', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
           Book(bookUrl: 'u1', name: '书一'),
         ]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -41,9 +41,9 @@ void main() {
   testWidgets('分组模式：顶栏搜索图标同样可见', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBooks()).thenAnswer(
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
         (_) async => const [Book(bookUrl: 'u1', name: '书一')]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => const [
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const [
           BookGroup(groupName: '默认分组', groupId: 1),
         ]);
     await tester.pumpWidget(

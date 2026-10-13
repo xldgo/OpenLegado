@@ -66,8 +66,8 @@ void main() {
 
     api = MockRustApi();
     importedPaths = <String>[];
-    when(() => api.getBooks()).thenAnswer((_) async => <Book>[]);
-    when(() => api.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
+    when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
+    when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
     when(() => api.importLocalBook(any())).thenAnswer((invocation) async {
       final path = invocation.positionalArguments.first as String;
       importedPaths.add(path);

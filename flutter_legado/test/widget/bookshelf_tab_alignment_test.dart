@@ -35,13 +35,13 @@ void main() {
     List<BookGroup> groups,
   ) async {
     SharedPreferences.setMockInitialValues({'bookshelf_layout': true});
-    when(() => mockApi.getBooks()).thenAnswer(
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
       (_) async => const [
         Book(bookUrl: 'u1', name: '书一'),
         Book(bookUrl: 'u2', name: '书二'),
       ],
     );
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => groups);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => groups);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

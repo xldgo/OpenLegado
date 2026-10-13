@@ -54,7 +54,7 @@ void main() {
   }
 
   testWidgets('离线缓存 书架为空时显示空态', (tester) async {
-    when(() => mockApi.getBooks()).thenAnswer((_) async => <Book>[]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
     stubEmptyCache();
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
@@ -68,7 +68,7 @@ void main() {
       (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
     final b2 = makeBook('u2', '书二', total: 20, bookType: BookType.local);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [b1, b2]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
     when(() => mockApi.listCachedChapterUrls('u1'))
         .thenAnswer((_) async => ['c1', 'c2', 'c3']);
@@ -92,7 +92,7 @@ void main() {
   testWidgets('离线缓存 下载按钮触发 cacheDownloadStart（download_all 0..末章）',
       (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [b1]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
@@ -112,7 +112,7 @@ void main() {
   testWidgets('离线缓存 顶栏菜单「全部缓存」批量启动（确认对话框）', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
     final b2 = makeBook('u2', '书二', total: 20);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [b1, b2]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
@@ -144,7 +144,7 @@ void main() {
       totalChapterNum: 10,
       durChapterIndex: 2,
     );
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [b1]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
@@ -168,7 +168,7 @@ void main() {
 
   testWidgets('离线缓存 进行中任务显示下载进度与停止按钮', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [b1]);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
     when(() => mockApi.cacheDownloadList()).thenAnswer((_) async =>
         '[{"taskId":7,"bookUrl":"u1","status":"running","total":10,"completed":4,"failed":0}]');
     when(() => mockApi.listCachedChapterUrls('u1'))

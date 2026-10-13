@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 // [P4-3 E5] 漫画屏九区点击 + 长按菜单（分享/复制/存图）
 //
@@ -110,6 +111,12 @@ BookSource _buildComicSource() {
 /// [P4-3 M4 批2] 新增 [isVolume] 注入（0 图卷章分隔页用例）+
 /// [setConfigCalls] 记录（面板持久化接线断言）
 class _ClickActionsMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ClickActionsMockApi({
     required this.source,
     required this.progressCalls,
@@ -141,8 +148,7 @@ class _ClickActionsMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,
         tocUrl: 'https://manga.example.com/comic/1/',
         name: '测试漫画',

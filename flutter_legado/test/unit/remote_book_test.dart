@@ -107,7 +107,7 @@ void main() {
           },
         ]),
       );
-      when(() => mockApi.getBooks()).thenAnswer((_) async => <Book>[]);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
 
       await container.read(syncNotifierProvider.notifier).loadConfig();
       await readNotifier().init();
@@ -120,7 +120,7 @@ void main() {
     test('addSelectedToBookshelf 下载并 importLocalBook', () async {
       when(() => mockApi.webdavListDir(any(), any()))
           .thenAnswer((_) async => jsonEncode([]));
-      when(() => mockApi.getBooks()).thenAnswer((_) async => <Book>[]);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
       when(() => mockApi.webdavDownloadFile(any(), any(), any()))
           .thenAnswer((_) async {});
       when(() => mockApi.importLocalBook(any())).thenAnswer(
@@ -131,7 +131,7 @@ void main() {
           originName: 'novel.epub',
         ),
       );
-      when(() => mockApi.updateBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((_) async {});
 
       await container.read(syncNotifierProvider.notifier).loadConfig();
       await readNotifier().init();
@@ -159,7 +159,7 @@ void main() {
       verify(() => mockApi.webdavDownloadFile(any(), 'books/novel.epub', any()))
           .called(1);
       verify(() => mockApi.importLocalBook(any())).called(1);
-      verify(() => mockApi.updateBook(any())).called(1);
+      verify(() => mockApi.bookshelfRepository.updateBook(any())).called(1);
     });
   });
 }

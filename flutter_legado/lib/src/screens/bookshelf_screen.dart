@@ -1,3 +1,4 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -1187,6 +1188,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// bookUrlPattern 正则/域名匹配书源 → webbookInfo 取详情入库）
   Future<void> _addBooksByUrl(List<String> urls, String fallbackName) async {
     final api = ref.read(bookApiProvider);
+    final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final existingUrls = ref
         .read(bookshelfNotifierProvider)
@@ -1221,7 +1223,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
           name: fallbackName.isNotEmpty ? fallbackName : url,
           originName: '网页书籍',
         );
-        await api.addBook(book);
+        await shelfRepository.addBook(book);
         existingUrls.add(url);
         ok++;
       } catch (e) {
@@ -1320,6 +1322,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// JSON 数组 → 逐本搜索入库；已在架跳过）
   Future<void> _importBookshelf(String input) async {
     final api = ref.read(bookApiProvider);
+    final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     var content = input;
     if (content.startsWith('http://') || content.startsWith('https://')) {
@@ -1380,7 +1383,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
           sourceUrls: enabledUrls.isEmpty ? null : enabledUrls,
         );
         final best = SearchResult.fromSearchBook(hit).book;
-        await api.addBook(best);
+        await shelfRepository.addBook(best);
         existing.add('$name|$author');
         ok++;
       } catch (e) {

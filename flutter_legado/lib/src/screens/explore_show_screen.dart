@@ -84,7 +84,7 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
           ).toJson(),
       ]);
       final added =
-          await ref.read(bookApiProvider).importBooks(jsonArray);
+          await ref.read(bookApiProvider).bookshelfRepository.importBooks(jsonArray);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.addedToShelfCount(added))),

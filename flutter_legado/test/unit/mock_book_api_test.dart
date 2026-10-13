@@ -32,7 +32,7 @@ void main() {
 
   group('书架操作', () {
     test('getBooks 返回 10 本样例书', () async {
-      final books = await api.getBooks();
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 10);
       expect(books[0].name, '示例书籍 01');
       expect(books[1].name, '示例书籍 02');
@@ -41,41 +41,41 @@ void main() {
 
     test('addBook 添加后可获取', () async {
       final book = Book(bookUrl: 'mock://new', name: '新书', author: '测试');
-      await api.addBook(book);
-      final books = await api.getBooks();
+      await api.bookshelfRepository.addBook(book);
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 11);
     });
 
     test('getBook 按 URL 获取', () async {
-      final book = await api.getBook('mock://book/1');
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book, isNotNull);
       expect(book!.name, '示例书籍 01');
     });
 
     test('getBook 不存在返回 null', () async {
-      final book = await api.getBook('mock://nonexist');
+      final book = await api.bookshelfRepository.getBook('mock://nonexist');
       expect(book, isNull);
     });
 
     test('deleteBook 删除后数量减少', () async {
-      await api.deleteBook('mock://book/1');
-      final books = await api.getBooks();
+      await api.bookshelfRepository.deleteBook('mock://book/1');
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 9);
     });
 
     test('topBook/unTopBook 修改 order', () async {
-      await api.topBook('mock://book/1');
-      var book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.topBook('mock://book/1');
+      var book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.order, -1);
 
-      await api.unTopBook('mock://book/1');
-      book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.unTopBook('mock://book/1');
+      book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.order, 0);
     });
 
     test('setBookGroup 修改分组', () async {
-      await api.setBookGroup('mock://book/1', 5);
-      final book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.setBookGroup('mock://book/1', 5);
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.group, 5);
     });
 
@@ -260,7 +260,7 @@ void main() {
         chapterIndex: 3,
         chapterPos: 100,
       );
-      final book = await api.getBook('mock://book/1');
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.durChapterIndex, 3);
       expect(book.durChapterPos, 100);
     });
@@ -381,15 +381,15 @@ void main() {
 
   group('书籍分组', () {
     test('getBookGroups 返回预置分组', () async {
-      final groups = await api.getBookGroups();
+      final groups = await api.bookGroupRepository.getBookGroups();
       expect(groups.length, 2);
       expect(groups[0].groupName, '科幻');
       expect(groups[1].groupName, '收藏');
     });
 
     test('addBookGroup 添加后可获取', () async {
-      await api.addBookGroup(BookGroup(groupName: '玄幻', order: 1));
-      final groups = await api.getBookGroups();
+      await api.bookGroupRepository.addBookGroup(BookGroup(groupName: '玄幻', order: 1));
+      final groups = await api.bookGroupRepository.getBookGroups();
       expect(groups.length, 3);
     });
   });

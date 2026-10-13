@@ -159,7 +159,7 @@ mixin MockBookApiSyncTools on MockBookApiStore implements BookApi {
     required String format,
     required bool includeToc,
   }) async {
-    final book = await getBook(bookUrl);
+    final book = await bookshelfRepository.getBook(bookUrl);
     if (book == null) {
       return {'success': false, 'error': '书籍不存在: $bookUrl'};
     }
@@ -186,7 +186,7 @@ mixin MockBookApiSyncTools on MockBookApiStore implements BookApi {
     required String bookUrl,
     required String format,
   }) async {
-    final book = await getBook(bookUrl);
+    final book = await bookshelfRepository.getBook(bookUrl);
     if (book == null) {
       return {'success': false, 'error': '书籍不存在: $bookUrl'};
     }

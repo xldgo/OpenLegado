@@ -114,7 +114,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     );
     if (defaultToRead) {
       try {
-        final books = await ref.read(bookApiProvider).getBooks();
+        final books = await ref.read(bookApiProvider).bookshelfRepository.getBooks();
         if (books.isNotEmpty) {
           lastRead = books.reduce(
             (a, b) => a.durChapterTime >= b.durChapterTime ? a : b,

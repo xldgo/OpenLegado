@@ -60,7 +60,7 @@ void main() {
         const BookChapter(title: '第三章', index: 2),
       ],
     );
-    when(() => api.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => api.getAudioChapterMedia(any(), any())).thenAnswer((
       invocation,
     ) async {

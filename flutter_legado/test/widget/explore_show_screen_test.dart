@@ -72,7 +72,7 @@ void main() {
   });
 
   testWidgets('顶栏「加入书架」按钮批量导入已加载书籍（R5）', (tester) async {
-    when(() => mockApi.importBooks(any())).thenAnswer((_) async => 2);
+    when(() => mockApi.bookshelfRepository.importBooks(any())).thenAnswer((_) async => 2);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 调用 importBooks 且传入 2 本书
-    final captured = verify(() => mockApi.importBooks(captureAny())).captured;
+    final captured = verify(() => mockApi.bookshelfRepository.importBooks(captureAny())).captured;
     expect(captured, hasLength(1));
     final jsonArray = captured.single as String;
     final decoded = jsonDecode(jsonArray) as List;
@@ -117,6 +117,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('没有已加载的书籍'), findsOneWidget);
-    verifyNever(() => mockApi.importBooks(any()));
+    verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
   });
 }

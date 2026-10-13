@@ -7,7 +7,7 @@
 // - F1 ReaderState.currentBook 的进度字段在阅读过程中从不更新（_saveProgress
 //      只写库不回写 state）。currentBook 是下列调用点的「权威快照」：
 //      reader_page_view.dart ErrorView.onRetry → notifier.openBook(book)；
-//      reader_menu_actions.part.dart _updateBookConfig → api.updateBook(updated)；
+//      reader_menu_actions.part.dart _updateBookConfig → api.bookshelfRepository.updateBook(updated)；
 //      reader_screen._doAutoChangeSource → notifier.openBook(updated)；
 //      reader_screen._openToc → TocScreen(arguments: book)。
 // - F2 章级加载无序列守卫：连续翻章（快速连点/自动翻页与手动叠加）时旧章的
@@ -166,15 +166,15 @@ void main() {
       await notifier.nextChapter();
 
       Book? written;
-      when(() => mockApi.updateBook(any())).thenAnswer((invocation) async {
+      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
         written = invocation.positionalArguments.first as Book;
       });
 
       // 复刻 reader_menu_actions.part.dart _updateBookConfig 的真实取数方式：
       //   final book = ref.read(readerNotifierProvider).currentBook;
-      //   await api.updateBook(book.copyWith(readConfig: transform(...)));
+      //   await api.bookshelfRepository.updateBook(book.copyWith(readConfig: transform(...)));
       final snapshot = readState().currentBook!;
-      await mockApi.updateBook(
+      await mockApi.bookshelfRepository.updateBook(
         snapshot.copyWith(
           readConfig: const ReadConfig(useReplaceRule: false),
         ),

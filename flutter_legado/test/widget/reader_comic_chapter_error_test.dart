@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -72,13 +73,18 @@ Book _e4Book({int chapterIndex = 0}) {
 /// - 记录 getBook / getChapters / fetchChapterContent 调用计数，用于甄别
 ///   「章级重试」（只重拉章节正文）与「书级重试」（重拉书籍信息 + 目录）。
 class _ChapterErrorMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ChapterErrorMockApi({
     required this.book,
     required this.chapters,
     Map<String, List<String>>? contentByCall,
-    Set<String> failFirstCallFor = const {},
-  })  : _contentByCall = contentByCall ?? const {},
-        _failFirstCallFor = failFirstCallFor;
+    this._failFirstCallFor = const {},
+  }) : _contentByCall = contentByCall ?? const {};
 
   final Book book;
   final List<BookChapter> chapters;
@@ -115,8 +121,7 @@ class _ChapterErrorMockApi extends MockBookApi {
     ];
   }
 
-  @override
-  Future<Book?> getBook(String bookUrl) async {
+  Future<Book?> _fixtureGetBook(String bookUrl) async {
     getBookCalls++;
     return book;
   }

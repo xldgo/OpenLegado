@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 // [P4-3 E3] 自动翻页/自动滚动（整页行为）
 //
@@ -40,6 +41,12 @@ const _kPngBase64 =
 /// 自动翻页测试 Mock：可注入配置（翻页模式/速度档）、章节数，
 /// 记录进度写入与配置写入
 class _AutoReadMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _AutoReadMockApi({
     required this.progressCalls,
     required this.configWrites,
@@ -74,8 +81,7 @@ class _AutoReadMockApi extends MockBookApi {
         ),
       ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,
         tocUrl: 'https://manga.example.com/comic/1/',
         name: '测试漫画',

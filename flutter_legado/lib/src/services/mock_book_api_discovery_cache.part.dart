@@ -25,32 +25,6 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
   Future<bool> isStarred(String link) async =>
       _rssStars.any((s) => s.link == link);
 
-  // ========== 书籍分组 ==========
-
-  @override
-  Future<List<BookGroup>> getBookGroups() async => List.from(_bookGroups);
-
-  @override
-  Future<BookGroup> addBookGroup(BookGroup group) async {
-    final g = group.copyWith(groupId: _nextId++);
-    _bookGroups.add(g);
-    return g;
-  }
-
-  @override
-  Future<void> updateBookGroup(BookGroup group) async {
-    final idx = _bookGroups.indexWhere((g) => g.groupId == group.groupId);
-    if (idx >= 0) _bookGroups[idx] = group;
-  }
-
-  @override
-  Future<void> deleteBookGroup(int groupId) async {
-    _bookGroups.removeWhere((g) => g.groupId == groupId);
-  }
-
-  @override
-  Future<bool> bookGroupSetShow(int groupId, bool show) async => true;
-
   // ========== 搜索历史 ==========
 
   @override

@@ -1,3 +1,5 @@
+import '../domain/contracts/bookshelf_repository.dart';
+import '../domain/contracts/book_group_repository.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -50,6 +52,8 @@ class RustApi
     required ReadRecordRepository readRecordRepository,
     required HttpTtsRepository httpTtsRepository,
     required HttpTtsSynthesizer httpTtsSynthesizer,
+    required BookshelfRepository bookshelfRepository,
+    required BookGroupRepository bookGroupRepository,
   }) => RustApi._(
     initialize,
     readingConfigSync,
@@ -57,6 +61,8 @@ class RustApi
     readRecordRepository,
     httpTtsRepository,
     httpTtsSynthesizer,
+    bookshelfRepository,
+    bookGroupRepository,
   );
 
   RustApi._(
@@ -66,6 +72,8 @@ class RustApi
     this.readRecordRepository,
     this.httpTtsRepository,
     this.httpTtsSynthesizer,
+    this.bookshelfRepository,
+    this.bookGroupRepository,
   );
 
   final Future<void> Function() _initialize;
@@ -82,6 +90,12 @@ class RustApi
 
   @override
   final HttpTtsSynthesizer httpTtsSynthesizer;
+
+  @override
+  final BookshelfRepository bookshelfRepository;
+
+  @override
+  final BookGroupRepository bookGroupRepository;
 
   /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
   @override

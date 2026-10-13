@@ -5,11 +5,11 @@ part of 'mock_book_api.dart';
 mixin MockBookApiStore {
   // ========== 内存数据存储 ==========
 
-  final List<Book> _books = [];
+  late final MockBookshelfStore _bookshelfStore;
+  List<Book> get _books => _bookshelfStore.books;
   final List<BookSource> _sources = [];
   final List<RssSource> _rssSources = [];
   final List<ReplaceRule> _replaceRules = [];
-  final List<BookGroup> _bookGroups = [];
   final List<SearchKeyword> _searchHistory = [];
   final List<RssStar> _rssStars = [];
   // 字典规则内存态（契约 §2.45：dictRule* 七方法；REPLACE by name 语义）
@@ -149,13 +149,6 @@ mixin MockBookApiStore {
     ]);
 
     // 默认分组（与书架样例的 group 字段对应：1=科幻、2=收藏）
-    _bookGroups.add(
-      BookGroup(groupId: 1, groupName: '科幻', order: 0, show: true),
-    );
-    _bookGroups.add(
-      BookGroup(groupId: 2, groupName: '收藏', order: 1, show: true),
-    );
-
     // ── 字典规则（对标 Rust seed_default_rules：表为空时注入原版默认 5 源）──
     // 名称/排序/启用态与 rust/assets/defaultData/dictRules.json 对齐；
     // JS 重量级规则的 urlRule/showRule 以短占位代替（mock 不执行查询链路，
@@ -215,13 +208,11 @@ mixin MockBookApiStore {
   static const String _bookshelfSampleAsset =
       'assets/mock_data/bookshelf_sample.json';
 
-  Future<void>? _booksLoad;
-
   /// 书架样例惰性加载守卫：首次调用时从资产读取 bookshelf_sample.json，
   /// 填充 _books 与章节/正文缓存；之后各书架相关方法 await 本守卫即可
   /// （同一 Future 记忆化，并发调用只加载一次）。
   Future<void> _ensureBooksLoaded() =>
-      _booksLoad ??= _loadBookshelfSample();
+      _bookshelfStore.ensureLoaded();
 
   /// 从资产加载书架样例并填充 _books 与章节/正文缓存
   Future<void> _loadBookshelfSample() async {

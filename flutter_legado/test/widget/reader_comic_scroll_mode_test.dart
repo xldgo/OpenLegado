@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 // [P4-3 E1] 漫画屏五翻页模式（对齐参考版 MangaScrollMode）
 //
@@ -59,6 +60,12 @@ BookSource _buildComicSource() {
 /// [W2-fix] 新增 [chapterCount] / [durChapterIndex] 注入（R2L 边界与切章
 /// 落点用例需要多章 + 指定起始章）
 class _ScrollModeMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ScrollModeMockApi({
     required this.source,
     required this.progressCalls,
@@ -82,8 +89,7 @@ class _ScrollModeMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,
         tocUrl: 'https://manga.example.com/comic/1/',
         name: '测试漫画',

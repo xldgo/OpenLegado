@@ -91,10 +91,10 @@ void main() {
       '未读书：详情+自动开读返回书架后，条目显示新进度（A4 链路 dci=0→1）',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [bookUnread]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookUnread]);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     // 「数据源进度已更新」：书架重新拉取该书时返回 dci=1 + 进度标题
-    when(() => mockApi.getBook('book://a'))
+    when(() => mockApi.bookshelfRepository.getBook('book://a'))
         .thenAnswer((_) async => bookUnreadRead);
 
     container = await pumpShelf(tester);
@@ -123,15 +123,15 @@ void main() {
       findsOneWidget,
       reason: '返回书架后条目应显示新阅读进度（修复前：内存态滞留 dci=0）',
     );
-    verify(() => mockApi.getBook('book://a')).called(1);
+    verify(() => mockApi.bookshelfRepository.getBook('book://a')).called(1);
   });
 
   testWidgets('已读书：直开阅读器返回书架后，条目显示新进度（dci=5→6）',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [bookRead]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBook('book://b'))
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookRead]);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBook('book://b'))
         .thenAnswer((_) async => bookReadUpdated);
     // 文本阅读器 openBook 会加载目录/正文（ReaderNotifier 后台任务）
     when(() => mockApi.getChapters('book://b')).thenAnswer(
@@ -174,7 +174,7 @@ void main() {
       reason: '返回书架后条目应显示新阅读进度（修复前：内存态滞留 dci=5）',
     );
     expect(find.text('第6章 已读'), findsNothing);
-    verify(() => mockApi.getBook('book://b')).called(1);
+    verify(() => mockApi.bookshelfRepository.getBook('book://b')).called(1);
   });
 }
 

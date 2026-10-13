@@ -59,10 +59,10 @@ void main() {
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     final mockApi = MockRustApi();
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [book]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [book]);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
     when(

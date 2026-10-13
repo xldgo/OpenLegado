@@ -47,8 +47,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     // 默认：无自定义分组、无视频书
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [textBook]);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [textBook]);
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -72,7 +72,7 @@ void main() {
 
   group('书架视频分组（P4-2b V4）', () {
     test('视频书归入视频聚合分组：有视频书时 groups 出现「视频」组', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
 
       await pumpInit();
@@ -103,7 +103,7 @@ void main() {
     });
 
     test('视频组内过滤：非视频书不入视频组（对齐原版 isVideo 位判定）', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
 
       await pumpInit();
@@ -120,9 +120,9 @@ void main() {
     });
 
     test('幂等：数据源已含视频组行时不重复补组', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook]);
-      when(() => mockApi.getBookGroups()).thenAnswer(
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer(
         (_) async => [
           const BookGroup(
             groupId: BookGroupId.video,
@@ -143,7 +143,7 @@ void main() {
       await pumpInit();
       expect(videoGroupCount(), equals(0));
 
-      when(() => mockApi.addBook(any())).thenAnswer((_) async => videoBook);
+      when(() => mockApi.bookshelfRepository.addBook(any())).thenAnswer((_) async => videoBook);
       final ok = await readNotifier().addBook(videoBook);
       expect(ok, isTrue);
 
@@ -156,12 +156,12 @@ void main() {
 
     test('removeBook 删尽视频书后视频组消失（对齐原版 show 查询动态隐藏）',
         () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
       await pumpInit();
       expect(videoGroupCount(), equals(1));
 
-      when(() => mockApi.deleteBook('video://1')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('video://1')).thenAnswer((_) async {});
       final ok = await readNotifier().removeBook('video://1');
       expect(ok, isTrue);
 
@@ -171,12 +171,12 @@ void main() {
     });
 
     test('仍有视频书时视频组保留', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, videoBook2, textBook]);
       await pumpInit();
       expect(videoGroupCount(), equals(1));
 
-      when(() => mockApi.deleteBook('video://1')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('video://1')).thenAnswer((_) async {});
       await readNotifier().removeBook('video://1');
 
       // videoBook2 仍在 → 视频组保留

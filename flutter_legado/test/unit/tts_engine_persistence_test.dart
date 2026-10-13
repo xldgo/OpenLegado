@@ -85,7 +85,7 @@ void main() {
     );
     when(() => api.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段正文内容。');
-    when(() => api.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => api.getConfig(any())).thenAnswer((invocation) async {
       final key = invocation.positionalArguments[0] as String;
       return configStore[key];
@@ -95,7 +95,7 @@ void main() {
       final value = invocation.positionalArguments[1] as String;
       configStore[key] = value;
     });
-    when(() => api.updateBook(any())).thenAnswer((invocation) async {
+    when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
       savedBooks.add(invocation.positionalArguments[0] as Book);
     });
     when(() => api.httpTtsSynthesizer.synthesize(
@@ -118,7 +118,7 @@ void main() {
 
   group('解析层级（书级优先、空则全局回退）', () {
     testWidgets('书级引擎生效：该书用书级、全局内存值不被改写', (tester) async {
-      when(() => api.getBook('book-a')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-a')).thenAnswer(
         (_) async => const Book(
           bookUrl: 'book-a',
           name: 'A',
@@ -132,19 +132,19 @@ void main() {
       expect(receivedEngineUrls, [urlA]);
       // 「书」路径不改全局值（原版 :164-170 只写书级）
       expect(readState().config.engineUrl, urlG);
-      verifyNever(() => api.updateBook(any()));
+      verifyNever(() => api.bookshelfRepository.updateBook(any()));
       readNotifier().stop();
     });
 
     testWidgets('其他书不受影响：无书级时走全局（自动选默认仅作最后兜底）', (tester) async {
-      when(() => api.getBook('book-a')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-a')).thenAnswer(
         (_) async => const Book(
           bookUrl: 'book-a',
           name: 'A',
           readConfig: ReadConfig(ttsEngine: urlA),
         ),
       );
-      when(() => api.getBook('book-b')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-b')).thenAnswer(
         (_) async => const Book(bookUrl: 'book-b', name: 'B'),
       );
       when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
@@ -161,7 +161,7 @@ void main() {
     });
 
     testWidgets('书级 + 全局都有：书级赢', (tester) async {
-      when(() => api.getBook('book-a')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-a')).thenAnswer(
         (_) async => const Book(
           bookUrl: 'book-a',
           name: 'A',
@@ -177,7 +177,7 @@ void main() {
     });
 
     testWidgets('只设全局：所有书用全局，书级不被写', (tester) async {
-      when(() => api.getBook('book-b')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-b')).thenAnswer(
         (_) async => const Book(bookUrl: 'book-b', name: 'B'),
       );
       readNotifier().updateConfig(engineUrl: urlG);
@@ -185,14 +185,14 @@ void main() {
       await readNotifier().startReadAloud(bookUrl: 'book-b', bookName: 'B');
 
       expect(receivedEngineUrls, [urlG]);
-      verifyNever(() => api.updateBook(any()));
+      verifyNever(() => api.bookshelfRepository.updateBook(any()));
       readNotifier().stop();
     });
 
     testWidgets('持久化全局值读回：无书级且内存为空时用 config 键 appTtsEngine',
         (tester) async {
       configStore[kTtsEngineConfigKey] = urlP;
-      when(() => api.getBook('book-c')).thenAnswer(
+      when(() => api.bookshelfRepository.getBook('book-c')).thenAnswer(
         (_) async => const Book(bookUrl: 'book-c', name: 'C'),
       );
       // 若持久化值读回成功，不应再走自动选默认引擎

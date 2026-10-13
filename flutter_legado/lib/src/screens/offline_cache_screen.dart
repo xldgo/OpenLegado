@@ -106,7 +106,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   Future<void> _refresh({bool silent = false}) async {
     try {
       final api = ref.read(bookApiProvider);
-      final books = await api.getBooks();
+      final books = await api.bookshelfRepository.getBooks();
       // 原版 initBookData 过滤音频书（音频书缓存走听书链路）
       final visible =
           books.where((b) => (b.bookType & BookType.audio) == 0).toList();

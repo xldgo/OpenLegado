@@ -161,8 +161,8 @@ void main() {
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBooks()).thenAnswer((_) async => []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     when(() => mockApi.readRecordRepository)

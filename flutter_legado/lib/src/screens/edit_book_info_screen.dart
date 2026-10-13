@@ -214,7 +214,7 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
       );
 
       final api = ref.read(bookApiProvider);
-      await api.updateBook(updated);
+      await api.bookshelfRepository.updateBook(updated);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

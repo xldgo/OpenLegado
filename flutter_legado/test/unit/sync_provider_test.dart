@@ -39,7 +39,7 @@ void main() {
 
   /// 桩入真实同步所需的 BookApi 调用
   void stubSyncApis({String remoteSources = '[]'}) {
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [
           const Book(bookUrl: 'b1', name: '书1'),
         ]);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => [
@@ -235,7 +235,7 @@ void main() {
     });
 
     test('backupToWebDav 失败时设置错误', () async {
-      when(() => mockApi.getBooks()).thenThrow(Exception('网络错误'));
+      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('网络错误'));
       await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
 
       await readNotifier().backupToWebDav();

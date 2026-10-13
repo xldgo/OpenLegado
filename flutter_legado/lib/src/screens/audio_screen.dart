@@ -1271,7 +1271,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                             kAudioSkipCloseCreditsKey, '$close');
                         if (book != null) {
                           final cfg = book.readConfig ?? const ReadConfig();
-                          await api.updateBook(book.copyWith(
+                          await api.bookshelfRepository.updateBook(book.copyWith(
                             readConfig: cfg.copyWith(
                               openCredits: 0,
                               closeCredits: 0,
@@ -1280,7 +1280,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                         }
                       } else if (book != null) {
                         final cfg = book.readConfig ?? const ReadConfig();
-                        await api.updateBook(book.copyWith(
+                        await api.bookshelfRepository.updateBook(book.copyWith(
                           readConfig: cfg.copyWith(
                             openCredits: open,
                             closeCredits: close,

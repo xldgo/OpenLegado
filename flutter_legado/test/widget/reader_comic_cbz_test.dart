@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -31,6 +32,12 @@ const _kEntry1 = 'cbz://02.png';
 
 /// 测试专用 MockBookApi：本地 cbz 书 + `cbz://` 正文章节 + 读页计数/失败注入
 class _CbzMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _CbzMockApi({
     this.failRead = false,
     this.pagedMode = false,
@@ -63,8 +70,7 @@ class _CbzMockApi extends MockBookApi {
     return super.getConfig(key);
   }
 
-  @override
-  Future<Book?> getBook(String bookUrl) async {
+  Future<Book?> _fixtureGetBook(String bookUrl) async {
     if (pagedMode) {
       // 屏幕 initState 并发 _loadMangaConfig 与 _loadBook：让纯微任务链的
       // 配置加载先落定（scrollMode=1），保证 _loadChapterImages 进入时

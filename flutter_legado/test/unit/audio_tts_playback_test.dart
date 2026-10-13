@@ -63,7 +63,7 @@ void main() {
     when(() => mockApi.getChapters(any())).thenAnswer(
       (_) async => [const BookChapter(title: '第一章', index: 0)],
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
   }
@@ -312,7 +312,7 @@ void main() {
           const BookChapter(title: 'ch2', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getAudioChapterMedia(any(), any()))
           .thenAnswer((invocation) async {
         final index = invocation.positionalArguments[1] as int;

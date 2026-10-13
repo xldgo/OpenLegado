@@ -38,51 +38,6 @@ mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
   @override
   Future<bool> isStarred(String link) => bridge.rssStarIsStarred(link: link);
 
-  // ========== 书籍分组 ==========
-
-  /// 获取所有书籍分组
-  @override
-  Future<List<BookGroup>> getBookGroups() async {
-    final json = await bridge.bookGroupList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => BookGroup.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 添加书籍分组
-  @override
-  Future<BookGroup> addBookGroup(BookGroup group) async {
-    final id = await bridge.bookGroupAdd(
-      groupName: group.groupName,
-      cover: group.cover ?? '',
-      order: group.order,
-    );
-    return group.copyWith(groupId: id.toInt());
-  }
-
-  /// 更新书籍分组
-  @override
-  Future<void> updateBookGroup(BookGroup group) async {
-    await bridge.bookGroupUpdate(
-      id: group.groupId,
-      groupName: group.groupName,
-      cover: group.cover ?? '',
-      order: group.order,
-    );
-  }
-
-  /// 删除书籍分组
-  @override
-  Future<void> deleteBookGroup(int groupId) async {
-    await bridge.bookGroupDelete(id: groupId);
-  }
-
-  /// 设置分组显示状态（F3-20）
-  @override
-  Future<bool> bookGroupSetShow(int groupId, bool show) =>
-      bridge.bookGroupSetShow(id: groupId, show_: show);
-
   // ========== 搜索历史 ==========
 
   /// 获取搜索历史

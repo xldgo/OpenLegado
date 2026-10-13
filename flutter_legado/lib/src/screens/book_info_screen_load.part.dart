@@ -39,7 +39,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
     final url = widget.effectiveBookUrl;
     try {
       // 优先从数据库取最新记录（换源/刷新后元数据才会更新），传入对象仅兜底
-      final dbBook = url.isEmpty ? null : await api.getBook(url);
+      final dbBook = url.isEmpty ? null : await api.bookshelfRepository.getBook(url);
       // DB 有记录且未打 notShelf 位才视为已入书架（对标原版 inBookshelf；
       // 搜索/发现打开的在线书会以 notShelf 临时落库，不算在书架内）
       final inShelf = BookOpenUtils.resolveInBookshelf(dbBook, widget.book);
@@ -183,7 +183,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           // 已入库书：把补全的元数据写回 DB（对标原版 inBookshelf 时 update）
           if (inShelf) {
             try {
-              await api.updateBook(b);
+              await api.bookshelfRepository.updateBook(b);
             } catch (e) {
               debugPrint('更新书籍元数据失败: $e');
             }
@@ -228,7 +228,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           // update）；未入库仅展示不落库（对齐原版 loadChapter !inBookshelf）
           if (inShelf) {
             try {
-              await api.updateBook(b);
+              await api.bookshelfRepository.updateBook(b);
             } catch (e) {
               debugPrint('U7 刷新落库失败: $e');
             }

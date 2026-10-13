@@ -477,7 +477,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       // inBookshelf=false 语义；未入架书不会走到删除在架书的分支）
       var inShelf = false;
       try {
-        final dbBook = await ref.read(bookApiProvider).getBook(book.bookUrl);
+        final dbBook = await ref.read(bookApiProvider).bookshelfRepository.getBook(book.bookUrl);
         inShelf = BookOpenUtils.isInBookshelf(dbBook);
       } catch (_) {
         inShelf = false;
@@ -536,7 +536,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 仅删除本次会话以 notShelf 临时入库的书；已入架书不会进入本方法）
   Future<void> _removeNotShelfBook(Book book) async {
     try {
-      await ref.read(bookApiProvider).deleteBook(book.bookUrl);
+      await ref.read(bookApiProvider).bookshelfRepository.deleteBook(book.bookUrl);
     } catch (_) {
       // 清理失败不阻断退出（极端残留仅影响占位行，不污染书架列表）
     }

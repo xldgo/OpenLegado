@@ -148,7 +148,7 @@ void main() {
       expect(imported, 1, reason: '视频书源应导入 1 条');
 
       // 2. 书籍 + 目录（refreshToc 链：不经 fetcher meta 缓存 → 依赖 sink DB 兜底）
-      await api.addBook(
+      await api.bookshelfRepository.addBook(
         Book(
           bookUrl: bookUrl,
           tocUrl: '$base/toc',

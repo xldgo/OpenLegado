@@ -11,7 +11,7 @@ class BackupService {
 
   /// 导出书架数据为 JSON
   Future<String> exportBooks() async {
-    final books = await _api.getBooks();
+    final books = await _api.bookshelfRepository.getBooks();
     return jsonEncode(books.map((b) => b.toJson()).toList());
   }
 

@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -38,6 +39,12 @@ BookSource _buildComicSource() {
 /// 测试专用 MockBookApi：注入漫画书 + 含 img 的章节正文 + 解码返回；
 /// 网络下载链路计数用于断言「磁盘命中不再走网络」。
 class _ComicCacheMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ComicCacheMockApi({required this.source, required this.decodeCalls});
 
   final BookSource source;
@@ -46,8 +53,7 @@ class _ComicCacheMockApi extends MockBookApi {
   @override
   Future<List<BookSource>> getBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,
         tocUrl: 'https://manga.example.com/comic/1/',
         name: '测试漫画',

@@ -1,3 +1,5 @@
+import '../domain/contracts/bookshelf_repository.dart';
+import '../domain/contracts/book_group_repository.dart';
 import '../models/models.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
@@ -11,6 +13,12 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  /// 共享书架数据访问，不持有阅读器会话状态。
+  BookshelfRepository get bookshelfRepository;
+
+  /// 共享分组定义与显示配置访问。
+  BookGroupRepository get bookGroupRepository;
+
   /// 共享应用装配的书签数据访问实例；书签 CRUD 由窄接口承担。
   BookmarkRepository get bookmarkRepository;
 
@@ -30,38 +38,6 @@ abstract class BookApi {
 
   /// 获取引擎版本号
   Future<String> getVersion();
-
-  // ========== 书架操作 ==========
-
-  /// 获取书架上所有书籍
-  Future<List<Book>> getBooks();
-
-  /// 添加书籍到书架
-  Future<Book> addBook(Book book);
-
-  /// 更新书籍信息
-  Future<void> updateBook(Book book);
-
-  /// 从书架删除书籍
-  Future<void> deleteBook(String bookUrl);
-
-  /// 按 bookUrl 获取书籍详情
-  Future<Book?> getBook(String bookUrl);
-
-  /// 置顶书籍
-  Future<void> topBook(String bookUrl);
-
-  /// 取消置顶
-  Future<void> unTopBook(String bookUrl);
-
-  /// 设置书籍分组
-  Future<void> setBookGroup(String bookUrl, int groupId);
-
-  /// 批量导入书籍，返回成功导入的数量
-  Future<int> importBooks(String jsonArray);
-
-  /// 批量持久化书架拖拽排序
-  Future<void> reorderBooks(List<Map<String, dynamic>> orders);
 
   // ========== 书源操作 ==========
 
@@ -706,23 +682,6 @@ abstract class BookApi {
 
   /// 判断是否已收藏
   Future<bool> isStarred(String link);
-
-  // ========== 书籍分组 ==========
-
-  /// 获取所有书籍分组
-  Future<List<BookGroup>> getBookGroups();
-
-  /// 添加书籍分组
-  Future<BookGroup> addBookGroup(BookGroup group);
-
-  /// 更新书籍分组
-  Future<void> updateBookGroup(BookGroup group);
-
-  /// 删除书籍分组
-  Future<void> deleteBookGroup(int groupId);
-
-  /// 设置分组显示状态（FFI bookGroupSetShow，F3-20）
-  Future<bool> bookGroupSetShow(int groupId, bool show);
 
   // ========== 搜索历史 ==========
 

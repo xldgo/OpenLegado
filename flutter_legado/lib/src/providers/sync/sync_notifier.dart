@@ -269,7 +269,7 @@ class SyncNotifier extends Notifier<SyncState> {
   /// 序列化本地书架 + 书源为 JSON（供 webdavFullSync 上传）
   Future<(String, String)> _collectLocalData() async {
     final api = ref.read(bookApiProvider);
-    final books = await api.getBooks();
+    final books = await api.bookshelfRepository.getBooks();
     final sources = await api.getBookSources();
     final localBooks = jsonEncode(books.map((e) => e.toJson()).toList());
     final localSources = jsonEncode(sources.map((e) => e.toJson()).toList());

@@ -25,12 +25,12 @@ void main() {
   Future<void> pumpBookshelf(WidgetTester tester, MockRustApi mockApi) async {
     // 强制网格（SettingsService._keyBookshelfLayout）
     SharedPreferences.setMockInitialValues({'bookshelf_layout': true});
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const [
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
           Book(bookUrl: 'u1', name: '书一'),
           Book(bookUrl: 'u2', name: '书二'),
           Book(bookUrl: 'u3', name: '书三'),
         ]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

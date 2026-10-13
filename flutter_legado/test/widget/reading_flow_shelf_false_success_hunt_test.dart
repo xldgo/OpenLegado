@@ -51,14 +51,14 @@ void main() {
     addTearDown(tester.view.reset);
 
     final mockApi = MockRustApi();
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
     when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
     // 写库失败（DB 异常 / 磁盘满 / 桥接错误）
-    when(() => mockApi.addBook(any())).thenThrow(
+    when(() => mockApi.bookshelfRepository.addBook(any())).thenThrow(
       StateError('DB 写入失败（复现用）'),
     );
 

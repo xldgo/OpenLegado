@@ -93,8 +93,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
-    when(() => api.getBooks()).thenAnswer((_) async => <Book>[]);
-    when(() => api.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
+    when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
+    when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
   });
 
   /// pump 真实书架页并等待 Notifier 初始加载落定

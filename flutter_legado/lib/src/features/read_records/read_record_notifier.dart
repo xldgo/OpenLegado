@@ -98,7 +98,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
 
   /// 按书名在书架查找（对齐 bookDao.findByName(...).firstOrNull）
   Future<Book?> findBookByName(String bookName) async {
-    final books = await ref.read(bookApiProvider).getBooks();
+    final books = await ref.read(bookApiProvider).bookshelfRepository.getBooks();
     for (final b in books) {
       if (b.name == bookName) return b;
     }

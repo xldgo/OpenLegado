@@ -69,7 +69,7 @@ void main() {
     when(() => audioService.dispose()).thenAnswer((_) async {});
     when(() => api.httpTtsRepository.getHttpTts())
         .thenAnswer((_) async => [engineA, engineB]);
-    when(() => api.getBook(any())).thenAnswer((_) async => null);
+    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => api.getConfig(any())).thenAnswer((invocation) async {
       final key = invocation.positionalArguments[0] as String;
       return configStore[key];
@@ -79,7 +79,7 @@ void main() {
       final value = invocation.positionalArguments[1] as String;
       configStore[key] = value;
     });
-    when(() => api.updateBook(any())).thenAnswer((invocation) async {
+    when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
       savedBooks.add(invocation.positionalArguments[0] as Book);
     });
   });
@@ -250,7 +250,7 @@ void main() {
     });
 
     testWidgets('「书」按钮：持久化选中引擎到当前书 readConfig.ttsEngine', (tester) async {
-      when(() => api.getBook(bookUrl))
+      when(() => api.bookshelfRepository.getBook(bookUrl))
           .thenAnswer((_) async => const Book(bookUrl: bookUrl, name: '书'));
       readNotifier().bindBook(const Book(bookUrl: bookUrl, name: '书'));
       await pumpScreen(tester);

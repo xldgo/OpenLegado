@@ -4,6 +4,10 @@
 /// 供 Providers / Services 层测试使用。
 library;
 
+import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
+
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 
@@ -22,7 +26,15 @@ class MockHttpTtsRepository extends Mock implements HttpTtsRepository {}
 
 class MockHttpTtsSynthesizer extends Mock implements HttpTtsSynthesizer {}
 
+class _MockBookshelfRepository extends Mock implements BookshelfRepository {}
+
+class _MockBookGroupRepository extends Mock implements BookGroupRepository {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final BookshelfRepository bookshelfRepository = _MockBookshelfRepository();
+  @override
+  final BookGroupRepository bookGroupRepository = _MockBookGroupRepository();
   @override
   final HttpTtsSynthesizer httpTtsSynthesizer = MockHttpTtsSynthesizer();
   @override

@@ -240,7 +240,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 换源后的重载 stub
-      when(() => mockApi.getBook(any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
@@ -252,6 +252,8 @@ void main() {
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
+      // 本夹具只挂菜单，显式发布已排版位置，不把持久化原文偏移当页码。
+      notifier.updatePosition(3, sourceOffset: 3);
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -290,7 +292,7 @@ void main() {
       await tester.pumpAndSettle(); // 菜单收起 + 换源路由自动 pop + 重载
 
       // ② 断言：重读书籍 + 重载目录 + 强制拉取（新源当前章 url）
-      verify(() => mockApi.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
       verify(
         () => mockApi.fetchChapterContent(
           'https://book.com/1',
@@ -398,7 +400,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 换源后的重载 stub（openBook 先取 _oldToc，重载时取 _newToc）
-      when(() => mockApi.getBook(any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => _newBookRecord);
       when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
@@ -447,7 +449,7 @@ void main() {
       expect(exception, isNull);
       await tester.pumpAndSettle(); // 换源路由自动 pop + 重载
 
-      verify(() => mockApi.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
       verify(
         () => mockApi.fetchChapterContent(
           'https://book.com/1',
@@ -524,7 +526,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 6s（> SnackBar 默认 4s 自动消失时长）
-      when(() => mockApi.getBook(any())).thenAnswer(
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer(
         (_) => Future<Book?>.delayed(
           const Duration(seconds: 6),
           () => _newBookRecord,
@@ -583,7 +585,7 @@ void main() {
       // clearSnackBars 已收起 10min 进行中条 —— 慢路径终态无任何残留
       expect(find.textContaining('已更换书源'), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
-      verify(() => mockApi.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
       expect(
         container.read(readerNotifierProvider).currentBook?.origin,
         'https://source-b.com',
@@ -640,7 +642,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       // 慢路径：getBook 延迟 6s（> 4s 自动消失时长）
-      when(() => mockApi.getBook(any())).thenAnswer(
+      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer(
         (_) => Future<Book?>.delayed(
           const Duration(seconds: 6),
           () => _newBookRecord,
@@ -701,7 +703,7 @@ void main() {
       // 结果条、10min 进行中条已被 clearSnackBars 收起（终态无残留）
       expect(find.textContaining('已更换书源'), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
-      verify(() => mockApi.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
       expect(
         container.read(readerNotifierProvider).currentBook?.origin,
         'https://source-b.com',

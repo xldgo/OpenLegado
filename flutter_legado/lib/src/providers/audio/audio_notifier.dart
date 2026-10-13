@@ -494,7 +494,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     try {
       var chapterList = await _api.getChapters(bookUrl);
       if (_disposed || token != _playToken) return;
-      final book = await _api.getBook(bookUrl);
+      final book = await _api.bookshelfRepository.getBook(bookUrl);
       if (_disposed || token != _playToken) return;
       if (chapterList.isEmpty) {
         final origin = book?.origin ?? '';
@@ -693,7 +693,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final cfg = book.readConfig ?? const ReadConfig();
       final updated = book.copyWith(readConfig: cfg.copyWith(ttsEngine: url));
       _book = updated;
-      await _api.updateBook(updated);
+      await _api.bookshelfRepository.updateBook(updated);
       await restartCurrentTts();
       return true;
     } catch (e) {
@@ -713,7 +713,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final cfg = book.readConfig ?? const ReadConfig();
       final updated = book.copyWith(readConfig: cfg.copyWith(ttsEngine: null));
       _book = updated;
-      await _api.updateBook(updated);
+      await _api.bookshelfRepository.updateBook(updated);
     } catch (e) {
       debugPrint('清除书级朗读引擎失败: $e');
     }
@@ -769,7 +769,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _book = null;
     final token = _playToken;
     try {
-      final book = await _api.getBook(bookUrl);
+      final book = await _api.bookshelfRepository.getBook(bookUrl);
       if (!_disposed && token == _playToken) _book = book;
     } catch (e) {
       debugPrint('读取书级朗读引擎配置失败: $e');
@@ -1808,7 +1808,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (target == null || target.readConfig == null) {
       // 缓存书可能缺 readConfig：始终向库补读一次，失败沿用传入对象
       try {
-        target = await _api.getBook(url) ?? target;
+        target = await _api.bookshelfRepository.getBook(url) ?? target;
       } catch (e) {
         debugPrint('读取书级听书配置失败: $e');
       }
@@ -1871,7 +1871,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (decoded is! Map<String, dynamic>) return;
       final updated = book.copyWith(readConfig: ReadConfig.fromJson(decoded));
       _book = updated;
-      await _api.updateBook(updated);
+      await _api.bookshelfRepository.updateBook(updated);
     } catch (e) {
       debugPrint('保存书级播放模式失败: $e');
     }
@@ -1907,7 +1907,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final cfg = book.readConfig ?? const ReadConfig();
       final updated = book.copyWith(readConfig: cfg.copyWith(playSpeed: speed));
       _book = updated;
-      await _api.updateBook(updated);
+      await _api.bookshelfRepository.updateBook(updated);
       _lastSpeedPersistKey = bookUrl;
       _lastSpeedPersistValue = speed;
     } catch (e) {
@@ -1920,7 +1920,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final cached = _book;
     if (cached != null && cached.bookUrl == bookUrl) return cached;
     try {
-      final fetched = await _api.getBook(bookUrl);
+      final fetched = await _api.bookshelfRepository.getBook(bookUrl);
       if (fetched != null) _book = fetched;
       return fetched;
     } catch (e) {

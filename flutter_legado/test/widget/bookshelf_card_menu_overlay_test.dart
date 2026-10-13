@@ -53,8 +53,8 @@ void main() {
       '书架菜单打开、关闭与操作导航保持正常',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [bookUnread]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookUnread]);
+    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
 
     container = await pumpShelf(tester);
     addTearDown(container.dispose);

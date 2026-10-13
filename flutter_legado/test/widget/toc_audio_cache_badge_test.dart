@@ -117,7 +117,7 @@ void main() {
     List<int> audioCached = const [],
     List<int> Function()? audioCachedByCall,
   }) {
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
     when(() => mockApi.getChapters(bookUrl)).thenAnswer((_) async => chapters);
     when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer((_) async {
       cachedUrlsCalls++;

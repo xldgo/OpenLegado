@@ -59,7 +59,7 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
       ],
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer((
       invocation,
     ) async {

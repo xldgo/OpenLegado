@@ -1,3 +1,4 @@
+import '../../features/bookshelf/bookshelf_repositories.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
@@ -12,7 +13,7 @@ export 'bookshelf_state.dart';
 /// 书架 Riverpod Notifier
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §3.2 铁律）：
-/// - 调用 BookApi → 接收纯数据 → 更新 immutable State
+/// - 调用领域 Repository → 接收纯数据 → 更新 immutable State
 /// - 管理 UI 状态（loading/error/data 三态）
 /// - 管理展示层变换（网格/列表切换、分组模式）
 /// - 禁止包含业务计算（排序/过滤/规则解析由 Rust 完成）
@@ -55,7 +56,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   Future<void> _loadBooks() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookshelfRepositoryProvider);
       final books = await api.getBooks();
       if (!ref.mounted) return;
       state = state.copyWith(books: books, isLoading: false);
@@ -83,7 +84,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// [refresh] 保持列表一致。
   Future<void> refreshBook(String bookUrl) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookshelfRepositoryProvider);
       final book = await api.getBook(bookUrl);
       if (book == null) {
         await refresh();
@@ -103,7 +104,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 加载书籍分组（对标原版 BookshelfFragment1.initBookGroupData）
   Future<void> _loadGroups() async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookGroupRepositoryProvider);
       final groups = await api.getBookGroups();
       if (!ref.mounted) return;
       final visible = groups.where((g) => g.show).toList()
@@ -198,7 +199,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 书架」（假成功；书架非空时 state.error 又不渲染 → 完全静默）
   Future<bool> addBook(Book book) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookshelfRepositoryProvider);
       await api.addBook(book);
       state = state.copyWith(books: [...state.books, book]);
       // [P4-2b V4] 新加入的视频书触发视频聚合分组出现
@@ -233,7 +234,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 不变、error 置位，调用方据此提示失败（不再无条件「已移出书架」）
   Future<bool> removeBook(String bookUrl) async {
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookshelfRepositoryProvider);
       await api.deleteBook(bookUrl);
       state = state.copyWith(
         books: state.books.where((b) => b.bookUrl != bookUrl).toList(),
@@ -317,7 +318,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     final urls = state.selectedUrls.toList();
     if (urls.isEmpty) return;
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookshelfRepositoryProvider);
       for (final url in urls) {
         await api.deleteBook(url);
       }
@@ -355,7 +356,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     ];
     state = state.copyWith(books: reordered);
     try {
-      await ref.read(bookApiProvider).reorderBooks([
+      await ref.read(bookshelfRepositoryProvider).reorderBooks([
         for (final b in reordered) {'bookUrl': b.bookUrl, 'order': b.order},
       ]);
     } catch (e) {

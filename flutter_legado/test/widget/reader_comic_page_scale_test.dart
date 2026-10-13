@@ -1,3 +1,4 @@
+import '../mocks/bookshelf_fixture.dart';
 // [P4-3 E2] 分页适配类型（设置项 + 持久化，整页行为）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -31,6 +32,12 @@ const _kPngBase64 =
 
 /// 页面适配测试 Mock：可注入配置（翻页模式/适配类型），记录配置写入
 class _ScaleMockApi extends MockBookApi {
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ScaleMockApi({
     required this.configWrites,
     Map<String, String>? configs,
@@ -61,8 +68,7 @@ class _ScaleMockApi extends MockBookApi {
         ),
       ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
         bookUrl: bookUrl,
         tocUrl: 'https://manga.example.com/comic/1/',
         name: '测试漫画',
