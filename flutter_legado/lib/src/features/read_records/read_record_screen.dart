@@ -96,6 +96,12 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ref.read(readRecordNotifierProvider.notifier).setSearchQuery(q),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Symbols.leaderboard_rounded),
+            tooltip: '阅读总览',
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+          ),
           AppMenuButton<String>(
             tooltip: context.l10n.readingRecordOptions,
             onSelected: _onMenuSelected,

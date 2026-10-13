@@ -95,6 +95,7 @@ class AppRoutes {
   static const changeSource = '/change_source';
   static const readingStats = '/reading_stats'; // 历史别名，重定向到阅读记录
   static const readRecord = '/read_record';
+  static const readRecordOverview = '/read_record_overview';
   static const bookmarks = '/bookmarks';
   static const replaceRules = '/replace_rules';
   // [A3 形态对齐 | full-stack-engineer + UI] 替换规则整页编辑器
@@ -257,6 +258,7 @@ class AppRoutes {
     },
     readingStats: (_) => const ReadRecordScreen(),
     readRecord: (_) => const ReadRecordScreen(),
+    readRecordOverview: (_) => const ReadRecordOverviewScreen(),
     bookmarks: (_) => const BookmarkScreen(),
     replaceRules: (context) {
       // [UI-fix v2.0.2 | 2026-08-06] 支持 String 路由参数：阅读器长按

@@ -6,12 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../features/bookshelf/bookshelf.dart';
+import '../routes.dart';
 import '../features/read_records/read_records.dart';
 import '../utils/book_open_utils.dart';
-import '../utils/error_message.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/legado_app_bar.dart';
-import '../widgets/md3_heatmap_calendar.dart';
 
 /// 首页页签（对齐参考版首页布局）
 ///
@@ -157,6 +156,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final overviewState = ref.watch(readRecordOverviewNotifierProvider);
     final records = ref.watch(
       readRecordNotifierProvider.select((s) => s.records),
     );
@@ -395,23 +395,40 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _HomeCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.readingHeatmap,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.l10n.dailyReadingDuration,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 12),
-                const _HeatmapSection(),
-              ],
+          // ===== 阅读热力图卡片 =====
+          ReadingHeatmapCard.fromStringMap(
+            dailySecondsMap: overviewState.allDailyTimes,
+            dailyCountsMap: overviewState.allDailyCounts,
+            trailing: IconButton(
+              tooltip: '阅读总览',
+              icon: const Icon(Symbols.chevron_right_rounded),
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ===== 阅读时长榜卡片 =====
+          ReadingRankingCard(
+            topBooks: overviewState.topBooks.take(5).toList(),
+            onBookTap: (ranking) => _openBookByName(ranking.bookName),
+            trailing: IconButton(
+              tooltip: '更多排行',
+              icon: const Icon(Symbols.chevron_right_rounded),
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ===== 读书日历卡片 =====
+          ReadingCalendarCard(
+            referenceDate: overviewState.referenceDate,
+            dailyTopBook: overviewState.dailyTopBook,
+            onBookTap: (date, book) => _openBookByName(book.bookName),
+            trailing: IconButton(
+              tooltip: '查看日历',
+              icon: const Icon(Symbols.chevron_right_rounded),
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
             ),
           ),
         ],
@@ -442,6 +459,22 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     // 与阅读记录页同链路：分流编排统一在 BookOpenUtils.openBook
     // （未读进详情 + 书源类型位解析后按类型进阅读器）
     await BookOpenUtils.openBook(context, ref, book);
+  }
+
+  Future<void> _openBookByName(String bookName) async {
+    final books = ref.read(bookshelfNotifierProvider).books;
+    Book? matched;
+    for (final b in books) {
+      if (b.name == bookName) {
+        matched = b;
+        break;
+      }
+    }
+    if (matched != null) {
+      await _openBook(matched);
+    } else {
+      await Navigator.pushNamed(context, AppRoutes.search, arguments: bookName);
+    }
   }
 }
 
@@ -536,77 +569,4 @@ class _GoalDialPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.trackColor != trackColor ||
       oldDelegate.progressColor != progressColor;
-}
-
-/// 首页阅读热力图：显示时加载每日时长，沿用现有统计 API。
-class _HeatmapSection extends ConsumerStatefulWidget {
-  const _HeatmapSection();
-
-  @override
-  ConsumerState<_HeatmapSection> createState() => _HeatmapSectionState();
-}
-
-class _HeatmapSectionState extends ConsumerState<_HeatmapSection> {
-  Map<DateTime, int>? _dailySeconds;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDaily();
-  }
-
-  Future<void> _loadDaily() async {
-    try {
-      final list = await ref
-          .read(readRecordRepositoryProvider)
-          .readRecordDailyList(DateTime.now().year);
-      if (!mounted) return;
-      final map = <DateTime, int>{};
-      for (final e in list) {
-        final date = (e['date'] ?? '').toString();
-        final seconds = (e['seconds'] as num?)?.toInt() ?? 0;
-        if (date.isEmpty) continue;
-        final parts = date.split('-');
-        if (parts.length != 3) continue;
-        map[DateTime(
-              int.parse(parts[0]),
-              int.parse(parts[1]),
-              int.parse(parts[2]),
-            )] =
-            seconds;
-      }
-      setState(() => _dailySeconds = map);
-    } catch (e) {
-      if (mounted) setState(() => _error = errorMessage(e));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_error != null) {
-      return Text(
-        context.l10n.dailyDurationLoadFailed(_error!),
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(color: Theme.of(context).colorScheme.error),
-      );
-    }
-    if (_dailySeconds == null) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(
-          child: SizedBox.square(
-            dimension: 24,
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-    return Md3HeatmapCalendar(
-      dailySeconds: _dailySeconds!,
-      dailyCounts: const {},
-      mode: Md3HeatmapMode.duration,
-      endDate: DateTime.now(),
-    );
-  }
 }
