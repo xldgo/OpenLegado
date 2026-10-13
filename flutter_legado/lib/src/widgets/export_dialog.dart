@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../models/models.dart';
 import '../services/export_service.dart';
 import '../services/book_api.dart';
@@ -112,56 +113,68 @@ class _ExportDialogState extends State<ExportDialog> {
             ),
             const SizedBox(height: 24),
 
-            // 格式选择
-            _buildFormatSelector(),
-            const Divider(height: 32),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 格式选择
+                    _buildFormatSelector(),
+                    const Divider(height: 32),
 
-            // 字符集选择
-            _buildEncodingSelector(),
-            const Divider(height: 32),
+                    // 字符集选择
+                    _buildEncodingSelector(),
+                    const Divider(height: 32),
 
-            // 文件名模板
-            _buildFileNameTemplate(),
-            const Divider(height: 32),
+                    // 文件名模板
+                    _buildFileNameTemplate(),
+                    const Divider(height: 32),
 
-            // 章节范围
-            _buildChapterRange(),
-            const Divider(height: 32),
+                    // 章节范围
+                    _buildChapterRange(),
+                    const Divider(height: 32),
 
-            // 导出路径选择
-            _buildPathSelector(),
-            const Divider(height: 32),
+                    // 导出路径选择
+                    _buildPathSelector(),
+                    const Divider(height: 32),
 
-            // TOC 选项
-            _buildTocCheckbox(),
-            const Divider(height: 32),
+                    // TOC 选项
+                    _buildTocCheckbox(),
+                    const Divider(height: 32),
 
-            // WebDAV 选项
-            _buildWebDavCheckbox(),
-            const Divider(height: 32),
+                    // WebDAV 选项
+                    _buildWebDavCheckbox(),
+                    const Divider(height: 32),
 
-            // 预览信息
-            if (_status == ExportStatus.ready) ...[
-              _buildPreviewInfo(),
-              const Divider(height: 32),
-            ],
+                    // 预览信息
+                    if (_status == ExportStatus.ready) ...[
+                      _buildPreviewInfo(),
+                      const Divider(height: 32),
+                    ],
 
-            // 进度指示器
-            if (_status == ExportStatus.exporting) ...[
-              _buildProgressIndicator(),
-              const SizedBox(height: 16),
-            ],
+                    // 进度指示器
+                    if (_status == ExportStatus.exporting) ...[
+                      _buildProgressIndicator(),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // 操作按钮
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: _status == ExportStatus.exporting ? null : () => Navigator.pop(context),
+                  onPressed: _status == ExportStatus.exporting
+                      ? null
+                      : () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
+                FilledButton(
                   onPressed: _handleConfirm,
                   child: const Text('确认'),
                 ),
@@ -178,8 +191,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('导出格式',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('导出格式', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 12,
@@ -205,8 +217,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('字符编码',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('字符编码', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownMenu<String>(
           initialSelection: _selectedEncoding,
@@ -232,8 +243,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('文件名模板',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('文件名模板', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           '可用变量：{name} {author}',
@@ -254,8 +264,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('章节范围',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('章节范围', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           '索引从 0 起；留空表示全部章节',
@@ -300,8 +309,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('导出路径',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('导出路径', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         InkWell(
           onTap: _pickExportPath,
@@ -310,7 +318,8 @@ class _ExportDialogState extends State<ExportDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.outline
+                    .withValues(alpha: 0.5),
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -326,10 +335,10 @@ class _ExportDialogState extends State<ExportDialog> {
                   child: Text(
                     _exportPath ?? '点击选择导出目录',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _exportPath != null
-                              ? null
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: _exportPath != null
+                          ? null
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -410,7 +419,8 @@ class _ExportDialogState extends State<ExportDialog> {
         final data = snapshot.data;
         if (data != null && data['success'] == true) {
           final fileName = data['file_name'] as String? ?? '';
-          final chapterCount = int.tryParse(data['error']?.split(': ').last ?? '0') ?? 0;
+          final chapterCount =
+              int.tryParse(data['error']?.split(': ').last ?? '0') ?? 0;
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -457,14 +467,15 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('正在导出...',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('正在导出...', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: _progress.clamp(0.0, 1.0),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest,
             valueColor: AlwaysStoppedAnimation<Color>(
               Theme.of(context).primaryColor,
             ),
@@ -623,9 +634,9 @@ class _ExportDialogState extends State<ExportDialog> {
 
 /// 导出状态枚举
 enum ExportStatus {
-  idle,       // 初始状态
-  exploring,  // 正在查看
-  ready,      // 已准备好
-  exporting,  // 正在导出
-  error,      // 错误状态
+  idle, // 初始状态
+  exploring, // 正在查看
+  ready, // 已准备好
+  exporting, // 正在导出
+  error, // 错误状态
 }

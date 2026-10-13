@@ -234,10 +234,7 @@ void main() {
       local.floatingActionButtonTheme.backgroundColor,
       scheme.primaryContainer,
     );
-    expect(
-      local.iconButtonTheme.style?.foregroundColor?.resolve({}),
-      scheme.onSurfaceVariant,
-    );
+    expect(local.iconButtonTheme.style?.foregroundColor, isNull);
     expect(local.platform, base.platform);
     expect(local.pageTransitionsTheme, base.pageTransitionsTheme);
     expect(local.textTheme.bodyMedium?.fontFamily, 'reader-font');

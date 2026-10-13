@@ -317,51 +317,6 @@ class AppTheme {
         clipBehavior: Clip.antiAlias,
       ),
 
-      // 按钮主题 —— Expressive 全圆角（stadium）
-      // [LAYOUT_MOTION_AUDIT L1] M3 默认高 40dp（原 44 无原生依据）
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          elevation: 0,
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          textStyle: AppTypography.lightTextTheme.labelLarge,
-          shape: const StadiumBorder(),
-        ),
-      ),
-
-      // 填充按钮（次级）
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          textStyle: AppTypography.lightTextTheme.labelLarge,
-          shape: const StadiumBorder(),
-        ),
-      ),
-
-      // 轮廓按钮
-      // [LAYOUT_MOTION_AUDIT L1] 描边走 outline（原 outlineVariant 差一级）
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: colorScheme.primary,
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          textStyle: AppTypography.lightTextTheme.labelLarge,
-          side: BorderSide(color: colorScheme.outline),
-          shape: const StadiumBorder(),
-        ),
-      ),
-
-      // 文字按钮
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: colorScheme.primary,
-          textStyle: AppTypography.lightTextTheme.labelLarge,
-        ),
-      ),
-
       // 普通表单统一使用圆角填充和描边，聚焦与错误状态只改变边线。
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -484,81 +439,17 @@ class AppTheme {
         textStyle: TextStyle(color: colorScheme.onSurface, fontSize: 12),
       ),
 
-      // Chip 主题 —— M3 默认（选中态 secondaryContainer 落地）
-      // [LAYOUT_MOTION_AUDIT L1] 新增：此前完全无 chip 主题
-      // [FIX 2026-09-04] label 色显式声明：未选中 onSurfaceVariant，
-      // 选中 onSecondaryContainer。否则 FilterChip 未选中态回退黑色，
-      // 暗色下对比度仅 1.1（发现页顶部“全部”看不清实锤）
-      chipTheme: ChipThemeData(
-        backgroundColor: colorScheme.surfaceContainerLow,
-        selectedColor: colorScheme.secondaryContainer,
-        secondarySelectedColor: colorScheme.secondaryContainer,
-        labelStyle: AppTypography.lightTextTheme.labelLarge?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-        secondaryLabelStyle: AppTypography.lightTextTheme.labelLarge?.copyWith(
-          color: colorScheme.onSecondaryContainer,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        side: BorderSide(color: colorScheme.outline),
-      ),
-
-      // Switch 主题 —— 跟随 primary（M3 默认，显式声明防回归）
-      // [LAYOUT_MOTION_AUDIT L1] 新增
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.onPrimary;
-          }
-          return colorScheme.outline;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return colorScheme.surfaceContainerHighest;
-        }),
-      ),
-
-      // Checkbox 主题 —— 跟随 primary（M3 默认，显式声明）
-      // [LAYOUT_MOTION_AUDIT L1] 新增
+      // 保留复选框形状，配色与交互状态由组件按当前 ColorScheme 解析。
       checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return null;
-        }),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
       ),
 
-      // Radio 主题 —— 跟随 primary（M3 默认，显式声明）
-      // [LAYOUT_MOTION_AUDIT L1] 新增
-      radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return null;
-        }),
-      ),
-
-      // Slider 主题 —— 跟随 primary（M3 默认，显式声明）
-      // [LAYOUT_MOTION_AUDIT L1] 新增
+      // 使用新版滑块默认配色，按用户设置取消圆形按压状态层。
       sliderTheme: SliderThemeData(
-        activeTrackColor: colorScheme.primary,
-        inactiveTrackColor: colorScheme.surfaceContainerHighest,
-        thumbColor: colorScheme.primary,
-        overlayColor: colorScheme.primary.withValues(alpha: 0.12),
-      ),
-
-      // IconButton 主题 —— M3 标准形状
-      // [LAYOUT_MOTION_AUDIT L1] 新增
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          foregroundColor: colorScheme.onSurfaceVariant,
-        ),
+        // material_ui 1.6 仍默认旧 M3 外观，在统一主题入口启用新版。
+        // ignore: deprecated_member_use
+        year2023: false,
+        overlayShape: SliderComponentShape.noOverlay,
       ),
 
       // SearchBar 主题 —— 容器 surfaceContainerLow（HapeLee M3 分支）

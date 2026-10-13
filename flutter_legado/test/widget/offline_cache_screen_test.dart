@@ -22,9 +22,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
-      ],
+      overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
     addTearDown(container.dispose);
   });
@@ -36,15 +34,19 @@ void main() {
     );
   }
 
-  Book makeBook(String url, String name,
-          {int total = 10, int bookType = 0, String author = '作者A'}) =>
-      Book(
-        bookUrl: url,
-        name: name,
-        author: author,
-        totalChapterNum: total,
-        bookType: bookType,
-      );
+  Book makeBook(
+    String url,
+    String name, {
+    int total = 10,
+    int bookType = 0,
+    String author = '作者A',
+  }) => Book(
+    bookUrl: url,
+    name: name,
+    author: author,
+    totalChapterNum: total,
+    bookType: bookType,
+  );
 
   /// 预置空任务列表与空缓存（多数用例公共 stub）
   void stubEmptyCache() {
@@ -54,21 +56,30 @@ void main() {
   }
 
   testWidgets('离线缓存 书架为空时显示空态', (tester) async {
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => <Book>[]);
     stubEmptyCache();
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
 
     expect(find.text('离线缓存'), findsOneWidget);
+    expect(find.byType(SearchBar), findsNothing);
+    expect(find.byType(RefreshIndicator), findsNothing);
     expect(find.text('书架暂无书籍'), findsOneWidget);
   });
 
-  testWidgets('离线缓存 渲染书籍列表与缓存进度（对齐 item_download.xml 三行布局）',
-      (tester) async {
+  testWidgets('离线缓存 渲染书籍列表与缓存进度（对齐 item_download.xml 三行布局）', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
-    final b2 = makeBook('u2', '书二', total: 20, bookType: BookType.local);
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1, b2]);
+    final b2 = makeBook(
+      'u2',
+      '书二',
+      total: 20,
+      bookType: BookType.local,
+      author: '作者B',
+    );
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
     when(() => mockApi.listCachedChapterUrls('u1'))
         .thenAnswer((_) async => ['c1', 'c2', 'c3']);
@@ -79,7 +90,8 @@ void main() {
 
     expect(find.text('书一'), findsOneWidget);
     expect(find.text('书二'), findsOneWidget);
-    expect(find.text('作者A'), findsNWidgets(2));
+    expect(find.text('作者A'), findsOneWidget);
+    expect(find.text('作者B'), findsOneWidget);
     // 缓存进度行「已缓存 N/总章节数」（对齐原版 download_count）
     expect(find.text('已缓存 3/10'), findsOneWidget);
     // 本地书进度行显示「本地书籍」（原版 isLocal 短路）
@@ -87,12 +99,51 @@ void main() {
     // 在线书有播放下载按钮，本地书无；导出按钮每本一个
     expect(find.byIcon(Symbols.play_circle_rounded), findsOneWidget);
     expect(find.widgetWithText(TextButton, '导出'), findsNWidgets(2));
+
+    await tester.tap(find.byIcon(Symbols.search_rounded));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), ' 书一 ');
+    await tester.pump();
+    expect(find.text('书一'), findsOneWidget);
+    expect(find.text('书二'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '作者b');
+    await tester.pump();
+    expect(find.text('书一'), findsNothing);
+    expect(find.text('书二'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '不存在的书');
+    await tester.pump();
+    expect(find.text('没有匹配的书籍'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('清除搜索关键词'));
+    await tester.pump();
+    expect(find.text('书一'), findsOneWidget);
+    expect(find.text('书二'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '书一');
+    await tester.pump();
+    await tester.tap(find.byIcon(Symbols.search_off_rounded));
+    await tester.pump();
+    expect(find.byType(SearchBar), findsNothing);
+    expect(find.text('书一'), findsOneWidget);
+    expect(find.text('书二'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Symbols.search_rounded));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+    verify(() => mockApi.bookshelfRepository.getBooks()).called(1);
   });
 
-  testWidgets('离线缓存 下载按钮触发 cacheDownloadStart（download_all 0..末章）',
-      (tester) async {
+  testWidgets('离线缓存 下载按钮触发 cacheDownloadStart（download_all 0..末章）', (
+    tester,
+  ) async {
     final b1 = makeBook('u1', '书一', total: 10);
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [b1]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
@@ -112,13 +163,20 @@ void main() {
   testWidgets('离线缓存 顶栏菜单「全部缓存」批量启动（确认对话框）', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
     final b2 = makeBook('u2', '书二', total: 20);
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1, b2]);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
+    await tester.pump();
+
+    // 搜索仅筛选显示，菜单中的全部缓存仍涵盖书架全部书籍。
+    await tester.tap(find.byIcon(Symbols.search_rounded));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '书一');
     await tester.pump();
 
     await tester.tap(find.byTooltip('缓存操作'));
@@ -144,7 +202,8 @@ void main() {
       totalChapterNum: 10,
       durChapterIndex: 2,
     );
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [b1]);
     stubEmptyCache();
     when(() => mockApi.cacheDownloadStart(any(), any(), any()))
         .thenAnswer((_) async => 1);
@@ -168,9 +227,11 @@ void main() {
 
   testWidgets('离线缓存 进行中任务显示下载进度与停止按钮', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [b1]);
-    when(() => mockApi.cacheDownloadList()).thenAnswer((_) async =>
-        '[{"taskId":7,"bookUrl":"u1","status":"running","total":10,"completed":4,"failed":0}]');
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [b1]);
+    when(() => mockApi.cacheDownloadList()).thenAnswer(
+      (_) async => '[{"taskId":7,"bookUrl":"u1","status":"running","total":10,"completed":4,"failed":0}]',
+    );
     when(() => mockApi.listCachedChapterUrls('u1'))
         .thenAnswer((_) async => const <String>[]);
 

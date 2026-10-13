@@ -59,16 +59,16 @@ void main() {
       theme.textTheme.titleMedium?.fontSize,
       app.textTheme.titleMedium?.fontSize,
     );
-    expect(
-      theme.iconButtonTheme.style?.foregroundColor?.resolve({}),
-      colors.onSurfaceVariant,
-    );
-    expect(theme.chipTheme.backgroundColor, colors.surfaceContainerLow);
+    expect(theme.iconButtonTheme.style?.foregroundColor, isNull);
+    expect(theme.chipTheme.backgroundColor, isNull);
+    expect(theme.chipTheme.labelStyle, isNull);
     expect(
       theme.menuTheme.style?.backgroundColor?.resolve({}),
       colors.surfaceContainerLow,
     );
-    expect(theme.sliderTheme.activeTrackColor, colors.primary);
+    expect(theme.sliderTheme.activeTrackColor, isNull);
+    expect(theme.sliderTheme.inactiveTrackColor, isNull);
+    expect(theme.sliderTheme.thumbColor, isNull);
   });
 
   test('自定义实色分别选择日夜值并计算主色上的前景', () {

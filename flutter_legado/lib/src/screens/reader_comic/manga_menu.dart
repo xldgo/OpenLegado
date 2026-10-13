@@ -477,7 +477,7 @@ class _MangaProgressCapsule extends StatelessWidget {
             // （轨宽/divisions ≥ 3×点宽 才绘整串）在 50 页级章节下永不
             // 满足，点串已改自绘，避免标准 tick 干扰/双重绘制
             SliderTheme(
-              data: SliderThemeData(
+              data: SliderTheme.of(context).copyWith(
                 // 轨道透明：trackHeight 0 → SDK 轨道绘制直接 no-op
                 trackHeight: 0,
                 thumbShape: _MangaBarThumbShape(),

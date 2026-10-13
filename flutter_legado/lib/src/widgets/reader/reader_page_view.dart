@@ -68,6 +68,9 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 正文延伸至状态栏（readBodyToLh；对标原版 readBodyToLh）
   final bool readBodyToLh;
 
+  /// 页面内部的系统栏/屏幕缺口避让；翻页画布保持完整视口。
+  final EdgeInsets? contentInsets;
+
   // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批消费点 — Qoder
 
   /// 长按选择文本开关（对标原版 selectText，关闭后长按不弹选区面板）
@@ -126,6 +129,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.marginRight = 20,
     this.pageChrome = const ReaderPageChromeConfig(),
     this.readBodyToLh = true,
+    this.contentInsets,
     this.selectText = true,
     this.onTapUp,
     this.noAnimScroll = false,
@@ -743,21 +747,19 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // [UI-fix v2.0.3 | 2026-08-06] 页面边距变化同样触发重新分页 — Qoder
     final margins =
         '${widget.marginTop}_${widget.marginBottom}_${widget.marginLeft}_${widget.marginRight}';
-    // [UI-fix v2.0.3 | 2026-08-08] 系统栏显隐改变可用高度时重新分页 — Qoder
-    final sysPadding = MediaQuery.of(context).padding;
-    final statusBarTop = readerContentStatusBarInset(
-      context,
-      hideStatusBar: widget.pageChrome.hideStatusBar,
-      readBodyToLh: widget.readBodyToLh,
-    );
+    final insets = _contentInsets(context);
     final sysPaddingKey =
-        '${statusBarTop}_${sysPadding.bottom}_${sysPadding.left}_${sysPadding.right}';
+        '${insets.top}_${insets.bottom}_${insets.left}_${insets.right}';
 
     // [UI-fix v2.0.5 | 2026-08-10] 双页档位判定（对齐原版
     // ChapterProvider.upLayout：0=单页、1=双页、2=横屏双页、3=平板或
     // 横屏双页；滚动模式 pageAnim==3 强制单页；桌面端以窗口宽 >=700
     // 作为平板语义）— Reasonix
-    final screenSize = viewportSize;
+    // 动画使用完整视口，分页只使用内部避让后可排版的尺寸。
+    final screenSize = Size(
+      viewportSize.width - insets.horizontal,
+      viewportSize.height - insets.vertical,
+    );
     final textScaler = MediaQuery.textScalerOf(context);
     final baseStyle = DefaultTextStyle.of(context).style;
     final boldText = MediaQuery.boldTextOf(context);
@@ -890,7 +892,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     );
     final availableHeight =
         screenSize.height -
-        statusBarTop -
         headerBlock -
         footerBlock -
         widget.marginTop -
@@ -1266,11 +1267,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final body = _scrollBodyKey.currentContext?.findRenderObject();
     final viewport = context.findRenderObject();
     if (body is! RenderBox || viewport is! RenderBox) return;
-    final inset = readerContentStatusBarInset(
-      context,
-      hideStatusBar: widget.pageChrome.hideStatusBar,
-      readBodyToLh: widget.readBodyToLh,
-    );
+    final inset = _contentInsets(context).top;
     final offset = math.max(
       0.0,
       viewport.localToGlobal(Offset(0, inset)).dy -
@@ -1312,11 +1309,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         if (_scrollLinePositions[i].$2 > source) break;
         index = i;
       }
-      final inset = readerContentStatusBarInset(
-        context,
-        hideStatusBar: widget.pageChrome.hideStatusBar,
-        readBodyToLh: widget.readBodyToLh,
-      );
+      final inset = _contentInsets(context).top;
       final bodyStart =
           body.localToGlobal(Offset.zero).dy -
           viewport.localToGlobal(Offset(0, inset)).dy +
@@ -1583,25 +1576,20 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     return state.textColor;
   }
 
-  /// 正文 viewport：工具栏为 Stack overlay，显隐不得改变正文布局约束
-  /// （对标原版 ReadView 全屏 + ReadMenu 浮层；此前 showControls 联动
-  /// SafeArea 导致切换工具栏时正文上跳并重算分页）— Cursor UI
-  ///
-  /// 未隐藏状态栏时恒定预留 viewPadding.top（与分页扣减一致），避免
-  /// 章节标题/页眉绘制到系统状态栏区域；hideStatusBar 时不预留，以免
-  /// 切换 ReadMenu 时正文位移。
-  Widget _contentViewport(BuildContext context, Widget child) {
-    final top = readerContentStatusBarInset(
-      context,
-      hideStatusBar: widget.pageChrome.hideStatusBar,
-      readBodyToLh: widget.readBodyToLh,
-    );
-    if (top <= 0) return child;
-    return Padding(
-      padding: EdgeInsets.only(top: top),
-      child: child,
-    );
-  }
+  /// 宿主提供稳定避让尺寸；独立使用时保留原有状态栏避让。
+  EdgeInsets _contentInsets(BuildContext context) =>
+      widget.contentInsets ??
+      EdgeInsets.only(
+        top: readerContentStatusBarInset(
+          context,
+          hideStatusBar: widget.pageChrome.hideStatusBar,
+          readBodyToLh: widget.readBodyToLh,
+        ),
+      );
+
+  /// 放在页面快照内部，使背景、阴影与卷页覆盖完整视口。
+  Widget _insetContent(Widget child) =>
+      Padding(padding: _contentInsets(context), child: child);
 
   /// 首页可用高度（扣标题块；与渲染侧 pageIndex==0 同参）
   double _computeFirstPageHeight(
@@ -1843,14 +1831,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         bottom: widget.marginBottom,
       ),
     );
-    if (!_isDoublePage) return page;
+    if (!_isDoublePage) return _insetContent(page);
     // 双页模式：预览按首屏双栏形态
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: page),
-        const Expanded(child: SizedBox.shrink()),
-      ],
+    return _insetContent(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: page),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      ),
     );
   }
 
@@ -1863,38 +1853,37 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final screenCount = _isDoublePage
         ? (_paginatedPages.length + 1) ~/ 2
         : (_paginatedPages.isNotEmpty ? _paginatedPages.length : 1);
-    return _contentViewport(
-      context,
-      ReaderTurnView(
-        key: _turnViewKey,
-        selectionActive: _selectionController,
-        layoutGeneration: _layoutGeneration,
-        paintRevision: _paintRevision,
-        mode: state.pageTurnMode,
-        pageIndex: screenIndex,
-        pageCount: screenCount,
-        backPageColor: state.backgroundColor,
-        buildPage: (i) => _isDoublePage
+    return ReaderTurnView(
+      key: _turnViewKey,
+      selectionActive: _selectionController,
+      layoutGeneration: _layoutGeneration,
+      paintRevision: _paintRevision,
+      mode: state.pageTurnMode,
+      pageIndex: screenIndex,
+      pageCount: screenCount,
+      backPageColor: state.backgroundColor,
+      buildPage: (i) => _insetContent(
+        _isDoublePage
             ? _buildSpread(state, i)
             : _buildTypographicPage(state, i),
-        onPageChanged: (i) {
-          final page = _isDoublePage ? i * 2 : i;
-          setState(() => _currentPageIndex = page);
-          notifier.updatePosition(
-            page,
-            sourceOffset: _paginatedPages[page].sourceStart,
-          );
-          _manualAloudNavigation();
-          // 翻页不触发重分页 → 此处驱动相邻章预载（原仅分页触发导致章末无预载）
-          _maybePreloadAdjacent(ref.read(readerNotifierProvider));
-        },
-        chapterPrevPage: _prevChapterPreview,
-        chapterNextPage: _nextChapterPreview,
-        onTurnChapterPrev: notifier.prevChapter,
-        onTurnChapterNext: notifier.nextChapter,
-        hasChapterPrev: state.hasPreviousChapter,
-        hasChapterNext: _layoutComplete && state.hasNextChapter,
       ),
+      onPageChanged: (i) {
+        final page = _isDoublePage ? i * 2 : i;
+        setState(() => _currentPageIndex = page);
+        notifier.updatePosition(
+          page,
+          sourceOffset: _paginatedPages[page].sourceStart,
+        );
+        _manualAloudNavigation();
+        // 翻页不触发重分页 → 此处驱动相邻章预载（原仅分页触发导致章末无预载）
+        _maybePreloadAdjacent(ref.read(readerNotifierProvider));
+      },
+      chapterPrevPage: _prevChapterPreview,
+      chapterNextPage: _nextChapterPreview,
+      onTurnChapterPrev: notifier.prevChapter,
+      onTurnChapterNext: notifier.nextChapter,
+      hasChapterPrev: state.hasPreviousChapter,
+      hasChapterNext: _layoutComplete && state.hasNextChapter,
     );
   }
 
@@ -1902,8 +1891,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // [UI-fix v2.0.4 | 2026-08-08] 文字色经自定义配色解析 — Qoder
     final textColor = _resolveTextColor(state);
 
-    return _contentViewport(
-      context,
+    return _insetContent(
       NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification.depth != 0) return false;

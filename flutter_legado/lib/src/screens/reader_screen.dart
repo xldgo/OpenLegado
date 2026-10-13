@@ -700,6 +700,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               hideNavigationBar: cfg.hideNavigationBar,
               paddingDisplayCutouts: cfg.paddingDisplayCutouts,
             );
+            final bodyPadding = EdgeInsets.only(
+              top: avoidTop ? bodyInsets.top : 0,
+              left: avoidSides ? bodyInsets.left : 0,
+              right: avoidSides ? bodyInsets.right : 0,
+              bottom: bottomInset,
+            );
+            final pageInsets = bodyPadding.copyWith(
+              top: avoidTop || !cfg.hideStatusBar ? bodyInsets.top : 0,
+            );
             return Stack(
               children: [
                 Positioned.fill(
@@ -709,121 +718,118 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     removeLeft: avoidSides,
                     removeRight: avoidSides,
                     removeBottom: avoidBottom,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        top: avoidTop ? bodyInsets.top : 0,
-                        left: avoidSides ? bodyInsets.left : 0,
-                        right: avoidSides ? bodyInsets.right : 0,
-                        bottom: bottomInset,
-                      ),
-                      child: Stack(
-                        children: [
-                          if (imageDominant)
-                            ReaderImageDominantBody(
-                              content: state.chapterContent,
-                              book: book,
-                              imageStyle: book.readConfig?.imageStyle,
-                              onToggleControls: notifier.toggleControls,
-                              hasNextChapter: state.hasNextChapter,
-                              hasPrevChapter: state.hasPreviousChapter,
-                              onNextChapter: notifier.nextChapter,
-                              onPrevChapter: notifier.prevChapter,
-                            )
-                          else
-                            GestureDetector(
+                    child: Stack(
+                      children: [
+                        if (!imageDominant)
+                          GestureDetector(
+                            onTapUp: (details) => _handleTap(context, details),
+                            child: ReaderPageView(
                               onTapUp: (details) =>
                                   _handleTap(context, details),
-                              child: ReaderPageView(
-                                onTapUp: (details) =>
-                                    _handleTap(context, details),
-                                key: _pageViewKey,
-                                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
-                                // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
-                                // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
-                                //（同步可靠），解析结果作兜底 — Qoder
-                                // [UI-fix v2.0.4 | 2026-08-08] 共享配置源：面板/界面 Sheet 的
-                                // 修改统一推送 readerAdvConfigProvider，watch 触发重建并同步
-                                // _advConfig（Stack 子级按序求值，后续 ReaderStatusStrip 等
-                                // 消费点拿到最新配置；provider 未加载完成时兜底用自加载值）— Qoder
-                                paragraphSpacing:
-                                    (_advConfig =
-                                            ref.watch(
-                                              readerAdvConfigProvider,
-                                            ) ??
-                                            _advConfig)
-                                        .paragraphSpacing,
-                                // [UI-fix v2.0.2 | 2026-08-06] 阅读配置面板新增排版参数接入分页渲染 — Qoder
-                                letterSpacing: _advConfig.letterSpacing,
-                                paragraphIndent: _advConfig.paragraphIndent,
-                                textFullJustify: _advConfig.textFullJustify,
-                                // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
-                                marginTop: _advConfig.pageMarginTop,
-                                marginBottom: _advConfig.pageMarginBottom,
-                                marginLeft: _advConfig.pageMarginLeft,
-                                marginRight: _advConfig.pageMarginRight,
-                                pageChrome: ReaderPageChromeConfig.fromAdvanced(
-                                  _advConfig,
-                                ),
-                                readBodyToLh: cfg.readBodyToLh,
-                                // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
-                                // 文本开关与滚动翻页无动画接入内容区 — Qoder
-                                selectText: _advConfig.selectText,
-                                noAnimScroll: _advConfig.noAnimScrollPage,
-                                // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
-                                // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
-                                textBold: _advConfig.textBold,
-                                // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
-                                italic: _advConfig.italic,
-                                customTextColor: _advConfig.customTextColor,
-                                mouseWheelPage: _advConfig.mouseWheelPage,
-                                // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
-                                // doubleHorizontalPage 0-3 档）— Reasonix
-                                doubleHorizontalPage:
-                                    _advConfig.doubleHorizontalPage,
-                                // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
-                                // useZhLayout）— Reasonix
-                                useZhLayout: _advConfig.useZhLayout,
-                                // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂透传（对标原版
-                                // hangingPunctuation）— Reasonix
-                                hangingPunctuation:
-                                    _advConfig.hangingPunctuation,
-                                reviewCounts: _reviewCounts,
-                                onReviewTap: _onReviewTap,
+                              key: _pageViewKey,
+                              contentInsets: pageInsets,
+                              // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈④：
+                              // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
+                              // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
+                              //（同步可靠），解析结果作兜底 — Qoder
+                              // [UI-fix v2.0.4 | 2026-08-08] 共享配置源：面板/界面 Sheet 的
+                              // 修改统一推送 readerAdvConfigProvider，watch 触发重建并同步
+                              // _advConfig（Stack 子级按序求值，后续 ReaderStatusStrip 等
+                              // 消费点拿到最新配置；provider 未加载完成时兜底用自加载值）— Qoder
+                              paragraphSpacing:
+                                  (_advConfig =
+                                          ref.watch(readerAdvConfigProvider) ??
+                                          _advConfig)
+                                      .paragraphSpacing,
+                              // [UI-fix v2.0.2 | 2026-08-06] 阅读配置面板新增排版参数接入分页渲染 — Qoder
+                              letterSpacing: _advConfig.letterSpacing,
+                              paragraphIndent: _advConfig.paragraphIndent,
+                              textFullJustify: _advConfig.textFullJustify,
+                              // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
+                              marginTop: _advConfig.pageMarginTop,
+                              marginBottom: _advConfig.pageMarginBottom,
+                              marginLeft: _advConfig.pageMarginLeft,
+                              marginRight: _advConfig.pageMarginRight,
+                              pageChrome: ReaderPageChromeConfig.fromAdvanced(
+                                _advConfig,
                               ),
-                            ),
-                          if (!state.showControls)
-                            ReaderStatusStrip(
-                              config: _advConfig,
                               readBodyToLh: cfg.readBodyToLh,
+                              // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
+                              // 文本开关与滚动翻页无动画接入内容区 — Qoder
+                              selectText: _advConfig.selectText,
+                              noAnimScroll: _advConfig.noAnimScrollPage,
+                              // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
+                              // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
+                              textBold: _advConfig.textBold,
+                              // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
+                              italic: _advConfig.italic,
+                              customTextColor: _advConfig.customTextColor,
+                              mouseWheelPage: _advConfig.mouseWheelPage,
+                              // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
+                              // doubleHorizontalPage 0-3 档）— Reasonix
+                              doubleHorizontalPage:
+                                  _advConfig.doubleHorizontalPage,
+                              // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
+                              // useZhLayout）— Reasonix
+                              useZhLayout: _advConfig.useZhLayout,
+                              // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂透传（对标原版
+                              // hangingPunctuation）— Reasonix
+                              hangingPunctuation: _advConfig.hangingPunctuation,
+                              reviewCounts: _reviewCounts,
+                              onReviewTap: _onReviewTap,
                             ),
-                          // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
-                          //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
-                          // 步进与 目录/停止/设置 快捷操作（对齐参考版「即开即调」形态）
-                          if (_advConfig.autoPageTurn &&
-                              !state.showControls &&
-                              !aloudActive)
-                            Positioned(
-                              bottom: 24,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                // 浮条自身消费点击：避免点在标签/空白处透传到正文显隐手势
-                                child: GestureDetector(
-                                  onTap: () {},
-                                  child: AutoTurnPanel(
-                                    intervalSeconds:
-                                        _advConfig.autoPageTurnInterval,
-                                    onIntervalChanged: _setAutoPageInterval,
-                                    onStop: _toggleAutoPage,
-                                    onOpenCatalog: () => unawaited(_openToc()),
-                                    onOpenSettings: () =>
-                                        ReaderSettingsSheet.show(context),
+                          ),
+                        Padding(
+                          padding: bodyPadding,
+                          child: Stack(
+                            children: [
+                              if (imageDominant)
+                                ReaderImageDominantBody(
+                                  content: state.chapterContent,
+                                  book: book,
+                                  imageStyle: book.readConfig?.imageStyle,
+                                  onToggleControls: notifier.toggleControls,
+                                  hasNextChapter: state.hasNextChapter,
+                                  hasPrevChapter: state.hasPreviousChapter,
+                                  onNextChapter: notifier.nextChapter,
+                                  onPrevChapter: notifier.prevChapter,
+                                ),
+                              if (!state.showControls)
+                                ReaderStatusStrip(
+                                  config: _advConfig,
+                                  readBodyToLh: cfg.readBodyToLh,
+                                ),
+                              // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
+                              //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
+                              // 步进与 目录/停止/设置 快捷操作（对齐参考版「即开即调」形态）
+                              if (_advConfig.autoPageTurn &&
+                                  !state.showControls &&
+                                  !aloudActive)
+                                Positioned(
+                                  bottom: 24,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    // 浮条自身消费点击：避免点在标签/空白处透传到正文显隐手势
+                                    child: GestureDetector(
+                                      onTap: () {},
+                                      child: AutoTurnPanel(
+                                        intervalSeconds:
+                                            _advConfig.autoPageTurnInterval,
+                                        onIntervalChanged: _setAutoPageInterval,
+                                        onStop: _toggleAutoPage,
+                                        onOpenCatalog: () =>
+                                            unawaited(_openToc()),
+                                        onOpenSettings: () =>
+                                            ReaderSettingsSheet.show(context),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

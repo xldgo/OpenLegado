@@ -5,6 +5,7 @@ import 'package:flutter_legado/src/services/export_service.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_legado/src/widgets/export_dialog.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
 
 /// 伪造的导出服务，用于测试
 class FakeExportService extends ExportService {
@@ -51,19 +52,11 @@ class FakeExportService extends ExportService {
     required String bookUrl,
     required String format,
   }) async {
-    return {
-      'success': true,
-      'file_name': '测试书籍.txt',
-      'chapter_count': 100,
-    };
+    return {'success': true, 'file_name': '测试书籍.txt', 'chapter_count': 100};
   }
 
   @override
-  Future<bool> webdavUpload(
-    String configJson,
-    String path,
-    String data,
-  ) async {
+  Future<bool> webdavUpload(String configJson, String path, String data) async {
     webdavCalled = true;
     return true;
   }
@@ -80,18 +73,17 @@ void main() {
 
   /// 构建测试用 Widget
   Widget buildTestWidget({
+    ThemeData? theme,
     Book? book,
     ExportService? exportService,
     RustApi? rustApi,
     String? webDavConfig,
   }) {
     // 构造测试用书籍对象
-    final testBook = book ??
-        const Book(
-          bookUrl: 'https://example.com/book1',
-          name: '测试书籍',
-        );
+    final testBook =
+        book ?? const Book(bookUrl: 'https://example.com/book1', name: '测试书籍');
     return MaterialApp(
+      theme: theme ?? AppTheme.light,
       home: Scaffold(
         body: Center(
           child: ExportDialog(
@@ -105,27 +97,30 @@ void main() {
     );
   }
 
-  /// 设置测试窗口大小并泵入 Widget（避免对话框内容溢出）
+  /// 使用手机逻辑尺寸验证长表单滚动与操作按钮。
   Future<void> pumpTestWidget(
     WidgetTester tester, {
+    ThemeData? theme,
     Book? book,
     ExportService? exportService,
     RustApi? rustApi,
     String? webDavConfig,
   }) async {
-    // 设置较大的测试窗口，避免 RenderFlex 溢出
-    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    await tester.pumpWidget(buildTestWidget(
-      book: book,
-      exportService: exportService,
-      rustApi: rustApi,
-      webDavConfig: webDavConfig,
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        theme: theme,
+        book: book,
+        exportService: exportService,
+        rustApi: rustApi,
+        webDavConfig: webDavConfig,
+      ),
+    );
   }
 
   group('导出对话框 UI 渲染', () {
@@ -154,6 +149,7 @@ void main() {
 
     testWidgets('显示 TOC 复选框', (tester) async {
       await pumpTestWidget(tester);
+      await tester.ensureVisible(find.text('包含目录'));
 
       expect(find.text('包含目录'), findsOneWidget);
       expect(find.text('导出时包含书籍的目录结构'), findsOneWidget);
@@ -177,6 +173,7 @@ void main() {
         tester,
         webDavConfig: '{"url":"https://dav.example.com"}',
       );
+      await tester.ensureVisible(find.text('上传到 WebDAV'));
 
       expect(find.text('上传到 WebDAV'), findsOneWidget);
       expect(find.text('导出完成后自动上传到远程服务器'), findsOneWidget);
@@ -185,16 +182,37 @@ void main() {
 
   group('导出对话框交互', () {
     testWidgets('默认选中 EPUB 格式', (tester) async {
-      await pumpTestWidget(tester);
-
-      // 因为 supportedFormats 包含 epub，initState 会默认选中 epub
-      final epubChip = tester.widget<ChoiceChip>(
-        find.ancestor(
-          of: find.text('EPUB'),
-          matching: find.byType(ChoiceChip),
+      for (final theme in [
+        AppTheme.light,
+        AppTheme.dark,
+        AppTheme.withColorScheme(
+          AppTheme.dark,
+          ColorScheme.fromSeed(
+            seedColor: Colors.green,
+            brightness: Brightness.dark,
+          ),
         ),
-      );
-      expect(epubChip.selected, isTrue);
+      ]) {
+        await pumpTestWidget(tester, theme: theme);
+        await tester.pumpAndSettle();
+
+        // 默认状态及标签颜色来自实际组件，覆盖应用明暗和局部色板。
+        final epubChip = tester.widget<ChoiceChip>(
+          find.ancestor(
+            of: find.text('EPUB'),
+            matching: find.byType(ChoiceChip),
+          ),
+        );
+        expect(epubChip.selected, isTrue);
+        expect(
+          DefaultTextStyle.of(tester.element(find.text('EPUB'))).style.color,
+          theme.colorScheme.onSecondaryContainer,
+        );
+        expect(
+          DefaultTextStyle.of(tester.element(find.text('TXT'))).style.color,
+          theme.colorScheme.onSurfaceVariant,
+        );
+      }
     });
 
     testWidgets('切换格式选择', (tester) async {
@@ -205,16 +223,14 @@ void main() {
       await tester.pump();
 
       final txtChip = tester.widget<ChoiceChip>(
-        find.ancestor(
-          of: find.text('TXT'),
-          matching: find.byType(ChoiceChip),
-        ),
+        find.ancestor(of: find.text('TXT'), matching: find.byType(ChoiceChip)),
       );
       expect(txtChip.selected, isTrue);
     });
 
     testWidgets('切换 TOC 复选框', (tester) async {
       await pumpTestWidget(tester);
+      await tester.ensureVisible(find.text('包含目录'));
 
       // 初始状态为选中
       final checkbox = tester.widget<CheckboxListTile>(
@@ -245,6 +261,7 @@ void main() {
     testWidgets('点击确认触发导出', (tester) async {
       await pumpTestWidget(tester);
 
+      expect(find.widgetWithText(FilledButton, '确认'), findsOneWidget);
       await tester.tap(find.text('确认'));
       await tester.pump();
 

@@ -123,6 +123,12 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     value: widget.visible ? 1 : 0,
   );
 
+  late final CurvedAnimation _menuSlideCurve = CurvedAnimation(
+    parent: _menuController,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
   @override
   void didUpdateWidget(covariant ReaderMenuPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -137,6 +143,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
 
   @override
   void dispose() {
+    _menuSlideCurve.dispose();
     _menuController.dispose();
     super.dispose();
   }
@@ -203,17 +210,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             // 反馈①：此前误置于底部面板首行；对齐原版布局——← 居左，
             // 换源/刷新/缓存/更多 居右）— Qoder
             SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, -1),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: _menuController,
-                      curve: Curves.easeOutCubic,
-                      reverseCurve: Curves.easeInCubic,
-                    ),
-                  ),
+              position: Tween<Offset>(
+                begin: const Offset(0, -1),
+                end: Offset.zero,
+              ).animate(_menuSlideCurve),
               child: useSurfaceBlur
                   ? ClipRect(
                       child: BackdropFilter(
@@ -260,24 +260,32 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                       alignment: widget.brightnessOnLeft
                           ? Alignment.centerLeft
                           : Alignment.centerRight,
-                      child: SafeArea(
-                        top: false,
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          child: SizedBox(
-                            width: 56,
-                            height: 240,
-                            child: Material(
-                              color: barColor,
-                              borderRadius: BorderRadius.circular(28),
-                              child: ReaderBrightnessControl(
-                                compact: true,
-                                vertical: true,
-                                onSwitchSide: _switchBrightnessSide,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: Offset(widget.brightnessOnLeft ? -1 : 1, 0),
+                          end: Offset.zero,
+                        ).animate(_menuSlideCurve),
+                        child: SafeArea(
+                          top: false,
+                          bottom: false,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            child: SizedBox(
+                              width: ReaderBrightnessControl.verticalWidth,
+                              height: 240,
+                              child: Material(
+                                color: barColor,
+                                borderRadius: BorderRadius.circular(
+                                  ReaderBrightnessControl.verticalWidth / 2,
+                                ),
+                                child: ReaderBrightnessControl(
+                                  compact: true,
+                                  vertical: true,
+                                  onSwitchSide: _switchBrightnessSide,
+                                ),
                               ),
                             ),
                           ),
@@ -288,17 +296,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
               ),
             ),
             SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 1),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: _menuController,
-                      curve: Curves.easeOutCubic,
-                      reverseCurve: Curves.easeInCubic,
-                    ),
-                  ),
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(_menuSlideCurve),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -745,28 +746,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     );
     final cs = Theme.of(context).colorScheme;
     final progressColor = foreground ?? cs.onSurface;
-    final accentColor = foreground ?? cs.primary;
-    final sliderTheme = SliderTheme.of(context).copyWith(
-      trackHeight: 4,
-      showValueIndicator: ShowValueIndicator.never,
-      trackShape: const RoundedRectSliderTrackShape(),
-      thumbShape: const RoundSliderThumbShape(
-        enabledThumbRadius: 7,
-        disabledThumbRadius: 6,
-        elevation: 0,
-        pressedElevation: 0,
-      ),
-      thumbColor: accentColor,
-      activeTrackColor: accentColor,
-      inactiveTrackColor: progressColor.withValues(alpha: 0.12),
-      disabledThumbColor: progressColor.withValues(alpha: 0.38),
-      disabledActiveTrackColor: progressColor.withValues(alpha: 0.15),
-      disabledInactiveTrackColor: progressColor.withValues(alpha: 0.08),
-      tickMarkShape: SliderTickMarkShape.noTickMark,
-      overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-      overlayColor: accentColor.withValues(alpha: 0.12),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
@@ -781,32 +760,29 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             icon: const Icon(Icons.skip_previous_rounded),
           ),
           Expanded(
-            child: SliderTheme(
-              data: sliderTheme,
-              child: usePageSeek
-                  ? Slider(
-                      value: currentPage.toDouble(),
-                      min: 0,
-                      max: (chapterPageCount - 1).toDouble(),
-                      divisions: chapterPageCount - 1,
-                      onChanged: (value) => widget.onSeekPage!(value.toInt()),
-                    )
-                  : Slider(
-                      value: state.chapters.isNotEmpty
-                          ? state.currentChapterIndex.toDouble()
-                          : 0,
-                      min: 0,
-                      max: state.chapters.length > 1
-                          ? (state.chapters.length - 1).toDouble()
-                          : 1,
-                      divisions: state.chapters.length > 1
-                          ? state.chapters.length - 1
-                          : null,
-                      onChanged: state.chapters.length > 1
-                          ? (value) => notifier.goToChapter(value.toInt())
-                          : null,
-                    ),
-            ),
+            child: usePageSeek
+                ? Slider(
+                    value: currentPage.toDouble(),
+                    min: 0,
+                    max: (chapterPageCount - 1).toDouble(),
+                    divisions: chapterPageCount - 1,
+                    onChanged: (value) => widget.onSeekPage!(value.toInt()),
+                  )
+                : Slider(
+                    value: state.chapters.isNotEmpty
+                        ? state.currentChapterIndex.toDouble()
+                        : 0,
+                    min: 0,
+                    max: state.chapters.length > 1
+                        ? (state.chapters.length - 1).toDouble()
+                        : 1,
+                    divisions: state.chapters.length > 1
+                        ? state.chapters.length - 1
+                        : null,
+                    onChanged: state.chapters.length > 1
+                        ? (value) => notifier.goToChapter(value.toInt())
+                        : null,
+                  ),
           ),
           IconButton(
             tooltip: '下一章',
