@@ -19,9 +19,11 @@ import '../features/bookmarks/bookmarks.dart';
 import '../features/bookshelf/bookshelf.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
+import '../providers/theme/system_bar_controller.dart';
 import '../routes.dart';
 import '../services/system_brightness.dart';
 import '../utils/book_open_utils.dart';
+import '../utils/app_route_observer.dart';
 import '../widgets/reader/read_aloud_bar.dart';
 import '../providers/audio/read_aloud_capsule.dart';
 import '../widgets/reader/auto_turn_panel.dart';
@@ -49,7 +51,11 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
+  final _systemBarOwner = Object();
+  late SystemBarController _systemBars;
+  PageRoute<dynamic>? _systemBarRoute;
+  bool _readerRouteActive = true;
   final GlobalKey<ReaderPageViewState> _pageViewKey =
       GlobalKey<ReaderPageViewState>();
 
@@ -113,6 +119,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void initState() {
     super.initState();
+    _systemBars = ref.read(systemBarControllerProvider);
     // F6：音量键翻页（对标 volumeKeyPage / volumeKeyPageOnPlay）
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
     // [C3-hunt | 2026-09-24] 注册 App 生命周期观察者：切后台/分离时
@@ -123,6 +130,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && route != _systemBarRoute) {
+      systemBarRouteObserver.unsubscribe(this);
+      _systemBarRoute = route;
+      systemBarRouteObserver.subscribe(this, route);
+    }
     if (!_configLoaded) {
       _configLoaded = true;
       unawaited(_loadAdvancedConfig());
@@ -141,14 +154,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   void dispose() {
+    systemBarRouteObserver.unsubscribe(this);
+    _systemBars.releaseReader(_systemBarOwner);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     // [C3-hunt | 2026-09-24] 注销生命周期观察者（与 initState 配对）
     WidgetsBinding.instance.removeObserver(this);
     _autoTimer?.cancel();
-    // [UI-fix v2.0.3 | 2026-08-08] 退出阅读器恢复系统 UI 与方向
-    // （hideStatusBar/hideNavigationBar/screenOrientation 仅阅读页内生效，
-    // 对标原版 ReadBookActivity 退出时 upSystemUiMode 还原）— Qoder
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // 系统栏由共享控制器恢复最新应用设置；方向保持原退出语义。
     SystemChrome.setPreferredOrientations(const []);
     unawaited(
       SystemBrightness.setFollowSystem(true).catchError((Object error) {
@@ -156,6 +168,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }),
     );
     super.dispose();
+  }
+
+  @override
+  void didPush() {
+    _readerRouteActive = true;
+    _applySystemChrome(_advConfig);
+  }
+
+  @override
+  void didPopNext() {
+    _readerRouteActive = true;
+    _applySystemChrome(_advConfig);
+  }
+
+  @override
+  void didPushNext() {
+    _readerRouteActive = false;
+    _systemBars.releaseReader(_systemBarOwner);
+  }
+
+  @override
+  void didPop() {
+    _readerRouteActive = false;
+    _systemBars.releaseReader(_systemBarOwner);
   }
 
   // [C3-hunt | 2026-09-24] App 生命周期 → 章内进度落盘
@@ -196,17 +232,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// [menuVisible] 为 true 时强制显示状态栏（对标原版
   /// `upSystemUiVisibility(toolBarHide=false)`，ReadMenu 展开时不隐藏状态栏）。
   void _applySystemChrome(ReaderAdvancedConfig cfg, {bool? menuVisible}) {
+    if (!_readerRouteActive) return;
     final showMenu =
         menuVisible ?? ref.read(readerNotifierProvider).showControls;
-    final overlays = <SystemUiOverlay>[];
-    if (!cfg.hideStatusBar || showMenu) overlays.add(SystemUiOverlay.top);
-    if (!cfg.hideNavigationBar || showMenu) {
-      overlays.add(SystemUiOverlay.bottom);
-    }
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: overlays,
-    );
+    _systemBars.updateReader(_systemBarOwner, (
+      statusBarVisible: !cfg.hideStatusBar || showMenu,
+      navigationBarVisible: !cfg.hideNavigationBar || showMenu,
+    ));
     SystemChrome.setPreferredOrientations(
       _orientationsFor(cfg.screenOrientation),
     );

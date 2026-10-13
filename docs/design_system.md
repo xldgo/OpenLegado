@@ -62,6 +62,22 @@ bodySmall / onSurfaceVariant，右侧值为 labelMedium 强调字阶 / primary�
 MenuAnchor 的 OverlayPortal 继承入口主题，根浮层中的菜单也沿用局部配色。
 实际 Cupertino 组件保持原接线，不将平台能力并入通用设置行。
 
+## 系统栏与页面归属（2026-10-13）
+
+应用系统栏偏好由 SystemBarNotifier 管理；SystemBarBinder 在当前帧主题更新后
+向共享 SystemBarController 提交样式。阅读器只在页面可见期间接管显隐，
+全局主题及偏好变化保留为最新应用样式，离开阅读器后恢复；前台恢复重新下发当前请求。
+平台调用串行执行，过期排队项忽略，Android 原生前台恢复避让阅读器归属。
+
+独立页面使用 PageRoute，模态弹层使用 PopupRoute 或标准 Dialog/BottomSheet 入口。
+换源保持命名路由、返回 bookUrl 和原滑入滑出动画，使用 PopupRoute；系统栏观察器
+只跟踪独立页面，也处理弹层上方再打开页面的路径，不依赖路由名称或特殊标记。
+朗读界面是独立全屏页面，透明只服务胶囊转场，继续使用 PageRoute。
+
+当前 Android target 36 的手动系统栏模式受系统限制，见
+[Flutter 平台说明](https://api.flutter.dev/flutter/services/SystemChrome/setEnabledSystemUIMode.html)；
+控制归属整理保持已有显示请求方式，平台能力的实际支持需单独核对。
+
 ## 详情页局部主题（2026-10-13）
 
 封面主色经 `ColorScheme.fromSeed` 与 `AppTheme.withColorScheme` 生成完整主题，

@@ -24,6 +24,27 @@ class SystemBarService {
   /// 原版 status_bar_bag（非沉浸式 + fullScreen 时的状态栏底色）
   static const Color statusBarBag = Color(0x19000000);
 
+  /// 阅读页面独立控制显隐；原生前台恢复不再写入全局窗口设置。
+  static Future<void> applyReader({
+    required bool statusBarVisible,
+    required bool navigationBarVisible,
+  }) async {
+    if (Platform.isAndroid) {
+      try {
+        await _channel.invokeMethod<void>('reader');
+      } catch (e) {
+        debugPrint('SystemBarService.applyReader 原生通道异常: $e');
+      }
+    }
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [
+        if (statusBarVisible) SystemUiOverlay.top,
+        if (navigationBarVisible) SystemUiOverlay.bottom,
+      ],
+    );
+  }
+
   /// 按当前主题与偏好应用系统栏样式
   static Future<void> apply({
     required bool transparentStatusBar,
@@ -34,8 +55,9 @@ class SystemBarService {
     final lightStatusBarIcons =
         ThemeData.estimateBrightnessForColor(appBarColor) == Brightness.light;
 
-    final statusBarColor =
-        transparentStatusBar ? Colors.transparent : statusBarBag;
+    final statusBarColor = transparentStatusBar
+        ? Colors.transparent
+        : statusBarBag;
 
     final navBarColor = immNavigationBar
         ? navigationBarColor
@@ -53,17 +75,26 @@ class SystemBarService {
           overlays: SystemUiOverlay.values,
         );
       }
+    } else {
+      // iOS 退出阅读器也要恢复显示状态栏，不能只恢复图标配色。
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
     }
 
     final overlayStyle = SystemUiOverlayStyle(
       statusBarColor: statusBarColor,
-      statusBarIconBrightness:
-          lightStatusBarIcons ? Brightness.dark : Brightness.light,
-      statusBarBrightness:
-          lightStatusBarIcons ? Brightness.light : Brightness.dark,
+      statusBarIconBrightness: lightStatusBarIcons
+          ? Brightness.dark
+          : Brightness.light,
+      statusBarBrightness: lightStatusBarIcons
+          ? Brightness.light
+          : Brightness.dark,
       systemNavigationBarColor: navBarColor,
-      systemNavigationBarIconBrightness:
-          lightNavIcons ? Brightness.dark : Brightness.light,
+      systemNavigationBarIconBrightness: lightNavIcons
+          ? Brightness.dark
+          : Brightness.light,
       systemNavigationBarContrastEnforced: false,
     );
 

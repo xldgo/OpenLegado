@@ -39,7 +39,7 @@ import '../../routes.dart';
 //   停留在原阅读器且状态已重载，属可接受的静默（无残留为硬要求）。
 //
 // [P2-9 fix | 2026-09-24] 生产 /change_source 路由是
-// _ChangeSourceSheetRoute（PageRouteBuilder<dynamic>，见
+// _ChangeSourceSheetRoute（PopupRoute<dynamic>，见
 // AppRoutes.generateRoute）：类型化 pushNamed<String> 会在运行期把
 // 生成的路由强转 Route<String?> 抛 TypeError（真机崩溃）。对齐
 // 详情页 Task#24 既有修法（book_info_screen_builders
