@@ -1,3 +1,4 @@
+import '../../providers/reader/reader_config_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../app_menu.dart';
 
@@ -25,7 +26,6 @@ import 'reader_brightness_control.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../routes.dart';
-import '../../screens/reader_config_panel.dart';
 import 'change_source_flow.dart';
 import 'reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
@@ -646,8 +646,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     final config = ref.read(readerAdvConfigProvider);
     if (config == null) return;
     final updated = config.copy()..brightnessOnLeft = !widget.brightnessOnLeft;
-    ref.read(readerAdvConfigProvider.notifier).apply(updated);
-    unawaited(updated.save());
+    ref.read(readerAdvConfigProvider.notifier).update(updated);
   }
 
   // ── 分区：单行五键行动作行（[PARITY A5] 键集对齐参考版默认键集）──

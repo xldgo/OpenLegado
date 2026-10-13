@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -10,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
 
@@ -25,6 +26,8 @@ import '../mocks/mocks.dart';
 /// （改独立目录页 TocScreen，测试组同步移除）；搜索/夜间按钮自顶栏
 /// 迁至底栏悬浮按钮行，断言同步迁移 — Qoder
 void main() {
+  late PreferencesReaderConfigRepository repository;
+  setUp(() => repository = PreferencesReaderConfigRepository());
   late MockRustApi mockApi;
   late ProviderContainer container;
 
@@ -313,13 +316,13 @@ void main() {
 
   test('亮度三档保存并兼容旧布尔值，刘海扩展默认关闭', () async {
     SharedPreferences.setMockInitialValues({'showBrightnessView': true});
-    final config = await ReaderAdvancedConfig.load();
+    final config = await repository.load();
     expect(config.brightnessMode, 1);
     expect(config.readBodyToLh, isFalse);
     config.brightnessMode = 2;
     config.brightnessOnLeft = true;
-    await config.save();
-    final restored = await ReaderAdvancedConfig.load();
+    await repository.save(config);
+    final restored = await repository.load();
     expect(restored.brightnessMode, 2);
     expect(restored.brightnessOnLeft, isTrue);
   });

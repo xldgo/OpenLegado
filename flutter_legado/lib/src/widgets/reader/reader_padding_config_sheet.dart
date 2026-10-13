@@ -1,10 +1,12 @@
+import '../../providers/reader/reader_config_provider.dart';
+import '../../models/reader_advanced_config.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_localization.dart';
-import '../../screens/reader_config_panel.dart';
 import '../settings_widgets.dart';
 
 /// 页面边距配置（对标原版 PaddingConfigDialog + dialog_read_padding.xml）
@@ -89,9 +91,8 @@ class _ReaderPaddingConfigSheetState
     if (widget.onChanged != null) {
       widget.onChanged!(_config.copy());
     } else {
-      unawaited(_config.save());
+      ref.read(readerAdvConfigProvider.notifier).update(_config);
     }
-    ref.read(readerAdvConfigProvider.notifier).apply(_config.copy());
     setState(() {});
   }
 

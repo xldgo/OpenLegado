@@ -1,3 +1,5 @@
+import '../../providers/reader/reader_config_provider.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -15,7 +17,6 @@ import '../../providers/reader/reader_notifier.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../providers/audio/read_aloud_preferences.dart';
 import '../../routes.dart';
-import '../../screens/reader_config_panel.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/paragraph_layout_engine.dart';

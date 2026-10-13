@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-READER-CONFIG-BOUNDARY-20261013：阅读配置模型、存储与状态入口拆分（P2）
+
+- **授权与基线**：用户要求提交 E 后继续本项；E 已本地提交为 `8256aab46`，同一 reader-overlay worktree 起始干净。本批不使用子代理、不自动提交、合并或推送，版本保持 `2.0.373+374`；保留现有界面、字段、键、默认值、迁移规则与阅读行为，Rust/FFI 不变。
+- **范围与证据**：reader_config_panel_data.part.dart 同时承载模型、SharedPreferences 读写和 Provider；Provider、阅读器与设置 Sheet 独立加载同一配置。子面板在存在回调时由父层保存，通常没有重复写入，但父子会重复 apply。提取独立模型与窄存储接口，偏好适配器复用原读写字段；共享 Provider 统一加载与提交，序列化保存快照并保护加载和销毁生命周期，迁移各消费入口。
+- **状态与实现**：代码拆分与定向验证通过，设备交互待用户人工检查。独立模型保留 75 个字段、枚举及 copy()，不依赖页面、持久化或 Riverpod；偏好适配器保留旧读取、迁移与写入协议，入队前复制配置，串行执行读取和保存，失败返回值交回调用方。Provider 合并并发加载并保护销毁/重建后的回写；commit() 供等待结果，update() 负责即时发布和诊断保存失败。阅读器、面板和 Sheet 均迁至统一入口，回调由父层提交，移除子层重复 apply；旧 data.part 与模型 load/save 删除。
+- **验证与边界**：25 个相关文件最终定向静态分析无问题；配置和迁移 25 项、已有字体/菜单/状态条等交互 57 项、360dp 阅读设置 1 项，共 83 项通过。只新增六项必要异步逻辑回归，未新增布局用例。原读取表达式和保存键、值类型、字段映射逐项一致；字体族、基础字号、背景与简繁转换继续由各自已有入口管理。日志在忽略目录 `flutter_legado/build/reader-config-{unit-tests,widget-tests-final,overflow-test,analysis-final}.log`；多键偏好写入保持原机制，不宣称跨键事务或失败回滚。
+- **验证环境补查**：初次迁移遗漏字体 fixture 的旧模型 save() 以及两个 library 指令前的导入，已修正；恢复两份文件原格式时新增导入与原多行导入重复，最终检查已消除。真实阅读器用例所需排版宿主不在 worktree，复用主目录既有 test_host.exe，crate 源码逐项核对一致，无 Rust 编译。字体 fixture 的保存队列原在 Widget FakeAsync 之外创建，导致等待不能推进，改为在用例自身调度域创建并等待实际保存 Future；相关断言全部保留。首轮日志在忽略目录 `reader-config-{analysis,widget-tests}.log`，中间字体等待运行已停止，最终结果以上述日志为准。
+- **构建**：本批一次 JDK 25 / Java 与 JVM 17 增量 Debug APK 编译 40 秒成功，26 项任务执行、380 项复用；版本保持 `2.0.373+374`，Rust/FRB 未改或重编。日志在忽略目录 `flutter_legado/build/reader-config-{apk-jdk25,apk-verification}.log`。本项未提交、合并或推送；布局与实际移动设备交互仍由用户人工检查。
+- **安装与人工验收**：实时通过 adb devices、AVD 名称和 android emulator list 确认官方 `Legado_API_36` 为 `emulator-5556`，覆盖安装 Success，原数据保留；MainActivity 冷启动 `Status: ok`（8772ms），进程在线，日志未见致命、未处理异常或布局溢出，实际版本仍为 `2.0.373+374`。未自动操作页面；配置修改后的即时应用、退出重进和保存结果待用户人工检查。日志在忽略目录 `flutter_legado/build/reader-config-{install-official,start-official,runtime-official}.log`。
+- **源码一致性复核**：以 `8256aab46` 为基线，去除存储抽取所需的接线和写入检查包装后，读取表达式、保存键/类型/值映射、copy() 与构造默认值全部一致；复核结果在忽略目录 `flutter_legado/build/reader-config-boundary-review.json`。
+- **提交授权**：用户批准将本批阅读配置拆分合为一条本地提交，覆盖实施阶段暂不提交的限制；不合并或推送，版本不变。提交记录以 Git 为准，设备交互仍待用户人工检查。
+
+编写者：Codex｜2026-10-13
+
 ### UI-SETTINGS-COMPONENTS-20261013：通用设置组件收口 E（P2）
 
 - **授权与基线**：用户批准第 E 项；以 `f04eb3ed5` 为基线，继续在 reader-overlay worktree 的 `feature/ui-reader-refinement` 工作。统一通用设置组件命名及外观、阅读设置行；不使用子代理，不改版本、Rust/FFI、数据格式或设置归属，不推送或触发 CI。

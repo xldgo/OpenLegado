@@ -1,7 +1,8 @@
+import '../../models/reader_advanced_config.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../providers/ui_settings/ui_settings_notifier.dart';
-import '../../screens/reader_config_panel.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/md3_colors.dart';
 import '../../theme/theme_engine_parameterized.dart';

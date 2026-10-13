@@ -10,6 +10,9 @@
 /// — full-stack-engineer + UI
 library;
 
+import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +20,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
@@ -26,21 +28,23 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 
 void main() {
+  late PreferencesReaderConfigRepository repository;
+  setUp(() => repository = PreferencesReaderConfigRepository());
   group('ReaderAdvancedConfig.titleFont 持久化', () {
     test('save 写键 titleFont（无前缀，对齐 titleMode/titleSize 系列）', () async {
       SharedPreferences.setMockInitialValues({});
-      await ReaderAdvancedConfig(titleFont: 'KaiTi').save();
+      await repository.save(ReaderAdvancedConfig(titleFont: 'KaiTi'));
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('titleFont'), 'KaiTi');
     });
 
     test('load 读回 titleFont；缺省为空串（空=跟随正文）', () async {
       SharedPreferences.setMockInitialValues({'titleFont': 'SimSun'});
-      final cfg = await ReaderAdvancedConfig.load();
+      final cfg = await repository.load();
       expect(cfg.titleFont, 'SimSun');
 
       SharedPreferences.setMockInitialValues({});
-      final def = await ReaderAdvancedConfig.load();
+      final def = await repository.load();
       expect(def.titleFont, '');
     });
 
