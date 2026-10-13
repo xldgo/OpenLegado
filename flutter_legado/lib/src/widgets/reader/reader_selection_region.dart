@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../paragraph_layout_engine.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_toolbar.dart';
+import 'reader_menu_theme.dart';
 
 /// 复用 Flutter 选区的高亮和跨行手柄，原生锚点交给阅读菜单定位。
 class ReaderSelectionRegion extends StatefulWidget {
@@ -97,21 +98,26 @@ class _ReaderSelectionRegionState extends State<ReaderSelectionRegion> {
         child: SelectionArea(
           key: _areaKey,
           focusNode: _focusNode,
-          contextMenuBuilder: (context, region) {
+          contextMenuBuilder: (_, region) {
             _onSelectionChanged();
             final selected = _controller.selection;
             if (selected == null) return const SizedBox.shrink();
             final anchors = region.contextMenuAnchors;
-            return ReaderSelectionToolbar(
-              anchor: anchors.primaryAnchor,
-              anchorBelow: anchors.secondaryAnchor,
-              selectionFocusNode: _focusNode,
-              text: selected.text,
-              chapterPos: selected.start,
-              onDismiss: () {
-                region.hideToolbar();
-                _controller.clear();
-              },
+            final menuContext = readerMenuContextOf(context);
+            return InheritedTheme.captureAll(
+              menuContext,
+              ReaderSelectionToolbar(
+                actionContext: menuContext,
+                anchor: anchors.primaryAnchor,
+                anchorBelow: anchors.secondaryAnchor,
+                selectionFocusNode: _focusNode,
+                text: selected.text,
+                chapterPos: selected.start,
+                onDismiss: () {
+                  region.hideToolbar();
+                  _controller.clear();
+                },
+              ),
             );
           },
           child: Listener(

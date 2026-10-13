@@ -29,6 +29,7 @@ import '../../screens/reader_config_panel.dart';
 import 'change_source_flow.dart';
 import 'reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
+import 'reader_content_edit_dialog.dart';
 
 part 'reader_menu_actions.part.dart';
 

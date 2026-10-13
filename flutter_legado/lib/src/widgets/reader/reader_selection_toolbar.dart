@@ -8,11 +8,13 @@ import 'reader_selection_actions.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_menu_config.dart';
 import 'reader_selection_menu_config_sheet.dart';
+import 'reader_menu_theme.dart';
 
 /// 阅读器专用选区菜单；选择范围和手柄仍由原生 SelectionArea 管理。
 class ReaderSelectionToolbar extends ConsumerStatefulWidget {
   const ReaderSelectionToolbar({
     super.key,
+    required this.actionContext,
     required this.anchor,
     this.anchorBelow,
     this.selectionFocusNode,
@@ -22,6 +24,9 @@ class ReaderSelectionToolbar extends ConsumerStatefulWidget {
   });
 
   final Offset anchor;
+
+  /// 原阅读页面的上下文；应用外层浮窗可能位于 Navigator 之外。
+  final BuildContext actionContext;
   final Offset? anchorBelow;
   final FocusNode? selectionFocusNode;
   final String text;
@@ -36,6 +41,7 @@ class ReaderSelectionToolbar extends ConsumerStatefulWidget {
     required int chapterPos,
   }) {
     if (text.trim().isEmpty) return;
+    final menuContext = readerMenuContextOf(context);
     final key = GlobalKey<_ReaderSelectionToolbarState>();
     late OverlayEntry entry;
     var removed = false;
@@ -47,23 +53,27 @@ class ReaderSelectionToolbar extends ConsumerStatefulWidget {
     }
 
     entry = OverlayEntry(
-      builder: (_) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => key.currentState?.dismiss(),
-              child: const SizedBox.expand(),
+      builder: (_) => InheritedTheme.captureAll(
+        menuContext,
+        Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => key.currentState?.dismiss(),
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-          ReaderSelectionToolbar(
-            key: key,
-            anchor: anchor,
-            text: text,
-            chapterPos: chapterPos,
-            onDismiss: remove,
-          ),
-        ],
+            ReaderSelectionToolbar(
+              key: key,
+              actionContext: menuContext,
+              anchor: anchor,
+              text: text,
+              chapterPos: chapterPos,
+              onDismiss: remove,
+            ),
+          ],
+        ),
       ),
     );
     Overlay.of(context, rootOverlay: true).insert(entry);
@@ -88,7 +98,7 @@ class _ReaderSelectionToolbarState extends ConsumerState<ReaderSelectionToolbar>
   bool _closing = false;
   bool _disposed = false;
 
-  BuildContext get _host => Navigator.of(context, rootNavigator: true).context;
+  BuildContext get _host => widget.actionContext;
 
   void _closeMore() {
     if (!_moreOpen) return;
@@ -150,7 +160,7 @@ class _ReaderSelectionToolbarState extends ConsumerState<ReaderSelectionToolbar>
     final origin = box.localToGlobal(Offset.zero);
     _moreAnchor = origin & box.size;
     setState(() => _moreOpen = true);
-    final route = ModalRoute.of(context);
+    final route = ModalRoute.of(widget.actionContext);
     if (route == null) return;
     _history = LocalHistoryEntry(
       impliesAppBarDismissal: false,

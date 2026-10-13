@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 const _inputKey = ValueKey('bookmark-note');
+const _saveKey = ValueKey('bookmark-note-save');
 
 Future<void> _open(
   WidgetTester tester, {
@@ -60,9 +61,7 @@ void main() {
     expect(find.text('编辑备注'), findsNothing);
     expect(find.text('添加书签'), findsNothing);
     final titleCenter = tester.getCenter(find.text('章节标题'));
-    final saveCenter = tester.getCenter(
-      find.widgetWithText(FilledButton, '保存'),
-    );
+    final saveCenter = tester.getCenter(find.byKey(_saveKey));
     expect(closeCenter.dx, lessThan(titleCenter.dx));
     expect(titleCenter.dx, lessThan(saveCenter.dx));
     expect(closeCenter.dy, closeTo(saveCenter.dy, 1));
@@ -80,7 +79,7 @@ void main() {
       '第一行\n第二行',
     );
     await tester.enterText(find.byKey(_inputKey), '');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(_saveKey));
     await tester.pumpAndSettle();
     expect(notes, ['']);
     expect(results, [true]);
@@ -99,7 +98,7 @@ void main() {
       },
     );
     await tester.enterText(find.byKey(_inputKey), '需要保留的\n备注');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(_saveKey));
     await tester.pumpAndSettle();
     expect(find.byType(BookmarkNoteSheet), findsOneWidget);
     expect(find.text('保存失败，输入已保留，请重试。'), findsOneWidget);
@@ -108,7 +107,7 @@ void main() {
       '需要保留的\n备注',
     );
     await tester.enterText(find.byKey(_inputKey), '重新编辑');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(_saveKey));
     await tester.pumpAndSettle();
     expect(notes, ['需要保留的\n备注', '重新编辑']);
     expect(find.byType(BookmarkNoteSheet), findsNothing);
@@ -125,9 +124,10 @@ void main() {
         return gate.future;
       },
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(_saveKey));
     await tester.pump();
-    expect(find.text('正在保存…'), findsOneWidget);
+    expect(find.byTooltip('正在保存…'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(_saveKey)).onPressed, isNull);
     expect(
       tester
           .widget<IconButton>(
@@ -138,10 +138,10 @@ void main() {
           .onPressed,
       isNull,
     );
-    await tester.tap(find.byType(FilledButton));
+    await tester.tap(find.byKey(_saveKey));
     await tester.tapAt(const Offset(4, 4));
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(calls, 1);
     expect(find.byType(BookmarkNoteSheet), findsOneWidget);
     gate.complete();
@@ -213,8 +213,8 @@ void main() {
       );
       await tester.ensureVisible(find.byKey(_inputKey));
       await tester.enterText(find.byKey(_inputKey), '多行备注\n' * 12);
-      await tester.ensureVisible(find.byType(FilledButton));
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.ensureVisible(find.byKey(_saveKey));
+      await tester.tap(find.byKey(_saveKey));
       await tester.pumpAndSettle();
       expect(find.byType(BookmarkNoteSheet), findsNothing);
       expect(tester.takeException(), isNull);
