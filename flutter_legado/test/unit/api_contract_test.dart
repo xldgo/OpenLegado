@@ -350,13 +350,18 @@ void main() {
       );
     });
 
-    test('阅读记录五项由独立 Repository 承担，旧方法与冗余别名移除', () {
+    test('阅读记录十项由独立 Repository 承担，旧方法与冗余别名移除', () {
       const expected = {
         'getReadRecords',
         'putReadRecord',
         'deleteReadRecord',
         'clearReadRecords',
         'readRecordDailyList',
+        'getReadRecordDetails',
+        'getAllReadRecordDetails',
+        'getReadRecordSessions',
+        'deleteReadRecordDetail',
+        'deleteReadRecordSessions',
       };
       expect(readRecordNames.toSet(), expected);
       for (final implementation in ['rust', 'mock']) {
@@ -414,30 +419,60 @@ void main() {
 
     test('书架与分组由直接 Repository 承担，旧方法与临时适配移除', () {
       for (final entry in [
-        ('bookshelf', 'BookshelfRepository', 'RustBookshelfRepository', 'MockBookshelfRepository', 10),
-        ('book_group', 'BookGroupRepository', 'RustBookGroupRepository', 'MockBookGroupRepository', 5),
-        ('book_source', 'BookSourceRepository', 'RustBookSourceRepository', 'MockBookSourceRepository', 11),
+        (
+          'bookshelf',
+          'BookshelfRepository',
+          'RustBookshelfRepository',
+          'MockBookshelfRepository',
+          10,
+        ),
+        (
+          'book_group',
+          'BookGroupRepository',
+          'RustBookGroupRepository',
+          'MockBookGroupRepository',
+          5,
+        ),
+        (
+          'book_source',
+          'BookSourceRepository',
+          'RustBookSourceRepository',
+          'MockBookSourceRepository',
+          11,
+        ),
       ]) {
         final methods = _extractMethods(
-          _read('lib/src/domain/contracts/${entry.$1}_repository.dart'), entry.$2,
+          _read('lib/src/domain/contracts/${entry.$1}_repository.dart'),
+          entry.$2,
         );
         expect(methods.length, entry.$5);
-        for (final implementation in [('rust',entry.$3),('mock',entry.$4)]) {
+        for (final implementation in [('rust', entry.$3), ('mock', entry.$4)]) {
           final adapterMethods = _extractMethods(
-            _read('lib/src/data/repositories/${implementation.$1}_${entry.$1}_repository.dart'), implementation.$2,
-          ).where((n) => n!='ensureLoaded').toSet();
+            _read(
+              'lib/src/data/repositories/${implementation.$1}_${entry.$1}_repository.dart',
+            ),
+            implementation.$2,
+          ).where((n) => n != 'ensureLoaded').toSet();
           expect(adapterMethods, methods.toSet());
         }
-        for (final oldMethods in [bNames,rNames,mNames]) {
+        for (final oldMethods in [bNames, rNames, mNames]) {
           expect(oldMethods.toSet().intersection(methods.toSet()), isEmpty);
         }
-        expect(File('lib/src/data/repositories/book_api_${entry.$1}_repository.dart').existsSync(), isFalse);
+        expect(
+          File('lib/src/data/repositories/book_api_${entry.$1}_repository.dart')
+              .existsSync(),
+          isFalse,
+        );
         expect(allRowNames.containsAll(methods), isTrue);
       }
     });
 
     test('书源校验三项由独立能力承担，根旧方法移除且正式和 Mock 完整', () {
-      const expected = {'checkSource', 'checkSourcesStream', 'cancelCheckSources'};
+      const expected = {
+        'checkSource',
+        'checkSourcesStream',
+        'cancelCheckSources',
+      };
       expect(sourceCheckerNames.toSet(), expected);
       for (final implementation in ['rust', 'mock']) {
         final methods = _extractMethods(
@@ -454,9 +489,19 @@ void main() {
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {
       expect(synthesisNames, ['synthesize']);
-      expect(allRowNames.containsAll({'synthesize', 'ttsSpeak', 'ttsSetCacheDir'}), isTrue);
+      expect(
+        allRowNames.containsAll({'synthesize', 'ttsSpeak', 'ttsSetCacheDir'}),
+        isTrue,
+      );
       for (final methods in [bNames, rNames, mNames]) {
-        expect(methods.toSet().intersection({'audioSpeak', 'ttsSpeak', 'ttsSetCacheDir'}), isEmpty);
+        expect(
+          methods.toSet().intersection({
+            'audioSpeak',
+            'ttsSpeak',
+            'ttsSetCacheDir',
+          }),
+          isEmpty,
+        );
       }
     });
   });

@@ -15,6 +15,8 @@ class ReadingHeatmapCard extends StatefulWidget {
   final Md3HeatmapMode? mode;
   final ValueChanged<Md3HeatmapMode>? onModeChanged;
   final Widget? trailing;
+  final ValueChanged<DateTime>? onDateSelected;
+  final DateTime? selectedDate;
 
   const ReadingHeatmapCard({
     super.key,
@@ -26,6 +28,8 @@ class ReadingHeatmapCard extends StatefulWidget {
     this.mode,
     this.onModeChanged,
     this.trailing,
+    this.onDateSelected,
+    this.selectedDate,
   });
 
   /// 方便从 `Map<String, int>`（如 'YYYY-MM-DD'）直接构造
@@ -39,6 +43,8 @@ class ReadingHeatmapCard extends StatefulWidget {
     Md3HeatmapMode? mode,
     ValueChanged<Md3HeatmapMode>? onModeChanged,
     Widget? trailing,
+    ValueChanged<DateTime>? onDateSelected,
+    DateTime? selectedDate,
   }) {
     return ReadingHeatmapCard(
       key: key,
@@ -50,6 +56,8 @@ class ReadingHeatmapCard extends StatefulWidget {
       mode: mode,
       onModeChanged: onModeChanged,
       trailing: trailing,
+      onDateSelected: onDateSelected,
+      selectedDate: selectedDate,
     );
   }
 
@@ -107,9 +115,7 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
     return Card(
       elevation: 0,
       color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -118,25 +124,16 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
           children: [
             Row(
               children: [
-                Icon(
-                  Symbols.grid_on_rounded,
-                  size: 20,
-                  color: cs.primary,
-                ),
+                Icon(Symbols.grid_on_rounded, size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    widget.title,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  child: Text(widget.title, style: theme.textTheme.titleMedium),
                 ),
-                if (widget.trailing != null)
-                  widget.trailing!
-                else
-                  _ModeSwitchButton(
-                    currentMode: activeMode,
-                    onModeChanged: _onModeChanged,
-                  ),
+                _ModeSwitchButton(
+                  currentMode: activeMode,
+                  onModeChanged: _onModeChanged,
+                ),
+                if (widget.trailing != null) widget.trailing!,
               ],
             ),
             const SizedBox(height: 12),
@@ -146,6 +143,8 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
               mode: activeMode,
               endDate: effectiveEndDate,
               weeks: widget.weeks,
+              onDateSelected: widget.onDateSelected,
+              selectedDate: widget.selectedDate,
             ),
           ],
         ),

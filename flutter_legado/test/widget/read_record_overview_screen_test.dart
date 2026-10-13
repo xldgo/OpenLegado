@@ -1,5 +1,6 @@
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -31,9 +32,7 @@ class _FakeOverviewNotifier extends ReadRecordOverviewNotifier {
   @override
   void nextPeriod() {
     final current = state.referenceDate;
-    state = state.copyWith(
-      referenceDate: current.add(const Duration(days: 1)),
-    );
+    state = state.copyWith(referenceDate: current.add(const Duration(days: 1)));
   }
 }
 
@@ -46,34 +45,21 @@ void main() {
     totalBooks: 4,
     finishedBooks: 2,
     readingBooks: 2,
-    dailyTimeData: [
-      (date: DateTime(2026, 5, 20), seconds: 3600),
-    ],
+    dailyTimeData: [(date: DateTime(2026, 5, 20), seconds: 3600)],
     topBooks: const [
-      ReadBookRanking(
-        bookName: '诡秘之主',
-        author: '爱潜水的乌贼',
-        readTimeMs: 3600000,
-      ),
+      ReadBookRanking(bookName: '诡秘之主', author: '爱潜水的乌贼', readTimeMs: 3600000),
     ],
     dailyTopBook: const {
-      '2026-05-20': (
-        bookName: '诡秘之主',
-        author: '爱潜水的乌贼',
-        coverUrl: null,
-      ),
+      '2026-05-20': (bookName: '诡秘之主', author: '爱潜水的乌贼', coverUrl: null),
     },
-    allDailyTimes: const {
-      '2026-05-20': 3600,
-    },
-    allDailyCounts: const {
-      '2026-05-20': 1,
-    },
+    allDailyTimes: const {'2026-05-20': 3600},
+    allDailyCounts: const {'2026-05-20': 1},
     isLoading: false,
   );
 
   Widget createTestWidget({
     ReadRecordOverviewState? state,
+    ThemeMode themeMode = ThemeMode.light,
   }) {
     final effectiveState = state ?? sampleState;
     return ProviderScope(
@@ -82,14 +68,17 @@ void main() {
           () => _FakeOverviewNotifier(effectiveState),
         ),
       ],
-      child: const MaterialApp(
-        home: ReadRecordOverviewScreen(),
+      child: MaterialApp(
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeMode,
+        home: const ReadRecordOverviewScreen(),
       ),
     );
   }
 
   group('ReadRecordOverviewScreen 基本渲染与组件存在性', () {
-    testWidgets('渲染顶栏、TabBar、日期导航及5个卡片，360dp 窄屏无溢出', (tester) async {
+    testWidgets('日周期渲染时长分布与指标，不展示汇总卡片，360dp无溢出', (tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -115,23 +104,9 @@ void main() {
       // 4. 卡片存在性检查
       expect(find.text('阅读时长分布'), findsOneWidget);
       expect(find.text('阅读数据'), findsOneWidget);
-      expect(find.text('阅读热力图'), findsOneWidget);
-
-      final scrollableFinder = find.byType(Scrollable).first;
-      // 滚动后检查阅读时长榜与读书日历
-      await tester.scrollUntilVisible(
-        find.text('阅读时长榜'),
-        300,
-        scrollable: scrollableFinder,
-      );
-      expect(find.text('阅读时长榜'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('读书日历'),
-        300,
-        scrollable: scrollableFinder,
-      );
-      expect(find.text('读书日历'), findsOneWidget);
+      expect(find.byType(ReadingHeatmapCard), findsNothing);
+      expect(find.byType(ReadingRankingCard), findsNothing);
+      expect(find.byType(ReadingCalendarCard), findsNothing);
 
       // 5. 校验指标项卡片类型
       expect(find.byType(ReadingStatsGridCard), findsOneWidget);
@@ -139,7 +114,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('切换 TabBar 周期到「周」后同步状态', (tester) async {
+    testWidgets('实际亮暗主题下切换周期不触发标签对齐断言', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -148,9 +123,27 @@ void main() {
 
       final tab = tester.widget<TabBar>(find.byType(TabBar));
       expect(tab.controller?.index, 1);
+      expect(find.byType(ReadingHeatmapCard), findsNothing);
+      expect(find.byType(ReadingRankingCard), findsNothing);
+      expect(find.byType(ReadingCalendarCard), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(createTestWidget(themeMode: ThemeMode.dark));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('月'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller?.index, 2);
+      for (final label in ['月', '年', '日']) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(find.byType(ReadingHeatmapCard), findsNothing);
+        expect(find.byType(ReadingRankingCard), findsNothing);
+        expect(find.byType(ReadingCalendarCard), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
     });
 
-    testWidgets('ReadPeriod.all 模式下隐藏日期导航器和柱状图卡片', (tester) async {
+    testWidgets('总周期显示汇总卡片，切回日周期后全部隐藏', (tester) async {
       final allState = sampleState.copyWith(period: ReadPeriod.all);
       await tester.pumpWidget(createTestWidget(state: allState));
       await tester.pumpAndSettle();
@@ -179,6 +172,14 @@ void main() {
         scrollable: scrollableFinder,
       );
       expect(find.text('读书日历'), findsOneWidget);
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('日')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ReadingHeatmapCard), findsNothing);
+      expect(find.byType(ReadingRankingCard), findsNothing);
+      expect(find.byType(ReadingCalendarCard), findsNothing);
+      expect(find.byType(ReadingTimeBarChartCard), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -205,7 +206,9 @@ void main() {
         ProviderScope(
           overrides: [
             readRecordOverviewNotifierProvider.overrideWith(
-              () => _FakeOverviewNotifier(sampleState),
+              () => _FakeOverviewNotifier(
+                sampleState.copyWith(period: ReadPeriod.all),
+              ),
             ),
           ],
           child: MaterialApp(

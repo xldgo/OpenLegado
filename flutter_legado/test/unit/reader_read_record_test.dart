@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_record_repository_provider.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -13,7 +15,7 @@ import '../mocks/mocks.dart';
 class _Records extends Mock implements ReadRecordRepository {}
 
 void main() {
-  const book = Book(bookUrl: 'fixture://record', name: '测试书籍');
+  const book = Book(bookUrl: 'fixture://record', name: '测试书籍', author: '真实作者');
   late MockRustApi api;
   late _Records records;
   late ProviderContainer container;
@@ -57,20 +59,34 @@ void main() {
         const ReadRecord(bookName: '其他书籍', readTime: 99000),
       ],
     );
-    when(() => records.putReadRecord(any())).thenAnswer((_) async {});
+    when(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).thenAnswer((_) async {});
     final reader = container.read(readerNotifierProvider.notifier);
     await reader.openBook(book);
     await Future<void>.delayed(const Duration(milliseconds: 15));
     await reader.saveProgress();
     await Future<void>.delayed(const Duration(milliseconds: 15));
     await reader.saveProgress();
-    final saved = verify(() => records.putReadRecord(captureAny())).captured
-        .cast<ReadRecord>();
+    final saved = verify(
+      () => records.putReadRecord(
+        captureAny(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).captured.cast<ReadRecord>();
     expect(saved, hasLength(2));
     expect(saved.first.bookName, book.name);
     expect(saved.first.readTime, greaterThan(6000));
     expect(saved.last.readTime, greaterThan(saved.first.readTime));
     expect(saved.first.lastRead, greaterThan(0));
+    expect(saved.first.author, book.author);
+    expect(saved.first.startTime, lessThan(saved.first.lastRead));
+    expect(saved.last.startTime, saved.first.lastRead);
     verify(() => records.getReadRecords()).called(1);
     verifyNever(() => api.readRecordRepository);
     expect(container.read(readerNotifierProvider).chapterContent, '测试正文。');
@@ -88,15 +104,26 @@ void main() {
   test('记录查询和写入失败均不阻断正文或进度保存', () async {
     when(() => records.getReadRecords())
         .thenAnswer((_) async => throw StateError('查询失败'));
-    when(() => records.putReadRecord(any()))
-        .thenAnswer((_) async => throw StateError('写入失败'));
+    when(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).thenAnswer((_) async => throw StateError('写入失败'));
     final reader = container.read(readerNotifierProvider.notifier);
     await reader.openBook(book);
     await Future<void>.delayed(const Duration(milliseconds: 15));
     await reader.saveProgress();
     expect(container.read(readerNotifierProvider).chapterContent, '测试正文。');
     expect(container.read(readerNotifierProvider).error, isNull);
-    verify(() => records.putReadRecord(any())).called(1);
+    verify(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).called(1);
     verify(
       () => api.updateReadingProgress(
         bookUrl: book.bookUrl,
@@ -104,5 +131,61 @@ void main() {
         chapterPos: any(named: 'chapterPos'),
       ),
     ).called(1);
+  });
+
+  test('失败重试保留未保存时段，不丢失累计增量', () async {
+    when(() => records.getReadRecords()).thenAnswer((_) async => []);
+    final saved = <ReadRecord>[];
+    when(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).thenAnswer((call) async {
+      saved.add(call.positionalArguments.single as ReadRecord);
+      if (saved.length == 1) throw StateError('首次写入失败');
+    });
+    final reader = container.read(readerNotifierProvider.notifier);
+    await reader.openBook(book);
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    expect(saved, hasLength(2));
+    expect(saved.last.startTime, saved.first.startTime);
+    expect(saved.last.readTime, saved.last.lastRead - saved.first.startTime!);
+  });
+
+  test('较早的保存迟到完成，不覆盖后续累计起点', () async {
+    when(() => records.getReadRecords()).thenAnswer((_) async => []);
+    final firstWrite = Completer<void>();
+    final saved = <ReadRecord>[];
+    when(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).thenAnswer((call) async {
+      saved.add(call.positionalArguments.single as ReadRecord);
+      if (saved.length == 1) await firstWrite.future;
+    });
+    final reader = container.read(readerNotifierProvider.notifier);
+    await reader.openBook(book);
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    final pending = reader.saveProgress();
+    while (saved.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    firstWrite.complete();
+    await pending;
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    expect(saved, hasLength(3));
+    expect(saved.last.startTime, saved[1].lastRead);
+    expect(saved.last.readTime, greaterThan(saved[1].readTime));
   });
 }

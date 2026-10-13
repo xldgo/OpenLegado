@@ -53,7 +53,7 @@ pub use repository::highlight_rule_repository::HighlightRuleRepository;
 pub use repository::http_tts_repository::{HttpTts, HttpTtsRepository};
 pub use repository::keyboard_assist_repository::{KeyboardAssist, KeyboardAssistRepository};
 pub use repository::read_record_repository::{
-    ReadRecord, ReadRecordRepository, merge_read_record_authors,
+    ReadRecord, ReadRecordDetail, ReadRecordRepository, merge_read_record_authors,
 };
 pub use repository::replace_rule_repository::ReplaceRuleRepository;
 pub use repository::review_repository::ReviewRepository;
@@ -80,3 +80,5 @@ pub fn init_database(path: &str) -> LegadoResult<Database> {
 pub fn init_in_memory_database() -> LegadoResult<Database> {
     Database::open_in_memory()
 }
+
+pub use repository::read_record_sessions::ReadRecordSession;

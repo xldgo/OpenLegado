@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
@@ -8,6 +9,7 @@ import '../models/models.dart';
 import '../features/bookshelf/bookshelf.dart';
 import '../routes.dart';
 import '../features/read_records/read_records.dart';
+import '../features/read_records/read_record_overview_calculator.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/legado_app_bar.dart';
@@ -32,45 +34,13 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   /// 今日目标分钟数（本地偏好，默认 30 对齐参考版初始值）
   int _goalMinutes = 30;
 
-  /// 今日已读秒数（readRecordDailyList 当日项）
-  int _todaySeconds = 0;
-
-  /// 是否已加载今日时长（避免日列表未就绪时表盘归零闪烁）
-  bool _todayLoaded = false;
-
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       if (!mounted) return;
-      unawaitedLoad();
+      unawaitedInit();
     });
-  }
-
-  /// 拉取阅读记录与今日时长（阅读记录页同源 API）
-  Future<void> unawaitedLoad() async {
-    unawaitedInit();
-    try {
-      await ref.read(readRecordNotifierProvider.notifier).load();
-      final year = DateTime.now().year;
-      final daily = await ref
-          .read(readRecordRepositoryProvider)
-          .readRecordDailyList(year)
-          .catchError((_) => <Map<String, dynamic>>[]);
-      if (!mounted) return;
-      final todayKey = _dayKey(DateTime.now());
-      for (final e in daily) {
-        final date = (e['date'] ?? '').toString();
-        if (date == todayKey) {
-          _todaySeconds = (e['seconds'] as num?)?.toInt() ?? 0;
-          break;
-        }
-      }
-    } catch (_) {
-      // 统计加载失败不阻断首页，表盘保持 0
-    }
-    if (!mounted) return;
-    setState(() => _todayLoaded = true);
   }
 
   Future<void> unawaitedInit() async {
@@ -89,80 +59,62 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _editGoal() async {
-    var draft = _goalMinutes;
-    final ok = await showDialog<bool>(
+    var input = '$_goalMinutes';
+    final minutes = await showDialog<int>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(context.l10n.todayReadingGoal),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      if (draft > 5) {
-                        setDialogState(() => draft -= 5);
-                      }
-                    },
-                    icon: const Icon(Icons.remove_circle_outline_rounded),
-                  ),
-                  Text(
-                    context.l10n.minuteCount(draft),
-                    style: Theme.of(dialogContext).textTheme.titleMedium,
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      if (draft < 480) {
-                        setDialogState(() => draft += 5);
-                      }
-                    },
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                  ),
-                ],
+        builder: (dialogContext, setDialogState) {
+          final draft = int.tryParse(input);
+          final valid = draft != null && draft >= 1 && draft <= 24 * 60;
+          return AlertDialog(
+            title: Text(context.l10n.setReadingGoal),
+            content: TextFormField(
+              initialValue: input,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLines: 1,
+              decoration: InputDecoration(
+                labelText: context.l10n.readingGoalMinutesLabel,
               ),
-              Slider(
-                value: draft.clamp(5, 480).toDouble(),
-                min: 5,
-                max: 480,
-                divisions: 95,
-                label: '$draft',
-                onChanged: (v) => setDialogState(() => draft = v.round()),
+              onChanged: (value) => setDialogState(() => input = value),
+              onFieldSubmitted: (_) {
+                if (valid) Navigator.pop(dialogContext, draft);
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(context.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: valid
+                    ? () => Navigator.pop(dialogContext, draft)
+                    : null,
+                child: Text(context.l10n.confirm),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(context.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(context.l10n.confirm),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
-    if (ok == true && mounted && draft != _goalMinutes) {
-      setState(() => _goalMinutes = draft);
+    if (minutes != null && mounted && minutes != _goalMinutes) {
+      setState(() => _goalMinutes = minutes);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('homeReadGoalMinutes', draft);
+      await prefs.setInt('homeReadGoalMinutes', minutes);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final overviewState = ref.watch(readRecordOverviewNotifierProvider);
-    final records = ref.watch(
-      readRecordNotifierProvider.select((s) => s.records),
-    );
-    final totalMs = ref.watch(
-      readRecordNotifierProvider.select((s) => s.totalReadTimeMs),
-    );
+    final overviewState = ref.watch(homeReadRecordOverviewProvider);
+    final dataset = ref.watch(readRecordDatasetProvider);
+    final records = dataset.asData?.value.records ?? const <ReadRecord>[];
+    final totalMs = overviewState.totalTimeMs;
+    final todaySeconds =
+        overviewState.allDailyTimes[_dayKey(DateTime.now())] ?? 0;
+    final todayLoaded = !overviewState.isLoading;
     final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
 
     // 最近阅读：按阅读记录 lastRead 取最近一本，回书架找同名书（拿完整 Book 对象开书）
@@ -172,8 +124,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     if (sorted.isNotEmpty) {
       final top = sorted.first;
       for (final b in books) {
-        // ReadRecordShow 无 author 字段，按书名匹配（书名+作者唯一性由书架保证）
-        if (b.name == top.bookName) {
+        // 使用记录的真实作者匹配，避免同名书打开错误副本。
+        if (b.name == top.bookName &&
+            (top.author.isEmpty ||
+                ReadRecordOverviewCalculator.authors(top.author)
+                    .contains(b.author))) {
           recent = b;
           break;
         }
@@ -184,8 +139,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final goalSeconds = _goalMinutes * 60;
     final progress = goalSeconds <= 0
         ? 0.0
-        : (_todaySeconds / goalSeconds).clamp(0.0, 1.0);
-    final todayMinutes = (_todaySeconds / 60).round();
+        : (todaySeconds / goalSeconds).clamp(0.0, 1.0);
+    final todayMinutes = (todaySeconds / 60).round();
 
     return Scaffold(
       appBar: LegadoAppBar(
@@ -279,6 +234,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             children: [
               Expanded(
                 child: _HomeCard(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.readRecordOverview,
+                  ),
                   child: Row(
                     children: [
                       Icon(Symbols.bar_chart_rounded, color: cs.primary),
@@ -310,6 +269,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: _HomeCard(
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.readRecord),
                   child: Row(
                     children: [
                       Icon(Symbols.schedule_rounded, color: cs.primary),
@@ -348,8 +309,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               children: [
                 Row(
                   children: [
-                    // [1-2 ③] 参考版目标图标=同心圆靶形（radar），替换时钟形
-                    Icon(Symbols.radar_rounded, color: cs.primary),
+                    Icon(Symbols.track_changes_rounded, color: cs.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -357,36 +317,69 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    // [1-2 ③] 参考版编辑钮=白底圆形浮钮（表面色+投影），替换裸图标
-                    _GoalEditFab(onTap: _editGoal),
+                    IconButton.filledTonal(
+                      tooltip: context.l10n.editReadingGoal,
+                      onPressed: _editGoal,
+                      style: IconButton.styleFrom(
+                        fixedSize: const Size(40, 40),
+                        minimumSize: const Size(40, 40),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: cs.surfaceContainerLow,
+                        foregroundColor: cs.onSurfaceVariant,
+                        shape: const CircleBorder(),
+                      ),
+                      icon: const Icon(Icons.edit_rounded),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 180,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: _GoalDialPainter(
-                      progress: _todayLoaded ? progress : 0,
-                      trackColor: cs.surfaceContainerHighest,
-                      progressColor: cs.primary,
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _todayLoaded
-                                ? '$todayMinutes / $_goalMinutes'
-                                : '— / $_goalMinutes',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                Center(
+                  child: SizedBox(
+                    width: 240,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: AspectRatio(
+                        aspectRatio: 2,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(end: todayLoaded ? progress : 0),
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          builder: (context, animatedProgress, child) =>
+                              Semantics(
+                                label: context.l10n.todayReadingGoal,
+                                value: '${(animatedProgress * 100).round()}%',
+                                child: CustomPaint(
+                                  painter: _GoalDialPainter(
+                                    progress: animatedProgress,
+                                    trackColor: cs.surfaceContainerHighest,
+                                    progressColor: cs.primary,
+                                  ),
+                                  child: child,
+                                ),
+                              ),
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  todayLoaded
+                                      ? '$todayMinutes / $_goalMinutes'
+                                      : '— / $_goalMinutes',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                Text(
+                                  context.l10n.minutesUnit,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: cs.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
                           ),
-                          Text(
-                            context.l10n.minutesUnit,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -395,6 +388,15 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (overviewState.error != null)
+            ListTile(
+              title: Text(overviewState.error!),
+              trailing: IconButton(
+                icon: const Icon(Symbols.refresh_rounded),
+                tooltip: '重试',
+                onPressed: () => ref.invalidate(readRecordDatasetProvider),
+              ),
+            ),
           // ===== 阅读热力图卡片 =====
           ReadingHeatmapCard.fromStringMap(
             dailySecondsMap: overviewState.allDailyTimes,
@@ -410,7 +412,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           // ===== 阅读时长榜卡片 =====
           ReadingRankingCard(
             topBooks: overviewState.topBooks.take(5).toList(),
-            onBookTap: (ranking) => _openBookByName(ranking.bookName),
+            onBookTap: (ranking) =>
+                _openBookByIdentity(ranking.bookName, ranking.author),
             trailing: IconButton(
               tooltip: '更多排行',
               icon: const Icon(Symbols.chevron_right_rounded),
@@ -423,7 +426,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           ReadingCalendarCard(
             referenceDate: overviewState.referenceDate,
             dailyTopBook: overviewState.dailyTopBook,
-            onBookTap: (date, book) => _openBookByName(book.bookName),
+            onDateTap: (date) => showReadRecordDayDetails(context, date),
             trailing: IconButton(
               tooltip: '查看日历',
               icon: const Icon(Symbols.chevron_right_rounded),
@@ -461,11 +464,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     await BookOpenUtils.openBook(context, ref, book);
   }
 
-  Future<void> _openBookByName(String bookName) async {
+  Future<void> _openBookByIdentity(String bookName, String author) async {
     final books = ref.read(bookshelfNotifierProvider).books;
     Book? matched;
     for (final b in books) {
-      if (b.name == bookName) {
+      if (b.name == bookName && (author.isEmpty || b.author == author)) {
         matched = b;
         break;
       }
@@ -500,34 +503,6 @@ class _HomeCard extends StatelessWidget {
   }
 }
 
-/// [1-2 ③] 目标卡编辑钮：白底圆形浮钮（参考版量测 ≈40dp 表面色圆 + 投影，
-/// 图标 onSurface；替换原裸 IconButton）
-class _GoalEditFab extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _GoalEditFab({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      elevation: 2,
-      shape: const CircleBorder(),
-      child: SizedBox(
-        width: 40,
-        height: 40,
-        child: IconButton(
-          tooltip: context.l10n.editReadingGoal,
-          icon: const Icon(Icons.edit_rounded, size: 20),
-          color: cs.onSurface,
-          onPressed: onTap,
-        ),
-      ),
-    );
-  }
-}
-
 /// 今日目标半圆表盘（对齐参考版半环造型：背景弧 + 进度弧 + 底部缺口）
 class _GoalDialPainter extends CustomPainter {
   final double progress;
@@ -542,17 +517,23 @@ class _GoalDialPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.72);
-    final radius = (size.width < size.height ? size.width : size.height) * 0.62;
-    final rect = Rect.fromCircle(center: center, radius: radius);
+    // 对齐上游：2:1 画布内绘制上半圆，半个线宽为顶侧留出完整笔画空间。
+    const strokeWidth = 14.0;
+    final arcSize = (size.width - strokeWidth).clamp(0.0, double.infinity);
+    final rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      arcSize,
+      arcSize,
+    );
     final track = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..color = trackColor;
     final arc = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..color = progressColor;
     // 半圆：自左侧水平起顺时针扫 180°

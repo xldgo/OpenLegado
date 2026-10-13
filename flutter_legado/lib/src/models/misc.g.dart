@@ -450,6 +450,8 @@ Map<String, dynamic> _$KeyboardAssistToJson(_KeyboardAssist instance) =>
 _ReadRecord _$ReadRecordFromJson(Map<String, dynamic> json) => _ReadRecord(
   deviceId: json['deviceId'] as String? ?? '',
   bookName: json['bookName'] as String? ?? '',
+  author: json['author'] as String? ?? '',
+  startTime: (json['startTime'] as num?)?.toInt(),
   readTime: (json['readTime'] as num?)?.toInt() ?? 0,
   lastRead: (json['lastRead'] as num?)?.toInt() ?? 0,
 );
@@ -458,6 +460,8 @@ Map<String, dynamic> _$ReadRecordToJson(_ReadRecord instance) =>
     <String, dynamic>{
       'deviceId': instance.deviceId,
       'bookName': instance.bookName,
+      'author': instance.author,
+      'startTime': instance.startTime,
       'readTime': instance.readTime,
       'lastRead': instance.lastRead,
     };

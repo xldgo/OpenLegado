@@ -206,6 +206,8 @@
   "mcpTokenRequired": "Configure the Web book source access token first (Me → Advanced → Other Settings)",
   "booksRead": "Books Read",
   "readingDuration": "Reading Time",
+  "setReadingGoal": "Set Reading Goal",
+  "readingGoalMinutesLabel": "Goal (minutes)",
   "todayReadingGoal": "Today's Reading Goal",
   "minutesUnit": "Minutes",
   "readingHeatmap": "Reading Heatmap",
@@ -1199,5 +1201,74 @@
   "eyeProtectionSchedule": "Schedule",
   "eyeProtectionScheduleSummary": "Apply only during the selected hours, including overnight",
   "eyeProtectionStartTime": "Start time",
-  "eyeProtectionEndTime": "End time"
+  "eyeProtectionEndTime": "End time",
+  "readRecordViewAggregate": "Aggregate view",
+  "readRecordViewTimeline": "Timeline view",
+  "readRecordViewLatest": "Last read view",
+  "switchReadRecordView": "Switch reading record view",
+  "filterReadRecordDate": "Filter reading date",
+  "readRecordOverview": "Reading overview",
+  "readRecordChapter": "Chapter {index}",
+  "@readRecordChapter": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordTotalAchievement": "Total reading achievements",
+  "readRecordDateOverview": "Reading overview for {month}/{day}",
+  "readRecordSummaryBooks": "{count} books read",
+  "readRecordSummaryTime": "Total reading: {duration}",
+  "@readRecordDateOverview": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "@readRecordSummaryBooks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@readRecordSummaryTime": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordToday": "Today",
+  "readRecordYesterday": "Yesterday",
+  "readRecordDaysAgo": "{days} days ago",
+  "@readRecordDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordDayDuration": "Read {duration}",
+  "@readRecordDayDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordBookDuration": "Reading time: {duration}",
+  "@readRecordBookDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordUnknownAuthor": "Unknown author"
 }

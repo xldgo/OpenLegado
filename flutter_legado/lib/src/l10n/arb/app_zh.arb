@@ -824,6 +824,8 @@
   "@readingDuration": {
     "description": "主界面文案：阅读时长"
   },
+  "setReadingGoal": "设定阅读目标",
+  "readingGoalMinutesLabel": "目标（分钟）",
   "todayReadingGoal": "今日阅读目标",
   "@todayReadingGoal": {
     "description": "主界面文案：今日阅读目标"
@@ -4431,5 +4433,74 @@
   "eyeProtectionSchedule": "定时启用",
   "eyeProtectionScheduleSummary": "仅在指定时段生效，支持跨午夜",
   "eyeProtectionStartTime": "开始时间",
-  "eyeProtectionEndTime": "结束时间"
+  "eyeProtectionEndTime": "结束时间",
+  "readRecordViewAggregate": "汇总视图",
+  "readRecordViewTimeline": "时间线视图",
+  "readRecordViewLatest": "最后阅读视图",
+  "switchReadRecordView": "切换阅读记录视图",
+  "filterReadRecordDate": "筛选阅读日期",
+  "readRecordOverview": "阅读总览",
+  "readRecordChapter": "第{index}章",
+  "@readRecordChapter": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordTotalAchievement": "累计阅读成就",
+  "readRecordDateOverview": "{month}月{day}日阅读概览",
+  "readRecordSummaryBooks": "已读 {count} 本",
+  "readRecordSummaryTime": "累计阅读 {duration}",
+  "@readRecordDateOverview": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "@readRecordSummaryBooks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@readRecordSummaryTime": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordToday": "今天",
+  "readRecordYesterday": "昨天",
+  "readRecordDaysAgo": "{days}天前",
+  "@readRecordDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordDayDuration": "已读 {duration}",
+  "@readRecordDayDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordBookDuration": "阅读时长：{duration}",
+  "@readRecordBookDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordUnknownAuthor": "未知作者"
 }

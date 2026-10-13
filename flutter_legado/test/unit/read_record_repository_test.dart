@@ -49,13 +49,18 @@ void main() {
     expect(await repository.getReadRecords(), isEmpty);
   });
 
-  test('Mock 每日数据保持原空列表语义，不伪造持久化统计', () async {
+  test('Mock 按真实写入生成每日明细，不推算不存在的日期', () async {
     final repository = MockReadRecordRepository();
     await repository.putReadRecord(
       const ReadRecord(bookName: '测试', readTime: 5000),
     );
-    expect(await repository.readRecordDailyList(2026), isEmpty);
-    expect(await repository.readRecordDailyList(2025), isEmpty);
+    final now = DateTime.now();
+    expect(
+      (await repository.readRecordDailyList(now.year))
+          .fold<int>(0, (sum, d) => sum + (d['seconds'] as int)),
+      5,
+    );
+    expect(await repository.getAllReadRecordDetails(), hasLength(1));
   });
 
   test('多个消费者共享根 Repository，根替换后跟随且不重新初始化', () async {

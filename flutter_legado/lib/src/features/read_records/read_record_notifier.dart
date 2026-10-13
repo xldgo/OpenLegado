@@ -1,5 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -14,6 +14,8 @@ import 'read_record_state.dart';
 /// 偏好 `enableReadRecord` / `readRecordSort` 经 SettingsService 持久化。
 class ReadRecordNotifier extends Notifier<ReadRecordState> {
   final SettingsService _settings = SettingsService();
+  int _modeRevision = 0;
+  Future<void> _modeWrite = Future.value();
 
   /// 全量原始记录（未过滤），供搜索重算
   List<ReadRecordShow> _all = const [];
@@ -25,31 +27,53 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
   Future<void> load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final modeRevision = _modeRevision;
+      final preferences = await SharedPreferences.getInstance();
+      final storedMode = preferences.getString('readRecordDisplayMode');
+      final savedMode =
+          ReadRecordDisplayMode.values
+              .where((m) => m.name == storedMode)
+              .firstOrNull ??
+          ReadRecordDisplayMode.aggregate;
       final sort = _sortFromRaw(await _settings.getReadRecordSort());
       final enable = await _settings.getEnableReadRecord();
       final repository = ref.read(readRecordRepositoryProvider);
       final raw = await repository.getReadRecords();
       _all = _toShowList(raw);
       final total = _all.fold<int>(0, (sum, r) => sum + r.readTime);
-      final filtered = _applyFilterAndSort(
-        _all,
-        state.searchQuery,
-        sort,
-      );
+      final filtered = _applyFilterAndSort(_all, state.searchQuery, sort);
       state = state.copyWith(
         records: filtered,
         totalReadTimeMs: total,
         sortMode: sort,
+        displayMode: modeRevision == _modeRevision
+            ? savedMode
+            : state.displayMode,
         enableRecord: enable,
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: _mapError(e),
-      );
+      state = state.copyWith(isLoading: false, error: _mapError(e));
     }
   }
+
+  /// 展示方式即时切换，偏好串行保存避免快速点击时写入顺序颠倒。
+  Future<void> setDisplayMode(ReadRecordDisplayMode mode) {
+    _modeRevision++;
+    state = state.copyWith(displayMode: mode);
+    _modeWrite = _modeWrite.catchError((Object _) {}).then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('readRecordDisplayMode', mode.name);
+    });
+    return _modeWrite;
+  }
+
+  void setSelectedDate(DateTime? date) => state = state.copyWith(
+    selectedDate: date == null
+        ? null
+        : DateTime(date.year, date.month, date.day),
+    clearSelectedDate: date == null,
+  );
 
   /// 搜索（对齐原版 SearchView onQueryTextChange → initData）
   void setSearchQuery(String query) {
@@ -98,7 +122,10 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
 
   /// 按书名在书架查找（对齐 bookDao.findByName(...).firstOrNull）
   Future<Book?> findBookByName(String bookName) async {
-    final books = await ref.read(bookApiProvider).bookshelfRepository.getBooks();
+    final books = await ref
+        .read(bookApiProvider)
+        .bookshelfRepository
+        .getBooks();
     for (final b in books) {
       if (b.name == bookName) return b;
     }
@@ -181,5 +208,5 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
 
 final readRecordNotifierProvider =
     NotifierProvider<ReadRecordNotifier, ReadRecordState>(
-  ReadRecordNotifier.new,
-);
+      ReadRecordNotifier.new,
+    );

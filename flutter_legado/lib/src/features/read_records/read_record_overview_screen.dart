@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -13,6 +12,7 @@ import 'read_record_overview_notifier.dart';
 import 'read_record_overview_state.dart';
 import 'read_record_screen.dart' show formatDuring;
 import 'widgets/reading_calendar_card.dart';
+import 'widgets/read_record_day_details_sheet.dart';
 import 'widgets/reading_heatmap_card.dart';
 import 'widgets/reading_ranking_card.dart';
 import 'widgets/reading_stats_grid_card.dart';
@@ -46,10 +46,8 @@ class _ReadRecordOverviewScreenState
   @override
   void initState() {
     super.initState();
-    final initialPeriod =
-        ref.read(readRecordOverviewNotifierProvider).period;
-    final initialIndex =
-        _periods.indexWhere((p) => p.period == initialPeriod);
+    final initialPeriod = ref.read(readRecordOverviewNotifierProvider).period;
+    final initialIndex = _periods.indexWhere((p) => p.period == initialPeriod);
     _tabController = TabController(
       length: _periods.length,
       vsync: this,
@@ -91,7 +89,7 @@ class _ReadRecordOverviewScreenState
     }
 
     // 2. 若未找到，再按书名匹配
-    if (matchedBook == null) {
+    if (matchedBook == null && author.isEmpty) {
       for (final b in books) {
         if (b.name == bookName) {
           matchedBook = b;
@@ -103,11 +101,7 @@ class _ReadRecordOverviewScreenState
     if (matchedBook != null) {
       await BookOpenUtils.openBook(context, ref, matchedBook);
     } else {
-      await Navigator.pushNamed(
-        context,
-        AppRoutes.search,
-        arguments: bookName,
-      );
+      await Navigator.pushNamed(context, AppRoutes.search, arguments: bookName);
     }
   }
 
@@ -137,17 +131,13 @@ class _ReadRecordOverviewScreenState
     final cs = theme.colorScheme;
 
     // 同步 TabController 的 index
-    final periodIndex =
-        _periods.indexWhere((p) => p.period == state.period);
+    final periodIndex = _periods.indexWhere((p) => p.period == state.period);
     if (periodIndex >= 0 && _tabController.index != periodIndex) {
       _tabController.animateTo(periodIndex);
     }
 
     return AppScaffold(
-      topBar: const LegadoAppBar(
-        title: Text('阅读总览'),
-        showBack: true,
-      ),
+      topBar: const LegadoAppBar(title: Text('阅读总览'), showBack: true),
       body: Column(
         children: [
           // 周期选择器
@@ -155,6 +145,9 @@ class _ReadRecordOverviewScreenState
             color: cs.surface,
             child: TabBar(
               controller: _tabController,
+              // 固定周期标签等宽铺满，覆盖全局可滚动标签的 start 对齐。
+              isScrollable: false,
+              tabAlignment: TabAlignment.fill,
               onTap: _onTabChanged,
               tabs: _periods.map((p) => Tab(text: p.label)).toList(),
             ),
@@ -204,6 +197,18 @@ class _ReadRecordOverviewScreenState
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (state.isLoading) const LinearProgressIndicator(),
+                if (state.error != null)
+                  ListTile(
+                    title: Text(state.error!),
+                    trailing: IconButton(
+                      icon: const Icon(Symbols.refresh_rounded),
+                      tooltip: '重试',
+                      onPressed: () => ref
+                          .read(readRecordOverviewNotifierProvider.notifier)
+                          .refresh(),
+                    ),
+                  ),
                 // (1) 阅读时长分布柱状图（all 周期不展示）
                 if (state.period != ReadPeriod.all) ...[
                   ReadingTimeBarChartCard(
@@ -220,56 +225,43 @@ class _ReadRecordOverviewScreenState
                       label: '阅读时长',
                       value: formatDuring(state.totalTimeMs),
                     ),
-                    StatItem(
-                      label: '阅读天数',
-                      value: '${state.readingDays}天',
-                    ),
-                    StatItem(
-                      label: '读过书籍',
-                      value: '${state.totalBooks}本',
-                    ),
-                    StatItem(
-                      label: '读完书籍',
-                      value: '${state.finishedBooks}本',
-                    ),
-                    StatItem(
-                      label: '在读书籍',
-                      value: '${state.readingBooks}本',
-                    ),
+                    StatItem(label: '阅读天数', value: '${state.readingDays}天'),
+                    StatItem(label: '读过书籍', value: '${state.totalBooks}本'),
+                    StatItem(label: '读完书籍', value: '${state.finishedBooks}本'),
+                    StatItem(label: '在读书籍', value: '${state.readingBooks}本'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                // 全量汇总卡片只在「总」周期展示。
+                if (state.period == ReadPeriod.all) ...[
+                  const SizedBox(height: 12),
 
-                // (3) 阅读热力图
-                ReadingHeatmapCard.fromStringMap(
-                  dailySecondsMap: state.allDailyTimes,
-                  dailyCountsMap: state.allDailyCounts,
-                ),
-                const SizedBox(height: 12),
-
-                // (4) 阅读时长榜
-                ReadingRankingCard(
-                  topBooks: state.topBooks,
-                  onBookTap: (ranking) => _handleBookTap(
-                    context,
-                    ref,
-                    ranking.bookName,
-                    ranking.author,
+                  // (3) 阅读热力图
+                  ReadingHeatmapCard.fromStringMap(
+                    dailySecondsMap: state.allDailyTimes,
+                    dailyCountsMap: state.allDailyCounts,
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // (5) 读书日历
-                ReadingCalendarCard(
-                  referenceDate: state.referenceDate,
-                  dailyTopBook: state.dailyTopBook,
-                  onBookTap: (date, book) => _handleBookTap(
-                    context,
-                    ref,
-                    book.bookName,
-                    book.author,
+                  // (4) 阅读时长榜
+                  ReadingRankingCard(
+                    topBooks: state.topBooks,
+                    onBookTap: (ranking) => _handleBookTap(
+                      context,
+                      ref,
+                      ranking.bookName,
+                      ranking.author,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+
+                  // (5) 读书日历
+                  ReadingCalendarCard(
+                    referenceDate: state.referenceDate,
+                    dailyTopBook: state.dailyTopBook,
+                    onDateTap: (date) =>
+                        showReadRecordDayDetails(context, date),
+                  ),
+                ],
               ],
             ),
           ),

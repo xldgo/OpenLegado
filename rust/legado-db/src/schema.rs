@@ -35,6 +35,8 @@ pub const SCHEMA_VERSION: u32 = 109;
 
 /// 初始化全部 Schema（创建所有表）
 pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
+    conn.execute_batch(crate::repository::read_record_sessions::CREATE_READ_SESSIONS)
+        .map_err(|e| LegadoError::Database(format!("创建阅读会话表失败: {e}")))?;
     conn.execute_batch(CREATE_BOOKS)
         .map_err(|e| LegadoError::Database(format!("创建 books 表失败: {e}")))?;
     conn.execute_batch(CREATE_BOOK_GROUPS)
@@ -65,6 +67,8 @@ pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
         .map_err(|e| LegadoError::Database(format!("创建 txtTocRules 表失败: {e}")))?;
     conn.execute_batch(CREATE_READ_RECORD)
         .map_err(|e| LegadoError::Database(format!("创建 readRecord 表失败: {e}")))?;
+    conn.execute_batch(CREATE_READ_RECORD_DETAIL)
+        .map_err(|e| LegadoError::Database(format!("创建每日单书明细失败: {e}")))?;
     conn.execute_batch(CREATE_AUTO_TASK_RULES)
         .map_err(|e| LegadoError::Database(format!("创建 auto_task_rules 表失败: {e}")))?;
     conn.execute_batch(CREATE_CACHED_CHAPTERS)
@@ -648,4 +652,18 @@ CREATE INDEX IF NOT EXISTS index_book_sources_bookSourceUrl ON book_sources (boo
 CREATE INDEX IF NOT EXISTS index_chapters_bookUrl ON chapters (bookUrl);
 CREATE UNIQUE INDEX IF NOT EXISTS index_chapters_bookUrl_index ON chapters (bookUrl, \"index\");
 CREATE INDEX IF NOT EXISTS index_replace_rules_id ON replace_rules (id);
+";
+
+/// 每日单书明细为加法式建表；已有数据库通过 Repository 的幂等建表接入。
+pub const CREATE_READ_RECORD_DETAIL: &str = "
+CREATE TABLE IF NOT EXISTS readRecordDetail (
+    deviceId TEXT NOT NULL DEFAULT '',
+    bookName TEXT NOT NULL,
+    bookAuthor TEXT NOT NULL DEFAULT '',
+    date TEXT NOT NULL,
+    readTime INTEGER NOT NULL DEFAULT 0,
+    lastRead INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(deviceId, bookName, bookAuthor, date)
+);
+CREATE INDEX IF NOT EXISTS idx_read_record_detail_date ON readRecordDetail(date);
 ";

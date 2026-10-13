@@ -1306,6 +1306,52 @@ Future<PlatformInt64> readRecordUpsert({
   readTime: readTime,
 );
 
+/// 记录阅读时间（支持作者与跨午夜时间段原子写入明细和日聚合）
+Future<PlatformInt64> readRecordRecordTime({
+  required String bookName,
+  required String author,
+  required PlatformInt64 readTimeMs,
+  PlatformInt64? startTimeMs,
+  PlatformInt64? endTimeMs,
+  required String bookUrl,
+  required int chapterIndex,
+}) => RustLib.instance.api.crateFfiFfiReadRecordRecordTime(
+  bookName: bookName,
+  author: author,
+  readTimeMs: readTimeMs,
+  startTimeMs: startTimeMs,
+  endTimeMs: endTimeMs,
+  bookUrl: bookUrl,
+  chapterIndex: chapterIndex,
+);
+
+/// 查询真实阅读会话（毫秒时间戳与章节序号）。
+Future<String> readRecordSessionList() =>
+    RustLib.instance.api.crateFfiFfiReadRecordSessionList();
+
+/// 删除某日单书明细及对应会话区间。
+Future<bool> readRecordDetailDelete({
+  required String bookName,
+  required String author,
+  required String date,
+}) => RustLib.instance.api.crateFfiFfiReadRecordDetailDelete(
+  bookName: bookName,
+  author: author,
+  date: date,
+);
+
+/// 原子删除原始会话ID集合并同步累计/每日统计。
+Future<bool> readRecordSessionsDelete({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordSessionsDelete(ids: ids);
+
+/// 按年查询每日单书阅读明细列表（JSON 数组）
+Future<String> readRecordDetailList({required int year}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordDetailList(year: year);
+
+/// 查询全量历史每日单书阅读明细列表（JSON 数组）
+Future<String> readRecordAllDetailList() =>
+    RustLib.instance.api.crateFfiFfiReadRecordAllDetailList();
+
 /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
 ///
 /// 返回 JSON：`[{"date":"2026-08-29","seconds":3600},...]`（按日期升序）。
@@ -1315,6 +1361,15 @@ Future<String> readRecordDailyList({required int year}) =>
 /// 删除阅读记录
 Future<bool> readRecordDelete({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiReadRecordDelete(bookName: bookName);
+
+/// 按书名和作者级联删除阅读记录与明细
+Future<bool> readRecordDeleteWithAuthor({
+  required String bookName,
+  required String author,
+}) => RustLib.instance.api.crateFfiFfiReadRecordDeleteWithAuthor(
+  bookName: bookName,
+  author: author,
+);
 
 /// 清空所有阅读记录
 Future<bool> readRecordClear() =>

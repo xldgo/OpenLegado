@@ -643,6 +643,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readingDuration => 'Reading Time';
 
   @override
+  String get setReadingGoal => 'Set Reading Goal';
+
+  @override
+  String get readingGoalMinutesLabel => 'Goal (minutes)';
+
+  @override
   String get todayReadingGoal => 'Today\'s Reading Goal';
 
   @override
@@ -3984,4 +3990,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eyeProtectionEndTime => 'End time';
+
+  @override
+  String get readRecordViewAggregate => 'Aggregate view';
+
+  @override
+  String get readRecordViewTimeline => 'Timeline view';
+
+  @override
+  String get readRecordViewLatest => 'Last read view';
+
+  @override
+  String get switchReadRecordView => 'Switch reading record view';
+
+  @override
+  String get filterReadRecordDate => 'Filter reading date';
+
+  @override
+  String get readRecordOverview => 'Reading overview';
+
+  @override
+  String readRecordChapter(int index) {
+    return 'Chapter $index';
+  }
+
+  @override
+  String get readRecordTotalAchievement => 'Total reading achievements';
+
+  @override
+  String readRecordDateOverview(int month, int day) {
+    return 'Reading overview for $month/$day';
+  }
+
+  @override
+  String readRecordSummaryBooks(int count) {
+    return '$count books read';
+  }
+
+  @override
+  String readRecordSummaryTime(String duration) {
+    return 'Total reading: $duration';
+  }
+
+  @override
+  String get readRecordToday => 'Today';
+
+  @override
+  String get readRecordYesterday => 'Yesterday';
+
+  @override
+  String readRecordDaysAgo(int days) {
+    return '$days days ago';
+  }
+
+  @override
+  String readRecordDayDuration(String duration) {
+    return 'Read $duration';
+  }
+
+  @override
+  String readRecordBookDuration(String duration) {
+    return 'Reading time: $duration';
+  }
+
+  @override
+  String get readRecordUnknownAuthor => 'Unknown author';
 }

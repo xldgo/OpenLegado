@@ -17,6 +17,7 @@ pub mod highlight_rule_repository;
 pub mod http_tts_repository;
 pub mod keyboard_assist_repository;
 pub mod read_record_repository;
+pub mod read_record_sessions;
 pub mod replace_rule_repository;
 pub mod review_repository;
 pub mod rss_article_repository;

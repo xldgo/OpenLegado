@@ -1716,6 +1716,61 @@ pub mod ffi {
         Ok(rt)
     }
 
+    /// 记录阅读时间（支持作者与跨午夜时间段原子写入明细和日聚合）
+    pub fn read_record_record_time(
+        book_name: String,
+        author: String,
+        read_time_ms: i64,
+        start_time_ms: Option<i64>,
+        end_time_ms: Option<i64>,
+        book_url: String,
+        chapter_index: i32,
+    ) -> Result<i64, BridgeError> {
+        let rt = crate::api::read_record_api::record_reading_time_with_session(
+            &book_name,
+            &author,
+            read_time_ms,
+            start_time_ms,
+            end_time_ms,
+            &book_url,
+            chapter_index,
+        )?;
+        Ok(rt)
+    }
+
+    /// 查询真实阅读会话（毫秒时间戳与章节序号）。
+    pub fn read_record_session_list() -> Result<String, BridgeError> {
+        to_json(&crate::api::read_record_api::get_read_record_sessions()?)
+    }
+    /// 删除某日单书明细及对应会话区间。
+    pub fn read_record_detail_delete(
+        book_name: String,
+        author: String,
+        date: String,
+    ) -> Result<bool, BridgeError> {
+        Ok(crate::api::read_record_api::delete_read_record_detail(
+            &book_name, &author, &date,
+        )?)
+    }
+    /// 原子删除原始会话ID集合并同步累计/每日统计。
+    pub fn read_record_sessions_delete(ids: Vec<i64>) -> Result<bool, BridgeError> {
+        Ok(crate::api::read_record_api::delete_read_record_sessions(
+            &ids,
+        )?)
+    }
+
+    /// 按年查询每日单书阅读明细列表（JSON 数组）
+    pub fn read_record_detail_list(year: i32) -> Result<String, BridgeError> {
+        let details = crate::api::read_record_api::get_read_record_details(year)?;
+        to_json(&details)
+    }
+
+    /// 查询全量历史每日单书阅读明细列表（JSON 数组）
+    pub fn read_record_all_detail_list() -> Result<String, BridgeError> {
+        let details = crate::api::read_record_api::get_all_read_record_details()?;
+        to_json(&details)
+    }
+
     /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
     ///
     /// 返回 JSON：`[{"date":"2026-08-29","seconds":3600},...]`（按日期升序）。
@@ -1736,6 +1791,17 @@ pub mod ffi {
     /// 删除阅读记录
     pub fn read_record_delete(book_name: String) -> Result<bool, BridgeError> {
         let ok = crate::api::read_record_api::delete_read_record(&book_name)?;
+        Ok(ok)
+    }
+
+    /// 按书名和作者级联删除阅读记录与明细
+    pub fn read_record_delete_with_author(
+        book_name: String,
+        author: String,
+    ) -> Result<bool, BridgeError> {
+        let ok = crate::api::read_record_api::delete_read_record_by_book_and_author(
+            &book_name, &author,
+        )?;
         Ok(ok)
     }
 

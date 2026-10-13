@@ -67,9 +67,7 @@ class ReadingTimeBarChartCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -78,17 +76,10 @@ class ReadingTimeBarChartCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  Symbols.bar_chart_rounded,
-                  size: 20,
-                  color: cs.primary,
-                ),
+                Icon(Symbols.bar_chart_rounded, size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  child: Text(title, style: theme.textTheme.titleMedium),
                 ),
                 ?trailing,
               ],
@@ -210,12 +201,13 @@ class _BarColumn extends StatelessWidget {
         return '${item.date.month}月';
       case ReadPeriod.month:
         // 月视图中只在 1号、15号 和最后一天显示日期数字，避免过于拥挤
-        final isKeyDay = item.date.day == 1 ||
+        final isKeyDay =
+            item.date.day == 1 ||
             item.date.day == 15 ||
             index == totalCount - 1;
         return isKeyDay ? '${item.date.day}' : '';
       case ReadPeriod.day:
-        return '${item.date.hour}时';
+        return '${item.date.day}';
       case ReadPeriod.all:
         return '${item.date.year}';
     }

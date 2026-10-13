@@ -2080,6 +2080,7 @@ dependencies = [
 name = "legado-db"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "legado-core",
  "md5",
  "r2d2",

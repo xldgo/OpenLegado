@@ -9935,6 +9935,8 @@ mixin _$ReadRecord {
   String get deviceId;
   @JsonKey(name: 'bookName')
   String get bookName;
+  String get author;
+  int? get startTime;
   @JsonKey(name: 'readTime')
   int get readTime;
   @JsonKey(name: 'lastRead')
@@ -9960,6 +9962,10 @@ mixin _$ReadRecord {
                 other.deviceId == _this.deviceId) &&
             (identical(other.bookName, _this.bookName) ||
                 other.bookName == _this.bookName) &&
+            (identical(other.author, _this.author) ||
+                other.author == _this.author) &&
+            (identical(other.startTime, _this.startTime) ||
+                other.startTime == _this.startTime) &&
             (identical(other.readTime, _this.readTime) ||
                 other.readTime == _this.readTime) &&
             (identical(other.lastRead, _this.lastRead) ||
@@ -9974,6 +9980,8 @@ mixin _$ReadRecord {
       runtimeType,
       _this.deviceId,
       _this.bookName,
+      _this.author,
+      _this.startTime,
       _this.readTime,
       _this.lastRead,
     );
@@ -9982,7 +9990,7 @@ mixin _$ReadRecord {
   @override
   String toString() {
     final _this = this as ReadRecord;
-    return 'ReadRecord(deviceId: ${_this.deviceId}, bookName: ${_this.bookName}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
+    return 'ReadRecord(deviceId: ${_this.deviceId}, bookName: ${_this.bookName}, author: ${_this.author}, startTime: ${_this.startTime}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
   }
 }
 
@@ -9996,6 +10004,8 @@ abstract mixin class $ReadRecordCopyWith<$Res> {
   $Res call({
     @JsonKey(name: 'deviceId') String deviceId,
     @JsonKey(name: 'bookName') String bookName,
+    String author,
+    int? startTime,
     @JsonKey(name: 'readTime') int readTime,
     @JsonKey(name: 'lastRead') int lastRead,
   });
@@ -10015,6 +10025,8 @@ class _$ReadRecordCopyWithImpl<$Res> implements $ReadRecordCopyWith<$Res> {
   $Res call({
     Object? deviceId = null,
     Object? bookName = null,
+    Object? author = null,
+    Object? startTime = freezed,
     Object? readTime = null,
     Object? lastRead = null,
   }) {
@@ -10028,6 +10040,14 @@ class _$ReadRecordCopyWithImpl<$Res> implements $ReadRecordCopyWith<$Res> {
             ? _self.bookName
             : bookName // ignore: cast_nullable_to_non_nullable
                   as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        startTime: freezed == startTime
+            ? _self.startTime
+            : startTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
         readTime: null == readTime
             ? _self.readTime
             : readTime // ignore: cast_nullable_to_non_nullable
@@ -10137,6 +10157,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )?
@@ -10149,6 +10171,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10175,6 +10199,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )
@@ -10186,6 +10212,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10211,6 +10239,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult? Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )?
@@ -10222,6 +10252,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10237,6 +10269,8 @@ class _ReadRecord implements ReadRecord {
   const _ReadRecord({
     @JsonKey(name: 'deviceId') this.deviceId = '',
     @JsonKey(name: 'bookName') this.bookName = '',
+    this.author = '',
+    this.startTime,
     @JsonKey(name: 'readTime') this.readTime = 0,
     @JsonKey(name: 'lastRead') this.lastRead = 0,
   });
@@ -10249,6 +10283,11 @@ class _ReadRecord implements ReadRecord {
   @override
   @JsonKey(name: 'bookName')
   final String bookName;
+  @override
+  @JsonKey()
+  final String author;
+  @override
+  final int? startTime;
   @override
   @JsonKey(name: 'readTime')
   final int readTime;
@@ -10278,6 +10317,9 @@ class _ReadRecord implements ReadRecord {
                 other.deviceId == deviceId) &&
             (identical(other.bookName, bookName) ||
                 other.bookName == bookName) &&
+            (identical(other.author, author) || other.author == author) &&
+            (identical(other.startTime, startTime) ||
+                other.startTime == startTime) &&
             (identical(other.readTime, readTime) ||
                 other.readTime == readTime) &&
             (identical(other.lastRead, lastRead) ||
@@ -10287,12 +10329,20 @@ class _ReadRecord implements ReadRecord {
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode {
-    return Object.hash(runtimeType, deviceId, bookName, readTime, lastRead);
+    return Object.hash(
+      runtimeType,
+      deviceId,
+      bookName,
+      author,
+      startTime,
+      readTime,
+      lastRead,
+    );
   }
 
   @override
   String toString() {
-    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, author: $author, startTime: $startTime, readTime: $readTime, lastRead: $lastRead)';
   }
 }
 
@@ -10308,6 +10358,8 @@ abstract mixin class _$ReadRecordCopyWith<$Res>
   $Res call({
     @JsonKey(name: 'deviceId') String deviceId,
     @JsonKey(name: 'bookName') String bookName,
+    String author,
+    int? startTime,
     @JsonKey(name: 'readTime') int readTime,
     @JsonKey(name: 'lastRead') int lastRead,
   });
@@ -10327,6 +10379,8 @@ class __$ReadRecordCopyWithImpl<$Res> implements _$ReadRecordCopyWith<$Res> {
   $Res call({
     Object? deviceId = null,
     Object? bookName = null,
+    Object? author = null,
+    Object? startTime = freezed,
     Object? readTime = null,
     Object? lastRead = null,
   }) {
@@ -10340,6 +10394,14 @@ class __$ReadRecordCopyWithImpl<$Res> implements _$ReadRecordCopyWith<$Res> {
             ? _self.bookName
             : bookName // ignore: cast_nullable_to_non_nullable
                   as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        startTime: freezed == startTime
+            ? _self.startTime
+            : startTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
         readTime: null == readTime
             ? _self.readTime
             : readTime // ignore: cast_nullable_to_non_nullable

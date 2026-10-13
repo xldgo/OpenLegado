@@ -12,7 +12,6 @@ class ReadingCalendarCard extends StatelessWidget {
   final DateTime referenceDate;
   final Map<String, CalendarBookInfo> dailyTopBook;
   final ValueChanged<DateTime>? onDateTap;
-  final void Function(DateTime date, CalendarBookInfo book)? onBookTap;
   final Widget? trailing;
 
   const ReadingCalendarCard({
@@ -21,7 +20,6 @@ class ReadingCalendarCard extends StatelessWidget {
     required this.referenceDate,
     this.dailyTopBook = const {},
     this.onDateTap,
-    this.onBookTap,
     this.trailing,
   });
 
@@ -43,9 +41,7 @@ class ReadingCalendarCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -61,10 +57,7 @@ class ReadingCalendarCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  child: Text(title, style: theme.textTheme.titleMedium),
                 ),
                 ?trailing,
               ],
@@ -114,12 +107,9 @@ class ReadingCalendarCard extends StatelessWidget {
                               return _CalendarDayCell(
                                 date: date,
                                 topBook: topBook,
-                                onTap: () {
-                                  onDateTap?.call(date);
-                                  if (topBook != null && onBookTap != null) {
-                                    onBookTap!(date, topBook);
-                                  }
-                                },
+                                onTap: topBook != null && onDateTap != null
+                                    ? () => onDateTap!(date)
+                                    : null,
                               );
                             },
                           ),
@@ -141,12 +131,12 @@ class ReadingCalendarCard extends StatelessWidget {
 class _CalendarDayCell extends StatelessWidget {
   final DateTime date;
   final CalendarBookInfo? topBook;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _CalendarDayCell({
     required this.date,
     required this.topBook,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
@@ -154,18 +144,22 @@ class _CalendarDayCell extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final hasBook = topBook != null;
-
-    final tooltip = hasBook
+    final description = hasBook
         ? '${date.month}月${date.day}日 · 《${topBook!.bookName}》 ${topBook!.author}'
         : '${date.month}月${date.day}日 无阅读记录';
 
-    return Tooltip(
-      message: tooltip,
-      triggerMode: TooltipTriggerMode.tap,
+    // 仅有真实阅读记录的日期可查看明细，空日期不提供点击动作。
+    return Semantics(
+      container: true,
+      label: description,
+      button: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        excludeFromSemantics: true,
         borderRadius: BorderRadius.circular(6),
-        child: Ink(
+        child: Container(
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(6),
@@ -187,8 +181,7 @@ class _CalendarDayCell extends StatelessWidget {
                   child: Text(
                     '${date.day}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight:
-                          hasBook ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: hasBook ? FontWeight.bold : FontWeight.normal,
                       color: hasBook ? cs.primary : cs.onSurface,
                     ),
                   ),

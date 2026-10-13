@@ -57,6 +57,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// 获取分页器（供 UI 层查询全局页信息）
   CrossChapterPaginator get paginator => _paginator;
 
+  /// 计时会话与尚未持久化时段；旧保存完成不得改写新会话。
+  int _readRecordSession = 0;
+  int? _pendingReadStartMs;
+
   /// 本次打开阅读器时累计起点（对标 ReadBook.readStartTime，毫秒）
   int _readStartMs = 0;
 
@@ -860,12 +864,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// 进入阅读会话：加载已有时长并重置计时起点（对标 ReadBook.resetData）
   Future<void> _beginReadRecordSession(Book book) async {
+    final session = ++_readRecordSession;
+    _pendingReadStartMs = null;
     _readStartMs = DateTime.now().millisecondsSinceEpoch;
     _baseReadTimeMs = 0;
     try {
       final enable = await _settings.getEnableReadRecord();
       if (!enable) return;
-      final records = await ref.read(readRecordRepositoryProvider).getReadRecords();
+      final records = await ref
+          .read(readRecordRepositoryProvider)
+          .getReadRecords();
+      if (session != _readRecordSession) return;
       for (final r in records) {
         if (r.bookName == book.name) {
           _baseReadTimeMs += r.readTime;
@@ -878,9 +887,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// 累计并写入阅读时长（对标 ReadBook.upReadTime）
   Future<void> _upReadTime(Book book) async {
+    final session = _readRecordSession;
     try {
       final enable = await _settings.getEnableReadRecord();
-      if (!enable) return;
+      if (!enable || session != _readRecordSession) return;
       final now = DateTime.now().millisecondsSinceEpoch;
       if (_readStartMs <= 0) {
         _readStartMs = now;
@@ -888,17 +898,27 @@ class ReaderNotifier extends Notifier<ReaderState> {
       }
       final delta = now - _readStartMs;
       if (delta <= 0) return;
+      final start = _pendingReadStartMs ?? _readStartMs;
+      _pendingReadStartMs ??= _readStartMs;
       _baseReadTimeMs += delta;
       _readStartMs = now;
+      final targetReadTime = _baseReadTimeMs;
       await ref
           .read(readRecordRepositoryProvider)
           .putReadRecord(
             ReadRecord(
               bookName: book.name,
-              readTime: _baseReadTimeMs,
+              author: book.author,
+              startTime: start,
+              readTime: targetReadTime,
               lastRead: now,
             ),
+            bookUrl: book.bookUrl,
+            chapterIndex: book.durChapterIndex,
           );
+      if (session == _readRecordSession && _baseReadTimeMs == targetReadTime) {
+        _pendingReadStartMs = null;
+      }
     } catch (_) {
       // 写记录失败不阻断阅读
     }

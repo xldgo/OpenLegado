@@ -29,6 +29,7 @@ abstract class SearchBook with _$SearchBook {
     @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
     @Default(-1) @JsonKey(name: 'chapterWordCount') int chapterWordCount,
     @Default(-1) @JsonKey(name: 'respondTime') int respondTime,
+
     /// 跨源聚合 origins 集合（队列⑩a P1-1 项2，2026-09-22 加法式字段）
     ///
     /// Rust 侧 `CoreSearchBook.origins`（serde default + 空时省略序列化）：
@@ -109,15 +110,15 @@ class ExploreCategory {
   }
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        if (url != null) 'url': url,
-        if (type != 'url') 'type': type,
-        if (action != null) 'action': action,
-        if (chars != null) 'chars': chars,
-        if (defaultValue != null) 'default': defaultValue,
-        if (viewName != null) 'viewName': viewName,
-        if (style != null) 'style': style!.toJson(),
-      };
+    'title': title,
+    if (url != null) 'url': url,
+    if (type != 'url') 'type': type,
+    if (action != null) 'action': action,
+    if (chars != null) 'chars': chars,
+    if (defaultValue != null) 'default': defaultValue,
+    if (viewName != null) 'viewName': viewName,
+    if (style != null) 'style': style!.toJson(),
+  };
 
   static String? _parseOptionalString(Object? value) {
     if (value == null) return null;
@@ -144,6 +145,7 @@ abstract class ReplaceRule with _$ReplaceRule {
     String? scope,
     @Default(false) @JsonKey(name: 'scopeTitle') bool scopeTitle,
     @Default(true) @JsonKey(name: 'scopeContent') bool scopeContent,
+
     /// 书源作用域开关（对齐原版 `ReplaceRule.scopeSource`，默认 false）：
     /// 书源导入时按源名/源 URL 匹配 scope 后对整源 JSON 应用替换
     @Default(false) @JsonKey(name: 'scopeSource') bool scopeSource,
@@ -310,13 +312,10 @@ abstract class RssStar with _$RssStar {
 /// Cookie存储
 @freezed
 abstract class Cookie with _$Cookie {
-  const factory Cookie({
-    @Default('') String url,
-    @Default('') String cookie,
-  }) = _Cookie;
+  const factory Cookie({@Default('') String url, @Default('') String cookie}) =
+      _Cookie;
 
-  factory Cookie.fromJson(Map<String, dynamic> json) =>
-      _$CookieFromJson(json);
+  factory Cookie.fromJson(Map<String, dynamic> json) => _$CookieFromJson(json);
 }
 
 // ─── Cache ────────────────────────────────────────────────
@@ -369,8 +368,7 @@ abstract class Server with _$Server {
     @Default(0) @JsonKey(name: 'sortNumber') int sortNumber,
   }) = _Server;
 
-  factory Server.fromJson(Map<String, dynamic> json) =>
-      _$ServerFromJson(json);
+  factory Server.fromJson(Map<String, dynamic> json) => _$ServerFromJson(json);
 }
 
 /// WebDav配置
@@ -490,6 +488,8 @@ abstract class ReadRecord with _$ReadRecord {
   const factory ReadRecord({
     @Default('') @JsonKey(name: 'deviceId') String deviceId,
     @Default('') @JsonKey(name: 'bookName') String bookName,
+    @Default('') String author,
+    int? startTime,
     @Default(0) @JsonKey(name: 'readTime') int readTime,
     @Default(0) @JsonKey(name: 'lastRead') int lastRead,
   }) = _ReadRecord;

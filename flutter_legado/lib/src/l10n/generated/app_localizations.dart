@@ -1334,6 +1334,18 @@ abstract class AppLocalizations {
   /// **'阅读时长'**
   String get readingDuration;
 
+  /// No description provided for @setReadingGoal.
+  ///
+  /// In zh, this message translates to:
+  /// **'设定阅读目标'**
+  String get setReadingGoal;
+
+  /// No description provided for @readingGoalMinutesLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标（分钟）'**
+  String get readingGoalMinutesLabel;
+
   /// 主界面文案：今日阅读目标
   ///
   /// In zh, this message translates to:
@@ -7112,6 +7124,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'结束时间'**
   String get eyeProtectionEndTime;
+
+  /// No description provided for @readRecordViewAggregate.
+  ///
+  /// In zh, this message translates to:
+  /// **'汇总视图'**
+  String get readRecordViewAggregate;
+
+  /// No description provided for @readRecordViewTimeline.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间线视图'**
+  String get readRecordViewTimeline;
+
+  /// No description provided for @readRecordViewLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最后阅读视图'**
+  String get readRecordViewLatest;
+
+  /// No description provided for @switchReadRecordView.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换阅读记录视图'**
+  String get switchReadRecordView;
+
+  /// No description provided for @filterReadRecordDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选阅读日期'**
+  String get filterReadRecordDate;
+
+  /// No description provided for @readRecordOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读总览'**
+  String get readRecordOverview;
+
+  /// No description provided for @readRecordChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'第{index}章'**
+  String readRecordChapter(int index);
+
+  /// No description provided for @readRecordTotalAchievement.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计阅读成就'**
+  String get readRecordTotalAchievement;
+
+  /// No description provided for @readRecordDateOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'{month}月{day}日阅读概览'**
+  String readRecordDateOverview(int month, int day);
+
+  /// No description provided for @readRecordSummaryBooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'已读 {count} 本'**
+  String readRecordSummaryBooks(int count);
+
+  /// No description provided for @readRecordSummaryTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计阅读 {duration}'**
+  String readRecordSummaryTime(String duration);
+
+  /// No description provided for @readRecordToday.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天'**
+  String get readRecordToday;
+
+  /// No description provided for @readRecordYesterday.
+  ///
+  /// In zh, this message translates to:
+  /// **'昨天'**
+  String get readRecordYesterday;
+
+  /// No description provided for @readRecordDaysAgo.
+  ///
+  /// In zh, this message translates to:
+  /// **'{days}天前'**
+  String readRecordDaysAgo(int days);
+
+  /// No description provided for @readRecordDayDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'已读 {duration}'**
+  String readRecordDayDuration(String duration);
+
+  /// No description provided for @readRecordBookDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读时长：{duration}'**
+  String readRecordBookDuration(String duration);
+
+  /// No description provided for @readRecordUnknownAuthor.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知作者'**
+  String get readRecordUnknownAuthor;
 }
 
 class _AppLocalizationsDelegate

@@ -39,11 +39,20 @@ void main() {
     final start = DateTime.now().millisecondsSinceEpoch;
     const record = ReadRecord(
       bookName: '真实 FFI 测试',
+      author: '真实作者',
       readTime: 1400,
       lastRead: -1,
       deviceId: '不覆盖设备',
     );
-    await repository.putReadRecord(record);
+    await repository.putReadRecord(
+      record,
+      bookUrl: 'test://book',
+      chapterIndex: 7,
+    );
+    final firstSessions = await repository.getReadRecordSessions();
+    expect(firstSessions.single.bookUrl, 'test://book');
+    expect(firstSessions.single.chapterIndex, 7);
+    expect(firstSessions.single.durationMs, 1400);
     final stored = (await repository.getReadRecords()).single;
     expect(stored.readTime, 1400);
     expect(stored.lastRead, greaterThanOrEqualTo(start));
@@ -52,6 +61,7 @@ void main() {
     await repository.putReadRecord(updated);
     await repository.putReadRecord(updated);
     expect((await repository.getReadRecords()).single.readTime, 2999);
+    expect(await repository.getReadRecordSessions(), hasLength(2));
     final year = DateTime.now().year;
     final daily = await repository.readRecordDailyList(year);
     expect(
@@ -63,7 +73,65 @@ void main() {
       const ReadRecord(bookName: '另一条', readTime: 0),
     );
     await repository.deleteReadRecord(record.bookName);
-    expect((await repository.getReadRecords()).single.bookName, '另一条');
+    expect(await repository.getReadRecords(), isEmpty);
+    expect(await repository.getAllReadRecordDetails(), isEmpty);
+    final beforeMidnight = DateTime(
+      2025,
+      12,
+      31,
+      23,
+      59,
+      59,
+    ).millisecondsSinceEpoch;
+    final afterMidnight = DateTime(2026, 1, 1, 0, 0, 1).millisecondsSinceEpoch;
+    await repository.putReadRecord(
+      ReadRecord(
+        bookName: '同名',
+        author: '甲',
+        startTime: beforeMidnight,
+        lastRead: afterMidnight,
+        readTime: 2000,
+      ),
+    );
+    await repository.putReadRecord(
+      ReadRecord(
+        bookName: '同名',
+        author: '乙',
+        startTime: afterMidnight,
+        lastRead: afterMidnight + 1500,
+        readTime: 3500,
+      ),
+    );
+    final details = await repository.getAllReadRecordDetails();
+    expect(details, hasLength(3));
+    final previousYear = await repository.getReadRecordDetails(2025);
+    expect(previousYear.single.readTime, 1000);
+    expect(
+      previousYear.single.lastRead,
+      DateTime(2026, 1, 1).millisecondsSinceEpoch,
+    );
+    final thisYear = await repository.getReadRecordDetails(2026);
+    expect(thisYear.map((d) => d.author).toSet(), {'甲', '乙'});
+    expect(thisYear.fold<int>(0, (sum, d) => sum + d.readTime), 2500);
+    await repository.deleteReadRecordDetail('同名', '甲', '2025-12-31');
+    expect(await repository.getReadRecordDetails(2025), isEmpty);
+    final remainingSessions = await repository.getReadRecordSessions();
+    final authorSession = remainingSessions.singleWhere((s) => s.author == '甲');
+    expect(
+      authorSession.startTime,
+      DateTime(2026, 1, 1).millisecondsSinceEpoch,
+    );
+    await repository.deleteReadRecordSessions([
+      authorSession.id,
+      authorSession.id,
+    ]);
+    expect((await repository.getReadRecords()).single.readTime, 1500);
+    expect((await repository.getAllReadRecordDetails()).single.author, '乙');
+    await repository.deleteReadRecord('同名', author: '乙');
+    expect(await repository.getReadRecordSessions(), isEmpty);
+    await repository.deleteReadRecord('同名');
+    expect(await repository.getAllReadRecordDetails(), isEmpty);
+    expect(await repository.readRecordDailyList(2026), isEmpty);
     await repository.clearReadRecords();
     expect(await repository.getReadRecords(), isEmpty);
     await api.initialize();

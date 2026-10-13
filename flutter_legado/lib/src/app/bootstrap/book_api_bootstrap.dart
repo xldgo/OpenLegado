@@ -33,7 +33,7 @@ BookApi createBookApi({
     initialize: startup.initialize,
     readingConfigSync: startup.configurationSync,
     bookmarkRepository: const RustBookmarkRepository(),
-    readRecordRepository: const RustReadRecordRepository(),
+    readRecordRepository: RustReadRecordRepository(),
     httpTtsRepository: const RustHttpTtsRepository(),
     httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
     bookshelfRepository: const RustBookshelfRepository(),

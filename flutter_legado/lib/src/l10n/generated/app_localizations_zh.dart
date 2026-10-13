@@ -628,6 +628,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readingDuration => '阅读时长';
 
   @override
+  String get setReadingGoal => '设定阅读目标';
+
+  @override
+  String get readingGoalMinutesLabel => '目标（分钟）';
+
+  @override
   String get todayReadingGoal => '今日阅读目标';
 
   @override
@@ -3761,4 +3767,69 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get eyeProtectionEndTime => '结束时间';
+
+  @override
+  String get readRecordViewAggregate => '汇总视图';
+
+  @override
+  String get readRecordViewTimeline => '时间线视图';
+
+  @override
+  String get readRecordViewLatest => '最后阅读视图';
+
+  @override
+  String get switchReadRecordView => '切换阅读记录视图';
+
+  @override
+  String get filterReadRecordDate => '筛选阅读日期';
+
+  @override
+  String get readRecordOverview => '阅读总览';
+
+  @override
+  String readRecordChapter(int index) {
+    return '第$index章';
+  }
+
+  @override
+  String get readRecordTotalAchievement => '累计阅读成就';
+
+  @override
+  String readRecordDateOverview(int month, int day) {
+    return '$month月$day日阅读概览';
+  }
+
+  @override
+  String readRecordSummaryBooks(int count) {
+    return '已读 $count 本';
+  }
+
+  @override
+  String readRecordSummaryTime(String duration) {
+    return '累计阅读 $duration';
+  }
+
+  @override
+  String get readRecordToday => '今天';
+
+  @override
+  String get readRecordYesterday => '昨天';
+
+  @override
+  String readRecordDaysAgo(int days) {
+    return '$days天前';
+  }
+
+  @override
+  String readRecordDayDuration(String duration) {
+    return '已读 $duration';
+  }
+
+  @override
+  String readRecordBookDuration(String duration) {
+    return '阅读时长：$duration';
+  }
+
+  @override
+  String get readRecordUnknownAuthor => '未知作者';
 }

@@ -7,7 +7,7 @@ import 'package:mocktail/mocktail.dart';
 class _Bridge extends Mock implements RustLibApi {}
 
 void main() {
-  const repository = RustReadRecordRepository();
+  final repository = RustReadRecordRepository();
   late _Bridge bridge;
 
   setUp(() {
@@ -36,20 +36,38 @@ void main() {
     verifyNoMoreInteractions(bridge);
   });
 
-  test('写入只传累计毫秒和书名，沿用 Rust 的时间与设备规则', () async {
+  test('写入传递作者和有效时段，设备归属由 Rust 决定', () async {
     when(
-      () => bridge.crateFfiFfiReadRecordUpsert(bookName: '测试', readTime: 4999),
+      () => bridge.crateFfiFfiReadRecordRecordTime(
+        bookName: '测试',
+        author: '真实作者',
+        readTimeMs: 4999,
+        startTimeMs: 1000,
+        endTimeMs: 5999,
+        bookUrl: '',
+        chapterIndex: 0,
+      ),
     ).thenAnswer((_) async => 4999);
     await repository.putReadRecord(
       const ReadRecord(
         bookName: '测试',
+        author: '真实作者',
+        startTime: 1000,
         readTime: 4999,
-        lastRead: -1,
+        lastRead: 5999,
         deviceId: '不注入',
       ),
     );
     verify(
-      () => bridge.crateFfiFfiReadRecordUpsert(bookName: '测试', readTime: 4999),
+      () => bridge.crateFfiFfiReadRecordRecordTime(
+        bookName: '测试',
+        author: '真实作者',
+        readTimeMs: 4999,
+        startTimeMs: 1000,
+        endTimeMs: 5999,
+        bookUrl: '',
+        chapterIndex: 0,
+      ),
     ).called(1);
     verifyNoMoreInteractions(bridge);
   });
@@ -96,8 +114,17 @@ void main() {
     final failure = StateError('数据库读取失败');
     when(() => bridge.crateFfiFfiReadRecordList())
         .thenAnswer((_) async => throw failure);
-    when(() => bridge.crateFfiFfiReadRecordUpsert(bookName: '测试', readTime: 1))
-        .thenAnswer((_) async => throw failure);
+    when(
+      () => bridge.crateFfiFfiReadRecordRecordTime(
+        bookName: '测试',
+        author: '',
+        readTimeMs: 1,
+        startTimeMs: null,
+        endTimeMs: null,
+        bookUrl: '',
+        chapterIndex: 0,
+      ),
+    ).thenAnswer((_) async => throw failure);
     when(() => bridge.crateFfiFfiReadRecordDelete(bookName: '测试'))
         .thenAnswer((_) async => throw failure);
     when(() => bridge.crateFfiFfiReadRecordClear())
@@ -118,5 +145,51 @@ void main() {
       repository.readRecordDailyList(2026),
       throwsA(same(failure)),
     );
+  });
+
+  test('按年和全量明细从 JSON 保留作者与毫秒，失败不缓存', () async {
+    const json =
+        '[{"bookName":"同名","author":"作者","date":"2026-01-01","readTime":1500,"lastRead":123}]';
+    when(() => bridge.crateFfiFfiReadRecordDetailList(year: 2026))
+        .thenAnswer((_) async => json);
+    when(() => bridge.crateFfiFfiReadRecordAllDetailList())
+        .thenAnswer((_) async => json);
+    final yearly = await repository.getReadRecordDetails(2026);
+    expect(yearly.single.author, '作者');
+    expect(yearly.single.readTime, 1500);
+    expect(await repository.getAllReadRecordDetails(), yearly);
+    when(() => bridge.crateFfiFfiReadRecordAllDetailList())
+        .thenAnswer((_) async => '{}');
+    await expectLater(
+      repository.getAllReadRecordDetails(),
+      throwsFormatException,
+    );
+  });
+
+  test('只有成功写入才发送变更通知', () async {
+    var events = 0;
+    final subscription = repository.changes.listen((_) => events++);
+    addTearDown(subscription.cancel);
+    when(
+      () => bridge.crateFfiFfiReadRecordRecordTime(
+        bookName: '通知',
+        author: '',
+        readTimeMs: 1,
+        startTimeMs: null,
+        endTimeMs: null,
+        bookUrl: '',
+        chapterIndex: 0,
+      ),
+    ).thenAnswer((_) async => 1);
+    await repository.putReadRecord(
+      const ReadRecord(bookName: '通知', readTime: 1),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(events, 1);
+    when(() => bridge.crateFfiFfiReadRecordClear())
+        .thenAnswer((_) async => throw StateError('写入失败'));
+    await expectLater(repository.clearReadRecords(), throwsStateError);
+    await Future<void>.delayed(Duration.zero);
+    expect(events, 1);
   });
 }

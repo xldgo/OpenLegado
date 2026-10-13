@@ -1,3 +1,6 @@
+import 'dart:ui' show SemanticsAction;
+
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/widgets/md3_heatmap_calendar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,19 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
-  Widget buildTestHost({
-    required Widget child,
-    double width = 360,
-  }) {
+  Widget buildTestHost({required Widget child, double width = 360}) {
     return ProviderScope(
       child: MaterialApp(
         home: Scaffold(
           body: Center(
             child: SizedBox(
               width: width,
-              child: SingleChildScrollView(
-                child: child,
-              ),
+              child: SingleChildScrollView(child: child),
             ),
           ),
         ),
@@ -59,9 +57,7 @@ void main() {
 
     testWidgets('空数据时优雅展示空态提示', (tester) async {
       await tester.pumpWidget(
-        buildTestHost(
-          child: const ReadingStatsGridCard(items: []),
-        ),
+        buildTestHost(child: const ReadingStatsGridCard(items: [])),
       );
       await tester.pumpAndSettle();
 
@@ -128,9 +124,7 @@ void main() {
 
     testWidgets('空列表时优雅展示空态提示', (tester) async {
       await tester.pumpWidget(
-        buildTestHost(
-          child: const ReadingRankingCard(topBooks: []),
-        ),
+        buildTestHost(child: const ReadingRankingCard(topBooks: [])),
       );
       await tester.pumpAndSettle();
 
@@ -148,12 +142,8 @@ void main() {
 
       Md3HeatmapMode? changedMode;
       final today = DateTime.now();
-      final dailySeconds = {
-        DateTime(today.year, today.month, today.day): 3600,
-      };
-      final dailyCounts = {
-        DateTime(today.year, today.month, today.day): 2,
-      };
+      final dailySeconds = {DateTime(today.year, today.month, today.day): 3600};
+      final dailyCounts = {DateTime(today.year, today.month, today.day): 2};
 
       await tester.pumpWidget(
         buildTestHost(
@@ -162,6 +152,10 @@ void main() {
             dailySeconds: dailySeconds,
             dailyCounts: dailyCounts,
             weeks: 12,
+            trailing: IconButton(
+              icon: const Icon(Symbols.chevron_right_rounded),
+              onPressed: () {},
+            ),
             onModeChanged: (m) => changedMode = m,
           ),
         ),
@@ -177,6 +171,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(changedMode, Md3HeatmapMode.count);
+      expect(find.text('多'), findsOneWidget);
+      expect(find.textContaining('格 ='), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -203,15 +199,11 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
+      final semantics = tester.ensureSemantics();
       DateTime? tappedDate;
-      CalendarBookInfo? tappedBook;
       final refDate = DateTime(2026, 8, 15);
       final dailyTopBook = <String, CalendarBookInfo>{
-        '2026-08-15': (
-          bookName: '三体',
-          author: '刘慈欣',
-          coverUrl: null,
-        ),
+        '2026-08-15': (bookName: '三体', author: '刘慈欣', coverUrl: null),
       };
 
       await tester.pumpWidget(
@@ -220,8 +212,7 @@ void main() {
           child: ReadingCalendarCard(
             referenceDate: refDate,
             dailyTopBook: dailyTopBook,
-            onDateTap: (d) => tappedDate = d,
-            onBookTap: (d, b) => tappedBook = b,
+            onDateTap: (date) => tappedDate = date,
           ),
         ),
       );
@@ -232,11 +223,23 @@ void main() {
       expect(find.text('六'), findsOneWidget);
       expect(find.text('15'), findsOneWidget);
 
+      try {
+        for (final description in ['8月15日 · 《三体》 刘慈欣', '8月16日 无阅读记录']) {
+          final node = tester.getSemantics(find.bySemanticsLabel(description));
+          expect(
+            node.getSemanticsData().hasAction(SemanticsAction.tap),
+            description.contains('三体'),
+          );
+        }
+      } finally {
+        semantics.dispose();
+      }
+      await tester.tap(find.text('16'));
+      await tester.pumpAndSettle();
+      expect(tappedDate, isNull);
       await tester.tap(find.text('15'));
       await tester.pumpAndSettle();
-
-      expect(tappedDate?.day, 15);
-      expect(tappedBook?.bookName, '三体');
+      expect(tappedDate, DateTime(2026, 8, 15));
       expect(tester.takeException(), isNull);
     });
 

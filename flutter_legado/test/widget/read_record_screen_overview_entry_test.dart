@@ -5,7 +5,6 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,10 +25,9 @@ void main() {
     mockApi = MockRustApi();
 
     when(() => mockRepo.getReadRecords()).thenAnswer(
-      (_) async => [
-        const ReadRecord(bookName: '测试书籍', readTime: 120000),
-      ],
+      (_) async => [const ReadRecord(bookName: '测试书籍', readTime: 120000)],
     );
+    when(() => mockRepo.getAllReadRecordDetails()).thenAnswer((_) async => []);
     when(() => mockRepo.readRecordDailyList(any())).thenAnswer(
       (_) async => [
         {'date': '2026-05-20', 'seconds': 120},
@@ -46,31 +44,31 @@ void main() {
       child: MaterialApp(
         navigatorObservers: observer != null ? [observer] : [],
         routes: {
-          AppRoutes.readRecordOverview: (context) => const Scaffold(
-                body: Text('阅读总览页面'),
-              ),
+          AppRoutes.readRecordOverview: (context) =>
+              const Scaffold(body: Text('阅读总览页面')),
         },
         home: const ReadRecordScreen(),
       ),
     );
   }
 
-  testWidgets('渲染阅读记录页时顶栏能找到「阅读总览」按钮', (tester) async {
+  testWidgets('渲染阅读记录页时汇总卡能找到阅读总览入口', (tester) async {
     await tester.pumpWidget(buildTestWidget());
     await tester.pumpAndSettle();
 
-    final buttonFinder = find.widgetWithIcon(IconButton, Symbols.leaderboard_rounded);
+    final buttonFinder = find.byTooltip('阅读总览');
     expect(buttonFinder, findsOneWidget);
 
-    final iconButton = tester.widget<IconButton>(buttonFinder);
-    expect(iconButton.tooltip, '阅读总览');
+    expect(find.text('累计阅读成就'), findsOneWidget);
   });
 
-  testWidgets('点击「阅读总览」按钮时能正确触发导航跳转至 AppRoutes.readRecordOverview', (tester) async {
+  testWidgets('点击「阅读总览」按钮时能正确触发导航跳转至 AppRoutes.readRecordOverview', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget());
     await tester.pumpAndSettle();
 
-    final buttonFinder = find.widgetWithIcon(IconButton, Symbols.leaderboard_rounded);
+    final buttonFinder = find.byTooltip('阅读总览');
     expect(buttonFinder, findsOneWidget);
 
     await tester.tap(buttonFinder);

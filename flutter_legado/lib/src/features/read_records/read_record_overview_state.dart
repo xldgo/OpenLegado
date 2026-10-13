@@ -1,13 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// 阅读统计时间周期（对齐上游 ReadPeriod）
-enum ReadPeriod {
-  day,
-  week,
-  month,
-  year,
-  all,
-}
+enum ReadPeriod { day, week, month, year, all }
 
 /// 书籍阅读排行项（对齐上游 ReadBookRanking）
 @immutable
@@ -88,7 +82,7 @@ class ReadRecordOverviewState {
 
   /// 日期 YYYY-MM-DD -> 当日阅读时长最长的一本书（用于读书日历）
   final Map<String, ({String bookName, String author, String? coverUrl})>
-      dailyTopBook;
+  dailyTopBook;
 
   /// 日期 YYYY-MM-DD -> 当日阅读秒数（用于热力图）
   final Map<String, int> allDailyTimes;
@@ -98,6 +92,8 @@ class ReadRecordOverviewState {
 
   /// 加载中
   final bool isLoading;
+
+  final String? error;
 
   const ReadRecordOverviewState({
     this.period = ReadPeriod.day,
@@ -113,6 +109,7 @@ class ReadRecordOverviewState {
     this.allDailyTimes = const {},
     this.allDailyCounts = const {},
     this.isLoading = false,
+    this.error,
   });
 
   ReadRecordOverviewState copyWith({
@@ -126,10 +123,12 @@ class ReadRecordOverviewState {
     List<({DateTime date, int seconds})>? dailyTimeData,
     List<ReadBookRanking>? topBooks,
     Map<String, ({String bookName, String author, String? coverUrl})>?
-        dailyTopBook,
+    dailyTopBook,
     Map<String, int>? allDailyTimes,
     Map<String, int>? allDailyCounts,
     bool? isLoading,
+    String? error,
+    bool clearError = false,
   }) {
     return ReadRecordOverviewState(
       period: period ?? this.period,
@@ -145,6 +144,7 @@ class ReadRecordOverviewState {
       allDailyTimes: allDailyTimes ?? this.allDailyTimes,
       allDailyCounts: allDailyCounts ?? this.allDailyCounts,
       isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }

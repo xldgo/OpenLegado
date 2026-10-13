@@ -35,6 +35,8 @@ class Md3HeatmapCalendar extends StatelessWidget {
 
   /// 基色（5 级由 primary 透明度阶梯派生）
   final Color? color;
+  final ValueChanged<DateTime>? onDateSelected;
+  final DateTime? selectedDate;
 
   const Md3HeatmapCalendar({
     super.key,
@@ -44,6 +46,8 @@ class Md3HeatmapCalendar extends StatelessWidget {
     required this.endDate,
     this.weeks = 52,
     this.color,
+    this.onDateSelected,
+    this.selectedDate,
   });
 
   /// 按记录列表聚合每日书籍数（lastRead 落日 + 书名去重）
@@ -169,14 +173,25 @@ class Md3HeatmapCalendar extends StatelessWidget {
                             child: Tooltip(
                               message: tooltipFor(day, level),
                               triggerMode: TooltipTriggerMode.tap,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: isFuture
-                                      ? Colors.transparent
-                                      : _colorForLevel(level, scheme, base),
-                                  borderRadius: BorderRadius.circular(2),
+                              child: InkWell(
+                                onTap:
+                                    !isFuture &&
+                                        level > 0 &&
+                                        onDateSelected != null
+                                    ? () => onDateSelected!(day)
+                                    : null,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: isFuture
+                                        ? Colors.transparent
+                                        : _colorForLevel(level, scheme, base),
+                                    borderRadius: BorderRadius.circular(2),
+                                    border: selectedDate == day
+                                        ? Border.all(color: scheme.onSurface)
+                                        : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -211,9 +226,7 @@ class Md3HeatmapCalendar extends StatelessWidget {
                 ),
               ),
             Text(
-              mode == Md3HeatmapMode.duration
-                  ? context.l10n.heatmapMore
-                  : context.l10n.heatmapBooksLegend,
+              context.l10n.heatmapMore,
               style: Theme.of(context).textTheme.labelSmall
                   ?.copyWith(color: scheme.onSurfaceVariant),
             ),

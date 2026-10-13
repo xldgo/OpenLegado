@@ -23,13 +23,24 @@ void main() {
     records = _Records();
     api = MockRustApi();
     when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
-    when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => api.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
     when(() => records.getReadRecords()).thenAnswer(
       (_) async => [const ReadRecord(bookName: '窄接口小说', readTime: 5000)],
     );
     final now = DateTime.now();
     final date =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    when(() => records.getAllReadRecordDetails()).thenAnswer(
+      (_) async => [
+        ReadRecordDetail(
+          bookName: '窄接口小说',
+          author: '',
+          date: date,
+          readTime: 7000,
+        ),
+      ],
+    );
     when(() => records.readRecordDailyList(now.year)).thenAnswer(
       (_) async => [
         {'date': date, 'seconds': 7},
@@ -53,16 +64,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('记录页及按天视图使用同一窄接口，不读取根记录实现', (tester) async {
+  testWidgets('记录页汇总与最后阅读使用同一真实明细窄接口', (tester) async {
     await pump(tester, const ReadRecordScreen());
     expect(find.text('窄接口小说'), findsOneWidget);
-    verify(() => records.getReadRecords()).called(1);
-    verify(() => records.readRecordDailyList(DateTime.now().year)).called(1);
+    verify(() => records.getReadRecords()).called(2);
+    verify(() => records.getAllReadRecordDetails()).called(1);
+    verifyNever(() => records.readRecordDailyList(DateTime.now().year));
     verifyNever(() => api.readRecordRepository);
-    await tester.tap(find.text('按天'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ReadRecordDailyView), findsOneWidget);
     expect(find.textContaining('7秒'), findsWidgets);
+    expect(find.text('按天'), findsNothing);
+    expect(find.text('按书'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -71,7 +82,8 @@ void main() {
     expect(find.text('累计阅读'), findsOneWidget);
     expect(find.text('阅读时长'), findsOneWidget);
     verify(() => records.getReadRecords()).called(1);
-    verify(() => records.readRecordDailyList(DateTime.now().year)).called(2);
+    verify(() => records.getAllReadRecordDetails()).called(1);
+    verifyNever(() => records.readRecordDailyList(DateTime.now().year));
     verifyNever(() => api.readRecordRepository);
     expect(tester.takeException(), isNull);
   });
