@@ -179,6 +179,85 @@ void main() {
       expect(count, 0);
       verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     });
+
+    test('保护用户配置：用户修改已有同 ID 引擎的名称、URL 或 Header 后，自动同步不会覆盖该引擎', () async {
+      when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
+        (_) async => const [
+          HttpTts(
+            id: -100,
+            name: '1.百度-用户定制',
+            url: 'https://custom.baidu.example/tts?text={{text}}',
+            header: '{"Authorization":"Bearer user-secret"}',
+          ),
+        ],
+      );
+      final json = jsonEncode([
+        {
+          'id': -100,
+          'name': '1.百度',
+          'url': _seedBaiduUrl,
+          'header': '{}',
+        },
+        {
+          'id': -29,
+          'name': '2.阿里云语音',
+          'url': 'https://nls.example.com/tts',
+        },
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 1);
+      expect(added, hasLength(1));
+      expect(added.single.id, -29);
+      expect(added.single.name, '2.阿里云语音');
+    });
+
+    test('读取现有配置失败时立即中止并返回 0，绝不按空库继续覆盖写入', () async {
+      when(() => api.httpTtsRepository.getHttpTts())
+          .thenThrow(StateError('数据库繁忙'));
+      final json = jsonEncode([
+        {'id': -100, 'name': '1.百度', 'url': _seedBaiduUrl},
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 0);
+      verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
+    });
+
+    test('单条种子字段解析错误不会中断后续有效种子的导入', () async {
+      final json = jsonEncode([
+        {
+          'id': -100,
+          'name': '损坏条目',
+          'url': 'http://broken.example/tts',
+          'speed': 'not-an-int',
+        },
+        {
+          'id': -29,
+          'name': '2.阿里云语音',
+          'url': 'https://nls.example.com/tts',
+          'speed': 10,
+        },
+      ]);
+
+      final count = await syncDefaultHttpTts(
+        api.httpTtsRepository,
+        jsonOverride: json,
+      );
+
+      expect(count, 1);
+      expect(added, hasLength(1));
+      expect(added.single.id, -29);
+      expect(added.single.name, '2.阿里云语音');
+    });
   });
 
   group('ensureDefaultHttpTts 版本门控', () {

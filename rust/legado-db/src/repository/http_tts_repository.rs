@@ -157,37 +157,36 @@ impl<'a> HttpTtsRepository<'a> {
         Self { conn }
     }
 
-    /// 分配下一个正整数 ID（与 Android 导入负/正时间戳 ID 共存）
-    fn next_id(&self) -> i64 {
-        self.conn
-            .query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM httpTTS", [], |row| {
-                row.get::<_, i64>(0)
-            })
-            .unwrap_or(1)
-            .max(1)
-    }
-
-    /// 插入一条 TTS 源（仅传名称与 URL 的便捷入口），返回新 ID
-    pub fn insert(&self, name: &str, url: &str) -> LegadoResult<i64> {
-        let entity = HttpTts {
-            name: name.to_string(),
-            url: url.to_string(),
-            ..HttpTts::default()
-        };
-        self.insert_entity(&entity)
-    }
-
-    /// 插入或覆盖完整 TTS 源实体，返回最终 ID
-    ///
-    /// - `tts.id != 0`：保留输入 ID（使用 `INSERT OR REPLACE` 对齐原版 Room `@Insert(onConflict = REPLACE)`）
-    /// - `tts.id == 0`：自动分配正 ID
-    pub fn insert_entity(&self, tts: &HttpTts) -> LegadoResult<i64> {
-        let id = if tts.id != 0 { tts.id } else { self.next_id() };
-        let last_update_time = if tts.last_update_time > 0 {
-            tts.last_update_time
+    /// 执行显式 ID 插入或替换
+    fn execute_insert_with_id(
+        &self,
+        id: i64,
+        tts: &HttpTts,
+        last_update_time: i64,
+        or_replace: bool,
+    ) -> LegadoResult<()> {
+        let sql = if or_replace {
+            "INSERT OR REPLACE INTO httpTTS (
+                id, name, url, contentType, pauseDuration, concurrentRate,
+                loginUrl, loginUi, header, jsLib, enabledCookieJar, loginCheckJs,
+                speed, synthesisThreadCount, lastUpdateTime, isEnabled
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6,
+                ?7, ?8, ?9, ?10, ?11, ?12,
+                ?13, ?14, ?15, ?16
+             )"
         } else {
-            current_time_millis()
+            "INSERT INTO httpTTS (
+                id, name, url, contentType, pauseDuration, concurrentRate,
+                loginUrl, loginUi, header, jsLib, enabledCookieJar, loginCheckJs,
+                speed, synthesisThreadCount, lastUpdateTime, isEnabled
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6,
+                ?7, ?8, ?9, ?10, ?11, ?12,
+                ?13, ?14, ?15, ?16
+             )"
         };
+
         let concurrent_rate = tts
             .concurrent_rate
             .clone()
@@ -200,15 +199,7 @@ impl<'a> HttpTtsRepository<'a> {
 
         self.conn
             .execute(
-                "INSERT OR REPLACE INTO httpTTS (
-                    id, name, url, contentType, pauseDuration, concurrentRate,
-                    loginUrl, loginUi, header, jsLib, enabledCookieJar, loginCheckJs,
-                    speed, synthesisThreadCount, lastUpdateTime, isEnabled
-                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6,
-                    ?7, ?8, ?9, ?10, ?11, ?12,
-                    ?13, ?14, ?15, ?16
-                 )",
+                sql,
                 params![
                     id,
                     tts.name,
@@ -229,7 +220,89 @@ impl<'a> HttpTtsRepository<'a> {
                 ],
             )
             .map_err(|e| LegadoError::Database(format!("插入 TTS 源失败: {e}")))?;
+        Ok(())
+    }
+
+    /// 原子分配下一个正整数 ID 并执行 `INSERT INTO`（单条 SQL 原子执行，绝不使用 OR REPLACE）
+    fn execute_atomic_auto_insert(
+        &self,
+        tts: &HttpTts,
+        last_update_time: i64,
+    ) -> LegadoResult<i64> {
+        let concurrent_rate = tts
+            .concurrent_rate
+            .clone()
+            .unwrap_or_else(|| "0".to_string());
+        let enabled_cookie_jar = tts.enabled_cookie_jar.unwrap_or(false) as i32;
+        let synthesis_thread_count = tts
+            .synthesis_thread_count
+            .clamp(1, MAX_SYNTHESIS_THREAD_COUNT);
+        let is_enabled = tts.is_enabled as i32;
+
+        let id: i64 = self
+            .conn
+            .query_row(
+                "INSERT INTO httpTTS (
+                    id, name, url, contentType, pauseDuration, concurrentRate,
+                    loginUrl, loginUi, header, jsLib, enabledCookieJar, loginCheckJs,
+                    speed, synthesisThreadCount, lastUpdateTime, isEnabled
+                 ) VALUES (
+                    (SELECT COALESCE(MAX(CASE WHEN id > 0 THEN id ELSE 0 END), 0) + 1 FROM httpTTS),
+                    ?1, ?2, ?3, ?4, ?5,
+                    ?6, ?7, ?8, ?9, ?10, ?11,
+                    ?12, ?13, ?14, ?15
+                 )
+                 RETURNING id",
+                params![
+                    tts.name,
+                    tts.url,
+                    tts.content_type,
+                    tts.pause_duration,
+                    concurrent_rate,
+                    tts.login_url,
+                    tts.login_ui,
+                    tts.header,
+                    tts.js_lib,
+                    enabled_cookie_jar,
+                    tts.login_check_js,
+                    tts.speed,
+                    synthesis_thread_count,
+                    last_update_time,
+                    is_enabled,
+                ],
+                |row| row.get(0),
+            )
+            .map_err(|e| LegadoError::Database(format!("新增 TTS 源失败: {e}")))?;
         Ok(id)
+    }
+
+    /// 插入一条 TTS 源（仅传名称与 URL 的便捷入口），返回新 ID
+    pub fn insert(&self, name: &str, url: &str) -> LegadoResult<i64> {
+        let entity = HttpTts {
+            name: name.to_string(),
+            url: url.to_string(),
+            ..HttpTts::default()
+        };
+        self.insert_entity(&entity)
+    }
+
+    /// 插入或覆盖完整 TTS 源实体，返回最终 ID
+    ///
+    /// - `tts.id != 0`：显式指定 ID（使用 `INSERT OR REPLACE` 对齐原版 Room `@Insert(onConflict = REPLACE)`）
+    /// - `tts.id == 0`：单条 `INSERT INTO ... RETURNING id` 原子分配正整数 ID，绝不使用 `OR REPLACE` 覆盖已有记录
+    pub fn insert_entity(&self, tts: &HttpTts) -> LegadoResult<i64> {
+        let last_update_time = if tts.last_update_time > 0 {
+            tts.last_update_time
+        } else {
+            current_time_millis()
+        };
+
+        if tts.id != 0 {
+            self.execute_insert_with_id(tts.id, tts, last_update_time, true)?;
+            Ok(tts.id)
+        } else {
+            self.execute_atomic_auto_insert(tts, last_update_time)
+        }
     }
 
     /// 获取所有 TTS 源
@@ -510,5 +583,66 @@ mod tests {
         let mut missing = after_update.clone();
         missing.id = 999999;
         assert!(!repo.update_entity(&missing).unwrap());
+    }
+
+    #[test]
+    fn test_auto_id_insert_is_atomic_and_never_overwrites_existing_records() {
+        let db_path = std::env::temp_dir().join(format!(
+            "legado_concurrent_tts_{}_{}.db",
+            std::process::id(),
+            current_time_millis()
+        ));
+        let _ = std::fs::remove_file(&db_path);
+        let db1 = crate::init_database(db_path.to_str().unwrap()).unwrap();
+        let db2 = crate::init_database(db_path.to_str().unwrap()).unwrap();
+
+        let repo1 = HttpTtsRepository::new(db1.connection());
+        let repo2 = HttpTtsRepository::new(db2.connection());
+
+        // 先插入负 ID 种子，验证自动分配的正 ID 从 1 起算，不受负 ID 干扰
+        let seed = HttpTts {
+            id: -100,
+            name: "百度种子".to_string(),
+            url: "http://baidu.example/tts".to_string(),
+            ..HttpTts::default()
+        };
+        assert_eq!(repo1.insert_entity(&seed).unwrap(), -100);
+
+        // 两个独立连接先后/交错执行 id=0 自动新增，均应分配唯一正 ID 且不覆盖彼此
+        let first_auto = HttpTts {
+            id: 0,
+            name: "用户新增A".to_string(),
+            url: "http://user-a.example/tts".to_string(),
+            ..HttpTts::default()
+        };
+        let second_auto = HttpTts {
+            id: 0,
+            name: "用户新增B".to_string(),
+            url: "http://user-b.example/tts".to_string(),
+            ..HttpTts::default()
+        };
+
+        let id_a = repo1.insert_entity(&first_auto).unwrap();
+        let id_b = repo2.insert_entity(&second_auto).unwrap();
+        assert_eq!(id_a, 1);
+        assert_eq!(id_b, 2);
+
+        // 非 replace 模式下，显式向已有 ID 插入必须报主键冲突错误，绝不静默覆盖
+        let err = repo1
+            .execute_insert_with_id(id_a, &second_auto, 1700000000000, false)
+            .unwrap_err();
+        assert!(err.to_string().contains("UNIQUE constraint failed"));
+
+        // 校验全部 3 条记录完好无损，A 未被覆盖
+        let all = repo1.find_all().unwrap();
+        assert_eq!(all.len(), 3);
+        let loaded_a = repo1.find_by_id(id_a).unwrap().unwrap();
+        let loaded_b = repo1.find_by_id(id_b).unwrap().unwrap();
+        assert_eq!(loaded_a.name, "用户新增A");
+        assert_eq!(loaded_b.name, "用户新增B");
+
+        drop(db1);
+        drop(db2);
+        let _ = std::fs::remove_file(&db_path);
     }
 }

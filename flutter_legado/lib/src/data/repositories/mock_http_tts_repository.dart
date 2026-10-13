@@ -31,6 +31,14 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
   final int Function() nextId;
   final List<HttpTts> _httpTtsList = [];
 
+  int _allocateNewId() {
+    var candidate = nextId();
+    while (_httpTtsList.any((e) => e.id == candidate)) {
+      candidate = nextId();
+    }
+    return candidate;
+  }
+
   // ========== HTTP TTS ==========
 
   @override
@@ -38,18 +46,23 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
 
   @override
   Future<HttpTts> addHttpTts(HttpTts tts) async {
+    final isAutoId = tts.id == 0;
     final t = tts.copyWith(
-      id: tts.id != 0 ? tts.id : nextId(),
+      id: isAutoId ? _allocateNewId() : tts.id,
       synthesisThreadCount: tts.synthesisThreadCount.clamp(
         1,
         kMaxHttpTtsSynthesisThreadCount,
       ),
     );
-    final existingIdx = _httpTtsList.indexWhere((e) => e.id == t.id);
-    if (existingIdx >= 0) {
-      _httpTtsList[existingIdx] = t;
-    } else {
+    if (isAutoId) {
       _httpTtsList.add(t);
+    } else {
+      final existingIdx = _httpTtsList.indexWhere((e) => e.id == t.id);
+      if (existingIdx >= 0) {
+        _httpTtsList[existingIdx] = t;
+      } else {
+        _httpTtsList.add(t);
+      }
     }
     return t;
   }

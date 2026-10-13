@@ -71,12 +71,8 @@ Future<int> syncDefaultHttpTts(
     final decoded = jsonDecode(trimmed);
     if (decoded is! List) return 0;
     seeds = decoded
-        .whereType<Map<String, dynamic>>()
-        .where(
-          (item) =>
-              ((item['name'] as String?)?.trim() ?? '').isNotEmpty &&
-              ((item['url'] as String?)?.trim() ?? '').isNotEmpty,
-        )
+        .whereType<Map<dynamic, dynamic>>()
+        .map((item) => Map<String, dynamic>.from(item))
         .toList();
   } catch (e) {
     debugPrint('httpTTS 种子 JSON 解析失败，跳过导入: $e');
@@ -84,27 +80,53 @@ Future<int> syncDefaultHttpTts(
   }
   if (seeds.isEmpty) return 0;
 
-  final existing = <String>{};
+  final List<HttpTts> existingList;
   try {
-    for (final engine in await api.getHttpTts()) {
-      existing.add('${engine.name}\u0000${engine.url}');
-    }
+    existingList = await api.getHttpTts();
   } catch (e) {
-    debugPrint('读取已有朗读引擎失败（按空库处理）: $e');
+    debugPrint('读取已有朗读引擎失败，中止种子同步（保护已有配置）: $e');
+    return 0;
+  }
+
+  final existingIds = <int>{};
+  final existingNameUrls = <String>{};
+  for (final engine in existingList) {
+    if (engine.id != 0) {
+      existingIds.add(engine.id);
+    }
+    existingNameUrls.add('${engine.name}\u0000${engine.url}');
   }
 
   var imported = 0;
   for (final seed in seeds) {
-    final parsed = HttpTts.fromJson(seed).copyWith(
-      name: (seed['name'] as String).trim(),
-      url: (seed['url'] as String).trim(),
-    );
-    if (!existing.add('${parsed.name}\u0000${parsed.url}')) continue;
     try {
+      final rawName = seed['name'];
+      final rawUrl = seed['url'];
+      if (rawName is! String || rawUrl is! String) continue;
+      final name = rawName.trim();
+      final url = rawUrl.trim();
+      if (name.isEmpty || url.isEmpty) continue;
+
+      final parsed = HttpTts.fromJson(seed).copyWith(
+        name: name,
+        url: url,
+      );
+
+      // 稳定身份防护：若已有记录中已存在该 ID（如负数预设 ID）或相同的名称+URL，跳过导入以保护用户配置
+      if (parsed.id != 0 && existingIds.contains(parsed.id)) {
+        continue;
+      }
+      final nameUrlKey = '${parsed.name}\u0000${parsed.url}';
+      if (existingNameUrls.contains(nameUrlKey)) {
+        continue;
+      }
+
       await api.addHttpTts(parsed);
+      if (parsed.id != 0) existingIds.add(parsed.id);
+      existingNameUrls.add(nameUrlKey);
       imported++;
     } catch (e) {
-      debugPrint('httpTTS 种子导入失败（${parsed.name}）: $e');
+      debugPrint('httpTTS 种子单条解析或导入失败，跳过该条: $e');
     }
   }
   return imported;
