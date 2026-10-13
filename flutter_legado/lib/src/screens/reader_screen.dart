@@ -13,7 +13,7 @@ import '../models/book_source.dart';
 import '../models/source_match.dart';
 import '../providers/audio/audio_notifier.dart';
 import '../features/bookmarks/bookmarks.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';

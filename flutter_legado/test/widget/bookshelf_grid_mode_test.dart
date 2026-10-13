@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 选择模式（批量）网格视图书卡渲染回归测试

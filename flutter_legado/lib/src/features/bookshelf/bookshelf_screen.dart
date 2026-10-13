@@ -1,5 +1,5 @@
-import '../features/bookshelf/bookshelf_repositories.dart';
-import '../widgets/app_menu.dart';
+import 'bookshelf_repositories.dart';
+import '../../widgets/app_menu.dart';
 
 import 'dart:convert';
 import 'dart:io';
@@ -8,29 +8,29 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
-import '../bridge/ffi.dart' show BridgeError;
-import '../l10n/app_localization.dart';
-import '../models/models.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../providers/providers.dart';
-import '../providers/reader/reader_notifier.dart';
-import '../routes.dart';
-import '../services/local_book_store.dart';
-import '../utils/book_open_utils.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/app_progress_indicator.dart';
-import '../widgets/book_grid_item.dart';
-import '../widgets/book_list_item.dart';
-import '../widgets/bookshelf_group_label.dart';
-import '../widgets/custom_refresh_indicator.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/error_view.dart';
-import '../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
+import '../../bridge/ffi.dart' show BridgeError;
+import '../../l10n/app_localization.dart';
+import '../../models/models.dart';
+import 'bookshelf_notifier.dart';
+import '../../providers/providers.dart';
+import '../../providers/reader/reader_notifier.dart';
+import '../../routes.dart';
+import '../../services/local_book_store.dart';
+import '../../utils/book_open_utils.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/app_progress_indicator.dart';
+import 'widgets/book_grid_item.dart';
+import 'widgets/book_list_item.dart';
+import 'widgets/bookshelf_group_label.dart';
+import '../../widgets/custom_refresh_indicator.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
 
 /// 书架页面（Riverpod ConsumerStatefulWidget）
 ///

@@ -1,28 +1,28 @@
-import '../features/bookshelf/bookshelf_repositories.dart';
-import '../widgets/app_menu.dart';
+import 'bookshelf_repositories.dart';
+import '../../widgets/app_menu.dart';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/md3_fast_scroller.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+import '../../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../constants/pref_keys.dart';
-import '../models/models.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../providers/bookshelf_manage/bookshelf_manage_notifier.dart';
-import '../providers/providers.dart';
-import '../routes.dart';
-import '../widgets/app_progress_indicator.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/error_view.dart';
-import '../widgets/loading_indicator.dart';
+import '../../constants/pref_keys.dart';
+import '../../models/models.dart';
+import 'bookshelf_notifier.dart';
+import 'bookshelf_manage_notifier.dart';
+import '../../providers/providers.dart';
+import '../../routes.dart';
+import '../../widgets/app_progress_indicator.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/loading_indicator.dart';
 
 /// 书架管理页面
 ///

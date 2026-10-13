@@ -6,16 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../l10n/app_localization.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../routes.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/bookshelf_group_label.dart';
 import '../widgets/navigation/app_navigation_bars.dart';
 import '../providers/bottom_bar_skin_notifier.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/theme/system_bar_notifier.dart';
 import '../providers/ui_settings/ui_settings_notifier.dart';
-import 'bookshelf_screen.dart';
 import 'explore_screen.dart';
 import 'home_tab_screen.dart';
 import 'rss_screen.dart';

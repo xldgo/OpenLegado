@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/book_grid_item.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 void main() {
   Widget buildTestWidget({

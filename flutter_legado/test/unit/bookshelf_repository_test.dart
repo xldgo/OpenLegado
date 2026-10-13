@@ -7,10 +7,8 @@ import 'package:flutter_legado/src/data/repositories/rust_book_group_repository.
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
-import 'package:flutter_legado/src/features/bookshelf/bookshelf_repositories.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/bookshelf_manage/bookshelf_manage_notifier.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

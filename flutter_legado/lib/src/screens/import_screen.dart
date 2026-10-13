@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:path_provider/path_provider.dart';
 
 import '../l10n/app_strings.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../providers/providers.dart';
 import '../routes.dart';
 import '../widgets/empty_state.dart';

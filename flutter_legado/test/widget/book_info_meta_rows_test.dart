@@ -20,7 +20,7 @@ import 'package:share_plus_platform_interface/share_plus_platform_interface.dart
 import 'package:share_plus_platform_interface/method_channel/method_channel_share.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';

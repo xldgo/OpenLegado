@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:path_provider/path_provider.dart';
 
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../providers/providers.dart';
 import '../services/book_api.dart';
 import '../utils/error_message.dart';

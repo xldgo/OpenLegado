@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/widgets/book_list_item.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 /// BookListItem 结构与角标验证（对标 item_bookshelf_list.xml）
 void main() {

@@ -6,7 +6,7 @@ import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../providers/remote_book/remote_book_notifier.dart';
 import '../routes.dart';
 import '../services/settings_service.dart';

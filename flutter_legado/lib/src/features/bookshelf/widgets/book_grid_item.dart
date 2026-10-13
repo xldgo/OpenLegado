@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'book_cover.dart';
+import '../../../widgets/book_cover.dart';
 
 /// 书架网格项（对标原版 item_bookshelf_grid.xml）
 ///

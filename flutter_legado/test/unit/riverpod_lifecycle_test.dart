@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/providers/bottom_bar_skin_notifier.dart';
 import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
@@ -34,11 +34,11 @@ void main() {
         SharedPreferences.setMockInitialValues({});
         final gate = Completer<void>();
         final api = MockRustApi();
-        when(api.getBooks).thenAnswer((_) async {
+        when(api.bookshelfRepository.getBooks).thenAnswer((_) async {
           await gate.future;
           return [];
         });
-        when(api.getBookGroups).thenAnswer((_) async {
+        when(api.bookGroupRepository.getBookGroups).thenAnswer((_) async {
           await gate.future;
           return [];
         });

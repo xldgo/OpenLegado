@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localization.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
+import '../features/bookshelf/bookshelf.dart';
 import '../providers/search/search_notifier.dart';
 import '../routes.dart';
 import '../widgets/book_cover.dart';

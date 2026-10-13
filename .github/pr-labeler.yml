@@ -53,10 +53,8 @@
       - any-glob-to-any-file:
           - 'flutter_legado/lib/src/screens/home_screen.dart'
           - 'flutter_legado/lib/src/screens/home_tab_screen.dart'
-          - 'flutter_legado/lib/src/screens/bookshelf*'
-          - 'flutter_legado/lib/src/screens/book_group*'
+          - 'flutter_legado/lib/src/features/bookshelf/**'
           - 'flutter_legado/lib/src/screens/book_manage*'
-          - 'flutter_legado/lib/src/providers/bookshelf*/**'
 'area: book source':
   - changed-files:
       - any-glob-to-any-file:

@@ -1,10 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../models/models.dart';
-import '../utils/book_progress_utils.dart';
-import '../utils/time_utils.dart';
-import 'book_cover.dart';
+import '../../../models/models.dart';
+import '../../../utils/book_progress_utils.dart';
+import '../../../utils/time_utils.dart';
+import '../../../widgets/book_cover.dart';
 
 /// 书架列表项（对标原版 item_bookshelf_list.xml）
 ///

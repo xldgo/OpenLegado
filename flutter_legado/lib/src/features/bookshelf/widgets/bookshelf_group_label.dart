@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../l10n/app_localization.dart';
-import '../models/models.dart';
-import '../providers/bookshelf/bookshelf_state.dart';
+import '../../../l10n/app_localization.dart';
+import '../../../models/models.dart';
+import '../bookshelf_state.dart';
 
 /// 内置分类只翻译显示名称，不回写数据；自定义分组保留用户原名。
 String bookshelfGroupLabel(BuildContext context, BookGroup group) =>

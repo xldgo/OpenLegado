@@ -1,11 +1,11 @@
-import '../../features/bookshelf/bookshelf_repositories.dart';
+import 'bookshelf_repositories.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../services/settings_service.dart';
-import '../providers.dart';
+import '../../providers/providers.dart';
 import 'bookshelf_state.dart';
 
 export 'bookshelf_state.dart';

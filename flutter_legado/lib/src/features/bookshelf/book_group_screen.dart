@@ -1,21 +1,21 @@
-import '../features/bookshelf/bookshelf_repositories.dart';
-import '../l10n/app_localization.dart';
-import '../widgets/app_menu.dart';
+import 'bookshelf_repositories.dart';
+import '../../l10n/app_localization.dart';
+import '../../widgets/app_menu.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../l10n/app_strings.dart';
-import '../models/models.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../widgets/book_cover.dart';
-import '../widgets/confirm_dialog.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/loading_indicator.dart';
-import '../utils/error_message.dart';
+import '../../l10n/app_strings.dart';
+import '../../models/models.dart';
+import 'bookshelf_notifier.dart';
+import '../../widgets/book_cover.dart';
+import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
+import '../../utils/error_message.dart';
 
 /// 分组排序方式
 enum _GroupSort { order, name, bookCount }

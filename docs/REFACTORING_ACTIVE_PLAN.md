@@ -131,6 +131,10 @@
 - **第十步 Android 构建安装（2026-10-13）**：按用户要求使用 JDK 25、Java/JVM 17 目标进行 x86_64 Debug 增量构建，Kotlin 增量编译保持开启。已有 Rust 库只读校验通过后以 `--skip-rust` 复用，APK 构建与包内原生库 strip 来源摘要校验通过（Gradle 114.1 秒）。实时探测确认官方 AVD `Legado_API_36` 为 `emulator-5556`，通过 `adb install -r` 覆盖安装并保留数据；既有冒烟脚本七项通过，冷启动进程存活、书架与底栏正常、应用启动日志错误为零。版本保持 `2.0.373+374`；证据在忽略目录 `flutter_legado/build/bookshelf-direct-android-{build,startup}.log` 与 `bookshelf-direct-android-installed.png`。
 - **第十步交付边界与后续**：本次只完成 Android 构建安装与启动冒烟，未验证全部书架/分组交互及后台行为，未重编原生库、构建安装 iOS、升级版本/依赖或触发 CI；用户已授权本次本地提交，不推送。原分组显隐、enableRefresh 与 Mock 导入仅返回数量等差异保持；真实 FFI 确认正式更新不改 show、专用显隐才落库。已完成书架与分组数据访问迁移，后续整理书架功能目录，再按原方案推进书源领域；功能或数据语义调整单独授权。
 
+- **第十一步授权、状态与范围（2026-10-13）**：按用户授权，从 `992053003` 整理书架与分组功能目录；十二个文件迁入 `features/bookshelf/`，包括三个页面、两组 Notifier/State 及生成物、三个专用组件。新增 `bookshelf.dart` 统一对外入口，路由、外部消费者与测试迁移引用，旧路径移除，共享封面与领域数据实现保持。本步已验证，现纳入用户授权的本地提交，提交记录以 Git 为准，不推送；版本保持 `2.0.373+374`。
+- **第十一步验证与边界**：44 个 Dart 文件静态检查无问题，26 个相关测试文件共 238 项通过，CI 路径路由本地测试 16 项通过。生成器恢复完整生成后与原生成内容一致，重复生成写入 0 个输出；期间自动镜像解析产生的锁文件变更已撤回，最终在原锁定依赖下复验。45 个移动或引用文件除 import/export 及生命周期测试两处旧 Mock 接线修正外保持，十二个旧入口移除；无 Rust/FRB、数据库、Repository、依赖、版本或 Workflow 改动，未重新构建安装或触发 CI。证据在忽略目录 `flutter_legado/build/bookshelf-feature-{locked-analysis,locked-tests,generate-full,generate-repeat,locked-deps,preservation}.log`，前快照为 `bookshelf-feature-before.json`。下一步推进书源数据访问拆分。
+
+
 ### BOOKMARK-NOTE-20261013：书签备注编辑与选区新增（P2）
 
 - **授权与基线**：用户同意补齐已有书签备注编辑，以及阅读选区新增时填写备注；基线 `4a5925687`，保留工作区已验证的书签窄接口改动。不使用子代理、不创建分支、不自动提交、推送或触发 CI。

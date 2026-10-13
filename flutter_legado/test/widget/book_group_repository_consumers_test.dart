@@ -1,9 +1,8 @@
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
-import 'package:flutter_legado/src/features/bookshelf/bookshelf_repositories.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/book_group_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
