@@ -16,6 +16,8 @@ import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 
 Future<void> _pumpReader(
@@ -27,6 +29,7 @@ Future<void> _pumpReader(
   bool selectable = true,
   TargetPlatform platform = TargetPlatform.android,
   double textScale = 1,
+  bool outerOverlay = false,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -35,60 +38,64 @@ Future<void> _pumpReader(
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+          child: outerOverlay ? Overlay.wrap(child: child!) : child!,
         ),
         home: Scaffold(
-          body: SizedBox(
-            width: 320,
-            height: 500,
-            child: LayoutTestBuilder(
-              builder: (context) async {
-                final pages = (await ParagraphLayoutEngine(
-                  transport: RustLayoutTestTransport.instance,
-                  context: context,
-                  config: ParagraphConfig(
-                    fontSize: 16,
-                    lineHeight: 1.6,
-                    indent: 32,
-                    indentCount: 2,
-                    paragraphSpacing: 8,
-                    backgroundColor: Colors.white,
-                    textColor: Colors.black,
-                    baseStyle: DefaultTextStyle.of(context).style,
-                  ),
-                ).paginateChapter(source, 320, 500));
-                Widget body = ReaderTurnView(
-                  mode: PageTurnMode.none,
-                  pageIndex: 0,
-                  pageCount: 2,
-                  selectionActive: controller,
-                  hasChapterPrev: false,
-                  hasChapterNext: false,
-                  onTurnChapterPrev: () {},
-                  onTurnChapterNext: () {},
-                  onPageChanged: onPageChanged ?? (_) {},
-                  buildPage: (index) => index == 0
-                      ? ReaderTextContent(
-                          pageInfo: pages.first,
-                          fontSize: 16,
-                          lineHeight: 1.6,
-                          paragraphSpacing: 8,
-                          textColor: Colors.black,
-                          selectText: selectable,
-                        )
-                      : const SelectionContainer.disabled(child: Text('下一页')),
-                );
-                if (selectable) {
-                  body = ReaderSelectionRegion(
-                    controller: controller,
-                    pages: [pages.first],
-                    source: source,
-                    onTapUp: onTapUp,
-                    child: body,
+          body: ReaderMenuThemeHost(
+            config: ReaderAdvancedConfig(readBarStyle: outerOverlay ? 1 : 0),
+            readingBackground: const Color(0xFFF5EEDB),
+            builder: (_) => SizedBox(
+              width: 320,
+              height: 500,
+              child: LayoutTestBuilder(
+                builder: (context) async {
+                  final pages = (await ParagraphLayoutEngine(
+                    transport: RustLayoutTestTransport.instance,
+                    context: context,
+                    config: ParagraphConfig(
+                      fontSize: 16,
+                      lineHeight: 1.6,
+                      indent: 32,
+                      indentCount: 2,
+                      paragraphSpacing: 8,
+                      backgroundColor: Colors.white,
+                      textColor: Colors.black,
+                      baseStyle: DefaultTextStyle.of(context).style,
+                    ),
+                  ).paginateChapter(source, 320, 500));
+                  Widget body = ReaderTurnView(
+                    mode: PageTurnMode.none,
+                    pageIndex: 0,
+                    pageCount: 2,
+                    selectionActive: controller,
+                    hasChapterPrev: false,
+                    hasChapterNext: false,
+                    onTurnChapterPrev: () {},
+                    onTurnChapterNext: () {},
+                    onPageChanged: onPageChanged ?? (_) {},
+                    buildPage: (index) => index == 0
+                        ? ReaderTextContent(
+                            pageInfo: pages.first,
+                            fontSize: 16,
+                            lineHeight: 1.6,
+                            paragraphSpacing: 8,
+                            textColor: Colors.black,
+                            selectText: selectable,
+                          )
+                        : const SelectionContainer.disabled(child: Text('下一页')),
                   );
-                }
-                return GestureDetector(onTapUp: onTapUp, child: body);
-              },
+                  if (selectable) {
+                    body = ReaderSelectionRegion(
+                      controller: controller,
+                      pages: [pages.first],
+                      source: source,
+                      onTapUp: onTapUp,
+                      child: body,
+                    );
+                  }
+                  return GestureDetector(onTapUp: onTapUp, child: body);
+                },
+              ),
             ),
           ),
         ),
@@ -258,10 +265,15 @@ void main() {
     expect(taps, 2);
   });
 
-  testWidgets('iOS 平台长按仍提供原生选区和阅读操作', (tester) async {
+  testWidgets('iOS 平台长按后点击复制执行操作并关闭选区', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     try {
-      await _pumpReader(tester, controller, platform: TargetPlatform.iOS);
+      await _pumpReader(
+        tester,
+        controller,
+        platform: TargetPlatform.iOS,
+        outerOverlay: true,
+      );
       final text = find
           .byType(ReaderLineText)
           .evaluate()
@@ -269,8 +281,25 @@ void main() {
           .last;
       await tester.longPress(find.byWidget(text.widget));
       await tester.pumpAndSettle();
+      final toolbar = tester.element(find.byType(ReaderSelectionToolbar));
+      final body = tester.element(find.byType(ReaderSelectionRegion));
+      expect(Theme.of(toolbar).colorScheme, isNot(Theme.of(body).colorScheme));
+      expect(
+        Theme.of(toolbar).colorScheme,
+        Theme.of(readerMenuContextOf(body)).colorScheme,
+      );
       expect(controller.selection, isNotNull);
       expect(find.byType(ReaderSelectionToolbar), findsOneWidget);
+      final selectedText = controller.selection!.text;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('复制')),
+      );
+      await tester.pump(const Duration(milliseconds: 150));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(clipboard, selectedText);
+      expect(controller.value, isFalse);
+      expect(find.byType(ReaderSelectionToolbar), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {
       debugDefaultTargetPlatformOverride = null;

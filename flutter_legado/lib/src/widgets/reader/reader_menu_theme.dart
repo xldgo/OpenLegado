@@ -62,9 +62,9 @@ ThemeData resolveReaderMenuTheme({
   return AppTheme.withColorScheme(appTheme, scheme);
 }
 
-/// 主题只覆盖菜单和阅读弹层，不进入正文分页树；颜色不变时复用装配结果。
-class ReaderMenuTheme extends StatefulWidget {
-  const ReaderMenuTheme({
+/// 阅读页面共用的菜单主题入口；正文仍继承应用主题，弹层使用独立的稳定上下文。
+class ReaderMenuThemeHost extends StatefulWidget {
+  const ReaderMenuThemeHost({
     super.key,
     required this.config,
     required this.readingBackground,
@@ -76,10 +76,10 @@ class ReaderMenuTheme extends StatefulWidget {
   final WidgetBuilder builder;
 
   @override
-  State<ReaderMenuTheme> createState() => _ReaderMenuThemeState();
+  State<ReaderMenuThemeHost> createState() => _ReaderMenuThemeHostState();
 }
 
-class _ReaderMenuThemeState extends State<ReaderMenuTheme> {
+class _ReaderMenuThemeHostState extends State<ReaderMenuThemeHost> {
   Object? _key;
   ThemeData? _theme;
 
@@ -116,9 +116,54 @@ class _ReaderMenuThemeState extends State<ReaderMenuTheme> {
         }
         return Theme(
           data: _theme!,
-          child: Builder(builder: widget.builder),
+          child: Builder(
+            builder: (menuContext) => _ReaderMenuThemeScope(
+              theme: _theme!,
+              menuContext: menuContext,
+              // 正文和分页保留原主题；只有菜单及其浮层消费菜单主题。
+              child: Theme(
+                data: appTheme,
+                child: Builder(builder: widget.builder),
+              ),
+            ),
+          ),
         );
       },
     );
   }
+}
+
+class _ReaderMenuThemeScope extends InheritedWidget {
+  const _ReaderMenuThemeScope({
+    required this.theme,
+    required this.menuContext,
+    required super.child,
+  });
+
+  final ThemeData theme;
+  final BuildContext menuContext;
+
+  @override
+  bool updateShouldNotify(_ReaderMenuThemeScope oldWidget) =>
+      theme != oldWidget.theme || menuContext != oldWidget.menuContext;
+}
+
+/// 页面存活期间可用于导航和弹层，选区浮窗销毁后仍可使用。
+BuildContext readerMenuContextOf(BuildContext context) =>
+    context
+        .dependOnInheritedWidgetOfExactType<_ReaderMenuThemeScope>()
+        ?.menuContext ??
+    context;
+
+/// 将同一菜单主题应用到菜单分支，不改变正文主题。
+class ReaderMenuTheme extends StatelessWidget {
+  const ReaderMenuTheme({super.key, required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(readerMenuContextOf(context)),
+    child: Builder(builder: builder),
+  );
 }

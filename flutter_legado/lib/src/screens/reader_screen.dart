@@ -629,7 +629,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       child: Scaffold(
         backgroundColor: state.backgroundColor,
         // F6：刘海/挖孔边距（paddingDisplayCutouts / readBodyToLh）
-        body: Builder(
+        body: ReaderMenuThemeHost(
+          config: ref.watch(readerAdvConfigProvider) ?? _advConfig,
+          readingBackground: state.backgroundColor,
           builder: (context) {
             final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
             final bodyInsets = _stableBodyInsets(context);
@@ -767,8 +769,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 // [UI_SYNC_REFACTOR S2-1] 单块底部面板（五分区，替代顶/底栏
                 // 两块分立；朗读态与面板互斥显示——S2-2 将朗读条并入面板路由页）
                 ReaderMenuTheme(
-                  config: cfg,
-                  readingBackground: state.backgroundColor,
                   builder: (context) => aloudActive && capsule.classicExpanded
                       ? ReadAloudBar(
                           onDismiss: () => ref

@@ -1,5 +1,29 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-READER-POPUP-THEME-20261013：统一阅读菜单与弹层主题（P1）
+
+- **提交与集成授权**：用户批准将当前选区操作修复、书签图标保存及局部主题改动合为一个本地提交，合入主目录 `feature/ui-reader-selection`，再将 worktree 更新到合并基线；本轮不推送、不改版本。此授权覆盖本条及后续条目中的实施阶段暂不提交约定。
+
+- **范围**：用户同意统一主题来源与弹层入口，并将编辑内容改用 showDialog。继续在 `build/worktrees/reader-overlay` 的 `feature/ui-reader-refinement`、基线 `88a3aafef` 工作，保留前一批选区导航修复与书签勾号按钮；不使用子代理、不提交或推送，版本仍为 `2.0.373+374`。
+- **实现**：页面使用 ReaderMenuThemeHost 复用既有主题解析及缓存，保留随页面存活的菜单上下文；正文分支恢复原应用主题，菜单通过 ReaderMenuTheme 消费同一主题。原生选区和段落后备浮窗进入全局 Overlay 时捕获该主题；书签、高亮、字典及菜单管理从稳定页面上下文打开，导航不再退回会丢失局部主题的根 Navigator 上下文。
+- **编辑器**：编辑内容使用标准 showDialog 携带调用位置主题，独立编辑器组件管理输入控制器；控制器随组件离场释放，退出动画不再依赖手工等待 DialogRoute.completed。章节内容保存接口及数据格式保持原样。
+- **验证**：定向静态检查通过。原生选区/动作 15 项、主题 7 项、菜单交互 31 项共 53 项相关回归通过；既有用例覆盖 iOS 平台外层 Overlay 的复制、书签/高亮主题继承和正文主题隔离，补充编辑内容取消/返回/重复打开的生命周期用例。菜单旧测试桩缺少现有 sourceOffset 参数，已同步签名；没有新增布局测试。日志在忽略目录 `flutter_legado/build/reader-popup-theme-{analyze,analyze-recheck,tests,menu-tests}.log`。
+- **交付状态**：JDK 25 增量 APK 构建 24 秒通过，已覆盖安装到实时探测在线的 MuMu `127.0.0.1:16384`，沿用 Launcher4 入口冷启动成功；复用匹配基线的 NDK 28.2 x86_64 库，不重编 Rust、不触发 CI。未自动操作页面，实际 Android 配色和 iOS 交互留待用户人工复验。构建、安装及启动日志在忽略目录 `flutter_legado/build/reader-popup-theme-{apk-jdk25,install,start}.log`。
+
+编写者：Codex｜2026-10-13
+
+### UI-READER-SELECTION-CONTEXT-20261013：修复选区动作的导航上下文（P1）
+
+- **范围与基线**：按用户要求继续在 `build/worktrees/reader-overlay` 的 `feature/ui-reader-refinement` 工作，已快进至最新主目录 `feature/ui-reader-selection` 基线 `88a3aafef`。不使用子代理、不提交或推送，主目录不改；保持 `2.0.373+374`。构建运行时为 `C:\Program Files\jdk` 的 Temurin 25，Java/JVM 目标仍为 17，沿用用户已提供的完整工具链验证，不重复跑 JVM 或工程工具全量测试。
+- **根因**：用户在 iOS 报告仅“更多”有效，随后确认 MuMu 同样复现，并提供 Navigator 上下文异常。朗读胶囊的外层 `Overlay.wrap` 位于 Navigator 之外，原生选区菜单和旧段落浮窗进入该浮层后，动作错误地从浮层上下文查找 Navigator，点击时立即报错；“更多”打开列表不依赖 Navigator，因此还能响应。
+- **修复**：选区组件捕获原阅读页面的上下文并传入工具栏，旧段落入口同样传入页面上下文；动作导航和折叠菜单的返回历史使用该上下文。撤回排查阶段的标准按钮及滚动物理变化，保留既有外观、动画和横向滚动行为。
+- **证据与状态**：调整两份现有交互测试以包含生产环境相同的 Navigator 外层 Overlay；iOS 复制用例先复现相同异常，再通过修复。15 项既有选区及动作回归通过，覆盖复制、选区清除、手柄和书签/高亮弹层。定向静态检查通过；日志在忽略目录 `flutter_legado/build/selection-buttons-{ios-before,analyze,tests}.log`。JDK 25 增量 APK 构建、包内原生库校验及 MuMu 覆盖安装通过；实际选区交互与 iOS 仍待用户复测。冷启动日志另有未定位的右侧 12px RenderFlex 溢出提示，未扩大本轮修复范围。
+- **构建说明**：复用主目录已校验、匹配新基线 FRB 的 NDK 28.2 x86_64 库；worktree Rust 内容相同而换行字节不同，同步后来源门禁通过，无 Rust 语义或 Git 差异、不重编原生库。首次 Android 构建遇到插件 Kotlin 缓存的 C/E 跨盘路径错误，后续命令只关闭 Kotlin 增量，保留 Flutter/Gradle 增量和 JDK 25，不改项目构建配置。
+
+- **书签保存与配色排查**：按用户要求将书签备注面板的保存改为勾号图标，保存期间禁用并显示进度；调整现有测试定位，11 项书签与选区动作回归、定向静态检查通过。编辑内容直接创建 DialogRoute 时缺少局部主题捕获；选区浮层及其书签弹层使用全局上下文，亦未继承阅读菜单局部主题。本轮先解释主题作用域，不扩大配色修改范围；JDK 25 增量构建 27 秒通过，覆盖安装至实时探测在线的 MuMu `127.0.0.1:16384` 并从已启用 Launcher4 冷启动成功；留待用户人工检查，版本不变。日志位于忽略目录 `flutter_legado/build/bookmark-save-icon-{analyze,tests,apk-jdk25,install,start}.log`。
+
+编写者：Codex｜2026-10-13
+
 - **阅读优化集成（2026-10-13）**：用户授权将 `feature/ui-reader-refinement` 合入主目录 `feature/ui-reader-selection` 并推送、触发 iOS Build。来源为 `fac5b66a3` 及此前朗读提交，目标基线 `9babfaabd`；重叠文档保留两侧记录，语言资源合并后重新生成，设置页保留新增本地化并使用新的菜单主题。合并后的 13 个相关 Dart 文件静态检查无问题，32 项护眼、排版、菜单主题及朗读相关测试通过，Git 差异检查通过；日志在忽略目录 `flutter_legado/build/reader-refinement-merge-{analyze,tests}.log`。未重复编译 Android，未新增布局测试；保留主目录原有应用版本 `2.0.373+374`，iOS 构建结果待 Actions。
 
 ### TOOL-JDK25-20261013：统一 Android 构建 JDK（P2）

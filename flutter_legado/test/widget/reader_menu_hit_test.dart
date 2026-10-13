@@ -14,6 +14,9 @@ import 'package:flutter_legado/src/screens/reader_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_content_edit_dialog.dart';
+import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 
 class _Reader extends ReaderNotifier {
   final ReaderState? initialState;
@@ -41,7 +44,7 @@ class _Reader extends ReaderNotifier {
       );
 
   @override
-  Future<void> goToChapter(int index) async {
+  Future<void> goToChapter(int index, {int? sourceOffset}) async {
     seekCalls++;
     state = state.copyWith(currentChapterIndex: index);
   }
@@ -109,17 +112,23 @@ Future<(_Reader, _Hits)> _pumpMenu(
                   ),
                 ),
                 Consumer(
-                  builder: (context, ref, _) => ReaderMenuPanel(
-                    visible: ref.watch(readerNotifierProvider).showControls,
-                    onBack: () {},
-                    onAddBookmark: () {},
-                    onOpenCatalog: () => hits.catalogTaps++,
-                    onOpenSettings: () {},
-                    onOpenAdvancedConfig: () {},
-                    onOpenContentSearch: () {},
-                    onReadAloud: () {},
-                    onToggleAutoPage: () {},
-                    onOpenReplaceRules: () {},
+                  builder: (context, ref, _) => ReaderMenuThemeHost(
+                    config: ReaderAdvancedConfig(readBarStyle: 1),
+                    readingBackground: const Color(0xFFF5EEDB),
+                    builder: (_) => ReaderMenuTheme(
+                      builder: (context) => ReaderMenuPanel(
+                        visible: ref.watch(readerNotifierProvider).showControls,
+                        onBack: () {},
+                        onAddBookmark: () {},
+                        onOpenCatalog: () => hits.catalogTaps++,
+                        onOpenSettings: () {},
+                        onOpenAdvancedConfig: () {},
+                        onOpenContentSearch: () {},
+                        onReadAloud: () {},
+                        onToggleAutoPage: () {},
+                        onOpenReplaceRules: () {},
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -176,6 +185,52 @@ Future<ProviderContainer> _pumpReader(
 }
 
 void main() {
+  testWidgets('编辑内容继承阅读菜单主题，关闭动画与再次编辑不访问已释放控制器', (tester) async {
+    final (reader, hits) = await _pumpMenu(
+      tester,
+      initialState: const ReaderState(
+        currentBook: Book(
+          bookUrl: 'loc_book/menu.txt',
+          origin: BookType.localTag,
+        ),
+        chapters: [BookChapter(title: '第一章', index: 0)],
+        chapterContent: '原章节正文',
+        showControls: true,
+      ),
+    );
+    final menuTheme = Theme.of(tester.element(find.byType(ReaderMenuPanel)));
+    final appTheme = Theme.of(tester.element(find.byType(Scaffold).first));
+    expect(menuTheme.colorScheme, isNot(appTheme.colorScheme));
+    for (final systemBack in [false, true]) {
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑内容'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReaderContentEditDialog), findsOneWidget);
+      expect(
+        Theme.of(tester.element(find.byType(AlertDialog))).colorScheme,
+        menuTheme.colorScheme,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '原章节正文',
+      );
+      await tester.enterText(find.byType(TextField), '未保存的修改');
+      if (systemBack) {
+        await tester.binding.handlePopRoute();
+      } else {
+        await tester.tap(find.text('取消'));
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(find.byType(ReaderContentEditDialog), findsNothing);
+      expect(reader.value.chapterContent, '原章节正文');
+      expect(tester.takeException(), isNull);
+    }
+    _expectNoBodyEvents(hits);
+  });
+
   testWidgets('更多弹出菜单打开时，第一次正文点击只关闭弹出菜单', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.byTooltip('更多'));

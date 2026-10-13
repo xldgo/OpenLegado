@@ -15,6 +15,8 @@ import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart'
 import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
 import 'package:flutter_legado/src/widgets/bookmark_note_sheet.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 
 class _Reader extends ReaderNotifier {
   @override
@@ -51,8 +53,11 @@ Future<void> _showToolbar(
           bookmarkRepositoryProvider.overrideWithValue(bookmarks),
       ],
       child: MaterialApp(
+        builder: (_, child) => Overlay.wrap(child: child!),
         home: Scaffold(
-          body: Builder(
+          body: ReaderMenuThemeHost(
+            config: ReaderAdvancedConfig(readBarStyle: 1),
+            readingBackground: const Color(0xFFF5EEDB),
             builder: (context) => TextButton(
               onPressed: () => ReaderSelectionToolbar.show(
                 context,
@@ -87,15 +92,26 @@ void main() {
       (invocation) async => invocation.positionalArguments.single as Bookmark,
     );
     await _showToolbar(tester, api, bookmarks: bookmarks);
+    final menuTheme = Theme.of(
+      tester.element(find.byType(ReaderSelectionToolbar)),
+    );
+    expect(
+      menuTheme.colorScheme,
+      isNot(Theme.of(tester.element(find.text('打开选区'))).colorScheme),
+    );
     await tester.tap(find.text('书签'));
     await tester.pumpAndSettle();
     verifyNever(() => bookmarks.addBookmark(any()));
     expect(find.byType(ReaderSelectionToolbar), findsNothing);
     expect(find.byType(BookmarkNoteSheet), findsOneWidget);
+    expect(
+      Theme.of(tester.element(find.byType(BookmarkNoteSheet))).colorScheme,
+      menuTheme.colorScheme,
+    );
     final note = find.byKey(const ValueKey('bookmark-note'));
     expect(tester.widget<TextField>(note).controller!.text, '');
     await tester.enterText(note, '选区备注');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(const ValueKey('bookmark-note-save')));
     await tester.pumpAndSettle();
     final saved =
         verify(() => bookmarks.addBookmark(captureAny())).captured.single
@@ -127,7 +143,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('书签'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.byKey(const ValueKey('bookmark-note-save')));
     await tester.pumpAndSettle();
     final saved =
         verify(() => bookmarks.addBookmark(captureAny())).captured.single
@@ -141,7 +157,15 @@ void main() {
   testWidgets('高亮使用打开笔记时的选区，焦点变化不会改成整段', (tester) async {
     final api = _Api();
     await _showToolbar(tester, api);
+    final menuTheme = Theme.of(
+      tester.element(find.byType(ReaderSelectionToolbar)),
+    );
     await tester.tap(find.text('高亮'));
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.text('高亮'))).colorScheme,
+      menuTheme.colorScheme,
+    );
     await tester.pumpAndSettle();
     final color = find.byWidgetPredicate(
       (widget) =>

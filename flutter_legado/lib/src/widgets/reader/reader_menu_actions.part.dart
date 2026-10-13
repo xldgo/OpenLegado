@@ -330,42 +330,13 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (book == null) return;
     final chapterIndex = state.currentChapterIndex;
     final title = state.currentChapter?.title ?? '';
-    final controller = TextEditingController(text: state.chapterContent);
-    final route = DialogRoute<String>(
+    final content = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          title.isEmpty ? dialogContext.l10n.editSourceContent : '编辑：$title',
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: TextField(
-            controller: controller,
-            maxLines: null,
-            minLines: 8,
-            decoration: const InputDecoration(labelText: '章节正文'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(dialogContext.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(dialogContext.l10n.save),
-          ),
-        ],
+      builder: (_) => ReaderContentEditDialog(
+        chapterTitle: title,
+        content: state.chapterContent,
       ),
     );
-    String? content;
-    try {
-      content = await Navigator.of(context).push(route);
-    } finally {
-      // 输入框随路由离场后再释放，避免退出动画仍访问控制器。
-      await route.completed;
-      controller.dispose();
-    }
     if (content == null || !context.mounted) return;
     try {
       final ok = await ref

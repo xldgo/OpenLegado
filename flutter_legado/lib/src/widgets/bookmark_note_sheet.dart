@@ -145,11 +145,16 @@ class _BookmarkNoteSheetState extends State<BookmarkNoteSheet> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    FilledButton(
+                    IconButton(
+                      key: const ValueKey('bookmark-note-save'),
                       onPressed: _saving ? null : _save,
-                      child: Text(
-                        _saving ? l10n.bookmarkNoteSaving : l10n.save,
-                      ),
+                      tooltip: _saving ? l10n.bookmarkNoteSaving : l10n.save,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check),
                     ),
                   ],
                 ),
