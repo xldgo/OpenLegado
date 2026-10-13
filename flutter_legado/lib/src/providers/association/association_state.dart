@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../services/source_import_service.dart';
+import '../../domain/models/import_result.dart';
 
 part 'association_state.freezed.dart';
 

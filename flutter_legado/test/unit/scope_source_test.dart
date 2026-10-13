@@ -21,7 +21,8 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/services/source_import_service.dart';
+import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
+import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 
@@ -143,7 +144,7 @@ void main() {
 
     setUp(() {
       mockApi = MockRustApi();
-      service = SourceImportService(mockApi);
+      service = createSourceImportService(mockApi);
     });
 
     test('有命中：交 importBookSources 的 JSON 已被替换', () async {

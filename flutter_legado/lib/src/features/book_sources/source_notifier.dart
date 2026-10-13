@@ -9,7 +9,9 @@ import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../services/backup_service.dart';
 import '../../services/book_api.dart' show BookApi;
-import '../../services/source_import_service.dart';
+import '../../app/bootstrap/source_import_factory.dart';
+import '../../data/services/source_import_service.dart';
+import '../../domain/models/import_result.dart';
 import '../../providers/providers.dart';
 import 'source_state.dart';
 
@@ -33,7 +35,7 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 获取导入服务实例
   SourceImportService get importService =>
-      SourceImportService(ref.read(bookApiProvider));
+      createSourceImportService(ref.read(bookApiProvider));
 
   /// 获取备份服务实例
   BackupService get backupService =>

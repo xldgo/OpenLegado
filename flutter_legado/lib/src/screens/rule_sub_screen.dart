@@ -13,7 +13,7 @@ import '../providers/providers.dart';
 import '../models/models.dart';
 import '../providers/rule_sub/rule_sub_notifier.dart';
 import '../features/book_sources/book_sources.dart';
-import '../services/source_import_service.dart' show SourcePreview;
+import '../domain/models/source_preview.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';

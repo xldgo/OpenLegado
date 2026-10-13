@@ -228,6 +228,39 @@ AppColorsExt 是三种导入确认共用的配色辅助，抽至 `theme/import_s
 页面布局、导航参数和异常处理保持。完整生成使用原锁文件和 Pub 镜像复核，
 重复生成不产生新内容；不手工改写生成物或升级依赖。任务状态与证据见 Active。
 
+## 第十四步的导入职责拆分
+
+| 位置 | 职责 |
+|---|---|
+| `domain/models/import_result.dart` | 多种导入共用的结果计数、错误与汇总 |
+| `domain/models/source_preview.dart` | 保留原始 JSON，宽松提取展示字段 |
+| `domain/services/source_import_parser.dart` | 统一 JSON 对象/数组解析、预览及必填校验 |
+| `data/services/source_import_service.dart` | 预览输入、逐条替换与入库、导入结果和错误边界 |
+| `platform/source_import_file_reader.dart` | UTF-8 文件读取，缺失返回 null，读取失败保留异常 |
+| `app/bootstrap/source_import_factory.dart` | 为一次导入绑定同一根的 Repository、GET、替换规则和文件能力 |
+
+导入服务只接收 BookSourceRepository 及三个明确的回调，不依赖 BookApi、
+Flutter 组件或 dart:io。应用工厂沿用 bridgeHttpGet 与 30 秒超时，不创建
+另一个网络客户端，不初始化原生库或缓存服务实例。两个 Notifier 保持每次
+获取服务的原生命周期；已开始的导入保留其根引用，后续获取跟随 Provider
+替换。JSON 扫码预览直接调用纯解析器，不创建导入服务或根实例。
+
+预览不应用替换规则、不写库，保留字符串数字、字符串布尔、未知字段及原始
+JSON Map。确认导入仍依次校验每项、应用书源作用域替换、以单元素数组提交
+Repository；规则调用失败继续使用原文，一条写入失败不阻断后续条目。
+成功计数继续按完成的条目计算，不改为 Repository 返回数量；非对象失败、
+缺必填字段跳过，既有非字符串必填字段的确认失败边界保持。
+
+HTTP 状态、JSON 类型/语法、文件缺失/读取失败维持原文案与异常边界。
+旧本地 TimeoutException 与 dart:async 同名，但无生产抛出点；本批删除
+该类型及不可达分支，真实异步超时仍进入原 URL 失败提示，未扩展错误策略。
+共享导入结果与预览模型直接由其消费者引用，不经导入服务聚合导出。
+旧 `services/source_import_service.dart` 移除，不保留转发。
+
+本批不改变页面布局、状态转换、Rust/FRB、书源格式、数据库事务、依赖或
+版本。纯解析、输入、序列编排与实例装配由定向测试保护；移动平台、实际网络
+和设备交互验收另行执行，状态及证据只记录在 Active。
+
 ## 经授权追加的备注编辑
 
 书签页、目录书签列表及阅读选区新增共用底部输入面板。界面只处理原文呈现、

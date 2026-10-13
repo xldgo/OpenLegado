@@ -13,7 +13,9 @@ import '../../models/rss_source.dart';
 import '../../services/book_api.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../services/bridge_http.dart';
-import '../../services/source_import_service.dart';
+import '../../app/bootstrap/source_import_factory.dart';
+import '../../data/services/source_import_service.dart';
+import '../../domain/models/import_result.dart';
 import '../providers.dart';
 import 'association_state.dart';
 
@@ -32,7 +34,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
   BookApi get _api => ref.read(bookApiProvider);
 
   /// 书源导入服务（逐条校验 + FFI 批量导入）
-  SourceImportService get importService => SourceImportService(_api);
+  SourceImportService get importService => createSourceImportService(_api);
 
   // ===== 加载阶段（对应原版各 ImportXxxViewModel.importSource）=====
 

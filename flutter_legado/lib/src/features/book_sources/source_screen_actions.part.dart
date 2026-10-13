@@ -455,10 +455,8 @@ extension _SourceActions on _SourceScreenState {
     }
 
     if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-      await _fetchAndConfirm(() async => ref
-          .read(sourceNotifierProvider.notifier)
-          .importService
-          .parseSourcesText(trimmed));
+      await _fetchAndConfirm(() async =>
+          const SourceImportParser().parseSourcesText(trimmed));
       return;
     }
 

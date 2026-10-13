@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 
 import '../../models/models.dart';
 import 'source_notifier.dart';
-import '../../services/source_import_service.dart';
+import '../../domain/models/source_preview.dart';
 import '../../widgets/custom_group_dialog.dart';
 
 /// 书源导入状态（对标原版 ImportBookSourceStatus）
