@@ -860,6 +860,14 @@ class SettingsService {
     }
   }
 
+  /// 保存需要向调用方反馈失败的字符串偏好，不改变其他入口的容错行为。
+  Future<void> setStringPrefChecked(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setString(key, value)) {
+      throw StateError('偏好保存失败：$key');
+    }
+  }
+
   /// 批量保存主题颜色；错误由调用方处理，不吞掉部分写入失败。
   Future<void> setColorPrefs(Map<String, int?> colors) async {
     final prefs = await SharedPreferences.getInstance();

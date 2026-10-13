@@ -49,7 +49,7 @@ import 'screens/source_debug_screen.dart';
 import 'features/read_aloud/read_aloud.dart';
 import 'screens/read_aloud_settings_screen.dart';
 import 'screens/read_aloud_player_screen.dart';
-import 'screens/theme_config_screen.dart';
+import 'features/appearance/appearance.dart';
 import 'screens/bottom_bar_skin_screen.dart';
 import 'screens/toc_screen.dart';
 import 'screens/txt_toc_rules_screen.dart';

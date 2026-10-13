@@ -1,9 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+- **本轮提交授权（2026-10-13）**：用户批准将外观模块整理 D 与波浪加载动画优化合为一条本地提交，覆盖下述实施阶段暂不提交的限制；不合并或推送，不改应用版本。代码验证及构建安装已通过，实际视觉表现仍待用户人工检查。
+
+### UI-READER-LOADING-20261013：优化波浪加载动画（P2）
+
+- **授权与范围**：用户要求优化阅读器加载动画，随后明确继续优化现有波峰造型。继续在 reader-overlay worktree 的 `feature/ui-reader-refinement`、基线 `121f01714` 工作，保留未提交的外观模块整理；不提交、合并或推送，不改版本。调整共用 Md3LoadingIndicator，其他复用该组件的加载页同步生效；未替换为圆形指示器或改动章节加载、正文冻结帧及翻页逻辑。
+- **原因与实现**：旧正弦半径使用 4.5 个波峰，环的首尾位置通常不同，Path.close 会补一段直线。改为 5 个完整波峰，周期端点自然衔接；幅度上限从线宽的 1.6 倍减至 1.15 倍，保留原 3.6 秒周期与呼吸节奏。系统减少动画时停止动画时钟，恢复偏好后重新启用；静态弧在线宽变化时也更新画笔。
+- **状态与验证**：定向静态分析及 9 项已有加载组件回归通过；仅增强现有减少动画用例，确认静态分支无动画帧、偏好关闭后恢复并可再次停止，未新增布局测试。日志在忽略目录 `flutter_legado/build/reader-loading-{analysis,tests}.log`；实际视觉表现待用户人工复验。
+- **编译安装**：JDK 25 / Java 与 JVM 17 增量 Debug 构建 30 秒成功，复用现有 Rust 库，包内原生库校验通过；实时确认官方模拟器 `Legado_API_36`（`emulator-5556`）后覆盖安装，保留数据，MainActivity 冷启动 `Status: ok`，进程在线，未见致命启动异常。未自动操作页面，加载动画效果待用户人工检查；既有启动布局告警不属本批修复范围。日志为忽略目录 `flutter_legado/build/reader-loading-{apk-jdk25,apk-verification,install-official,start-official,runtime-official}.log`。未提交或推送。
+
+编写者：Codex｜2026-10-13
+
 ### UI-THEME-ARCHITECTURE-20261013：主题管理与 UI 架构整理（P2）
 
-- **基线与工作位置**：用户批准的代码提交为 `b68396e20`，主目录合并提交为 `c68c52904`；reader-overlay worktree 的 `feature/ui-reader-refinement` 已快进到同一基线。合并保留 `2681670b3` 的书签功能目录整理，导入冲突处理后的定向静态检查及 11 项书签/选区动作回归通过。主目录合并完成后，后续调研仅在 worktree 进行；未推送或触发 CI。
-- **授权与范围**：用户批准先实施方案 A「主题计算与装配」，随后分别授权提交 A、将 B 与封面动画合为一个本地 commit，并继续 C。仅在当前 worktree 修改；用户已批准将 C 合为一个本地提交；不合并、推送或触发 CI，不改应用版本 `2.0.373+374`、配置键、主题文件格式、Rust/FFI 和数据库。
+- **基线与工作位置**：初次调研基线为主目录合并提交 `c68c52904`。A—C 完成后，用户批准合入主目录 `feature/ui-reader-selection`，再更新当前 worktree 并重新分析 D。两处已同步到合并提交 `121f01714`，后续继续在 reader-overlay worktree 的 `feature/ui-reader-refinement` 工作；未推送或触发 CI。
+- **授权与范围**：用户批准实施并分别提交 A、B 与封面动画、C，随后授权本地合并、D 的重新分析及实施。D 在当前 worktree 完成代码整理和定向验证，未提交、合并或推送；不触发 CI，不改应用版本 `2.0.373+374`、配置键、主题文件格式、Rust/FFI 和数据库。
 - **状态**：A 的代码及定向验证通过，待用户人工复验配色。新增只读 `AppThemePreferences` / `ThemeColorOverrides` 和纯函数 `resolveAppThemes`，应用入口只映射已有状态并提供平台动态色与背景图；`AppTheme` 的卡片圆角改为显式参数，局部换色继承已解析的卡片形状，不再隐式读取全局设置镜像。
 - **配色规则**：保留内置色板、日间主色生成两套参数化角色、自定义四色覆盖及纯黑后自定义背景覆盖顺序。动态色按日夜分别判断可用性：可用时继续沿用原有主色/强调色覆盖规则；缺失时恢复用户保存的全部自定义颜色。背景图的文件判断与图层仍由应用入口负责。
 - **验证（2026-10-13）**：5 个相关 Dart 文件定向静态分析无问题；主题解析 9 项、既有阅读菜单 7 项及色板 35 项，共 51 项通过。覆盖全部内置色板与未知 ID、四色日夜映射、动态色缺失/部分可用/关闭、参数化风格与对比度、共同种子、纯黑及圆角输入隔离。未新增布局测试，未运行全量 CI。日志为忽略目录 `flutter_legado/build/theme-resolution-{analysis,tests}.log`。
@@ -12,7 +23,7 @@
 - **B 的状态**：代码、定向验证与增量安装通过，待用户人工复验配色及弹层交互。详情页改用完整 ThemeData 的 400ms 动画，封面目标主题按输入变化缓存；内容在主题内构建，弹层从详情 Scaffold 的稳定上下文打开。复用 `AppTheme.withColorScheme`，阅读菜单继续使用同一组件装配入口，正文配色不变。
 - **B 的验证（2026-10-13）**：4 个相关 Dart 文件定向静态分析无问题；主题装配 11 项、阅读菜单 7 项、详情行与元信息 16 项，共 34 项通过。仅在已有主题单元测试补两项完整装配与动画逻辑回归，未新增布局测试；现有详情交互用例保持原样。初次检查发现异步局部上下文需要按 context.mounted 守卫，以及输入框主题采用标准中点切换，已修正并复验。日志位于忽略目录 `flutter_legado/build/local-theme-{analysis,tests}-recheck.log`，首轮结果保留于 `local-theme-{analysis,tests}.log`。
 - **B 的构建与安装**：JDK 25 / Java 与 JVM 17 增量打包成功（26 秒），复用已有 Rust 库，应用版本保持 `2.0.373+374`。实时探测在线 MuMu `127.0.0.1:16384` 后覆盖安装成功，Launcher4 冷启动 `Status: ok`；不清除数据、不自动操作页面。日志为 `flutter_legado/build/local-theme-{apk-jdk25,install,start}.log`。实际浅深色封面、跟随开关、分组/变量弹层及阅读按钮视觉表现留待用户实测；未运行 iOS 编译或全量 CI。
-- **后续边界**：外观功能模块拆分与通用组件收口仍待 D、E；A、B 没有改动设置持久化，C 按下述确认的竞态整理状态读写。实现入口与后续方案见 [主题与 UI 架构方案](UI_THEME_ARCHITECTURE.md)。
+- **后续边界**：D 的外观功能模块拆分已完成代码整理、定向验证与构建安装，实际交互待用户人工检查；E 的通用组件收口尚未开始。A、B 没有改动设置持久化，C 按下述确认的竞态整理状态读写。实现入口与后续方案见 [主题与 UI 架构方案](UI_THEME_ARCHITECTURE.md)。
 - **B 的封面动画补充**：用户要求同时修复详情进出时的白色闪烁。旧飞行层重新挂载封面 Widget，导致再次加载；Hero 默认占位还会卸载部分端点的图片子树。统一使用 `BookCoverHero` 保留两端加载状态，飞行层绘制当前已解码帧，并在离场释放独立图片引用；圆角按两端实际形状插值，直连封面关闭额外的加载淡入淡出。3 个相关文件静态分析无问题，已有封面加载与详情回归 24 项通过，未新增布局测试；日志为 `flutter_legado/build/cover-hero-{analysis,tests}.log`。实机转场仍待用户人工检查。
 - **封面动画交付**：JDK 25 增量构建 27 秒通过，沿用既有 Rust 库和应用版本；实时探测 MuMu `127.0.0.1:16384` 后覆盖安装成功，Launcher4 冷启动 `Status: ok`。未自动操作页面，留待用户检查进入、返回及连续快速进出。日志为忽略目录 `flutter_legado/build/cover-hero-{apk-jdk25,install,start}.log`，本批后续合为本地提交 `c2dc11a32`，未推送。
 
@@ -21,6 +32,12 @@
 - **C 的竞态证据与修复**：可控延迟下，启动恢复覆盖新操作、默认值操作被忽略、颜色恢复覆盖新颜色、预设保存回写旧状态、连续调色写入乱序共 5 项先在旧实现失败。UI 与颜色恢复按字段保留新操作及未修改的旧偏好，加载结束前检查生命周期；写入按操作顺序执行，预设保存完成只合并仍有效的字段。批量保存交由现有 SettingsService 执行；失败不阻塞后续写入，保留既有失败时不替换当前预设的行为。
 - **C 的验证（2026-10-13）**：16 个相关文件定向静态分析通过；8 项状态/生命周期/派生输入逻辑回归，加上已有主题、阅读菜单、UI 默认值、顶栏和开关行，共 67 项通过。只新增必要的异步逻辑测试，已有顶栏测试改为在相同页面子树上更新作用域并验证组件即时响应，未新增布局测试。首轮 Provider 导入错误已修正。日志在忽略目录 `flutter_legado/build/theme-state-{before,analysis,analysis-recheck,tests,tests-recheck}.log`；未运行全量 CI 或 Rust 编译。
 - **C 的构建与安装**：JDK 25 / Java 与 JVM 17 增量 APK 构建 27 秒通过，复用匹配的现有 Rust 库；版本保持 `2.0.373+374`。实时探测 MuMu `127.0.0.1:16384` 后覆盖安装成功，Launcher4 冷启动 `Status: ok`（3840ms）。不清除用户数据，不自动操作页面；实际外观切换、详情与阅读菜单留待用户人工检查。日志为忽略目录 `flutter_legado/build/theme-state-{apk-jdk25,install,start}.log`，用户已批准本批本地提交，未推送。
+
+- **A—C 本地集成（2026-10-13）**：来源提交为 `998e11be9`、`c2dc11a32`、`c604ff5b7`，主目录基线为 `b1f3a6597`，合并提交为 `121f01714`；代码自动合并，无冲突。仅暂存并恢复主目录未提交的 Active 文档，原有朗读改动未纳入提交；文件摘要及文档差异核对通过。当前 worktree 已快进到同一提交。合并后 9 个相关文件静态检查通过，主题状态、解析、阅读菜单及详情元信息/阅读行共 42 项回归通过；日志在忽略目录 `flutter_legado/build/theme-integration-{analysis,tests}.log`。本轮未重新编译、安装或推送。
+- **D 的基线复核**：以 `121f01714` 为准，沿用已有 `features/`、`domain/contracts/` 与 `data/repositories/` 边界，外观预设不接入 BookApi 或 Rust。不为页面独有设置另建大型 Notifier。保留本地命名预设、日夜主题文件和关联导入三种不同协议，不增加格式门禁或数据迁移。具体文件及兼容规则见 [主题与 UI 架构方案](UI_THEME_ARCHITECTURE.md)。
+- **D 的实现**：外观入口迁入 `features/appearance/`，路由与三份已有页面测试改用公开入口；主题模式、色板、封面规则及预设弹层各自管理展示和生命周期。新增 ThemePreset / ThemeDocument、ThemePresetRepository 与 SharedPreferences 适配、ThemeFileService；ThemeActions 只协调既有颜色和主题 Notifier。预设列表串行读改写，保存失败不更新弹层列表、也不阻塞后续操作；SettingsService 新增会反馈失败的字符串保存方法，其他入口的容错行为不变。移除壁纸配色、背景图片及系统栏已有 Provider 字段的页面副本，壁纸配色开关只保存一次。未修改关联导入、封面规则业务接口或原有分组顺序。
+- **D 的验证与交付（2026-10-13）**：相关路径定向静态检查通过；新增 10 项模型/存储/编排逻辑用例，复用既有外观、主题状态与解析 22 项及外观矩阵/窄屏 9 项，共 41 项通过。覆盖旧字段保留、日夜文件格式、宽松导入、并发保存、失败恢复、单侧预设应用、缺省组清除、文件取消及失败；未新增布局测试。三份迁出控件的实现除命名、key 和格式化外与原代码一致。首轮一个测试的空 Map 类型已按实际 JSON 类型修正；Git 差异检查与范围核对通过。日志为忽略目录 `flutter_legado/build/appearance-{analysis-final,tests-recheck,existing-matrix-tests,existing-overflow-test}.log`。本轮未编译、安装或操作设备，实际文件选择与页面交互待用户人工复验；未提交或推送。
+- **D 的后续编译安装**：用户授权编译安装至官方 Android 模拟器。实时确认 `Legado_API_36` 对应 `emulator-5556`（Android 16、x86_64、1080×1920 / 480dpi）；JDK 25、Java/JVM 17 增量 Debug APK 构建 32 秒成功，复用现有 Rust 库，包内原生库校验通过。首次命令的 Gradle 属性被 PowerShell 拆分，补齐参数引号后重跑；未修改项目构建配置。覆盖安装成功，保留数据，MainActivity 冷启动 `Status: ok`，进程在线；版本仍为 `2.0.373+374`。启动日志未见致命崩溃或 FFI 加载失败，但仍有此前已登记的右侧 12px RenderFlex 溢出，未将其计为无异常验收。未自动操作页面，预设、文件选择、背景图与配色交互留待用户人工复验；未提交或推送。日志在忽略目录 `flutter_legado/build/appearance-{apk-jdk25-recheck,apk-verification,install-official,start-official,runtime-official}.log`。
 
 编写者：Codex｜2026-10-13
 

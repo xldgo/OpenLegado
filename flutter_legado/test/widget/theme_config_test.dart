@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/screens/theme_config_screen.dart';
+import 'package:flutter_legado/src/features/appearance/appearance.dart';
 
 void main() {
   late ProviderContainer container;

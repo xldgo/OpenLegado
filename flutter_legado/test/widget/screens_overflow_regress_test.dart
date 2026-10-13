@@ -75,7 +75,7 @@ import 'package:flutter_legado/src/screens/source_debug_screen.dart';
 import 'package:flutter_legado/src/screens/source_edit_screen.dart';
 import 'package:flutter_legado/src/screens/source_login_screen.dart';
 import 'package:flutter_legado/src/screens/source_screen.dart';
-import 'package:flutter_legado/src/screens/theme_config_screen.dart';
+import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
 import 'package:flutter_legado/src/screens/txt_toc_rules_screen.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';

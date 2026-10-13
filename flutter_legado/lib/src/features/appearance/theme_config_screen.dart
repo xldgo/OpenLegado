@@ -1,4 +1,4 @@
-import '../widgets/eye_protection_settings.dart';
+import '../../widgets/eye_protection_settings.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
 // ThemeConfigFragment（24 项）：启动图标/欢迎页样式/沉浸式状态栏/沉浸式导航栏/
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
@@ -6,31 +6,31 @@ import '../widgets/eye_protection_settings.dart';
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
 // Android 专属项持久化并以灰字"仅 Android 生效"标注；
 // 视觉保持 iOS 分组卡片风格（SettingsGroup/IosListTile） — Qoder
-import '../l10n/app_localization.dart';
-import 'dart:convert';
-import 'dart:io';
+import '../../l10n/app_localization.dart';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
 
-import '../bridge/ffi.dart';
-import '../constants/pref_keys.dart';
-import '../providers/providers.dart';
-import '../providers/theme/system_bar_notifier.dart';
-import '../providers/theme/theme_colors_notifier.dart';
-import '../providers/theme/theme_notifier.dart';
-import '../providers/ui_settings/ui_settings_notifier.dart';
-import '../routes.dart';
-import '../services/launcher_icon_service.dart';
-import '../services/settings_service.dart';
-import '../theme/md3_colors.dart';
-import '../widgets/settings_widgets.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../constants/pref_keys.dart';
+import '../../providers/providers.dart';
+import '../../providers/theme/system_bar_notifier.dart';
+import '../../providers/theme/theme_colors_notifier.dart';
+import '../../providers/theme/theme_notifier.dart';
+import '../../providers/ui_settings/ui_settings_notifier.dart';
+import '../../routes.dart';
+import '../../services/launcher_icon_service.dart';
+import '../../services/settings_service.dart';
+import '../../widgets/settings_widgets.dart';
+import 'theme_actions.dart';
+import 'widgets/theme_preset_dialogs.dart';
+import 'widgets/cover_rule_config_dialog.dart';
+import 'widgets/theme_mode_selector.dart';
+import 'widgets/builtin_palette_selector.dart';
 
 /// 主题设置页面（对齐原版 ThemeConfigFragment）
 ///
@@ -50,34 +50,61 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   // ===== 通用组状态（对齐原版顶部无分组项）=====
   String _launcherIcon = 'iconMain';
-  bool _transparentStatusBar = true;
-  bool _immNavigationBar = true;
   int _barElevation = 0;
-  bool _wallpaperColorFollow = false;
   bool _wallpaperColorAutoUpdate = true;
 
   // ===== 日间/夜间组状态 =====
-  String _bgImage = '';
-  String _bgImageNight = '';
   bool _transparentNavBar = false;
   bool _transparentNavBarNight = false;
 
   /// 颜色选择器预设色板（对齐原版 ColorPreference cpv_dialogType="preset"）
   static const _presetColors = [
-    0xFFD32F2F, 0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7,
-    0xFF3F51B5, 0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4, 0xFF009688,
-    0xFF4CAF50, 0xFF8BC34A, 0xFFCDDC39, 0xFFFFEB3B, 0xFFFFC107,
-    0xFFFF9800, 0xFFFF5722, 0xFF795548, 0xFF9E9E9E, 0xFF607D8B,
-    0xFF000000, 0xFF212121, 0xFF424242, 0xFFFAFAFA, 0xFFFFFFFF,
+    0xFFD32F2F,
+    0xFFF44336,
+    0xFFE91E63,
+    0xFF9C27B0,
+    0xFF673AB7,
+    0xFF3F51B5,
+    0xFF2196F3,
+    0xFF03A9F4,
+    0xFF00BCD4,
+    0xFF009688,
+    0xFF4CAF50,
+    0xFF8BC34A,
+    0xFFCDDC39,
+    0xFFFFEB3B,
+    0xFFFFC107,
+    0xFFFF9800,
+    0xFFFF5722,
+    0xFF795548,
+    0xFF9E9E9E,
+    0xFF607D8B,
+    0xFF000000,
+    0xFF212121,
+    0xFF424242,
+    0xFFFAFAFA,
+    0xFFFFFFFF,
   ];
 
   /// 启动图标可选值（对齐原版 arrays.xml icon_names）
   static const _launcherIcons = [
-    'iconMain', 'icon1', 'icon2', 'icon3', 'icon4', 'icon5', 'icon6',
+    'iconMain',
+    'icon1',
+    'icon2',
+    'icon3',
+    'icon4',
+    'icon5',
+    'icon6',
   ];
 
   static const _launcherIconLabels = [
-    '默认', '图标 1', '图标 2', '图标 3', '图标 4', '图标 5', '图标 6',
+    '默认',
+    '图标 1',
+    '图标 2',
+    '图标 3',
+    '图标 4',
+    '图标 5',
+    '图标 6',
   ];
 
   /// Android 专属项统一灰字标注（与阅读设置面板刘海项先例一致）
@@ -95,26 +122,14 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       PrefKeys.launcherIcon,
       defaultValue: 'iconMain',
     );
-    final transparentStatusBar = await _settings.getBoolPref(
-      PrefKeys.transparentStatusBar,
-      defaultValue: true,
-    );
-    final immNavigationBar = await _settings.getBoolPref(
-      PrefKeys.immNavigationBar,
-      defaultValue: true,
-    );
-    final barElevation =
-        await _settings.getIntPref(PrefKeys.barElevation, defaultValue: 0);
-    final wallpaperColorFollow = await _settings.getBoolPref(
-      PrefKeys.wallpaperColorFollow,
-      defaultValue: false,
+    final barElevation = await _settings.getIntPref(
+      PrefKeys.barElevation,
+      defaultValue: 0,
     );
     final wallpaperColorAutoUpdate = await _settings.getBoolPref(
       PrefKeys.wallpaperColorAutoUpdate,
       defaultValue: true,
     );
-    final bgImage = await _settings.getStringPref(PrefKeys.bgImage);
-    final bgImageNight = await _settings.getStringPref(PrefKeys.bgImageN);
     final transparentNavBar = await _settings.getBoolPref(
       PrefKeys.transparentNavBar,
       defaultValue: false,
@@ -126,13 +141,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     if (!mounted) return;
     setState(() {
       _launcherIcon = launcherIcon;
-      _transparentStatusBar = transparentStatusBar;
-      _immNavigationBar = immNavigationBar;
       _barElevation = barElevation;
-      _wallpaperColorFollow = wallpaperColorFollow;
       _wallpaperColorAutoUpdate = wallpaperColorAutoUpdate;
-      _bgImage = bgImage;
-      _bgImageNight = bgImageNight;
       _transparentNavBar = transparentNavBar;
       _transparentNavBarNight = transparentNavBarNight;
       _loading = false;
@@ -149,12 +159,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   // ===== [UI_SYNC_REFACTOR B2] 顶栏与布局开关 =====
 
   String _topBarStyleLabel(TopBarButtonStyle s) => switch (s) {
-        TopBarButtonStyle.plain => '平面',
-        TopBarButtonStyle.tonal => 'Tonal（默认）',
-        TopBarButtonStyle.outlined => '描边',
-        TopBarButtonStyle.glass => '玻璃',
-        TopBarButtonStyle.liquidGlass => '液态玻璃',
-      };
+    TopBarButtonStyle.plain => '平面',
+    TopBarButtonStyle.tonal => 'Tonal（默认）',
+    TopBarButtonStyle.outlined => '描边',
+    TopBarButtonStyle.glass => '玻璃',
+    TopBarButtonStyle.liquidGlass => '液态玻璃',
+  };
 
   Future<void> _showTopBarStylePicker() async {
     final current = ref.read(uiSettingsProvider).topBarButtonStyle;
@@ -231,10 +241,10 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   }
 
   String _labelModeLabel(BottomBarLabelMode m) => switch (m) {
-        BottomBarLabelMode.auto => '仅选中显示（默认）',
-        BottomBarLabelMode.labeled => '全部常显',
-        BottomBarLabelMode.unlabeled => '纯图标',
-      };
+    BottomBarLabelMode.auto => '仅选中显示（默认）',
+    BottomBarLabelMode.labeled => '全部常显',
+    BottomBarLabelMode.unlabeled => '纯图标',
+  };
 
   Future<void> _showLabelModePicker() async {
     final current = ref.read(uiSettingsProvider).labelVisibilityMode;
@@ -311,11 +321,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   }
 
   String _tabletLabel(TabletInterfaceMode m) => switch (m) {
-        TabletInterfaceMode.auto => '自动（宽屏 ≥600dp）',
-        TabletInterfaceMode.always => '始终启用侧栏',
-        TabletInterfaceMode.landscape => '仅横屏启用',
-        TabletInterfaceMode.off => '不启用',
-      };
+    TabletInterfaceMode.auto => '自动（宽屏 ≥600dp）',
+    TabletInterfaceMode.always => '始终启用侧栏',
+    TabletInterfaceMode.landscape => '仅横屏启用',
+    TabletInterfaceMode.off => '不启用',
+  };
 
   Future<void> _showTabletModePicker() async {
     final current = ref.read(uiSettingsProvider).tabletInterface;
@@ -344,25 +354,23 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       ),
     );
     if (selected != null) {
-      await ref
-          .read(uiSettingsProvider.notifier)
-          .setTabletInterface(selected);
+      await ref.read(uiSettingsProvider.notifier).setTabletInterface(selected);
     }
   }
 
   String _styleLabel(String v) => switch (v) {
-        'none' => '关闭（内置色板）',
-        'tonalSpot' => 'Tonal Spot（默认）',
-        'neutral' => 'Neutral',
-        'vibrant' => 'Vibrant',
-        'expressive' => 'Expressive',
-        'fidelity' => 'Fidelity',
-        'content' => 'Content',
-        'rainbow' => 'Rainbow',
-        'fruitSalad' => 'Fruit Salad',
-        'monochrome' => 'Monochrome',
-        _ => v,
-      };
+    'none' => '关闭（内置色板）',
+    'tonalSpot' => 'Tonal Spot（默认）',
+    'neutral' => 'Neutral',
+    'vibrant' => 'Vibrant',
+    'expressive' => 'Expressive',
+    'fidelity' => 'Fidelity',
+    'content' => 'Content',
+    'rainbow' => 'Rainbow',
+    'fruitSalad' => 'Fruit Salad',
+    'monochrome' => 'Monochrome',
+    _ => v,
+  };
 
   Future<void> _showThemeStylePicker() async {
     final current = ref.read(uiSettingsProvider).themeStyle;
@@ -408,10 +416,10 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   }
 
   String _contrastLabel(String v) => switch (v) {
-        '0.5' => 'Medium（中）',
-        '1.0' => 'High（高）',
-        _ => 'Default（默认）',
-      };
+    '0.5' => 'Medium（中）',
+    '1.0' => 'High（高）',
+    _ => 'Default（默认）',
+  };
 
   Future<void> _showContrastPicker() async {
     final current = ref.read(uiSettingsProvider).themeContrastLevel;
@@ -452,10 +460,10 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   }
 
   String _coverBgLabel(String v) => switch (v) {
-        'off' => '显示封面（不模糊）',
-        'off_for_default' => '隐藏（仅默认封面档）',
-        _ => '模糊显示（默认）',
-      };
+    'off' => '显示封面（不模糊）',
+    'off_for_default' => '隐藏（仅默认封面档）',
+    _ => '模糊显示（默认）',
+  };
 
   Future<void> _showCoverBgPicker(bool isDefaultCover) async {
     final uiNow = ref.read(uiSettingsProvider);
@@ -633,6 +641,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     final themeNotifier = ref.read(themeNotifierProvider.notifier);
     final colors = ref.watch(themeColorsProvider);
     final ui = ref.watch(uiSettingsProvider);
+    final systemBars = ref.watch(systemBarProvider);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -662,14 +671,14 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                     children: [
                       // 参考 ThemeModeSelector（:974-1012）material 引擎分支：
                       // 跟随系统 / 浅色 / 深色（flow_sys/light_mode/dark_mode）
-                      _ThemeModeSelector(
+                      ThemeModeSelector(
                         selected: themeState.themeMode,
                         onChanged: themeNotifier.setThemeMode,
                       ),
                       // 13 套内置 MD3 preset 选择器（UI_MD3_PLAN.md Batch 1，
                       // [队列⑦a A2] 13 色卡横滑一行形态；paletteId 持久化，
                       // 与自定义主题并存——第九节并存模型）
-                      _BuiltinPaletteGrid(
+                      BuiltinPaletteSelector(
                         selectedId: themeState.paletteId,
                         onSelected: themeNotifier.setPaletteId,
                       ),
@@ -788,9 +797,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       SettingSwitchRow(
                         title: context.l10n.themeImmersionStatusBar,
                         subtitle: context.l10n.themeStatusBarImmersion,
-                        value: _transparentStatusBar,
+                        value: systemBars.transparentStatusBar,
                         onChanged: (v) async {
-                          setState(() => _transparentStatusBar = v);
                           await ref
                               .read(systemBarProvider.notifier)
                               .setTransparentStatusBar(v);
@@ -800,9 +808,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.themeImmNavigationBar,
                         subtitle:
                             context.l10n.themeImmersiveNavigationDescription,
-                        value: _immNavigationBar,
+                        value: systemBars.immNavigationBar,
                         onChanged: (v) async {
-                          setState(() => _immNavigationBar = v);
                           await ref
                               .read(systemBarProvider.notifier)
                               .setImmNavigationBar(v);
@@ -829,20 +836,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       SettingSwitchRow(
                         title: '跟随壁纸配色',
                         subtitle: '使用系统壁纸色板生成日间和夜间主题（Android 12+/iOS）',
-                        value: _wallpaperColorFollow,
-                        onChanged: (v) {
-                          setState(() => _wallpaperColorFollow = v);
-                          _settings.setBoolPref(
-                            PrefKeys.wallpaperColorFollow,
-                            v,
-                          );
-                          // [UI_SYNC_REFACTOR R1] 同步 uiSettings（dynamic_color 接线读取）
-                          ref
-                              .read(uiSettingsProvider.notifier)
-                              .setWallpaperColorFollow(v);
-                        },
+                        value: ui.wallpaperColorFollow,
+                        onChanged: (v) => ref
+                            .read(uiSettingsProvider.notifier)
+                            .setWallpaperColorFollow(v),
                       ),
-                      if (_wallpaperColorFollow)
+                      if (ui.wallpaperColorFollow)
                         SettingSwitchRow(
                           title: '壁纸变化时自动更新',
                           subtitle: '系统壁纸变化后自动应用新色板',
@@ -1062,7 +1061,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       IosListTile(
                         icon: Symbols.wallpaper_rounded,
                         title: context.l10n.themeBackgroundImage,
-                        subtitle: _bgImage.isEmpty ? '未设置' : _bgImage,
+                        subtitle: colors.bgImage.isEmpty
+                            ? '未设置'
+                            : colors.bgImage,
                         onTap: () => _showBgImageDialog(PrefKeys.bgImage),
                       ),
                       SettingSwitchRow(
@@ -1116,7 +1117,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       IosListTile(
                         icon: Symbols.wallpaper_rounded,
                         title: context.l10n.themeBackgroundImage,
-                        subtitle: _bgImageNight.isEmpty ? '未设置' : _bgImageNight,
+                        subtitle: colors.bgImageNight.isEmpty
+                            ? '未设置'
+                            : colors.bgImageNight,
                         onTap: () => _showBgImageDialog(PrefKeys.bgImageN),
                       ),
                       SettingSwitchRow(
@@ -1382,7 +1385,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     final api = ref.read(bookApiProvider);
     await showDialog<void>(
       context: context,
-      builder: (_) => _CoverRuleConfigDialog(
+      builder: (_) => CoverRuleConfigDialog(
         loadRule: api.getCoverRule,
         saveRule: api.saveCoverRule,
         deleteRule: api.deleteCoverRule,
@@ -1391,271 +1394,71 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     );
   }
 
-  // ===== 主题列表（对齐原版 ThemeConfig.configList 本地版）=====
+  ThemeActions get _themeActions => ref.read(themeActionsProvider);
 
-  static const _themeListKey = 'themeConfigList';
-
-  /// 读取已保存主题配置列表
-  Future<List<Map<String, dynamic>>> _loadThemeList() async {
-    final raw = await _settings.getStringPref(_themeListKey);
-    if (raw.isEmpty) return [];
+  Future<void> _showThemeListDialog() async {
     try {
-      return (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-    } catch (e) {
-      debugPrint('ThemeConfigScreen._loadThemeList 解析异常: $e');
-      return [];
+      final actions = _themeActions;
+      final presets = await actions.readPresets();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => ThemePresetListDialog(
+          presets: presets,
+          onDelete: actions.removePresetAt,
+          onApply: (preset) async {
+            await actions.applyPreset(preset);
+            _toast('已应用主题「${preset.name}」');
+          },
+          onError: (error) => _toast('主题操作失败：$error'),
+        ),
+      );
+    } catch (error) {
+      _toast('主题操作失败：$error');
     }
   }
 
-  /// 主题管理对话框（[队列⑦c A3] 原"主题列表"改名对齐参考 theme_pack=主题管理）：
-  /// 点击应用、删除按钮移除
-  Future<void> _showThemeListDialog() async {
-    var list = await _loadThemeList();
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          // [队列⑦c A3] 对话框标题与入口行一致（主题管理）
-          title: Text(ctx.l10n.themeManagement),
-          content: SizedBox(
-            width: 320,
-            child: list.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('暂无保存的主题配置\n可在下方"保存白天/夜间主题"后于此切换'),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: list.length,
-                    itemBuilder: (ctx2, index) {
-                      final item = list[index];
-                      final isNight = item['isNight'] == true;
-                      return ListTile(
-                        leading: Icon(
-                          isNight
-                              ? Symbols.dark_mode_rounded
-                              : Symbols.light_mode_rounded,
-                        ),
-                        title: Text('${item['name'] ?? '未命名'}'),
-                        subtitle: Text(isNight ? '夜间主题' : '白天主题'),
-                        trailing: IconButton(
-                          icon: const Icon(Symbols.delete_rounded),
-                          onPressed: () async {
-                            list = List.of(list)..removeAt(index);
-                            await _settings.setStringPref(
-                              _themeListKey,
-                              jsonEncode(list),
-                            );
-                            setDialogState(() {});
-                          },
-                        ),
-                        onTap: () async {
-                          await _applyThemeConfig(item);
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        },
-                      );
-                    },
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(ctx.l10n.close),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 应用一份已保存的主题配置（按日/夜写入对应颜色组）
-  Future<void> _applyThemeConfig(Map<String, dynamic> config) async {
-    final isNight = config['isNight'] == true;
-    await ref.read(themeColorsProvider.notifier).applyColors({
-      if (isNight) ...{
-        PrefKeys.cNPrimary: config['primary'] as int?,
-        PrefKeys.cNAccent: config['accent'] as int?,
-        PrefKeys.cNBackground: config['background'] as int?,
-        PrefKeys.cNBBackground: config['bottomBackground'] as int?,
-      } else ...{
-        PrefKeys.cPrimary: config['primary'] as int?,
-        PrefKeys.cAccent: config['accent'] as int?,
-        PrefKeys.cBackground: config['background'] as int?,
-        PrefKeys.cBBackground: config['bottomBackground'] as int?,
-      },
-    });
-    _toast('已应用主题「${config['name'] ?? '未命名'}」');
-  }
-
-  /// 保存当前日/夜颜色为命名主题（对齐原版 saveDayTheme/saveNightTheme）
   Future<void> _saveTheme({required bool isNight}) async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isNight ? '保存夜间主题' : '保存白天主题'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: ctx.l10n.themeThemeName),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(ctx.l10n.confirm),
-          ),
-        ],
-      ),
+      builder: (_) => ThemePresetNameDialog(isNight: isNight),
     );
     if (name == null || name.isEmpty || !mounted) return;
-    final colors = ref.read(themeColorsProvider);
-    final list = await _loadThemeList();
-    list.add({
-      'name': name,
-      'isNight': isNight,
-      'primary': isNight ? colors.primaryNight : colors.primary,
-      'accent': isNight ? colors.accentNight : colors.accent,
-      'background': isNight ? colors.backgroundNight : colors.background,
-      'bottomBackground': isNight
-          ? colors.bottomBackgroundNight
-          : colors.bottomBackground,
-    });
-    await _settings.setStringPref(_themeListKey, jsonEncode(list));
-    _toast('已保存主题「$name」');
+    try {
+      await _themeActions.savePreset(name, isNight: isNight);
+      _toast('已保存主题「$name」');
+    } catch (error) {
+      _toast('保存失败：$error');
+    }
   }
 
-  // ===== [B3-C1 A3 | 全栈工程师 + UI] 导出/导入主题（文件级最小实现） =====
-  // grep 结论：既有能力仅有 SharedPreferences 内 themeConfigList 保存/应用
-  // 与 association 关联导入（数据级），无文件级导入导出 → 此处最小实现：
-  // 导出当前配色 JSON / 导入应用。颜色值全部来自主题槽位
-  // （ThemeColorsState 的 ARGB int + paletteId + themeMode），无硬编码色值。
-
-  /// ThemeMode → JSON 名称
-  static String _themeModeName(ThemeMode mode) => switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        _ => 'system',
-      };
-
-  /// 导出当前配色为 JSON 文件（paletteId + 主题模式 + 日/夜 4 色组）
   Future<void> _exportTheme() async {
-    final colors = ref.read(themeColorsProvider);
-    final themeState = ref.read(themeNotifierProvider);
-    final payload = <String, dynamic>{
-      'app': 'legado',
-      'type': 'theme',
-      'version': 1,
-      'paletteId': themeState.paletteId,
-      'themeMode': _themeModeName(themeState.themeMode),
-      'day': <String, int?>{
-        'primary': colors.primary,
-        'accent': colors.accent,
-        'background': colors.background,
-        'bottomBackground': colors.bottomBackground,
-      },
-      'night': <String, int?>{
-        'primary': colors.primaryNight,
-        'accent': colors.accentNight,
-        'background': colors.backgroundNight,
-        'bottomBackground': colors.bottomBackgroundNight,
-      },
-    };
     try {
-      final path = await FilePicker.saveFile(
-        dialogTitle: '导出主题',
-        fileName: 'legado_theme.json',
-        bytes: utf8.encode(const JsonEncoder.withIndent('  ').convert(payload)),
-        mimeType: 'application/json',
-      );
-      if (path == null || !mounted) return;
-      _toast('主题已导出');
-    } catch (e) {
-      debugPrint('ThemeConfigScreen._exportTheme 写入异常: $e');
-      if (mounted) _toast('导出失败：$e');
+      if (await _themeActions.exportTheme()) _toast('主题已导出');
+    } catch (error) {
+      _toast('导出失败：$error');
     }
   }
 
-  /// 导入主题 JSON 并应用（日/夜颜色组 + paletteId + 主题模式）
   Future<void> _importTheme() async {
-    final result = await FilePicker.pickFile(
-      dialogTitle: '导入主题',
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
-    final path = result?.path;
-    if (path == null || !mounted) return;
-    dynamic decoded;
     try {
-      decoded = jsonDecode(await File(path).readAsString());
-    } catch (e) {
-      debugPrint('ThemeConfigScreen._importTheme 解析异常: $e');
+      final document = await _themeActions.readThemeFile();
+      if (document == null || !mounted) return;
+      await _themeActions.applyDocument(document);
+      _toast('主题已导入');
+    } on FormatException {
       _toast('导入失败：主题文件格式不正确');
-      return;
+    } catch (error) {
+      _toast('导入失败：$error');
     }
-    if (decoded is! Map<String, dynamic>) {
-      _toast('导入失败：主题文件格式不正确');
-      return;
-    }
-
-    final notifier = ref.read(themeColorsProvider.notifier);
-    // 日/夜颜色组：缺省组整组恢复默认（null 清除），保证导入结果确定
-    final dayMap = decoded['day'] is Map<String, dynamic>
-        ? (decoded['day'] as Map<String, dynamic>)
-        : const <String, dynamic>{};
-    final nightMap = decoded['night'] is Map<String, dynamic>
-        ? (decoded['night'] as Map<String, dynamic>)
-        : const <String, dynamic>{};
-    int? intOf(Map<String, dynamic> m, String k) {
-      final v = m[k];
-      return v is int ? v : (v is num ? v.toInt() : null);
-    }
-
-    await notifier.applyColors({
-      PrefKeys.cPrimary: intOf(dayMap, 'primary'),
-      PrefKeys.cAccent: intOf(dayMap, 'accent'),
-      PrefKeys.cBackground: intOf(dayMap, 'background'),
-      PrefKeys.cBBackground: intOf(dayMap, 'bottomBackground'),
-      PrefKeys.cNPrimary: intOf(nightMap, 'primary'),
-      PrefKeys.cNAccent: intOf(nightMap, 'accent'),
-      PrefKeys.cNBackground: intOf(nightMap, 'background'),
-      PrefKeys.cNBBackground: intOf(nightMap, 'bottomBackground'),
-    });
-
-    // paletteId（未知 id 经 Md3Palettes.byId 回退默认 def，安全）
-    final paletteId = decoded['paletteId'];
-    if (paletteId is String && paletteId.isNotEmpty) {
-      await ref.read(themeNotifierProvider.notifier).setPaletteId(paletteId);
-    }
-    // 主题模式（未知值忽略）
-    switch (decoded['themeMode']) {
-      case 'light':
-        await ref.read(themeNotifierProvider.notifier).setThemeMode(
-              ThemeMode.light,
-            );
-      case 'dark':
-        await ref.read(themeNotifierProvider.notifier).setThemeMode(
-              ThemeMode.dark,
-            );
-      case 'system':
-        await ref.read(themeNotifierProvider.notifier).setThemeMode(
-              ThemeMode.system,
-            );
-      default:
-        break;
-    }
-    if (mounted) _toast('主题已导入');
   }
 
   /// 背景图片选择/删除（对齐原版 backgroundImage；经 ThemeColorsNotifier
   /// 驱动 MaterialApp 全局壁纸即时生效）
   Future<void> _showBgImageDialog(String key) async {
     final isNight = key == PrefKeys.bgImageN;
-    final current = isNight ? _bgImageNight : _bgImage;
+    final colors = ref.read(themeColorsProvider);
+    final current = isNight ? colors.bgImageNight : colors.bgImage;
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -1679,43 +1482,22 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         ],
       ),
     );
-    // 异步对话框/文件选择器返回后先检查 mounted，再 setState/持久化
+    // 异步对话框/文件选择器返回后先检查页面生命周期，再更新偏好。
     if (!mounted) return;
-    if (action == 'select') {
-      final result = await FilePicker.pickFile(
-        type: FileType.image,
-        dialogTitle: '选择背景图片',
-        compressionQuality: Platform.isAndroid ? 30 : 0,
-      );
-      final path = result?.path;
+    if (action != 'select' && action != 'delete') return;
+    try {
+      final path = action == 'delete'
+          ? ''
+          : await ref.read(themeFileServiceProvider).selectBackgroundImage();
       if (path == null || !mounted) return;
-      setState(() {
-        if (isNight) {
-          _bgImageNight = path;
-        } else {
-          _bgImage = path;
-        }
-      });
       final notifier = ref.read(themeColorsProvider.notifier);
       if (isNight) {
         await notifier.setBgImage(night: path);
       } else {
         await notifier.setBgImage(day: path);
       }
-    } else if (action == 'delete') {
-      setState(() {
-        if (isNight) {
-          _bgImageNight = '';
-        } else {
-          _bgImage = '';
-        }
-      });
-      final notifier = ref.read(themeColorsProvider.notifier);
-      if (isNight) {
-        await notifier.setBgImage(night: '');
-      } else {
-        await notifier.setBgImage(day: '');
-      }
+    } catch (error) {
+      _toast('背景图片操作失败：$error');
     }
   }
 
@@ -1831,634 +1613,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 封面规则配置对话框（对齐原版 CoverRuleConfigDialog + 测试搜索）
-/// F4 | 2026-08-13 — Auto + UI
-class _CoverRuleConfigDialog extends StatefulWidget {
-  final Future<Map<String, dynamic>> Function() loadRule;
-  final Future<bool> Function(Map<String, dynamic> rule) saveRule;
-  final Future<bool> Function() deleteRule;
-  final Future<List<String>> Function(String name) onSearch;
-
-  const _CoverRuleConfigDialog({
-    required this.loadRule,
-    required this.saveRule,
-    required this.deleteRule,
-    required this.onSearch,
-  });
-
-  @override
-  State<_CoverRuleConfigDialog> createState() => _CoverRuleConfigDialogState();
-}
-
-class _CoverRuleConfigDialogState extends State<_CoverRuleConfigDialog> {
-  late final TextEditingController _searchUrlController =
-      TextEditingController();
-  late final TextEditingController _coverRuleController =
-      TextEditingController();
-  late final TextEditingController _nameController = TextEditingController();
-  bool _enable = true;
-  bool _loading = true;
-  bool _saving = false;
-  bool _searching = false;
-  bool _searched = false;
-  String? _error;
-  List<String> _results = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _searchUrlController.dispose();
-    _coverRuleController.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  String _errMsg(Object e) => e is BridgeError ? e.message : e.toString();
-
-  Future<void> _load() async {
-    try {
-      final rule = await widget.loadRule();
-      if (!mounted) return;
-      setState(() {
-        _enable = rule['enable'] == true || rule['enable'] == 1;
-        _searchUrlController.text = '${rule['searchUrl'] ?? ''}';
-        _coverRuleController.text = '${rule['coverRule'] ?? ''}';
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('CoverRuleConfig 加载失败: $e');
-      if (!mounted) return;
-      setState(() {
-        _error = '加载失败: ${_errMsg(e)}';
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _save() async {
-    final searchUrl = _searchUrlController.text.trim();
-    final coverRule = _coverRuleController.text.trim();
-    if (searchUrl.isEmpty || coverRule.isEmpty) {
-      setState(() => _error = '搜索url和cover规则不能为空');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      await widget.saveRule({
-        'enable': _enable,
-        'searchUrl': searchUrl,
-        'coverRule': coverRule,
-      });
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '保存失败: ${_errMsg(e)}';
-        _saving = false;
-      });
-    }
-  }
-
-  Future<void> _delete() async {
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      await widget.deleteRule();
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '删除失败: ${_errMsg(e)}';
-        _saving = false;
-      });
-    }
-  }
-
-  Future<void> _search() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = '请输入书名');
-      return;
-    }
-    setState(() {
-      _searching = true;
-      _error = null;
-    });
-    try {
-      final list = await widget.onSearch(name);
-      if (!mounted) return;
-      setState(() {
-        _results = list;
-        _searched = true;
-        _searching = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '搜索失败: ${_errMsg(e)}';
-        _results = [];
-        _searched = true;
-        _searching = false;
-      });
-    }
-  }
-
-  void _preview(String url) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('封面预览'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 360),
-          child: Image.network(
-            url,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('图片加载失败'),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.close),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _copy(String url) {
-    Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('封面 URL 已复制')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(context.l10n.themeCoverRule),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: _loading
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SettingSwitchRow(
-                      contentPadding: EdgeInsets.zero,
-                      title: context.l10n.editorEnable,
-                      value: _enable,
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _enable = v),
-                    ),
-                    TextField(
-                      controller: _searchUrlController,
-                      decoration: const InputDecoration(
-                        labelText: '搜索 URL',
-                        hintText: '支持 {{key}} 模板',
-                      ),
-                      minLines: 2,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _coverRuleController,
-                      decoration: const InputDecoration(labelText: '封面提取规则'),
-                      minLines: 2,
-                      maxLines: 6,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '按书名测试',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(hintText: '输入书名'),
-                            onSubmitted: (_) => _search(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: _searching || _saving ? null : _search,
-                          child: Text(context.l10n.testSource),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_searching)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      )
-                    else if (_error != null)
-                      Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 13,
-                        ),
-                      )
-                    else if (_searched && _results.isEmpty)
-                      const Text(
-                        '未搜到候选封面（无启用规则或全部失败）',
-                        style: TextStyle(fontSize: 13),
-                      )
-                    else if (_results.isNotEmpty)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 200),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: _results.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final url = _results[i];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                url,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Symbols.image_rounded,
-                                      size: 18,
-                                    ),
-                                    tooltip: '预览',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => _preview(url),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Symbols.content_copy_rounded,
-                                      size: 18,
-                                    ),
-                                    tooltip: context.l10n.copy,
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => _copy(url),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : _delete,
-          child: Text(
-            context.l10n.delete,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: Text(context.l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(context.l10n.confirm),
-        ),
-      ],
-    );
-  }
-}
-
-/// 主题模式三选分段控件（跟随系统 / 浅色 / 深色）。
-///
-/// [队列⑦c A3] 对齐参考 ThemeModeSelector（ThemeConfigScreen.kt:974-1012，
-/// 3 个相连 ToggleButton，material 引擎分支文案 跟随系统/浅色/深色，
-/// flow_sys/light_mode/dark_mode）。此前 2026-08-13 裁决"主题模式仅放
-/// 「我的」枢纽"，本次 A3 任务指令"IA 对齐参考版"予以覆盖，恢复页内选择器；
-/// 复用既有 ThemeState.themeMode 与 ThemeNotifier.setThemeMode（经
-/// SettingsService 持久化），非新增功能。
-class _ThemeModeSelector extends StatelessWidget {
-  final ThemeMode selected;
-  final ValueChanged<ThemeMode> onChanged;
-
-  const _ThemeModeSelector({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          for (final mode in ThemeMode.values)
-            Expanded(
-              child: _ModeSegment(
-                label: switch (mode) {
-                  ThemeMode.system => context.l10n.themeSystem,
-                  ThemeMode.light => context.l10n.themeLight,
-                  ThemeMode.dark => context.l10n.themeDark,
-                },
-                selected: mode == selected,
-                onTap: () => onChanged(mode),
-                selectedBg: scheme.primary,
-                selectedFg: scheme.onPrimary,
-                normalBg: scheme.surfaceContainerHighest,
-                normalFg: scheme.onSurface,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 主题模式选择器单段（相连三段，圆角矩形 + 选中主色底，对齐参考 3 相连
-/// ToggleButton 形态）
-class _ModeSegment extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color selectedBg;
-  final Color selectedFg;
-  final Color normalBg;
-  final Color normalFg;
-
-  const _ModeSegment({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.selectedBg,
-    required this.selectedFg,
-    required this.normalBg,
-    required this.normalFg,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Material(
-        color: selected ? selectedBg : normalBg,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Center(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? selectedFg : normalFg,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 内置 MD3 调色板横滑选择行（UI_MD3_PLAN.md Batch 1「内置 13 主题」区，
-/// 阶段D 2.0.270 起 13 套：def「默认」为默认选中，wh 黑白等 12 套保留）
-///
-/// [队列⑦a A2] 形态对齐参考 ThemeColorSelector（ThemeConfigScreen.kt:1020，
-/// LazyRow 横滑一行 + Arrangement.spacedBy(16.dp) :1031-1032）。
-/// 每张卡片左半为亮色预览、右半为暗色预览（tonal 配对），底部显示
-/// 中文主题名；选中项 2dp 主色描边 + 40dp 主色圆角底对勾。点按经
-/// [ThemeNotifier] 全局实时生效并持久化 paletteId。
-class _BuiltinPaletteGrid extends StatelessWidget {
-  final String selectedId;
-  final ValueChanged<String> onSelected;
-
-  const _BuiltinPaletteGrid({
-    required this.selectedId,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // 横滑一行（参考 LazyRow；卡间距 16 对齐 spacedBy(16.dp)）
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          for (var i = 0; i < Md3Palettes.all.length; i += 1) ...[
-            if (i > 0) const SizedBox(width: 16),
-            _PaletteCard(
-              palette: Md3Palettes.all[i],
-              selected: Md3Palettes.all[i].id == selectedId,
-              onSelected: () => onSelected(Md3Palettes.all[i].id),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// 单张调色板预览卡片（64x64 方卡，形态对齐参考 ThemeColorButton
-/// ThemeConfigScreen.kt:1054：size(64.dp) + RoundedCornerShape(16.dp)
-/// :1089-1096；选中 2dp 主色描边 :1092-1095；选中 40dp/12dp 圆角主色底
-/// 24dp 对勾 :1134-1148；12dp 下距 :1152；labelSmall 标签
-/// :1154-1158）
-///
-/// 卡片内部保留我方左亮/右暗 surface 预览 + 色点（功能实现倾向我方；
-/// 参考为 48dp 半圆 arc 单模式预览 :1102-1132）。
-class _PaletteCard extends StatelessWidget {
-  final Md3Palette palette;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  const _PaletteCard({
-    required this.palette,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final light = Color(palette.light.surface);
-    final dark = Color(palette.dark.surface);
-    final primary = Color(palette.light.primary);
-    final secondary = Color(palette.light.secondary);
-    final tertiary = Color(palette.light.tertiary);
-
-    return SizedBox(
-      width: 64,
-      child: InkWell(
-        onTap: onSelected,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 64,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(16),
-                      // 参考：选中 2dp 主色描边，未选中无描边（:1092-1095 else null）
-                      border: selected
-                          ? Border.all(color: primary, width: 2)
-                          : null,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    // 左亮右暗：展示该套调色板的 tonal 亮暗配对
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ColoredBox(
-                            color: light,
-                            child: Center(
-                              child: _PaletteDots(
-                                primary: primary,
-                                secondary: secondary,
-                                tertiary: tertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ColoredBox(
-                            color: dark,
-                            child: Center(
-                              child: _PaletteDots(
-                                primary: primary,
-                                secondary: secondary,
-                                tertiary: tertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (selected)
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.check,
-                        size: 24,
-                        color: scheme.onPrimary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              palette.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: selected ? primary : scheme.onSurface,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 预览色点行（primary/secondary/tertiary 三点示意）
-class _PaletteDots extends StatelessWidget {
-  final Color primary;
-  final Color secondary;
-  final Color tertiary;
-
-  const _PaletteDots({
-    required this.primary,
-    required this.secondary,
-    required this.tertiary,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // FittedBox 兜底：[队列⑦a A2] 64px 方卡内左/右半预览区约 30px 宽，
-    // 色点行 39px 需缩放下放（原 4 列网格半卡 ~37dp 时的兜底同样适用，
-    // md3_acceptance_matrix_test 回归守护）
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final color in [primary, secondary, tertiary]) ...[
-            Container(
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

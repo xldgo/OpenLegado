@@ -1,8 +1,9 @@
 # 主题管理与 UI 架构优化建议
 
-本方案依据 `feature/ui-reader-selection` 合并提交 `c68c52904` 调研；后续工作在
+本方案初次依据 `feature/ui-reader-selection` 合并提交 `c68c52904` 调研；
+A—C 已本地集成，第 4 步重新分析以 `121f01714` 为基线。后续工作在
 `build/worktrees/reader-overlay` 的 `feature/ui-reader-refinement` 进行。
-后续实施按下述批次划分，批次 A—C 的接口说明见下文。任务状态只维护于
+后续实施按下述批次划分，批次 A—D 的接口说明见下文。任务状态只维护于
 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，既有视觉规则仍见 [设计系统](design_system.md)。
 
 ## 结论与边界
@@ -55,7 +56,7 @@ flowchart TD
     L --> W
 ```
 
-图中表示职责关系；A—C 的实际入口见下文，其余职责仍属于后续建议。
+图中表示职责关系；A—D 的实际入口见下文，其余职责仍属于后续建议。
 
 1. **偏好**表达用户选择：主题模式、色板、日夜自定义颜色、纯黑、风格与对比度。
 2. **解析**只根据输入计算颜色角色，明确动态色可用条件、覆盖顺序和回退。
@@ -140,6 +141,53 @@ UI 与颜色设置的启动恢复按字段合并：用户已改动的字段保�
 状态合并，避免覆盖等待期间修改的颜色或背景图。批量存储由 SettingsService 执行，
 不建立跨项目持久化框架；一笔失败不阻塞后续写入。配置键、主题 JSON 和 FFI 不变。
 
+## 批次 D 的外观功能边界（121f01714）
+
+当前基线已有书签、阅读记录和朗读配置的功能目录与窄数据边界。外观拆分沿用
+这个结构，但其预设保存在 SharedPreferences，不经过 BookApi 或 Rust。
+本批沿用重新分析后的范围，实际职责落点如下。
+
+| 实现位置（均在 `flutter_legado/lib/src/` 下） | 职责 |
+|---|---|
+| `features/appearance/appearance.dart`、`theme_config_screen.dart` | 提供功能入口，保留 ThemeConfigScreen 类名与既有页面交互；旧 screens 文件迁入此处 |
+| `features/appearance/theme_actions.dart` | 协调保存、应用、导入导出，复用已有主题 Notifier；页面负责弹层、提示和生命周期 |
+| `models/theme_preset.dart`、`theme_document.dart` | 分别表达本地命名预设与日夜主题文件，封装各自序列化规则 |
+| `domain/contracts/theme_preset_repository.dart`、`data/repositories/preferences_theme_preset_repository.dart` | 读取和保存 themeConfigList；通过 SettingsService 使用原键，不复制颜色状态 |
+| `platform/files/theme_file_service.dart` | 封装主题文件读写和背景图片选择，保留取消结果与平台参数，不持有 BuildContext |
+| `features/appearance/widgets/` | 主题模式、色板、封面规则和预设弹层各自管理展示；封面规则业务接口与原布局不变 |
+| `routes.dart` 与现有外观测试 | 改用功能公开入口，保留 `/theme_config` 路由；同步已有测试导入，不新增布局测试 |
+
+模型、存储及文件边界与页面迁移作为同一批审阅。分组仍按原顺序组织在页面中，
+不为每一行增加独立组件；提取已有独立职责的选择器和弹层，不复制通用分组容器。
+
+### 页面状态与写入入口
+
+基线外观页曾保存 `_wallpaperColorFollow`、日夜背景图片和系统栏字段副本，
+壁纸配色开关同时调用 SettingsService 和 UiSettingsNotifier 写入同一个键。
+本批移除这些副本，直接订阅已有 Provider，写入仅经所属 Notifier。
+尚无共享 Provider 的页面独有选项保留小范围状态，不额外建立全局外观状态容器。
+系统栏 Notifier 未属于 C 的竞态修复范围，不声称本轮已证明其加载/写入安全。
+
+### 三种数据格式分别保留
+
+- 本地 `themeConfigList` 是带 `name`、`isNight` 及四色的列表；损坏数据目前回退为空列表。
+  拆分保留原键、字段、列表顺序和解析回退，不静默过滤条目或改成另一份文件格式。
+- 导出文件包含 `app/type/version`、色板、主题模式及 day/night 四色组。
+  当前导入只要求 JSON 对象，并不校验前三个声明；缺失颜色组会清除该组自定义色，
+  数值颜色转换为整数，未知主题模式忽略。模型须表达这些现有行为，不能借重构增加门禁。
+- `association_notifier.dart` 的关联导入使用另一套字段，包含字体、行距、背景索引和亮度，
+  且直接写偏好。它与外观文件不是相同协议；本批不强行共用文件模型或改动阅读配置。
+  后续若要统一其即时状态刷新，另明确字段归属及现有行为后处理。
+
+背景图继续只保存选择器返回的路径，不引入文件复制、旧图删除或配置迁移。
+页面分组顺序、标签、外观和主题解析规则不变；导入保存失败应反馈给页面，取消不修改状态。
+预设存储通过既有 SettingsWriteQueue 串行完成读改写；列表读取等待排在前面的写入。
+SettingsService.setStringPrefChecked 会把失败交回调用方，既有宽容写入方法保持原样。
+预设弹层等待保存成功再更新列表，控制器由命名编辑器管理；不建立长期列表缓存。
+
+必要验证覆盖两种模型的实际格式、预设存储、取消/失败路径及既有外观用例，
+不重复运行全量 CI，也不因拆分重编 Rust。
+
 ## 三项关键设计选择
 
 ### 完整装配局部主题
@@ -189,6 +237,6 @@ ThemeData。本方案不修改该协议、FFI 签名或数据库，不因视觉�
 未来若要调整运行时配置同步，另按 API_CONTRACT 明确兼容影响。
 
 调研依据为基线静态源码与官方 API；自动验证覆盖配色计算、局部装配和设置竞态，
-未开展自动设备交互或性能测量；D、E 仍是建议方案。
+未开展自动设备交互或性能测量；D 的平台文件操作待人工复验，E 仍是建议方案。
 
 编写者：Codex｜2026-10-13

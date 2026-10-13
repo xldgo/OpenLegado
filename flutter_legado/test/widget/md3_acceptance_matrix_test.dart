@@ -20,7 +20,7 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_screen.dart';
 import 'package:flutter_legado/src/screens/search_screen.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
-import 'package:flutter_legado/src/screens/theme_config_screen.dart';
+import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
 import '../mocks/mocks.dart';
