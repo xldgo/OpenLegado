@@ -217,4 +217,66 @@ void main() {
     expect(local.cardTheme.shape, themes.dark.cardTheme.shape);
     expect(local.cardTheme.color, local.colorScheme.surfaceContainerLow);
   });
+
+  test('局部换色同步完整组件，保留平台、字体、密度与页面转场', () {
+    final base = AppTheme.light.copyWith(
+      platform: TargetPlatform.iOS,
+      textTheme: AppTheme.light.textTheme.apply(fontFamily: 'reader-font'),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      splashFactory: NoSplash.splashFactory,
+    );
+    final scheme = ColorScheme.fromSeed(seedColor: Colors.green);
+    final local = AppTheme.withColorScheme(base, scheme);
+    expect(local.scaffoldBackgroundColor, scheme.surface);
+    expect(local.cardTheme.color, scheme.surfaceContainerLow);
+    expect(local.inputDecorationTheme.fillColor, scheme.surfaceContainerLow);
+    expect(local.dialogTheme.backgroundColor, scheme.surfaceContainer);
+    expect(local.bottomSheetTheme.backgroundColor, scheme.surfaceContainer);
+    expect(
+      local.menuTheme.style?.backgroundColor?.resolve({}),
+      scheme.surfaceContainerLow,
+    );
+    expect(
+      local.floatingActionButtonTheme.backgroundColor,
+      scheme.primaryContainer,
+    );
+    expect(
+      local.iconButtonTheme.style?.foregroundColor?.resolve({}),
+      scheme.onSurfaceVariant,
+    );
+    expect(local.platform, base.platform);
+    expect(local.pageTransitionsTheme, base.pageTransitionsTheme);
+    expect(local.textTheme.bodyMedium?.fontFamily, 'reader-font');
+    expect(local.textTheme.bodyMedium?.color, scheme.onSurface);
+    expect(local.visualDensity, base.visualDensity);
+    expect(local.materialTapTargetSize, base.materialTapTargetSize);
+    expect(local.splashFactory, base.splashFactory);
+  });
+
+  test('完整主题过渡插值卡片与弹层，输入框到达目标配色', () {
+    final base = AppTheme.light;
+    final target = AppTheme.withColorScheme(
+      base,
+      ColorScheme.fromSeed(seedColor: Colors.blue),
+    );
+    final midway = ThemeData.lerp(base, target, 0.5);
+    expect(
+      midway.cardTheme.color,
+      Color.lerp(base.cardTheme.color, target.cardTheme.color, 0.5),
+    );
+    // 标准 ThemeData 对输入框主题在中点切换；终点必须包含完整目标主题。
+    expect(
+      ThemeData.lerp(base, target, 1).inputDecorationTheme,
+      target.inputDecorationTheme,
+    );
+    expect(
+      midway.dialogTheme.backgroundColor,
+      Color.lerp(
+        base.dialogTheme.backgroundColor,
+        target.dialogTheme.backgroundColor,
+        0.5,
+      ),
+    );
+  });
 }

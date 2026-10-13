@@ -195,11 +195,20 @@ class AppTheme {
       tabBarBg: scheme.surfaceContainer,
     );
     return themed.copyWith(
+      platform: base.platform,
+      pageTransitionsTheme: base.pageTransitionsTheme,
+      typography: base.typography,
+      splashFactory: base.splashFactory,
+      cupertinoOverrideTheme: base.cupertinoOverrideTheme,
       // 局部换色继承应用已解析的卡片形状，不再读取全局设置。
       cardTheme: themed.cardTheme.copyWith(shape: base.cardTheme.shape),
       textTheme: base.textTheme.apply(
         bodyColor: scheme.onSurface,
         displayColor: scheme.onSurface,
+      ),
+      primaryTextTheme: base.primaryTextTheme.apply(
+        bodyColor: scheme.onPrimary,
+        displayColor: scheme.onPrimary,
       ),
       visualDensity: base.visualDensity,
       materialTapTargetSize: base.materialTapTargetSize,
