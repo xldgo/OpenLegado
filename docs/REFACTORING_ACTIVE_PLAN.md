@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-SETTINGS-COMPONENTS-20261013：通用设置组件收口 E（P2）
+
+- **授权与基线**：用户批准第 E 项；以 `f04eb3ed5` 为基线，继续在 reader-overlay worktree 的 `feature/ui-reader-refinement` 工作。统一通用设置组件命名及外观、阅读设置行；不使用子代理，不改版本、Rust/FFI、数据格式或设置归属，不推送或触发 CI。
+- **实施范围**：将跨平台分组主体、标题、说明、设置行与弹层把手从 Ios* 改为用途命名，同步全部调用和现有测试，不保留旧别名。设置行共享右侧值与预览的布局，菜单选择、开关、数值步进继续使用既有包装组件；保留设置行分隔线开关、组内图标缩进及阅读配色预览的功能差异。
+- **状态与实现**：代码整理和定向验证通过，实际视觉及设备交互待用户人工检查。设置组件统一为 SettingsBody、SettingsSectionHeader、SettingsSectionFooter、SettingTile 与 SheetDragHandle；18 个调用或测试文件只同步命名。外观页七处简单单选改为 SettingMenuRow，复用原选项和 Notifier；阅读字体、页面边距和提示信息入口使用 SettingTile，菜单颜色值与预览共享尾部布局。连续滑条、数值步进及需要输入确认的弹窗保留各自功能。
+- **主题与验证**：主标题使用 titleMedium，说明使用 bodySmall / onSurfaceVariant，右侧值使用 labelMedium 强调字阶；值布局基于行宽限制，菜单行无箭头、页面跳转行保留箭头，把手消费当前 BottomSheetTheme。MenuAnchor 底层 OverlayPortal 保持入口继承主题，已有菜单用例验证局部主题与关闭回调。最终 24 个相关文件定向静态分析无问题；七份已有相关回归 38 项、外观与阅读设置 360dp 用例各 1 项，共 40 项通过，未新增测试文件或布局用例。已有外观用例增加风格与对比度选择后状态断言。
+- **回归补查**：首轮新增主题检查的 Finder 匹配多个菜单项；已有 Web 服务测试沿用旧 Row 容器，HEAD 的产品代码已使用 SettingSwitchRow，因此找不到开关。分别改为明确菜单项与设置开关行定位，保持端口、保活及失败回退断言，复验通过。记录在忽略目录 `flutter_legado/build/settings-components-{tests,tests-recheck,appearance-overflow,reader-overflow}.log`，中间及最终分析日志为 `settings-components-analysis*.log`。
+- **构建**：JDK 25 / Java 与 JVM 17 增量 Debug APK 构建 3 分 40 秒成功，25 项任务执行、381 项复用；未重编 Rust，包内 ELF/strip 来源校验通过。版本保持 `2.0.373+374`，日志为忽略目录 `flutter_legado/build/settings-components-{apk-jdk25,apk-verification}.log`。未提交、合并或推送；安装与实际视觉验收分别记录，不以组件测试替代用户实测。
+- **安装与验收边界**：安装前实时确认 `emulator-5556` 为官方 `sdk_gphone64_x86_64 / emu64xa`、AVD 为 `Legado_API_36`；覆盖安装 Success、保留数据，MainActivity 冷启动 `Status: ok`（6980ms），主进程在线，当前日志未见致命异常、未处理异常或布局溢出。应用版本实测保持 `2.0.373+374`，未自动操作页面；外观菜单、日夜主题和阅读设置交互待用户人工检查。日志在忽略目录 `flutter_legado/build/settings-components-{install-official,start-official,runtime-official}.log`。
+- **提交授权**：用户批准将本批合为一条本地提交，随后继续阅读配置模型、存储与状态入口拆分；不合并或推送，版本不变。提交记录以 Git 为准，设备视觉验收仍由用户人工完成。
+
+编写者：Codex｜2026-10-13
+
 - **本轮提交授权（2026-10-13）**：用户批准将外观模块整理 D 与波浪加载动画优化合为一条本地提交，覆盖下述实施阶段暂不提交的限制；不合并或推送，不改应用版本。代码验证及构建安装已通过，实际视觉表现仍待用户人工检查。
 
 ### UI-READER-LOADING-20261013：优化波浪加载动画（P2）
@@ -23,7 +36,7 @@
 - **B 的状态**：代码、定向验证与增量安装通过，待用户人工复验配色及弹层交互。详情页改用完整 ThemeData 的 400ms 动画，封面目标主题按输入变化缓存；内容在主题内构建，弹层从详情 Scaffold 的稳定上下文打开。复用 `AppTheme.withColorScheme`，阅读菜单继续使用同一组件装配入口，正文配色不变。
 - **B 的验证（2026-10-13）**：4 个相关 Dart 文件定向静态分析无问题；主题装配 11 项、阅读菜单 7 项、详情行与元信息 16 项，共 34 项通过。仅在已有主题单元测试补两项完整装配与动画逻辑回归，未新增布局测试；现有详情交互用例保持原样。初次检查发现异步局部上下文需要按 context.mounted 守卫，以及输入框主题采用标准中点切换，已修正并复验。日志位于忽略目录 `flutter_legado/build/local-theme-{analysis,tests}-recheck.log`，首轮结果保留于 `local-theme-{analysis,tests}.log`。
 - **B 的构建与安装**：JDK 25 / Java 与 JVM 17 增量打包成功（26 秒），复用已有 Rust 库，应用版本保持 `2.0.373+374`。实时探测在线 MuMu `127.0.0.1:16384` 后覆盖安装成功，Launcher4 冷启动 `Status: ok`；不清除数据、不自动操作页面。日志为 `flutter_legado/build/local-theme-{apk-jdk25,install,start}.log`。实际浅深色封面、跟随开关、分组/变量弹层及阅读按钮视觉表现留待用户实测；未运行 iOS 编译或全量 CI。
-- **后续边界**：D 的外观功能模块拆分已完成代码整理、定向验证与构建安装，实际交互待用户人工检查；E 的通用组件收口尚未开始。A、B 没有改动设置持久化，C 按下述确认的竞态整理状态读写。实现入口与后续方案见 [主题与 UI 架构方案](UI_THEME_ARCHITECTURE.md)。
+- **后续边界**：D 的外观功能模块拆分已完成代码整理、定向验证与构建安装，实际交互待用户人工检查；E 的通用组件收口按上方独立条目登记。A、B 没有改动设置持久化，C 按下述确认的竞态整理状态读写。实现入口与后续方案见 [主题与 UI 架构方案](UI_THEME_ARCHITECTURE.md)。
 - **B 的封面动画补充**：用户要求同时修复详情进出时的白色闪烁。旧飞行层重新挂载封面 Widget，导致再次加载；Hero 默认占位还会卸载部分端点的图片子树。统一使用 `BookCoverHero` 保留两端加载状态，飞行层绘制当前已解码帧，并在离场释放独立图片引用；圆角按两端实际形状插值，直连封面关闭额外的加载淡入淡出。3 个相关文件静态分析无问题，已有封面加载与详情回归 24 项通过，未新增布局测试；日志为 `flutter_legado/build/cover-hero-{analysis,tests}.log`。实机转场仍待用户人工检查。
 - **封面动画交付**：JDK 25 增量构建 27 秒通过，沿用既有 Rust 库和应用版本；实时探测 MuMu `127.0.0.1:16384` 后覆盖安装成功，Launcher4 冷启动 `Status: ok`。未自动操作页面，留待用户检查进入、返回及连续快速进出。日志为忽略目录 `flutter_legado/build/cover-hero-{apk-jdk25,install,start}.log`，本批后续合为本地提交 `c2dc11a32`，未推送。
 

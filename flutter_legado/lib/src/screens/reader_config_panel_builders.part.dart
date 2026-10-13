@@ -310,14 +310,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       children: [
         _sectionTitle('字体与排版', Icons.text_fields),
         // 字体选择：跳转字体管理页，返回后触发阅读器重新加载字体
-        ListTile(
+        SettingTile(
           dense: true,
-          // 控件自身保留水平边距，不依赖整组包裹。
-
-          leading: const Icon(Icons.font_download_outlined, size: 20),
-          title: Text('阅读字体', style: Theme.of(context).textTheme.titleMedium),
-          subtitle: Text(_fontLabel ?? context.l10n.readerDefaultFont),
-          trailing: const Icon(Icons.chevron_right),
+          icon: Icons.font_download_outlined,
+          title: '阅读字体',
+          subtitle: _fontLabel ?? context.l10n.readerDefaultFont,
           onTap: () async {
             await Navigator.pushNamed(context, AppRoutes.fonts);
             if (!mounted) return;
@@ -881,30 +878,20 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     int value,
     Color fallback,
     ValueChanged<int> apply,
-  ) => IosListTile(
+  ) => SettingTile(
     title: title,
     showChevron: false,
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value == 0
-              ? context.l10n.readerMenuColorDefault
-              : '#${value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
-          style: Theme.of(context).textTheme.bodyMedium
-              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: value == 0 ? fallback : Color(value),
-            shape: BoxShape.circle,
-            border: Border.all(color: Theme.of(context).colorScheme.outline),
-          ),
-        ),
-      ],
+    value: value == 0
+        ? context.l10n.readerMenuColorDefault
+        : '#${value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
+    valuePreview: Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: value == 0 ? fallback : Color(value),
+        shape: BoxShape.circle,
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+      ),
     ),
     onTap: () async {
       final picked = await showDialog<int>(
@@ -987,7 +974,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
   /// 数值设置继续使用输入对话框，行布局复用统一设置行。
   Widget _moreRow(String title, String current, VoidCallback onTap) =>
-      IosListTile(
+      SettingTile(
         title: title,
         value: current,
         showChevron: false,

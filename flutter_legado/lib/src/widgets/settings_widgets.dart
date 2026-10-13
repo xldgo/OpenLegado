@@ -8,31 +8,27 @@ import 'setting_cards.dart';
 /// 跨平台分组列表组件库。
 ///
 /// 提供分组设置页的「tonal 表面背景 + 大圆角分组容器 + outlineVariant
-/// 分隔」构件。部分类名沿用 Ios* 前缀，视觉已切换
-/// 为 MD3 token：分组容器走 cardTheme（tonal surfaceContainer 层次），
-/// 图标容器 primaryContainer，拖拽把手对齐 M3 drag handle 规格。
+/// 分隔」构件。组件读取当前主题，供应用设置页与阅读器局部主题共用。
 ///
 /// 典型用法：
 /// ```dart
-/// IosGroupedBody(
-///   slivers: [
-///     SliverToBoxAdapter(child: IosSectionHeader('分组')),
-///     SliverToBoxAdapter(
-///       child: SettingsGroup(children: [ ListTile(...), SwitchListTile(...) ]),
-///     ),
-///   ],
+/// SettingsBody(
+///   child: ListView(children: [
+///     SettingsSectionHeader('分组'),
+///     SettingsGroup(children: [SettingTile(title: '设置项')]),
+///   ]),
 /// )
 /// ```
 ///
 /// 分组列表外层容器：使用 Scaffold 的表面背景色并留出左右安全边距。
-class IosGroupedBody extends StatelessWidget {
+class SettingsBody extends StatelessWidget {
   /// 子 Widget（通常为 Column / ListView，内容自带滚动则用 [child]）
   final Widget child;
 
-  /// 左右留白（iOS 分组卡片外边距）
+  /// 分组卡片外侧的左右留白。
   final EdgeInsets padding;
 
-  const IosGroupedBody({
+  const SettingsBody({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.symmetric(horizontal: 16),
@@ -51,11 +47,11 @@ class IosGroupedBody extends StatelessWidget {
 }
 
 /// 分组标题：MD3 风格的小标题（labelMedium / onSurfaceVariant，位于容器上方）。
-class IosSectionHeader extends StatelessWidget {
+class SettingsSectionHeader extends StatelessWidget {
   final String text;
   final EdgeInsets padding;
 
-  const IosSectionHeader(
+  const SettingsSectionHeader(
     this.text, {
     super.key,
     this.padding = const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -82,11 +78,11 @@ class IosSectionHeader extends StatelessWidget {
 }
 
 /// 分组脚注：卡片下方的灰色说明文字。
-class IosSectionFooter extends StatelessWidget {
+class SettingsSectionFooter extends StatelessWidget {
   final String text;
   final EdgeInsets padding;
 
-  const IosSectionFooter(
+  const SettingsSectionFooter(
     this.text, {
     super.key,
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -140,7 +136,7 @@ class SettingsGroup extends StatelessWidget {
   });
 
   bool _hasLeading(Widget row) => switch (row) {
-    IosListTile(:final icon, :final leading) => icon != null || leading != null,
+    SettingTile(:final icon, :final leading) => icon != null || leading != null,
     SettingSwitchRow(:final icon, :final leading) =>
       icon != null || leading != null,
     SettingMenuRow(:final icon) => icon != null,
@@ -199,7 +195,7 @@ class SettingsGroup extends StatelessWidget {
 
     if (flat) {
       // 扁平模式需自备透明 Material，否则 ListTile 的 ink 溅在远端
-      // Material 祖先上会被中间 ColoredBox（IosGroupedBody）遮住而断言失败
+      // Material 祖先上会被中间 ColoredBox（SettingsBody）遮住而断言失败
       return Padding(
         padding: margin,
         child: Material(
@@ -236,7 +232,7 @@ class SettingsGroup extends StatelessWidget {
 /// [showChevron] 为 true 且可点击时尾部补 Chevron（M3 有箭头；
 /// 原 P2 移除注释仅对 Miuix 成立，此处反转）。
 /// [MD3 全量清点 P2] 行是否可点由 onTap 存在性决定。
-class IosListTile extends StatelessWidget {
+class SettingTile extends StatelessWidget {
   /// 可选；嵌套设置页常见无图标行
   final IconData? icon;
 
@@ -249,8 +245,11 @@ class IosListTile extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
 
-  /// 尾部值文本（如「默认」），与自定义 [trailing] 互斥（trailing 优先）
+  /// 尾部值文本（如「默认」）；自定义 [trailing] 优先。
   final String? value;
+
+  /// 当前值的图标或色块预览，与 [value] 使用同一尾部布局。
+  final Widget? valuePreview;
 
   /// 可点击时是否显示行尾 Chevron（默认 true；开关行传 false）
   final bool showChevron;
@@ -266,7 +265,7 @@ class IosListTile extends StatelessWidget {
   /// 密排开关行如 WebDav 组内 vertical12/horizontal8 用）
   final EdgeInsetsGeometry? contentPadding;
 
-  const IosListTile({
+  const SettingTile({
     super.key,
     this.icon,
     this.leading,
@@ -276,6 +275,7 @@ class IosListTile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.value,
+    this.valuePreview,
     this.showChevron = true,
     this.onTap,
     this.enabled = true,
@@ -289,12 +289,12 @@ class IosListTile extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     Widget? trailing = this.trailing;
-    if (trailing == null && value != null) {
-      trailing = Text(
-        value!,
-        style: theme.textTheme.labelMediumEmphasized?.copyWith(
-          color: scheme.primary,
-        ),
+    if (trailing == null && (value != null || valuePreview != null)) {
+      trailing = _SettingValue(
+        value: value,
+        preview: valuePreview,
+        enabled: enabled,
+        showChevron: onTap != null && showChevron,
       );
     }
     // 可点击且无自定义尾部/值文本时补 M3 Chevron
@@ -332,27 +332,31 @@ class IosListTile extends StatelessWidget {
 
     // [UI_SYNC_REFACTOR R3] 设置行分隔线（参考仓 enableItemDivider：
     // 行底 1dp 胶囊线，长度 80dp 缩进 16，默认关）
-    final divider = UiSettingsScope.of(context, UiSettingsAspect.dividers).enableItemDivider
+    final tile = ListTile(
+      leading: leading,
+      title: Text(title, style: theme.textTheme.titleMedium),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: enabled ? scheme.onSurfaceVariant : theme.disabledColor,
+              ),
+            )
+          : null,
+      trailing: trailing,
+      onTap: onTap,
+      enabled: enabled,
+      dense: dense,
+      contentPadding: contentPadding,
+    );
+    return UiSettingsScope.of(
+          context,
+          UiSettingsAspect.dividers,
+        ).enableItemDivider
         ? Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: leading,
-                title: Text(title, style: theme.textTheme.titleMedium),
-                subtitle: subtitle != null
-                    ? Text(
-                        subtitle!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      )
-                    : null,
-                trailing: trailing,
-                onTap: onTap,
-                enabled: enabled,
-                dense: dense,
-                contentPadding: contentPadding,
-              ),
+              tile,
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
@@ -366,25 +370,62 @@ class IosListTile extends StatelessWidget {
               ),
             ],
           )
-        : null;
+        : tile;
+  }
+}
 
-    if (divider != null) return divider;
-    return ListTile(
-      leading: leading,
-      title: Text(title, style: theme.textTheme.titleMedium),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurface.withValues(alpha: 0.7),
+/// 普通设置行与菜单设置行共用的值样式；长文本为标题保留空间。
+class _SettingValue extends StatelessWidget {
+  const _SettingValue({
+    this.value,
+    this.preview,
+    required this.enabled,
+    required this.showChevron,
+  });
+
+  final String? value;
+  final Widget? preview;
+  final bool enabled;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) => ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.48),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ?preview,
+            if (preview != null && value != null) const SizedBox(width: 8),
+            if (value != null)
+              Flexible(
+                child: Text(
+                  value!,
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMediumEmphasized?.copyWith(
+                    color: enabled
+                        ? theme.colorScheme.primary
+                        : theme.disabledColor,
+                  ),
+                ),
               ),
-            )
-          : null,
-      trailing: trailing,
-      onTap: onTap,
-      enabled: enabled,
-      dense: dense,
-      contentPadding: contentPadding,
+            if (showChevron) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: enabled
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.disabledColor,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -414,50 +455,29 @@ class SettingMenuRow<T> extends StatelessWidget {
   final Widget Function(T value, String label)? optionBuilder;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => AppMenuAnchor<T>(
-      itemBuilder: (_) => [
-        for (final entry in options.entries)
-          AppMenuItem(
-            value: entry.key,
-            checked: entry.key == value,
-            enabled: onChanged != null,
-            child:
-                optionBuilder?.call(entry.key, entry.value) ??
-                Text(entry.value),
-          ),
-      ],
-      onSelected: onChanged,
-      builder: (context, controller, _) => IosListTile(
-        title: title,
-        subtitle: subtitle,
-        icon: icon,
-        showChevron: false,
-        enabled: onChanged != null,
-        trailing: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.48),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (valuePreview != null) ...[
-                valuePreview!,
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Text(
-                  options[value] ?? '未设置',
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: Theme.of(context).colorScheme.primary),
-                ),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => AppMenuAnchor<T>(
+    itemBuilder: (_) => [
+      for (final entry in options.entries)
+        AppMenuItem(
+          value: entry.key,
+          checked: entry.key == value,
+          enabled: onChanged != null,
+          child:
+              optionBuilder?.call(entry.key, entry.value) ?? Text(entry.value),
         ),
-        onTap: onChanged == null
-            ? null
-            : () => controller.isOpen ? controller.close() : controller.open(),
-      ),
+    ],
+    onSelected: onChanged,
+    builder: (context, controller, _) => SettingTile(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      showChevron: false,
+      enabled: onChanged != null,
+      value: options[value] ?? '未设置',
+      valuePreview: valuePreview,
+      onTap: onChanged == null
+          ? null
+          : () => controller.isOpen ? controller.close() : controller.open(),
     ),
   );
 }
@@ -494,7 +514,7 @@ class SettingStepperRow extends StatelessWidget {
         : value.toStringAsFixed(1);
     final label =
         '${showPlus && value >= 0 ? '+' : ''}$number${unit == null ? '' : ' $unit'}';
-    return IosListTile(
+    return SettingTile(
       title: title,
       showChevron: false,
       trailing: Row(
@@ -531,7 +551,7 @@ class SettingStepperRow extends StatelessWidget {
 
 /// M3 设置开关行（对齐参考版 `SwitchSettingItem`）
 ///
-/// 语义与 `IosListTile` 同族（图标 + 标题 + 副标题 + 尾部），尾部固定为
+/// 语义与 `SettingTile` 同族（图标 + 标题 + 副标题 + 尾部），尾部固定为
 /// `Switch`：整行可点即切换（参考版非 Miuix 分支 `onClick = onCheckedChange(!checked)`），
 /// 语义经 `MergeSemantics` 合并为单一开关节点（与 `SwitchListTile` 同法）。
 /// `onChanged == null` 时行禁用（文字灰显、不可点、开关灰置），同 `SwitchListTile`。
@@ -563,7 +583,7 @@ class SettingSwitchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final onChanged = this.onChanged;
     return MergeSemantics(
-      child: IosListTile(
+      child: SettingTile(
         icon: icon,
         leading: leading,
         title: title,
@@ -583,17 +603,21 @@ class SettingSwitchRow extends StatelessWidget {
 }
 
 /// MD3 拖拽把手（Bottom Sheet 顶部短横条，对齐 M3 drag handle 规格）。
-class IosGrabber extends StatelessWidget {
-  const IosGrabber({super.key});
+class SheetDragHandle extends StatelessWidget {
+  const SheetDragHandle({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final size = theme.bottomSheetTheme.dragHandleSize ?? const Size(32, 4);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      width: 32,
-      height: 4,
+      width: size.width,
+      height: size.height,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        color:
+            theme.bottomSheetTheme.dragHandleColor ??
+            theme.colorScheme.onSurfaceVariant,
         borderRadius: BorderRadius.circular(2),
       ),
     );

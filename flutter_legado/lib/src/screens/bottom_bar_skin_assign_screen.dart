@@ -289,7 +289,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : IosGroupedBody(
+          : SettingsBody(
               child: ListView(
                 children: [
                   if (_error != null)
@@ -302,7 +302,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                         ),
                       ),
                     ),
-                  const IosSectionHeader('名称'),
+                  const SettingsSectionHeader('名称'),
                   SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       Padding(
@@ -320,7 +320,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                       ),
                     ],
                   ),
-                  const IosSectionHeader('槽位'),
+                  const SettingsSectionHeader('槽位'),
                   SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       for (var i = 0; i < _rows.length; i++) ...[
@@ -370,7 +370,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                       ],
                     ],
                   ),
-                  const IosSectionFooter(
+                  const SettingsSectionFooter(
                     '点选缩略图从压缩包图片中分配。每个底栏项至少需要「选中」图；'
                     '「未选」可空（运行时用选中图半透明近似）。',
                   ),

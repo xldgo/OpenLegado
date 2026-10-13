@@ -551,7 +551,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 4),
-              child: IosGrabber(),
+              child: SheetDragHandle(),
             ),
             ListTile(
               leading: const Icon(Symbols.vertical_align_top_rounded),

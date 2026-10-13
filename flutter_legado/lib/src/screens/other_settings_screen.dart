@@ -195,14 +195,14 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(title: Text(context.l10n.advanced)),
-      body: IosGroupedBody(
+      body: SettingsBody(
         child: ListView(
           padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             // ===== 语言（对齐原版 language，无独立 category）=====
             SettingsGroup(
                 children: [
-              IosListTile(
+              SettingTile(
                 icon: Symbols.language_rounded,
                 title: context.l10n.language,
                 value: _localeLabel,
@@ -253,7 +253,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 value: mainPrefs.showRss,
                 onChanged: (v) => mainPrefsNotifier.setShowRss(v),
               ),
-              IosListTile(
+              SettingTile(
                 icon: Symbols.home_rounded,
                 title: context.l10n.advancedDefaultHomePage,
                 value: _homePageLabel(mainPrefs.defaultHomePage),
@@ -266,19 +266,19 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             SettingsGroup(
               title: '其他设置',
                 children: [
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedLocalPassword,
                 subtitle:
                     context.l10n.advancedLocalPasswordDescription,
                 value: _localPassword.isEmpty ? '未设置' : '已设置',
                 onTap: _showLocalPasswordDialog,
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedUserAgent,
                 subtitle: _userAgent.isEmpty ? context.l10n.readerDefault : _userAgent,
                 onTap: _showUserAgentDialog,
               ),
-              IosListTile(
+              SettingTile(
                 title: '自定义Hosts',
                 subtitle: _customHostsSummary.isEmpty
                     ? '域名到IP的映射'
@@ -294,14 +294,14 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   _settingsService.setBoolPref(PrefKeys.webServiceWakeLock, v);
                 },
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedBookSaveLocation,
                 subtitle: _defaultBookTreeUri.isEmpty
                     ? context.l10n.advancedBookSaveLocationDescription
                     : _defaultBookTreeUri,
                 onTap: _showBookTreeUriDialog,
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedSourceEditorMaxLines,
                 value: '$_sourceEditMaxLine',
                 onTap: () => _editIntPref(
@@ -313,7 +313,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   apply: (v) => setState(() => _sourceEditMaxLine = v),
                 ),
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedCheckSourceSettings,
                 subtitle: _checkSourceConfigSummary,
                 onTap: _showCheckSourceConfigDialog,
@@ -327,7 +327,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   _settingsService.setBoolPref(PrefKeys.antiAlias, v);
                 },
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedBitmapCache,
                 subtitle: '当前最大缓存 $_bitmapCacheSize MB',
                 onTap: () => _editIntPref(
@@ -339,7 +339,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   apply: (v) => setState(() => _bitmapCacheSize = v),
                 ),
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedMangaRetention,
                 subtitle: '保留已读章节数量 $_imageRetainNum',
                 onTap: () => _editIntPref(
@@ -351,7 +351,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   apply: (v) => setState(() => _imageRetainNum = v),
                 ),
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedPreDownload,
                 subtitle: '预先下载 $_preDownloadNum 章正文',
                 onTap: () => _editIntPref(
@@ -437,44 +437,44 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   _settingsService.setBoolPref(PrefKeys.showMangaUi, v);
                 },
               ),
-              IosListTile(
+              SettingTile(
                 title: '视频设置',
                 subtitle: '自动播放、全屏播放等配置',
                 onTap: () => showVideoSettingsDialog(context),
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedWebPort,
                 subtitle: '当前端口 $_webPort',
                 onTap: _showWebPortDialog,
               ),
-              IosListTile(
+              SettingTile(
                 title: 'MCP 端口',
                 subtitle: _mcpPort > 0 ? '当前端口 $_mcpPort' : '当前端口 0（已停止）',
                 onTap: _showMcpPortDialog,
               ),
-              IosListTile(
+              SettingTile(
                 title: 'Web 书源访问令牌',
                 subtitle: _jsSourceApiToken.isEmpty
                     ? 'MCP、纯 JS、书源写入、搜索和调试接口均需要'
                     : '已配置',
                 onTap: _editJsSourceApiToken,
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedClearCache,
                 subtitle: context.l10n.advancedClearCacheDescription,
                 onTap: _cleanCache,
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedClearWebView,
                 subtitle: context.l10n.advancedClearWebViewDescription,
                 onTap: _clearWebViewData,
               ),
-              IosListTile(
+              SettingTile(
                 title: context.l10n.advancedShrinkDatabase,
                 subtitle: context.l10n.advancedShrinkDatabaseDescription,
                 onTap: _shrinkDatabase,
               ),
-              IosListTile(
+              SettingTile(
                 title: '更新和搜索线程数（太多会卡顿）',
                 value: '$_threadCount',
                 onTap: () => _editIntPref(

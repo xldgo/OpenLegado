@@ -7,18 +7,24 @@ import 'package:flutter_legado/src/widgets/pill_divider.dart';
 void main() {
   testWidgets('选中菜单项后回传原值并关闭菜单', (tester) async {
     int? selected;
+    final localTheme = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: AppMenuButton<int>(
-              child: const Text('打开菜单'),
-              itemBuilder: (_) => const [
-                AppMenuItem(value: 1, child: Text('第一项')),
-                AppMenuDivider(),
-                AppMenuItem(value: 2, checked: true, child: Text('第二项')),
-              ],
-              onSelected: (value) => selected = value,
+            child: Theme(
+              data: localTheme,
+              child: AppMenuButton<int>(
+                child: const Text('打开菜单'),
+                itemBuilder: (_) => const [
+                  AppMenuItem(value: 1, child: Text('第一项')),
+                  AppMenuDivider(),
+                  AppMenuItem(value: 2, checked: true, child: Text('第二项')),
+                ],
+                onSelected: (value) => selected = value,
+              ),
             ),
           ),
         ),
@@ -26,6 +32,11 @@ void main() {
     );
     await tester.tap(find.text('打开菜单'));
     await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.widgetWithText(MenuItemButton, '第一项')))
+          .colorScheme,
+      localTheme.colorScheme,
+    );
     await tester.tap(find.text('第二项'));
     await tester.pumpAndSettle();
     expect(selected, 2);

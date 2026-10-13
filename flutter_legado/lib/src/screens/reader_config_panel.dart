@@ -351,11 +351,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           SettingsGroup(
             showDividers: false,
             children: [
-              ListTile(
-                leading: const Icon(Icons.crop_free),
-                title: const Text('页面边距'),
-                subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-                trailing: const Icon(Icons.chevron_right),
+              SettingTile(
+                icon: Icons.crop_free,
+                title: '页面边距',
+                subtitle: '页眉 / 正文 / 页脚四向边距',
                 onTap: () => ReaderPaddingConfigSheet.show(
                   context,
                   config: _config.copy(),
@@ -397,13 +396,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             children: [
               Column(
                 children: [
-                  ListTile(
-                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-
-                    leading: const Icon(Icons.crop_free),
-                    title: const Text('页面边距'),
-                    subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-                    trailing: const Icon(Icons.chevron_right),
+                  SettingTile(
+                    icon: Icons.crop_free,
+                    title: '页面边距',
+                    subtitle: '页眉 / 正文 / 页脚四向边距',
                     onTap: () => ReaderPaddingConfigSheet.show(
                       context,
                       config: _config.copy(),
@@ -413,13 +409,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                       },
                     ),
                   ),
-                  ListTile(
-                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-
-                    leading: const Icon(Icons.info_outline),
-                    title: const Text('阅读提示信息'),
-                    subtitle: const Text('页眉页脚提示项与标题样式'),
-                    trailing: const Icon(Icons.chevron_right),
+                  SettingTile(
+                    icon: Icons.info_outline,
+                    title: '阅读提示信息',
+                    subtitle: '页眉页脚提示项与标题样式',
                     onTap: () => ReaderTipConfigSheet.show(
                       context,
                       config: _config.copy(),

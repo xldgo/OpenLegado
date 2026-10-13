@@ -40,10 +40,10 @@ class BottomBarSkinScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: IosGroupedBody(
+      body: SettingsBody(
         child: ListView(
           children: [
-            const IosSectionHeader('皮肤'),
+            const SettingsSectionHeader('皮肤'),
             SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               children: [
                 ListTile(
@@ -72,7 +72,7 @@ class BottomBarSkinScreen extends ConsumerWidget {
                   ),
               ],
             ),
-            const IosSectionFooter(
+            const SettingsSectionFooter(
               '导入 zip 后进入分配页：为书架/发现/订阅/我的各选「选中」图'
               '（「未选」可空）。若文件名已是 bookshelf_selected 等，将自动预填。',
             ),
@@ -100,7 +100,7 @@ class BottomBarSkinScreen extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const IosSectionHeader('预览'),
+                      const SettingsSectionHeader('预览'),
                       SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                         children: [
                           Padding(

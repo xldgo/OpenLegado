@@ -3,7 +3,7 @@
 本方案初次依据 `feature/ui-reader-selection` 合并提交 `c68c52904` 调研；
 A—C 已本地集成，第 4 步重新分析以 `121f01714` 为基线。后续工作在
 `build/worktrees/reader-overlay` 的 `feature/ui-reader-refinement` 进行。
-后续实施按下述批次划分，批次 A—D 的接口说明见下文。任务状态只维护于
+后续实施按下述批次划分，批次 A—E 的接口说明见下文。任务状态只维护于
 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，既有视觉规则仍见 [设计系统](design_system.md)。
 
 ## 结论与边界
@@ -56,7 +56,7 @@ flowchart TD
     L --> W
 ```
 
-图中表示职责关系；A—D 的实际入口见下文，其余职责仍属于后续建议。
+图中表示职责关系；A—E 的实际入口见下文，其余职责仍属于后续建议。
 
 1. **偏好**表达用户选择：主题模式、色板、日夜自定义颜色、纯黑、风格与对比度。
 2. **解析**只根据输入计算颜色角色，明确动态色可用条件、覆盖顺序和回退。
@@ -188,6 +188,34 @@ SettingsService.setStringPrefChecked 会把失败交回调用方，既有宽容�
 必要验证覆盖两种模型的实际格式、预设存储、取消/失败路径及既有外观用例，
 不重复运行全量 CI，也不因拆分重编 Rust。
 
+## 批次 E 的通用设置组件
+
+通用设置组件继续集中在 `src/widgets/settings_widgets.dart`，按用途命名：
+
+| 组件 | 职责 |
+|---|---|
+| `SettingsBody` | 设置页背景、安全区与分组外侧留白 |
+| `SettingsSectionHeader` / `SettingsSectionFooter` | 卡片外的标题与说明 |
+| `SettingsGroup` | 卡片内标题、容器与行间分隔，保留图标列缩进规则 |
+| `SettingTile` | 标题、副标题、图标、右侧值或自定义控件 |
+| `SettingSwitchRow` / `SettingMenuRow` / `SettingStepperRow` | 复用基础设置行，分别承载开关、菜单选择与数值步进 |
+| `SheetDragHandle` | 从当前 BottomSheetTheme 读取把手尺寸与颜色 |
+
+旧 Ios* 设置组件名称不保留别名；实际 Cupertino 组件与平台行为不受此命名整理影响。
+普通设置行与菜单行共用右侧值和预览布局，基于当前行宽限制值的空间；标题使用
+titleMedium，说明使用 bodySmall / onSurfaceVariant，右侧值使用 labelMedium 强调字阶。
+禁用值与说明使用当前主题的 disabledColor。数值步进控件和连续滑条保留自身布局。
+
+外观页的配色风格、对比度、顶栏按钮样式、底栏文字、大屏导航与两类封面背景选择，
+统一为 SettingMenuRow；原选项、字段、默认值和 Notifier 写入入口不变。需要输入、
+多项配置或确认的弹窗保留。阅读字体、页面边距、提示信息入口与菜单颜色预览
+复用 SettingTile；菜单行不显示箭头，页面跳转行保留箭头。
+
+AppMenuAnchor 继续使用 material_ui 的 MenuAnchor。其底层 OverlayPortal 保持
+入口的继承主题，即使菜单绘制于根浮层，也不需再添加全局主题副本或手工注入。
+已有菜单回归同时验证局部主题与选择、关闭行为；顶部导航及输入框继续消费既有
+LegadoAppBar 和 InputDecorationTheme，不新增另一套组件或配色配置。
+
 ## 三项关键设计选择
 
 ### 完整装配局部主题
@@ -237,6 +265,6 @@ ThemeData。本方案不修改该协议、FFI 签名或数据库，不因视觉�
 未来若要调整运行时配置同步，另按 API_CONTRACT 明确兼容影响。
 
 调研依据为基线静态源码与官方 API；自动验证覆盖配色计算、局部装配和设置竞态，
-未开展自动设备交互或性能测量；D 的平台文件操作待人工复验，E 仍是建议方案。
+未开展自动设备交互或性能测量；平台文件操作与通用组件视觉表现均由用户人工复验。
 
 编写者：Codex｜2026-10-13

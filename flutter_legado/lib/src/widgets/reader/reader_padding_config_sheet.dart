@@ -206,7 +206,7 @@ class _ReaderPaddingConfigSheetState
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!widget.embedded) const Center(child: IosGrabber()),
+        if (!widget.embedded) const Center(child: SheetDragHandle()),
         if (!fixedRegion) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -265,7 +265,7 @@ class _ReaderPaddingConfigSheetState
           onChanged: (v) => setState(() => _lockLr = v),
         ),
         if (fixedRegion)
-          IosListTile(
+          SettingTile(
             title: '恢复默认边距',
             trailing: const Icon(Icons.restore),
             showChevron: false,

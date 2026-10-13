@@ -140,7 +140,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         ),
         body: adv == null
             ? const Center(child: CircularProgressIndicator())
-            : IosGroupedBody(
+            : SettingsBody(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: _buildPage(state, notifier, adv),
@@ -175,7 +175,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               showDividers: false,
               margin: EdgeInsets.zero,
               children: [
-                IosListTile(
+                SettingTile(
                   icon: Icons.tune,
                   title: '全部阅读设置',
                   onTap: () {
@@ -219,7 +219,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             margin: EdgeInsets.zero,
             children: [
               for (final item in ReaderSettingsCategory.values)
-                IosListTile(
+                SettingTile(
                   icon: item.icon,
                   title: item.title,
                   subtitle: item.summary,

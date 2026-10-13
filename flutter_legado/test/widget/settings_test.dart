@@ -8,11 +8,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
@@ -45,10 +45,7 @@ void main() {
   Widget wrap(Widget child, {Map<String, WidgetBuilder>? routes}) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
-        home: child,
-        routes: routes ?? const {},
-      ),
+      child: MaterialApp(home: child, routes: routes ?? const {}),
     );
   }
 
@@ -115,7 +112,10 @@ void main() {
         expect(find.text('用浏览器写源或看书'), findsOneWidget);
         expect(find.text('暂不可用，将在后续版本修复'), findsNothing);
         final card = find
-            .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+            .ancestor(
+              of: find.text('Web 服务'),
+              matching: find.byType(SettingSwitchRow),
+            )
             .first;
         expect(
           tester
@@ -143,7 +143,10 @@ void main() {
         expect(find.text('用浏览器写源或看书'), findsOneWidget);
         expect(find.text('暂不可用，将在后续版本修复'), findsNothing);
         final card = find
-            .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+            .ancestor(
+              of: find.text('Web 服务'),
+              matching: find.byType(SettingSwitchRow),
+            )
             .first;
         expect(
           tester
@@ -166,11 +169,10 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer((inv) async {
-        startedPorts.add(inv.namedArguments[#port] as int);
-      });
+      when(() => mockApi.startServer(port: any(named: 'port')))
+          .thenAnswer((inv) async {
+            startedPorts.add(inv.namedArguments[#port] as int);
+          });
       when(() => mockApi.getServerStatus())
           .thenAnswer((_) async => 'running on port 8080');
 
@@ -180,7 +182,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -198,11 +203,10 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer((inv) async {
-        startedPorts.add(inv.namedArguments[#port] as int);
-      });
+      when(() => mockApi.startServer(port: any(named: 'port')))
+          .thenAnswer((inv) async {
+            startedPorts.add(inv.namedArguments[#port] as int);
+          });
       when(() => mockApi.getServerStatus())
           .thenAnswer((_) async => 'running on port 1122');
 
@@ -212,7 +216,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -229,11 +236,10 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer((inv) async {
-        startedPorts.add(inv.namedArguments[#port] as int);
-      });
+      when(() => mockApi.startServer(port: any(named: 'port')))
+          .thenAnswer((inv) async {
+            startedPorts.add(inv.namedArguments[#port] as int);
+          });
       when(() => mockApi.getServerStatus())
           .thenAnswer((_) async => 'running on port 1122');
 
@@ -243,7 +249,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -258,9 +267,7 @@ void main() {
     // [2026-10-07 | iOS Web 服务后台保活批] 接线回归：服务 start/stop 成功
     // 必须伴随保活 setEnabled(true/false)——静音音轨生命周期严格绑定 Web 服务
     //（对齐原版 WakeLock 的「防睡眠」目的，见 WEB_SERVICE_KEEPALIVE_SURVEY_20261007.md）。
-    testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (
-      tester,
-    ) async {
+    testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (tester) async {
       WebKeepAliveService.platformIsIOS = () => true;
       addTearDown(
         () => WebKeepAliveService.platformIsIOS = () => Platform.isIOS,
@@ -283,9 +290,8 @@ void main() {
 
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer((_) async {});
+      when(() => mockApi.startServer(port: any(named: 'port')))
+          .thenAnswer((_) async {});
       when(() => mockApi.stopServer()).thenAnswer((_) async {});
       when(() => mockApi.getServerStatus())
           .thenAnswer((_) async => 'running on port 1122');
@@ -296,7 +302,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -339,9 +348,8 @@ void main() {
 
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer((_) async {});
+      when(() => mockApi.startServer(port: any(named: 'port')))
+          .thenAnswer((_) async {});
       when(() => mockApi.getServerStatus())
           .thenAnswer((_) async => 'running on port 1122');
 
@@ -351,7 +359,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -369,12 +380,14 @@ void main() {
     });
 
     testWidgets('从我的页直接进入备份与恢复全页 WebDAV/备份设置', (tester) async {
-      await tester.pumpWidget(wrap(
-        const SettingsScreen(),
-        routes: {
-          AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
-        },
-      ));
+      await tester.pumpWidget(
+        wrap(
+          const SettingsScreen(),
+          routes: {
+            AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       // 我的页直接进入备份与恢复，不经过设置主页。

@@ -659,7 +659,7 @@ extension _SourceBuilders on _SourceScreenState {
     final hasLoginUrl = (source.loginUrl ?? '').trim().isNotEmpty;
     final hasExplore = (source.exploreUrl ?? '').trim().isNotEmpty;
 
-    // [统一壳 B2a] 自造壳（IosGrabber+滚动列）迁移统一 AppBottomSheet
+    // [统一壳 B2a] 自造壳（SheetDragHandle+滚动列）迁移统一 AppBottomSheet
     // （对齐参考版 AppModalBottomSheet 语义；把手由主题统一提供），
     // 标题=书源名（操作对象语义）
     final action = await AppBottomSheet.show<String>(

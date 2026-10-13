@@ -124,7 +124,7 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!widget.embedded) const Center(child: IosGrabber()),
+        if (!widget.embedded) const Center(child: SheetDragHandle()),
         for (var i = 0; i < groups.length; i++) ...[
           if (i > 0) const SizedBox(height: 12),
           groups[i],

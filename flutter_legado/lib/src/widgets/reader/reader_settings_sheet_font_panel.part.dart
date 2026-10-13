@@ -117,33 +117,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
 
   /// 字体选择和缩进选择使用相同的设置行。
   Widget _row({required String title, String? value, VoidCallback? onTap}) =>
-      ListTile(
-        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (value != null)
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
-                child: Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
-        onTap: onTap,
-      );
+      SettingTile(title: title, value: value, onTap: onTap);
 
   Future<void> _selectFont({bool title = false}) async {
     await Navigator.pushNamed(
