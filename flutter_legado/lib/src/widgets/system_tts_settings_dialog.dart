@@ -1,10 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 
 Future<void> showSystemTtsSettings(
   BuildContext context,
-  SystemTtsService service,
+  SystemTts service,
   Future<void> Function() onChanged,
 ) => showDialog<void>(
   context: context,
@@ -13,7 +13,7 @@ Future<void> showSystemTtsSettings(
 
 class _SystemTtsSettings extends StatefulWidget {
   const _SystemTtsSettings({required this.service, required this.onChanged});
-  final SystemTtsService service;
+  final SystemTts service;
   final Future<void> Function() onChanged;
   @override
   State<_SystemTtsSettings> createState() => _SystemTtsSettingsState();

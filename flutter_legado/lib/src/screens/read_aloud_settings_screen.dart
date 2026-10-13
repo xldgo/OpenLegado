@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -8,7 +9,7 @@ import '../providers/audio/audio_notifier.dart';
 import '../providers/audio/read_aloud_preferences.dart';
 import '../providers/audio/read_aloud_capsule.dart';
 import '../routes.dart';
-import '../services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/settings_widgets.dart';

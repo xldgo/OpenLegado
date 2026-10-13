@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // P0 缺陷回归：在线书 TTS 朗读合成文本为章节 URL JSON 元数据（2026-10-03）
 //
 // 根因：在线书走 BookApi.getChapterContent（Rust get_chapter_content 在线分支）
@@ -70,7 +71,7 @@ void main() {
   }
 
   void stubAudioSpeak() {
-    when(() => mockApi.audioSpeak(
+    when(() => mockApi.httpTtsSynthesizer.synthesize(
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -79,7 +80,7 @@ void main() {
           voiceName: any(named: 'voiceName'),
         )).thenAnswer((invocation) async {
       speakTexts.add(invocation.namedArguments[#text] as String);
-      return '/tmp/tts/para_${speakTexts.length}.mp3';
+      return HttpTtsAudio(audioPath: '/tmp/tts/para_${speakTexts.length}.mp3');
     });
   }
 

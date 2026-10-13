@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // D3 缺陷回归：Flutter 轨 httpTTS 种子导入与可用性如实登记。
 //
 // 背景（QA 证据 .tmp/tts_qa/device_legado.db / screen_12_ttsconfig.png）：
@@ -276,7 +277,7 @@ void main() {
       when(() => api.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(
-        () => api.audioSpeak(
+        () => api.httpTtsSynthesizer.synthesize(
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -284,7 +285,7 @@ void main() {
           volume: any(named: 'volume'),
           voiceName: any(named: 'voiceName'),
         ),
-      ).thenAnswer((_) async => '/tmp/tts/para.mp3');
+      ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
     });
 
     test('库中只有不兼容种子 → 不自动选中，保持无引擎降级（不冒充可用）', () async {
@@ -302,7 +303,7 @@ void main() {
       // 无可用引擎：不调用合成（降级估算），并给用户可见的一次性提示
       // [A4 批 2026-10-03] 由「静默降级」改为「温和提示」（用户裁决）
       verifyNever(
-        () => api.audioSpeak(
+        () => api.httpTtsSynthesizer.synthesize(
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),

@@ -1,6 +1,7 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -9,18 +10,22 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 
 import '../mocks/mocks.dart';
 
-class FakeSystemTts extends SystemTtsService {
-  FakeSystemTts() : super(platform: TargetPlatform.android);
+class FakeSystemTts extends Fake implements SystemTts {
+  @override
+  bool get isSupported => true;
+  @override
+  void Function(int start, int end)? onProgress;
   final texts = <String>[];
   final speeds = <double>[];
   final requests = <Completer<SystemTtsOutcome>>[];
   bool paused = false;
   int pauses = 0;
+  Future<void>? pendingPause;
   @override
   bool get isPaused => paused;
   @override
@@ -47,6 +52,7 @@ class FakeSystemTts extends SystemTtsService {
   Future<void> pause() async {
     paused = requests.isNotEmpty && !requests.last.isCompleted;
     pauses++;
+    await pendingPause;
   }
 
   @override
@@ -61,11 +67,23 @@ Future<void> flush() async {
   }
 }
 
+class _ControlledPlayer extends FakeStreamAudioPlayer {
+  Future<void>? pendingStop;
+
+  @override
+  Future<void> stop() async {
+    final pending = pendingStop;
+    pendingStop = null;
+    await super.stop();
+    await pending;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late MockRustApi api;
   late FakeSystemTts system;
-  late FakeStreamAudioPlayer player;
+  late _ControlledPlayer player;
   late ProviderContainer container;
   late MockAudioService audio;
   late StreamController<AudioFocusEvent> focus;
@@ -78,7 +96,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
     system = FakeSystemTts();
-    player = FakeStreamAudioPlayer();
+    player = _ControlledPlayer();
     audio = MockAudioService();
     focus = StreamController<AudioFocusEvent>.broadcast();
     buttons = StreamController<MediaButtonEvent>.broadcast();
@@ -115,7 +133,7 @@ void main() {
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
     when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
     when(
-      () => api.audioSpeak(
+      () => api.httpTtsSynthesizer.synthesize(
         text: any(named: 'text'),
         engineUrl: any(named: 'engineUrl'),
         speed: any(named: 'speed'),
@@ -123,7 +141,7 @@ void main() {
         volume: any(named: 'volume'),
         voiceName: any(named: 'voiceName'),
       ),
-    ).thenAnswer((_) async => '/tmp/tts.mp3');
+    ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts.mp3'));
     container = ProviderContainer(
       overrides: [
         bookApiProvider.overrideWithValue(api),
@@ -302,7 +320,7 @@ void main() {
     );
     await flush();
     verify(
-      () => api.audioSpeak(
+      () => api.httpTtsSynthesizer.synthesize(
         text: '正文。',
         engineUrl: 'https://tts/{{text}}',
         speed: 1,
@@ -370,6 +388,110 @@ void main() {
     expect(system.texts.last, '第二段。');
   });
 
+  test('HTTP 完成在段间停顿内只推进一次，旧进度不能写入下一段', () async {
+    await container
+        .read(readAloudPreferencesProvider.notifier)
+        .setParagraphInterval(100);
+    await notifier().loadChapters('book');
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    await flush();
+    await notifier().play();
+    final tag = player.currentTag;
+    player.onCompleted!(tag);
+    player.onCompleted!(tag);
+    player.onProgress!(
+      const Duration(seconds: 8), const Duration(seconds: 10), tag,
+    );
+    await flush();
+    expect(notifier().currentParagraphIndex, 1);
+    expect(player.playedLocalFiles.length, 1);
+    expect(notifier().readAloudPosition.value!.paragraphIndex, 0);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await flush();
+    expect(player.playedLocalFiles.length, 2);
+    expect(notifier().readAloudPosition.value!.paragraphIndex, 1);
+    notifier().stop();
+  });
+
+  test('旧暂停操作迟到报错不能暂停已经切换的 HTTP 朗读', () async {
+    await start();
+    final pending = Completer<void>();
+    system.pendingPause = pending.future;
+    notifier().pause();
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    await flush();
+    await notifier().resumeOrPlay();
+    await flush();
+    expect(state().state, PlayerState.playing);
+    expect(player.playedLocalFiles, isNotEmpty);
+    pending.completeError(StateError('旧暂停失败'));
+    await flush();
+    expect(state().state, PlayerState.playing);
+    expect(state().errorMessage, isNull);
+    notifier().stop();
+  });
+
+  test('当前暂停控制失败仍显示错误并保持暂停', () async {
+    await start();
+    final pending = Completer<void>();
+    system.pendingPause = pending.future;
+    notifier().pause();
+    pending.completeError(StateError('当前暂停失败'));
+    await flush();
+    expect(state().state, PlayerState.paused);
+    expect(state().errorMessage, contains('当前暂停失败'));
+  });
+
+  test('切换系统引擎后迟到的 HTTP 合成错误不写入当前会话', () async {
+    final pending = Completer<HttpTtsSynthesisResult>();
+    when(() => api.httpTtsSynthesizer.synthesize(
+      text: any(named: 'text'), engineUrl: any(named: 'engineUrl'),
+      speed: any(named: 'speed'), pitch: any(named: 'pitch'),
+      volume: any(named: 'volume'), voiceName: any(named: 'voiceName'),
+    )).thenAnswer((_) => pending.future);
+    await notifier().loadChapters('book');
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    final playing = notifier().play();
+    await flush();
+    notifier().updateConfig(engineUrl: systemTtsEngineUrl);
+    await flush();
+    expect(system.texts, isNotEmpty);
+    pending.completeError(StateError('旧合成失败'));
+    await playing;
+    await flush();
+    expect(state().state, PlayerState.playing);
+    expect(state().errorMessage, isNull);
+    expect(player.playedLocalFiles, isEmpty);
+  });
+
+  test('当前 HTTP 暂停控制失败被接收，不形成未处理的异步错误', () async {
+    await notifier().loadChapters('book');
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    await notifier().play();
+    final pending = Completer<void>();
+    player.pendingStop = pending.future;
+    notifier().pause();
+    pending.completeError(StateError('文件播放停止失败'));
+    await flush();
+    expect(state().state, PlayerState.paused);
+    expect(state().errorMessage, contains('文件播放停止失败'));
+  });
+
+  test('旧 HTTP 暂停控制失败不能改写恢复后的播放状态', () async {
+    await notifier().loadChapters('book');
+    notifier().updateConfig(engineUrl: 'https://tts.test');
+    await notifier().play();
+    final pending = Completer<void>();
+    player.pendingStop = pending.future;
+    notifier().pause();
+    await notifier().resumeOrPlay();
+    pending.completeError(StateError('旧文件播放停止失败'));
+    await flush();
+    expect(state().state, PlayerState.playing);
+    expect(state().errorMessage, isNull);
+    notifier().stop();
+  });
+
   test('自然换段遵循段间停顿', () async {
     await container
         .read(readAloudPreferencesProvider.notifier)
@@ -420,7 +542,7 @@ void main() {
     expect(system.texts.last, '下一章。');
     expect(player.playedLocalFiles, isEmpty);
     verifyNever(
-      () => api.audioSpeak(
+      () => api.httpTtsSynthesizer.synthesize(
         text: any(named: 'text'),
         engineUrl: any(named: 'engineUrl'),
         speed: any(named: 'speed'),

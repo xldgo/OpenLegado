@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -5,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/misc.dart';
 import '../../models/tts_engine_option.dart';
-import '../../services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../routes.dart';

@@ -1,46 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const systemTtsEngineUrl = 'system://default';
+import 'system_tts.dart';
 
-enum SystemTtsOutcome { completed, paused, cancelled }
-
-class SystemTtsVoice {
-  final String name;
-  final String locale;
-  final String? identifier;
-  final bool networkRequired;
-
-  const SystemTtsVoice({
-    required this.name,
-    required this.locale,
-    this.identifier,
-    this.networkRequired = false,
-  });
-
-  factory SystemTtsVoice.fromMap(Map<dynamic, dynamic> value) => SystemTtsVoice(
-    name: value['name']?.toString() ?? '',
-    locale: value['locale']?.toString() ?? '',
-    identifier: value['identifier']?.toString(),
-    networkRequired:
-        value['network_required'] == true ||
-        value['network_required']?.toString() == 'true',
-  );
-
-  String get key => jsonEncode(toMap());
-  Map<String, String> toMap() => {
-    'name': name,
-    'locale': locale,
-    'identifier': ?identifier,
-  };
-}
-
-/// 系统朗读的唯一插件实例；媒体焦点与通知仍由 AudioService 管理。
-class SystemTtsService {
+/// 系统朗读的唯一插件实例；媒体焦点与通知仍由 AudioService 管理。— Codex + UI
+class SystemTtsService implements SystemTts {
   SystemTtsService({this._tts, TargetPlatform? platform})
     : _platform = platform ?? defaultTargetPlatform;
 
@@ -57,6 +24,7 @@ class SystemTtsService {
   int _generation = 0;
 
   /// 回调坐标相对整次 speak 的原文，已包含分片与 Android 恢复偏移。
+  @override
   void Function(int start, int end)? onProgress;
   int _maxLength = 4000;
   double _normalRate = 0.5;
@@ -65,12 +33,17 @@ class SystemTtsService {
   String _engine = '';
   String _voice = '';
 
+  @override
   bool get isSupported =>
       !kIsWeb &&
       (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS);
+  @override
   bool get supportsEngineSelection => _platform == TargetPlatform.android;
+  @override
   bool get isPaused => _paused != null;
+  @override
   String get selectedEngine => _engine;
+  @override
   String get selectedVoice => _voice;
 
   Future<T> _serialize<T>(Future<T> Function() action) {
@@ -82,6 +55,7 @@ class SystemTtsService {
     return result;
   }
 
+  @override
   Future<void> initialize() => _initialization ??= _initialize().catchError((
     Object error,
     StackTrace stack,
@@ -184,6 +158,7 @@ class SystemTtsService {
     if (result == 0 || result == false) throw StateError(message);
   }
 
+  @override
   Future<List<String>> getEngines() async {
     if (!supportsEngineSelection) return [];
     return ((await _plugin.getEngines) as List? ?? [])
@@ -191,11 +166,13 @@ class SystemTtsService {
         .toList();
   }
 
+  @override
   Future<List<SystemTtsVoice>> getVoices() async {
     await initialize();
     return List.unmodifiable(_voices);
   }
 
+  @override
   Future<void> saveSettings({
     required String engine,
     required String voice,
@@ -240,6 +217,7 @@ class SystemTtsService {
     return parts;
   }
 
+  @override
   Future<SystemTtsOutcome> speak(
     String text, {
     double speed = 1,
@@ -255,6 +233,7 @@ class SystemTtsService {
     return run.result.future;
   }
 
+  @override
   Future<SystemTtsOutcome> resume() {
     final previous = _paused;
     if (previous == null) return Future.value(SystemTtsOutcome.cancelled);
@@ -402,6 +381,7 @@ class SystemTtsService {
     });
   }
 
+  @override
   Future<void> pause() {
     final run = _active;
     if (run == null) return Future.value();
@@ -425,6 +405,7 @@ class SystemTtsService {
     });
   }
 
+  @override
   Future<void> stop() {
     _generation++;
     _cancelActive();
@@ -434,6 +415,7 @@ class SystemTtsService {
     });
   }
 
+  @override
   Future<void> dispose() => stop();
   bool _current(_Speech run) =>
       identical(_active, run) && run.generation == _generation;

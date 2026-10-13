@@ -1,5 +1,5 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / TTS 合成 / 音频播放。
+// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / 音频播放。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
@@ -190,30 +190,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
   }
 
   // ========== 音频播放 ==========
-
-  @override
-  Future<String?> audioSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-    double pitch = 1.0,
-    double volume = 1.0,
-    String? voiceName,
-  }) async => null; // Mock 无合成产物：调用方按估算时长降级
-
-  @override
-  Future<Map<String, dynamic>> ttsSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-  }) async => {
-    'audioPath': '',
-    'fromCache': false,
-    'contentType': 'audio/mpeg',
-  };
-
-  @override
-  Future<bool> ttsSetCacheDir(String path) async => true;
 
   @override
   Future<Map<String, dynamic>> getAudioChapterMedia(

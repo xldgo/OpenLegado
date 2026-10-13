@@ -12,6 +12,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 import 'package:flutter_legado/src/services/stream_audio_player.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -19,7 +20,11 @@ import 'package:flutter_legado/src/models/models.dart';
 /// RustApi 的 mock 实现
 class MockHttpTtsRepository extends Mock implements HttpTtsRepository {}
 
+class MockHttpTtsSynthesizer extends Mock implements HttpTtsSynthesizer {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final HttpTtsSynthesizer httpTtsSynthesizer = MockHttpTtsSynthesizer();
   @override
   final HttpTtsRepository httpTtsRepository = MockHttpTtsRepository();
 }

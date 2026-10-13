@@ -8,7 +8,11 @@ import '../../models/book.dart';
 import '../../services/audio_service.dart';
 import '../../services/book_api.dart';
 import '../../services/stream_audio_player.dart';
-import '../../services/system_tts_service.dart';
+import '../../platform/tts/system_tts.dart';
+import '../../features/read_aloud/tts_providers.dart';
+import '../../features/read_aloud/playback/read_aloud_engine.dart';
+import '../../features/read_aloud/playback/http_read_aloud_engine.dart';
+import '../../features/read_aloud/playback/system_read_aloud_engine.dart';
 import '../../utils/audio_skip_policy.dart';
 import '../../utils/read_aloud_text.dart';
 import '../providers.dart';
@@ -33,7 +37,7 @@ const String kNoUsableEngineHint = '未配置可用朗读引擎，将按估算�
 /// [TtsConfig.engineUrl]（read_aloud_bar.dart），而 Rust `tts_speak` 把该值
 /// 原样当 URL 模板与缓存键（rust/legado-ffi/src/api/tts_speak_api.rs:57-59），
 /// 请求以「名称」开头必然失败 → 选完引擎合成仍报错、朗读落降级提示。
-/// 选择器已改为只存裸 URL；本函数是消费端（audioSpeak 前）的向后兼容兜底，
+/// 选择器已改为只存裸 URL；本函数是消费端（HTTP 合成前）的向后兼容兜底，
 /// 兼容同一进程内残留的旧形态状态。
 ///
 /// 归一策略（测试钉死）：
@@ -137,13 +141,14 @@ bool isLocalBookUrl(String bookUrl) {
 ///
 /// 双路径：
 /// - 音频书（BookType.audio）：getAudioChapterMedia 取址 → StreamAudioPlayer
-/// - TTS 朗读：段落化 audioSpeak → 合成产物本地文件播放，完成回调驱动段落推进
+/// - TTS 朗读：HTTP 文件播放或系统直接朗读，统一会话完成回调推进段落
 ///
 /// — Auto + UI｜2026-08-12（P0-2 流媒体接线；A1 批 TTS 真实播放 2026-10-03）
 class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   late final AudioService _audioService;
   late final StreamAudioPlayer _streamPlayer;
-  late final SystemTtsService _systemTts;
+  late final SystemReadAloudEngine _systemEngine;
+  late final HttpReadAloudEngine _httpEngine;
   bool _resumeAfterInterruption = false;
 
   StreamSubscription<MediaButtonEvent>? _mediaButtonSub;
@@ -197,18 +202,27 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     );
   }
 
-  void _bindSystemProgress(int token, int gen) {
+  ReadAloudSession _createReadAloudSession(int token, int gen, String engineUrl) {
     final unit = _paragraphUnits[_paragraphIndex];
     final base = unit.start + _paragraphStartOffset;
-    _systemTts.onProgress = (start, end) {
-      if (_isSpeakStale(token, gen) ||
-          !state.isPlaying ||
-          resolveTtsEngineUrl() != systemTtsEngineUrl) {
-        return;
-      }
-      _publishReadAloudPosition(offset: base + start);
-    };
+    return ReadAloudSession(
+      isCurrent: () =>
+          !_isSpeakStale(token, gen) &&
+          !state.isStreamMode &&
+          resolveTtsEngineUrl() == engineUrl,
+      onProgress: (offset) {
+        if (state.isPlaying) _publishReadAloudPosition(offset: base + offset);
+      },
+      onCompleted: () => unawaited(_onParagraphFinished()),
+      onError: (error) {
+        pause();
+        state = state.copyWith(errorMessage: '系统朗读不可用：$error');
+      },
+    );
   }
+
+  ReadAloudEngine _engineForUrl(String engineUrl) =>
+      engineUrl == systemTtsEngineUrl ? _systemEngine : _httpEngine;
 
   int _paragraphIndex = 0;
   int _paragraphStartOffset = 0;
@@ -322,7 +336,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _playToken++;
     _speakGeneration++;
     _paragraphTimer?.cancel();
-    _observeSystemControl(_systemTts.stop());
+    _observeReadAloudControl(_systemEngine.stop());
     state = state.copyWith(
       isStreamMode: isAudioBook,
       mediaUrl: isAudioBook ? state.mediaUrl : '',
@@ -340,7 +354,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     listenSelf((previous, next) => _stateForDispose = next);
     _audioService = ref.read(audioServiceProvider);
     _streamPlayer = ref.read(streamAudioPlayerProvider);
-    _systemTts = ref.read(systemTtsServiceProvider);
+    _systemEngine = SystemReadAloudEngine(ref.read(systemTtsServiceProvider));
+    _httpEngine = HttpReadAloudEngine(
+      synthesizer: () => ref.read(httpTtsSynthesizerProvider),
+      player: _streamPlayer,
+    );
     // 完成回调按当前模式分发：音频书 → 下一章；TTS → 下一段
     _streamPlayer.onCompleted = (tag) {
       if (_disposed) return;
@@ -350,27 +368,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         unawaited(_onStreamCompleted());
         return;
       }
-      if (resolveTtsEngineUrl() != systemTtsEngineUrl &&
-          _isCurrentTtsTag(tag)) {
-        unawaited(_onTtsParagraphCompleted());
-      }
+      _httpEngine.handleCompleted(tag);
     };
     _streamPlayer.onProgress = (pos, dur, tag) {
       if (_disposed) return;
       if (!state.isStreamMode) {
-        if (!state.isPlaying ||
-            !_isCurrentTtsTag(tag) ||
-            dur.inMilliseconds <= 0) {
-          return;
-        }
-        final unit = _paragraphUnits[_paragraphIndex];
-        final remaining = unit.text.length - _paragraphStartOffset;
-        final local = (remaining * pos.inMilliseconds / dur.inMilliseconds)
-            .floor()
-            .clamp(0, remaining > 0 ? remaining - 1 : 0);
-        _publishReadAloudPosition(
-          offset: unit.start + _paragraphStartOffset + local,
-        );
+        if (state.isPlaying) _httpEngine.handleProgress(pos, dur, tag);
         return;
       }
       // [P1] 回调必须归属当前章：切章瞬间旧播放器 stop 前送达的最终回调
@@ -406,7 +409,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _mediaButtonSub?.cancel();
       _audioFocusSub?.cancel();
       _paragraphTimer?.cancel();
-      _observeSystemControl(_systemTts.dispose());
+      _observeReadAloudControl(_systemEngine.dispose());
       unawaited(_streamPlayer.dispose());
       _audioService.dispose();
     });
@@ -473,9 +476,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _paragraphTimer?.cancel();
       if (state.bookUrl.isNotEmpty) {
         final token = _playToken;
-        await _systemTts.stop();
+        await _systemEngine.stop();
         if (_disposed || token != _playToken) return;
-        await _streamPlayer.stop();
+        await _httpEngine.stop();
         if (_disposed || token != _playToken) return;
       }
       // A4：切换书籍视为新朗读会话，重置无引擎提示的一次性标记
@@ -542,9 +545,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final token = ++_playToken;
     _speakGeneration++;
     _paragraphTimer?.cancel();
-    await _systemTts.stop();
+    await _systemEngine.stop();
     if (_disposed || token != _playToken) return;
-    await _streamPlayer.stop();
+    await _httpEngine.stop();
     if (_disposed || token != _playToken) return;
     final needReload = state.chapters.isEmpty || state.bookUrl != bookUrl;
     state = state.copyWith(
@@ -810,7 +813,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     state = state.copyWith(state: PlayerState.loading, errorMessage: null);
     final token = ++_playToken;
     try {
-      await _systemTts.stop();
+      await _systemEngine.stop();
       if (token != _playToken || _disposed) return;
       var index = state.currentIndex;
       while (index < state.chapters.length) {
@@ -1036,7 +1039,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 合成并播放当前段落（A1 批主路径）
   ///
-  /// 链路：audioSpeak（Rust 合成 MD5 缓存落盘）→ StreamAudioPlayer.playLocalFile
+  /// 链路：HTTP 合成（Rust 合成 MD5 缓存落盘）→ StreamAudioPlayer.playLocalFile
   /// → 播放完成回调（onCompleted）驱动 [_onParagraphFinished] 推进下一段。
   /// 估算时长 Timer 仅在合成/播放失败降级时使用，且失败经
   /// [AudioState.errorMessage] 给用户可见提示（不静默）。
@@ -1062,20 +1065,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     // （对齐原版 ReadAloud.kt:41）；归一仍在此完成，历史「名称,URL」复合形态
     // 不会破坏解析（见 normalizeTtsEngineUrl）。
     final engineUrl = resolveTtsEngineUrl();
-    if (engineUrl == systemTtsEngineUrl) {
-      _bindSystemProgress(token, gen);
-      _listenSystemSpeech(
-        _systemTts.speak(
-          text,
-          speed: config.speed,
-          pitch: config.pitch,
-          volume: config.volume,
-        ),
-        token,
-        gen,
-      );
-      return;
-    }
     if (engineUrl.isEmpty) {
       // [A4] 无可用引擎：温和一次性提示（复用 errorMessage 展示面）后按
       // 估算节奏朗读；不视为失败，无正文时前面的空段落判定已提前返回。
@@ -1083,53 +1072,48 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _scheduleEstimateAdvance(text, config.speed, token, gen);
       return;
     }
-    String? audioPath;
+    final engine = _engineForUrl(engineUrl);
+    final session = _createReadAloudSession(token, gen, engineUrl);
     Object? failure;
     try {
-      audioPath = await _api.audioSpeak(
-        text: text,
-        engineUrl: engineUrl,
-        speed: config.speed,
-        pitch: config.pitch,
-        volume: config.volume,
-        voiceName: config.voiceName,
+      final result = await engine.speak(
+        ReadAloudRequest(
+          text: text,
+          engineUrl: engineUrl,
+          speed: config.speed,
+          pitch: config.pitch,
+          volume: config.volume,
+          voiceName: config.voiceName,
+        ),
+        session,
       );
-    } catch (e) {
-      failure = e;
-    }
-    if (failure == null && (audioPath == null || audioPath.trim().isEmpty)) {
-      failure = StateError('TTS 合成未返回音频文件（引擎或缓存异常）');
-    }
-    if (_isSpeakStale(token, gen)) return;
-
-    if (failure == null && audioPath != null && audioPath.trim().isNotEmpty) {
-      try {
-        // 语速已由合成侧应用（engineUrl 模板 speakSpeed），播放侧固定 1.0
-        await _streamPlayer.playLocalFile(
-          audioPath.trim(),
-          speed: 1.0,
-          tag: (token: token, generation: gen, paragraph: _paragraphIndex),
-        );
-        if (_isSpeakStale(token, gen)) return;
+      if (_isSpeakStale(token, gen) || result == ReadAloudStart.cancelled) return;
+      if (engineUrl == systemTtsEngineUrl) return;
+      if (result == ReadAloudStart.started) {
         // [A4] 真实播放恢复：允许后续再次提示（如引擎后续被移除）
         _noEngineHintShown = false;
         if (state.errorMessage != null) {
           // 上一段降级/无引擎提示在恢复真实播放后清除
           state = state.copyWith(errorMessage: null);
         }
-        // 正常路径到此为止：推进由 onCompleted 回调触发（见 build 分发）
+        // 正常路径到此为止：推进由统一段落会话完成回调触发。
         return;
-      } catch (e) {
-        failure = e;
       }
+      failure = StateError('TTS 合成未返回音频文件（引擎或缓存异常）');
+    } catch (e) {
+      failure = e;
     }
     if (_isSpeakStale(token, gen)) return;
+    session.cancel();
+    if (engineUrl == systemTtsEngineUrl) {
+      pause();
+      state = state.copyWith(errorMessage: '系统朗读不可用：$failure');
+      return;
+    }
 
     // 降级：合成/播放失败 → 估算时长推进 + 用户可见提示
     // （无引擎配置时已在上面的空判定提前返回，保持既有静默估算行为）
-    if (failure != null) {
-      state = state.copyWith(errorMessage: '朗读音频不可用，本段按估算时长继续：$failure');
-    }
+    state = state.copyWith(errorMessage: '朗读音频不可用，本段按估算时长继续：$failure');
     _scheduleEstimateAdvance(text, config.speed, token, gen);
   }
 
@@ -1139,8 +1123,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _disposed ||
         (generation != null && generation != _speakGeneration);
     try {
-      await _systemTts.stop();
-      await _streamPlayer.stop();
+      await _systemEngine.stop();
+      await _httpEngine.stop();
     } catch (error) {
       if (stale()) return false;
       pause();
@@ -1150,11 +1134,16 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     return !stale();
   }
 
-  void _observeSystemControl(Future<void> operation) {
+  void _observeReadAloudControl(
+    Future<void> operation, {
+    String errorPrefix = '系统朗读控制失败',
+  }) {
+    final token = _playToken;
+    final gen = _speakGeneration;
     unawaited(
       operation.catchError((Object error, StackTrace stack) {
-        debugPrint('系统朗读控制失败：$error');
-        if (_disposed) return;
+        debugPrint('$errorPrefix：$error');
+        if (_isSpeakStale(token, gen)) return;
         _playToken++;
         _speakGeneration++;
         _paragraphTimer?.cancel();
@@ -1162,35 +1151,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           state: state.state == PlayerState.idle
               ? PlayerState.idle
               : PlayerState.paused,
-          errorMessage: '系统朗读控制失败：$error',
+          errorMessage: '$errorPrefix：$error',
         );
         unawaited(_audioService.notifyPaused());
       }),
-    );
-  }
-
-  void _listenSystemSpeech(
-    Future<SystemTtsOutcome> speech,
-    int token,
-    int gen,
-  ) {
-    speech.then(
-      (outcome) {
-        if (_isSpeakStale(token, gen) ||
-            state.state != PlayerState.playing ||
-            state.isStreamMode ||
-            resolveTtsEngineUrl() != systemTtsEngineUrl) {
-          return;
-        }
-        if (outcome == SystemTtsOutcome.completed) {
-          unawaited(_onParagraphFinished());
-        }
-      },
-      onError: (Object error, StackTrace stack) {
-        if (_isSpeakStale(token, gen)) return;
-        pause();
-        state = state.copyWith(errorMessage: '系统朗读不可用：$error');
-      },
     );
   }
 
@@ -1261,11 +1225,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
   }
 
-  bool _isCurrentTtsTag(Object? tag) =>
-      tag is ({int token, int generation, int paragraph}) &&
-      !_isSpeakStale(tag.token, tag.generation) &&
-      tag.paragraph == _paragraphIndex;
-
   /// 段落级失效判定：播放会话 token 或合成代数任一变化即视为过期
   bool _isSpeakStale(int token, int gen) =>
       token != _playToken || gen != _speakGeneration || _disposed;
@@ -1284,12 +1243,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (_isSpeakStale(token, gen)) return;
       unawaited(_onParagraphFinished());
     });
-  }
-
-  /// TTS 段落音频自然播完 → 推进下一段（由 StreamAudioPlayer.onCompleted 驱动）
-  Future<void> _onTtsParagraphCompleted() async {
-    if (state.isStreamMode || state.state != PlayerState.playing) return;
-    await _onParagraphFinished();
   }
 
   Future<void> _onParagraphFinished() async {
@@ -1386,7 +1339,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (state.state == PlayerState.paused) {
         _playToken++;
         _speakGeneration++;
-        _observeSystemControl(_systemTts.stop());
+        _observeReadAloudControl(_systemEngine.stop());
       }
       final token = _playToken;
       if (state.isPlaying) await _speakCurrentParagraph(token);
@@ -1409,7 +1362,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (state.state == PlayerState.paused) {
         _playToken++;
         _speakGeneration++;
-        _observeSystemControl(_systemTts.stop());
+        _observeReadAloudControl(_systemEngine.stop());
       }
       final token = _playToken;
       if (state.isPlaying) await _speakCurrentParagraph(token);
@@ -1650,12 +1603,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _playToken++;
         _speakGeneration++;
         // 段间等待已经指向下一段，不保存上一段的原生暂停会话。
-        _observeSystemControl(
-          _waitingForParagraph ? _systemTts.stop() : _systemTts.pause(),
+        _observeReadAloudControl(
+          _waitingForParagraph ? _systemEngine.stop() : _systemEngine.pause(),
         );
         _waitingForParagraph = false;
         // TTS 本地播放：立即停掉当前段音频（恢复时由 play() 重播当前段）
-        unawaited(_streamPlayer.stop());
+        _observeReadAloudControl(
+          _httpEngine.pause(), errorPrefix: '音频播放控制失败',
+        );
       }
       state = state.copyWith(state: PlayerState.paused);
       _audioService.notifyPaused();
@@ -1667,14 +1622,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (state.state == PlayerState.paused &&
         !state.isStreamMode &&
         resolveTtsEngineUrl() == systemTtsEngineUrl &&
-        _systemTts.isPaused) {
+        _systemEngine.canResume) {
       final token = ++_playToken;
       final gen = ++_speakGeneration;
       state = state.copyWith(state: PlayerState.playing, errorMessage: null);
       await _syncMediaSession();
       if (_isSpeakStale(token, gen)) return;
-      _bindSystemProgress(token, gen);
-      _listenSystemSpeech(_systemTts.resume(), token, gen);
+      await _systemEngine.resume(
+        _createReadAloudSession(token, gen, systemTtsEngineUrl),
+      );
       return;
     }
     if (state.state == PlayerState.paused &&
@@ -1702,7 +1658,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _resumeAfterInterruption = false;
     _playToken++;
     _speakGeneration++;
-    _observeSystemControl(_systemTts.stop());
+    _observeReadAloudControl(_systemEngine.stop());
     _paragraphs = [];
     _paragraphUnits = [];
     readAloudPosition.value = null;
@@ -1712,7 +1668,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _pendingChapterPos = null;
     _pendingParagraphIndex = null;
     _waitingForParagraph = false;
-    unawaited(_streamPlayer.stop());
+    _observeReadAloudControl(
+      _httpEngine.stop(), errorPrefix: '音频播放控制失败',
+    );
     notifyListeners();
     state = state.copyWith(
       state: PlayerState.idle,
@@ -1731,7 +1689,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _playToken++;
       _speakGeneration++;
       _paragraphTimer?.cancel();
-      _observeSystemControl(_systemTts.stop());
+      _observeReadAloudControl(_systemEngine.stop());
     }
     // [A3] 切章前写当前章进度（TTS 模式内部直接返回）
     await _persistStreamPosition(force: true);
@@ -1751,7 +1709,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _playToken++;
       _speakGeneration++;
       _paragraphTimer?.cancel();
-      _observeSystemControl(_systemTts.stop());
+      _observeReadAloudControl(_systemEngine.stop());
     }
     // [A3] 切章前写当前章进度
     await _persistStreamPosition(force: true);
@@ -1767,7 +1725,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _playToken++;
       _speakGeneration++;
       _paragraphTimer?.cancel();
-      _observeSystemControl(_systemTts.stop());
+      _observeReadAloudControl(_systemEngine.stop());
     }
     // [A3] 切章前写当前章进度
     await _persistStreamPosition(force: true);
@@ -1813,7 +1771,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         (engineUrl != null ||
             (resolveTtsEngineUrl() == systemTtsEngineUrl &&
                 (speed != null || pitch != null || volume != null)))) {
-      _observeSystemControl(restartCurrentTts());
+      _observeReadAloudControl(restartCurrentTts());
     }
     if (engineUrl != null && updated.engineUrl.trim().isNotEmpty) {
       // [A4] 用户配置了引擎：清除无引擎提示（可用性由后续合成结果验证）
@@ -2061,7 +2019,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _sleepTicker?.cancel();
     _disposed = true;
     _paragraphTimer?.cancel();
-    _observeSystemControl(_systemTts.dispose());
+    _observeReadAloudControl(_systemEngine.dispose());
     unawaited(_streamPlayer.dispose());
     super.dispose();
   }
@@ -2079,9 +2037,4 @@ final audioServiceProvider = Provider<AudioService>(
 /// 生产环境单实例，TTS 与音频书路径共用）
 final streamAudioPlayerProvider = Provider<StreamAudioPlayer>(
   (ref) => StreamAudioPlayer(),
-);
-
-/// 系统 TTS 可在回归测试中替换，普通 HTTP 播放不初始化插件。
-final systemTtsServiceProvider = Provider<SystemTtsService>(
-  (ref) => SystemTtsService(),
 );

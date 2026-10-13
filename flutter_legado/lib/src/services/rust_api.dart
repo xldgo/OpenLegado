@@ -8,7 +8,7 @@ import '../data/bridge/rust_json_decode.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
 import '../domain/contracts/http_tts_repository.dart';
-import 'bridge_http.dart';
+import '../domain/contracts/http_tts_synthesizer.dart';
 
 import '../bridge/rust_lib.dart' as bridge;
 import '../models/models.dart';
@@ -49,12 +49,14 @@ class RustApi
     required BookmarkRepository bookmarkRepository,
     required ReadRecordRepository readRecordRepository,
     required HttpTtsRepository httpTtsRepository,
+    required HttpTtsSynthesizer httpTtsSynthesizer,
   }) => RustApi._(
     initialize,
     readingConfigSync,
     bookmarkRepository,
     readRecordRepository,
     httpTtsRepository,
+    httpTtsSynthesizer,
   );
 
   RustApi._(
@@ -63,6 +65,7 @@ class RustApi
     this.bookmarkRepository,
     this.readRecordRepository,
     this.httpTtsRepository,
+    this.httpTtsSynthesizer,
   );
 
   final Future<void> Function() _initialize;
@@ -76,6 +79,9 @@ class RustApi
 
   @override
   final HttpTtsRepository httpTtsRepository;
+
+  @override
+  final HttpTtsSynthesizer httpTtsSynthesizer;
 
   /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
   @override

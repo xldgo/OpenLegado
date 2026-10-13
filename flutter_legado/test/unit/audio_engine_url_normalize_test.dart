@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // P0 缺陷回归：朗读引擎 URL 归一（2026-10-03）
 //
 // 背景：朗读条引擎选择器曾把 '名称,URL' 复合串写入 TtsConfig.engineUrl，
@@ -97,7 +98,7 @@ void main() {
       when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
-      when(() => mockApi.audioSpeak(
+      when(() => mockApi.httpTtsSynthesizer.synthesize(
             text: any(named: 'text'),
             engineUrl: any(named: 'engineUrl'),
             speed: any(named: 'speed'),
@@ -107,7 +108,7 @@ void main() {
           )).thenAnswer((invocation) async {
         receivedEngineUrls
             .add(invocation.namedArguments[#engineUrl] as String);
-        return '/tmp/tts/para.mp3';
+        return HttpTtsAudio(audioPath: '/tmp/tts/para.mp3');
       });
     });
 

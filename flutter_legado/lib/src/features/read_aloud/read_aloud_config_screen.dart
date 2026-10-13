@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -12,7 +13,7 @@ import 'http_tts_seed.dart';
 import 'http_tts_repository_provider.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/system_tts_settings_dialog.dart';
-import '../../services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import '../../widgets/help/help_assets.dart';
 import '../../widgets/help/show_help.dart';
 

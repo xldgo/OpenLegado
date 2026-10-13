@@ -40,6 +40,10 @@ void main() {
     _read('lib/src/domain/contracts/http_tts_repository.dart'),
     'HttpTtsRepository',
   );
+  final synthesisNames = _extractMethods(
+    _read('lib/src/domain/contracts/http_tts_synthesizer.dart'),
+    'HttpTtsSynthesizer',
+  );
 
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
@@ -318,7 +322,9 @@ void main() {
             bookmarkNames.length +
             readRecordNames.length +
             httpTtsNames.length +
-            3 +
+            synthesisNames.length +
+            4 +
+            1 +
             1,
       );
     });
@@ -383,6 +389,14 @@ void main() {
       }
       expect(allRowNames.containsAll(expected), isTrue);
       expect(allRowNames, isNot(contains('getHttpTtsList')));
+    });
+
+    test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {
+      expect(synthesisNames, ['synthesize']);
+      expect(allRowNames.containsAll({'synthesize', 'ttsSpeak', 'ttsSetCacheDir'}), isTrue);
+      for (final methods in [bNames, rNames, mNames]) {
+        expect(methods.toSet().intersection({'audioSpeak', 'ttsSpeak', 'ttsSetCacheDir'}), isEmpty);
+      }
     });
   });
 }

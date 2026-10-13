@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/services/system_tts_service.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts_service.dart';
 
 class MockFlutterTts extends Mock implements FlutterTts {}
 

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // D1 回归护栏：音频焦点唯一所有者语义不变。
 //
 // 修复方案是「底层 media3 播放器不再请求焦点（StreamAudioPlayer
@@ -120,14 +121,14 @@ void main() {
     when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
     when(() => mockApi.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段文本内容。\n\n第二段文本内容。');
-    when(() => mockApi.audioSpeak(
+    when(() => mockApi.httpTtsSynthesizer.synthesize(
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
           pitch: any(named: 'pitch'),
           volume: any(named: 'volume'),
           voiceName: any(named: 'voiceName'),
-        )).thenAnswer((_) async => '/tmp/tts/para_1.wav');
+        )).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para_1.wav'));
 
     await readNotifier().initMediaSession();
     await readNotifier().loadChapters('url');

@@ -1,4 +1,5 @@
 import '../../data/bridge/runtime_configuration.dart';
+import '../../data/services/rust_http_tts_synthesizer.dart';
 import '../../data/bridge/rust_runtime.dart';
 import '../../data/repositories/rust_bookmark_repository.dart';
 import '../../data/repositories/rust_read_record_repository.dart';
@@ -29,6 +30,7 @@ BookApi createBookApi({
     bookmarkRepository: const RustBookmarkRepository(),
     readRecordRepository: const RustReadRecordRepository(),
     httpTtsRepository: const RustHttpTtsRepository(),
+    httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
   );
 }
 

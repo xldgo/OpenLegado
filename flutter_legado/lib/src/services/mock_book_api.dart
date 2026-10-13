@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/models.dart';
+import '../data/services/mock_http_tts_synthesizer.dart';
 import '../data/repositories/mock_bookmark_repository.dart';
 import '../data/repositories/mock_read_record_repository.dart';
 import '../data/repositories/mock_http_tts_repository.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
 import '../domain/contracts/http_tts_repository.dart';
+import '../domain/contracts/http_tts_synthesizer.dart';
 import 'book_api.dart';
 
 part 'mock_book_api_store.part.dart';
@@ -65,6 +67,7 @@ class MockBookApi
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,
     HttpTtsRepository? httpTtsRepository,
+    HttpTtsSynthesizer? httpTtsSynthesizer,
   }) {
     this.bookmarkRepository =
         bookmarkRepository ?? MockBookmarkRepository(nextId: () => _nextId++);
@@ -76,6 +79,8 @@ class MockBookApi
           nextId: () => _nextId++,
           withDefaultEngines: true,
         );
+    this.httpTtsSynthesizer =
+        httpTtsSynthesizer ?? const MockHttpTtsSynthesizer();
     _initMockData();
   }
 
@@ -87,6 +92,9 @@ class MockBookApi
 
   @override
   late final HttpTtsRepository httpTtsRepository;
+
+  @override
+  late final HttpTtsSynthesizer httpTtsSynthesizer;
 
   // ========== 初始化/版本 ==========
 

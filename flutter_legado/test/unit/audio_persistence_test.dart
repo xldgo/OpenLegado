@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // A2/A3 听书偏好持久化与进度写入测试（音频轨道 A2/A3 批）
 //
 // A2：
@@ -298,14 +299,14 @@ void main() {
       when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
-      when(() => mockApi.audioSpeak(
+      when(() => mockApi.httpTtsSynthesizer.synthesize(
             text: any(named: 'text'),
             engineUrl: any(named: 'engineUrl'),
             speed: any(named: 'speed'),
             pitch: any(named: 'pitch'),
             volume: any(named: 'volume'),
             voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => '/tmp/tts/para.mp3');
+          )).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
 
       await readNotifier().loadChapters('url');
       readNotifier()

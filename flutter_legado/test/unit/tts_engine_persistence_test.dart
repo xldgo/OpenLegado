@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 朗读引擎书级/全局双持久化测试（2026-10-04，对齐原版 SpeakEngineDialog）
 //
 // 原版依据：
@@ -97,7 +98,7 @@ void main() {
     when(() => api.updateBook(any())).thenAnswer((invocation) async {
       savedBooks.add(invocation.positionalArguments[0] as Book);
     });
-    when(() => api.audioSpeak(
+    when(() => api.httpTtsSynthesizer.synthesize(
           text: any(named: 'text'),
           engineUrl: any(named: 'engineUrl'),
           speed: any(named: 'speed'),
@@ -107,7 +108,7 @@ void main() {
         )).thenAnswer((invocation) async {
       receivedEngineUrls
           .add(invocation.namedArguments[#engineUrl] as String);
-      return '/tmp/tts/para.mp3';
+      return HttpTtsAudio(audioPath: '/tmp/tts/para.mp3');
     });
   });
 

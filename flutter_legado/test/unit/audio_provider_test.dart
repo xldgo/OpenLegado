@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // AudioNotifier 单元测试
 //
 // 由原 AudioProvider（ChangeNotifier）测试迁移而来，测试点逐一对齐：
@@ -290,14 +291,14 @@ void main() {
       when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
       when(() => mockApi.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '章节正文内容');
-      when(() => mockApi.audioSpeak(
+      when(() => mockApi.httpTtsSynthesizer.synthesize(
             text: any(named: 'text'),
             engineUrl: any(named: 'engineUrl'),
             speed: any(named: 'speed'),
             pitch: any(named: 'pitch'),
             volume: any(named: 'volume'),
             voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => null);
+          )).thenAnswer((_) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult));
     });
 
     test('play 无章节时不执行', () async {

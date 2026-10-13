@@ -8,6 +8,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-13 | **朗读边界第三批冻结**：新增 Dart 内部 `ReadAloudEngine` 播放协议与段落 `ReadAloudSession`。HTTP 本地播放和系统朗读统一起播、完成、进度与控制入口，会话沿用播放 token / 合成代数判定过期，完成只消费一次；系统暂停续读与 HTTP 暂停重播、合成失败策略保持。控制异常按发起会话过滤，当前 HTTP 暂停/停止异常显示提示并保持暂停/空闲，不再逃逸为未处理异步错误。音频书和媒体会话不重构，不增加 BookApi 或 Rust/FRB 方法，签名、JSON、缓存和数据库不变。 |
+| 2026-10-13 | **朗读边界第二批冻结**：HTTP 合成迁入 `HttpTtsSynthesizer.synthesize`，结果区分本地音频（路径、缓存命中、MIME）与无音频（空产物、探活成功或 Mock）。保留 Rust 合成失败后的 GET 探活、30 秒超时及播放器估算推进；探活不等同合成成功。移除 BookApi 的 `audioSpeak`、无应用调用方的 `ttsSpeak` / `ttsSetCacheDir` 包装；原生两项导出保留，缓存目录仍由 NativeRustRuntime 初始化。系统 TTS 提取平台接口和独立注入，插件实现、设置键、进度与停止屏障保持；不修改 Rust/FRB、数据库或播放协议。 |
 | 2026-10-12 | **RUST-EDITION-20261012 工具链与旧 C ABI 清理范围**：工作区自有 crate 迁移 Rust 2024，沿用 stable，更新兼容依赖；FRB runtime/codegen 保持 2.13.0 配对。移除无项目内调用方的旧 `bridge.rs` C ABI 模块及其 182 个函数定义（181 个独立导出符号），不保留旧符号兼容层。现用 `crate::ffi`、FRB/PDE 入口、业务签名与 JSON、数据库结构保持不变（本日新增书签更新入口除外）；生成绑定由固定生成器重新产生。 |
 | 2026-10-12 | **API-LIFECYCLE-20261012 书签更新契约冻结**：保留 `BookApi.updateBookmark(Bookmark)` 签名，新增 FRB `bookmark_update(bookmark_json: String) → Result<(), BridgeError>`，Dart 绑定为 `bookmarkUpdate(bookmarkJson:)`。按现有 Bookmark JSON 字段传入，以 id 定位并用单条 UPDATE 修改书籍、章节、正文和备注；id 与数据库原有 time 不变，输入 time 不参与更新。JSON 非法、目标不存在或数据库写入失败均抛错，失败不删除或新增记录。Mock 同步此语义；数据库结构与 BookApi 方法计数不变。初始化后将同一 BookApi 实例注入 Provider，不增加业务接口。 |
 | 2026-10-10 | **FRB-UPGRADE-20261010 工具链升级范围冻结**：用户已同意 Dart 下限提高至 3.13、FRB Dart/Rust runtime 与 codegen 同步至 2.13.0。重新生成双方绑定并重建原生库；现有 BookApi/FFI 方法签名、JSON 字段、错误与事件流语义、数据库格式保持不变。版本、生成器内部实现和 content hash 可由同次生成更新，禁止手改生成物；生成前后核对导出方法并执行真实 FFI 回归。本条不增加业务 API，方法表与计数不变。 |
@@ -80,7 +82,7 @@
 
 ### 1.1 定位
 
-本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository`、HTTP 引擎配置由 `HttpTtsRepository` 承担，本文档为其权威文字说明。
+本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository`、HTTP 引擎配置由 `HttpTtsRepository`、合成由 `HttpTtsSynthesizer` 承担，本文档为其权威文字说明。
 
 ### 1.2 变更规则
 
@@ -207,8 +209,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **272 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272）。
-> 附录 §2.x 行合计 **294** = BookApi 272 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + 纯 FFI 3 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
+> BookApi 接口当前共 **269 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269）。
+> 附录 §2.x 行合计 **294** = BookApi 269 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -604,8 +606,8 @@
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `audioSpeak({required String text, required String engineUrl, double speed = 1.0, double pitch = 1.0, double volume = 1.0, String? voiceName})` | text, engineUrl, speed, pitch, volume, voiceName | `Future<void>` | TTS 朗读（文本书朗读路径；与音频书流媒体互斥） |
-| `getAudioChapterMedia(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>>` | **音频书章节取址**（对齐原版 `AudioPlay` → `WebBook.getContent`）。Rust FFI：`audioGetChapterMedia` → JSON。返回字段（camelCase）：`chapterIndex` / `title` / **`mediaUrl`**（可播地址，即 getContent 正文 trim）/ `url`（章节页 URL，兼容旧字段）/ `resourceUrl` / `isVolume`（卷章无媒体，调用方应跳过）/ `fromCache` / `lyric` / `sourceUrl`。流程：查章 → 卷章短路 → DB 章节内容缓存命中则直接作 `mediaUrl` → 否则按 `book.origin` 书源 `getContent`（**正文规则为空时回退章节 URL**，对齐 Kotlin）→ 写入缓存。空 `mediaUrl` 且非卷章表示取址失败。错误码：章节/书籍不存在 → Database；书源网络/解析失败向上抛。与 TTS `audioSpeak` 分流：仅 `BookType.audio` 走本接口流媒体 |
+| `synthesize({required String text, required String engineUrl, double speed = 1.0, double pitch = 1.0, double volume = 1.0, String? voiceName})` | text, engineUrl, speed, pitch, volume, voiceName | `Future<HttpTtsSynthesisResult>` | `HttpTtsSynthesizer` 的 HTTP 合成入口；`HttpTtsAudio` 提供路径、缓存命中及 MIME；`HttpTtsNoAudio` 区分空产物、探活成功和 Mock。失败探活仍抛错；播放会话继续原提示和估算规则。系统 TTS 不走此接口。 |
+| `getAudioChapterMedia(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>>` | **音频书章节取址**（对齐原版 `AudioPlay` → `WebBook.getContent`）。Rust FFI：`audioGetChapterMedia` → JSON。返回字段（camelCase）：`chapterIndex` / `title` / **`mediaUrl`**（可播地址，即 getContent 正文 trim）/ `url`（章节页 URL，兼容旧字段）/ `resourceUrl` / `isVolume`（卷章无媒体，调用方应跳过）/ `fromCache` / `lyric` / `sourceUrl`。流程：查章 → 卷章短路 → DB 章节内容缓存命中则直接作 `mediaUrl` → 否则按 `book.origin` 书源 `getContent`（**正文规则为空时回退章节 URL**，对齐 Kotlin）→ 写入缓存。空 `mediaUrl` 且非卷章表示取址失败。错误码：章节/书籍不存在 → Database；书源网络/解析失败向上抛。与 HTTP TTS 合成分流：仅 `BookType.audio` 走本接口流媒体 |
 | `getAudioProgress(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>?>` | 获取音频播放进度 |
 | `saveAudioProgress(String bookUrl, int chapterIndex, int positionMs)` | bookUrl, chapterIndex, positionMs | `Future<void>` | 保存音频播放进度 |
 
@@ -806,15 +808,15 @@
 > 对齐 Kotlin 原版 `HttpReadAloudService.getSpeakStream` + `AnalyzeUrl(speakText/speakSpeed)` 模型：
 > url 模板占位符替换 → HTTP 请求获取音频二进制 → Content-Type 校验（`application/json` / `text/*` 视为服务器报错）→
 > 以「模板+文本+语速」MD5 命名缓存到本地（命中直接返回路径，避免重复请求）。
-> Flutter 侧 `audioSpeak`（§2.26）当前为 `http.get` 探活 fallback，UI 轨后续改接 `ttsSpeak` 真实管线。
+> Flutter 由 `HttpTtsSynthesizer.synthesize`（§2.26）调用此真实管线。合成或解码失败后保留既有 GET 探活；探活成功返回无音频结果，不能当成本地产物。播放会话保留用户提示与估算推进，本批不调整回退策略。
 >
 > **占位符约定**：`{{speakText}}` / `{{text}}`（朗读文本，URL 编码后替换）、`{{speakSpeed}}` / `{{speed}}`（语速）。
-> **缓存目录**：默认为系统临时目录下 `legado_tts_cache`，可通过 `ttsSetCacheDir` 覆盖（建议 UI 轨初始化时传入应用缓存目录）。
+> **缓存目录**：默认为系统临时目录下 `legado_tts_cache`，由 Bootstrap 经 NativeRustRuntime 的 `setTtsCacheDirectory` 调用 `ttsSetCacheDir` 注入应用缓存目录。合成接口不初始化运行时、不改变目录或另存缓存。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `ttsSpeak({required String text, required String engineUrl, double speed = 1.0})` | text: 朗读文本，engineUrl: 引擎 URL 模板，speed: 语速 | `Future<Map<String, dynamic>>` | TTS 真实合成。返回字段（camelCase）：`audioPath: String`（本地音频文件绝对路径）/ `fromCache: bool`（是否缓存命中）/ `contentType: String`（音频 MIME 类型）。服务器返回 json/text 时以响应体文本抛出 BridgeError |
-| `ttsSetCacheDir(String path)` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
+| `ttsSpeak({required String text, required String engineUrl, required double speed})` | text: 朗读文本，engineUrl: 引擎 URL 模板，speed: 语速 | `Future<String>` | 原生 TTS 真实合成的 JSON 导出；Flutter 由 HttpTtsSynthesizer 转成明确结果，无直接 Map 包装。返回字段（camelCase）：`audioPath: String`（本地音频文件绝对路径）/ `fromCache: bool`（是否缓存命中）/ `contentType: String`（音频 MIME 类型）。服务器返回 json/text 时以响应体文本抛出 BridgeError |
+| `ttsSetCacheDir({required String path})` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
 
 ### 2.43 缓存写/购买/批量下载/导出扩展（Task #136 R5+R6+R7+R8，11 个方法）
 
@@ -1069,8 +1071,8 @@
 | 5 | `cacheGetChapter` | 其他（§2.41） | ✅ 已封装接通（本次评审修复提交，`RustApi.getCachedChapter`，书架缓存导出） |
 | 6 | `bookGroupSetShow` | 其他（§2.41） | ✅ 已封装 `BookApi.bookGroupSetShow`（F3-20） |
 | 7 | `httpTtsSetEnabled` | 其他（§2.41） | ✅ 已封装 `BookApi.httpTtsSetEnabled`（F3-20） |
-| 8 | `ttsSpeak` | TTS 真实合成管线（§2.42） | ✅ 已封装 `BookApi.ttsSpeak`（F3-20；`audioSpeak` 内部亦调用） |
-| 9 | `ttsSetCacheDir` | TTS 真实合成管线（§2.42） | ✅ 已封装 `BookApi.ttsSetCacheDir`（F3-20；`RustApi.init` 内 `_initTtsCacheDir` 注入应用支持目录 tts_cache） |
+| 8 | `ttsSpeak` | TTS 真实合成管线（§2.42） | ✅ 原生导出保留，HTTP 合成由 `HttpTtsSynthesizer` 调用（2026-10-13 接口拆分） |
+| 9 | `ttsSetCacheDir` | TTS 真实合成管线（§2.42） | ✅ 原生导出保留，Bootstrap 经 `NativeRustRuntime.setTtsCacheDirectory` 注入缓存目录（2026-10-13） |
 
 > **销记更新（F3-20，2026-08-14）**：§3 待 UI 封装清单 **9 项全部销记**——登录 UI V2 三件套 + `cacheGetChapter` + `ttsSpeak`/`ttsSetCacheDir`（先前批次）+ `backupList`/`bookGroupSetShow`/`httpTtsSetEnabled`（本批补入 BookApi 抽象与 RustApi/MockBookApi 双实现）。**剩余待封装：0 项。**
 >
@@ -1180,5 +1182,5 @@
 > - BookApi 代码计数 **272**；BookmarkRepository 六项、ReadRecordRepository 五项、HttpTtsRepository 七项独立计数；
 >   三个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource`；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **294 = 272 + 6 + 5 + 7 + 3 + 1**，测试同时核对各领域接口、正式和 Mock 实现及旧方法移除。
+> - 闭合关系为 **294 = 269 + 6 + 5 + 7 + 1 + 4 + 1 + 1**：BookApi、书签、记录、引擎配置、合成、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

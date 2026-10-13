@@ -2,6 +2,7 @@ import '../models/models.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
 import '../domain/contracts/http_tts_repository.dart';
+import '../domain/contracts/http_tts_synthesizer.dart';
 
 /// 书籍 API 抽象接口
 ///
@@ -18,6 +19,9 @@ abstract class BookApi {
 
   /// 共享 HTTP 朗读引擎配置实例，不包含系统语音或播放状态。
   HttpTtsRepository get httpTtsRepository;
+
+  /// 共享 HTTP 合成能力；缓存目录由应用生命周期单独注入。
+  HttpTtsSynthesizer get httpTtsSynthesizer;
 
   // ========== 初始化/版本 ==========
 
@@ -1126,30 +1130,6 @@ abstract class BookApi {
   Future<String> exportBook(String bookUrl, String format, String outDir);
 
   // ========== 音频播放 ==========
-
-  /// TTS 朗读：真实合成并返回本地缓存音频路径（audioPath）
-  ///
-  /// 返回 Rust 侧合成产物绝对路径（MD5 缓存命中直接复用），调用方
-  /// （AudioNotifier）据此做本地文件播放；降级探活路径（合成管线异常
-  /// 但引擎可达）无本地落盘产物，返回 null，由调用方按估算时长降级。
-  Future<String?> audioSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-    double pitch = 1.0,
-    double volume = 1.0,
-    String? voiceName,
-  });
-
-  /// TTS 真实合成（返回 audioPath/fromCache/contentType，F3-20）
-  Future<Map<String, dynamic>> ttsSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-  });
-
-  /// 设置 TTS 音频缓存目录（F3-20）
-  Future<bool> ttsSetCacheDir(String path);
 
   /// 获取章节媒体信息
   ///

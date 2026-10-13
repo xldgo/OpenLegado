@@ -1,5 +1,5 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / TTS 合成 / 音频播放。
+// 本文件承载 RustApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / 音频播放。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
@@ -258,83 +258,6 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
   }
 
   // ========== 音频播放 ==========
-
-  // [UI-fix v2.0.2 | 2026-08-06] audioSpeak 改接 ttsSpeak 真实管线（缺口②闭合） — QoderCN
-  /// TTS 朗读：接 Rust 真实合成管线（bridge.ttsSpeak，契约 §2.42）
-  ///
-  /// engineUrl 模板原样透传——占位符替换（{{speakText}}/{{text}}/
-  /// {{speakSpeed}}/{{speed}}）、HTTP 音频拉取、Content-Type 校验与
-  /// MD5 文件缓存均由 Rust 侧完成，Dart 不再预替换模板。
-  /// [A1 批 2026-10-03] 返回合成产物绝对路径 audioPath，供 AudioNotifier
-  /// 本地文件播放接线；降级探活（合成管线异常但引擎可达）无本地产物，
-  /// 返回 null 由调用方按估算时长降级。
-  /// ttsSpeak 异常时降级为原探活逻辑（模板替换 + http.get），
-  /// 保持 audio_notifier 既有 try/catch 保护语义不变。
-  @override
-  Future<String?> audioSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-    double pitch = 1.0,
-    double volume = 1.0,
-    String? voiceName,
-  }) async {
-    try {
-      final resultJson = await bridge.ttsSpeak(
-        text: text,
-        engineUrl: engineUrl,
-        speed: speed,
-      );
-      // 解析合成结果（camelCase）：audioPath / fromCache / contentType
-      final result = (jsonDecode(resultJson) as Map<String, dynamic>)
-          .cast<String, dynamic>();
-      final audioPath = (result['audioPath'] as String?)?.trim() ?? '';
-      debugPrint(
-        'ttsSpeak 合成完成: audioPath=$audioPath '
-        'fromCache=${result['fromCache']} contentType=${result['contentType']}',
-      );
-      return audioPath.isEmpty ? null : audioPath;
-    } catch (e) {
-      // 降级探活：真实管线异常（引擎不可达/正文为空/缓存目录未就绪等）
-      // 时保留原模板替换 + http.get 探活行为，失败仍向上抛出由调用方保护
-      debugPrint('ttsSpeak 真实管线失败，降级探活: $e');
-      var url = engineUrl
-          .replaceAll('{{speakText}}', Uri.encodeComponent(text))
-          .replaceAll('{{text}}', Uri.encodeComponent(text))
-          .replaceAll('{{speakSpeed}}', speed.toString())
-          .replaceAll('{{speed}}', speed.toString())
-          .replaceAll('{{pitch}}', pitch.toString())
-          .replaceAll('{{volume}}', volume.toString());
-      if (voiceName != null) {
-        url = url.replaceAll('{{voice}}', Uri.encodeComponent(voiceName));
-      }
-      final probe = await bridgeHttpGet(this, url);
-      if (!probe.isSuccess) {
-        throw StateError('HTTP ${probe.statusCode}');
-      }
-      return null; // 探活成功但无本地缓存产物，调用方按估算时长降级
-    }
-  }
-
-  /// TTS 真实合成（F3-20 BookApi 抽象）
-  @override
-  Future<Map<String, dynamic>> ttsSpeak({
-    required String text,
-    required String engineUrl,
-    double speed = 1.0,
-  }) async {
-    final resultJson = await bridge.ttsSpeak(
-      text: text,
-      engineUrl: engineUrl,
-      speed: speed,
-    );
-    return (jsonDecode(resultJson) as Map<String, dynamic>)
-        .cast<String, dynamic>();
-  }
-
-  /// 设置 TTS 音频缓存目录（F3-20）
-  @override
-  Future<bool> ttsSetCacheDir(String path) => bridge.ttsSetCacheDir(path: path);
 
   /// 获取章节媒体信息（音频书取址，契约 §2.26）
   ///
