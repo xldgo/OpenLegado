@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### CI-IOS-XCODE-20261013：同步 iOS 构建工具链（P1）
+
+- **根因依据**：[iOS Build 失败运行](https://github.com/xldgo/OpenLegado/actions/runs/38391720131) 在编译 Storyboard 时报告 `iOS 26.1 Platform Not Installed`；macos-latest 已切换到 macOS 26 镜像，工作流仍固定旧 Xcode 26.1.1。
+- **范围**：设备与模拟器工作流统一选择当前镜像预装的 Xcode 26.6；按用户要求不增加平台检查步骤，保留已有版本与 SDK 输出。
+- **状态**：YAML 解析及与 HEAD 的配置比较通过，两条工作流仅变更 DEVELOPER_DIR；git diff --check 通过。用户已授权提交、推送并触发 iOS Build，实际构建结果以该提交对应的 Actions 运行为准。
+
+编写者：Codex｜2026-10-13
+
 ### UI-READER-BOTTOM-CUTOUT-20261013：分离导航栏与底部屏幕缺口避让（P1）
 
 - **授权与基线**：用户指出开启填充刘海区域后仍保留导航栏底部安全边距的偏差，继续在 reader-overlay / feature/ui-reader-refinement、`6cf7beb93` 修复；用户随后授权本地提交并合并到主目录 feature/ui-reader-selection，不使用子代理，不推送，版本保持 `2.0.373+374`。
