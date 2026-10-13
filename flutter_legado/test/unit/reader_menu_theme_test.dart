@@ -1,13 +1,16 @@
+import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 
 void main() {
+  late PreferencesReaderConfigRepository repository;
+  setUp(() => repository = PreferencesReaderConfigRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
   const paper = Color(0xFFF5EEDB);
   const ui = UiSettingsState();
@@ -132,10 +135,10 @@ void main() {
 
   test('旧开关迁移为背景模式，新模式优先；复制与保存保留颜色', () async {
     SharedPreferences.setMockInitialValues({'readBarStyleFollowPage': true});
-    expect((await ReaderAdvancedConfig.load()).readBarStyle, 1);
+    expect((await repository.load()).readBarStyle, 1);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('readBarStyle', 2);
-    final config = await ReaderAdvancedConfig.load();
+    final config = await repository.load();
     expect(config.readBarStyle, 2);
     config.readMenuPaletteStyle = 'vibrant';
     config.readMenuColorMode = 1;
@@ -147,9 +150,9 @@ void main() {
     config.readMenuContainerColorNight = 0xFF242424;
     config.readMenuTextColor = 0xFF010203;
     config.readMenuTextColorNight = 0xFFFAFBFC;
-    await config.copy().save();
+    await repository.save(config.copy());
     expect(prefs.containsKey('readBarStyleFollowPage'), isFalse);
-    final restored = await ReaderAdvancedConfig.load();
+    final restored = await repository.load();
     expect(restored.readBarStyle, 2);
     expect(restored.readMenuPaletteStyle, 'vibrant');
     expect(restored.readMenuColorMode, 1);

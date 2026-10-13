@@ -1,3 +1,6 @@
+import '../../providers/reader/reader_config_provider.dart';
+import '../../models/reader_advanced_config.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -106,24 +109,9 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     Color(0xFF000000),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_ensureConfigLoaded());
-  }
-
-  /// 共享配置尚未加载时兜底自加载（Sheet 可能先于面板/阅读页打开）
-  Future<void> _ensureConfigLoaded() async {
-    if (ref.read(readerAdvConfigProvider) != null) return;
-    final cfg = await ReaderAdvancedConfig.load();
-    if (!mounted) return;
-    ref.read(readerAdvConfigProvider.notifier).apply(cfg);
-  }
-
-  /// 持久化并推送共享 Provider（reader_screen 经 watch 实时应用）
+  /// 持久化和即时更新统一交给共享配置入口。
   void _commitAdv(ReaderAdvancedConfig cfg) {
-    unawaited(cfg.save());
-    ref.read(readerAdvConfigProvider.notifier).apply(cfg);
+    ref.read(readerAdvConfigProvider.notifier).update(cfg);
   }
 
   @override
@@ -140,7 +128,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         ),
         body: adv == null
             ? const Center(child: CircularProgressIndicator())
-            : IosGroupedBody(
+            : SettingsBody(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: _buildPage(state, notifier, adv),
@@ -175,7 +163,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
               showDividers: false,
               margin: EdgeInsets.zero,
               children: [
-                IosListTile(
+                SettingTile(
                   icon: Icons.tune,
                   title: '全部阅读设置',
                   onTap: () {
@@ -219,7 +207,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             margin: EdgeInsets.zero,
             children: [
               for (final item in ReaderSettingsCategory.values)
-                IosListTile(
+                SettingTile(
                   icon: item.icon,
                   title: item.title,
                   subtitle: item.summary,

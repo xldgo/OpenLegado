@@ -30,7 +30,7 @@ Future<int?> showMd3WheelPickerSheet({
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const IosGrabber(),
+            const SheetDragHandle(),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
               child: Row(

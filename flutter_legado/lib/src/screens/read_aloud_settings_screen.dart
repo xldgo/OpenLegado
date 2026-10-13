@@ -164,7 +164,7 @@ class _ReadAloudSettingsScreenState
           SettingsGroup(
             title: strings.readAloudVoiceGroup,
             children: [
-              IosListTile(
+              SettingTile(
                 icon: Icons.record_voice_over,
                 title: strings.readAloudEngines,
                 subtitle: strings.readAloudEnginesSummary,
@@ -172,7 +172,7 @@ class _ReadAloudSettingsScreenState
                     Navigator.pushNamed(context, AppRoutes.readAloudConfig),
               ),
               if (system.isSupported)
-                IosListTile(
+                SettingTile(
                   icon: Icons.voice_chat,
                   title: strings.readAloudSystemVoice,
                   subtitle: strings.readAloudSystemVoiceSummary,

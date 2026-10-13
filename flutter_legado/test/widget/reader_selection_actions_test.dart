@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -15,7 +17,6 @@ import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart'
 import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 
 class _Reader extends ReaderNotifier {
   @override

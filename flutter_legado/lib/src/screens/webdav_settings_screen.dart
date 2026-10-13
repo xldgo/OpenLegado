@@ -502,8 +502,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
           ),
         ],
       ),
-      body: IosGroupedBody(
-        // [LAYOUT_PLAN P3] 列表边距 16dp 走 IosGroupedBody（全局标尺）
+      body: SettingsBody(
+        // [LAYOUT_PLAN P3] 列表边距 16dp 走 SettingsBody（全局标尺）
         child: ListView(
           // [LAYOUT_PLAN P3] 底部 bottom32 保留
           padding: const EdgeInsets.only(top: 16, bottom: 32),
@@ -511,7 +511,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             SettingsGroup(
               title: context.l10n.webdavSettings,
               children: [
-                IosListTile(
+                SettingTile(
                   title: context.l10n.webdavServerAddress,
                   subtitle: _url.isEmpty
                       ? context.l10n.webdavServerAddressHint
@@ -523,7 +523,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                     onSaved: (v) => _url = v,
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: context.l10n.webdavAccount,
                   subtitle: _user.isEmpty
                       ? context.l10n.webdavAccountHint
@@ -534,7 +534,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                     onSaved: (v) => _user = v,
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: context.l10n.webdavPassword,
                   subtitle: _pass.isEmpty
                       ? context.l10n.webdavPasswordHint
@@ -546,7 +546,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                     onSaved: (v) => _pass = v,
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: '子目录',
                   subtitle: _dir.isEmpty ? 'legado' : _dir,
                   onTap: () => _editTextPref(
@@ -556,7 +556,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                     onSaved: (v) => _dir = v,
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: context.l10n.backupWebdavDeviceName,
                   subtitle: _device.isEmpty ? '用于区分不同设备的备份' : _device,
                   onTap: () => _editTextPref(
@@ -566,7 +566,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   ),
                 ),
                 // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（纯客户端）
-                IosListTile(
+                SettingTile(
                   title: context.l10n.webdavTestConfig,
                   subtitle: '连接测试服务器地址与账号',
                   trailing: _buildTestStatusLabel(),
@@ -596,14 +596,14 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             SettingsGroup(
               title: context.l10n.backupAndRestore,
               children: [
-                IosListTile(
+                SettingTile(
                   title: context.l10n.backupPath,
                   subtitle: _backupPath.isEmpty
                       ? context.l10n.backupSelectBackupPath
                       : _backupPath,
                   onTap: _busy ? null : _pickBackupPath,
                 ),
-                IosListTile(
+                SettingTile(
                   title: context.l10n.backup,
                   subtitle: context.l10n.backupSummary,
                   onTap: _busy ? null : _doLocalBackup,
@@ -611,13 +611,13 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 // 短按 WebDAV 优先；长按本地恢复
                 GestureDetector(
                   onLongPress: _busy ? null : _doRestoreFromLocal,
-                  child: IosListTile(
+                  child: SettingTile(
                     title: context.l10n.restore,
                     subtitle: '优先从 WebDav 恢复，长按从本地恢复',
                     onTap: _busy ? null : _doRestore,
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: context.l10n.backupRestoreIgnore,
                   subtitle: '恢复时忽略一些内容不恢复，方便不同手机配置不同',
                   onTap: _busy ? null : _showRestoreIgnore,
@@ -643,7 +643,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
               ],
             ),
             if (syncState.lastSyncTimeLabel.isNotEmpty)
-              IosSectionFooter('上次同步：${syncState.lastSyncTimeLabel}'),
+              SettingsSectionFooter('上次同步：${syncState.lastSyncTimeLabel}'),
           ],
         ),
       ),

@@ -148,26 +148,26 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(title: const Text('关于')),
-      body: IosGroupedBody(
+      body: SettingsBody(
         child: ListView(
-          // [LAYOUT_PLAN P3] 底部 bottom32 保留；列表水平边距走 IosGroupedBody 16dp
+          // [LAYOUT_PLAN P3] 底部 bottom32 保留；列表水平边距走 SettingsBody 16dp
           padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             SettingsGroup(
               children: [
-                IosListTile(
+                SettingTile(
                   title: '开发人员',
                   subtitle: 'gedoor、Invinciblelee 和 Xwite 等，详情请在 GitHub 中查看',
                   onTap: () => _launch(_contributorsUrl),
                 ),
-                IosListTile(
+                SettingTile(
                   title: '更新日志',
                   subtitle: _appVersion.isEmpty
                       ? '版本 …'
                       : '版本 $_appVersion',
                   onTap: _showUpdateLog,
                 ),
-                IosListTile(
+                SettingTile(
                   title: '检查更新',
                   trailing: _checkingUpdate
                       ? const SizedBox(
@@ -184,24 +184,24 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             SettingsGroup(
               title: '其他',
               children: [
-                IosListTile(
+                SettingTile(
                   title: '崩溃日志',
                   onTap: () =>
                       Navigator.pushNamed(context, AppRoutes.appLog),
                 ),
-                IosListTile(
+                SettingTile(
                   title: '保存日志',
                   onTap: _saveLog,
                 ),
-                IosListTile(
+                SettingTile(
                   title: '创建堆转储',
                   onTap: _createHeapDumpPlaceholder,
                 ),
-                IosListTile(
+                SettingTile(
                   title: '用户隐私与协议',
                   onTap: () => _launch(_privacyUrl),
                 ),
-                IosListTile(
+                SettingTile(
                   title: '开源许可',
                   onTap: () => showLicensePage(
                     context: context,
@@ -210,7 +210,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     applicationLegalese: 'GNU General Public License v3.0',
                   ),
                 ),
-                IosListTile(
+                SettingTile(
                   title: '免责声明',
                   onTap: _showDisclaimer,
                 ),

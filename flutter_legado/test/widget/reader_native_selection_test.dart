@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+
 import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +19,6 @@ import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 
 Future<void> _pumpReader(

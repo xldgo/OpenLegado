@@ -1,3 +1,6 @@
+import '../providers/reader/reader_config_provider.dart';
+import '../models/reader_advanced_config.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -32,7 +35,6 @@ import '../widgets/reader/reader_menu_theme.dart';
 import '../widgets/reader/review_detail_sheet.dart';
 import '../utils/comic_image_utils.dart';
 import '../utils/source_login_prompt.dart';
-import 'reader_config_panel.dart';
 
 /// 阅读器页面（Riverpod ConsumerStatefulWidget 薄壳）
 ///
@@ -235,10 +237,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Future<void> _loadAdvancedConfig() async {
-    final config = await ReaderAdvancedConfig.load();
+    final config = await ref
+        .read(readerAdvConfigProvider.notifier)
+        .ensureLoaded();
     if (!mounted) return;
     setState(() => _advConfig = config);
-    ref.read(readerAdvConfigProvider.notifier).apply(config);
     _syncAutoTimer();
     // [UI-fix v2.0.3 | 2026-08-08] 进入阅读器即应用隐藏栏/方向配置 — Qoder
     _applySystemChrome(config);
@@ -979,8 +982,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 底栏自动翻页 FAB（对标原版 fabAutoPage → autoPage）
   void _toggleAutoPage() {
     _advConfig = _advConfig.copy()..autoPageTurn = !_advConfig.autoPageTurn;
-    unawaited(_advConfig.save());
-    ref.read(readerAdvConfigProvider.notifier).apply(_advConfig.copy());
+    ref.read(readerAdvConfigProvider.notifier).update(_advConfig);
     _syncAutoTimer();
     if (mounted) setState(() {});
   }
@@ -989,8 +991,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _setAutoPageInterval(double seconds) {
     _advConfig = _advConfig.copy()
       ..autoPageTurnInterval = seconds.clamp(3, 120);
-    unawaited(_advConfig.save());
-    ref.read(readerAdvConfigProvider.notifier).apply(_advConfig.copy());
+    ref.read(readerAdvConfigProvider.notifier).update(_advConfig);
     _syncAutoTimer(); // 间隔变更需重建定时器周期
     if (mounted) setState(() {});
   }

@@ -128,7 +128,7 @@ void main() {
 
     expect(
       find.ancestor(
-        of: find.byType(IosListTile),
+        of: find.byType(SettingTile),
         matching: find.byType(MergeSemantics),
       ),
       findsOneWidget,
@@ -169,7 +169,7 @@ void main() {
   });
 
   testWidgets('enableItemDivider 打开时行底出现 80dp 胶囊线', (tester) async {
-    // IosListTile 分隔线形态：80×1dp 圆角线（enableItemDivider 打开时）
+    // SettingTile 分隔线形态：80×1dp 圆角线（enableItemDivider 打开时）
     final pill = find.byWidgetPredicate(
       (w) =>
           w is Container &&

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+
 import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -16,7 +18,6 @@ import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_content_edit_dialog.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 
 class _Reader extends ReaderNotifier {
   final ReaderState? initialState;

@@ -1,8 +1,9 @@
 # 主题管理与 UI 架构优化建议
 
-本方案依据 `feature/ui-reader-selection` 合并提交 `c68c52904` 调研；后续工作在
+本方案初次依据 `feature/ui-reader-selection` 合并提交 `c68c52904` 调研；
+A—C 已本地集成，第 4 步重新分析以 `121f01714` 为基线。后续工作在
 `build/worktrees/reader-overlay` 的 `feature/ui-reader-refinement` 进行。
-后续实施按下述批次划分，批次 A—C 的接口说明见下文。任务状态只维护于
+后续实施按下述批次划分，批次 A—E 的接口说明见下文。任务状态只维护于
 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，既有视觉规则仍见 [设计系统](design_system.md)。
 
 ## 结论与边界
@@ -55,7 +56,7 @@ flowchart TD
     L --> W
 ```
 
-图中表示职责关系；A—C 的实际入口见下文，其余职责仍属于后续建议。
+图中表示职责关系；A—E 的实际入口见下文，其余职责仍属于后续建议。
 
 1. **偏好**表达用户选择：主题模式、色板、日夜自定义颜色、纯黑、风格与对比度。
 2. **解析**只根据输入计算颜色角色，明确动态色可用条件、覆盖顺序和回退。
@@ -140,6 +141,108 @@ UI 与颜色设置的启动恢复按字段合并：用户已改动的字段保�
 状态合并，避免覆盖等待期间修改的颜色或背景图。批量存储由 SettingsService 执行，
 不建立跨项目持久化框架；一笔失败不阻塞后续写入。配置键、主题 JSON 和 FFI 不变。
 
+## 批次 D 的外观功能边界（121f01714）
+
+当前基线已有书签、阅读记录和朗读配置的功能目录与窄数据边界。外观拆分沿用
+这个结构，但其预设保存在 SharedPreferences，不经过 BookApi 或 Rust。
+本批沿用重新分析后的范围，实际职责落点如下。
+
+| 实现位置（均在 `flutter_legado/lib/src/` 下） | 职责 |
+|---|---|
+| `features/appearance/appearance.dart`、`theme_config_screen.dart` | 提供功能入口，保留 ThemeConfigScreen 类名与既有页面交互；旧 screens 文件迁入此处 |
+| `features/appearance/theme_actions.dart` | 协调保存、应用、导入导出，复用已有主题 Notifier；页面负责弹层、提示和生命周期 |
+| `models/theme_preset.dart`、`theme_document.dart` | 分别表达本地命名预设与日夜主题文件，封装各自序列化规则 |
+| `domain/contracts/theme_preset_repository.dart`、`data/repositories/preferences_theme_preset_repository.dart` | 读取和保存 themeConfigList；通过 SettingsService 使用原键，不复制颜色状态 |
+| `platform/files/theme_file_service.dart` | 封装主题文件读写和背景图片选择，保留取消结果与平台参数，不持有 BuildContext |
+| `features/appearance/widgets/` | 主题模式、色板、封面规则和预设弹层各自管理展示；封面规则业务接口与原布局不变 |
+| `routes.dart` 与现有外观测试 | 改用功能公开入口，保留 `/theme_config` 路由；同步已有测试导入，不新增布局测试 |
+
+模型、存储及文件边界与页面迁移作为同一批审阅。分组仍按原顺序组织在页面中，
+不为每一行增加独立组件；提取已有独立职责的选择器和弹层，不复制通用分组容器。
+
+### 页面状态与写入入口
+
+基线外观页曾保存 `_wallpaperColorFollow`、日夜背景图片和系统栏字段副本，
+壁纸配色开关同时调用 SettingsService 和 UiSettingsNotifier 写入同一个键。
+本批移除这些副本，直接订阅已有 Provider，写入仅经所属 Notifier。
+尚无共享 Provider 的页面独有选项保留小范围状态，不额外建立全局外观状态容器。
+系统栏 Notifier 未属于 C 的竞态修复范围，不声称本轮已证明其加载/写入安全。
+
+### 三种数据格式分别保留
+
+- 本地 `themeConfigList` 是带 `name`、`isNight` 及四色的列表；损坏数据目前回退为空列表。
+  拆分保留原键、字段、列表顺序和解析回退，不静默过滤条目或改成另一份文件格式。
+- 导出文件包含 `app/type/version`、色板、主题模式及 day/night 四色组。
+  当前导入只要求 JSON 对象，并不校验前三个声明；缺失颜色组会清除该组自定义色，
+  数值颜色转换为整数，未知主题模式忽略。模型须表达这些现有行为，不能借重构增加门禁。
+- `association_notifier.dart` 的关联导入使用另一套字段，包含字体、行距、背景索引和亮度，
+  且直接写偏好。它与外观文件不是相同协议；本批不强行共用文件模型或改动阅读配置。
+  后续若要统一其即时状态刷新，另明确字段归属及现有行为后处理。
+
+背景图继续只保存选择器返回的路径，不引入文件复制、旧图删除或配置迁移。
+页面分组顺序、标签、外观和主题解析规则不变；导入保存失败应反馈给页面，取消不修改状态。
+预设存储通过既有 SettingsWriteQueue 串行完成读改写；列表读取等待排在前面的写入。
+SettingsService.setStringPrefChecked 会把失败交回调用方，既有宽容写入方法保持原样。
+预设弹层等待保存成功再更新列表，控制器由命名编辑器管理；不建立长期列表缓存。
+
+必要验证覆盖两种模型的实际格式、预设存储、取消/失败路径及既有外观用例，
+不重复运行全量 CI，也不因拆分重编 Rust。
+
+## 批次 E 的通用设置组件
+
+通用设置组件继续集中在 `src/widgets/settings_widgets.dart`，按用途命名：
+
+| 组件 | 职责 |
+|---|---|
+| `SettingsBody` | 设置页背景、安全区与分组外侧留白 |
+| `SettingsSectionHeader` / `SettingsSectionFooter` | 卡片外的标题与说明 |
+| `SettingsGroup` | 卡片内标题、容器与行间分隔，保留图标列缩进规则 |
+| `SettingTile` | 标题、副标题、图标、右侧值或自定义控件 |
+| `SettingSwitchRow` / `SettingMenuRow` / `SettingStepperRow` | 复用基础设置行，分别承载开关、菜单选择与数值步进 |
+| `SheetDragHandle` | 从当前 BottomSheetTheme 读取把手尺寸与颜色 |
+
+旧 Ios* 设置组件名称不保留别名；实际 Cupertino 组件与平台行为不受此命名整理影响。
+普通设置行与菜单行共用右侧值和预览布局，基于当前行宽限制值的空间；标题使用
+titleMedium，说明使用 bodySmall / onSurfaceVariant，右侧值使用 labelMedium 强调字阶。
+禁用值与说明使用当前主题的 disabledColor。数值步进控件和连续滑条保留自身布局。
+
+外观页的配色风格、对比度、顶栏按钮样式、底栏文字、大屏导航与两类封面背景选择，
+统一为 SettingMenuRow；原选项、字段、默认值和 Notifier 写入入口不变。需要输入、
+多项配置或确认的弹窗保留。阅读字体、页面边距、提示信息入口与菜单颜色预览
+复用 SettingTile；菜单行不显示箭头，页面跳转行保留箭头。
+
+AppMenuAnchor 继续使用 material_ui 的 MenuAnchor。其底层 OverlayPortal 保持
+入口的继承主题，即使菜单绘制于根浮层，也不需再添加全局主题副本或手工注入。
+已有菜单回归同时验证局部主题与选择、关闭行为；顶部导航及输入框继续消费既有
+LegadoAppBar 和 InputDecorationTheme，不新增另一套组件或配色配置。
+
+## 阅读配置的独立边界
+
+阅读配置沿用现有可变编辑模型和 copy()，75 个字段、枚举顺序、构造默认值与复制规则
+保持原样。模型只依赖几何类型与 FlipMode，不导入页面、Riverpod 或 SharedPreferences。
+不为本轮拆分重写生成模型或改变阅读设置界面。
+
+| 实现位置（均在 `flutter_legado/lib/src/` 下） | 职责 |
+|---|---|
+| `models/reader_advanced_config.dart` | ReaderAdvancedConfig、九宫格动作与边距区域，保留编辑副本和纯映射 |
+| `domain/contracts/reader_config_repository.dart` | 加载、保存配置的窄接口 |
+| `data/repositories/preferences_reader_config_repository.dart` | 既有偏好读取、迁移与字段保存；同一实例串行执行读写，入队前复制配置 |
+| `providers/reader/reader_config_provider.dart` | 保留 readerAdvConfigProvider 名称，管理一次共享加载、即时发布与保存入口 |
+
+Provider 的 ensureLoaded() 合并并发加载；读取完成时保留已经发布的新操作，作用域
+销毁或重建后不向旧状态回写。commit() 返回可等待的保存结果，update() 供页面即时
+更新并记录保存错误。偏好适配器等待前序操作再读取，避免同一入口读取半份保存结果；
+写入返回失败时交回调用方，后续排队操作仍可继续。多键偏好写入保持原有方式，
+不宣称跨键事务或失败回滚。
+
+阅读器通过同一入口等待配置；完整设置页订阅 Provider，独立面板直接提交，有父层
+回调的面板交给父层提交，移除回调之后再次 apply 的重复状态推送。模型不保留 load()
+或 save() 转发方法，旧 data.part 文件移除；绘制组件直接导入模型或共享 Provider。
+
+现有偏好协议、读取约束及一次性迁移全部保留，原读取与保存表达式逐项核对。
+正文基础字号、背景、正文自定义字体与简繁转换继续使用各自既有入口，本轮只收口
+ReaderAdvancedConfig 所属偏好；没有改动 Rust、FFI、数据库或页面布局。
+
 ## 三项关键设计选择
 
 ### 完整装配局部主题
@@ -189,6 +292,6 @@ ThemeData。本方案不修改该协议、FFI 签名或数据库，不因视觉�
 未来若要调整运行时配置同步，另按 API_CONTRACT 明确兼容影响。
 
 调研依据为基线静态源码与官方 API；自动验证覆盖配色计算、局部装配和设置竞态，
-未开展自动设备交互或性能测量；D、E 仍是建议方案。
+未开展自动设备交互或性能测量；平台文件操作与通用组件视觉表现均由用户人工复验。
 
 编写者：Codex｜2026-10-13

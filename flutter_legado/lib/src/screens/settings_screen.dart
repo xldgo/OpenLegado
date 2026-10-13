@@ -300,7 +300,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
-      body: IosGroupedBody(
+      body: SettingsBody(
         child: ListView(
           padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
@@ -311,14 +311,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   title: context.l10n.contentAndRules,
                   children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.library_books_rounded,
                       title: context.l10n.sourceManagement,
                       subtitle: context.l10n.sourceManagementSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.sources),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.rss_feed_rounded,
                       title: context.l10n.rssSourceManagement,
                       subtitle: context.l10n.rssSourceManagementSummary,
@@ -327,34 +327,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         AppRoutes.rssSourceManage,
                       ),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.toc_rounded,
                       title: context.l10n.txtTocRules,
                       subtitle: context.l10n.txtTocRulesSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.txtTocRules),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.find_replace_rounded,
                       title: context.l10n.replaceRules,
                       subtitle: context.l10n.replaceRulesSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.replaceRules),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.translate_rounded,
                       title: context.l10n.dictionaryLookup,
                       subtitle: context.l10n.dictionaryLookupSummary,
                       onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.manage_search_rounded,
                       title: context.l10n.dictionaryRules,
                       subtitle: context.l10n.dictionaryRulesSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.dictRule),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Icons.sell_rounded,
                       title: context.l10n.highlightRules,
                       subtitle: context.l10n.highlightRulesSummary,
@@ -369,20 +369,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   title: context.l10n.appearance,
                   children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.palette_rounded,
                       title: context.l10n.appearance,
                       subtitle: context.l10n.appearanceSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.themeConfig),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.style_rounded,
                       title: context.l10n.readingInterface,
                       subtitle: context.l10n.readingInterfaceSummary,
                       onTap: () => ReaderSettingsSheet.showPage(context),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.record_voice_over_rounded,
                       title: context.l10n.readAloudSettingsTitle,
                       onTap: () => Navigator.pushNamed(
@@ -432,7 +432,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       value: _mcpService,
                       onChanged: _mcpServiceBusy ? null : _toggleMcpService,
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.backup_rounded,
                       title: context.l10n.backupAndRestore,
                       subtitle: context.l10n.backupAndRestoreSummary,
@@ -441,7 +441,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         AppRoutes.webdavSettings,
                       ),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.download_rounded,
                       title: context.l10n.cacheManagement,
                       subtitle: context.l10n.cacheManagementSummary,
@@ -454,7 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   title: context.l10n.scheduledTasks,
                   children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.schedule_rounded,
                       title: context.l10n.scheduledTasks,
                       subtitle: context.l10n.scheduledTasksSummary,
@@ -475,41 +475,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   key: _otherSectionKey,
                   title: context.l10n.otherSettings,
                   children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.tune_rounded,
                       title: context.l10n.advanced,
                       subtitle: context.l10n.advancedSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.otherSettings),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.bookmark_rounded,
                       title: context.l10n.bookmarks,
                       subtitle: context.l10n.allBookmarks,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.bookmarks),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.history_rounded,
                       title: context.l10n.readingRecords,
                       subtitle: context.l10n.readingRecordsSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.readRecord),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.folder_rounded,
                       title: context.l10n.fileManagement,
                       subtitle: context.l10n.fileManagementSummary,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.fileManage),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.info_rounded,
                       title: context.l10n.aboutSettings,
                       onTap: () =>
                           Navigator.pushNamed(context, AppRoutes.about),
                     ),
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.logout_rounded,
                       title: context.l10n.exitApp,
                       onTap: _confirmExit,

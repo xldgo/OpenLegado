@@ -1,6 +1,7 @@
+import '../../models/reader_advanced_config.dart';
+
 import 'package:material_ui/material_ui.dart';
 
-import '../../screens/reader_config_panel.dart';
 import 'text_layout_environment.dart';
 
 import 'dart:math' as math;

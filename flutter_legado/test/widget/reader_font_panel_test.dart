@@ -1,7 +1,8 @@
 /// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
 library;
 
-import 'dart:async';
+import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,8 @@ void main() {
     testWidgets('面板直测：字重/首行缩进持久化 + 简繁转换 + 字体跳转', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockBookApi();
+      final repository = PreferencesReaderConfigRepository();
+      final saves = <Future<void>>[];
       await tester.pumpWidget(
         ProviderScope(
           overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -66,8 +69,8 @@ void main() {
                 builder: (_) => SingleChildScrollView(
                   child: ReaderFontPanel(
                     config: ReaderAdvancedConfig(),
-                    // 模拟主 Sheet _commitAdv：变更经 save() 持久化
-                    onChanged: (cfg) => unawaited(cfg.save()),
+                    // 模拟存储提交；断言等待保存完成，不依赖排入队列的微任务时序。
+                    onChanged: (cfg) => saves.add(repository.save(cfg)),
                   ),
                 ),
               );
@@ -87,6 +90,7 @@ void main() {
       await tester.tap(find.text('粗体').last);
       await tester.pump();
       final prefs = await SharedPreferences.getInstance();
+      await Future.wait(saves);
       expect(prefs.getInt('textBold'), 1);
 
       // ② 首行缩进 → 选「三字符」→ 持久化 paragraph_indent_chars=3
@@ -97,6 +101,7 @@ void main() {
       await tester.tap(find.text('三字符').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
+      await Future.wait(saves);
       expect(prefs.getInt('reader_adv_paragraph_indent_chars'), 3);
 
       // ④ 斜体开关（双基准补齐）→ 持久化 reader_adv_italic
@@ -106,6 +111,7 @@ void main() {
       await tester.tap(find.text('斜体').last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
+      await Future.wait(saves);
       expect(prefs.getBool('reader_adv_italic'), isTrue);
 
       // ⑤ 「字体」跳转字体管理路由（AppRoutes.fonts → FontScreen）

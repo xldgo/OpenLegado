@@ -325,7 +325,7 @@ class _FontScreenState extends State<FontScreen> {
   }
 
   Widget _buildSectionHeader(ThemeData theme, String title) {
-    // [LAYOUT_PLAN P1] 分组标题走 IosSectionHeader 规范
+    // [LAYOUT_PLAN P1] 分组标题走 SettingsSectionHeader 规范
     //（labelMedium/onSurfaceVariant，padding 16,24,16,8）
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),

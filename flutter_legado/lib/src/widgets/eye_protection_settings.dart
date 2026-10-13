@@ -147,7 +147,7 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
     String title,
     String value,
     ValueChanged<String> onChanged,
-  ) => IosListTile(
+  ) => SettingTile(
     title: title,
     value: value,
     showChevron: false,

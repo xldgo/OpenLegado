@@ -9,7 +9,7 @@ import 'settings_widgets.dart';
 ///
 /// 三块内容：阅读 3.0 源规则说明 / @规则语法 / jsLib 与内置变量，
 /// 内容全部为编译期常量，不发起网络请求、不引入新依赖。
-/// 弹层壳沿用 `reader_tip_config_sheet.dart` 规范（IosGrabber +
+/// 弹层壳沿用 `reader_tip_config_sheet.dart` 规范（SheetDragHandle +
 /// DraggableScrollableSheet + 全量滚动）。
 /// — full-stack-engineer + UI | 2026-09-09
 class SourceRuleHelpSheet extends StatelessWidget {
@@ -139,7 +139,7 @@ class SourceRuleHelpSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(child: IosGrabber()),
+            const Center(child: SheetDragHandle()),
             const SizedBox(height: 12),
             Text('规则语法帮助', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),

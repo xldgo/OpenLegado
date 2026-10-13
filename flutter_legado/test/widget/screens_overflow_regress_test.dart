@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 // 回归守卫：debug 模式 RenderFlex 右溢（台账 P2-13 ②，设备 crash_log 右溢 12px）。
 // 约定：360dp 画布（1080x1920 @ 3.0），MockBookApi + MockAudioService 覆写，
 // 逐屏 pump 后断言无布局溢出异常（takeException == null）。
@@ -73,7 +74,7 @@ import 'package:flutter_legado/src/screens/source_debug_screen.dart';
 import 'package:flutter_legado/src/screens/source_edit_screen.dart';
 import 'package:flutter_legado/src/screens/source_login_screen.dart';
 import 'package:flutter_legado/src/screens/source_screen.dart';
-import 'package:flutter_legado/src/screens/theme_config_screen.dart';
+import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
 import 'package:flutter_legado/src/screens/txt_toc_rules_screen.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';

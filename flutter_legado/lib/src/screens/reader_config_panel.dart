@@ -1,3 +1,6 @@
+import '../providers/reader/reader_config_provider.dart';
+import '../models/reader_advanced_config.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -10,45 +13,15 @@ import '../models/flip_mode.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
-import '../services/reader_settings_migration.dart';
 import '../widgets/reader/reader_brightness_control.dart';
 import '../widgets/reader/reader_menu_color_dialog.dart';
 import '../widgets/reader/reader_padding_config_sheet.dart';
 import '../widgets/reader/reader_tip_config_sheet.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/app_menu.dart';
-part 'reader_config_panel_data.part.dart';
 part 'reader_config_panel_builders.part.dart';
 
-// ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：数据模型与构建方法分别拆出，
-// 零行为变更（同 library 私有成员可访问）。
-
-/// 边距区域（对标原版 PaddingConfigDialog.Region）
-enum PaddingRegion { header, body, footer }
-
-/// 点击区域可映射的功能
-enum TapAction {
-  none,
-  prevPage,
-  nextPage,
-  toggleControls,
-  openCatalog;
-
-  String get label {
-    switch (this) {
-      case TapAction.none:
-        return '无操作';
-      case TapAction.prevPage:
-        return '上一页/章';
-      case TapAction.nextPage:
-        return '下一页/章';
-      case TapAction.toggleControls:
-        return '切换工具栏';
-      case TapAction.openCatalog:
-        return '打开目录';
-    }
-  }
-}
+// 构建方法保留为页面 part；配置模型、存储与共享状态独立于页面。
 
 /// 可复用的配置区块，完整设置页按职责分别展示。
 /// 原有聚合区块保留兼容，应用入口统一使用完整设置与快捷面板。
@@ -173,11 +146,8 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     if (widget.onChanged != null) {
       widget.onChanged!(_config.copy());
     } else {
-      unawaited(_config.save());
+      ref.read(readerAdvConfigProvider.notifier).update(_config);
     }
-    // [UI-fix v2.0.4 | 2026-08-08] 同步推送共享 Provider（界面 Sheet /
-    // reader_screen 经 watch 实时感知面板修改）— Qoder
-    ref.read(readerAdvConfigProvider.notifier).apply(_config.copy());
     setState(() {});
   }
 
@@ -351,11 +321,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           SettingsGroup(
             showDividers: false,
             children: [
-              ListTile(
-                leading: const Icon(Icons.crop_free),
-                title: const Text('页面边距'),
-                subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-                trailing: const Icon(Icons.chevron_right),
+              SettingTile(
+                icon: Icons.crop_free,
+                title: '页面边距',
+                subtitle: '页眉 / 正文 / 页脚四向边距',
                 onTap: () => ReaderPaddingConfigSheet.show(
                   context,
                   config: _config.copy(),
@@ -397,13 +366,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             children: [
               Column(
                 children: [
-                  ListTile(
-                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-
-                    leading: const Icon(Icons.crop_free),
-                    title: const Text('页面边距'),
-                    subtitle: const Text('页眉 / 正文 / 页脚四向边距'),
-                    trailing: const Icon(Icons.chevron_right),
+                  SettingTile(
+                    icon: Icons.crop_free,
+                    title: '页面边距',
+                    subtitle: '页眉 / 正文 / 页脚四向边距',
                     onTap: () => ReaderPaddingConfigSheet.show(
                       context,
                       config: _config.copy(),
@@ -413,13 +379,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                       },
                     ),
                   ),
-                  ListTile(
-                    // [LAYOUT_PLAN P1] 组内行 vertical12/horizontal8
-
-                    leading: const Icon(Icons.info_outline),
-                    title: const Text('阅读提示信息'),
-                    subtitle: const Text('页眉页脚提示项与标题样式'),
-                    trailing: const Icon(Icons.chevron_right),
+                  SettingTile(
+                    icon: Icons.info_outline,
+                    title: '阅读提示信息',
+                    subtitle: '页眉页脚提示项与标题样式',
                     onTap: () => ReaderTipConfigSheet.show(
                       context,
                       config: _config.copy(),

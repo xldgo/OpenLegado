@@ -53,6 +53,15 @@
 设置行和阅读菜单按用途订阅，不读取全局镜像。没有应用宿主的独立组件使用默认值，
 预览和测试若需自定义配置，显式提供作用域快照。分组和组件布局规则不变。
 
+跨平台设置组件按用途命名：SettingsBody、SettingsSectionHeader、
+SettingsSectionFooter、SettingsGroup、SettingTile 和 SheetDragHandle。
+开关、菜单与步进设置行复用 SettingTile；标题为 titleMedium，说明为
+bodySmall / onSurfaceVariant，右侧值为 labelMedium 强调字阶 / primary。
+值和说明在禁用时采用 disabledColor；预览与值基于行宽限制空间，不按屏幕宽度计算。
+菜单选择行无箭头，页面跳转行保留箭头；把手读取当前 BottomSheetTheme。
+MenuAnchor 的 OverlayPortal 继承入口主题，根浮层中的菜单也沿用局部配色。
+实际 Cupertino 组件保持原接线，不将平台能力并入通用设置行。
+
 ## 详情页局部主题（2026-10-13）
 
 封面主色经 `ColorScheme.fromSeed` 与 `AppTheme.withColorScheme` 生成完整主题，

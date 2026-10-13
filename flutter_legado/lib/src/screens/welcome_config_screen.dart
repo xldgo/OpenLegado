@@ -145,10 +145,10 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
       body: _loading
           // [STAGE-UI-P43UNIFY2 B4] .adaptive() → 标准环（参考版无 adaptive 用法）
           ? const Center(child: AppCircularProgressIndicator())
-          : IosGroupedBody(
+          : SettingsBody(
               child: ListView(
                 children: [
-                  const IosSectionHeader('显示时长'),
+                  const SettingsSectionHeader('显示时长'),
                   SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
@@ -196,7 +196,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       ),
                     ),
                   ]),
-                  const IosSectionHeader('自定义'),
+                  const SettingsSectionHeader('自定义'),
                   SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
@@ -210,11 +210,11 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       },
                     ),
                   ]),
-                  const IosSectionHeader('白天'),
+                  const SettingsSectionHeader('白天'),
                   SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.wallpaper_rounded,
                       title: '背景图片',
                       subtitle: _imageDay.isEmpty ? '选择图片' : _imageDay,
@@ -239,11 +239,11 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       },
                     ),
                   ]),
-                  const IosSectionHeader('夜间'),
+                  const SettingsSectionHeader('夜间'),
                   SettingsGroup(
                       flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                       children: [
-                    IosListTile(
+                    SettingTile(
                       icon: Symbols.wallpaper_rounded,
                       title: '背景图片',
                       subtitle: _imageNight.isEmpty ? '选择图片' : _imageNight,
@@ -268,7 +268,7 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       },
                     ),
                   ]),
-                  const IosSectionFooter(
+                  const SettingsSectionFooter(
                     '闪屏结构对齐原版 WelcomeActivity；背景图仅在开启「自定义欢迎页」时生效。',
                   ),
                 ],
