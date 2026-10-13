@@ -7,7 +7,7 @@ part 'source_login_state.freezed.dart';
 /// 书源登录页状态
 ///
 /// 持有当前书源的登录凭据（Token / Cookies / Headers），
-/// 由 [SourceLoginNotifier] 经 BookApi.getConfig/setConfig 持久化到 Rust 配置库。
+/// 由 SourceLoginNotifier 经登录服务与窄 Repository 持久化到 source_login_cache。
 @freezed
 abstract class SourceLoginState with _$SourceLoginState {
   const factory SourceLoginState({

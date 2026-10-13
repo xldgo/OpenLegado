@@ -21,8 +21,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getLoginInfo(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getLoginHeader(any())).thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginInfo(any())).thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginHeader(any())).thenAnswer((_) async => '');
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
   });
 

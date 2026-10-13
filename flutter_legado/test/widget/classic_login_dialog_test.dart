@@ -28,10 +28,10 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getLoginInfo(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getLoginHeader(any())).thenAnswer((_) async => '');
-    when(() => mockApi.putLoginInfo(any(), any())).thenAnswer((_) async {});
-    when(() => mockApi.putLoginHeader(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.sourceLoginRepository.getLoginInfo(any())).thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginHeader(any())).thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.putLoginInfo(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.sourceLoginRepository.putLoginHeader(any(), any())).thenAnswer((_) async {});
     when(
       () => mockApi.exploreEvalAction(
         sourceJson: any(named: 'sourceJson'),
@@ -80,7 +80,8 @@ void main() {
                   onPressed: () => showDialog<bool>(
                     context: context,
                     builder: (_) => ClassicLoginDialog(
-                      api: container.read(bookApiProvider),
+                      repository: container.read(bookApiProvider).sourceLoginRepository,
+                      evaluateAction: container.read(bookApiProvider).exploreEvalAction,
                       source: source,
                     ),
                   ),
@@ -140,7 +141,7 @@ void main() {
 
     // putLoginInfo 已保存表单 JSON
     final info = verify(
-      () => mockApi.putLoginInfo(any(), captureAny()),
+      () => mockApi.sourceLoginRepository.putLoginInfo(any(), captureAny()),
     ).captured.last as String;
     expect(info, contains('"邮箱":"a@b.com"'));
 

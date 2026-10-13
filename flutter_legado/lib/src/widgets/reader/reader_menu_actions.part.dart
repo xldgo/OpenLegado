@@ -630,7 +630,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => WebViewLoginScreen(
-                api: api,
+                repository: api.sourceLoginRepository,
                 sourceUrl: source.bookSourceUrl,
                 sourceName: source.bookSourceName,
                 loginUrl: result.value,

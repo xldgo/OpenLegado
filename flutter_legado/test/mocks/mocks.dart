@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter_legado/src/domain/contracts/source_checker.dart';
+import 'package:flutter_legado/src/domain/contracts/source_login_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
@@ -36,7 +37,11 @@ class _MockBookSourceRepository extends Mock implements BookSourceRepository {}
 
 class SourceCheckerMock extends Mock implements SourceChecker {}
 
+class SourceLoginRepositoryMock extends Mock implements SourceLoginRepository {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final SourceLoginRepository sourceLoginRepository = SourceLoginRepositoryMock();
   @override
   final SourceChecker sourceChecker = SourceCheckerMock();
   @override

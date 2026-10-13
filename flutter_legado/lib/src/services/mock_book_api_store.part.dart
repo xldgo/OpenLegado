@@ -22,8 +22,6 @@ mixin MockBookApiStore {
   // Mock 模式以内存 Map 模拟 Rust 侧 MD5 文件落盘，key = bookUrl\u0000url）
   final Map<String, List<int>> _imageCache = {};
   // 登录凭据内存态（sourceLogin 手动登录/登录缓存，USE_MOCK 开发模式用）
-  final Map<String, String> _mockLoginInfo = {};
-  final Map<String, String> _mockLoginHeader = {};
 
   int _nextId = 1;
 

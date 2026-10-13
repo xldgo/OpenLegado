@@ -9,7 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../services/book_api.dart';
+import '../domain/contracts/source_login_repository.dart';
 import '../services/platform_channel.dart';
 import '../utils/url_utils.dart';
 import '../widgets/app_scaffold.dart';
@@ -39,8 +39,8 @@ class WebViewLoginScreen extends StatefulWidget {
   /// 书源 header 字段原始值（JSON 或 kv 串，解析失败忽略）
   final String? header;
 
-  /// BookApi（putLoginHeader 落库）
-  final BookApi api;
+  /// 原始凭据存储（putLoginHeader 落库）
+  final SourceLoginRepository repository;
 
   /// 书源网页共用 Cookie 接线，购买页可隐藏登录专用操作。
   final String? title;
@@ -52,7 +52,7 @@ class WebViewLoginScreen extends StatefulWidget {
     required this.sourceName,
     required this.loginUrl,
     this.header,
-    required this.api,
+    required this.repository,
     this.title,
     this.showLoginActions = true,
   });
@@ -203,7 +203,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
         );
         final cookie = raw.toString();
         if (cookie.isEmpty || cookie == 'null') return;
-        await widget.api.putLoginHeader(
+        await widget.repository.putLoginHeader(
           widget.sourceUrl,
           jsonEncode({'Cookie': cookie}),
         );
@@ -215,7 +215,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
     try {
       final cookie = await PlatformChannel.getCookie(url);
       if (cookie.isEmpty) return;
-      await widget.api.putLoginHeader(
+      await widget.repository.putLoginHeader(
         widget.sourceUrl,
         jsonEncode({'Cookie': cookie}),
       );

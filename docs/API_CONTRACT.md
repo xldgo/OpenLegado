@@ -10,6 +10,7 @@
 |------|------|
 | 2026-10-13 | **阅读记录上游三视图/会话契约冻结**：新增真实会话查询、每日单书删除和原始会话集合删除三项；累计写入带副本URL及章节序号。新增时段与累计/每日数据原子提交，重复快照不计时，删除按作者/设备隔离并同步四表，跨午夜每日删除裁剪原会话。不补造旧会话。领域方法7→10，附录296→299。 |
 | 2026-10-13 | **阅读记录明细契约冻结（加法式，+2 方法；契约先行）**：补齐阅读记录单书每日明细（readRecordDetail）数据链与写入跨午夜原子事务语义。书籍身份由 `(bookName, author)` 标识，阅读器保存时透传真实 author；`putReadRecord` 写入事务计算有效增量 `delta = 新 readTime − 旧 readTime`，`delta <= 0` 幂等忽略；以 `[startTime, endTime]` 判断是否跨本地午夜，跨午夜时原子拆分毫秒至对应日期，单事务原子更新 `readRecord`、`readRecordDetail` 及 `readRecordDaily`，失败全量回滚；`deleteReadRecord` 级联删除指定书籍在 `readRecordDetail` 的所有明细；`clearReadRecords` 同时清空三表。新增 `getReadRecordDetails(int year)` 与 `getAllReadRecordDetails()`（均返回毫秒单位 `List<ReadRecordDetail>`）。§2.12 方法数 5→**7**，附录合计 294→**296**，ReadRecordRepository 口径 5→**7**（契约先行，实现批封装后程序化计数转齐）。 |
+| 2026-10-14 | **书源登录凭据边界冻结**：SourceLoginRepository 承担既有信息/登录头四项原始 JSON 读写，正式直接 FRB、Mock 保留唯一存储；转换与旧配置回退/顺序保存提取到独立模块，根仅分享引用、移除旧四项方法。手动编辑状态按书源 URL 隔离并过滤过期加载，空凭据清空，保存固定快照、重复调用共用在途结果；经典表单和 WebView 改用凭据接口，经典 JS 求值单独注入。保留 JSON、键、Header→Info 两次写入及部分成功/失败语义；动态登录、Rust/FRB、数据库、版本和依赖保持。 |
 | 2026-10-13 | **书源校验边界冻结**：Dart 内部 SourceChecker 接收既有单源校验、批量进度流与取消三项能力；正式直接调用原 FRB 并复用 JSON 守卫，Mock 与书源 Repository 共用唯一存储，根仅提供共享引用、删除旧三项方法。Notifier 捕获发起校验的实例，以会话代数过滤迟到事件；准备期间重复启动被拒绝，取消完成前不启动下一轮，清除/销毁解除旧订阅。保留配置键、默认值、事件 JSON、结果文案和正常完成的失效分组回写；Rust 进程级取消与 Mock 原取消空操作保持，不变更 Rust/FRB 或数据库。 |
 | 2026-10-13 | **书源导入职责冻结**：ImportResult/SourcePreview 独立为纯数据模型，SourceImportParser 统一预览和必填校验；导入服务只接收 BookSourceRepository、文本 GET、文件读取及书源替换规则回调，应用装配绑定同一根实例。保留宽松原始 JSON、逐条替换再入库、成功计数及失败边界；文件缺失与读取失败、HTTP 状态及原实际超时提示保持，不增加 BookApi 或 Rust/FRB 方法、不改变数据库或批量事务。 |
 | 2026-10-13 | **书源功能目录冻结**：四个管理/编辑/导入页面及 part、状态和专用组件归入 `features/book_sources/`，外部经 `book_sources.dart` 使用；共用编辑器/选择栏保留，导入状态颜色抽到 theme。只改路径与共享辅助类位置，Provider/Controller 生命周期、方法体、源配置、导入语义及契约计数不变。 |
@@ -218,8 +219,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **240 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240）。
-> 附录 §2.x 行合计 **299** = BookApi 240 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
+> BookApi 接口当前共 **236 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236）。
+> 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -247,7 +248,7 @@
 
 ### 2.3 书源操作（33 个方法）
 
-> 其中列表、启用列表、增改删、启停、导入导出、排序偏好与源变量十一项由 BookSourceRepository 承担；正式/Mock 保持既有存储语义，其他能力仍使用原入口。旧根方法已删除。
+> 其中列表、启用列表、增改删、启停、导入导出、排序偏好与源变量十一项由 BookSourceRepository 承担；正式/Mock 保持既有存储语义，其他能力仍使用原入口。旧根方法已删除。登录信息/登录头四项由 SourceLoginRepository 承担，动态脚本仍用原入口。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|

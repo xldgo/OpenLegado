@@ -58,7 +58,11 @@ Future<bool> showSourceLogin(
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => ClassicLoginDialog(api: api, source: source),
+      builder: (_) => ClassicLoginDialog(
+        repository: api.sourceLoginRepository,
+        evaluateAction: api.exploreEvalAction,
+        source: source,
+      ),
     );
     return ok == true;
   }
@@ -70,7 +74,7 @@ Future<bool> showSourceLogin(
   final saved = await Navigator.of(context).push<bool>(
     MaterialPageRoute(
       builder: (_) => WebViewLoginScreen(
-        api: api,
+        repository: api.sourceLoginRepository,
         sourceUrl: source.bookSourceUrl,
         sourceName: source.bookSourceName,
         loginUrl: source.loginUrl ?? '',

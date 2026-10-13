@@ -1,3 +1,4 @@
+import '../domain/contracts/source_login_repository.dart';
 import '../domain/contracts/source_checker.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
@@ -57,6 +58,7 @@ class RustApi
     required BookGroupRepository bookGroupRepository,
     required BookSourceRepository bookSourceRepository,
     required SourceChecker sourceChecker,
+    required SourceLoginRepository sourceLoginRepository,
   }) => RustApi._(
     initialize,
     readingConfigSync,
@@ -68,6 +70,7 @@ class RustApi
     bookGroupRepository,
     bookSourceRepository,
     sourceChecker,
+    sourceLoginRepository,
   );
 
   RustApi._(
@@ -81,6 +84,7 @@ class RustApi
     this.bookGroupRepository,
     this.bookSourceRepository,
     this.sourceChecker,
+    this.sourceLoginRepository,
   );
 
   final Future<void> Function() _initialize;
@@ -109,6 +113,9 @@ class RustApi
 
   @override
   final SourceChecker sourceChecker;
+
+  @override
+  final SourceLoginRepository sourceLoginRepository;
 
   /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
   @override

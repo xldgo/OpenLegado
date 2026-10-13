@@ -9,7 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
 import '../routes.dart';
-import '../services/book_api.dart';
+import '../domain/contracts/source_login_repository.dart';
 import '../services/platform_bridge_service.dart';
 import '../utils/error_message.dart';
 
@@ -30,12 +30,17 @@ import '../utils/error_message.dart';
 /// ui_action_queue），`java.toast` 等提示经 actions 回放为 SnackBar。
 /// — DeepSeek Harness + UI（2026-08-14 登录表单对齐）
 class ClassicLoginDialog extends StatefulWidget {
-  final BookApi api;
+  final SourceLoginRepository repository;
+  final Future<Map<String, dynamic>> Function({
+    required String sourceJson,
+    required String actionJs,
+  }) evaluateAction;
   final BookSource source;
 
   const ClassicLoginDialog({
     super.key,
-    required this.api,
+    required this.repository,
+    required this.evaluateAction,
     required this.source,
   });
 
@@ -146,7 +151,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
       // 预填已保存登录信息（userInfo_<url> JSON）
       var saved = const <String, String>{};
       try {
-        final infoJson = await widget.api.getLoginInfo(source.bookSourceUrl);
+        final infoJson = await widget.repository.getLoginInfo(source.bookSourceUrl);
         if (infoJson.isNotEmpty) {
           final info = jsonDecode(infoJson);
           if (info is Map) {
@@ -233,7 +238,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
   /// 执行动作 JS 并回放中途 UI（toast/浏览器等，对齐 handleButtonClick）
   Future<bool> _runAction(String action) async {
     final script = _composeScript(action);
-    final result = await widget.api.exploreEvalAction(
+    final result = await widget.evaluateAction(
       sourceJson: jsonEncode(source.toJson()),
       actionJs: script,
     );
@@ -275,9 +280,9 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
       final data = _loginData();
       if (data.isEmpty) {
         // 空表单 → 清除登录信息（对齐原版 loginData.isEmpty → removeLoginInfo）
-        await widget.api.putLoginInfo(source.bookSourceUrl, '{}');
+        await widget.repository.putLoginInfo(source.bookSourceUrl, '{}');
       } else {
-        await widget.api.putLoginInfo(source.bookSourceUrl, jsonEncode(data));
+        await widget.repository.putLoginInfo(source.bookSourceUrl, jsonEncode(data));
       }
       if (_loginJs.isNotEmpty) {
         await _runAction(
@@ -297,7 +302,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
     try {
       final data = _loginData();
       if (data.isNotEmpty) {
-        await widget.api.putLoginInfo(source.bookSourceUrl, jsonEncode(data));
+        await widget.repository.putLoginInfo(source.bookSourceUrl, jsonEncode(data));
       }
     } catch (_) {}
     if (!mounted) return;
@@ -320,7 +325,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
     final l10n = context.l10n;
     switch (value) {
       case 'view_header':
-        final header = await widget.api.getLoginHeader(source.bookSourceUrl);
+        final header = await widget.repository.getLoginHeader(source.bookSourceUrl);
         if (!mounted) return;
         await showDialog<void>(
           context: context,
@@ -338,11 +343,11 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
           ),
         );
       case 'del_header':
-        await widget.api.putLoginHeader(source.bookSourceUrl, '');
+        await widget.repository.putLoginHeader(source.bookSourceUrl, '');
         _snack(l10n.loginHeaderDeleted);
       case 'clear_info':
-        await widget.api.putLoginInfo(source.bookSourceUrl, '');
-        await widget.api.putLoginHeader(source.bookSourceUrl, '');
+        await widget.repository.putLoginInfo(source.bookSourceUrl, '');
+        await widget.repository.putLoginHeader(source.bookSourceUrl, '');
         _snack(l10n.loginInfoCleared);
       case 'log':
         await Navigator.of(context).pushNamed(AppRoutes.appLog);

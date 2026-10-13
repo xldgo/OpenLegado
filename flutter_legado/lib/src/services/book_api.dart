@@ -1,3 +1,4 @@
+import '../domain/contracts/source_login_repository.dart';
 import '../domain/contracts/source_checker.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
@@ -20,6 +21,9 @@ abstract class BookApi {
 
   /// 与发起校验的会话共享同一实例。
   SourceChecker get sourceChecker;
+
+  /// 经典、手动与 WebView 登录共用的凭据存储。
+  SourceLoginRepository get sourceLoginRepository;
 
   /// 共享书架数据访问，不持有阅读器会话状态。
   BookshelfRepository get bookshelfRepository;
@@ -92,30 +96,6 @@ abstract class BookApi {
   /// 返回命令 JSON：`state`(对象→更新状态重渲染) / `error`(对象→键值错误) /
   /// `login`(对象→登录成功) / `close`(布尔→关闭)。
   Future<String> loginActionV2(String sourceJson, String userInputJson);
-
-  /// 保存书源登录用户信息（对齐原版 `BaseSource.putLoginInfo` → `userInfo_<key>`；
-  /// V2 login 命令自动落库 + 手动登录共用）
-  ///
-  /// [sourceUrl] — 书源 URL；[infoJson] — 用户信息 JSON（原样存储）。
-  /// 加法式新增（2026-08-14 发现页修复 R1）。
-  Future<void> putLoginInfo(String sourceUrl, String infoJson);
-
-  /// 保存书源登录头（对齐原版 `BaseSource.putLoginHeader` → `loginHeader_<key>`，
-  /// 请求路径自动合并）
-  ///
-  /// [sourceUrl] — 书源 URL；[headerJson] — header map JSON（如 `{"Cookie":"..."}`）。
-  /// 加法式新增（2026-08-14 发现页修复 R1）。
-  Future<void> putLoginHeader(String sourceUrl, String headerJson);
-
-  /// 读取书源登录用户信息（无则空串）
-  ///
-  /// 加法式新增（2026-08-14 发现页修复 R1）。
-  Future<String> getLoginInfo(String sourceUrl);
-
-  /// 读取书源登录头（无则空串）
-  ///
-  /// 加法式新增（2026-08-14 发现页修复 R1）。
-  Future<String> getLoginHeader(String sourceUrl);
 
   // ========== 验证码交互通道（Task #90） ==========
 

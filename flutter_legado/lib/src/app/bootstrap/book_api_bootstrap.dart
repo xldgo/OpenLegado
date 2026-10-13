@@ -1,3 +1,4 @@
+import '../../data/repositories/rust_source_login_repository.dart';
 import '../../data/services/rust_source_checker.dart';
 import '../../data/repositories/rust_book_source_repository.dart';
 import '../../services/cover_decode_loader.dart';
@@ -39,6 +40,7 @@ BookApi createBookApi({
     bookshelfRepository: const RustBookshelfRepository(),
     bookGroupRepository: const RustBookGroupRepository(),
     sourceChecker: const RustSourceChecker(),
+    sourceLoginRepository: const RustSourceLoginRepository(),
     bookSourceRepository: const RustBookSourceRepository(
       onSourcesChanged: CoverDecodeLoader.invalidateSourceRegistry,
     ),

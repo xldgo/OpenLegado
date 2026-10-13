@@ -308,6 +308,42 @@ Mock 显式取消仍为空操作，UI 通过订阅及会话代数停止接收；
 在隔离数据库执行离线单源、批量与取消，不以此代替实际站点或移动设备验收。
 任务状态和证据仅记录在 Active。
 
+## 第十六步的登录凭据边界
+
+| 位置 | 职责 |
+|---|---|
+| `domain/contracts/source_login_repository.dart` | 原始 userInfo/loginHeader 的四项读写 |
+| `data/repositories/{rust,mock}_source_login_repository.dart` | FRB 直接适配或根实例的唯一字符串存储 |
+| `domain/models/source_login_credentials.dart` | 手动编辑的不可变快照，不代替原始仓库协议 |
+| `domain/services/source_login_codec.dart` | 原 Token/Cookie/Header 宽松转换与旧配置解析 |
+| `data/services/source_login_service.dart` | 加载回退、Header→Info 顺序保存、旧键尽力清理 |
+| `app/bootstrap/source_login_factory.dart` | 注入同一根的 Repository 与原配置键回调 |
+| `features/book_sources/source_login_providers.dart` | 共享存储和服务引用，跟随根替换 |
+| 原 SourceLoginNotifier/Screen | 按 URL 隔离草稿、请求身份、输入回填与保存呈现 |
+
+Root 只提供 SourceLoginRepository 引用，四项旧方法与两份 part 中的实现
+移除；Mock 两个 Map 归入唯一 Repository，不保留两套凭据数据。
+仓库继续接受原始字符串，经典表单的任意 JSON 字段、V2/JS 写入结果和
+WebView 登录头格式保持。手动快照不扩展为整个登录系统的统一存储模型。
+
+登录服务顺序读取 Info 和 Header，仅两项均为空时读取旧配置；回退只转换
+展示，加载不写库、不清旧键。保存开始时生成两份 JSON，先 Header 后 Info，
+两次成功后才尽力清理旧键；第二次失败保留已完成的第一项，不伪造原子事务。
+转换保持 Cookie 大小写判断、首个等号拆分、重复 Header 覆盖及原容错规则。
+
+手动 Notifier 使用按 URL 的 family + autoDispose，页面订阅时保留该源草稿，
+无消费者时释放。load 无数据明确清空，后发请求、编辑或清空使旧回填失效；
+销毁后不再修改状态。save 固定源、服务和输入快照，在途重复调用返回同一
+Future；错误保留输入、结束等待并可重试，已开始的保存仍完成原写入顺序。
+页面切源清空输入控制器并加载新源，Token 的用户输入同步使旧加载失效，
+回填前核对源与编辑代数。保存成功先关闭等待遮罩，再返回 true 退出页面；
+失败只关闭遮罩，保留页面和输入。
+
+经典登录框仅注入凭据 Repository 和原 exploreEvalAction 回调，不拥有整个
+BookApi。WebView 仅注入 Repository，原 iOS/Android Cookie 分支保持；
+阅读器购买网页也使用相同窄接口。V2 判定和动态脚本继续原入口，本批不拆分。
+目录位置、界面布局、Rust/FRB、数据库、版本与依赖不变，专题状态与证据见 Active。
+
 ## 经授权追加的备注编辑
 
 书签页、目录书签列表及阅读选区新增共用底部输入面板。界面只处理原文呈现、

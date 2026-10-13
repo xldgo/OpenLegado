@@ -62,6 +62,11 @@ void main() {
     'SourceChecker',
   );
 
+  final sourceLoginNames = _extractMethods(
+    _read('lib/src/domain/contracts/source_login_repository.dart'),
+    'SourceLoginRepository',
+  );
+
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
 
@@ -344,6 +349,7 @@ void main() {
             bookGroupNames.length +
             bookSourceNames.length +
             sourceCheckerNames.length +
+            sourceLoginNames.length +
             4 +
             1 +
             1,
@@ -485,6 +491,22 @@ void main() {
         expect(methods.toSet().intersection(expected), isEmpty);
       }
       expect(allRowNames.containsAll(expected), isTrue);
+    });
+
+    test('登录凭据四项独立，根旧方法移除且两种实现完整', () {
+      const expected = {'getLoginInfo', 'getLoginHeader', 'putLoginInfo', 'putLoginHeader'};
+      expect(sourceLoginNames.toSet(), expected);
+      for (final implementation in ['rust', 'mock']) {
+        final methods = _extractMethods(
+          _read('lib/src/data/repositories/${implementation}_source_login_repository.dart'),
+          implementation == 'rust' ? 'RustSourceLoginRepository' : 'MockSourceLoginRepository',
+        ).where((name) => !name.startsWith('_')).toSet();
+        expect(methods, expected);
+      }
+      for (final names in [bNames, rNames, mNames]) {
+        expect(names.toSet().intersection(expected), isEmpty);
+      }
+      expect(expected.every((name) => allRowNames.contains(name) || pairs.containsKey(name)), isTrue);
     });
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {

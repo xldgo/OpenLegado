@@ -111,25 +111,6 @@ mixin MockBookApiSources on MockBookApiStore implements BookApi {
   Future<String> loginActionV2(String sourceJson, String userInputJson) async =>
       '{"close":true}';
 
-  @override
-  Future<void> putLoginInfo(String sourceUrl, String infoJson) async {
-    // Mock：内存态保存，供 USE_MOCK 开发模式联调
-    _mockLoginInfo[sourceUrl] = infoJson;
-  }
-
-  @override
-  Future<void> putLoginHeader(String sourceUrl, String headerJson) async {
-    _mockLoginHeader[sourceUrl] = headerJson;
-  }
-
-  @override
-  Future<String> getLoginInfo(String sourceUrl) async =>
-      _mockLoginInfo[sourceUrl] ?? '';
-
-  @override
-  Future<String> getLoginHeader(String sourceUrl) async =>
-      _mockLoginHeader[sourceUrl] ?? '';
-
   // ========== 验证码交互通道（Task #90） ==========
 
   @override

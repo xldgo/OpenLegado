@@ -18,7 +18,7 @@ import '../providers/source_login/source_login_notifier.dart';
 /// 2. 手动 Cookie 输入
 ///
 /// 登录凭据经 [SourceLoginNotifier] 持久化到 Rust 配置库
-/// （BookApi.getConfig/setConfig，键 `source_login_<sourceUrl>`），不再使用 SharedPreferences。
+/// （SourceLoginRepository，既有 source_login_cache 键），不使用 SharedPreferences。
 class SourceLoginScreen extends ConsumerStatefulWidget {
   /// 书源 URL
   final String sourceUrl;
@@ -55,15 +55,32 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // 进入页面加载已保存的登录信息，完成后回填 Token 输入框
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref
-          .read(sourceLoginNotifierProvider.notifier)
-          .load(widget.sourceUrl);
-      if (mounted) {
-        _tokenCtrl.text = ref.read(sourceLoginNotifierProvider).token;
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCredentials());
+  }
+
+  @override
+  void didUpdateWidget(covariant SourceLoginScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sourceUrl != widget.sourceUrl) {
+      _tokenCtrl.clear();
+      _cookieNameCtrl.clear();
+      _cookieValueCtrl.clear();
+      _headerNameCtrl.clear();
+      _headerValueCtrl.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadCredentials());
+    }
+  }
+
+  Future<void> _loadCredentials() async {
+    if (!mounted) return;
+    final url = widget.sourceUrl;
+    final notifier = ref.read(sourceLoginNotifierProvider(url).notifier);
+    final editGeneration = notifier.editGeneration;
+    await notifier.load();
+    if (mounted && widget.sourceUrl == url &&
+        notifier.editGeneration == editGeneration) {
+      _tokenCtrl.text = ref.read(sourceLoginNotifierProvider(url)).token;
+    }
   }
 
   @override
@@ -103,7 +120,7 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
       _showSnack(context.l10n.cookieNameRequired);
       return;
     }
-    ref.read(sourceLoginNotifierProvider.notifier).addCookie(name, value);
+    ref.read(sourceLoginNotifierProvider(widget.sourceUrl).notifier).addCookie(name, value);
     _cookieNameCtrl.clear();
     _cookieValueCtrl.clear();
   }
@@ -115,14 +132,17 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
       _showSnack(context.l10n.headerNameRequired);
       return;
     }
-    ref.read(sourceLoginNotifierProvider.notifier).addHeader(name, value);
+    ref.read(sourceLoginNotifierProvider(widget.sourceUrl).notifier).addHeader(name, value);
     _headerNameCtrl.clear();
     _headerValueCtrl.clear();
   }
 
   Future<void> _save() async {
     final l10n = context.l10n;
-    final notifier = ref.read(sourceLoginNotifierProvider.notifier);
+    final provider = sourceLoginNotifierProvider(widget.sourceUrl);
+    final state = ref.read(provider);
+    if (state.isSaving || state.isLoading) return;
+    final notifier = ref.read(provider.notifier);
     notifier.setToken(_tokenCtrl.text.trim());
     // [UI_SYNC_REFACTOR R3] 登录 modalOverlay（对齐参考仓 modalOverlay：
     // 提交期间全屏遮罩防重复操作）
@@ -134,26 +154,23 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
         child: Center(child: CircularProgressIndicator()),
       ),
     );
+    var saved = false;
     try {
-      await notifier.save(
-        sourceUrl: widget.sourceUrl,
-        sourceName: widget.sourceName,
-      );
-      if (mounted) {
-        _showSnack(l10n.loginInfoSaved);
-        Navigator.of(context).pop(true);
-      }
+      await notifier.save();
+      saved = true;
     } catch (_) {
       if (mounted) _showSnack(l10n.loginSaveFailed);
     } finally {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    }
+    if (mounted && saved) {
+      _showSnack(l10n.loginInfoSaved);
+      Navigator.of(context).pop(true);
     }
   }
 
   void _clear() {
-    ref.read(sourceLoginNotifierProvider.notifier).clear();
+    ref.read(sourceLoginNotifierProvider(widget.sourceUrl).notifier).clear();
     _tokenCtrl.clear();
   }
 
@@ -164,7 +181,7 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(sourceLoginNotifierProvider);
+    final state = ref.watch(sourceLoginNotifierProvider(widget.sourceUrl));
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
@@ -233,6 +250,9 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                 const SizedBox(height: 8),
                 TextField(
                   controller: _tokenCtrl,
+                  onChanged: (value) => ref
+                      .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+                      .setToken(value),
                   // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme，不手写边框
                   decoration: InputDecoration(
                     hintText: context.l10n.loginTokenHint,
@@ -277,7 +297,7 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                     trailing: IconButton(
                       icon: const Icon(Symbols.close_rounded),
                       onPressed: () => ref
-                          .read(sourceLoginNotifierProvider.notifier)
+                          .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
                           .removeCookie(entry.$1),
                     ),
                   ),
@@ -321,7 +341,7 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                     trailing: IconButton(
                       icon: const Icon(Symbols.close_rounded),
                       onPressed: () => ref
-                          .read(sourceLoginNotifierProvider.notifier)
+                          .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
                           .removeHeader(entry.$1),
                     ),
                   ),
