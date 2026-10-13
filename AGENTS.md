@@ -70,15 +70,15 @@ Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
 ## 验证与交付流程
 
 - 每轮修复后的两级验证：子代理先在**测试档模拟器**测试，测试通过后再安装到**用户验收档**通知用户实测验收
-- **模拟器验证档（2026-09-20 用户指令：改用 MuMu，弃用雷电）**：
-  - **测试档 = MuMu 模拟器的「Test测试」实例**（guest 直连端点 **`192.168.1.19:5555`**，Android 15；该实例装有我方 `io.legado.flutter_legado`、原版 `com.legado.app.release`、**参考版 `io.legato.kazusa`** 三包，可做双/三包拓扑与参考采集）。启动：`"D:\Program Files\MuMuPlayer\nx_main\MuMuManager.exe" control -v 1 launch`（实例 index 1；`info -v all` 可查状态，`is_android_started` 为真后再 adb 连接；`127.0.0.1:16384/16416` 端点已失效，**只认 guest 直连**）。
-  - **雷电模拟器彻底弃用（用户指令 2026-09-20）**：不修复 5556（LDPlayer 实例 1 环境故障）、不再使用 5554 临时档。**测试与用户实测验收统一使用上述 MuMu「Test测试」实例**（同一台机做自测与验收，三包同机便于拓扑对比）。
-  - **冒烟脚本**（构建+安装+启动+崩溃检查）：`.\scripts\emulator_smoke_test.ps1 -Device 192.168.1.19:5555`（可加 `-CheckUI` 做书架主界面元素检查；复用 APK 加 `-SkipBuild`）；退出码 0=通过 1=失败。
-  - **第二车道 = MuMu 实例 index 0「test2」（2026-09-20 用户开通并改名，用于并行设备任务）** → 端点 **`127.0.0.1:16384`**（宿主转发；与 Test 的 guest 直连端点不同）。已由主代理配置为**与 Test 同规格**：`wm size 1080x1920`、`wm density 480`（物理 720x1280，**override 不持久**，实例重启后需重跑这两条），并已装齐三包（我方 / 原版 3.26082823 / 参考版 kazusa 3.26.15）。**用途**：与 Test 并行跑设备任务（参考采集、双/三包对比、独立验证），避免单机串行；**Test 仍是主验证档**（自测与用户验收语义不变）。
-  - **MuMu ROM 限制与绕行（2026-09-20 实测 + 用户侧复核，派任务前必读）**：设备伪装三星 SM-G9900/Android 15，模拟器特征 prop 全空。**中文输入三条绕行路径（不要再撞 IME）**：① 批量书源验证走 FFI/example——`cargo run --release --example scan_search_sources -- <db> @关键词文件(UTF-8 无 BOM) <报告.json>`（全程不碰模拟器）；② 走 UI 时把中文注入 `search_keywords`（该机 **adbd 即 root**、自带 sqlite3 3.44.3，`/data/data/<pkg>/app_flutter/legado.db` 直写；写完退出搜索页再进即刷新，不必 force-stop；WAL 下勿高频外部连接）；③ Flutter 测试内 `tester.enterText()` 直进引擎、绕过系统 IME。其余限制：IME enable/set 被安全策略 patch（但 **2026-09-21 实测 `input text` 可注入中文**，早前"仅 ASCII"的记录作废）；`cmd clipboard` 有命令但空实现（`service call clipboard` 可通但构造 ClipData 过繁、不值得走）；`screencap` 不能写 `/sdcard`（用 `exec-out screencap -p`）；`uiautomator` 写转储后自杀（噪声）；`content` 与 toybox `grep` 段错误（改本地解析）；`settings put secure` 静默回滚（用 `global`）；logcat 被 `E MESA: Failed to find VkFence` 刷屏。
-  - **⚠ 设备档当前不可用（2026-09-24 实测，恢复前派设备任务=白跑）**：MuMu 实例（index 0「Test2」）**guest 内只有 `lo`、没有任何网络接口** → 现象三连：① **guest 无外网**（`ping` 报 `Network is unreachable`，真实书源/本地 mock 全不可达）；② **adb 报 `offline`**（16384/5555 端口在监听、TCP 可连，但 adbd 握手不完成；`adb kill-server`/换 MuMu 自带 adb/重启实例均**无效**）；③ **guest 直连端点 `192.168.1.19:5555` 不可达**。**宿主侧证据**：`Get-NetAdapter -IncludeHidden` 里**没有 MuMu/Hyper-V 虚拟交换机**（只有 WLAN/以太网/Radmin VPN/WAN Miniport），服务里只有 `HvHost`+`MuMuRemoteService`、**没有 `vmms`**（而 MuMu 报 `hyperv_enabled=true`）→ 判定为**宿主虚拟网络组件丢失**，需用户侧修复（MuMu 设置内的网络/修复、重装 MuMu 驱动组件，或启用 Hyper-V 平台并重建 vSwitch——均需管理员/可能需重启）。**诊断配方（不经 adb）**：`MuMuManager.exe sh --vmindex 0 --cmd "getprop init.svc.adbd; ip addr show; ping -c 2 -W 2 223.5.5.5"`（adbd 显示 running 但只有 `lo` 即命中本故障）。
-  - **MuMu 实操补充（2026-09-23 实测，设备任务派单前必读）**：① **实例↔端点映射会漂**——当日实例 index 0「Test2」的 adb 端口为 **16384**（同 guest adbd 另有 `127.0.0.1:5555` 暴露为 `emulator-5554`，两者是**同一台 guest 的两条路径**，可用「设备侧写标记 → 从另一端点读回」验证）；index 1「Test测试」当时**未运行**（16416 连接拒绝），故设备任务须**先用 `MuMuManager.exe info -v all` 判定在线实例**，不要假设 5555/16384 恒可用。② **多屏/逻辑 display**：应用窗口挂在独立逻辑 display 上，其 id 每次 `force-stop` 后**会变**——输入须 `input -d <logicalId> tap/…`，截图须 `exec-out screencap -p -d <SF displayId>`（直接 `screencap` 会把设备端 warning 文本混入 stdout 损坏 PNG）。③ **`run-as sqlite3` 直写 DB 要求包可调试**：release 变体报 `package not debuggable`，种子/注入类验证须装 **debug 变体**（同 Dart 代码、同版本号），并在证据里注明变体与是否发生 Rust 重建（`.so` mtime）。④ 我方应用语义文本在 **`content-desc`**（Flutter 语义树），不在 `text` 属性——dump 核实须读 content-desc。
-  - **端点时效性（2026-09-27 补充）**：本节及历史文档所载端点/IP/端口（含 `192.168.1.19:5555`、`192.168.100.63:5555`、`127.0.0.1:16384/16416` 等）均为**记录时点的历史事实**，会随宿主网段（NAT 子网漂移）与实例运行状态变化；每次设备任务前必须以 `MuMuManager.exe info -v all` 与 adb 实测探测为准，**不得把固定端点或旧设备可用记录当作当前可用保证**。
+- **模拟器验证档（官方 Android SDK 模拟器 `Legado_API_36`）**：
+  - **AVD 与系统镜像**：`Legado_API_36`，使用 `system-images/android-36/google_apis/x86_64`（Android 16 / API 36，userdebug 构建）；持久配置 `1080×1920`、`480 dpi`（逻辑尺寸 `360×640 dp`，与 `docs/parity_shots/` 历史基准对齐，无需每次 `wm` 覆盖）；ABI 支持 `x86_64,arm64-v8a`（含内置 `ndk_translation`）。
+  - **工具与启停（使用新版 Android CLI，弃用 `sdkmanager`）**：
+    - `android.exe`：`$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\android.exe`
+    - `adb.exe`：`$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe`
+    - 启动：`& $android emulator start Legado_API_36`（阻塞至完全启动就绪后返回）；停止：`& $android emulator stop Legado_API_36`。
+  - **设备号探测与能力**：每次执行前必须先用 `adb devices -l` 探测在线实例，认准 `model:sdk_gphone64_x86_64`（`device:emu64xa`）对应的 `<serial>`（如 `emulator-5554` 或 `emulator-5556`），所有 `adb` 命令显式加 `-s <serial>`。原生支持 `adb -s <serial> root`、标准单屏 `exec-out screencap -p`、`uiautomator dump`、剪贴板与输入法；我方应用语义文本在 **`content-desc`**（Flutter 语义树），不在 `text` 属性；模拟器内访问宿主机 `127.0.0.1` 用 **`10.0.2.2`**（SLIRP 网络不支持 ICMP `ping`，联网检查请用 TCP/HTTP）。
+  - **冒烟脚本**（构建+安装+启动+崩溃检查）：`.\scripts\emulator_smoke_test.ps1 -Device <serial>`（可加 `-CheckUI` 做书架主界面元素检查；复用 APK 加 `-SkipBuild`）；退出码 0=通过 1=失败。
+  - **端点时效性（每次派单前必读）**：本节及历史文档所载设备号/端口均随实例运行状态变化；每次设备任务前必须以 `adb devices -l` 与 `android.exe emulator list` 实时探测为准，**不得假设固定端口恒可用**。历史模拟器归档见 `docs/过期文档/MUMU_EMULATOR_NOTES_ARCHIVE_20261013.md`。
 - **完成定义（DoD，2026-09-17 新增）**：判定「完成」的依据是**证据**，不是执行步骤：
   1. 代码改动须附「多代理协作规则」路由表中对应的证据，并在提交正文写明来源（CI 运行链接 / QA 报告路径 / 审查结论 / 截图路径）；
   2. **CI 能覆盖的验证不重复派角色**（`flutter analyze && flutter test`、`cargo test` 以 CI 结果为准），角色只用于 CI 覆盖不到的场景（实机冒烟、UI 交互、跨模块手动复现）；Android 原版 Gradle 测试仅在另备的完整原版工程内运行，不属本仓库 CI 覆盖；
@@ -113,16 +113,3 @@ Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
 - 冲突避让：多个子代理同时改代码时必须避让同一文件/模块；任务分配须满足文件不重叠、工作量平均、技能匹配三项原则
 - 文档维护：每阶段结束须及时检查并更新所有相关文档（重构计划、进度、README 等），保证后续开发者可顺利接手
 - 口头约定正式化：主动提示用户是否需要将对话中达成的口头约定整理成清单写入规则文件
-
-编写者：Qoder ｜ 2026-08-10
-修订：Reasonix ｜ 2026-08-10（更新上游版本基准 3.26081008、计划文档引用、app 文件数；精简技能同步说明）
-修订：Qoder UI ｜ 2026-09-03（更新日志义务补全：应用内 assets/updateLog.md 纳入每批同步范围，杜绝仅更 CHANGELOG 的遗漏）
-修订：ZCode（本机 27B 通道）｜ 2026-09-17（子代理路由表角色名与 ZCode 类型名对齐、新增执行侧与触发条件；新增完成定义 DoD）
-修订：ZCode（本机 27B 通道）｜ 2026-09-20（**模拟器验证档改用 MuMu「Test测试」实例并用其统一承担自测与用户验收**：guest 直连 `192.168.1.19:5555`、MuMuManager 启动方式与端点失效说明、ROM 限制清单入档；雷电 5556 不再修复、5554 与 5558 档位一并废弃）
-修订：ZCode ｜ 2026-09-24（**设备档停用告警入档**：MuMu guest 仅 `lo`、宿主缺虚拟交换机与 `vmms` → 无外网 + adb 恒 offline，附不经 adb 的诊断配方；恢复前不派设备任务）
-修订：ZCode ｜ 2026-09-23（**MuMu 实操补充入档**：实例↔端点映射会漂（须先 `MuMuManager info -v all` 判定在线实例；index 0 的 adb 端口 16384 与 `emulator-5554` 是同一 guest 的两条路径）、多屏逻辑 display id 会变（输入 `input -d`、截图 `exec-out screencap -d`）、`run-as sqlite3` 种子须装 debug 变体、语义文本在 `content-desc`）
-修订：Codex ｜ 2026-09-27（移除已停用 Agent 工具的配置说明，将 Agent 路由改为按职责描述）
-修订：Legado 项目维护组 ｜ 2026-09-27（**文档与重构流程统一**：通用开发规范入口迁移至 `docs/DEVELOPMENT_CONVENTIONS.md`（原 `.qoder/rules/legado-dev-conventions.md`）；移除 UI_FIX_PLAN.md 当前入口，视觉入口指向 `docs/SCREEN_1TO1_PARITY_SPEC_20260914.md` 并补台账路由；新增设备端点时效性与实时探测要求）
-修订：Codex 主代理 ｜ 2026-10-10（更新 CI 路由：iOS CI 仅手动验证，iOS Build 负责设备包；移除已删除旧 Android workflow 的入口引用）
-修订：Codex 主代理 ｜ 2026-10-10（旧路径核查：明确 Android 原版目录仅为本地参考，不再将原版 Gradle 测试列为当前 CI 覆盖；补齐 Rust 工作区模块）
-修订：Codex 主代理 ｜ 2026-10-10（按用户授权删除 8 个旧原版 Gradle 文件，原版构建与测试改为另备完整工程）
