@@ -107,7 +107,7 @@ void main() {
     }
     await repository.addBookSource(_source);
     await repository.updateBookSource(_source.copyWith(bookSourceName: '校验可见'));
-    final events = await api.checkSourcesStream([]).toList();
+    final events = await api.sourceChecker.checkSourcesStream([]).toList();
     expect(events, hasLength(1));
     expect(events.single['source_name'], '校验可见');
     expect(events.single['result']['source_url'], _source.bookSourceUrl);

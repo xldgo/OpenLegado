@@ -57,6 +57,11 @@ void main() {
     'BookSourceRepository',
   );
 
+  final sourceCheckerNames = _extractMethods(
+    _read('lib/src/domain/contracts/source_checker.dart'),
+    'SourceChecker',
+  );
+
   final doc = _read('../docs/API_CONTRACT.md');
   final dlines = doc.split('\n');
 
@@ -338,6 +343,7 @@ void main() {
             bookshelfNames.length +
             bookGroupNames.length +
             bookSourceNames.length +
+            sourceCheckerNames.length +
             4 +
             1 +
             1,
@@ -428,6 +434,22 @@ void main() {
         expect(File('lib/src/data/repositories/book_api_${entry.$1}_repository.dart').existsSync(), isFalse);
         expect(allRowNames.containsAll(methods), isTrue);
       }
+    });
+
+    test('书源校验三项由独立能力承担，根旧方法移除且正式和 Mock 完整', () {
+      const expected = {'checkSource', 'checkSourcesStream', 'cancelCheckSources'};
+      expect(sourceCheckerNames.toSet(), expected);
+      for (final implementation in ['rust', 'mock']) {
+        final methods = _extractMethods(
+          _read('lib/src/data/services/${implementation}_source_checker.dart'),
+          implementation == 'rust' ? 'RustSourceChecker' : 'MockSourceChecker',
+        ).where((name) => !name.startsWith('_')).toSet();
+        expect(methods, expected);
+      }
+      for (final methods in [bNames, rNames, mNames]) {
+        expect(methods.toSet().intersection(expected), isEmpty);
+      }
+      expect(allRowNames.containsAll(expected), isTrue);
     });
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {

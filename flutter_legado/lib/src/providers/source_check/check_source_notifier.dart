@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../providers.dart';
+import '../../domain/contracts/source_checker.dart';
 import '../../features/book_sources/book_sources.dart';
 
 /// 单个书源的校验结果消息（对标原版列表项 checkSourceMessage 展示）
@@ -84,7 +84,7 @@ class CheckSourceState {
 /// 书源校验 Notifier（接通契约 §2.3 checkSource* 三方法）
 ///
 /// 职责边界（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
-/// - 调用 BookApi.checkSourcesStream / cancelCheckSources → 更新 immutable State
+/// - 调用 SourceChecker.checkSourcesStream / cancelCheckSources → 更新 immutable State
 /// - 进度 JSON 解析在本层完成（UI 层仅消费 [CheckSourceState]）
 /// - 校验关键词持久化对齐原版 `CheckSource.keyword`
 /// - [Task #40 | 2026-08-09] §5.13-2：校验配置（超时/各步开关）持久化
@@ -102,11 +102,18 @@ class CheckSourceNotifier extends Notifier<CheckSourceState> {
   /// 默认单步超时（毫秒，对齐原版 CheckSource.timeout 默认 180000）
   static const defaultStepTimeoutMs = 180000;
 
-  StreamSubscription<Map<String, dynamic>>? _subscription;
+  _CheckSession? _session;
+  Future<void>? _stopping;
+  int _generation = 0;
+  bool _starting = false;
+  bool _disposed = false;
 
   @override
   CheckSourceState build() {
-    ref.onDispose(() => _subscription?.cancel());
+    ref.onDispose(() {
+      _disposed = true;
+      unawaited(_invalidateSession());
+    });
     return const CheckSourceState();
   }
 
@@ -175,53 +182,131 @@ class CheckSourceNotifier extends Notifier<CheckSourceState> {
     required List<String> sourceUrls,
     String? keyword,
   }) async {
-    if (state.checking || sourceUrls.isEmpty) return;
-    final kw = (keyword ?? '').trim();
-    // [Task #40 | 2026-08-09] §5.13-2：并入持久化校验配置（超时/各步开关，
-    // 「校验书源配置」对话框保存后于下次校验生效）；非空关键词覆盖并持久化 — Qoder
-    final config = await loadCheckConfig();
-    if (kw.isNotEmpty) {
-      config['keyword'] = kw;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keywordKey, kw);
+    if (_disposed || _starting || state.checking || sourceUrls.isEmpty) return;
+    _starting = true;
+    final generation = ++_generation;
+    try {
+      // 发起时绑定能力实例；异步准备或根替换不改变取消对象。— Codex + UI
+      final checker = ref.read(sourceCheckerProvider);
+      final stopping = _stopping;
+      if (stopping != null) await stopping;
+      if (!_isCurrent(generation)) return;
+      final kw = (keyword ?? '').trim();
+      // 校验配置、关键词和持久化格式保持原样。
+      final config = await loadCheckConfig();
+      if (!_isCurrent(generation)) return;
+      if (kw.isNotEmpty) {
+        config['keyword'] = kw;
+        final prefs = await SharedPreferences.getInstance();
+        if (!_isCurrent(generation)) return;
+        await prefs.setString(_keywordKey, kw);
+        if (!_isCurrent(generation)) return;
+      }
+      final previous = _session;
+      _session = null;
+      await previous?.subscription?.cancel();
+      if (!_isCurrent(generation)) return;
+      final session = _CheckSession(checker);
+      _session = session;
+      state = state.copyWith(
+        checking: true,
+        hasSession: true,
+        done: 0,
+        total: sourceUrls.length,
+        currentName: '',
+        messages: const {},
+        cancelled: false,
+      );
+      try {
+        session.subscription = checker
+            .checkSourcesStream(sourceUrls, configJson: jsonEncode(config))
+            .listen(
+              (event) {
+                if (!_ownsSession(session, generation) || !session.active) {
+                  return;
+                }
+                _onProgress(event);
+                if (!state.checking) session.active = false;
+              },
+              onError: (Object _) {
+                if (!_ownsSession(session, generation) || !session.active) {
+                  return;
+                }
+                session.active = false;
+                state = state.copyWith(checking: false, cancelled: true);
+              },
+              onDone: () {
+                if (!_ownsSession(session, generation) || !session.active) {
+                  return;
+                }
+                session.active = false;
+                state = state.copyWith(checking: false);
+              },
+            );
+        if (!_ownsSession(session, generation)) {
+          await session.subscription?.cancel();
+        }
+      } catch (_) {
+        if (_ownsSession(session, generation)) {
+          session.active = false;
+          state = state.copyWith(checking: false, cancelled: true);
+        }
+        rethrow;
+      }
+    } finally {
+      if (_isCurrent(generation)) _starting = false;
     }
-    _subscription?.cancel();
-    state = state.copyWith(
-      checking: true,
-      hasSession: true,
-      done: 0,
-      total: sourceUrls.length,
-      currentName: '',
-      messages: const {},
-      cancelled: false,
-    );
-    _subscription = ref
-        .read(bookApiProvider)
-        .checkSourcesStream(
-          sourceUrls,
-          configJson: jsonEncode(config),
-        )
-        .listen(
-          _onProgress,
-          onError: (Object _) {
-            state = state.copyWith(checking: false, cancelled: true);
-          },
-          onDone: () {
-            state = state.copyWith(checking: false);
-          },
-        );
   }
 
   /// 取消正在进行的校验（对标原版 CheckSource.stop）
   Future<void> cancel() async {
-    if (!state.checking) return;
+    if (_disposed || (!_starting && !state.checking)) return;
     state = state.copyWith(checking: false, cancelled: true);
-    await ref.read(bookApiProvider).cancelCheckSources();
+    await _invalidateSession();
   }
 
   /// 清除校验结果消息（退出会话展示）
   void clearMessages() {
+    if (_disposed) return;
+    unawaited(_invalidateSession());
     state = const CheckSourceState();
+  }
+
+  bool _isCurrent(int generation) => !_disposed && generation == _generation;
+
+  bool _ownsSession(_CheckSession session, int generation) =>
+      _isCurrent(generation) && identical(_session, session);
+
+  /// 先隔离回调，再取消同一实例并解除订阅；下一轮等待此清理完成。
+  Future<void> _invalidateSession() {
+    _generation++;
+    _starting = false;
+    final session = _session;
+    _session = null;
+    if (session == null) return _stopping ?? Future<void>.value();
+    final wasActive = session.active;
+    session.active = false;
+    final stopping = () async {
+      try {
+        if (wasActive) await session.checker.cancelCheckSources();
+      } finally {
+        await session.subscription?.cancel();
+      }
+    }();
+    _stopping = stopping;
+    // 清除/销毁没有等待方；这里观察错误，显式 cancel 的调用者仍收到原异常。
+    unawaited(
+      stopping.then<void>(
+        (_) {
+          if (identical(_stopping, stopping)) _stopping = null;
+        },
+        onError: (Object error, StackTrace _) {
+          if (identical(_stopping, stopping)) _stopping = null;
+          debugPrint('书源校验会话清理失败：$error');
+        },
+      ),
+    );
+    return stopping;
   }
 
   /// 处理单条进度事件（字段见契约 §2.3 CheckProgress）
@@ -301,6 +386,14 @@ class CheckSourceNotifier extends Notifier<CheckSourceState> {
     final text = (error ?? '').toString().trim();
     return text.isEmpty ? '' : '：$text';
   }
+}
+
+/// 只持有一次校验的调用对象与订阅，不缓存源数据。— Codex + UI
+final class _CheckSession {
+  _CheckSession(this.checker);
+  final SourceChecker checker;
+  StreamSubscription<Map<String, dynamic>>? subscription;
+  bool active = true;
 }
 
 /// 书源校验 Notifier 全局 Provider

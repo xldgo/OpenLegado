@@ -255,14 +255,14 @@ void main() {
     test('start 空 URL 列表不启动会话', () async {
       await readNotifier().start(sourceUrls: const []);
       expect(readState().hasSession, isFalse);
-      verifyNever(() => mockApi.checkSourcesStream(
+      verifyNever(() => mockApi.sourceChecker.checkSourcesStream(
             any(),
             configJson: any(named: 'configJson'),
           ));
     });
 
     test('start 持久化关键词并携带 configJson', () async {
-      when(() => mockApi.checkSourcesStream(
+      when(() => mockApi.sourceChecker.checkSourcesStream(
             any(),
             configJson: any(named: 'configJson'),
           )).thenAnswer((_) => const Stream.empty());
@@ -277,7 +277,7 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('check_source_keyword'), equals('测试词'));
-      final captured = verify(() => mockApi.checkSourcesStream(
+      final captured = verify(() => mockApi.sourceChecker.checkSourcesStream(
             any(),
             configJson: captureAny(named: 'configJson'),
           )).captured.single as String;
@@ -286,7 +286,7 @@ void main() {
     });
 
     test('clearMessages 重置会话', () async {
-      when(() => mockApi.checkSourcesStream(
+      when(() => mockApi.sourceChecker.checkSourcesStream(
             any(),
             configJson: any(named: 'configJson'),
           )).thenAnswer((_) => const Stream.empty());

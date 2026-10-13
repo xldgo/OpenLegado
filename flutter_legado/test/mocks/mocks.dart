@@ -4,6 +4,7 @@
 /// 供 Providers / Services 层测试使用。
 library;
 
+import 'package:flutter_legado/src/domain/contracts/source_checker.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
@@ -33,7 +34,11 @@ class _MockBookGroupRepository extends Mock implements BookGroupRepository {}
 
 class _MockBookSourceRepository extends Mock implements BookSourceRepository {}
 
+class SourceCheckerMock extends Mock implements SourceChecker {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final SourceChecker sourceChecker = SourceCheckerMock();
   @override
   final BookSourceRepository bookSourceRepository = _MockBookSourceRepository();
   @override

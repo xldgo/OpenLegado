@@ -11,3 +11,4 @@ export 'widgets/book_source_group_manage_dialog.dart'
     show BookSourceGroupManageDialog;
 export 'widgets/source_card.dart' show SourceCard;
 export 'widgets/source_rule_help_sheet.dart' show SourceRuleHelpSheet;
+export 'source_checker_provider.dart' show sourceCheckerProvider;

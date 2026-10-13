@@ -1,3 +1,5 @@
+import '../data/services/mock_source_checker.dart';
+import '../domain/contracts/source_checker.dart';
 import '../data/repositories/mock_book_source_repository.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../data/repositories/mock_bookshelf_repository.dart';
@@ -74,6 +76,7 @@ class MockBookApi
     ReadRecordRepository? readRecordRepository,
     HttpTtsRepository? httpTtsRepository,
     HttpTtsSynthesizer? httpTtsSynthesizer,
+    SourceChecker? sourceChecker,
   }) {
     _bookshelfStore = MockBookshelfStore(load: _loadBookshelfSample);
     bookshelfRepository = MockBookshelfRepository(store: _bookshelfStore);
@@ -97,6 +100,7 @@ class MockBookApi
       store: _bookSourceStore,
       writeConfig: (key, value) => _configs[key] = value,
     );
+    this.sourceChecker = sourceChecker ?? MockSourceChecker(store: _bookSourceStore);
     _initMockData();
   }
 
@@ -120,6 +124,9 @@ class MockBookApi
 
   @override
   late final BookSourceRepository bookSourceRepository;
+
+  @override
+  late final SourceChecker sourceChecker;
 
   // ========== 初始化/版本 ==========
 

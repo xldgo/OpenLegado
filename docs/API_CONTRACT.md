@@ -8,6 +8,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-13 | **书源校验边界冻结**：Dart 内部 SourceChecker 接收既有单源校验、批量进度流与取消三项能力；正式直接调用原 FRB 并复用 JSON 守卫，Mock 与书源 Repository 共用唯一存储，根仅提供共享引用、删除旧三项方法。Notifier 捕获发起校验的实例，以会话代数过滤迟到事件；准备期间重复启动被拒绝，取消完成前不启动下一轮，清除/销毁解除旧订阅。保留配置键、默认值、事件 JSON、结果文案和正常完成的失效分组回写；Rust 进程级取消与 Mock 原取消空操作保持，不变更 Rust/FRB 或数据库。 |
 | 2026-10-13 | **书源导入职责冻结**：ImportResult/SourcePreview 独立为纯数据模型，SourceImportParser 统一预览和必填校验；导入服务只接收 BookSourceRepository、文本 GET、文件读取及书源替换规则回调，应用装配绑定同一根实例。保留宽松原始 JSON、逐条替换再入库、成功计数及失败边界；文件缺失与读取失败、HTTP 状态及原实际超时提示保持，不增加 BookApi 或 Rust/FRB 方法、不改变数据库或批量事务。 |
 | 2026-10-13 | **书源功能目录冻结**：四个管理/编辑/导入页面及 part、状态和专用组件归入 `features/book_sources/`，外部经 `book_sources.dart` 使用；共用编辑器/选择栏保留，导入状态颜色抽到 theme。只改路径与共享辅助类位置，Provider/Controller 生命周期、方法体、源配置、导入语义及契约计数不变。 |
 | 2026-10-13 | **书源数据访问冻结**：BookSourceRepository 承担既有列表/启用列表、增改删、启停、导入导出、排序偏好与源变量十一项操作；正式实现直连现有 FRB，写入成功后通过应用装配的回调保持封面注册表失效时序。Mock 与校验、默认种子共用唯一源列表，排序配置共用原存储；根只提供共享引用，删除旧十一项方法。登录、校验、JS 解析、搜索及替换规则保持既有入口，不改变 Rust/FRB、数据库或书源语义。 |
@@ -88,7 +89,7 @@
 
 ### 1.1 定位
 
-本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository`、HTTP 引擎配置由 `HttpTtsRepository`、合成由 `HttpTtsSynthesizer` 承担，本文档为其权威文字说明。
+本文档是 **UI 轨**与 **Rust 轨**的唯一接口契约基准。跨轨数据流通以 `BookApi` 和逐域拆出的窄接口为准；书签由 `BookmarkRepository`、阅读记录由 `ReadRecordRepository`、HTTP 引擎配置由 `HttpTtsRepository`、合成由 `HttpTtsSynthesizer` 承担，书源配置与校验分别由 BookSourceRepository、SourceChecker 承担，本文档为其权威文字说明。
 
 ### 1.2 变更规则
 
@@ -215,8 +216,8 @@
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **243 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243）。
-> 附录 §2.x 行合计 **294** = BookApi 243 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
+> BookApi 接口当前共 **240 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240）。
+> 附录 §2.x 行合计 **294** = BookApi 240 + BookmarkRepository 6 + ReadRecordRepository 5 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
 
@@ -284,7 +285,7 @@
 
 > ℹ️ **登录 UI V2 动态状态协议（#402/#488）**：Rust 侧 `ffi::source_is_login_ui_v2 / source_login_ui_v2 / source_login_action_v2`（核心实现 `legado-core/src/login_ui_v2.rs`，对齐 Kotlin `LoginUiV2.kt` + `BaseSource.evalLoginUiV2/evalLoginActionV2`）。`loginUi` 为 `{"version":2}` 标记时启用；登录脚本取自 `mainJs`（JS 单文件书源）或 `loginUrl`，须实现 `loginUi(state)` / `loginAction(action, state, form)`。`userInputJson` 契约：`{"action":"...","stateJson":"...","formJson":{...}}`（stateJson/formJson 支持字符串或对象）。JS 返回 null/undefined 时返回空字符串；需 quickjs 特性构建。RowUi V2 扩展字段：key/hint/value/options/countdown。冻结契约保持不变，本组方法为加法式新增。
 >
-> ℹ️ **书源校验（Task #87）**：Rust 侧 `ffi::source_check / source_check_stream / source_check_cancel`（核心实现 `legado-ffi/src/api/source_check_api.rs`，包装 `legado-net::source_checker::SourceChecker`，与 legado-server `/sources/check` 同源）。`checkSource` 返回 CheckResult JSON：`source_url` / `search_ok` / `toc_ok` / `content_ok` / `search_error` / `toc_error` / `content_error` / `total_time_ms` / `captcha`（detected/captcha_type/matched_keyword）/ `redirect`（redirected/original_url/final_url/is_login_redirect）。`checkSourcesStream` 每完成一个书源推送一条 CheckProgress JSON：`index` / `total` / `is_last` / `source_name` / `result`（CheckResult）；**串行**校验（对齐 Kotlin `CheckSourceService` flow 顺序执行，避免对书源站并发压力），不存在的书源推送失败结果而非跳过（序号连续）。`configJson` 契约：`{"keyword":String,"step_timeout_ms":int,"check_search":bool,"check_toc":bool,"check_content":bool,"detect_captcha":bool,"detect_redirect":bool}`，全部字段可选，缺省回落 CheckerConfig 默认值（keyword="我的"、step_timeout_ms=180000、其余全开）。冻结契约保持不变，本组方法为加法式新增。
+> ℹ️ **书源校验（Task #87）**：Dart 三项能力由 SourceChecker 承担，正式/Mock 共用根装配引用，旧 BookApi 方法删除；Notifier 的开始与取消绑定同一实例，迟到进度不影响新会话。Rust 侧 `ffi::source_check / source_check_stream / source_check_cancel`（核心实现 `legado-ffi/src/api/source_check_api.rs`，包装 `legado-net::source_checker::SourceChecker`，与 legado-server `/sources/check` 同源）。`checkSource` 返回 CheckResult JSON：`source_url` / `search_ok` / `toc_ok` / `content_ok` / `search_error` / `toc_error` / `content_error` / `total_time_ms` / `captcha`（detected/captcha_type/matched_keyword）/ `redirect`（redirected/original_url/final_url/is_login_redirect）。`checkSourcesStream` 每完成一个书源推送一条 CheckProgress JSON：`index` / `total` / `is_last` / `source_name` / `result`（CheckResult）；**串行**校验（对齐 Kotlin `CheckSourceService` flow 顺序执行，避免对书源站并发压力），不存在的书源推送失败结果而非跳过（序号连续）。`configJson` 契约：`{"keyword":String,"step_timeout_ms":int,"check_search":bool,"check_toc":bool,"check_content":bool,"detect_captcha":bool,"detect_redirect":bool}`，全部字段可选，缺省回落 CheckerConfig 默认值（keyword="我的"、step_timeout_ms=180000、其余全开）。冻结契约保持不变，本组方法为加法式新增。
 >
 > ℹ️ **验证码交互通道（Task #90）**：Rust 侧 `ffi::verification_request_stream / verification_submit / verification_cancel / verification_pending`（核心实现 `legado-core/src/verification_channel.rs`，对齐 Kotlin `SourceVerificationHelp` + `JsExtensions.getVerificationCode/startBrowserAwait`）。JS 书源经宿主 API 钩子挂起等待（std condvar 阻塞 JS 工作线程，不占用 tokio runtime，默认超时 5 分钟对齐 Kotlin）；同书源并发请求经航班去重共享结果（空 source_url 匿名请求不去重）；`use_browser` 一律降级为图片验证码（桌面端无 WebView）。`verificationSubmit` 无论 code 是否为空都唤醒等待方（对齐 Kotlin `setResult`），空值由等待侧报「验证结果为空」；`verificationCancel` 等价 Kotlin `checkResult`（空结果唤醒）；超时返回「source verification timed out」。订阅事件流时先回放当前进行中的请求。冻结契约保持不变，本组方法为加法式新增。
 >
