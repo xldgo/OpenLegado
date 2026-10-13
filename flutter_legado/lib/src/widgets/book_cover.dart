@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+import 'package:flutter/rendering.dart'
+    show RenderClipRRect, RenderImage, RenderObject;
 
 import '../providers/providers.dart';
 import '../services/cover_decode_loader.dart';
@@ -67,8 +69,7 @@ class BookCover extends ConsumerWidget {
     );
     final tag = heroTag;
     if (tag != null && tag.isNotEmpty) {
-      // [LAYOUT_PLAN P4] 内置 Hero 保持无 flightShuttle（防与外层 Hero 嵌套）。
-      cover = Hero(tag: tag, child: cover);
+      cover = BookCoverHero(tag: tag, child: cover);
     }
     return cover;
   }
@@ -84,11 +85,60 @@ class BookCover extends ConsumerWidget {
   }
 }
 
-/// [LAYOUT_PLAN P4] 封面 Hero 过渡：圆角 4→12 插值 morph（由详情页外层 Hero 调用，
-/// BookCover 内置 Hero 不用，避免嵌套）。
-/// [UI-fix v2.0.166] 飞行内容取出发侧已加载封面（push=书架已渲染图 / pop=详情
-/// 已渲染图）：目标侧新实例在异步解析期会闪默认占位封面（对齐参考仓
-/// sharedBounds「同图飞行」语义）；飞行层不在路由子树内，出发侧内置 Hero 不生效。
+/// 封面两端保留同一图片子树，飞行期间不重新开始加载或解密。
+class BookCoverHero extends StatefulWidget {
+  const BookCoverHero({super.key, required this.tag, required this.child});
+
+  final Object tag;
+  final Widget child;
+
+  @override
+  State<BookCoverHero> createState() => _BookCoverHeroState();
+}
+
+class _BookCoverHeroState extends State<BookCoverHero> {
+  final _contentKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) => Hero(
+    tag: widget.tag,
+    flightShuttleBuilder: coverFlightShuttleBuilder,
+    // SDK 的占位与正常内容处在不同包装层，局部 key 保留图片加载状态。
+    child: KeyedSubtree(key: _contentKey, child: widget.child),
+    placeholderBuilder: (_, size, child) => SizedBox.fromSize(
+      size: size,
+      child: Offstage(child: TickerMode(enabled: false, child: child)),
+    ),
+  );
+}
+
+/// 读取当前绘制的封面帧，不把有加载状态的 Widget 再挂到飞行层。
+({ui.Image? image, BorderRadius radius}) _coverFrame(BuildContext context) {
+  ui.Image? image;
+  BorderRadius? radius;
+  final direction = Directionality.of(context);
+  void visit(RenderObject object) {
+    if (object is RenderClipRRect && radius == null) {
+      radius = object.borderRadius.resolve(object.textDirection ?? direction);
+    }
+    if (object is RenderImage && object.image != null) {
+      image = object.image;
+    }
+    object.visitChildren(visit);
+  }
+
+  final root = context.findRenderObject();
+  if (root != null) visit(root);
+  // 网格封面的内层可能没有圆角，实际裁剪来自外层卡片。
+  if (radius == null || radius == BorderRadius.zero) {
+    final outer = context.findAncestorRenderObjectOfType<RenderClipRRect>();
+    radius =
+        outer?.borderRadius.resolve(outer.textDirection ?? direction) ?? radius;
+  }
+  return (image: image, radius: radius ?? BorderRadius.zero);
+}
+
+/// 复用出发侧已解码的图片帧，进出动画都不显示新的加载占位。
 Widget coverFlightShuttleBuilder(
   BuildContext flightContext,
   Animation<double> animation,
@@ -96,21 +146,81 @@ Widget coverFlightShuttleBuilder(
   BuildContext fromHeroContext,
   BuildContext toHeroContext,
 ) {
-  final fromHero = fromHeroContext.widget as Hero;
-  return AnimatedBuilder(
+  final from = _coverFrame(fromHeroContext);
+  final to = _coverFrame(toHeroContext);
+  return _BookCoverFlight(
+    image: from.image,
+    fromRadius: from.radius,
+    toRadius: to.radius,
     animation: animation,
-    builder: (context, child) {
-      final t = flightDirection == HeroFlightDirection.push
-          ? animation.value
-          : 1.0 - animation.value;
-      // [LAYOUT_PLAN P4] 圆角 4→12 过渡
-      final radius = 4.0 + (12.0 - 4.0) * t;
+    direction: flightDirection,
+  );
+}
+
+class _BookCoverFlight extends StatefulWidget {
+  const _BookCoverFlight({
+    required this.image,
+    required this.fromRadius,
+    required this.toRadius,
+    required this.animation,
+    required this.direction,
+  });
+
+  final ui.Image? image;
+  final BorderRadius fromRadius;
+  final BorderRadius toRadius;
+  final Animation<double> animation;
+  final HeroFlightDirection direction;
+
+  @override
+  State<_BookCoverFlight> createState() => _BookCoverFlightState();
+}
+
+class _BookCoverFlightState extends State<_BookCoverFlight> {
+  ui.Image? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    // clone 只保留同一像素资源的独立引用，不复制像素或重新解码。
+    _image = widget.image?.clone();
+  }
+
+  @override
+  void didUpdateWidget(_BookCoverFlight oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.image, widget.image)) {
+      final previous = _image;
+      _image = widget.image?.clone();
+      previous?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.animation,
+    builder: (_, child) {
+      final progress = widget.direction == HeroFlightDirection.push
+          ? widget.animation.value
+          : 1.0 - widget.animation.value;
       return ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.lerp(
+          widget.fromRadius,
+          widget.toRadius,
+          progress,
+        )!,
         child: child,
       );
     },
-    child: fromHero.child,
+    child: _image == null
+        ? Image.asset('assets/images/default_book_cover.jpg', fit: BoxFit.cover)
+        : RawImage(image: _image, fit: BoxFit.cover),
   );
 }
 
@@ -293,6 +403,8 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
       imageUrl: url,
       fit: BoxFit.cover,
       memCacheWidth: _thumbWidth(context),
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
       placeholder: (_, _) => widget.placeholder,
       errorWidget: (_, _, _) => widget.placeholder,
     );

@@ -29,6 +29,7 @@ import '../services/cache_service.dart';
 import '../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
 import '../services/platform_bridge_service.dart';
 import '../services/settings_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/book_info_utils.dart';
 import '../utils/book_open_utils.dart';
 import '../utils/meaningful_text_guard.dart'; // [U4 | 台账 0917] 详情页渲染层模板残留守卫
@@ -37,6 +38,7 @@ import '../utils/meaningful_text_guard.dart'; // [U4 | 台账 0917] 详情页渲
 import '../utils/source_login_entry.dart';
 import '../utils/source_login_prompt.dart';
 import '../widgets/book_cover.dart';
+import '../widgets/ui_settings_scope.dart';
 import '../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4 收尾] 详情下拉 M3 化
 import '../widgets/error_view.dart';
 import '../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
@@ -78,6 +80,13 @@ class BookInfoScreen extends ConsumerStatefulWidget {
 
 class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   final ScrollController _scrollController = ScrollController();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  Object? _coverThemeKey;
+  ThemeData? _coverTheme;
+
+  /// 位于局部主题内的页面上下文，弹层操作不依赖已经关闭的菜单。
+  BuildContext get _pageContext => _scaffoldKey.currentContext ?? context;
+
   /// [UI_SYNC_REFACTOR B4] 顶栏折叠进度（对齐参考仓 collapsedFraction：
   /// 封面区滚动归一化，驱动透明→玻璃色插值）
   final ValueNotifier<double> _topCollapse = ValueNotifier<double>(0);
@@ -145,7 +154,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
 
   /// [UI_SYNC_REFACTOR B4] 封面取色（跟随封面换肤开关开启时生效）
   Future<void> _extractCoverSeed(Book book) async {
-    final ui = uiSettingsListenable.value;
+    final ui = ref.read(uiSettingsProvider);
     if (!ui.bookInfoFollowCoverColor) return;
     final coverUrl = book.customCoverUrl ?? book.coverUrl;
     if (coverUrl == null || coverUrl.isEmpty) return;
@@ -155,17 +164,15 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   }
 
 
-  /// [PARITY C1 D3] 右下绿色「阅读」胶囊 FAB（对齐参考 08 量化：
-  /// 约 101×55dp 绿底 (175,242,196) / 深绿字 (11,81,48)，右 18dp / 底 17dp；
+  /// [PARITY C1 D3] 右下「阅读」胶囊 FAB（对齐参考 08 量化：
+  /// 阅读按钮的容器和前景使用当前局部主题；位置与阅读跳转行为保持原样。
   /// 标签固定「阅读」（原「继续阅读」文案移除，参考即固定「阅读」）；
   /// 阅读跳转链路 _openReader 行为不变，续读位置仍取 durChapterIndex，
   /// 加书架/移出书架入口保留在操作区第一卡）
-  Widget _buildReadFab() {
+  Widget _buildReadFab(BuildContext context) {
     final book = _loadedBook;
     if (book == null) return const SizedBox.shrink();
     return FloatingActionButton.extended(
-      backgroundColor: const Color(0xFFAFF2C4),
-      foregroundColor: const Color(0xFF0B5130),
       icon: const Icon(Symbols.menu_book_rounded),
       label: const Text('阅读'),
       onPressed: () => _openReader(context, book, book.durChapterIndex),
@@ -174,7 +181,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
 
   /// [UI_SYNC_REFACTOR B4] 顶栏 actions（原 appBar actions 原样迁移，
   /// 由折叠 SliverAppBar 经 TopBarActionStyler 统一注入样式）
-  List<Widget> _buildTopBarActions() {
+  List<Widget> _buildTopBarActions(BuildContext context) {
     return [
       // 编辑：仅在架书籍显示（对标原版 editMenuItem.isVisible = inBookshelf）
       if (_inBookshelf)
@@ -200,7 +207,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             } catch (e) {
               // [审计修复 §4.1] 不再静默吞异常，向用户提示 — Qoder
               debugPrint('编辑书籍信息失败: $e');
-              if (mounted) {
+              if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')),
                 );
@@ -234,7 +241,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
           } catch (e) {
             // [审计修复 §4.1] 不再静默吞异常，向用户提示 — Qoder
             debugPrint('分享书籍失败: $e');
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')),
               );
@@ -343,61 +350,64 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 对标原版 activity_book_info.xml：封面背景 + 渐变遮罩 + 折叠 TitleBar
-    // [UI_SYNC_REFACTOR B4] 封面取色换肤：ColorScheme 400ms 渐变
-    //（对齐参考仓 rememberBookInfoColorTheme tween(400, FastOutSlowIn)；
-    // bookInfoFollowCoverColor 开关关闭或未取到 seed 时保持原配色）
     final baseTheme = Theme.of(context);
-    final seed = _coverSeed;
-    final followCover =
-        uiSettingsListenable.value.bookInfoFollowCoverColor;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: followCover && seed != null ? 1 : 0),
+    ref.listen(
+      uiSettingsProvider.select(
+        (settings) => settings.bookInfoFollowCoverColor,
+      ),
+      (_, enabled) {
+        final book = _loadedBook;
+        if (enabled && _coverSeed == null && book != null) {
+          unawaited(_extractCoverSeed(book));
+        }
+      },
+    );
+    final followCover = ref.watch(
+      uiSettingsProvider.select(
+        (settings) => settings.bookInfoFollowCoverColor,
+      ),
+    );
+    final seed = followCover ? _coverSeed : null;
+    final themeKey = (baseTheme, seed);
+    // 输入变化时计算目标主题；动画帧只插值，不重复从封面生成色板。
+    if (_coverThemeKey != themeKey) {
+      _coverThemeKey = themeKey;
+      _coverTheme = seed == null
+          ? baseTheme
+          : AppTheme.withColorScheme(
+              baseTheme,
+              ColorScheme.fromSeed(
+                seedColor: seed,
+                brightness: baseTheme.brightness,
+              ),
+            );
+    }
+
+    // 保留 400ms 封面换肤动画，所有组件和页面弹层共用完整局部主题。
+    return AnimatedTheme(
+      data: _coverTheme!,
       duration: const Duration(milliseconds: 400),
       curve: Curves.fastOutSlowIn,
-      builder: (context, t, child) {
-        var scheme = baseTheme.colorScheme;
-        if (seed != null && t > 0) {
-          final target = ColorScheme.fromSeed(
-            seedColor: seed,
-            brightness: baseTheme.colorScheme.brightness,
-          );
-          scheme = ColorScheme.lerp(scheme, target, t);
-        }
-        return Theme(
-          data: baseTheme.copyWith(colorScheme: scheme),
-          child: child!,
-        );
-      },
-      child: Scaffold(
-        // [UI_SYNC_REFACTOR B4] appBar → 折叠 SliverAppBar（入 body 首位
-        // sliver，collapsedFraction 驱动透明→surfaceContainer 插值）
-        floatingActionButton: _pageLoading || _loadedBook == null
-            ? null
-            : _buildReadFab(),
-        // [PARITY C1 D3] FAB 定位对齐参考 08 量化：右下角（slot 默认边距
-        // 16dp ≈ 参考右 18dp / 底 17dp，误差 <2dp 在容差内）
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: _pageLoading
-          // [LAYOUT_PLAN P4] 首屏 Skeleton 接线：详情骨架替代整页 LoadingIndicator
-          // （shimmer 1200ms 已在 skeleton.dart 实现）
-          ? ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: 4,
-              itemBuilder: (_, _) => const ListSkeletonItem(),
-            )
-          : _loadError != null && _loadedBook == null
-              ? ErrorView(
-                  message: _loadError!,
-                  onRetry: _reload,
+      child: Builder(
+        builder: (pageContext) => Scaffold(
+          key: _scaffoldKey,
+          floatingActionButton: _pageLoading || _loadedBook == null
+              ? null
+              : _buildReadFab(pageContext),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          body: _pageLoading
+              ? ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: 4,
+                  itemBuilder: (_, _) => const ListSkeletonItem(),
                 )
+              : _loadError != null && _loadedBook == null
+              ? ErrorView(message: _loadError!, onRetry: _reload)
               : _loadedBook == null
-                  ? const ErrorView(message: '书籍不存在')
-                  : _buildPage(context, _loadedBook!, _chapters),
-        // [B1 形态对齐 | full-stack-engineer + UI] 底部固定双按钮栏已移除：
-        // 阅读入口改右下浮动胶囊（floatingActionButton 在位），
-        // 加书架/移出书架入口保留在四宫格第一格，功能不丢失
+              ? const ErrorView(message: '书籍不存在')
+              : _buildPage(pageContext, _loadedBook!, _chapters),
         ),
-      );
+      ),
+    );
   }
 }

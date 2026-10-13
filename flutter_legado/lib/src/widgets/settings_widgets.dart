@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../providers/ui_settings/ui_settings_notifier.dart';
+import 'ui_settings_scope.dart';
 
 import 'app_menu.dart';
 import 'setting_cards.dart';
@@ -332,7 +332,7 @@ class IosListTile extends StatelessWidget {
 
     // [UI_SYNC_REFACTOR R3] 设置行分隔线（参考仓 enableItemDivider：
     // 行底 1dp 胶囊线，长度 80dp 缩进 16，默认关）
-    final divider = uiSettingsListenable.value.enableItemDivider
+    final divider = UiSettingsScope.of(context, UiSettingsAspect.dividers).enableItemDivider
         ? Column(
             mainAxisSize: MainAxisSize.min,
             children: [

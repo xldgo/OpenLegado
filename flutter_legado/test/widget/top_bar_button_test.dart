@@ -1,13 +1,13 @@
 // [UI_SYNC_REFACTOR B2] 顶栏按钮体系回归守护：5 档样式规格（尺寸/底色/描边）、
 // merge 胶囊分隔线、UiSettingsNotifier 档位解析与默认值、LegadoAppBar 全局
-// 透传（含 topBarOpacity）。设置读取走 uiSettingsListenable 全局通道（组件
-// 不依赖 Riverpod scope），测试直接操作该通道并复位。
+// 透传（含 topBarOpacity）。通用组件从 UiSettingsScope 读取只读设置。
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/top_bar_button.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 void main() {
   group('TopBarButtonStyle 解析', () {
@@ -98,9 +98,6 @@ void main() {
 
   group('LegadoAppBar 全局透传', () {
     testWidgets('默认 tonal：36dp 外观与 48dp 点击区域', (tester) async {
-      addTearDown(() {
-        uiSettingsListenable.value = const UiSettingsState();
-      });
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -120,24 +117,24 @@ void main() {
       expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
-    testWidgets('topBarOpacity=50：背景混入半透明', (tester) async {
-      const original = UiSettingsState();
-      uiSettingsListenable.value = const UiSettingsState(topBarOpacity: 50);
-      addTearDown(() => uiSettingsListenable.value = original);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            appBar: LegadoAppBar(
-              title: const Text('T'),
-              showBack: false,
-              actions: const [],
-            ),
-          ),
+    testWidgets('topBarOpacity=50：作用域变化即时更新背景', (tester) async {
+      const page = MaterialApp(
+        home: Scaffold(
+          appBar: LegadoAppBar(title: Text('T'), showBack: false, actions: []),
         ),
       );
-      await tester.pump();
+      await tester.pumpWidget(
+        const UiSettingsScope(settings: UiSettingsState(), child: page),
+      );
+      expect(tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a, 1);
+      // 保留相同页面子树，仅变更作用域快照，验证组件自身订阅会触发更新。
+      await tester.pumpWidget(
+        const UiSettingsScope(
+          settings: UiSettingsState(topBarOpacity: 50),
+          child: page,
+        ),
+      );
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      // surface α0.5（50%）
       expect(appBar.backgroundColor!.a, closeTo(0.5, 0.02));
     });
   });

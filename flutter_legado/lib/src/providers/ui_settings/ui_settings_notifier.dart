@@ -1,12 +1,11 @@
 // [UI_SYNC_REFACTOR B2] UI 布局设置状态：顶栏/底栏/详情/阅读菜单开关族的
 // 统一加载与分发（UI_SYNC_REFACTOR_PLAN_20260905.md）。key 名对齐参考仓
 // PreferKey，经 SharedPreferences 透存（Rust 不解释），改动即时全局生效。
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../constants/pref_keys.dart';
 import '../../services/settings_service.dart';
+import '../../services/settings_write_queue.dart';
 
 /// 顶栏按钮样式档位（对齐参考仓 TopBarButtonStyle）
 enum TopBarButtonStyle {
@@ -233,8 +232,8 @@ class UiSettingsState {
           bookInfoFollowCoverColor ?? this.bookInfoFollowCoverColor,
       bookInfoNetworkCoverBackground:
           bookInfoNetworkCoverBackground ?? this.bookInfoNetworkCoverBackground,
-      bookInfoDefaultCoverBackground: bookInfoDefaultCoverBackground ??
-          this.bookInfoDefaultCoverBackground,
+      bookInfoDefaultCoverBackground:
+          bookInfoDefaultCoverBackground ?? this.bookInfoDefaultCoverBackground,
       overrideBaseCardCornerRadius:
           overrideBaseCardCornerRadius ?? this.overrideBaseCardCornerRadius,
       baseCardCornerRadius: baseCardCornerRadius ?? this.baseCardCornerRadius,
@@ -257,28 +256,39 @@ class UiSettingsState {
   }
 }
 
-/// 全局 UI 布局设置监听通道
-///
-/// 通用组件（如 LegadoAppBar）不依赖 Riverpod scope（58+ 使用点与既有测试
-/// 保持无 ProviderScope 兼容），经此 ValueListenable 订阅设置变化；
-/// [UiSettingsNotifier] 在每次状态变更时同步镜像。
-final ValueNotifier<UiSettingsState> uiSettingsListenable =
-    ValueNotifier<UiSettingsState>(const UiSettingsState());
-
 /// UI 布局设置 Notifier：启动加载 + 用户设置即时生效并持久化
 class UiSettingsNotifier extends Notifier<UiSettingsState> {
-  final SettingsService _settings = SettingsService();
+  UiSettingsNotifier({SettingsService? settings})
+    : _settings = settings ?? SettingsService();
 
-  void _sync() => uiSettingsListenable.value = state;
+  final SettingsService _settings;
+
+  final _writes = SettingsWriteQueue();
+  final _editedDuringLoad = <String>{};
+  int _loadGeneration = 0;
+  bool _loaded = false;
+
+  Future<void> _update(
+    UiSettingsState next, {
+    required String key,
+    required Future<void> Function() save,
+  }) {
+    if (!_loaded) _editedDuringLoad.add(key);
+    final pending = _writes.run(save);
+    state = next;
+    return pending;
+  }
 
   @override
   UiSettingsState build() {
-    // 与 ThemeNotifier 同构：启动异步加载，内存状态即时返回默认值
-    Future.microtask(_load);
+    _loaded = false;
+    _editedDuringLoad.clear();
+    final generation = ++_loadGeneration;
+    Future.microtask(() => _load(generation));
     return const UiSettingsState();
   }
 
-  Future<void> _load() async {
+  Future<void> _load(int generation) async {
     if (!ref.mounted) return;
     final loaded = UiSettingsState(
       topBarButtonStyle: TopBarButtonStyle.fromName(
@@ -292,17 +302,15 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
         PrefKeys.useFlexibleTopAppBar,
         defaultValue: true,
       ),
-      topBarOpacity: await _settings.getIntPref(
-        PrefKeys.topBarOpacity,
-        defaultValue: 100,
-      ).then(_clampOpacity),
+      topBarOpacity: await _settings
+          .getIntPref(PrefKeys.topBarOpacity, defaultValue: 100)
+          .then(_clampOpacity),
       labelVisibilityMode: BottomBarLabelMode.fromName(
         await _settings.getStringPref(PrefKeys.labelVisibilityMode),
       ),
-      bottomBarOpacity: await _settings.getIntPref(
-        PrefKeys.bottomBarOpacity,
-        defaultValue: 100,
-      ).then(_clampOpacity),
+      bottomBarOpacity: await _settings
+          .getIntPref(PrefKeys.bottomBarOpacity, defaultValue: 100)
+          .then(_clampOpacity),
       useFloatingBottomBar: await _settings.getBoolPref(
         PrefKeys.useFloatingBottomBar,
         defaultValue: false,
@@ -387,93 +395,215 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
         defaultValue: false,
       ),
     );
-    if (!ref.mounted) return;
-    state = loaded;
-    _sync();
+    if (!ref.mounted || generation != _loadGeneration) return;
+    // 只保留用户已操作的字段，其余偏好继续从持久化恢复。
+    state = loaded.copyWith(
+      topBarButtonStyle: _editedDuringLoad.contains(PrefKeys.topBarButtonStyle)
+          ? state.topBarButtonStyle
+          : null,
+      mergeTopBarActions:
+          _editedDuringLoad.contains(PrefKeys.mergeTopBarActions)
+          ? state.mergeTopBarActions
+          : null,
+      useFlexibleTopAppBar:
+          _editedDuringLoad.contains(PrefKeys.useFlexibleTopAppBar)
+          ? state.useFlexibleTopAppBar
+          : null,
+      topBarOpacity: _editedDuringLoad.contains(PrefKeys.topBarOpacity)
+          ? state.topBarOpacity
+          : null,
+      labelVisibilityMode:
+          _editedDuringLoad.contains(PrefKeys.labelVisibilityMode)
+          ? state.labelVisibilityMode
+          : null,
+      bottomBarOpacity: _editedDuringLoad.contains(PrefKeys.bottomBarOpacity)
+          ? state.bottomBarOpacity
+          : null,
+      useFloatingBottomBar:
+          _editedDuringLoad.contains(PrefKeys.useFloatingBottomBar)
+          ? state.useFloatingBottomBar
+          : null,
+      showBottomView: _editedDuringLoad.contains(PrefKeys.showBottomView)
+          ? state.showBottomView
+          : null,
+      tabletInterface: _editedDuringLoad.contains(PrefKeys.tabletInterface)
+          ? state.tabletInterface
+          : null,
+      bookInfoFollowCoverColor:
+          _editedDuringLoad.contains(PrefKeys.bookInfoFollowCoverColor)
+          ? state.bookInfoFollowCoverColor
+          : null,
+      bookInfoNetworkCoverBackground:
+          _editedDuringLoad.contains(PrefKeys.bookInfoNetworkCoverBackground)
+          ? state.bookInfoNetworkCoverBackground
+          : null,
+      bookInfoDefaultCoverBackground:
+          _editedDuringLoad.contains(PrefKeys.bookInfoDefaultCoverBackground)
+          ? state.bookInfoDefaultCoverBackground
+          : null,
+      overrideBaseCardCornerRadius:
+          _editedDuringLoad.contains(PrefKeys.overrideBaseCardCornerRadius)
+          ? state.overrideBaseCardCornerRadius
+          : null,
+      baseCardCornerRadius:
+          _editedDuringLoad.contains(PrefKeys.baseCardCornerRadius)
+          ? state.baseCardCornerRadius
+          : null,
+      enableBlur: _editedDuringLoad.contains(PrefKeys.enableBlur)
+          ? state.enableBlur
+          : null,
+      topBarBlurRadius: _editedDuringLoad.contains(PrefKeys.topBarBlurRadius)
+          ? state.topBarBlurRadius
+          : null,
+      topBarBlurAlpha: _editedDuringLoad.contains(PrefKeys.topBarBlurAlpha)
+          ? state.topBarBlurAlpha
+          : null,
+      bottomBarBlurRadius:
+          _editedDuringLoad.contains(PrefKeys.bottomBarBlurRadius)
+          ? state.bottomBarBlurRadius
+          : null,
+      bottomBarBlurAlpha:
+          _editedDuringLoad.contains(PrefKeys.bottomBarBlurAlpha)
+          ? state.bottomBarBlurAlpha
+          : null,
+      wallpaperColorFollow:
+          _editedDuringLoad.contains(PrefKeys.wallpaperColorFollow)
+          ? state.wallpaperColorFollow
+          : null,
+      enableItemDivider: _editedDuringLoad.contains(PrefKeys.enableItemDivider)
+          ? state.enableItemDivider
+          : null,
+      railExtended: _editedDuringLoad.contains(PrefKeys.railExtended)
+          ? state.railExtended
+          : null,
+      readMenuBrightnessVertical:
+          _editedDuringLoad.contains(PrefKeys.readMenuBrightnessVertical)
+          ? state.readMenuBrightnessVertical
+          : null,
+      readMenuBrightnessPos:
+          _editedDuringLoad.contains(PrefKeys.readMenuBrightnessPos)
+          ? state.readMenuBrightnessPos
+          : null,
+      themeStyle: _editedDuringLoad.contains(PrefKeys.themeStyle)
+          ? state.themeStyle
+          : null,
+      themeContrastLevel:
+          _editedDuringLoad.contains(PrefKeys.themeContrastLevel)
+          ? state.themeContrastLevel
+          : null,
+      themeAmoled: _editedDuringLoad.contains(PrefKeys.themeAmoled)
+          ? state.themeAmoled
+          : null,
+    );
+    _loaded = true;
+    _editedDuringLoad.clear();
   }
 
   static int _clampOpacity(int v) => v.clamp(0, 100);
 
   /// 顶栏按钮样式（持久化 + 全局生效）
   Future<void> setTopBarButtonStyle(TopBarButtonStyle style) async {
-    if (state.topBarButtonStyle == style) return;
-    state = state.copyWith(topBarButtonStyle: style);
-    _sync();
-    await _settings.setStringPref(PrefKeys.topBarButtonStyle, style.name);
+    if (_loaded && state.topBarButtonStyle == style) return;
+    return _update(
+      state.copyWith(topBarButtonStyle: style),
+      key: PrefKeys.topBarButtonStyle,
+      save: () =>
+          _settings.setStringPref(PrefKeys.topBarButtonStyle, style.name),
+    );
   }
 
   /// 顶栏 actions 合并胶囊
   Future<void> setMergeTopBarActions(bool value) async {
-    if (state.mergeTopBarActions == value) return;
-    state = state.copyWith(mergeTopBarActions: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.mergeTopBarActions, value);
+    if (_loaded && state.mergeTopBarActions == value) return;
+    return _update(
+      state.copyWith(mergeTopBarActions: value),
+      key: PrefKeys.mergeTopBarActions,
+      save: () => _settings.setBoolPref(PrefKeys.mergeTopBarActions, value),
+    );
   }
 
   /// MediumFlexible 大顶栏
   Future<void> setUseFlexibleTopAppBar(bool value) async {
-    if (state.useFlexibleTopAppBar == value) return;
-    state = state.copyWith(useFlexibleTopAppBar: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.useFlexibleTopAppBar, value);
+    if (_loaded && state.useFlexibleTopAppBar == value) return;
+    return _update(
+      state.copyWith(useFlexibleTopAppBar: value),
+      key: PrefKeys.useFlexibleTopAppBar,
+      save: () => _settings.setBoolPref(PrefKeys.useFlexibleTopAppBar, value),
+    );
   }
 
   /// 顶栏不透明度（0-100）
   Future<void> setTopBarOpacity(int value) async {
     final v = _clampOpacity(value);
-    if (state.topBarOpacity == v) return;
-    state = state.copyWith(topBarOpacity: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.topBarOpacity, v);
+    if (_loaded && state.topBarOpacity == v) return;
+    return _update(
+      state.copyWith(topBarOpacity: v),
+      key: PrefKeys.topBarOpacity,
+      save: () => _settings.setIntPref(PrefKeys.topBarOpacity, v),
+    );
   }
 
   /// 底栏 label 显示档位
   Future<void> setLabelVisibilityMode(BottomBarLabelMode mode) async {
-    if (state.labelVisibilityMode == mode) return;
-    state = state.copyWith(labelVisibilityMode: mode);
-    _sync();
-    await _settings.setStringPref(PrefKeys.labelVisibilityMode, mode.name);
+    if (_loaded && state.labelVisibilityMode == mode) return;
+    return _update(
+      state.copyWith(labelVisibilityMode: mode),
+      key: PrefKeys.labelVisibilityMode,
+      save: () =>
+          _settings.setStringPref(PrefKeys.labelVisibilityMode, mode.name),
+    );
   }
 
   /// 底栏不透明度（0-100）
   Future<void> setBottomBarOpacity(int value) async {
     final v = _clampOpacity(value);
-    if (state.bottomBarOpacity == v) return;
-    state = state.copyWith(bottomBarOpacity: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.bottomBarOpacity, v);
+    if (_loaded && state.bottomBarOpacity == v) return;
+    return _update(
+      state.copyWith(bottomBarOpacity: v),
+      key: PrefKeys.bottomBarOpacity,
+      save: () => _settings.setIntPref(PrefKeys.bottomBarOpacity, v),
+    );
   }
 
   /// 悬浮底栏开关
   Future<void> setUseFloatingBottomBar(bool value) async {
-    if (state.useFloatingBottomBar == value) return;
-    state = state.copyWith(useFloatingBottomBar: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.useFloatingBottomBar, value);
+    if (_loaded && state.useFloatingBottomBar == value) return;
+    return _update(
+      state.copyWith(useFloatingBottomBar: value),
+      key: PrefKeys.useFloatingBottomBar,
+      save: () => _settings.setBoolPref(PrefKeys.useFloatingBottomBar, value),
+    );
   }
 
   /// 显示底栏开关
   Future<void> setShowBottomView(bool value) async {
-    if (state.showBottomView == value) return;
-    state = state.copyWith(showBottomView: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.showBottomView, value);
+    if (_loaded && state.showBottomView == value) return;
+    return _update(
+      state.copyWith(showBottomView: value),
+      key: PrefKeys.showBottomView,
+      save: () => _settings.setBoolPref(PrefKeys.showBottomView, value),
+    );
   }
 
   /// 平板/大屏导航形态
   Future<void> setTabletInterface(TabletInterfaceMode mode) async {
-    if (state.tabletInterface == mode) return;
-    state = state.copyWith(tabletInterface: mode);
-    _sync();
-    await _settings.setStringPref(PrefKeys.tabletInterface, mode.name);
+    if (_loaded && state.tabletInterface == mode) return;
+    return _update(
+      state.copyWith(tabletInterface: mode),
+      key: PrefKeys.tabletInterface,
+      save: () => _settings.setStringPref(PrefKeys.tabletInterface, mode.name),
+    );
   }
 
   /// 详情页跟随封面取色
   Future<void> setBookInfoFollowCoverColor(bool value) async {
-    if (state.bookInfoFollowCoverColor == value) return;
-    state = state.copyWith(bookInfoFollowCoverColor: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.bookInfoFollowCoverColor, value);
+    if (_loaded && state.bookInfoFollowCoverColor == value) return;
+    return _update(
+      state.copyWith(bookInfoFollowCoverColor: value),
+      key: PrefKeys.bookInfoFollowCoverColor,
+      save: () =>
+          _settings.setBoolPref(PrefKeys.bookInfoFollowCoverColor, value),
+    );
   }
 
   /// 详情页背景三档（网络封面/默认封面共用三值：off/off_for_default/on）
@@ -482,143 +612,184 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
     required String value,
   }) async {
     if (isDefaultCover) {
-      if (state.bookInfoDefaultCoverBackground == value) return;
-      state = state.copyWith(bookInfoDefaultCoverBackground: value);
-      _sync();
-      await _settings.setStringPref(
-          PrefKeys.bookInfoDefaultCoverBackground, value);
+      if (_loaded && state.bookInfoDefaultCoverBackground == value) return;
+      return _update(
+        state.copyWith(bookInfoDefaultCoverBackground: value),
+        key: PrefKeys.bookInfoDefaultCoverBackground,
+        save: () => _settings.setStringPref(
+          PrefKeys.bookInfoDefaultCoverBackground,
+          value,
+        ),
+      );
     } else {
-      if (state.bookInfoNetworkCoverBackground == value) return;
-      state = state.copyWith(bookInfoNetworkCoverBackground: value);
-      _sync();
-      await _settings.setStringPref(
-          PrefKeys.bookInfoNetworkCoverBackground, value);
+      if (_loaded && state.bookInfoNetworkCoverBackground == value) return;
+      return _update(
+        state.copyWith(bookInfoNetworkCoverBackground: value),
+        key: PrefKeys.bookInfoNetworkCoverBackground,
+        save: () => _settings.setStringPref(
+          PrefKeys.bookInfoNetworkCoverBackground,
+          value,
+        ),
+      );
     }
   }
 
   /// 圆角覆写开关
   Future<void> setOverrideBaseCardCornerRadius(bool value) async {
-    if (state.overrideBaseCardCornerRadius == value) return;
-    state = state.copyWith(overrideBaseCardCornerRadius: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.overrideBaseCardCornerRadius, value);
+    if (_loaded && state.overrideBaseCardCornerRadius == value) return;
+    return _update(
+      state.copyWith(overrideBaseCardCornerRadius: value),
+      key: PrefKeys.overrideBaseCardCornerRadius,
+      save: () =>
+          _settings.setBoolPref(PrefKeys.overrideBaseCardCornerRadius, value),
+    );
   }
 
   /// 基础卡片圆角值（4-28，随主题重建生效）
   Future<void> setBaseCardCornerRadius(int value) async {
     final v = value.clamp(4, 28);
-    if (state.baseCardCornerRadius == v) return;
-    state = state.copyWith(baseCardCornerRadius: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.baseCardCornerRadius, v);
+    if (_loaded && state.baseCardCornerRadius == v) return;
+    return _update(
+      state.copyWith(baseCardCornerRadius: v),
+      key: PrefKeys.baseCardCornerRadius,
+      save: () => _settings.setIntPref(PrefKeys.baseCardCornerRadius, v),
+    );
   }
 
   /// 启用毛玻璃
   Future<void> setEnableBlur(bool value) async {
-    if (state.enableBlur == value) return;
-    state = state.copyWith(enableBlur: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.enableBlur, value);
+    if (_loaded && state.enableBlur == value) return;
+    return _update(
+      state.copyWith(enableBlur: value),
+      key: PrefKeys.enableBlur,
+      save: () => _settings.setBoolPref(PrefKeys.enableBlur, value),
+    );
   }
 
   /// 顶栏模糊半径
   Future<void> setTopBarBlurRadius(int value) async {
     final v = value.clamp(0, 48);
-    if (state.topBarBlurRadius == v) return;
-    state = state.copyWith(topBarBlurRadius: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.topBarBlurRadius, v);
+    if (_loaded && state.topBarBlurRadius == v) return;
+    return _update(
+      state.copyWith(topBarBlurRadius: v),
+      key: PrefKeys.topBarBlurRadius,
+      save: () => _settings.setIntPref(PrefKeys.topBarBlurRadius, v),
+    );
   }
 
   /// 顶栏底色透明度（0-255）
   Future<void> setTopBarBlurAlpha(int value) async {
     final v = value.clamp(0, 255);
-    if (state.topBarBlurAlpha == v) return;
-    state = state.copyWith(topBarBlurAlpha: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.topBarBlurAlpha, v);
+    if (_loaded && state.topBarBlurAlpha == v) return;
+    return _update(
+      state.copyWith(topBarBlurAlpha: v),
+      key: PrefKeys.topBarBlurAlpha,
+      save: () => _settings.setIntPref(PrefKeys.topBarBlurAlpha, v),
+    );
   }
 
   /// 悬浮底栏模糊半径
   Future<void> setBottomBarBlurRadius(int value) async {
     final v = value.clamp(0, 48);
-    if (state.bottomBarBlurRadius == v) return;
-    state = state.copyWith(bottomBarBlurRadius: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.bottomBarBlurRadius, v);
+    if (_loaded && state.bottomBarBlurRadius == v) return;
+    return _update(
+      state.copyWith(bottomBarBlurRadius: v),
+      key: PrefKeys.bottomBarBlurRadius,
+      save: () => _settings.setIntPref(PrefKeys.bottomBarBlurRadius, v),
+    );
   }
 
   /// 悬浮底栏底色透明度（0-255）
   Future<void> setBottomBarBlurAlpha(int value) async {
     final v = value.clamp(0, 255);
-    if (state.bottomBarBlurAlpha == v) return;
-    state = state.copyWith(bottomBarBlurAlpha: v);
-    _sync();
-    await _settings.setIntPref(PrefKeys.bottomBarBlurAlpha, v);
+    if (_loaded && state.bottomBarBlurAlpha == v) return;
+    return _update(
+      state.copyWith(bottomBarBlurAlpha: v),
+      key: PrefKeys.bottomBarBlurAlpha,
+      save: () => _settings.setIntPref(PrefKeys.bottomBarBlurAlpha, v),
+    );
   }
 
   /// 阅读菜单亮度竖条开关
   Future<void> setReadMenuBrightnessVertical(bool value) async {
-    if (state.readMenuBrightnessVertical == value) return;
-    state = state.copyWith(readMenuBrightnessVertical: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.readMenuBrightnessVertical, value);
+    if (_loaded && state.readMenuBrightnessVertical == value) return;
+    return _update(
+      state.copyWith(readMenuBrightnessVertical: value),
+      key: PrefKeys.readMenuBrightnessVertical,
+      save: () =>
+          _settings.setBoolPref(PrefKeys.readMenuBrightnessVertical, value),
+    );
   }
 
   /// 阅读菜单亮度竖条位置
   Future<void> setReadMenuBrightnessPos(String value) async {
-    if (state.readMenuBrightnessPos == value) return;
-    state = state.copyWith(readMenuBrightnessPos: value);
-    _sync();
-    await _settings.setStringPref(PrefKeys.readMenuBrightnessPos, value);
+    if (_loaded && state.readMenuBrightnessPos == value) return;
+    return _update(
+      state.copyWith(readMenuBrightnessPos: value),
+      key: PrefKeys.readMenuBrightnessPos,
+      save: () =>
+          _settings.setStringPref(PrefKeys.readMenuBrightnessPos, value),
+    );
   }
 
   /// 主题引擎 paletteStyle
   Future<void> setThemeStyle(String value) async {
-    if (state.themeStyle == value) return;
-    state = state.copyWith(themeStyle: value);
-    _sync();
-    await _settings.setStringPref(PrefKeys.themeStyle, value);
+    if (_loaded && state.themeStyle == value) return;
+    return _update(
+      state.copyWith(themeStyle: value),
+      key: PrefKeys.themeStyle,
+      save: () => _settings.setStringPref(PrefKeys.themeStyle, value),
+    );
   }
 
   /// 主题引擎对比度
   Future<void> setThemeContrastLevel(String value) async {
-    if (state.themeContrastLevel == value) return;
-    state = state.copyWith(themeContrastLevel: value);
-    _sync();
-    await _settings.setStringPref(PrefKeys.themeContrastLevel, value);
+    if (_loaded && state.themeContrastLevel == value) return;
+    return _update(
+      state.copyWith(themeContrastLevel: value),
+      key: PrefKeys.themeContrastLevel,
+      save: () => _settings.setStringPref(PrefKeys.themeContrastLevel, value),
+    );
   }
 
   /// AMOLED 纯黑
   Future<void> setThemeAmoled(bool value) async {
-    if (state.themeAmoled == value) return;
-    state = state.copyWith(themeAmoled: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.themeAmoled, value);
+    if (_loaded && state.themeAmoled == value) return;
+    return _update(
+      state.copyWith(themeAmoled: value),
+      key: PrefKeys.themeAmoled,
+      save: () => _settings.setBoolPref(PrefKeys.themeAmoled, value),
+    );
   }
 
   /// 大屏侧栏展开态
   Future<void> setRailExtended(bool value) async {
-    if (state.railExtended == value) return;
-    state = state.copyWith(railExtended: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.railExtended, value);
+    if (_loaded && state.railExtended == value) return;
+    return _update(
+      state.copyWith(railExtended: value),
+      key: PrefKeys.railExtended,
+      save: () => _settings.setBoolPref(PrefKeys.railExtended, value),
+    );
   }
 
   /// 设置行分隔线开关
   Future<void> setEnableItemDivider(bool value) async {
-    if (state.enableItemDivider == value) return;
-    state = state.copyWith(enableItemDivider: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.enableItemDivider, value);
+    if (_loaded && state.enableItemDivider == value) return;
+    return _update(
+      state.copyWith(enableItemDivider: value),
+      key: PrefKeys.enableItemDivider,
+      save: () => _settings.setBoolPref(PrefKeys.enableItemDivider, value),
+    );
   }
 
   /// 跟随壁纸取色
   Future<void> setWallpaperColorFollow(bool value) async {
-    if (state.wallpaperColorFollow == value) return;
-    state = state.copyWith(wallpaperColorFollow: value);
-    _sync();
-    await _settings.setBoolPref(PrefKeys.wallpaperColorFollow, value);
+    if (_loaded && state.wallpaperColorFollow == value) return;
+    return _update(
+      state.copyWith(wallpaperColorFollow: value),
+      key: PrefKeys.wallpaperColorFollow,
+      save: () => _settings.setBoolPref(PrefKeys.wallpaperColorFollow, value),
+    );
   }
 }
 
@@ -629,6 +800,7 @@ class UiSettingsNotifier extends Notifier<UiSettingsState> {
 /// final ui = ref.watch(uiSettingsProvider);
 /// ref.read(uiSettingsProvider.notifier).setTopBarButtonStyle(...);
 /// ```
-final uiSettingsProvider = NotifierProvider<UiSettingsNotifier, UiSettingsState>(
-  UiSettingsNotifier.new,
-);
+final uiSettingsProvider =
+    NotifierProvider<UiSettingsNotifier, UiSettingsState>(
+      UiSettingsNotifier.new,
+    );

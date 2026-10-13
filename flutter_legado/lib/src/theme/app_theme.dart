@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
-import '../providers/ui_settings/ui_settings_notifier.dart';
 import 'app_typography.dart';
 import 'md3_colors.dart';
 
@@ -21,16 +20,8 @@ import 'md3_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Expressive 圆角：卡片 / 分组
-  /// [UI_SYNC_REFACTOR B6] 圆角覆写生效链（overrideBaseCardCornerRadius
-  /// 开启时取 baseCardCornerRadius；控件/弹窗档维持默认，随主题重建生效）
-  static double get _cardRadius {
-    final ui = uiSettingsListenable.value;
-    if (ui.overrideBaseCardCornerRadius) {
-      return ui.baseCardCornerRadius.toDouble();
-    }
-    return 20.0;
-  }
+  /// 未覆写时的卡片 / 分组圆角；用户设置由调用方显式传入。
+  static const double defaultCardRadius = 20.0;
 
   /// 圆角：输入框 / 菜单 / 小控件
   static const double _controlRadius = 12.0;
@@ -59,6 +50,7 @@ class AppTheme {
     Color? accent,
     Color? background,
     Color? bottomBackground,
+    double cardRadius = defaultCardRadius,
   }) {
     return palette(
       brightness: Brightness.light,
@@ -67,6 +59,7 @@ class AppTheme {
       accent: accent,
       background: background,
       bottomBackground: bottomBackground,
+      cardRadius: cardRadius,
     );
   }
 
@@ -76,6 +69,7 @@ class AppTheme {
     Color? accent,
     Color? background,
     Color? bottomBackground,
+    double cardRadius = defaultCardRadius,
   }) {
     return palette(
       brightness: Brightness.dark,
@@ -84,6 +78,7 @@ class AppTheme {
       accent: accent,
       background: background,
       bottomBackground: bottomBackground,
+      cardRadius: cardRadius,
     );
   }
 
@@ -107,6 +102,7 @@ class AppTheme {
     Color? accent,
     Color? background,
     Color? bottomBackground,
+    double cardRadius = defaultCardRadius,
   }) {
     var scheme = brightness == Brightness.light
         ? md3LightScheme(palette)
@@ -140,6 +136,7 @@ class AppTheme {
         bottomBackground == null) {
       return _buildTheme(
         brightness: brightness,
+        cardRadius: cardRadius,
         colorScheme: scheme,
         scaffoldBackground: scheme.surface,
         appBarBackground: scheme.surface,
@@ -169,6 +166,7 @@ class AppTheme {
     final appBarBg = primary ?? background ?? scheme.surface;
     return _buildTheme(
       brightness: brightness,
+      cardRadius: cardRadius,
       colorScheme: scheme,
       scaffoldBackground: background ?? scheme.surface,
       appBarBackground: appBarBg,
@@ -187,6 +185,7 @@ class AppTheme {
   static ThemeData withColorScheme(ThemeData base, ColorScheme scheme) {
     final themed = _buildTheme(
       brightness: scheme.brightness,
+      cardRadius: defaultCardRadius,
       colorScheme: scheme,
       scaffoldBackground: scheme.surface,
       appBarBackground: scheme.surfaceContainerHigh,
@@ -196,9 +195,20 @@ class AppTheme {
       tabBarBg: scheme.surfaceContainer,
     );
     return themed.copyWith(
+      platform: base.platform,
+      pageTransitionsTheme: base.pageTransitionsTheme,
+      typography: base.typography,
+      splashFactory: base.splashFactory,
+      cupertinoOverrideTheme: base.cupertinoOverrideTheme,
+      // 局部换色继承应用已解析的卡片形状，不再读取全局设置。
+      cardTheme: themed.cardTheme.copyWith(shape: base.cardTheme.shape),
       textTheme: base.textTheme.apply(
         bodyColor: scheme.onSurface,
         displayColor: scheme.onSurface,
+      ),
+      primaryTextTheme: base.primaryTextTheme.apply(
+        bodyColor: scheme.onPrimary,
+        displayColor: scheme.onPrimary,
       ),
       visualDensity: base.visualDensity,
       materialTapTargetSize: base.materialTapTargetSize,
@@ -215,6 +225,7 @@ class AppTheme {
   /// 构建 ThemeData 通用方法（MD3 Expressive 视觉层）
   static ThemeData _buildTheme({
     required Brightness brightness,
+    required double cardRadius,
     required ColorScheme colorScheme,
     required Color scaffoldBackground,
     required Color appBarBackground,
@@ -301,7 +312,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_cardRadius),
+          borderRadius: BorderRadius.circular(cardRadius),
         ),
         clipBehavior: Clip.antiAlias,
       ),

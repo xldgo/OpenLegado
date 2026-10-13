@@ -72,7 +72,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final coverUrl = book.customCoverUrl ?? book.coverUrl;
     final hasCover = coverUrl != null && coverUrl.isNotEmpty;
     final isDefaultCover = !hasCover;
-    final ui = uiSettingsListenable.value;
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.details);
     final mode = isDefaultCover
         ? ui.bookInfoDefaultCoverBackground
         : ui.bookInfoNetworkCoverBackground;
@@ -402,7 +402,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // OverlayEntry Duplicate GlobalKey 红屏；现 controller 生命周期
     // 绑定对话框子树，确定按钮先取值再 pop 回传 — Qoder
     final input = await showDialog<String>(
-      context: context,
+      context: _pageContext,
       builder: (ctx) => _VariableDialog(
         title: '设置源变量',
         comment: comment,
@@ -460,7 +460,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // 已有远程地址 → 确认是否覆盖（对齐原版 sure_upload 对话框）
     if (book.origin.startsWith(BookType.webDavTag)) {
       final confirmed = await showDialog<bool>(
-        context: context,
+        context: _pageContext,
         builder: (ctx) => AlertDialog(
           title: const Text('提示'),
           content: const Text('已存在远程 webDav 地址，继续上传？'),
@@ -524,7 +524,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// WebDAV 未配置引导对话框（确认后跳转 WebDAV 设置页）
   Future<void> _showWebDavNotConfiguredDialog() async {
     final goSettings = await showDialog<bool>(
-      context: context,
+      context: _pageContext,
       builder: (ctx) => AlertDialog(
         title: const Text('未配置 WebDAV'),
         content: const Text('上传至远程需要先配置 WebDAV 服务器信息'),
@@ -584,7 +584,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // [Task #70 D1 修复 | 2026-08-10] 同 _setSourceVariable：重构为自持
     // StatefulWidget 对话框，消除外部 controller 提前 dispose 隐患 — Qoder
     final input = await showDialog<String>(
-      context: context,
+      context: _pageContext,
       builder: (ctx) => _VariableDialog(
         title: '设置书籍变量',
         comment: comment,
@@ -707,10 +707,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         ValueListenableBuilder<double>(
           valueListenable: _topCollapse,
           builder: (context, t, _) {
-            final topStyle =
-                uiSettingsListenable.value.topBarButtonStyle;
-            final topMerge =
-                uiSettingsListenable.value.mergeTopBarActions;
+            final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
+            final topStyle = ui.topBarButtonStyle;
+            final topMerge = ui.mergeTopBarActions;
             final barColor = Color.lerp(
               Colors.transparent,
               cs.surfaceContainer,
@@ -763,7 +762,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
               // 用户设置（与书架页 plain 机制一致）
               actions: TopBarActionStyler.styleActions(
                 context,
-                _buildTopBarActions(),
+                _buildTopBarActions(context),
                 style: TopBarButtonStyle.plain,
                 merge: topMerge,
               ),
@@ -879,12 +878,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                       // 对齐原版 ivCover 点击换封面 / 长按预览大图 — Cursor UI
                       onTap: () => _openChangeCover(book),
                       onLongPress: () => _previewCover(book),
-                      // [LAYOUT_PLAN P4] 外层 Hero 接管过渡，flightShuttle 走全局
-                      // coverFlightShuttleBuilder（内层 heroTag 置空防嵌套），
-                      // tag 统一 book-cover:
-                      child: Hero(
+                      // 共用封面飞行与状态保留，内层不再设置 heroTag。
+                      child: BookCoverHero(
                         tag: 'book-cover:${book.bookUrl}',
-                        flightShuttleBuilder: coverFlightShuttleBuilder,
                         child: BookCover(
                           coverUrl: book.customCoverUrl ?? book.coverUrl,
                           // [U2 | 台账 0917] 110×160dp 圆角 3（原版
@@ -1531,7 +1527,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (url == null || url.isEmpty) return;
     if (!mounted) return;
     await showDialog<void>(
-      context: context,
+      context: _pageContext,
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.all(16),
         child: InteractiveViewer(
@@ -1603,7 +1599,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       } catch (_) {}
       if (!mounted) return;
       if (isSourceLoginRequiredError(e)) {
-        await promptSourceLoginIfNeeded(context, error: e, source: source);
+        await promptSourceLoginIfNeeded(_pageContext, error: e, source: source);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('更新失败: $e')),
@@ -1653,7 +1649,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       // （对齐原版 deleteBook + LocalConfig.deleteBookAlert） — Qoder
       if (_deleteBookAlert) {
         final confirmed = await showDialog<bool>(
-          context: context,
+          context: _pageContext,
           builder: (ctx) => AlertDialog(
             title: const Text('移出书架'),
             content: Text('确定将《${book.name}》移出书架吗？'),
@@ -1716,7 +1712,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         .toList();
     if (!mounted) return;
     final selected = await showDialog<int>(
-      context: context,
+      context: _pageContext,
       builder: (ctx) => SimpleDialog(
         title: const Text('选择分组'),
         children: [
@@ -1791,7 +1787,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       );
       return;
     }
-    final ok = await showSourceLogin(context, ref, source);
+    final ok = await showSourceLogin(_pageContext, ref, source);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('登录成功')),
