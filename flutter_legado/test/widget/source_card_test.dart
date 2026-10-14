@@ -30,10 +30,9 @@ void main() {
   }
 
   testWidgets('SourceCard renders name and url', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      name: '起点中文网',
-      url: 'https://www.qidian.com',
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(name: '起点中文网', url: 'https://www.qidian.com'),
+    );
 
     expect(find.text('起点中文网'), findsOneWidget);
     expect(find.text('https://www.qidian.com'), findsOneWidget);

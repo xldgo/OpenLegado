@@ -95,10 +95,7 @@ Future<void> showMangaPageActionsSheet(
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (context) => MangaPageActionsSheet(
-      onSave: onSave,
-      onShare: onShare,
-      onCopy: onCopy,
-    ),
+    builder: (context) =>
+        MangaPageActionsSheet(onSave: onSave, onShare: onShare, onCopy: onCopy),
   );
 }

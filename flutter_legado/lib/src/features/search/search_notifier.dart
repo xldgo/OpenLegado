@@ -1,11 +1,11 @@
 import '../../domain/services/search_result_aggregator.dart';
 import '../../domain/services/search_session.dart';
 import 'search_access_providers.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../providers/providers.dart';
@@ -89,7 +89,9 @@ class SearchNotifier extends Notifier<SearchState> {
     final lifecycle = _lifecycleGeneration;
     if (!_ownsLifecycle(lifecycle)) return;
     try {
-      final keywords = await ref.read(searchHistoryRepositoryProvider).getSearchHistory();
+      final keywords = await ref
+          .read(searchHistoryRepositoryProvider)
+          .getSearchHistory();
       if (!_ownsLifecycle(lifecycle)) return;
       state = state.copyWith(
         searchHistory: keywords.map((k) => k.word).toList(),
@@ -109,11 +111,14 @@ class SearchNotifier extends Notifier<SearchState> {
     final history = [...state.searchHistory];
     history.remove(keyword);
     history.insert(0, keyword);
-    final trimmed =
-        history.length > _maxHistory ? history.sublist(0, _maxHistory) : history;
+    final trimmed = history.length > _maxHistory
+        ? history.sublist(0, _maxHistory)
+        : history;
     state = state.copyWith(searchHistory: trimmed);
     try {
-      await ref.read(searchHistoryRepositoryProvider).addSearchKeyword(keyword, '');
+      await ref
+          .read(searchHistoryRepositoryProvider)
+          .addSearchKeyword(keyword, '');
     } catch (e) {
       // 持久化失败不阻断 UI 历史展示
       // [审计修复 §4.1] debugPrint 留痕 — Qoder
@@ -138,7 +143,9 @@ class SearchNotifier extends Notifier<SearchState> {
     final history = [...state.searchHistory]..remove(keyword);
     state = state.copyWith(searchHistory: history);
     try {
-      await ref.read(searchHistoryRepositoryProvider).deleteSearchKeyword(keyword);
+      await ref
+          .read(searchHistoryRepositoryProvider)
+          .deleteSearchKeyword(keyword);
     } catch (e) {
       debugPrint('删除搜索历史项失败: $e');
     }
@@ -206,10 +213,7 @@ class SearchNotifier extends Notifier<SearchState> {
       if (!_ownsSession(session, seq)) return;
       // 有筛选条件但解析结果为空，说明所选分组/书源无有效书源
       if (sourceUrls != null && sourceUrls.isEmpty) {
-        state = state.copyWith(
-          error: '所选筛选范围内无有效书源，请调整筛选条件',
-          isLoading: false,
-        );
+        state = state.copyWith(error: '所选筛选范围内无有效书源，请调整筛选条件', isLoading: false);
         return;
       }
       // 原生搜索读取 config 表，先完成当前根的配置同步与已提交写入。
@@ -248,11 +252,7 @@ class SearchNotifier extends Notifier<SearchState> {
     _resultsFlushTimer?.cancel();
     _resultsFlushTimer = null;
     _pendingHasMore = null;
-    state = state.copyWith(
-      searchPage: nextPage,
-      isLoading: true,
-      error: null,
-    );
+    state = state.copyWith(searchPage: nextPage, isLoading: true, error: null);
 
     try {
       final stopping = _stopping;
@@ -262,10 +262,7 @@ class SearchNotifier extends Notifier<SearchState> {
       final sourceUrls = await _resolveSearchSources();
       if (!_ownsSession(session, seq)) return;
       if (sourceUrls != null && sourceUrls.isEmpty) {
-        state = state.copyWith(
-          error: '所选筛选范围内无有效书源，请调整筛选条件',
-          isLoading: false,
-        );
+        state = state.copyWith(error: '所选筛选范围内无有效书源，请调整筛选条件', isLoading: false);
         return;
       }
       await settings.reloadRuntime();
@@ -293,53 +290,62 @@ class SearchNotifier extends Notifier<SearchState> {
       page: page,
       sourceUrls: sourceUrls,
       onBatch: (batch) {
-          if (!_ownsSession(session, seq)) return;
-          // [UI-fix v2.0.11 | 2026-08-10] 消费批次 error（对齐原版 SearchModel：
-          // 单源失败静默不弹 UI、仅 AppLog.put 留痕，失败源不阻断整体搜索，
-          // 不再产生任何「异常书源」弹窗提示路径）— Reasonix
-          final batchError = batch.error;
-          if (batchError != null && batchError.isNotEmpty) {
-            final srcName = batch.sourceName;
-            // 日志写入失败不阻断搜索主流程（对齐原版 AppLog.put 尽力而为语义）
-            unawaited(ref
+        if (!_ownsSession(session, seq)) return;
+        // [UI-fix v2.0.11 | 2026-08-10] 消费批次 error（对齐原版 SearchModel：
+        // 单源失败静默不弹 UI、仅 AppLog.put 留痕，失败源不阻断整体搜索，
+        // 不再产生任何「异常书源」弹窗提示路径）— Reasonix
+        final batchError = batch.error;
+        if (batchError != null && batchError.isNotEmpty) {
+          final srcName = batch.sourceName;
+          // 日志写入失败不阻断搜索主流程（对齐原版 AppLog.put 尽力而为语义）
+          unawaited(
+            ref
                 .read(bookApiProvider)
                 // Rust AppLog 三级（message/crash/http），'error' 非法会被 FFI 丢弃 — Qoder
-                .appLogPush(level: 'message', message: '书源搜索出错\n$srcName: $batchError')
-                .catchError((_) {}));
-            // [队列④ P1-B] 单源失败不再完全不可见：累积进 failedSources，
-            // 由搜索结果页顶部非阻断横幅呈现（文案=批次 error，展开可见
-            // 涉及源名）；不改整体搜索交互（失败源不阻断搜索，静默语义保留）
-            _recordSourceFailure(srcName, batchError);
-          }
-          _aggregator.addAll(batch.books);
-          // [2026-08-24] 节流重建：批次仅入桶 + 记录待写进度字段，
-          // results 列表至多每 150ms 物化一次（排序 O(k log k)，无全量
-          // 重聚合），流结束做最终物化 — Qoder UI
-          _pendingSearchedCount = batch.finishedCount;
-          _pendingTotalCount = batch.totalCount;
-          final hasMoreField = batch.hasMore;
-          if (hasMoreField != null) _pendingHasMore = hasMoreField;
-          _scheduleResultsFlush(seq);
-        },
-        onError: (Object e) {
-          if (!_ownsSession(session, seq)) return;
-          _resultsFlushTimer?.cancel();
-          _resultsFlushTimer = null;
-          _flushResults();
-          state = state.copyWith(error: _mapError(e), isLoading: false, isPaused: false);
-          unawaited(_invalidateSession());
-        },
-        onDone: () {
-          if (!_ownsSession(session, seq)) return;
-          // [2026-08-24] 流结束：取消挂起的节流定时器并做最终全量聚合
-          // （保证最后一批结果不丢失于节流窗口）— Qoder UI
-          _resultsFlushTimer?.cancel();
-          _resultsFlushTimer = null;
-          _flushResults();
-          // 流结束（含挂起期间已派发任务全部完成）→ 清软挂起态
-          state = state.copyWith(isLoading: false, isPaused: false);
-        },
-      );
+                .appLogPush(
+                  level: 'message',
+                  message: '书源搜索出错\n$srcName: $batchError',
+                )
+                .catchError((_) {}),
+          );
+          // [队列④ P1-B] 单源失败不再完全不可见：累积进 failedSources，
+          // 由搜索结果页顶部非阻断横幅呈现（文案=批次 error，展开可见
+          // 涉及源名）；不改整体搜索交互（失败源不阻断搜索，静默语义保留）
+          _recordSourceFailure(srcName, batchError);
+        }
+        _aggregator.addAll(batch.books);
+        // [2026-08-24] 节流重建：批次仅入桶 + 记录待写进度字段，
+        // results 列表至多每 150ms 物化一次（排序 O(k log k)，无全量
+        // 重聚合），流结束做最终物化 — Qoder UI
+        _pendingSearchedCount = batch.finishedCount;
+        _pendingTotalCount = batch.totalCount;
+        final hasMoreField = batch.hasMore;
+        if (hasMoreField != null) _pendingHasMore = hasMoreField;
+        _scheduleResultsFlush(seq);
+      },
+      onError: (Object e) {
+        if (!_ownsSession(session, seq)) return;
+        _resultsFlushTimer?.cancel();
+        _resultsFlushTimer = null;
+        _flushResults();
+        state = state.copyWith(
+          error: _mapError(e),
+          isLoading: false,
+          isPaused: false,
+        );
+        unawaited(_invalidateSession());
+      },
+      onDone: () {
+        if (!_ownsSession(session, seq)) return;
+        // [2026-08-24] 流结束：取消挂起的节流定时器并做最终全量聚合
+        // （保证最后一批结果不丢失于节流窗口）— Qoder UI
+        _resultsFlushTimer?.cancel();
+        _resultsFlushTimer = null;
+        _flushResults();
+        // 流结束（含挂起期间已派发任务全部完成）→ 清软挂起态
+        state = state.copyWith(isLoading: false, isPaused: false);
+      },
+    );
     if (_ownsSession(session, seq) && session.requestedPaused) {
       unawaited(pauseSearch());
     }
@@ -405,14 +411,13 @@ class SearchNotifier extends Notifier<SearchState> {
     final closing = session.close().catchError((Object error) {
       debugPrint('搜索会话清理失败: $error');
     });
-    final stopping = Future.wait<void>([
-      ?previous,
-      closing,
-    ]).then<void>((_) {});
+    final stopping = Future.wait<void>([?previous, closing]).then<void>((_) {});
     _stopping = stopping;
-    unawaited(stopping.then((_) {
-      if (identical(_stopping, stopping)) _stopping = null;
-    }));
+    unawaited(
+      stopping.then((_) {
+        if (identical(_stopping, stopping)) _stopping = null;
+      }),
+    );
     return stopping;
   }
 
@@ -423,7 +428,11 @@ class SearchNotifier extends Notifier<SearchState> {
     _resultsFlushTimer = null;
     _flushResults();
     final stopping = _invalidateSession();
-    state = state.copyWith(isLoading: false, isManualStop: true, isPaused: false);
+    state = state.copyWith(
+      isLoading: false,
+      isManualStop: true,
+      isPaused: false,
+    );
     await stopping;
   }
 
@@ -484,14 +493,17 @@ class SearchNotifier extends Notifier<SearchState> {
     // 将选中的分组解析为对应的书源 URL
     if (groups.isNotEmpty) {
       try {
-        final allSources =
-            await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
+        final allSources = await ref
+            .read(bookApiProvider)
+            .bookSourceRepository
+            .getEnabledBookSources();
         for (final source in allSources) {
           final group = source.bookSourceGroup;
           if (group != null && group.isNotEmpty) {
             // 书源分组可能包含多个组名（对标原版 AppPattern.splitGroupRegex）
-            final sourceGroups =
-                group.split(_splitGroupRegex).map((g) => g.trim());
+            final sourceGroups = group
+                .split(_splitGroupRegex)
+                .map((g) => g.trim());
             if (sourceGroups.any(groups.contains)) {
               urls.add(source.bookSourceUrl);
             }
@@ -669,10 +681,7 @@ class SearchNotifier extends Notifier<SearchState> {
   /// 原子写入 selectedGroups={group} 并清空书源多选，避免 clear+toggle 两步
   /// 中间态被并发 search 读到空分组而回退全量源（分组粘性根因之一）。
   void selectGroupExclusive(String group) {
-    state = state.copyWith(
-      selectedGroups: {group},
-      selectedSourceUrls: {},
-    );
+    state = state.copyWith(selectedGroups: {group}, selectedSourceUrls: {});
     unawaited(_persistSearchScope());
   }
 
@@ -681,10 +690,7 @@ class SearchNotifier extends Notifier<SearchState> {
   /// 原子写入 selectedGroups 并清空书源筛选，避免多次 toggleGroup
   /// 的中间态被并发 search 读到（与 [selectGroupExclusive] 同根因防护）。
   void setGroups(List<String> groups) {
-    state = state.copyWith(
-      selectedGroups: {...groups},
-      selectedSourceUrls: {},
-    );
+    state = state.copyWith(selectedGroups: {...groups}, selectedSourceUrls: {});
     unawaited(_persistSearchScope());
   }
 

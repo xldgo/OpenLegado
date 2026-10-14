@@ -39,7 +39,9 @@ extension _BookInfoLoad on _BookInfoScreenState {
     final url = widget.effectiveBookUrl;
     try {
       // 优先从数据库取最新记录（换源/刷新后元数据才会更新），传入对象仅兜底
-      final dbBook = url.isEmpty ? null : await api.bookshelfRepository.getBook(url);
+      final dbBook = url.isEmpty
+          ? null
+          : await api.bookshelfRepository.getBook(url);
       // DB 有记录且未打 notShelf 位才视为已入书架（对标原版 inBookshelf；
       // 搜索/发现打开的在线书会以 notShelf 临时落库，不算在书架内）
       final inShelf = BookOpenUtils.resolveInBookshelf(dbBook, widget.book);
@@ -54,8 +56,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
       if (!inShelf && book != null && dbBook != null) {
         book = BookOpenUtils.mergeDbBook(book, dbBook);
       }
-      var chapters =
-          url.isEmpty ? <BookChapter>[] : await api.getChapters(url);
+      var chapters = url.isEmpty ? <BookChapter>[] : await api.getChapters(url);
       // 书源查询一次即复用：既供菜单条件项判定，也供下方联网补全传参
       BookSource? source;
       if (book != null && _isOnlineBook(book)) {
@@ -71,8 +72,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           _pageLoading = book == null;
           _loadError = null;
           // 在线书无本地目录：先上屏信息，再后台补全（对齐原版章节 LiveData 后至）
-          _tocLoading =
-              book != null && chapters.isEmpty && _isOnlineBook(book);
+          _tocLoading = book != null && chapters.isEmpty && _isOnlineBook(book);
         });
       }
       // [UI_SYNC_REFACTOR B4] 封面取色（跟随封面换肤）
@@ -116,8 +116,10 @@ extension _BookInfoLoad on _BookInfoScreenState {
               final tParallel = Stopwatch()..start();
               // [P2-8] 取址：当前书源详情页地址（originBookUrl 优先、空回退
               // bookUrl），避免换源后「旧源地址 + 当前书源规则」错页解析
-              final infoFuture =
-                  api.webbookInfo(sourceJson, BookOpenUtils.bookFetchUrl(b));
+              final infoFuture = api.webbookInfo(
+                sourceJson,
+                BookOpenUtils.bookFetchUrl(b),
+              );
               final tocFuture = api.webbookChapters(
                 sourceJson,
                 BookOpenUtils.bookFetchUrl(b),
@@ -125,16 +127,15 @@ extension _BookInfoLoad on _BookInfoScreenState {
                 bookName: b.name,
               );
               final results = await Future.wait([infoFuture, tocFuture]);
-              debugPrint('[BookInfo] 并行 info+toc ${tParallel.elapsedMilliseconds}ms');
+              debugPrint(
+                '[BookInfo] 并行 info+toc ${tParallel.elapsedMilliseconds}ms',
+              );
               try {
                 b = BookOpenUtils.mergeWebInfo(b, results[0]);
               } catch (e) {
                 debugPrint('webbookInfo 补全失败: ${_errMsg(e)}');
               }
-              chapters = BookOpenUtils.parseWebChapters(
-                results[1],
-                b.bookUrl,
-              );
+              chapters = BookOpenUtils.parseWebChapters(results[1], b.bookUrl);
             } else {
               // tocUrl 缺失：先 info 补 tocUrl，再拉目录
               if (needInfo) {
@@ -151,9 +152,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
                   if (mounted) setState(() => _loadedBook = b);
                   unawaited(_extractCoverSeed(b));
                 } catch (e) {
-                  debugPrint(
-                    'webbookInfo 补全失败，降级用原书籍继续: ${_errMsg(e)}',
-                  );
+                  debugPrint('webbookInfo 补全失败，降级用原书籍继续: ${_errMsg(e)}');
                 }
               }
               final tToc = Stopwatch()..start();
@@ -220,9 +219,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
             sourceJson,
             BookOpenUtils.bookFetchUrl(b),
           );
-          debugPrint(
-            '[BookInfo] U7 后台 info 刷新 ${tInfo.elapsedMilliseconds}ms',
-          );
+          debugPrint('[BookInfo] U7 后台 info 刷新 ${tInfo.elapsedMilliseconds}ms');
           b = BookOpenUtils.mergeWebInfo(b, infoJson, refresh: true);
           // 已入库书：刷新字段回写 DB（对标原版 bookDao.replace / inBookshelf
           // update）；未入库仅展示不落库（对齐原版 loadChapter !inBookshelf）
@@ -260,8 +257,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
       // 此后 _reload / 桥接刷新 / 菜单刷新拿到目录，不再把用户拽进阅读器
       //（旧实现在「首个目录非空的加载」触发——手点刷新补齐目录即被拽入，
       // 与注释宣称的「仅首入触发」不符）。
-      final autoStartNow =
-          widget.openReaderImmediately && !_autoStartScheduled;
+      final autoStartNow = widget.openReaderImmediately && !_autoStartScheduled;
       _autoStartScheduled = true;
       if (autoStartNow && _chapters.isNotEmpty && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -352,7 +348,8 @@ extension _BookInfoLoad on _BookInfoScreenState {
     Book book, {
     String? sourceJson,
   }) async {
-    final encoded = sourceJson ??
+    final encoded =
+        sourceJson ??
         jsonEncode((await _findSourceByOrigin(api, book.origin))?.toJson());
     if (encoded.isEmpty || encoded == 'null') return const [];
     // [P2-8] 取址同 webbookInfo：当前书源详情页（originBookUrl 优先）；

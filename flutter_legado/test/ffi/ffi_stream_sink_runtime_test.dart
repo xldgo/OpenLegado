@@ -98,7 +98,7 @@ void main() {
   // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
   // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
   if (!Platform.isWindows) {
-        test("跳过 FFI 运行时流测试：需要 Windows DLL 产物（仅本机验证）", () {});
+    test("跳过 FFI 运行时流测试：需要 Windows DLL 产物（仅本机验证）", () {});
     return;
   }
 
@@ -126,10 +126,12 @@ void main() {
 
     test('sourceCheckStream：订阅→进度事件→正常结束', () async {
       // 不存在的 URL 以 None 占位并推送失败进度（无网络依赖，确定性）
-      final r = await _collect(bridge.sourceCheckStream(
-        sourceUrlsJson: jsonEncode(['test://stream-check-nonexistent']),
-        configJson: '',
-      ));
+      final r = await _collect(
+        bridge.sourceCheckStream(
+          sourceUrlsJson: jsonEncode(['test://stream-check-nonexistent']),
+          configJson: '',
+        ),
+      );
       expect(r.error, isNull, reason: '流不应产生 onError');
       expect(r.completed, isTrue, reason: '流应自然结束');
       expect(r.events, hasLength(1));
@@ -141,8 +143,9 @@ void main() {
     });
 
     test('sourceCheckCancel：取消路径（wire 调用+干净结束+新一轮重置）', () async {
-      final urls =
-          jsonEncode(List.generate(200, (i) => 'test://cancel-check-$i'));
+      final urls = jsonEncode(
+        List.generate(200, (i) => 'test://cancel-check-$i'),
+      );
       // 第一轮：订阅后立即取消。取消检查点位于源间（Rust 侧单测覆盖 break
       // 语义）；此处验证取消调用经真实 wire 成功返回且流生命周期不受破坏。
       final cancelled = await _collect(
@@ -165,10 +168,12 @@ void main() {
     });
 
     test('debugBookSourceStream：订阅→失败事件(state=-1)→正常结束', () async {
-      final r = await _collect(bridge.debugBookSourceStream(
-        sourceUrl: 'test://stream-debug-nonexistent',
-        key: '搜索词',
-      ));
+      final r = await _collect(
+        bridge.debugBookSourceStream(
+          sourceUrl: 'test://stream-debug-nonexistent',
+          key: '搜索词',
+        ),
+      );
       expect(r.error, isNull);
       expect(r.completed, isTrue);
       expect(r.events, isNotEmpty);
@@ -266,11 +271,13 @@ void main() {
         ]),
       );
       expect(imported, greaterThanOrEqualTo(1));
-      final r = await _collect(bridge.searchMultiStream(
-        query: '测试关键词',
-        sourceUrlsJson: jsonEncode([fakeUrl]),
-        page: 1,
-      ));
+      final r = await _collect(
+        bridge.searchMultiStream(
+          query: '测试关键词',
+          sourceUrlsJson: jsonEncode([fakeUrl]),
+          page: 1,
+        ),
+      );
       expect(r.error, isNull);
       expect(r.completed, isTrue);
       expect(r.events, hasLength(1), reason: '单个书源应恰好回推一个批次');

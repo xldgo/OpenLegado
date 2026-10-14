@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,17 +43,20 @@ void main() {
       final size = w.style?.fontSize ?? def.style.fontSize ?? 14;
       final weight =
           w.style?.fontWeight ?? def.style.fontWeight ?? FontWeight.w400;
-      final large = size >= 18 ||
-          (size >= 14 && (weight == FontWeight.w700 ||
-              weight == FontWeight.w800 ||
-              weight == FontWeight.w900 ||
-              weight == FontWeight.bold));
+      final large =
+          size >= 18 ||
+          (size >= 14 &&
+              (weight == FontWeight.w700 ||
+                  weight == FontWeight.w800 ||
+                  weight == FontWeight.w900 ||
+                  weight == FontWeight.bold));
       final threshold = large ? 3.0 : 4.5;
       final r = ratio(fg, bg);
       if (r < threshold) {
         bad++;
         debugPrint(
-            'LOW-CONTRAST [$page] "$content" fg=$fg size=$size ratio=${r.toStringAsFixed(2)} < $threshold');
+          'LOW-CONTRAST [$page] "$content" fg=$fg size=$size ratio=${r.toStringAsFixed(2)} < $threshold',
+        );
       }
     }
     debugPrint('AUDIT-DONE [$page] texts=${found.evaluate().length} low=$bad');
@@ -64,10 +66,12 @@ void main() {
   testWidgets('订阅页有数据亮色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => const [
-          RssSource(sourceUrl: 'u1', sourceName: '测试源一'),
-          RssSource(sourceUrl: 'u2', sourceName: '测试源二', sourceGroup: '分组A'),
-        ]);
+    when(() => mockApi.getRssSources()).thenAnswer(
+      (_) async => const [
+        RssSource(sourceUrl: 'u1', sourceName: '测试源一'),
+        RssSource(sourceUrl: 'u2', sourceName: '测试源二', sourceGroup: '分组A'),
+      ],
+    );
     when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
@@ -83,19 +87,23 @@ void main() {
   testWidgets('发现页有数据亮色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const [
-          BookSource(
-              bookSourceUrl: 'u1',
-              bookSourceName: '书源一',
-              enabledExplore: true,
-              exploreUrl: 'https://a.test/x'),
-          BookSource(
-              bookSourceUrl: 'u2',
-              bookSourceName: '书源二',
-              bookSourceGroup: '分组A',
-              enabledExplore: true,
-              exploreUrl: 'https://b.test/y'),
-        ]);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+      (_) async => const [
+        BookSource(
+          bookSourceUrl: 'u1',
+          bookSourceName: '书源一',
+          enabledExplore: true,
+          exploreUrl: 'https://a.test/x',
+        ),
+        BookSource(
+          bookSourceUrl: 'u2',
+          bookSourceName: '书源二',
+          bookSourceGroup: '分组A',
+          enabledExplore: true,
+          exploreUrl: 'https://b.test/y',
+        ),
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -110,9 +118,9 @@ void main() {
   testWidgets('订阅页有数据暗色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => const [
-          RssSource(sourceUrl: 'u1', sourceName: '测试源一'),
-        ]);
+    when(() => mockApi.getRssSources()).thenAnswer(
+      (_) async => const [RssSource(sourceUrl: 'u1', sourceName: '测试源一')],
+    );
     when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
@@ -129,18 +137,20 @@ void main() {
   testWidgets('发现页有数据暗色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const [
-          BookSource(
-              bookSourceUrl: 'u1',
-              bookSourceName: '书源一',
-              enabledExplore: true,
-              exploreUrl: 'https://a.test/x'),
-        ]);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+      (_) async => const [
+        BookSource(
+          bookSourceUrl: 'u1',
+          bookSourceName: '书源一',
+          enabledExplore: true,
+          exploreUrl: 'https://a.test/x',
+        ),
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child:
-            MaterialApp(theme: AppTheme.dark, home: const ExploreScreen()),
+        child: MaterialApp(theme: AppTheme.dark, home: const ExploreScreen()),
       ),
     );
     await tester.pumpAndSettle();

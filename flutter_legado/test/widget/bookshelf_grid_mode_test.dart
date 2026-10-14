@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,12 +51,9 @@ void main() {
     await tester.pump();
 
     // 切到网格视图
-    container
-        .read(bookshelfNotifierProvider.notifier)
-        .toggleViewMode();
+    container.read(bookshelfNotifierProvider.notifier).toggleViewMode();
     await tester.pumpAndSettle();
-    expect(find.text('示例书籍 01'), findsOneWidget,
-        reason: '网格视图书名可见');
+    expect(find.text('示例书籍 01'), findsOneWidget, reason: '网格视图书名可见');
 
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();

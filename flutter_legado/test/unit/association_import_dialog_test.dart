@@ -9,25 +9,24 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeReadyNotifier extends AssociationNotifier {
   @override
   AssociationState build() => const AssociationState(
-        type: ImportType.bookSource,
-        items: [
-          AssociationItem(
-            raw: {'bookSourceName': '测试源A', 'bookSourceUrl': 'https://a'},
-            name: '测试源A',
-            status: ImportItemStatus.isNew,
-          ),
-          AssociationItem(
-            raw: {'bookSourceName': '测试源B', 'bookSourceUrl': 'https://b'},
-            name: '测试源B',
-            status: ImportItemStatus.exists,
-          ),
-        ],
-      );
+    type: ImportType.bookSource,
+    items: [
+      AssociationItem(
+        raw: {'bookSourceName': '测试源A', 'bookSourceUrl': 'https://a'},
+        name: '测试源A',
+        status: ImportItemStatus.isNew,
+      ),
+      AssociationItem(
+        raw: {'bookSourceName': '测试源B', 'bookSourceUrl': 'https://b'},
+        name: '测试源B',
+        status: ImportItemStatus.exists,
+      ),
+    ],
+  );
 }
 
 void main() {
-  testWidgets('关联导入对话框：就绪态弹出渲染（勾选/状态标签/底部操作区）',
-      (tester) async {
+  testWidgets('关联导入对话框：就绪态弹出渲染（勾选/状态标签/底部操作区）', (tester) async {
     // 视口缩到手机典型尺寸，验证 85% 屏高约束下的弹窗布局
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;

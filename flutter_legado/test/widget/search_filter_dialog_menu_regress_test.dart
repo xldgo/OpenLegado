@@ -15,8 +15,7 @@
 // 3. 随后打开 ⚙ 设置弹层无异常（tester.takeException() 为空），菜单项在位；
 // 4. 连续三轮「开过滤 → 取消 → 开 ⚙」不再触发红屏断言。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,11 +34,15 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.searchHistoryRepository.getSearchHistory(limit: any(named: 'limit')))
-        .thenAnswer((_) async => []);
+    when(
+      () => mockApi.searchHistoryRepository.getSearchHistory(
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer((_) async => []);
     when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.searchHistoryRepository.clearSearchHistory()).thenAnswer((_) async {});
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory())
+        .thenAnswer((_) async {});
     when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
     when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
@@ -65,8 +68,7 @@ void main() {
   Future<void> expectSettingsMenuOpen(WidgetTester tester) async {
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull,
-        reason: '打开 ⚙ 设置弹层不应抛框架断言（红屏）');
+    expect(tester.takeException(), isNull, reason: '打开 ⚙ 设置弹层不应抛框架断言（红屏）');
     expect(find.text('精准搜索'), findsOneWidget);
     expect(find.text('书源管理'), findsOneWidget);
     expect(find.text('日志'), findsOneWidget);
@@ -107,8 +109,7 @@ void main() {
       expect(find.text('搜索结果屏蔽词'), findsOneWidget);
     });
 
-    testWidgets('确定路径：填写屏蔽词 → 确定 → 持久化 + 菜单仍可开',
-        (tester) async {
+    testWidgets('确定路径：填写屏蔽词 → 确定 → 持久化 + 菜单仍可开', (tester) async {
       await tester.pumpWidget(wrap(const SearchScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -126,8 +127,7 @@ void main() {
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       expect(find.text('搜索结果屏蔽词'), findsNothing);
-      verify(() => mockApi.setConfig('searchResultFilter', '广告'))
-          .called(1);
+      verify(() => mockApi.setConfig('searchResultFilter', '广告')).called(1);
 
       // 按钮进入「已开启」态，且随后开 ⚙ 设置弹层仍无红屏
       expect(find.byTooltip('搜索结果过滤（已开启）'), findsOneWidget);
@@ -142,17 +142,26 @@ void main() {
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byTooltip('搜索结果过滤'));
         await tester.pumpAndSettle();
-        expect(find.text('搜索结果屏蔽词'), findsOneWidget,
-            reason: '第 ${i + 1} 轮过滤弹层应正常打开');
+        expect(
+          find.text('搜索结果屏蔽词'),
+          findsOneWidget,
+          reason: '第 ${i + 1} 轮过滤弹层应正常打开',
+        );
 
         await tester.tap(find.text('取消'));
         await tester.pumpAndSettle();
-        expect(find.text('搜索结果屏蔽词'), findsNothing,
-            reason: '第 ${i + 1} 轮取消后弹层应关闭');
+        expect(
+          find.text('搜索结果屏蔽词'),
+          findsNothing,
+          reason: '第 ${i + 1} 轮取消后弹层应关闭',
+        );
 
         await expectSettingsMenuOpen(tester);
-        expect(tester.takeException(), isNull,
-            reason: '第 ${i + 1} 轮 ⚙ 弹层不应触发红屏断言');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '第 ${i + 1} 轮 ⚙ 弹层不应触发红屏断言',
+        );
 
         // 关弹层（点按弹层外区域，对齐设备「点遮罩关闭」路径）
         await closeSettingsMenu(tester);

@@ -12,8 +12,9 @@ export 'auto_task_state.dart';
 ///
 /// 生产环境由 [bookApiProvider] 提供；对齐旧 AutoTaskProvider 命名参数 `rustApi`
 /// 的可空语义，测试可覆盖为 null 以验证 FFI 缺失分支（错误可见）。
-final autoTaskRustApiProvider =
-    Provider<BookApi?>((ref) => ref.read(bookApiProvider));
+final autoTaskRustApiProvider = Provider<BookApi?>(
+  (ref) => ref.read(bookApiProvider),
+);
 
 /// 定时任务 Riverpod Notifier
 ///
@@ -58,11 +59,7 @@ class AutoTaskNotifier extends Notifier<AutoTaskState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        tasks: [],
-        error: '加载任务失败: $e',
-        isLoading: false,
-      );
+      state = state.copyWith(tasks: [], error: '加载任务失败: $e', isLoading: false);
     }
   }
 
@@ -160,9 +157,7 @@ class AutoTaskNotifier extends Notifier<AutoTaskState> {
     }
     try {
       final task = state.tasks.firstWhere((t) => t.id == id);
-      await rustApi.autoTaskUpdateRule(
-        ruleJson: jsonEncode(task.toJson()),
-      );
+      await rustApi.autoTaskUpdateRule(ruleJson: jsonEncode(task.toJson()));
       await loadTasks(silent: true);
     } catch (e) {
       state = state.copyWith(tasks: previous, error: '更新任务失败: $e');
@@ -355,10 +350,7 @@ class AutoTaskNotifier extends Notifier<AutoTaskState> {
   /// 解析 cron 表达式计算下次执行时间（FFI，Unix 毫秒）
   ///
   /// 无法解析时返回 -1。
-  Future<int?> nextDueAt({
-    required String cron,
-    int? fromMs,
-  }) async {
+  Future<int?> nextDueAt({required String cron, int? fromMs}) async {
     final rustApi = _rustApi;
     if (rustApi == null) return null;
     try {
@@ -380,6 +372,4 @@ class AutoTaskNotifier extends Notifier<AutoTaskState> {
 /// ref.read(autoTaskNotifierProvider.notifier).loadTasks();
 /// ```
 final autoTaskNotifierProvider =
-    NotifierProvider<AutoTaskNotifier, AutoTaskState>(
-  AutoTaskNotifier.new,
-);
+    NotifierProvider<AutoTaskNotifier, AutoTaskState>(AutoTaskNotifier.new);

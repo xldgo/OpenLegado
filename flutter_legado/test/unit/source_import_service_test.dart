@@ -24,8 +24,7 @@ void main() {
     repository = _RepositoryMock();
     service = SourceImportService(
       repository: repository,
-      fetchText: (_, {required timeout}) async =>
-          throw StateError('本组测试不请求网络'),
+      fetchText: (_, {required timeout}) async => throw StateError('本组测试不请求网络'),
       readFile: readSourceImportFile,
       applyReplaceRules: (json, _, _) async => json,
     );
@@ -34,7 +33,10 @@ void main() {
   group('ImportResult 模型', () {
     test('hasErrors 有错误时返回 true', () {
       const result = ImportResult(
-        total: 1, success: 0, failed: 1, skipped: 0,
+        total: 1,
+        success: 0,
+        failed: 1,
+        skipped: 0,
         errors: ['失败'],
       );
       expect(result.hasErrors, isTrue);
@@ -42,7 +44,10 @@ void main() {
 
     test('hasErrors 无错误时返回 false', () {
       const result = ImportResult(
-        total: 2, success: 2, failed: 0, skipped: 0,
+        total: 2,
+        success: 2,
+        failed: 0,
+        skipped: 0,
         errors: [],
       );
       expect(result.hasErrors, isFalse);
@@ -50,7 +55,10 @@ void main() {
 
     test('summary 包含成功数', () {
       const result = ImportResult(
-        total: 5, success: 3, failed: 1, skipped: 1,
+        total: 5,
+        success: 3,
+        failed: 1,
+        skipped: 1,
         errors: ['err'],
       );
       final summary = result.summary;
@@ -62,7 +70,10 @@ void main() {
 
     test('summary 只有成功时不显示失败和跳过', () {
       const result = ImportResult(
-        total: 2, success: 2, failed: 0, skipped: 0,
+        total: 2,
+        success: 2,
+        failed: 0,
+        skipped: 0,
         errors: [],
       );
       final summary = result.summary;
@@ -82,9 +93,7 @@ void main() {
     });
 
     test('缺少 bookSourceUrl 报错', () {
-      final errors = parser.validateSource({
-        'bookSourceName': '测试源',
-      });
+      final errors = parser.validateSource({'bookSourceName': '测试源'});
       expect(errors, contains('缺少 bookSourceUrl'));
     });
 
@@ -119,7 +128,8 @@ void main() {
 
   group('SourceImportService importFromJson', () {
     test('导入有效书源数组成功', () async {
-      when(() => repository.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
       final jsonStr = '''
       [
@@ -137,9 +147,11 @@ void main() {
     });
 
     test('导入单个书源对象成功', () async {
-      when(() => repository.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
-      final jsonStr = '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
+      final jsonStr =
+          '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(1));
@@ -162,9 +174,11 @@ void main() {
     });
 
     test('数组中含非对象项标记为失败', () async {
-      when(() => repository.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
-      final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}, "invalid"]';
+      final jsonStr =
+          '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}, "invalid"]';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(2));
@@ -182,9 +196,11 @@ void main() {
     });
 
     test('API 调用失败标记为失败', () async {
-      when(() => repository.importBookSources(any())).thenThrow(Exception('API错误'));
+      when(() => repository.importBookSources(any()))
+          .thenThrow(Exception('API错误'));
 
-      final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}]';
+      final jsonStr =
+          '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}]';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(1));

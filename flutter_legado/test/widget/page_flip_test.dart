@@ -176,11 +176,7 @@ void main() {
     );
 
     // 向左滑动到下一页
-    await tester.fling(
-      find.byType(PageView),
-      const Offset(-300, 0),
-      1000,
-    );
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
 
     expect(find.text('第 2 页'), findsOneWidget);

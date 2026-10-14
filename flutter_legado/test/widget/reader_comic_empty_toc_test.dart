@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -25,7 +26,8 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -43,16 +45,16 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
   Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: bookUrl,
-        name: '51测试',
-        author: '',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: 0,
-        bookType: BookType.image | BookType.notShelf,
-      );
+    bookUrl: bookUrl,
+    tocUrl: bookUrl,
+    name: '51测试',
+    author: '',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: 0,
+    bookType: BookType.image | BookType.notShelf,
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => const [];
@@ -125,8 +127,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(refreshCalls, isNotEmpty,
-        reason: '章节为空时必须 refreshToc（对齐 reader_notifier）');
+    expect(
+      refreshCalls,
+      isNotEmpty,
+      reason: '章节为空时必须 refreshToc（对齐 reader_notifier）',
+    );
     expect(refreshCalls.first, contains('https://51acgs.com'));
     expect(find.text('暂无章节'), findsNothing);
     expect(decodeCalls, isNotEmpty);

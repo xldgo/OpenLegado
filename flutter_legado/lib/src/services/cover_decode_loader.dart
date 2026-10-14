@@ -352,8 +352,7 @@ class CoverDecodeLoader {
     final completer = Completer<Uint8List?>();
     _inflight[key] = completer.future;
     try {
-      final sourceForFfi =
-          patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
+      final sourceForFfi = patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
       final resp = await api.fetchImageWithDecode(coverUrl, sourceForFfi);
       final decoded = jsonDecode(resp) as Map<String, dynamic>;
       final b64 = decoded['base64'] as String?;

@@ -177,8 +177,10 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
     required String playUrl,
   }) async {
     final indexes = _audioCacheIndexes.putIfAbsent(bookUrl, () => <int>{});
-    final playUrls =
-        _audioCachePlayUrls.putIfAbsent(bookUrl, () => <int, String>{});
+    final playUrls = _audioCachePlayUrls.putIfAbsent(
+      bookUrl,
+      () => <int, String>{},
+    );
     if (indexes.contains(chapterIndex)) {
       return jsonEncode({
         'status': 'already_cached',
@@ -224,8 +226,18 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
     if (dot >= 0) {
       final ext = path.substring(dot + 1).toLowerCase();
       const whitelist = {
-        'mp3', 'm4a', 'm4b', 'aac', 'ogg', 'oga', 'opus',
-        'wav', 'flac', 'webm', 'amr', '3gp',
+        'mp3',
+        'm4a',
+        'm4b',
+        'aac',
+        'ogg',
+        'oga',
+        'opus',
+        'wav',
+        'flac',
+        'webm',
+        'amr',
+        '3gp',
       };
       if (whitelist.contains(ext)) return ext;
     }

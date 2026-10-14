@@ -68,7 +68,9 @@ class LocalBookStore {
     var n = 1;
     while (File('$booksDir$sep$candidate').existsSync()) {
       // 注意：显式字符串拼接，避免 `$baseNoExt_` 被解析成未定义标识符
-      candidate = '$baseNoExt' '_$n$ext';
+      candidate =
+          '$baseNoExt'
+          '_$n$ext';
       n++;
     }
     final target = '$booksDir$sep$candidate';

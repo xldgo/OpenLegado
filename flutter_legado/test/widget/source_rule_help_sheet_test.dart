@@ -6,8 +6,7 @@
 library;
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -19,7 +18,8 @@ import '../mocks/mocks.dart';
 void main() {
   testWidgets('JS 书源编辑页：帮助入口可点且弹层含三块标题', (tester) async {
     final mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
 
     await tester.pumpWidget(
       ProviderScope(

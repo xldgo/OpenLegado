@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -21,10 +20,7 @@ const kDictRuleVersion = 1;
 const kDefaultDictRulesAsset = 'assets/default_data/dictRules.json';
 
 /// 对齐 Android `DefaultData.importDefaultDictRules`：覆盖写入原版默认字典规则。
-Future<int> syncDefaultDictRules(
-  BookApi api, {
-  String? jsonOverride,
-}) async {
+Future<int> syncDefaultDictRules(BookApi api, {String? jsonOverride}) async {
   final text =
       jsonOverride ?? await rootBundle.loadString(kDefaultDictRulesAsset);
   final list = jsonDecode(text) as List<dynamic>;
@@ -32,7 +28,10 @@ Future<int> syncDefaultDictRules(
       .whereType<Map<String, dynamic>>()
       .map(DictRule.fromJson)
       .toList();
-  await api.setConfig('dict_rules', jsonEncode(rules.map((r) => r.toJson()).toList()));
+  await api.setConfig(
+    'dict_rules',
+    jsonEncode(rules.map((r) => r.toJson()).toList()),
+  );
   return rules.length;
 }
 
@@ -112,10 +111,7 @@ class DictNotifier extends Notifier<DictState> {
     );
     try {
       final raw = await ref.read(bookApiProvider).dictLookup(key);
-      state = state.copyWith(
-        result: DictEntry.fromJson(raw),
-        isLoading: false,
-      );
+      state = state.copyWith(result: DictEntry.fromJson(raw), isLoading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoading: false);
     }

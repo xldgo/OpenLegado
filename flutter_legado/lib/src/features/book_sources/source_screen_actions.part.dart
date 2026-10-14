@@ -35,23 +35,22 @@ extension _SourceActions on _SourceScreenState {
       SourceSpecialGroup.exploreOn,
       SourceSpecialGroup.exploreOff,
     ].contains(value);
-    ref.read(sourceNotifierProvider.notifier).setGroup(
-          isSpecial && current == value ? null : value,
-        );
+    ref
+        .read(sourceNotifierProvider.notifier)
+        .setGroup(isSpecial && current == value ? null : value);
   }
 
   void _handleAction(BuildContext context, String action) {
     switch (action) {
       case 'new':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const SourceEditScreen()),
-        );
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SourceEditScreen()));
         break;
       case 'new_js':
         // P0-1：最小可用 JS 书源编辑器（extractJsSource + 保存）
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const JsSourceEditScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const JsSourceEditScreen()));
         break;
       case 'import_url':
         _showImportUrlDialog(context);
@@ -245,16 +244,14 @@ extension _SourceActions on _SourceScreenState {
   Future<void> _startCheck(BuildContext context) async {
     final state = ref.read(sourceNotifierProvider);
     if (state.selectedCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择要校验的书源')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先选择要校验的书源')));
       return;
     }
     final checkNotifier = ref.read(checkSourceNotifierProvider.notifier);
     if (ref.read(checkSourceNotifierProvider).checking) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('校验进行中，请先取消当前校验')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('校验进行中，请先取消当前校验')));
       return;
     }
     // 预填上次校验关键词（对标原版 CheckSource.keyword 持久化）
@@ -351,8 +348,9 @@ extension _SourceActions on _SourceScreenState {
     try {
       final notifier = ref.read(sourceNotifierProvider.notifier);
       final state = ref.read(sourceNotifierProvider);
-      final json = await notifier.backupService
-          .exportSelectedSources(state.selectedUrls.toList());
+      final json = await notifier.backupService.exportSelectedSources(
+        state.selectedUrls.toList(),
+      );
       final dir = await getTemporaryDirectory();
       final name = state.selectedCount == 1
           ? 'bookSource.json'
@@ -367,9 +365,8 @@ extension _SourceActions on _SourceScreenState {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败：$e')));
       }
     }
   }
@@ -409,23 +406,22 @@ extension _SourceActions on _SourceScreenState {
 
       final path = picked.path;
       if (path == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('无法获取文件路径')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('无法获取文件路径')));
         return;
       }
 
       if (!context.mounted) return;
       // 对标原版：先解析候选书源，进入导入确认页由用户勾选后入库
-      await _fetchAndConfirm(() => ref
-          .read(sourceNotifierProvider.notifier)
-          .importService
-          .fetchSourcesFromFile(path));
+      await _fetchAndConfirm(
+        () => ref
+            .read(sourceNotifierProvider.notifier)
+            .importService
+            .fetchSourcesFromFile(path),
+      );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('从文件导入失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('从文件导入失败：$e')));
       }
     }
   }
@@ -447,16 +443,19 @@ extension _SourceActions on _SourceScreenState {
 
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       // 对标原版：先拉取候选书源，进入导入确认页由用户勾选后入库
-      await _fetchAndConfirm(() => ref
-          .read(sourceNotifierProvider.notifier)
-          .importService
-          .fetchSourcesFromUrl(trimmed));
+      await _fetchAndConfirm(
+        () => ref
+            .read(sourceNotifierProvider.notifier)
+            .importService
+            .fetchSourcesFromUrl(trimmed),
+      );
       return;
     }
 
     if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-      await _fetchAndConfirm(() async =>
-          const SourceImportParser().parseSourcesText(trimmed));
+      await _fetchAndConfirm(
+        () async => const SourceImportParser().parseSourcesText(trimmed),
+      );
       return;
     }
 
@@ -471,9 +470,7 @@ extension _SourceActions on _SourceScreenState {
       return;
     }
 
-    messenger.showSnackBar(
-      const SnackBar(content: Text('扫码内容不是可识别的书源数据')),
-    );
+    messenger.showSnackBar(const SnackBar(content: Text('扫码内容不是可识别的书源数据')));
   }
 
   /// 拉取/解析候选书源并进入导入确认页
@@ -530,17 +527,14 @@ extension _SourceActions on _SourceScreenState {
       await Clipboard.setData(ClipboardData(text: json));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('已导出 ${state.selectedCount} 个书源到剪贴板')),
+          SnackBar(content: Text('已导出 ${state.selectedCount} 个书源到剪贴板')),
         );
       }
       notifier.exitBatchMode();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导出失败：$e')));
       }
     }
   }

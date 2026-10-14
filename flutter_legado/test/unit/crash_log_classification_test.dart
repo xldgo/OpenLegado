@@ -65,8 +65,8 @@ void main() {
       FlutterErrorDetails(
         exception: FlutterError(
           'A RenderFlex overflowed by 12 pixels on the right.\n'
-              'The relevant error-causing widget was:\n'
-              '  Row Row',
+          'The relevant error-causing widget was:\n'
+          '  Row Row',
         ),
         stack: StackTrace.current,
       ),
@@ -75,14 +75,19 @@ void main() {
     await flushPrefs();
 
     // 1) 软性布局告警不写 crash_log.txt
-    expect(crashFile.existsSync(), isFalse,
-        reason: '软性布局告警不应写入 crash_log.txt');
+    expect(crashFile.existsSync(), isFalse, reason: '软性布局告警不应写入 crash_log.txt');
     // 2) 不置崩溃标记 → 下次启动 getLastCrashLog 为 null，不弹窗
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('crash_last_crash'), isNot(true),
-        reason: '软性布局告警不应置崩溃标记（否则会误弹崩溃弹窗）');
-    expect(await CrashLogService.instance.getLastCrashLog(), isNull,
-        reason: '软性告警后下次启动不应取到崩溃日志');
+    expect(
+      prefs.getBool('crash_last_crash'),
+      isNot(true),
+      reason: '软性布局告警不应置崩溃标记（否则会误弹崩溃弹窗）',
+    );
+    expect(
+      await CrashLogService.instance.getLastCrashLog(),
+      isNull,
+      reason: '软性告警后下次启动不应取到崩溃日志',
+    );
     // 3) 已单独标记写入普通日志（可观测，不静默丢失）
     expect(
       CrashLogService.instance.logs.any((e) {
@@ -117,8 +122,7 @@ void main() {
     expect(content, contains('===== 日志结束 ====='));
     // 2) 崩溃标记已置位（下次启动 getLastCrashLog 非空 → 正常弹窗语义）
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('crash_last_crash'), isTrue,
-        reason: '真崩溃必须置崩溃标记');
+    expect(prefs.getBool('crash_last_crash'), isTrue, reason: '真崩溃必须置崩溃标记');
     expect(CrashLogService.instance.lastCrash, isTrue);
     expect(
       (await CrashLogService.instance.getLastCrashLog()),

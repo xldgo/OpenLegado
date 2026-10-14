@@ -16,8 +16,7 @@
 // clearTextChapter()（清空上一本书的正文缓存）并重置 chapterSize；
 // 本项目 openBook 未做任何「换书即清空」处理，也没有身份守卫。
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,9 +87,7 @@ void main() {
   }
 
   /// 目录按 bookUrl 返回；正文返回「<书标签>-CH<index>」
-  void stubPerBook({
-    Duration Function(String bookUrl)? tocDelay,
-  }) {
+  void stubPerBook({Duration Function(String bookUrl)? tocDelay}) {
     when(() => mockApi.getChapters(any())).thenAnswer((invocation) async {
       final url = invocation.positionalArguments[0] as String;
       if (tocDelay != null) {
@@ -101,14 +98,15 @@ void main() {
       if (url == bookB.bookUrl) return chaptersB;
       return const <BookChapter>[];
     });
-    when(() => mockApi.getChapterContentFull(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final url = invocation.positionalArguments[0] as String;
-      final idx = invocation.positionalArguments[1] as int;
-      final tag = url == bookA.bookUrl ? 'A' : (url == bookB.bookUrl ? 'B' : '?');
-      return '$tag-CH$idx';
-    });
+    when(() => mockApi.getChapterContentFull(any(), any()))
+        .thenAnswer((invocation) async {
+          final url = invocation.positionalArguments[0] as String;
+          final idx = invocation.positionalArguments[1] as int;
+          final tag = url == bookA.bookUrl
+              ? 'A'
+              : (url == bookB.bookUrl ? 'B' : '?');
+          return '$tag-CH$idx';
+        });
   }
 
   // ==========================================================================
@@ -229,19 +227,17 @@ void main() {
       // [STAGE3-C2B] 章级失效：只删当前章行（≡ 上游 BookHelp.delContent，
       // Rust 侧 DELETE FROM cached_chapters WHERE book_url=? AND
       // chapter_index=?，返回删除行数）
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((invocation) async {
-        final idx = invocation.positionalArguments[1] as int;
-        final key = 'A/c${idx + 1}';
-        final existed = cache.contains(key);
-        cache.remove(key);
-        return existed ? 1 : 0; // 删除行数（行不存在 = 0，与 Rust 一致）
-      });
+      when(() => mockApi.clearChapterCache(any(), any()))
+          .thenAnswer((invocation) async {
+            final idx = invocation.positionalArguments[1] as int;
+            final key = 'A/c${idx + 1}';
+            final existed = cache.contains(key);
+            cache.remove(key);
+            return existed ? 1 : 0; // 删除行数（行不存在 = 0，与 Rust 一致）
+          });
       // 断网：强制联网重抓失败
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenAnswer((_) async => throw StateError('Network error: 断网'));
+      when(() => mockApi.fetchChapterContent(any(), any(), any()))
+          .thenAnswer((_) async => throw StateError('Network error: 断网'));
 
       final notifier = readNotifier();
       await notifier.openBook(bookA);

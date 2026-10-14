@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';

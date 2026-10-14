@@ -7,8 +7,7 @@
 // - 整页保存新规则后返回列表且规则出现在列表
 // 整页编辑器字段/保存/剪贴板等用例见 replace_rule_edit_test.dart
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
@@ -92,10 +91,10 @@ void main() {
       expect(scopeField.controller?.text, '某书');
     });
 
-    testWidgets('整页保存新规则后返回列表且规则出现在列表',
-        (tester) async {
+    testWidgets('整页保存新规则后返回列表且规则出现在列表', (tester) async {
       when(() => mockApi.addReplaceRule(any())).thenAnswer(
-        (inv) async => (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
+        (inv) async =>
+            (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
       );
       await pumpScreen(tester);
 
@@ -111,14 +110,10 @@ void main() {
       // 返回列表，新规则已入列表（notifier addRule 追加）
       expect(find.text('添加替换规则'), findsNothing);
       expect(find.text('去广告'), findsOneWidget);
-      expect(
-        find.text('正则: 广告 → 【广告】'),
-        findsOneWidget,
-      );
+      expect(find.text('正则: 广告 → 【广告】'), findsOneWidget);
     });
 
-    testWidgets('路由预填 pattern 时首帧后直接打开整页编辑器',
-        (tester) async {
+    testWidgets('路由预填 pattern 时首帧后直接打开整页编辑器', (tester) async {
       when(() => mockApi.addReplaceRule(any()))
           .thenAnswer((inv) async => const ReplaceRule());
       await tester.binding.setSurfaceSize(const Size(800, 2000));
@@ -135,8 +130,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('添加替换规则'), findsOneWidget);
-      final patternField =
-          tester.widget<TextField>(byLabel('匹配规则'));
+      final patternField = tester.widget<TextField>(byLabel('匹配规则'));
       expect(patternField.controller?.text, '选中词');
     });
   });

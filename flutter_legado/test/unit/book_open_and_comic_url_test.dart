@@ -10,8 +10,10 @@ void main() {
       expect(BookOpenUtils.typeBitsForSource(0), BookType.text);
       expect(BookOpenUtils.typeBitsForSource(1), BookType.audio);
       expect(BookOpenUtils.typeBitsForSource(2), BookType.image);
-      expect(BookOpenUtils.typeBitsForSource(3),
-          BookType.text | BookType.webFile);
+      expect(
+        BookOpenUtils.typeBitsForSource(3),
+        BookType.text | BookType.webFile,
+      );
       expect(BookOpenUtils.typeBitsForSource(4), BookType.video);
     });
 
@@ -19,7 +21,9 @@ void main() {
       expect(BookOpenUtils.routeForTypeBits(BookType.video), AppRoutes.video);
       expect(BookOpenUtils.routeForTypeBits(BookType.audio), AppRoutes.audio);
       expect(
-          BookOpenUtils.routeForTypeBits(BookType.image), AppRoutes.readerComic);
+        BookOpenUtils.routeForTypeBits(BookType.image),
+        AppRoutes.readerComic,
+      );
       expect(BookOpenUtils.routeForTypeBits(BookType.text), AppRoutes.reader);
       expect(BookOpenUtils.routeForTypeBits(0), AppRoutes.reader);
     });
@@ -29,12 +33,12 @@ void main() {
         bookSourceUrl: 'https://www.biyingmh.com',
         bookSourceName: '必应漫画',
         bookSourceType: 0,
-        ruleContent: ContentRule(
-          content: '.img@img@html',
-          imageStyle: 'FULL',
-        ),
+        ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
       );
-      expect(BookOpenUtils.looksLikeImageHtmlContentRule('.img@img@html'), isTrue);
+      expect(
+        BookOpenUtils.looksLikeImageHtmlContentRule('.img@img@html'),
+        isTrue,
+      );
       expect(BookOpenUtils.isImageHtmlContentSource(source), isTrue);
       final bits = BookOpenUtils.promoteImageContentSource(
         BookOpenUtils.typeBitsForSource(0),
@@ -67,14 +71,12 @@ void main() {
         bookSourceType: 0,
         searchUrl: '/api.php/provide/vod/?ac=detail&wd={{key}}&pg={{page}}',
         ruleToc: TocRule(
-          chapterList:
-              r'@js:var data=JSON.parse(src);var vod=data.list[0];var playUrl=vod.vod_play_url;',
+          chapterList: r'@js:var data=JSON.parse(src);var vod=data.list[0];var playUrl=vod.vod_play_url;',
           chapterName: 'text',
           chapterUrl: 'href',
         ),
         ruleContent: ContentRule(
-          content:
-              r'''@js:java.startBrowser(baseUrl, book.name);result = baseUrl;''',
+          content: r'''@js:java.startBrowser(baseUrl, book.name);result = baseUrl;''',
         ),
       );
       expect(BookOpenUtils.looksLikeVideoSource(ffzy), isTrue);
@@ -89,9 +91,7 @@ void main() {
         BookType.video,
       );
       expect(
-        BookOpenUtils.routeForTypeBits(
-          BookOpenUtils.resolveTypeBits(0, ffzy),
-        ),
+        BookOpenUtils.routeForTypeBits(BookOpenUtils.resolveTypeBits(0, ffzy)),
         AppRoutes.video,
       );
     });
@@ -103,8 +103,7 @@ void main() {
         bookSourceName: '红牛资源',
         bookSourceGroup: '影视频源',
         bookSourceType: 2,
-        searchUrl:
-            'https://hongniuziyuan.com/index.php/vod/search.html?wd={{key}}&submit=search',
+        searchUrl: 'https://hongniuziyuan.com/index.php/vod/search.html?wd={{key}}&submit=search',
         ruleToc: TocRule(
           chapterList: r'@css:.vodplayinfo>div>div>ul>li',
           chapterName: r'@css:a@text##(.+)\$(.+)##$1',
@@ -171,15 +170,9 @@ url
         bookSourceUrl: 'https://www.biyingmh.com',
         bookSourceName: '必应漫画',
         bookSourceType: 0,
-        ruleContent: ContentRule(
-          content: '.img@img@html',
-          imageStyle: 'FULL',
-        ),
+        ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
       );
-      expect(
-        BookOpenUtils.resolveTypeBits(0, source),
-        BookType.image,
-      );
+      expect(BookOpenUtils.resolveTypeBits(0, source), BookType.image);
     });
 
     test('argumentsForRoute 漫画传 bookUrl，音视频传 Book', () {
@@ -196,10 +189,7 @@ url
         BookOpenUtils.argumentsForRoute(AppRoutes.video, book),
         same(book),
       );
-      expect(
-        BookOpenUtils.argumentsForRoute(AppRoutes.reader, book),
-        isNull,
-      );
+      expect(BookOpenUtils.argumentsForRoute(AppRoutes.reader, book), isNull);
     });
   });
 
@@ -388,9 +378,7 @@ url
 
     test('m3u8/视频 URL 不判定为图片', () {
       expect(
-        looksLikeImageUrl(
-          'https://vip.ffzy-plays.com/2025/49109/index.m3u8',
-        ),
+        looksLikeImageUrl('https://vip.ffzy-plays.com/2025/49109/index.m3u8'),
         isFalse,
       );
       expect(isImageDominantContent('https://cdn.example/v.m3u8'), isFalse);
@@ -404,7 +392,18 @@ url
       expect(looksLikeImageBytes([0x47, 0x49, 0x46, 0x38]), isTrue);
       expect(
         looksLikeImageBytes([
-          0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+          0x52,
+          0x49,
+          0x46,
+          0x46,
+          0,
+          0,
+          0,
+          0,
+          0x57,
+          0x45,
+          0x42,
+          0x50,
         ]),
         isTrue,
       );

@@ -12,10 +12,7 @@ void main() {
       final map = WebViewLoginScreen.parseSourceHeaderMap(
         '{"User-Agent":"abc/1.0","Referer":"https://x.com"}',
       );
-      expect(map, {
-        'User-Agent': 'abc/1.0',
-        'Referer': 'https://x.com',
-      });
+      expect(map, {'User-Agent': 'abc/1.0', 'Referer': 'https://x.com'});
     });
 
     test('kv 串兜底（值可含 =）', () {

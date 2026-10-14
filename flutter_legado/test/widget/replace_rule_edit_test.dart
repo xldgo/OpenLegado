@@ -15,8 +15,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -84,10 +83,7 @@ void main() {
 
   /// mock 系统剪贴板通道（getData 返回 [clipboardText]；
   /// setData 记录写入文本）
-  List<String> mockClipboard(
-    WidgetTester tester, {
-    String clipboardText = '',
-  }) {
+  List<String> mockClipboard(WidgetTester tester, {String clipboardText = ''}) {
     final written = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -149,10 +145,7 @@ void main() {
       // 分组下拉默认「（无分组）」
       expect(find.text('（无分组）'), findsOneWidget);
       // 超时诚实标注（[A3 写链路补齐 2026-09-11] 超时已可编辑并随保存落库）
-      expect(
-        find.text('匹配/替换执行超时，空或非法输入回退 3000 毫秒'),
-        findsOneWidget,
-      );
+      expect(find.text('匹配/替换执行超时，空或非法输入回退 3000 毫秒'), findsOneWidget);
       // ⋮ 菜单项（对标原版 menu：全屏编辑/复制规则/粘贴规则）
       await tester.tap(find.byTooltip('更多'));
       await tester.pumpAndSettle();
@@ -201,8 +194,7 @@ void main() {
 
     // [A3 写链路补齐 | 2026-09-11] 分组/标题·正文范围/排除范围/超时
     // 保存落库后经 notifier（load → getReplaceRules）读回与输入一致
-    testWidgets('保存后全字段经 notifier 读回与输入一致（写链路落库）',
-        (tester) async {
+    testWidgets('保存后全字段经 notifier 读回与输入一致（写链路落库）', (tester) async {
       // 内存「数据库」：add 存对象、get 回读，模拟 Rust 侧 add 全字段
       // 持久化 + get 回读链路
       final stored = <ReplaceRule>[];
@@ -226,10 +218,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(byLabel('输入分组名'), '净化组_9');
       // 作用范围：选「标题」（[B2-C2 2-9] 范围改 chips，按标签定位 chip）
-      await tester.tap(find.byWidgetPredicate(
-          (w) => w is FilterChip &&
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) =>
+              w is FilterChip &&
               w.label is Text &&
-              (w.label as Text).data == '标题'));
+              (w.label as Text).data == '标题',
+        ),
+      );
       // 排除范围 / 超时：直接输入
       await tester.enterText(byLabel('排除范围'), '排除书_9');
       await tester.enterText(byLabel('超时时间（毫秒）'), '4321');
@@ -316,36 +312,43 @@ void main() {
       expect(patternField.controller?.text, '广告');
       final scopeField = tester.widget<TextField>(byLabel('特定范围'));
       expect(scopeField.controller?.text, '某书');
-      final excludeField =
-          tester.widget<TextField>(byLabel('排除范围'));
+      final excludeField = tester.widget<TextField>(byLabel('排除范围'));
       expect(excludeField.controller?.text, '排除书');
-      final timeoutField =
-          tester.widget<TextField>(byLabel('超时时间（毫秒）'));
+      final timeoutField = tester.widget<TextField>(byLabel('超时时间（毫秒）'));
       expect(timeoutField.controller?.text, '5000');
       // 分组回填（「净化」为现有规则分组，命中下拉项）
       expect(find.text('净化'), findsWidgets);
       // 勾选状态回填（[B2-C2 2-9] 范围改 chips：树内仅剩「使用正则表达式」
       // 一个 Checkbox，范围三态改查 FilterChip.selected）
-      final checks =
-          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      final checks = tester
+          .widgetList<Checkbox>(find.byType(Checkbox))
+          .toList();
       expect(checks, hasLength(1));
       expect(checks[0].value, isFalse, reason: 'isRegex=false 未勾选');
       expect(
         tester
-            .widget<FilterChip>(find.byWidgetPredicate(
-                (w) => w is FilterChip &&
+            .widget<FilterChip>(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is FilterChip &&
                     w.label is Text &&
-                    (w.label as Text).data == '标题'))
+                    (w.label as Text).data == '标题',
+              ),
+            )
             .selected,
         isTrue,
         reason: 'scopeTitle=true 选中',
       );
       expect(
         tester
-            .widget<FilterChip>(find.byWidgetPredicate(
-                (w) => w is FilterChip &&
+            .widget<FilterChip>(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is FilterChip &&
                     w.label is Text &&
-                    (w.label as Text).data == '正文'))
+                    (w.label as Text).data == '正文',
+              ),
+            )
             .selected,
         isFalse,
         reason: 'scopeContent=false 未选中',
@@ -372,8 +375,7 @@ void main() {
       expect(patternField.controller?.text, '选中词');
     });
 
-    testWidgets('复制规则：规则 JSON 写入剪贴板（含预览样本 previewText）',
-        (tester) async {
+    testWidgets('复制规则：规则 JSON 写入剪贴板（含预览样本 previewText）', (tester) async {
       final written = mockClipboard(tester);
       when(() => mockApi.addReplaceRule(any()))
           .thenAnswer((inv) async => const ReplaceRule());
@@ -416,8 +418,7 @@ void main() {
       expect(nameField.controller?.text, '粘贴规则');
       final patternField = tester.widget<TextField>(byLabel('匹配规则'));
       expect(patternField.controller?.text, 'pasted');
-      final replacementField =
-          tester.widget<TextField>(byLabel('替换为'));
+      final replacementField = tester.widget<TextField>(byLabel('替换为'));
       expect(replacementField.controller?.text, 'P');
       final scopeField = tester.widget<TextField>(byLabel('特定范围'));
       expect(scopeField.controller?.text, 'scope书');
@@ -449,24 +450,22 @@ void main() {
     // [替换规则预览 | 2026-09-13] 预览单一语义源 = FFI previewReplaceRule：
     // 原 Dart 纯近似分支（字面/正则 + _expandGroups 组展开）已删除，
     // 以下为「输入 → 250ms 防抖 → 输出区显示 FFI（mock）结果」用例
-    testWidgets('预览：输入 → 防抖 → 输出区显示 FFI 结果（非正则字面替换）',
-        (tester) async {
+    testWidgets('预览：输入 → 防抖 → 输出区显示 FFI 结果（非正则字面替换）', (tester) async {
       // mock FFI 真实管线返回值（非正则字面替换语义：作用于
       // positionalArguments[1] = 预览输入文本，模拟 Rust 侧替换结果）；
       // 同时在 thenAnswer 闭包内捕获入参（对齐 scope_source_test 的
       // payload 捕获模式，直接断言 FFI 单一语义源收到的规则/样本）
       Map<String, dynamic>? previewRule;
       String? previewSample;
-      when(() => mockApi.previewReplaceRule(any(), any())).thenAnswer(
-        (inv) async {
-          previewRule =
-              jsonDecode(inv.positionalArguments[0] as String)
-                  as Map<String, dynamic>;
-          previewSample = inv.positionalArguments[1] as String;
-          return (inv.positionalArguments[1] as String)
-              .replaceAll('广告', '【广告】');
-        },
-      );
+      when(() => mockApi.previewReplaceRule(any(), any())).thenAnswer((
+        inv,
+      ) async {
+        previewRule = jsonDecode(
+          inv.positionalArguments[0] as String,
+        ) as Map<String, dynamic>;
+        previewSample = inv.positionalArguments[1] as String;
+        return (inv.positionalArguments[1] as String).replaceAll('广告', '【广告】');
+      });
       await pumpEdit(tester);
 
       // 取消「使用正则表达式」勾选（[B2-C2 2-9] 范围改 chips 后，
@@ -489,14 +488,12 @@ void main() {
       expect(previewRule?['isRegex'], false);
     });
 
-    testWidgets('预览：@js: 规则输出区显示 FFI 结果（含 ⚠️ 错误原样展示）',
-        (tester) async {
+    testWidgets('预览：@js: 规则输出区显示 FFI 结果（含 ⚠️ 错误原样展示）', (tester) async {
       await pumpEdit(tester);
 
       // 捕获组引用：$1 展开为第 1 个捕获组（Rust 侧真实替换管线语义）
-      when(() => mockApi.previewReplaceRule(any(), any())).thenAnswer(
-        (inv) async => 'abc[123]def[456]',
-      );
+      when(() => mockApi.previewReplaceRule(any(), any()))
+          .thenAnswer((inv) async => 'abc[123]def[456]');
       await tester.enterText(byLabel('匹配规则'), r'(\d+)');
       await tester.enterText(byLabel('替换为'), r'[$1]');
       await tester.enterText(byLabel('预览输入'), 'abc123def456');
@@ -507,18 +504,13 @@ void main() {
 
       // @js: 规则 + 规则级错误（非法正则/JS 异常/超时）：FFI 返回
       // `⚠️ ` 前缀错误文本，输出区原样展示（不上抛异常、不降级为「不可用」）
-      when(() => mockApi.previewReplaceRule(any(), any())).thenAnswer(
-        (inv) async =>
-            '⚠️ 规则执行超时（50ms），已跳过该规则',
-      );
+      when(() => mockApi.previewReplaceRule(any(), any()))
+          .thenAnswer((inv) async => '⚠️ 规则执行超时（50ms），已跳过该规则');
       await tester.enterText(byLabel('替换为'), r"@js:'x'");
       await tester.pump(const Duration(milliseconds: 300));
 
       final outputField2 = tester.widget<TextField>(byLabel('预览输出'));
-      expect(
-        outputField2.controller?.text,
-        '⚠️ 规则执行超时（50ms），已跳过该规则',
-      );
+      expect(outputField2.controller?.text, '⚠️ 规则执行超时（50ms），已跳过该规则');
     });
   });
 }

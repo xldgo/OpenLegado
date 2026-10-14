@@ -77,7 +77,8 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
     final notifier = ref.read(sourceLoginNotifierProvider(url).notifier);
     final editGeneration = notifier.editGeneration;
     await notifier.load();
-    if (mounted && widget.sourceUrl == url &&
+    if (mounted &&
+        widget.sourceUrl == url &&
         notifier.editGeneration == editGeneration) {
       _tokenCtrl.text = ref.read(sourceLoginNotifierProvider(url)).token;
     }
@@ -120,7 +121,9 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
       _showSnack(context.l10n.cookieNameRequired);
       return;
     }
-    ref.read(sourceLoginNotifierProvider(widget.sourceUrl).notifier).addCookie(name, value);
+    ref
+        .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+        .addCookie(name, value);
     _cookieNameCtrl.clear();
     _cookieValueCtrl.clear();
   }
@@ -132,7 +135,9 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
       _showSnack(context.l10n.headerNameRequired);
       return;
     }
-    ref.read(sourceLoginNotifierProvider(widget.sourceUrl).notifier).addHeader(name, value);
+    ref
+        .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+        .addHeader(name, value);
     _headerNameCtrl.clear();
     _headerValueCtrl.clear();
   }
@@ -250,7 +255,9 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                 TextField(
                   controller: _tokenCtrl,
                   onChanged: (value) => ref
-                      .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+                      .read(
+                        sourceLoginNotifierProvider(widget.sourceUrl).notifier,
+                      )
                       .setToken(value),
                   // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme，不手写边框
                   decoration: InputDecoration(
@@ -296,7 +303,10 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                     trailing: IconButton(
                       icon: const Icon(Symbols.close_rounded),
                       onPressed: () => ref
-                          .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+                          .read(
+                            sourceLoginNotifierProvider(widget.sourceUrl)
+                                .notifier,
+                          )
                           .removeCookie(entry.$1),
                     ),
                   ),
@@ -340,7 +350,10 @@ class _SourceLoginScreenState extends ConsumerState<SourceLoginScreen>
                     trailing: IconButton(
                       icon: const Icon(Symbols.close_rounded),
                       onPressed: () => ref
-                          .read(sourceLoginNotifierProvider(widget.sourceUrl).notifier)
+                          .read(
+                            sourceLoginNotifierProvider(widget.sourceUrl)
+                                .notifier,
+                          )
                           .removeHeader(entry.$1),
                     ),
                   ),

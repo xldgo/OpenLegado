@@ -20,8 +20,7 @@
 // 计时推进用 FakeAsync（tester.pump(duration)），播放器经
 // streamAudioPlayerProvider 注入 Fake，不触真实平台通道。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,22 +59,20 @@ void main() {
         const BookChapter(title: '第三章', index: 2),
       ],
     );
-    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
-    when(() => api.getAudioChapterMedia(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
-    when(
-      () => api.getAudioProgress(any(), any()),
-    ).thenAnswer((_) async => null);
-    when(
-      () => api.saveAudioProgress(any(), any(), any()),
-    ).thenAnswer((_) async {});
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.getAudioChapterMedia(any(), any()))
+        .thenAnswer((invocation) async {
+          final index = invocation.positionalArguments[1] as int;
+          return {
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          };
+        });
+    when(() => api.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => null);
+    when(() => api.saveAudioProgress(any(), any(), any()))
+        .thenAnswer((_) async {});
   });
 
   AudioState readState() => container.read(audioNotifierProvider);

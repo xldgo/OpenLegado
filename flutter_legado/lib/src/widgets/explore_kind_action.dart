@@ -2,8 +2,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
 import '../services/platform_bridge_service.dart';

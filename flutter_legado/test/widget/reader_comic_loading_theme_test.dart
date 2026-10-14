@@ -1,6 +1,7 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -65,12 +66,8 @@ Book _book({
 }
 
 List<BookChapter> _chapters(String baseUrl) => [
-      BookChapter(
-        index: 0,
-        url: '$baseUrl/ch/1',
-        title: '第一章',
-      ),
-    ];
+  BookChapter(index: 0, url: '$baseUrl/ch/1', title: '第一章'),
+];
 
 /// 图一/二：FFI 解码链路，解码延迟 300ms（fake 时钟）→ 加载环驻留
 /// 足够长可断言。[tag] 隔离静态解码缓存（ComicImageDecodeCache 以
@@ -84,7 +81,8 @@ class _SlowDecodeMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -96,18 +94,18 @@ class _SlowDecodeMockApi extends MockBookApi {
   final String tag;
 
   Future<List<BookSource>> _fixtureGetBookSources() async => [
-        BookSource(
-          bookSourceUrl: book.origin,
-          bookSourceName: book.originName,
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: const ContentRule(content: '.comics@img@html'),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+    BookSource(
+      bookSourceUrl: book.origin,
+      bookSourceName: book.originName,
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: const ContentRule(content: '.comics@img@html'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
@@ -141,7 +139,8 @@ class _NoSourceMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -172,12 +171,19 @@ class _NoSourceMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container, {Brightness? brightness}) {
   const home = ReaderComicScreen(bookUrl: 'mock://comic/p43unify/ring');
   if (brightness == null) {
-    return UncontrolledProviderScope(container: container, child: const MaterialApp(builder: readerLayoutTestBuilder, home: home));
+    return UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(builder: readerLayoutTestBuilder, home: home),
+    );
   }
-  final scheme = ColorScheme.fromSeed(seedColor: _kSeedColor, brightness: brightness);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _kSeedColor,
+    brightness: brightness,
+  );
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(builder: readerLayoutTestBuilder,
+    child: MaterialApp(
+      builder: readerLayoutTestBuilder,
       theme: ThemeData(colorScheme: scheme),
       home: home,
     ),
@@ -188,14 +194,18 @@ Widget _buildApp(ProviderContainer container, {Brightness? brightness}) {
 Finder _assetFinder() {
   // Image.asset 产物是 AssetImage（ImageProvider），按资产名匹配
   return find.byWidgetPredicate(
-    (w) => w is Image &&
+    (w) =>
+        w is Image &&
         w.image is AssetImage &&
         (w.image as AssetImage).assetName == _kErrorAsset,
   );
 }
 
 /// 加载环主题槽断言（dark/light 双主题各跑一次）
-Future<void> _assertRingThemeSlots(WidgetTester tester, Brightness brightness) async {
+Future<void> _assertRingThemeSlots(
+  WidgetTester tester,
+  Brightness brightness,
+) async {
   final tag = brightness.name;
   final api = _SlowDecodeMockApi(
     _book(
@@ -205,36 +215,47 @@ Future<void> _assertRingThemeSlots(WidgetTester tester, Brightness brightness) a
     _chapters('https://manga.example.com/p43unify/ring-$tag'),
     tag,
   );
-  final container =
-      ProviderContainer(overrides: [bookApiProvider.overrideWithValue(api)]);
+  final container = ProviderContainer(
+    overrides: [bookApiProvider.overrideWithValue(api)],
+  );
   addTearDown(container.dispose);
 
   await tester.pumpWidget(_buildApp(container, brightness: brightness));
 
   // 等书籍级加载结束（LoadingIndicator 消失）→ 单页加载环接管
   var pumps = 0;
-  while (tester.widgetList(find.byType(LoadingIndicator)).isNotEmpty && pumps < 20) {
+  while (tester.widgetList(find.byType(LoadingIndicator)).isNotEmpty &&
+      pumps < 20) {
     await tester.pump();
     pumps++;
   }
   expect(find.byType(LoadingIndicator), findsNothing, reason: '书籍级加载应已结束');
-  expect(find.byType(CircularProgressIndicator), findsOneWidget,
-      reason: '唯一不定长指示器应为单页加载环');
+  expect(
+    find.byType(CircularProgressIndicator),
+    findsOneWidget,
+    reason: '唯一不定长指示器应为单页加载环',
+  );
 
-  final ring =
-      tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator));
-  expect(ring.color, isNull,
-      reason: '环色应用主题槽（color == null → 主题 primary），'
-          '非硬编码 0xFF666666');
-  expect(ring.strokeWidth, 2.0,
-      reason: '环宽 2 维持（2dp→4dp 宽度基线是 B4 项，不在本批）');
+  final ring = tester.widget<CircularProgressIndicator>(
+    find.byType(CircularProgressIndicator),
+  );
+  expect(
+    ring.color,
+    isNull,
+    reason:
+        '环色应用主题槽（color == null → 主题 primary），'
+        '非硬编码 0xFF666666',
+  );
+  expect(ring.strokeWidth, 2.0, reason: '环宽 2 维持（2dp→4dp 宽度基线是 B4 项，不在本批）');
 
   // 加载态无整面底色（参考版 #2082：不整页压黑；原硬编码 0xFF1A1A1A）
   final holder = tester.widget<Container>(
-    find.ancestor(
-      of: find.byType(CircularProgressIndicator),
-      matching: find.byType(Container),
-    ).first,
+    find
+        .ancestor(
+          of: find.byType(CircularProgressIndicator),
+          matching: find.byType(Container),
+        )
+        .first,
   );
   expect(holder.color, isNull, reason: '加载占位不应有硬编码整面底色');
 
@@ -262,10 +283,11 @@ void main() {
     await _assertRingThemeSlots(tester, Brightness.light);
   });
 
-  testWidgets('B2 骨架块主题槽：块底/进度轨/进度填充改主题槽 + 去整面底色',
-      (tester) async {
-    final scheme =
-        ColorScheme.fromSeed(seedColor: _kSeedColor, brightness: Brightness.dark);
+  testWidgets('B2 骨架块主题槽：块底/进度轨/进度填充改主题槽 + 去整面底色', (tester) async {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _kSeedColor,
+      brightness: Brightness.dark,
+    );
 
     // 本机挂起 HTTP 服务器：下载恒定「进行中」→ 骨架块驻留（不依赖外网）
     // binding.runAsync 返回 Future<HttpServer?> → 需显式 ! 解包
@@ -277,8 +299,9 @@ void main() {
       _chapters('http://127.0.0.1:${server.port}/p43unify/skel'),
       'http://127.0.0.1:${server.port}/p43unify/skel/ch1/0.jpg',
     );
-    final container =
-        ProviderContainer(overrides: [bookApiProvider.overrideWithValue(api)]);
+    final container = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_buildApp(container, brightness: Brightness.dark));
@@ -288,20 +311,27 @@ void main() {
       await tester.pump();
       pumps++;
     }
-    expect(_assetFinder(), findsOneWidget,
-        reason: '骨架块图标位已换素材图（B1 三处之一，须先于本断言完成）');
+    expect(
+      _assetFinder(),
+      findsOneWidget,
+      reason: '骨架块图标位已换素材图（B1 三处之一，须先于本断言完成）',
+    );
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
     // 块底（原硬编码 0xFF2A2A2A）→ surfaceContainerHighest
     final block = tester.widget<Container>(
       find.ancestor(of: _assetFinder(), matching: find.byType(Container)).first,
     );
-    expect(block.decoration, isA<BoxDecoration>(),
-        reason: '骨架块底色走 BoxDecoration（带圆角）');
+    expect(
+      block.decoration,
+      isA<BoxDecoration>(),
+      reason: '骨架块底色走 BoxDecoration（带圆角）',
+    );
     expect(
       (block.decoration! as BoxDecoration).color,
       scheme.surfaceContainerHighest,
-      reason: '块底应用主题槽 surfaceContainerHighest'
+      reason:
+          '块底应用主题槽 surfaceContainerHighest'
           '（参考版 SkeletonPlaceholders.kt:54-56 取证），非硬编码 0xFF2A2A2A',
     );
 
@@ -315,10 +345,12 @@ void main() {
 
     // 加载占位无整面底色（原硬编码 0xFF1A1A1A，参考版 #2082 同据）
     final outer = tester.widget<Container>(
-      find.ancestor(
-        of: find.byType(LinearProgressIndicator),
-        matching: find.byType(Container),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(LinearProgressIndicator),
+            matching: find.byType(Container),
+          )
+          .first,
     );
     expect(outer.color, isNull, reason: '骨架块外层不应有硬编码整面底色');
   });

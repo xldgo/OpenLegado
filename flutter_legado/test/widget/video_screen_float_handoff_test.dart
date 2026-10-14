@@ -137,28 +137,26 @@ class _FakeBookApi implements BookApi {
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        BookChapter(
-          url: 'https://cdn.example/ch1',
-          title: '第1集',
-          index: 0,
-          bookUrl: bookUrl,
-        ),
-      ];
+    BookChapter(
+      url: 'https://cdn.example/ch1',
+      title: '第1集',
+      index: 0,
+      bookUrl: bookUrl,
+    ),
+  ];
 
   @override
   Future<String> fetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
-  ) async =>
-      'https://cdn.example/v1.m3u8';
+  ) async => 'https://cdn.example/v1.m3u8';
 
   @override
   Future<String?> getVideoDanmaku({
     required String bookUrl,
     required int chapterIndex,
-  }) async =>
-      null;
+  }) async => null;
 
   @override
   Future<void> updateReadingProgress({
@@ -170,8 +168,7 @@ class _FakeBookApi implements BookApi {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -188,8 +185,9 @@ void main() {
     VideoPlayerPlatform.instance = platform;
     bridge = _FakeFloatBridge()..supportedOverride = true;
     VideoFloatWindowBridge.instance = bridge;
-    VideoFloatWindowCoordinator.instance =
-        VideoFloatWindowCoordinator(bridge: bridge);
+    VideoFloatWindowCoordinator.instance = VideoFloatWindowCoordinator(
+      bridge: bridge,
+    );
     api = _FakeBookApi();
     navKey = GlobalKey<NavigatorState>();
   });
@@ -205,9 +203,7 @@ void main() {
         ),
       ),
     );
-    navKey.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
+    navKey.currentState!.push(MaterialPageRoute<void>(builder: (_) => screen));
     await tester.pumpAndSettle();
   }
 
@@ -302,8 +298,7 @@ void main() {
   // 进度（video_pos_ / durChapterPos，VideoPlay.kt:143/166），播放态取
   // autoPlay（VideoPlay.kt:157 if (autoPlay) startPlayLogic()）。
 
-  testWidgets('默认悬浮窗首播：控制器未创建即移交（不崩溃；进度/播放态取持久化）',
-      (tester) async {
+  testWidgets('默认悬浮窗首播：控制器未创建即移交（不崩溃；进度/播放态取持久化）', (tester) async {
     SharedPreferences.setMockInitialValues({
       VideoPlaySettings.defaultFloatWindowKey: true,
     });
@@ -326,8 +321,7 @@ void main() {
     expect(find.byType(VideoScreen), findsNothing);
   });
 
-  testWidgets('默认悬浮窗首播：移交失败降级本页播放（悬浮窗是优化非必须）',
-      (tester) async {
+  testWidgets('默认悬浮窗首播：移交失败降级本页播放（悬浮窗是优化非必须）', (tester) async {
     SharedPreferences.setMockInitialValues({
       VideoPlaySettings.defaultFloatWindowKey: true,
     });
@@ -344,8 +338,9 @@ void main() {
     expect(find.text('悬浮窗启动失败，请重试'), findsOneWidget);
   });
 
-  testWidgets('默认悬浮窗首播：autoPlay=false 移交不自动播放（对齐原版 if(autoPlay)）',
-      (tester) async {
+  testWidgets('默认悬浮窗首播：autoPlay=false 移交不自动播放（对齐原版 if(autoPlay)）', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       VideoPlaySettings.defaultFloatWindowKey: true,
       VideoPlaySettings.autoPlayKey: false,

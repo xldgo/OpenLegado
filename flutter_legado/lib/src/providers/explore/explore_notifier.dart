@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -48,17 +47,16 @@ class ExploreNotifier extends Notifier<ExploreState> {
       final sources = await api.bookSourceRepository.getBookSources();
       if (!ref.mounted) return;
       final exploreSources = sources
-          .where((s) =>
-              s.enabledExplore &&
-              (s.exploreUrl != null && s.exploreUrl!.trim().isNotEmpty))
+          .where(
+            (s) =>
+                s.enabledExplore &&
+                (s.exploreUrl != null && s.exploreUrl!.trim().isNotEmpty),
+          )
           .toList();
       state = state.copyWith(bookSources: exploreSources, isLoading: false);
     } catch (e) {
       if (!ref.mounted) return;
-      state = state.copyWith(
-        error: '加载书源失败：${_mapError(e)}',
-        isLoading: false,
-      );
+      state = state.copyWith(error: '加载书源失败：${_mapError(e)}', isLoading: false);
     }
   }
 
@@ -91,10 +89,9 @@ class ExploreNotifier extends Notifier<ExploreState> {
     // 无 exploreUrl：缓存空分类，避免重复判断
     if (exploreUrl == null || exploreUrl.trim().isEmpty) {
       if (!state.categoriesCache.containsKey(url)) {
-        state = state.copyWith(categoriesCache: {
-          ...state.categoriesCache,
-          url: const [],
-        });
+        state = state.copyWith(
+          categoriesCache: {...state.categoriesCache, url: const []},
+        );
       }
       return;
     }
@@ -102,7 +99,9 @@ class ExploreNotifier extends Notifier<ExploreState> {
     final cached = state.categoriesCache[url];
     if (!force &&
         (state.loadingCategories.contains(url) ||
-            (cached != null && cached.isNotEmpty && !_isErrorOnlyCache(cached)))) {
+            (cached != null &&
+                cached.isNotEmpty &&
+                !_isErrorOnlyCache(cached)))) {
       return;
     }
     state = state.copyWith(
@@ -133,12 +132,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
       state = state.copyWith(
         categoriesCache: {
           ...state.categoriesCache,
-          url: [
-            ExploreCategory(
-              title: 'ERROR',
-              url: msg,
-            ),
-          ],
+          url: [ExploreCategory(title: 'ERROR', url: msg)],
         },
         loadingCategories: {...state.loadingCategories}..remove(url),
       );
@@ -261,7 +255,6 @@ class ExploreNotifier extends Notifier<ExploreState> {
 /// final state = ref.watch(exploreNotifierProvider);
 /// ref.read(exploreNotifierProvider.notifier).refresh();
 /// ```
-final exploreNotifierProvider =
-    NotifierProvider<ExploreNotifier, ExploreState>(
+final exploreNotifierProvider = NotifierProvider<ExploreNotifier, ExploreState>(
   ExploreNotifier.new,
 );

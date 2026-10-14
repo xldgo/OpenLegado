@@ -25,7 +25,13 @@ class LauncherIconService {
 
   /// 可选值（对齐原版 arrays.xml icon_names）：iconMain / icon1~icon6。
   static const List<String> icons = [
-    'iconMain', 'icon1', 'icon2', 'icon3', 'icon4', 'icon5', 'icon6',
+    'iconMain',
+    'icon1',
+    'icon2',
+    'icon3',
+    'icon4',
+    'icon5',
+    'icon6',
   ];
 
   /// 当前平台是否支持运行时换图标（仅 Android / iOS）。
@@ -76,10 +82,7 @@ class LauncherIconService {
   /// - 通道未注册：MissingPluginException 信息。
   static Future<LauncherIconResult> setIcon(String icon) async {
     if (!isSupported) {
-      return const LauncherIconResult(
-        ok: false,
-        message: '当前平台不支持运行时换图标',
-      );
+      return const LauncherIconResult(ok: false, message: '当前平台不支持运行时换图标');
     }
     try {
       await _channel.invokeMethod('set', <String, Object>{'icon': icon});
@@ -109,10 +112,7 @@ class LauncherIconService {
     } on MissingPluginException catch (e) {
       // 通道无实现（原生桥未注册）
       debugPrint('[LauncherIcon] MissingPluginException: ${e.message}');
-      return LauncherIconResult(
-        ok: false,
-        message: '原生图标通道未注册：${e.message}',
-      );
+      return LauncherIconResult(ok: false, message: '原生图标通道未注册：${e.message}');
     } catch (e) {
       debugPrint('[LauncherIcon] set failed: $e');
       return LauncherIconResult(ok: false, message: '$e');

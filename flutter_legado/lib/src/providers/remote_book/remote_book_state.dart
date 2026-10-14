@@ -17,13 +17,13 @@ class RemoteBookItem {
   });
 
   RemoteBookItem copyWith({bool? isOnBookShelf}) => RemoteBookItem(
-        filename: filename,
-        relativePath: relativePath,
-        size: size,
-        lastModified: lastModified,
-        isDir: isDir,
-        isOnBookShelf: isOnBookShelf ?? this.isOnBookShelf,
-      );
+    filename: filename,
+    relativePath: relativePath,
+    size: size,
+    lastModified: lastModified,
+    isDir: isDir,
+    isOnBookShelf: isOnBookShelf ?? this.isOnBookShelf,
+  );
 }
 
 /// 远程书库自定义服务器（对齐原版 Server + WebDavConfig）
@@ -53,12 +53,12 @@ class RemoteServerConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'url': url,
-        'username': username,
-        'password': password,
-      };
+    'id': id,
+    'name': name,
+    'url': url,
+    'username': username,
+    'password': password,
+  };
 
   RemoteServerConfig copyWith({
     int? id,
@@ -66,14 +66,13 @@ class RemoteServerConfig {
     String? url,
     String? username,
     String? password,
-  }) =>
-      RemoteServerConfig(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        url: url ?? this.url,
-        username: username ?? this.username,
-        password: password ?? this.password,
-      );
+  }) => RemoteServerConfig(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    url: url ?? this.url,
+    username: username ?? this.username,
+    password: password ?? this.password,
+  );
 }
 
 /// 远程书库排序（对齐原版 RemoteBookSort）
@@ -150,8 +149,10 @@ class RemoteBookState {
       final dirs = list.where((e) => e.isDir).toList();
       final files = list.where((e) => !e.isDir).toList().reversed.toList();
       if (sortKey == RemoteBookSort.name) {
-        dirs.sort((a, b) =>
-            b.filename.toLowerCase().compareTo(a.filename.toLowerCase()));
+        dirs.sort(
+          (a, b) =>
+              b.filename.toLowerCase().compareTo(a.filename.toLowerCase()),
+        );
       }
       list = [...dirs, ...files];
     }
@@ -185,8 +186,9 @@ class RemoteBookState {
       sortAscending: sortAscending ?? this.sortAscending,
       serverId: serverId ?? this.serverId,
       servers: servers ?? this.servers,
-      importedCount:
-          clearImported ? null : (importedCount ?? this.importedCount),
+      importedCount: clearImported
+          ? null
+          : (importedCount ?? this.importedCount),
       error: clearError ? null : (error ?? this.error),
     );
   }

@@ -148,7 +148,8 @@ void main() {
     );
 
     // 有标记且 size>0 → true；列举命中 [1]
-    await File('${bookDir().path}$sep$name').writeAsBytes(List<int>.filled(8, 7));
+    await File('${bookDir().path}$sep$name')
+        .writeAsBytes(List<int>.filled(8, 7));
     expect(
       await api.audioCacheQuery(
         bookUrl: _kBookUrl,
@@ -203,8 +204,7 @@ void main() {
       chapterUrl: _kChapterUrl,
       chapterTitle: '第一章',
     );
-    expect(deleted, 1,
-        reason: '仅统计数据文件（契约 §2.47 口径修正；.complete 照删不计）');
+    expect(deleted, 1, reason: '仅统计数据文件（契约 §2.47 口径修正；.complete 照删不计）');
     expect(
       await api.audioCacheQuery(
         bookUrl: _kBookUrl,
@@ -240,16 +240,22 @@ void main() {
   test('清理整书：全删（含标记）并移除目录，幂等', () async {
     await writeCacheFile(dataName(1, _kKey16, 'mp3'), marker: true);
     await writeCacheFile(dataName(3, _kTitleKey16, 'm4a'), marker: true);
-    expect(await api.audioCacheClearBook(bookUrl: _kBookUrl), 2,
-        reason: '仅统计数据文件（.complete 照删不计，契约 §2.47 口径修正）');
+    expect(
+      await api.audioCacheClearBook(bookUrl: _kBookUrl),
+      2,
+      reason: '仅统计数据文件（.complete 照删不计，契约 §2.47 口径修正）',
+    );
     expect(bookDir().existsSync(), isFalse, reason: '书目录应一并移除');
     expect(await api.audioCacheList(bookUrl: _kBookUrl), isEmpty);
     expect(await api.audioCacheClearBook(bookUrl: _kBookUrl), 0, reason: '幂等');
   });
 
   test('B2 写入面 FFI 可达：取消无在途返回 false（同步语义）', () async {
-    expect(await api.audioCacheCancel(), isFalse,
-        reason: '运行时测试无在途下载，置位应返回 false');
+    expect(
+      await api.audioCacheCancel(),
+      isFalse,
+      reason: '运行时测试无在途下载，置位应返回 false',
+    );
   });
 
   test('B2 写入面失败上抛不降级（无 DB 书籍上下文 → 异常）', () async {

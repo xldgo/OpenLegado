@@ -17,8 +17,7 @@
 //    禁用标注改为可读写，见 [书源作用域]）；
 // 3. chip 交互正常（默认选中的「正文」点击后取消）。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -38,8 +37,7 @@ void main() {
   });
 
   group('D2 回归：作用范围 chips 360dp + 字体放大不溢出', () {
-    testWidgets('窄屏 + 放大：无溢出异常，三 chips 在位且可交互',
-        (tester) async {
+    testWidgets('窄屏 + 放大：无溢出异常，三 chips 在位且可交互', (tester) async {
       // 360dp 画布（对齐 MuMu 设备逻辑宽度 360x740）
       await tester.binding.setSurfaceSize(const Size(360, 740));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -47,8 +45,7 @@ void main() {
       // 系统字体放大 1.3 倍（对齐设备字体放大档，复现 18px 溢出条件）
       final testBinding = tester.binding;
       testBinding.platformDispatcher.textScaleFactorTestValue = 1.3;
-      addTearDown(
-          testBinding.platformDispatcher.clearTextScaleFactorTestValue);
+      addTearDown(testBinding.platformDispatcher.clearTextScaleFactorTestValue);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -72,8 +69,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // ① 无 RenderFlex 溢出（修复前此断言捕获溢出异常）
-      expect(tester.takeException(), isNull,
-          reason: '360dp + 字体放大 1.3 下不应出现布局溢出');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '360dp + 字体放大 1.3 下不应出现布局溢出',
+      );
 
       // ② 三勾选全部在位（Wrap 换行后仍完整呈现，不裁切）
       // [书源作用域 | 2026-09-13] 「书源」勾选已由禁用标注解除，
@@ -85,15 +85,19 @@ void main() {
       // ③ 仍可交互：「正文」chip（默认选中）点击后取消。
       // [B2-C2 2-9] 作用范围改 chips：按 FilterChip 标签定位断言 selected
       Finder scopeChip(String label) => find.byWidgetPredicate(
-            (w) => w is FilterChip &&
-                w.label is Text &&
-                (w.label as Text).data == label,
-          );
+        (w) =>
+            w is FilterChip &&
+            w.label is Text &&
+            (w.label as Text).data == label,
+      );
 
       final bodyChip = scopeChip('正文');
       expect(bodyChip, findsOneWidget, reason: '「正文」chip 应在位');
-      expect(tester.widget<FilterChip>(bodyChip).selected, isTrue,
-          reason: '「正文」默认选中');
+      expect(
+        tester.widget<FilterChip>(bodyChip).selected,
+        isTrue,
+        reason: '「正文」默认选中',
+      );
       await tester.tap(bodyChip);
       await tester.pump();
       expect(

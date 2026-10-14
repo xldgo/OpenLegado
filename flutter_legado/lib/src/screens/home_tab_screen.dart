@@ -1,4 +1,5 @@
 import '../features/privacy/privacy_gate.dart';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -164,71 +165,75 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         children: [
           // ===== 最近阅读卡 =====
           if (recent != null)
-            PrivacyMaskedContent(book:recent,onTap:()=>_openBook(recent!),child:_HomeCard(
+            PrivacyMaskedContent(
+              book: recent,
               onTap: () => _openBook(recent!),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 64,
-                    height: 88,
-                    child: BookCover(
-                      coverUrl: recent.coverUrl,
+              child: _HomeCard(
+                onTap: () => _openBook(recent!),
+                child: Row(
+                  children: [
+                    SizedBox(
                       width: 64,
                       height: 88,
+                      child: BookCover(
+                        coverUrl: recent.coverUrl,
+                        width: 64,
+                        height: 88,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Symbols.menu_book_rounded,
-                              size: 18,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              context.l10n.recentReading,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(color: cs.primary),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          recent.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          recent.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                        if (recent.durChapterTitle != null) ...[
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Symbols.menu_book_rounded,
+                                size: 18,
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                context.l10n.recentReading,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(color: cs.primary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            recent.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                           const SizedBox(height: 4),
                           Text(
-                            recent.durChapterTitle!,
+                            recent.author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
+                          if (recent.durChapterTitle != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              recent.durChapterTitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  _progressBadge(recent, cs),
-                ],
+                    _progressBadge(recent, cs),
+                  ],
+                ),
               ),
-            )),
+            ),
           if (recent != null) const SizedBox(height: 12),
           // ===== 统计双卡 =====
           Row(

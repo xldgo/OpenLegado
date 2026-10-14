@@ -8,9 +8,7 @@ import '../models/models.dart';
 Book applyBookInfoCanUpdateToggle(Book book, {required bool inBookshelf}) {
   final toggled = book.copyWith(canUpdate: !book.canUpdate);
   if (inBookshelf && !toggled.canUpdate) {
-    return toggled.copyWith(
-      bookType: toggled.bookType & ~BookType.updateError,
-    );
+    return toggled.copyWith(bookType: toggled.bookType & ~BookType.updateError);
   }
   return toggled;
 }

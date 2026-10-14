@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +56,8 @@ void main() {
     });
 
     DictState readState() => container.read(dictNotifierProvider);
-    DictNotifier readNotifier() => container.read(dictNotifierProvider.notifier);
+    DictNotifier readNotifier() =>
+        container.read(dictNotifierProvider.notifier);
 
     test('初始状态为空', () {
       final state = readState();
@@ -96,10 +96,7 @@ void main() {
 
     test('addRule 添加并持久化', () async {
       await readNotifier().addRule(
-        const DictRule(
-          name: '必应',
-          urlRule: 'https://bing.com/dict?q={{key}}',
-        ),
+        const DictRule(name: '必应', urlRule: 'https://bing.com/dict?q={{key}}'),
       );
 
       expect(readState().rules.single.name, equals('必应'));
@@ -119,11 +116,13 @@ void main() {
     });
 
     test('lookup 委托 Rust dictLookup 并解析（大小写归一化）', () async {
-      when(() => mockApi.dictLookup(any())).thenAnswer((_) async => {
-            'word': 'chapter',
-            'phonetic': '/ˈtʃæptə(r)/',
-            'definitions': ['n. 章，章节'],
-          });
+      when(() => mockApi.dictLookup(any())).thenAnswer(
+        (_) async => {
+          'word': 'chapter',
+          'phonetic': '/ˈtʃæptə(r)/',
+          'definitions': ['n. 章，章节'],
+        },
+      );
 
       await readNotifier().lookup('Chapter');
 
@@ -137,11 +136,9 @@ void main() {
     });
 
     test('lookup 未收录词返回空 definitions（非异常）', () async {
-      when(() => mockApi.dictLookup(any())).thenAnswer((_) async => {
-            'word': 'zzz',
-            'phonetic': '',
-            'definitions': <String>[],
-          });
+      when(() => mockApi.dictLookup(any())).thenAnswer(
+        (_) async => {'word': 'zzz', 'phonetic': '', 'definitions': <String>[]},
+      );
 
       await readNotifier().lookup('zzz');
 

@@ -5,10 +5,7 @@ import 'dart:async';
 /// 的 bookUrl/key/cached 三元组——我方目录页只需书标识 + 章节下标即可
 /// 触发重查 `audioCacheList`，故裁剪为这两字段）。
 class AudioCacheChanged {
-  const AudioCacheChanged({
-    required this.bookUrl,
-    required this.chapterIndex,
-  });
+  const AudioCacheChanged({required this.bookUrl, required this.chapterIndex});
 
   /// 发生缓存变更的书籍 URL（目录页据此过滤他书事件）
   final String bookUrl;

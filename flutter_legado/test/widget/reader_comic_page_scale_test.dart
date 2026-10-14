@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 E2] 分页适配类型（设置项 + 持久化，整页行为）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -41,15 +42,14 @@ class _ScaleMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
 
-  _ScaleMockApi({
-    required this.configWrites,
-    Map<String, String>? configs,
-  }) : _configs = configs ?? {};
+  _ScaleMockApi({required this.configWrites, Map<String, String>? configs})
+    : _configs = configs ?? {};
 
   /// 每章图片数（与 E1/E3 mock 一致取 3，保证单页式有页可翻）
   static const int imageCount = 3;
@@ -58,43 +58,40 @@ class _ScaleMockApi extends MockBookApi {
   final Map<String, String> _configs;
 
   Future<List<BookSource>> _fixtureGetBookSources() async => [
-        BookSource(
-          bookSourceUrl: 'https://manga.example.com',
-          bookSourceName: '测试漫画源',
-          bookSourceGroup: '漫画',
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: ContentRule(
-            content: '.x',
-            imageDecode: 'decode(result);',
-          ),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+    BookSource(
+      bookSourceUrl: 'https://manga.example.com',
+      bookSourceName: '测试漫画源',
+      bookSourceGroup: '漫画',
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: 'https://manga.example.com',
-        originName: '测试漫画源',
-        canUpdate: true,
-        totalChapterNum: 1,
-        durChapterPos: 0,
-      );
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: 'https://manga.example.com',
+    originName: '测试漫画源',
+    canUpdate: true,
+    totalChapterNum: 1,
+    durChapterPos: 0,
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        BookChapter(
-          index: 0,
-          url: 'https://manga.example.com/comic/1/ch1.html',
-          title: '第1章',
-        ),
-      ];
+    BookChapter(
+      index: 0,
+      url: 'https://manga.example.com/comic/1/ch1.html',
+      title: '第1章',
+    ),
+  ];
 
   @override
   Future<String> fetchChapterContent(
@@ -142,8 +139,7 @@ Future<void> _openSheet(WidgetTester tester) async {
 
 void main() {
   group('[P4-3 E2] 分页适配类型设置项', () {
-    testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1',
-        (tester) async {
+    testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1', (tester) async {
       final configWrites = <List<String>>[];
       final api = _ScaleMockApi(
         configWrites: configWrites,
@@ -156,7 +152,9 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s1')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s1'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -192,8 +190,9 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child:
-              const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s2')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s2'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -207,8 +206,7 @@ void main() {
       expect(find.text('侧边留白'), findsOneWidget);
     });
 
-    testWidgets('已配置 mangaPageScaleType=3：下拉回显「适配高度」',
-        (tester) async {
+    testWidgets('已配置 mangaPageScaleType=3：下拉回显「适配高度」', (tester) async {
       final api = _ScaleMockApi(
         configWrites: <List<String>>[],
         configs: {'mangaScrollMode': '1', 'mangaPageScaleType': '3'},
@@ -220,7 +218,9 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s3')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s3'),
+          ),
         ),
       );
       await tester.pumpAndSettle();

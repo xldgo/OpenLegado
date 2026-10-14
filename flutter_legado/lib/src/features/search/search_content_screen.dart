@@ -1,11 +1,14 @@
 import '../../widgets/app_menu.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
 import '../../widgets/md3_fast_scroller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_localization.dart';
@@ -121,7 +124,8 @@ class SearchContentScreen extends ConsumerStatefulWidget {
   String get effectiveBookName => book?.name ?? bookName;
 
   @override
-  ConsumerState<SearchContentScreen> createState() => _SearchContentScreenState();
+  ConsumerState<SearchContentScreen> createState() =>
+      _SearchContentScreenState();
 }
 
 class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
@@ -169,7 +173,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
   Future<void> _loadHistory() async {
     try {
       final api = ref.read(bookApiProvider);
-      final list = await api.searchHistoryRepository.getSearchHistory(limit: 20);
+      final list = await api.searchHistoryRepository.getSearchHistory(
+        limit: 20,
+      );
       if (!mounted) return;
       setState(() => _history = list.map((e) => e.word).toList());
     } catch (_) {
@@ -195,7 +201,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     FocusScope.of(context).unfocus();
 
     // 记录搜索历史
-    api.searchHistoryRepository.addSearchKeyword(query, widget.effectiveBookName).catchError((_) {});
+    api.searchHistoryRepository
+        .addSearchKeyword(query, widget.effectiveBookName)
+        .catchError((_) {});
 
     try {
       final chapters = await api.getChapters(widget.effectiveBookUrl);
@@ -224,9 +232,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
       Set<String>? cachedUrls;
       if (scope == _SearchContentOptions.scopeCached) {
         try {
-          cachedUrls = (await api.listCachedChapterUrls(widget.effectiveBookUrl,
-          ))
-              .toSet();
+          cachedUrls = (await api.listCachedChapterUrls(
+            widget.effectiveBookUrl,
+          )).toSet();
         } catch (_) {
           cachedUrls = <String>{};
         }
@@ -252,10 +260,12 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
           // 默认关闭替换规则，避免被替换/删除的词搜不到
           final content = _SearchContentOptions.useReplace
               ? await api.getChapterContent(
-                  widget.effectiveBookUrl, chapter.index,
+                  widget.effectiveBookUrl,
+                  chapter.index,
                 )
               : await api.getChapterContentRaw(
-                  widget.effectiveBookUrl, chapter.index,
+                  widget.effectiveBookUrl,
+                  chapter.index,
                 );
           if (gen != _generation) return;
 
@@ -267,17 +277,20 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
           );
 
           for (final hit in hits) {
-            final start = hit.start > _snippetRadius ? hit.start - _snippetRadius : 0;
+            final start = hit.start > _snippetRadius
+                ? hit.start - _snippetRadius
+                : 0;
             var end = hit.end + _snippetRadius;
             if (end > content.length) end = content.length;
             var snippet = content.substring(start, end).replaceAll('\n', ' ');
             if (start > 0) snippet = '…$snippet';
             if (end < content.length) snippet = '$snippet…';
-            _results.add(_ContentMatch(
-              chapterIndex: chapter.index,
-              chapterTitle: chapter.title,
-              snippet: snippet,
-            ),
+            _results.add(
+              _ContentMatch(
+                chapterIndex: chapter.index,
+                chapterTitle: chapter.title,
+                snippet: snippet,
+              ),
             );
             if (_results.length >= _maxResults) break;
           }
@@ -304,7 +317,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
 
   void _jumpToResult(_ContentMatch match) {
     final container = ProviderScope.containerOf(context);
-    container.read(readerNotifierProvider.notifier).goToChapter(match.chapterIndex);
+    container
+        .read(readerNotifierProvider.notifier)
+        .goToChapter(match.chapterIndex);
     Navigator.of(context).pop();
   }
 
@@ -317,8 +332,8 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     final highlightStyle = TextStyle(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.bold,
-      backgroundColor:
-          Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.6),
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer
+          .withValues(alpha: 0.6),
     );
     final spans = <TextSpan>[];
 
@@ -333,10 +348,11 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     var cursor = 0;
     for (final r in ranges) {
       if (r.start < cursor) continue; // 防御：重叠区间跳过
-      if (r.start > cursor) spans.add(TextSpan(text: text.substring(cursor, r.start)));
-      spans.add(TextSpan(
-        text: text.substring(r.start, r.end),
-        style: highlightStyle),
+      if (r.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, r.start)));
+      }
+      spans.add(
+        TextSpan(text: text.substring(r.start, r.end), style: highlightStyle),
       );
       cursor = r.end;
     }
@@ -376,11 +392,14 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
       topBar: LegadoAppBar(
         // [PARITY C1-C1] 标题对齐参考「搜索内容」
         title: Text(
-          context.l10n.searchContent, style: Theme.of(context).textTheme.titleMedium,
+          context.l10n.searchContent,
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         actions: [
           if (_searching)
-            IconButton(icon: const Icon(Symbols.close_rounded), onPressed: _cancelSearch,
+            IconButton(
+              icon: const Icon(Symbols.close_rounded),
+              onPressed: _cancelSearch,
             ),
           // [C4 对齐 | Qoder UI] 搜索选项菜单（对齐原版 content_search 菜单：
           // 替换 / 正则 两项可勾选，原版为 overflow 菜单 app:showAsAction="never"）
@@ -425,19 +444,22 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
               //（仅当前章 / 本书已缓存 / 本书含网络），参考版「仅本书」对应已缓存档
               AppMenuItem(
                 value: 'scope_current',
-                checked: _SearchContentOptions.scope ==
+                checked:
+                    _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeCurrent,
                 child: Text(context.l10n.searchCurrentChapter),
               ),
               AppMenuItem(
                 value: 'scope_cached',
-                checked: _SearchContentOptions.scope ==
+                checked:
+                    _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeCached,
                 child: Text(context.l10n.searchCachedChapters),
               ),
               AppMenuItem(
                 value: 'scope_network',
-                checked: _SearchContentOptions.scope ==
+                checked:
+                    _SearchContentOptions.scope ==
                     _SearchContentOptions.scopeNetwork,
                 child: Text(context.l10n.searchNetworkChapters),
               ),
@@ -467,12 +489,11 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
               // [PARITY A6 | ⑦b 已裁决] 盒填充统一 = surfaceContainerLow
               // （material 引擎 SearchBar 默认槽位：标准板深色为深色盒、
               // 透明板 = 全透明背景透现，见 build 头部裁决注释）
-              backgroundColor:
-                  WidgetStatePropertyAll(scheme.surfaceContainerLow,
+              backgroundColor: WidgetStatePropertyAll(
+                scheme.surfaceContainerLow,
               ),
               shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(32)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
               ),
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 12),
@@ -526,9 +547,10 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
             // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
             const AppCircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(_totalChapters == 0
-                ? context.l10n.searching
-                : context.l10n.scanningSearchChapters(
+            Text(
+              _totalChapters == 0
+                  ? context.l10n.searching
+                  : context.l10n.scanningSearchChapters(
                       _scannedChapters,
                       _totalChapters,
                     ),
@@ -551,7 +573,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
           //（progress null = indeterminate；确定性 x/y 语义经 progress 承载，
           // 视觉等价：无 minHeight 实参 → 默认 4dp）
           AppLinearProgressIndicator(
-            progress: _totalChapters == 0 ? null : _scannedChapters / _totalChapters,
+            progress: _totalChapters == 0
+                ? null
+                : _scannedChapters / _totalChapters,
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -559,12 +583,12 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
             children: [
               Text(
                 context.l10n.contentMatchCount(_results.length),
-                  style: Theme.of(context).textTheme.labelMedium,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               if (_results.length >= _maxResults)
                 Text(
                   context.l10n.searchResultsTruncated,
-                    style: Theme.of(context).textTheme.labelSmall,
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
             ],
           ),
@@ -688,9 +712,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
             decoration: BoxDecoration(
               color: selected ? fill : Colors.transparent,
               borderRadius: BorderRadius.circular(19),
-              border: selected
-                  ? null
-                  : Border.all(color: fill, width: 1),
+              border: selected ? null : Border.all(color: fill, width: 1),
             ),
             child: Text(
               context.l10n.searchThisBookOnly,

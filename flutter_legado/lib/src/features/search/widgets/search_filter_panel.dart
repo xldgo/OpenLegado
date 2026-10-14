@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../../../providers/providers.dart';
@@ -82,9 +81,15 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
   List<BookSource> get _filteredSources {
     if (_searchQuery.isEmpty) return _sources;
     return _sources
-        .where((s) =>
-            s.bookSourceName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            s.bookSourceUrl.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (s) =>
+              s.bookSourceName.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ) ||
+              s.bookSourceUrl.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ),
+        )
         .toList();
   }
 
@@ -105,9 +110,7 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
+                  color: Theme.of(context).colorScheme.onSurfaceVariant
                       .withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
@@ -150,8 +153,10 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 isDense: true,
               ),
               onChanged: (value) => setState(() => _searchQuery = value),
@@ -166,8 +171,8 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
                   // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
                   ? const Center(child: AppCircularProgressIndicator())
                   : _error != null
-                      ? _buildErrorView()
-                      : _buildSourceList(state),
+                  ? _buildErrorView()
+                  : _buildSourceList(state),
             ),
             const SizedBox(height: 8),
             // 确定按钮（书源单选确认关闭）
@@ -199,15 +204,15 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.error_rounded,
-              size: 48, color: Theme.of(context).colorScheme.error),
+          Icon(
+            Symbols.error_rounded,
+            size: 48,
+            color: Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(height: 8),
           Text('加载失败', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: _loadSources,
-            child: const Text('重试'),
-          ),
+          TextButton(onPressed: _loadSources, child: const Text('重试')),
         ],
       ),
     );
@@ -221,11 +226,13 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.search_off_rounded,
-                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(
+              Symbols.search_off_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 8),
-            Text('未找到匹配的书源',
-                style: Theme.of(context).textTheme.bodyMedium),
+            Text('未找到匹配的书源', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       );
@@ -250,17 +257,17 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
             contentPadding: EdgeInsets.zero,
             value: source.bookSourceUrl,
             title: Text(
-            source.bookSourceName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            source.bookSourceUrl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              source.bookSourceName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              source.bookSourceUrl,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           );
         },

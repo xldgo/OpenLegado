@@ -25,10 +25,8 @@ const Duration kVideoPosTtl = Duration(days: 20);
 String videoPosKey(String url) => '$kVideoPosKeyPrefix$url';
 
 /// 编码直链进度（毫秒 + 保存时刻），供 20 天 TTL 判定
-String encodeVideoPos(int posMs, {required DateTime savedAt}) => jsonEncode({
-      'pos': posMs,
-      'savedAt': savedAt.millisecondsSinceEpoch,
-    });
+String encodeVideoPos(int posMs, {required DateTime savedAt}) =>
+    jsonEncode({'pos': posMs, 'savedAt': savedAt.millisecondsSinceEpoch});
 
 /// 解码并校验直链进度；无记录 / 损坏 / 非正数 / 已过期一律返回 null。
 ///
@@ -53,7 +51,7 @@ int? decodeVideoPos(String? raw, {required DateTime now}) {
 /// 直链播放进度存取（持久化层为既有 config/caches 通道）
 class VideoPosStore {
   VideoPosStore(this._api, {DateTime Function()? clock})
-      : _clock = clock ?? DateTime.now;
+    : _clock = clock ?? DateTime.now;
 
   final BookApi _api;
   final DateTime Function() _clock;

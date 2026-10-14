@@ -1,10 +1,10 @@
 import 'app_menu.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
 import '../features/book_sources/book_sources.dart';
@@ -43,7 +43,12 @@ class _VerificationCodeListenerState
     _subscription = ref
         .read(bookApiProvider)
         .verificationRequestStream()
-        .listen(_onRequest, onError: (Object _) {/* 通道异常静默，等待重连 */});
+        .listen(
+          _onRequest,
+          onError: (Object _) {
+            /* 通道异常静默，等待重连 */
+          },
+        );
   }
 
   @override
@@ -162,14 +167,13 @@ class _VerificationCodeDialogState
     final header = widget.title.isNotEmpty
         ? widget.title
         : (widget.sourceName.isNotEmpty
-            ? '「${widget.sourceName}」需要验证码'
-            : '请输入验证码');
+              ? '「${widget.sourceName}」需要验证码'
+              : '请输入验证码');
     return AlertDialog(
       title: Row(
         children: [
           Expanded(
-            child: Text(header,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(header, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           AppMenuButton<String>(
             tooltip: '更多选项',
@@ -211,9 +215,7 @@ class _VerificationCodeDialogState
           TextField(
             controller: _controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '输入验证码',
-            ),
+            decoration: const InputDecoration(hintText: '输入验证码'),
             onSubmitted: (_) => _submit(),
           ),
         ],

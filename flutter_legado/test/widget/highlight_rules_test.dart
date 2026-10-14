@@ -9,8 +9,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
@@ -81,9 +80,13 @@ void main() {
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
-    final captured = verify(
-      () => mockApi.highlightRuleSave(ruleJson: captureAny(named: 'ruleJson')),
-    ).captured.single as String;
+    final captured =
+        verify(
+              () => mockApi.highlightRuleSave(
+                ruleJson: captureAny(named: 'ruleJson'),
+              ),
+            ).captured.single
+            as String;
     final saved = jsonDecode(captured) as Map<String, dynamic>;
     expect(saved['isEnabled'], false);
     expect(saved['id'], 1);
@@ -107,9 +110,13 @@ void main() {
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
-    final captured = verify(
-      () => mockApi.highlightRuleSave(ruleJson: captureAny(named: 'ruleJson')),
-    ).captured.single as String;
+    final captured =
+        verify(
+              () => mockApi.highlightRuleSave(
+                ruleJson: captureAny(named: 'ruleJson'),
+              ),
+            ).captured.single
+            as String;
     final saved = jsonDecode(captured) as Map<String, dynamic>;
     expect(saved['name'], '测试规则');
     expect(saved['pattern'], '关键词');

@@ -1,4 +1,5 @@
 import '../../privacy/privacy_gate.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
@@ -55,17 +56,24 @@ class ReadRecordDayDetailsSheet extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               for (final book in books)
-                PrivacyMaskedContent(bookName:book.bookName,author:book.author,child:ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: SizedBox(
-                    width: 40,
-                    height: 56,
-                    child: BookCover(coverUrl: book.coverUrl, borderRadius: 6),
+                PrivacyMaskedContent(
+                  bookName: book.bookName,
+                  author: book.author,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: SizedBox(
+                      width: 40,
+                      height: 56,
+                      child: BookCover(
+                        coverUrl: book.coverUrl,
+                        borderRadius: 6,
+                      ),
+                    ),
+                    title: Text(book.bookName),
+                    subtitle: book.author.isEmpty ? null : Text(book.author),
+                    trailing: Text(formatDuring(book.readTimeMs)),
                   ),
-                  title: Text(book.bookName),
-                  subtitle: book.author.isEmpty ? null : Text(book.author),
-                  trailing: Text(formatDuring(book.readTimeMs)),
-                )),
+                ),
             ],
           ],
         ),

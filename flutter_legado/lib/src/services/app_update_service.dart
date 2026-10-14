@@ -91,8 +91,10 @@ class AppUpdateService {
     );
     if (selected == null) return null;
 
-    final downloadUrl =
-        resolveAppUpdateDownloadUrl(selected.name, selected.downloadUrl);
+    final downloadUrl = resolveAppUpdateDownloadUrl(
+      selected.name,
+      selected.downloadUrl,
+    );
     final backup = resolveAppUpdateBackupUrl(downloadUrl, selected.downloadUrl);
     return AppUpdateInfo(
       tagName: selected.versionName,
@@ -163,8 +165,8 @@ class AppUpdateService {
         out.add(
           _ReleaseCandidate(
             appVariant: inferAppVariant(name, pre),
-            createdAtMs: DateTime.tryParse(createdAt)?.millisecondsSinceEpoch ??
-                0,
+            createdAtMs:
+                DateTime.tryParse(createdAt)?.millisecondsSinceEpoch ?? 0,
             note: body,
             name: name,
             downloadUrl: apkUrl,
@@ -205,12 +207,14 @@ _ReleaseCandidate? _selectUpdateRelease({
     return a.createdAtMs.compareTo(b.createdAtMs);
   });
   final latest = candidates.last;
-  final sameVersion = candidates
-      .where(
-        (c) => compareReleaseVersions(c.versionName, latest.versionName) == 0,
-      )
-      .toList()
-    ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+  final sameVersion =
+      candidates
+          .where(
+            (c) =>
+                compareReleaseVersions(c.versionName, latest.versionName) == 0,
+          )
+          .toList()
+        ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
   if (sameVersion.isEmpty) return null;
   if (preferArm) {
     return sameVersion.firstWhere(

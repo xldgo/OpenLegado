@@ -1,9 +1,6 @@
 /// 听书片头/片尾跳过策略（对齐 Rust `audio_skip_policy` / 原版 AudioSkipPolicy）
 class AudioSkipWindow {
-  const AudioSkipWindow({
-    required this.introEndMs,
-    required this.outroStartMs,
-  });
+  const AudioSkipWindow({required this.introEndMs, required this.outroStartMs});
 
   final int introEndMs;
   final int outroStartMs;

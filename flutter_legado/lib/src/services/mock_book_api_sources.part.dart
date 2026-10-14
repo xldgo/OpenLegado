@@ -143,8 +143,7 @@ mixin MockBookApiSources on MockBookApiStore implements BookApi {
     String key,
     String result,
     String cookiesJson,
-  ) async =>
-      false;
+  ) async => false;
 
   @override
   Future<bool> cancelWebviewRequest(String key) async => false;

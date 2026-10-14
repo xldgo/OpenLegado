@@ -35,9 +35,12 @@ void main() {
                                 children: const [
                                   Icon(Icons.storage, size: 28),
                                   SizedBox(height: 8),
-                                  Text('12.5 MB',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
+                                  Text(
+                                    '12.5 MB',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   SizedBox(height: 4),
                                   Text('总大小'),
                                 ],
@@ -54,9 +57,12 @@ void main() {
                                 children: const [
                                   Icon(Icons.menu_book, size: 28),
                                   SizedBox(height: 8),
-                                  Text('5',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
+                                  Text(
+                                    '5',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   SizedBox(height: 4),
                                   Text('书籍数量'),
                                 ],
@@ -73,9 +79,12 @@ void main() {
                                 children: const [
                                   Icon(Icons.article, size: 28),
                                   SizedBox(height: 8),
-                                  Text('128',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
+                                  Text(
+                                    '128',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   SizedBox(height: 4),
                                   Text('章节数量'),
                                 ],
@@ -144,10 +153,14 @@ void main() {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {},
-                        icon: Icon(Icons.cleaning_services,
-                            color: Colors.red[700]),
-                        label: Text('清除全部缓存',
-                            style: TextStyle(color: Colors.red[700])),
+                        icon: Icon(
+                          Icons.cleaning_services,
+                          color: Colors.red[700],
+                        ),
+                        label: Text(
+                          '清除全部缓存',
+                          style: TextStyle(color: Colors.red[700]),
+                        ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.red[700]!),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -272,8 +285,7 @@ void main() {
                   );
                 },
                 icon: Icon(Icons.cleaning_services, color: Colors.red[700]),
-                label: Text('清除全部缓存',
-                    style: TextStyle(color: Colors.red[700])),
+                label: Text('清除全部缓存', style: TextStyle(color: Colors.red[700])),
               ),
             ),
           ),
@@ -336,8 +348,7 @@ void main() {
                   );
                 },
                 icon: Icon(Icons.cleaning_services, color: Colors.red[700]),
-                label: Text('清除全部缓存',
-                    style: TextStyle(color: Colors.red[700])),
+                label: Text('清除全部缓存', style: TextStyle(color: Colors.red[700])),
               ),
             ),
           ),
@@ -374,8 +385,10 @@ void main() {
               // 数据管理分区
               Padding(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('数据管理',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  '数据管理',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               ListTile(
                 leading: Icon(Icons.cleaning_services),

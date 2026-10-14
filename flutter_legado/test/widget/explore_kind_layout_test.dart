@@ -1,7 +1,6 @@
 // ExploreKindLayout widget 测试：style 驱动的 wide/cell 布局
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -22,24 +21,28 @@ void main() {
         .thenAnswer((_) async {});
     when(() => mockApi.exploreInfoMapEnsureDefault(any(), any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.exploreEvalAction(
-          sourceJson: any(named: 'sourceJson'),
-          actionJs: any(named: 'actionJs'),
-        )).thenAnswer((_) async => {
-          'raw': '',
-          'actions': <dynamic>[],
-          'refreshExplore': false,
-        });
-    when(() => mockApi.exploreEvalUiJs(
-          sourceJson: any(named: 'sourceJson'),
-          jsStr: any(named: 'jsStr'),
-        )).thenAnswer((invocation) async => invocation.namedArguments[#jsStr] as String);
+    when(
+      () => mockApi.exploreEvalAction(
+        sourceJson: any(named: 'sourceJson'),
+        actionJs: any(named: 'actionJs'),
+      ),
+    ).thenAnswer(
+      (_) async => {'raw': '', 'actions': <dynamic>[], 'refreshExplore': false},
+    );
+    when(
+      () => mockApi.exploreEvalUiJs(
+        sourceJson: any(named: 'sourceJson'),
+        jsStr: any(named: 'jsStr'),
+      ),
+    ).thenAnswer(
+      (invocation) async => invocation.namedArguments[#jsStr] as String,
+    );
   });
 
   Widget wrap(Widget child) => ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: MaterialApp(home: Scaffold(body: child)),
-      );
+    overrides: [bookApiProvider.overrideWithValue(mockApi)],
+    child: MaterialApp(home: Scaffold(body: child)),
+  );
 
   const sourceUrl = 'https://explore-layout.test';
   const sourceJson = '{"bookSourceUrl":"https://explore-layout.test"}';
@@ -60,11 +63,7 @@ void main() {
       const ExploreCategory(title: '儿童', url: '/child', style: cellStyle),
       const ExploreCategory(title: '儿童分类', style: wideStyle),
       const ExploreCategory(title: '故事', url: '/story', style: cellStyle),
-      const ExploreCategory(
-        title: '排行榜',
-        url: '/rank',
-        style: wideStyle,
-      ),
+      const ExploreCategory(title: '排行榜', url: '/rank', style: wideStyle),
       const ExploreCategory(title: '音乐频道', style: wideStyle),
       const ExploreCategory(title: '流行', url: '/pop', style: cellStyle),
     ];
@@ -91,10 +90,9 @@ void main() {
 
     expect(find.byIcon(Icons.chevron_right), findsNothing);
 
-    Size cellSize(String title) => tester.getSize(find.ancestor(
-          of: find.text(title),
-          matching: find.byType(InkWell),
-        ));
+    Size cellSize(String title) => tester.getSize(
+      find.ancestor(of: find.text(title), matching: find.byType(InkWell)),
+    );
     final w0 = cellSize('推荐').width;
     final w1 = cellSize('小说').width;
     expect(w0, closeTo(w1, 1));
@@ -115,11 +113,7 @@ void main() {
           sourceUrl: sourceUrl,
           sourceJson: sourceJson,
           categories: const [
-            ExploreCategory(
-              title: '玄幻',
-              url: '/xh',
-              style: cellStyle,
-            ),
+            ExploreCategory(title: '玄幻', url: '/xh', style: cellStyle),
           ],
           onCategoryTap: (title, url) => tappedTitle = title,
         ),
@@ -152,9 +146,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    verify(() => mockApi.exploreEvalAction(
-          sourceJson: sourceJson,
-          actionJs: 'java.refreshExplore()',
-        )).called(1);
+    verify(
+      () => mockApi.exploreEvalAction(
+        sourceJson: sourceJson,
+        actionJs: 'java.refreshExplore()',
+      ),
+    ).called(1);
   });
 }

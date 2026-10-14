@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,8 +50,9 @@ void main() {
           readerNotifierProvider.overrideWith(() => readerNotifier),
       ],
       child: MaterialApp(
-        navigatorKey:
-            useGlobalNavigator ? PlatformBridgeService.navigatorKey : null,
+        navigatorKey: useGlobalNavigator
+            ? PlatformBridgeService.navigatorKey
+            : null,
         navigatorObservers: [observer],
         onGenerateRoute: (settings) => MaterialPageRoute<void>(
           settings: settings,
@@ -78,8 +78,7 @@ void main() {
     );
   }
 
-  testWidgets('未读（durChapterIndex=0 且 durChapterPos=0）→ 书籍详情页',
-      (tester) async {
+  testWidgets('未读（durChapterIndex=0 且 durChapterPos=0）→ 书籍详情页', (tester) async {
     const book = Book(bookUrl: 'https://ex.com/unread', name: '未读书');
     final api = MockRustApi();
 
@@ -92,8 +91,7 @@ void main() {
     expect(find.text('stub:${AppRoutes.bookInfo}'), findsOneWidget);
   });
 
-  testWidgets('在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新',
-      (tester) async {
+  testWidgets('在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新', (tester) async {
     final api = MockRustApi();
     when(() => api.bookSourceRepository.getBookSources()).thenAnswer(
       (_) async => const [
@@ -128,8 +126,7 @@ void main() {
     verify(() => api.bookSourceRepository.getBookSources()).called(1);
   });
 
-  testWidgets('欢迎页口径：全局 navigatorKey + 跳过未读进详情 → 文本阅读器',
-      (tester) async {
+  testWidgets('欢迎页口径：全局 navigatorKey + 跳过未读进详情 → 文本阅读器', (tester) async {
     const book = Book(
       bookUrl: 'loc_book_1',
       name: '本地未读书',
@@ -141,13 +138,15 @@ void main() {
     final api = MockRustApi();
     final reader = _RecordingReaderNotifier();
 
-    await tester.pumpWidget(harness(
-      book: book,
-      api: api,
-      readerNotifier: reader,
-      useGlobalNavigator: true,
-      unreadOpensBookInfo: false,
-    ));
+    await tester.pumpWidget(
+      harness(
+        book: book,
+        api: api,
+        readerNotifier: reader,
+        useGlobalNavigator: true,
+        unreadOpensBookInfo: false,
+      ),
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -157,8 +156,7 @@ void main() {
     expect(reader.openedBook?.bookUrl, book.bookUrl);
   });
 
-  testWidgets('文本阅读器：先装载 ReaderNotifier 再推 /reader（无参数）',
-      (tester) async {
+  testWidgets('文本阅读器：先装载 ReaderNotifier 再推 /reader（无参数）', (tester) async {
     const book = Book(
       bookUrl: 'loc_book_2',
       name: '本地已读书',
@@ -170,11 +168,9 @@ void main() {
     final api = MockRustApi();
     final reader = _RecordingReaderNotifier();
 
-    await tester.pumpWidget(harness(
-      book: book,
-      api: api,
-      readerNotifier: reader,
-    ));
+    await tester.pumpWidget(
+      harness(book: book, api: api, readerNotifier: reader),
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -186,8 +182,7 @@ void main() {
   // [cbz 批 C | 2026-10-03] cbz 漫画包开书路由钉住：Rust importLocalBook
   // 对 .cbz 返回 bookType=LOCAL|image(0x1040)，BookOpenUtils 位域路由须
   // 进 /reader-comic（零代码改动，补测试防回归）。
-  test('类型位常量：LOCAL|image=0x1040（与 Rust book_type LOCAL|IMAGE_BIT 对齐）',
-      () {
+  test('类型位常量：LOCAL|image=0x1040（与 Rust book_type LOCAL|IMAGE_BIT 对齐）', () {
     expect(BookType.local, 0x1000);
     expect(BookType.image, 64);
     expect(BookType.local | BookType.image, 0x1040);
@@ -197,8 +192,9 @@ void main() {
     );
   });
 
-  testWidgets('本地 cbz（LOCAL|image=0x1040）→ 漫画阅读器 /reader-comic（参数 bookUrl）',
-      (tester) async {
+  testWidgets('本地 cbz（LOCAL|image=0x1040）→ 漫画阅读器 /reader-comic（参数 bookUrl）', (
+    tester,
+  ) async {
     const book = Book(
       bookUrl: 'file:///storage/books/本地漫画.cbz',
       name: '本地漫画',
@@ -210,11 +206,9 @@ void main() {
     final api = MockRustApi();
     final reader = _RecordingReaderNotifier();
 
-    await tester.pumpWidget(harness(
-      book: book,
-      api: api,
-      readerNotifier: reader,
-    ));
+    await tester.pumpWidget(
+      harness(book: book, api: api, readerNotifier: reader),
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 

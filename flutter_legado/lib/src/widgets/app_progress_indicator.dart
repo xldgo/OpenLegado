@@ -72,10 +72,7 @@ class AppCircularProgressIndicator extends StatelessWidget {
       label: semanticsLabel,
       child: ExcludeSemantics(
         child: progress == null
-            ? CircularProgressIndicator(
-                strokeWidth: strokeWidth,
-                color: color,
-              )
+            ? CircularProgressIndicator(strokeWidth: strokeWidth, color: color)
             : CircularProgressIndicator(
                 value: progress,
                 strokeWidth: strokeWidth,

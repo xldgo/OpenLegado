@@ -39,7 +39,6 @@ mixin MockBookApiStore {
   /// [替换规则预览 | 2026-09-13] `previewReplaceRule` 调用次数（测试断言用）
   int get previewReplaceRuleCalls => _previewReplaceRuleCalls;
 
-
   /// 初始化 Mock 数据
   ///
   /// 数据来源见文件头注释。书源/RSS/TTS 取自
@@ -58,10 +57,8 @@ mixin MockBookApiStore {
         bookSourceType: 1, // 音频源
         enabled: true,
         enabledExplore: true,
-        exploreUrl:
-            '玄幻::https://www.kaixin7days.com/book-service/bookMgt/getAllBookByCategroyId\n都市::https://www.kaixin7days.com/book-service/bookMgt/getAllBookByCategroyId',
-        searchUrl:
-            'https://www.kaixin7days.com/book-service/bookMgt/findBookName,{"method":"POST","body":{"title": "searchKey","pageNum": 1,"pageSize": 100}}',
+        exploreUrl: '玄幻::https://www.kaixin7days.com/book-service/bookMgt/getAllBookByCategroyId\n都市::https://www.kaixin7days.com/book-service/bookMgt/getAllBookByCategroyId',
+        searchUrl: 'https://www.kaixin7days.com/book-service/bookMgt/findBookName,{"method":"POST","body":{"title": "searchKey","pageNum": 1,"pageSize": 100}}',
         customOrder: 0,
         lastUpdateTime: 1630656684531,
         respondTime: 180000,
@@ -74,8 +71,7 @@ mixin MockBookApiStore {
         bookSourceType: 0, // 文本源
         enabled: true,
         enabledExplore: true,
-        exploreUrl:
-            '玄幻::https://www.biquge.com.cn/xuanhuan/\n仙侠::https://www.biquge.com.cn/xianxia/\n都市::https://www.biquge.com.cn/dushi/',
+        exploreUrl: '玄幻::https://www.biquge.com.cn/xuanhuan/\n仙侠::https://www.biquge.com.cn/xianxia/\n都市::https://www.biquge.com.cn/dushi/',
         searchUrl: 'https://www.biquge.com.cn/s?q=searchKey',
         customOrder: 1,
         lastUpdateTime: 1630656684531,
@@ -89,8 +85,7 @@ mixin MockBookApiStore {
         bookSourceType: 0,
         enabled: false, // 需登录，默认禁用
         enabledExplore: true,
-        exploreUrl:
-            '热门::https://www.qidian.com/rank/hotsales/\n新书::https://www.qidian.com/rank/newbook/',
+        exploreUrl: '热门::https://www.qidian.com/rank/hotsales/\n新书::https://www.qidian.com/rank/newbook/',
         searchUrl: 'https://www.qidian.com/so/searchKey/',
         customOrder: 2,
         lastUpdateTime: 1630656684531,
@@ -104,8 +99,7 @@ mixin MockBookApiStore {
       RssSource(
         sourceUrl: 'https://www.yuque.com/legado',
         sourceName: '使用说明',
-        sourceIcon:
-            'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
+        sourceIcon: 'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
         sourceGroup: 'legado',
         enabled: true,
         singleUrl: true,
@@ -115,8 +109,7 @@ mixin MockBookApiStore {
       RssSource(
         sourceUrl: 'snssdk1128://user/profile/562564899806367',
         sourceName: '小说拾遗',
-        sourceIcon:
-            'http://mmbiz.qpic.cn/mmbiz_png/hpfMV8hEuL2eS6vnCxvTzoOiaCAibV6exBzJWq9xMic9xDg3YXAick87tsfafic0icRwkQ5ibV0bJ84JtSuxhPuEDVquA/0?wx_fmt=png',
+        sourceIcon: 'http://mmbiz.qpic.cn/mmbiz_png/hpfMV8hEuL2eS6vnCxvTzoOiaCAibV6exBzJWq9xMic9xDg3YXAick87tsfafic0icRwkQ5ibV0bJ84JtSuxhPuEDVquA/0?wx_fmt=png',
         sourceGroup: 'legado',
         enabled: true,
         singleUrl: true,
@@ -136,8 +129,7 @@ mixin MockBookApiStore {
       RssSource(
         sourceUrl: 'https://www.lanzout.com/b0bw8jwoh',
         sourceName: '烏雲净化',
-        sourceIcon:
-            'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
+        sourceIcon: 'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
         sourceGroup: 'legado',
         enabled: true,
         singleUrl: true,
@@ -194,10 +186,7 @@ mixin MockBookApiStore {
       },
     ];
     for (final rule in defaults) {
-      _dictRules.add({
-        'id': _nextDictRuleId++,
-        ...rule,
-      });
+      _dictRules.add({'id': _nextDictRuleId++, ...rule});
     }
   }
 
@@ -209,8 +198,7 @@ mixin MockBookApiStore {
   /// 书架样例惰性加载守卫：首次调用时从资产读取 bookshelf_sample.json，
   /// 填充 _books 与章节/正文缓存；之后各书架相关方法 await 本守卫即可
   /// （同一 Future 记忆化，并发调用只加载一次）。
-  Future<void> _ensureBooksLoaded() =>
-      _bookshelfStore.ensureLoaded();
+  Future<void> _ensureBooksLoaded() => _bookshelfStore.ensureLoaded();
 
   /// 从资产加载书架样例并填充 _books 与章节/正文缓存
   Future<void> _loadBookshelfSample() async {

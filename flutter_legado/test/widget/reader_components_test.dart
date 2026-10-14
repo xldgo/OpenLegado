@@ -266,7 +266,8 @@ void main() {
   group('书源菜单接线', () {
     Future<void> openSourceMenu(WidgetTester tester, BookSource source) async {
       stubOpenBook();
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [source]);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => [source]);
       await container
           .read(readerNotifierProvider.notifier)
           .openBook(testBook.copyWith(originName: '测试源'));

@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -77,15 +78,13 @@ class _ProgressMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
 
-  _ProgressMockApi({
-    required this.book,
-    this.failPreloadFor = const <int>{},
-  });
+  _ProgressMockApi({required this.book, this.failPreloadFor = const <int>{}});
 
   final Book book;
 
@@ -167,15 +166,14 @@ double _scrollPixels(WidgetTester tester) {
 /// 页级进度保存 / 恢复跳转）。这里切到真实事件循环让解码完成后再回
 /// fake 上下文理帧，使 ListView 内容可滚动、页级进度可被驱动。
 Future<void> _settleWithImageDecode(WidgetTester tester) async {
-  await tester.runAsync(() => Future<void>.delayed(
-    const Duration(milliseconds: 300),
-  ));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 300)),
+  );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）',
-      (tester) async {
+  testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）', (tester) async {
     final api = _ProgressMockApi(book: _progressBook());
     final container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
@@ -192,11 +190,9 @@ void main() {
     // 第一章 2 图：向下拖动一屏 → 可见页 = 1 → 页级进度立即持久化
     await tester.drag(find.byType(Scrollable), const Offset(0, -600));
     await tester.pump();
-    expect(
-      api.progressCalls,
-      [(0, 1)],
-      reason: '翻页后 updateReadingProgress 须携带页级 chapterPos（修复前恒 0）',
-    );
+    expect(api.progressCalls, [
+      (0, 1),
+    ], reason: '翻页后 updateReadingProgress 须携带页级 chapterPos（修复前恒 0）');
     // 页脚反映可见页（buildLabel 输出无空格：'页数2/2' = 第 2 页）
     expect(find.textContaining('页数2/2'), findsOneWidget);
 
@@ -204,11 +200,7 @@ void main() {
     // （对齐文本阅读器「每次页级位置变化保存一次」的事件驱动频率）
     await tester.drag(find.byType(Scrollable), const Offset(0, 600));
     await tester.pump();
-    expect(
-      api.progressCalls,
-      [(0, 1), (0, 0)],
-      reason: '每次可见页变化均持久化页级进度',
-    );
+    expect(api.progressCalls, [(0, 1), (0, 0)], reason: '每次可见页变化均持久化页级进度');
   });
 
   testWidgets('C1 恢复：重开定位到记录的页级进度（非章首）', (tester) async {
@@ -229,18 +221,11 @@ void main() {
     // 应进入第二章（durChapterIndex=1）且滚动到记录的页（durChapterPos=1），
     // 而非章首（修复前 chapterPos 恒 0，重开只能回到章首）
     expect(find.textContaining('章节2/3'), findsOneWidget);
-    expect(
-      _scrollPixels(tester),
-      greaterThan(0),
-      reason: '恢复须滚动到记录页（偏移 > 0）',
-    );
+    expect(_scrollPixels(tester), greaterThan(0), reason: '恢复须滚动到记录页（偏移 > 0）');
   });
 
-  testWidgets('C3 预载：当前章加载完成后后台预载相邻章（下一章优先）',
-      (tester) async {
-    final api = _ProgressMockApi(
-      book: _progressBook(chapterIndex: 1),
-    );
+  testWidgets('C3 预载：当前章加载完成后后台预载相邻章（下一章优先）', (tester) async {
+    final api = _ProgressMockApi(book: _progressBook(chapterIndex: 1));
     final container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
     );
@@ -251,15 +236,10 @@ void main() {
 
     // 当前第二章：下一章（3）优先、上一章（1）次之，复用
     // getChapterContentFull（零契约变更）
-    expect(
-      api.fullCalls,
-      [2, 0],
-      reason: '相邻章预载须下一章优先、上一章次之',
-    );
+    expect(api.fullCalls, [2, 0], reason: '相邻章预载须下一章优先、上一章次之');
   });
 
-  testWidgets('C3 预载：失败静默不干扰阅读（下一章失败不阻塞上一章）',
-      (tester) async {
+  testWidgets('C3 预载：失败静默不干扰阅读（下一章失败不阻塞上一章）', (tester) async {
     final api = _ProgressMockApi(
       book: _progressBook(chapterIndex: 1),
       failPreloadFor: {2},
@@ -302,10 +282,9 @@ void main() {
 
     // 进入第二章（既有章节切换能力回归），且进度保存携带新章索引
     expect(find.textContaining('章节2/3'), findsOneWidget);
-    expect(
-      api.progressCalls.last,
-      (1, 0),
-      reason: '切章后保存 (chapterIndex=1, chapterPos=0)',
-    );
+    expect(api.progressCalls.last, (
+      1,
+      0,
+    ), reason: '切章后保存 (chapterIndex=1, chapterPos=0)');
   });
 }

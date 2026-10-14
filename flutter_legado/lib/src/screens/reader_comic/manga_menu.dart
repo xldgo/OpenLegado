@@ -205,8 +205,9 @@ class MangaMenuTopBar extends StatelessWidget {
                     // 次行：章节名（~14sp onSurfaceVariant 省略号）+ Spacer +
                     // 源名（~13sp onSurfaceVariant，右端；null/空不显示）
                     Row(
-                      mainAxisAlignment:
-                          hasChapter ? MainAxisAlignment.start : MainAxisAlignment.end,
+                      mainAxisAlignment: hasChapter
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
                       children: [
                         if (hasChapter)
                           Flexible(
@@ -299,9 +300,7 @@ class _MangaCircleButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: Center(
-              child: Icon(icon, size: 28, color: scheme.onSurface),
-            ),
+            child: Center(child: Icon(icon, size: 28, color: scheme.onSurface)),
           ),
         ),
       ),
@@ -481,8 +480,7 @@ class _MangaProgressCapsule extends StatelessWidget {
                 // 轨道透明：trackHeight 0 → SDK 轨道绘制直接 no-op
                 trackHeight: 0,
                 thumbShape: _MangaBarThumbShape(),
-                overlayShape:
-                    const RoundSliderOverlayShape(overlayRadius: 14),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                 tickMarkShape: SliderTickMarkShape.noTickMark,
                 thumbColor: scheme.primary,
                 disabledThumbColor: scheme.primary.withValues(alpha: 0.38),
@@ -692,8 +690,9 @@ class MangaMenuBottomBar extends StatelessWidget {
                     // 参考版 L606-610：开 = 「停止」，关 = 「自动」
                     tooltip: autoReadEnabled ? '停止' : '自动',
                     // 状态着色（截图：开启图标变 primary 蓝，关闭 onSurface）
-                    iconColor:
-                        autoReadEnabled ? scheme.primary : scheme.onSurface,
+                    iconColor: autoReadEnabled
+                        ? scheme.primary
+                        : scheme.onSurface,
                     onTap: onToggleAutoRead,
                     onLongPress: onOpenAutoSettings,
                   ),

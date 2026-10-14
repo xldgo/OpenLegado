@@ -4,10 +4,11 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../providers/bottom_bar_skin_notifier.dart';
@@ -44,7 +45,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
         child: ListView(
           children: [
             const SettingsSectionHeader('皮肤'),
-            SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+            SettingsGroup(
+              flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
               children: [
                 ListTile(
                   leading: Icon(
@@ -101,7 +103,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SettingsSectionHeader('预览'),
-                      SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                      SettingsGroup(
+                        flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(
@@ -163,8 +166,7 @@ class BottomBarSkinScreen extends ConsumerWidget {
     final zip = File(path);
     String? sessionId;
     try {
-      sessionId =
-          await BottomBarSkinService.instance.extractZipToSession(zip);
+      sessionId = await BottomBarSkinService.instance.extractZipToSession(zip);
       final preferred = zip.uri.pathSegments.last.replaceAll(
         RegExp(r'\.zip$', caseSensitive: false),
         '',
@@ -186,9 +188,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
         await notifier.reload();
         await notifier.setActive(name);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已保存并启用：$name')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('已保存并启用：$name')));
         }
       } else {
         await notifier.reload();
@@ -198,9 +199,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
         await BottomBarSkinService.instance.discardSession(sessionId);
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导入失败：$e')));
       }
     }
   }
@@ -266,9 +266,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
             ? savePath.toFilePath()
             : savePath.toString();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已导出到: $location')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('已导出到: $location')));
         }
         return;
       }
@@ -282,9 +281,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导出失败：$e')));
       }
     }
   }
@@ -301,9 +299,8 @@ class BottomBarSkinScreen extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败：$e')));
       }
     }
   }
@@ -332,18 +329,16 @@ class BottomBarSkinScreen extends ConsumerWidget {
       sessionId = null;
       await notifier.reload();
       if (saved != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已更新：$saved')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已更新：$saved')));
       }
     } catch (e) {
       if (sessionId != null) {
         await BottomBarSkinService.instance.discardSession(sessionId);
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法编辑：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('无法编辑：$e')));
       }
     }
   }

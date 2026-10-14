@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
@@ -15,7 +17,8 @@ class CacheSettingsScreen extends ConsumerStatefulWidget {
   const CacheSettingsScreen({super.key});
 
   @override
-  ConsumerState<CacheSettingsScreen> createState() => _CacheSettingsScreenState();
+  ConsumerState<CacheSettingsScreen> createState() =>
+      _CacheSettingsScreenState();
 }
 
 class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
@@ -237,8 +240,7 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            Icon(icon,
-                size: 28, color: Theme.of(context).colorScheme.primary),
+            Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
             Text(
               value,
@@ -250,8 +252,8 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
               label,
               // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

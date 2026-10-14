@@ -124,7 +124,10 @@ void main() {
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
     expect(restored.read(readAloudPreferencesProvider).manualSpeed, 1);
-    expect(restored.read(readAloudPreferencesProvider).hasStoredManualSpeed, true);
+    expect(
+      restored.read(readAloudPreferencesProvider).hasStoredManualSpeed,
+      true,
+    );
   });
 
   test('保存失败保留旧值，重试成功后才更新状态', () async {

@@ -113,8 +113,9 @@ class _VariableDialog extends StatefulWidget {
 }
 
 class _VariableDialogState extends State<_VariableDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialText,
+  );
 
   @override
   void dispose() {
@@ -134,17 +135,15 @@ class _VariableDialogState extends State<_VariableDialog> {
             Text(
               widget.comment,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
               minLines: 3,
               maxLines: null,
-              decoration: const InputDecoration(
-                labelText: 'variable',
-              ),
+              decoration: const InputDecoration(labelText: 'variable'),
             ),
           ],
         ),

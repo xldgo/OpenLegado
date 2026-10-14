@@ -67,9 +67,11 @@ class BottomBarSkinFormat {
     while (cleaned.startsWith('.') || cleaned.endsWith('.')) {
       cleaned = cleaned.replaceAll(RegExp(r'^\.+|\.+$'), '').trim();
     }
-    final truncated = _truncate(cleaned, maxSkinNameLength, maxSkinNameBytes)
-        .trim()
-        .replaceAll(RegExp(r'^\.+|\.+$'), '');
+    final truncated = _truncate(
+      cleaned,
+      maxSkinNameLength,
+      maxSkinNameBytes,
+    ).trim().replaceAll(RegExp(r'^\.+|\.+$'), '');
     return truncated.isEmpty ? 'skin' : truncated;
   }
 

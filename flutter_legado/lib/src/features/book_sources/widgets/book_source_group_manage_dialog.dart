@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
 
@@ -27,7 +26,8 @@ class BookSourceGroupManageDialog extends ConsumerWidget {
       items: sources,
       groupOf: (s) => s.bookSourceGroup,
       copyWithGroup: (s, g) => s.copyWith(bookSourceGroup: g),
-      update: (s) => ref.read(bookApiProvider).bookSourceRepository.updateBookSource(s),
+      update: (s) =>
+          ref.read(bookApiProvider).bookSourceRepository.updateBookSource(s),
     );
   }
 }

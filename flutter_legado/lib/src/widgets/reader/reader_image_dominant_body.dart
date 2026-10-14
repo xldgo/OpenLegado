@@ -3,8 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -30,6 +29,7 @@ class ReaderImageDominantBody extends ConsumerStatefulWidget {
   final Future<void> Function()? onPrevChapter;
   final bool hasNextChapter;
   final bool hasPrevChapter;
+
   /// 图片样式：FULL / TEXT / SINGLE（大小写不敏感）；空=默认
   final String? imageStyle;
 
@@ -78,7 +78,10 @@ class _ReaderImageDominantBodyState
     final origin = widget.book.origin;
     if (origin.isEmpty) return;
     try {
-      final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookApiProvider)
+          .bookSourceRepository
+          .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == origin) {
           if (mounted) setState(() => _bookSource = s);
@@ -187,11 +190,7 @@ class _ReaderImageDominantBodyState
       );
     }
     if (style == 'SINGLE') {
-      return SizedBox(
-        height: viewH,
-        width: double.infinity,
-        child: image,
-      );
+      return SizedBox(height: viewH, width: double.infinity, child: image);
     }
     return image;
   }
@@ -294,8 +293,7 @@ class _FfiComicImageState extends ConsumerState<_FfiComicImage> {
           return SizedBox(
             height: 160,
             child: Center(
-              child:
-                  Text('图片加载失败', style: TextStyle(color: Colors.grey[600])),
+              child: Text('图片加载失败', style: TextStyle(color: Colors.grey[600])),
             ),
           );
         }

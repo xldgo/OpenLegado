@@ -1,10 +1,12 @@
 import '../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../features/bookshelf/bookshelf.dart';
 import '../providers/remote_book/remote_book_notifier.dart';
@@ -101,7 +103,10 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                   case 'sort_time':
                     notifier.setSort(RemoteBookSort.time);
                   case 'webdav_settings':
-                    await Navigator.pushNamed(context, AppRoutes.webdavSettings);
+                    await Navigator.pushNamed(
+                      context,
+                      AppRoutes.webdavSettings,
+                    );
                     await notifier.init();
                 }
               },
@@ -130,8 +135,9 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
         body: Column(
           children: [
             Material(
-              color: theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.45),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.45,
+              ),
               child: Padding(
                 // [LAYOUT_PLAN P3] 页面水平边距16dp
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -139,8 +145,9 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                   children: [
                     IconButton(
                       tooltip: '返回上级',
-                      onPressed:
-                          state.dirStack.isEmpty ? null : () => notifier.goBackDir(),
+                      onPressed: state.dirStack.isEmpty
+                          ? null
+                          : () => notifier.goBackDir(),
                       icon: const Icon(Symbols.arrow_back_rounded),
                     ),
                     Expanded(
@@ -179,79 +186,83 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
               child: state.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : state.visibleItems.isEmpty
-                      ? Center(
-                          child: Text(
-                            '没有文件',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: state.visibleItems.length,
-                          separatorBuilder: (_, _) => Divider(
-                            height: 1,
-                            // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant
-                            indent: 16,
-                            endIndent: 16,
-                          ),
-                          itemBuilder: (context, index) {
-                            final item = state.visibleItems[index];
-                            final selected =
-                                state.selectedPaths.contains(item.relativePath);
-                            return ListTile(
-                              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 8),
-                              leading: Icon(
-                                item.isDir
-                                    ? Symbols.folder_rounded
-                                    : Symbols.menu_book_rounded,
-                                color: item.isOnBookShelf
-                                    ? theme.colorScheme.primary
-                                    : null,
-                              ),
-                              // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-                              title: Text(
-                                item.filename,
-                                style: theme.textTheme.titleSmall,
-                              ),
-                              subtitle: item.isDir
-                                  ? Text(
-                                      '文件夹',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    )
-                                  : Text(
-                                      _formatSize(item.size),
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                              trailing: item.isDir
-                                  ? null
-                                  : item.isOnBookShelf
-                                      ? Icon(Symbols.check_circle_rounded,
-                                          color: theme.colorScheme.primary)
-                                      : Checkbox(
-                                          value: selected,
-                                          onChanged: (_) =>
-                                              notifier.toggleSelect(item),
-                                        ),
-                              onTap: () {
-                                if (item.isDir) {
-                                  notifier.openDir(item);
-                                } else if (!item.isOnBookShelf) {
-                                  notifier.toggleSelect(item);
-                                }
-                              },
-                              onLongPress: item.isDir || item.isOnBookShelf
-                                  ? null
-                                  : () => notifier.toggleSelect(item),
-                            );
-                          },
+                  ? Center(
+                      child: Text(
+                        '没有文件',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: state.visibleItems.length,
+                      separatorBuilder: (_, _) => Divider(
+                        height: 1,
+                        // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = state.visibleItems[index];
+                        final selected = state.selectedPaths.contains(
+                          item.relativePath,
+                        );
+                        return ListTile(
+                          // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          leading: Icon(
+                            item.isDir
+                                ? Symbols.folder_rounded
+                                : Symbols.menu_book_rounded,
+                            color: item.isOnBookShelf
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                          // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
+                          title: Text(
+                            item.filename,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          subtitle: item.isDir
+                              ? Text(
+                                  '文件夹',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : Text(
+                                  _formatSize(item.size),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                          trailing: item.isDir
+                              ? null
+                              : item.isOnBookShelf
+                              ? Icon(
+                                  Symbols.check_circle_rounded,
+                                  color: theme.colorScheme.primary,
+                                )
+                              : Checkbox(
+                                  value: selected,
+                                  onChanged: (_) => notifier.toggleSelect(item),
+                                ),
+                          onTap: () {
+                            if (item.isDir) {
+                              notifier.openDir(item);
+                            } else if (!item.isOnBookShelf) {
+                              notifier.toggleSelect(item);
+                            }
+                          },
+                          onLongPress: item.isDir || item.isOnBookShelf
+                              ? null
+                              : () => notifier.toggleSelect(item),
+                        );
+                      },
+                    ),
             ),
             SafeArea(
               // [LAYOUT_PLAN P3] SelectionBottomBar：页面水平边距16dp
@@ -349,7 +360,8 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                           ),
                           ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                              maxHeight:
+                                  MediaQuery.sizeOf(context).height * 0.45,
                             ),
                             child: ListView.builder(
                               shrinkWrap: true,
@@ -367,14 +379,18 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                                         icon: const Icon(Symbols.edit_rounded),
                                         onPressed: () async {
                                           final edited =
-                                              await _editServerDialog(existing: s);
+                                              await _editServerDialog(
+                                                existing: s,
+                                              );
                                           if (edited != null) {
                                             await notifier.saveServer(edited);
                                           }
                                         },
                                       ),
                                       IconButton(
-                                        icon: const Icon(Symbols.delete_rounded),
+                                        icon: const Icon(
+                                          Symbols.delete_rounded,
+                                        ),
                                         onPressed: () async {
                                           final ok = await showDialog<bool>(
                                             context: context,

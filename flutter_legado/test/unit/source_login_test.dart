@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -43,12 +42,11 @@ void main() {
     test('load 解析 source_login_cache 保存的登录信息', () async {
       when(() => mockApi.sourceLoginRepository.getLoginInfo('https://a.com'))
           .thenAnswer((_) async => jsonEncode({'token': 'abc123'}));
-      when(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com')).thenAnswer(
-        (_) async => jsonEncode({
-          'X-Token': 'h1',
-          'Cookie': 'sid=xyz; theme=dark',
-        }),
-      );
+      when(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com'))
+          .thenAnswer(
+            (_) async =>
+                jsonEncode({'X-Token': 'h1', 'Cookie': 'sid=xyz; theme=dark'}),
+          );
 
       await readNotifier().load();
 
@@ -60,8 +58,11 @@ void main() {
       expect(state.cookies.first.value, equals('xyz'));
       expect(state.headers.single.name, equals('X-Token'));
       expect(state.headers.single.value, equals('h1'));
-      verify(() => mockApi.sourceLoginRepository.getLoginInfo('https://a.com')).called(1);
-      verify(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com')).called(1);
+      verify(() => mockApi.sourceLoginRepository.getLoginInfo('https://a.com'))
+          .called(1);
+      verify(
+        () => mockApi.sourceLoginRepository.getLoginHeader('https://a.com'),
+      ).called(1);
     });
 
     test('load 无已保存数据时保持空（含旧 config 键回退迁移）', () async {
@@ -85,8 +86,7 @@ void main() {
           .thenAnswer((_) async => '');
       when(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com'))
           .thenAnswer((_) async => '');
-      when(() => mockApi.getConfig('source_login_https://a.com'))
-          .thenAnswer(
+      when(() => mockApi.getConfig('source_login_https://a.com')).thenAnswer(
         (_) async => jsonEncode({
           'token': 'old-tok',
           'cookies': [
@@ -153,17 +153,27 @@ void main() {
       await n.save();
 
       // loginHeader：headers + Cookie 合并
-      final headerCaptured = verify(
-        () => mockApi.sourceLoginRepository.putLoginHeader('https://a.com', captureAny()),
-      ).captured.single as String;
+      final headerCaptured =
+          verify(
+                () => mockApi.sourceLoginRepository.putLoginHeader(
+                  'https://a.com',
+                  captureAny(),
+                ),
+              ).captured.single
+              as String;
       final headerDecoded = jsonDecode(headerCaptured) as Map<String, dynamic>;
       expect(headerDecoded['X-Token'], equals('h1'));
       expect(headerDecoded['Cookie'], equals('sid=xyz'));
 
       // userInfo：token 落库
-      final infoCaptured = verify(
-        () => mockApi.sourceLoginRepository.putLoginInfo('https://a.com', captureAny()),
-      ).captured.single as String;
+      final infoCaptured =
+          verify(
+                () => mockApi.sourceLoginRepository.putLoginInfo(
+                  'https://a.com',
+                  captureAny(),
+                ),
+              ).captured.single
+              as String;
       final infoDecoded = jsonDecode(infoCaptured) as Map<String, dynamic>;
       expect(infoDecoded['token'], equals('tok'));
 
@@ -176,10 +186,7 @@ void main() {
       when(() => mockApi.sourceLoginRepository.putLoginInfo(any(), any()))
           .thenThrow(Exception('写入失败'));
 
-      await expectLater(
-        readNotifier().save(),
-        throwsA(isA<Exception>()),
-      );
+      await expectLater(readNotifier().save(), throwsA(isA<Exception>()));
       expect(readState().isSaving, isFalse);
     });
   });

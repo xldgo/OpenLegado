@@ -55,8 +55,7 @@ abstract final class MangaScrollModes {
       mode == pageTopToBottom;
 
   /// 是否条漫（ListView 连续滚动路径）：4/5
-  static bool isWebtoon(int mode) =>
-      mode == webtoon || mode == webtoonWithGap;
+  static bool isWebtoon(int mode) => mode == webtoon || mode == webtoonWithGap;
 
   /// 滚动轴：T2B 纵向，L2R/R2L 横向
   static Axis axisOf(int mode) =>
@@ -111,5 +110,11 @@ abstract final class MangaScrollModes {
   }
 
   /// 设置面板下拉选项（对齐参考版 [条漫, 条漫（间隔）, 从左到右, 从右到左, 从上到下]）
-  static const List<int> options = [webtoon, webtoonWithGap, pageLeftToRight, pageRightToLeft, pageTopToBottom];
+  static const List<int> options = [
+    webtoon,
+    webtoonWithGap,
+    pageLeftToRight,
+    pageRightToLeft,
+    pageTopToBottom,
+  ];
 }

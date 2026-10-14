@@ -22,12 +22,8 @@ void main() {
     mockApi = MockRustApi();
   });
 
-  Future<void> pumpDialog(
-    WidgetTester tester, {
-    required String uiJson,
-  }) async {
-    when(() => mockApi.loginUiV2(any(), any()))
-        .thenAnswer((_) async => uiJson);
+  Future<void> pumpDialog(WidgetTester tester, {required String uiJson}) async {
+    when(() => mockApi.loginUiV2(any(), any())).thenAnswer((_) async => uiJson);
     when(() => mockApi.loginActionV2(any(), any()))
         .thenAnswer((_) async => '{"state":{}}');
     await tester.pumpWidget(
@@ -55,7 +51,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('全类型 rows 渲染无异常（text/password/label/select/button）', (tester) async {
+  testWidgets('全类型 rows 渲染无异常（text/password/label/select/button）', (
+    tester,
+  ) async {
     await pumpDialog(
       tester,
       uiJson: jsonEncode({
@@ -103,7 +101,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('缺 key 的 text 行渲染无异常（防御 putIfAbsent('')）', (tester) async {
+  testWidgets('缺 key 的 text 行渲染无异常（防御 putIfAbsent('
+      ')）', (tester) async {
     await pumpDialog(
       tester,
       uiJson: jsonEncode({

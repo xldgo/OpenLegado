@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
@@ -105,20 +107,15 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
                   children: [
                     TextFormField(
                       controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '书名',
-                      ),
+                      decoration: const InputDecoration(labelText: '书名'),
                       textInputAction: TextInputAction.next,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? '书名不能为空'
-                          : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? '书名不能为空' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _authorCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '作者',
-                      ),
+                      decoration: const InputDecoration(labelText: '作者'),
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
@@ -170,16 +167,15 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
             children: [
               Text(
                 '编辑书籍信息',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
                 '修改后点击保存生效',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -201,10 +197,10 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
       final intro = _introCtrl.text.trim();
 
       // 对齐原版逻辑：与原始值相同时置空自定义字段，避免冗余覆盖
-      final customCoverUrl =
-          (coverUrl.isEmpty || coverUrl == book.coverUrl) ? null : coverUrl;
-      final customIntro =
-          (intro.isEmpty || intro == book.intro) ? null : intro;
+      final customCoverUrl = (coverUrl.isEmpty || coverUrl == book.coverUrl)
+          ? null
+          : coverUrl;
+      final customIntro = (intro.isEmpty || intro == book.intro) ? null : intro;
 
       final updated = book.copyWith(
         name: name,
@@ -217,15 +213,13 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
       await api.bookshelfRepository.updateBook(updated);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('书籍信息已保存')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('书籍信息已保存')));
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存失败: $e')));
       setState(() => _saving = false);
     }
   }

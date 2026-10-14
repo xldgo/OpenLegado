@@ -13,8 +13,7 @@ library;
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,8 +65,10 @@ void main() {
 
     api = MockRustApi();
     importedPaths = <String>[];
-    when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
-    when(() => api.bookGroupRepository.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
+    when(() => api.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => <Book>[]);
+    when(() => api.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => <BookGroup>[]);
     when(() => api.importLocalBook(any())).thenAnswer((invocation) async {
       final path = invocation.positionalArguments.first as String;
       importedPaths.add(path);
@@ -80,12 +81,10 @@ void main() {
         bookType: BookType.local | BookType.image,
       );
     });
-    when(
-      () => api.archiveIsArchive(filePath: any(named: 'filePath')),
-    ).thenAnswer((_) async => true);
-    when(
-      () => api.archiveListZipFiles(zipPath: any(named: 'zipPath')),
-    ).thenAnswer((_) async => <String>[]);
+    when(() => api.archiveIsArchive(filePath: any(named: 'filePath')))
+        .thenAnswer((_) async => true);
+    when(() => api.archiveListZipFiles(zipPath: any(named: 'zipPath')))
+        .thenAnswer((_) async => <String>[]);
   });
 
   tearDown(() async {
@@ -158,9 +157,8 @@ void main() {
     await tester.tap(find.text('合集包.zip'));
     await tester.pumpAndSettle();
 
-    verify(
-      () => api.archiveIsArchive(filePath: any(named: 'filePath')),
-    ).called(1);
+    verify(() => api.archiveIsArchive(filePath: any(named: 'filePath')))
+        .called(1);
     expect(find.byType(ArchiveImportDialog), findsOneWidget);
     // 压缩包内文件导入走对话框，不直接整本导入压缩包本身
     expect(importedPaths, isEmpty);

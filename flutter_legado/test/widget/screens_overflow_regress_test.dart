@@ -11,8 +11,7 @@ import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 //   - reader_comic_screen / video_screen / 翻页自绘黑底体系（已登记例外）
 //   - webview_login_screen（WebViewController 自绘登录浮层，平台通道依赖）
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -127,18 +126,12 @@ void main() {
   final screens = <(String, Widget)>[
     // ===== 主屏幕 =====
     ('HomeTabScreen', const HomeTabScreen()),
-    (
-      'BrowserScreen',
-      const BrowserScreen(initialUrl: 'https://example.com'),
-    ),
+    ('BrowserScreen', const BrowserScreen(initialUrl: 'https://example.com')),
     ('BookshelfScreen', const BookshelfScreen()),
     ('SearchScreen', const SearchScreen()),
     ('SourceScreen', const SourceScreen()),
     ('ReadRecordScreen', const ReadRecordScreen()),
-    (
-      'ChangeSourceScreen',
-      const ChangeSourceScreen(bookUrl: 'u'),
-    ),
+    ('ChangeSourceScreen', const ChangeSourceScreen(bookUrl: 'u')),
     ('WelcomeScreen', const WelcomeScreen()),
     ('AudioScreen', const AudioScreen()),
     ('BookshelfManageScreen', const BookshelfManageScreen()),
@@ -167,7 +160,12 @@ void main() {
     ),
     ('CodeEditScreen', const CodeEditScreen(title: 't', initialText: '')),
     ('DictRuleScreen', const DictRuleScreen()),
-    ('EditBookInfoScreen', EditBookInfoScreen(book: Book(bookUrl: 'u', name: 'x'))),
+    (
+      'EditBookInfoScreen',
+      EditBookInfoScreen(
+        book: Book(bookUrl: 'u', name: 'x'),
+      ),
+    ),
     ('ExploreShowScreen', const ExploreShowScreen()),
     ('FileManageScreen', const FileManageScreen()),
     ('FontScreen', const FontScreen()),
@@ -214,7 +212,12 @@ void main() {
       ),
     ),
     ('RssFavoritesScreen', const RssFavoritesScreen()),
-    ('TocScreen', TocScreen(book: Book(bookUrl: 'u', name: 'x'))),
+    (
+      'TocScreen',
+      TocScreen(
+        book: Book(bookUrl: 'u', name: 'x'),
+      ),
+    ),
     // ===== 阅读器菜单类浮层（红线：命中先报告再改）=====
     // 红线核查结论（2026-09-20）：面板在应用内恒经 ReaderConfigPanel.show →
     // showModalBottomSheet(isScrollControlled) + DraggableScrollableSheet

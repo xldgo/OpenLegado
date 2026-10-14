@@ -118,9 +118,8 @@ void main() {
   test('导入完整保留全字段及数组 loginUi，跳过缺 name/url 条目', () async {
     final payloads = <Map<String, dynamic>>[];
     when(
-      () => bridge.crateFfiFfiHttpTtsAdd(
-        httpTtsJson: any(named: 'httpTtsJson'),
-      ),
+      () =>
+          bridge.crateFfiFfiHttpTtsAdd(httpTtsJson: any(named: 'httpTtsJson')),
     ).thenAnswer((invocation) async {
       final jsonStr = invocation.namedArguments[#httpTtsJson] as String;
       payloads.add(jsonDecode(jsonStr) as Map<String, dynamic>);
@@ -165,9 +164,8 @@ void main() {
     final failure = StateError('写入失败');
     var calls = 0;
     when(
-      () => bridge.crateFfiFfiHttpTtsAdd(
-        httpTtsJson: any(named: 'httpTtsJson'),
-      ),
+      () =>
+          bridge.crateFfiFfiHttpTtsAdd(httpTtsJson: any(named: 'httpTtsJson')),
     ).thenAnswer((_) async {
       calls++;
       if (calls == 2) throw failure;
@@ -181,9 +179,8 @@ void main() {
     );
     expect(calls, 2);
     verify(
-      () => bridge.crateFfiFfiHttpTtsAdd(
-        httpTtsJson: any(named: 'httpTtsJson'),
-      ),
+      () =>
+          bridge.crateFfiFfiHttpTtsAdd(httpTtsJson: any(named: 'httpTtsJson')),
     ).called(2);
     verifyNoMoreInteractions(bridge);
   });
@@ -201,9 +198,8 @@ void main() {
     when(() => bridge.crateFfiFfiHttpTtsList())
         .thenAnswer((_) async => throw failure);
     when(
-      () => bridge.crateFfiFfiHttpTtsAdd(
-        httpTtsJson: any(named: 'httpTtsJson'),
-      ),
+      () =>
+          bridge.crateFfiFfiHttpTtsAdd(httpTtsJson: any(named: 'httpTtsJson')),
     ).thenAnswer((_) async => throw failure);
     when(
       () => bridge.crateFfiFfiHttpTtsUpdate(

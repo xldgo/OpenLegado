@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 M5] 音量键翻页行为 + 九宫格点击区编辑器
 //
 // 依据：
@@ -48,13 +49,14 @@ class _M5MockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
 
   _M5MockApi({required this.configWrites, Map<String, String>? configs})
-      : _configs = configs ?? {};
+    : _configs = configs ?? {};
 
   static const int imageCount = 3;
   static const int chapterCount = 3;
@@ -63,44 +65,41 @@ class _M5MockApi extends MockBookApi {
   final Map<String, String> _configs;
 
   Future<List<BookSource>> _fixtureGetBookSources() async => [
-        BookSource(
-          bookSourceUrl: 'https://manga.example.com',
-          bookSourceName: '测试漫画源',
-          bookSourceGroup: '漫画',
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: ContentRule(
-            content: '.x',
-            imageDecode: 'decode(result);',
-          ),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+    BookSource(
+      bookSourceUrl: 'https://manga.example.com',
+      bookSourceName: '测试漫画源',
+      bookSourceGroup: '漫画',
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: 'https://manga.example.com',
-        originName: '测试漫画源',
-        canUpdate: true,
-        totalChapterNum: chapterCount,
-        durChapterPos: 0,
-      );
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: 'https://manga.example.com',
+    originName: '测试漫画源',
+    canUpdate: true,
+    totalChapterNum: chapterCount,
+    durChapterPos: 0,
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => List.generate(
-        chapterCount,
-        (i) => BookChapter(
-          index: i,
-          url: 'https://manga.example.com/comic/1/ch${i + 1}.html',
-          title: '第${i + 1}章',
-        ),
-      );
+    chapterCount,
+    (i) => BookChapter(
+      index: i,
+      url: 'https://manga.example.com/comic/1/ch${i + 1}.html',
+      title: '第${i + 1}章',
+    ),
+  );
 
   @override
   Future<String> fetchChapterContent(
@@ -159,8 +158,9 @@ Future<void> _pumpReader(WidgetTester tester, _M5MockApi api) async {
 Future<void> _emitVolumeKey(WidgetTester tester, String direction) async {
   await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
     'legado/reader_keys',
-    const StandardMethodCodec()
-        .encodeMethodCall(MethodCall('volumeKey', direction)),
+    const StandardMethodCodec().encodeMethodCall(
+      MethodCall('volumeKey', direction),
+    ),
     (_) {},
   );
   await tester.pumpAndSettle();
@@ -188,8 +188,9 @@ void main() {
   });
 
   group('[P4-3 M5-1] 音量键翻页', () {
-    testWidgets('进屏开启捕获（volumeKeyPage 默认 true → setVolumeKeyCapture true）',
-        (tester) async {
+    testWidgets('进屏开启捕获（volumeKeyPage 默认 true → setVolumeKeyCapture true）', (
+      tester,
+    ) async {
       // 注意：setMockMethodCallHandler 会拦截该通道入站投递（实证），
       // 故「出站记录断言」与「入站事件翻页断言」分测试执行；
       // 本用例只验证捕获开启（出站）。
@@ -201,9 +202,10 @@ void main() {
         },
       );
       addTearDown(() {
-        tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(
-                const MethodChannel('legado/reader_keys'), null);
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('legado/reader_keys'),
+          null,
+        );
       });
 
       final api = _M5MockApi(
@@ -213,8 +215,9 @@ void main() {
       await _pumpReader(tester, api);
 
       expect(
-        readerKeyCalls.any((c) =>
-            c.method == 'setVolumeKeyCapture' && c.arguments == true),
+        readerKeyCalls.any(
+          (c) => c.method == 'setVolumeKeyCapture' && c.arguments == true,
+        ),
         isTrue,
         reason: '进屏（volumeKeyPage 默认 true）应开启音量键捕获',
       );
@@ -240,10 +243,7 @@ void main() {
     testWidgets('reverseVolumeKeyPage=true：up=下一页（方向反转）', (tester) async {
       final api = _M5MockApi(
         configWrites: <List<String>>[],
-        configs: {
-          'mangaScrollMode': '1',
-          'reverseVolumeKeyPage': 'true',
-        },
+        configs: {'mangaScrollMode': '1', 'reverseVolumeKeyPage': 'true'},
       );
       await _pumpReader(tester, api);
       expect(find.textContaining('页数1/3'), findsOneWidget);
@@ -262,24 +262,23 @@ void main() {
         },
       );
       addTearDown(() {
-        tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(
-                const MethodChannel('legado/reader_keys'), null);
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('legado/reader_keys'),
+          null,
+        );
       });
 
       final api = _M5MockApi(
         configWrites: <List<String>>[],
-        configs: {
-          'mangaScrollMode': '1',
-          'volumeKeyPage': 'false',
-        },
+        configs: {'mangaScrollMode': '1', 'volumeKeyPage': 'false'},
       );
       await _pumpReader(tester, api);
       await tester.pumpAndSettle();
 
       expect(
-        readerKeyCalls.any((c) =>
-            c.method == 'setVolumeKeyCapture' && c.arguments == true),
+        readerKeyCalls.any(
+          (c) => c.method == 'setVolumeKeyCapture' && c.arguments == true,
+        ),
         isFalse,
         reason: '开关关闭时不应开启捕获（系统音量键保持默认行为）',
       );
@@ -308,9 +307,11 @@ void main() {
       // 「点击区域」区块 + 9 格（默认 [-1,-1,1,2,0,1,2,1,1] 逐格标签）
       expect(find.text('点击区域'), findsOneWidget);
       for (var i = 0; i < 9; i++) {
-        expect(find.byKey(ValueKey('mangaClickActionCell-$i')),
-            findsOneWidget,
-            reason: '第 $i 格应渲染');
+        expect(
+          find.byKey(ValueKey('mangaClickActionCell-$i')),
+          findsOneWidget,
+          reason: '第 $i 格应渲染',
+        );
       }
       expect(
         find.descendant(
@@ -352,8 +353,7 @@ void main() {
       );
     });
 
-    testWidgets('配置 clickActions 改左上格为 1（下一页）→ 屏内点击左上翻页',
-        (tester) async {
+    testWidgets('配置 clickActions 改左上格为 1（下一页）→ 屏内点击左上翻页', (tester) async {
       final api = _M5MockApi(
         configWrites: <List<String>>[],
         configs: {
@@ -368,14 +368,16 @@ void main() {
       // 点击左上区（800x600 测试表面 → 左上格中心约 (133, 100)）
       await tester.tapAt(const Offset(133, 100));
       await tester.pumpAndSettle();
-      expect(find.textContaining('页数2/3'), findsOneWidget,
-          reason: '左上格配置为 1（下一页）后点击应翻页');
+      expect(
+        find.textContaining('页数2/3'),
+        findsOneWidget,
+        reason: '左上格配置为 1（下一页）后点击应翻页',
+      );
     });
   });
 
   group('[P4-3 M5] MangaClickActions 纯函数', () {
-    test('cycleNext 循环 -1→0→1→2→3→4→-1（对齐参考版 nextMangaClickAction）',
-        () {
+    test('cycleNext 循环 -1→0→1→2→3→4→-1（对齐参考版 nextMangaClickAction）', () {
       expect(MangaClickActions.cycleNext(-1), 0);
       expect(MangaClickActions.cycleNext(0), 1);
       expect(MangaClickActions.cycleNext(4), -1);
@@ -394,16 +396,26 @@ void main() {
       const list = [1, 2, 3, 4, 0, -1, 2, 1, 1];
       expect(MangaClickActions.parse(MangaClickActions.serialize(list)), list);
       expect(MangaClickActions.parse(null), MangaClickActions.defaultActions);
-      expect(MangaClickActions.parse('bad-json'),
-          MangaClickActions.defaultActions);
-      expect(MangaClickActions.parse('[0,0]'),
-          MangaClickActions.defaultActions,
-          reason: '长度不符回默认');
       expect(
-        MangaClickActions.parse('[9,0,0,0,0,0,0,0,0]'),
-        [MangaClickActions.none, 0, 0, 0, 0, 0, 0, 0, 0],
-        reason: '越界动作归一化为 -1（无操作）',
+        MangaClickActions.parse('bad-json'),
+        MangaClickActions.defaultActions,
       );
+      expect(
+        MangaClickActions.parse('[0,0]'),
+        MangaClickActions.defaultActions,
+        reason: '长度不符回默认',
+      );
+      expect(MangaClickActions.parse('[9,0,0,0,0,0,0,0,0]'), [
+        MangaClickActions.none,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ], reason: '越界动作归一化为 -1（无操作）');
     });
   });
 }

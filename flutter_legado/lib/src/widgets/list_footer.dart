@@ -77,8 +77,7 @@ class ListMoreFooter extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   loadingText ?? context.l10n.loading,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.outline),
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.outline),
                 ),
               ],
             ),
@@ -106,7 +105,9 @@ class ListMoreFooter extends StatelessWidget {
                   ),
                 ),
                 if (onRetry != null)
-                  TextButton(onPressed: onRetry, child: Text(context.l10n.retry),
+                  TextButton(
+                    onPressed: onRetry,
+                    child: Text(context.l10n.retry),
                   ),
               ],
             ),

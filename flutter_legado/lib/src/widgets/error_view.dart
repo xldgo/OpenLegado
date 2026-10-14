@@ -39,14 +39,17 @@ class ErrorView extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Symbols.error_rounded, size: 64, color: colorScheme.error,
+                    Icon(
+                      Symbols.error_rounded,
+                      size: 64,
+                      color: colorScheme.error,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                     if (onRetry != null) ...[
                       const SizedBox(height: 24),
@@ -60,9 +63,11 @@ class ErrorView extends StatelessWidget {
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed: onSecondaryAction,
-                        icon: Icon(secondaryActionIcon ?? Symbols.swap_horiz_rounded,
+                        icon: Icon(
+                          secondaryActionIcon ?? Symbols.swap_horiz_rounded,
                         ),
-                        label: Text(secondaryActionLabel ?? context.l10n.changeSource,
+                        label: Text(
+                          secondaryActionLabel ?? context.l10n.changeSource,
                         ),
                       ),
                     ],

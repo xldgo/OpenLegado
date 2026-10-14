@@ -17,26 +17,19 @@ import 'package:flutter_legado/src/widgets/page_flip_widget.dart';
 /// - 真实翻页帧率需在设备上以 profile 模式运行，用 DevTools 观察
 ///   翻页动画期间的帧时间线。
 void main() {
-  testWidgets('阅读器翻页基准：动画期间无掉帧（单帧 < 33.4ms）',
-      (tester) async {
+  testWidgets('阅读器翻页基准：动画期间无掉帧（单帧 < 33.4ms）', (tester) async {
     int? turnedDirection;
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SimulationPageFlipWidget(
-            currentBuilder: (_) => const _PageContent(
-              title: '第一章 起始之章',
-              body: '这是当前页的正文内容。',
-            ),
-            nextBuilder: (_) => const _PageContent(
-              title: '第二章 启程',
-              body: '这是下一页的正文内容。',
-            ),
-            prevBuilder: (_) => const _PageContent(
-              title: '序章',
-              body: '这是上一页的正文内容。',
-            ),
+            currentBuilder: (_) =>
+                const _PageContent(title: '第一章 起始之章', body: '这是当前页的正文内容。'),
+            nextBuilder: (_) =>
+                const _PageContent(title: '第二章 启程', body: '这是下一页的正文内容。'),
+            prevBuilder: (_) =>
+                const _PageContent(title: '序章', body: '这是上一页的正文内容。'),
             onPageTurned: (dir) => turnedDirection = dir,
             animDuration: const Duration(milliseconds: 300),
           ),
@@ -74,23 +67,25 @@ void main() {
         frameDurations.reduce((a, b) => a + b) / frameDurations.length / 1000.0;
     final maxMs = frameDurations.reduce((a, b) => a > b ? a : b) / 1000.0;
     // 掉帧定义：单帧耗时超过 2 个帧预算（> 33.4ms）
-    final droppedFrames =
-        frameDurations.where((d) => d / 1000.0 > 33.4).length;
+    final droppedFrames = frameDurations.where((d) => d / 1000.0 > 33.4).length;
     final estimatedFps = avgMs > 0 ? 1000.0 / avgMs : double.infinity;
 
     // 记录实际基线数据
     // ignore: avoid_print
-    print('[性能基线][阅读器翻页] 平均帧耗时: ${avgMs.toStringAsFixed(2)}ms, '
-        '最大帧耗时: ${maxMs.toStringAsFixed(2)}ms, '
-        '掉帧数: $droppedFrames/${frameDurations.length}, '
-        '估算帧率: ${estimatedFps.toStringAsFixed(1)} FPS, '
-        '翻页方向: $turnedDirection');
+    print(
+      '[性能基线][阅读器翻页] 平均帧耗时: ${avgMs.toStringAsFixed(2)}ms, '
+      '最大帧耗时: ${maxMs.toStringAsFixed(2)}ms, '
+      '掉帧数: $droppedFrames/${frameDurations.length}, '
+      '估算帧率: ${estimatedFps.toStringAsFixed(1)} FPS, '
+      '翻页方向: $turnedDirection',
+    );
 
     // 基准断言 1：无单帧严重掉帧（超过 2 个帧预算）
     expect(
       maxMs,
       lessThan(33.4),
-      reason: '翻页动画最大帧耗时 ${maxMs.toStringAsFixed(2)}ms 超过 33.4ms，'
+      reason:
+          '翻页动画最大帧耗时 ${maxMs.toStringAsFixed(2)}ms 超过 33.4ms，'
           '存在掉帧，建议优化 CustomPaint 贝塞尔绘制或减少 setState 频率',
     );
 
@@ -108,18 +103,10 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SimulationPageFlipWidget(
-            currentBuilder: (_) => const _PageContent(
-              title: '第一章',
-              body: '当前页正文',
-            ),
-            nextBuilder: (_) => const _PageContent(
-              title: '第二章',
-              body: '下一页正文',
-            ),
-            prevBuilder: (_) => const _PageContent(
-              title: '序章',
-              body: '上一页正文',
-            ),
+            currentBuilder: (_) =>
+                const _PageContent(title: '第一章', body: '当前页正文'),
+            nextBuilder: (_) => const _PageContent(title: '第二章', body: '下一页正文'),
+            prevBuilder: (_) => const _PageContent(title: '序章', body: '上一页正文'),
             onPageTurned: (dir) => turnedDirection = dir,
           ),
         ),

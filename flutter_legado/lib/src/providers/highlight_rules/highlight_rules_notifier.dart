@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../providers.dart';
@@ -94,5 +93,5 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
 /// ```
 final highlightRulesNotifierProvider =
     NotifierProvider<HighlightRulesNotifier, HighlightRulesState>(
-  HighlightRulesNotifier.new,
-);
+      HighlightRulesNotifier.new,
+    );

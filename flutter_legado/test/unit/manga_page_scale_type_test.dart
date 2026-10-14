@@ -32,8 +32,7 @@ void main() {
       }
     });
 
-    test('越界 / 负数 → 默认 0（对齐 MangaScrollModes.parse 的 valid 集合语义）',
-        () {
+    test('越界 / 负数 → 默认 0（对齐 MangaScrollModes.parse 的 valid 集合语义）', () {
       expect(MangaPageScaleType.parse('-1'), 0);
       expect(MangaPageScaleType.parse('6'), 0);
       expect(MangaPageScaleType.parse('99'), 0);
@@ -75,9 +74,7 @@ void main() {
     expect(MangaPageScaleType.labelOf(5), '智能适配');
   });
 
-  test(
-      '[P4-3 E2] 宽页/双页常量登记（MangaPageConfig L19-30；仅登记不实现行为）',
-      () {
+  test('[P4-3 E2] 宽页/双页常量登记（MangaPageConfig L19-30；仅登记不实现行为）', () {
     expect(MangaWidePageMode.normal, 0);
     expect(MangaWidePageMode.fitWidth, 1);
     expect(MangaWidePageMode.rotateToFit, 2);

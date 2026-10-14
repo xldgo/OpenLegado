@@ -6,8 +6,7 @@
 // 3) 用户配置引擎（engineUrl 非空）→ 提示自动清除
 // 4) 无正文/未进入朗读链 → 不误报
 // 5) startReadAloud（种子导入后仍无兼容引擎）路径同样提示
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,10 +45,10 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubChapter({String content = '第一段文本内容。\n\n第二段文本内容。'}) {
-    when(() => mockApi.getChapters(any())).thenAnswer(
-      (_) async => [const BookChapter(title: '第一章', index: 0)],
-    );
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.getChapters(any()))
+        .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
     when(() => mockApi.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
   }
@@ -98,8 +97,9 @@ void main() {
       await readNotifier().play();
       expect(readState().errorMessage, kNoUsableEngineHint);
 
-      readNotifier()
-          .updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       expect(readState().errorMessage, isNull);
       // 取消估算推进定时器（用例结束无 pending timer）
       readNotifier().stop();
@@ -127,16 +127,21 @@ void main() {
       );
       addTearDown(localContainer.dispose);
 
-      when(() => mockApi.httpTtsRepository.getHttpTts()).thenAnswer((_) async => []);
+      when(() => mockApi.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => []);
       stubChapter();
 
       final notifier = localContainer.read(audioNotifierProvider.notifier);
       await notifier.startReadAloud(bookUrl: 'url', bookName: '测试书');
 
-      expect(localContainer.read(audioNotifierProvider).state,
-          PlayerState.playing);
-      expect(localContainer.read(audioNotifierProvider).errorMessage,
-          kNoUsableEngineHint);
+      expect(
+        localContainer.read(audioNotifierProvider).state,
+        PlayerState.playing,
+      );
+      expect(
+        localContainer.read(audioNotifierProvider).errorMessage,
+        kNoUsableEngineHint,
+      );
       notifier.stop();
     });
   });

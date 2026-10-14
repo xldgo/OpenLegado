@@ -194,9 +194,7 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: scheme.onSurface),
+                style: TextStyle(fontSize: 14, color: scheme.onSurface),
               ),
             ),
           ],
@@ -211,9 +209,7 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
     final scheme = Theme.of(context).colorScheme;
     return Expanded(
       child: Material(
-        color: selected
-            ? scheme.secondaryContainer
-            : Colors.transparent,
+        color: selected ? scheme.secondaryContainer : Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(7),
@@ -247,8 +243,8 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
           child: Text(
             context.l10n.searchScope,
             // [P1b] 17/w600 硬编码收敛至字阶 titleMedium（M3 区块标题）
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: scheme.onSurface),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: scheme.onSurface),
           ),
         ),
         // [1-6 ①] 范围快捷节（原 ⋮ 动态范围项：当前书源/全部书源/各分组并入 ◯ 弹层）
@@ -266,15 +262,19 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
             child: Row(
               children: [
                 _segmentButton(
-                  context.l10n.group, !_sourceMode, () => setState(() {
-                  _sourceMode = false;
-                }),
+                  context.l10n.group,
+                  !_sourceMode,
+                  () => setState(() {
+                    _sourceMode = false;
+                  }),
                 ),
                 const SizedBox(width: 3),
                 _segmentButton(
-                  context.l10n.sources, _sourceMode, () => setState(() {
-                  _sourceMode = true;
-                }),
+                  context.l10n.sources,
+                  _sourceMode,
+                  () => setState(() {
+                    _sourceMode = true;
+                  }),
                 ),
               ],
             ),
@@ -289,10 +289,13 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
               decoration: InputDecoration(
                 hintText: context.l10n.searchBookSources,
                 hintStyle: TextStyle(
-                    fontSize: 14, color: scheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 14,
+                  color: scheme.onSurface.withValues(alpha: 0.5),
                 ),
-                prefixIcon: Icon(Symbols.search_rounded, size: 20,
-                    color: scheme.onSurface.withValues(alpha: 0.5),
+                prefixIcon: Icon(
+                  Symbols.search_rounded,
+                  size: 20,
+                  color: scheme.onSurface.withValues(alpha: 0.5),
                 ),
                 // [B3] 弹层内筛选框：三态显式无边框，防主题底线式渗入
                 border: InputBorder.none,
@@ -300,10 +303,12 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                 focusedBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8,
+                  horizontal: 12,
+                  vertical: 8,
                 ),
                 filled: true,
-                fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4,
+                fillColor: scheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
                 ),
               ),
             ),
@@ -329,9 +334,10 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                             padding: const EdgeInsets.all(24),
                             child: Center(
                               child: Text(
-                                context.l10n.noMatchingBookSources, style: TextStyle(
-                                  color:
-                                      scheme.onSurface.withValues(alpha: 0.5,
+                                context.l10n.noMatchingBookSources,
+                                style: TextStyle(
+                                  color: scheme.onSurface.withValues(
+                                    alpha: 0.5,
                                   ),
                                 ),
                               ),
@@ -359,7 +365,8 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
                           padding: const EdgeInsets.all(24),
                           child: Center(
                             child: Text(
-                              context.l10n.noGroupedBookSources, style: TextStyle(
+                              context.l10n.noGroupedBookSources,
+                              style: TextStyle(
                                 color: scheme.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
@@ -377,7 +384,8 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
               TextButton(
                 onPressed: _onAllSources,
                 child: Text(
-                  context.l10n.allBookSources, style: TextStyle(
+                  context.l10n.allBookSources,
+                  style: TextStyle(
                     color: scheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
@@ -386,7 +394,8 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  context.l10n.cancel, style: TextStyle(
+                  context.l10n.cancel,
+                  style: TextStyle(
                     color: scheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
@@ -395,8 +404,10 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
               TextButton(
                 onPressed: _onOk,
                 child: Text(
-                  context.l10n.confirm, style: TextStyle(
-                    color: scheme.primary, fontWeight: FontWeight.w600,
+                  context.l10n.confirm,
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

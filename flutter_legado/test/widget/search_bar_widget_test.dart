@@ -31,8 +31,9 @@ void main() {
     expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
   });
 
-  testWidgets('SearchBarWidget shows clear button when text entered',
-      (tester) async {
+  testWidgets('SearchBarWidget shows clear button when text entered', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget());
 
     // 初始状态没有清除按钮

@@ -1,6 +1,6 @@
 import 'bookshelf_repositories.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -121,10 +121,12 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
     final selected = state.selectedUrls;
     final targets = state.books
         .where((b) => selected.contains(b.bookUrl))
-        .where((b) =>
-            b.origin != BookType.localTag &&
-            !b.origin.startsWith(BookType.webDavTag) &&
-            b.origin != targetSourceUrl)
+        .where(
+          (b) =>
+              b.origin != BookType.localTag &&
+              !b.origin.startsWith(BookType.webDavTag) &&
+              b.origin != targetSourceUrl,
+        )
         .toList();
     if (targets.isEmpty) return (0, 0);
     state = state.copyWith(isBusy: true, error: null);
@@ -141,11 +143,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
             book.author,
             sourceUrls: [targetSourceUrl],
           );
-          await api.switchSource(
-            book.bookUrl,
-            targetSourceUrl,
-            hit.bookUrl,
-          );
+          await api.switchSource(book.bookUrl, targetSourceUrl, hit.bookUrl);
           success++;
         } catch (_) {
           // 单本失败不中断批次（对齐原版批间容错）
@@ -176,5 +174,5 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
 /// ```
 final bookshelfManageNotifierProvider =
     NotifierProvider<BookshelfManageNotifier, BookshelfManageState>(
-  BookshelfManageNotifier.new,
-);
+      BookshelfManageNotifier.new,
+    );

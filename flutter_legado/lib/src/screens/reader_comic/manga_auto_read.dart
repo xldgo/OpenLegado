@@ -49,8 +49,8 @@ abstract final class MangaAutoRead {
   /// 速度 N 时每 10000px 耗时 ceil(160000/N) ms：N=1 → 160s（慢速免手
   /// 阅读），N=15 → 10667ms（最快档）。
   static Duration webtoonCycle(int speed) {
-    final ms =
-        (max(16.0 / speed.clamp(minSpeed, maxSpeed), 0.0) * 10000.0).ceil();
+    final ms = (max(16.0 / speed.clamp(minSpeed, maxSpeed), 0.0) * 10000.0)
+        .ceil();
     return Duration(milliseconds: ms);
   }
 }

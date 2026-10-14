@@ -41,8 +41,8 @@ class _RestoreIgnoreDialogState extends State<RestoreIgnoreDialog> {
               Text(
                 '勾选后备份与恢复时跳过对应项（对齐原版）。',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 8),
               for (var i = 0; i < SettingsService.restoreIgnoreKeys.length; i++)

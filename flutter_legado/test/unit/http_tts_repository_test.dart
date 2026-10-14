@@ -28,59 +28,59 @@ void main() {
     expect(await second.getHttpTts(), seeds);
   });
 
-  test('Mock CRUD 保留全部高级字段与顺序（id=0 分配新 ID，id!=0 保留），更新不存在 ID 抛错且不改写存储', () async {
-    var nextId = 42;
-    final repository = MockHttpTtsRepository(nextId: () => nextId++);
-    const input = HttpTts(
-      id: 0,
-      name: '甲',
-      url: 'http://a',
-      contentType: 'audio/wav',
-      pauseDuration: 150,
-      concurrentRate: '1500',
-      loginUrl: 'function login(){}',
-      loginUi: '[{"name":"AppKey","type":"text"}]',
-      header: '{"Authorization":"Bearer token"}',
-      jsLib: 'var v = 1;',
-      enabledCookieJar: true,
-      loginCheckJs: 'result',
-      speed: 18,
-      synthesisThreadCount: 12,
-      lastUpdateTime: 1700000000000,
-      isEnabled: false,
-    );
-    final first = await repository.addHttpTts(input);
-    final second = await repository.addHttpTts(
-      const HttpTts(id: -29, name: '乙', url: 'http://b'),
-    );
-    expect(
-      first,
-      input.copyWith(id: 42, synthesisThreadCount: 8),
-    );
-    expect(second.id, -29);
-    final updated = first.copyWith(
-      name: '修改',
-      url: 'http://new',
-      speed: 25,
-      synthesisThreadCount: 4,
-    );
-    await repository.updateHttpTts(updated);
-    await expectLater(
-      repository.updateHttpTts(const HttpTts(id: 999, name: '不存在')),
-      throwsStateError,
-    );
-    final expected = [updated, second];
-    expect(await repository.getHttpTts(), expected);
-    (await repository.getHttpTts()).clear();
-    expect(await repository.getHttpTts(), expected);
-    expect(
-      jsonDecode(await repository.exportHttpTts()),
-      expected.map((e) => e.toJson()).toList(),
-    );
-    await repository.deleteHttpTts(999);
-    await repository.deleteHttpTts(first.id);
-    expect(await repository.getHttpTts(), [second]);
-  });
+  test(
+    'Mock CRUD 保留全部高级字段与顺序（id=0 分配新 ID，id!=0 保留），更新不存在 ID 抛错且不改写存储',
+    () async {
+      var nextId = 42;
+      final repository = MockHttpTtsRepository(nextId: () => nextId++);
+      const input = HttpTts(
+        id: 0,
+        name: '甲',
+        url: 'http://a',
+        contentType: 'audio/wav',
+        pauseDuration: 150,
+        concurrentRate: '1500',
+        loginUrl: 'function login(){}',
+        loginUi: '[{"name":"AppKey","type":"text"}]',
+        header: '{"Authorization":"Bearer token"}',
+        jsLib: 'var v = 1;',
+        enabledCookieJar: true,
+        loginCheckJs: 'result',
+        speed: 18,
+        synthesisThreadCount: 12,
+        lastUpdateTime: 1700000000000,
+        isEnabled: false,
+      );
+      final first = await repository.addHttpTts(input);
+      final second = await repository.addHttpTts(
+        const HttpTts(id: -29, name: '乙', url: 'http://b'),
+      );
+      expect(first, input.copyWith(id: 42, synthesisThreadCount: 8));
+      expect(second.id, -29);
+      final updated = first.copyWith(
+        name: '修改',
+        url: 'http://new',
+        speed: 25,
+        synthesisThreadCount: 4,
+      );
+      await repository.updateHttpTts(updated);
+      await expectLater(
+        repository.updateHttpTts(const HttpTts(id: 999, name: '不存在')),
+        throwsStateError,
+      );
+      final expected = [updated, second];
+      expect(await repository.getHttpTts(), expected);
+      (await repository.getHttpTts()).clear();
+      expect(await repository.getHttpTts(), expected);
+      expect(
+        jsonDecode(await repository.exportHttpTts()),
+        expected.map((e) => e.toJson()).toList(),
+      );
+      await repository.deleteHttpTts(999);
+      await repository.deleteHttpTts(first.id);
+      expect(await repository.getHttpTts(), [second]);
+    },
+  );
 
   test('Mock 导入完整保留字段、支持数组 loginUi 并更新启用态', () async {
     var nextId = 10;

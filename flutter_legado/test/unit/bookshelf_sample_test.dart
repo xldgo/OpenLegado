@@ -25,8 +25,7 @@ void main() {
   setUp(() async {
     rawJson = await rootBundle.loadString(assetPath);
     final list = jsonDecode(rawJson) as List<dynamic>;
-    books =
-        list.map((e) => Book.fromJson(e as Map<String, dynamic>)).toList();
+    books = list.map((e) => Book.fromJson(e as Map<String, dynamic>)).toList();
   });
 
   group('① 样例可被模型解析', () {
@@ -39,8 +38,7 @@ void main() {
     test('全部条目均可解析为 Book（含必填字段非空）', () {
       final list = jsonDecode(rawJson) as List<dynamic>;
       for (final item in list) {
-        expect(item, isA<Map<String, dynamic>>(),
-            reason: '条目必须是 JSON 对象');
+        expect(item, isA<Map<String, dynamic>>(), reason: '条目必须是 JSON 对象');
         final book = Book.fromJson(item as Map<String, dynamic>);
         expect(book.bookUrl, isNotEmpty, reason: 'bookUrl 非空');
         expect(book.name, isNotEmpty, reason: 'name 非空：${book.bookUrl}');
@@ -52,12 +50,21 @@ void main() {
   group('② 字段完整性抽检', () {
     test('totalChapterNum 全部为正且 durChapterIndex 不越界', () {
       for (final b in books) {
-        expect(b.totalChapterNum, greaterThan(0),
-            reason: 'totalChapterNum>0：${b.name}');
-        expect(b.durChapterIndex, greaterThanOrEqualTo(0),
-            reason: 'durChapterIndex >= 0：${b.name}');
-        expect(b.durChapterIndex, lessThanOrEqualTo(b.totalChapterNum - 1),
-            reason: 'durChapterIndex 不越界：${b.name}');
+        expect(
+          b.totalChapterNum,
+          greaterThan(0),
+          reason: 'totalChapterNum>0：${b.name}',
+        );
+        expect(
+          b.durChapterIndex,
+          greaterThanOrEqualTo(0),
+          reason: 'durChapterIndex >= 0：${b.name}',
+        );
+        expect(
+          b.durChapterIndex,
+          lessThanOrEqualTo(b.totalChapterNum - 1),
+          reason: 'durChapterIndex 不越界：${b.name}',
+        );
       }
     });
 
@@ -68,8 +75,11 @@ void main() {
       var hasAudio = false;
       var hasLocal = false;
       for (final b in books) {
-        expect(legal, contains(b.bookType),
-            reason: 'bookType 非法位标记 ${b.bookType}：${b.name}');
+        expect(
+          legal,
+          contains(b.bookType),
+          reason: 'bookType 非法位标记 ${b.bookType}：${b.name}',
+        );
         if (b.bookType & 8 != 0) hasText = true;
         if (b.bookType & 64 != 0) hasImage = true;
         if (b.bookType & 32 != 0) hasAudio = true;
@@ -109,8 +119,7 @@ void main() {
       for (final b in books) {
         if (b.bookType & 4096 != 0) {
           local++;
-          expect(b.canUpdate, isFalse,
-              reason: '本地书不应可更新：${b.name}');
+          expect(b.canUpdate, isFalse, reason: '本地书不应可更新：${b.name}');
         } else {
           web++;
         }
@@ -137,11 +146,17 @@ void main() {
       for (final b in books) {
         final isLocal = b.bookType & 4096 != 0;
         if (isLocal) {
-          expect(b.latestChapterTitle, isNull,
-              reason: '本地书不应有 latestChapterTitle：${b.name}');
+          expect(
+            b.latestChapterTitle,
+            isNull,
+            reason: '本地书不应有 latestChapterTitle：${b.name}',
+          );
         } else {
-          expect(b.latestChapterTitle, isNotNull,
-              reason: '网络书应有 latestChapterTitle：${b.name}');
+          expect(
+            b.latestChapterTitle,
+            isNotNull,
+            reason: '网络书应有 latestChapterTitle：${b.name}',
+          );
           expect(b.latestChapterTitle, isNotEmpty);
         }
       }
@@ -150,24 +165,33 @@ void main() {
 
   group('③ 脱敏护栏', () {
     test('样例内任何 http(s) 主机名均为 example.com', () {
-      final matches =
-          RegExp(r'https?://([A-Za-z0-9.-]+)').allMatches(rawJson).toList();
-      expect(matches, isNotEmpty,
-          reason: '样例应含 http(s) 示例 URL 以便护栏持续生效');
+      final matches = RegExp(r'https?://([A-Za-z0-9.-]+)')
+          .allMatches(rawJson)
+          .toList();
+      expect(matches, isNotEmpty, reason: '样例应含 http(s) 示例 URL 以便护栏持续生效');
       for (final m in matches) {
-        expect(m.group(1)!.toLowerCase(), 'example.com',
-            reason: '发现非 example.com 主机名：${m.group(0)}');
+        expect(
+          m.group(1)!.toLowerCase(),
+          'example.com',
+          reason: '发现非 example.com 主机名：${m.group(0)}',
+        );
       }
     });
 
     test('本地书 bookUrl 仅用 file:// 协议、在线书 bookUrl 用 mock://', () {
       for (final b in books) {
         if (b.bookType & 4096 != 0) {
-          expect(b.bookUrl, startsWith('file://'),
-              reason: '本地书 bookUrl 应为 file://：${b.name}');
+          expect(
+            b.bookUrl,
+            startsWith('file://'),
+            reason: '本地书 bookUrl 应为 file://：${b.name}',
+          );
         } else {
-          expect(b.bookUrl, startsWith('mock://'),
-              reason: '在线书 bookUrl 应为 mock://：${b.name}');
+          expect(
+            b.bookUrl,
+            startsWith('mock://'),
+            reason: '在线书 bookUrl 应为 mock://：${b.name}',
+          );
         }
       }
     });

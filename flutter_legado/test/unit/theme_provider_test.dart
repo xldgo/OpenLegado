@@ -7,8 +7,7 @@
 // 注意：ThemeNotifier.build() 会通过微任务自动加载持久化设置，
 // 测试中先经 pumpInit() 等待自动加载完成，再执行动作与断言，避免加载覆盖动作结果。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,10 +62,7 @@ void main() {
 
   group('ThemeNotifier 加载持久化设置', () {
     test('build 自动读取已保存的主题模式与字体缩放', () async {
-      createContainer({
-        'app_theme_mode': 'dark',
-        'app_font_scale': 12,
-      });
+      createContainer({'app_theme_mode': 'dark', 'app_font_scale': 12});
       await pumpInit();
 
       final state = readState();
@@ -128,7 +124,8 @@ void main() {
     });
   });
 
-  group('ThemeNotifier 字体缩放', () {    test('setFontScale 更新状态并持久化', () async {
+  group('ThemeNotifier 字体缩放', () {
+    test('setFontScale 更新状态并持久化', () async {
       createContainer();
       await pumpInit();
       await readNotifier().setFontScale(14);

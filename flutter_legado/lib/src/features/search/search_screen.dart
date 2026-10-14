@@ -1,13 +1,16 @@
 import '../../widgets/app_menu.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
 import '../../domain/models/search_settings.dart';
@@ -248,9 +251,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           next.failedSources.isNotEmpty &&
           _loginToastShownForSession != _searchSessionId) {
         final loginCount = next.failedSources
-            .where((f) =>
-                f.error.contains('Login required') ||
-                f.error.contains('需要登录'),
+            .where(
+              (f) =>
+                  f.error.contains('Login required') ||
+                  f.error.contains('需要登录'),
             )
             .length;
         if (loginCount > 0 && mounted) {
@@ -299,8 +303,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 children: [
                   Text(
                     context.l10n.search,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   _buildSearchField(context),
@@ -326,8 +330,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(

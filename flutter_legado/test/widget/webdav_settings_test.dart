@@ -2,8 +2,7 @@
 //
 // 对齐 BackupConfigFragment + pref_config_backup：AppBar「备份与恢复」
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -99,7 +98,10 @@ void main() {
     expect(row, findsOneWidget);
     expect(find.byType(SwitchListTile), findsNothing);
 
-    final switchFinder = find.descendant(of: row, matching: find.byType(Switch));
+    final switchFinder = find.descendant(
+      of: row,
+      matching: find.byType(Switch),
+    );
     final before = tester.widget<Switch>(switchFinder).value;
 
     // 点标题（非开关本体）即切换：等价原 SwitchListTile 整行语义
@@ -121,9 +123,6 @@ void main() {
     await tester.tap(find.text('恢复'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('未配置 WebDAV，请长按「恢复」从本地恢复'),
-      findsOneWidget,
-    );
+    expect(find.text('未配置 WebDAV，请长按「恢复」从本地恢复'), findsOneWidget);
   });
 }

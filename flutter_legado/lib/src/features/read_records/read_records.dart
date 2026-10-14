@@ -11,7 +11,8 @@ export 'read_record_overview_state.dart'
     show ReadPeriod, ReadBookRanking, ReadRecordOverviewState;
 export 'read_record_repository_provider.dart' show readRecordRepositoryProvider;
 export 'read_record_screen.dart' show ReadRecordScreen, formatDuring;
-export 'read_record_state.dart' show ReadRecordState, ReadRecordSortMode, ReadRecordDisplayMode;
+export 'read_record_state.dart'
+    show ReadRecordState, ReadRecordSortMode, ReadRecordDisplayMode;
 export 'widgets/reading_calendar_card.dart'
     show ReadingCalendarCard, CalendarBookInfo;
 export 'widgets/reading_heatmap_card.dart' show ReadingHeatmapCard;
@@ -24,4 +25,5 @@ export 'widgets/reading_time_bar_chart_card.dart'
 export 'read_record_dataset.dart'
     show ReadRecordDataset, readRecordDatasetProvider;
 
-export 'widgets/read_record_day_details_sheet.dart' show showReadRecordDayDetails;
+export 'widgets/read_record_day_details_sheet.dart'
+    show showReadRecordDayDetails;

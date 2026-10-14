@@ -292,7 +292,8 @@ void main() {
       await tester.pumpAndSettle(); // 菜单收起 + 换源路由自动 pop + 重载
 
       // ② 断言：重读书籍 + 重载目录 + 强制拉取（新源当前章 url）
-      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1'))
+          .called(1);
       verify(
         () => mockApi.fetchChapterContent(
           'https://book.com/1',
@@ -449,7 +450,8 @@ void main() {
       expect(exception, isNull);
       await tester.pumpAndSettle(); // 换源路由自动 pop + 重载
 
-      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1'))
+          .called(1);
       verify(
         () => mockApi.fetchChapterContent(
           'https://book.com/1',
@@ -585,7 +587,8 @@ void main() {
       // clearSnackBars 已收起 10min 进行中条 —— 慢路径终态无任何残留
       expect(find.textContaining('已更换书源'), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
-      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1'))
+          .called(1);
       expect(
         container.read(readerNotifierProvider).currentBook?.origin,
         'https://source-b.com',
@@ -703,7 +706,8 @@ void main() {
       // 结果条、10min 进行中条已被 clearSnackBars 收起（终态无残留）
       expect(find.textContaining('已更换书源'), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
-      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1'))
+          .called(1);
       expect(
         container.read(readerNotifierProvider).currentBook?.origin,
         'https://source-b.com',

@@ -68,10 +68,7 @@ void main() {
                     ),
                     child: const SizedBox(
                       height: 80,
-                      child: TextField(
-                        maxLines: null,
-                        decoration: _sealedNone,
-                      ),
+                      child: TextField(maxLines: null, decoration: _sealedNone),
                     ),
                   ),
                   // 场 2：顶栏/弹层沉浸搜索框（单行 dense）
@@ -79,8 +76,10 @@ void main() {
                     decoration: InputDecoration(
                       hintText: '搜索',
                       isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -109,23 +108,21 @@ void main() {
           ),
         );
 
-        final decorators =
-            tester.widgetList<InputDecorator>(find.byType(InputDecorator));
+        final decorators = tester.widgetList<InputDecorator>(
+          find.byType(InputDecorator),
+        );
         expect(decorators.length, 3, reason: '三个代表场应各有一个输入装饰器');
         for (final decorator in decorators) {
-          final resolved =
-              decorator.decoration.applyDefaults(theme.inputDecorationTheme);
+          final resolved = decorator.decoration.applyDefaults(
+            theme.inputDecorationTheme,
+          );
           for (final (state, border) in [
             ('enabled', _effectiveBorder(resolved)),
             ('focused', _effectiveBorder(resolved, focused: true)),
             ('disabled', _effectiveBorder(resolved, disabled: true)),
             ('error', _effectiveBorder(resolved, error: true)),
           ]) {
-            expect(
-              border,
-              InputBorder.none,
-              reason: '$state 态不得回退主题描边样式/描边',
-            );
+            expect(border, InputBorder.none, reason: '$state 态不得回退主题描边样式/描边');
           }
         }
       });
@@ -137,10 +134,12 @@ void main() {
             home: Scaffold(body: SearchBarWidget(onChanged: (_) {})),
           ),
         );
-        final decorator =
-            tester.widget<InputDecorator>(find.byType(InputDecorator));
-        final resolved =
-            decorator.decoration.applyDefaults(theme.inputDecorationTheme);
+        final decorator = tester.widget<InputDecorator>(
+          find.byType(InputDecorator),
+        );
+        final resolved = decorator.decoration.applyDefaults(
+          theme.inputDecorationTheme,
+        );
         expect(resolved.border, InputBorder.none);
         expect(resolved.enabledBorder, InputBorder.none);
         expect(resolved.focusedBorder, InputBorder.none);

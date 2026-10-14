@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -107,7 +106,8 @@ void main() {
           },
         ]),
       );
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => <Book>[]);
 
       await container.read(syncNotifierProvider.notifier).loadConfig();
       await readNotifier().init();
@@ -120,7 +120,8 @@ void main() {
     test('addSelectedToBookshelf 下载并 importLocalBook', () async {
       when(() => mockApi.webdavListDir(any(), any()))
           .thenAnswer((_) async => jsonEncode([]));
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => <Book>[]);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => <Book>[]);
       when(() => mockApi.webdavDownloadFile(any(), any(), any()))
           .thenAnswer((_) async {});
       when(() => mockApi.importLocalBook(any())).thenAnswer(
@@ -131,7 +132,8 @@ void main() {
           originName: 'novel.epub',
         ),
       );
-      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.updateBook(any()))
+          .thenAnswer((_) async {});
 
       await container.read(syncNotifierProvider.notifier).loadConfig();
       await readNotifier().init();

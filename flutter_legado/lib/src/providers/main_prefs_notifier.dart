@@ -1,8 +1,7 @@
 // [UI-fix v2.0.5 | 2026-08-08] 主界面偏好状态管理：对齐原版 pref_config_other.xml
 // 主界面分组（showDiscovery/showRss/defaultHomePage），驱动首页底栏 Tab
 // 显隐与默认首页即时生效（对标原版 MainActivity 读取 AppConfig） — Qoder
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../services/settings_service.dart';

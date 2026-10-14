@@ -35,10 +35,7 @@ void main() {
                         icon: const Icon(Icons.skip_previous),
                         onPressed: null,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.list),
-                        onPressed: null,
-                      ),
+                      IconButton(icon: const Icon(Icons.list), onPressed: null),
                       IconButton(
                         icon: const Icon(Icons.settings),
                         onPressed: null,

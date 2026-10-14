@@ -10,8 +10,7 @@
 library;
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,11 +81,14 @@ void main() {
   }
 
   group('MCP 服务开关失败态', () {
-    testWidgets('SnackBar 显示 BridgeError.message 原文（非 Instance of）', (tester) async {
+    testWidgets('SnackBar 显示 BridgeError.message 原文（非 Instance of）', (
+      tester,
+    ) async {
       stubConfigs();
       when(() => mockApi.setMcpPort(any())).thenAnswer(
         (_) async => throw const BridgeError(
-          message: '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
+          message:
+              '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
               '「Web 书源访问令牌」（config:jsSourceApiToken）',
         ),
       );
@@ -119,9 +121,8 @@ void main() {
 
     testWidgets('BridgeError 无 message → 兜底文案（不留空）', (tester) async {
       stubConfigs();
-      when(
-        () => mockApi.setMcpPort(any()),
-      ).thenAnswer((_) async => throw const BridgeError(message: ''));
+      when(() => mockApi.setMcpPort(any()))
+          .thenAnswer((_) async => throw const BridgeError(message: ''));
 
       await tester.pumpWidget(wrap());
       await tester.pumpAndSettle();
@@ -153,10 +154,7 @@ void main() {
       toggleRow(tester, 'MCP 服务', true);
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('独立 MCP 服务端口 1236 绑定失败'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('独立 MCP 服务端口 1236 绑定失败'), findsOneWidget);
 
       await settleSnackBar(tester);
     });
@@ -171,10 +169,7 @@ void main() {
       await dragTo(tester, 'MCP 服务');
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('需先配置「Web 书源访问令牌」'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('需先配置「Web 书源访问令牌」'), findsOneWidget);
     });
 
     testWidgets('已配置访问令牌 → 保持原副题（不误报）', (tester) async {
@@ -204,12 +199,9 @@ void main() {
   group('Web 服务开关失败态', () {
     testWidgets('SnackBar 显示 BridgeError.message 原文（同批修复）', (tester) async {
       stubConfigs();
-      when(
-        () => mockApi.startServer(port: any(named: 'port')),
-      ).thenAnswer(
-        (_) async => throw const BridgeError(
-          message: 'Web 服务启动失败：数据库未初始化，请先调用 db_open',
-        ),
+      when(() => mockApi.startServer(port: any(named: 'port'))).thenAnswer(
+        (_) async =>
+            throw const BridgeError(message: 'Web 服务启动失败：数据库未初始化，请先调用 db_open'),
       );
 
       await tester.pumpWidget(wrap());

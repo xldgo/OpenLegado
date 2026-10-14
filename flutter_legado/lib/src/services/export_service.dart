@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+
 import 'book_api.dart';
 
 /// 导出服务
@@ -19,15 +20,15 @@ class ExportService {
 
   /// 支持的字符集列表（对齐 AppConst.charsets 常用项）
   List<String> get supportedEncodings => [
-        'UTF-8',
-        'GBK',
-        'GB2312',
-        'GB18030',
-        'Big5',
-        'UTF-16',
-        'UTF-16LE',
-        'ASCII',
-      ];
+    'UTF-8',
+    'GBK',
+    'GB2312',
+    'GB18030',
+    'Big5',
+    'UTF-16',
+    'UTF-16LE',
+    'ASCII',
+  ];
 
   /// 导出书籍（透传 options → bookExportWithOptions）
   Future<Map<String, dynamic>> export({
@@ -84,11 +85,7 @@ class ExportService {
   }
 
   /// 将导出的文件上传到 WebDAV（文本路径，兼容旧调用）
-  Future<bool> webdavUpload(
-    String configJson,
-    String path,
-    String data,
-  ) async {
+  Future<bool> webdavUpload(String configJson, String path, String data) async {
     try {
       await _rustApi.webdavUpload(configJson, path, data);
       return true;

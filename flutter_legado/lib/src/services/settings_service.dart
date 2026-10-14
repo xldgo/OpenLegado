@@ -279,7 +279,8 @@ class SettingsService {
   Future<bool> getBookshelfLayout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyBookshelfLayout) ?? false; // 默认列表（对齐 AppConfig.bookshelfLayout=0）
+      return prefs.getBool(_keyBookshelfLayout) ??
+          false; // 默认列表（对齐 AppConfig.bookshelfLayout=0）
     } catch (e) {
       debugPrint('SettingsService.getBookshelfLayout 异常: $e');
       return true;
@@ -415,6 +416,7 @@ class SettingsService {
   // 远程书库服务器（对齐原版 servers 表 + AppConfig.remoteServerId）
   static const _keyRemoteServers = 'remote_servers';
   static const _keyRemoteServerId = 'remote_server_id';
+
   /// 默认 WebDAV（同步设置），对齐原版 DEFAULT_WEBDAV_ID = -1
   static const int defaultRemoteServerId = -1;
 
@@ -614,7 +616,9 @@ class SettingsService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final millis = prefs.getInt(_keyLastSyncTime);
-      return millis != null ? DateTime.fromMillisecondsSinceEpoch(millis) : null;
+      return millis != null
+          ? DateTime.fromMillisecondsSinceEpoch(millis)
+          : null;
     } catch (e) {
       debugPrint('SettingsService.getLastSyncTime 异常: $e');
       return null;
@@ -827,10 +831,7 @@ class SettingsService {
       if (decoded is! Map) {
         return {for (final k in restoreIgnoreKeys) k: false};
       }
-      return {
-        for (final k in restoreIgnoreKeys)
-          k: decoded[k] == true,
-      };
+      return {for (final k in restoreIgnoreKeys) k: decoded[k] == true};
     } catch (e) {
       debugPrint('SettingsService.getRestoreIgnoreConfig 异常: $e');
       return {for (final k in restoreIgnoreKeys) k: false};

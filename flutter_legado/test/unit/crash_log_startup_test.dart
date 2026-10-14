@@ -45,7 +45,8 @@ import 'package:flutter_legado/src/widgets/crash_log_dialog.dart';
 /// harness 覆盖修复逻辑。
 
 /// 与生产 crash_log.txt 一致的样例崩溃日志（CrashLogService.logError 格式）
-const _sampleCrashLog = '===== 崩溃日志 =====\n'
+const _sampleCrashLog =
+    '===== 崩溃日志 =====\n'
     '时间: 2026-09-18 09:30:00\n'
     '错误: TestException: 启动崩溃循环回归样例\n'
     '----- 堆栈信息 -----\n'
@@ -53,9 +54,9 @@ const _sampleCrashLog = '===== 崩溃日志 =====\n'
     '===== 日志结束 =====\n';
 
 void main() {
-  testWidgets(
-      '启动携带 lastCrashLog：崩溃弹窗经全局 navigatorKey 弹出，全程无异常',
-      (tester) async {
+  testWidgets('启动携带 lastCrashLog：崩溃弹窗经全局 navigatorKey 弹出，全程无异常', (
+    tester,
+  ) async {
     // 生产结构：根 harness（复刻 LegadoApp，应用根 widget）包裹装配了
     // 生产全局 navigatorKey 的 MaterialApp（app.dart build() 同源）；
     // harness initState 复刻 LegadoApp.initState 的生产调度路径
@@ -143,9 +144,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      '冷启动闪屏 /welcome：退出前不弹窗（避免被 pushReplacement 吞掉），退出后弹出',
-      (tester) async {
+  testWidgets('冷启动闪屏 /welcome：退出前不弹窗（避免被 pushReplacement 吞掉），退出后弹出', (
+    tester,
+  ) async {
     // 复刻生产冷启动结构（P2-13b 缺陷场景）：根 harness 复刻
     // LegadoApp.initState 的调度；MaterialApp initialRoute=/welcome
     // （main.dart L66）；闪屏退出用 pushReplacementNamed(home)
@@ -178,8 +179,9 @@ void main() {
 
     // 2) 模拟闪屏退出（对应 WelcomeScreen._goNext L132）：
     // pushReplacement 同步 flush → didChangeTop(/home, /welcome)
-    PlatformBridgeService.navigatorKey.currentState!
-        .pushReplacementNamed(AppRoutes.home);
+    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
+      AppRoutes.home,
+    );
     expect(watcher.topRouteName, AppRoutes.home);
 
     // 3) 栈顶变为 /home → 重试循环在下一帧 postFrame 弹出

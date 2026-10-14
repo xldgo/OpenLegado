@@ -7,9 +7,7 @@ import 'package:flutter_legado/src/widgets/reader/review_column.dart';
 void main() {
   testWidgets('ReviewColumnBadge 仅在 count>0 时展示', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ReviewColumnBadge(count: 0)),
-      ),
+      const MaterialApp(home: Scaffold(body: ReviewColumnBadge(count: 0))),
     );
     expect(find.text('0'), findsNothing);
 
@@ -17,10 +15,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ReviewColumnBadge(
-            count: 12,
-            onTap: () => tapped = true,
-          ),
+          body: ReviewColumnBadge(count: 12, onTap: () => tapped = true),
         ),
       ),
     );

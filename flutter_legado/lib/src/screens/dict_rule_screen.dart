@@ -1,11 +1,11 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../bridge/ffi.dart';
@@ -91,22 +91,22 @@ class _DictRuleRow {
   }
 
   _DictRuleRow copyWithEnabled(bool value) => _DictRuleRow(
-        id: id,
-        name: name,
-        urlRule: urlRule,
-        showRule: showRule,
-        enabled: value,
-        sortNumber: sortNumber,
-      );
+    id: id,
+    name: name,
+    urlRule: urlRule,
+    showRule: showRule,
+    enabled: value,
+    sortNumber: sortNumber,
+  );
 
   _DictRuleRow copyWithSortNumber(int value) => _DictRuleRow(
-        id: id,
-        name: name,
-        urlRule: urlRule,
-        showRule: showRule,
-        enabled: enabled,
-        sortNumber: value,
-      );
+    id: id,
+    name: name,
+    urlRule: urlRule,
+    showRule: showRule,
+    enabled: enabled,
+    sortNumber: value,
+  );
 }
 
 class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
@@ -153,7 +153,8 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ========== 启停（对标 swtEnabled.setOnUserCheckedChangeListener） ==========
@@ -253,9 +254,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     if (_busy || _selectedIds.isEmpty) return;
     setState(() => _busy = true);
     final ids = _selectedIds.toList();
-    final targets = _rows
-        .where((r) => _selectedIds.contains(r.id))
-        .toList();
+    final targets = _rows.where((r) => _selectedIds.contains(r.id)).toList();
     try {
       final api = ref.read(bookApiProvider);
       for (final row in targets) {
@@ -338,8 +337,12 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
             ? 'https://example.com/dict?q={{key}}'
             : row.urlRule,
         initialShow: row?.showRule ?? '',
-        onSaved: (name, urlRule, showRule) =>
-            _saveRule(row: row, name: name, urlRule: urlRule, showRule: showRule),
+        onSaved: (name, urlRule, showRule) => _saveRule(
+          row: row,
+          name: name,
+          urlRule: urlRule,
+          showRule: showRule,
+        ),
       ),
     );
   }
@@ -649,10 +652,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
               )
             : ReorderableDragStartListener(
                 index: index,
-                child: Icon(
-                  Symbols.drag_indicator_rounded,
-                  color: cs.outline,
-                ),
+                child: Icon(Symbols.drag_indicator_rounded, color: cs.outline),
               ),
         title: Text(
           row.name,

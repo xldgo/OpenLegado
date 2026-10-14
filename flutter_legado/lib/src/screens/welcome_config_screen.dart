@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 
@@ -21,7 +21,8 @@ class WelcomeConfigScreen extends ConsumerStatefulWidget {
   const WelcomeConfigScreen({super.key});
 
   @override
-  ConsumerState<WelcomeConfigScreen> createState() => _WelcomeConfigScreenState();
+  ConsumerState<WelcomeConfigScreen> createState() =>
+      _WelcomeConfigScreenState();
 }
 
 class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
@@ -45,20 +46,32 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
 
   Future<void> _load() async {
     final s = _settings;
-    final showTime =
-        await s.getIntPref(PrefKeys.welcomeShowTime, defaultValue: 500);
-    final custom =
-        await s.getBoolPref(PrefKeys.customWelcome, defaultValue: false);
+    final showTime = await s.getIntPref(
+      PrefKeys.welcomeShowTime,
+      defaultValue: 500,
+    );
+    final custom = await s.getBoolPref(
+      PrefKeys.customWelcome,
+      defaultValue: false,
+    );
     final imageDay = await s.getStringPref(PrefKeys.welcomeImage);
     final imageNight = await s.getStringPref(PrefKeys.welcomeImageDark);
-    final showText =
-        await s.getBoolPref(PrefKeys.welcomeShowText, defaultValue: true);
-    final showIcon =
-        await s.getBoolPref(PrefKeys.welcomeShowIcon, defaultValue: true);
-    final showTextDark =
-        await s.getBoolPref(PrefKeys.welcomeShowTextDark, defaultValue: true);
-    final showIconDark =
-        await s.getBoolPref(PrefKeys.welcomeShowIconDark, defaultValue: true);
+    final showText = await s.getBoolPref(
+      PrefKeys.welcomeShowText,
+      defaultValue: true,
+    );
+    final showIcon = await s.getBoolPref(
+      PrefKeys.welcomeShowIcon,
+      defaultValue: true,
+    );
+    final showTextDark = await s.getBoolPref(
+      PrefKeys.welcomeShowTextDark,
+      defaultValue: true,
+    );
+    final showIconDark = await s.getBoolPref(
+      PrefKeys.welcomeShowIconDark,
+      defaultValue: true,
+    );
     if (!mounted) return;
     setState(() {
       _showTime = showTime.clamp(0, 800);
@@ -150,124 +163,136 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                 children: [
                   const SettingsSectionHeader('显示时长'),
                   SettingsGroup(
-                      flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-                      children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '启动闪屏停留 $_showTime 毫秒',
-                              style: Theme.of(context).textTheme.bodyLarge,
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '启动闪屏停留 $_showTime 毫秒',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '$_showTime',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Slider(
-                      value: _showTime.toDouble(),
-                      min: 0,
-                      max: 800,
-                      divisions: 80,
-                      label: '$_showTime',
-                      onChanged: (v) {
-                        setState(() => _showTime = v.round());
-                      },
-                      onChangeEnd: (v) {
-                        final ms = v.round().clamp(0, 800);
-                        setState(() => _showTime = ms);
-                        _settings.setIntPref(PrefKeys.welcomeShowTime, ms);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
-                        '设为 0 则跳过闪屏直接进入主页',
-                        // [MD3 全量清点] Colors.grey → onSurfaceVariant token
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            Text(
+                              '$_showTime',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ]),
+                      Slider(
+                        value: _showTime.toDouble(),
+                        min: 0,
+                        max: 800,
+                        divisions: 80,
+                        label: '$_showTime',
+                        onChanged: (v) {
+                          setState(() => _showTime = v.round());
+                        },
+                        onChangeEnd: (v) {
+                          final ms = v.round().clamp(0, 800);
+                          setState(() => _showTime = ms);
+                          _settings.setIntPref(PrefKeys.welcomeShowTime, ms);
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text(
+                          '设为 0 则跳过闪屏直接进入主页',
+                          // [MD3 全量清点] Colors.grey → onSurfaceVariant token
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SettingsSectionHeader('自定义'),
                   SettingsGroup(
-                      flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-                      children: [
-                    SwitchListTile.adaptive(
-                      title: const Text('自定义欢迎页'),
-                      subtitle: const Text('启用后可设置日/夜背景图'),
-                      value: _customWelcome,
-                      onChanged: (v) {
-                        setState(() => _customWelcome = v);
-                        _settings.setBoolPref(PrefKeys.customWelcome, v);
-                      },
-                    ),
-                  ]),
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                    children: [
+                      SwitchListTile.adaptive(
+                        title: const Text('自定义欢迎页'),
+                        subtitle: const Text('启用后可设置日/夜背景图'),
+                        value: _customWelcome,
+                        onChanged: (v) {
+                          setState(() => _customWelcome = v);
+                          _settings.setBoolPref(PrefKeys.customWelcome, v);
+                        },
+                      ),
+                    ],
+                  ),
                   const SettingsSectionHeader('白天'),
                   SettingsGroup(
-                      flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-                      children: [
-                    SettingTile(
-                      icon: Symbols.wallpaper_rounded,
-                      title: '背景图片',
-                      subtitle: _imageDay.isEmpty ? '选择图片' : _imageDay,
-                      onTap: () => _pickImage(dark: false),
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('显示文字'),
-                      subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
-                      value: _showText,
-                      onChanged: (v) {
-                        setState(() => _showText = v);
-                        _settings.setBoolPref(PrefKeys.welcomeShowText, v);
-                      },
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('显示图标'),
-                      subtitle: const Text('默认书本图标'),
-                      value: _showIcon,
-                      onChanged: (v) {
-                        setState(() => _showIcon = v);
-                        _settings.setBoolPref(PrefKeys.welcomeShowIcon, v);
-                      },
-                    ),
-                  ]),
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                    children: [
+                      SettingTile(
+                        icon: Symbols.wallpaper_rounded,
+                        title: '背景图片',
+                        subtitle: _imageDay.isEmpty ? '选择图片' : _imageDay,
+                        onTap: () => _pickImage(dark: false),
+                      ),
+                      SwitchListTile.adaptive(
+                        title: const Text('显示文字'),
+                        subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
+                        value: _showText,
+                        onChanged: (v) {
+                          setState(() => _showText = v);
+                          _settings.setBoolPref(PrefKeys.welcomeShowText, v);
+                        },
+                      ),
+                      SwitchListTile.adaptive(
+                        title: const Text('显示图标'),
+                        subtitle: const Text('默认书本图标'),
+                        value: _showIcon,
+                        onChanged: (v) {
+                          setState(() => _showIcon = v);
+                          _settings.setBoolPref(PrefKeys.welcomeShowIcon, v);
+                        },
+                      ),
+                    ],
+                  ),
                   const SettingsSectionHeader('夜间'),
                   SettingsGroup(
-                      flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
-                      children: [
-                    SettingTile(
-                      icon: Symbols.wallpaper_rounded,
-                      title: '背景图片',
-                      subtitle: _imageNight.isEmpty ? '选择图片' : _imageNight,
-                      onTap: () => _pickImage(dark: true),
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('显示文字'),
-                      subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
-                      value: _showTextDark,
-                      onChanged: (v) {
-                        setState(() => _showTextDark = v);
-                        _settings.setBoolPref(PrefKeys.welcomeShowTextDark, v);
-                      },
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('显示图标'),
-                      subtitle: const Text('默认书本图标'),
-                      value: _showIconDark,
-                      onChanged: (v) {
-                        setState(() => _showIconDark = v);
-                        _settings.setBoolPref(PrefKeys.welcomeShowIconDark, v);
-                      },
-                    ),
-                  ]),
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                    children: [
+                      SettingTile(
+                        icon: Symbols.wallpaper_rounded,
+                        title: '背景图片',
+                        subtitle: _imageNight.isEmpty ? '选择图片' : _imageNight,
+                        onTap: () => _pickImage(dark: true),
+                      ),
+                      SwitchListTile.adaptive(
+                        title: const Text('显示文字'),
+                        subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
+                        value: _showTextDark,
+                        onChanged: (v) {
+                          setState(() => _showTextDark = v);
+                          _settings.setBoolPref(
+                            PrefKeys.welcomeShowTextDark,
+                            v,
+                          );
+                        },
+                      ),
+                      SwitchListTile.adaptive(
+                        title: const Text('显示图标'),
+                        subtitle: const Text('默认书本图标'),
+                        value: _showIconDark,
+                        onChanged: (v) {
+                          setState(() => _showIconDark = v);
+                          _settings.setBoolPref(
+                            PrefKeys.welcomeShowIconDark,
+                            v,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                   const SettingsSectionFooter(
                     '闪屏结构对齐原版 WelcomeActivity；背景图仅在开启「自定义欢迎页」时生效。',
                   ),

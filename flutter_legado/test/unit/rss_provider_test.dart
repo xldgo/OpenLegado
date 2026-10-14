@@ -6,8 +6,7 @@
 // 迁移自原 RssProvider（ChangeNotifier）测试，改为 Riverpod 范式：
 // 使用 ProviderContainer + bookApiProvider.overrideWithValue(mockApi)。
 // 原「触发通知」测试点改为通过 container.listen 断言状态变更会触发监听。
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -145,15 +144,18 @@ void main() {
     });
 
     test('selectSource 清空旧文章', () async {
-      when(() => mockApi.getRssArticles(any()))
-          .thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
+      when(
+        () => mockApi.getRssArticles(any()),
+      ).thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
 
       await readNotifier().selectSource(testSource);
       expect(readState().articles.length, equals(1));
 
       // 选择另一个源
-      final other =
-          const RssSource(sourceUrl: 'https://other.com', sourceName: '其他');
+      final other = const RssSource(
+        sourceUrl: 'https://other.com',
+        sourceName: '其他',
+      );
       when(() => mockApi.getRssArticles('https://other.com'))
           .thenAnswer((_) async => []);
       await readNotifier().selectSource(other);
@@ -171,10 +173,13 @@ void main() {
     });
 
     test('有选中源时重新加载文章', () async {
-      final source =
-          const RssSource(sourceUrl: 'https://r.com', sourceName: 'R');
-      when(() => mockApi.getRssArticles(any()))
-          .thenAnswer((_) async => [const RssFeedArticle(title: 'x', url: 'u')]);
+      final source = const RssSource(
+        sourceUrl: 'https://r.com',
+        sourceName: 'R',
+      );
+      when(
+        () => mockApi.getRssArticles(any()),
+      ).thenAnswer((_) async => [const RssFeedArticle(title: 'x', url: 'u')]);
 
       await readNotifier().selectSource(source);
       await readNotifier().refreshArticles();
@@ -185,8 +190,10 @@ void main() {
 
   group('RssNotifier addSource（mock API）', () {
     test('成功添加 RSS 源', () async {
-      final added =
-          const RssSource(sourceUrl: 'https://new.com', sourceName: '新源');
+      final added = const RssSource(
+        sourceUrl: 'https://new.com',
+        sourceName: '新源',
+      );
       when(() => mockApi.addRssSource(any())).thenAnswer((_) async => added);
 
       await readNotifier().addSource('新源', 'https://new.com');
@@ -224,8 +231,10 @@ void main() {
     });
 
     test('删除当前选中源时清除选中状态', () async {
-      final source =
-          const RssSource(sourceUrl: 'https://a.com', sourceName: 'A');
+      final source = const RssSource(
+        sourceUrl: 'https://a.com',
+        sourceName: 'A',
+      );
       when(() => mockApi.getRssSources()).thenAnswer((_) async => [source]);
       when(() => mockApi.getRssArticles(any())).thenAnswer((_) async => []);
       when(() => mockApi.deleteRssSource(any())).thenAnswer((_) async {});
@@ -256,10 +265,13 @@ void main() {
     });
 
     test('clearSelectedSource 状态变更触发监听', () async {
-      final source =
-          const RssSource(sourceUrl: 'https://a.com', sourceName: 'A');
-      when(() => mockApi.getRssArticles(any()))
-          .thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
+      final source = const RssSource(
+        sourceUrl: 'https://a.com',
+        sourceName: 'A',
+      );
+      when(
+        () => mockApi.getRssArticles(any()),
+      ).thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
       await readNotifier().selectSource(source);
 
       var notified = false;
@@ -328,7 +340,11 @@ void main() {
 
     test('拆分时 trim 并去除空分组', () async {
       await loadWithGroups(const [
-        RssSource(sourceUrl: 'u1', sourceName: 's1', sourceGroup: ' 科技 , , 财经 '),
+        RssSource(
+          sourceUrl: 'u1',
+          sourceName: 's1',
+          sourceGroup: ' 科技 , , 财经 ',
+        ),
       ]);
 
       expect(readState().groups, equals(['科技', '财经']));

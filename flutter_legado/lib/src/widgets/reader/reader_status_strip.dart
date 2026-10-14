@@ -1,7 +1,7 @@
 import '../../models/reader_advanced_config.dart';
+
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../providers/reader/reader_notifier.dart';
 import 'reader_page_chrome.dart';
@@ -63,10 +63,7 @@ class ReaderStatusStrip extends ConsumerWidget {
                   Icon(Icons.battery_std, size: 12, color: color),
                   const SizedBox(width: 4),
                 ],
-                if (config.showTime) ...[
-                  Text(time),
-                  const SizedBox(width: 10),
-                ],
+                if (config.showTime) ...[Text(time), const SizedBox(width: 10)],
                 const Spacer(),
                 if (config.showChapterName)
                   Flexible(

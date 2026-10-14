@@ -15,8 +15,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/explore/explore_show_notifier.dart';
@@ -37,8 +36,7 @@ class ExploreShowScreen extends ConsumerStatefulWidget {
   const ExploreShowScreen({super.key, this.args});
 
   @override
-  ConsumerState<ExploreShowScreen> createState() =>
-      _ExploreShowScreenState();
+  ConsumerState<ExploreShowScreen> createState() => _ExploreShowScreenState();
 }
 
 class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
@@ -62,7 +60,8 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
     final state = ref.read(exploreShowNotifierProvider(args));
     final books = state.books;
     if (books.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.noLoadedBooks)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.noLoadedBooks)));
       return;
     }
     try {
@@ -83,8 +82,10 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
             wordCount: b.wordCount,
           ).toJson(),
       ]);
-      final added =
-          await ref.read(bookApiProvider).bookshelfRepository.importBooks(jsonArray);
+      final added = await ref
+          .read(bookApiProvider)
+          .bookshelfRepository
+          .importBooks(jsonArray);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.addedToShelfCount(added))),
@@ -101,8 +102,7 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
   Future<void> _showFilterDialog() async {
     final keyword = await showDialog<String>(
       context: context,
-      builder: (dialogContext) =>
-          _ExploreFilterDialog(initial: _filterKeyword),
+      builder: (dialogContext) => _ExploreFilterDialog(initial: _filterKeyword),
     );
     if (!mounted) return;
     setState(() => _filterKeyword = keyword ?? _filterKeyword);
@@ -154,7 +154,8 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
           ),
           // [A1 对齐 | Qoder UI] ☰ 列表切换：书卡密度 舒适/紧凑
           IconButton(
-            tooltip: _compact ? context.l10n.switchComfortableLayout
+            tooltip: _compact
+                ? context.l10n.switchComfortableLayout
                 : context.l10n.switchCompactLayout,
             onPressed: () => setState(() => _compact = !_compact),
             icon: Icon(
@@ -180,7 +181,6 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
   }
 }
 
-
 /// 发现书单筛选关键字弹层（有状态：controller 随弹层 State 建/销）
 ///
 /// [A1 对齐 | Qoder UI] 生命周期与弹层子树严格一致（对齐 2.0.243 D1 修复
@@ -195,8 +195,8 @@ class _ExploreFilterDialog extends StatefulWidget {
 }
 
 class _ExploreFilterDialogState extends State<_ExploreFilterDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial,
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
   );
 
   @override
@@ -215,8 +215,8 @@ class _ExploreFilterDialogState extends State<_ExploreFilterDialog> {
           Text(
             context.l10n.loadedBooksFilterHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(

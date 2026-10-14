@@ -100,8 +100,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.operationFailed(e.toString()))),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.operationFailed(e.toString()))),
         );
       }
     } finally {
@@ -144,8 +144,8 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.addGroupFailed(e.toString()))),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.addGroupFailed(e.toString()))),
         );
       }
     } finally {
@@ -167,9 +167,9 @@ class _GroupManageDialogState<T> extends State<GroupManageDialog<T>> {
       return;
     }
     if (_groups.contains(newName)) {
-      ScaffoldMessenger.of(context,
-      )
-          .showSnackBar(SnackBar(content: Text(l10n.groupAlreadyExists(newName))));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.groupAlreadyExists(newName))));
       return;
     }
     await _upGroup(group, newName);

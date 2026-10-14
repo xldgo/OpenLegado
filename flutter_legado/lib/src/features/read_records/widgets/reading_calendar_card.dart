@@ -1,4 +1,5 @@
 import '../../privacy/privacy_gate.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -150,48 +151,55 @@ class _CalendarDayCell extends StatelessWidget {
         : '${date.month}月${date.day}日 无阅读记录';
 
     // 仅有真实阅读记录的日期可查看明细，空日期不提供点击动作。
-    return PrivacyMaskedContent(bookName:topBook?.bookName,author:topBook?.author,onTap:onTap,child:Semantics(
-      container: true,
-      label: description,
-      button: onTap != null,
+    return PrivacyMaskedContent(
+      bookName: topBook?.bookName,
+      author: topBook?.author,
       onTap: onTap,
-      excludeSemantics: true,
-      child: InkWell(
+      child: Semantics(
+        container: true,
+        label: description,
+        button: onTap != null,
         onTap: onTap,
-        excludeFromSemantics: true,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (hasBook)
-                  Opacity(
-                    opacity: 0.4,
-                    child: BookCover(
-                      coverUrl: topBook!.coverUrl,
-                      borderRadius: 6,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (hasBook)
+                    Opacity(
+                      opacity: 0.4,
+                      child: BookCover(
+                        coverUrl: topBook!.coverUrl,
+                        borderRadius: 6,
+                      ),
+                    ),
+                  Center(
+                    child: Text(
+                      '${date.day}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: hasBook
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: hasBook ? cs.primary : cs.onSurface,
+                      ),
                     ),
                   ),
-                Center(
-                  child: Text(
-                    '${date.day}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: hasBook ? FontWeight.bold : FontWeight.normal,
-                      color: hasBook ? cs.primary : cs.onSurface,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 }

@@ -41,11 +41,9 @@ class AutoTask {
     return AutoTask(
       id: json['id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
-      taskType:
-          json['taskType'] as String? ?? json['comment'] as String? ?? '',
+      taskType: json['taskType'] as String? ?? json['comment'] as String? ?? '',
       cron: json['cron'] as String? ?? '',
-      isEnabled:
-          json['isEnabled'] as bool? ?? json['enable'] as bool? ?? true,
+      isEnabled: json['isEnabled'] as bool? ?? json['enable'] as bool? ?? true,
       lastRunAt: _parseLastRunAt(json['lastRunAt']),
       lastResult: json['lastResult'] as String?,
       script: _parseScript(json['script']),
@@ -85,13 +83,13 @@ class AutoTask {
   /// 优先输出已保存的 [script]；无 script 时按 [taskType] 生成占位脚本
   /// （兼容旧 JSON 与服务端 run 端点非空校验）。
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'enable': isEnabled,
-        'cron': cron,
-        'comment': taskType,
-        'script': effectiveScript,
-      };
+    'id': id,
+    'name': name,
+    'enable': isEnabled,
+    'cron': cron,
+    'comment': taskType,
+    'script': effectiveScript,
+  };
 
   /// 实际可执行脚本：有存盘载荷用存盘值，否则按 taskType 生成占位脚本
   String get effectiveScript => script ?? _defaultScript;

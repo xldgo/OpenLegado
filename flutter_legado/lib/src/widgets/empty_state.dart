@@ -56,8 +56,7 @@ class _EmptyStateState extends State<EmptyState> {
     '(｡•́︿•̀｡)',
   ];
 
-  late String _face =
-      _faces[Random().nextInt(_faces.length)];
+  late String _face = _faces[Random().nextInt(_faces.length)];
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +76,8 @@ class _EmptyStateState extends State<EmptyState> {
             widget.title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
           ),
         ),
       );
@@ -121,24 +120,22 @@ class _EmptyStateState extends State<EmptyState> {
                   text: widget.title,
                   maxLines: 2,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (widget.subtitle != null) ...[
                   Text(
                     widget.subtitle!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.7,
-                          ),
-                        ),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
                   ),
                 ],
-                if (widget.action != null) ...[
-                  widget.action!,
-                ],
+                if (widget.action != null) ...[widget.action!],
               ],
             ),
           ),
@@ -161,9 +158,8 @@ class _EmptyStateState extends State<EmptyState> {
             Text(
               widget.title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
             if (widget.subtitle != null) ...[
               const SizedBox(height: 8),
@@ -171,8 +167,8 @@ class _EmptyStateState extends State<EmptyState> {
                 widget.subtitle!,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
               ),
             ],
             if (widget.action != null) ...[

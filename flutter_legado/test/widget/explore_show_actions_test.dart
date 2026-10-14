@@ -4,8 +4,7 @@
 // 对齐基准：参考版书单页顶栏（←+筛选漏斗+☰ 列表切换，用户 0913 手动截图
 // 12~17）；能力不丢失——我方既有 加入书架/页码 动作保留。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
@@ -43,8 +42,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
   }
 
-  testWidgets('默认展示全部书籍；漏斗筛选按关键字过滤（书名/作者）',
-      (tester) async {
+  testWidgets('默认展示全部书籍；漏斗筛选按关键字过滤（书名/作者）', (tester) async {
     await pumpScreen(tester);
     expect(find.text('发现书籍 1'), findsOneWidget);
     expect(find.text('发现书籍 4'), findsOneWidget);
@@ -85,10 +83,8 @@ void main() {
 
   testWidgets('☰ 列表切换：紧凑密度下封面缩小', (tester) async {
     await pumpScreen(tester);
-    double coverWidth() => tester
-        .widgetList<BookCover>(find.byType(BookCover))
-        .first
-        .width;
+    double coverWidth() =>
+        tester.widgetList<BookCover>(find.byType(BookCover)).first.width;
     expect(coverWidth(), 45);
 
     await tester.tap(find.byTooltip('切换为紧凑'));

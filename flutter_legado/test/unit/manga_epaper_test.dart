@@ -6,10 +6,7 @@ import 'package:flutter_legado/src/utils/manga_epaper.dart';
 void main() {
   test('binarizeRgbaInPlace 阈值分割', () {
     // 深灰 + 浅灰各一像素（RGBA）
-    final rgba = Uint8List.fromList([
-      40, 40, 40, 255,
-      200, 200, 200, 255,
-    ]);
+    final rgba = Uint8List.fromList([40, 40, 40, 255, 200, 200, 200, 255]);
     binarizeRgbaInPlace(rgba, 150);
     expect(rgba[0], 0);
     expect(rgba[1], 0);

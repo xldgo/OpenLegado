@@ -63,8 +63,7 @@ Future<int?> showMd3WheelPickerSheet({
                 onSelectedItemChanged: (i) => picked = i,
                 childDelegate: ListWheelChildBuilderDelegate(
                   childCount: itemCount,
-                  builder: (ctx, i) => Center(
-                    child: itemBuilder(ctx, i)),
+                  builder: (ctx, i) => Center(child: itemBuilder(ctx, i)),
                 ),
               ),
             ),

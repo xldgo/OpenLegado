@@ -52,7 +52,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {

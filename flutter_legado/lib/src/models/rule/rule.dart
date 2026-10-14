@@ -136,7 +136,8 @@ abstract class ReviewRule with _$ReviewRule {
     @Default(false) bool enabled,
     @JsonKey(name: 'reviewSummaryUrl') String? reviewSummaryUrl,
     @JsonKey(name: 'summaryListRule') String? summaryListRule,
-    @JsonKey(name: 'summaryParagraphIndexRule') String? summaryParagraphIndexRule,
+    @JsonKey(name: 'summaryParagraphIndexRule')
+    String? summaryParagraphIndexRule,
     @JsonKey(name: 'summaryParagraphDataRule') String? summaryParagraphDataRule,
     @JsonKey(name: 'summaryCountRule') String? summaryCountRule,
     @JsonKey(name: 'reviewDetailUrl') String? reviewDetailUrl,
@@ -168,9 +169,13 @@ abstract class FlexChildStyle with _$FlexChildStyle {
     @Default(0) @JsonKey(name: 'layout_flexGrow') double layoutFlexGrow,
     @Default(1.0) @JsonKey(name: 'layout_flexShrink') double layoutFlexShrink,
     @Default('auto') @JsonKey(name: 'layout_alignSelf') String layoutAlignSelf,
-    @Default(-1.0) @JsonKey(name: 'layout_flexBasisPercent') double layoutFlexBasisPercent,
+    @Default(-1.0)
+    @JsonKey(name: 'layout_flexBasisPercent')
+    double layoutFlexBasisPercent,
     @Default(false) @JsonKey(name: 'layout_wrapBefore') bool layoutWrapBefore,
-    @Default('auto') @JsonKey(name: 'layout_justifySelf') String layoutJustifySelf,
+    @Default('auto')
+    @JsonKey(name: 'layout_justifySelf')
+    String layoutJustifySelf,
   }) = _FlexChildStyle;
 
   factory FlexChildStyle.fromJson(Map<String, dynamic> json) =>

@@ -39,19 +39,18 @@ class SourceCard extends StatelessWidget {
                     Text(
                       name,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: isEnabled
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurfaceVariant,
-                          ),
+                        color: isEnabled
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       url,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

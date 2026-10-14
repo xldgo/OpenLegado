@@ -1,14 +1,16 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -631,8 +633,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   // AutoTaskActivity 菜单） — Qoder =====
 
   void _snack(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   /// 导入本地任务文件（txt/json，对标 menu_import_local）
@@ -960,8 +961,8 @@ class _BookUpdateTaskDialogState extends State<_BookUpdateTaskDialog> {
             Text(
               '到期后自动刷新该书目录并提示更新',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(

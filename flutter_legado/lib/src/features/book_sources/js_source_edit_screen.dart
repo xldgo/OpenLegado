@@ -3,10 +3,11 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -64,11 +65,15 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
     try {
       final url = _openedSourceUrl;
       if (url != null && url.isNotEmpty) {
-        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
+        final sources = await ref
+            .read(bookApiProvider)
+            .bookSourceRepository
+            .getBookSources();
         final hit = sources.where((s) => s.bookSourceUrl == url).firstOrNull;
         final js = hit?.mainJs?.trim();
-        _controller.text =
-            (js != null && js.isNotEmpty) ? js : _kJsSourceTemplate;
+        _controller.text = (js != null && js.isNotEmpty)
+            ? js
+            : _kJsSourceTemplate;
       } else {
         _controller.text = _kJsSourceTemplate;
       }
@@ -101,8 +106,9 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
               : int.tryParse(line?.toString() ?? '');
           if (mounted) {
             setState(() {
-              _syntaxBanner =
-                  lineNum != null ? '语法警告 L$lineNum：$msg' : '语法警告：$msg';
+              _syntaxBanner = lineNum != null
+                  ? '语法警告 L$lineNum：$msg'
+                  : '语法警告：$msg';
               _syntaxLine = lineNum;
             });
           }
@@ -127,8 +133,9 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
       }
 
       final existing = await api.bookSourceRepository.getBookSources();
-      final exists =
-          existing.any((s) => s.bookSourceUrl == source.bookSourceUrl);
+      final exists = existing.any(
+        (s) => s.bookSourceUrl == source.bookSourceUrl,
+      );
       if (exists) {
         await api.bookSourceRepository.updateBookSource(source);
       } else {
@@ -183,8 +190,9 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
     if (result == null || !mounted) return;
     setState(() {
       _controller.text = result.text;
-      _controller.selection =
-          TextSelection.collapsed(offset: result.text.length);
+      _controller.selection = TextSelection.collapsed(
+        offset: result.text.length,
+      );
     });
     if (result.debugRequested) {
       await _save(openDebug: true);
@@ -215,17 +223,18 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
       return;
     }
     try {
-      final checkRaw =
-          await ref.read(bookApiProvider).checkJsSourceSyntax(content);
+      final checkRaw = await ref
+          .read(bookApiProvider)
+          .checkJsSourceSyntax(content);
       final check = jsonDecode(checkRaw) as Map<String, dynamic>;
       if (check['valid'] == false) {
         final msg = check['message']?.toString() ?? '语法错误';
         final line = check['line'];
-        final lineNum =
-            line is int ? line : int.tryParse(line?.toString() ?? '');
+        final lineNum = line is int
+            ? line
+            : int.tryParse(line?.toString() ?? '');
         setState(() {
-          _syntaxBanner =
-              lineNum != null ? '语法警告 L$lineNum：$msg' : '语法警告：$msg';
+          _syntaxBanner = lineNum != null ? '语法警告 L$lineNum：$msg' : '语法警告：$msg';
           _syntaxLine = lineNum;
         });
         _jumpToSyntaxLine();

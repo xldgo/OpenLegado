@@ -14,14 +14,16 @@ library;
 import '../l10n/app_localization.dart';
 
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/md3_fast_scroller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/explore/explore_notifier.dart';
@@ -104,10 +106,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             // [UI_SYNC_REFACTOR S1b 修正] 对齐参考 ListScaffold：subtitle=
             // 当前分组、搜索行默认收起（切换钮展开）、分组筛选走下拉菜单
             //（非常驻 FilterChip 横条）
-            subtitle: state.selectedGroup.isEmpty ? context.l10n.allBooks
+            subtitle: state.selectedGroup.isEmpty
+                ? context.l10n.allBooks
                 : state.selectedGroup,
             expanded: _searchExpanded,
-            onExpandedChanged: (value) => setState(() => _searchExpanded = value),
+            onExpandedChanged: (value) =>
+                setState(() => _searchExpanded = value),
             searchController: _searchController,
             searchHint: context.l10n.filterDiscoverySources,
             onChanged: _onSearchChanged,
@@ -183,9 +187,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          flex: 2,
-          child: _buildSourceList(state, isTablet: true)),
+        Flexible(flex: 2, child: _buildSourceList(state, isTablet: true)),
         VerticalDivider(width: 1, color: colorScheme.outlineVariant),
         Flexible(
           flex: 3,
@@ -204,8 +206,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                            color: colorScheme.outlineVariant
-                                .withValues(alpha: 0.45,
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.45,
                             ),
                           ),
                         ),
@@ -215,9 +217,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           Expanded(
                             child: Text(
                               _selectedCategory!.categoryName,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -250,43 +250,48 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         return Md3FastScroller(
           controller: _listController,
           child: ListView.builder(
-          controller: _listController,
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            8,
-            horizontalPadding,
-            16,
-          ),
-          itemCount: sources.length,
-          itemBuilder: (context, index) {
-            final source = sources[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _SourceItem(
-                source: source,
-                isTablet: isTablet,
-                collapseSignal: widget.collapseSignal,
-                expandDuration: _kExpandDuration,
-                onEdit: () {
-                  Navigator.pushNamed(
-                    context,
-                    AppRoutes.sourceEdit,
-                    arguments: source,
-                  );
-                },
-                onUninstall: () => _onUninstall(source.bookSourceUrl),
-                onTop: () => _onTopSource(source),
-                onLogin: () => _onLoginSource(source),
-                onSearch: () => _onSearchSource(source),
-                onRefresh: () =>
-                    ref.read(exploreNotifierProvider.notifier).reloadCategories(source),
-                onCategoryTap: (categoryName, categoryUrl) {
-                  _openExploreShow(source, categoryName, categoryUrl, isTablet,
+            controller: _listController,
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              8,
+              horizontalPadding,
+              16,
+            ),
+            itemCount: sources.length,
+            itemBuilder: (context, index) {
+              final source = sources[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _SourceItem(
+                  source: source,
+                  isTablet: isTablet,
+                  collapseSignal: widget.collapseSignal,
+                  expandDuration: _kExpandDuration,
+                  onEdit: () {
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.sourceEdit,
+                      arguments: source,
                     );
-                },
-              ),
-            );
-          },
+                  },
+                  onUninstall: () => _onUninstall(source.bookSourceUrl),
+                  onTop: () => _onTopSource(source),
+                  onLogin: () => _onLoginSource(source),
+                  onSearch: () => _onSearchSource(source),
+                  onRefresh: () => ref
+                      .read(exploreNotifierProvider.notifier)
+                      .reloadCategories(source),
+                  onCategoryTap: (categoryName, categoryUrl) {
+                    _openExploreShow(
+                      source,
+                      categoryName,
+                      categoryUrl,
+                      isTablet,
+                    );
+                  },
+                ),
+              );
+            },
           ),
         );
       },
@@ -312,8 +317,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   Future<void> _onUninstall(String sourceUrl) async {
-    final ok =
-        await ref.read(exploreNotifierProvider.notifier).uninstallSource(sourceUrl);
+    final ok = await ref
+        .read(exploreNotifierProvider.notifier)
+        .uninstallSource(sourceUrl);
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -475,62 +481,61 @@ class _SourceItemState extends ConsumerState<_SourceItem>
           AppMenuAnchor<String>(
             itemBuilder: _buildItemMenu,
             onSelected: _handleItemMenu,
-            builder: (context, controller, _) =>
-          InkWell(
-            onTap: _toggleExpand,
-            onLongPress: controller.open,
-            child: ConstrainedBox(
-              // [LAYOUT_MOTION_AUDIT L3] 分组头行高对齐 M3 ListItem 单行 56
-              constraints: const BoxConstraints(minHeight: 56),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: _kRowHPadding,
+            builder: (context, controller, _) => InkWell(
+              onTap: _toggleExpand,
+              onLongPress: controller.open,
+              child: ConstrainedBox(
+                // [LAYOUT_MOTION_AUDIT L3] 分组头行高对齐 M3 ListItem 单行 56
+                constraints: const BoxConstraints(minHeight: 56),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _kRowHPadding,
                   ),
-                child: Row(
-                  children: [
-                    // [B2-C1 2-1] 前置图标槽：参考版行内 24dp 圆角图标位
-                    // （源 favicon 数据不可取 → 中性占位，台账登记数据差异）
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: colorScheme.onSurface.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Symbols.book_rounded,
-                        size: 16,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        bookName,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
+                  child: Row(
+                    children: [
+                      // [B2-C1 2-1] 前置图标槽：参考版行内 24dp 圆角图标位
+                      // （源 favicon 数据不可取 → 中性占位，台账登记数据差异）
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurface.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Symbols.book_rounded,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.25 : 0,
-                      duration: widget.expandDuration,
-                      // [LAYOUT_MOTION_AUDIT L3] emphasized 曲线
-                      curve: Curves.easeOutCubic,
-                      child: Icon(
-                        Symbols.chevron_right_rounded,
-                        size: 20,
-                        color: colorScheme.onSurfaceVariant,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          bookName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                      AnimatedRotation(
+                        turns: _expanded ? 0.25 : 0,
+                        duration: widget.expandDuration,
+                        // [LAYOUT_MOTION_AUDIT L3] emphasized 曲线
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          Symbols.chevron_right_rounded,
+                          size: 20,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           ),
           SizeTransition(
             sizeFactor: _expandAnimation,
@@ -545,22 +550,21 @@ class _SourceItemState extends ConsumerState<_SourceItem>
     );
   }
 
-  List<AppMenuEntry<String>> _buildItemMenu(BuildContext context) =>
-[
+  List<AppMenuEntry<String>> _buildItemMenu(BuildContext context) => [
     AppMenuItem(value: 'edit', child: Text(context.l10n.edit)),
     AppMenuItem(value: 'top', child: Text(context.l10n.pinToTop)),
-        if (_hasLoginUrl)
+    if (_hasLoginUrl)
       AppMenuItem(value: 'login', child: Text(context.l10n.login)),
     AppMenuItem(value: 'search', child: Text(context.l10n.search)),
     AppMenuItem(value: 'refresh', child: Text(context.l10n.refresh)),
-        AppMenuItem(
-          value: 'uninstall',
-          child: Text(
+    AppMenuItem(
+      value: 'uninstall',
+      child: Text(
         context.l10n.delete,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-      ];
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
+    ),
+  ];
 
   void _handleItemMenu(String action) {
     if (!mounted) return;
@@ -601,8 +605,8 @@ class _SourceItemState extends ConsumerState<_SourceItem>
 
   Widget _buildCategoryList(ThemeData theme, ColorScheme colorScheme) {
     final sourceUrl = widget.source.bookSourceUrl;
-    final loading = ref.watch(exploreNotifierProvider.select(
-      (s) => s.isLoadingCategories(sourceUrl)),
+    final loading = ref.watch(
+      exploreNotifierProvider.select((s) => s.isLoadingCategories(sourceUrl)),
     );
     if (loading) {
       return const Padding(
@@ -620,8 +624,9 @@ class _SourceItemState extends ConsumerState<_SourceItem>
       );
     }
 
-    final categories = ref.watch(exploreNotifierProvider.select(
-          (s) => s.categoriesFor(sourceUrl)),
+    final categories =
+        ref.watch(
+          exploreNotifierProvider.select((s) => s.categoriesFor(sourceUrl)),
         ) ??
         [];
     if (categories.isEmpty) {

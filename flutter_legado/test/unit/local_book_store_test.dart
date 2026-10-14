@@ -49,7 +49,9 @@ void main() {
 
   group('LocalBookStore.store', () {
     test('拷贝源文件入 books/ 并返回相对标识', () async {
-      final src = File('${srcDir('src').path}${Platform.pathSeparator}sample.txt');
+      final src = File(
+        '${srcDir('src').path}${Platform.pathSeparator}sample.txt',
+      );
       src.createSync(recursive: true);
       src.writeAsStringSync('第一章\n正文\n');
 
@@ -58,13 +60,14 @@ void main() {
 
       // 真实文件应落在 Documents/books/ 下（经 resolveSync 一致性校验）
       final resolved = LocalBookStore.resolveSync(id);
-      expect(File(resolved).existsSync(), isTrue,
-          reason: '持久文件应存在于 $resolved');
+      expect(File(resolved).existsSync(), isTrue, reason: '持久文件应存在于 $resolved');
       expect(File(resolved).readAsStringSync(), contains('正文'));
     });
 
     test('幂等：源已在 books/ 内 → 返回相对标识，不做自拷贝', () async {
-      final src = File('${srcDir('src').path}${Platform.pathSeparator}inner.epub');
+      final src = File(
+        '${srcDir('src').path}${Platform.pathSeparator}inner.epub',
+      );
       src.createSync(recursive: true);
       src.writeAsStringSync('EPUB');
 
@@ -97,7 +100,8 @@ void main() {
     test('源不存在时 store 抛异常', () async {
       expect(
         LocalBookStore.store(
-            '${srcDir('missing').path}${Platform.pathSeparator}nope.txt'),
+          '${srcDir('missing').path}${Platform.pathSeparator}nope.txt',
+        ),
         throwsA(anything),
       );
     });
@@ -112,8 +116,11 @@ void main() {
 
       final resolved = LocalBookStore.resolveSync('books/r.txt');
       // 应指向刚写入的持久文件（resolveSync 与 store 的落盘位置一致）
-      expect(File(resolved).existsSync(), isTrue,
-          reason: 'resolveSync 应还原 store 写入的真实路径 $resolved');
+      expect(
+        File(resolved).existsSync(),
+        isTrue,
+        reason: 'resolveSync 应还原 store 写入的真实路径 $resolved',
+      );
       expect(resolved.endsWith('books${Platform.pathSeparator}r.txt'), isTrue);
     });
 
@@ -123,8 +130,10 @@ void main() {
     });
 
     test('Web URL 原样透传', () {
-      expect(LocalBookStore.resolveSync('https://a.example.com/b.epub'),
-          'https://a.example.com/b.epub');
+      expect(
+        LocalBookStore.resolveSync('https://a.example.com/b.epub'),
+        'https://a.example.com/b.epub',
+      );
     });
   });
 }

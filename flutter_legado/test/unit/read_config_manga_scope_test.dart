@@ -29,8 +29,7 @@ void main() {
       expect(config.dailyChapters, 7);
     });
 
-    test('书级字段按参考版键名解析（mangaScrollMode / webtoonSidePaddingDp）',
-        () {
+    test('书级字段按参考版键名解析（mangaScrollMode / webtoonSidePaddingDp）', () {
       final config = ReadConfig.fromJson(<String, dynamic>{
         'mangaScrollMode': 3,
         'webtoonSidePaddingDp': 20,
@@ -71,8 +70,7 @@ void main() {
       expect(cleared.dailyChapters, 7);
     });
 
-    test('copyWith 未目标字段保持原值（webtoonSidePaddingDp 显式置空同理）',
-        () {
+    test('copyWith 未目标字段保持原值（webtoonSidePaddingDp 显式置空同理）', () {
       const config = ReadConfig(mangaScrollMode: 5, webtoonSidePaddingDp: 10);
 
       final cleared = config.copyWith(webtoonSidePaddingDp: null);

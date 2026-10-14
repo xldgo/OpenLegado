@@ -179,8 +179,7 @@ extension _SearchBuilders on _SearchScreenState {
                         );
                         await Clipboard.setData(ClipboardData(text: text));
                         messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(message)),
+                          SnackBar(content: Text(message)),
                         );
                       },
                     ),
@@ -390,7 +389,8 @@ extension _SearchBuilders on _SearchScreenState {
         _circleAction(
           context,
           icon: Symbols.filter_list_rounded,
-          tooltip: _resultFilterWords.isEmpty ? context.l10n.searchResultFilter
+          tooltip: _resultFilterWords.isEmpty
+              ? context.l10n.searchResultFilter
               : context.l10n.searchResultFilterActive,
           active: _resultFilterWords.isNotEmpty,
           onTap: _showResultFilterDialog,
@@ -880,11 +880,15 @@ extension _SearchBuilders on _SearchScreenState {
   Future<void> _showSearchScopeDialog() async {
     List<BookSource> sources;
     try {
-      sources = await ref.read(bookApiProvider).bookSourceRepository.getEnabledBookSources();
+      sources = await ref
+          .read(bookApiProvider)
+          .bookSourceRepository
+          .getEnabledBookSources();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context).showSnackBar(SnackBar(content: Text(context.l10n.bookSourcesLoadFailed(e.toString())),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.bookSourcesLoadFailed(e.toString())),
           ),
         );
       }
@@ -1035,8 +1039,9 @@ extension _SearchBuilders on _SearchScreenState {
                               context.l10n.noMatchingSearchHistory,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Theme.of(
-                                      context).colorScheme.onSurfaceVariant,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                           ),
@@ -1088,17 +1093,17 @@ extension _SearchBuilders on _SearchScreenState {
                                                 )
                                                 .deleteHistoryItem(keyword);
                                             if (!context.mounted) return;
-                                            ScaffoldMessenger.of(
-                                              context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
                                                       context.l10n
                                                           .deletedSearchKeyword(
                                                             keyword,
                                                           ),
                                                     ),
-                                              ),
-                                            );
+                                                  ),
+                                                );
                                           },
                                           child: Padding(
                                             padding: const EdgeInsets.all(6),

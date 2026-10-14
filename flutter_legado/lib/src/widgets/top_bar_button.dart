@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 import 'app_menu.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
@@ -155,8 +156,7 @@ class _ActionSlot extends StatelessWidget {
         cs.onSurfaceVariant,
         merge ? null : Border.all(color: cs.outlineVariant),
       ),
-      TopBarButtonStyle.glass ||
-      TopBarButtonStyle.liquidGlass => (
+      TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass => (
         merge ? null : cs.surfaceContainerHighest.withValues(alpha: 0.5),
         cs.onSurface,
         null,
@@ -224,8 +224,8 @@ class TopBarButton extends StatelessWidget {
     // 普通图标按钮常态透明，点击反馈由 IconButton 保留。
     final bg = switch (style) {
       TopBarButtonStyle.tonal => Colors.transparent,
-      TopBarButtonStyle.glass ||
-      TopBarButtonStyle.liquidGlass => cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass =>
+        cs.surfaceContainerHighest.withValues(alpha: 0.5),
       _ => Colors.transparent,
     };
     final fg = switch (style) {

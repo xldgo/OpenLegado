@@ -39,26 +39,11 @@ class SourceRuleHelpSheet extends StatelessWidget {
 
   /// 源规则基础写法（搜索/发现/详情/目录/正文）
   static const List<_HelpEntry> _sourceRules = [
-    _HelpEntry(
-      '搜索规则',
-      'searchUrl：列表页请求地址，{{key}} 表示关键词、{{page}} 表示页码。',
-    ),
-    _HelpEntry(
-      '发现规则',
-      'exploreUrl：发现页的分类/榜单地址，可用规则生成分类与子列表。',
-    ),
-    _HelpEntry(
-      '详情规则',
-      'bookInfoRule：从详情页解析书名、作者、封面、简介与目录页链接。',
-    ),
-    _HelpEntry(
-      '目录规则',
-      'tocRule：从目录页解析章节名与章节链接列表（含分卷结构）。',
-    ),
-    _HelpEntry(
-      '正文规则',
-      'contentRule：从章节页解析正文内容，可用 ## 做正则替换清洗。',
-    ),
+    _HelpEntry('搜索规则', 'searchUrl：列表页请求地址，{{key}} 表示关键词、{{page}} 表示页码。'),
+    _HelpEntry('发现规则', 'exploreUrl：发现页的分类/榜单地址，可用规则生成分类与子列表。'),
+    _HelpEntry('详情规则', 'bookInfoRule：从详情页解析书名、作者、封面、简介与目录页链接。'),
+    _HelpEntry('目录规则', 'tocRule：从目录页解析章节名与章节链接列表（含分卷结构）。'),
+    _HelpEntry('正文规则', 'contentRule：从章节页解析正文内容，可用 ## 做正则替换清洗。'),
   ];
 
   /// @ 前缀规则语法
@@ -87,30 +72,12 @@ class SourceRuleHelpSheet extends StatelessWidget {
 
   /// jsLib 与常用内置变量/函数
   static const List<_HelpEntry> _jsLibEntries = [
-    _HelpEntry(
-      'java.ajax(url)',
-      '发起 HTTP 请求并返回响应文本（自动携带 Cookie 与请求头）。',
-    ),
-    _HelpEntry(
-      'java.base64Decode(str)',
-      '对 Base64 字符串解码并返回原始文本。',
-    ),
-    _HelpEntry(
-      'book',
-      '当前书籍对象，含 bookUrl / name / author / tocUrl 等字段。',
-    ),
-    _HelpEntry(
-      'baseUrl',
-      '当前规则对应的页面地址。',
-    ),
-    _HelpEntry(
-      'chapter',
-      '当前章节对象，含 url / title 等字段。',
-    ),
-    _HelpEntry(
-      'result',
-      '上一步规则的输出结果（链式规则中继续处理时使用）。',
-    ),
+    _HelpEntry('java.ajax(url)', '发起 HTTP 请求并返回响应文本（自动携带 Cookie 与请求头）。'),
+    _HelpEntry('java.base64Decode(str)', '对 Base64 字符串解码并返回原始文本。'),
+    _HelpEntry('book', '当前书籍对象，含 bookUrl / name / author / tocUrl 等字段。'),
+    _HelpEntry('baseUrl', '当前规则对应的页面地址。'),
+    _HelpEntry('chapter', '当前章节对象，含 url / title 等字段。'),
+    _HelpEntry('result', '上一步规则的输出结果（链式规则中继续处理时使用）。'),
   ];
 
   Future<void> _openWiki(BuildContext context) async {

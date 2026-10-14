@@ -1,10 +1,13 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/md3_fast_scroller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
@@ -143,9 +146,8 @@ It was a dark and stormy night.''';
         .read(txtTocRulesNotifierProvider.notifier)
         .importDefaultRules();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已导入 $n 条原版默认 TXT 目录规则')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('已导入 $n 条原版默认 TXT 目录规则')));
   }
 
   void _confirmDelete(TxtTocRule rule) {
@@ -471,8 +473,12 @@ class _RuleTile extends StatelessWidget {
     );
   }
 
-  Widget _iconAction(BuildContext context, IconData icon, String label,
-      VoidCallback onTap) {
+  Widget _iconAction(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
@@ -486,9 +492,8 @@ class _RuleTile extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: colorScheme.primary),
             ),
           ],
         ),

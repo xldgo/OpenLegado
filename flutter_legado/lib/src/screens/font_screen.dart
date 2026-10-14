@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,8 +107,9 @@ class _FontScreenState extends State<FontScreen> {
         file = File(stored);
         if (!await file.exists()) {
           final base = await docs();
-          final fallback =
-              File('$base$sep$_fontSubDir$sep${_baseName(stored)}');
+          final fallback = File(
+            '$base$sep$_fontSubDir$sep${_baseName(stored)}',
+          );
           if (await fallback.exists()) {
             file = fallback;
             healedRelative = '$_fontSubDir/${_baseName(stored)}';
@@ -123,9 +126,7 @@ class _FontScreenState extends State<FontScreen> {
       // 尝试重新注册字体（应用重启后需重新加载）
       try {
         final loader = FontLoader(fam)
-          ..addFont(
-            file.readAsBytes().then((b) => b.buffer.asByteData()),
-          );
+          ..addFont(file.readAsBytes().then((b) => b.buffer.asByteData()));
         await loader.load();
         customs.add(_FontOption(family: fam, label: fam));
         if (healedRelative != null) {
@@ -151,10 +152,7 @@ class _FontScreenState extends State<FontScreen> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            SnackBar(
-              content:
-                  Text('部分自定义字体文件缺失，未加载：${missing.join('、')}'),
-            ),
+            SnackBar(content: Text('部分自定义字体文件缺失，未加载：${missing.join('、')}')),
           );
       }
     }
@@ -193,8 +191,9 @@ class _FontScreenState extends State<FontScreen> {
       final dir = await getApplicationDocumentsDirectory();
       final fontDir = Directory('${dir.path}${Platform.pathSeparator}fonts');
       if (!await fontDir.exists()) await fontDir.create(recursive: true);
-      final target =
-          File('${fontDir.path}${Platform.pathSeparator}$family.ttf');
+      final target = File(
+        '${fontDir.path}${Platform.pathSeparator}$family.ttf',
+      );
       await target.writeAsBytes(data);
 
       final loader = FontLoader(family)
@@ -216,15 +215,13 @@ class _FontScreenState extends State<FontScreen> {
       }
       await prefs.setString(_familyKey, family);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已导入字体「$name」')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已导入字体「$name」')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('字体导入失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('字体导入失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _importing = false);
@@ -342,7 +339,9 @@ class _FontScreenState extends State<FontScreen> {
     final selected = _currentFamily == font.family;
     return ListTile(
       leading: Icon(
-        selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+        selected
+            ? Symbols.radio_button_checked_rounded
+            : Symbols.radio_button_unchecked_rounded,
         color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
       ),
       title: Text(

@@ -29,11 +29,7 @@ void main() {
           ('border', deco.border),
           ('enabledBorder', deco.enabledBorder),
         ]) {
-          expect(
-            border,
-            isA<OutlineInputBorder>(),
-            reason: '$name 应为圆角描边',
-          );
+          expect(border, isA<OutlineInputBorder>(), reason: '$name 应为圆角描边');
           expect(
             border,
             isNot(isA<UnderlineInputBorder>()),
@@ -46,11 +42,7 @@ void main() {
             reason: '$name 普通态使用 outlineVariant',
           );
           expect(outline.borderSide.width, 1, reason: '$name 普通态为 1dp 细线');
-          expect(
-            outline.borderRadius,
-            expectedRadius,
-            reason: '$name 四角应保持一致',
-          );
+          expect(outline.borderRadius, expectedRadius, reason: '$name 四角应保持一致');
         }
       });
 
@@ -74,11 +66,7 @@ void main() {
       test('生效链：无局部覆盖的字段解析为圆角描边', () {
         final merged = const InputDecoration(hintText: 'h').applyDefaults(deco);
         expect(merged.border, isA<OutlineInputBorder>());
-        expect(
-          merged.border!.isOutline,
-          isTrue,
-          reason: '字段沿用圆角描边的标签布局',
-        );
+        expect(merged.border!.isOutline, isTrue, reason: '字段沿用圆角描边的标签布局');
         expect(
           (merged.border! as OutlineInputBorder).borderRadius,
           expectedRadius,

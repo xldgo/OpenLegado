@@ -164,10 +164,7 @@ class RestoreIgnorePrefs {
         } else if (value is String) {
           await prefs.setString(key, value);
         } else if (value is List) {
-          await prefs.setStringList(
-            key,
-            value.map((e) => '$e').toList(),
-          );
+          await prefs.setStringList(key, value.map((e) => '$e').toList());
         } else if (value is num) {
           if (value == value.roundToDouble()) {
             await prefs.setInt(key, value.toInt());
@@ -191,9 +188,8 @@ class RestoreIgnorePrefs {
       final file = await _readJsonMap(backupPath);
       if (file == null) return;
       file[kBackupAppPrefsKey] = await collectForBackup(ignore);
-      await File(backupPath).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(file),
-      );
+      await File(backupPath)
+          .writeAsString(const JsonEncoder.withIndent('  ').convert(file));
     } catch (e) {
       debugPrint('RestoreIgnorePrefs.injectAppPrefsIntoBackupFile 异常: $e');
     }

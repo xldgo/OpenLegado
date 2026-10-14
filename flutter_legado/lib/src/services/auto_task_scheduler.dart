@@ -60,7 +60,9 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   /// 刷新代数：并发的 [refresh] 互相作废旧一代的延迟结果
   int _generation = 0;
 
-  static const MethodChannel _jobChannel = MethodChannel('legado/auto_task_job');
+  static const MethodChannel _jobChannel = MethodChannel(
+    'legado/auto_task_job',
+  );
   bool _jobHandlerBound = false;
 
   /// 装配入口（app.dart initState，参考 PlatformBridgeService.navigatorKey）
@@ -149,12 +151,7 @@ class AutoTaskScheduler with WidgetsBindingObserver {
       final rules = await api.autoTaskListRules();
       if (generation != _generation) return; // 已被更新的 refresh 取代
       final now = DateTime.now().millisecondsSinceEpoch;
-      final runAt = await _nextRunAt(
-        api,
-        rules,
-        now,
-        afterBatch: afterBatch,
-      );
+      final runAt = await _nextRunAt(api, rules, now, afterBatch: afterBatch);
       if (generation != _generation) return;
       _timer?.cancel();
       _timer = null;
@@ -234,9 +231,7 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   int _baseTime(Map<String, dynamic> rule, int now) {
     final raw = rule['lastRunAt'] ?? rule['last_run_at'] ?? 0;
     final lastRunAt = raw is int ? raw : int.tryParse('$raw') ?? 0;
-    return lastRunAt > 0
-        ? lastRunAt
-        : now - _firstRunGrace.inMilliseconds;
+    return lastRunAt > 0 ? lastRunAt : now - _firstRunGrace.inMilliseconds;
   }
 
   /// 任务启用判定（兼容 isEnabled / enable 两种字段风格）
@@ -276,9 +271,7 @@ class AutoTaskScheduler with WidgetsBindingObserver {
           );
           debugPrint('[AutoTaskScheduler] 任务执行完成: ${rule['name']}');
         } catch (e) {
-          debugPrint(
-            '[AutoTaskScheduler] 任务执行失败: ${rule['name']} — $e',
-          );
+          debugPrint('[AutoTaskScheduler] 任务执行失败: ${rule['name']} — $e');
         }
       }
       // 批次完成：以当前时间为基准调度下一轮（对标 refresh(afterBatch=true)）
@@ -286,7 +279,9 @@ class AutoTaskScheduler with WidgetsBindingObserver {
     } catch (e) {
       // 批次级失败（FFI 异常等）：退避重试（对标 jobFinished(retry=true)
       // + BACKOFF_POLICY_LINEAR 60s）
-      debugPrint('[AutoTaskScheduler] 批次执行失败，${_retryBackoff.inSeconds}s 后重试: $e');
+      debugPrint(
+        '[AutoTaskScheduler] 批次执行失败，${_retryBackoff.inSeconds}s 后重试: $e',
+      );
       _generation++;
       _timer?.cancel();
       _timer = Timer(_retryBackoff, _onTimer);

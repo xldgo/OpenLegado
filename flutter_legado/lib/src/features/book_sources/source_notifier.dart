@@ -1,9 +1,9 @@
 import 'book_source_repository_provider.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -38,8 +38,7 @@ class SourceNotifier extends Notifier<SourceState> {
       createSourceImportService(ref.read(bookApiProvider));
 
   /// 获取备份服务实例
-  BackupService get backupService =>
-      BackupService(ref.read(bookApiProvider));
+  BackupService get backupService => BackupService(ref.read(bookApiProvider));
 
   // ===== CRUD 操作 =====
 
@@ -66,8 +65,7 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 切换书源启用状态
   Future<void> toggleSource(String sourceUrl) async {
-    final index =
-        state.sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
+    final index = state.sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
     if (index == -1) return;
     final source = state.sources[index];
     final updated = source.copyWith(enabled: !source.enabled);
@@ -104,8 +102,9 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> saveSource(BookSource source) async {
     try {
       final api = ref.read(bookSourceRepositoryProvider);
-      final index = state.sources
-          .indexWhere((s) => s.bookSourceUrl == source.bookSourceUrl);
+      final index = state.sources.indexWhere(
+        (s) => s.bookSourceUrl == source.bookSourceUrl,
+      );
       if (index == -1) {
         // 新建
         final added = await api.addBookSource(source);
@@ -163,10 +162,9 @@ class SourceNotifier extends Notifier<SourceState> {
   ) async {
     try {
       final decoded = jsonDecode(jsonContent);
-      final List<dynamic> items =
-          decoded is List
-              ? decoded
-              : (decoded is Map<String, dynamic> ? [decoded] : <dynamic>[]);
+      final List<dynamic> items = decoded is List
+          ? decoded
+          : (decoded is Map<String, dynamic> ? [decoded] : <dynamic>[]);
       if (items.isEmpty) return jsonContent;
       final processed = <String>[];
       for (final item in items) {
@@ -290,21 +288,21 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<bool> reorderSources(int oldIndex, int newIndex) async {
     if (state.loading || state.sort != SourceSort.manual) return false;
     final visible = List<BookSource>.of(state.filteredSources);
-    if (oldIndex < 0 || oldIndex >= visible.length ||
-        newIndex < 0 || newIndex >= visible.length) {
+    if (oldIndex < 0 ||
+        oldIndex >= visible.length ||
+        newIndex < 0 ||
+        newIndex >= visible.length) {
       return false;
     }
     if (oldIndex == newIndex) return true;
     visible.insert(newIndex, visible.removeAt(oldIndex));
 
-    final ordered = state.copyWith(
-      filterKeyword: '',
-      selectedGroup: null,
-      sortAscending: true,
-    ).filteredSources;
+    final ordered = state
+        .copyWith(filterKeyword: '', selectedGroup: null, sortAscending: true)
+        .filteredSources;
     final visibleUrls = visible.map((s) => s.bookSourceUrl).toSet();
-    final replacements = (state.sortAscending ? visible : visible.reversed)
-        .iterator;
+    final replacements =
+        (state.sortAscending ? visible : visible.reversed).iterator;
     final changed = <String, int>{};
     for (var i = 0; i < ordered.length; i++) {
       var source = ordered[i];
@@ -420,8 +418,7 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 切换单个书源的发现启用状态（对标长按菜单 启用/禁用发现）
   Future<void> toggleExplore(String sourceUrl) async {
-    final index =
-        state.sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
+    final index = state.sources.indexWhere((s) => s.bookSourceUrl == sourceUrl);
     if (index == -1) return;
     final source = state.sources[index];
     final updated = source.copyWith(enabledExplore: !source.enabledExplore);
@@ -443,8 +440,7 @@ class SourceNotifier extends Notifier<SourceState> {
       final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
-        final index =
-            newSources.indexWhere((s) => s.bookSourceUrl == url);
+        final index = newSources.indexWhere((s) => s.bookSourceUrl == url);
         if (index == -1) continue;
         final source = newSources[index];
         if (!source.enabled) {
@@ -471,8 +467,7 @@ class SourceNotifier extends Notifier<SourceState> {
       final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
-        final index =
-            newSources.indexWhere((s) => s.bookSourceUrl == url);
+        final index = newSources.indexWhere((s) => s.bookSourceUrl == url);
         if (index == -1) continue;
         final source = newSources[index];
         if (source.enabled) {
@@ -521,8 +516,7 @@ class SourceNotifier extends Notifier<SourceState> {
       final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
-        final index =
-            newSources.indexWhere((s) => s.bookSourceUrl == url);
+        final index = newSources.indexWhere((s) => s.bookSourceUrl == url);
         if (index == -1) continue;
         final source = newSources[index];
         if (source.enabledExplore != enable) {
@@ -572,8 +566,9 @@ class SourceNotifier extends Notifier<SourceState> {
       final rest = ordered
           .where((s) => !urls.contains(s.bookSourceUrl))
           .toList();
-      final rearranged =
-          toTop ? [...selected, ...rest] : [...rest, ...selected];
+      final rearranged = toTop
+          ? [...selected, ...rest]
+          : [...rest, ...selected];
 
       final newSources = List<BookSource>.of(state.sources);
       for (var i = 0; i < rearranged.length; i++) {
@@ -581,8 +576,9 @@ class SourceNotifier extends Notifier<SourceState> {
         if (source.customOrder != i) {
           final updated = source.copyWith(customOrder: i);
           await api.updateBookSource(updated);
-          final index = newSources
-              .indexWhere((s) => s.bookSourceUrl == source.bookSourceUrl);
+          final index = newSources.indexWhere(
+            (s) => s.bookSourceUrl == source.bookSourceUrl,
+          );
           if (index != -1) newSources[index] = updated;
         }
       }
@@ -619,8 +615,7 @@ class SourceNotifier extends Notifier<SourceState> {
       final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in state.selectedUrls) {
-        final index =
-            newSources.indexWhere((s) => s.bookSourceUrl == url);
+        final index = newSources.indexWhere((s) => s.bookSourceUrl == url);
         if (index == -1) continue;
         final source = newSources[index];
         final groups = (source.bookSourceGroup ?? '')
@@ -658,8 +653,7 @@ class SourceNotifier extends Notifier<SourceState> {
       final api = ref.read(bookSourceRepositoryProvider);
       final newSources = List<BookSource>.of(state.sources);
       for (final url in urls) {
-        final index =
-            newSources.indexWhere((s) => s.bookSourceUrl == url);
+        final index = newSources.indexWhere((s) => s.bookSourceUrl == url);
         if (index == -1) continue;
         final source = newSources[index];
         final groups = (source.bookSourceGroup ?? '')
@@ -669,9 +663,7 @@ class SourceNotifier extends Notifier<SourceState> {
             .toList();
         if (groups.contains(name)) continue;
         groups.add(name);
-        final updated = source.copyWith(
-          bookSourceGroup: groups.join(','),
-        );
+        final updated = source.copyWith(bookSourceGroup: groups.join(','));
         try {
           await api.updateBookSource(updated);
           newSources[index] = updated;
@@ -687,8 +679,9 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 导出选中的书源为 JSON
   Future<String> exportSelectedSources() async {
-    return await backupService
-        .exportSelectedSources(state.selectedUrls.toList());
+    return await backupService.exportSelectedSources(
+      state.selectedUrls.toList(),
+    );
   }
 
   /// 导出全部书源为 JSON
@@ -722,7 +715,6 @@ class SourceNotifier extends Notifier<SourceState> {
 /// final state = ref.watch(sourceNotifierProvider);
 /// ref.read(sourceNotifierProvider.notifier).loadSources();
 /// ```
-final sourceNotifierProvider =
-    NotifierProvider<SourceNotifier, SourceState>(
+final sourceNotifierProvider = NotifierProvider<SourceNotifier, SourceState>(
   SourceNotifier.new,
 );

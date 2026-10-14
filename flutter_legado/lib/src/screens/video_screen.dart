@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -38,8 +40,9 @@ import '../widgets/video_settings_dialog.dart';
 /// 否则同进程听过音频后再进视频页，播放器会继承 true 而不再请求/响应
 /// 音频焦点（失去外部抢占暂停语义）——即恢复本页原有默认行为。
 @visibleForTesting
-final VideoPlayerOptions videoPlaybackOptions =
-    VideoPlayerOptions(mixWithOthers: false);
+final VideoPlayerOptions videoPlaybackOptions = VideoPlayerOptions(
+  mixWithOthers: false,
+);
 
 /// [V-B3] 悬浮窗回全屏的路由参数（app.dart 从原生交回状态组装）
 class VideoScreenArgs {
@@ -217,10 +220,10 @@ class _VideoScreenState extends State<VideoScreen> {
   /// 当前生效倍速：长按期间 = 设置的长按档位，否则 = 会话倍速
   /// （对齐 VideoPlayer.kt:108-133；弹幕层与控制器共用该值）
   double get _effectivePlaybackSpeed => effectiveVideoSpeed(
-        sessionSpeed: _playbackSpeed,
-        longPressActive: _isLongPressSpeed,
-        longPressSpeed: _playSettings.pressSpeedFactor,
-      );
+    sessionSpeed: _playbackSpeed,
+    longPressActive: _isLongPressSpeed,
+    longPressSpeed: _playSettings.pressSpeedFactor,
+  );
 
   // ===== [V-B2 | 2026-10-05] 视频弹幕（契约 §2.49 数据 + §2.50 解析） =====
 
@@ -338,16 +341,18 @@ class _VideoScreenState extends State<VideoScreen> {
   ///   异源 → 落库旧内容进度并关闭（probeAndTakeOver 内处理）。
   Future<void> _applyExplicitOrActiveFloatState() async {
     if (widget.presetUrl != null) {
-      _applyFloatState(VideoFloatWindowState(
-        url: widget.presetUrl!,
-        headers: widget.presetHeaders,
-        positionMs: widget.initialResumeMs,
-        playing: widget.initialPlaying,
-        speed: widget.initialSpeed,
-        bookUrl: widget.book?.bookUrl,
-        chapterIndex: widget.initialChapterIndex ?? -1,
-        mpdTempPath: widget.presetMpdPath,
-      ));
+      _applyFloatState(
+        VideoFloatWindowState(
+          url: widget.presetUrl!,
+          headers: widget.presetHeaders,
+          positionMs: widget.initialResumeMs,
+          playing: widget.initialPlaying,
+          speed: widget.initialSpeed,
+          bookUrl: widget.book?.bookUrl,
+          chapterIndex: widget.initialChapterIndex ?? -1,
+          mpdTempPath: widget.presetMpdPath,
+        ),
+      );
       return;
     }
     final taken = await VideoFloatWindowCoordinator.instance.probeAndTakeOver(
@@ -372,7 +377,8 @@ class _VideoScreenState extends State<VideoScreen> {
     );
   }
 
-  BookApi _readApi() => ProviderScope.containerOf(context).read(bookApiProvider);
+  BookApi _readApi() =>
+      ProviderScope.containerOf(context).read(bookApiProvider);
 
   /// 直链起播：读 20 天内进度 → 解析播放（对齐 VideoPlay.kt:143 seekOnStart）
   Future<void> _startDirectPlayback() async {
@@ -425,7 +431,8 @@ class _VideoScreenState extends State<VideoScreen> {
       _chapterError = null;
     });
     try {
-      final target = _presetTarget ??
+      final target =
+          _presetTarget ??
           resolveVideoPlayTarget(
             content: raw,
             chapterUrl: raw,
@@ -475,7 +482,8 @@ class _VideoScreenState extends State<VideoScreen> {
       }
       final preset = _presetTarget;
       final presetIndex = _resumeChapterIndex;
-      final index = (preset != null &&
+      final index =
+          (preset != null &&
               presetIndex != null &&
               presetIndex >= 0 &&
               presetIndex < _chapters.length)
@@ -575,7 +583,10 @@ class _VideoScreenState extends State<VideoScreen> {
       final api = ProviderScope.containerOf(context).read(bookApiProvider);
       final content = book.origin.isNotEmpty
           ? await api.fetchChapterContent(
-              book.bookUrl, chapter.url, book.origin)
+              book.bookUrl,
+              chapter.url,
+              book.origin,
+            )
           : await api.getChapterContent(book.bookUrl, index);
       // [V-B2] 弹幕与正文同链加载：§2.49 原文 → §2.50 Rust 解析
       await _loadDanmakuForChapter(api, index);
@@ -642,8 +653,7 @@ class _VideoScreenState extends State<VideoScreen> {
 
     if (target.isMpd) {
       final dir = await getTemporaryDirectory();
-      final name =
-          'legado_video_${DateTime.now().millisecondsSinceEpoch}.mpd';
+      final name = 'legado_video_${DateTime.now().millisecondsSinceEpoch}.mpd';
       final file = File('${dir.path}/$name');
       await file.writeAsString(target.mpdContent!);
       _mpdTempFile = file;
@@ -703,9 +713,11 @@ class _VideoScreenState extends State<VideoScreen> {
     // VideoPlay.kt:143 直链 video_pos_ / :166 书籍 durChapterPos）
     final live = _safeController;
     final liveReady = live?.value.isInitialized ?? false;
-    final pos = positionMs ??
+    final pos =
+        positionMs ??
         (liveReady ? live!.value.position.inMilliseconds : _pendingResumeMs);
-    final title = book != null &&
+    final title =
+        book != null &&
             _chapters.isNotEmpty &&
             _chapterIndex >= 0 &&
             _chapterIndex < _chapters.length
@@ -720,7 +732,8 @@ class _VideoScreenState extends State<VideoScreen> {
       // 未创建/未就绪：播放态取 autoPlay（对齐原版 startPlay 内部
       // `if (autoPlay) player.startPlayLogic()`，VideoPlay.kt:157）；
       // 已就绪则保持当前播放态（用户手动移交的 clonePlayState 语义）
-      playing: _resumePlayingOverride ??
+      playing:
+          _resumePlayingOverride ??
           (liveReady ? live!.value.isPlaying : _playSettings.autoPlay),
       speed: _playbackSpeed,
       bookUrl: book?.bookUrl,
@@ -772,22 +785,19 @@ class _VideoScreenState extends State<VideoScreen> {
       if (reason == 'no_overlay_permission') {
         await coordinator.requestOverlayPermission();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请允许「显示在其他应用上层」后重试')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请允许「显示在其他应用上层」后重试')));
         }
       } else if (reason == 'background_start_rejected') {
         // 原版此类失败仅日志记录、无用户文案（BaseService
         // tryStartForegroundNotification），此处用中性描述
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请回到应用内后重试')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请回到应用内后重试')));
         }
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('悬浮窗启动失败，请重试')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('悬浮窗启动失败，请重试')));
       }
       return false;
     }
@@ -917,7 +927,8 @@ class _VideoScreenState extends State<VideoScreen> {
       return;
     }
 
-    final videoUrl = networkUrl ??
+    final videoUrl =
+        networkUrl ??
         (_currentPlayUrl.isNotEmpty ? _currentPlayUrl : widget.videoUrl);
     if (networkUrl != null) _currentPlayUrl = networkUrl;
     final uri = Uri.tryParse(videoUrl);
@@ -926,9 +937,7 @@ class _VideoScreenState extends State<VideoScreen> {
         Uri.parse(''),
         videoPlayerOptions: videoPlaybackOptions,
       );
-      _initializeVideoPlayerFuture = Future<void>.error(
-        Exception('无效的视频地址'),
-      );
+      _initializeVideoPlayerFuture = Future<void>.error(Exception('无效的视频地址'));
       return;
     }
 
@@ -943,45 +952,50 @@ class _VideoScreenState extends State<VideoScreen> {
   /// 初始化后恢复进度并自动播放（对齐 VideoPlay.seekOnStart）
   void _wireControllerInit() {
     _controller.addListener(_onPlayerValueChanged);
-    _initializeVideoPlayerFuture = _controller.initialize().then((_) async {
-      if (!mounted) return;
-      debugPrint(
-        '[VideoPlay] controller ready '
-        'size=${_controller.value.size} '
-        'duration=${_controller.value.duration} '
-        'url=$_currentPlayUrl',
-      );
-      // 恢复位置：直链 = video_pos_ 读值；书籍 = 初始章 durChapterPos
-      if (_pendingResumeMs > 0) {
-        try {
-          await _controller.seekTo(Duration(milliseconds: _pendingResumeMs));
-        } catch (_) {}
-      }
-      setState(() {});
-      // [V-B3] 悬浮窗回全屏时保持其播放态；否则沿用 autoPlay 设置
-      final shouldPlay = _resumePlayingOverride ?? _playSettings.autoPlay;
-      _resumePlayingOverride = null;
-      if (shouldPlay) {
-        await _controller.play();
-      }
-      // [P4-3 波次1b V3] 换集重建控制器后恢复会话级倍速
-      // （对齐原版 playSpeed 为视图级成员，跨集保持）
-      if (_effectivePlaybackSpeed != 1.0) {
-        _controller.setPlaybackSpeed(_effectivePlaybackSpeed);
-      }
-      if (!mounted) return;
-      // 起播后刷新一次：长按倍速手势区的 enabled 依赖 isPlaying
-      setState(() {});
-      debugPrint(
-        '[VideoPlay] after play '
-        'isPlaying=${_controller.value.isPlaying} '
-        'isBuffering=${_controller.value.isBuffering} '
-        'position=${_controller.value.position}',
-      );
-    }).catchError((Object e, StackTrace st) {
-      debugPrint('[VideoPlay] controller init FAILED: $e');
-      throw e;
-    });
+    _initializeVideoPlayerFuture = _controller
+        .initialize()
+        .then((_) async {
+          if (!mounted) return;
+          debugPrint(
+            '[VideoPlay] controller ready '
+            'size=${_controller.value.size} '
+            'duration=${_controller.value.duration} '
+            'url=$_currentPlayUrl',
+          );
+          // 恢复位置：直链 = video_pos_ 读值；书籍 = 初始章 durChapterPos
+          if (_pendingResumeMs > 0) {
+            try {
+              await _controller.seekTo(
+                Duration(milliseconds: _pendingResumeMs),
+              );
+            } catch (_) {}
+          }
+          setState(() {});
+          // [V-B3] 悬浮窗回全屏时保持其播放态；否则沿用 autoPlay 设置
+          final shouldPlay = _resumePlayingOverride ?? _playSettings.autoPlay;
+          _resumePlayingOverride = null;
+          if (shouldPlay) {
+            await _controller.play();
+          }
+          // [P4-3 波次1b V3] 换集重建控制器后恢复会话级倍速
+          // （对齐原版 playSpeed 为视图级成员，跨集保持）
+          if (_effectivePlaybackSpeed != 1.0) {
+            _controller.setPlaybackSpeed(_effectivePlaybackSpeed);
+          }
+          if (!mounted) return;
+          // 起播后刷新一次：长按倍速手势区的 enabled 依赖 isPlaying
+          setState(() {});
+          debugPrint(
+            '[VideoPlay] after play '
+            'isPlaying=${_controller.value.isPlaying} '
+            'isBuffering=${_controller.value.isBuffering} '
+            'position=${_controller.value.position}',
+          );
+        })
+        .catchError((Object e, StackTrace st) {
+          debugPrint('[VideoPlay] controller init FAILED: $e');
+          throw e;
+        });
   }
 
   /// 播放器值变化：仅在自然播完边沿触发连播
@@ -1140,8 +1154,8 @@ class _VideoScreenState extends State<VideoScreen> {
                     VideoFloatWindowButton(
                       onPressed:
                           (_currentPlayUrl.isNotEmpty && !_loadingChapter)
-                              ? () => unawaited(_enterFloatWindow())
-                              : null,
+                          ? () => unawaited(_enterFloatWindow())
+                          : null,
                     ),
                   if (widget.book != null && _chapters.isNotEmpty) ...[
                     IconButton(
@@ -1184,15 +1198,22 @@ class _VideoScreenState extends State<VideoScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Symbols.error_rounded,
-                          size: 64, color: Colors.red),
+                      const Icon(
+                        Symbols.error_rounded,
+                        size: 64,
+                        color: Colors.red,
+                      ),
                       const SizedBox(height: 16),
-                      Text('视频加载失败',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        '视频加载失败',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 8),
-                      Text(_chapterError!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        _chapterError!,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: _retryPlayback,
@@ -1204,64 +1225,63 @@ class _VideoScreenState extends State<VideoScreen> {
                 ),
               )
             : _loadingChapter
-                // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
-                ? const Center(child: AppCircularProgressIndicator())
-                : FutureBuilder<void>(
-                    future: _initializeVideoPlayerFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装
-                              AppCircularProgressIndicator(),
-                              SizedBox(height: 16),
-                              Text('正在加载视频...'),
-                            ],
-                          ),
-                        );
-                      }
+            // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
+            ? const Center(child: AppCircularProgressIndicator())
+            : FutureBuilder<void>(
+                future: _initializeVideoPlayerFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装
+                          AppCircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('正在加载视频...'),
+                        ],
+                      ),
+                    );
+                  }
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Symbols.error_rounded,
-                                  size: 64,
-                                  color: Colors.red,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '视频加载失败',
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  snapshot.error.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: _retryPlayback,
-                                  icon: const Icon(Symbols.refresh_rounded),
-                                  label: const Text('重试'),
-                                ),
-                              ],
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Symbols.error_rounded,
+                              size: 64,
+                              color: Colors.red,
                             ),
-                          ),
-                        );
-                      }
+                            const SizedBox(height: 16),
+                            Text(
+                              '视频加载失败',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              snapshot.error.toString(),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _retryPlayback,
+                              icon: const Icon(Symbols.refresh_rounded),
+                              label: const Text('重试'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-                      return _buildPlayerView();
-                    },
-                  ),
+                  return _buildPlayerView();
+                },
+              ),
       ),
     );
   }
@@ -1289,19 +1309,13 @@ class _VideoScreenState extends State<VideoScreen> {
     return Column(
       children: [
         Expanded(
-          child: ColoredBox(
-            color: Colors.black,
-            child: _buildVideoSurface(),
-          ),
+          child: ColoredBox(color: Colors.black, child: _buildVideoSurface()),
         ),
         SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildControlBar(),
-              _buildVideoInfo(),
-            ],
+            children: [_buildControlBar(), _buildVideoInfo()],
           ),
         ),
       ],
@@ -1380,7 +1394,9 @@ class _VideoScreenState extends State<VideoScreen> {
           iconSize: 64,
           color: Colors.white,
           icon: Icon(
-            _controller.value.isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+            _controller.value.isPlaying
+                ? Symbols.pause_rounded
+                : Symbols.play_arrow_rounded,
           ),
           onPressed: () {
             setState(() {
@@ -1434,7 +1450,9 @@ class _VideoScreenState extends State<VideoScreen> {
                 children: [
                   IconButton(
                     icon: Icon(
-                      value.isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+                      value.isPlaying
+                          ? Symbols.pause_rounded
+                          : Symbols.play_arrow_rounded,
                       color: _isFullScreen ? Colors.white : null,
                     ),
                     onPressed: () {
@@ -1452,10 +1470,7 @@ class _VideoScreenState extends State<VideoScreen> {
                       color: _isFullScreen ? Colors.white70 : null,
                     ),
                   ),
-                  const Text(
-                    ' / ',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                  const Text(' / ', style: TextStyle(fontSize: 12)),
                   Text(
                     _formatDuration(duration),
                     style: TextStyle(
@@ -1539,8 +1554,8 @@ class _VideoScreenState extends State<VideoScreen> {
           Text(
             _currentPlayUrl.isNotEmpty ? _currentPlayUrl : widget.videoUrl,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

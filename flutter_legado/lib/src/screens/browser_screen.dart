@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -27,7 +29,12 @@ class BrowserScreen extends StatefulWidget {
   /// 页面标题（可选，缺省「内置浏览器」）
   final String? title;
 
-  const BrowserScreen({super.key, this.initialUrl, this.initialHtml, this.title});
+  const BrowserScreen({
+    super.key,
+    this.initialUrl,
+    this.initialHtml,
+    this.title,
+  });
 
   @override
   State<BrowserScreen> createState() => _BrowserScreenState();
@@ -60,18 +67,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
   static const _jsSnippets = <String, String>{
     '获取页面标题': 'document.title',
     '获取正文文本': 'document.body.innerText',
-    '获取所有链接':
-        'JSON.stringify([...document.querySelectorAll("a")].map(a => ({text: a.innerText.trim(), href: a.href})).filter(l => l.text && l.href.startsWith("http")))',
-    '获取章节列表':
-        'JSON.stringify([...document.querySelectorAll("#list dd a, .listmain dd a, #chapterlist a")].map(a => ({title: a.innerText.trim(), url: a.href})))',
-    '获取图片地址':
-        'JSON.stringify([...document.querySelectorAll("img")].map(i => i.src).filter(s => s.startsWith("http")))',
+    '获取所有链接': 'JSON.stringify([...document.querySelectorAll("a")].map(a => ({text: a.innerText.trim(), href: a.href})).filter(l => l.text && l.href.startsWith("http")))',
+    '获取章节列表': 'JSON.stringify([...document.querySelectorAll("#list dd a, .listmain dd a, #chapterlist a")].map(a => ({title: a.innerText.trim(), url: a.href})))',
+    '获取图片地址': 'JSON.stringify([...document.querySelectorAll("img")].map(i => i.src).filter(s => s.startsWith("http")))',
   };
 
   String? get _currentUrl =>
       _currentIndex >= 0 && _currentIndex < _history.length
-          ? _history[_currentIndex]
-          : null;
+      ? _history[_currentIndex]
+      : null;
 
   bool get _canGoBack => _currentIndex > 0;
   bool get _canGoForward => _currentIndex < _history.length - 1;
@@ -95,48 +99,50 @@ class _BrowserScreenState extends State<BrowserScreen> {
   void _initEmbeddedWebView(String url, String html) {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (startedUrl) {
-          if (mounted) {
-            setState(() {
-              _embeddedLoading = true;
-              _embeddedStartedUrl = startedUrl;
-            });
-          }
-        },
-        onPageFinished: (finishedUrl) {
-          if (mounted) {
-            setState(() {
-              _embeddedLoading = false;
-              _embeddedStartedUrl = finishedUrl;
-              _urlController.text = finishedUrl;
-            });
-          }
-        },
-        onWebResourceError: (error) {
-          if (mounted) {
-            setState(() => _embeddedLoading = false);
-            // [iOS 视角F A1] 主框架加载失败上屏提示（子资源错误不打扰）
-            if (error.isForMainFrame ?? false) {
-              _reportLoadFailure('页面加载失败：${error.description}');
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (startedUrl) {
+            if (mounted) {
+              setState(() {
+                _embeddedLoading = true;
+                _embeddedStartedUrl = startedUrl;
+              });
             }
-          }
-        },
-        onHttpError: (error) {
-          final status = error.response?.statusCode;
-          if (status == null || status < 400) return;
-          // 主框架判定：iOS WKWebView 的 onHttpError 仅源自主框架导航
-          //（request 为 null，子资源不触发）直接提示；Android
-          // onReceivedHttpError 对子资源（图片 404 等）也触发，按当前
-          // 页面 URL 匹配，避免误报。
-          final requestUri = error.request?.uri;
-          if (requestUri == null ||
-              (_embeddedStartedUrl.isNotEmpty &&
-                  requestUri.toString() == _embeddedStartedUrl)) {
-            _reportLoadFailure('页面加载失败：HTTP $status');
-          }
-        },
-      ));
+          },
+          onPageFinished: (finishedUrl) {
+            if (mounted) {
+              setState(() {
+                _embeddedLoading = false;
+                _embeddedStartedUrl = finishedUrl;
+                _urlController.text = finishedUrl;
+              });
+            }
+          },
+          onWebResourceError: (error) {
+            if (mounted) {
+              setState(() => _embeddedLoading = false);
+              // [iOS 视角F A1] 主框架加载失败上屏提示（子资源错误不打扰）
+              if (error.isForMainFrame ?? false) {
+                _reportLoadFailure('页面加载失败：${error.description}');
+              }
+            }
+          },
+          onHttpError: (error) {
+            final status = error.response?.statusCode;
+            if (status == null || status < 400) return;
+            // 主框架判定：iOS WKWebView 的 onHttpError 仅源自主框架导航
+            //（request 为 null，子资源不触发）直接提示；Android
+            // onReceivedHttpError 对子资源（图片 404 等）也触发，按当前
+            // 页面 URL 匹配，避免误报。
+            final requestUri = error.request?.uri;
+            if (requestUri == null ||
+                (_embeddedStartedUrl.isNotEmpty &&
+                    requestUri.toString() == _embeddedStartedUrl)) {
+              _reportLoadFailure('页面加载失败：HTTP $status');
+            }
+          },
+        ),
+      );
     if (html.isNotEmpty) {
       final base = Uri.tryParse(url);
       controller.loadHtmlString(
@@ -252,9 +258,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (uri == null) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开: $url')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('无法打开: $url')));
       }
     }
   }
@@ -262,9 +267,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
   Future<void> _copySnippet(String name, String snippet) async {
     await Clipboard.setData(ClipboardData(text: snippet));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已复制「$name」脚本，粘贴到浏览器控制台执行')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已复制「$name」脚本，粘贴到浏览器控制台执行')));
     }
   }
 
@@ -275,9 +279,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(
-        title: Text(widget.title?.isNotEmpty == true
-            ? widget.title!
-            : '内置浏览器'),
+        title: Text(widget.title?.isNotEmpty == true ? widget.title! : '内置浏览器'),
         actions: [
           IconButton(
             icon: const Icon(Symbols.refresh_rounded),
@@ -297,8 +299,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
             child: embedded != null
                 ? _buildEmbeddedWebView(theme, embedded)
                 : (_currentUrl == null
-                    ? _buildEmpty(theme)
-                    : _buildContent(theme)),
+                      ? _buildEmpty(theme)
+                      : _buildContent(theme)),
           ),
         ],
       ),
@@ -387,8 +389,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.travel_explore_rounded, size: 64,
-              color: theme.colorScheme.outline),
+          Icon(
+            Symbols.travel_explore_rounded,
+            size: 64,
+            color: theme.colorScheme.outline,
+          ),
           const SizedBox(height: 16),
           Text('输入网址开始浏览', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 8),
@@ -422,8 +427,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Symbols.language_rounded, size: 20,
-                        color: theme.colorScheme.primary),
+                    Icon(
+                      Symbols.language_rounded,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 8),
                     // [FIX 2026-09-19 P2-13②] host 限宽 + 省略号截断，防 Row 右溢
                     Flexible(
@@ -438,7 +446,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      icon: const Icon(Symbols.open_in_browser_rounded, size: 18),
+                      icon: const Icon(
+                        Symbols.open_in_browser_rounded,
+                        size: 18,
+                      ),
                       label: const Text('外部打开'),
                       onPressed: () => _openExternal(url),
                     ),
@@ -476,11 +487,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
           spacing: 8,
           runSpacing: 8,
           children: _jsSnippets.entries
-              .map((e) => ActionChip(
-                    avatar: const Icon(Symbols.content_copy_rounded, size: 16),
-                    label: Text(e.key),
-                    onPressed: () => _copySnippet(e.key, e.value),
-                  ))
+              .map(
+                (e) => ActionChip(
+                  avatar: const Icon(Symbols.content_copy_rounded, size: 16),
+                  label: Text(e.key),
+                  onPressed: () => _copySnippet(e.key, e.value),
+                ),
+              )
               .toList(),
         ),
         const SizedBox(height: 12),

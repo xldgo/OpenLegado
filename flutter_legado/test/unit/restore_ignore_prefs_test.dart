@@ -28,17 +28,15 @@ void main() {
 
     test('勾选 readConfig 跳过阅读键', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          'reader_font_size',
-          {'readConfig': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore('reader_font_size', {
+          'readConfig': true,
+        }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          PrefKeys.showRss,
-          {'readConfig': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.showRss, {
+          'readConfig': true,
+        }),
         isTrue,
       );
     });
@@ -52,17 +50,13 @@ void main() {
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          PrefKeys.showRss,
-          {'showRss': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.showRss, {'showRss': true}),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          PrefKeys.threadCount,
-          {'threadCount': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.threadCount, {
+          'threadCount': true,
+        }),
         isFalse,
       );
       expect(
@@ -76,17 +70,15 @@ void main() {
 
     test('勾选 themeConfig / coverConfig', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          PrefKeys.cPrimary,
-          {'themeConfig': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.cPrimary, {
+          'themeConfig': true,
+        }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          PrefKeys.coverShowName,
-          {'coverConfig': true},
-        ),
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.coverShowName, {
+          'coverConfig': true,
+        }),
         isFalse,
       );
     });
@@ -120,10 +112,7 @@ void main() {
           PrefKeys.threadCount: 32,
           'reader_font_size': 14.0,
         },
-        {
-          'showRss': true,
-          'readConfig': false,
-        },
+        {'showRss': true, 'readConfig': false},
       );
       final prefs = await SharedPreferences.getInstance();
       // showRss 忽略 → 保持 mock 初始 false

@@ -1,8 +1,11 @@
 import '../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
 
 import 'curl_analyze_url_sheet.dart';
@@ -139,9 +142,8 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
       Navigator.of(context).pop();
       return;
     }
-    Navigator.of(context).pop(
-      CodeEditResult(_controller.text, debugRequested: debug),
-    );
+    Navigator.of(context)
+        .pop(CodeEditResult(_controller.text, debugRequested: debug));
   }
 
   Future<void> _openCurlConverter() async {
@@ -181,9 +183,8 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
     var idx = text.indexOf(q, from);
     if (idx < 0) idx = text.indexOf(q);
     if (idx < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未找到')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('未找到')));
       return;
     }
     _findIndex = idx;
@@ -221,10 +222,7 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
                 onPressed: () => _save(debug: true),
               ),
             if (widget.writable)
-              TextButton(
-                onPressed: () => _save(),
-                child: const Text('保存'),
-              ),
+              TextButton(onPressed: () => _save(), child: const Text('保存')),
             AppMenuButton<String>(
               tooltip: '更多',
               onSelected: (v) async {

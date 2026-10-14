@@ -63,7 +63,11 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
       child: Row(
         children: [
           const SizedBox(width: 16),
-          Icon(Symbols.search_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Symbols.search_rounded,
+            size: 20,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(

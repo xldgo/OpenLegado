@@ -1,4 +1,5 @@
 import '../../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/manga_config.dart';
@@ -39,6 +40,7 @@ class MangaConfigSheet extends StatefulWidget {
   final bool enableEInk;
   final bool enableGray;
   final int eInkThreshold;
+
   /// [P4-3 E1] 翻页模式（对齐参考版 MangaScrollMode）
   final int scrollMode;
   final ValueChanged<MangaColorFilterConfig> onColorFilterChanged;
@@ -46,6 +48,7 @@ class MangaConfigSheet extends StatefulWidget {
   final ValueChanged<bool> onEnableEInkChanged;
   final ValueChanged<bool> onEnableGrayChanged;
   final ValueChanged<int> onEInkThresholdChanged;
+
   /// [P4-3 E1] 翻页模式变更
   final ValueChanged<int> onScrollModeChanged;
 
@@ -334,6 +337,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
   late bool _eInk;
   late bool _gray;
   late int _threshold;
+
   /// [P4-3 E1] 翻页模式
   late int _scrollMode;
 
@@ -456,18 +460,18 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     _globalScrollMode = widget.globalScrollMode ?? widget.scrollMode;
     _bookScrollMode =
         (widget.hasCurrentBook && widget.onBookScrollModeChanged != null)
-            ? widget.bookScrollMode
-            : null;
+        ? widget.bookScrollMode
+        : null;
     _scrollMode = _bookScrollMode ?? _globalScrollMode;
     _autoRead = widget.autoReadEnabled ?? false;
     _autoReadSpeed = widget.autoReadSpeed ?? MangaAutoRead.defaultValue;
     _pageScaleType = widget.pageScaleType ?? MangaPageScaleType.defaultValue;
-    _globalSidePadding =
-        (widget.globalSidePadding ?? widget.sidePadding ?? 0).clamp(0, 45);
+    _globalSidePadding = (widget.globalSidePadding ?? widget.sidePadding ?? 0)
+        .clamp(0, 45);
     _bookSidePadding =
         (widget.hasCurrentBook && widget.onBookSidePaddingChanged != null)
-            ? widget.bookSidePadding?.clamp(0, 45)
-            : null;
+        ? widget.bookSidePadding?.clamp(0, 45)
+        : null;
     _sidePadding = _bookSidePadding ?? _globalSidePadding;
     _disableClickScroll = widget.disableClickScroll ?? false;
     _disableMangaScale = widget.disableMangaScale ?? true;
@@ -943,7 +947,8 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     );
   }
 
-  Widget _section(String title) {    final scheme = Theme.of(context).colorScheme;
+  Widget _section(String title) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
       child: Text(
@@ -1323,8 +1328,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
         ),
         child: Text(
           text,
-          textAlign: _footer.footerOrientation ==
-                  MangaFooterConfig.alignCenter
+          textAlign: _footer.footerOrientation == MangaFooterConfig.alignCenter
               ? TextAlign.center
               : TextAlign.left,
           style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
@@ -1466,6 +1470,7 @@ class _MangaConfigSheetState extends State<MangaConfigSheet> {
     required double max,
     required String label,
     required ValueChanged<double> onChanged,
+
     /// [漫画设置作用域] 标题行尾可选控件（作用域药丸组；null = 不渲染）
     Widget? titleTrailing,
   }) {

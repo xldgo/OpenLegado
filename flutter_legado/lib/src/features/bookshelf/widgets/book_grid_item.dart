@@ -80,48 +80,50 @@ class BookGridItem extends StatelessWidget {
                 // [骨架对齐 2.0.260 | 台账 1-3] 与外层卡片圆角 12 保持一致（对齐参考 03b）
                 borderRadius: BorderRadius.circular(12),
                 child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      BookCover(
-                        coverUrl: coverUrl,
-                        width: constraints.maxWidth.isFinite
-                            ? constraints.maxWidth
-                            : 80,
-                        height: constraints.maxHeight.isFinite
-                            ? constraints.maxHeight
-                            : 110,
-                        borderRadius: 0,
-                        sourceOrigin: sourceOrigin,
-                        heroTag: heroTag,
-                      ),
-                      // 未读角标（对标 bv_unread，右上角）
-                      if (unreadNum > 0)
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: Badge.count(count: unreadNum, maxCount: 99),
+                  builder: (context, constraints) {
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        BookCover(
+                          coverUrl: coverUrl,
+                          width: constraints.maxWidth.isFinite
+                              ? constraints.maxWidth
+                              : 80,
+                          height: constraints.maxHeight.isFinite
+                              ? constraints.maxHeight
+                              : 110,
+                          borderRadius: 0,
+                          sourceOrigin: sourceOrigin,
+                          heroTag: heroTag,
                         ),
-                      // 封面底部阅读进度条（对标 pb_read_progress，2dp）
-                      if (progress != null)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: LinearProgressIndicator(
-                            value: progress!.clamp(0.0, 1.0),
-                            minHeight: 2,
-                            backgroundColor: colorScheme.primary
-                                .withValues(alpha: 0.25),
-                            valueColor:
-                                AlwaysStoppedAnimation(colorScheme.primary),
+                        // 未读角标（对标 bv_unread，右上角）
+                        if (unreadNum > 0)
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Badge.count(count: unreadNum, maxCount: 99),
                           ),
-                        ),
-                    ],
-                  );
-                },
-              ),
+                        // 封面底部阅读进度条（对标 pb_read_progress，2dp）
+                        if (progress != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: LinearProgressIndicator(
+                              value: progress!.clamp(0.0, 1.0),
+                              minHeight: 2,
+                              backgroundColor: colorScheme.primary.withValues(
+                                alpha: 0.25,
+                              ),
+                              valueColor: AlwaysStoppedAnimation(
+                                colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -141,10 +143,7 @@ class BookGridItem extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurface,
-                  ),
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
                 ),
               ),
             ),

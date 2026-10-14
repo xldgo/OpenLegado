@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/book.dart';
@@ -20,14 +19,7 @@ export 'remote_book_state.dart';
 class RemoteBookNotifier extends Notifier<RemoteBookState> {
   final SettingsService _settings = SettingsService();
 
-  static const _bookExts = {
-    'epub',
-    'txt',
-    'mobi',
-    'pdf',
-    'azw3',
-    'umd',
-  };
+  static const _bookExts = {'epub', 'txt', 'mobi', 'pdf', 'azw3', 'umd'};
   static const _archiveExts = {'zip', 'rar', '7z'};
 
   @override
@@ -134,7 +126,11 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
   }
 
   Future<void> refresh() async {
-    state = state.copyWith(isLoading: true, clearError: true, selectedPaths: {});
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      selectedPaths: {},
+    );
     try {
       final config = await buildActiveConfigJson();
       if (config == null) {
@@ -173,14 +169,15 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         final ext = name.contains('.')
             ? name.split('.').last.toLowerCase()
             : '';
-        if (!isDir &&
-            !_bookExts.contains(ext) &&
-            !_archiveExts.contains(ext)) {
+        if (!isDir && !_bookExts.contains(ext) && !_archiveExts.contains(ext)) {
           continue;
         }
         // 跳过当前目录自身（href 末段与当前路径重合）
         final href = (map['path'] as String?) ?? '';
-        final current = state.listPath.trimRight().replaceAll(RegExp(r'/+$'), '');
+        final current = state.listPath.trimRight().replaceAll(
+          RegExp(r'/+$'),
+          '',
+        );
         if (href.trimRight().replaceAll(RegExp(r'/+$'), '').endsWith(current) &&
             (href.endsWith('/') || isDir) &&
             name == current.split('/').last) {
@@ -203,14 +200,16 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         final last = map['last_modified'] as String?;
         final onBook =
             onShelf.contains(name) || onShelf.any((s) => s.contains(rel));
-        items.add(RemoteBookItem(
-          filename: name,
-          relativePath: isDir ? rel : rel,
-          size: size,
-          lastModified: last,
-          isDir: isDir,
-          isOnBookShelf: onBook,
-        ));
+        items.add(
+          RemoteBookItem(
+            filename: name,
+            relativePath: isDir ? rel : rel,
+            size: size,
+            lastModified: last,
+            isDir: isDir,
+            isOnBookShelf: onBook,
+          ),
+        );
       }
 
       state = state.copyWith(isLoading: false, items: items, clearError: true);
@@ -300,7 +299,11 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       state = state.copyWith(error: 'WebDAV 未配置');
       return;
     }
-    state = state.copyWith(isImporting: true, clearError: true, clearImported: true);
+    state = state.copyWith(
+      isImporting: true,
+      clearError: true,
+      clearImported: true,
+    );
     final api = ref.read(bookApiProvider);
     final dir = Directory('${Directory.systemTemp.path}/legado_remote_books');
     if (!await dir.exists()) {
@@ -317,13 +320,16 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         final syncNotifier = ref.read(syncNotifierProvider.notifier);
         await syncNotifier.loadConfig();
         final sync = ref.read(syncNotifierProvider);
-        final remoteUrl = state.serverId == SettingsService.defaultRemoteServerId
+        final remoteUrl =
+            state.serverId == SettingsService.defaultRemoteServerId
             ? '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}${item.relativePath}'
             : item.relativePath;
-        await api.bookshelfRepository.updateBook(book.copyWith(
-          origin: BookType.webDavTag + remoteUrl,
-          originName: item.filename,
-        ));
+        await api.bookshelfRepository.updateBook(
+          book.copyWith(
+            origin: BookType.webDavTag + remoteUrl,
+            originName: item.filename,
+          ),
+        );
         ok++;
       } catch (e) {
         lastErr = _mapError(e);
@@ -349,5 +355,5 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
 
 final remoteBookNotifierProvider =
     NotifierProvider<RemoteBookNotifier, RemoteBookState>(
-  RemoteBookNotifier.new,
-);
+      RemoteBookNotifier.new,
+    );

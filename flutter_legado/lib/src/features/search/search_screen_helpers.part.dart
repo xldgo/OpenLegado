@@ -9,7 +9,6 @@ part of 'search_screen.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _SearchHelpers on _SearchScreenState {
-
   /// 聚焦变化时更新输入帮助层显隐
   void _onFocusChanged() => _updateInputHelpVisibility();
 
@@ -26,12 +25,11 @@ extension _SearchHelpers on _SearchScreenState {
     final state = ref.read(searchNotifierProvider);
     final queryNotBlank = _searchController.text.trim().isNotEmpty;
     final editingNewQuery = _searchController.text.trim() != state.keyword;
-    final shouldShow = !state.isLoading &&
+    final shouldShow =
+        !state.isLoading &&
         (queryNotBlank ? editingNewQuery || !state.hasResults : true);
     if (_showInputHelp != shouldShow && mounted) {
       setState(() => _showInputHelp = shouldShow);
     }
   }
-
-
 }

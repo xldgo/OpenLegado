@@ -74,10 +74,7 @@ abstract class SearchState with _$SearchState {
 /// 不改整体搜索交互（失败源不阻断搜索，对齐原版 SearchModel 静默语义，
 /// 仅把「仅 AppLog 留痕」升级为「留痕 + 可见呈现」）。
 class SearchSourceFailure {
-  const SearchSourceFailure({
-    required this.sourceName,
-    required this.error,
-  });
+  const SearchSourceFailure({required this.sourceName, required this.error});
 
   /// 书源名（批次 `source_name`；缺失回退「未知书源」）
   final String sourceName;
@@ -107,7 +104,8 @@ extension SearchStateDisplay on SearchState {
   bool get isEmpty => results.isEmpty && !isLoading && keyword.isNotEmpty;
 
   /// 是否存在筛选条件（分组或书源）
-  bool get hasFilter => selectedSourceUrls.isNotEmpty || selectedGroups.isNotEmpty;
+  bool get hasFilter =>
+      selectedSourceUrls.isNotEmpty || selectedGroups.isNotEmpty;
 
   /// 联想/历史建议列表
   ///

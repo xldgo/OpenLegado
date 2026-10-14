@@ -63,10 +63,8 @@ void main() {
           appBar: AppBar(title: const Text('书架')),
           body: ListView.builder(
             itemCount: books.length,
-            itemBuilder: (_, i) => ListTile(
-              title: Text(books[i]),
-              subtitle: const Text('作者'),
-            ),
+            itemBuilder: (_, i) =>
+                ListTile(title: Text(books[i]), subtitle: const Text('作者')),
           ),
         ),
       ),
@@ -78,7 +76,9 @@ void main() {
     }
   });
 
-  testWidgets('BookshelfScreen long-press menu contains share item', (tester) async {
+  testWidgets('BookshelfScreen long-press menu contains share item', (
+    tester,
+  ) async {
     // 验证长按菜单中“分享”菜单项渲染（对齐 bookshelf_screen 底部菜单结构）
     await tester.pumpWidget(
       MaterialApp(
@@ -166,11 +166,7 @@ void main() {
     });
 
     test('bookUrl 为空时不包含来源字段', () {
-      const book = Book(
-        name: '本地书籍',
-        author: '某作者',
-        bookUrl: '',
-      );
+      const book = Book(name: '本地书籍', author: '某作者', bookUrl: '');
       final text = buildBookShareText(book);
       expect(text, contains('《本地书籍》'));
       expect(text, contains('作者：某作者'));

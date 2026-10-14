@@ -1,7 +1,7 @@
 import '../helpers/reader_layout_host.dart';
+
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,6 +42,7 @@ void main() {
     bookUrl: 'book://a',
     totalChapterNum: 100,
   );
+
   /// 同一本被阅读器保存进度后：dci=1 + 进度标题（mock 数据源返回）
   const bookUnreadRead = Book(
     name: '未读之书',
@@ -60,6 +61,7 @@ void main() {
     durChapterIndex: 5,
     durChapterTitle: '第6章 已读',
   );
+
   /// 同一本被阅读器保存进度后：dci=6 + 新进度标题
   const bookReadUpdated = Book(
     name: '已读之书',
@@ -74,7 +76,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: MaterialApp(builder: readerLayoutTestBuilder,
+        child: MaterialApp(
+          builder: readerLayoutTestBuilder,
           home: const BookshelfScreen(),
           routes: {
             AppRoutes.bookInfo: (_) => const _StubPage(label: 'STUB_DETAIL'),
@@ -87,12 +90,12 @@ void main() {
     return ProviderScope.containerOf(context);
   }
 
-  testWidgets(
-      '未读书：详情+自动开读返回书架后，条目显示新进度（A4 链路 dci=0→1）',
-      (tester) async {
+  testWidgets('未读书：详情+自动开读返回书架后，条目显示新进度（A4 链路 dci=0→1）', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookUnread]);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [bookUnread]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
     // 「数据源进度已更新」：书架重新拉取该书时返回 dci=1 + 进度标题
     when(() => mockApi.bookshelfRepository.getBook('book://a'))
         .thenAnswer((_) async => bookUnreadRead);
@@ -126,11 +129,12 @@ void main() {
     verify(() => mockApi.bookshelfRepository.getBook('book://a')).called(1);
   });
 
-  testWidgets('已读书：直开阅读器返回书架后，条目显示新进度（dci=5→6）',
-      (tester) async {
+  testWidgets('已读书：直开阅读器返回书架后，条目显示新进度（dci=5→6）', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookRead]);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [bookRead]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
     when(() => mockApi.bookshelfRepository.getBook('book://b'))
         .thenAnswer((_) async => bookReadUpdated);
     // 文本阅读器 openBook 会加载目录/正文（ReaderNotifier 后台任务）

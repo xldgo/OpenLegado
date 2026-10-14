@@ -3,8 +3,7 @@
 // 覆盖 Phase 5.4 provider→Riverpod 迁移后的 WebDAV 云同步状态管理：
 // 初始状态/配置管理（saveConfig/loadConfig/toggle/setter）/真实同步操作
 // （backupToWebDav/restoreFromWebDav）/lastSyncTimeLabel/SyncStatus 枚举。
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/services/settings_service.dart';
 import 'package:mocktail/mocktail.dart';
@@ -34,21 +33,21 @@ void main() {
   });
 
   SyncState readState() => container.read(syncNotifierProvider);
-  SyncNotifier readNotifier() =>
-      container.read(syncNotifierProvider.notifier);
+  SyncNotifier readNotifier() => container.read(syncNotifierProvider.notifier);
 
   /// 桩入真实同步所需的 BookApi 调用
   void stubSyncApis({String remoteSources = '[]'}) {
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [
-          const Book(bookUrl: 'b1', name: '书1'),
-        ]);
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-          const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '源A'),
-        ]);
-    when(() => mockApi.webdavFullSync(any(), any(), any())).thenAnswer(
-      (_) async => '{"books":"[]","sources":$remoteSources}',
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [const Book(bookUrl: 'b1', name: '书1')]);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+      (_) async => [
+        const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '源A'),
+      ],
     );
-    when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
+    when(() => mockApi.webdavFullSync(any(), any(), any()))
+        .thenAnswer((_) async => '{"books":"[]","sources":$remoteSources}');
+    when(() => mockApi.bookSourceRepository.importBookSources(any()))
+        .thenAnswer((_) async => 1);
   }
 
   group('SyncNotifier 初始状态', () {
@@ -137,14 +136,23 @@ void main() {
       expect(notified, isTrue);
     });
 
-    test('buildConfigJson 输出 Rust WebDavConfig 结构（含 remote_dir 必需字段，Task #52）', () async {
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
-      expect(
-        readNotifier().buildConfigJson(),
-        equals(
-            '{"url":"https://dav.com","username":"user","password":"pass","remote_dir":"/dir/"}'),
-      );
-    });
+    test(
+      'buildConfigJson 输出 Rust WebDavConfig 结构（含 remote_dir 必需字段，Task #52）',
+      () async {
+        await readNotifier().saveConfig(
+          'https://dav.com',
+          'user',
+          'pass',
+          '/dir/',
+        );
+        expect(
+          readNotifier().buildConfigJson(),
+          equals(
+            '{"url":"https://dav.com","username":"user","password":"pass","remote_dir":"/dir/"}',
+          ),
+        );
+      },
+    );
 
     test('loadConfig 从 SharedPreferences 加载（含新字段）', () async {
       final now = DateTime.now();
@@ -223,7 +231,12 @@ void main() {
 
     test('backupToWebDav 配置后调用 webdavFullSync 成功', () async {
       stubSyncApis();
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
+      await readNotifier().saveConfig(
+        'https://dav.com',
+        'user',
+        'pass',
+        '/dir/',
+      );
 
       await readNotifier().backupToWebDav();
 
@@ -235,8 +248,14 @@ void main() {
     });
 
     test('backupToWebDav 失败时设置错误', () async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('网络错误'));
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenThrow(Exception('网络错误'));
+      await readNotifier().saveConfig(
+        'https://dav.com',
+        'user',
+        'pass',
+        '/dir/',
+      );
 
       await readNotifier().backupToWebDav();
 
@@ -246,18 +265,29 @@ void main() {
 
     test('restoreFromWebDav 回写远端书源', () async {
       stubSyncApis(remoteSources: '[{"bookSourceUrl":"https://a.com"}]');
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
+      await readNotifier().saveConfig(
+        'https://dav.com',
+        'user',
+        'pass',
+        '/dir/',
+      );
 
       final msg = await readNotifier().restoreFromWebDav();
 
       expect(readState().status, equals(SyncStatus.success));
       expect(msg, contains('回写 1 条书源'));
-      verify(() => mockApi.bookSourceRepository.importBookSources(any())).called(1);
+      verify(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .called(1);
     });
 
     test('restoreFromWebDav 远端书源为空时不回写', () async {
       stubSyncApis(remoteSources: '[]');
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
+      await readNotifier().saveConfig(
+        'https://dav.com',
+        'user',
+        'pass',
+        '/dir/',
+      );
 
       final msg = await readNotifier().restoreFromWebDav();
 
@@ -270,7 +300,12 @@ void main() {
   group('SyncNotifier lastSyncTimeLabel', () {
     test('刚刚同步显示"刚刚"', () async {
       stubSyncApis();
-      await readNotifier().saveConfig('https://dav.com', 'user', 'pass', '/dir/');
+      await readNotifier().saveConfig(
+        'https://dav.com',
+        'user',
+        'pass',
+        '/dir/',
+      );
       await readNotifier().backupToWebDav();
 
       expect(readState().lastSyncTimeLabel, equals('刚刚'));
@@ -279,12 +314,15 @@ void main() {
 
   group('SyncStatus 枚举', () {
     test('包含所有预期状态', () {
-      expect(SyncStatus.values, containsAll([
-        SyncStatus.idle,
-        SyncStatus.syncing,
-        SyncStatus.success,
-        SyncStatus.error,
-      ]));
+      expect(
+        SyncStatus.values,
+        containsAll([
+          SyncStatus.idle,
+          SyncStatus.syncing,
+          SyncStatus.success,
+          SyncStatus.error,
+        ]),
+      );
     });
   });
 }

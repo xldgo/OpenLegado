@@ -7,8 +7,7 @@ library;
 import '../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/explore/explore_show_notifier.dart';
 import 'md3_picker_sheet.dart';
@@ -20,10 +19,7 @@ class ExplorePageControl extends ConsumerWidget {
   /// 最大可选页码（对标原版 NumberPicker maxValue=999）
   final int maxPage;
 
-  const ExplorePageControl({
-    super.key,
-    required this.args,
-    this.maxPage = 999});
+  const ExplorePageControl({super.key, required this.args, this.maxPage = 999});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

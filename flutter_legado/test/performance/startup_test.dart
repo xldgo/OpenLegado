@@ -50,7 +50,8 @@ void main() {
     expect(
       elapsedMs,
       lessThan(3000),
-      reason: '冷启动首帧耗时 ${elapsedMs}ms 超过 3000ms 基准，'
+      reason:
+          '冷启动首帧耗时 ${elapsedMs}ms 超过 3000ms 基准，'
           '建议排查首帧 build 中的重计算或同步 IO',
     );
 

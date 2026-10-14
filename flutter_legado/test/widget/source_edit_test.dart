@@ -6,8 +6,7 @@
 // - 必填校验（书源名称/URL）与保存创建
 // - 编辑模式回填发现/详情/评论规则
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -27,7 +26,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -69,22 +69,14 @@ void main() {
   }
 
   group('SourceEditScreen 页签结构', () {
-    testWidgets('新建模式展示六个规则页签，调试保留在顶栏',
-        (tester) async {
+    testWidgets('新建模式展示六个规则页签，调试保留在顶栏', (tester) async {
       // 加高可视区域，便于后续字段回填检查。
       await tester.binding.setSurfaceSize(const Size(800, 8000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await pumpEdit(tester);
 
       expect(find.text('新建书源'), findsOneWidget);
-      for (final title in const [
-        '基本',
-        '搜索',
-        '发现',
-        '详情',
-        '目录',
-        '正文',
-      ]) {
+      for (final title in const ['基本', '搜索', '发现', '详情', '目录', '正文']) {
         expect(
           find.widgetWithText(Tab, title),
           findsOneWidget,
@@ -113,8 +105,10 @@ void main() {
       expect(find.byKey(const ValueKey('sf_i_tocUrl')), findsOneWidget);
       expect(find.byKey(const ValueKey('sf_i_canReName')), findsOneWidget);
       await selectTab(tester, '正文');
-      expect(find.byKey(const ValueKey('sf_r_reviewSummaryUrl')),
-          findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('sf_r_reviewSummaryUrl')),
+        findsOneWidget,
+      );
     });
   });
 
@@ -132,9 +126,8 @@ void main() {
     });
 
     testWidgets('填写名称与 URL 后保存成功创建书源', (tester) async {
-      when(
-        () => mockApi.bookSourceRepository.addBookSource(any()),
-      ).thenAnswer((inv) async => inv.positionalArguments[0] as BookSource);
+      when(() => mockApi.bookSourceRepository.addBookSource(any()))
+          .thenAnswer((inv) async => inv.positionalArguments[0] as BookSource);
       await pumpEdit(tester);
 
       // 标签已上移为常显 Text，字段改以 ValueKey('sf_<field.key>') 稳定定位。
@@ -151,7 +144,9 @@ void main() {
 
       expect(find.text('书源已创建'), findsOneWidget);
       final captured =
-          verify(() => mockApi.bookSourceRepository.addBookSource(captureAny())).captured.single
+          verify(() => mockApi.bookSourceRepository.addBookSource(captureAny()))
+                  .captured
+                  .single
               as BookSource;
       expect(captured.bookSourceName, '测试书源');
       expect(captured.bookSourceUrl, 'https://test.com');
@@ -171,9 +166,13 @@ void main() {
         exploreUrl: '分类::https://edit.com/sort',
         ruleExplore: ExploreRule(bookList: '.explore-list', name: '.e-name'),
         ruleBookInfo: BookInfoRule(init: '.init', tocUrl: '.toc'),
-        ruleReview: ReviewRule(enabled: true, reviewSummaryUrl: '.review-summary'),
+        ruleReview: ReviewRule(
+          enabled: true,
+          reviewSummaryUrl: '.review-summary',
+        ),
       );
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [source]);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => [source]);
       // 预加载书源到 notifier 状态
       await container.read(sourceNotifierProvider.notifier).loadSources();
 

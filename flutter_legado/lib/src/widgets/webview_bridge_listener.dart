@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
 import '../services/platform_bridge_service.dart';
@@ -77,14 +76,16 @@ class _WebViewBridgeListenerState extends ConsumerState<WebViewBridgeListener> {
   /// 占用一个槽位执行任务；结束时释放槽位并补位队头（FIFO）
   void _start(Map<String, dynamic> event) {
     _inFlight++;
-    _handle(event).whenComplete(() {
-      _inFlight--;
-      if (_pending.isNotEmpty) {
-        _start(_pending.removeFirst());
-      }
-    }).catchError((Object e) {
-      debugPrint('[WebViewBridge] 处理失败：$e');
-    });
+    _handle(event)
+        .whenComplete(() {
+          _inFlight--;
+          if (_pending.isNotEmpty) {
+            _start(_pending.removeFirst());
+          }
+        })
+        .catchError((Object e) {
+          debugPrint('[WebViewBridge] 处理失败：$e');
+        });
   }
 
   Future<void> _handle(Map<String, dynamic> event) async {
@@ -112,10 +113,8 @@ class _WebViewBridgeListenerState extends ConsumerState<WebViewBridgeListener> {
       'cookie': (event['cookie'] ?? '').toString(),
     };
     try {
-      final outcome =
-          await PlatformBridgeService.instance.dispatchPayloadWithCookies(
-        payload,
-      );
+      final outcome = await PlatformBridgeService.instance
+          .dispatchPayloadWithCookies(payload);
       await api.submitWebviewResultWithCookies(
         key,
         outcome.result,

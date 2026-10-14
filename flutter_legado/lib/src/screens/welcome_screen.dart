@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../models/book.dart';
@@ -40,10 +39,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
   String? _bgImageDay;
   String? _bgImageNight;
 
-  late final AnimationController _fade =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
-  late final Animation<double> _opacity =
-      CurvedAnimation(parent: _fade, curve: Curves.easeOut);
+  late final AnimationController _fade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late final Animation<double> _opacity = CurvedAnimation(
+    parent: _fade,
+    curve: Curves.easeOut,
+  );
 
   @override
   void initState() {
@@ -52,8 +55,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
   }
 
   Future<void> _bootstrap() async {
-    final custom =
-        await _settings.getBoolPref(PrefKeys.customWelcome, defaultValue: false);
+    final custom = await _settings.getBoolPref(
+      PrefKeys.customWelcome,
+      defaultValue: false,
+    );
     final showTime = await _settings.getIntPref(
       PrefKeys.welcomeShowTime,
       defaultValue: 500,
@@ -114,7 +119,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     );
     if (defaultToRead) {
       try {
-        final books = await ref.read(bookApiProvider).bookshelfRepository.getBooks();
+        final books = await ref
+            .read(bookApiProvider)
+            .bookshelfRepository
+            .getBooks();
         if (books.isNotEmpty) {
           lastRead = books.reduce(
             (a, b) => a.durChapterTime >= b.durChapterTime ? a : b,

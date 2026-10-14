@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -76,7 +75,9 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
       final api = ref.read(bookApiProvider);
       await _ensureDefaultTxtTocRules(api);
       final raw = await api.getConfig(_configKey);
-      final rules = (raw == null || raw.isEmpty) ? <TxtTocRule>[] : _decode(raw);
+      final rules = (raw == null || raw.isEmpty)
+          ? <TxtTocRule>[]
+          : _decode(raw);
       state = state.copyWith(rules: rules, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoading: false);
@@ -105,8 +106,7 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
   }
 
   Future<void> addRule(TxtTocRule rule) async {
-    final nextId =
-        state.rules.fold<int>(0, (m, r) => r.id > m ? r.id : m) + 1;
+    final nextId = state.rules.fold<int>(0, (m, r) => r.id > m ? r.id : m) + 1;
     final added = rule.copyWith(id: nextId, serialNumber: state.rules.length);
     final rules = [...state.rules, added];
     state = state.copyWith(rules: rules);
@@ -164,5 +164,5 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
 
 final txtTocRulesNotifierProvider =
     NotifierProvider<TxtTocRulesNotifier, TxtTocRulesState>(
-  TxtTocRulesNotifier.new,
-);
+      TxtTocRulesNotifier.new,
+    );

@@ -4,8 +4,7 @@
 // 红屏（"TabAlignment.start is only valid for scrollable tab bars"）。
 // 登录页 TabBar 须显式 tabAlignment: fill（2026-08-14 登录红屏修复）。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -21,8 +20,10 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.sourceLoginRepository.getLoginInfo(any())).thenAnswer((_) async => '');
-    when(() => mockApi.sourceLoginRepository.getLoginHeader(any())).thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginInfo(any()))
+        .thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginHeader(any()))
+        .thenAnswer((_) async => '');
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
   });
 

@@ -31,15 +31,17 @@ void main() {
     expect(find.byType(TagChip), findsOneWidget);
   });
 
-  testWidgets('TagChip shows delete icon when onDeleted provided',
-      (tester) async {
+  testWidgets('TagChip shows delete icon when onDeleted provided', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(onDeleted: () {}));
 
     expect(find.byIcon(Symbols.close_rounded), findsOneWidget);
   });
 
-  testWidgets('TagChip hides delete icon when onDeleted is null',
-      (tester) async {
+  testWidgets('TagChip hides delete icon when onDeleted is null', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget());
 
     expect(find.byIcon(Symbols.close_rounded), findsNothing);
@@ -61,4 +63,3 @@ void main() {
     expect(deleted, isTrue);
   });
 }
-

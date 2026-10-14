@@ -24,8 +24,10 @@ bool looksLikeImageUrl(String url) {
       : url;
   final lower = base.toLowerCase();
   // 流媒体绝不当图片（非凡 m3u8 / 伪七猫 mp4 等）— Reasonix + UI
-  if (RegExp(r'\.(m3u8|mp4|flv|mkv|webm)(\?|#|$)', caseSensitive: false)
-      .hasMatch(lower)) {
+  if (RegExp(
+    r'\.(m3u8|mp4|flv|mkv|webm)(\?|#|$)',
+    caseSensitive: false,
+  ).hasMatch(lower)) {
     return false;
   }
   if (lower.contains('m3u8') ||

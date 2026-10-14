@@ -114,12 +114,15 @@ void main() {
         ),
         1,
       );
-      expect(await api.audioCacheQuery(
-        bookUrl: bookUrl,
-        chapterIndex: 0,
-        chapterUrl: chapterUrl,
-        chapterTitle: chapterTitle,
-      ), isFalse);
+      expect(
+        await api.audioCacheQuery(
+          bookUrl: bookUrl,
+          chapterIndex: 0,
+          chapterUrl: chapterUrl,
+          chapterTitle: chapterTitle,
+        ),
+        isFalse,
+      );
       expect(await api.audioCacheCancel(), isFalse, reason: 'mock 无在途下载');
     });
   });
@@ -187,13 +190,15 @@ void main() {
 
     test('写入面两方法上抛不降级（有意区别于读面）', () async {
       await expectLater(
-        Future<String>.sync(() => api.audioCacheDownload(
-              bookUrl: bookUrl,
-              chapterIndex: 0,
-              chapterUrl: chapterUrl,
-              chapterTitle: chapterTitle,
-              playUrl: playUrl,
-            )),
+        Future<String>.sync(
+          () => api.audioCacheDownload(
+            bookUrl: bookUrl,
+            chapterIndex: 0,
+            chapterUrl: chapterUrl,
+            chapterTitle: chapterTitle,
+            playUrl: playUrl,
+          ),
+        ),
         throwsA(anything),
       );
       await expectLater(

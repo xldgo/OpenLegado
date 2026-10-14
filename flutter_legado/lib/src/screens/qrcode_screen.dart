@@ -11,7 +11,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:zxing2/qrcode.dart' show QRCodeReader;
 import 'package:zxing2/zxing2.dart'
-    show BinaryBitmap, HybridBinarizer, Result, ResultMetadataType,
+    show
+        BinaryBitmap,
+        HybridBinarizer,
+        Result,
+        ResultMetadataType,
         RGBLuminanceSource;
 
 import '../widgets/app_scaffold.dart';
@@ -43,8 +47,10 @@ String? _decodeQrInIsolate(Uint8List bytes) {
     final image = img.decodeImage(bytes);
     if (image == null) return null;
     final rgba = image.convert(numChannels: 4);
-    final pixels =
-        rgba.getBytes(order: img.ChannelOrder.rgba).buffer.asInt32List();
+    final pixels = rgba
+        .getBytes(order: img.ChannelOrder.rgba)
+        .buffer
+        .asInt32List();
     final source = RGBLuminanceSource(rgba.width, rgba.height, pixels);
     final bitmap = BinaryBitmap(HybridBinarizer(source));
     return _recoverUtf8Text(QRCodeReader().decode(bitmap));
@@ -70,19 +76,16 @@ String _recoverUtf8Text(Result result) {
   final text = result.text;
   if (!text.contains('\uFFFD')) return text;
   final segments =
-      result.resultMetadata[ResultMetadataType.byteSegments]
-          as List<Int8List>?;
+      result.resultMetadata[ResultMetadataType.byteSegments] as List<Int8List>?;
   if (segments == null || segments.isEmpty) return text;
   const utf8 = Utf8Codec(allowMalformed: true);
-  final rebuilt = segments
-      .map((segment) {
-        final unsigned = Uint8List(segment.length);
-        for (var i = 0; i < segment.length; i++) {
-          unsigned[i] = segment[i] & 0xFF;
-        }
-        return utf8.decode(unsigned);
-      })
-      .join();
+  final rebuilt = segments.map((segment) {
+    final unsigned = Uint8List(segment.length);
+    for (var i = 0; i < segment.length; i++) {
+      unsigned[i] = segment[i] & 0xFF;
+    }
+    return utf8.decode(unsigned);
+  }).join();
   return rebuilt.contains('\uFFFD') ? text : rebuilt;
 }
 
@@ -174,9 +177,8 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
       if (!mounted) return;
       final content = decoded?.trim();
       if (content == null || content.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未识别到图片中的二维码')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('未识别到图片中的二维码')));
         return;
       }
       if (_cameraSupported && !_cameraFailed) {
@@ -187,15 +189,13 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
         // 降级模式：回填手动输入区，用户「使用该内容」确认（可测路径）
         _inputController.text = content;
         setState(() => _rawContent = content);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已识别图片二维码，请确认后使用')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已识别图片二维码，请确认后使用')));
       }
     } on FileSystemException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('图片读取失败')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('图片读取失败')));
       }
     } finally {
       if (mounted) setState(() => _picking = false);
@@ -259,9 +259,8 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
     final text = data?.text?.trim() ?? '';
     if (text.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板为空')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('剪贴板为空')));
       }
       return;
     }
@@ -431,9 +430,7 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              failed
-                  ? '相机启动失败'
-                  : '当前平台未启用相机扫码',
+              failed ? '相机启动失败' : '当前平台未启用相机扫码',
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 4),
@@ -468,9 +465,7 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
     final type = _detectType(content);
     return Card(
       // [LAYOUT_PLAN P3] 分组卡圆角 16dp；卡内统一 16dp
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -478,14 +473,19 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
           children: [
             Row(
               children: [
-                Icon(_typeIcon(type),
-                    size: 20, color: theme.colorScheme.primary),
+                Icon(
+                  _typeIcon(type),
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text('识别结果', style: theme.textTheme.titleSmall),
                 const Spacer(),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),

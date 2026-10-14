@@ -39,32 +39,59 @@ const List<String> kPaletteStyles = [
     switch (style) {
       case 'neutral':
         return SchemeNeutral(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'vibrant':
         return SchemeVibrant(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'expressive':
         return SchemeExpressive(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'fidelity':
         return SchemeFidelity(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'content':
         return SchemeContent(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'rainbow':
         return SchemeRainbow(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'fruitSalad':
         return SchemeFruitSalad(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'monochrome':
         return SchemeMonochrome(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
       case 'tonalSpot':
       default:
         return SchemeTonalSpot(
-            sourceColorHct: hct, isDark: isDark, contrastLevel: contrastLevel);
+          sourceColorHct: hct,
+          isDark: isDark,
+          contrastLevel: contrastLevel,
+        );
     }
   }
 

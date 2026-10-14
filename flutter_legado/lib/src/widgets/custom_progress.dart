@@ -40,9 +40,8 @@ class CustomProgress extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '${(clampedValue * 100).toInt()}%',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ],
       ],

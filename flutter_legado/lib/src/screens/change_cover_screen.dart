@@ -4,10 +4,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/change_cover/change_cover_notifier.dart';
@@ -122,9 +123,10 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
       height: height,
       fit: BoxFit.cover,
       // 限制解码宽度为实际显示像素宽度（候选网格约 120），避免大图解码
-      memCacheWidth: ((width ?? 120) *
-              (MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0))
-          .round(),
+      memCacheWidth:
+          ((width ?? 120) *
+                  (MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0))
+              .round(),
       errorWidget: (_, _, _) => BookCover(
         // [LAYOUT_PLAN P4] 补 heroTag（book-cover: + bookUrl，与详情页同 tag）
         width: 240,
@@ -206,20 +208,20 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
     final colorScheme = theme.colorScheme;
     final isSelected = _selectedUrl != null;
     return Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant,
-                width: isSelected ? 2 : 1,
-              ),
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
+              width: isSelected ? 2 : 1,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
             child: (previewUrl != null && previewUrl.isNotEmpty)
                 ? _coverImage(previewUrl, width: 120, height: 160)
                 // [LAYOUT_PLAN P4] 补 heroTag（book-cover: + bookUrl，与详情页同 tag）
@@ -228,50 +230,54 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
                     height: 160,
                     heroTag: 'book-cover:${widget.effectiveBookUrl}',
                   ),
-            ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.effectiveBookName.isEmpty ? '未命名书籍' : widget.effectiveBookName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.effectiveBookName.isEmpty
+                    ? '未命名书籍'
+                    : widget.effectiveBookName,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isSelected ? '已选择新封面' : '当前封面',
+                  style: theme.textTheme.labelMedium?.copyWith(
                     color: isSelected
-                        ? colorScheme.primaryContainer
-                        : colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isSelected ? '已选择新封面' : '当前封面',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: isSelected
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurfaceVariant,
-                    ),
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  '从下方选择网络封面，或点击右上角「本地」从相册选取。',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '从下方选择网络封面，或点击右上角「本地」从相册选取。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   Widget _buildSearchBar(ThemeData theme, ChangeCoverState coverState) {
@@ -288,9 +294,7 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
           colorScheme.surfaceContainerLow,
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32),
-          ),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
         ),
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 12),

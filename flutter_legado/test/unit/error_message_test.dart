@@ -15,7 +15,8 @@ void main() {
   group('errorMessage', () {
     test('BridgeError 提取 message（不再是 Instance of）', () {
       const e = BridgeError(
-        message: '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
+        message:
+            '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
             '「Web 书源访问令牌」（config:jsSourceApiToken）',
       );
 
@@ -27,7 +28,10 @@ void main() {
     });
 
     test('BridgeError message 为空/全空白 → 兜底文案（不留空文案）', () {
-      expect(errorMessage(const BridgeError(message: '')), kUnknownErrorMessage);
+      expect(
+        errorMessage(const BridgeError(message: '')),
+        kUnknownErrorMessage,
+      );
       expect(
         errorMessage(const BridgeError(message: '   ')),
         kUnknownErrorMessage,

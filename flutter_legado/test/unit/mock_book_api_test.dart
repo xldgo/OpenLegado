@@ -119,11 +119,15 @@ void main() {
     });
 
     test('enableBookSource/disableBookSource 切换状态', () async {
-      await api.bookSourceRepository.disableBookSource('https://www.kaixin7days.com');
+      await api.bookSourceRepository.disableBookSource(
+        'https://www.kaixin7days.com',
+      );
       var enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 1);
 
-      await api.bookSourceRepository.enableBookSource('https://www.kaixin7days.com');
+      await api.bookSourceRepository.enableBookSource(
+        'https://www.kaixin7days.com',
+      );
       enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 2);
     });
@@ -141,7 +145,10 @@ void main() {
     // [Task #63 冻结 / #64-65 实现，#68 评审 S1/C1 语义对齐]
     // 契约 §2.3 setSourceVariable（台账 §5.11-3）
     test('setSourceVariable 写入/清除书源变量', () async {
-      await api.bookSourceRepository.setSourceVariable('https://www.kaixin7days.com', 'key=value');
+      await api.bookSourceRepository.setSourceVariable(
+        'https://www.kaixin7days.com',
+        'key=value',
+      );
       var sources = await api.bookSourceRepository.getBookSources();
       final src = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
@@ -149,7 +156,10 @@ void main() {
       expect(src.variable, 'key=value');
 
       // 空串=清除（对齐 Rust 单列 UPDATE 语义；C1 后 variable 为非空串）
-      await api.bookSourceRepository.setSourceVariable('https://www.kaixin7days.com', '');
+      await api.bookSourceRepository.setSourceVariable(
+        'https://www.kaixin7days.com',
+        '',
+      );
       sources = await api.bookSourceRepository.getBookSources();
       final cleared = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
@@ -160,7 +170,10 @@ void main() {
     // 评审 S1：书源不存在时抛错，对齐 Rust Internal 语义
     test('setSourceVariable 书源不存在时抛错', () async {
       await expectLater(
-        api.bookSourceRepository.setSourceVariable('https://not-exist.example.com', 'x'),
+        api.bookSourceRepository.setSourceVariable(
+          'https://not-exist.example.com',
+          'x',
+        ),
         throwsException,
       );
     });
@@ -210,17 +223,14 @@ void main() {
       expect(url, 'new_url');
     });
 
-    test(
-      'switchSourcePrefetch 直通 switchSource 并计数'
-      '（2026-09-24 换源预拉缓存：命中/未命中语义由 Rust 侧承担，'
-      'mock 仅记录调用供单测断言 call count）',
-      () async {
-        final before = api.prefetchApplyCallCount;
-        final url = await api.switchSourcePrefetch('old', 'source', 'new_url');
-        expect(url, 'new_url');
-        expect(api.prefetchApplyCallCount, before + 1);
-      },
-    );
+    test('switchSourcePrefetch 直通 switchSource 并计数'
+        '（2026-09-24 换源预拉缓存：命中/未命中语义由 Rust 侧承担，'
+        'mock 仅记录调用供单测断言 call count）', () async {
+      final before = api.prefetchApplyCallCount;
+      final url = await api.switchSourcePrefetch('old', 'source', 'new_url');
+      expect(url, 'new_url');
+      expect(api.prefetchApplyCallCount, before + 1);
+    });
 
     test('cancelSwitchSourceApply 计数且无副作用', () async {
       final before = api.cancelApplyCallCount;
@@ -388,7 +398,9 @@ void main() {
     });
 
     test('addBookGroup 添加后可获取', () async {
-      await api.bookGroupRepository.addBookGroup(BookGroup(groupName: '玄幻', order: 1));
+      await api.bookGroupRepository.addBookGroup(
+        BookGroup(groupName: '玄幻', order: 1),
+      );
       final groups = await api.bookGroupRepository.getBookGroups();
       expect(groups.length, 3);
     });
@@ -652,10 +664,13 @@ void main() {
     test('list 空表 seed 原版默认 5 源（sortNumber 升序）', () async {
       final list = await api.dictRuleList();
       expect(list.length, 5);
-      expect(
-        list.map((r) => r['name']).toList(),
-        ['海词中文', '海词英文', '有道', '哔哩', '百度汉语'],
-      );
+      expect(list.map((r) => r['name']).toList(), [
+        '海词中文',
+        '海词英文',
+        '有道',
+        '哔哩',
+        '百度汉语',
+      ]);
     });
 
     test('add → update → setEnabled → reorder → delete 全链路往返', () async {
@@ -713,7 +728,9 @@ void main() {
       expect(list.firstWhere((r) => r['id'] == idA)['enabled'], isFalse);
 
       // reorder（全量重编号：[idB, idA, 默认 5 源 id] → 新顺序与 sortNumber 生效）
-      final allIds = (await api.dictRuleList()).map((r) => r['id'] as int).toList();
+      final allIds = (await api.dictRuleList())
+          .map((r) => r['id'] as int)
+          .toList();
       final defaultIds = allIds.where((i) => i <= 5).toList(); // 默认 5 源
       final newOrder = [idB, idA, ...defaultIds];
       expect(await api.dictRuleReorder(jsonEncode(newOrder)), 7);
@@ -723,8 +740,10 @@ void main() {
       expect(list.last['sortNumber'], 6);
 
       // reorder 非法 JSON → 明确错误
-      expect(() => api.dictRuleReorder('not a json array'),
-          throwsA(isA<Exception>()));
+      expect(
+        () => api.dictRuleReorder('not a json array'),
+        throwsA(isA<Exception>()),
+      );
       expect(() => api.dictRuleReorder('{"a":1}'), throwsA(isA<Exception>()));
 
       // delete（不存在返回 false）
@@ -735,8 +754,7 @@ void main() {
       expect(list.where((r) => r['id'] == idA), isEmpty);
     });
 
-    test('import REPLACE by name：异名插入 / 同名覆盖保留 id / 单对象',
-        () async {
+    test('import REPLACE by name：异名插入 / 同名覆盖保留 id / 单对象', () async {
       final json1 =
           '[{"name":"导入A","urlRule":"http://a","showRule":"sa"},'
           '{"name":"导入B","urlRule":"http://b","showRule":"sb"}]';
@@ -780,16 +798,17 @@ void main() {
         throwsA(isA<Exception>()),
       );
       expect(
-        () => api.dictRuleImport(jsonOrUrl: 'https://x.com/rules.json', kind: 'url'),
+        () => api.dictRuleImport(
+          jsonOrUrl: 'https://x.com/rules.json',
+          kind: 'url',
+        ),
         throwsA(isA<Exception>()),
       );
     });
   });
 
-  group('替换规则预览（契约 §2.8 previewReplaceRule，[替换规则预览 | 2026-09-13]）',
-      () {
-    test('previewReplaceRule 确定性返回 [mock预览] + 输入并累计调用计数',
-        () async {
+  group('替换规则预览（契约 §2.8 previewReplaceRule，[替换规则预览 | 2026-09-13]）', () {
+    test('previewReplaceRule 确定性返回 [mock预览] + 输入并累计调用计数', () async {
       const ruleJson =
           '{"name":"去广告","pattern":"广告","replacement":"【广告】","isRegex":false}';
       final out = await api.previewReplaceRule(ruleJson, 'AAAA广告');

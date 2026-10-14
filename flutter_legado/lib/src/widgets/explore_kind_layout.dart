@@ -12,8 +12,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -28,8 +27,9 @@ Future<String?> _loadStoredInfoMapValue(
   String key,
 ) async {
   try {
-    final json =
-        await ref.read(bookApiProvider).exploreInfoMapSnapshot(sourceUrl);
+    final json = await ref
+        .read(bookApiProvider)
+        .exploreInfoMapSnapshot(sourceUrl);
     final map = jsonDecode(json);
     if (map is Map<String, dynamic>) {
       final v = map[key]?.toString();
@@ -113,8 +113,8 @@ class ExploreKindLayout extends StatelessWidget {
         title: Text(context.l10n.discoveryCategoriesLoadFailed),
         content: SelectableText(
           message,
-          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+          style: Theme.of(ctx).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
@@ -180,7 +180,8 @@ class _ExploreKindItem extends ConsumerWidget {
         width: width,
         onTap: category.hasUrl
             ? () {
-                if (category.title == 'ERROR' || category.title.startsWith('ERROR:')) {
+                if (category.title == 'ERROR' ||
+                    category.title.startsWith('ERROR:')) {
                   ExploreKindLayout._showExploreErrorDialog(
                     context,
                     category.url ?? category.title,
@@ -293,7 +294,8 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
   }
 
   String _resolveInitialLabel() {
-    final literal = ExploreKindActionRunner.literalViewName(widget.category.viewName,
+    final literal = ExploreKindActionRunner.literalViewName(
+      widget.category.viewName,
     );
     if (literal != null) return literal;
     return widget.fallback;
@@ -301,14 +303,15 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
 
   Future<void> _loadDynamicLabel() async {
     final viewName = widget.category.viewName;
-    if (viewName == null || ExploreKindActionRunner.literalViewName(viewName) != null) {
+    if (viewName == null ||
+        ExploreKindActionRunner.literalViewName(viewName) != null) {
       return;
     }
     setState(() => _loading = true);
     try {
-      final text = await ref.read(bookApiProvider).exploreEvalUiJs(
-            sourceJson: widget.sourceJson,
-            jsStr: viewName);
+      final text = await ref
+          .read(bookApiProvider)
+          .exploreEvalUiJs(sourceJson: widget.sourceJson, jsStr: viewName);
       if (!mounted) return;
       setState(() {
         _label = text.isEmpty ? 'null' : text;
@@ -373,7 +376,8 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
   @override
   Widget build(BuildContext context) {
     final hasAction =
-        widget.category.action != null && widget.category.action!.trim().isNotEmpty;
+        widget.category.action != null &&
+        widget.category.action!.trim().isNotEmpty;
 
     return _DynamicLabel(
       sourceJson: widget.sourceJson,
@@ -416,8 +420,8 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
   @override
   void initState() {
     super.initState();
-    _chars = widget.category.chars?.where((c) => c.isNotEmpty).toList() ??
-        ['', ''];
+    _chars =
+        widget.category.chars?.where((c) => c.isNotEmpty).toList() ?? ['', ''];
     final defaultValue = widget.category.defaultValue ?? _chars.first;
     _index = _chars.indexOf(defaultValue);
     if (_index < 0) _index = 0;
@@ -440,10 +444,9 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
 
   Future<void> _afterValueChanged() async {
     final value = _chars[_index];
-    await ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          value);
+    await ref
+        .read(bookApiProvider)
+        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -481,8 +484,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
           color: Colors.transparent,
           child: InkWell(
             onTap: _busy ? null : _cycle,
-            borderRadius:
-                BorderRadius.circular(ExploreKindLayout._kChipRadius),
+            borderRadius: BorderRadius.circular(ExploreKindLayout._kChipRadius),
             splashColor: colorScheme.onSurface.withValues(alpha: 0.06),
             child: Container(
               width: widget.width,
@@ -490,8 +492,8 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
-                borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius,
+                borderRadius: BorderRadius.circular(
+                  ExploreKindLayout._kChipRadius,
                 ),
               ),
               alignment: Alignment.center,
@@ -540,8 +542,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
   @override
   void initState() {
     super.initState();
-    _chars = widget.category.chars?.where((c) => c.isNotEmpty).toList() ??
-        ['', ''];
+    _chars =
+        widget.category.chars?.where((c) => c.isNotEmpty).toList() ?? ['', ''];
     final defaultValue = widget.category.defaultValue ?? _chars.first;
     _index = _chars.indexOf(defaultValue);
     if (_index < 0) _index = 0;
@@ -566,10 +568,9 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     if (next == _index || _busy) return;
     setState(() => _index = next);
     final value = _chars[next];
-    await ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          value);
+    await ref
+        .read(bookApiProvider)
+        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -587,8 +588,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
 
   Future<void> _showPicker() async {
     if (_busy) return;
-    final titleLabel = ExploreKindActionRunner.literalViewName(
-          widget.category.viewName) ??
+    final titleLabel =
+        ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
         widget.category.title;
 
     final picked = await showMd3WheelPickerSheet(
@@ -617,8 +618,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
           color: Colors.transparent,
           child: InkWell(
             onTap: _busy ? null : _showPicker,
-            borderRadius:
-                BorderRadius.circular(ExploreKindLayout._kChipRadius),
+            borderRadius: BorderRadius.circular(ExploreKindLayout._kChipRadius),
             splashColor: colorScheme.onSurface.withValues(alpha: 0.06),
             child: Container(
               width: widget.width,
@@ -626,8 +626,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
-                borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius,
+                borderRadius: BorderRadius.circular(
+                  ExploreKindLayout._kChipRadius,
                 ),
               ),
               child: Row(
@@ -710,10 +710,9 @@ class _TextChipState extends ConsumerState<_TextChip> {
 
   void _onTextChanged() {
     final text = _controller.text;
-    ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          text);
+    ref
+        .read(bookApiProvider)
+        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, text);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     _debounce?.cancel();
@@ -733,7 +732,8 @@ class _TextChipState extends ConsumerState<_TextChip> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final hint = ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
+    final hint =
+        ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
         widget.category.title;
 
     return Container(
@@ -761,7 +761,9 @@ class _TextChipState extends ConsumerState<_TextChip> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: 6,
           ),
         ),
       ),
@@ -771,8 +773,7 @@ class _TextChipState extends ConsumerState<_TextChip> {
 
 /// [ExploreCategory] 布局辅助
 extension ExploreCategoryLayout on ExploreCategory {
-  FlexChildStyle get effectiveStyle =>
-      style ?? const FlexChildStyle();
+  FlexChildStyle get effectiveStyle => style ?? const FlexChildStyle();
 
   bool get hasUrl => url != null && url!.trim().isNotEmpty;
 }

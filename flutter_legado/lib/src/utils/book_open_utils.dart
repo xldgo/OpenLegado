@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -19,7 +18,8 @@ class BookOpenUtils {
   BookOpenUtils._();
 
   /// 媒体/文本类型位掩码（不含 local / notShelf）
-  static const int typeMask = BookType.video |
+  static const int typeMask =
+      BookType.video |
       BookType.text |
       BookType.audio |
       BookType.image |
@@ -109,11 +109,11 @@ class BookOpenUtils {
       return true;
     }
 
-    final isVideoGroup = group.contains('影视') ||
-        group.contains('视频源') ||
-        group.contains('视频');
+    final isVideoGroup =
+        group.contains('影视') || group.contains('视频源') || group.contains('视频');
     // 源名/域名常见 MacCMS 资源站（红牛/非凡/量子/U酷等）
-    final isVideoName = (name.contains('资源') &&
+    final isVideoName =
+        (name.contains('资源') &&
             (name.contains('红牛') ||
                 name.contains('非凡') ||
                 name.contains('量子') ||
@@ -127,10 +127,14 @@ class BookOpenUtils {
         srcUrl.contains('ffzy') ||
         srcUrl.contains('lzizy') ||
         srcUrl.contains('zuidazy');
-    final playExt = RegExp(r'\.(m3u8|mp4|flv)', caseSensitive: false)
-        .hasMatch('$content\n$sourceRegex');
-    final hasStreamToken = RegExp(r'm3u8|mp4|flv|m3u', caseSensitive: false)
-        .hasMatch('$content\n$sourceRegex\n$tocList');
+    final playExt = RegExp(
+      r'\.(m3u8|mp4|flv)',
+      caseSensitive: false,
+    ).hasMatch('$content\n$sourceRegex');
+    final hasStreamToken = RegExp(
+      r'm3u8|mp4|flv|m3u',
+      caseSensitive: false,
+    ).hasMatch('$content\n$sourceRegex\n$tocList');
     // 非凡等：正文直接把章节 URL（m3u8）当作播放地址
     final returnsBaseUrl = RegExp(
       r'result\s*=\s*baseUrl',
@@ -176,8 +180,7 @@ class BookOpenUtils {
     if (source == null) return false;
     // 视频源（含 type=0 MacCMS 启发式）绝不以抽图规则升漫画
     if (looksLikeVideoSource(source)) return false;
-    final style =
-        (source.ruleContent?.imageStyle ?? '').trim().toUpperCase();
+    final style = (source.ruleContent?.imageStyle ?? '').trim().toUpperCase();
     // TEXT 表示按文字行内小图，仍走文本阅读器
     if (style == 'TEXT') return false;
     if (style.isNotEmpty && style != 'FULL' && style != 'SINGLE') {
@@ -210,8 +213,7 @@ class BookOpenUtils {
       }
       final srcType = source.bookSourceType;
       // 显式音频/图片/文件/视频：书源声明优先于书籍旧位
-      if (srcType >= BookSourceType.audio &&
-          srcType <= BookSourceType.video) {
+      if (srcType >= BookSourceType.audio && srcType <= BookSourceType.video) {
         return typeBitsForSource(srcType);
       }
       final base = existing == 0 ? BookType.text : existing;
@@ -290,7 +292,10 @@ class BookOpenUtils {
     var typeBits = typeBitsOf(book);
     if (isOnlineBook(book)) {
       try {
-        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
+        final sources = await ref
+            .read(bookApiProvider)
+            .bookSourceRepository
+            .getBookSources();
         String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
         final o = norm(book.origin);
         for (final s in sources) {
@@ -374,11 +379,12 @@ class BookOpenUtils {
       wordCount: (routeBook.wordCount?.isNotEmpty ?? false)
           ? routeBook.wordCount
           : dbBook.wordCount,
-      latestChapterTitle:
-          (routeBook.latestChapterTitle?.isNotEmpty ?? false)
-              ? routeBook.latestChapterTitle
-              : dbBook.latestChapterTitle,
-      kind: (routeBook.kind?.isNotEmpty ?? false) ? routeBook.kind : dbBook.kind,
+      latestChapterTitle: (routeBook.latestChapterTitle?.isNotEmpty ?? false)
+          ? routeBook.latestChapterTitle
+          : dbBook.latestChapterTitle,
+      kind: (routeBook.kind?.isNotEmpty ?? false)
+          ? routeBook.kind
+          : dbBook.kind,
       author: routeBook.author.isNotEmpty ? routeBook.author : dbBook.author,
       totalChapterNum: routeBook.totalChapterNum > 0
           ? routeBook.totalChapterNum
@@ -456,7 +462,9 @@ class BookOpenUtils {
       // book.tocUrl 默认=bookUrl，详情 qmBookInfo 生成真实 chapter-list URL）
       tocUrl: tocUrl ?? book.tocUrl,
       wordCount: hasWord ? book.wordCount : pick('word_count'),
-      latestChapterTitle: hasLast ? book.latestChapterTitle : pick('last_chapter'),
+      latestChapterTitle: hasLast
+          ? book.latestChapterTitle
+          : pick('last_chapter'),
       kind: hasKind ? book.kind : pick('kind'),
       name: book.name.isNotEmpty ? book.name : (name ?? book.name),
       author: book.author.isNotEmpty ? book.author : (author ?? book.author),

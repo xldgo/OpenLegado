@@ -77,7 +77,10 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
     if (b64.isEmpty) return null;
     final bytes = base64Decode(b64);
     if (!looksLikeImageBytes(bytes)) return null;
-    return MangaPageImageBytes(Uint8List.fromList(bytes), _imageSuffixOf(bytes));
+    return MangaPageImageBytes(
+      Uint8List.fromList(bytes),
+      _imageSuffixOf(bytes),
+    );
   } catch (_) {
     return null;
   }

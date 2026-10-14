@@ -12,7 +12,9 @@ extension _SourceEditLoad on _SourceEditScreenState {
   Future<void> _maybeShowFirstHelp() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_SourceEditScreenState._ruleHelpShownKey) ?? false) return;
+      if (prefs.getBool(_SourceEditScreenState._ruleHelpShownKey) ?? false) {
+        return;
+      }
       await prefs.setBool(_SourceEditScreenState._ruleHelpShownKey, true);
       if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {

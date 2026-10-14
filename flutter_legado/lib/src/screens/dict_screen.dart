@@ -1,8 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/app_search_field.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -50,15 +52,15 @@ class _DictScreenState extends ConsumerState<DictScreen> {
 
   Future<void> _launchOnline(DictRule rule) async {
     final word =
-        ref.read(dictNotifierProvider).queriedWord ?? _searchController.text.trim();
+        ref.read(dictNotifierProvider).queriedWord ??
+        _searchController.text.trim();
     if (word.isEmpty) return;
     final uri = Uri.tryParse(rule.buildUrl(word));
     if (uri == null) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开在线词典')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法打开在线词典')));
       }
     }
   }
@@ -79,10 +81,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
             hintText: '输入单词查询释义',
             onSubmitted: (_) => _search(),
           ),
-          action: FilledButton(
-            onPressed: _search,
-            child: const Text('查询'),
-          ),
+          action: FilledButton(onPressed: _search, child: const Text('查询')),
         ),
         actions: [
           IconButton(
@@ -137,14 +136,15 @@ class _DictScreenState extends ConsumerState<DictScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.menu_book_rounded, size: 64, color: theme.colorScheme.outline),
+          Icon(
+            Symbols.menu_book_rounded,
+            size: 64,
+            color: theme.colorScheme.outline,
+          ),
           const SizedBox(height: 16),
           Text('输入单词开始查询', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 8),
-          Text(
-            '未收录的词可跳转在线词典',
-            style: theme.textTheme.bodySmall,
-          ),
+          Text('未收录的词可跳转在线词典', style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -154,9 +154,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
     return Card(
       color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -184,7 +182,9 @@ class _DictScreenState extends ConsumerState<DictScreen> {
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   // [LAYOUT_PLAN P2] 状态色走 tonal（primaryContainer/onPrimaryContainer）
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
@@ -206,8 +206,11 @@ class _DictScreenState extends ConsumerState<DictScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Symbols.circle_rounded, size: 6,
-                        color: theme.colorScheme.primary),
+                    Icon(
+                      Symbols.circle_rounded,
+                      size: 6,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(child: Text(d, style: theme.textTheme.bodyLarge)),
                   ],
@@ -224,22 +227,20 @@ class _DictScreenState extends ConsumerState<DictScreen> {
     return Card(
       color: theme.colorScheme.surfaceContainer,
       // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(Symbols.search_off_rounded, size: 40,
-                color: theme.colorScheme.outline),
+            Icon(
+              Symbols.search_off_rounded,
+              size: 40,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 8),
             Text('本地词典未收录「$word」', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(
-              '可使用下方在线词典查询',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('可使用下方在线词典查询', style: theme.textTheme.bodySmall),
           ],
         ),
       ),
@@ -253,18 +254,19 @@ class _DictScreenState extends ConsumerState<DictScreen> {
         Text('在线词典', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (state.rules.isEmpty)
-          Text('暂无词典规则，点击右上角管理添加',
-              style: theme.textTheme.bodySmall)
+          Text('暂无词典规则，点击右上角管理添加', style: theme.textTheme.bodySmall)
         else
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: state.rules
-                .map((rule) => ActionChip(
-                      avatar: const Icon(Symbols.open_in_new_rounded, size: 16),
-                      label: Text(rule.name),
-                      onPressed: () => _launchOnline(rule),
-                    ))
+                .map(
+                  (rule) => ActionChip(
+                    avatar: const Icon(Symbols.open_in_new_rounded, size: 16),
+                    label: Text(rule.name),
+                    onPressed: () => _launchOnline(rule),
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -298,7 +300,9 @@ class _DictScreenState extends ConsumerState<DictScreen> {
                           dense: true,
                           // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8
                           contentPadding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 8),
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
                           title: Text(rule.name),
                           subtitle: Text(
                             rule.urlRule,
@@ -326,16 +330,15 @@ class _DictScreenState extends ConsumerState<DictScreen> {
                       .importDefaultRules();
                   setDialogState(() {});
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已导入 $n 条原版默认词典规则')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('已导入 $n 条原版默认词典规则')));
                   }
                 },
                 child: const Text('导入默认'),
               ),
               TextButton(
-                onPressed: () =>
-                    _showRuleEditor(ctx, onSaved: setDialogState),
+                onPressed: () => _showRuleEditor(ctx, onSaved: setDialogState),
                 child: const Text('添加规则'),
               ),
               FilledButton(
@@ -351,8 +354,9 @@ class _DictScreenState extends ConsumerState<DictScreen> {
 
   void _showRuleEditor(BuildContext ctx, {required StateSetter onSaved}) {
     final nameCtrl = TextEditingController();
-    final urlCtrl =
-        TextEditingController(text: 'https://example.com/dict?q={{key}}');
+    final urlCtrl = TextEditingController(
+      text: 'https://example.com/dict?q={{key}}',
+    );
     showDialog(
       context: ctx,
       builder: (editCtx) => AlertDialog(
@@ -364,9 +368,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
             // 字段分组间距 12dp
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: '规则名称',
-              ),
+              decoration: const InputDecoration(labelText: '规则名称'),
             ),
             const SizedBox(height: 12),
             TextField(

@@ -1,12 +1,12 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
@@ -188,8 +188,9 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
       // [书源作用域 | 2026-09-13] 书源作用域随表单落库（对齐原版 scopeSource）
       scopeSource: _scopeSource,
       scope: _scopeCtrl.text.isEmpty ? null : _scopeCtrl.text,
-      excludeScope:
-          _excludeScopeCtrl.text.isEmpty ? null : _excludeScopeCtrl.text,
+      excludeScope: _excludeScopeCtrl.text.isEmpty
+          ? null
+          : _excludeScopeCtrl.text,
       // [A3 写链路补齐 | 2026-09-11] 超时随表单落库（FFI 写接口已支持
       // timeoutMillisecond）；空/非法输入回退默认 3000（与 Rust 侧缺省一致）
       timeoutMillisecond: _parseTimeout(),
@@ -240,8 +241,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   // ===== [A3 形态对齐 | full-stack-engineer + UI] 全屏编辑 =====
@@ -406,8 +406,9 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
     final seq = ++_previewSeq;
     final ruleJson = jsonEncode(_currentRule().toJson());
     try {
-      final output =
-          await ref.read(bookApiProvider).previewReplaceRule(ruleJson, sample);
+      final output = await ref
+          .read(bookApiProvider)
+          .previewReplaceRule(ruleJson, sample);
       if (seq != _previewSeq || !mounted) return;
       _updatePreview(output, null);
     } catch (_) {

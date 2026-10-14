@@ -2,10 +2,11 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 
 import '../l10n/app_strings.dart';
@@ -24,7 +25,16 @@ import 'archive_import_dialog.dart';
 /// [cbz P1-1 | 2026-10-03] 本表与书架「添加本地」file_picker 白名单
 /// （bookshelf_screen.dart::_addLocalBook 的 allowedExtensions）
 /// **同序同集合**，两处需同步维护。
-const _supportedFormats = ['epub', 'txt', 'mobi', 'azw3', 'azw', 'pdf', 'umd', 'cbz'];
+const _supportedFormats = [
+  'epub',
+  'txt',
+  'mobi',
+  'azw3',
+  'azw',
+  'pdf',
+  'umd',
+  'cbz',
+];
 
 /// 支持的压缩包格式（cbz 漫画包不在此列：走整本导入而非解压路径）
 const _archiveFormats = ['zip', 'rar', '7z'];
@@ -138,7 +148,9 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         }
       }
       dirs.sort((a, b) => _displayName(a.path).compareTo(_displayName(b.path)));
-      files.sort((a, b) => _displayName(a.path).compareTo(_displayName(b.path)));
+      files.sort(
+        (a, b) => _displayName(a.path).compareTo(_displayName(b.path)),
+      );
       if (!mounted) return;
       setState(() {
         _dirs = dirs;
@@ -166,13 +178,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   }
 
   /// 当前过滤条件下可见的文件
-  List<File> get _visibleFiles => _activeFormats.length == _allBrowsableFormats.length
+  List<File> get _visibleFiles =>
+      _activeFormats.length == _allBrowsableFormats.length
       ? _files
       : _files.where((f) => _activeFormats.contains(_extOf(f.path))).toList();
 
   bool get _allVisibleSelected {
     final visible = _visibleFiles;
-    return visible.isNotEmpty && visible.every((f) => _selected.contains(f.path));
+    return visible.isNotEmpty &&
+        visible.every((f) => _selected.contains(f.path));
   }
 
   void _toggleSelectAll() {
@@ -208,9 +222,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
   /// 判断文件是否已在书架（视为跳过）
   bool _isAlreadyImported(String path, BookshelfState state) {
-    return state.books.any(
-      (b) => b.bookUrl == path || b.originName == path,
-    );
+    return state.books.any((b) => b.bookUrl == path || b.originName == path);
   }
 
   Future<void> _startImport() async {
@@ -230,13 +242,17 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       final name = _displayName(path);
       // 逐次读取最新书架状态（导入会增量更新 state.books）
       if (_isAlreadyImported(path, ref.read(bookshelfNotifierProvider))) {
-        _outcomes.add(_ImportOutcome(name: name, success: false, skipped: true));
+        _outcomes.add(
+          _ImportOutcome(name: name, success: false, skipped: true),
+        );
       } else {
         try {
           await notifier.importLocalBook(path);
           _outcomes.add(_ImportOutcome(name: name, success: true));
         } catch (e) {
-          _outcomes.add(_ImportOutcome(name: name, success: false, error: errorMessage(e)));
+          _outcomes.add(
+            _ImportOutcome(name: name, success: false, error: errorMessage(e)),
+          );
         }
       }
       if (mounted) {
@@ -290,13 +306,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         IconButton(
           icon: const Icon(Symbols.link_rounded),
           tooltip: '远程导入',
-          onPressed: () =>
-              Navigator.pushNamed(context, AppRoutes.remoteBooks),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.remoteBooks),
         ),
         if (_currentDir != null)
           IconButton(
             icon: Icon(
-              _allVisibleSelected ? Symbols.check_box_rounded : Symbols.check_box_outline_blank_rounded,
+              _allVisibleSelected
+                  ? Symbols.check_box_rounded
+                  : Symbols.check_box_outline_blank_rounded,
             ),
             tooltip: '全选',
             onPressed: _visibleFiles.isEmpty ? null : _toggleSelectAll,
@@ -342,10 +359,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       width: double.infinity,
       // [LAYOUT_PLAN P3] 页面水平边距统一 16dp（全局标尺）
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest
+          .withValues(alpha: 0.5),
       child: Row(
         children: [
-          Icon(Symbols.folder_open_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Symbols.folder_open_rounded,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -370,7 +392,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         title: AppStrings.error,
         subtitle: _error,
         action: FilledButton(
-          onPressed: () => _currentDir == null ? _initRoots() : _enterDir(_currentDir!),
+          onPressed: () =>
+              _currentDir == null ? _initRoots() : _enterDir(_currentDir!),
           child: Text(AppStrings.retry),
         ),
       );
@@ -419,7 +442,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
               ),
               leading: const Icon(Symbols.storage_rounded),
               title: Text(_displayName(root.path)),
-              subtitle: Text(root.path, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                root.path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               onTap: () => _enterDir(root),
             ),
           ),
@@ -431,9 +458,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     return ListTile(
       // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 保证页面水平边距 16dp）
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      leading: Icon(Symbols.folder_rounded, color: Theme.of(context).colorScheme.primary),
+      leading: Icon(
+        Symbols.folder_rounded,
+        color: Theme.of(context).colorScheme.primary,
+      ),
       title: Text(_displayName(dir.path)),
-            onTap: () => _enterDir(dir),
+      onTap: () => _enterDir(dir),
     );
   }
 
@@ -449,8 +479,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           final size = snap.data?.size ?? 0;
           return ListTile(
             // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            leading: Icon(Symbols.folder_zip_rounded, color: Theme.of(context).colorScheme.secondary),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 12,
+            ),
+            leading: Icon(
+              Symbols.folder_zip_rounded,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
             title: Text(
               _displayName(path),
               maxLines: 1,
@@ -462,10 +498,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
               '${ext.toUpperCase()} · ${_formatSize(size)}',
               // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-                        onTap: () => _openArchiveImport(path),
+            onTap: () => _openArchiveImport(path),
           );
         },
       );
@@ -478,7 +514,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         final size = snap.data?.size ?? 0;
         return ListTile(
           // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 12,
+          ),
           leading: Checkbox(
             value: selected,
             onChanged: (_) => _toggleFile(path),
@@ -489,16 +528,16 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             overflow: TextOverflow.ellipsis,
             // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  color: selected ? Theme.of(context).colorScheme.primary : null,
-                ),
+              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              color: selected ? Theme.of(context).colorScheme.primary : null,
+            ),
           ),
           subtitle: Text(
             '${ext.toUpperCase()} · ${_formatSize(size)}',
             // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           trailing: Icon(_iconForFormat(ext), size: 20),
           onTap: () => _toggleFile(path),
@@ -513,13 +552,13 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Future<void> _openArchiveImport(String path) async {
     // 经 BookApi（Riverpod 注入层）确认是否为压缩包
     try {
-      final isArchive =
-          await ref.read(bookApiProvider).archiveIsArchive(filePath: path);
+      final isArchive = await ref
+          .read(bookApiProvider)
+          .archiveIsArchive(filePath: path);
       if (!isArchive) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('该文件不是有效的压缩包格式')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('该文件不是有效的压缩包格式')));
         }
         return;
       }
@@ -586,9 +625,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           onPressed: count == 0 ? null : _startImport,
           icon: const Icon(Symbols.download_rounded),
           label: Text(count == 0 ? '未选择书籍' : '放入书架 ($count)'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-          ),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
         ),
       ),
     );
@@ -638,10 +675,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    for (final o in _outcomes.where((o) => !o.success && !o.skipped))
+                    for (final o in _outcomes.where(
+                      (o) => !o.success && !o.skipped,
+                    ))
                       Text(
                         '× ${o.name}',
-                        style: TextStyle(color: colorScheme.error, fontSize: 12),
+                        style: TextStyle(
+                          color: colorScheme.error,
+                          fontSize: 12,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -664,10 +706,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       children: [
         Text(
           value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(color: color, fontWeight: FontWeight.bold),
         ),
         Text(label, style: Theme.of(context).textTheme.labelSmall),
       ],

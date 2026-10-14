@@ -385,10 +385,11 @@ void main() {
       stubOpenBook(mockApi);
       // 慢路径异常：getBook 延迟 4s 后失败（保证异常发生在离场之后，
       // 即「在途完成时 context 已 unmounted」路径）
-      when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async {
-        await Future<void>.delayed(const Duration(seconds: 4));
-        throw const BridgeError(message: 'bridge 不可用');
-      });
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async {
+            await Future<void>.delayed(const Duration(seconds: 4));
+            throw const BridgeError(message: 'bridge 不可用');
+          });
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);

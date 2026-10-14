@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/book.dart';
 import '../../models/misc.dart';
@@ -39,11 +38,11 @@ class SyncNotifier extends Notifier<SyncState> {
   /// [Task #52 | 2026-08-10] 补齐 remote_dir（legado-net WebDavConfig 必需字段，
   /// 缺失会导致 Rust 侧配置解析失败） — Qoder
   String buildConfigJson() => jsonEncode({
-        'url': state.webDavUrl,
-        'username': state.webDavUsername,
-        'password': state.webDavPassword,
-        'remote_dir': normalizedRemoteDir,
-      });
+    'url': state.webDavUrl,
+    'username': state.webDavUsername,
+    'password': state.webDavPassword,
+    'remote_dir': normalizedRemoteDir,
+  });
 
   // ===== 配置管理 =====
 
@@ -248,13 +247,18 @@ class SyncNotifier extends Notifier<SyncState> {
     try {
       final api = ref.read(bookApiProvider);
       final (localBooks, localSources) = await _collectLocalData();
-      final result =
-          await api.webdavFullSync(buildConfigJson(), localBooks, localSources);
+      final result = await api.webdavFullSync(
+        buildConfigJson(),
+        localBooks,
+        localSources,
+      );
       var imported = 0;
       final remote = jsonDecode(result) as Map<String, dynamic>;
       final remoteSources = remote['sources']?.toString() ?? '';
       if (remoteSources.isNotEmpty && remoteSources != '[]') {
-        imported = await api.bookSourceRepository.importBookSources(remoteSources);
+        imported = await api.bookSourceRepository.importBookSources(
+          remoteSources,
+        );
       }
       await _markSyncSuccess();
       return '恢复完成，回写 $imported 条书源';

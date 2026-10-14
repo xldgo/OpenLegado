@@ -1,12 +1,14 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -77,17 +79,25 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
               // 对标原版 onMenuOpened：仅 loginUrl 非空时显示登录
               if ((widget.source.loginUrl ?? '').trim().isNotEmpty)
                 AppMenuItem(value: 'login', child: Text(context.l10n.login)),
-              AppMenuItem(value: 'refreshSort', child: Text(context.l10n.refreshSort),
+              AppMenuItem(
+                value: 'refreshSort',
+                child: Text(context.l10n.refreshSort),
               ),
               AppMenuItem(
                 value: 'setVariable',
                 child: Text(context.l10n.setSourceVariable),
               ),
-              AppMenuItem(value: 'editSource', child: Text(context.l10n.editSource),
+              AppMenuItem(
+                value: 'editSource',
+                child: Text(context.l10n.editSource),
               ),
-              AppMenuItem(value: 'switchLayout', child: Text(context.l10n.switchLayout),
+              AppMenuItem(
+                value: 'switchLayout',
+                child: Text(context.l10n.switchLayout),
               ),
-              AppMenuItem(value: 'readRecord', child: Text(context.l10n.readingRecords),
+              AppMenuItem(
+                value: 'readRecord',
+                child: Text(context.l10n.readingRecords),
               ),
               AppMenuItem(value: 'clear', child: Text(context.l10n.clear)),
             ],
@@ -155,7 +165,9 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
   }
 
   Widget _buildArticleItem(
-      BuildContext context, RssFeedArticle article, bool isRead,
+    BuildContext context,
+    RssFeedArticle article,
+    bool isRead,
   ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -182,10 +194,11 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                   height: 80,
                   fit: BoxFit.cover,
                   // 限制解码宽度为缩略图实际显示像素宽度（80），避免大图解码
-                  memCacheWidth: (80 *
-                          (MediaQuery.maybeOf(context)?.devicePixelRatio ??
-                              1.0))
-                      .round(),
+                  memCacheWidth:
+                      (80 *
+                              (MediaQuery.maybeOf(context)?.devicePixelRatio ??
+                                  1.0))
+                          .round(),
                   placeholder: (_, _) => Container(
                     width: 80,
                     height: 80,
@@ -208,8 +221,9 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Symbols.image_not_supported_rounded,
-                        color: colorScheme.onSurfaceVariant.withAlpha(128),
+                    child: Icon(
+                      Symbols.image_not_supported_rounded,
+                      color: colorScheme.onSurfaceVariant.withAlpha(128),
                     ),
                   ),
                 ),
@@ -222,8 +236,9 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                   color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Symbols.article_rounded,
-                    color: colorScheme.onSurfaceVariant.withAlpha(128),
+                child: Icon(
+                  Symbols.article_rounded,
+                  color: colorScheme.onSurfaceVariant.withAlpha(128),
                 ),
               ),
             const SizedBox(width: 12),
@@ -257,8 +272,10 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Symbols.schedule_rounded,
-                          size: 12, color: colorScheme.onSurfaceVariant,
+                      Icon(
+                        Symbols.schedule_rounded,
+                        size: 12,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
                       // 宽时间戳（ISO-8601）在窄屏下可能溢出：Flexible 收缩 + 省略号
@@ -273,8 +290,10 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
                       ),
                       if (isRead) ...[
                         const SizedBox(width: 8),
-                        Icon(Symbols.check_circle_rounded,
-                            size: 12, color: colorScheme.primary,
+                        Icon(
+                          Symbols.check_circle_rounded,
+                          size: 12,
+                          color: colorScheme.primary,
                         ),
                         const SizedBox(width: 2),
                         Text(
@@ -467,8 +486,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
           controller: ctrl,
           autofocus: false,
           maxLines: 3,
-          decoration: InputDecoration(
-            hintText: comment),
+          decoration: InputDecoration(hintText: comment),
         ),
         actions: [
           TextButton(
@@ -500,7 +518,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.sourceVariableSaveFailed(e.toString())),
+          SnackBar(
+            content: Text(context.l10n.sourceVariableSaveFailed(e.toString())),
           ),
         );
       }
@@ -559,7 +578,6 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
       }
     }
   }
-
 }
 
 /// [UI-fix v2.0.2 | 2026-08-06] 阅读记录对话框（对标原版 ReadRecordDialog：
@@ -579,9 +597,7 @@ class _RssReadRecordDialogState extends ConsumerState<_RssReadRecordDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(rssHistoryNotifierProvider.notifier)
-          .load(origin: widget.origin);
+      ref.read(rssHistoryNotifierProvider.notifier).load(origin: widget.origin);
     });
   }
 
@@ -601,41 +617,41 @@ class _RssReadRecordDialogState extends ConsumerState<_RssReadRecordDialog> {
                 ),
               )
             : state.error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(state.error!),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(state.error!),
+                ),
+              )
+            : records.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(context.l10n.noReadingRecords),
+                ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: records.length,
+                itemBuilder: (context, index) {
+                  final record = records[index];
+                  final time = DateTime.fromMillisecondsSinceEpoch(
+                    record.readTime,
+                  );
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      record.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                : records.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(context.l10n.noReadingRecords),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: records.length,
-                        itemBuilder: (context, index) {
-                          final record = records[index];
-                          final time = DateTime.fromMillisecondsSinceEpoch(
-                            record.readTime,
-                          );
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              record.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} '
-                              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-                            ),
-                          );
-                        },
-                      ),
+                    subtitle: Text(
+                      '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} '
+                      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                    ),
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(

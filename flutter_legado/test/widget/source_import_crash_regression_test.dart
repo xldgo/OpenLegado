@@ -7,8 +7,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -24,10 +23,7 @@ void main() {
   late MockRustApi mockApi;
 
   final sources = [
-    const BookSource(
-      bookSourceUrl: 'https://a.com',
-      bookSourceName: '书源A',
-    ),
+    const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '书源A'),
   ];
 
   setUpAll(() {
@@ -36,7 +32,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {
@@ -47,15 +44,19 @@ void main() {
   }
 
   final dialogField = find.descendant(
-      of: find.byType(AlertDialog), matching: find.byType(TextField));
+    of: find.byType(AlertDialog),
+    matching: find.byType(TextField),
+  );
 
   testWidgets('URL 导入：请求失败弹 SnackBar 不崩溃', (tester) async {
     await tester.pumpWidget(wrapSourceScreen());
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byTooltip('更多选项'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('更多选项'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('网络导入'));
     await tester.pumpAndSettle();
@@ -100,10 +101,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byTooltip('更多选项'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('更多选项'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('二维码导入'));
     await tester.pumpAndSettle();
@@ -117,11 +120,11 @@ void main() {
     expect(find.text('新增'), findsOneWidget);
   });
 
-  testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources',
-      (tester) async {
+  testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources', (tester) async {
     // 第三方书源字符串数字字段（yckceo_7631 形态）：预览解析不再全灭，
     // 确认导入时选中项的原始 JSON（含字符串数字）直传 Rust 宽松兜底
-    when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 1);
+    when(() => mockApi.bookSourceRepository.importBookSources(any()))
+        .thenAnswer((_) async => 1);
     final raw = <String, dynamic>{
       'bookSourceUrl': 'https://www.qianyezw.com',
       'bookSourceName': '新御书屋(千夜)',

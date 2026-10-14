@@ -405,9 +405,9 @@ mixin MockBookApiSearchRss on MockBookApiStore implements BookApi {
     int maxResults = 50,
   }) async {
     if (query.isEmpty) return [];
-    return _mockTxtSearchResults(
-      query,
-    ).where((r) => r['chapter_index'] == chapterIndex).toList();
+    return _mockTxtSearchResults(query)
+        .where((r) => r['chapter_index'] == chapterIndex)
+        .toList();
   }
 
   @override

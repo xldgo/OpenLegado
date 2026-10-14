@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -129,10 +128,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       } else if (decoded is Map) {
         maps = [Map<String, dynamic>.from(decoded)];
       } else {
-        state = state.copyWith(
-          error: '格式错误：期望 JSON 数组或对象',
-          isLoading: false,
-        );
+        state = state.copyWith(error: '格式错误：期望 JSON 数组或对象', isLoading: false);
         return;
       }
     } on FormatException catch (e) {
@@ -220,7 +216,8 @@ class AssociationNotifier extends Notifier<AssociationState> {
           return map;
         case ImportType.httpTts:
           final map = <String, HttpTts>{};
-          for (final t in await ref.read(httpTtsRepositoryProvider).getHttpTts()) {
+          for (final t
+              in await ref.read(httpTtsRepositoryProvider).getHttpTts()) {
             map[t.name] = t;
           }
           return map;
@@ -286,8 +283,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
         final name = item['name']?.toString() ?? '';
         final local = (locals as Map<String, ReplaceRule>?)?[name];
         if (local == null) return ImportItemStatus.isNew;
-        bool eq(v, String localValue) =>
-            (v?.toString() ?? '') == localValue;
+        bool eq(v, String localValue) => (v?.toString() ?? '') == localValue;
         return !eq(item['pattern'], local.pattern) ||
                 !eq(item['replacement'], local.replacement) ||
                 !eq(item['isRegex'], _boolStr(local.isRegex)) ||
@@ -312,12 +308,12 @@ class AssociationNotifier extends Notifier<AssociationState> {
       case ImportType.dictRule:
         // 仅新/已存在（无更新概念）
         final name = item['name']?.toString() ?? '';
-        final exists = (locals as List<Map<String, dynamic>>?)
-                ?.any((e) => e['name'] == name) ??
+        final exists =
+            (locals as List<Map<String, dynamic>>?)?.any(
+              (e) => e['name'] == name,
+            ) ??
             false;
-        return exists
-            ? ImportItemStatus.exists
-            : ImportItemStatus.isNew;
+        return exists ? ImportItemStatus.exists : ImportItemStatus.isNew;
 
       case ImportType.txtTocRule:
         // 按名称匹配；rule/replacement/example 任一不同 → 更新
@@ -346,14 +342,14 @@ class AssociationNotifier extends Notifier<AssociationState> {
 
   /// 结果汇总单位名（按类型区分，避免规则类导入显示「书源」）
   static String _unitName(ImportType type) => switch (type) {
-        ImportType.bookSource => '书源',
-        ImportType.rssSource => 'RSS 源',
-        ImportType.replaceRule => '替换规则',
-        ImportType.theme => '主题配置',
-        ImportType.httpTts => 'HTTP TTS',
-        ImportType.dictRule => '字典规则',
-        ImportType.txtTocRule => 'TXT 目录规则',
-      };
+    ImportType.bookSource => '书源',
+    ImportType.rssSource => 'RSS 源',
+    ImportType.replaceRule => '替换规则',
+    ImportType.theme => '主题配置',
+    ImportType.httpTts => 'HTTP TTS',
+    ImportType.dictRule => '字典规则',
+    ImportType.txtTocRule => 'TXT 目录规则',
+  };
 
   // ===== 导入阶段（对应原版各 importSelect）=====
 
@@ -366,8 +362,8 @@ class AssociationNotifier extends Notifier<AssociationState> {
     try {
       final result = switch (type) {
         ImportType.bookSource => await importService.importFromJson(
-              jsonEncode(items),
-            ),
+          jsonEncode(items),
+        ),
         ImportType.rssSource => await _importRss(type, items),
         ImportType.replaceRule => await _importReplaceRules(type, items),
         ImportType.theme => await _importTheme(type, items),
@@ -505,7 +501,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
     ImportType type,
     List<Map<String, dynamic>> items,
   ) async {
-    final n = await ref.read(httpTtsRepositoryProvider).importHttpTts(jsonEncode(items));
+    final n = await ref
+        .read(httpTtsRepositoryProvider)
+        .importHttpTts(jsonEncode(items));
     return ImportResult(
       total: items.length,
       success: n.clamp(0, items.length),
@@ -558,9 +556,8 @@ class AssociationNotifier extends Notifier<AssociationState> {
     final existing = await _readConfigList('txt_toc_rules');
     var nextId = existing.fold<int>(
       0,
-      (m, e) => ((e['id'] as num?)?.toInt() ?? 0) > m
-          ? (e['id'] as num).toInt()
-          : m,
+      (m, e) =>
+          ((e['id'] as num?)?.toInt() ?? 0) > m ? (e['id'] as num).toInt() : m,
     );
     var success = 0;
     final errors = <String>[];
@@ -614,5 +611,5 @@ class AssociationNotifier extends Notifier<AssociationState> {
 /// 关联导入 Notifier 全局 Provider
 final associationNotifierProvider =
     NotifierProvider<AssociationNotifier, AssociationState>(
-  AssociationNotifier.new,
-);
+      AssociationNotifier.new,
+    );

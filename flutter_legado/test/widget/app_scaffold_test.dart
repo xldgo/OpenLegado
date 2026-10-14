@@ -10,8 +10,7 @@
 //    （appBar==null / bottomNavigationBar!=null / backgroundColor==null /
 //    无 FAB），且结构（PageView + 五页签底栏）与迁移前一致。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,7 +35,10 @@ void main() {
             selectedIndex: 0,
             destinations: const [
               NavigationDestination(icon: Icon(Icons.home_rounded), label: '甲'),
-              NavigationDestination(icon: Icon(Icons.person_rounded), label: '乙'),
+              NavigationDestination(
+                icon: Icon(Icons.person_rounded),
+                label: '乙',
+              ),
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -89,7 +91,10 @@ void main() {
     const override = Color(0xFFABCDEF);
     await tester.pumpWidget(
       MaterialApp(
-        home: AppScaffold(backgroundColor: override, body: const SizedBox.expand()),
+        home: AppScaffold(
+          backgroundColor: override,
+          body: const SizedBox.expand(),
+        ),
       ),
     );
     expect(
@@ -132,12 +137,12 @@ void main() {
     }
 
     Map<String, Rect> capture() => {
-          'scaffold': tester.getRect(find.byType(Scaffold)),
-          'bar': tester.getRect(find.byType(AppBar)),
-          'body': tester.getRect(find.byKey(const ValueKey('body'))),
-          'bottom': tester.getRect(find.byKey(const ValueKey('bottom'))),
-          'fab': tester.getRect(find.byKey(const ValueKey('fab'))),
-        };
+      'scaffold': tester.getRect(find.byType(Scaffold)),
+      'bar': tester.getRect(find.byType(AppBar)),
+      'body': tester.getRect(find.byKey(const ValueKey('body'))),
+      'bottom': tester.getRect(find.byKey(const ValueKey('bottom'))),
+      'fab': tester.getRect(find.byKey(const ValueKey('fab'))),
+    };
 
     await tester.pumpWidget(MaterialApp(home: compose(false)));
     final raw = capture();
@@ -161,9 +166,12 @@ void main() {
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     when(() => mockApi.readRecordRepository)
         .thenReturn(MockReadRecordRepository());
@@ -183,9 +191,7 @@ void main() {
 
     // 迁移点 2：壳内 Scaffold 参数与迁移前逐项一致（5 页签容器）
     final scaffold = tester.widget<Scaffold>(
-      find
-          .descendant(of: homeShell, matching: find.byType(Scaffold))
-          .first,
+      find.descendant(of: homeShell, matching: find.byType(Scaffold)).first,
     );
     expect(scaffold.appBar, isNull); // 迁移前无 appBar
     expect(scaffold.bottomNavigationBar, isNotNull); // 底栏三形态装配

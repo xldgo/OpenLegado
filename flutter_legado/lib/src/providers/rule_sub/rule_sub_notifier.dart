@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -15,11 +14,7 @@ class RuleSubState {
   /// 订阅列表（按 customOrder 排序，与 Rust list_subs_db 一致）
   final List<RuleSub> subs;
 
-  const RuleSubState({
-    this.loading = false,
-    this.error,
-    this.subs = const [],
-  });
+  const RuleSubState({this.loading = false, this.error, this.subs = const []});
 
   RuleSubState copyWith({
     bool? loading,
@@ -75,10 +70,10 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
           : sub.copyWith(
               customOrder: state.subs.isEmpty
                   ? 1
-                  : state.subs.map((s) => s.customOrder).reduce(
-                        (a, b) => a > b ? a : b,
-                      ) +
-                      1,
+                  : state.subs
+                            .map((s) => s.customOrder)
+                            .reduce((a, b) => a > b ? a : b) +
+                        1,
               createdAt: sub.createdAt > 0
                   ? sub.createdAt
                   : DateTime.now().millisecondsSinceEpoch,
@@ -142,8 +137,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
 
   /// 应用更新（契约 §2.39 ApplyUpdate：success / items* / error）
   Future<Map<String, dynamic>> applyUpdate(int id) async {
-    final result =
-        await ref.read(bookApiProvider).ruleSubApplyUpdate(id: id);
+    final result = await ref.read(bookApiProvider).ruleSubApplyUpdate(id: id);
     // 应用成功后 Rust 已回写版本号与最后更新时间，刷新列表
     if (result['success'] == true) await loadSubs();
     return result;
@@ -157,5 +151,6 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
 }
 
 /// 规则订阅 Notifier 全局 Provider
-final ruleSubNotifierProvider =
-    NotifierProvider<RuleSubNotifier, RuleSubState>(RuleSubNotifier.new);
+final ruleSubNotifierProvider = NotifierProvider<RuleSubNotifier, RuleSubState>(
+  RuleSubNotifier.new,
+);

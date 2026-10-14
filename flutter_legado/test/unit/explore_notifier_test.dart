@@ -2,8 +2,7 @@
 //
 // 覆盖：初始状态/loadBookSources 过滤/分组收集/搜索过滤/分组过滤/
 // uninstallSource/refresh/loadCategories（exploreParseUrl 缓存）
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -41,7 +40,8 @@ void main() {
 
   group('ExploreNotifier 初始状态', () {
     test('初始书源列表为空且各展示字段为默认值', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -91,15 +91,22 @@ void main() {
           bookSourceGroup: '都市',
         ),
       ];
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
 
       container.read(exploreNotifierProvider);
       await pumpInit();
 
       // 只保留 s1 和 s5
       expect(readState().bookSources.length, equals(2));
-      expect(readState().bookSources[0].bookSourceUrl, equals('https://s1.com'));
-      expect(readState().bookSources[1].bookSourceUrl, equals('https://s5.com'));
+      expect(
+        readState().bookSources[0].bookSourceUrl,
+        equals('https://s1.com'),
+      );
+      expect(
+        readState().bookSources[1].bookSourceUrl,
+        equals('https://s5.com'),
+      );
       expect(readState().isLoading, isFalse);
       expect(readState().error, isNull);
     });
@@ -128,7 +135,8 @@ void main() {
           bookSourceGroup: null, // 无分组
         ),
       ];
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -137,7 +145,8 @@ void main() {
     });
 
     test('加载失败时设置错误', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenThrow(Exception('网络异常'));
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenThrow(Exception('网络异常'));
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -173,7 +182,8 @@ void main() {
     ];
 
     setUp(() async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       container.read(exploreNotifierProvider);
       await pumpInit();
     });
@@ -245,7 +255,8 @@ void main() {
     ];
 
     setUp(() async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       container.read(exploreNotifierProvider);
       await pumpInit();
     });
@@ -297,8 +308,10 @@ void main() {
           exploreUrl: 'https://s2.com/e',
         ),
       ];
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
-      when(() => mockApi.bookSourceRepository.deleteBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
+          .thenAnswer((_) async {});
 
       container.read(exploreNotifierProvider);
       await pumpInit();
@@ -306,7 +319,10 @@ void main() {
 
       expect(result, isTrue);
       expect(readState().bookSources.length, equals(1));
-      expect(readState().bookSources.first.bookSourceUrl, equals('https://s2.com'));
+      expect(
+        readState().bookSources.first.bookSourceUrl,
+        equals('https://s2.com'),
+      );
     });
 
     test('卸载失败返回 false 并设置错误', () async {
@@ -318,7 +334,8 @@ void main() {
           exploreUrl: 'https://s1.com/e',
         ),
       ];
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
           .thenThrow(Exception('删除失败'));
 
@@ -335,20 +352,23 @@ void main() {
 
   group('ExploreNotifier refresh', () {
     test('refresh 重新加载书源', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-            const BookSource(
-              bookSourceUrl: 'https://s1.com',
-              bookSourceName: '源1',
-              enabledExplore: true,
-              exploreUrl: 'https://s1.com/e',
-            ),
-          ]);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => [
+          const BookSource(
+            bookSourceUrl: 'https://s1.com',
+            bookSourceName: '源1',
+            enabledExplore: true,
+            exploreUrl: 'https://s1.com/e',
+          ),
+        ],
+      );
 
       container.read(exploreNotifierProvider);
       await pumpInit();
       expect(readState().bookSources.length, equals(1));
 
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       await readNotifier().refresh();
 
       expect(readState().bookSources, isEmpty);
@@ -364,11 +384,14 @@ void main() {
     );
 
     test('成功解析并缓存分类', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenAnswer(
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenAnswer(
         (_) async => const [
           ExploreCategory(title: '玄幻', url: 'https://s1.com/xuanhuan'),
           ExploreCategory(title: '都市', url: 'https://s1.com/dushi'),
@@ -388,7 +411,8 @@ void main() {
     });
 
     test('exploreUrl 为空时缓存空分类且不调用 API', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -401,38 +425,46 @@ void main() {
       await readNotifier().loadCategories(noExplore);
 
       expect(readState().categoriesFor('https://s2.com'), isEmpty);
-      verifyNever(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          ));
+      verifyNever(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      );
     });
 
     test('幂等：已缓存时不重复请求', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenAnswer(
-        (_) async => const [ExploreCategory(title: '玄幻', url: 'u')],
-      );
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenAnswer((_) async => const [ExploreCategory(title: '玄幻', url: 'u')]);
       container.read(exploreNotifierProvider);
       await pumpInit();
 
       await readNotifier().loadCategories(source);
       await readNotifier().loadCategories(source);
 
-      verify(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).called(1);
+      verify(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).called(1);
     });
 
     test('解析失败时展示 ERROR 分类（对齐 Android）', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenThrow(Exception('解析失败'));
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenThrow(Exception('解析失败'));
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -446,12 +478,15 @@ void main() {
     });
 
     test('ERROR 缓存失败后可重试（非幂等阻塞）', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       var calls = 0;
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenAnswer((_) async {
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenAnswer((_) async {
         calls++;
         if (calls == 1) {
           throw Exception('首次失败');
@@ -471,11 +506,14 @@ void main() {
     });
 
     test('@js: 书源传递 sourceJson', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenAnswer(
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenAnswer(
         (_) async => const [ExploreCategory(title: '热门', url: '/hot')],
       );
       container.read(exploreNotifierProvider);
@@ -489,21 +527,26 @@ void main() {
       );
       await readNotifier().loadCategories(jsSource);
 
-      final captured = verify(() => mockApi.exploreParseUrl(
-            captureAny(),
-            sourceJson: captureAny(named: 'sourceJson'),
-          )).captured;
+      final captured = verify(
+        () => mockApi.exploreParseUrl(
+          captureAny(),
+          sourceJson: captureAny(named: 'sourceJson'),
+        ),
+      ).captured;
       expect(captured[0], jsSource.exploreUrl);
       expect(captured[1], contains('"bookSourceUrl"'));
       expect(captured[1], contains('https://js.example.com'));
     });
 
     test('reloadCategories 强制重新解析', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
-      when(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).thenAnswer(
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).thenAnswer(
         (_) async => const [ExploreCategory(title: '榜单', url: '/rank')],
       );
       when(() => mockApi.exploreInfoMapEnsureDefault(any(), any(), any()))
@@ -520,10 +563,12 @@ void main() {
       await readNotifier().loadCategories(source);
       await readNotifier().reloadCategories(source);
 
-      verify(() => mockApi.exploreParseUrl(
-            any(),
-            sourceJson: any(named: 'sourceJson'),
-          )).called(2);
+      verify(
+        () => mockApi.exploreParseUrl(
+          any(),
+          sourceJson: any(named: 'sourceJson'),
+        ),
+      ).called(2);
     });
   });
 }

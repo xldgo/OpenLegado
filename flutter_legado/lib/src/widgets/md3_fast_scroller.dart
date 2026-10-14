@@ -66,11 +66,13 @@ class _Md3FastScrollerState extends State<Md3FastScroller> {
             final position = widget.controller.position;
             final viewport = position.viewportDimension;
             final trackHeight = viewport - 16;
-            final thumbHeight = (viewport * viewport /
-                    (position.maxScrollExtent + viewport))
-                .clamp(48.0, trackHeight);
-            final fraction =
-                (position.pixels / position.maxScrollExtent).clamp(0.0, 1.0);
+            final thumbHeight =
+                (viewport * viewport / (position.maxScrollExtent + viewport))
+                    .clamp(48.0, trackHeight);
+            final fraction = (position.pixels / position.maxScrollExtent).clamp(
+              0.0,
+              1.0,
+            );
             final thumbTop = 8 + fraction * (trackHeight - thumbHeight);
 
             return Positioned(

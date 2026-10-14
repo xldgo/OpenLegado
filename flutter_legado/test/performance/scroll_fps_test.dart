@@ -17,8 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// - 列表项使用与搜索结果/RSS 列表一致的"RepaintBoundary + ValueKey"结构，
 ///   验证 §4.2 列表渲染优化的实际收益。
 void main() {
-  testWidgets('列表滚动基准：平均帧耗时 < 16.7ms（估算 > 55 FPS）',
-      (tester) async {
+  testWidgets('列表滚动基准：平均帧耗时 < 16.7ms（估算 > 55 FPS）', (tester) async {
     // 构建 200 项的长列表（模拟搜索结果/RSS 文章列表规模）
     final items = List.generate(200, (i) => '列表项 $i');
 
@@ -27,7 +26,8 @@ void main() {
         home: Scaffold(
           body: ListView.builder(
             // 与生产代码一致的预缓存范围
-            scrollCacheExtent: ScrollCacheExtent.pixels(300), itemCount: items.length,
+            scrollCacheExtent: ScrollCacheExtent.pixels(300),
+            itemCount: items.length,
             itemBuilder: (context, index) {
               // 与 search_screen/rss_articles_screen 一致：
               // RepaintBoundary 隔离 + 稳定 ValueKey
@@ -48,11 +48,7 @@ void main() {
     final frameDurations = <int>[];
     final stopwatch = Stopwatch();
 
-    await tester.fling(
-      find.byType(ListView),
-      const Offset(0, -800),
-      1200,
-    );
+    await tester.fling(find.byType(ListView), const Offset(0, -800), 1200);
 
     // 滚动动画持续期间逐帧采样
     for (var i = 0; i < 40; i++) {
@@ -76,15 +72,18 @@ void main() {
 
     // 记录实际基线数据
     // ignore: avoid_print
-    print('[性能基线][列表滚动] 平均帧耗时: ${avgMs.toStringAsFixed(2)}ms, '
-        '最大帧耗时: ${maxMs.toStringAsFixed(2)}ms, '
-        '估算帧率: ${estimatedFps.toStringAsFixed(1)} FPS（目标 > 55 FPS）');
+    print(
+      '[性能基线][列表滚动] 平均帧耗时: ${avgMs.toStringAsFixed(2)}ms, '
+      '最大帧耗时: ${maxMs.toStringAsFixed(2)}ms, '
+      '估算帧率: ${estimatedFps.toStringAsFixed(1)} FPS（目标 > 55 FPS）',
+    );
 
     // 基准断言：平均帧耗时应 < 16.7ms（对应 60 FPS 的帧预算）
     expect(
       avgMs,
       lessThan(16.7),
-      reason: '列表滚动平均帧耗时 ${avgMs.toStringAsFixed(2)}ms 超过 16.7ms 帧预算，'
+      reason:
+          '列表滚动平均帧耗时 ${avgMs.toStringAsFixed(2)}ms 超过 16.7ms 帧预算，'
           '建议检查列表项 build 复杂度或补充 RepaintBoundary',
     );
   });
@@ -96,7 +95,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ListView.builder(
-            scrollCacheExtent: ScrollCacheExtent.pixels(300), itemCount: items.length,
+            scrollCacheExtent: ScrollCacheExtent.pixels(300),
+            itemCount: items.length,
             itemBuilder: (context, index) {
               final item = _ListItem(
                 key: ValueKey(items[index]),

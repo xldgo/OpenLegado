@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../services/bottom_bar_skin_service.dart';
 
@@ -71,5 +70,5 @@ class BottomBarSkinNotifier extends Notifier<BottomBarSkinState> {
 
 final bottomBarSkinProvider =
     NotifierProvider<BottomBarSkinNotifier, BottomBarSkinState>(
-  BottomBarSkinNotifier.new,
-);
+      BottomBarSkinNotifier.new,
+    );

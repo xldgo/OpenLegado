@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
@@ -22,16 +21,13 @@ const kDefaultRssSourcesAsset = 'assets/default_data/rssSources.json';
 /// 删除 `sourceGroup == legado` 后灌入 assets 默认源，返回导入条数。
 ///
 /// [jsonOverride] 仅用于单测注入，生产路径传 null 走 assets。
-Future<int> syncDefaultRssSources(
-  BookApi api, {
-  String? jsonOverride,
-}) async {
+Future<int> syncDefaultRssSources(BookApi api, {String? jsonOverride}) async {
   final existing = await api.getRssSources();
   for (final s in existing.where((e) => e.sourceGroup == 'legado')) {
     await api.deleteRssSource(s.sourceUrl);
   }
-  final text = jsonOverride ??
-      await rootBundle.loadString(kDefaultRssSourcesAsset);
+  final text =
+      jsonOverride ?? await rootBundle.loadString(kDefaultRssSourcesAsset);
   return api.importRssSources(text);
 }
 
@@ -126,10 +122,7 @@ class RssNotifier extends Notifier<RssState> {
     state = state.copyWith(error: null);
 
     try {
-      final newSource = RssSource(
-        sourceUrl: url,
-        sourceName: name,
-      );
+      final newSource = RssSource(sourceUrl: url, sourceName: name);
       final api = ref.read(bookApiProvider);
       final added = await api.addRssSource(newSource);
       state = state.copyWith(sources: [...state.sources, added]);
@@ -146,8 +139,7 @@ class RssNotifier extends Notifier<RssState> {
       final api = ref.read(bookApiProvider);
       await api.deleteRssSource(sourceUrl);
       var next = state.copyWith(
-        sources:
-            state.sources.where((s) => s.sourceUrl != sourceUrl).toList(),
+        sources: state.sources.where((s) => s.sourceUrl != sourceUrl).toList(),
       );
       if (state.selectedSource?.sourceUrl == sourceUrl) {
         // 对齐原 clearSelectedSource：清除选中源与文章

@@ -74,7 +74,9 @@ void main() {
 
   group('失败章查询真实 DLL 运行时验证（契约 §2.43.8）', () {
     test('FFI：无任务书返回 JSON 空数组 `[]`（整型数组形态）', () async {
-      final json = await bridge.cacheDownloadFailedChapters(bookUrl: noTaskBook);
+      final json = await bridge.cacheDownloadFailedChapters(
+        bookUrl: noTaskBook,
+      );
       expect(json, '[]', reason: '无失败应返回空 JSON 数组');
       final decoded = jsonDecode(json);
       expect(decoded, isA<List<dynamic>>(), reason: '应为 JSON 数组');
@@ -102,7 +104,9 @@ void main() {
     test('Dart 封装可达且零写入：RustApi.listFailedChapters 重复调用恒定空', () async {
       expect(await api.listFailedChapters(noTaskBook), isEmpty);
       expect(await api.listFailedChapters(noTaskBook), isEmpty);
-      final json = await bridge.cacheDownloadFailedChapters(bookUrl: noTaskBook);
+      final json = await bridge.cacheDownloadFailedChapters(
+        bookUrl: noTaskBook,
+      );
       expect(json, '[]', reason: '查询为纯读，重复调用不得改写任务快照');
     });
   });

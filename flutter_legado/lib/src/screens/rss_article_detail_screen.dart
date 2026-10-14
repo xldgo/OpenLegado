@@ -7,8 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -132,14 +132,17 @@ class _RssArticleDetailScreenState
       if (!mounted) return;
       setState(() => _isStarred = !_isStarred);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isStarred ? context.l10n.favorited : context.l10n.unfavorited,
+        SnackBar(
+          content: Text(
+            _isStarred ? context.l10n.favorited : context.l10n.unfavorited,
           ),
         ),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.favoriteOperationFailed(e.toString())),
+          SnackBar(
+            content: Text(context.l10n.favoriteOperationFailed(e.toString())),
           ),
         );
       }
@@ -320,9 +323,11 @@ $htmlContent
         actions: [
           // [UI-fix v2.0.2 | 2026-08-06] 收藏入口（对标原版 menu_rss_star）— Qoder
           IconButton(
-            icon: Icon(_isStarred ? Symbols.star_rounded : Symbols.star_rounded,
+            icon: Icon(
+              _isStarred ? Symbols.star_rounded : Symbols.star_rounded,
             ),
-            tooltip: _isStarred ? context.l10n.unfavoriteAction
+            tooltip: _isStarred
+                ? context.l10n.unfavoriteAction
                 : context.l10n.favoriteAction,
             onPressed: _starBusy ? null : _toggleStar,
           ),
@@ -332,7 +337,8 @@ $htmlContent
               icon: Icon(
                 _useWebView ? Symbols.article_rounded : Symbols.web_rounded,
               ),
-              tooltip: _useWebView ? context.l10n.switchToPlainText
+              tooltip: _useWebView
+                  ? context.l10n.switchToPlainText
                   : context.l10n.switchToWebView,
               onPressed: _toggleViewMode,
             ),
@@ -406,8 +412,10 @@ $htmlContent
             children: [
               if (widget.article.pubDate != null &&
                   widget.article.pubDate!.isNotEmpty) ...[
-                Icon(Symbols.schedule_rounded,
-                    size: 14, color: colorScheme.onSurfaceVariant,
+                Icon(
+                  Symbols.schedule_rounded,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -421,8 +429,10 @@ $htmlContent
               ],
               if (widget.sourceName.isNotEmpty) ...[
                 const SizedBox(width: 12),
-                Icon(Symbols.rss_feed_rounded,
-                    size: 14, color: colorScheme.onSurfaceVariant,
+                Icon(
+                  Symbols.rss_feed_rounded,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -514,8 +524,7 @@ $htmlContent
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Symbols.error_rounded,
-                  size: 48, color: colorScheme.error),
+              Icon(Symbols.error_rounded, size: 48, color: colorScheme.error),
               const SizedBox(height: 12),
               Text(
                 context.l10n.webViewLoadFailed,
@@ -553,8 +562,7 @@ $htmlContent
         if (_isWebLoading)
           Container(
             color: theme.scaffoldBackgroundColor.withAlpha(200),
-            child: const Center(
-              child: CircularProgressIndicator()),
+            child: const Center(child: CircularProgressIndicator()),
           ),
       ],
     );
@@ -586,8 +594,10 @@ $htmlContent
               ),
               child: Row(
                 children: [
-                  Icon(Symbols.info_rounded,
-                      size: 16, color: theme.colorScheme.onSurfaceVariant,
+                  Icon(
+                    Symbols.info_rounded,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
                   Expanded(

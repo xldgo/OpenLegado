@@ -7,8 +7,7 @@
 // 必须用 container.listen 维持订阅，否则 read 后实例立即被销毁。
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -168,9 +167,9 @@ void main() {
       var callCount = 0;
       when(() => mockApi.exploreFetchBooks(any(), any(), any()))
           .thenAnswer((_) async {
-        callCount++;
-        return callCount == 1 ? books1 : books2;
-      });
+            callCount++;
+            return callCount == 1 ? books1 : books2;
+          });
 
       spawn();
       await pumpInit();
@@ -229,9 +228,9 @@ void main() {
       var callCount = 0;
       when(() => mockApi.exploreFetchBooks(any(), any(), any()))
           .thenAnswer((_) async {
-        callCount++;
-        return makeBooks(2, startId: callCount * 10);
-      });
+            callCount++;
+            return makeBooks(2, startId: callCount * 10);
+          });
 
       spawn();
       await pumpInit();
@@ -248,9 +247,9 @@ void main() {
     test('skipToPage 跳页后仅展示目标页数据', () async {
       when(() => mockApi.exploreFetchBooks(any(), any(), any()))
           .thenAnswer((invocation) async {
-        final page = invocation.positionalArguments[2] as int;
-        return makeBooks(3, startId: page * 10);
-      });
+            final page = invocation.positionalArguments[2] as int;
+            return makeBooks(3, startId: page * 10);
+          });
 
       spawn();
       await pumpInit();

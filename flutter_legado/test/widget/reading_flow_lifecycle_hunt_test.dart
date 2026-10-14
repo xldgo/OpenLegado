@@ -56,11 +56,13 @@ void main() {
     when(() => api.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
     when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
-    when(() => api.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
     when(() => api.getConfig(any())).thenAnswer((_) async => '');
     // [P2-30] 退出判定现查 DB 在架状态：桩「已入架」记录（notShelf 位未置）
     // 使退出走直接退出路径（不弹「放入书架」框），C3b 的落库断言语义不变
-    when(() => api.bookshelfRepository.getBook(any())).thenAnswer((_) async => _book);
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => _book);
     when(
       () => api.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),

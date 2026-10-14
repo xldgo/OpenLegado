@@ -32,7 +32,17 @@ void main() {
     });
 
     test('四断点在任意宽度下恰好命中一类', () {
-      for (final w in <double>[0.0, 320, 400, 599.9, 600, 840, 1024, 1200, 2560]) {
+      for (final w in <double>[
+        0.0,
+        320,
+        400,
+        599.9,
+        600,
+        840,
+        1024,
+        1200,
+        2560,
+      ]) {
         final hits = [
           Responsive.isCompact(w),
           Responsive.isMedium(w),

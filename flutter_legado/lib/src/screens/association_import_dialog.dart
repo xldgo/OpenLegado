@@ -1,12 +1,12 @@
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
@@ -82,10 +82,9 @@ class _AssociationImportDialogState
       _urlController.text = url;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(associationNotifierProvider.notifier).bootstrapFromDeepLink(
-              type: widget.type,
-              srcUrl: url,
-            );
+        ref
+            .read(associationNotifierProvider.notifier)
+            .bootstrapFromDeepLink(type: widget.type, srcUrl: url);
       });
     }
   }
@@ -118,9 +117,8 @@ class _AssociationImportDialogState
   Future<void> _loadFromInput() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先输入内容地址')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先输入内容地址')));
       return;
     }
     final notifier = ref.read(associationNotifierProvider.notifier);
@@ -224,9 +222,8 @@ class _AssociationImportDialogState
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: json));
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('已复制到剪贴板')),
-                );
+                ScaffoldMessenger.of(ctx)
+                    .showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
               }
             },
             child: const Text('复制'),
@@ -302,7 +299,10 @@ class _AssociationImportDialogState
   Future<void> _ensureLocalBookSources() async {
     if (_localBookSources != null) return;
     try {
-      final list = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
+      final list = await ref
+          .read(bookApiProvider)
+          .bookSourceRepository
+          .getBookSources();
       _localBookSources = {for (final s in list) s.bookSourceUrl: s};
     } catch (_) {
       _localBookSources = const {};
@@ -358,7 +358,13 @@ class _AssociationImportDialogState
         title: const Text('导入完成'),
         content: SizedBox(
           width: double.maxFinite,
-          child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: contentChildren)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: contentChildren,
+            ),
+          ),
         ),
         actions: [
           FilledButton(
@@ -385,9 +391,7 @@ class _AssociationImportDialogState
     return Dialog(
       // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
       backgroundColor: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
         // 宽近全宽（对齐原版 MATCH_PARENT），桌面端限宽；高不超过 85% 屏高
@@ -405,25 +409,25 @@ class _AssociationImportDialogState
               child: switch (state.phase) {
                 AssociationPhase.idle => _buildIdle(),
                 AssociationPhase.loading => const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(),
-                    ),
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
                   ),
+                ),
                 AssociationPhase.error => _buildError(state.error!),
                 AssociationPhase.ready => ListView.separated(
-                    shrinkWrap: true,
-                    // [LAYOUT_PLAN P3] 列表纵向留白 8dp；行 horizontal8 见 _buildItem
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: state.items.length,
-                    separatorBuilder: (_, _) => Divider(
-                        height: 1,
-                        indent: 16,
-                        thickness: 0.5,
-                        color: hairline),
-                    itemBuilder: (context, index) =>
-                        _buildItem(state, index),
+                  shrinkWrap: true,
+                  // [LAYOUT_PLAN P3] 列表纵向留白 8dp；行 horizontal8 见 _buildItem
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: state.items.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    indent: 16,
+                    thickness: 0.5,
+                    color: hairline,
                   ),
+                  itemBuilder: (context, index) => _buildItem(state, index),
+                ),
               },
             ),
             if (state.phase == AssociationPhase.ready) ...[
@@ -457,9 +461,11 @@ class _AssociationImportDialogState
                   state.type == ImportType.replaceRule))
             TextButton(
               onPressed: _showCustomGroupDialog,
-              child: Text(_groupName == null
-                  ? '自定义分组'
-                  : '${_isAddGroup ? '+' : ''}$_groupName'),
+              child: Text(
+                _groupName == null
+                    ? '自定义分组'
+                    : '${_isAddGroup ? '+' : ''}$_groupName',
+              ),
             ),
           // bookSource 更多选项（对标 import_source.xml）
           if (state.phase == AssociationPhase.ready &&
@@ -469,14 +475,8 @@ class _AssociationImportDialogState
               // [LAYOUT_PLAN P3] 菜单在顶栏下方展开，不覆盖顶栏（对齐 P2 规范）
               onSelected: _handleMenu,
               itemBuilder: (_) => [
-                const AppMenuItem(
-                  value: 'select_new',
-                  child: Text('选中新增源'),
-                ),
-                const AppMenuItem(
-                  value: 'select_update',
-                  child: Text('选中更新源'),
-                ),
+                const AppMenuItem(value: 'select_new', child: Text('选中新增源')),
+                const AppMenuItem(value: 'select_update', child: Text('选中更新源')),
                 const AppMenuDivider(),
                 AppMenuItem(
                   value: 'keep_name',
@@ -636,8 +636,7 @@ class _AssociationImportDialogState
         : item.name;
 
     // 注释：bookSource/rss 由菜单开关控制；txtTocRule 的 example 常显且可点按展开
-    final showComment =
-        state.type == ImportType.txtTocRule || _showComment;
+    final showComment = state.type == ImportType.txtTocRule || _showComment;
     final comment = item.comment;
 
     return InkWell(
@@ -649,8 +648,7 @@ class _AssociationImportDialogState
           children: [
             Checkbox(
               value: _selected[index],
-              onChanged: (v) =>
-                  setState(() => _selected[index] = v ?? false),
+              onChanged: (v) => setState(() => _selected[index] = v ?? false),
             ),
             Expanded(
               child: Column(
@@ -678,7 +676,8 @@ class _AssociationImportDialogState
                             : null,
                         child: Text(
                           comment,
-                          maxLines: state.type == ImportType.txtTocRule &&
+                          maxLines:
+                              state.type == ImportType.txtTocRule &&
                                   _exampleExpanded.contains(index)
                               ? 39
                               : 3,
@@ -698,9 +697,7 @@ class _AssociationImportDialogState
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   label,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelMedium
+                  style: Theme.of(context).textTheme.labelMedium
                       ?.copyWith(color: color),
                 ),
               ),
@@ -750,8 +747,7 @@ class _AssociationImportDialogState
               padding: const EdgeInsets.symmetric(horizontal: 8),
               visualDensity: VisualDensity.compact,
             ),
-            onPressed:
-                _importing ? null : () => Navigator.of(context).pop(),
+            onPressed: _importing ? null : () => Navigator.of(context).pop(),
             child: const Text('取消'),
           ),
           const SizedBox(width: 8),
@@ -759,10 +755,9 @@ class _AssociationImportDialogState
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
-            onPressed:
-                _importing || _selectCount == 0
-                    ? null
-                    : () => _confirmImport(state),
+            onPressed: _importing || _selectCount == 0
+                ? null
+                : () => _confirmImport(state),
             child: _importing
                 ? const SizedBox(
                     width: 16,

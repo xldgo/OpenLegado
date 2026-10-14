@@ -6,10 +6,10 @@ import 'package:flutter_legado/src/widgets/md3_animated_text_line.dart';
 
 void main() {
   Widget wrap(String text) => MaterialApp(
-        home: Scaffold(
-          body: Center(child: Md3AnimatedTextLine(text: text)),
-        ),
-      );
+    home: Scaffold(
+      body: Center(child: Md3AnimatedTextLine(text: text)),
+    ),
+  );
 
   testWidgets('初始渲染文本', (tester) async {
     await tester.pumpWidget(wrap('1'));

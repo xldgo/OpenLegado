@@ -78,10 +78,7 @@ class GridSkeletonItem extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(
-            height: 180,
-            borderRadius: 16,
-          ),
+          SkeletonBox(height: 180, borderRadius: 16),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(

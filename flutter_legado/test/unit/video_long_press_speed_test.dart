@@ -106,14 +106,17 @@ void main() {
     testWidgets('播放中长按 → 提速一次；松手 → 恢复一次', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: true,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: true,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
-      final gesture =
-          await tester.startGesture(tester.getCenter(find.byKey(_areaKey)));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_areaKey)),
+      );
       await tester.pump(const Duration(milliseconds: 700));
       expect(speedUp, 1, reason: '长按应触发临时提速');
       expect(restore, 0, reason: '按住期间不恢复');
@@ -127,14 +130,17 @@ void main() {
     testWidgets('非播放中（enabled=false）长按不触发提速', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: false,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: false,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
-      final gesture =
-          await tester.startGesture(tester.getCenter(find.byKey(_areaKey)));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_areaKey)),
+      );
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.up();
       await tester.pump();
@@ -145,11 +151,13 @@ void main() {
     testWidgets('未长按的点击/轻触不触发恢复', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: true,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: true,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
       await tester.tap(find.byKey(_areaKey));
       await tester.pump();

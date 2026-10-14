@@ -60,10 +60,10 @@ class RuleSub {
 
   /// 类型标签（对标原版 arrays.xml rule_type：书源/订阅源/替换规则）
   String get typeLabel => switch (subType) {
-        rssSource => '订阅源',
-        replaceRule => '替换规则',
-        _ => '书源',
-      };
+    rssSource => '订阅源',
+    replaceRule => '替换规则',
+    _ => '书源',
+  };
 
   factory RuleSub.fromJson(Map<String, dynamic> json) {
     return RuleSub(
@@ -91,19 +91,19 @@ class RuleSub {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'url': url,
-        'name': name,
-        'sub_type': subType,
-        'last_update': lastUpdate,
-        'version': version,
-        'is_enabled': isEnabled,
-        'created_at': createdAt,
-        'customOrder': customOrder,
-        'autoUpdate': autoUpdate,
-        'updateInterval': updateInterval,
-        'silentUpdate': silentUpdate,
-      };
+    'id': id,
+    'url': url,
+    'name': name,
+    'sub_type': subType,
+    'last_update': lastUpdate,
+    'version': version,
+    'is_enabled': isEnabled,
+    'created_at': createdAt,
+    'customOrder': customOrder,
+    'autoUpdate': autoUpdate,
+    'updateInterval': updateInterval,
+    'silentUpdate': silentUpdate,
+  };
 
   RuleSub copyWith({
     int? id,

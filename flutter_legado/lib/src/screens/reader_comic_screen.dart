@@ -11,6 +11,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../services/bridge_http.dart';
 
 import '../models/models.dart';
@@ -340,9 +341,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     unawaited(bridge.setVolumeKeyCapture(false));
     // 退出前保存阅读进度
     unawaited(_saveProgress());
-    unawaited(SystemBrightness.setFollowSystem(true).catchError((Object error) {
-      debugPrint('退出漫画阅读时恢复系统亮度失败: $error');
-    }));
+    unawaited(
+      SystemBrightness.setFollowSystem(true).catchError((Object error) {
+        debugPrint('退出漫画阅读时恢复系统亮度失败: $error');
+      }),
+    );
     super.dispose();
   }
 
@@ -366,23 +369,27 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // [P4-3 M4 批2] 行为开关组 9 键（缺省语义：disableMangaScale /
       // volumeKeyPage / mangaLongClickSaveImage 三键缺省 → true（对齐
       // AppConfig.kt 默认值），其余缺省 → false；背景色缺省 → 黑）
-      final clickScrollRaw =
-          await api.getConfig(MangaConfigKeys.disableClickScroll);
-      final scaleRaw2 =
-          await api.getConfig(MangaConfigKeys.disableMangaScale);
-      final pageAnimRaw =
-          await api.getConfig(MangaConfigKeys.disableMangaPageAnim);
-      final hideTitleRaw =
-          await api.getConfig(MangaConfigKeys.hideMangaTitle);
+      final clickScrollRaw = await api.getConfig(
+        MangaConfigKeys.disableClickScroll,
+      );
+      final scaleRaw2 = await api.getConfig(MangaConfigKeys.disableMangaScale);
+      final pageAnimRaw = await api.getConfig(
+        MangaConfigKeys.disableMangaPageAnim,
+      );
+      final hideTitleRaw = await api.getConfig(MangaConfigKeys.hideMangaTitle);
       final volKeyRaw = await api.getConfig(MangaConfigKeys.volumeKeyPage);
-      final revVolKeyRaw =
-          await api.getConfig(MangaConfigKeys.reverseVolumeKeyPage);
-      final clickActionsRaw =
-          await api.getConfig(MangaConfigKeys.mangaClickActions);
-      final longClickSaveRaw =
-          await api.getConfig(MangaConfigKeys.mangaLongClickSaveImage);
-      final crossFadeRaw =
-          await api.getConfig(MangaConfigKeys.disableMangaCrossFade);
+      final revVolKeyRaw = await api.getConfig(
+        MangaConfigKeys.reverseVolumeKeyPage,
+      );
+      final clickActionsRaw = await api.getConfig(
+        MangaConfigKeys.mangaClickActions,
+      );
+      final longClickSaveRaw = await api.getConfig(
+        MangaConfigKeys.mangaLongClickSaveImage,
+      );
+      final crossFadeRaw = await api.getConfig(
+        MangaConfigKeys.disableMangaCrossFade,
+      );
       final bgRaw = await api.getConfig(MangaConfigKeys.mangaBgColor);
       if (!mounted) return;
       setState(() {
@@ -404,8 +411,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         _hideMangaTitle = hideTitleRaw == 'true';
         _volumeKeyPage = volKeyRaw == null ? true : volKeyRaw == 'true';
         _reverseVolumeKeyPage = revVolKeyRaw == 'true';
-        _mangaLongClickSaveImage =
-            longClickSaveRaw == null ? true : longClickSaveRaw == 'true';
+        _mangaLongClickSaveImage = longClickSaveRaw == null
+            ? true
+            : longClickSaveRaw == 'true';
         _disableMangaCrossFade = crossFadeRaw == 'true';
         _mangaBgColor = MangaBgColors.parse(bgRaw);
         // [P4-3 M5] 九区点击动作（缺省/非法回参考版默认配置）
@@ -457,7 +465,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _globalScrollMode = v;
     _applyEffectiveMangaScope();
     try {
-      await ref.read(bookApiProvider)
+      await ref
+          .read(bookApiProvider)
           .setConfig(MangaConfigKeys.scrollMode, '$v');
     } catch (_) {}
   }
@@ -506,7 +515,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final updated = List<int>.from(_clickActions)..[index] = next;
     if (mounted) setState(() => _clickActions = updated);
     try {
-      await ref.read(bookApiProvider).setConfig(
+      await ref
+          .read(bookApiProvider)
+          .setConfig(
             MangaConfigKeys.mangaClickActions,
             MangaClickActions.serialize(updated),
           );
@@ -520,7 +531,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (mounted) setState(() => _autoReadSpeed = v);
     _restartAutoReadTimer();
     try {
-      await ref.read(bookApiProvider)
+      await ref
+          .read(bookApiProvider)
           .setConfig(MangaConfigKeys.autoReadSpeed, '$v');
     } catch (_) {}
   }
@@ -532,7 +544,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (v == _pageScaleType) return;
     if (mounted) setState(() => _pageScaleType = v);
     try {
-      await ref.read(bookApiProvider)
+      await ref
+          .read(bookApiProvider)
           .setConfig(MangaConfigKeys.pageScaleType, '$v');
     } catch (_) {}
   }
@@ -546,7 +559,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _globalSidePadding = v;
     _applyEffectiveMangaScope();
     try {
-      await ref.read(bookApiProvider)
+      await ref
+          .read(bookApiProvider)
           .setConfig(MangaConfigKeys.sidePadding, '$v');
     } catch (_) {}
   }
@@ -559,8 +573,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final v = value == null
         ? null
         : (MangaScrollModes.valid.contains(value)
-            ? value
-            : MangaScrollModes.defaultValue);
+              ? value
+              : MangaScrollModes.defaultValue);
     if (!await _updateBookReadConfigField('mangaScrollMode', v)) return;
     _bookScrollMode = v;
     _applyEffectiveMangaScope();
@@ -618,9 +632,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     apply(value);
     if (mounted) setState(() {});
     try {
-      await ref
-          .read(bookApiProvider)
-          .setConfig(key, value ? 'true' : 'false');
+      await ref.read(bookApiProvider).setConfig(key, value ? 'true' : 'false');
     } catch (_) {}
   }
 
@@ -631,7 +643,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (argb == _mangaBgColor) return;
     if (mounted) setState(() => _mangaBgColor = argb);
     try {
-      await ref.read(bookApiProvider).setConfig(MangaConfigKeys.mangaBgColor, '$argb');
+      await ref
+          .read(bookApiProvider)
+          .setConfig(MangaConfigKeys.mangaBgColor, '$argb');
     } catch (_) {}
   }
 
@@ -695,7 +709,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     }
     // [P4-3 W2-fix P1-1①] 逐周期滚动部分距离（remaining 不足一周期时
     // 滚到章末），章末后延迟 500ms 切下一章（参考版 delay(500L)）
-    final target = position.pixels +
+    final target =
+        position.pixels +
         (remaining >= MangaAutoRead.webtoonScrollPx
             ? MangaAutoRead.webtoonScrollPx
             : remaining);
@@ -849,10 +864,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     );
     setState(() {});
     try {
-      await ref.read(bookApiProvider).setConfig(
-            MangaConfigKeys.colorFilter,
-            _colorFilter.toStorage(),
-          );
+      await ref
+          .read(bookApiProvider)
+          .setConfig(MangaConfigKeys.colorFilter, _colorFilter.toStorage());
     } catch (_) {}
     await _applyBrightness(_colorFilter.l);
   }
@@ -861,10 +875,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _footerConfig = MangaFooterConfig.fromJson(cfg.toJson());
     setState(() {});
     try {
-      await ref.read(bookApiProvider).setConfig(
-            MangaConfigKeys.footerConfig,
-            _footerConfig.toStorage(),
-          );
+      await ref
+          .read(bookApiProvider)
+          .setConfig(MangaConfigKeys.footerConfig, _footerConfig.toStorage());
     } catch (_) {}
   }
 
@@ -875,7 +888,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
     try {
       final api = ref.read(bookApiProvider);
-      await api.setConfig(MangaConfigKeys.enableEInk, enabled ? 'true' : 'false');
+      await api.setConfig(
+        MangaConfigKeys.enableEInk,
+        enabled ? 'true' : 'false',
+      );
       if (enabled) {
         await api.setConfig(MangaConfigKeys.enableGray, 'false');
       }
@@ -889,7 +905,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
     try {
       final api = ref.read(bookApiProvider);
-      await api.setConfig(MangaConfigKeys.enableGray, enabled ? 'true' : 'false');
+      await api.setConfig(
+        MangaConfigKeys.enableGray,
+        enabled ? 'true' : 'false',
+      );
       if (enabled) {
         await api.setConfig(MangaConfigKeys.enableEInk, 'false');
       }
@@ -899,10 +918,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   Future<void> _persistThreshold(int value) async {
     setState(() => _eInkThreshold = value.clamp(0, 255));
     try {
-      await ref.read(bookApiProvider).setConfig(
-            MangaConfigKeys.eInkThreshold,
-            '$_eInkThreshold',
-          );
+      await ref
+          .read(bookApiProvider)
+          .setConfig(MangaConfigKeys.eInkThreshold, '$_eInkThreshold');
     } catch (_) {}
   }
 
@@ -964,34 +982,62 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       mangaLongClickSaveImage: _mangaLongClickSaveImage,
       disableMangaCrossFade: _disableMangaCrossFade,
       mangaBgColor: _mangaBgColor,
-      onDisableClickScrollChanged: (v) => unawaited(_persistMangaBool(
-          MangaConfigKeys.disableClickScroll, v, (x) => _disableClickScroll = x)),
-      onDisableMangaScaleChanged: (v) => unawaited(_persistMangaBool(
-          MangaConfigKeys.disableMangaScale, v, (x) => _disableMangaScale = x)),
-      onDisableMangaPageAnimChanged: (v) => unawaited(_persistMangaBool(
+      onDisableClickScrollChanged: (v) => unawaited(
+        _persistMangaBool(
+          MangaConfigKeys.disableClickScroll,
+          v,
+          (x) => _disableClickScroll = x,
+        ),
+      ),
+      onDisableMangaScaleChanged: (v) => unawaited(
+        _persistMangaBool(
+          MangaConfigKeys.disableMangaScale,
+          v,
+          (x) => _disableMangaScale = x,
+        ),
+      ),
+      onDisableMangaPageAnimChanged: (v) => unawaited(
+        _persistMangaBool(
           MangaConfigKeys.disableMangaPageAnim,
           v,
-          (x) => _disableMangaPageAnim = x)),
-      onHideMangaTitleChanged: (v) => unawaited(_persistMangaBool(
-          MangaConfigKeys.hideMangaTitle, v, (x) => _hideMangaTitle = x)),
-      onVolumeKeyPageChanged: (v) => unawaited(_persistMangaBool(
-          MangaConfigKeys.volumeKeyPage, v, (x) {
-        _volumeKeyPage = x;
-        // [P4-3 M5] 开关即时启停捕获（关闭立即恢复系统音量键）
-        _syncVolumeKeyCapture();
-      })),
-      onReverseVolumeKeyPageChanged: (v) => unawaited(_persistMangaBool(
+          (x) => _disableMangaPageAnim = x,
+        ),
+      ),
+      onHideMangaTitleChanged: (v) => unawaited(
+        _persistMangaBool(
+          MangaConfigKeys.hideMangaTitle,
+          v,
+          (x) => _hideMangaTitle = x,
+        ),
+      ),
+      onVolumeKeyPageChanged: (v) => unawaited(
+        _persistMangaBool(MangaConfigKeys.volumeKeyPage, v, (x) {
+          _volumeKeyPage = x;
+          // [P4-3 M5] 开关即时启停捕获（关闭立即恢复系统音量键）
+          _syncVolumeKeyCapture();
+        }),
+      ),
+      onReverseVolumeKeyPageChanged: (v) => unawaited(
+        _persistMangaBool(
           MangaConfigKeys.reverseVolumeKeyPage,
           v,
-          (x) => _reverseVolumeKeyPage = x)),
-      onMangaLongClickSaveImageChanged: (v) => unawaited(_persistMangaBool(
+          (x) => _reverseVolumeKeyPage = x,
+        ),
+      ),
+      onMangaLongClickSaveImageChanged: (v) => unawaited(
+        _persistMangaBool(
           MangaConfigKeys.mangaLongClickSaveImage,
           v,
-          (x) => _mangaLongClickSaveImage = x)),
-      onDisableMangaCrossFadeChanged: (v) => unawaited(_persistMangaBool(
+          (x) => _mangaLongClickSaveImage = x,
+        ),
+      ),
+      onDisableMangaCrossFadeChanged: (v) => unawaited(
+        _persistMangaBool(
           MangaConfigKeys.disableMangaCrossFade,
           v,
-          (x) => _disableMangaCrossFade = x)),
+          (x) => _disableMangaCrossFade = x,
+        ),
+      ),
       onMangaBgColorChanged: (v) => unawaited(_persistMangaBgColor(v)),
       // [P4-3 M5] 九宫格点击区编辑器（对齐参考版 ClickActionsSettingsContent
       // L772-802：点击循环切换；单格索引回调，屏内即时生效）
@@ -1032,21 +1078,21 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (book == null) return;
     unawaited(
       Navigator.of(context)
-              .pushNamed(AppRoutes.changeSource, arguments: book)
-              .then((dynamic result) {
-        final newBookUrl = result is String ? result : null;
-        if (newBookUrl == null || newBookUrl.isEmpty || !mounted) return;
-        setState(() {
-          _activeBookUrl = newBookUrl;
-          // 整书重载归位：章首开始、清页级恢复锚定与可见页估算
-          _currentChapterIndex = 0;
-          _restorePageIndex = null;
-          _visiblePageIndex = 0;
-        });
-        // 代数换代：中止在飞相邻章预载 + 单页式子树强制重建
-        _loadSeq++;
-        unawaited(_loadBook());
-      }),
+          .pushNamed(AppRoutes.changeSource, arguments: book)
+          .then((dynamic result) {
+            final newBookUrl = result is String ? result : null;
+            if (newBookUrl == null || newBookUrl.isEmpty || !mounted) return;
+            setState(() {
+              _activeBookUrl = newBookUrl;
+              // 整书重载归位：章首开始、清页级恢复锚定与可见页估算
+              _currentChapterIndex = 0;
+              _restorePageIndex = null;
+              _visiblePageIndex = 0;
+            });
+            // 代数换代：中止在飞相邻章预载 + 单页式子树强制重建
+            _loadSeq++;
+            unawaited(_loadBook());
+          }),
     );
   }
 
@@ -1136,9 +1182,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final bookReadConfig = _book!.readConfig;
       final rawScrollMode = bookReadConfig?.mangaScrollMode;
       _bookScrollMode =
-          (rawScrollMode != null && MangaScrollModes.valid.contains(rawScrollMode))
-              ? rawScrollMode
-              : null;
+          (rawScrollMode != null &&
+              MangaScrollModes.valid.contains(rawScrollMode))
+          ? rawScrollMode
+          : null;
       _bookSidePadding = bookReadConfig?.webtoonSidePaddingDp?.clamp(0, 45);
       _applyEffectiveMangaScope();
 
@@ -1170,8 +1217,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       }
 
       // [P4-1 C1] 记住记录的页级进度（重开定位页；0/缺省 = 章首）
-      _restorePageIndex =
-          _book!.durChapterPos > 0 ? _book!.durChapterPos : null;
+      _restorePageIndex = _book!.durChapterPos > 0
+          ? _book!.durChapterPos
+          : null;
       // [P4-1 C3] 代数守卫：换书/重载后失效在途的相邻章预载
       _loadSeq++;
 
@@ -1287,8 +1335,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // [P4-3 E1] 单页式：图片可见前创建 PageController
       //（初始页 = 待恢复页或章首；须在 _applyPageRestore 消费 _restorePageIndex 前取值）
       if (MangaScrollModes.isPaged(_scrollMode) && _imageUrls.isNotEmpty) {
-        final initial =
-            (_restorePageIndex ?? 0).clamp(0, _imageUrls.length - 1);
+        final initial = (_restorePageIndex ?? 0).clamp(
+          0,
+          _imageUrls.length - 1,
+        );
         _visiblePageIndex = initial; // 页脚/进度回读一致
         _syncPagedController(initialLogical: initial);
       }
@@ -1486,8 +1536,13 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
     // 简单估算：假设每张图高度约为屏幕高度
     final screenHeight = MediaQuery.of(context).size.height;
-    final firstVisible = (scrollOffset / screenHeight).floor().clamp(0, _imageUrls.length - 1);
-    final lastVisible = ((scrollOffset + viewportHeight) / screenHeight).ceil().clamp(0, _imageUrls.length - 1);
+    final firstVisible = (scrollOffset / screenHeight).floor().clamp(
+      0,
+      _imageUrls.length - 1,
+    );
+    final lastVisible = ((scrollOffset + viewportHeight) / screenHeight)
+        .ceil()
+        .clamp(0, _imageUrls.length - 1);
 
     // 扩展预加载范围（前后各 2 页）
     _preloadIndicesInRange(
@@ -1517,8 +1572,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
           // 无书源却含复合 URL：无法直连预加载，跳过（正式渲染亦可能失败）
         } else {
           unawaited(
-            precacheImage(CachedNetworkImageProvider(url), context)
-                .catchError((_) {}),
+            precacheImage(
+              CachedNetworkImageProvider(url),
+              context,
+            ).catchError((_) {}),
           );
         }
       }
@@ -1727,7 +1784,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     // 0 菜单 / 3 下一章 / 4 上一章保留（对齐参考版 MangaReaderScreen
     // L1953/L714 disableClickScroll 守卫）
     if (_disableClickScroll &&
-        (action == MangaClickActions.next || action == MangaClickActions.prev)) {
+        (action == MangaClickActions.next ||
+            action == MangaClickActions.prev)) {
       return;
     }
     switch (action) {
@@ -1884,7 +1942,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       bookUrl: _activeBookUrl,
       url: url,
       // 有书源才走 FFI 解码链路（对齐 _DecodedComicImage 的分发条件）
-      sourceJson: _bookSource == null ? null : jsonEncode(_bookSource!.toJson()),
+      sourceJson: _bookSource == null
+          ? null
+          : jsonEncode(_bookSource!.toJson()),
       // 本地 cbz 页：cbzReadPage 读条目（无书源，无磁盘/网络链路）
       cbzPath: isCbz ? _book?.bookUrl : null,
       memoryCached: ComicImageDecodeCache.get(
@@ -1911,7 +1971,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       _showPageActionSnackBar('无法获取图片数据');
       return;
     }
-    final fileName = 'manga-${DateTime.now().millisecondsSinceEpoch}${data.suffix}';
+    final fileName =
+        'manga-${DateTime.now().millisecondsSinceEpoch}${data.suffix}';
     final service = PlatformBridgeService.instance;
     if (service.useMediaStoreDownloads) {
       // [D2] Android：MediaStore 直写（不经 SAF，绕开 file_picker 崩溃链路）
@@ -1923,8 +1984,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // 通道失败 / API < 29 → 兜底写应用文档目录（现有逻辑）
       try {
         final dir = await getApplicationDocumentsDirectory();
-        final file =
-            File('${dir.path}/$fileName')..writeAsBytesSync(data.bytes);
+        final file = File('${dir.path}/$fileName')
+          ..writeAsBytesSync(data.bytes);
         _showPageActionSnackBar('已保存到文档目录: ${file.path}');
       } catch (e) {
         _showPageActionSnackBar('保存图片失败: $e');
@@ -1948,7 +2009,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       } else {
         // 用户取消目录选择 → 兜底写应用文档目录
         final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/$fileName')..writeAsBytesSync(data.bytes);
+        final file = File('${dir.path}/$fileName')
+          ..writeAsBytesSync(data.bytes);
         _showPageActionSnackBar('已保存到文档目录: ${file.path}');
       }
     } catch (e) {
@@ -2031,7 +2093,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (details) => _tapDownPosition = details.localPosition,
-              onTapUp: (details) => _onTapInRegion(details.localPosition, viewport),
+              onTapUp: (details) =>
+                  _onTapInRegion(details.localPosition, viewport),
               child: Stack(
                 children: [
                   // 主内容区域
@@ -2104,12 +2167,18 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
             if (_currentChapterIndex > 0)
               TextButton(
                 onPressed: _prevChapter,
-                child: const Text('上一章', style: TextStyle(color: Colors.white70)),
+                child: const Text(
+                  '上一章',
+                  style: TextStyle(color: Colors.white70),
+                ),
               ),
             if (_currentChapterIndex < _chapters.length - 1)
               TextButton(
                 onPressed: _nextChapter,
-                child: const Text('下一章', style: TextStyle(color: Colors.white70)),
+                child: const Text(
+                  '下一章',
+                  style: TextStyle(color: Colors.white70),
+                ),
               ),
           ],
         ),
@@ -2341,13 +2410,13 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       );
     }
 
-      return _wrapImageFilter(
-        CachedNetworkImage(
-          imageUrl: url,
-          httpHeaders: _imageHeaders, // 防盗链 header（对齐原版）— Reasonix
-          // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
-          fit: _imageFit,
-          width: double.infinity,
+    return _wrapImageFilter(
+      CachedNetworkImage(
+        imageUrl: url,
+        httpHeaders: _imageHeaders, // 防盗链 header（对齐原版）— Reasonix
+        // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
+        fit: _imageFit,
+        width: double.infinity,
         // 漫画页按屏宽全分辨率显示，不限制 memCacheWidth（磁盘缓存默认开启）
         progressIndicatorBuilder: (context, _, progress) =>
             _buildImageLoadingPlaceholder(progress.progress),
@@ -2530,10 +2599,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 隐藏时动画反向播放，**动画落定后**（isAnimating=false 帧）返回
   /// SizedBox.shrink 移除菜单子树——保证隐藏态测试树中无菜单文本
   /// （find.text(书名) findsNothing）且动画期间 IgnorePointer 不响应。
-  Widget _buildAnimatedMenu(
-    Animation<Offset> slide,
-    WidgetBuilder buildBar,
-  ) {
+  Widget _buildAnimatedMenu(Animation<Offset> slide, WidgetBuilder buildBar) {
     return AnimatedBuilder(
       animation: _menuCtrl,
       builder: (context, _) {
@@ -2565,8 +2631,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 空值 / URL 形态（http 前缀）判为取不到 → 返回 null，
   /// 顶栏次行仅显示章节名（截图基准：取不到不显，不放假值）。
   String? get _sourceName {
-    final name =
-        (_bookSource?.bookSourceName ?? _book?.originName ?? '').trim();
+    final name = (_bookSource?.bookSourceName ?? _book?.originName ?? '')
+        .trim();
     if (name.isEmpty) return null;
     if (name.startsWith('http://') || name.startsWith('https://')) {
       return null;
@@ -2617,7 +2683,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       imageCount: _imageUrls.length,
     );
     if (label.isEmpty) return const SizedBox.shrink();
-    final align = _footerConfig.footerOrientation == MangaFooterConfig.alignCenter
+    final align =
+        _footerConfig.footerOrientation == MangaFooterConfig.alignCenter
         ? Alignment.center
         : Alignment.centerLeft;
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -2625,9 +2692,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     // 贴底白条 56 + 间隙 8 = 128；段间尺寸常量见 manga_menu.dart）
     final lift = _showControls
         ? kMangaProgressRowHeight +
-            kMangaBottomSegmentGap +
-            kMangaBottomBarHeight +
-            kMangaBottomSegmentGap
+              kMangaBottomSegmentGap +
+              kMangaBottomBarHeight +
+              kMangaBottomSegmentGap
         : 0;
     return Positioned(
       left: 16,
@@ -2669,14 +2736,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       onNextChapter: () => unawaited(_nextChapter()),
       // 页进度滑条（对齐参考版 ReadMenuSlider：value = 0 基页索引、
       // 范围 0..(pageCount-1).coerceAtLeast(1)、steps = (pageCount-2)）
-      pageValue:
-          (pageCount > 0 ? _visiblePageIndex.clamp(0, pageCount - 1) : 0)
-              .toDouble(),
+      pageValue: (pageCount > 0 ? _visiblePageIndex.clamp(0, pageCount - 1) : 0)
+          .toDouble(),
       pageMax: (pageCount - 1).clamp(1, 999999).toDouble(),
       divisions: pageCount > 1 ? pageCount - 1 : null,
       pageEnabled: pageCount > 1,
-      readingPageDescription:
-          pageCount > 0 ? '页数 ${_visiblePageIndex + 1}/$pageCount' : '',
+      readingPageDescription: pageCount > 0
+          ? '页数 ${_visiblePageIndex + 1}/$pageCount'
+          : '',
       onSeekPage: _seekToPage,
       // 目录键（弹目录 sheet，取证见 manga_catalog_sheet.dart）
       onOpenCatalog: _openCatalog,
@@ -2813,9 +2880,11 @@ class _DecodedComicImage extends ConsumerStatefulWidget {
   final String url;
   final String sourceJson;
   final String bookSourceUrl;
+
   /// 书籍 URL（图片磁盘缓存目录按书隔离，契约 §2.46）— P4-2a
   final String bookUrl;
   final VoidCallback onError;
+
   /// 非 null 时做真像素电子纸二值化（对齐 EpaperTransformation）
   final int? eInkThreshold;
 
@@ -2902,10 +2971,15 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
       // 读失败降级走下方网络链路（读失败已由 Rust 侧降级 null，不影响在线）。
       final cached = await api.getImageCache(widget.bookUrl, widget.url);
       if (cached != null && cached.isNotEmpty && looksLikeImageBytes(cached)) {
-        final cachedBytes =
-            cached is Uint8List ? cached : Uint8List.fromList(cached);
+        final cachedBytes = cached is Uint8List
+            ? cached
+            : Uint8List.fromList(cached);
         if (!mounted) return;
-        ComicImageDecodeCache.put(widget.bookSourceUrl, widget.url, cachedBytes);
+        ComicImageDecodeCache.put(
+          widget.bookSourceUrl,
+          widget.url,
+          cachedBytes,
+        );
         setState(() {
           _bytes = cachedBytes;
           _loading = false;
@@ -2913,7 +2987,10 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
         await _applyEpaperIfNeeded(cachedBytes);
         return;
       }
-      final json = await api.fetchImageWithDecode(widget.url, widget.sourceJson);
+      final json = await api.fetchImageWithDecode(
+        widget.url,
+        widget.sourceJson,
+      );
       final decoded = jsonDecode(json) as Map<String, dynamic>;
       final b64 = decoded['base64'] as String? ?? '';
       if (b64.isEmpty) {
@@ -2921,9 +2998,7 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
       }
       final bytes = base64Decode(b64);
       if (!looksLikeImageBytes(bytes)) {
-        throw Exception(
-          '解码结果不是有效图片（可能 imageDecode/createSymmetricCrypto 失败）',
-        );
+        throw Exception('解码结果不是有效图片（可能 imageDecode/createSymmetricCrypto 失败）');
       }
       if (!mounted) return;
       ComicImageDecodeCache.put(widget.bookSourceUrl, widget.url, bytes);
@@ -3177,7 +3252,10 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
         await _applyEpaperIfNeeded(hit);
         return;
       }
-      final json = await api.cbzReadPage(path: widget.path, entry: widget.entry);
+      final json = await api.cbzReadPage(
+        path: widget.path,
+        entry: widget.entry,
+      );
       final decoded = jsonDecode(json) as Map<String, dynamic>;
       final b64 = decoded['base64'] as String? ?? '';
       if (b64.isEmpty) {
@@ -3219,11 +3297,7 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
     }
     final epaper = _epaperImage;
     if (widget.eInkThreshold != null && epaper != null) {
-      return RawImage(
-        image: epaper,
-        fit: widget.fit,
-        width: double.infinity,
-      );
+      return RawImage(image: epaper, fit: widget.fit, width: double.infinity);
     }
     final bytes = _bytes;
     if (bytes != null) {

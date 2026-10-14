@@ -86,21 +86,21 @@ class VideoFloatWindowState {
   final String? mpdTempPath;
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'url': url,
-        'title': title,
-        'bookName': bookName,
-        'headers': headers,
-        'positionMs': positionMs,
-        'playing': playing,
-        'speed': speed,
-        'bookUrl': bookUrl,
-        'chapterIndex': chapterIndex,
-        'chapterTitle': chapterTitle,
-        'directUrl': directUrl,
-        'hasPrev': hasPrev,
-        'hasNext': hasNext,
-        'mpdTempPath': mpdTempPath,
-      };
+    'url': url,
+    'title': title,
+    'bookName': bookName,
+    'headers': headers,
+    'positionMs': positionMs,
+    'playing': playing,
+    'speed': speed,
+    'bookUrl': bookUrl,
+    'chapterIndex': chapterIndex,
+    'chapterTitle': chapterTitle,
+    'directUrl': directUrl,
+    'hasPrev': hasPrev,
+    'hasNext': hasNext,
+    'mpdTempPath': mpdTempPath,
+  };
 
   static VideoFloatWindowState? fromMap(Object? raw) {
     if (raw is! Map) return null;
@@ -146,23 +146,22 @@ class VideoFloatWindowState {
     bool? hasPrev,
     bool? hasNext,
     String? mpdTempPath,
-  }) =>
-      VideoFloatWindowState(
-        url: url ?? this.url,
-        title: title ?? this.title,
-        bookName: bookName ?? this.bookName,
-        headers: headers ?? this.headers,
-        positionMs: positionMs ?? this.positionMs,
-        playing: playing ?? this.playing,
-        speed: speed ?? this.speed,
-        bookUrl: bookUrl ?? this.bookUrl,
-        chapterIndex: chapterIndex ?? this.chapterIndex,
-        chapterTitle: chapterTitle ?? this.chapterTitle,
-        directUrl: directUrl ?? this.directUrl,
-        hasPrev: hasPrev ?? this.hasPrev,
-        hasNext: hasNext ?? this.hasNext,
-        mpdTempPath: mpdTempPath ?? this.mpdTempPath,
-      );
+  }) => VideoFloatWindowState(
+    url: url ?? this.url,
+    title: title ?? this.title,
+    bookName: bookName ?? this.bookName,
+    headers: headers ?? this.headers,
+    positionMs: positionMs ?? this.positionMs,
+    playing: playing ?? this.playing,
+    speed: speed ?? this.speed,
+    bookUrl: bookUrl ?? this.bookUrl,
+    chapterIndex: chapterIndex ?? this.chapterIndex,
+    chapterTitle: chapterTitle ?? this.chapterTitle,
+    directUrl: directUrl ?? this.directUrl,
+    hasPrev: hasPrev ?? this.hasPrev,
+    hasNext: hasNext ?? this.hasNext,
+    mpdTempPath: mpdTempPath ?? this.mpdTempPath,
+  );
 
   /// 悬浮窗当前内容是否与将要打开的播放页同源。
   ///
@@ -314,7 +313,7 @@ class VideoFloatWindowBridge {
 /// - [onNotice]：用户可见提示（SnackBar）
 class VideoFloatWindowCoordinator {
   VideoFloatWindowCoordinator({VideoFloatWindowBridge? bridge})
-      : _bridgeOverride = bridge;
+    : _bridgeOverride = bridge;
 
   static VideoFloatWindowCoordinator instance = VideoFloatWindowCoordinator();
 
@@ -332,8 +331,7 @@ class VideoFloatWindowCoordinator {
   String? lastEnterError;
 
   /// 打开系统「显示在其他应用上层」设置页（[enterWindow] 因无权限失败时调用）
-  Future<void> requestOverlayPermission() =>
-      bridge.requestOverlayPermission();
+  Future<void> requestOverlayPermission() => bridge.requestOverlayPermission();
 
   /// app.dart 注入：把回传状态导航到视频播放页（Book 为交接会话捕获的上下文）
   void Function(VideoFloatWindowState state, Book? book)? openFullscreen;
@@ -511,7 +509,11 @@ class VideoFloatWindowCoordinator {
     try {
       final chapter = _chapters[next];
       final content = book.origin.isNotEmpty
-          ? await api.fetchChapterContent(book.bookUrl, chapter.url, book.origin)
+          ? await api.fetchChapterContent(
+              book.bookUrl,
+              chapter.url,
+              book.origin,
+            )
           : await api.getChapterContent(book.bookUrl, next);
       final target = resolveVideoPlayTarget(
         content: content,
@@ -580,7 +582,8 @@ class VideoFloatWindowCoordinator {
   ) async {
     if (!target.isMpd) return (url: target.url, mpdPath: null);
     final dir = await getTemporaryDirectory();
-    final name = 'legado_video_float_${DateTime.now().millisecondsSinceEpoch}.mpd';
+    final name =
+        'legado_video_float_${DateTime.now().millisecondsSinceEpoch}.mpd';
     final file = File('${dir.path}/$name');
     await file.writeAsString(target.mpdContent!);
     return (url: file.uri.toString(), mpdPath: file.path);

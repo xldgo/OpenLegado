@@ -1,13 +1,15 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -156,9 +158,7 @@ class _RssSourceImportConfirmScreenState
         toImport.add(raw);
       }
 
-      await ref
-          .read(bookApiProvider)
-          .importRssSources(jsonEncode(toImport));
+      await ref.read(bookApiProvider).importRssSources(jsonEncode(toImport));
       await ref.read(rssNotifierProvider.notifier).loadSources();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -212,7 +212,8 @@ class _RssSourceImportConfirmScreenState
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: json));
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx,
+                ScaffoldMessenger.of(
+                  ctx,
                 ).showSnackBar(SnackBar(content: Text(l10n.copiedToClipboard)));
               }
             },
@@ -238,11 +239,11 @@ class _RssSourceImportConfirmScreenState
         actions: [
           // 自定义源分组（对标 menu_new_group，always 显示）
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onPrimary),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
             onPressed: _showCustomGroupDialog,
-            child: Text(_groupName == null
-                ? context.l10n.customSourceGroup
+            child: Text(
+              _groupName == null
+                  ? context.l10n.customSourceGroup
                   : '${_isAddGroup ? '+' : ''}$_groupName',
             ),
           ),
@@ -281,8 +282,7 @@ class _RssSourceImportConfirmScreenState
               // [LAYOUT_PLAN P2] 列表纵向留白 8dp；行 vertical12/horizontal8（见 _buildItem）
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: widget.sources.length,
-              separatorBuilder: (_, _) =>
-                  const Divider(height: 1, indent: 16),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
               itemBuilder: (context, index) => _buildItem(index),
             ),
       // 底部操作区（对标 dialog_recycler_view：footerLeft / cancel / ok）
@@ -334,8 +334,9 @@ class _RssSourceImportConfirmScreenState
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed:
-                      _importing || _selectCount == 0 ? null : _confirmImport,
+                  onPressed: _importing || _selectCount == 0
+                      ? null
+                      : _confirmImport,
                   child: _importing
                       ? const SizedBox(
                           width: 16,
@@ -377,15 +378,16 @@ class _RssSourceImportConfirmScreenState
     final (label, color) = switch (status) {
       // [LAYOUT_PLAN P2] 状态色走 tonal：新增 primary、更新 tertiary、已有 onSurfaceVariant
       _ImportStatus.isNew => (
-        context.l10n.importStatusNew, AppColorsExt.importNew(colorScheme),
+        context.l10n.importStatusNew,
+        AppColorsExt.importNew(colorScheme),
       ),
-      _ImportStatus.isUpdate =>
-        (
-        context.l10n.importStatusUpdated, AppColorsExt.importUpdate(colorScheme),
+      _ImportStatus.isUpdate => (
+        context.l10n.importStatusUpdated,
+        AppColorsExt.importUpdate(colorScheme),
       ),
-      _ImportStatus.exists =>
-        (
-        context.l10n.importStatusExisting, colorScheme.onSurfaceVariant,
+      _ImportStatus.exists => (
+        context.l10n.importStatusExisting,
+        colorScheme.onSurfaceVariant,
       ),
     };
 
@@ -398,8 +400,7 @@ class _RssSourceImportConfirmScreenState
           children: [
             Checkbox(
               value: _selected[index],
-              onChanged: (v) =>
-                  setState(() => _selected[index] = v ?? false),
+              onChanged: (v) => setState(() => _selected[index] = v ?? false),
             ),
             Expanded(
               child: Column(
@@ -412,8 +413,7 @@ class _RssSourceImportConfirmScreenState
                     // [LAYOUT_PLAN P2] 列表行标题走 titleSmall
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  if (_showComment &&
-                      (_commentOf(raw) ?? '').trim().isNotEmpty)
+                  if (_showComment && (_commentOf(raw) ?? '').trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
@@ -435,8 +435,8 @@ class _RssSourceImportConfirmScreenState
               child: Text(
                 label,
                 // [LAYOUT_PLAN P2] 状态标签走 labelSmall
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color),
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(color: color),
               ),
             ),
             TextButton(

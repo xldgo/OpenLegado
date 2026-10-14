@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -47,8 +46,7 @@ void main() {
       addTearDown(container.dispose);
     });
 
-    RssHistoryState readState() =>
-        container.read(rssHistoryNotifierProvider);
+    RssHistoryState readState() => container.read(rssHistoryNotifierProvider);
     RssHistoryNotifier readNotifier() =>
         container.read(rssHistoryNotifierProvider.notifier);
 
@@ -60,10 +58,12 @@ void main() {
     });
 
     test('load 解析已读记录（透传 limit）', () async {
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => [
-            {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
-            {'origin': 'https://b.com', 'title': '文章2', 'read_time': 200},
-          ]);
+      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
+        (_) async => [
+          {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
+          {'origin': 'https://b.com', 'title': '文章2', 'read_time': 200},
+        ],
+      );
 
       await readNotifier().load(limit: 50);
 
@@ -76,8 +76,7 @@ void main() {
     });
 
     test('load 异常时兜底并记录 error', () async {
-      when(() => mockApi.rssListReadRecords(any()))
-          .thenThrow(Exception('ffi'));
+      when(() => mockApi.rssListReadRecords(any())).thenThrow(Exception('ffi'));
 
       await readNotifier().load();
 
@@ -88,15 +87,16 @@ void main() {
     });
 
     test('clear 清空后重新拉取列表', () async {
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => [
-            {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
-          ]);
+      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
+        (_) async => [
+          {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
+        ],
+      );
       await readNotifier().load();
       expect(readState().records.length, equals(1));
 
       when(() => mockApi.rssClearReadRecords()).thenAnswer((_) async {});
-      when(() => mockApi.rssListReadRecords(any()))
-          .thenAnswer((_) async => []);
+      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => []);
 
       await readNotifier().clear();
 

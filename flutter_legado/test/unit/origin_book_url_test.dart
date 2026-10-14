@@ -124,8 +124,7 @@ void main() {
       expect(merged.originBookUrl, book.originBookUrl);
     });
 
-    test('刷新未解析出书名 → 整次刷新跳过，字段原样保留（纵深防御守卫仍有效）',
-        () {
+    test('刷新未解析出书名 → 整次刷新跳过，字段原样保留（纵深防御守卫仍有效）', () {
       final book = buildBook(
         tocUrl: 'https://new.example.com/book/9/chapters',
         intro: '新简介',
@@ -182,8 +181,7 @@ void main() {
     // [P2-4 | 2026-09-18] originBookUrl 唯一例外走 DB 优先：换源事务是该
     // 字段的权威写者，路由瘦壳可能携带换源前的陈旧值，路由优先会把换源
     // 事务写入的「当前书源详情页地址」覆盖掉，后续详情刷新取址错误。
-    test('originBookUrl DB 优先：DB 非空覆盖路由陈旧值；其余字段仍路由非空优先',
-        () {
+    test('originBookUrl DB 优先：DB 非空覆盖路由陈旧值；其余字段仍路由非空优先', () {
       final route = buildBook(
         originBookUrl: 'https://stale.example.com/book/1', // 路由携带陈旧值
         author: '路由作者',
@@ -223,9 +221,9 @@ void main() {
       final book = buildBook(originBookUrl: 'https://new.example.com/book/9');
       expect(book.toJson()['originBookUrl'], 'https://new.example.com/book/9');
 
-      final legacy = Book.fromJson(
-        const <String, dynamic>{'bookUrl': 'https://x.example.com/b/1'},
-      );
+      final legacy = Book.fromJson(const <String, dynamic>{
+        'bookUrl': 'https://x.example.com/b/1',
+      });
       expect(legacy.originBookUrl, '');
       // 回退语义：缺字段书籍取址即 bookUrl
       expect(BookOpenUtils.bookFetchUrl(legacy), legacy.bookUrl);

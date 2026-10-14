@@ -4,6 +4,7 @@
 ///       exportAllSourcesFormatted/importSources/fullBackup/
 ///       parseBackup/restoreSourcesFromBackup/serializeSources
 library;
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -29,10 +30,12 @@ void main() {
 
   group('BackupService exportBooks', () {
     test('导出书架数据为 JSON 数组', () async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [
-            const Book(bookUrl: 'http://b1.com', name: '书1'),
-            const Book(bookUrl: 'http://b2.com', name: '书2'),
-          ]);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
+        (_) async => [
+          const Book(bookUrl: 'http://b1.com', name: '书1'),
+          const Book(bookUrl: 'http://b2.com', name: '书2'),
+        ],
+      );
 
       final result = await service.exportBooks();
       final decoded = jsonDecode(result) as List;
@@ -42,7 +45,8 @@ void main() {
     });
 
     test('空书架导出为空数组', () async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => []);
 
       final result = await service.exportBooks();
       expect(result, equals('[]'));
@@ -61,33 +65,55 @@ void main() {
 
   group('BackupService exportSelectedSources', () {
     test('导出选中的书源', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-            const BookSource(bookSourceUrl: 'http://s1.com', bookSourceName: '源1'),
-            const BookSource(bookSourceUrl: 'http://s2.com', bookSourceName: '源2'),
-            const BookSource(bookSourceUrl: 'http://s3.com', bookSourceName: '源3'),
-          ]);
-
-      final result = await service.exportSelectedSources(
-        ['http://s1.com', 'http://s3.com'],
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => [
+          const BookSource(
+            bookSourceUrl: 'http://s1.com',
+            bookSourceName: '源1',
+          ),
+          const BookSource(
+            bookSourceUrl: 'http://s2.com',
+            bookSourceName: '源2',
+          ),
+          const BookSource(
+            bookSourceUrl: 'http://s3.com',
+            bookSourceName: '源3',
+          ),
+        ],
       );
+
+      final result = await service.exportSelectedSources([
+        'http://s1.com',
+        'http://s3.com',
+      ]);
       final decoded = jsonDecode(result) as List;
 
       expect(decoded.length, equals(2));
     });
 
     test('选中为空时返回空数组', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-            const BookSource(bookSourceUrl: 'http://s1.com', bookSourceName: '源1'),
-          ]);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => [
+          const BookSource(
+            bookSourceUrl: 'http://s1.com',
+            bookSourceName: '源1',
+          ),
+        ],
+      );
 
       final result = await service.exportSelectedSources([]);
       expect(result, equals('[]'));
     });
 
     test('选中的 URL 不存在时返回空数组', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-            const BookSource(bookSourceUrl: 'http://s1.com', bookSourceName: '源1'),
-          ]);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => [
+          const BookSource(
+            bookSourceUrl: 'http://s1.com',
+            bookSourceName: '源1',
+          ),
+        ],
+      );
 
       final result = await service.exportSelectedSources(['http://nope.com']);
       expect(result, equals('[]'));
@@ -96,9 +122,14 @@ void main() {
 
   group('BackupService exportAllSourcesFormatted', () {
     test('导出全部书源为格式化 JSON', () async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => [
-            const BookSource(bookSourceUrl: 'http://s1.com', bookSourceName: '源1'),
-          ]);
+      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => [
+          const BookSource(
+            bookSourceUrl: 'http://s1.com',
+            bookSourceName: '源1',
+          ),
+        ],
+      );
 
       final result = await service.exportAllSourcesFormatted();
 
@@ -110,7 +141,8 @@ void main() {
 
   group('BackupService importSources', () {
     test('导入书源返回数量', () async {
-      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 5);
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((_) async => 5);
 
       final count = await service.importSources('[{}]');
       expect(count, equals(5));
@@ -119,8 +151,10 @@ void main() {
 
   group('BackupService fullBackup', () {
     test('完整备份包含版本和时间戳', () async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
-      when(() => mockApi.bookSourceRepository.exportBookSources()).thenAnswer((_) async => '[]');
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.exportBookSources())
+          .thenAnswer((_) async => '[]');
 
       final result = await service.fullBackup();
       final decoded = jsonDecode(result) as Map<String, dynamic>;
@@ -150,7 +184,8 @@ void main() {
 
   group('BackupService restoreSourcesFromBackup', () {
     test('从备份恢复书源', () async {
-      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 3);
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((_) async => 3);
 
       final backupJson = jsonEncode({
         'version': 1,
@@ -162,7 +197,8 @@ void main() {
     });
 
     test('备份中无 sources 字段使用空数组', () async {
-      when(() => mockApi.bookSourceRepository.importBookSources(any())).thenAnswer((_) async => 0);
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((_) async => 0);
 
       final backupJson = jsonEncode({'version': 1});
 

@@ -19,9 +19,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
-      ],
+      overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
     addTearDown(container.dispose);
   });
@@ -34,8 +32,7 @@ void main() {
   }
 
   testWidgets('缓存下载队列 无任务时显示空态', (tester) async {
-    when(() => mockApi.cacheDownloadList())
-        .thenAnswer((_) async => '[]');
+    when(() => mockApi.cacheDownloadList()).thenAnswer((_) async => '[]');
 
     await tester.pumpWidget(wrap(const CacheDownloadScreen()));
     await tester.pump();
@@ -45,9 +42,11 @@ void main() {
   });
 
   testWidgets('缓存下载队列 渲染任务列表（状态/进度/取消按钮）', (tester) async {
-    when(() => mockApi.cacheDownloadList()).thenAnswer((_) async =>
-        '[{"taskId":1,"bookUrl":"https://example.com/book1","status":"running","total":10,"completed":4,"failed":0},'
-        '{"taskId":2,"bookUrl":"https://example.com/book2","status":"completed","total":5,"completed":5,"failed":0}]');
+    when(() => mockApi.cacheDownloadList()).thenAnswer(
+      (_) async =>
+          '[{"taskId":1,"bookUrl":"https://example.com/book1","status":"running","total":10,"completed":4,"failed":0},'
+          '{"taskId":2,"bookUrl":"https://example.com/book2","status":"completed","total":5,"completed":5,"failed":0}]',
+    );
 
     await tester.pumpWidget(wrap(const CacheDownloadScreen()));
     await tester.pump();

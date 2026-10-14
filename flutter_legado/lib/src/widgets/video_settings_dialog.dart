@@ -14,6 +14,7 @@ class VideoPlaySettings {
 
   bool autoPlay;
   bool startFull;
+
   /// 原版存 5–60 整数，实际倍速 = value / 10
   int longPressSpeed;
   bool fullBottomProgressBar;
@@ -270,8 +271,7 @@ const List<double> kVideoSpeedChoices = [
 
 /// 倍速入口文案（对齐原版 VideoPlayer.kt:409-414：
 /// 1.0 → 「倍速」，其余 → 「X.XX X」）
-String speedEntryLabel(double speed) =>
-    speed == 1.0 ? '倍速' : '${speed}X';
+String speedEntryLabel(double speed) => speed == 1.0 ? '倍速' : '${speed}X';
 
 /// 倍速 tip 文案（对齐原版 VideoPlayer.kt:411「X倍播放中」，展示 2 秒；
 /// 长按倍速 tip「X倍速播放中」见 VideoPlayer.kt:112，勿混）

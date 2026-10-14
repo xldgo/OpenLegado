@@ -103,7 +103,8 @@ void main() {
       final cleared = await service.clearCache(before: before);
 
       expect(cleared, equals(300));
-      verify(() => mockApi.clearCacheBefore(before.millisecondsSinceEpoch)).called(1);
+      verify(() => mockApi.clearCacheBefore(before.millisecondsSinceEpoch))
+          .called(1);
     });
 
     test('清除后大小大于清除前时返回 0', () async {

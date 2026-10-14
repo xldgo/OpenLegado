@@ -7,8 +7,7 @@
 // 本测试固定 360dp（QA 取证机 1080px / dpr3 的逻辑宽）复现：
 // 修复前 takeException 非空（RenderFlex 溢出），颜色行改 Wrap 换行后为空。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
@@ -31,12 +30,14 @@ void main() {
   /// 限定在 modal BottomSheet 子树内：顶栏 action 按钮（TopBarButton）
   /// 同样是圆形 Container，不限定作用域会误计入。
   Finder circleSwatches() => find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byWidgetPredicate((w) =>
-            w is Container &&
-            w.decoration is BoxDecoration &&
-            (w.decoration! as BoxDecoration).shape == BoxShape.circle),
-      );
+    of: find.byType(BottomSheet),
+    matching: find.byWidgetPredicate(
+      (w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).shape == BoxShape.circle,
+    ),
+  );
 
   /// 选中态色块（primary 描边）
   bool isSelected(Widget w, ColorScheme cs) {

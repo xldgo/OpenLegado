@@ -104,14 +104,12 @@ extension SourceStateFiltering on SourceState {
   }
 
   /// 已启用书源（经分组过滤 + 排序）
-  List<BookSource> get enabledSources => _applyGroupFilter(
-        sources.where((s) => s.enabled).toList(),
-      );
+  List<BookSource> get enabledSources =>
+      _applyGroupFilter(sources.where((s) => s.enabled).toList());
 
   /// 已禁用书源（经分组过滤 + 排序）
-  List<BookSource> get disabledSources => _applyGroupFilter(
-        sources.where((s) => !s.enabled).toList(),
-      );
+  List<BookSource> get disabledSources =>
+      _applyGroupFilter(sources.where((s) => !s.enabled).toList());
 
   /// 过滤后的书源列表（关键词 + 分组 + 排序）
   List<BookSource> get filteredSources {

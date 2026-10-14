@@ -479,7 +479,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       icon: Symbols.lock_rounded,
                       title: '隐私',
                       subtitle: '私密内容与访问验证',
-                      onTap:()=>Navigator.pushNamed(context,AppRoutes.privacy),
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.privacy),
                     ),
                     SettingTile(
                       icon: Symbols.tune_rounded,

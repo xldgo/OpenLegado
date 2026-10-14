@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,15 +34,17 @@ void main() {
   testWidgets('规则订阅页有数据渲染列表', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-          {
-            'id': 1,
-            'url': 'https://example.com/sub.json',
-            'name': '测试订阅',
-            'sub_type': 'bookSource',
-            'customOrder': 1,
-          },
-        ]);
+    when(() => mockApi.ruleSubList()).thenAnswer(
+      (_) async => [
+        {
+          'id': 1,
+          'url': 'https://example.com/sub.json',
+          'name': '测试订阅',
+          'sub_type': 'bookSource',
+          'customOrder': 1,
+        },
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

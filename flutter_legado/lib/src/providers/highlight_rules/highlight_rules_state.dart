@@ -47,15 +47,15 @@ class HighlightRule {
 
   /// 序列化为 Rust 侧契约 JSON（保存用）
   Map<String, dynamic> toJson() => {
-        if (id > 0) 'id': id,
-        'name': name,
-        'pattern': pattern,
-        'isRegex': isRegex,
-        'applyToTitle': applyToTitle,
-        'scope': scope,
-        'isEnabled': isEnabled,
-        'style': style,
-      };
+    if (id > 0) 'id': id,
+    'name': name,
+    'pattern': pattern,
+    'isRegex': isRegex,
+    'applyToTitle': applyToTitle,
+    'scope': scope,
+    'isEnabled': isEnabled,
+    'style': style,
+  };
 
   /// 规则显示名（对标 Kotlin getDisplayName：name 为空时回退 pattern）
   String get displayName => name.isNotEmpty ? name : pattern;

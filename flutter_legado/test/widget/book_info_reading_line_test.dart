@@ -9,8 +9,7 @@
 // - 第三行三态（参考 Kotlin when 同源）：
 //   未读（dci==0 且 pos==0）/ 已读 N 章（N=dci+1）/ 已读完（dci+1==total）
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +19,7 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
+
 import '../mocks/mocks.dart';
 
 void main() {
@@ -59,15 +59,18 @@ void main() {
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     final mockApi = MockRustApi();
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => book);
     when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [book]);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => const []);
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [book]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(
-      () => mockApi.getChapterContent(any(), any()),
-    ).thenAnswer((_) async => '内容');
+    when(() => mockApi.getChapterContent(any(), any()))
+        .thenAnswer((_) async => '内容');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

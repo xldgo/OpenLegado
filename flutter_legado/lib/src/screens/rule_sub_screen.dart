@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
 import '../services/bridge_http.dart';
 import '../providers/providers.dart';
 
@@ -88,8 +90,9 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       // 原版 RecyclerView + ItemTouchHelper 拖拽排序
       buildDefaultDragHandles: true,
       itemCount: subs.length,
-      onReorderItem: (oldIndex, newIndex) =>
-          ref.read(ruleSubNotifierProvider.notifier).reorder(oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) => ref
+          .read(ruleSubNotifierProvider.notifier)
+          .reorder(oldIndex, newIndex),
       itemBuilder: (context, index) {
         final sub = subs[index];
         return _buildSubItem(context, sub, key: ValueKey(sub.id));
@@ -112,8 +115,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
             children: [
               // 类型标签（对标 tv_type）
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
@@ -201,8 +203,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
             ),
             ListTile(
               leading: Icon(Symbols.delete_rounded, color: colorScheme.error),
-              title:
-                  Text('删除', style: TextStyle(color: colorScheme.error)),
+              title: Text('删除', style: TextStyle(color: colorScheme.error)),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
           ],
@@ -301,8 +302,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
 
     final notifier = ref.read(ruleSubNotifierProvider.notifier);
     // URL 重复检查（对标原版 findByUrl 前置校验）
-    final duplicate =
-        notifier.findDuplicate(result.url, excludeId: result.id);
+    final duplicate = notifier.findDuplicate(result.url, excludeId: result.id);
     if (duplicate != null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('URL 已存在（${duplicate.name}）')));

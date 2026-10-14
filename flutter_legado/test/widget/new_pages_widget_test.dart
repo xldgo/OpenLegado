@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
@@ -41,10 +40,12 @@ void main() {
 
   group('BookshelfManageScreen', () {
     testWidgets('加载书籍列表并显示书名/作者', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
-            Book(bookUrl: 'u1', name: '斗破苍穹', author: '天蚕土豆'),
-            Book(bookUrl: 'u2', name: '完美世界', author: '辰东'),
-          ]);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
+        (_) async => const [
+          Book(bookUrl: 'u1', name: '斗破苍穹', author: '天蚕土豆'),
+          Book(bookUrl: 'u2', name: '完美世界', author: '辰东'),
+        ],
+      );
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -57,7 +58,8 @@ void main() {
     });
 
     testWidgets('空书架显示空态', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -66,7 +68,8 @@ void main() {
     });
 
     testWidgets('加载失败显示错误与重试', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenThrow(Exception('ffi'));
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -75,9 +78,8 @@ void main() {
     });
 
     testWidgets('勾选书籍后显示底部操作栏（删除/分组/置顶）', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
-            Book(bookUrl: 'u1', name: '书一'),
-          ]);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => const [Book(bookUrl: 'u1', name: '书一')]);
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -97,10 +99,12 @@ void main() {
     });
 
     testWidgets('全选复选框勾选全部书籍', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
-            Book(bookUrl: 'u1', name: '书一'),
-            Book(bookUrl: 'u2', name: '书二'),
-          ]);
+      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
+        (_) async => const [
+          Book(bookUrl: 'u1', name: '书一'),
+          Book(bookUrl: 'u2', name: '书二'),
+        ],
+      );
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -122,10 +126,10 @@ void main() {
     });
 
     testWidgets('置顶选中书籍调用 topBook', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
-            Book(bookUrl: 'u1', name: '书一'),
-          ]);
-      when(() => mockApi.bookshelfRepository.topBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => const [Book(bookUrl: 'u1', name: '书一')]);
+      when(() => mockApi.bookshelfRepository.topBook(any()))
+          .thenAnswer((_) async {});
 
       await tester.pumpWidget(wrap(const BookshelfManageScreen()));
       await tester.pumpAndSettle();
@@ -142,7 +146,8 @@ void main() {
 
   group('RemoteBookScreen', () {
     testWidgets('渲染远程书籍页与筛选框', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RemoteBookScreen()));
       // init→未配置 WebDAV 后展示空态/提示（避免无限 spinner）
@@ -151,14 +156,12 @@ void main() {
 
       expect(find.text('远程书籍'), findsOneWidget);
       expect(find.text('筛选 • 远程书籍'), findsOneWidget);
-      expect(
-        find.textContaining('请先在备份设置中配置默认 WebDAV'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('请先在备份设置中配置默认 WebDAV'), findsOneWidget);
     });
 
     testWidgets('顶栏含刷新与服务器配置入口', (tester) async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RemoteBookScreen()));
       await tester.pump();
@@ -174,14 +177,16 @@ void main() {
   group('RssScreen 阅读记录对话框', () {
     testWidgets('历史入口打开阅读记录对话框并渲染记录', (tester) async {
       when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => [
-            {
-              'origin': 'https://rss.example.com/feed',
-              'title': '文章一',
-              'link': 'https://rss.example.com/a1',
-              'read_time': 1750000000000,
-            },
-          ]);
+      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
+        (_) async => [
+          {
+            'origin': 'https://rss.example.com/feed',
+            'title': '文章一',
+            'link': 'https://rss.example.com/a1',
+            'read_time': 1750000000000,
+          },
+        ],
+      );
 
       await tester.pumpWidget(wrap(const RssScreen()));
       await tester.pump();
@@ -199,8 +204,7 @@ void main() {
 
     testWidgets('空记录显示空态且清除禁用', (tester) async {
       when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-      when(() => mockApi.rssListReadRecords(any()))
-          .thenAnswer((_) async => []);
+      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RssScreen()));
       await tester.pump();
@@ -213,10 +217,7 @@ void main() {
       expect(find.text('暂无阅读记录'), findsOneWidget);
       final clearButton = tester.widget<TextButton>(
         find
-            .ancestor(
-              of: find.text('清除'),
-              matching: find.byType(TextButton),
-            )
+            .ancestor(of: find.text('清除'), matching: find.byType(TextButton))
             .first,
       );
       expect(clearButton.onPressed, isNull);

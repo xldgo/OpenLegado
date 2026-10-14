@@ -5,21 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 音频焦点事件类型（与 audio_service.dart 保持一致）
-enum AudioFocusEvent {
-  gain,
-  loss,
-  lossTransient,
-  lossTransientCanDuck,
-}
+enum AudioFocusEvent { gain, loss, lossTransient, lossTransientCanDuck }
 
 /// 媒体按钮事件类型（与 audio_service.dart 保持一致）
-enum MediaButtonEvent {
-  play,
-  pause,
-  skipToNext,
-  skipToPrevious,
-  stop,
-}
+enum MediaButtonEvent { play, pause, skipToNext, skipToPrevious, stop }
 
 /// 模拟音频服务（用于测试）
 class MockAudioService {
@@ -64,7 +53,10 @@ class MockAudioService {
     lastPlaybackState = 'stopped';
   }
 
-  Future<void> updateMetadata({required String title, String artist = ''}) async {
+  Future<void> updateMetadata({
+    required String title,
+    String artist = '',
+  }) async {
     lastMetadataTitle = title;
   }
 
@@ -90,29 +82,28 @@ void main() {
   /// 设置模拟 MethodChannel 响应
   void setupMockMethodChannel() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      const MethodChannel('legado/media_session'),
-      (MethodCall methodCall) async {
-        switch (methodCall.method) {
-          case 'init':
-            return true;
-          case 'requestAudioFocus':
-            return true;
-          case 'abandonAudioFocus':
-            return null;
-          case 'updatePlaybackState':
-            return null;
-          case 'updateMetadata':
-            return null;
-          case 'setPlaying':
-            return null;
-          case 'release':
-            return null;
-          default:
-            return null;
-        }
-      },
-    );
+        .setMockMethodCallHandler(const MethodChannel('legado/media_session'), (
+          MethodCall methodCall,
+        ) async {
+          switch (methodCall.method) {
+            case 'init':
+              return true;
+            case 'requestAudioFocus':
+              return true;
+            case 'abandonAudioFocus':
+              return null;
+            case 'updatePlaybackState':
+              return null;
+            case 'updateMetadata':
+              return null;
+            case 'setPlaying':
+              return null;
+            case 'release':
+              return null;
+            default:
+              return null;
+          }
+        });
   }
 
   setUp(() {
@@ -122,9 +113,9 @@ void main() {
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('legado/media_session'),
-      null,
-    );
+          const MethodChannel('legado/media_session'),
+          null,
+        );
   });
 
   group('AudioService 单元测试', () {
@@ -133,8 +124,10 @@ void main() {
       expect(AudioFocusEvent.values, contains(AudioFocusEvent.gain));
       expect(AudioFocusEvent.values, contains(AudioFocusEvent.loss));
       expect(AudioFocusEvent.values, contains(AudioFocusEvent.lossTransient));
-      expect(AudioFocusEvent.values,
-          contains(AudioFocusEvent.lossTransientCanDuck));
+      expect(
+        AudioFocusEvent.values,
+        contains(AudioFocusEvent.lossTransientCanDuck),
+      );
     });
 
     test('MediaButtonEvent 枚举包含所有媒体按钮事件', () {
@@ -142,8 +135,10 @@ void main() {
       expect(MediaButtonEvent.values, contains(MediaButtonEvent.play));
       expect(MediaButtonEvent.values, contains(MediaButtonEvent.pause));
       expect(MediaButtonEvent.values, contains(MediaButtonEvent.skipToNext));
-      expect(MediaButtonEvent.values,
-          contains(MediaButtonEvent.skipToPrevious));
+      expect(
+        MediaButtonEvent.values,
+        contains(MediaButtonEvent.skipToPrevious),
+      );
       expect(MediaButtonEvent.values, contains(MediaButtonEvent.stop));
     });
 
@@ -235,10 +230,7 @@ void main() {
       final service = MockAudioService();
       await service.init();
 
-      await service.updateMetadata(
-        title: '第一章 开始',
-        artist: '正在朗读: 测试书籍',
-      );
+      await service.updateMetadata(title: '第一章 开始', artist: '正在朗读: 测试书籍');
       expect(service.lastMetadataTitle, '第一章 开始');
 
       service.disposeStreams();
@@ -420,10 +412,7 @@ void main() {
                   icon: const Icon(Icons.timer_outlined),
                   onPressed: null,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: null,
-                ),
+                IconButton(icon: const Icon(Icons.settings), onPressed: null),
               ],
             ),
             body: Column(

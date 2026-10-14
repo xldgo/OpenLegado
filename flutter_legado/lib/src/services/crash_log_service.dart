@@ -203,7 +203,9 @@ class CrashLogService {
   /// 软性告警只写普通日志、不写崩溃记录、不置崩溃标记（见 [logError]）。
   @visibleForTesting
   static bool isSoftWarning(Object error) {
-    final String message = error is FlutterError ? error.message : error.toString();
+    final String message = error is FlutterError
+        ? error.message
+        : error.toString();
     return _softWarningMarkers.any(message.contains);
   }
 
@@ -468,7 +470,8 @@ class CrashLogService {
   void logMemoryInfo() {
     final currentRss = ProcessInfo.currentRss;
     final maxRss = ProcessInfo.maxRss;
-    final info = '内存信息: currentRss=${_formatBytes(currentRss)}, '
+    final info =
+        '内存信息: currentRss=${_formatBytes(currentRss)}, '
         'maxRss=${_formatBytes(maxRss)}';
     put(info);
     logMessage('[OOM] $info');
@@ -496,7 +499,10 @@ class CrashLogService {
     if (_memoryLogs.length >= _maxMemoryLogs) {
       _memoryLogs.removeLast();
     }
-    _memoryLogs.insert(0, LogEntry(DateTime.now().millisecondsSinceEpoch, message, error));
+    _memoryLogs.insert(
+      0,
+      LogEntry(DateTime.now().millisecondsSinceEpoch, message, error),
+    );
 
     // 输出到调试控制台
     if (error != null) {
@@ -540,8 +546,9 @@ class CrashLogService {
       hasContent = true;
       buffer.writeln('----- 内存日志（最新 ${_memoryLogs.length} 条）-----');
       for (final entry in _memoryLogs) {
-        final time =
-            _formatTime(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
+        final time = _formatTime(
+          DateTime.fromMillisecondsSinceEpoch(entry.timestamp),
+        );
         buffer.writeln('[$time] ${entry.message}');
         if (entry.error != null) {
           buffer.writeln('  异常: ${entry.error}');
@@ -577,7 +584,8 @@ class CrashLogService {
     if (!hasContent) return null;
 
     final dir = await getTemporaryDirectory();
-    final fileName = 'legado_logs_${_formatTimeForFileName(DateTime.now())}.txt';
+    final fileName =
+        'legado_logs_${_formatTimeForFileName(DateTime.now())}.txt';
     final file = File('${dir.path}/$fileName');
     await file.writeAsString(buffer.toString());
     return file.path;

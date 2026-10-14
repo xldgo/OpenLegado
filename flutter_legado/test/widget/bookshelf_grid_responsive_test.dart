@@ -7,8 +7,7 @@
 // 书名行 40dp，aspect 随交叉轴宽动态计算（cellW/(cellW×7/5+40)），
 // 固定 5/7 会把 Expanded 封面压成 ≈1:0.97 方形（复审指出）。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,12 +24,15 @@ void main() {
   Future<void> pumpBookshelf(WidgetTester tester, MockRustApi mockApi) async {
     // 强制网格（SettingsService._keyBookshelfLayout）
     SharedPreferences.setMockInitialValues({'bookshelf_layout': true});
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => const [
-          Book(bookUrl: 'u1', name: '书一'),
-          Book(bookUrl: 'u2', name: '书二'),
-          Book(bookUrl: 'u3', name: '书三'),
-        ]);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
+      (_) async => const [
+        Book(bookUrl: 'u1', name: '书一'),
+        Book(bookUrl: 'u2', name: '书二'),
+        Book(bookUrl: 'u3', name: '书三'),
+      ],
+    );
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -58,9 +60,9 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets(
-      '手机 360dp：书架网格固定 3 列（cell aspect 随宽动态/封面 5:7，间距 20，对齐参考 03b）',
-      (tester) async {
+  testWidgets('手机 360dp：书架网格固定 3 列（cell aspect 随宽动态/封面 5:7，间距 20，对齐参考 03b）', (
+    tester,
+  ) async {
     setLogicalWidth(tester, 360);
     await pumpBookshelf(tester, MockRustApi());
 
@@ -68,34 +70,37 @@ void main() {
     expect(delegate.crossAxisCount, equals(3));
     expect(delegate.mainAxisSpacing, equals(20));
     expect(delegate.crossAxisSpacing, equals(20));
-    expect(delegate.childAspectRatio,
-        closeTo(expectedCellAspectRatio(360), 1e-6));
+    expect(
+      delegate.childAspectRatio,
+      closeTo(expectedCellAspectRatio(360), 1e-6),
+    );
   });
 
-  testWidgets('平板 900dp：书架网格仍为 3 列（cell aspect 随宽动态）',
-      (tester) async {
+  testWidgets('平板 900dp：书架网格仍为 3 列（cell aspect 随宽动态）', (tester) async {
     setLogicalWidth(tester, 900);
     await pumpBookshelf(tester, MockRustApi());
 
     final delegate = gridDelegate(tester);
     expect(delegate.crossAxisCount, equals(3));
-    expect(delegate.childAspectRatio,
-        closeTo(expectedCellAspectRatio(900), 1e-6));
+    expect(
+      delegate.childAspectRatio,
+      closeTo(expectedCellAspectRatio(900), 1e-6),
+    );
   });
 
-  testWidgets('桌面 1300dp：书架网格仍为 3 列（cell aspect 随宽动态）',
-      (tester) async {
+  testWidgets('桌面 1300dp：书架网格仍为 3 列（cell aspect 随宽动态）', (tester) async {
     setLogicalWidth(tester, 1300);
     await pumpBookshelf(tester, MockRustApi());
 
     final delegate = gridDelegate(tester);
     expect(delegate.crossAxisCount, equals(3));
-    expect(delegate.childAspectRatio,
-        closeTo(expectedCellAspectRatio(1300), 1e-6));
+    expect(
+      delegate.childAspectRatio,
+      closeTo(expectedCellAspectRatio(1300), 1e-6),
+    );
   });
 
-  testWidgets('窗口尺寸变化后网格仍保持 3 列（固定列数不变）',
-      (tester) async {
+  testWidgets('窗口尺寸变化后网格仍保持 3 列（固定列数不变）', (tester) async {
     setLogicalWidth(tester, 360);
     await pumpBookshelf(tester, MockRustApi());
     expect(gridDelegate(tester).crossAxisCount, equals(3));

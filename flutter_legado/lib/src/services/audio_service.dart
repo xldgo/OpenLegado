@@ -232,9 +232,7 @@ class AudioService {
     if (!_initialized) return;
 
     try {
-      await _channel.invokeMethod<void>('setPlaying', {
-        'playing': playing,
-      });
+      await _channel.invokeMethod<void>('setPlaying', {'playing': playing});
     } on PlatformException {
       // 静默处理
     } on MissingPluginException {

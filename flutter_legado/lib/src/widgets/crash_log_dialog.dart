@@ -71,11 +71,7 @@ class _CrashLogDialogState extends State<CrashLogDialog> {
     final stackTrace = _stackTrace;
 
     return AlertDialog(
-      icon: Icon(
-        Symbols.error_rounded,
-        color: colorScheme.error,
-        size: 32,
-      ),
+      icon: Icon(Symbols.error_rounded, color: colorScheme.error, size: 32),
       title: const Text('上次运行发生崩溃'),
       content: SizedBox(
         width: double.maxFinite,

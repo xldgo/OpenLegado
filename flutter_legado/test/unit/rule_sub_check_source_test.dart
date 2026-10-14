@@ -9,10 +9,10 @@
 /// - SourceNotifier.addGroupToUrls：校验失效分组回写（指定 URL、
 ///   已有分组跳过、不退出批量模式）
 library;
+
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,8 +92,14 @@ void main() {
     });
 
     test('typeLabel 三类映射（对标 arrays.xml rule_type）', () {
-      expect(const RuleSub(subType: RuleSub.bookSource).typeLabel, equals('书源'));
-      expect(const RuleSub(subType: RuleSub.rssSource).typeLabel, equals('订阅源'));
+      expect(
+        const RuleSub(subType: RuleSub.bookSource).typeLabel,
+        equals('书源'),
+      );
+      expect(
+        const RuleSub(subType: RuleSub.rssSource).typeLabel,
+        equals('订阅源'),
+      );
       expect(
         const RuleSub(subType: RuleSub.replaceRule).typeLabel,
         equals('替换规则'),
@@ -118,19 +124,21 @@ void main() {
         container.read(ruleSubNotifierProvider.notifier);
 
     Map<String, dynamic> subJson(int id, String url, int order) => {
-          'id': id,
-          'url': url,
-          'name': '订阅$id',
-          'sub_type': 'bookSource',
-          'customOrder': order,
-        };
+      'id': id,
+      'url': url,
+      'name': '订阅$id',
+      'sub_type': 'bookSource',
+      'customOrder': order,
+    };
 
     test('loadSubs 按 customOrder 排序', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(2, 'https://b', 2),
-            subJson(1, 'https://a', 1),
-            subJson(3, 'https://c', 0),
-          ]);
+      when(() => mockApi.ruleSubList()).thenAnswer(
+        (_) async => [
+          subJson(2, 'https://b', 2),
+          subJson(1, 'https://a', 1),
+          subJson(3, 'https://c', 0),
+        ],
+      );
       await readNotifier().loadSubs();
 
       final subs = readState().subs;
@@ -139,24 +147,19 @@ void main() {
     });
 
     test('findDuplicate 命中他人、排除自身', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(1, 'https://a', 1),
-            subJson(2, 'https://b', 2),
-          ]);
+      when(() => mockApi.ruleSubList()).thenAnswer(
+        (_) async => [subJson(1, 'https://a', 1), subJson(2, 'https://b', 2)],
+      );
       await readNotifier().loadSubs();
 
       expect(readNotifier().findDuplicate('https://a')?.id, equals(1));
-      expect(
-        readNotifier().findDuplicate('https://a', excludeId: 1),
-        isNull,
-      );
+      expect(readNotifier().findDuplicate('https://a', excludeId: 1), isNull);
       expect(readNotifier().findDuplicate('https://zzz'), isNull);
     });
 
     test('saveSub 新增时 customOrder 追加到末尾并持久化', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(1, 'https://a', 3),
-          ]);
+      when(() => mockApi.ruleSubList())
+          .thenAnswer((_) async => [subJson(1, 'https://a', 3)]);
       when(() => mockApi.ruleSubSave(subJson: any(named: 'subJson')))
           .thenAnswer((_) async => true);
       await readNotifier().loadSubs();
@@ -165,9 +168,12 @@ void main() {
         const RuleSub(url: 'https://new', name: '新订阅'),
       );
 
-      final captured = verify(
-        () => mockApi.ruleSubSave(subJson: captureAny(named: 'subJson')),
-      ).captured.single as String;
+      final captured =
+          verify(
+                () =>
+                    mockApi.ruleSubSave(subJson: captureAny(named: 'subJson')),
+              ).captured.single
+              as String;
       final saved = RuleSub.fromJson(
         jsonDecode(captured) as Map<String, dynamic>,
       );
@@ -176,10 +182,9 @@ void main() {
     });
 
     test('deleteSub 移除条目', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(1, 'https://a', 1),
-            subJson(2, 'https://b', 2),
-          ]);
+      when(() => mockApi.ruleSubList()).thenAnswer(
+        (_) async => [subJson(1, 'https://a', 1), subJson(2, 'https://b', 2)],
+      );
       when(() => mockApi.ruleSubDelete(id: any(named: 'id')))
           .thenAnswer((_) async => true);
       await readNotifier().loadSubs();
@@ -189,11 +194,13 @@ void main() {
     });
 
     test('reorder 重排并以新 ID 序列持久化', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(1, 'https://a', 0),
-            subJson(2, 'https://b', 1),
-            subJson(3, 'https://c', 2),
-          ]);
+      when(() => mockApi.ruleSubList()).thenAnswer(
+        (_) async => [
+          subJson(1, 'https://a', 0),
+          subJson(2, 'https://b', 1),
+          subJson(3, 'https://c', 2),
+        ],
+      );
       when(() => mockApi.ruleSubUpdateOrder(ids: any(named: 'ids')))
           .thenAnswer((_) async => true);
       await readNotifier().loadSubs();
@@ -202,20 +209,23 @@ void main() {
       await readNotifier().reorder(2, 0);
 
       expect(readState().subs.map((s) => s.id), equals([3, 1, 2]));
-      final captured = verify(
-        () => mockApi.ruleSubUpdateOrder(ids: captureAny(named: 'ids')),
-      ).captured.single as List<int>;
+      final captured =
+          verify(
+                () => mockApi.ruleSubUpdateOrder(ids: captureAny(named: 'ids')),
+              ).captured.single
+              as List<int>;
       expect(captured, equals([3, 1, 2]));
     });
 
     test('setEnabled 切换启用状态', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer((_) async => [
-            subJson(1, 'https://a', 1),
-          ]);
-      when(() => mockApi.ruleSubSetEnabled(
-            id: any(named: 'id'),
-            enabled: any(named: 'enabled'),
-          )).thenAnswer((_) async => true);
+      when(() => mockApi.ruleSubList())
+          .thenAnswer((_) async => [subJson(1, 'https://a', 1)]);
+      when(
+        () => mockApi.ruleSubSetEnabled(
+          id: any(named: 'id'),
+          enabled: any(named: 'enabled'),
+        ),
+      ).thenAnswer((_) async => true);
       await readNotifier().loadSubs();
       expect(readState().subs.single.isEnabled, isTrue);
 
@@ -255,17 +265,21 @@ void main() {
     test('start 空 URL 列表不启动会话', () async {
       await readNotifier().start(sourceUrls: const []);
       expect(readState().hasSession, isFalse);
-      verifyNever(() => mockApi.sourceChecker.checkSourcesStream(
-            any(),
-            configJson: any(named: 'configJson'),
-          ));
+      verifyNever(
+        () => mockApi.sourceChecker.checkSourcesStream(
+          any(),
+          configJson: any(named: 'configJson'),
+        ),
+      );
     });
 
     test('start 持久化关键词并携带 configJson', () async {
-      when(() => mockApi.sourceChecker.checkSourcesStream(
-            any(),
-            configJson: any(named: 'configJson'),
-          )).thenAnswer((_) => const Stream.empty());
+      when(
+        () => mockApi.sourceChecker.checkSourcesStream(
+          any(),
+          configJson: any(named: 'configJson'),
+        ),
+      ).thenAnswer((_) => const Stream.empty());
 
       await readNotifier().start(
         sourceUrls: const ['https://a'],
@@ -277,19 +291,25 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('check_source_keyword'), equals('测试词'));
-      final captured = verify(() => mockApi.sourceChecker.checkSourcesStream(
-            any(),
-            configJson: captureAny(named: 'configJson'),
-          )).captured.single as String;
+      final captured =
+          verify(
+                () => mockApi.sourceChecker.checkSourcesStream(
+                  any(),
+                  configJson: captureAny(named: 'configJson'),
+                ),
+              ).captured.single
+              as String;
       expect(captured, contains('测试词'));
       expect(readState().total, equals(1));
     });
 
     test('clearMessages 重置会话', () async {
-      when(() => mockApi.sourceChecker.checkSourcesStream(
-            any(),
-            configJson: any(named: 'configJson'),
-          )).thenAnswer((_) => const Stream.empty());
+      when(
+        () => mockApi.sourceChecker.checkSourcesStream(
+          any(),
+          configJson: any(named: 'configJson'),
+        ),
+      ).thenAnswer((_) => const Stream.empty());
       await readNotifier().start(sourceUrls: const ['https://a']);
       await Future.delayed(Duration.zero);
       expect(readState().hasSession, isTrue);
@@ -317,7 +337,8 @@ void main() {
         container.read(sourceNotifierProvider.notifier);
 
     Future<void> loadWith(List<BookSource> sources) async {
-      when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       when(() => mockApi.bookSourceRepository.updateBookSource(any()))
           .thenAnswer((_) async {});
       await readNotifier().loadSources();
@@ -335,12 +356,16 @@ void main() {
 
       await readNotifier().addGroupToUrls({'https://b'}, '失效');
 
-      final captured = verify(
-        () => mockApi.bookSourceRepository.updateBookSource(captureAny()),
-      ).captured.single as BookSource;
+      final captured =
+          verify(
+                () =>
+                    mockApi.bookSourceRepository.updateBookSource(captureAny()),
+              ).captured.single
+              as BookSource;
       expect(captured.bookSourceGroup, equals('玄幻,失效'));
       expect(
-        readState().sources.firstWhere((s) => s.bookSourceUrl == 'https://b')
+        readState().sources
+            .firstWhere((s) => s.bookSourceUrl == 'https://b')
             .bookSourceGroup,
         equals('玄幻,失效'),
       );

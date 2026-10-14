@@ -65,9 +65,8 @@ class _DictDialogState extends ConsumerState<DictDialog>
     if (uri == null) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开在线词典')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法打开在线词典')));
       }
     }
   }
@@ -128,15 +127,15 @@ class _DictDialogState extends ConsumerState<DictDialog>
             child: state.isLoading && state.result == null
                 ? const Center(child: Md3LoadingIndicator())
                 : _tabController == null
-                    ? const Center(child: Md3LoadingIndicator())
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildLocalBody(theme, state),
-                          for (final rule in state.rules)
-                            _buildOnlineBody(theme, rule),
-                        ],
-                      ),
+                ? const Center(child: Md3LoadingIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildLocalBody(theme, state),
+                      for (final rule in state.rules)
+                        _buildOnlineBody(theme, rule),
+                    ],
+                  ),
           ),
         ],
       ),

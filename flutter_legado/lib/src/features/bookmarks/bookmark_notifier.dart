@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -38,7 +37,10 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final repository = ref.read(bookmarkRepositoryProvider);
-      final bookmarks = await repository.getBookmarksByBook(bookName, bookAuthor);
+      final bookmarks = await repository.getBookmarksByBook(
+        bookName,
+        bookAuthor,
+      );
       state = state.copyWith(bookmarks: bookmarks, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoading: false);
@@ -77,7 +79,10 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
     state = state.copyWith(
       bookmarks: [
         for (final current in state.bookmarks)
-          if (current.id == bookmark.id) current.copyWith(content: note) else current,
+          if (current.id == bookmark.id)
+            current.copyWith(content: note)
+          else
+            current,
       ],
     );
   }
@@ -122,6 +127,4 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
 /// ref.read(bookmarkNotifierProvider.notifier).loadAll();
 /// ```
 final bookmarkNotifierProvider =
-    NotifierProvider<BookmarkNotifier, BookmarkState>(
-  BookmarkNotifier.new,
-);
+    NotifierProvider<BookmarkNotifier, BookmarkState>(BookmarkNotifier.new);

@@ -1,13 +1,15 @@
 import '../../theme/import_status_colors.dart';
 import '../../widgets/app_menu.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import 'source_notifier.dart';
@@ -168,9 +170,8 @@ class _SourceImportConfirmScreenState
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导入失败：$e')));
       }
     } finally {
       if (mounted) setState(() => _importing = false);
@@ -199,8 +200,7 @@ class _SourceImportConfirmScreenState
 
   /// 查看书源 JSON（对标原版 tvOpen → CodeDialog）：直接展示原始 JSON
   Future<void> _showSourceJson(SourcePreview source) async {
-    final json = const JsonEncoder.withIndent('  ')
-        .convert(source.raw);
+    final json = const JsonEncoder.withIndent('  ').convert(source.raw);
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -219,9 +219,8 @@ class _SourceImportConfirmScreenState
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: json));
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('已复制到剪贴板')),
-                );
+                ScaffoldMessenger.of(ctx)
+                    .showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
               }
             },
             child: const Text('复制'),
@@ -246,27 +245,21 @@ class _SourceImportConfirmScreenState
         actions: [
           // 自定义源分组（对标 menu_new_group，always 显示）
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onPrimary,
-            ),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
             onPressed: _showCustomGroupDialog,
-            child: Text(_groupName == null
-                ? '自定义源分组'
-                : '${_isAddGroup ? '+' : ''}$_groupName'),
+            child: Text(
+              _groupName == null
+                  ? '自定义源分组'
+                  : '${_isAddGroup ? '+' : ''}$_groupName',
+            ),
           ),
           AppMenuButton<String>(
             tooltip: '更多选项',
             // 菜单在顶栏下方展开，不覆盖顶栏
             onSelected: _handleMenu,
             itemBuilder: (_) => [
-              const AppMenuItem(
-                value: 'select_new',
-                child: Text('选中新增源'),
-              ),
-              const AppMenuItem(
-                value: 'select_update',
-                child: Text('选中更新源'),
-              ),
+              const AppMenuItem(value: 'select_new', child: Text('选中新增源')),
+              const AppMenuItem(value: 'select_update', child: Text('选中更新源')),
               const AppMenuDivider(),
               AppMenuItem(
                 value: 'keep_name',
@@ -298,8 +291,7 @@ class _SourceImportConfirmScreenState
               // [LAYOUT_PLAN P2] 页面水平边距统一 16dp（全局标尺）
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: widget.sources.length,
-              separatorBuilder: (_, _) =>
-                  const Divider(height: 1, indent: 8),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 8),
               itemBuilder: (context, index) => _buildItem(index),
             ),
       // 底部操作区（对标 dialog_recycler_view：footerLeft / cancel / ok）
@@ -345,8 +337,9 @@ class _SourceImportConfirmScreenState
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed:
-                      _importing || _selectCount == 0 ? null : _confirmImport,
+                  onPressed: _importing || _selectCount == 0
+                      ? null
+                      : _confirmImport,
                   child: _importing
                       ? const SizedBox(
                           width: 16,
@@ -401,10 +394,8 @@ class _SourceImportConfirmScreenState
 
     final (label, color) = switch (status) {
       _ImportStatus.isNew => ('新增', AppColorsExt.importNew(colorScheme)),
-      _ImportStatus.isUpdate =>
-        ('更新', AppColorsExt.importUpdate(colorScheme)),
-      _ImportStatus.exists =>
-        ('已有', colorScheme.onSurfaceVariant),
+      _ImportStatus.isUpdate => ('更新', AppColorsExt.importUpdate(colorScheme)),
+      _ImportStatus.exists => ('已有', colorScheme.onSurfaceVariant),
     };
 
     return InkWell(
@@ -416,8 +407,7 @@ class _SourceImportConfirmScreenState
           children: [
             Checkbox(
               value: _selected[index],
-              onChanged: (v) =>
-                  setState(() => _selected[index] = v ?? false),
+              onChanged: (v) => setState(() => _selected[index] = v ?? false),
             ),
             Expanded(
               child: Column(
@@ -448,10 +438,7 @@ class _SourceImportConfirmScreenState
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 13, color: color),
-              ),
+              child: Text(label, style: TextStyle(fontSize: 13, color: color)),
             ),
             TextButton(
               onPressed: () => _showSourceJson(source),

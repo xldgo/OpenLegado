@@ -4,8 +4,7 @@
 //
 // 装配复用 search_screen_scroll_test 的 mock 模式。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,11 +23,15 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.searchHistoryRepository.getSearchHistory(limit: any(named: 'limit')))
-        .thenAnswer((_) async => []);
+    when(
+      () => mockApi.searchHistoryRepository.getSearchHistory(
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer((_) async => []);
     when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.searchHistoryRepository.clearSearchHistory()).thenAnswer((_) async {});
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory())
+        .thenAnswer((_) async {});
     when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
     when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});

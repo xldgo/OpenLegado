@@ -7,10 +7,7 @@ class StatItem {
   final String label;
   final String value;
 
-  const StatItem({
-    required this.label,
-    required this.value,
-  });
+  const StatItem({required this.label, required this.value});
 
   @override
   bool operator ==(Object other) =>
@@ -47,9 +44,7 @@ class ReadingStatsGridCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -58,17 +53,10 @@ class ReadingStatsGridCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  Symbols.equalizer_rounded,
-                  size: 20,
-                  color: cs.primary,
-                ),
+                Icon(Symbols.equalizer_rounded, size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  child: Text(title, style: theme.textTheme.titleMedium),
                 ),
                 ?trailing,
               ],
@@ -93,9 +81,7 @@ class ReadingStatsGridCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _StatCell(item: items[i]),
-                        ),
+                        Expanded(child: _StatCell(item: items[i])),
                         const SizedBox(width: 12),
                         Expanded(
                           child: (i + 1 < items.length)

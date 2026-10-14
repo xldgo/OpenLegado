@@ -12,11 +12,7 @@ class PillDivider extends StatelessWidget {
   /// 是否启用（HapeLee enableItemDivider，默认 false 关）。
   final bool enabled;
 
-  const PillDivider({
-    super.key,
-    this.widthFraction = 0.2,
-    this.enabled = true,
-  });
+  const PillDivider({super.key, this.widthFraction = 0.2, this.enabled = true});
 
   @override
   Widget build(BuildContext context) {

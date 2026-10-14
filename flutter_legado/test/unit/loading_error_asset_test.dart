@@ -16,15 +16,19 @@ void main() {
   // flutter test 工作目录 = 包根（flutter_legado/）
   final root = Directory.current;
 
-  test('assets/images/image_loading_error.png 存在且字节数与原版一致（6933B）',
-      () {
-    final file = File('${root.path}${Platform.pathSeparator}assets'
-        '${Platform.pathSeparator}images'
-        '${Platform.pathSeparator}image_loading_error.png');
+  test('assets/images/image_loading_error.png 存在且字节数与原版一致（6933B）', () {
+    final file = File(
+      '${root.path}${Platform.pathSeparator}assets'
+      '${Platform.pathSeparator}images'
+      '${Platform.pathSeparator}image_loading_error.png',
+    );
     expect(file.existsSync(), isTrue, reason: '素材文件应已拷入 assets/images/');
     // 原版/参考版均 6933B（调研报告 §3.3 字节级对齐口径）
-    expect(file.lengthSync(), 6933,
-        reason: '素材须与原版 res/drawable/image_loading_error.png 字节一致');
+    expect(
+      file.lengthSync(),
+      6933,
+      reason: '素材须与原版 res/drawable/image_loading_error.png 字节一致',
+    );
   });
 
   test('pubspec flutter.assets 已声明 assets/images/ 目录（覆盖该素材）', () {
@@ -35,7 +39,10 @@ void main() {
     // 覆盖该目录下所有素材；调研报告 §3.1 实测声明位于 pubspec L73）
     final inFlutterAssets =
         text.contains('assets/images/') && text.contains('  assets:');
-    expect(inFlutterAssets, isTrue,
-        reason: 'pubspec 须以 flutter.assets 目录声明覆盖 assets/images/');
+    expect(
+      inFlutterAssets,
+      isTrue,
+      reason: 'pubspec 须以 flutter.assets 目录声明覆盖 assets/images/',
+    );
   });
 }

@@ -30,31 +30,28 @@ import 'package:flutter_legado/src/services/video_float_window.dart';
 
 /// 路由名 → 可读文本（断言用；避免与路由名常量混淆）
 String _label(String? name) => switch (name) {
-      AppRoutes.welcome => 'splash',
-      AppRoutes.home => 'bookshelf',
-      AppRoutes.video => 'player',
-      _ => 'other',
-    };
+  AppRoutes.welcome => 'splash',
+  AppRoutes.home => 'bookshelf',
+  AppRoutes.video => 'player',
+  _ => 'other',
+};
 
 Widget _buildApp({
   required TopRouteWatcher watcher,
   String initialRoute = AppRoutes.welcome,
-}) =>
-    MaterialApp(
-      // 与 app.dart build() 同源：生产全局 navigatorKey
-      navigatorKey: PlatformBridgeService.navigatorKey,
-      navigatorObservers: [watcher],
-      initialRoute: initialRoute,
-      onGenerateRoute: (settings) => MaterialPageRoute<void>(
-        settings: settings,
-        builder: (_) => Scaffold(body: Center(child: Text(_label(settings.name)))),
-      ),
-    );
+}) => MaterialApp(
+  // 与 app.dart build() 同源：生产全局 navigatorKey
+  navigatorKey: PlatformBridgeService.navigatorKey,
+  navigatorObservers: [watcher],
+  initialRoute: initialRoute,
+  onGenerateRoute: (settings) => MaterialPageRoute<void>(
+    settings: settings,
+    builder: (_) => Scaffold(body: Center(child: Text(_label(settings.name)))),
+  ),
+);
 
 void main() {
-  testWidgets(
-      '冷启动：Navigator 未就绪且闪屏未退出 → push 推迟，闪屏退出后压入播放页',
-      (tester) async {
+  testWidgets('冷启动：Navigator 未就绪且闪屏未退出 → push 推迟，闪屏退出后压入播放页', (tester) async {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
 
@@ -77,24 +74,31 @@ void main() {
     expect(pushed, isEmpty, reason: '闪屏仍在栈顶，push 必须等待（原竞争点）');
 
     // 复刻 WelcomeScreen._goNext：闪屏 pushReplacementNamed(home)
-    PlatformBridgeService.navigatorKey.currentState!
-        .pushReplacementNamed(AppRoutes.home);
+    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
+      AppRoutes.home,
+    );
     await tester.pump(const Duration(milliseconds: 50));
     // 冲刷转场动画：闪屏退出转场结束后旧路由才被销毁
     await tester.pumpAndSettle();
 
     expect(pushed, [AppRoutes.video], reason: '闪屏退出后应立即压入播放页');
     expect(find.text('player'), findsOneWidget, reason: '播放页可见且位于栈顶');
-    expect(find.text('splash', skipOffstage: false), findsNothing,
-        reason: '闪屏已被 home 替换（不是被 video 替换后的残留）');
-    expect(find.text('bookshelf', skipOffstage: false), findsAtLeastNWidgets(1),
-        reason: 'bookshelf 仍在栈底，播放页压在其上');
+    expect(
+      find.text('splash', skipOffstage: false),
+      findsNothing,
+      reason: '闪屏已被 home 替换（不是被 video 替换后的残留）',
+    );
+    expect(
+      find.text('bookshelf', skipOffstage: false),
+      findsAtLeastNWidgets(1),
+      reason: 'bookshelf 仍在栈底，播放页压在其上',
+    );
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      '协调器 openFullscreen 冷启动回传：路由未就绪时 push 推迟，闪屏退出后压栈',
-      (tester) async {
+  testWidgets('协调器 openFullscreen 冷启动回传：路由未就绪时 push 推迟，闪屏退出后压栈', (
+    tester,
+  ) async {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
     final coordinator = VideoFloatWindowCoordinator();
@@ -123,8 +127,9 @@ void main() {
     });
     expect(pushed, isEmpty, reason: '闪屏未退出，回全屏 push 必须推迟（原竞争点）');
 
-    PlatformBridgeService.navigatorKey.currentState!
-        .pushReplacementNamed(AppRoutes.home);
+    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
+      AppRoutes.home,
+    );
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
 
@@ -133,13 +138,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('冷启动回传晚到：闪屏已退出（栈顶 home）→ 立即 push，无需等待',
-      (tester) async {
+  testWidgets('冷启动回传晚到：闪屏已退出（栈顶 home）→ 立即 push，无需等待', (tester) async {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
     await tester.pumpWidget(_buildApp(watcher: watcher));
-    PlatformBridgeService.navigatorKey.currentState!
-        .pushReplacementNamed(AppRoutes.home);
+    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
+      AppRoutes.home,
+    );
     await tester.pump();
 
     LegadoApp.scheduleFloatReturnNavigation(
@@ -159,8 +164,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('热路径：栈顶非 welcome（App 已存活）→ 同步 push，零额外延迟',
-      (tester) async {
+  testWidgets('热路径：栈顶非 welcome（App 已存活）→ 同步 push，零额外延迟', (tester) async {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
     await tester.pumpWidget(
@@ -190,8 +194,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('超时兜底：闪屏始终未退出 → 放弃 push（停留当前页）并回调 onTimeout',
-      (tester) async {
+  testWidgets('超时兜底：闪屏始终未退出 → 放弃 push（停留当前页）并回调 onTimeout', (tester) async {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
     var timedOut = false;

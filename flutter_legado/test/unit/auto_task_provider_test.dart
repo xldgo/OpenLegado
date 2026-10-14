@@ -9,10 +9,10 @@
 /// 永远失败且错误被吞），Notifier 为纯 FFI + 失败可见；FFI 缺失（rustApi=null）
 /// 分支断言错误可见。
 library;
+
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -25,7 +25,10 @@ void main() {
     registerFallbacks();
   });
 
-  List<Map<String, dynamic>> makeTaskList({int count = 2, String idStart = '1'}) {
+  List<Map<String, dynamic>> makeTaskList({
+    int count = 2,
+    String idStart = '1',
+  }) {
     return List.generate(
       count,
       (i) => {
@@ -39,18 +42,18 @@ void main() {
 
   /// FFI 缺失分支容器（rustApi 覆盖为 null，对齐生产 FFI 初始化失败场景）
   ProviderContainer nullApiContainer() {
-    final c = ProviderContainer(overrides: [
-      autoTaskRustApiProvider.overrideWithValue(null),
-    ]);
+    final c = ProviderContainer(
+      overrides: [autoTaskRustApiProvider.overrideWithValue(null)],
+    );
     addTearDown(c.dispose);
     return c;
   }
 
   /// FFI 容器（MockRustApi 打桩）
   ProviderContainer ffiContainer(MockRustApi rustApi) {
-    final c = ProviderContainer(overrides: [
-      autoTaskRustApiProvider.overrideWithValue(rustApi),
-    ]);
+    final c = ProviderContainer(
+      overrides: [autoTaskRustApiProvider.overrideWithValue(rustApi)],
+    );
     addTearDown(c.dispose);
     return c;
   }
@@ -116,8 +119,11 @@ void main() {
 
     test('toJson 输出服务端兼容格式', () {
       const task = AutoTask(
-        id: 't1', name: 'Refresh', taskType: 'refreshToc',
-        cron: '0 0 * * *', isEnabled: true,
+        id: 't1',
+        name: 'Refresh',
+        taskType: 'refreshToc',
+        cron: '0 0 * * *',
+        isEnabled: true,
       );
       final json = task.toJson();
       expect(json['enable'], isTrue);
@@ -126,7 +132,8 @@ void main() {
     });
 
     test('toJson 保留已保存 script', () {
-      const savedScript = '({"bookUrl":"http://a.com","generatedBy":"bookUpdate"})';
+      const savedScript =
+          '({"bookUrl":"http://a.com","generatedBy":"bookUpdate"})';
       final task = AutoTask.fromJson({
         'id': 't2',
         'name': 'Book Update',
@@ -138,9 +145,33 @@ void main() {
     });
 
     test('taskTypeLabel 返回中文标签', () {
-      expect(const AutoTask(id: '', name: '', taskType: 'refreshToc', cron: '').taskTypeLabel, equals('刷新目录'));
-      expect(const AutoTask(id: '', name: '', taskType: 'updateSources', cron: '').taskTypeLabel, equals('更新书源'));
-      expect(const AutoTask(id: '', name: '', taskType: 'backup', cron: '').taskTypeLabel, equals('自动备份'));
+      expect(
+        const AutoTask(
+          id: '',
+          name: '',
+          taskType: 'refreshToc',
+          cron: '',
+        ).taskTypeLabel,
+        equals('刷新目录'),
+      );
+      expect(
+        const AutoTask(
+          id: '',
+          name: '',
+          taskType: 'updateSources',
+          cron: '',
+        ).taskTypeLabel,
+        equals('更新书源'),
+      );
+      expect(
+        const AutoTask(
+          id: '',
+          name: '',
+          taskType: 'backup',
+          cron: '',
+        ).taskTypeLabel,
+        equals('自动备份'),
+      );
     });
   });
 
@@ -210,18 +241,25 @@ void main() {
       final mockApi = MockRustApi();
       when(() => mockApi.autoTaskCreateRule(ruleJson: any(named: 'ruleJson')))
           .thenAnswer((_) async => 'ok');
-      when(() => mockApi.autoTaskListRules()).thenAnswer((_) async => [
-            {
-              'id': '1',
-              'name': 'New Task',
-              'comment': 'backup',
-              'cron': '',
-              'script': 'backup()',
-            },
-          ]);
+      when(() => mockApi.autoTaskListRules()).thenAnswer(
+        (_) async => [
+          {
+            'id': '1',
+            'name': 'New Task',
+            'comment': 'backup',
+            'cron': '',
+            'script': 'backup()',
+          },
+        ],
+      );
       final c = ffiContainer(mockApi);
 
-      const task = AutoTask(id: '1', name: 'New Task', taskType: 'backup', cron: '');
+      const task = AutoTask(
+        id: '1',
+        name: 'New Task',
+        taskType: 'backup',
+        cron: '',
+      );
       await readNotifier(c).createTask(task);
 
       expect(readState(c).error, isNull);
@@ -298,13 +336,17 @@ void main() {
   group('AutoTaskNotifier runNow', () {
     test('FFI 执行成功更新本地状态', () async {
       final mockApi = MockRustApi();
-      when(() => mockApi.autoTaskListRules()).thenAnswer((_) async => [
-            {'id': 't1', 'name': 'Task', 'taskType': 'backup', 'cron': ''},
-          ]);
-      when(() => mockApi.autoTaskExecuteWithId(
-            protocolJson: any(named: 'protocolJson'),
-            taskId: any(named: 'taskId'),
-          )).thenAnswer((_) async => {'success': true});
+      when(() => mockApi.autoTaskListRules()).thenAnswer(
+        (_) async => [
+          {'id': 't1', 'name': 'Task', 'taskType': 'backup', 'cron': ''},
+        ],
+      );
+      when(
+        () => mockApi.autoTaskExecuteWithId(
+          protocolJson: any(named: 'protocolJson'),
+          taskId: any(named: 'taskId'),
+        ),
+      ).thenAnswer((_) async => {'success': true});
       final c = ffiContainer(mockApi);
       await readNotifier(c).loadTasks();
 
@@ -316,13 +358,17 @@ void main() {
 
     test('FFI 执行失败时错误可见', () async {
       final mockApi = MockRustApi();
-      when(() => mockApi.autoTaskListRules()).thenAnswer((_) async => [
-            {'id': 't1', 'name': 'Task', 'taskType': 'backup', 'cron': ''},
-          ]);
-      when(() => mockApi.autoTaskExecuteWithId(
-            protocolJson: any(named: 'protocolJson'),
-            taskId: any(named: 'taskId'),
-          )).thenThrow(Exception('FFI execute failed'));
+      when(() => mockApi.autoTaskListRules()).thenAnswer(
+        (_) async => [
+          {'id': 't1', 'name': 'Task', 'taskType': 'backup', 'cron': ''},
+        ],
+      );
+      when(
+        () => mockApi.autoTaskExecuteWithId(
+          protocolJson: any(named: 'protocolJson'),
+          taskId: any(named: 'taskId'),
+        ),
+      ).thenThrow(Exception('FFI execute failed'));
       final c = ffiContainer(mockApi);
       await readNotifier(c).loadTasks();
 
@@ -342,23 +388,30 @@ void main() {
 
     test('buildBookUpdateTask 成功', () async {
       final expected = {'id': 'new', 'name': 'Update Task'};
-      when(() => mockApi.autoTaskBuildBookUpdateTask(
-            bookUrl: any(named: 'bookUrl'),
-            bookName: any(named: 'bookName'),
-            bookAuthor: any(named: 'bookAuthor'),
-            name: any(named: 'name'),
-          )).thenAnswer((_) async => expected);
+      when(
+        () => mockApi.autoTaskBuildBookUpdateTask(
+          bookUrl: any(named: 'bookUrl'),
+          bookName: any(named: 'bookName'),
+          bookAuthor: any(named: 'bookAuthor'),
+          name: any(named: 'name'),
+        ),
+      ).thenAnswer((_) async => expected);
 
       final result = await readNotifier(container).buildBookUpdateTask(
-        bookUrl: 'http://book.com', bookName: 'TestBook',
-        bookAuthor: 'Author', name: 'Update',
+        bookUrl: 'http://book.com',
+        bookName: 'TestBook',
+        bookAuthor: 'Author',
+        name: 'Update',
       );
       expect(result, equals(expected));
     });
 
     test('buildBookUpdateTask 无 rustApi 返回 null', () async {
       final result = await readNotifier(nullApiContainer()).buildBookUpdateTask(
-        bookUrl: '', bookName: '', bookAuthor: '', name: '',
+        bookUrl: '',
+        bookName: '',
+        bookAuthor: '',
+        name: '',
       );
       expect(result, isNull);
     });
@@ -367,15 +420,18 @@ void main() {
       when(() => mockApi.autoTaskNormalizeScript(script: any(named: 'script')))
           .thenAnswer((_) async => 'cleaned()');
 
-      final result = await readNotifier(container).normalizeScript('@js:cleaned()');
+      final result = await readNotifier(container)
+          .normalizeScript('@js:cleaned()');
       expect(result, equals('cleaned()'));
     });
 
     test('canRefreshBookToc 成功', () async {
-      when(() => mockApi.autoTaskCanRefreshBookToc(
-            canUpdate: any(named: 'canUpdate'),
-            respectCanUpdate: any(named: 'respectCanUpdate'),
-          )).thenAnswer((_) async => true);
+      when(
+        () => mockApi.autoTaskCanRefreshBookToc(
+          canUpdate: any(named: 'canUpdate'),
+          respectCanUpdate: any(named: 'respectCanUpdate'),
+        ),
+      ).thenAnswer((_) async => true);
 
       final result = await readNotifier(container)
           .canRefreshBookToc(canUpdate: true, respectCanUpdate: true);
@@ -383,12 +439,15 @@ void main() {
     });
 
     test('nextDueAt 成功', () async {
-      when(() => mockApi.autoTaskNextDueAt(
-            cron: any(named: 'cron'),
-            fromMs: any(named: 'fromMs'),
-          )).thenAnswer((_) async => 1735689600000);
+      when(
+        () => mockApi.autoTaskNextDueAt(
+          cron: any(named: 'cron'),
+          fromMs: any(named: 'fromMs'),
+        ),
+      ).thenAnswer((_) async => 1735689600000);
 
-      final result = await readNotifier(container).nextDueAt(cron: '0 0 3 * * *');
+      final result = await readNotifier(container)
+          .nextDueAt(cron: '0 0 3 * * *');
       expect(result, equals(1735689600000));
     });
 
@@ -396,10 +455,15 @@ void main() {
       const bookScript =
           '({"type":"refreshToc","bookUrl":"http://book/1","bookName":"测试书",'
           '"bookAuthor":"作者A","generatedBy":"bookUpdate"})';
-      final expected = {'id': 'book_update:abc', 'name': '更新', 'script': bookScript};
+      final expected = {
+        'id': 'book_update:abc',
+        'name': '更新',
+        'script': bookScript,
+      };
 
       // list 失败 → 退化为 state.tasks 序列化（fromJson 保留 script）
-      when(() => mockApi.autoTaskListRules()).thenThrow(Exception('FFI list failed'));
+      when(() => mockApi.autoTaskListRules())
+          .thenThrow(Exception('FFI list failed'));
       final c = ffiContainer(mockApi);
       final seeded = AutoTask.fromJson({
         'id': 'book_update:abc',
@@ -408,15 +472,16 @@ void main() {
         'cron': '0 */6 * * *',
         'script': bookScript,
       });
-      readNotifier(c).state =
-          readNotifier(c).state.copyWith(tasks: [seeded]);
+      readNotifier(c).state = readNotifier(c).state.copyWith(tasks: [seeded]);
 
-      when(() => mockApi.autoTaskFindBookUpdateTask(
-            tasksJson: any(named: 'tasksJson'),
-            bookUrl: any(named: 'bookUrl'),
-            bookName: any(named: 'bookName'),
-            bookAuthor: any(named: 'bookAuthor'),
-          )).thenAnswer((invocation) async {
+      when(
+        () => mockApi.autoTaskFindBookUpdateTask(
+          tasksJson: any(named: 'tasksJson'),
+          bookUrl: any(named: 'bookUrl'),
+          bookName: any(named: 'bookName'),
+          bookAuthor: any(named: 'bookAuthor'),
+        ),
+      ).thenAnswer((invocation) async {
         final tasksJson = invocation.namedArguments[#tasksJson] as String;
         final list = jsonDecode(tasksJson) as List;
         expect(list.length, equals(1));

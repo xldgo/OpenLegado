@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 M2] 漫画菜单按用户截图重构（实心顶栏 + 两段底栏 + 目录 sheet）
 //
 // 视觉基准 = 用户截图（参考版 APK kazusa 3.26.15；本地参考源码快照滞后，
@@ -59,7 +60,8 @@ class _MenuMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -71,8 +73,8 @@ class _MenuMockApi extends MockBookApi {
     Map<String, String>? configs,
     this.chapterCount = 3,
     List<String>? bookLoads,
-  })  : _configs = configs ?? {},
-        bookLoads = bookLoads ?? <String>[];
+  }) : _configs = configs ?? {},
+       bookLoads = bookLoads ?? <String>[];
 
   /// 每章图片数（与既有漫画 mock 一致取 3，保证滑条/单页式有页可跳）
   static const int imageCount = 3;
@@ -93,36 +95,33 @@ class _MenuMockApi extends MockBookApi {
   final int chapterCount;
 
   Future<List<BookSource>> _fixtureGetBookSources() async => [
-        BookSource(
-          bookSourceUrl: 'https://manga.example.com',
-          bookSourceName: '测试漫画源',
-          bookSourceGroup: '漫画',
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: ContentRule(
-            content: '.x',
-            imageDecode: 'decode(result);',
-          ),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+    BookSource(
+      bookSourceUrl: 'https://manga.example.com',
+      bookSourceName: '测试漫画源',
+      bookSourceGroup: '漫画',
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async {
     bookLoads.add(bookUrl);
     return Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: 'https://manga.example.com',
-        originName: '测试漫画源',
-        canUpdate: true,
-        totalChapterNum: chapterCount,
-        durChapterPos: 0,
-      );
+      bookUrl: bookUrl,
+      tocUrl: 'https://manga.example.com/comic/1/',
+      name: '测试漫画',
+      author: '作者',
+      origin: 'https://manga.example.com',
+      originName: '测试漫画源',
+      canUpdate: true,
+      totalChapterNum: chapterCount,
+      durChapterPos: 0,
+    );
   }
 
   @override
@@ -224,9 +223,7 @@ Future<void> _pumpScreen(
       container: container,
       child: MaterialApp(
         theme: theme,
-        routes: {
-          AppRoutes.changeSource: (_) => const _FakeChangeSourceRoute(),
-        },
+        routes: {AppRoutes.changeSource: (_) => const _FakeChangeSourceRoute()},
         home: ReaderComicScreen(bookUrl: 'mock://menu'),
       ),
     ),
@@ -242,9 +239,9 @@ Future<void> _showControls(WidgetTester tester) async {
 
 void main() {
   group('[P4-3 M2] 漫画菜单按用户截图重构', () {
-    testWidgets(
-        '① 顶栏：实心背景 + 书名/章节名/源名 + 返回/刷新/更多（刷新 = 收菜单 + 重取）',
-        (tester) async {
+    testWidgets('① 顶栏：实心背景 + 书名/章节名/源名 + 返回/刷新/更多（刷新 = 收菜单 + 重取）', (
+      tester,
+    ) async {
       final progressCalls = <List<int>>[];
       final configWrites = <List<String>>[];
       final fetchCalls = <String>[];
@@ -288,10 +285,7 @@ void main() {
       // 真实功能 = 复用换源弹层，非假按钮；见测试⑦ 重载断言）
       expect(find.byTooltip('换源'), findsOneWidget);
       final changeSourceIcon = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('换源'),
-          matching: find.byType(Icon),
-        ),
+        find.descendant(of: find.byTooltip('换源'), matching: find.byType(Icon)),
       );
       expect(
         changeSourceIcon.icon,
@@ -324,12 +318,14 @@ void main() {
       );
       // 【M3 修1】贴底白条背景 Container 同构（覆盖底部安全区直至屏幕底缘）
       final whiteBar = tester.widget<Container>(
-        find.descendant(
-          of: find.byType(MangaMenuBottomBar),
-          matching: find.byWidgetPredicate(
-            (w) => w is Container && w.color == scheme.surface,
-          ),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(MangaMenuBottomBar),
+              matching: find.byWidgetPredicate(
+                (w) => w is Container && w.color == scheme.surface,
+              ),
+            )
+            .first,
       );
       expect(
         whiteBar.child,
@@ -341,15 +337,19 @@ void main() {
       final before = fetchCalls.length;
       await tester.tap(find.byTooltip('刷新'));
       await tester.pumpAndSettle();
-      expect(find.text('测试漫画'), findsNothing,
-          reason: '刷新后菜单应收起（对齐参考版 setMenuVisible(false)）');
-      expect(fetchCalls.length, greaterThan(before),
-          reason: '刷新键应触发当前章正文重取（invalidateCurrentChapter）');
+      expect(
+        find.text('测试漫画'),
+        findsNothing,
+        reason: '刷新后菜单应收起（对齐参考版 setMenuVisible(false)）',
+      );
+      expect(
+        fetchCalls.length,
+        greaterThan(before),
+        reason: '刷新键应触发当前章正文重取（invalidateCurrentChapter）',
+      );
     });
 
-    testWidgets(
-        '② 底栏两段结构：进度行（上一章/滑条/下一章）+ 贴底白条（目录/自动/翻页设置）',
-        (tester) async {
+    testWidgets('② 底栏两段结构：进度行（上一章/滑条/下一章）+ 贴底白条（目录/自动/翻页设置）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _MenuMockApi(
         progressCalls: progressCalls,
@@ -369,40 +369,45 @@ void main() {
       // 段1 进度行：上一章 / 页进度滑条（白色胶囊内）/ 下一章
       expect(
         find.descendant(of: bottomBar, matching: find.byTooltip('上一章')),
-        findsOneWidget);
+        findsOneWidget,
+      );
       expect(
         find.descendant(of: bottomBar, matching: find.byTooltip('下一章')),
-        findsOneWidget);
+        findsOneWidget,
+      );
       expect(find.byType(Slider), findsOneWidget);
       // 【M2 新增断言①】进度行圆形白钮图标 = Symbols.skip 系列
       // （替换 M1 箭头；find.byTooltip 命中 Tooltip 本体，
       // 图标须经 descendant 定位其 Icon 子件）
       final prevIcon = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('上一章'),
-          matching: find.byType(Icon),
-        ),
+        find.descendant(of: find.byTooltip('上一章'), matching: find.byType(Icon)),
       );
-      expect(prevIcon.icon, Symbols.skip_previous_rounded,
-          reason: '上一章圆钮 = skip_previous（|◀）');
+      expect(
+        prevIcon.icon,
+        Symbols.skip_previous_rounded,
+        reason: '上一章圆钮 = skip_previous（|◀）',
+      );
       final nextIcon = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('下一章'),
-          matching: find.byType(Icon),
-        ),
+        find.descendant(of: find.byTooltip('下一章'), matching: find.byType(Icon)),
       );
-      expect(nextIcon.icon, Symbols.skip_next_rounded,
-          reason: '下一章圆钮 = skip_next（▶|）');
+      expect(
+        nextIcon.icon,
+        Symbols.skip_next_rounded,
+        reason: '下一章圆钮 = skip_next（▶|）',
+      );
       // 段2 贴底白条：目录 / 自动 / 翻页设置（三键均布）
       expect(
         find.descendant(of: bottomBar, matching: find.byTooltip('目录')),
-        findsOneWidget);
+        findsOneWidget,
+      );
       expect(
         find.descendant(of: bottomBar, matching: find.byTooltip('自动')),
-        findsOneWidget);
+        findsOneWidget,
+      );
       expect(
         find.descendant(of: bottomBar, matching: find.byTooltip('翻页设置')),
-        findsOneWidget);
+        findsOneWidget,
+      );
 
       // 两段分离：白条（目录键）整体在进度行（上一章键）之下
       expect(
@@ -433,8 +438,7 @@ void main() {
       expect(slider.onChanged, isNotNull, reason: 'pageCount > 1 时可拖');
     });
 
-    testWidgets('③ 自动键点击切换自动翻页，键描述 自动/停止 随开关态',
-        (tester) async {
+    testWidgets('③ 自动键点击切换自动翻页，键描述 自动/停止 随开关态', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _MenuMockApi(
         progressCalls: progressCalls,
@@ -452,14 +456,10 @@ void main() {
       // 关态：键描述 = 「自动」，图标着色 = onSurface
       expect(find.byTooltip('自动'), findsOneWidget);
       expect(find.byTooltip('停止'), findsNothing);
-      final scheme =
-          Theme.of(tester.element(find.byType(MangaMenuBottomBar)))
-              .colorScheme;
+      final scheme = Theme.of(tester.element(find.byType(MangaMenuBottomBar)))
+          .colorScheme;
       final autoIconOff = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('自动'),
-          matching: find.byType(Icon),
-        ),
+        find.descendant(of: find.byTooltip('自动'), matching: find.byType(Icon)),
       );
       expect(
         autoIconOff.color,
@@ -478,22 +478,21 @@ void main() {
       //（对齐参考版 LaunchedEffect 依赖 menuVisible：守卫内不翻页）
       await tester.tap(find.byTooltip('自动'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('停止'), findsOneWidget,
-          reason: '开启后键描述 = 停止（再点停止）');
+      expect(find.byTooltip('停止'), findsOneWidget, reason: '开启后键描述 = 停止（再点停止）');
       // 【M2 新增断言②】开态图标状态着色 = primary 蓝（截图基准）
       final autoIconOn = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('停止'),
-          matching: find.byType(Icon),
-        ),
+        find.descendant(of: find.byTooltip('停止'), matching: find.byType(Icon)),
       );
       expect(
         autoIconOn.color,
         scheme.primary,
         reason: '自动键开启时图标应变 primary 蓝（截图状态着色）',
       );
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: '控制栏显示期间自动翻页应暂停（页不前进）');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: '控制栏显示期间自动翻页应暂停（页不前进）',
+      );
 
       // 再点 → 关：描述切回「自动」，定时器取消
       await tester.tap(find.byTooltip('停止'));
@@ -503,8 +502,7 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
     });
 
-    testWidgets('④ 目录 sheet：目录(N) + 当前章高亮 + 点击跳章',
-        (tester) async {
+    testWidgets('④ 目录 sheet：目录(N) + 当前章高亮 + 点击跳章', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _MenuMockApi(
         progressCalls: progressCalls,
@@ -530,24 +528,26 @@ void main() {
       final currentTile = find.widgetWithText(InkWell, '第1章');
       expect(currentTile, findsOneWidget);
       final currentBox = tester.widget<Container>(
-        find.descendant(
-          of: currentTile,
-          matching: find.byType(Container),
-        ).first,
+        find
+            .descendant(of: currentTile, matching: find.byType(Container))
+            .first,
       );
-      expect((currentBox.decoration as BoxDecoration?)?.color, isNotNull,
-          reason: '当前章行应有高亮背景');
+      expect(
+        (currentBox.decoration as BoxDecoration?)?.color,
+        isNotNull,
+        reason: '当前章行应有高亮背景',
+      );
       final currentTitle = tester.widget<Text>(
         find.descendant(of: currentTile, matching: find.text('第1章')),
       );
-      expect(currentTitle.style?.fontWeight, FontWeight.w600,
-          reason: '当前章标题加粗');
+      expect(
+        currentTitle.style?.fontWeight,
+        FontWeight.w600,
+        reason: '当前章标题加粗',
+      );
       final otherTile = find.widgetWithText(InkWell, '第2章');
       final otherBox = tester.widget<Container>(
-        find.descendant(
-          of: otherTile,
-          matching: find.byType(Container),
-        ).first,
+        find.descendant(of: otherTile, matching: find.byType(Container)).first,
       );
       expect(otherBox.decoration, isNull, reason: '非当前章行无高亮背景');
 
@@ -555,8 +555,11 @@ void main() {
       await tester.tap(otherTile);
       await tester.pumpAndSettle();
       expect(find.text('目录(3)'), findsNothing, reason: '跳章后 sheet 应关闭');
-      expect(find.textContaining('章节2/3'), findsOneWidget,
-          reason: '应跳到第 2 章（页脚章节计数更新）');
+      expect(
+        find.textContaining('章节2/3'),
+        findsOneWidget,
+        reason: '应跳到第 2 章（页脚章节计数更新）',
+      );
       expect(
         find.descendant(
           of: find.byType(MangaMenuTopBar),
@@ -565,12 +568,14 @@ void main() {
         findsOneWidget,
         reason: '顶栏标题区章节名应更新为第 2 章',
       );
-      expect(progressCalls, contains(equals([1, 0])),
-          reason: '新章章首进度 [chapterIndex=1, chapterPos=0] 应落库');
+      expect(
+        progressCalls,
+        contains(equals([1, 0])),
+        reason: '新章章首进度 [chapterIndex=1, chapterPos=0] 应落库',
+      );
     });
 
-    testWidgets('⑤ 滑条拖动 → 跳页（单页式 PageView 落定，页脚更新）',
-        (tester) async {
+    testWidgets('⑤ 滑条拖动 → 跳页（单页式 PageView 落定，页脚更新）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _MenuMockApi(
         progressCalls: progressCalls,
@@ -594,14 +599,21 @@ void main() {
       await tester.pumpAndSettle();
 
       // 落到末页：页脚 页数3/3 + 页级进度 [0, 2] 写入
-      expect(find.textContaining('页数3/3'), findsOneWidget,
-          reason: '滑条拖到最右应跳到末页');
-      expect(progressCalls, contains(equals([0, 2])),
-          reason: '跳末页应写入页级进度（章 0、页索引 2）');
+      expect(
+        find.textContaining('页数3/3'),
+        findsOneWidget,
+        reason: '滑条拖到最右应跳到末页',
+      );
+      expect(
+        progressCalls,
+        contains(equals([0, 2])),
+        reason: '跳末页应写入页级进度（章 0、页索引 2）',
+      );
     });
 
-    testWidgets('⑥ 暗色主题：顶栏 = surfaceContainer（暗）、圆钮/胶囊/白条 = surface 族',
-        (tester) async {
+    testWidgets('⑥ 暗色主题：顶栏 = surfaceContainer（暗）、圆钮/胶囊/白条 = surface 族', (
+      tester,
+    ) async {
       final progressCalls = <List<int>>[];
       final api = _MenuMockApi(
         progressCalls: progressCalls,
@@ -619,10 +631,12 @@ void main() {
 
       // 【M2】顶栏实心背景 = surfaceContainer（暗色自动暗，非恒黑）
       final topBarBg = tester.widget<Container>(
-        find.descendant(
-          of: find.byType(MangaMenuTopBar),
-          matching: find.byType(Container),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(MangaMenuTopBar),
+              matching: find.byType(Container),
+            )
+            .first,
       );
       expect(
         topBarBg.color,
@@ -661,8 +675,7 @@ void main() {
       );
     });
 
-    testWidgets('⑦ 换源键：复用换源弹层，成功换源后以新 URL 整书重载',
-        (tester) async {
+    testWidgets('⑦ 换源键：复用换源弹层，成功换源后以新 URL 整书重载', (tester) async {
       final progressCalls = <List<int>>[];
       final fetchCalls = <String>[];
       final bookLoads = <String>[];
@@ -679,8 +692,7 @@ void main() {
       await _pumpScreen(tester, api, container);
 
       // 初始加载 = 入口 bookUrl（'mock://menu'）
-      expect(bookLoads, equals(['mock://menu']),
-          reason: '首屏应以入口 bookUrl 抓书信息');
+      expect(bookLoads, equals(['mock://menu']), reason: '首屏应以入口 bookUrl 抓书信息');
 
       // 点换源键 → 桩路由首帧 postFrame pop('mock://menu2')
       //（模拟换源成功回传新 bookUrl）

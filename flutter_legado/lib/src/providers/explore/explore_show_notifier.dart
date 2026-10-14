@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -66,7 +65,9 @@ class ExploreShowNotifier extends Notifier<ExploreShowState> {
 
       // 无新书（空页或整页全重复）→ 没有更多（对齐原版 adapter 数不变即 noMore）；
       // 有增量 → 推进页码 — 发现页修复 C2
-      final noNew = replace ? newBooks.isEmpty : merged.length == state.books.length;
+      final noNew = replace
+          ? newBooks.isEmpty
+          : merged.length == state.books.length;
       state = state.copyWith(
         books: merged,
         isLoading: false,
@@ -79,10 +80,7 @@ class ExploreShowNotifier extends Notifier<ExploreShowState> {
       // 错误后保留 hasMore，使「点击重试」可用（对齐原版 fail() 不清 hasMore，
       // 可滚动/点击重试）— 发现页修复 C1
       final mapped = _mapError(e);
-      state = state.copyWith(
-        error: mapped,
-        isLoading: false,
-      );
+      state = state.copyWith(error: mapped, isLoading: false);
     }
   }
 
@@ -186,7 +184,7 @@ class ExploreShowNotifier extends Notifier<ExploreShowState> {
 /// final state = ref.watch(exploreShowNotifierProvider(args));
 /// ref.read(exploreShowNotifierProvider(args).notifier).loadMore();
 /// ```
-final exploreShowNotifierProvider = NotifierProvider.autoDispose.family<
-    ExploreShowNotifier, ExploreShowState, ExploreShowArgs>(
-  ExploreShowNotifier.new,
-);
+final exploreShowNotifierProvider = NotifierProvider.autoDispose
+    .family<ExploreShowNotifier, ExploreShowState, ExploreShowArgs>(
+      ExploreShowNotifier.new,
+    );

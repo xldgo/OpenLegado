@@ -41,7 +41,8 @@ class ReviewDetailItem {
       id: json['id']?.toString(),
       avatar: json['avatar'] as String?,
       name: json['name'] as String?,
-      badges: (json['badges'] as List?)
+      badges:
+          (json['badges'] as List?)
               ?.map((e) => e.toString())
               .where((e) => e.isNotEmpty)
               .toList() ??
@@ -54,10 +55,12 @@ class ReviewDetailItem {
       replyCount: (json['replyCount'] as num?)?.toInt(),
       replies: rawReplies is List
           ? rawReplies
-              .whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (e) =>
+                      ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)),
+                )
+                .toList()
           : const [],
     );
   }
@@ -170,19 +173,19 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
       if (!append) _error = null;
     });
     try {
-      final request = _baseRequest(
-        detailUrl: page > 1 ? _nextPageUrl : null,
-      );
+      final request = _baseRequest(detailUrl: page > 1 ? _nextPageUrl : null);
       final raw = await widget.api.reviewGetDetail(
         widget.sourceJson,
         jsonEncode(request),
         page,
       );
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (map['items'] as List?)
+      final list =
+          (map['items'] as List?)
               ?.whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
+              .map(
+                (e) => ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)),
+              )
               .toList() ??
           const <ReviewDetailItem>[];
       final next = map['nextPageUrl'] as String?;
@@ -195,7 +198,8 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
         _page = page;
         _nextPageUrl = next;
         _hasReplyUrl = hasReply;
-        _hasMore = list.isNotEmpty &&
+        _hasMore =
+            list.isNotEmpty &&
             (next != null && next.isNotEmpty || page < 2 && list.isNotEmpty);
         if (list.isEmpty) _hasMore = false;
         _loading = false;
@@ -232,10 +236,12 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
         page,
       );
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (map['items'] as List?)
+      final list =
+          (map['items'] as List?)
               ?.whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
+              .map(
+                (e) => ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)),
+              )
               .toList() ??
           const <ReviewDetailItem>[];
       if (!mounted) return;
@@ -356,14 +362,11 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
     final replies = _hasReplyUrl
         ? (_loadedReplies[key] ?? const <ReviewDetailItem>[])
         : item.replies;
-    final expanded = _expandedParents.contains(key) ||
-        (!_hasReplyUrl && replies.isNotEmpty);
+    final expanded =
+        _expandedParents.contains(key) || (!_hasReplyUrl && replies.isNotEmpty);
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: isReply ? 36 : 0,
-        bottom: 14,
-      ),
+      padding: EdgeInsets.only(left: isReply ? 36 : 0, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -380,9 +383,7 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                       children: [
                         Flexible(
                           child: Text(
-                            item.name?.isNotEmpty == true
-                                ? item.name!
-                                : '匿名',
+                            item.name?.isNotEmpty == true ? item.name! : '匿名',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -393,7 +394,9 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                         ),
                         if (item.badges.isNotEmpty) ...[
                           const SizedBox(width: 6),
-                          ...item.badges.take(2).map(
+                          ...item.badges
+                              .take(2)
+                              .map(
                                 (b) => Container(
                                   margin: const EdgeInsets.only(right: 4),
                                   padding: const EdgeInsets.symmetric(
@@ -474,12 +477,13 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                               _replyLoading.contains(key)
                                   ? '加载中…'
                                   : expanded
-                                      ? '收起回复'
-                                      : '查看回复${(item.replyCount ?? replies.length) > 0 ? ' (${item.replyCount ?? replies.length})' : ''}',
+                                  ? '收起回复'
+                                  : '查看回复${(item.replyCount ?? replies.length) > 0 ? ' (${item.replyCount ?? replies.length})' : ''}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: CupertinoColors.activeBlue
-                                    .resolveFrom(context),
+                                color: CupertinoColors.activeBlue.resolveFrom(
+                                  context,
+                                ),
                               ),
                             ),
                           ),
@@ -491,8 +495,7 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
               ),
             ],
           ),
-          if (expanded)
-            ...replies.map((r) => _buildItem(r, isReply: true)),
+          if (expanded) ...replies.map((r) => _buildItem(r, isReply: true)),
         ],
       ),
     );

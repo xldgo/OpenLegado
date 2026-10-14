@@ -3,6 +3,7 @@
 /// 验证 Rust FFI 返回的 ImportResult{success, book, error} JSON
 /// 能被正确解析为 Book 实体，且错误情况正确处理。
 library;
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -64,13 +65,15 @@ void main() {
 
       // 验证此情况应抛出异常
       expect(
-        () => throw RustApiException('导入成功但缺少书籍数据',
-            operation: 'importLocalBook'),
-        throwsA(isA<RustApiException>().having(
-          (e) => e.message,
-          'message',
-          contains('缺少书籍数据'),
-        )),
+        () =>
+            throw RustApiException('导入成功但缺少书籍数据', operation: 'importLocalBook'),
+        throwsA(
+          isA<RustApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('缺少书籍数据'),
+          ),
+        ),
       );
     });
 
@@ -92,11 +95,13 @@ void main() {
       // 验证错误处理逻辑
       expect(
         () => throw RustApiException(error, operation: 'importLocalBook'),
-        throwsA(isA<RustApiException>().having(
-          (e) => e.message,
-          'message',
-          contains('元数据解析失败'),
-        )),
+        throwsA(
+          isA<RustApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('元数据解析失败'),
+          ),
+        ),
       );
     });
 
@@ -120,17 +125,14 @@ void main() {
       const filePath = '/data/books/novel.epub';
       final importResultJson = jsonEncode({
         'success': true,
-        'book': {
-          'bookUrl': filePath,
-          'name': 'novel',
-          'author': 'author',
-        },
+        'book': {'bookUrl': filePath, 'name': 'novel', 'author': 'author'},
         'error': null,
       });
 
       // 旧方式：直接 jsonDecode 后当 Book 解析
-      final wrongBook =
-          Book.fromJson(jsonDecode(importResultJson) as Map<String, dynamic>);
+      final wrongBook = Book.fromJson(
+        jsonDecode(importResultJson) as Map<String, dynamic>,
+      );
       // 旧方式取不到 bookUrl（因为顶层没有 bookUrl 键）
       expect(wrongBook.bookUrl, isEmpty);
 

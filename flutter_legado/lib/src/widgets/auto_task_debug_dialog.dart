@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/auto_task/auto_task_notifier.dart';
 import '../providers/providers.dart';
@@ -116,7 +115,7 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
       final logBody = (details != null && details.isNotEmpty)
           ? details
           : '[${success ? 'OK' : 'FAIL'}] Elapsed: ${duration ?? '-'}ms'
-              '${message.isEmpty ? '' : '\n- $message'}';
+                '${message.isEmpty ? '' : '\n- $message'}';
       for (final line in logBody.split('\n')) {
         if (line.trim().isEmpty) continue;
         await Future<void>.delayed(const Duration(milliseconds: 16));
@@ -126,7 +125,9 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
 
       // 同步列表摘要（persist=false 语义：调试不强制写库，但刷新展示）
       try {
-        await ref.read(autoTaskNotifierProvider.notifier).loadTasks(silent: true);
+        await ref
+            .read(autoTaskNotifierProvider.notifier)
+            .loadTasks(silent: true);
       } catch (_) {}
       AutoTaskScheduler.instance.refresh();
     } catch (e) {
@@ -146,7 +147,9 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
         final map = jsonDecode(script);
         if (map is Map && map.containsKey('action')) {
           // 已是协议或含 action 的脚本 JSON
-          if (map['params'] is Map || map['action'] is Map || map['action'] is String) {
+          if (map['params'] is Map ||
+              map['action'] is Map ||
+              map['action'] is String) {
             // 若仅有 Kotlin 风格业务 JSON，仍尝试原样交给执行器
             return script;
           }

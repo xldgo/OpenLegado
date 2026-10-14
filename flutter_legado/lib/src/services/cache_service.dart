@@ -61,8 +61,9 @@ class CacheService {
   static Future<void> clearSameTitleRemovedFlags() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys =
-          prefs.getKeys().where((k) => k.startsWith('sameTitleRemoved_'));
+      final keys = prefs.getKeys().where(
+        (k) => k.startsWith('sameTitleRemoved_'),
+      );
       for (final key in keys.toList()) {
         await prefs.remove(key);
       }

@@ -106,7 +106,9 @@ class MockBookApi
     this.readRecordRepository =
         readRecordRepository ?? MockReadRecordRepository();
     readAloudVoiceRepository = MockReadAloudVoiceRepository();
-    cloudTtsRepository = MockCloudTtsRepository(onDelete: readAloudVoiceRepository.clearCloud);
+    cloudTtsRepository = MockCloudTtsRepository(
+      onDelete: readAloudVoiceRepository.clearCloud,
+    );
     this.httpTtsRepository =
         httpTtsRepository ??
         MockHttpTtsRepository(
@@ -126,7 +128,8 @@ class MockBookApi
     this.sourceLoginRepository =
         sourceLoginRepository ?? MockSourceLoginRepository();
     this.searchService = searchService ?? const MockSearchService();
-    this.searchHistoryRepository = searchHistoryRepository ?? MockSearchHistoryRepository();
+    this.searchHistoryRepository =
+        searchHistoryRepository ?? MockSearchHistoryRepository();
     _initMockData();
   }
 

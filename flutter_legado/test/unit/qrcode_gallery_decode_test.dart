@@ -27,11 +27,20 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:zxing2/qrcode.dart'
-    show EncodeHintType, EncodeHints, Encoder, ErrorCorrectionLevel,
+    show
+        EncodeHintType,
+        EncodeHints,
+        Encoder,
+        ErrorCorrectionLevel,
         QRCodeReader;
 import 'package:zxing2/zxing2.dart'
-    show BinaryBitmap, CharacterSetECI, HybridBinarizer, Result,
-        ResultMetadataType, RGBLuminanceSource;
+    show
+        BinaryBitmap,
+        CharacterSetECI,
+        HybridBinarizer,
+        Result,
+        ResultMetadataType,
+        RGBLuminanceSource;
 
 /// 与 qrcode_screen.dart [_decodeQrInIsolate] 相同的解码管线（含同款
 /// 全函数兜底 catch：decodeImage 探测在畸形字节流上可能抛 Error；及
@@ -41,8 +50,10 @@ String? _decodePipeline(Uint8List bytes) {
     final image = img.decodeImage(bytes);
     if (image == null) return null;
     final rgba = image.convert(numChannels: 4);
-    final pixels =
-        rgba.getBytes(order: img.ChannelOrder.rgba).buffer.asInt32List();
+    final pixels = rgba
+        .getBytes(order: img.ChannelOrder.rgba)
+        .buffer
+        .asInt32List();
     final source = RGBLuminanceSource(rgba.width, rgba.height, pixels);
     final bitmap = BinaryBitmap(HybridBinarizer(source));
     return _recoverUtf8Text(QRCodeReader().decode(bitmap));
@@ -58,19 +69,16 @@ String _recoverUtf8Text(Result result) {
   final text = result.text;
   if (!text.contains('\uFFFD')) return text;
   final segments =
-      result.resultMetadata[ResultMetadataType.byteSegments]
-          as List<Int8List>?;
+      result.resultMetadata[ResultMetadataType.byteSegments] as List<Int8List>?;
   if (segments == null || segments.isEmpty) return text;
   const utf8 = Utf8Codec(allowMalformed: true);
-  final rebuilt = segments
-      .map((segment) {
-        final unsigned = Uint8List(segment.length);
-        for (var i = 0; i < segment.length; i++) {
-          unsigned[i] = segment[i] & 0xFF;
-        }
-        return utf8.decode(unsigned);
-      })
-      .join();
+  final rebuilt = segments.map((segment) {
+    final unsigned = Uint8List(segment.length);
+    for (var i = 0; i < segment.length; i++) {
+      unsigned[i] = segment[i] & 0xFF;
+    }
+    return utf8.decode(unsigned);
+  }).join();
   return rebuilt.contains('\uFFFD') ? text : rebuilt;
 }
 
@@ -80,8 +88,8 @@ String _recoverUtf8Text(Result result) {
 /// 注：Encoder 默认 byte 模式字符集为 ISO8859_1（非 UTF-8），非 Latin-1
 /// 内容（如中文口令）需显式指定 UTF-8 编码提示。
 Uint8List _renderQrPng(String content) {
-  final hints =
-      EncodeHints()..put(EncodeHintType.characterSet, CharacterSetECI.UTF8);
+  final hints = EncodeHints()
+    ..put(EncodeHintType.characterSet, CharacterSetECI.UTF8);
   final qr = Encoder.encode(content, ErrorCorrectionLevel.m, hints: hints);
   final matrix = qr.matrix;
   expect(matrix, isNotNull, reason: 'Encoder 应产出矩阵');

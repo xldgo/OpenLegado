@@ -118,8 +118,7 @@ mixin RustApiSearchRss on RustApiDecode implements BookApi {
 
   /// 取消进行中的「换源（预拉缓存版）」应用（对齐上游 cancelChangeSource）
   @override
-  Future<void> cancelSwitchSourceApply() =>
-      bridge.sourceSwitchApplyCancel();
+  Future<void> cancelSwitchSourceApply() => bridge.sourceSwitchApplyCancel();
 
   /// 更新换源列表项用户评分（-1/0/1）
   @override

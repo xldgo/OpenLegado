@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -149,5 +148,5 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
 /// ```
 final replaceRuleNotifierProvider =
     NotifierProvider<ReplaceRuleNotifier, ReplaceRuleState>(
-  ReplaceRuleNotifier.new,
-);
+      ReplaceRuleNotifier.new,
+    );

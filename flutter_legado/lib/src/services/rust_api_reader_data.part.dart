@@ -427,5 +427,4 @@ mixin RustApiReaderData on RustApiDecode implements BookApi {
     final list = jsonDecode(json) as List<dynamic>;
     return list.map((e) => e.toString()).toList();
   }
-
 }

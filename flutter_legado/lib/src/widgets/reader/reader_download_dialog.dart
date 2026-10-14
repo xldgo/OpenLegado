@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -35,8 +34,9 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
   }
   final totalChapters = chapters.length;
   // 默认起始 = 当前章（1-based，对齐原版 durChapterIndex + 1）
-  final startCtrl =
-      TextEditingController(text: '${state.currentChapterIndex + 1}');
+  final startCtrl = TextEditingController(
+    text: '${state.currentChapterIndex + 1}',
+  );
   final endCtrl = TextEditingController(text: '$totalChapters');
   final messenger = ScaffoldMessenger.of(context);
 
@@ -72,9 +72,7 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
             final start = int.tryParse(startCtrl.text) ?? 1;
             final end = int.tryParse(endCtrl.text) ?? totalChapters;
             if (start < 1 || end > totalChapters || start > end) {
-              messenger.showSnackBar(
-                const SnackBar(content: Text('章节范围无效')),
-              );
+              messenger.showSnackBar(const SnackBar(content: Text('章节范围无效')));
               return;
             }
             final count = end - start + 1;
@@ -85,18 +83,12 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
                   .cacheDownloadStart(book.bookUrl, start - 1, end - 1);
               if (context.mounted) {
                 messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '已加入缓存队列：$count 章（可在书籍菜单「缓存管理」查看进度）',
-                    ),
-                  ),
+                  SnackBar(content: Text('已加入缓存队列：$count 章（可在书籍菜单「缓存管理」查看进度）')),
                 );
               }
             } catch (e) {
               if (context.mounted) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('缓存启动失败：$e')),
-                );
+                messenger.showSnackBar(SnackBar(content: Text('缓存启动失败：$e')));
               }
             }
           },

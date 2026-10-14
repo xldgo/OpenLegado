@@ -68,9 +68,9 @@ void main() {
   });
 
   Widget wrap(Widget child) => UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(home: child),
-      );
+    container: container,
+    child: MaterialApp(home: child),
+  );
 
   /// 查找包含指定章节标题的章节行（ListTile）。
   Finder chapterRow(String title) =>
@@ -79,8 +79,8 @@ void main() {
   /// 行标题 Text 实例（用于「无变化不 setState」的同一性断言：未重建时
   /// Element 复用同一 widget 实例，重建则产生新实例）。
   Text rowTitleWidget(WidgetTester tester, String title) => tester.widget<Text>(
-        find.descendant(of: chapterRow(title), matching: find.text(title)),
-      );
+    find.descendant(of: chapterRow(title), matching: find.text(title)),
+  );
 
   const String bookUrl = 'https://src.com/audio-book/1';
 
@@ -88,24 +88,23 @@ void main() {
     int bookType = BookType.audio,
     String origin = 'https://src.com',
     int dur = 2,
-  }) =>
-      Book(
-        bookUrl: bookUrl,
-        name: '听书',
-        author: '作者A',
-        totalChapterNum: 3,
-        origin: origin,
-        bookType: bookType,
-        durChapterIndex: dur,
-        durChapterTitle: '第三章',
-      );
+  }) => Book(
+    bookUrl: bookUrl,
+    name: '听书',
+    author: '作者A',
+    totalChapterNum: 3,
+    origin: origin,
+    bookType: bookType,
+    durChapterIndex: dur,
+    durChapterTitle: '第三章',
+  );
 
   /// 音频书章节：无字数字段（音频章无正文缓存回填），当前章默认第三章。
   List<BookChapter> makeAudioChapters() => [
-        const BookChapter(url: 'a0', title: '第一章', index: 0, bookUrl: bookUrl),
-        const BookChapter(url: 'a1', title: '第二章', index: 1, bookUrl: bookUrl),
-        const BookChapter(url: 'a2', title: '第三章', index: 2, bookUrl: bookUrl),
-      ];
+    const BookChapter(url: 'a0', title: '第一章', index: 0, bookUrl: bookUrl),
+    const BookChapter(url: 'a1', title: '第二章', index: 1, bookUrl: bookUrl),
+    const BookChapter(url: 'a2', title: '第三章', index: 2, bookUrl: bookUrl),
+  ];
 
   /// 公共 stub：书架态/章节/文本缓存集合/下载中集合/音频缓存集合/
   /// 标注/书签。音频缓存集合经 [audioCachedByCall] 支持按调用次数变化
@@ -117,7 +116,8 @@ void main() {
     List<int> audioCached = const [],
     List<int> Function()? audioCachedByCall,
   }) {
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => book);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => book);
     when(() => mockApi.getChapters(bookUrl)).thenAnswer((_) async => chapters);
     when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer((_) async {
       cachedUrlsCalls++;
@@ -136,9 +136,9 @@ void main() {
     // 抛错吞掉而失真
     when(() => mockApi.audioCacheList(bookUrl: any(named: 'bookUrl')))
         .thenAnswer((_) async {
-      audioListCalls++;
-      return audioCachedByCall != null ? audioCachedByCall() : audioCached;
-    });
+          audioListCalls++;
+          return audioCachedByCall != null ? audioCachedByCall() : audioCached;
+        });
     when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
         .thenAnswer((_) async => '[]');
     when(() => mockBookmarks.getBookmarksByBook('听书', '作者A'))
@@ -152,8 +152,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('音频书：audioCacheList 命中章显示「已缓存」对勾徽标，未命中显⬇',
-      (tester) async {
+  testWidgets('音频书：audioCacheList 命中章显示「已缓存」对勾徽标，未命中显⬇', (tester) async {
     // 音频缓存集合 [0]（第一章已缓存）；当前章第三章未缓存
     stubBook(
       book: makeBook(),
@@ -207,8 +206,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('音频书：无缓存章不显示对勾徽标；空集轮询无变化不 setState',
-      (tester) async {
+  testWidgets('音频书：无缓存章不显示对勾徽标；空集轮询无变化不 setState', (tester) async {
     stubBook(
       book: makeBook(),
       chapters: makeAudioChapters(),
@@ -251,8 +249,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('非音频书：绝不查询音频缓存，仍走文本缓存判定（不误加徽标）',
-      (tester) async {
+  testWidgets('非音频书：绝不查询音频缓存，仍走文本缓存判定（不误加徽标）', (tester) async {
     // 文本书（bookType=8）：文本缓存命中 u0 → 对勾徽标；音频缓存集合
     // 即便有值也不得参与渲染
     final textChapters = [
@@ -295,8 +292,7 @@ void main() {
     expect(audioListCalls, 0, reason: 'dispose 前亦不应有 audioCacheList 查询');
   });
 
-  testWidgets('分卷章节不显示缓存徽标（原版拒绝分卷缓存，下标混入亦不渲染）',
-      (tester) async {
+  testWidgets('分卷章节不显示缓存徽标（原版拒绝分卷缓存，下标混入亦不渲染）', (tester) async {
     final chapters = [
       const BookChapter(url: 'a0', title: '第一章', index: 0, bookUrl: bookUrl),
       const BookChapter(
@@ -345,8 +341,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('音频书轮询：新缓存章对勾徽标出现（数据变化才 setState），无变化不重建',
-      (tester) async {
+  testWidgets('音频书轮询：新缓存章对勾徽标出现（数据变化才 setState），无变化不重建', (tester) async {
     // 建页首次查询空集（第一章显⬇）；1s 轮询起返回 [0]（模拟音频批量
     // 预下载逐章完成，对齐原版 AUDIO_CACHE_CHANGED 逐行刷新语义）
     var polls = 0;
@@ -418,8 +413,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[B2-EVT] 缓存成功事件到达即重查并亮徽标（不等 1s 轮询）',
-      (tester) async {
+  testWidgets('[B2-EVT] 缓存成功事件到达即重查并亮徽标（不等 1s 轮询）', (tester) async {
     // 建页首次查询空集；此后按调用序返回 [0]（事件到达时立即重查命中）
     var polls = 0;
     stubBook(
@@ -474,8 +468,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[B2-EVT] 事件与轮询结果一致时不 setState（复用无变化守卫）',
-      (tester) async {
+  testWidgets('[B2-EVT] 事件与轮询结果一致时不 setState（复用无变化守卫）', (tester) async {
     stubBook(
       book: makeBook(),
       chapters: makeAudioChapters(),
@@ -504,8 +497,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[B2-EVT] 目录页 dispose 后取消订阅：事件不再触发重查（无泄漏）',
-      (tester) async {
+  testWidgets('[B2-EVT] 目录页 dispose 后取消订阅：事件不再触发重查（无泄漏）', (tester) async {
     stubBook(
       book: makeBook(),
       chapters: makeAudioChapters(),
@@ -530,8 +522,9 @@ void main() {
     );
   });
 
-  testWidgets('本地音频书：不显示徽标且零查询（无书源不可缓存 + 原版 isLocalBook 恒 cached）',
-      (tester) async {
+  testWidgets('本地音频书：不显示徽标且零查询（无书源不可缓存 + 原版 isLocalBook 恒 cached）', (
+    tester,
+  ) async {
     // 本地音频书：origin=loc_book，bookType = local | audio（位标记口径）
     const localType = BookType.local | BookType.audio;
     stubBook(
@@ -541,9 +534,15 @@ void main() {
       audioCached: const [0],
     );
     await tester.pumpWidget(
-      wrap(TocScreen(
-        book: makeBook(bookType: localType, origin: BookType.localTag, dur: 0),
-      )),
+      wrap(
+        TocScreen(
+          book: makeBook(
+            bookType: localType,
+            origin: BookType.localTag,
+            dur: 0,
+          ),
+        ),
+      ),
     );
     await settleInitial(tester);
 

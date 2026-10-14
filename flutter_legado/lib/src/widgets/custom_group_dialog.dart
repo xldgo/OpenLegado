@@ -24,8 +24,8 @@ class CustomGroupDialog extends StatefulWidget {
 }
 
 class _CustomGroupDialogState extends State<CustomGroupDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialName,
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
   );
   late bool _addGroup = widget.initialAddGroup;
 
@@ -51,8 +51,7 @@ class _CustomGroupDialogState extends State<CustomGroupDialog> {
           ),
           TextField(
             controller: _controller,
-            decoration: InputDecoration(
-              labelText: context.l10n.groupName),
+            decoration: InputDecoration(labelText: context.l10n.groupName),
           ),
         ],
       ),
@@ -62,9 +61,8 @@ class _CustomGroupDialogState extends State<CustomGroupDialog> {
           child: Text(context.l10n.cancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            (_controller.text.trim(), _addGroup)),
+          onPressed: () =>
+              Navigator.pop(context, (_controller.text.trim(), _addGroup)),
           child: Text(context.l10n.confirm),
         ),
       ],

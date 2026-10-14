@@ -1,8 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
 
@@ -33,10 +32,8 @@ class CurlAnalyzeUrlSheet extends ConsumerStatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => CurlAnalyzeUrlSheet(
-        initialText: initialText,
-        canInsert: canInsert,
-      ),
+      builder: (_) =>
+          CurlAnalyzeUrlSheet(initialText: initialText, canInsert: canInsert),
     );
   }
 
@@ -48,6 +45,7 @@ class CurlAnalyzeUrlSheet extends ConsumerStatefulWidget {
 class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
   late final TextEditingController _input;
   late final TextEditingController _output;
+
   /// true = cURL → AnalyzeUrl
   bool _curlToAnalyze = true;
   bool _converting = false;
@@ -109,24 +107,21 @@ class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
   Future<void> _copy() async {
     final out = _output.text;
     if (out.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可复制的结果')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有可复制的结果')));
       return;
     }
     await Clipboard.setData(ClipboardData(text: out));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已复制')));
   }
 
   void _insert() {
     final out = _output.text;
     if (out.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可插入的结果')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有可插入的结果')));
       return;
     }
     Navigator.of(context).pop(out);
@@ -164,7 +159,10 @@ class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
                 ),
                 Padding(
                   // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8（全局行规范）
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
@@ -188,7 +186,9 @@ class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Symbols.swap_horiz_rounded),
                       ),

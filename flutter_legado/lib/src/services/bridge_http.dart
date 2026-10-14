@@ -23,8 +23,9 @@ Future<({int statusCode, Uint8List bytes, String url})> bridgeHttpGetBytes(
   Map<String, String>? headers,
   Duration timeout = const Duration(seconds: 30),
 }) async {
-  final headersJson =
-      headers == null || headers.isEmpty ? '' : jsonEncode(headers);
+  final headersJson = headers == null || headers.isEmpty
+      ? ''
+      : jsonEncode(headers);
   final raw = await api
       .httpGetBytes(url, headersJson: headersJson)
       .timeout(timeout);

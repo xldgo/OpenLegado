@@ -20,11 +20,7 @@ class SwipeAction extends StatefulWidget {
   final Widget child;
   final List<SwipeActionItem> actions;
 
-  const SwipeAction({
-    super.key,
-    required this.child,
-    required this.actions,
-  });
+  const SwipeAction({super.key, required this.child, required this.actions});
 
   @override
   State<SwipeAction> createState() => _SwipeActionState();

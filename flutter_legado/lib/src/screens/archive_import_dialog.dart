@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 
 import '../features/bookshelf/bookshelf.dart';
@@ -175,7 +174,10 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
 
       // 对解压后的 txt 文件逐个检测编码
       final extractedFiles =
-          (result['extracted_files'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+          (result['extracted_files'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
       for (final filePath in extractedFiles) {
         if (!filePath.toLowerCase().endsWith('.txt')) continue;
         final fileName = filePath.split(Platform.pathSeparator).last;
@@ -268,7 +270,10 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
 
       // 将解压出的书籍逐个导入书架
       final extractedFiles =
-          (result['extracted_files'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+          (result['extracted_files'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
       if (!mounted) return;
       final notifier = ref.read(bookshelfNotifierProvider.notifier);
 
@@ -278,7 +283,8 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         if (!_selected.contains(fileName)) continue;
 
         // 如果是 TXT 文件且选择了非 UTF-8 编码，先转换编码
-        if (filePath.toLowerCase().endsWith('.txt') && _selectedEncoding != 'UTF-8') {
+        if (filePath.toLowerCase().endsWith('.txt') &&
+            _selectedEncoding != 'UTF-8') {
           try {
             await _api.archiveConvertEncoding(
               filePath: filePath,

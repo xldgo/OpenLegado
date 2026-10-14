@@ -10,8 +10,7 @@
 // 3. 语义/触控目标：底栏 NavigationBar 目标 ≥ 48dp、SwitchListTile 行高
 //    ≥ 48dp、主题卡片语义标签存在。
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +22,7 @@ import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
+
 import '../mocks/mocks.dart';
 
 void main() {
@@ -112,11 +112,15 @@ void main() {
         'app_theme_mode': 'light',
       });
       final mockApi = MockRustApi();
-      when(() => mockApi.searchHistoryRepository.getSearchHistory(limit: any(named: 'limit')))
-          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.searchHistoryRepository.getSearchHistory(
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer((_) async => []);
       when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
           .thenAnswer((_) async {});
-      when(() => mockApi.searchHistoryRepository.clearSearchHistory()).thenAnswer((_) async {});
+      when(() => mockApi.searchHistoryRepository.clearSearchHistory())
+          .thenAnswer((_) async {});
       when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
@@ -152,8 +156,9 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MediaQuery(
-            data: const MediaQueryData()
-                .copyWith(textScaler: TextScaler.linear(scale)),
+            data: const MediaQueryData().copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
             child: ProviderScope(
               child: MaterialApp(home: const ThemeConfigScreen()),
             ),
@@ -173,8 +178,9 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MediaQuery(
-            data: const MediaQueryData()
-                .copyWith(textScaler: TextScaler.linear(scale)),
+            data: const MediaQueryData().copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
             child: ProviderScope(child: MaterialApp(home: const HomeScreen())),
           ),
         );
@@ -197,9 +203,7 @@ void main() {
         ProviderScope(child: MaterialApp(home: const HomeScreen())),
       );
       await tester.pumpAndSettle(const Duration(seconds: 2));
-      final bar = tester.renderObject<RenderBox>(
-        find.byType(NavigationBar),
-      );
+      final bar = tester.renderObject<RenderBox>(find.byType(NavigationBar));
       expect(bar.size.height, greaterThanOrEqualTo(48.0));
       // 每个目的地宽度均分，≥ 48dp
       //（[UI_SYNC_REFACTOR S6] 首页页签插入后 5 tab，与参考版页签数一致）
@@ -208,8 +212,11 @@ void main() {
       expect(count, inInclusiveRange(2, 5));
       for (var i = 0; i < count; i++) {
         final box = tester.renderObject<RenderBox>(destinations.at(i));
-        expect(box.size.width, greaterThanOrEqualTo(48.0),
-            reason: '底栏项 $i 宽度 ${box.size.width} < 48dp');
+        expect(
+          box.size.width,
+          greaterThanOrEqualTo(48.0),
+          reason: '底栏项 $i 宽度 ${box.size.width} < 48dp',
+        );
       }
     });
 

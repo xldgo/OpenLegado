@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -41,7 +42,8 @@ class _CbzMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -65,13 +67,13 @@ class _CbzMockApi extends MockBookApi {
   /// cbzReadPage 调用序列（`path|entry`，用于缓存命中零重复调用断言）
   final List<String> readCalls = [];
 
-  Future<List<BookSource>> _fixtureGetBookSources() async => const <BookSource>[];
+  Future<List<BookSource>> _fixtureGetBookSources() async =>
+      const <BookSource>[];
 
   @override
   Future<String?> getConfig(String key) async {
     if (pagedMode && key == MangaConfigKeys.scrollMode) return '1';
-    if (!longClickSaveImage &&
-        key == MangaConfigKeys.mangaLongClickSaveImage) {
+    if (!longClickSaveImage && key == MangaConfigKeys.mangaLongClickSaveImage) {
       return 'false';
     }
     return super.getConfig(key);
@@ -98,8 +100,8 @@ class _CbzMockApi extends MockBookApi {
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        const BookChapter(index: 0, url: '', title: '本地漫画'),
-      ];
+    const BookChapter(index: 0, url: '', title: '本地漫画'),
+  ];
 
   @override
   Future<String> getChapterContent(String bookUrl, int chapterIndex) async =>
@@ -118,16 +120,14 @@ class _CbzMockApi extends MockBookApi {
 
 /// Image.memory（MemoryImage provider）定位器（skipOffstage 覆盖 ListView 懒加载）
 Finder _memoryImageFinder() => find.byWidgetPredicate(
-      (w) => w is Image && w.image is MemoryImage,
-      skipOffstage: false,
-    );
+  (w) => w is Image && w.image is MemoryImage,
+  skipOffstage: false,
+);
 
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(
-      home: ReaderComicScreen(bookUrl: _kCbzBookUrl),
-    ),
+    child: const MaterialApp(home: ReaderComicScreen(bookUrl: _kCbzBookUrl)),
   );
 }
 
@@ -136,8 +136,9 @@ void main() {
   setUp(ComicImageDecodeCache.clearForTest);
   tearDown(ComicImageDecodeCache.clearForTest);
 
-  testWidgets('本地 cbz 书打开 → cbz:// 页经 cbzReadPage 渲染 Image.memory',
-      (tester) async {
+  testWidgets('本地 cbz 书打开 → cbz:// 页经 cbzReadPage 渲染 Image.memory', (
+    tester,
+  ) async {
     final api = _CbzMockApi();
     final container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
@@ -147,18 +148,27 @@ void main() {
     await tester.pumpWidget(_buildApp(container));
     await tester.pumpAndSettle();
 
-    expect(api.readCalls, isNotEmpty,
-        reason: '本地 cbz 页须经 BookApi.cbzReadPage 取图');
-    expect(api.readCalls.any((c) => c.contains(_kEntry0)), isTrue,
-        reason: 'cbz:// 条目行应逐行作为 entry 传入（含中文/空格条目名）');
-    expect(_memoryImageFinder(), findsWidgets,
-        reason: '校验通过的字节应以 Image.memory 渲染');
-    expect(find.text('图片加载失败'), findsNothing,
-        reason: '成功路径不得出现错误占位');
+    expect(
+      api.readCalls,
+      isNotEmpty,
+      reason: '本地 cbz 页须经 BookApi.cbzReadPage 取图',
+    );
+    expect(
+      api.readCalls.any((c) => c.contains(_kEntry0)),
+      isTrue,
+      reason: 'cbz:// 条目行应逐行作为 entry 传入（含中文/空格条目名）',
+    );
+    expect(
+      _memoryImageFinder(),
+      findsWidgets,
+      reason: '校验通过的字节应以 Image.memory 渲染',
+    );
+    expect(find.text('图片加载失败'), findsNothing, reason: '成功路径不得出现错误占位');
   });
 
-  testWidgets('cbzReadPage 失败 → 错误占位 + 重试按钮；重试再次调用 cbzReadPage',
-      (tester) async {
+  testWidgets('cbzReadPage 失败 → 错误占位 + 重试按钮；重试再次调用 cbzReadPage', (
+    tester,
+  ) async {
     final api = _CbzMockApi(failRead: true);
     final container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
@@ -177,14 +187,15 @@ void main() {
     await tester.tap(retry.first);
     await tester.pumpAndSettle();
 
-    expect(api.readCalls.length, greaterThan(before),
-        reason: '重试须经 _retryImage → 重建 _LocalCbzImage 再次调用 cbzReadPage');
-    expect(find.text('图片加载失败'), findsWidgets,
-        reason: '仍失败时保持错误占位');
+    expect(
+      api.readCalls.length,
+      greaterThan(before),
+      reason: '重试须经 _retryImage → 重建 _LocalCbzImage 再次调用 cbzReadPage',
+    );
+    expect(find.text('图片加载失败'), findsWidgets, reason: '仍失败时保持错误占位');
   });
 
-  testWidgets('cbz 页预载入缓存后正式渲染命中缓存（零重复 FFI 调用）',
-      (tester) async {
+  testWidgets('cbz 页预载入缓存后正式渲染命中缓存（零重复 FFI 调用）', (tester) async {
     final api = _CbzMockApi();
 
     // 预载：与屏幕 _preloadIndicesInRange → _preloadCbzPage 同一入口与缓存键
@@ -213,12 +224,14 @@ void main() {
       hasLength(1),
       reason: '预载命中缓存后正式渲染不得重复调用 cbzReadPage（零重复 FFI）',
     );
-    expect(_memoryImageFinder(), findsWidgets,
-        reason: '缓存命中应直接渲染 Image.memory');
+    expect(
+      _memoryImageFinder(),
+      findsWidgets,
+      reason: '缓存命中应直接渲染 Image.memory',
+    );
   });
 
-  testWidgets('单页式加载即预载 cbz 页：预载与渲染共用缓存，每页仅一次 FFI',
-      (tester) async {
+  testWidgets('单页式加载即预载 cbz 页：预载与渲染共用缓存，每页仅一次 FFI', (tester) async {
     final api = _CbzMockApi(pagedMode: true);
     final container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
@@ -240,14 +253,15 @@ void main() {
       hasLength(1),
       reason: '条目 1 预载一次后渲染须命中缓存',
     );
-    expect(_memoryImageFinder(), findsWidgets,
-        reason: '预载缓存命中应直接渲染 Image.memory');
-    expect(find.text('图片加载失败'), findsNothing,
-        reason: '预载/渲染链路不得出现错误占位');
+    expect(
+      _memoryImageFinder(),
+      findsWidgets,
+      reason: '预载缓存命中应直接渲染 Image.memory',
+    );
+    expect(find.text('图片加载失败'), findsNothing, reason: '预载/渲染链路不得出现错误占位');
   });
 
-  testWidgets('cbz 页长按：菜单含保存/分享、隐藏复制链接；保存通道收到 PNG 字节',
-      (tester) async {
+  testWidgets('cbz 页长按：菜单含保存/分享、隐藏复制链接；保存通道收到 PNG 字节', (tester) async {
     // MediaStore 直写通道 mock + Android 分派覆写（先例：click_actions D2）
     final channelCalls = <MethodCall>[];
     final messenger = tester.binding.defaultBinaryMessenger;
@@ -287,8 +301,11 @@ void main() {
 
     expect(find.text('保存图片'), findsOneWidget, reason: 'cbz 页长按菜单须存在');
     expect(find.text('分享图片'), findsOneWidget);
-    expect(find.text('复制链接'), findsNothing,
-        reason: 'cbz:// 伪 URL 无消费价值 → cbz 页隐藏「复制链接」项');
+    expect(
+      find.text('复制链接'),
+      findsNothing,
+      reason: 'cbz:// 伪 URL 无消费价值 → cbz 页隐藏「复制链接」项',
+    );
 
     final before = api.readCalls.length;
     await tester.tap(find.text('保存图片'));
@@ -302,8 +319,7 @@ void main() {
     );
     expect(channelCalls, hasLength(1), reason: '保存路径须调用 MediaStore 通道');
     final args = channelCalls.single.arguments as Map<Object?, Object?>;
-    expect(args['fileName'], endsWith('.png'),
-        reason: '文件名后缀按魔数推断');
+    expect(args['fileName'], endsWith('.png'), reason: '文件名后缀按魔数推断');
     expect(
       (args['bytes'] as List<int>).take(4).toList(),
       equals(const [0x89, 0x50, 0x4E, 0x47]),

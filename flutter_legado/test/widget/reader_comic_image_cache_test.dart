@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -26,10 +27,7 @@ BookSource _buildComicSource() {
     bookSourceGroup: '漫画',
     bookSourceType: 2,
     enabled: true,
-    ruleContent: ContentRule(
-      content: '.x',
-      imageDecode: 'decode(result);',
-    ),
+    ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
     customOrder: 0,
     lastUpdateTime: 0,
     respondTime: 0,
@@ -48,7 +46,8 @@ class _ComicCacheMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -61,24 +60,24 @@ class _ComicCacheMockApi extends MockBookApi {
   Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: 1,
-      );
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: 1,
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        BookChapter(
-          index: 0,
-          url: 'https://manga.example.com/comic/1/ch1.html',
-          title: '第一章',
-        ),
-      ];
+    BookChapter(
+      index: 0,
+      url: 'https://manga.example.com/comic/1/ch1.html',
+      title: '第一章',
+    ),
+  ];
 
   @override
   Future<String> fetchChapterContent(
@@ -100,48 +99,38 @@ void main() {
   Widget buildApp(ProviderContainer container) {
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
-        home: ReaderComicScreen(bookUrl: _kBookUrl),
-      ),
+      child: const MaterialApp(home: ReaderComicScreen(bookUrl: _kBookUrl)),
     );
   }
 
-  testWidgets(
-    'P4-2a 磁盘缓存优先：冷启走网络并写缓存；清内存后重挂载磁盘命中不再走网络',
-    (tester) async {
-      final decodeCalls = <String>[];
-      final api = _ComicCacheMockApi(
-        source: _buildComicSource(),
-        decodeCalls: decodeCalls,
-      );
-      final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
-      );
-      addTearDown(container.dispose);
+  testWidgets('P4-2a 磁盘缓存优先：冷启走网络并写缓存；清内存后重挂载磁盘命中不再走网络', (tester) async {
+    final decodeCalls = <String>[];
+    final api = _ComicCacheMockApi(
+      source: _buildComicSource(),
+      decodeCalls: decodeCalls,
+    );
+    final container = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    addTearDown(container.dispose);
 
-      // ── 会话 1：冷启动（磁盘缓存为空）→ 网络加载并写磁盘缓存 ──
-      await tester.pumpWidget(buildApp(container));
-      await tester.pumpAndSettle();
-      expect(decodeCalls, [contains(_kImageUrl)],
-          reason: '冷启动应走一次网络解码');
-      // 屏幕侧 fire-and-forget 的 saveImageCache 应已落地（mock 内存 Map 模拟）
-      final saved = await api.getImageCache(_kBookUrl, _kImageUrl);
-      expect(saved, isNotNull, reason: '加载成功后应写入图片磁盘缓存');
+    // ── 会话 1：冷启动（磁盘缓存为空）→ 网络加载并写磁盘缓存 ──
+    await tester.pumpWidget(buildApp(container));
+    await tester.pumpAndSettle();
+    expect(decodeCalls, [contains(_kImageUrl)], reason: '冷启动应走一次网络解码');
+    // 屏幕侧 fire-and-forget 的 saveImageCache 应已落地（mock 内存 Map 模拟）
+    final saved = await api.getImageCache(_kBookUrl, _kImageUrl);
+    expect(saved, isNotNull, reason: '加载成功后应写入图片磁盘缓存');
 
-      // ── 会话 2：清内存缓存（模拟应用重启）→ 磁盘命中，不再走网络 ──
-      ComicImageDecodeCache.clearForTest();
-      await tester.pumpWidget(buildApp(container));
-      await tester.pumpAndSettle();
-      expect(
-        decodeCalls.length,
-        1,
-        reason: '磁盘缓存命中后不得再次调用网络解码链（仍为 1 次）',
-      );
-      expect(
-        find.byType(Image, skipOffstage: false),
-        findsWidgets,
-        reason: '磁盘命中应直接渲染图片',
-      );
-    },
-  );
+    // ── 会话 2：清内存缓存（模拟应用重启）→ 磁盘命中，不再走网络 ──
+    ComicImageDecodeCache.clearForTest();
+    await tester.pumpWidget(buildApp(container));
+    await tester.pumpAndSettle();
+    expect(decodeCalls.length, 1, reason: '磁盘缓存命中后不得再次调用网络解码链（仍为 1 次）');
+    expect(
+      find.byType(Image, skipOffstage: false),
+      findsWidgets,
+      reason: '磁盘命中应直接渲染图片',
+    );
+  });
 }

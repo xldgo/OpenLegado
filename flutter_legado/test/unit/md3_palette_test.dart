@@ -150,10 +150,7 @@ void main() {
         );
       }
       // elink 暗面锚点固化：纯黑
-      expect(
-        md3DarkScheme(Md3Palettes.elink).surface,
-        const Color(0xFF000000),
-      );
+      expect(md3DarkScheme(Md3Palettes.elink).surface, const Color(0xFF000000));
     });
   });
 

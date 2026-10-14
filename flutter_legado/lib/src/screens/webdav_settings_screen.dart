@@ -1,5 +1,6 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,10 +9,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../l10n/app_strings.dart';
@@ -105,13 +107,9 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _saveWebDav() async {
-    await ref.read(syncNotifierProvider.notifier).saveConfig(
-          _url,
-          _user,
-          _pass,
-          _dir,
-          deviceName: _device,
-        );
+    await ref
+        .read(syncNotifierProvider.notifier)
+        .saveConfig(_url, _user, _pass, _dir, deviceName: _device);
   }
 
   Future<void> _editTextPref({
@@ -153,9 +151,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _pickBackupPath() async {
-    final picked = await FilePicker.getDirectoryPath(
-      dialogTitle: '选择备份路径',
-    );
+    final picked = await FilePicker.getDirectoryPath(dialogTitle: '选择备份路径');
     if (picked == null) return;
     await CrashLogService.instance.setBackupPath(picked);
     if (!mounted) return;
@@ -198,8 +194,9 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final sync = ref.read(syncNotifierProvider);
     if (sync.isConfigured) {
       await _runWithProgress('恢复中…', () async {
-        final message =
-            await ref.read(syncNotifierProvider.notifier).restoreFromWebDav();
+        final message = await ref
+            .read(syncNotifierProvider.notifier)
+            .restoreFromWebDav();
         if (!mounted) return;
         await _reloadPrefsAfterRestore();
         if (!mounted) return;
@@ -210,9 +207,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       return;
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('未配置 WebDAV，请长按「恢复」从本地恢复')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('未配置 WebDAV，请长按「恢复」从本地恢复')));
   }
 
   Future<void> _doRestoreFromLocal() async {
@@ -237,9 +233,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       if (!mounted) return;
       await _reloadPrefsAfterRestore();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.restoreSuccess)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(AppStrings.restoreSuccess)));
     });
   }
 
@@ -253,9 +248,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     if (result == null) return;
     await _settings.saveRestoreIgnoreConfig(result);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存恢复忽略项')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存恢复忽略项')));
   }
 
   Future<void> _doImportOldData() async {
@@ -285,9 +279,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
       ref.read(bookshelfNotifierProvider.notifier).refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     });
   }
 
@@ -310,7 +303,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       final origin = item['origin']?.toString() ?? '';
       final type = item['type'];
       final typeInt = type is int ? type : int.tryParse('$type') ?? 0;
-      final isLocal = origin == BookType.localTag ||
+      final isLocal =
+          origin == BookType.localTag ||
           origin.startsWith(BookType.webDavTag) ||
           (typeInt & BookType.local) != 0;
       return !isLocal;
@@ -336,9 +330,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       builder: (ctx) => AlertDialog(
         // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
         backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         content: Row(
           children: [
             const CircularProgressIndicator(),
@@ -352,9 +344,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       await task();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) {
@@ -377,16 +368,12 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final url = _url.trim();
     if (url.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('请先填写服务器地址')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('请先填写服务器地址')));
       return;
     }
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('服务器地址需要以 http(s):// 开头'),
-        ),
+        const SnackBar(content: Text('服务器地址需要以 http(s):// 开头')),
       );
       return;
     }
@@ -397,39 +384,33 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       final request = http.Request('PROPFIND', Uri.parse(url));
       // Basic Auth 使用已填账号/密码（均为空时不带 Authorization 头，避免误触发 401）
       if (_user.isNotEmpty || _pass.isNotEmpty) {
-        request.headers['Authorization'] = 'Basic '
+        request.headers['Authorization'] =
+            'Basic '
             '${base64Encode(utf8.encode('$_user:$_pass'))}';
       }
       request.headers['Depth'] = '0';
-      final streamed = await client.send(request).timeout(const Duration(seconds: 5));
+      final streamed = await client
+          .send(request)
+          .timeout(const Duration(seconds: 5));
       final response = await http.Response.fromStream(streamed);
       // 探测期间已离开页面则不再更新 UI（client 由 finally 关闭）
       if (!mounted) return;
       final code = response.statusCode;
       final ok = code == 200 || code == 207;
       setState(() {
-        _testStatus =
-            ok ? _WebDavTestStatus.success : _WebDavTestStatus.failed;
+        _testStatus = ok ? _WebDavTestStatus.success : _WebDavTestStatus.failed;
       });
       if (ok) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('连接成功')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('连接成功')));
       } else if (code == 401 || code == 403) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('认证失败，请检查账号/密码')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('认证失败，请检查账号/密码')));
       } else {
-        messenger.showSnackBar(
-          SnackBar(content: Text('连接失败（HTTP $code）')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('连接失败（HTTP $code）')));
       }
     } on TimeoutException {
       if (!mounted) return;
       setState(() => _testStatus = _WebDavTestStatus.failed);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('连接超时（5 秒内未响应）')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('连接超时（5 秒内未响应）')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _testStatus = _WebDavTestStatus.failed);

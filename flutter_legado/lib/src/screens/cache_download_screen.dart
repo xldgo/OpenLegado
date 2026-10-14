@@ -3,8 +3,10 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/providers.dart';
@@ -21,7 +23,8 @@ class CacheDownloadScreen extends ConsumerStatefulWidget {
   const CacheDownloadScreen({super.key});
 
   @override
-  ConsumerState<CacheDownloadScreen> createState() => _CacheDownloadScreenState();
+  ConsumerState<CacheDownloadScreen> createState() =>
+      _CacheDownloadScreenState();
 }
 
 /// 单个缓存下载任务（camelCase 对齐 Rust CacheDownloadTask 快照）
@@ -43,24 +46,24 @@ class _DownloadTask {
   });
 
   factory _DownloadTask.fromJson(Map<String, dynamic> json) => _DownloadTask(
-        taskId: (json['taskId'] as num?)?.toInt() ?? 0,
-        bookUrl: json['bookUrl'] as String? ?? '',
-        status: json['status'] as String? ?? 'unknown',
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        completed: (json['completed'] as num?)?.toInt() ?? 0,
-        failed: (json['failed'] as num?)?.toInt() ?? 0,
-      );
+    taskId: (json['taskId'] as num?)?.toInt() ?? 0,
+    bookUrl: json['bookUrl'] as String? ?? '',
+    status: json['status'] as String? ?? 'unknown',
+    total: (json['total'] as num?)?.toInt() ?? 0,
+    completed: (json['completed'] as num?)?.toInt() ?? 0,
+    failed: (json['failed'] as num?)?.toInt() ?? 0,
+  );
 
   bool get isRunning => status == 'running';
 
   String get statusLabel => switch (status) {
-        'running' => '下载中',
-        'completed' => '已完成',
-        'cancelled' => '已取消',
-        'failed' => '失败',
-        'notFound' => '已失效',
-        _ => status,
-      };
+    'running' => '下载中',
+    'completed' => '已完成',
+    'cancelled' => '已取消',
+    'failed' => '失败',
+    'notFound' => '已失效',
+    _ => status,
+  };
 }
 
 class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
@@ -137,21 +140,21 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
       body: _loading
           ? const LoadingIndicator()
           : _tasks.isEmpty
-              ? _buildEmpty(cs)
-              // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
-              : CustomRefreshIndicator(
-                  onRefresh: () async => _refresh(),
-                  child: ListView.separated(
-                    // [LAYOUT_PLAN P1] 列表边距统一 horizontal16（全局标尺）
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _tasks.length,
-                    separatorBuilder: (_, _) => Divider(
-                        height: 1,
-                        color: cs.outlineVariant.withValues(alpha: 0.3)),
-                    itemBuilder: (context, index) =>
-                        _buildTaskTile(_tasks[index]),
-                  ),
+          ? _buildEmpty(cs)
+          // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
+          : CustomRefreshIndicator(
+              onRefresh: () async => _refresh(),
+              child: ListView.separated(
+                // [LAYOUT_PLAN P1] 列表边距统一 horizontal16（全局标尺）
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _tasks.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.3),
                 ),
+                itemBuilder: (context, index) => _buildTaskTile(_tasks[index]),
+              ),
+            ),
     );
   }
 
@@ -160,7 +163,11 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.download_done_rounded, size: 64, color: cs.outlineVariant),
+          Icon(
+            Symbols.download_done_rounded,
+            size: 64,
+            color: cs.outlineVariant,
+          ),
           const SizedBox(height: 12),
           const Text('暂无缓存下载任务'),
           const SizedBox(height: 4),
@@ -186,7 +193,9 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
     };
     return ListTile(
       leading: Icon(
-        task.isRunning ? Symbols.cloud_download_rounded : Symbols.cloud_done_rounded,
+        task.isRunning
+            ? Symbols.cloud_download_rounded
+            : Symbols.cloud_done_rounded,
         color: color,
       ),
       title: Text(
@@ -210,9 +219,8 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
             '${task.statusLabel} · ${task.completed}/${task.total}'
             '${task.failed > 0 ? ' · 失败 ${task.failed}' : ''}',
             // [LAYOUT_PLAN P1] 元信息字级走 labelSmall
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
       ),

@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -44,8 +43,7 @@ void main() {
       addTearDown(container.dispose);
     });
 
-    ChangeCoverState readState() =>
-        container.read(changeCoverNotifierProvider);
+    ChangeCoverState readState() => container.read(changeCoverNotifierProvider);
     ChangeCoverNotifier readNotifier() =>
         container.read(changeCoverNotifierProvider.notifier);
 
@@ -57,10 +55,12 @@ void main() {
     });
 
     test('searchCovers 解析真实契约返回（含尺寸缺省兜底）', () async {
-      when(() => mockApi.searchCover(any())).thenAnswer((_) async => [
-            {'url': 'https://a.com/1.jpg', 'width': 240, 'height': 320},
-            {'url': 'https://a.com/2.jpg'},
-          ]);
+      when(() => mockApi.searchCover(any())).thenAnswer(
+        (_) async => [
+          {'url': 'https://a.com/1.jpg', 'width': 240, 'height': 320},
+          {'url': 'https://a.com/2.jpg'},
+        ],
+      );
 
       await readNotifier().searchCovers(' chapter ');
 

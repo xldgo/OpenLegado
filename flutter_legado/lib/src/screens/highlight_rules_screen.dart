@@ -2,12 +2,13 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/md3_fast_scroller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/highlight_rules/highlight_rules_notifier.dart';
 import '../widgets/empty_state.dart';
@@ -76,8 +77,9 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
       isScrollControlled: true,
       builder: (_) => Padding(
         // 键盘弹起时 sheet 随动
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: _HighlightRuleEditSheet(rule: rule),
       ),
     );
@@ -90,9 +92,8 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
   void _showErrorIfAny() {
     final error = ref.read(highlightRulesNotifierProvider).error;
     if (error == null || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('操作失败: $error')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('操作失败: $error')));
   }
 
   @override
@@ -112,43 +113,48 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
           ),
         ],
       ),
-      body: Builder(builder: (context) {
-        if (state.isLoading) {
-          return const LoadingIndicator(message: '加载高亮规则...');
-        }
-        if (state.error != null) {
-          return Center(child: Text('加载失败: ${state.error}'));
-        }
-        if (state.rules.isEmpty) {
-          return const EmptyState(
-            icon: Symbols.format_paint_rounded,
-            title: '暂无高亮规则',
-            subtitle: '点击右上角「+」新增自动高亮规则',
-          );
-        }
+      body: Builder(
+        builder: (context) {
+          if (state.isLoading) {
+            return const LoadingIndicator(message: '加载高亮规则...');
+          }
+          if (state.error != null) {
+            return Center(child: Text('加载失败: ${state.error}'));
+          }
+          if (state.rules.isEmpty) {
+            return const EmptyState(
+              icon: Symbols.format_paint_rounded,
+              title: '暂无高亮规则',
+              subtitle: '点击右上角「+」新增自动高亮规则',
+            );
+          }
           // 规则分组沿用设置卡片与分隔线样式。
-        // [UI_SYNC_REFACTOR R3] 规则列表快速滚动条
-        return Md3FastScroller(
-          controller: _fsController,
-          child: ListView(
+          // [UI_SYNC_REFACTOR R3] 规则列表快速滚动条
+          return Md3FastScroller(
             controller: _fsController,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
+            child: ListView(
+              controller: _fsController,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
                 SettingsGroup(
                   children: [
                     for (final rule in state.rules)
                       _buildRuleTile(context, rule, cs),
-                    ],
-              ),
-            ],
-          ),
-        );
-      }),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildRuleTile(
-      BuildContext context, HighlightRule rule, ColorScheme cs) {
+    BuildContext context,
+    HighlightRule rule,
+    ColorScheme cs,
+  ) {
     final scope = rule.scope ?? '';
     return InkWell(
       onTap: () => _edit(rule),
@@ -166,10 +172,10 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: rule.isEnabled
-                              ? cs.onSurface
-                              : cs.onSurfaceVariant,
-                        ),
+                      color: rule.isEnabled
+                          ? cs.onSurface
+                          : cs.onSurfaceVariant,
+                    ),
                   ),
                   if (rule.name.isNotEmpty)
                     Padding(
@@ -178,9 +184,8 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
                         rule.pattern,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     ),
                   Padding(
@@ -192,7 +197,9 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
                           Container(
                             margin: const EdgeInsets.only(right: 6),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: cs.primaryContainer,
                               borderRadius: BorderRadius.circular(4),
@@ -210,10 +217,8 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
                             scope.isNotEmpty ? '范围：$scope' : '全局生效',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
                           ),
                         ),
                       ],
@@ -235,8 +240,11 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
               },
             ),
             IconButton(
-              icon: Icon(Symbols.delete_rounded,
-                  size: 20, color: cs.onSurfaceVariant),
+              icon: Icon(
+                Symbols.delete_rounded,
+                size: 20,
+                color: cs.onSurfaceVariant,
+              ),
               tooltip: '删除',
               visualDensity: VisualDensity.compact,
               onPressed: () => _confirmDelete(rule),
@@ -276,15 +284,15 @@ class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
   /// [UI_MD3_ALIGNMENT_PLAN.md Batch B B7] 由 iOS 静态命名色改为随主题
   /// 亮暗自适应的 8 色：4 container + 3 fixedDim + error，供色板与默认色共用
   static List<Color> _presetColors(ColorScheme cs) => [
-        cs.primaryContainer,
-        cs.secondaryContainer,
-        cs.tertiaryContainer,
-        cs.errorContainer,
-        cs.primaryFixedDim,
-        cs.secondaryFixedDim,
-        cs.tertiaryFixedDim,
-        cs.inversePrimary,
-      ];
+    cs.primaryContainer,
+    cs.secondaryContainer,
+    cs.tertiaryContainer,
+    cs.errorContainer,
+    cs.primaryFixedDim,
+    cs.secondaryFixedDim,
+    cs.tertiaryFixedDim,
+    cs.inversePrimary,
+  ];
 
   @override
   void initState() {
@@ -313,18 +321,16 @@ class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
   void _save() {
     final pattern = _patternCtrl.text.trim();
     if (pattern.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('匹配模式不能为空')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('匹配模式不能为空')));
       return;
     }
     if (_isRegex) {
       try {
         RegExp(pattern);
       } catch (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('正则表达式无效，请检查')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('正则表达式无效，请检查')));
         return;
       }
     }
@@ -455,10 +461,7 @@ class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
                 color: Color(_color).withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                '高亮效果预览',
-                style: TextStyle(color: Color(_color)),
-              ),
+              child: Text('高亮效果预览', style: TextStyle(color: Color(_color))),
             ),
             const SizedBox(height: 24),
             Row(

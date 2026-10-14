@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,12 +48,12 @@ void main() {
     return ProviderScope.containerOf(context);
   }
 
-  testWidgets(
-      '书架菜单打开、关闭与操作导航保持正常',
-      (tester) async {
+  testWidgets('书架菜单打开、关闭与操作导航保持正常', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => [bookUnread]);
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [bookUnread]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
 
     container = await pumpShelf(tester);
     addTearDown(container.dispose);
@@ -62,8 +61,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.pump();
-    expect(find.text('未读之书'), findsOneWidget,
-        reason: '书架书籍条目应已加载');
+    expect(find.text('未读之书'), findsOneWidget, reason: '书架书籍条目应已加载');
 
     // 打开顶栏「⋮ 更多」菜单
     await tester.tap(find.byTooltip('更多'));
@@ -80,8 +78,7 @@ void main() {
     );
 
     // 右侧浮卡菜单项可见
-    expect(find.text('远程书籍'), findsOneWidget,
-        reason: '菜单浮卡首项「远程书籍」应可见');
+    expect(find.text('远程书籍'), findsOneWidget, reason: '菜单浮卡首项「远程书籍」应可见');
 
     // 点菜单外部，关闭后可再次展开并执行原操作。
     await tester.tapAt(const Offset(20, 560));

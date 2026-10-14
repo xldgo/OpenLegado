@@ -27,7 +27,9 @@ class _ExploreC8Section {
 /// 首项非标题（无空 URL 头项）时，首个非标题项开启一个无标题分节并
 /// 注册进结果；否则这些项会落在未注册的临时分节里被整体丢弃，
 /// 导致展开区分区网格零高（真机 P1 缺陷根因，已修）。
-List<_ExploreC8Section> _groupExploreC8Sections(List<ExploreCategory> categories) {
+List<_ExploreC8Section> _groupExploreC8Sections(
+  List<ExploreCategory> categories,
+) {
   final sections = <_ExploreC8Section>[];
   _ExploreC8Section? current;
   for (final c in categories) {
@@ -68,8 +70,9 @@ List<ExploreCategory> _forceThreeColumns(List<ExploreCategory> items) {
           chars: c.chars,
           defaultValue: c.defaultValue,
           viewName: c.viewName,
-          style: (c.style ?? const FlexChildStyle())
-              .copyWith(layoutFlexBasisPercent: 1 / 3),
+          style: (c.style ?? const FlexChildStyle()).copyWith(
+            layoutFlexBasisPercent: 1 / 3,
+          ),
         )
       else
         c,

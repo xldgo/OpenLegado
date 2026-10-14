@@ -93,7 +93,10 @@ void main() {
 
       expect(await service.stop(), WebKeepAliveStatus.idle);
       expect(service.isActive, isFalse);
-      expect(enabledArgs(calls), [true, false], reason: '停止必须下发 setEnabled(false)');
+      expect(enabledArgs(calls), [
+        true,
+        false,
+      ], reason: '停止必须下发 setEnabled(false)');
     });
 
     test('start 幂等：已激活时重复 start 不重复下发', () async {

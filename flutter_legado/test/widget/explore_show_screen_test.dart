@@ -2,8 +2,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
@@ -54,9 +53,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();
@@ -72,14 +69,13 @@ void main() {
   });
 
   testWidgets('顶栏「加入书架」按钮批量导入已加载书籍（R5）', (tester) async {
-    when(() => mockApi.bookshelfRepository.importBooks(any())).thenAnswer((_) async => 2);
+    when(() => mockApi.bookshelfRepository.importBooks(any()))
+        .thenAnswer((_) async => 2);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();
@@ -91,7 +87,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // 调用 importBooks 且传入 2 本书
-    final captured = verify(() => mockApi.bookshelfRepository.importBooks(captureAny())).captured;
+    final captured = verify(
+      () => mockApi.bookshelfRepository.importBooks(captureAny()),
+    ).captured;
     expect(captured, hasLength(1));
     final jsonArray = captured.single as String;
     final decoded = jsonDecode(jsonArray) as List;
@@ -106,9 +104,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();

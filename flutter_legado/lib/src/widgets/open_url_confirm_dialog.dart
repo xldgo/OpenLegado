@@ -33,9 +33,8 @@ Future<bool> showOpenUrlConfirmDialog(
                 sourceName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                style: Theme.of(ctx).textTheme.labelMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
               ),
             ),
           // 对齐原版 message：正在请求跳转链接/应用，是否跳转？
@@ -44,9 +43,8 @@ Future<bool> showOpenUrlConfirmDialog(
           SelectableText(
             url,
             maxLines: 3,
-            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+            style: Theme.of(ctx).textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
       ),

@@ -242,7 +242,10 @@ void main() {
       final result = await service.getLastSyncTime();
       expect(result, isNotNull);
       // 毫秒精度比较
-      expect(result!.millisecondsSinceEpoch, equals(now.millisecondsSinceEpoch));
+      expect(
+        result!.millisecondsSinceEpoch,
+        equals(now.millisecondsSinceEpoch),
+      );
     });
   });
 

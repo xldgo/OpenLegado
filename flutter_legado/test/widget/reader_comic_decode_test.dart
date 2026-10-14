@@ -1,5 +1,6 @@
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -44,7 +45,8 @@ class _ComicMockApi extends MockBookApi {
   TestBookSourceRepository get bookSourceRepository => _fixtureSources;
 
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -57,24 +59,24 @@ class _ComicMockApi extends MockBookApi {
   Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: 1,
-      );
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: 1,
+  );
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        BookChapter(
-          index: 0,
-          url: 'https://manga.example.com/comic/1/ch1.html',
-          title: '第一章',
-        ),
-      ];
+    BookChapter(
+      index: 0,
+      url: 'https://manga.example.com/comic/1/ch1.html',
+      title: '第一章',
+    ),
+  ];
 
   @override
   Future<String> fetchChapterContent(
@@ -102,8 +104,7 @@ void main() {
     );
   }
 
-  testWidgets('含 imageDecode 规则：漫画图片走 FFI 解码下载并显示',
-      (tester) async {
+  testWidgets('含 imageDecode 规则：漫画图片走 FFI 解码下载并显示', (tester) async {
     final decodeCalls = <String>[];
     final api = _ComicMockApi(
       source: _buildComicSource(withDecode: true),
@@ -126,11 +127,13 @@ void main() {
     expect(find.byType(RawImage, skipOffstage: false), findsWidgets);
   });
 
-  testWidgets('无 imageDecode 规则：仍走 FFI 下载（复合 URL/防盗链支持）',
-      (tester) async {
+  testWidgets('无 imageDecode 规则：仍走 FFI 下载（复合 URL/防盗链支持）', (tester) async {
     final decodeCalls = <String>[];
     final api = _ComicMockApi(
-      source: _buildComicSource(withDecode: false, url: 'https://manga2.example.com'),
+      source: _buildComicSource(
+        withDecode: false,
+        url: 'https://manga2.example.com',
+      ),
       decodeCalls: decodeCalls,
     );
     final container = ProviderContainer(

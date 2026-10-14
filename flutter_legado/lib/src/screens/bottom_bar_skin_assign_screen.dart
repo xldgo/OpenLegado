@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 
@@ -30,10 +31,7 @@ class BottomBarSkinAssignScreen extends StatefulWidget {
 }
 
 class _AssignRow {
-  _AssignRow({
-    required this.slot,
-    required this.label,
-  });
+  _AssignRow({required this.slot, required this.label});
 
   final String slot;
   final String label;
@@ -85,9 +83,8 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
       final imgs = await _service.stagingImages(widget.sessionId);
       if (imgs.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('暂存中无可用图片')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('暂存中无可用图片')));
           Navigator.pop(context);
         }
         return;
@@ -125,9 +122,8 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
       }
     }
     if (assigns.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少为一项选择「选中」图标')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请至少为一项选择「选中」图标')));
       return;
     }
     setState(() => _saving = true);
@@ -144,9 +140,8 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存失败：$e')));
     }
   }
 
@@ -167,10 +162,7 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  '选择图片',
-                  style: Theme.of(ctx).textTheme.titleMedium,
-                ),
+                Text('选择图片', style: Theme.of(ctx).textTheme.titleMedium),
                 if (allowClear)
                   Align(
                     alignment: Alignment.centerLeft,
@@ -303,7 +295,8 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                       ),
                     ),
                   const SettingsSectionHeader('名称'),
-                  SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                  SettingsGroup(
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -321,7 +314,8 @@ class _BottomBarSkinAssignScreenState extends State<BottomBarSkinAssignScreen> {
                     ],
                   ),
                   const SettingsSectionHeader('槽位'),
-                  SettingsGroup(flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+                  SettingsGroup(
+                    flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
                     children: [
                       for (var i = 0; i < _rows.length; i++) ...[
                         if (i > 0) const Divider(height: 1),

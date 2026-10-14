@@ -1,11 +1,13 @@
 import '../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/app_log/app_log_notifier.dart';
 
@@ -61,11 +63,11 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
       builder: (ctx) => AlertDialog(
         // [LAYOUT_PLAN P3] Dialog 容器 surfaceContainer 圆角 28dp（全局标尺，对齐 dialogTheme）
         backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Text(all ? '清空全部日志' : '清空当前级别日志'),
-        content: Text(all ? '将清空 message/crash/http 全部级别日志，确定吗？' : '确定清空当前级别的日志吗？'),
+        content: Text(
+          all ? '将清空 message/crash/http 全部级别日志，确定吗？' : '确定清空当前级别的日志吗？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -82,9 +84,8 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
     final notifier = ref.read(appLogNotifierProvider.notifier);
     await (all ? notifier.clearAll() : notifier.clearCurrentLevel());
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(all ? '已清空全部日志' : '已清空当前级别日志')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(all ? '已清空全部日志' : '已清空当前级别日志')));
     }
   }
 
@@ -93,21 +94,19 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
       final text = await ref.read(appLogNotifierProvider.notifier).export();
       if (!mounted) return;
       if (text.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('暂无日志可导出')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('暂无日志可导出')));
         return;
       }
       await Clipboard.setData(ClipboardData(text: text));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('日志已复制到剪贴板（${text.length} 字符）')),
-      );
-    } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('导出失败：$e')));
+      ).showSnackBar(SnackBar(content: Text('日志已复制到剪贴板（${text.length} 字符）')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('导出失败：$e')));
     }
   }
 

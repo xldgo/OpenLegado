@@ -40,7 +40,11 @@ class ChapterTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: isCurrent
-          ? Icon(Symbols.play_arrow_rounded, color: colorScheme.primary, size: 20)
+          ? Icon(
+              Symbols.play_arrow_rounded,
+              color: colorScheme.primary,
+              size: 20,
+            )
           : null,
       selected: isCurrent,
       selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),

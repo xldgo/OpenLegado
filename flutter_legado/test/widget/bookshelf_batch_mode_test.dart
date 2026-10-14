@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,8 +45,7 @@ void main() {
     await tester.pump();
 
     // 正常模式：书名在列表行可见
-    expect(find.text('示例书籍 01'), findsOneWidget,
-        reason: '正常模式书卡行应渲染书名');
+    expect(find.text('示例书籍 01'), findsOneWidget, reason: '正常模式书卡行应渲染书名');
 
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
@@ -73,13 +71,11 @@ void main() {
     // 点按书卡 → 勾选态切换，胶囊数字 0 → 1
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
-    expect(find.text('已选 1 本'), findsOneWidget,
-        reason: '点按后胶囊计数应变为 1');
+    expect(find.text('已选 1 本'), findsOneWidget, reason: '点按后胶囊计数应变为 1');
 
     // 再点一次 → 取消勾选，数字回到 0
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
-    expect(find.text('已选 0 本'), findsOneWidget,
-        reason: '再点按后计数应回到 0');
+    expect(find.text('已选 0 本'), findsOneWidget, reason: '再点按后计数应回到 0');
   });
 }

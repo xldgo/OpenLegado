@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -64,5 +63,5 @@ class RssHistoryNotifier extends Notifier<RssHistoryState> {
 /// ```
 final rssHistoryNotifierProvider =
     NotifierProvider<RssHistoryNotifier, RssHistoryState>(
-  RssHistoryNotifier.new,
-);
+      RssHistoryNotifier.new,
+    );

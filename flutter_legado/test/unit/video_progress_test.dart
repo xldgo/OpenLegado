@@ -43,7 +43,9 @@ void main() {
       expect(
         decodeVideoPos(
           raw,
-          now: saved.add(kVideoPosTtl).subtract(const Duration(milliseconds: 1)),
+          now: saved
+              .add(kVideoPosTtl)
+              .subtract(const Duration(milliseconds: 1)),
         ),
         123456,
       );
@@ -70,8 +72,10 @@ void main() {
     test('写入 → 新会话（新 store，内存态丢失）读回同值', () async {
       final api = MockBookApi();
       final t0 = DateTime(2026, 10, 3, 10);
-      await VideoPosStore(api, clock: () => t0)
-          .write('https://cdn.example/v.mp4', 654321);
+      await VideoPosStore(
+        api,
+        clock: () => t0,
+      ).write('https://cdn.example/v.mp4', 654321);
 
       // 模拟重启：新建 store 实例（无任何内存态），只共享底层存储
       final restored = await VideoPosStore(
@@ -84,8 +88,10 @@ void main() {
     test('过期读取返回 0 且清理该键（对齐 CacheRepository.get 过期即删）', () async {
       final api = MockBookApi();
       final t0 = DateTime(2026, 10, 3, 10);
-      await VideoPosStore(api, clock: () => t0)
-          .write('https://cdn.example/v.mp4', 999);
+      await VideoPosStore(
+        api,
+        clock: () => t0,
+      ).write('https://cdn.example/v.mp4', 999);
 
       final store = VideoPosStore(
         api,

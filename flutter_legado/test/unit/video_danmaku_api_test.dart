@@ -70,8 +70,9 @@ void main() {
 
     test('经 BookApi 接口调用返回 List<VideoDanmakuItem>?（签名形状）', () async {
       final BookApi api = MockBookApi();
-      final List<VideoDanmakuItem>? items =
-          await api.parseVideoDanmaku(raw: '<i/>');
+      final List<VideoDanmakuItem>? items = await api.parseVideoDanmaku(
+        raw: '<i/>',
+      );
       expect(items, isNull);
     });
   });
@@ -86,4 +87,3 @@ void main() {
     });
   });
 }
-

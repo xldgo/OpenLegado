@@ -11,11 +11,7 @@ void main() {
       home: Scaffold(
         body: ListView(
           children: [
-            BookListItem(
-              book: book,
-              onTap: onTap,
-              onLongPress: onLongPress,
-            ),
+            BookListItem(book: book, onTap: onTap, onLongPress: onLongPress),
           ],
         ),
       ),
@@ -93,7 +89,11 @@ void main() {
     var longPressed = false;
     final book = Book(bookUrl: 'u4', name: '交互测试');
     await tester.pumpWidget(
-      wrap(book, onTap: () => tapped = true, onLongPress: () => longPressed = true),
+      wrap(
+        book,
+        onTap: () => tapped = true,
+        onLongPress: () => longPressed = true,
+      ),
     );
 
     await tester.tap(find.text('交互测试'));

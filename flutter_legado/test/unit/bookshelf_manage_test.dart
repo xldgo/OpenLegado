@@ -1,5 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -30,7 +29,8 @@ void main() {
         container.read(bookshelfManageNotifierProvider.notifier);
 
     void stubBooks(List<Book> books) {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer((_) async => books);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => books);
     }
 
     const bookA = Book(bookUrl: 'url-a', name: '书A');
@@ -55,7 +55,8 @@ void main() {
     });
 
     test('load 异常时兜底并记录 error', () async {
-      when(() => mockApi.bookshelfRepository.getBooks()).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().load();
 
@@ -91,7 +92,8 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.bookshelfRepository.deleteBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook(any()))
+          .thenAnswer((_) async {});
       stubBooks([]); // 删除后列表为空
 
       await readNotifier().removeSelected();
@@ -114,8 +116,11 @@ void main() {
 
       await readNotifier().moveSelectedToGroup(4);
 
-      verify(() => mockApi.bookshelfRepository.setBookGroup('url-a', 4)).called(1);
-      verifyNever(() => mockApi.bookshelfRepository.setBookGroup('url-b', any()));
+      verify(() => mockApi.bookshelfRepository.setBookGroup('url-a', 4))
+          .called(1);
+      verifyNever(
+        () => mockApi.bookshelfRepository.setBookGroup('url-b', any()),
+      );
       expect(readState().isBusy, isFalse);
     });
 
@@ -124,7 +129,8 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.bookshelfRepository.topBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.topBook(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().pinSelected();
 
@@ -148,7 +154,8 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.bookshelfRepository.deleteBook(any())).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.deleteBook(any()))
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().removeSelected();
 

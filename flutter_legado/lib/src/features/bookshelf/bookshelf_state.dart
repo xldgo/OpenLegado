@@ -67,8 +67,9 @@ extension BookshelfStateGrouping on BookshelfState {
   bool get hasGroupTabs => groups.length > 1;
 
   /// 当前选中分组
-  BookGroup? get selectedGroup =>
-      groups.isEmpty ? null : groups[selectedGroupIndex.clamp(0, groups.length - 1)];
+  BookGroup? get selectedGroup => groups.isEmpty
+      ? null
+      : groups[selectedGroupIndex.clamp(0, groups.length - 1)];
 
   /// 当前分组 Tab 下的书籍（纯展示层过滤，对标原版 BooksFragment 按 groupId 查询）
   List<Book> get currentGroupBooks {

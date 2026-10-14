@@ -17,8 +17,13 @@ void main() {
     });
 
     test('fromStorage 往返', () {
-      final raw = MangaColorFilterConfig(r: 10, g: 20, b: 30, a: 40, l: 50)
-          .toStorage();
+      final raw = MangaColorFilterConfig(
+        r: 10,
+        g: 20,
+        b: 30,
+        a: 40,
+        l: 50,
+      ).toStorage();
       final back = MangaColorFilterConfig.fromStorage(raw);
       expect(back.r, 10);
       expect(back.g, 20);

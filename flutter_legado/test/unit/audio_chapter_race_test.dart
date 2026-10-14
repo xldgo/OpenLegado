@@ -16,8 +16,7 @@
 // e) 单曲循环清零逻辑回归（A3/A4 批行为不被破坏）
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -59,22 +58,20 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
       ],
     );
-    when(() => mockApi.bookshelfRepository.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
-    when(
-      () => mockApi.getAudioProgress(any(), any()),
-    ).thenAnswer((_) async => null);
-    when(
-      () => mockApi.saveAudioProgress(any(), any(), any()),
-    ).thenAnswer((_) async {});
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.getAudioChapterMedia(any(), any()))
+        .thenAnswer((invocation) async {
+          final index = invocation.positionalArguments[1] as int;
+          return {
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          };
+        });
+    when(() => mockApi.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.saveAudioProgress(any(), any(), any()))
+        .thenAnswer((_) async {});
   }
 
   Future<void> startStream() async {
@@ -88,9 +85,8 @@ void main() {
     // 第 2 章取址挂起：精确复现真机「currentIndex 已切新章、旧播放器仍存活」
     // 的取址窗口
     final ch2Media = Completer<Map<String, dynamic>>();
-    when(
-      () => mockApi.getAudioChapterMedia(any(), 1),
-    ).thenAnswer((_) => ch2Media.future);
+    when(() => mockApi.getAudioChapterMedia(any(), 1))
+        .thenAnswer((_) => ch2Media.future);
 
     await startStream();
     final oldTag = fakePlayer.currentTag;
@@ -176,9 +172,8 @@ void main() {
     stubTwoChapters();
     fakePlayer.loadedDuration = const Duration(seconds: 30);
     // 污染值：与 QA 证据一致（第 1 章完成位置 29913 落到其它章键）
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
+    when(() => mockApi.getAudioProgress('url', 0))
+        .thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
 
     await startStream();
 
@@ -191,9 +186,8 @@ void main() {
   testWidgets('c2) 恢复遇到章中正常进度：保持既有 seek 行为', (tester) async {
     stubTwoChapters();
     fakePlayer.loadedDuration = const Duration(seconds: 30);
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 10000, 'chapterIndex': 0});
+    when(() => mockApi.getAudioProgress('url', 0))
+        .thenAnswer((_) async => {'position': 10000, 'chapterIndex': 0});
 
     await startStream();
 
@@ -206,9 +200,8 @@ void main() {
   testWidgets('c3) 时长未知时不判定接近章尾，保持既有恢复行为', (tester) async {
     stubTwoChapters();
     // loadedDuration 保持 0：模拟播放器未解析出时长
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
+    when(() => mockApi.getAudioProgress('url', 0))
+        .thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
 
     await startStream();
 

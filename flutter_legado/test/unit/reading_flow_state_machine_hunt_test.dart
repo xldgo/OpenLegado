@@ -16,8 +16,7 @@
 //     阅读页（reader_page_view build: error != null 分支）永久停在 ErrorView。
 // - F6 prevChapter 的 -1 章内位置哨兵被持久化写入 DB。
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,9 +66,8 @@ void main() {
 
   /// 基础桩：目录 + 进度写入（正文按用例单独 stub）
   void stubBase() {
-    when(
-      () => mockApi.getChapters(any()),
-    ).thenAnswer((_) async => testChapters);
+    when(() => mockApi.getChapters(any()))
+        .thenAnswer((_) async => testChapters);
     when(
       () => mockApi.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
@@ -84,19 +82,18 @@ void main() {
     Duration Function(int index)? delay,
     bool Function(int index)? fail,
   }) {
-    when(() => mockApi.getChapterContentFull(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final idx = invocation.positionalArguments[1] as int;
-      if (delay != null) {
-        final d = delay(idx);
-        if (d > Duration.zero) await Future.delayed(d);
-      }
-      if (fail != null && fail(idx)) {
-        throw StateError('抓取失败：第 $idx 章');
-      }
-      return 'CH$idx';
-    });
+    when(() => mockApi.getChapterContentFull(any(), any()))
+        .thenAnswer((invocation) async {
+          final idx = invocation.positionalArguments[1] as int;
+          if (delay != null) {
+            final d = delay(idx);
+            if (d > Duration.zero) await Future.delayed(d);
+          }
+          if (fail != null && fail(idx)) {
+            throw StateError('抓取失败：第 $idx 章');
+          }
+          return 'CH$idx';
+        });
   }
 
   // ==========================================================================
@@ -166,18 +163,17 @@ void main() {
       await notifier.nextChapter();
 
       Book? written;
-      when(() => mockApi.bookshelfRepository.updateBook(any())).thenAnswer((invocation) async {
-        written = invocation.positionalArguments.first as Book;
-      });
+      when(() => mockApi.bookshelfRepository.updateBook(any()))
+          .thenAnswer((invocation) async {
+            written = invocation.positionalArguments.first as Book;
+          });
 
       // 复刻 reader_menu_actions.part.dart _updateBookConfig 的真实取数方式：
       //   final book = ref.read(readerNotifierProvider).currentBook;
       //   await api.bookshelfRepository.updateBook(book.copyWith(readConfig: transform(...)));
       final snapshot = readState().currentBook!;
       await mockApi.bookshelfRepository.updateBook(
-        snapshot.copyWith(
-          readConfig: const ReadConfig(useReplaceRule: false),
-        ),
+        snapshot.copyWith(readConfig: const ReadConfig(useReplaceRule: false)),
       );
 
       expect(
@@ -197,7 +193,9 @@ void main() {
     test('[F2] 连点下一章不得出现「章标第三章 / 正文第二章」错配', () async {
       stubBase();
       // 第 1 章慢、第 2 章快 → 后发先至，先到的旧章正文后写
-      stubContent(delay: (i) => i == 1 ? const Duration(milliseconds: 60) : Duration.zero);
+      stubContent(
+        delay: (i) => i == 1 ? const Duration(milliseconds: 60) : Duration.zero,
+      );
 
       final notifier = readNotifier();
       await notifier.openBook(testBook);
@@ -269,8 +267,7 @@ void main() {
           chapterPos: any(named: 'chapterPos'),
         ),
       ).thenAnswer((invocation) async {
-        savedPositions
-            .add(invocation.namedArguments[#chapterPos] as int);
+        savedPositions.add(invocation.namedArguments[#chapterPos] as int);
       });
 
       final notifier = readNotifier();

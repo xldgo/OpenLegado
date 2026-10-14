@@ -4,8 +4,7 @@
 // - expanded/large（≥840dp）：左侧书源列表 + 右侧内容占位双栏
 // - compact（<840dp）：单栏列表（保持安卓原版行为，无右栏占位）
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -32,7 +31,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => sources);
   });
 
   Widget buildApp() {

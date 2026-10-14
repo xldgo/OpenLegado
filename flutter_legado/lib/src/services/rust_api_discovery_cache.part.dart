@@ -187,8 +187,7 @@ mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
   /// `List<int>`（非数组/非整型条目跳过，降级空集合）。
   @override
   Future<List<int>> listDownloadingChapters(String bookUrl) async {
-    final json =
-        await bridge.cacheDownloadRunningChapters(bookUrl: bookUrl);
+    final json = await bridge.cacheDownloadRunningChapters(bookUrl: bookUrl);
     final decoded = jsonDecode(json);
     final list = <int>[];
     if (decoded is List) {

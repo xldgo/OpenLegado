@@ -30,10 +30,12 @@ void main() {
   }
 
   testWidgets('AppBottomSheet renders title and children', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      title: '阅读设置',
-      children: const [Text('字体大小'), Text('背景颜色')],
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        title: '阅读设置',
+        children: const [Text('字体大小'), Text('背景颜色')],
+      ),
+    );
 
     // 打开底部弹窗
     await tester.tap(find.text('打开'));
@@ -45,11 +47,13 @@ void main() {
   });
 
   testWidgets('AppBottomSheet shows trailing widget', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      title: '测试',
-      children: const [Text('内容')],
-      trailing: const Icon(Icons.close),
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        title: '测试',
+        children: const [Text('内容')],
+        trailing: const Icon(Icons.close),
+      ),
+    );
 
     await tester.tap(find.text('打开'));
     await tester.pumpAndSettle();
@@ -58,10 +62,9 @@ void main() {
   });
 
   testWidgets('AppBottomSheet can be dismissed', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      title: '测试弹窗',
-      children: const [Text('内容')],
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(title: '测试弹窗', children: const [Text('内容')]),
+    );
 
     await tester.tap(find.text('打开'));
     await tester.pumpAndSettle();
