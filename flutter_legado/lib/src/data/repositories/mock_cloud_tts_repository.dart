@@ -2,6 +2,8 @@ import '../../domain/contracts/cloud_tts_provider.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 
 final class MockCloudTtsRepository implements CloudTtsRepository {
+  MockCloudTtsRepository({this.onDelete});
+  final void Function(String)? onDelete;
   final _engines = <String, CloudTtsEngine>{};
   @override
   Future<List<CloudTtsEngine>> list() async =>
@@ -33,10 +35,14 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   @override
   Future<void> delete(String id) async {
     if (_engines.remove(id) == null) throw StateError('云端引擎不存在');
+    onDelete?.call(id);
   }
 
   @override
   Future<List<String>> voices(String provider) async {
+    if (provider == 'alibaba_cloud') {
+      return const ['Cherry', 'Serena', 'Ethan', 'Chelsie'];
+    }
     if (provider == 'mimo') {
       return const [
         'mimo_default',

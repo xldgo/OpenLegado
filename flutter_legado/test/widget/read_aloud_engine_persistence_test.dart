@@ -6,9 +6,7 @@
 //    当前书 readConfig.ttsEngine（SpeakEngineDialog.kt:164-170），「全局」
 //    先清书级再写全局（:171-177）；行点击快捷路径保持既有行为（裸 URL 写
 //    全局内存，read_aloud_engine_select_test.dart 钉住）。
-// 2. 管理页（ReadAloudConfigScreen）：行点击只更新选中态（对齐原版
-//    SpeakEngineDialog.kt:315-326 的 upTts），初始选中 = 有效引擎
-//    （书级优先、空则全局回退）；底部「书」/「全局」按钮触发持久化。
+// 2. 统一管理页：初始选中 = 有效引擎（书级优先）；点击行后选择书/全局范围，取消不落库。
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -198,12 +196,12 @@ void main() {
     });
   });
 
-  group('管理页：行选中 + 双持久化按钮（原版 :315-326 / :164-177）', () {
+  group('管理页：点击引擎后按上游选择书或全局范围', () {
     Future<void> pumpScreen(WidgetTester tester) async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReadAloudConfigScreen()),
+          child: const MaterialApp(home: ReadAloudConfigScreen(initialTab: 1)),
         ),
       );
       await tester.pumpAndSettle();
@@ -216,13 +214,13 @@ void main() {
             .thenAnswer((_) async => []);
         await pumpScreen(tester);
         expect(find.text('暂无朗读引擎'), findsOneWidget);
-        expect(find.text('系统 TTS'), findsNothing);
+        expect(find.widgetWithText(ListTile, '系统 TTS'), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
 
-    testWidgets('初始选中 = 有效引擎（书级优先）；行点击只改选中态不落库', (tester) async {
+    testWidgets('初始选中 = 有效引擎（书级优先）；取消范围选择不落库', (tester) async {
       readNotifier().bindBook(
         const Book(
           bookUrl: bookUrl,
@@ -245,10 +243,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(savedBooks, isEmpty);
-      final switched = tester.widget<ListTile>(
-        find.ancestor(of: find.text('引擎乙'), matching: find.byType(ListTile)),
+      expect(find.byType(AlertDialog), findsOneWidget);
+      Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+      await tester.pumpAndSettle();
+      final selected = tester.widget<ListTile>(
+        find.ancestor(of: find.text('引擎甲'), matching: find.byType(ListTile)),
       );
-      expect(switched.selected, isTrue);
+      expect(selected.selected, true);
+      expect(savedBooks, isEmpty);
     });
 
     testWidgets('「书」按钮：持久化选中引擎到当前书 readConfig.ttsEngine', (tester) async {
@@ -280,7 +282,7 @@ void main() {
 
       await tester.tap(find.text('引擎乙'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '全局'));
+      await tester.tap(find.widgetWithText(FilledButton, '全局'));
       await tester.pumpAndSettle();
 
       expect(savedBooks, hasLength(1));

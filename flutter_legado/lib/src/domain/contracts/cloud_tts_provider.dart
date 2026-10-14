@@ -6,17 +6,29 @@ final class CloudTtsProviderProfile {
     required this.voice,
     required this.formats,
     this.styles = const [],
+    this.supportsSourceSpeed = false,
+    this.textLimit = 4000,
   });
   final String name, model, voice;
   final List<String> formats, styles;
+  final bool supportsSourceSpeed;
+  final int textLimit;
 }
 
 const cloudTtsProviderProfiles = {
   'openai_speech': CloudTtsProviderProfile(
     name: 'OpenAI Speech',
+    supportsSourceSpeed: true,
     model: 'gpt-4o-mini-tts',
     voice: 'alloy',
     formats: ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'],
+  ),
+  'alibaba_cloud': CloudTtsProviderProfile(
+    name: '阿里云百炼',
+    model: 'qwen3-tts-flash',
+    voice: 'Cherry',
+    formats: ['wav'],
+    textLimit: 600,
   ),
   'mimo': CloudTtsProviderProfile(
     name: 'Xiaomi MiMo',

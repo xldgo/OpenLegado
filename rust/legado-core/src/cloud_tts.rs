@@ -10,6 +10,8 @@ pub enum CloudTtsProviderType {
     OpenAiSpeech,
     #[serde(rename = "mimo")]
     Mimo,
+    #[serde(rename = "alibaba_cloud")]
+    AlibabaCloud,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -98,6 +100,7 @@ pub struct PreparedCloudSpeech {
     pub credential_header: &'static str,
     pub authorization: String,
     pub response_kind: CloudSpeechResponseKind,
+    pub additional_headers: Vec<(&'static str, String)>,
     pub body: Value,
     pub response_format: String,
 }
@@ -105,6 +108,10 @@ pub struct CloudTtsAudio {
     pub bytes: Vec<u8>,
     pub extension: &'static str,
     pub content_type: &'static str,
+}
+pub enum DecodedCloudSpeech {
+    Audio(CloudTtsAudio),
+    Download(String),
 }
 pub trait CloudTtsProvider: Send + Sync {
     fn provider_type(&self) -> CloudTtsProviderType;
@@ -115,12 +122,17 @@ pub trait CloudTtsProvider: Send + Sync {
         request: &CloudTtsSynthesisRequest,
     ) -> LegadoResult<PreparedCloudSpeech>;
     fn decode_audio(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<CloudTtsAudio>;
+    fn decode_response(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<DecodedCloudSpeech> {
+        self.decode_audio(format, bytes)
+            .map(DecodedCloudSpeech::Audio)
+    }
 }
 /// 元数据校验、音色发现与合成执行必须走同一 Provider 分派。
 pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsProvider {
     match kind {
         CloudTtsProviderType::OpenAiSpeech => &crate::cloud_tts_openai::OpenAiCloudTtsProvider,
         CloudTtsProviderType::Mimo => &crate::cloud_tts_mimo::MimoCloudTtsProvider,
+        CloudTtsProviderType::AlibabaCloud => &crate::cloud_tts_alibaba::AlibabaCloudTtsProvider,
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

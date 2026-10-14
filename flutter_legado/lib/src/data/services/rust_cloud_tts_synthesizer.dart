@@ -16,6 +16,8 @@ final class RustCloudTtsSynthesizer implements CloudTtsSynthesizer {
   Future<HttpTtsSynthesisResult> synthesize({
     required String engineId,
     required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
     HttpTtsCancellation? cancellation,
   }) async {
     if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
@@ -39,6 +41,8 @@ final class RustCloudTtsSynthesizer implements CloudTtsSynthesizer {
         requestJson: jsonEncode({
           'text': text,
           'credentialKey': engine.credentialKey,
+          'voiceId': ?voiceId,
+          'voiceOptions': ?voiceOptions,
         }),
         request: request,
       );

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,8 @@ class _Synth implements CloudTtsSynthesizer {
   Future<HttpTtsSynthesisResult> synthesize({
     required String engineId,
     required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
     HttpTtsCancellation? cancellation,
   }) async {
     inputs.add('$engineId:$text');
@@ -36,6 +39,13 @@ void main() {
   test('云端选择清旧 HTTP ID，当前段/续播/切段共用原媒体会话', () async {
     SharedPreferences.setMockInitialValues({});
     final api = MockRustApi();
+    await api.cloudTtsRepository.save(
+      const CloudTtsEngine(
+        id: 'cloud1',
+        name: '测试云端',
+        credentialKey: 'cloud-tts:cloud1:fixture',
+      ),
+    );
     final config = <String, String>{'appTtsEngineId': '99'};
     when(() => api.getConfig(any()))
         .thenAnswer((c) async => config[c.positionalArguments[0]]);

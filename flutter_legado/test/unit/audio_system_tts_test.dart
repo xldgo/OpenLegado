@@ -35,6 +35,7 @@ class FakeSystemTts extends Fake implements SystemTts {
     double speed = 1,
     double pitch = 1,
     double volume = 1,
+    String? voiceKey,
   }) {
     paused = false;
     texts.add(text);

@@ -6732,14 +6732,32 @@ abstract class AppLocalizations {
   /// No description provided for @readAloudEngines.
   ///
   /// In zh, this message translates to:
-  /// **'朗读引擎'**
+  /// **'朗读引擎与音色'**
   String get readAloudEngines;
 
   /// No description provided for @readAloudEnginesSummary.
   ///
   /// In zh, this message translates to:
-  /// **'管理系统与 HTTP 朗读引擎'**
+  /// **'管理系统、HTTP 与云端朗读'**
   String get readAloudEnginesSummary;
+
+  /// No description provided for @readAloudCloudEngines.
+  ///
+  /// In zh, this message translates to:
+  /// **'云 TTS'**
+  String get readAloudCloudEngines;
+
+  /// No description provided for @readAloudHttpEngines.
+  ///
+  /// In zh, this message translates to:
+  /// **'HTTP 协议 TTS'**
+  String get readAloudHttpEngines;
+
+  /// No description provided for @readAloudSystemEngines.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统 TTS'**
+  String get readAloudSystemEngines;
 
   /// No description provided for @readAloudSystemVoice.
   ///

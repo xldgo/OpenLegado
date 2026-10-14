@@ -101,6 +101,7 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
         Ok(PreparedCloudSpeech {
             endpoint: url.to_string(),
             credential_header: "Authorization",
+            additional_headers: Vec::new(),
             response_kind: CloudSpeechResponseKind::AudioBytes,
             authorization: format!("Bearer {}", engine.api_key),
             body,

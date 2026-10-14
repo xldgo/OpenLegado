@@ -1,8 +1,4 @@
-import '../features/read_aloud/cloud_tts_screen.dart';
-import '../features/read_aloud/read_aloud_voice_screen.dart';
 import '../features/read_aloud/tts_cache_screen.dart';
-
-import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
 import 'dart:async';
 
@@ -20,7 +16,6 @@ import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/settings_widgets.dart';
-import '../widgets/system_tts_settings_dialog.dart';
 
 /// 朗读偏好与引擎管理分开；打开设置不重新应用或重启播放。
 class ReadAloudSettingsScreen extends ConsumerStatefulWidget {
@@ -74,7 +69,6 @@ class _ReadAloudSettingsScreenState
     final capsule = ref.watch(readAloudCapsuleProvider);
     final audio = ref.watch(audioNotifierProvider);
     final notifier = ref.read(audioNotifierProvider.notifier);
-    final system = ref.read(systemTtsServiceProvider);
     final enabled = preferences.loaded && !_saving;
     final systemActive =
         !audio.isStreamMode &&
@@ -242,28 +236,6 @@ class _ReadAloudSettingsScreenState
                 onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.readAloudConfig),
               ),
-              SettingTile(icon:Icons.cloud_outlined,title:context.l10n.cloudTtsTitle,subtitle:context.l10n.cloudTtsSummary,onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const CloudTtsScreen()))),
-              SettingTile(
-                icon: Icons.record_voice_over_outlined,
-                title: '音色目录',
-                subtitle: '选择发音人与情感，管理系统和 HTTP 音色',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ReadAloudVoiceScreen(),
-                  ),
-                ),
-              ),
-              if (system.isSupported)
-                SettingTile(
-                  icon: Icons.voice_chat,
-                  title: strings.readAloudSystemVoice,
-                  subtitle: strings.readAloudSystemVoiceSummary,
-                  onTap: () => showSystemTtsSettings(
-                    context,
-                    system,
-                    notifier.refreshSystemTtsSettings,
-                  ),
-                ),
             ],
           ),
           if (systemActive) ...[

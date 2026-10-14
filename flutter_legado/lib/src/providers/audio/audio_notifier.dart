@@ -391,6 +391,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       player: _streamPlayer,
     );
     _cloudEngine = CloudReadAloudEngine(
+      repository: () => ref.read(cloudTtsRepositoryProvider),
       synthesizer: () => ref.read(cloudTtsSynthesizerProvider),
       player: _streamPlayer,
       cache: () => _api.ttsCacheRepository,
@@ -1262,7 +1263,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           ? const HttpTtsVoiceResolution()
           : await _httpVoice(engineId);
       if (_isSpeakStale(token, gen)) return;
+      final cloudVoice = isCloudTts(engineUrl)
+          ? await _api.getConfig('cloudTtsVoice:${cloudTtsId(engineUrl)}')
+          : null;
+      if (_isSpeakStale(token, gen)) return;
       final request = ReadAloudRequest(
+        voicePresetId: cloudVoice?.isEmpty == true ? null : cloudVoice,
         toneId: voice.voice?.speakerId,
         speakerName: voice.voice?.displayName,
         emotionTag: voice.emotionTag,
@@ -1474,6 +1480,19 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       await _api.readAloudVoiceRepository.list(),
       selection,
     );
+  }
+
+  Future<void> setCloudTtsVoice(String engineId, ReadAloudVoice? voice) async {
+    if (voice != null &&
+        (voice.engineType != 'cloud_tts' ||
+            voice.engineId != engineId ||
+            !voice.selectable)) {
+      throw StateError('该音色不能用于此引擎');
+    }
+    await _api.setConfig('cloudTtsVoice:$engineId', voice?.id ?? '');
+    if (!_disposed && resolveTtsEngineUrl() == 'cloud://$engineId') {
+      await restartCurrentTts();
+    }
   }
 
   Future<void> setHttpTtsVoice(

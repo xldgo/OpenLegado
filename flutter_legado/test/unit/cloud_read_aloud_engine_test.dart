@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
@@ -17,6 +20,8 @@ class _Synth implements CloudTtsSynthesizer {
   Future<HttpTtsSynthesisResult> synthesize({
     required String engineId,
     required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
     HttpTtsCancellation? cancellation,
   }) async {
     texts.add(text);
@@ -24,6 +29,18 @@ class _Synth implements CloudTtsSynthesizer {
     return pending?.future ??
         Future.value(HttpTtsAudio(audioPath: '/cache/${texts.length}.wav'));
   }
+}
+
+class _DelayedRepository implements CloudTtsRepository {
+  @override
+  Future<void> save(CloudTtsEngine engine) async {}
+  @override
+  Future<void> delete(String id) async {}
+  @override
+  Future<List<String>> voices(String provider) async => [];
+  final pending = Completer<List<CloudTtsEngine>>();
+  @override
+  Future<List<CloudTtsEngine>> list() => pending.future;
 }
 
 Future<void> flush() async {
@@ -119,5 +136,92 @@ void main() {
     expect(await speaking, ReadAloudStart.cancelled);
     expect(player.playedLocalFiles, isEmpty);
     expect(completed, 0);
+  });
+  test('百炼按 600 UTF-16 分片，emoji 边界与段内进度保持原文，最后才推进段落', () async {
+    final repo = MockCloudTtsRepository();
+    await repo.save(
+      const CloudTtsEngine(
+        id: 'ali',
+        name: '百炼',
+        provider: 'alibaba_cloud',
+        model: 'qwen3-tts-flash',
+        credentialKey: 'cloud-tts:ali:fixture',
+      ),
+    );
+    final synth = _Synth();
+    final player = FakeStreamAudioPlayer()
+      ..loadedDuration = const Duration(seconds: 10);
+    final engine = CloudReadAloudEngine(
+      synthesizer: () => synth,
+      player: player,
+      cache: () => const MockTtsCacheRepository(),
+      repository: () => repo,
+    );
+    player.onCompleted = engine.handleCompleted;
+    var finished = 0;
+    final progress = <int>[];
+    final text = '${'甲' * 599}😀${'乙' * 605}';
+    final session = ReadAloudSession(
+      isCurrent: () => true,
+      onCompleted: () => finished++,
+      onProgress: progress.add,
+      onError: (e) => fail('$e'),
+    );
+    expect(
+      await engine.speak(
+        ReadAloudRequest(text: text, engineUrl: 'cloud://ali'),
+        session,
+      ),
+      ReadAloudStart.started,
+    );
+    expect(synth.texts.single.length, 599);
+    player.completePlayback();
+    await flush();
+    expect(synth.texts[1].startsWith('😀'), true);
+    expect(synth.texts[1].length, 600);
+    engine.handleProgress(
+      const Duration(seconds: 5),
+      const Duration(seconds: 10),
+      player.currentTag,
+    );
+    expect(progress.last, 899);
+    expect(finished, 0);
+    player.completePlayback();
+    await flush();
+    player.completePlayback();
+    await flush();
+    expect(synth.texts.join(), text);
+    expect(synth.texts.every((t) => t.length <= 600), true);
+    expect(finished, 1);
+    await engine.stop();
+  });
+  test('等待服务商配置时停止，迟到结果不启动合成或播放器', () async {
+    final repo = _DelayedRepository();
+    final synth = _Synth();
+    final player = FakeStreamAudioPlayer();
+    final engine = CloudReadAloudEngine(
+      synthesizer: () => synth,
+      player: player,
+      cache: () => const MockTtsCacheRepository(),
+      repository: () => repo,
+    );
+    final session = ReadAloudSession(
+      isCurrent: () => true,
+      onCompleted: () => fail('停止后不应完成'),
+      onProgress: (_) {},
+      onError: (e) => fail('$e'),
+    );
+    final pending = engine.speak(
+      const ReadAloudRequest(text: '原文', engineUrl: 'cloud://ali'),
+      session,
+    );
+    await engine.stop();
+    repo.pending.complete([
+      const CloudTtsEngine(id: 'ali', name: '百炼', provider: 'alibaba_cloud'),
+    ]);
+    expect(await pending, ReadAloudStart.cancelled);
+    expect(synth.texts, isEmpty);
+    expect(player.playedLocalFiles, isEmpty);
+    expect(engine.canResume, false);
   });
 }

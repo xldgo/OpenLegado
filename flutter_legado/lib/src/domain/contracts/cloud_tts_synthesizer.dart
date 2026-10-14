@@ -5,6 +5,8 @@ abstract interface class CloudTtsSynthesizer {
   Future<HttpTtsSynthesisResult> synthesize({
     required String engineId,
     required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
     HttpTtsCancellation? cancellation,
   });
 }

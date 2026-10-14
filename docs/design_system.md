@@ -7,6 +7,27 @@
 
 ---
 
+## 设置 Sheet 与表单（2026-10-14）
+
+`AppBottomSheet.showContent` 统一弹层打开、安全区域、最大640dp宽度与调用方的关闭策略；
+`AppBottomSheet.content` 提供固定标题与可滚动正文、键盘避让。
+`AppSettingsSheet` 组合取消/标题/保存栏，禁用状态和关闭回调由页面传入。
+`AppSettingsForm` 统一12dp控件间距，可选分组标题、说明和错误提示；错误使用当前
+主题error色和无障碍即时提示。输入控件、芯片和设置行继续使用标准Material组件。
+
+公共组件不读取TTS、Repository或Riverpod，不执行保存/校验/试听，也不替页面决定
+未保存内容的关闭策略。首批应用于云端引擎、HTTP引擎和音色编辑器，删除无引用的
+朗读专用Sheet壳；既有AppBottomSheet入口继续可用，阅读器拖动面板和帮助文档
+保持独立布局。组件与主题/键盘/宽屏测试共同验证布局，不用各页面重复拼接间距。
+
+编写者：Codex UI｜2026-10-14
+
+## 标签对齐规则（2026-10-14）
+
+全局 TabBarTheme 不指定 tabAlignment，由组件依据 isScrollable 选择合法默认值。
+固定标签只使用 fill/center；可滚动标签需要保持左对齐时在组件显式设置 start。
+标签 Widget 回归使用实际 AppTheme 的浅色与深色主题，避免默认测试主题掩盖配置断言。
+
 ## 独立设计库（2026-10-11）
 
 应用和测试使用 `package:material_ui/material_ui.dart` 与

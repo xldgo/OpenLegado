@@ -66,7 +66,7 @@ void main() {
   }
 
   testWidgets('配置页独立读取窄接口，加载与刷新不落到根实现', (tester) async {
-    await pump(tester, const ReadAloudConfigScreen());
+    await pump(tester, const ReadAloudConfigScreen(initialTab: 1));
     expect(find.text(engine.name), findsOneWidget);
     verify(() => engines.getHttpTts()).called(1);
     verifyNever(() => api.httpTtsRepository.getHttpTts());

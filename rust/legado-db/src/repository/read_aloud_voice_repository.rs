@@ -4,7 +4,7 @@ use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReadAloudVoice {
     pub id: String,
     pub engine_type: String,
@@ -72,6 +72,71 @@ impl<'a> ReadAloudVoiceRepository<'a> {
             .map_err(db_error)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(db_error)
     }
+    pub fn get(&self, id: &str) -> LegadoResult<ReadAloudVoice> {
+        self.list()?
+            .into_iter()
+            .find(|v| v.id == id)
+            .ok_or_else(|| LegadoError::Ffi("音色不存在".into()))
+    }
+    /// 用户音色与目录共用稳定身份，目录发现不得覆盖自定义参数。
+    pub fn save_user(&self, voice: &ReadAloudVoice) -> LegadoResult<()> {
+        if !matches!(voice.engine_type.as_str(), "http" | "system" | "cloud_tts")
+            || voice.speaker_id.trim().is_empty()
+            || voice.display_name.trim().is_empty()
+            || voice.id != stable_id(&voice.engine_type, &voice.engine_id, &voice.speaker_id)
+        {
+            return Err(LegadoError::Ffi("音色身份或名称无效".into()));
+        }
+        let traits: serde_json::Value = serde_json::from_str(&voice.traits_json)?;
+        if !traits.is_object() {
+            return Err(LegadoError::Ffi("用户音色参数必须为对象".into()));
+        }
+        let emotions: serde_json::Value = serde_json::from_str(&voice.emotion_catalog_json)?;
+        if !emotions.is_array() {
+            return Err(LegadoError::Ffi("音色情感目录必须为数组".into()));
+        }
+        match voice.engine_type.as_str() {
+            "cloud_tts" => {
+                let mut engine = super::cloud_tts_repository::CloudTtsRepository::new(self.conn)
+                    .get(&voice.engine_id)?;
+                let mut options = traits.as_object().unwrap().clone();
+                options.insert("voiceId".into(), serde_json::json!(voice.speaker_id));
+                engine.options_json = serde_json::to_string(&options)?;
+                engine.validate()?;
+            }
+            "http" => {
+                let exists: bool = self
+                    .conn
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM httpTTS WHERE id=?1)",
+                        [&voice.engine_id],
+                        |r| r.get(0),
+                    )
+                    .map_err(db_error)?;
+                if !exists {
+                    return Err(LegadoError::Ffi("HTTP 引擎不存在".into()));
+                }
+            }
+            _ if !voice.engine_id.starts_with("system:") => {
+                return Err(LegadoError::Ffi("系统引擎标识无效".into()));
+            }
+            _ => {}
+        }
+        let previous = self.list()?.into_iter().find(|v| v.id == voice.id);
+        let timestamp = now();
+        self.conn.execute("INSERT INTO read_aloud_voices(id,engineType,engineId,speakerId,displayName,traitsJson,emotionCatalogJson,managedBy,enabled,available,excluded,revision,createdAt,updatedAt) VALUES(?1,?2,?3,?4,?5,?6,?7,'user',?8,?9,?10,?11,?12,?13) ON CONFLICT(id) DO UPDATE SET displayName=excluded.displayName,traitsJson=excluded.traitsJson,emotionCatalogJson=excluded.emotionCatalogJson,managedBy='user',enabled=excluded.enabled,available=excluded.available,excluded=excluded.excluded,revision=excluded.revision,updatedAt=excluded.updatedAt",params![voice.id,voice.engine_type,voice.engine_id,voice.speaker_id,voice.display_name,voice.traits_json,voice.emotion_catalog_json,voice.enabled,voice.available,voice.excluded,previous.as_ref().map_or(1,|v|v.revision+1),previous.as_ref().map_or(timestamp,|v|v.created_at),timestamp]).map_err(db_error)?;
+        Ok(())
+    }
+    pub fn delete_user(&self, id: &str) -> LegadoResult<bool> {
+        Ok(self
+            .conn
+            .execute(
+                "DELETE FROM read_aloud_voices WHERE id=?1 AND managedBy='user'",
+                [id],
+            )
+            .map_err(db_error)?
+            > 0)
+    }
     pub fn sync_http(&self, id: i64, draft: &CatalogDraft, revision: i64) -> LegadoResult<()> {
         if draft.speakers.is_empty() {
             return Ok(());
@@ -136,6 +201,16 @@ impl<'a> ReadAloudVoiceRepository<'a> {
                 continue;
             }
             let previous = old.iter().find(|v| v.id == id);
+            if previous.is_some_and(|v| v.managed_by == "user") {
+                self.conn
+                    .execute(
+                        "UPDATE read_aloud_voices SET available=1 WHERE id=?1",
+                        [&id],
+                    )
+                    .map_err(db_error)?;
+                continue;
+            }
+
             let changed = previous.is_none_or(|v| {
                 v.display_name != name
                     || v.traits_json != traits
@@ -153,10 +228,10 @@ impl<'a> ReadAloudVoiceRepository<'a> {
         for v in old.iter().filter(|v| {
             v.engine_type == kind
                 && v.engine_id == engine
-                && v.managed_by == managed
+                && (v.managed_by == managed || v.managed_by == "user")
                 && !incoming.contains(&v.id)
         }) {
-            if kind == "http" {
+            if kind == "http" && v.managed_by != "user" {
                 self.conn
                     .execute("DELETE FROM read_aloud_voices WHERE id=?1", [&v.id])
                     .map_err(db_error)?;
@@ -263,6 +338,100 @@ mod tests {
             )
             .is_err()
         );
+        assert!(r.list().unwrap().is_empty());
+    }
+    #[test]
+    fn user_presets_are_independent_and_discovery_keeps_custom_parameters() {
+        let c = conn();
+        let r = ReadAloudVoiceRepository::new(&c);
+        let entries = || {
+            vec![
+                SystemVoiceEntry {
+                    speaker_id: "a".into(),
+                    display_name: "目录名称".into(),
+                    traits_json: r#"{"voiceKey":"a"}"#.into(),
+                },
+                SystemVoiceEntry {
+                    speaker_id: "b".into(),
+                    display_name: "第二音色".into(),
+                    traits_json: r#"{"voiceKey":"b"}"#.into(),
+                },
+            ]
+        };
+        r.sync_system("system:device", entries()).unwrap();
+        let mut voice = r.get(&stable_id("system", "system:device", "a")).unwrap();
+        let created = voice.created_at;
+        voice.display_name = "用户名称".into();
+        voice.traits_json = r#"{"voiceKey":"a","speed":1.5}"#.into();
+        r.save_user(&voice).unwrap();
+        r.sync_system("system:device", entries()).unwrap();
+        let saved = r.get(&voice.id).unwrap();
+        assert_eq!(saved.display_name, "用户名称");
+        assert_eq!(saved.traits_json, voice.traits_json);
+        assert_eq!(saved.created_at, created);
+        assert_eq!(saved.managed_by, "user");
+        r.sync_system("system:device", vec![]).unwrap();
+        assert!(!r.get(&voice.id).unwrap().available);
+        r.sync_system("system:device", entries()).unwrap();
+        assert!(r.get(&voice.id).unwrap().available);
+        assert!(
+            !r.delete_user(&stable_id("system", "system:device", "b"))
+                .unwrap()
+        );
+        assert!(r.delete_user(&voice.id).unwrap());
+        assert_eq!(r.list().unwrap().len(), 1);
+    }
+    #[test]
+    fn cloud_presets_validate_identity_and_keep_engine_unchanged() {
+        use crate::repository::cloud_tts_repository::*;
+        let c = conn();
+        c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let engines = CloudTtsRepository::new(&c);
+        let engine = CloudTtsMetadata {
+            id: "cloud".into(),
+            name: "云".into(),
+            provider: legado_core::cloud_tts::CloudTtsProviderType::OpenAiSpeech,
+            base_url: String::new(),
+            model: "gpt-4o-mini-tts".into(),
+            options_json: "{}".into(),
+            region: String::new(),
+            app_id: String::new(),
+            enabled: true,
+            created_at: 0,
+            updated_at: 0,
+            credential_key: "cloud-tts:cloud:fixture".into(),
+        };
+        engines.save(&engine).unwrap();
+        let r = ReadAloudVoiceRepository::new(&c);
+        for speaker in ["alloy", "nova"] {
+            let voice = ReadAloudVoice {
+                id: stable_id("cloud_tts", "cloud", speaker),
+                engine_type: "cloud_tts".into(),
+                engine_id: "cloud".into(),
+                speaker_id: speaker.into(),
+                display_name: speaker.into(),
+                traits_json: r#"{"format":"wav","speed":1.1,"instructions":"中文"}"#.into(),
+                emotion_catalog_json: "[]".into(),
+                managed_by: "user".into(),
+                enabled: true,
+                available: true,
+                excluded: false,
+                revision: 0,
+                created_at: 0,
+                updated_at: 0,
+            };
+            r.save_user(&voice).unwrap();
+        }
+        assert_eq!(r.list().unwrap().len(), 2);
+        assert_eq!(engines.get("cloud").unwrap().options_json, "{}");
+        let mut bad = r.list().unwrap()[0].clone();
+        bad.engine_id = "other".into();
+        assert!(r.save_user(&bad).is_err());
+        bad = r.list().unwrap()[0].clone();
+        bad.traits_json = r#"{"apiKey":"secret"}"#.into();
+        assert!(r.save_user(&bad).is_err());
+        engines.delete("cloud").unwrap();
         assert!(r.list().unwrap().is_empty());
     }
 }

@@ -102,6 +102,7 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
             endpoint: url.to_string(),
             credential_header: "api-key",
             authorization: engine.api_key.clone(),
+            additional_headers: Vec::new(),
             response_kind: CloudSpeechResponseKind::EventStream,
             body,
             response_format: "wav".into(),

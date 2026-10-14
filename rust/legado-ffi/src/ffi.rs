@@ -2366,6 +2366,15 @@ pub mod ffi {
         )?)
     }
 
+    /// 保存用户音色配置，稳定身份由数据库核对。
+    pub fn read_aloud_voice_save(voice_json: String) -> Result<(), BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::save(&voice_json)?)
+    }
+    /// 仅删除用户保存的音色；源目录使用排除标记。
+    pub fn read_aloud_voice_delete(id: String) -> Result<bool, BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::delete(&id)?)
+    }
+
     /// 登记朗读缓存的书章段索引。
     pub fn tts_cache_record(audio_path: String, context_json: String) -> Result<(), BridgeError> {
         Ok(crate::api::tts_cache_api::record(

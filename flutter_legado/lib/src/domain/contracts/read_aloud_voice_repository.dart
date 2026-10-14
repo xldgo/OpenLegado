@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 /// 独立音色目录，不拥有播放或平台插件。— Codex + Bridge
 final class ReadAloudVoice {
   const ReadAloudVoice({
@@ -27,6 +31,22 @@ final class ReadAloudVoice {
   final bool enabled, available, excluded;
   final int revision, createdAt, updatedAt;
   bool get selectable => enabled && available && !excluded;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'engineType': engineType,
+    'engineId': engineId,
+    'speakerId': speakerId,
+    'displayName': displayName,
+    'traitsJson': traitsJson,
+    'emotionCatalogJson': emotionCatalogJson,
+    'managedBy': managedBy,
+    'enabled': enabled,
+    'available': available,
+    'excluded': excluded,
+    'revision': revision,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
+  };
   factory ReadAloudVoice.fromJson(Map<String, dynamic> j) => ReadAloudVoice(
     id: j['id'] as String,
     engineType: j['engineType'] as String,
@@ -85,6 +105,8 @@ final class SystemVoiceCatalogEntry {
 abstract interface class ReadAloudVoiceRepository {
   bool get supportsCatalog;
   Future<List<ReadAloudVoice>> list();
+  Future<void> save(ReadAloudVoice voice);
+  Future<void> delete(String id);
   Future<void> syncSystem(
     String engineId,
     List<SystemVoiceCatalogEntry> entries,
@@ -95,3 +117,7 @@ abstract interface class ReadAloudVoiceRepository {
     required bool excluded,
   });
 }
+
+/// 与 Rust/upstream 使用相同的引擎+音色稳定身份。— Codex + Bridge
+String readAloudVoiceId(String kind, String engine, String speaker) =>
+    'voice:${sha256.convert(utf8.encode('$kind\u0000$engine\u0000$speaker')).toString().substring(0, 32)}';

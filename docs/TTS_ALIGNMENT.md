@@ -20,11 +20,40 @@
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地文件、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo Provider、独立元数据/设备凭据、配置试听和播放接线 | 其他五家 Provider、云端预合成及真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼 Provider、独立元数据/设备凭据、配置试听和播放接线 | 其他四家 Provider、云端预合成及真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 
 默认引擎和编辑页已接受 HTTP、POST 选项与 JS 请求入口；它仅判断请求规则形态，不能证明源账号、签名、服务或凭据可用。真实公开源仍需单独验证。
+
+## 统一音色与引擎管理界面
+
+参考固定上游 [CloudTtsScreen](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/readaloud/cloudtts/CloudTtsScreen.kt) 的双 Tab、EngineSectionTitle、类型选择 Sheet 和默认引擎范围选择：
+
+- 既有 readAloudConfig 路由共用音色/引擎两页；引擎按云 TTS、HTTP 协议 TTS、系统 TTS 排列，分类标题使用12dp水平/垂直内边距。用户要求保留各引擎独立卡片；空分类保留标题，系统能力不可用时不生成可选择卡片。
+- 引擎页 FAB 打开云/HTTP 类型 Sheet，编辑器通过AppBottomSheet入口、AppSettingsSheet外壳及AppSettingsForm表单共用安全区域、键盘避让、可滚动正文和固定保存栏。云端与音色旧页面逻辑提取为面板及页内动作，不再拥有独立入口。
+- 点击引擎选择书/全局，沿用当前持久化；取消不更改设置。手动刷新按钮与朗读设置的重复系统语音入口已按用户要求删除，系统设置保留于系统 TTS 卡片；进入及增删改后的自动重读保留。
+- 音色页返回时重读 HTTP/系统目录和当前云端元数据，源已删除或停用时拒绝对旧音色行保存；音色变更保留源指令和凭据引用。
+- Widget 测试使用实际 AppTheme，覆盖窄屏/键盘、Tab 点击/滑动、卡片分类、缺少系统能力、范围持久化、凭据不回显和退出试听取消；真实账号与移动后台另行验收。
+
+### 引擎与音色职责（2026-10-14 追加）
+
+按照同一固定上游的 buildEngine/buildVoice 和 VoiceEnginePicker/VoicePresetEditor：
+引擎只定义服务连接、凭据与模型；音色使用 engineType/engineId/speakerId 稳定身份，
+同一引擎的多个原生音色分别保存，名称与合成参数属于音色记录。复用当前音色表和
+Repository，不新建独立云端音色配置仓库，不修改引擎凭据来切换音色。
+
+音色页 FAB 先选择引擎，再打开音色 Sheet；云端可从 Provider 目录选择或输入原生 ID，
+HTTP 有目录时选择，也支持手动音色 ID；系统使用当前设备引擎的已安装音色作为候选，主列表仅显示用户手动保存的系统音色；切换显示排除项仍不显示未添加候选。
+源级目录和系统发现继续可用，但再次发现不会覆盖 user 音色的自定义名称/参数。
+普通源目录排除保留行，用户音色可以编辑、删除。音色页承担试听，引擎页不提供试听。
+系统设置入口只选择设备引擎，不再重复选择语音。三个朗读编辑器通过公共AppSettingsSheet和AppSettingsForm组合标准Material输入框与控件；控件间距12dp、音色芯片换行间距8dp，保存/校验/试听仍由具体页面负责。
+
+已保存云端音色试听与正文都传音色记录 ID，由 Rust 核对引擎归属及可选状态；
+编辑中的草稿只传受限 voiceOptions，不写音色表或默认选择。实际请求参数进入已有
+缓存身份，不同音色不串用缓存。系统临时 voiceKey 不改变持久化选择，下一次正文
+起播重新使用用户保存的语音。试听有独立播放器/会话，先暂停正文，停止或离开后
+取消在途请求并释放租约，迟到结果不能起播或推进正文。
 
 ## T2b：源规则与登录请求闭环
 
@@ -116,6 +145,13 @@ T4b-1 只交付 Rust 可测试基础；数据库、FRB、设备安全存储及�
 - MiMo 不消费数值源 speed/pitch/volume，按照上游请求不发送，配置页隐藏无效的源速度，播放倍速仍走现有文件播放器。风格、指令、模型、音色与凭据参与实际请求缓存；改变播放倍速不导致重新合成。SSE 仍完整收齐后落盘再播放，不将 HTTP 流式传输称为边合成边播放。云端后台预合成后置。
 - 协议/缓存/取消、元数据默认值和服务商身份、配置交互分别测试；真实 Windows DLL + 本机 SSE 复核 api-key（无 Bearer/Cookie）、消息 JSON、顺序 PCM/WAV、缓存命中和坏流不落盘。凭据仅为测试替身，不调用真实 MiMo 账号，不证明设备解码、音色效果或后台生命周期。
 
+### T4b-4：阿里云百炼
+
+- 对照固定上游 AlibabaCloudTtsProvider：`alibaba_cloud`、qwen3-tts-flash、Cherry、四音色、WAV；Bearer 与 X-DashScope-SSE，multimodal-generation/generation 端点，input 为 text/voice/language_type。style 与 instructions 以中文分号连接，只有 instruct 模型发送。数值源速度不发送，配置页依据 Provider 能力隐藏该控件，播放倍速保持独立。
+- Provider 只准备请求并解析 SSE，fetcher 消费普通音频或后续下载动作。PCM 优先按到达顺序拼接，24kHz 单声道 WAV；仅有 URL 时下载完整 WAV，允许 OSS 签名查询，下载不携带 API Key/Cookie/SSE 请求头、不跟随重定向。取消与 120 秒超时覆盖下载，错误文本、截断 WAV 与不完整 SSE 不落盘。缓存身份来自实际合成请求；命中不重复 POST 或 GET。
+- 官方接口输入上限为 600 字符。百炼正文和试听按 Provider 能力使用 600 UTF-16 字形簇安全分片，保守满足上限，不拆 emoji/组合音标；其他两家保留 4000。分片进度仍累计章内原文偏移，整段全部结束才触发切段。元数据查询完成后检查会话，停止期间的迟到配置不启动合成。
+- 与上游更严格的内部判定：JSON/Base64 错误直接失败，要求 finish_reason=stop 或 [DONE]，异常结束不复用部分 PCM；下载 WAV 检查 RIFF 声明长度。不升级 schema/FRB 签名、不回填配置、不改变既有服务商的凭据归属。真实账号/移动音频解码及后台行为另行验收。
+
 ## 移动端验收与后续限制
 
 Windows DLL、Rust 本机 HTTP fixture 和控件测试只证明本地链路；Android/iOS 的 WebView 登录、公开云账号、锁屏/后台与音频中断必须另行验收，不用 Windows 结果代替。
@@ -137,6 +173,8 @@ HTTP 失败时原有提示与估算推进保留，不自动切换系统引擎。
 - [CloudTtsCredentialCipher](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/data/security/CloudTtsCredentialCipher.kt)：后续凭据存储的设备密钥库语义。
 - [OpenAI 官方 Speech API](https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create)：实际请求参数、自定义音色、instructions、速度和文本上限。
 - [OpenAI 官方 TTS 格式说明](https://developers.openai.com/api/docs/guides/text-to-speech)：PCM 采样及输出格式。
+- [AlibabaCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/help/readaloud/playback/AlibabaCloudTtsProvider.kt)：百炼请求、音色、PCM 与 URL 两条响应路径。
+- [百炼官方 Qwen-TTS API](https://www.alibabacloud.com/help/en/model-studio/qwen-tts-api)：600 字符上限、SSE 头、语言与 output.audio/finish_reason。
 - [CloudTtsModels](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/domain/model/readaloud/CloudTtsModels.kt)：云端 Provider 与配置模型。
 
 编写者：Codex｜2026-10-14

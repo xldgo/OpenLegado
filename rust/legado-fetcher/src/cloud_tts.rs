@@ -18,6 +18,12 @@ pub struct CloudTtsResponse {
     pub bytes: Vec<u8>,
 }
 pub trait CloudTtsTransport: Send + Sync {
+    fn download_audio<'a>(
+        &'a self,
+        _url: &'a str,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async { Err(LegadoError::Network("此传输不支持音频下载".into())) })
+    }
     fn send<'a>(
         &'a self,
         request: &'a PreparedCloudSpeech,
@@ -44,18 +50,39 @@ impl CloudTtsHttpTransport {
     }
 }
 impl CloudTtsTransport for CloudTtsHttpTransport {
+    fn download_audio<'a>(&'a self, url: &'a str) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async move {
+            // 下载地址可含 OSS 签名，异常不回显地址；不带合成请求凭据。
+            let response = self
+                .client
+                .get_raw_with_timeout(url, None, Some(Duration::from_secs(120)))
+                .await
+                .map_err(|_| LegadoError::Network("云端 TTS 音频下载失败".into()))?;
+            Ok(CloudTtsResponse {
+                status: response.status,
+                content_type: response.content_type().cloned().unwrap_or_default(),
+                bytes: response.body,
+            })
+        })
+    }
     fn send<'a>(
         &'a self,
         request: &'a PreparedCloudSpeech,
     ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
         Box::pin(async move {
-            let headers = std::collections::HashMap::from([
+            let mut headers = std::collections::HashMap::from([
                 (
                     request.credential_header.into(),
                     request.authorization.clone(),
                 ),
                 ("Content-Type".into(), "application/json".into()),
             ]);
+            headers.extend(
+                request
+                    .additional_headers
+                    .iter()
+                    .map(|(key, value)| ((*key).into(), value.clone())),
+            );
             let response = self
                 .client
                 .post_raw_with_timeout(
@@ -111,6 +138,53 @@ fn result(
         lease,
     })
 }
+fn validate_response(
+    response: &CloudTtsResponse,
+    kind: CloudSpeechResponseKind,
+) -> LegadoResult<()> {
+    if !(200..300).contains(&response.status) {
+        return Err(LegadoError::Network(format!(
+            "云端 TTS 请求失败：HTTP {}",
+            response.status
+        )));
+    }
+    let mime = response
+        .content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if kind == CloudSpeechResponseKind::EventStream {
+        if mime != "text/event-stream" {
+            return Err(LegadoError::Network(
+                "云端 TTS 未返回要求的 SSE 音频流".into(),
+            ));
+        }
+    } else {
+        if mime.starts_with("text/") || mime == "application/json" || mime.ends_with("+json") {
+            return Err(LegadoError::Network(
+                "云端 TTS 返回错误文本，未生成音频".into(),
+            ));
+        }
+        // 部分兼容端点给错误 JSON/HTML 标成音频；不能把报错体当音频落盘。
+        let textual_error = serde_json::from_slice::<serde_json::Value>(&response.bytes)
+            .is_ok_and(|v| v.is_object() || v.is_array());
+        let prefix = response
+            .bytes
+            .iter()
+            .copied()
+            .skip_while(u8::is_ascii_whitespace)
+            .take(16)
+            .collect::<Vec<_>>();
+        if textual_error || prefix.starts_with(b"<!DOCTYPE") || prefix.starts_with(b"<html") {
+            return Err(LegadoError::Network(
+                "云端 TTS 返回错误文本，未生成音频".into(),
+            ));
+        }
+    }
+    Ok(())
+}
 pub async fn synthesize_cloud_tts(
     provider: &dyn CloudTtsProvider,
     transport: &dyn CloudTtsTransport,
@@ -144,48 +218,23 @@ pub async fn synthesize_cloud_tts(
         })
         .await?;
     cancellation.check()?;
-    if !(200..300).contains(&response.status) {
-        return Err(LegadoError::Network(format!(
-            "云端 TTS 请求失败：HTTP {}",
-            response.status
-        )));
-    }
-    let mime = response
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_lowercase();
-    if prepared.response_kind == CloudSpeechResponseKind::EventStream {
-        if mime != "text/event-stream" {
-            return Err(LegadoError::Network(
-                "云端 TTS 未返回要求的 SSE 音频流".into(),
-            ));
+    validate_response(&response, prepared.response_kind)?;
+    let audio = match provider.decode_response(&prepared.response_format, response.bytes)? {
+        DecodedCloudSpeech::Audio(audio) => audio,
+        DecodedCloudSpeech::Download(url) => {
+            cancellation.check()?;
+            let response = cancellation
+                .run(async {
+                    tokio::time::timeout(Duration::from_secs(120), transport.download_audio(&url))
+                        .await
+                        .map_err(|_| LegadoError::Timeout("云端 TTS 音频下载超时 (120s)".into()))?
+                })
+                .await?;
+            cancellation.check()?;
+            validate_response(&response, CloudSpeechResponseKind::AudioBytes)?;
+            provider.decode_audio(&prepared.response_format, response.bytes)?
         }
-    } else {
-        if mime.starts_with("text/") || mime == "application/json" || mime.ends_with("+json") {
-            return Err(LegadoError::Network(
-                "云端 TTS 返回错误文本，未生成音频".into(),
-            ));
-        }
-        // 部分兼容端点给错误 JSON/HTML 标成音频；不能把报错体当音频落盘。
-        let textual_error = serde_json::from_slice::<serde_json::Value>(&response.bytes)
-            .is_ok_and(|v| v.is_object() || v.is_array());
-        let prefix = response
-            .bytes
-            .iter()
-            .copied()
-            .skip_while(u8::is_ascii_whitespace)
-            .take(16)
-            .collect::<Vec<_>>();
-        if textual_error || prefix.starts_with(b"<!DOCTYPE") || prefix.starts_with(b"<html") {
-            return Err(LegadoError::Network(
-                "云端 TTS 返回错误文本，未生成音频".into(),
-            ));
-        }
-    }
-    let audio = provider.decode_audio(&prepared.response_format, response.bytes)?;
+    };
     cancellation.check()?;
     let path = cache.put(&key, audio.extension, &audio.bytes)?;
     // 发布后再次检查取消；不把已取消请求交给播放层，完整缓存可供以后复用。

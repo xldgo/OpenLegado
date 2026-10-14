@@ -133,6 +133,25 @@ void main() {
     service = SystemTtsService(tts: plugin, platform: TargetPlatform.android);
   });
 
+  test('临时试听音色不写偏好，停止后正文仍使用原默认声音', () async {
+    await service.initialize();
+    final key = const SystemTtsVoice(name: '联网中文', locale: 'zh-CN').key;
+    final preview = service.speak('试听', voiceKey: key);
+    await flush();
+    expect(chosenVoices.last['name'], '联网中文');
+    expect(service.selectedVoice, '');
+    await service.stop();
+    expect(await preview, SystemTtsOutcome.cancelled);
+    final normal = service.speak('正文');
+    await flush();
+    expect(chosenVoices.last['name'], '离线中文');
+    expect(
+      (await SharedPreferences.getInstance()).getString('systemTtsVoice'),
+      isNull,
+    );
+    await service.stop();
+    expect(await normal, SystemTtsOutcome.cancelled);
+  });
   test('分片范围回调映射回原文，停止后不发布旧位置', () async {
     final positions = <(int, int)>[];
     service.onProgress = (start, end) => positions.add((start, end));

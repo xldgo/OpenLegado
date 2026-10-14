@@ -1,13 +1,24 @@
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../domain/contracts/cloud_tts_provider.dart';
+import '../../l10n/app_localization.dart';
+import 'cloud_tts_engine_sheet.dart';
+import 'cloud_tts_providers.dart';
+import 'http_tts_engine_sheet.dart';
+import '../../widgets/bottom_sheet_widget.dart';
+import 'read_aloud_voice_panel.dart';
+import 'read_aloud_voice_provider.dart';
 import 'http_tts_login.dart';
 
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/audio/audio_notifier.dart';
@@ -21,18 +32,27 @@ import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import '../../widgets/help/help_assets.dart';
 import '../../widgets/help/show_help.dart';
 
-/// 朗读引擎配置页面
-///
-/// 管理 HTTP TTS 朗读引擎：列表展示、新增、编辑、删除。
+part 'read_aloud_config_cloud_actions.part.dart';
+
+/// 音色与系统/HTTP/云端引擎共用入口。— Codex + UI
 class ReadAloudConfigScreen extends ConsumerStatefulWidget {
-  const ReadAloudConfigScreen({super.key});
+  const ReadAloudConfigScreen({super.key, this.initialTab = 0})
+    : assert(initialTab >= 0 && initialTab < 2);
+  final int initialTab;
 
   @override
   ConsumerState<ReadAloudConfigScreen> createState() =>
       _ReadAloudConfigScreenState();
 }
 
-class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
+class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
+    with SingleTickerProviderStateMixin, _CloudEngineManagement {
+  @override
+  final _voicePanelKey = GlobalKey<ReadAloudVoicePanelState>();
+  late final TabController _tabs;
+  late int _activeTab;
+  int _voiceRevision = 0;
+  String? _selectedCloudId;
   List<HttpTts> _engines = [];
   bool _loading = true;
 
@@ -48,9 +68,38 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEngines();
+    _activeTab = widget.initialTab;
+    _tabs = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    )..addListener(_tabChanged);
+    unawaited(_loadEngines());
   }
 
+  void _tabChanged() {
+    if (!mounted || _activeTab == _tabs.index) return;
+    _activeTab = _tabs.index;
+    if (_activeTab == 0) {
+      _voiceRevision++;
+      ref.invalidate(readAloudVoicesProvider);
+    }
+    if (_activeTab == 1) {
+      unawaited(
+        _voicePanelKey.currentState?.stopPreview() ?? Future<void>.value(),
+      );
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tabs.removeListener(_tabChanged);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
   Future<void> _loadEngines() async {
     setState(() => _loading = true);
     try {
@@ -59,6 +108,7 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
       // 与 dict/rss/txtToc 对齐：进入配置页即可见默认数据
       await ensureDefaultHttpTts(api);
       final list = await api.getHttpTts();
+      await _loadCloudEngines();
       final notifier = ref.read(audioNotifierProvider.notifier);
       // [引擎双持久化 | 2026-10-04] 初始选中态 = 有效引擎（书级优先、空则
       // 全局回退），优先以数值 engineId 匹配，避免同 URL 不同 Header 的引擎串选
@@ -86,6 +136,9 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
       setState(() {
         _engines = list;
         _selectedEngineId = selectedId;
+        _selectedCloudId = isCloudTts(effectiveUrl)
+            ? cloudTtsId(effectiveUrl)
+            : null;
         _selectedIsSystem = selectedIsSystem;
         _hasBook = notifier.hasCurrentBook;
         _loading = false;
@@ -148,12 +201,15 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final api = ref.read(httpTtsRepositoryProvider);
 
-    final result = await showDialog<HttpTts>(
+    await _voicePanelKey.currentState?.stopPreview();
+    if (!mounted) return;
+    final result = await AppBottomSheet.showContent<HttpTts>(
       context: context,
-      builder: (ctx) => _TtsEditDialog(engine: existing),
+      showDragHandle: true,
+      builder: (_) => HttpTtsEngineSheet(engine: existing),
     );
 
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
     try {
       if (existing != null) {
@@ -170,8 +226,6 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     }
   }
 
-  bool get _hasSelection => _selectedIsSystem || _selectedEngineId != null;
-
   /// 「书」按钮：只写当前书 readConfig.ttsEngine
   ///
   /// 对齐原版 SpeakEngineDialog.kt:164-170（`ReadBook.book?.setTtsEngine(...)`，
@@ -183,6 +237,8 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     bool ok = false;
     if (_selectedIsSystem) {
       ok = await notifier.setBookTtsEngine(systemTtsEngineUrl);
+    } else if (_selectedCloudId != null) {
+      ok = await notifier.setBookTtsEngine('cloud://$_selectedCloudId');
     } else if (_selectedEngineId != null) {
       final selected = _engines
           .where((e) => e.id == _selectedEngineId)
@@ -210,6 +266,8 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     final notifier = ref.read(audioNotifierProvider.notifier);
     if (_selectedIsSystem) {
       await notifier.setGlobalTtsEngine(systemTtsEngineUrl);
+    } else if (_selectedCloudId != null) {
+      await notifier.setGlobalTtsEngine('cloud://$_selectedCloudId');
     } else if (_selectedEngineId != null) {
       final selected = _engines
           .where((e) => e.id == _selectedEngineId)
@@ -223,386 +281,274 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen> {
     messenger.showSnackBar(const SnackBar(content: Text('已设为全局引擎')));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasSystem = ref.read(systemTtsServiceProvider).isSupported;
-
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: LegadoAppBar(
-        title: const Text('朗读引擎'),
+  Future<void> _chooseEngine({
+    HttpTts? http,
+    CloudTtsEngine? cloud,
+    bool system = false,
+  }) async {
+    if (_loading || _cloudBusy) return;
+    final scope = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(cloud?.name ?? http?.name ?? '系统 TTS'),
+        content: const Text('选择朗读引擎的应用范围'),
         actions: [
-          IconButton(
-            icon: const Icon(Symbols.help_rounded),
-            tooltip: '帮助',
-            onPressed: () => showHelp(context, HelpAssets.httpTtsHelp),
+          TextButton(
+            onPressed: _hasBook ? () => Navigator.pop(c, true) : null,
+            child: const Text('书'),
           ),
-          IconButton(
-            icon: const Icon(Symbols.refresh_rounded),
-            tooltip: '刷新',
-            onPressed: _loadEngines,
+          FilledButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('全局'),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addOrEditEngine(),
-        icon: const Icon(Symbols.add_rounded),
-        label: const Text('添加引擎'),
-      ),
-      // [引擎双持久化 | 2026-10-04] 底部双按钮对齐原版 SpeakEngineDialog
-      // 页脚（dialog_recycler_view.xml:94-141 左侧「书」/ 右侧「全局」）与
-      // 文案（values-zh/strings.xml：book=书:264、general=全局:1207）。
-      // 「取消」在页面形态下由系统返回承担，这里只呈现双持久化按钮。
-      bottomBar: SafeArea(
+    );
+    if (scope == null || !mounted) return;
+    await _voicePanelKey.currentState?.stopPreview();
+    if (!mounted) return;
+    setState(() {
+      _selectedIsSystem = system;
+      _selectedEngineId = http?.id;
+      _selectedCloudId = cloud?.id;
+    });
+    try {
+      if (scope) {
+        await _applyBookEngine();
+      } else {
+        await _applyGlobalEngine();
+      }
+      if (mounted) await _loadEngines();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('设置失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _addEngine() async {
+    final type = await AppBottomSheet.showContent<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              TextButton(
-                onPressed: (!_hasSelection || !_hasBook)
-                    ? null
-                    : _applyBookEngine,
-                child: const Text('书'),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: !_hasSelection ? null : _applyGlobalEngine,
-                child: const Text('全局'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: _loading
-          // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
-          ? const Center(child: AppCircularProgressIndicator())
-          : _engines.isEmpty && !hasSystem
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Symbols.record_voice_over_rounded,
-                    size: 64,
-                    color: theme.colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '暂无朗读引擎',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '点击右下角按钮添加 HTTP TTS 引擎',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          // [LAYOUT_PLAN P1] 本页无开关行（SwitchListTile），无需 showChevron；
-          // 引擎行无箭头（仅编辑/删除动作）；卡片分组间距 12dp
-          : ListView.builder(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
               padding: const EdgeInsets.all(16),
-              itemCount: _engines.length + (hasSystem ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (hasSystem && index == 0) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      selected: _selectedIsSystem,
-                      leading: Icon(
-                        _selectedIsSystem
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                      ),
-                      title: const Text('系统 TTS'),
-                      subtitle: const Text('使用设备语音，支持已安装的中文音色'),
-                      onTap: () => setState(() {
-                        _selectedIsSystem = true;
-                        _selectedEngineId = null;
-                      }),
-                      trailing: IconButton(
-                        icon: const Icon(Symbols.settings_rounded),
-                        tooltip: '系统语音设置',
-                        onPressed: () => showSystemTtsSettings(
-                          context,
-                          ref.read(systemTtsServiceProvider),
-                          ref
-                              .read(audioNotifierProvider.notifier)
-                              .refreshSystemTtsSettings,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                final engine = _engines[index - (hasSystem ? 1 : 0)];
-                final isSelected =
-                    !_selectedIsSystem && _selectedEngineId == engine.id;
-                return Card(
-                  // [LAYOUT_PLAN P1] 分组间距 12dp
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    // [引擎双持久化 | 2026-10-04] 行点击仅更新选中态
-                    // （对齐原版 SpeakEngineDialog.kt:315-326 的 upTts：
-                    // 不持久化、不关闭），持久化交底部「书」/「全局」。
-                    selected: isSelected,
-                    onTap: () => setState(() {
-                      _selectedIsSystem = false;
-                      _selectedEngineId = engine.id;
-                    }),
-                    // 选中控件对齐原版行布局的 ThemeRadioButton
-                    // （item_http_tts.xml:14-20），替代纯装饰性头像
-                    leading: Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: isSelected ? theme.colorScheme.primary : null,
-                    ),
-                    title: Text(
-                      engine.name,
-                      // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    subtitle: Text(
-                      engine.url,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      // [LAYOUT_PLAN P1] 列表行字级走 M3 Type Scale
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if ((engine.loginUrl ?? '').isNotEmpty ||
-                            (engine.loginUi ?? '').isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Symbols.login_rounded, size: 20),
-                            tooltip: '登录',
-                            onPressed: () => _loginEngine(engine),
-                          ),
-                        IconButton(
-                          icon: const Icon(Symbols.edit_rounded, size: 20),
-                          tooltip: '编辑',
-                          onPressed: () => _addOrEditEngine(engine),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Symbols.delete_rounded,
-                            size: 20,
-                            color: theme.colorScheme.error,
-                          ),
-                          tooltip: '删除',
-                          onPressed: () => _deleteEngine(engine),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              child: Text('添加引擎', style: Theme.of(c).textTheme.titleLarge),
             ),
-    );
-  }
-}
-
-/// TTS 引擎编辑对话框
-class _TtsEditDialog extends StatefulWidget {
-  final HttpTts? engine;
-
-  const _TtsEditDialog({this.engine});
-
-  @override
-  State<_TtsEditDialog> createState() => _TtsEditDialogState();
-}
-
-class _TtsEditDialogState extends State<_TtsEditDialog> {
-  late TextEditingController _nameCtrl;
-  late TextEditingController _urlCtrl;
-  late TextEditingController _headerCtrl;
-  late TextEditingController _contentTypeCtrl;
-  late Map<String, TextEditingController> _advanced;
-  bool _cookieJar = false;
-  final _formKey = GlobalKey<FormState>();
-
-  @override
-  void initState() {
-    super.initState();
-    final e = widget.engine;
-    _nameCtrl = TextEditingController(text: e?.name ?? '');
-    _urlCtrl = TextEditingController(text: e?.url ?? '');
-    _headerCtrl = TextEditingController(text: e?.header ?? '');
-    _contentTypeCtrl = TextEditingController(text: e?.contentType ?? '');
-    _cookieJar = e?.enabledCookieJar ?? false;
-    _advanced = {
-      '源级语速': TextEditingController(text: e?.speed?.toString() ?? ''),
-      '合成线程数': TextEditingController(
-        text: (e?.synthesisThreadCount ?? 1).toString(),
+            ListTile(
+              leading: const Icon(Icons.cloud_outlined),
+              title: const Text('云 TTS'),
+              subtitle: const Text('选择云端服务商并配置凭据'),
+              onTap: () => Navigator.pop(c, 'cloud'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.http),
+              title: const Text('HTTP TTS'),
+              subtitle: const Text('自定义 URL 或 JS 请求规则'),
+              onTap: () => Navigator.pop(c, 'http'),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
-      '并发率': TextEditingController(text: e?.concurrentRate ?? ''),
-      '登录地址或脚本': TextEditingController(text: e?.loginUrl ?? ''),
-      '登录表单': TextEditingController(text: e?.loginUi ?? ''),
-      '登录响应校验': TextEditingController(text: e?.loginCheckJs ?? ''),
-      'JS 库': TextEditingController(text: e?.jsLib ?? ''),
-    };
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _urlCtrl.dispose();
-    _headerCtrl.dispose();
-    _contentTypeCtrl.dispose();
-    for (final controller in _advanced.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  void _submit() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    String? value(String key) {
-      final v = _advanced[key]!.text.trim();
-      return v.isEmpty ? null : v;
-    }
-
-    final base = widget.engine ?? const HttpTts();
-    final tts = base.copyWith(
-      speed: int.tryParse(_advanced['源级语速']!.text.trim()),
-      synthesisThreadCount: int.parse(_advanced['合成线程数']!.text.trim()),
-      concurrentRate: value('并发率'),
-      loginUrl: value('登录地址或脚本'),
-      loginUi: value('登录表单'),
-      loginCheckJs: value('登录响应校验'),
-      jsLib: value('JS 库'),
-      enabledCookieJar: _cookieJar,
-      name: _nameCtrl.text.trim(),
-      url: _urlCtrl.text.trim(),
-      header: _headerCtrl.text.trim().isNotEmpty
-          ? _headerCtrl.text.trim()
-          : null,
-      contentType: _contentTypeCtrl.text.trim().isNotEmpty
-          ? _contentTypeCtrl.text.trim()
-          : null,
     );
-
-    Navigator.pop(context, tts);
+    if (!mounted || type == null) return;
+    if (type == 'cloud') {
+      await _editCloudEngine();
+    } else {
+      await _addOrEditEngine();
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.engine != null ? '编辑朗读引擎' : '添加朗读引擎'),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '名称 *',
-                    hintText: '例如：Edge TTS',
-                    isDense: true,
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? '请输入名称' : null,
+  Widget _httpTile(HttpTts engine) {
+    final selected =
+        !_selectedIsSystem &&
+        _selectedCloudId == null &&
+        _selectedEngineId == engine.id;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        selected: selected,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        ),
+        title: Text(engine.name),
+        subtitle: Text(
+          engine.url,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onTap: engine.isEnabled && !_cloudBusy
+            ? () => _chooseEngine(http: engine)
+            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if ((engine.loginUrl ?? '').isNotEmpty ||
+                (engine.loginUi ?? '').isNotEmpty)
+              IconButton(
+                icon: const Icon(Symbols.login_rounded, size: 20),
+                tooltip: '登录',
+                onPressed: () => _loginEngine(engine),
+              ),
+            IconButton(
+              icon: const Icon(Symbols.edit_rounded, size: 20),
+              tooltip: '编辑',
+              onPressed: _cloudBusy ? null : () => _addOrEditEngine(engine),
+            ),
+            IconButton(
+              icon: const Icon(Symbols.delete_rounded, size: 20),
+              tooltip: '删除',
+              onPressed: _cloudBusy ? null : () => _deleteEngine(engine),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cloudTile(CloudTtsEngine engine) {
+    final l = context.l10n;
+    final selected = _selectedCloudId == engine.id;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        key: ValueKey('cloud-engine-${engine.id}'),
+        selected: selected,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        ),
+        title: Text(engine.name),
+        subtitle: Text(
+          '${cloudTtsProfile(engine.provider).name} · ${engine.model}',
+        ),
+        onTap: engine.enabled && !_cloudBusy
+            ? () => _chooseEngine(cloud: engine)
+            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: '编辑云端引擎',
+              icon: const Icon(Symbols.edit_rounded, size: 20),
+              onPressed: _cloudBusy ? null : () => _editCloudEngine(engine),
+            ),
+            IconButton(
+              tooltip: l.cloudTtsDelete,
+              icon: const Icon(Symbols.delete_rounded, size: 20),
+              onPressed: _cloudBusy ? null : () => _deleteCloudEngine(engine),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 分类顺序与上游 EngineSectionTitle 一致，卡片保持现有交互。— Codex + UI
+  Widget _engineSectionTitle(String category, String title) => Padding(
+    key: ValueKey('engine-section-$category'),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    child: Semantics(
+      headingLevel: 2,
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    ),
+  );
+
+  Widget _engineList() {
+    final hasSystem = ref.read(systemTtsServiceProvider).isSupported;
+    final l = context.l10n;
+    if (_loading) return const Center(child: AppCircularProgressIndicator());
+    return ListView(
+      key: const ValueKey('read-aloud-engine-list'),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+      children: [
+        _engineSectionTitle('cloud', l.readAloudCloudEngines),
+        if (_cloudBusy) const LinearProgressIndicator(),
+        if (_cloudError != null)
+          Padding(padding: const EdgeInsets.all(8), child: Text(_cloudError!)),
+        ..._cloudEngines.map(_cloudTile),
+        _engineSectionTitle('http', l.readAloudHttpEngines),
+        ..._engines.map(_httpTile),
+        _engineSectionTitle('system', l.readAloudSystemEngines),
+        if (hasSystem)
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              title: const Text('系统 TTS'),
+              subtitle: const Text('使用设备已安装的语音'),
+              selected: _selectedIsSystem,
+              leading: Icon(
+                _selectedIsSystem
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+              ),
+              onTap: () => _chooseEngine(system: true),
+              trailing: IconButton(
+                icon: const Icon(Symbols.settings_rounded),
+                tooltip: '系统语音设置',
+                onPressed: () => showSystemTtsSettings(
+                  context,
+                  ref.read(systemTtsServiceProvider),
+                  ref
+                      .read(audioNotifierProvider.notifier)
+                      .refreshSystemTtsSettings,
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _urlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL *',
-                    hintText: 'http://localhost:1234/tts?text={{text}}',
-                    isDense: true,
-                  ),
-                  keyboardType: TextInputType.url,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return '请输入 URL';
-                    if (!isCompatibleHttpTtsEngineUrl(v)) {
-                      return '请输入 HTTP URL 或 JS 请求规则';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _contentTypeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Content-Type',
-                    hintText: '可选，例如 audio/mpeg',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _headerCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '请求头 (JSON)',
-                    hintText: '可选，例如 {"Authorization":"Bearer xxx"}',
-                    isDense: true,
-                  ),
-                  maxLines: 2,
-                ),
-                ExpansionTile(
-                  title: const Text('高级配置'),
-                  children: [
-                    for (final entry in _advanced.entries)
-                      TextFormField(
-                        controller: entry.value,
-                        decoration: InputDecoration(labelText: entry.key),
-                        maxLines:
-                            entry.key == '源级语速' ||
-                                entry.key == '合成线程数' ||
-                                entry.key == '并发率'
-                            ? 1
-                            : 3,
-                        validator: (value) {
-                          if (entry.key == '合成线程数') {
-                            final count = int.tryParse(value?.trim() ?? '');
-                            if (count == null || count < 1 || count > 8) {
-                              return '请输入 1 到 8';
-                            }
-                          }
-                          if (entry.key == '源级语速' &&
-                              (value ?? '').trim().isNotEmpty) {
-                            final speed = int.tryParse(value!.trim());
-                            if (speed == null || speed < 0 || speed > 80) {
-                              return '请输入 0 到 80，留空使用默认';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                    SwitchListTile(
-                      title: const Text('保存响应 Cookie'),
-                      value: _cookieJar,
-                      onChanged: (value) => setState(() => _cookieJar = value),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('保存')),
+        if (_engines.isEmpty && _cloudEngines.isEmpty && !hasSystem)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('暂无朗读引擎', textAlign: TextAlign.center),
+          ),
       ],
     );
   }
+
+  @override
+  Widget build(BuildContext context) => AppScaffold(
+    topBar: LegadoAppBar(
+      title: Text(context.l10n.readAloudEngines),
+      bottom: TabBar(
+        controller: _tabs,
+        tabs: const [
+          Tab(text: '音色'),
+          Tab(text: '引擎'),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Symbols.help_rounded),
+          tooltip: '帮助',
+          onPressed: () => showHelp(context, HelpAssets.httpTtsHelp),
+        ),
+      ],
+    ),
+    floatingActionButton: FloatingActionButton.extended(
+      tooltip: _tabs.index == 1 ? '添加引擎' : '添加音色',
+      onPressed: _cloudBusy || _cloudEditing || _loading
+          ? null
+          : _tabs.index == 1
+          ? _addEngine
+          : () => _voicePanelKey.currentState?.addVoice(),
+      icon: const Icon(Symbols.add_rounded),
+      label: Text(_tabs.index == 1 ? '添加引擎' : '添加音色'),
+    ),
+    body: TabBarView(
+      controller: _tabs,
+      children: [
+        ReadAloudVoicePanel(key: _voicePanelKey, revision: _voiceRevision),
+        _engineList(),
+      ],
+    ),
+  );
 }
