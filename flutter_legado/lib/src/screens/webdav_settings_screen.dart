@@ -22,6 +22,7 @@ import '../features/bookshelf/bookshelf.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/bookshelf_settings_provider.dart';
 import '../providers/read_record_settings_provider.dart';
+import '../providers/reader/reader_settings_provider.dart';
 import '../providers/locale_settings_provider.dart';
 import '../providers/eye_protection_settings_provider.dart';
 import '../providers/welcome_settings_provider.dart';
@@ -32,7 +33,8 @@ import '../providers/theme/theme_notifier.dart';
 import '../providers/ui_settings/ui_settings_notifier.dart';
 import '../providers/theme/system_bar_notifier.dart';
 import '../routes.dart';
-import '../services/crash_log_service.dart';
+import '../providers/backup_settings_provider.dart';
+import '../providers/general_settings_provider.dart';
 import '../services/restore_ignore_prefs.dart';
 import '../services/settings_service.dart';
 import '../widgets/settings_widgets.dart';
@@ -67,13 +69,26 @@ class WebDavSettingsScreen extends ConsumerStatefulWidget {
 
 class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   SettingsService get _settings => ref.read(settingsProvider);
+  static String _pendingDescription(String description) => '$description\n待实现';
+
+  Future<void> _saveBackupPreference(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('备份设置保存失败，请重试')));
+      }
+    }
+  }
 
   String _url = '';
   String _user = '';
   String _pass = '';
   String _dir = '/legado/';
   String _device = '';
-  String _backupPath = '';
+  String get _backupPath =>
+      ref.read(backupSettingsRepositoryProvider).current.backupPath;
   bool _onlyLatestBackup = true;
   bool _autoCheckNewBackup = true;
   bool _busy = false;
@@ -84,14 +99,20 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAll();
+    unawaited(
+      _loadAll().catchError((Object error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('备份设置读取失败，请重试')));
+        }
+      }),
+    );
   }
 
   Future<void> _loadAll() async {
     final notifier = ref.read(syncNotifierProvider.notifier);
     await notifier.loadConfig();
     final state = ref.read(syncNotifierProvider);
-    final path = await CrashLogService.instance.getBackupPath() ?? '';
     final onlyLatest = await _settings.getBoolPref(
       PrefKeys.onlyLatestBackup,
       defaultValue: true,
@@ -107,7 +128,6 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       _pass = state.webDavPassword;
       _dir = state.remoteDir;
       _device = state.deviceName;
-      _backupPath = path;
       _onlyLatestBackup = onlyLatest;
       _autoCheckNewBackup = autoCheck;
     });
@@ -160,9 +180,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   Future<void> _pickBackupPath() async {
     final picked = await FilePicker.getDirectoryPath(dialogTitle: '选择备份路径');
     if (picked == null) return;
-    await CrashLogService.instance.setBackupPath(picked);
-    if (!mounted) return;
-    setState(() => _backupPath = picked);
+    await _saveBackupPreference(
+      () =>
+          ref.read(backupSettingsRepositoryProvider).update(backupPath: picked),
+    );
   }
 
   Future<void> _doLocalBackup() async {
@@ -173,8 +194,9 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         final picked = await FilePicker.getDirectoryPath();
         if (picked == null) return;
         dirPath = picked;
-        await CrashLogService.instance.setBackupPath(dirPath);
-        if (mounted) setState(() => _backupPath = dirPath);
+        await ref
+            .read(backupSettingsRepositoryProvider)
+            .update(backupPath: dirPath);
       }
       final filePath = await api.backup(dirPath);
       final ignore = await _settings.getRestoreIgnoreConfig();
@@ -346,9 +368,14 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     final reloads = <(String, Future<void> Function())>[
       ('书架', () => ref.read(bookshelfSettingsRepositoryProvider).reload()),
       ('阅读记录', () => ref.read(readRecordSettingsRepositoryProvider).reload()),
+      ('基础阅读', () => ref.read(readerSettingsRepositoryProvider).reload()),
+      ('字体目录', () => ref.read(readerFontRepositoryProvider).reload()),
+      ('阅读配色', () => ref.read(readerStyleRepositoryProvider).reload()),
       ('语言', () => ref.read(localeSettingsRepositoryProvider).reload()),
       ('护眼', () => ref.read(eyeProtectionSettingsRepositoryProvider).reload()),
       ('欢迎页', () => ref.read(welcomeSettingsRepositoryProvider).reload()),
+      ('应用行为', () => ref.read(generalSettingsRepositoryProvider).reload()),
+      ('备份', () => ref.read(backupSettingsRepositoryProvider).reload()),
     ];
     for (final (label, reload) in reloads) {
       if (!mounted) return;
@@ -526,6 +553,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(backupSettingsProvider);
     final syncState = ref.watch(syncNotifierProvider);
     final notifier = ref.read(syncNotifierProvider.notifier);
 
@@ -614,12 +642,11 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 ),
                 SettingTile(
                   title: context.l10n.backupWebdavDeviceName,
-                  subtitle: _device.isEmpty ? '用于区分不同设备的备份' : _device,
-                  onTap: () => _editTextPref(
-                    title: context.l10n.backupWebdavDeviceName,
-                    initial: _device,
-                    onSaved: (v) => _device = v,
+                  subtitle: _pendingDescription(
+                    _device.isEmpty ? '用于区分不同设备的备份' : _device,
                   ),
+                  onTap: null,
+                  enabled: false,
                 ),
                 // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（纯客户端）
                 SettingTile(
@@ -635,15 +662,15 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   title: context.l10n.webdavSyncProgress,
                   subtitle: '在多设备间同步书籍阅读进度',
                   value: syncState.syncBookProgress,
-                  onChanged: (v) => notifier.setSyncBookProgress(v),
+                  onChanged: (v) => _saveBackupPreference(
+                    () => notifier.setSyncBookProgress(v),
+                  ),
                 ),
                 SettingSwitchRow(
                   title: '同步书籍进度增强',
-                  subtitle: '同步更详细的阅读进度信息',
+                  subtitle: _pendingDescription('同步更详细的阅读进度信息'),
                   value: syncState.syncBookProgressPlus,
-                  onChanged: syncState.syncBookProgress
-                      ? (v) => notifier.setSyncBookProgressPlus(v)
-                      : null,
+                  onChanged: null,
                 ),
               ],
             ),
@@ -680,21 +707,19 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.backupKeepLatest,
-                  subtitle: context.l10n.backupKeepLatestDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.backupKeepLatestDescription,
+                  ),
                   value: _onlyLatestBackup,
-                  onChanged: (v) {
-                    setState(() => _onlyLatestBackup = v);
-                    _settings.setBoolPref(PrefKeys.onlyLatestBackup, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.backupCheckNew,
-                  subtitle: context.l10n.backupCheckNewDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.backupCheckNewDescription,
+                  ),
                   value: _autoCheckNewBackup,
-                  onChanged: (v) {
-                    setState(() => _autoCheckNewBackup = v);
-                    _settings.setBoolPref(PrefKeys.autoCheckNewBackup, v);
-                  },
+                  onChanged: null,
                 ),
               ],
             ),

@@ -29,8 +29,11 @@ extension _BookInfoLoad on _BookInfoScreenState {
 
   /// 加载「删除提醒」开关（对齐原版 LocalConfig.deleteBookAlert）
   Future<void> _loadDeleteBookAlert() async {
-    final v = await _settingsService.getDeleteBookAlert();
-    if (mounted) setState(() => _deleteBookAlert = v);
+    try {
+      await ref.read(bookshelfSettingsRepositoryProvider).load();
+    } catch (error) {
+      if (mounted) _snack('删除提醒设置读取失败，请重试');
+    }
   }
 
   Future<void> _loadData() async {

@@ -1,8 +1,10 @@
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../fixtures/reader_settings_repository.dart';
 
 /// [N4 偏好迁移 | 2.0.271 | 子代理] 一次性默认值迁移单测：
 /// C2 批（2.0.262）改新默认（状态行四开关关、tipFooterLeft=7 书名），
@@ -10,8 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///   存量 == 旧默认 → 改写新默认；存量 != 旧默认（用户手动改过）→ 不动；
 ///   迁移标记 settingsMigrated_v271 置位后幂等（不再执行）。
 void main() {
-  late PreferencesReaderConfigRepository repository;
-  setUp(() => repository = PreferencesReaderConfigRepository());
+  late AppReaderSettingsRepository repository;
+  setUp(() => repository = createTestReaderSettingsRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('正文点击九宫格', () {
@@ -88,7 +90,7 @@ void main() {
         'reader_adv_center_action': TapAction.toggleControls.index,
         'reader_adv_right_action': TapAction.nextPage.index,
       });
-      expect((await repository.load()).tapActions, defaults);
+      expect((await repository.loadAdvanced()).tapActions, defaults);
       final columns = [
         TapAction.openCatalog,
         TapAction.none,
@@ -99,7 +101,7 @@ void main() {
         'reader_adv_center_action': columns[1].index,
         'reader_adv_right_action': columns[2].index,
       });
-      expect((await repository.load()).tapActions, [
+      expect((await repository.loadAdvanced()).tapActions, [
         ...columns,
         ...columns,
         ...columns,
@@ -111,8 +113,8 @@ void main() {
       final config = ReaderAdvancedConfig();
       final copy = config.copy()..tapActions[0] = TapAction.openCatalog;
       expect(config.tapActions[0], TapAction.prevPage);
-      await repository.save(copy);
-      expect((await repository.load()).tapActions, [
+      await repository.saveAdvanced(copy);
+      expect((await repository.loadAdvanced()).tapActions, [
         TapAction.openCatalog,
         ...defaults.skip(1),
       ]);
@@ -123,7 +125,7 @@ void main() {
         List.filled(9, 'not-an-action'),
       ]) {
         await prefs.setStringList('reader_adv_tap_actions_v1', invalid);
-        expect((await repository.load()).tapActions, defaults);
+        expect((await repository.loadAdvanced()).tapActions, defaults);
       }
     });
   });
@@ -145,7 +147,7 @@ void main() {
   group('N4 一次性偏好迁移', () {
     test('存量=旧默认 → 迁移为新默认并置标记', () async {
       SharedPreferences.setMockInitialValues(legacyDefaults());
-      final cfg = await repository.load();
+      final cfg = await repository.loadAdvanced();
 
       // 配置对象：新默认生效
       expect(cfg.showBattery, isFalse);
@@ -173,7 +175,7 @@ void main() {
         'reader_adv_show_chapter_name': false,
         'tipFooterLeft': 3,
       });
-      final cfg = await repository.load();
+      final cfg = await repository.loadAdvanced();
 
       // 存量 != 旧默认的键保持原值
       final prefs = await SharedPreferences.getInstance();
@@ -195,7 +197,7 @@ void main() {
         markerKey: true,
       });
       final prefs = await SharedPreferences.getInstance();
-      await repository.load();
+      await repository.loadAdvanced();
 
       expect(
         prefs.getBool('reader_adv_show_time'),
@@ -207,7 +209,7 @@ void main() {
 
     test('全新安装（无存量键）→ 新默认生效并置标记', () async {
       SharedPreferences.setMockInitialValues({});
-      final cfg = await repository.load();
+      final cfg = await repository.loadAdvanced();
 
       expect(cfg.showBattery, isFalse);
       expect(cfg.showTime, isFalse);
@@ -220,14 +222,14 @@ void main() {
 
     test('重复 load → 迁移仅执行一次（幂等）', () async {
       SharedPreferences.setMockInitialValues(legacyDefaults());
-      await repository.load();
+      await repository.loadAdvanced();
       // 第二次 load：标记已置位，存储值不再变化
       final prefs1 = await SharedPreferences.getInstance();
       final before = <String, Object>{
         for (final k in statusKeys) k: prefs1.getBool(k)!,
         'tipFooterLeft': prefs1.getInt('tipFooterLeft')!,
       };
-      final cfg2 = await repository.load();
+      final cfg2 = await repository.loadAdvanced();
       final prefs2 = await SharedPreferences.getInstance();
       for (final k in statusKeys) {
         expect(prefs2.getBool(k), before[k]);

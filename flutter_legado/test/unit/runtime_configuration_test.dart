@@ -6,9 +6,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/runtime_configuration.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
+import 'package:flutter_legado/src/app/bootstrap/app_settings_factory.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_style_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
+import 'package:flutter_legado/src/app/session/reader_theme_session.dart';
+import 'package:flutter_legado/src/domain/models/reader_style.dart';
+import 'package:flutter_legado/src/domain/models/reader_theme_mode.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('书源快照与模板日夜、自定义修改使用同一已装配服务，原字段类型保留', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = createAppSettingsService();
+    addTearDown(service.dispose);
+    final styles = AppReaderStyleRepository(service);
+    final session = ReaderThemeSession();
+    addTearDown(session.dispose);
+    final source = SettingsRuntimeConfiguration(
+      appSettings: service,
+      readingSession: session,
+    );
+    await styles.load();
+    await styles.select('preset3');
+    var snapshot = await source.readReadBookConfig();
+    expect(snapshot.fields['bgStr'], '#C2D8AA');
+    expect(snapshot.fields['textColor'], '#596C44');
+    expect(snapshot.fields['bgType'], 0);
+    session.setMode(ReaderThemeMode.night);
+    snapshot = await source.readReadBookConfig();
+    expect(snapshot.fields['bgStr'], '#3C3F43');
+    expect(snapshot.fields['textColor'], '#88C16F');
+    await styles.updateColors(
+      isNight: true,
+      update: (colors) =>
+          ReaderColors(background: colors.background, text: 0xFFAABBCC),
+    );
+    expect((await source.readReadBookConfig()).fields['textColor'], '#AABBCC');
+    session.setMode(ReaderThemeMode.day);
+    expect((await source.readReadBookConfig()).fields['textColor'], '#596C44');
+  });
 
   test('快照复制平面数据，不持有输入 Map 的可变引用', () {
     final fields = <String, Object?>{'textSize': 20, 'letterSpacing': 0.0};
@@ -68,11 +105,11 @@ void main() {
           .readReadBookConfig();
       final dark = index == 4;
       expect(jsonDecode(snapshot.encode()), {
-        'name': '默认',
+        'name': '自定义',
         'bgStr': index >= 0 && index < backgrounds.length
             ? backgrounds[index]
             : '#FFFFFF',
-        'bgType': index,
+        'bgType': 0,
         'textColor': dark ? '#CCCCCC' : '#333333',
         'textSize': 21,
         'lineSpacingExtra': 8,
@@ -94,22 +131,34 @@ void main() {
         'tipFooterMiddle': '',
         'tipFooterRight': 'page',
         'tipColor': '#99999900',
-        '_bgColorHex': dark ? '#FF1A1A1A' : '#FFFFFFFF',
+        '_bgColorHex': index >= 0 && index < backgrounds.length
+            ? '#FF${backgrounds[index].substring(1)}'
+            : '#FFFFFFFF',
       });
       expect(snapshot.fields['textSize'], isA<int>());
       expect(snapshot.fields['letterSpacing'], isA<double>());
     });
   }
 
-  test('缺少设置时保留默认值；再次读取获得新快照，旧快照不变', () async {
+  test('字号共享更新及外部恢复重读产生新快照，旧快照保持不变', () async {
     SharedPreferences.setMockInitialValues({});
-    final source = SettingsRuntimeConfiguration();
+    final service = createAppSettingsService();
+    addTearDown(service.dispose);
+    final repository = AppReaderSettingsRepository(service);
+    final source = SettingsRuntimeConfiguration(
+      appSettings: service,
+      readerSettings: repository,
+    );
     final first = await source.readReadBookConfig();
     expect(first.fields['textSize'], 20);
     expect(first.fields['bgType'], 0);
     expect(await source.readThemeMode(), '0');
+    await repository.update(fontSize: 24.6, lineHeight: 2.2);
+    expect((await source.readReadBookConfig()).fields['textSize'], 25);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('reader_font_size', 27.0);
+    expect((await source.readReadBookConfig()).fields['textSize'], 25);
+    await repository.reload();
     final second = await source.readReadBookConfig();
     expect(second.fields['textSize'], 27);
     expect(first.fields['textSize'], 20);

@@ -255,7 +255,7 @@ void main() {
     final reader = container.read(readerNotifierProvider.notifier);
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
-    reader.updateFontSize(25);
+    await reader.updateFontSize(25);
     expect(sync.calls, 1);
     expect(container.read(readerNotifierProvider).fontSize, 25);
     await Future<void>.delayed(Duration.zero);
@@ -273,7 +273,7 @@ void main() {
     final reader = container.read(readerNotifierProvider.notifier);
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
-    reader.updateFontSize(24);
+    await reader.updateFontSize(24);
     await Future<void>.delayed(Duration.zero);
     expect(container.read(readerNotifierProvider).fontSize, 24);
     expect(

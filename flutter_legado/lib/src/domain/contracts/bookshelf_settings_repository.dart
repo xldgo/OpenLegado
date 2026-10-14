@@ -12,5 +12,6 @@ abstract interface class BookshelfSettingsRepository {
     GroupMode? groupMode,
     int? selectedGroupIndex,
     bool? openBookInfoByClickTitle,
+    bool? deleteBookAlert,
   });
 }

@@ -1,4 +1,4 @@
-import '../../providers/reader/reader_config_provider.dart';
+import '../../providers/reader/reader_settings_provider.dart';
 import '../../models/reader_advanced_config.dart';
 
 import 'dart:async';

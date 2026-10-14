@@ -14,9 +14,10 @@ ThemeData resolveReaderMenuTheme({
   required Color readingBackground,
   required ReaderAdvancedConfig config,
   required UiSettings ui,
+  Brightness? readingBrightness,
 }) {
   if (config.readBarStyle == 0) return appTheme;
-  final night = appTheme.brightness == Brightness.dark;
+  final night = (readingBrightness ?? appTheme.brightness) == Brightness.dark;
   final storedAccent = night
       ? config.readMenuAccentColorNight
       : config.readMenuAccentColor;
@@ -71,10 +72,12 @@ class ReaderMenuThemeHost extends StatefulWidget {
     required this.config,
     required this.readingBackground,
     required this.builder,
+    this.readingBrightness,
   });
 
   final ReaderAdvancedConfig config;
   final Color readingBackground;
+  final Brightness? readingBrightness;
   final WidgetBuilder builder;
 
   @override
@@ -93,6 +96,7 @@ class _ReaderMenuThemeHostState extends State<ReaderMenuThemeHost> {
     final key = (
       appTheme,
       widget.readingBackground,
+      widget.readingBrightness,
       config.readBarStyle,
       config.readMenuPaletteStyle,
       config.readMenuColorMode,
@@ -112,6 +116,7 @@ class _ReaderMenuThemeHostState extends State<ReaderMenuThemeHost> {
         readingBackground: widget.readingBackground,
         config: config,
         ui: ui,
+        readingBrightness: widget.readingBrightness,
       );
     }
     return Theme(

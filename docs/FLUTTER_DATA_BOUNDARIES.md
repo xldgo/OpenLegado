@@ -4,6 +4,27 @@
 `feature/ui-reader-selection` 的 `74dda3c7b`。任务状态和验证结果只维护在
 [活动计划](REFACTORING_ACTIVE_PLAN.md)，本文件记录设计与验收边界。
 
+后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
+[设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，
+不另外维护设置分类任务状态。
+
+跨功能普通偏好使用 GeneralSettingsRepository，备份目录与有效进度同步使用
+BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书架仓储。日志服务
+消费同源备份目录，保存和运行时应用分开，具体键及消费端见上述方案第 10 节。
+
+阅读仓储使用 ReaderSettingsRepository / AppReaderSettingsRepository；字号、行距与翻页偏好
+接入共享服务，高级配置保持独立格式。快捷、高级选择器与正文共用 PageTurnMode，
+翻页只保存原名称键，旧有效索引只读回；字号和行距保持原double键、默认值与单位。
+主题导入和配置注入消费同源值，保存失败回退，备份恢复显式重读。正文与标题字体
+选择也进入该仓储；标题使用规范键reader_title_font_family，不读取旧titleFont。
+字体目录由ReaderFontRepository管理，文件与注册归ReaderFontFiles，共享ReaderFontService
+编排导入和加载。具体读写及备份恢复边界见上述方案第 11、13、14 节。
+
+阅读结构化配色由 ReaderStyleRepository 单独拥有，ReaderStyle 同时包含日夜背景
+和文字色，并复用共享设置服务。手动日夜覆盖归 ReaderThemeSession，仅当前阅读
+会话有效；正文、预览和既有配置注入共享会话实例及颜色解析。纯色范围及上游差异见方案第 12 节，
+不把颜色模板升级为另一套分页配置。
+
 ## 实施顺序
 
 1. 提取初始化内部职责：应用 Bootstrap 编排，Bridge 加载原生库并调用 FRB，

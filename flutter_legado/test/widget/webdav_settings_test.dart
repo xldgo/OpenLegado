@@ -80,7 +80,7 @@ void main() {
     expect(find.text('https://dav.example.com'), findsOneWidget);
   });
 
-  testWidgets('[GLOBALCOMP B5] 开关行迁移后整行点击即切换并持久化', (tester) async {
+  testWidgets('有效的进度同步开关仍支持整行点击和持久化', (tester) async {
     // 该行由 SwitchListTile 迁移为统一 SettingSwitchRow（M3 设置开关行），
     // 行为要求不变：整行可点即切换（参考版 SwitchSettingItem onClick 语义）
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
@@ -88,11 +88,11 @@ void main() {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('仅保留最新备份'), 80);
+    await tester.scrollUntilVisible(find.text('同步书籍进度'), 80);
     await tester.pumpAndSettle();
 
     final row = find.ancestor(
-      of: find.text('仅保留最新备份'),
+      of: find.text('同步书籍进度'),
       matching: find.byType(SettingSwitchRow),
     );
     expect(row, findsOneWidget);
@@ -105,13 +105,13 @@ void main() {
     final before = tester.widget<Switch>(switchFinder).value;
 
     // 点标题（非开关本体）即切换：等价原 SwitchListTile 整行语义
-    await tester.tap(find.text('仅保留最新备份'));
+    await tester.tap(find.text('同步书籍进度'));
     await tester.pumpAndSettle();
 
     final after = tester.widget<Switch>(switchFinder).value;
     expect(after, !before);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('onlyLatestBackup'), after);
+    expect(prefs.getBool('sync_book_progress'), after);
   });
 
   testWidgets('未配置 WebDAV 时点击恢复给出提示', (tester) async {

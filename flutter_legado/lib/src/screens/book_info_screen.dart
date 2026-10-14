@@ -29,7 +29,7 @@ import '../services/book_api.dart';
 import '../services/cache_service.dart';
 import '../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
 import '../services/platform_bridge_service.dart';
-import '../services/settings_service.dart';
+import '../providers/bookshelf_settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/book_info_utils.dart';
 import '../utils/book_open_utils.dart';
@@ -121,8 +121,8 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   // [UI-FIX v2.0.3 | 2026-08-08] 删除提醒开关（对齐原版 LocalConfig.deleteBookAlert，本地持久化） — Qoder
   // 书源按 origin 缓存，避免每次详情页全量扫描书源列表
   static final Map<String, BookSource?> _sourceByOriginCache = {};
-  SettingsService get _settingsService => ref.read(settingsProvider);
-  bool _deleteBookAlert = true;
+  bool get _deleteBookAlert =>
+      ref.read(bookshelfSettingsRepositoryProvider).current.deleteBookAlert;
 
   @override
   void initState() {
@@ -348,6 +348,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(bookshelfSettingsProvider);
     final baseTheme = Theme.of(context);
     ref.listen(
       uiSettingsProvider.select(

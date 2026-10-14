@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../l10n/app_localization.dart';
 import '../routes.dart';
-import '../constants/pref_keys.dart';
+import '../providers/general_settings_provider.dart';
 import '../utils/error_message.dart';
 import '../services/auto_task_scheduler.dart';
 import '../services/web_keep_alive_service.dart';
@@ -135,9 +135,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 防手改 prefs 绕过校验导致启动失败，越界回落 1122 并只记一次日志。
   Future<int> _readWebPort() async {
     const defaultPort = 1122;
-    final port = await ref
-        .read(settingsProvider)
-        .getIntPref(PrefKeys.webPort, defaultValue: defaultPort);
+    final port =
+        (await ref.read(generalSettingsRepositoryProvider).load()).webPort;
     if (port < 1024 || port > 60000) {
       if (!_webPortFallbackLogged) {
         _webPortFallbackLogged = true;

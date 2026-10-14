@@ -1,14 +1,11 @@
-import '../../providers/reader/reader_config_provider.dart';
+import '../../providers/reader/reader_settings_provider.dart';
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
@@ -91,9 +88,6 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 与 textBold 同链路：参与分页测量与渲染，保持同源同参）
   final bool italic;
 
-  /// 自定义文字颜色（ARGB，0=跟随背景自动，对标原版自定义配色）
-  final int customTextColor;
-
   /// 鼠标滚轮翻页（对标原版 mouseWheelPage；分页模式下滚轮上下滚动翻页，
   /// 滚动模式不拦截交给内层 Scrollable）
   final bool mouseWheelPage;
@@ -135,7 +129,6 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.noAnimScroll = false,
     this.textBold = 0,
     this.italic = false,
-    this.customTextColor = 0,
     this.mouseWheelPage = true,
     this.doubleHorizontalPage = 0,
     this.useZhLayout = true,
@@ -174,7 +167,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   bool _waitingForAnchor = false;
   String? _layoutError;
   int _fontRevision = 0;
-  final Map<String, String> _loadedFontStamps = {};
   bool _fontRefreshRunning = false;
   bool _fontRefreshQueued = false;
   int _layoutMeasurements = 0;
@@ -632,15 +624,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     unawaited(_refreshFontFamily());
   }
 
-  @override
-  void didUpdateWidget(covariant ReaderPageView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // [UI-fix v2.0.2 | 2026-08-06] 从字体选择页返回时重建 widget，
-    // 重新读取字体配置（自定义字体会经 FontLoader 重新注册） — Qoder
-    unawaited(_refreshFontFamily());
-  }
-
-  /// 从 SharedPreferences 读取当前阅读字体，自定义字体需先经 FontLoader 注册
+  /// 字体选择从仓储读取，自定义文件由统一平台入口注册。
   Future<void> _refreshFontFamily() async {
     if (_fontRefreshRunning) {
       _fontRefreshQueued = true;
@@ -660,50 +644,21 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   Future<void> _loadFontFamily() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final family = prefs.getString('reader_font_family');
-      // [C3 标题字体] 标题字体（空=跟随正文）：非空且不同于正文时，其
-      // Custom_ 字体文件也需注册，否则标题回退默认字体 — full-stack-engineer
-      final titleFamily = prefs.getString('titleFont') ?? '';
-      final customFamilies = <String>{
-        if (family != null && family.startsWith('Custom_')) family,
-        if (titleFamily.isNotEmpty &&
-            titleFamily.startsWith('Custom_') &&
-            titleFamily != family)
-          titleFamily,
-      };
-      // 自定义字体（Custom_* 前缀）应用重启后需重新加载字体文件
-      if (customFamilies.isNotEmpty) {
-        final customRaw = prefs.getStringList('reader_custom_fonts') ?? [];
-        for (final entry in customRaw) {
-          final parts = entry.split('|');
-          if (parts.length != 2) continue;
-          final name = parts[0];
-          if (!customFamilies.contains(name)) continue;
-          final file = File(parts[1]);
-          if (await file.exists()) {
-            final stat = await file.stat();
-            final stamp =
-                '${file.path}:${stat.size}:${stat.modified.microsecondsSinceEpoch}';
-            if (_loadedFontStamps[name] == stamp) continue;
-            final loader = FontLoader(name)
-              ..addFont(file.readAsBytes().then((b) => b.buffer.asByteData()));
-            await loader.load();
-            _loadedFontStamps[name] = stamp;
-            _fontRevision++;
-          }
-        }
-      }
+      final settings = await ref.read(readerSettingsRepositoryProvider).load();
       if (!mounted) return;
-      if (family != _fontFamily || _fontRevision != _paginatedFontRevision) {
+      final revision = await ref
+          .read(readerFontServiceProvider)
+          .loadSelected(settings);
+      if (!mounted) return;
+      if (settings.fontFamily != _fontFamily || revision != _fontRevision) {
         setState(() {
-          _fontFamily = family;
-          _paginatedFontFamily = null; // 强制重新分页
+          _fontFamily = settings.fontFamily;
+          _fontRevision = revision;
+          _paginatedFontFamily = null;
         });
       }
-    } catch (e) {
-      // 字体配置不可用时回退默认字体，不阻断阅读
-      debugPrint('阅读字体加载失败，回退默认字体: $e');
+    } catch (error) {
+      debugPrint('阅读字体加载失败：$error');
     }
   }
 
@@ -1326,6 +1281,17 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      readerSettingsProvider.select(
+        (value) => (value.value?.fontFamily, value.value?.titleFontFamily),
+      ),
+      (previous, next) {
+        if (previous != next) unawaited(_refreshFontFamily());
+      },
+    );
+    ref.listen(readerFontsProvider, (previous, next) {
+      if (previous?.value != next.value) unawaited(_refreshFontFamily());
+    });
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
     ref.listen(readerNotifierProvider, (previous, next) {
@@ -1564,15 +1530,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     }
   }
 
-  /// 解析正文文字颜色：自定义色优先；自定义背景（非预设）按亮度
-  /// 自适应深/浅文字色；否则沿用预设派生色（state.textColor）
+  /// 正文使用样式仓储投影的最终文字色，与配色预览和配置注入一致。
   Color _resolveTextColor(ReaderState state) {
-    if (widget.customTextColor != 0) return Color(widget.customTextColor);
-    if (!ReaderBackground.presets.contains(state.backgroundColor)) {
-      return state.backgroundColor.computeLuminance() < 0.5
-          ? const Color(0xFFCCCCCC)
-          : const Color(0xFF333333);
-    }
     return state.textColor;
   }
 

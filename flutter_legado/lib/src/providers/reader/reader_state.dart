@@ -2,70 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../models/models.dart';
+import '../../domain/models/page_turn_mode.dart';
+
+export '../../domain/models/page_turn_mode.dart';
 
 part 'reader_state.freezed.dart';
-
-/// 翻页模式
-///
-/// 对齐安卓原版 5 种翻页动画：覆盖/滑动/仿真/滚动/无动画
-/// 注意：cover 追加在末尾（index=4），避免破坏已有持久化索引映射
-enum PageTurnMode {
-  scroll, // 上下滚动
-  slide, // 左右滑动
-  simulate, // 仿真翻页
-  none, // 无动画（直接切换）
-  cover; // 覆盖（新页从右向左覆盖旧页，旧页不动）
-
-  /// 获取显示名称
-  String get displayName {
-    switch (this) {
-      case PageTurnMode.scroll:
-        return '滚动';
-      case PageTurnMode.slide:
-        return '滑动';
-      case PageTurnMode.simulate:
-        return '仿真';
-      case PageTurnMode.none:
-        return '无动画';
-      case PageTurnMode.cover:
-        return '覆盖';
-    }
-  }
-
-  /// 获取图标
-  String get icon {
-    switch (this) {
-      case PageTurnMode.scroll:
-        return '📜';
-      case PageTurnMode.slide:
-        return '👈';
-      case PageTurnMode.simulate:
-        return '📖';
-      case PageTurnMode.none:
-        return '⚡';
-      case PageTurnMode.cover:
-        return '📄';
-    }
-  }
-
-  /// 从持久化名称恢复枚举值（兼容旧版 int 索引存储）
-  static PageTurnMode fromStorage(String? name, int? legacyIndex) {
-    // 优先使用 name 存储（新版）
-    if (name != null && name.isNotEmpty) {
-      for (final mode in PageTurnMode.values) {
-        if (mode.name == name) return mode;
-      }
-    }
-    // 回退：旧版 int 索引映射（0=scroll,1=slide,2=simulate,3=none）
-    if (legacyIndex != null &&
-        legacyIndex >= 0 &&
-        legacyIndex < PageTurnMode.values.length) {
-      return PageTurnMode.values[legacyIndex];
-    }
-    // 默认覆盖模式（对齐安卓原版）
-    return PageTurnMode.cover;
-  }
-}
 
 /// 阅读背景预设
 class ReaderBackground {
@@ -166,6 +107,12 @@ abstract class ReaderState with _$ReaderState {
     /// 背景色
     @Default(ReaderBackground.white) Color backgroundColor,
 
+    /// 当前阅读样式的文字色；空值根据背景亮度自动选择。
+    Color? foregroundColor,
+
+    /// 阅读模式的有效亮度，与应用主题和背景颜色分别表达。
+    Brightness? readingBrightness,
+
     /// 翻页模式
     @Default(PageTurnMode.cover) PageTurnMode pageTurnMode,
 
@@ -202,15 +149,15 @@ extension ReaderStateDerived on ReaderState {
 
   /// 是否为夜间（深色）背景
   ///
-  /// [M1 收尾微调] 同时识别主题默认纯黑（0xFF000000，对齐参考）与
-  /// 夜间预设 [ReaderBackground.dark]（0xFF1A1A1A，显式选项）；
-  /// 否则纯黑默认下派生文字色会误落深灰（0xFF333333），底栏/顶栏
-  /// 跟随页色时对比度不足。
-  bool get isDarkBackground =>
-      backgroundColor == ReaderBackground.dark ||
-      backgroundColor == const Color(0xFF000000);
+  /// 按实际背景亮度判断，覆盖上游灰色夜间模板和自定义颜色。
+  bool get isDarkBackground => backgroundColor.computeLuminance() < 0.5;
+
+  bool get isNightMode => readingBrightness == null
+      ? isDarkBackground
+      : readingBrightness == Brightness.dark;
 
   /// 正文文字颜色（根据背景自动适配）
   Color get textColor =>
-      isDarkBackground ? const Color(0xFFCCCCCC) : const Color(0xFF333333);
+      foregroundColor ??
+      (isDarkBackground ? const Color(0xFFCCCCCC) : const Color(0xFF333333));
 }

@@ -5,11 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 阅读设置持久化服务
 class SettingsService {
-  static const _keyFontSize = 'reader_font_size';
-  static const _keyLineHeight = 'reader_line_height';
-  static const _keyBgColorIndex = 'reader_bg_color_index';
-  static const _keyFlipMode = 'reader_flip_mode';
-  static const _keyFlipModeName = 'reader_flip_mode_name'; // 新版枚举名存储
   static const _keyBrightness = 'reader_brightness';
   static const _keyLocale = 'app_locale';
   static const _keyBookshelfTabPosition = 'bookshelf_tab_position';
@@ -21,123 +16,6 @@ class SettingsService {
   // 对齐原版 PreferKey.enableReadRecord / LocalConfig readRecordSort
   static const _keyEnableReadRecord = 'enableReadRecord';
   static const _keyReadRecordSort = 'readRecordSort';
-
-  // ===== 字体大小 =====
-
-  Future<double> getFontSize() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getDouble(_keyFontSize) ?? 20.0;
-    } catch (e) {
-      debugPrint('SettingsService.getFontSize 异常: $e');
-      return 20.0;
-    }
-  }
-
-  Future<void> setFontSize(double size) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_keyFontSize, size);
-    } catch (e) {
-      debugPrint('SettingsService.setFontSize 异常: $e');
-    }
-  }
-
-  // ===== 行距 =====
-
-  Future<double> getLineHeight() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getDouble(_keyLineHeight) ?? 1.7;
-    } catch (e) {
-      debugPrint('SettingsService.getLineHeight 异常: $e');
-      return 1.7;
-    }
-  }
-
-  Future<void> setLineHeight(double height) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_keyLineHeight, height);
-    } catch (e) {
-      debugPrint('SettingsService.setLineHeight 异常: $e');
-    }
-  }
-
-  // ===== 背景色索引 =====
-
-  Future<int> getBgColorIndex() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyBgColorIndex) ?? 0;
-    } catch (e) {
-      debugPrint('SettingsService.getBgColorIndex 异常: $e');
-      return 0;
-    }
-  }
-
-  /// [M1 深色态默认修复] 可空读取背景索引：null = 从未设置（与显式 0 区分），
-  /// 供阅读背景默认解析判断「用户是否显式选择过」
-  Future<int?> getBgColorIndexOrNull() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyBgColorIndex);
-    } catch (e) {
-      debugPrint('SettingsService.getBgColorIndexOrNull 异常: $e');
-      return null;
-    }
-  }
-
-  Future<void> setBgColorIndex(int index) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyBgColorIndex, index);
-    } catch (e) {
-      debugPrint('SettingsService.setBgColorIndex 异常: $e');
-    }
-  }
-
-  // ===== 翻页模式 =====
-
-  /// 获取旧版 int 索引存储的翻页模式（兼容旧用户）
-  Future<int> getFlipMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyFlipMode) ?? -1; // -1 表示无旧版存储
-    } catch (e) {
-      debugPrint('SettingsService.getFlipMode 异常: $e');
-      return -1;
-    }
-  }
-
-  Future<void> setFlipMode(int mode) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyFlipMode, mode);
-    } catch (e) {
-      debugPrint('SettingsService.setFlipMode 异常: $e');
-    }
-  }
-
-  /// 获取新版 enum name 存储的翻页模式（避免索引变动破坏映射）
-  Future<String?> getFlipModeName() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_keyFlipModeName);
-    } catch (e) {
-      debugPrint('SettingsService.getFlipModeName 异常: $e');
-      return null;
-    }
-  }
-
-  Future<void> setFlipModeName(String name) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyFlipModeName, name);
-    } catch (e) {
-      debugPrint('SettingsService.setFlipModeName 异常: $e');
-    }
-  }
 
   // ===== 亮度 =====
 

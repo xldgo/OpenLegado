@@ -1,7 +1,6 @@
 /// 标题字体贯通测试（差异清单 C3 收尾：对齐原版 #1072 ReadBookConfig.titleFont）
 ///
-/// 覆盖：① ReaderAdvancedConfig.titleFont 持久化（load/save/copy，键名
-/// titleFont 无前缀）；② effectiveTitleFontFamily 单源取值（空=跟随正文）；
+/// 覆盖：① 共享阅读仓储中的标题字体选择，规范存储键reader_title_font_family；② effectiveTitleFontFamily 单源取值（空=跟随正文）；
 /// ③ 渲染侧 ReaderTypographicPage 首屏标题块 TextStyle.fontFamily 与测量
 /// 传入值一致（同参断言，仿 reader_italic_style_test.dart 方式）；
 /// ④ PageChrome.titleFont 并入 layoutKey（触发重分页的可测替代：
@@ -10,7 +9,7 @@
 /// — full-stack-engineer + UI
 library;
 
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -27,41 +26,53 @@ import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 
+import '../fixtures/reader_settings_repository.dart';
+
 void main() {
-  late PreferencesReaderConfigRepository repository;
-  setUp(() => repository = PreferencesReaderConfigRepository());
-  group('ReaderAdvancedConfig.titleFont 持久化', () {
-    test('save 写键 titleFont（无前缀，对齐 titleMode/titleSize 系列）', () async {
-      SharedPreferences.setMockInitialValues({});
-      await repository.save(ReaderAdvancedConfig(titleFont: 'KaiTi'));
+  late AppReaderSettingsRepository repository;
+  setUp(() => repository = createTestReaderSettingsRepository());
+  group('共享标题字体选择', () {
+    test('只写规范键，旧titleFont不参与读取或迁移', () async {
+      SharedPreferences.setMockInitialValues({'titleFont': '旧字体'});
+      expect((await repository.load()).titleFontFamily, '');
+      await repository.update(titleFontFamily: 'KaiTi');
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('titleFont'), 'KaiTi');
+      expect(prefs.getString('reader_title_font_family'), 'KaiTi');
+      expect(prefs.getString('titleFont'), '旧字体');
     });
 
-    test('load 读回 titleFont；缺省为空串（空=跟随正文）', () async {
-      SharedPreferences.setMockInitialValues({'titleFont': 'SimSun'});
-      final cfg = await repository.load();
-      expect(cfg.titleFont, 'SimSun');
+    test('标题字体从规范键恢复，清空后跟随正文', () async {
+      SharedPreferences.setMockInitialValues({
+        'reader_title_font_family': 'SimSun',
+      });
+      expect((await repository.load()).titleFontFamily, 'SimSun');
+      await repository.update(titleFontFamily: '');
+      expect(repository.current.titleFontFamily, '');
+    });
 
+    test('保存旧高级快照不会覆盖刚选择的标题字体', () async {
       SharedPreferences.setMockInitialValues({});
-      final def = await repository.load();
-      expect(def.titleFont, '');
-    });
-
-    test('copy 保留 titleFont', () {
-      final cfg = ReaderAdvancedConfig(titleFont: 'Georgia');
-      expect(cfg.copy().titleFont, 'Georgia');
-      expect(ReaderAdvancedConfig().titleFont, '');
+      final advanced = await repository.loadAdvanced();
+      await repository.update(titleFontFamily: 'Georgia');
+      advanced.paragraphSpacing = 12;
+      await repository.saveAdvanced(advanced);
+      expect(repository.current.titleFontFamily, 'Georgia');
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'reader_title_font_family',
+        ),
+        'Georgia',
+      );
     });
   });
 
   group('effectiveTitleFontFamily 单源取值', () {
-    test('titleFont 非空优先于正文字体', () {
-      const chrome = ReaderPageChromeConfig(titleFont: 'KaiTi');
+    test('titleFontFamily 非空优先于正文字体', () {
+      const chrome = ReaderPageChromeConfig(titleFontFamily: 'KaiTi');
       expect(effectiveTitleFontFamily(chrome, 'SimSun'), 'KaiTi');
     });
 
-    test('titleFont 空值=跟随正文字体（null 正文=默认字体）', () {
+    test('titleFontFamily 空值=跟随正文字体（null 正文=默认字体）', () {
       const chrome = ReaderPageChromeConfig();
       expect(effectiveTitleFontFamily(chrome, 'SimSun'), 'SimSun');
       expect(effectiveTitleFontFamily(chrome, null), isNull);
@@ -92,7 +103,7 @@ void main() {
     }
 
     testWidgets('标题 TextStyle.fontFamily == 测量传入值（同参断言）', (tester) async {
-      const chrome = ReaderPageChromeConfig(titleFont: 'KaiTi');
+      const chrome = ReaderPageChromeConfig(titleFontFamily: 'KaiTi');
       const bodyFont = 'SimSun';
       // 测量侧（_computeFirstPageHeight）经同一单源计算的值
       const expected = 'KaiTi';
@@ -110,23 +121,29 @@ void main() {
 
       await tester.pumpWidget(page(chrome: chrome, bodyFont: bodyFont));
       final title = tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
-      expect(title, bodyFont, reason: '空 titleFont 时标题应跟随正文字体（既有偏差修复）');
+      expect(title, bodyFont, reason: '空 titleFontFamily 时标题应跟随正文字体（既有偏差修复）');
     });
   });
 
-  group('PageChrome.titleFont 与 layoutKey', () {
-    test('titleFont 并入 layoutKey（变化即触发重分页）', () {
+  group('PageChrome.titleFontFamily 与 layoutKey', () {
+    test('titleFontFamily 并入 layoutKey（变化即触发重分页）', () {
       const base = ReaderPageChromeConfig();
-      const a = ReaderPageChromeConfig(titleFont: 'KaiTi');
-      const b = ReaderPageChromeConfig(titleFont: 'SimSun');
+      const a = ReaderPageChromeConfig(titleFontFamily: 'KaiTi');
+      const b = ReaderPageChromeConfig(titleFontFamily: 'SimSun');
       expect(base.layoutKey, isNot(equals(a.layoutKey)));
       expect(a.layoutKey, isNot(equals(b.layoutKey)));
       expect(a.layoutKey.endsWith('_KaiTi'), isTrue);
     });
 
-    test('fromAdvanced 透传 titleFont', () {
-      final cfg = ReaderAdvancedConfig(titleFont: 'KaiTi');
-      expect(ReaderPageChromeConfig.fromAdvanced(cfg).titleFont, 'KaiTi');
+    test('fromAdvanced 透传 titleFontFamily', () {
+      final cfg = ReaderAdvancedConfig();
+      expect(
+        ReaderPageChromeConfig.fromAdvanced(
+          cfg,
+          titleFontFamily: 'KaiTi',
+        ).titleFontFamily,
+        'KaiTi',
+      );
     });
   });
 
@@ -171,7 +188,9 @@ void main() {
     });
 
     testWidgets('已选标题字体显示字体名（Custom_ 前缀剥离）', (tester) async {
-      SharedPreferences.setMockInitialValues({'titleFont': 'Custom_宋体'});
+      SharedPreferences.setMockInitialValues({
+        'reader_title_font_family': 'Custom_宋体',
+      });
       await tester.pumpWidget(
         ProviderScope(
           overrides: [bookApiProvider.overrideWithValue(MockBookApi())],

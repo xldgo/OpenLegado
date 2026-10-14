@@ -221,16 +221,17 @@ LegadoAppBar 和 InputDecorationTheme，不新增另一套组件或配色配置�
 
 ## 阅读配置的独立边界
 
-阅读配置沿用现有可变编辑模型和 copy()，75 个字段、枚举顺序、构造默认值与复制规则
-保持原样。模型只依赖几何类型与 FlipMode，不导入页面、Riverpod 或 SharedPreferences。
-不为本轮拆分重写生成模型或改变阅读设置界面。
+阅读配置沿用现有可变编辑模型和 copy()。初次拆分的 75 个字段中，翻页已按
+[设置分类方案](SETTINGS_ARCHITECTURE.md) 第 11 节归入普通 ReaderSettings；其余
+74 个高级字段保持原默认值与复制规则。模型只依赖几何类型，不导入页面、Riverpod
+或 SharedPreferences；不为职责拆分重写生成模型。
 
 | 实现位置（均在 `flutter_legado/lib/src/` 下） | 职责 |
 |---|---|
 | `models/reader_advanced_config.dart` | ReaderAdvancedConfig、九宫格动作与边距区域，保留编辑副本和纯映射 |
-| `domain/contracts/reader_config_repository.dart` | 加载、保存配置的窄接口 |
-| `data/repositories/preferences_reader_config_repository.dart` | 既有偏好读取、迁移与字段保存；同一实例串行执行读写，入队前复制配置 |
-| `providers/reader/reader_config_provider.dart` | 保留 readerAdvConfigProvider 名称，管理一次共享加载、即时发布与保存入口 |
+| `domain/contracts/reader_settings_repository.dart` | 普通阅读偏好访问与高级配置 loadAdvanced/saveAdvanced |
+| `data/repositories/app_reader_settings_repository.dart` | 翻页使用共享服务；高级字段读取、迁移与保存沿用原格式，同一实例串行读写，入队前复制配置 |
+| `providers/reader/reader_settings_provider.dart` | 统一仓储装配；保留 readerAdvConfigProvider 名称，管理一次高级加载、即时发布与保存入口 |
 
 Provider 的 ensureLoaded() 合并并发加载；读取完成时保留已经发布的新操作，作用域
 销毁或重建后不向旧状态回写。commit() 返回可等待的保存结果，update() 供页面即时
@@ -242,7 +243,7 @@ Provider 的 ensureLoaded() 合并并发加载；读取完成时保留已经发�
 回调的面板交给父层提交，移除回调之后再次 apply 的重复状态推送。模型不保留 load()
 或 save() 转发方法，旧 data.part 文件移除；绘制组件直接导入模型或共享 Provider。
 
-现有偏好协议、读取约束及一次性迁移全部保留，原读取与保存表达式逐项核对。
+高级偏好协议、读取约束及其一次性迁移保留，翻页副本的读写和转换单独移除。
 正文基础字号、背景、正文自定义字体与简繁转换继续使用各自既有入口，本轮只收口
 ReaderAdvancedConfig 所属偏好；没有改动 Rust、FFI、数据库或页面布局。
 

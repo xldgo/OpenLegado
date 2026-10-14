@@ -5,7 +5,7 @@
 // 预下载/替换净化默认/媒体按钮 ×3/自动清除过期/加书架提示/变种更新/漫画界面/
 // Web 端口/缓存管理/线程数/文本菜单/记录日志 ×3）。
 // 显示发现/显示订阅/默认首页经 MainPrefsNotifier 接通首页底栏；
-// Web 端口经 BookApi.setServerPort 接通；记录日志经 CrashLogService 接通；
+// Web 端口经 BookApi.setServerPort 接通；尚未接线的开关只读展示并标记待实现；
 // Android 专属项持久化并以灰字"仅 Android 生效"标注；
 // customHosts/mcpPort 已于 Task #74 接线（契约 §2.20.3/§2.22.5，
 // 回读经 BookApi.getConfig 读 Rust 持久化 config:customHosts/config:mcpPort）；
@@ -32,6 +32,7 @@ import '../bridge/ffi.dart';
 import '../l10n/app_localization.dart';
 import '../providers/app_locale_notifier.dart';
 import '../providers/welcome_settings_provider.dart';
+import '../providers/general_settings_provider.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/source_check/check_source_notifier.dart';
@@ -67,7 +68,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   String _localPassword = '';
   String _userAgent = '';
   bool _webServiceWakeLock = false;
-  String _defaultBookTreeUri = '';
+  String get _defaultBookTreeUri =>
+      ref.read(generalSettingsRepositoryProvider).current.defaultBookTreeUri;
   int _sourceEditMaxLine = 99;
   bool _antiAlias = false;
   int _bitmapCacheSize = 50;
@@ -78,11 +80,13 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   bool _readAloudByMediaButton = false;
   bool _ignoreAudioFocus = false;
   bool _autoClearExpired = true;
-  bool _showAddToShelfAlert = true;
+  bool get _showAddToShelfAlert =>
+      ref.read(generalSettingsRepositoryProvider).current.showAddToShelfAlert;
   bool _autoUpdateVariant = true;
   bool _showMangaUi = true;
   String _jsSourceApiToken = '';
-  int _webPort = 1122;
+  int get _webPort =>
+      ref.read(generalSettingsRepositoryProvider).current.webPort;
   int _threadCount = 16;
   bool _processText = true;
   bool _recordLog = false;
@@ -103,6 +107,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
   /// Android 专属项统一灰字标注（与阅读设置面板刘海项先例一致）
   static const _androidOnly = '仅 Android 生效';
+  static String _pendingDescription(String description) => '$description\n待实现';
 
   @override
   void initState() {
@@ -113,6 +118,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   /// 加载原版对齐新增项（键名对齐 PreferKey）
   Future<void> _loadOtherSettings() async {
     final s = _settingsService;
+    try {
+      await ref.read(generalSettingsRepositoryProvider).load();
+    } catch (error) {
+      _toast('应用设置读取失败，请重试');
+    }
     _autoRefresh = await s.getBoolPref(
       PrefKeys.autoRefreshBook,
       defaultValue: false,
@@ -127,7 +137,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       PrefKeys.webServiceWakeLock,
       defaultValue: false,
     );
-    _defaultBookTreeUri = await s.getStringPref(PrefKeys.defaultBookTreeUri);
     _sourceEditMaxLine = await s.getIntPref(
       PrefKeys.sourceEditMaxLine,
       defaultValue: 99,
@@ -165,10 +174,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       PrefKeys.autoClearExpired,
       defaultValue: true,
     );
-    _showAddToShelfAlert = await s.getBoolPref(
-      PrefKeys.showAddToShelfAlert,
-      defaultValue: true,
-    );
     _autoUpdateVariant = await s.getBoolPref(
       PrefKeys.autoUpdateVariant,
       defaultValue: true,
@@ -177,13 +182,12 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       PrefKeys.showMangaUi,
       defaultValue: true,
     );
-    _webPort = await s.getIntPref(PrefKeys.webPort, defaultValue: 1122);
     _threadCount = await s.getIntPref(PrefKeys.threadCount, defaultValue: 16);
     _processText = await s.getBoolPref(
       PrefKeys.processText,
       defaultValue: true,
     );
-    // 日志开关经 CrashLogService（已接通日志记录行为）
+    // 日志开关保留原值展示，记录路径尚未接入这些开关。
     _recordLog = await CrashLogService.instance.getRecordLog();
     _recordHttpLog = await CrashLogService.instance.getRecordHttpLog();
     _recordHeapDump = await CrashLogService.instance.getRecordHeapDump();
@@ -216,6 +220,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   Widget build(BuildContext context) {
     ref.watch(appLocaleProvider);
     ref.watch(welcomeSettingsProvider);
+    ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
 
@@ -245,22 +250,18 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
               children: [
                 SettingSwitchRow(
                   title: context.l10n.advancedAutoRefresh,
-                  subtitle: context.l10n.advancedAutoRefreshDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedAutoRefreshDescription,
+                  ),
                   value: _autoRefresh,
-                  onChanged: (v) {
-                    setState(() => _autoRefresh = v);
-                    _settingsService.setBoolPref(PrefKeys.autoRefreshBook, v);
-                  },
+                  onChanged: null,
                 ),
                 if (_autoRefresh)
                   SettingSwitchRow(
                     title: '仅更新已读完',
-                    subtitle: '自动刷新时，只更新已读完的书籍',
+                    subtitle: _pendingDescription('自动刷新时，只更新已读完的书籍'),
                     value: _onlyUpdateRead,
-                    onChanged: (v) {
-                      setState(() => _onlyUpdateRead = v);
-                      _settingsService.setBoolPref(PrefKeys.onlyUpdateRead, v);
-                    },
+                    onChanged: null,
                   ),
                 SettingSwitchRow(
                   title: context.l10n.advancedRecentReading,
@@ -303,16 +304,22 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
               children: [
                 SettingTile(
                   title: context.l10n.advancedLocalPassword,
-                  subtitle: context.l10n.advancedLocalPasswordDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedLocalPasswordDescription,
+                  ),
                   value: _localPassword.isEmpty ? '未设置' : '已设置',
-                  onTap: _showLocalPasswordDialog,
+                  onTap: null,
+                  enabled: false,
                 ),
                 SettingTile(
                   title: context.l10n.advancedUserAgent,
-                  subtitle: _userAgent.isEmpty
-                      ? context.l10n.readerDefault
-                      : _userAgent,
-                  onTap: _showUserAgentDialog,
+                  subtitle: _pendingDescription(
+                    _userAgent.isEmpty
+                        ? context.l10n.readerDefault
+                        : _userAgent,
+                  ),
+                  onTap: null,
+                  enabled: false,
                 ),
                 SettingTile(
                   title: '自定义Hosts',
@@ -323,15 +330,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: 'Web 服务唤醒锁',
-                  subtitle: _androidOnly,
+                  subtitle: _pendingDescription(_androidOnly),
                   value: _webServiceWakeLock,
-                  onChanged: (v) {
-                    setState(() => _webServiceWakeLock = v);
-                    _settingsService.setBoolPref(
-                      PrefKeys.webServiceWakeLock,
-                      v,
-                    );
-                  },
+                  onChanged: null,
                 ),
                 SettingTile(
                   title: context.l10n.advancedBookSaveLocation,
@@ -343,14 +344,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 SettingTile(
                   title: context.l10n.advancedSourceEditorMaxLines,
                   value: '$_sourceEditMaxLine',
-                  onTap: () => _editIntPref(
-                    title: context.l10n.advancedSourceEditorMaxLines,
-                    key: PrefKeys.sourceEditMaxLine,
-                    current: _sourceEditMaxLine,
-                    min: 10,
-                    max: 99999,
-                    apply: (v) => setState(() => _sourceEditMaxLine = v),
-                  ),
+                  onTap: null,
+                  enabled: false,
+                  subtitle: '待实现',
                 ),
                 SettingTile(
                   title: context.l10n.advancedCheckSourceSettings,
@@ -359,128 +355,91 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedAntiAlias,
-                  subtitle: context.l10n.advancedAntiAliasDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedAntiAliasDescription,
+                  ),
                   value: _antiAlias,
-                  onChanged: (v) {
-                    setState(() => _antiAlias = v);
-                    _settingsService.setBoolPref(PrefKeys.antiAlias, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingTile(
                   title: context.l10n.advancedBitmapCache,
-                  subtitle: '当前最大缓存 $_bitmapCacheSize MB',
-                  onTap: () => _editIntPref(
-                    title: '图片绘制缓存（MB）',
-                    key: PrefKeys.bitmapCacheSize,
-                    current: _bitmapCacheSize,
-                    min: 1,
-                    max: 1024,
-                    apply: (v) => setState(() => _bitmapCacheSize = v),
-                  ),
+                  subtitle: _pendingDescription('当前最大缓存 $_bitmapCacheSize MB'),
+                  onTap: null,
+                  enabled: false,
                 ),
                 SettingTile(
                   title: context.l10n.advancedMangaRetention,
-                  subtitle: '保留已读章节数量 $_imageRetainNum',
-                  onTap: () => _editIntPref(
-                    title: context.l10n.advancedMangaRetention,
-                    key: PrefKeys.imageRetainNum,
-                    current: _imageRetainNum,
-                    min: 0,
-                    max: 999,
-                    apply: (v) => setState(() => _imageRetainNum = v),
-                  ),
+                  subtitle: _pendingDescription('保留已读章节数量 $_imageRetainNum'),
+                  onTap: null,
+                  enabled: false,
                 ),
                 SettingTile(
                   title: context.l10n.advancedPreDownload,
-                  subtitle: '预先下载 $_preDownloadNum 章正文',
-                  onTap: () => _editIntPref(
-                    title: '预下载章节数量',
-                    key: PrefKeys.preDownloadNum,
-                    current: _preDownloadNum,
-                    min: 0,
-                    max: 9999,
-                    apply: (v) => setState(() => _preDownloadNum = v),
-                  ),
+                  subtitle: _pendingDescription('预先下载 $_preDownloadNum 章正文'),
+                  onTap: null,
+                  enabled: false,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedReplaceByDefault,
-                  subtitle: context.l10n.advancedReplaceByDefaultDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedReplaceByDefaultDescription,
+                  ),
                   value: _replaceEnableDefault,
-                  onChanged: (v) {
-                    setState(() => _replaceEnableDefault = v);
-                    _settingsService.setBoolPref(
-                      PrefKeys.replaceEnableDefault,
-                      v,
-                    );
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedHeadsetAlways,
-                  subtitle: context.l10n.advancedHeadsetAlwaysDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedHeadsetAlwaysDescription,
+                  ),
                   value: _mediaButtonOnExit,
-                  onChanged: (v) {
-                    setState(() => _mediaButtonOnExit = v);
-                    _settingsService.setBoolPref(PrefKeys.mediaButtonOnExit, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedHeadsetReadAloud,
-                  subtitle: context.l10n.advancedHeadsetReadAloudDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedHeadsetReadAloudDescription,
+                  ),
                   value: _readAloudByMediaButton,
-                  onChanged: (v) {
-                    setState(() => _readAloudByMediaButton = v);
-                    _settingsService.setBoolPref(
-                      PrefKeys.readAloudByMediaButton,
-                      v,
-                    );
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedIgnoreAudioFocus,
-                  subtitle: context.l10n.advancedIgnoreAudioFocusDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedIgnoreAudioFocusDescription,
+                  ),
                   value: _ignoreAudioFocus,
-                  onChanged: (v) {
-                    setState(() => _ignoreAudioFocus = v);
-                    _settingsService.setBoolPref(PrefKeys.ignoreAudioFocus, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedClearExpiredSearch,
-                  subtitle: context.l10n.advancedClearExpiredSearchDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedClearExpiredSearchDescription,
+                  ),
                   value: _autoClearExpired,
-                  onChanged: (v) {
-                    setState(() => _autoClearExpired = v);
-                    _settingsService.setBoolPref(PrefKeys.autoClearExpired, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedAddToShelfPrompt,
                   subtitle: context.l10n.advancedAddToShelfPromptDescription,
                   value: _showAddToShelfAlert,
-                  onChanged: (v) {
-                    setState(() => _showAddToShelfAlert = v);
-                    _settingsService.setBoolPref(
-                      PrefKeys.showAddToShelfAlert,
-                      v,
-                    );
-                  },
+                  onChanged: (v) => _saveMainPreferences(
+                    () => ref
+                        .read(generalSettingsRepositoryProvider)
+                        .update(showAddToShelfAlert: v),
+                  ),
                 ),
                 SettingSwitchRow(
                   title: '自动更新',
-                  subtitle: '每天自动检查软件是否更新',
+                  subtitle: _pendingDescription('每天自动检查软件是否更新'),
                   value: _autoUpdateVariant,
-                  onChanged: (v) {
-                    setState(() => _autoUpdateVariant = v);
-                    _settingsService.setBoolPref(PrefKeys.autoUpdateVariant, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedMangaViewer,
                   value: _showMangaUi,
-                  onChanged: (v) {
-                    setState(() => _showMangaUi = v);
-                    _settingsService.setBoolPref(PrefKeys.showMangaUi, v);
-                  },
+                  onChanged: null,
+                  subtitle: '待实现',
                 ),
                 SettingTile(
                   title: '视频设置',
@@ -522,50 +481,37 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 SettingTile(
                   title: '更新和搜索线程数（太多会卡顿）',
                   value: '$_threadCount',
-                  onTap: () => _editIntPref(
-                    title: '线程数量',
-                    key: PrefKeys.threadCount,
-                    current: _threadCount,
-                    min: 1,
-                    max: 999,
-                    apply: (v) => setState(() => _threadCount = v),
-                  ),
+                  onTap: null,
+                  enabled: false,
+                  subtitle: '待实现',
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedSearchTextActions,
-                  subtitle: '长按文字在操作菜单中显示阅读·搜索',
+                  subtitle: _pendingDescription('长按文字在操作菜单中显示阅读·搜索'),
                   value: _processText,
-                  onChanged: (v) {
-                    setState(() => _processText = v);
-                    _settingsService.setBoolPref(PrefKeys.processText, v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedRecordLog,
-                  subtitle: context.l10n.advancedRecordDebugLog,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedRecordDebugLog,
+                  ),
                   value: _recordLog,
-                  onChanged: (v) {
-                    setState(() => _recordLog = v);
-                    CrashLogService.instance.setRecordLog(v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: '记录 HTTP 请求',
-                  subtitle: '在内存中保留最近 50 条已脱敏的请求与响应记录',
+                  subtitle: _pendingDescription('在内存中保留最近 50 条已脱敏的请求与响应记录'),
                   value: _recordHttpLog,
-                  onChanged: (v) {
-                    setState(() => _recordHttpLog = v);
-                    CrashLogService.instance.setRecordHttpLog(v);
-                  },
+                  onChanged: null,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedHeapDump,
-                  subtitle: context.l10n.advancedHeapDumpDescription,
+                  subtitle: _pendingDescription(
+                    context.l10n.advancedHeapDumpDescription,
+                  ),
                   value: _recordHeapDump,
-                  onChanged: (v) {
-                    setState(() => _recordHeapDump = v);
-                    CrashLogService.instance.setRecordHeapDump(v);
-                  },
+                  onChanged: null,
                 ),
               ],
             ),
@@ -648,42 +594,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     }
   }
 
-  /// 本地密码编辑（对齐原版 localPassword EditTextPreference）
-  Future<void> _showLocalPasswordDialog() async {
-    final value = await _showTextInputDialog(
-      title: '本地密码',
-      hint: '用于 Web 服务访问鉴权，留空清除',
-      current: _localPassword,
-      obscure: true,
-    );
-    // 异步对话框返回后先检查 mounted，再 setState/持久化
-    if (value == null || !mounted) return;
-    setState(() => _localPassword = value);
-    if (value.isEmpty) {
-      await _settingsService.removePref(PrefKeys.localPassword);
-    } else {
-      await _settingsService.setStringPref(PrefKeys.localPassword, value);
-    }
-  }
-
-  /// UserAgent 编辑（对齐原版 userAgent 对话框，留空恢复默认）
-  Future<void> _showUserAgentDialog() async {
-    final value = await _showTextInputDialog(
-      title: '浏览器标识（UserAgent）',
-      hint: '留空使用默认 UserAgent',
-      current: _userAgent,
-      maxLines: 3,
-    );
-    // 异步对话框返回后先检查 mounted，再 setState/持久化
-    if (value == null || !mounted) return;
-    setState(() => _userAgent = value);
-    if (value.isEmpty) {
-      await _settingsService.removePref(PrefKeys.userAgent);
-    } else {
-      await _settingsService.setStringPref(PrefKeys.userAgent, value);
-    }
-  }
-
   /// 默认书籍保存位置（对齐原版 defaultBookTreeUri 目录选择）
   Future<void> _showBookTreeUriDialog() async {
     final action = await showDialog<String>(
@@ -714,11 +624,17 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     if (action == 'select') {
       final dir = await FilePicker.getDirectoryPath(dialogTitle: '选择默认书籍保存位置');
       if (dir == null || !mounted) return;
-      setState(() => _defaultBookTreeUri = dir);
-      await _settingsService.setStringPref(PrefKeys.defaultBookTreeUri, dir);
+      await _saveMainPreferences(
+        () => ref
+            .read(generalSettingsRepositoryProvider)
+            .update(defaultBookTreeUri: dir),
+      );
     } else if (action == 'clear') {
-      setState(() => _defaultBookTreeUri = '');
-      await _settingsService.removePref(PrefKeys.defaultBookTreeUri);
+      await _saveMainPreferences(
+        () => ref
+            .read(generalSettingsRepositoryProvider)
+            .update(defaultBookTreeUri: ''),
+      );
     }
   }
 
@@ -733,8 +649,13 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     // 异步对话框返回后先检查 mounted，再 setState/持久化与引擎同步
     if (value == null || value == _webPort || !mounted) return;
-    setState(() => _webPort = value);
-    await _settingsService.setIntPref(PrefKeys.webPort, value);
+    try {
+      await ref.read(generalSettingsRepositoryProvider).update(webPort: value);
+    } catch (error) {
+      _toast('端口保存失败，请重试');
+      return;
+    }
+    if (!mounted) return;
     // 行为接通：同步到 Rust 引擎配置（对齐原版 webPort 变更重启 WebService）
     try {
       await ref.read(bookApiProvider).setServerPort(value);
@@ -1034,27 +955,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     _toast('配置已保存，下次校验时生效');
   }
 
-  /// 通用整数偏好编辑（输入校验 + 持久化 + 回写状态）
-  Future<void> _editIntPref({
-    required String title,
-    required String key,
-    required int current,
-    required int min,
-    required int max,
-    required ValueChanged<int> apply,
-  }) async {
-    final value = await _showNumberInputDialog(
-      title: title,
-      current: current,
-      min: min,
-      max: max,
-    );
-    // 异步对话框返回后先检查 mounted，apply 内部会调用 setState
-    if (value == null || !mounted) return;
-    apply(value);
-    await _settingsService.setIntPref(key, value);
-  }
-
   /// 通用数字输入对话框（返回 null 表示取消）
   Future<int?> _showNumberInputDialog({
     required String title,
@@ -1087,40 +987,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
               }
               Navigator.pop(ctx, parsed);
             },
-            child: Text(context.l10n.confirm),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 通用文本输入对话框（返回 null 表示取消，返回空串表示清除）
-  Future<String?> _showTextInputDialog({
-    required String title,
-    required String hint,
-    required String current,
-    bool obscure = false,
-    int maxLines = 1,
-  }) async {
-    final controller = TextEditingController(text: current);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          obscureText: obscure,
-          maxLines: obscure ? 1 : maxLines,
-          decoration: InputDecoration(hintText: hint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
             child: Text(context.l10n.confirm),
           ),
         ],

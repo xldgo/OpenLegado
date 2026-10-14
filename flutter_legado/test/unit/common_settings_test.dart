@@ -50,7 +50,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('五域共二十四项默认值保持，读取和空更新不补写存储', () async {
+  test('五域共二十五项默认值保持，读取和空更新不补写存储', () async {
     expect(await shelf.load(), const BookshelfSettings());
     expect(await records.load(), const ReadRecordSettings());
     expect(await locale.load(), const LocaleSettings());
@@ -62,6 +62,7 @@ void main() {
       'bookshelf_group_mode',
       'bookshelf_tab_position',
       'openBookInfoByClickTitle',
+      'delete_book_alert',
       'enableReadRecord',
       'readRecordSort',
       'readRecordDisplayMode',
@@ -82,7 +83,7 @@ void main() {
       'welcomeShowIconDark',
       'defaultToRead',
     });
-    expect(storage.reads, hasLength(24));
+    expect(storage.reads, hasLength(25));
     await Future.wait([
       shelf.update(),
       records.update(),

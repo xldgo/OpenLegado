@@ -1,30 +1,125 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../domain/contracts/reader_config_repository.dart';
+import '../../domain/contracts/reader_settings_repository.dart';
+import '../../domain/models/reader_settings.dart';
+import '../../domain/models/page_turn_mode.dart';
+import '../../domain/models/app_settings_snapshot.dart';
+import '../services/app_settings_service.dart';
 import '../../models/reader_advanced_config.dart';
-import '../../models/flip_mode.dart';
 import '../../services/reader_settings_migration.dart';
 import '../../services/settings_write_queue.dart';
 
-/// 沿用原偏好协议，同一实例串行执行迁移、读取与完整配置保存。
-class PreferencesReaderConfigRepository implements ReaderConfigRepository {
-  PreferencesReaderConfigRepository({
+/// 基础阅读偏好使用共享服务，高级配置沿用原格式和串行读改写。— Codex + UI
+class AppReaderSettingsRepository implements ReaderSettingsRepository {
+  AppReaderSettingsRepository(
+    this._service, {
     Future<SharedPreferences> Function()? preferences,
   }) : _preferences = preferences ?? SharedPreferences.getInstance;
 
   static const _prefix = 'reader_adv_';
+  final AppSettingsService _service;
+  bool _loaded = false;
+  Future<ReaderSettings>? _loading;
+  static const _mode = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_flip_mode_name',
+  );
+  static const _legacyIndex = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_flip_mode',
+  );
+  static const _fontSize = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_font_size',
+  );
+  static const _lineHeight = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_line_height',
+  );
+  static const _fontFamily = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_font_family',
+  );
+  static const _titleFont = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_title_font_family',
+  );
+  static const _addresses = {
+    _mode,
+    _legacyIndex,
+    _fontSize,
+    _lineHeight,
+    _fontFamily,
+    _titleFont,
+  };
   final Future<SharedPreferences> Function() _preferences;
   final SettingsWriteQueue _operations = SettingsWriteQueue();
 
+  ReaderSettings _decode(AppSettingsSnapshot snapshot) => ReaderSettings(
+    pageTurnMode: PageTurnMode.fromStorage(
+      snapshot[_mode] is String ? snapshot[_mode] as String : null,
+      snapshot[_legacyIndex] is int ? snapshot[_legacyIndex] as int : null,
+    ),
+    fontSize: snapshot[_fontSize] is double
+        ? snapshot[_fontSize] as double
+        : 20.0,
+    lineHeight: snapshot[_lineHeight] is double
+        ? snapshot[_lineHeight] as double
+        : 1.7,
+    fontFamily: snapshot[_fontFamily] is String
+        ? snapshot[_fontFamily] as String
+        : null,
+    titleFontFamily: snapshot[_titleFont] is String
+        ? snapshot[_titleFont] as String
+        : '',
+  );
+
   @override
-  Future<ReaderAdvancedConfig> load() async {
+  ReaderSettings get current => _decode(_service.current);
+  @override
+  Stream<ReaderSettings> watch() => _service.watch().map(_decode).distinct();
+  @override
+  Future<ReaderSettings> load() {
+    if (_loaded) return Future.value(current);
+    return _loading ??= _service
+        .load(_addresses)
+        .then((_) {
+          _loaded = true;
+          return current;
+        })
+        .whenComplete(() => _loading = null);
+  }
+
+  @override
+  Future<void> reload() async {
+    await _service.reload(_addresses);
+    _loaded = true;
+  }
+
+  @override
+  Future<void> update({
+    PageTurnMode? pageTurnMode,
+    double? fontSize,
+    double? lineHeight,
+    String? fontFamily,
+    String? titleFontFamily,
+  }) => _service.update({
+    _mode: ?pageTurnMode?.name,
+    _fontSize: ?fontSize,
+    _lineHeight: ?lineHeight,
+    if (fontFamily != null) _fontFamily: fontFamily.isEmpty ? null : fontFamily,
+    _titleFont: ?titleFontFamily,
+  });
+
+  @override
+  Future<ReaderAdvancedConfig> loadAdvanced() async {
     late ReaderAdvancedConfig result;
     await _operations.run(() async => result = await _load());
     return result;
   }
 
   @override
-  Future<void> save(ReaderAdvancedConfig config) {
+  Future<void> saveAdvanced(ReaderAdvancedConfig config) {
     final snapshot = config.copy();
     return _operations.run(() => _save(snapshot));
   }
@@ -156,7 +251,6 @@ class PreferencesReaderConfigRepository implements ReaderConfigRepository {
       textBold: (prefs.getInt('textBold') ?? 0).clamp(0, 2),
       // [C3 斜体 | Qoder UI] 斜体（参考版行内面板开关；双基准补齐）
       italic: prefs.getBool('${_prefix}italic') ?? false,
-      customTextColor: prefs.getInt('${_prefix}custom_text_color') ?? 0,
       pageMarginTop: layoutDouble('margin_top', 24).clamp(0.0, 400.0),
       pageMarginBottom: layoutDouble('margin_bottom', 24).clamp(0.0, 400.0),
       pageMarginLeft: layoutDouble('margin_left', 20).clamp(0.0, 100.0),
@@ -205,15 +299,11 @@ class PreferencesReaderConfigRepository implements ReaderConfigRepository {
         0,
         100,
       ),
-      titleFont: prefs.getString('titleFont') ?? '',
       // [C2 R4] 状态行四开关 load 缺省对齐构造器默认（关闭），参考该态无此信息行
       showBattery: prefs.getBool('${_prefix}show_battery') ?? false,
       showTime: prefs.getBool('${_prefix}show_time') ?? false,
       showProgress: prefs.getBool('${_prefix}show_progress') ?? false,
       showChapterName: prefs.getBool('${_prefix}show_chapter_name') ?? false,
-      flipMode: FlipMode.fromIndex(
-        prefs.getInt('flip_mode') ?? FlipMode.slide.index,
-      ),
       // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项读取（键名=原版键）— Qoder
       screenOrientation: (prefs.getInt('screenOrientation') ?? 0).clamp(0, 5),
       keepLight: prefs.getInt('keep_light') ?? 0,
@@ -371,14 +461,12 @@ class PreferencesReaderConfigRepository implements ReaderConfigRepository {
     await _write(prefs.setInt('titleSize', config.titleSize));
     await _write(prefs.setInt('titleTopSpacing', config.titleTopSpacing));
     await _write(prefs.setInt('titleBottomSpacing', config.titleBottomSpacing));
-    await _write(prefs.setString('titleFont', config.titleFont));
     await _write(prefs.setBool('${_prefix}show_battery', config.showBattery));
     await _write(prefs.setBool('${_prefix}show_time', config.showTime));
     await _write(prefs.setBool('${_prefix}show_progress', config.showProgress));
     await _write(
       prefs.setBool('${_prefix}show_chapter_name', config.showChapterName),
     );
-    await _write(prefs.setInt('flip_mode', config.flipMode.index));
     // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项持久化（键名=原版键）— Qoder
     await _write(prefs.setInt('screenOrientation', config.screenOrientation));
     await _write(prefs.setInt('keep_light', config.keepLight));
@@ -431,9 +519,6 @@ class PreferencesReaderConfigRepository implements ReaderConfigRepository {
     // [UI-fix v2.0.4 | 2026-08-08] 界面面板 + 第②批 MoreConfig 项持久化
     // （字重及第②批键名=原版键）— Qoder
     await _write(prefs.setInt('textBold', config.textBold));
-    await _write(
-      prefs.setInt('${_prefix}custom_text_color', config.customTextColor),
-    );
     await _write(prefs.setBool('volumeKeyPage', config.volumeKeyPage));
     await _write(
       prefs.setBool('volumeKeyPageOnPlay', config.volumeKeyPageOnPlay),

@@ -5,20 +5,20 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:material_ui/material_ui.dart'
     show Brightness, ThemeMode, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
-import '../../constants/pref_keys.dart';
+import '../../domain/models/reader_theme_mode.dart';
+import '../../domain/models/reader_style.dart';
 import '../../models/models.dart';
 import '../../features/read_records/read_record_repository_provider.dart';
 import '../read_record_settings_provider.dart';
-import '../../services/settings_service.dart';
 import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import '../providers.dart';
 import '../theme/theme_notifier.dart';
 import '../ui_settings/ui_settings_notifier.dart';
 import 'reader_state.dart';
+import 'reader_settings_provider.dart';
 
 export 'reader_state.dart';
 
@@ -30,7 +30,6 @@ export 'reader_state.dart';
 /// - 管理阅读设置（字号/行距/背景/翻页模式）并持久化
 /// - 禁止包含业务计算（文本解析/净化/替换由 Rust 完成）
 class ReaderNotifier extends Notifier<ReaderState> {
-  final SettingsService _settings = SettingsService();
   final ReaderPositionStore _positionStore = ReaderPositionStore();
   ReaderSourceAnchor? _sourceAnchor;
   String? _anchorBookUrl;
@@ -122,8 +121,33 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   @override
   ReaderState build() {
+    final repository = ref.watch(readerSettingsRepositoryProvider);
+    final subscription = repository.watch().listen((settings) {
+      if (!ref.mounted) return;
+      // 导入和恢复后的字体参数需要同步注入；初次配色投影不重复刷新。
+      final typographyChanged =
+          state.fontSize != settings.fontSize ||
+          state.lineHeight != settings.lineHeight;
+      _applyReadingSettings();
+      if (typographyChanged) _pushReadBookConfig();
+    });
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    final styles = ref.watch(readerStyleRepositoryProvider);
+    final styleSubscription = styles.watch().listen((_) {
+      if (ref.mounted) _applyReadingSettings();
+    });
+    ref.onDispose(() => unawaited(styleSubscription.cancel()));
+    final session = ref.watch(readerThemeSessionProvider);
+    final sessionSubscription = session.watch().listen((_) {
+      if (ref.mounted && _applyReadingSettings()) _pushReadBookConfig();
+    });
+    ref.onDispose(() => unawaited(sessionSubscription.cancel()));
     // 延迟到 build() 返回后执行（state 初始化完成后才能访问）
-    Future.microtask(_loadSettings);
+    unawaited(
+      Future.microtask(_loadSettings).catchError((Object error) {
+        debugPrint('阅读设置读取失败，可重新加载：$error');
+      }),
+    );
     // 主题与纯黑开关即时影响默认背景和夜间预设，不覆盖自定义配色。
     ref.listen(themeNotifierProvider, (previous, next) {
       if (previous?.themeMode != next.themeMode) {
@@ -138,80 +162,99 @@ class ReaderNotifier extends Notifier<ReaderState> {
     ) {
       unawaited(reapplyBackgroundForCurrentTheme(themeAmoled: next));
     });
-    return const ReaderState();
+    final settings = repository.current;
+    return ReaderState(
+      pageTurnMode: settings.pageTurnMode,
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
+    );
   }
 
-  /// 从 SharedPreferences 加载持久化的阅读设置
+  /// 从同源仓储加载持久化设置，再投影当前会话配色。
   Future<void> _loadSettings() async {
     if (!ref.mounted) return;
-    final fontSize = await _settings.getFontSize();
-    final lineHeight = await _settings.getLineHeight();
-    // [M1 深色态默认修复] 可空读取：null = 从未设置（与显式选 0 区分）
-    final bgIndex = await _settings.getBgColorIndexOrNull();
-    final modeName = await _settings.getFlipModeName();
-    final legacyIndex = await _settings.getFlipMode();
-
-    // [UI-fix v2.0.4 | 2026-08-08] 恢复自定义背景色（界面 Sheet 长按
-    // 背景圆圈自定义配色，对标原版 ReadBookConfig 自定义背景）— Qoder
-    final prefs = await SharedPreferences.getInstance();
-    Color? customBgColor;
-    if (prefs.getBool('reader_bg_use_custom') ?? false) {
-      final custom = prefs.getInt('reader_custom_bg_color');
-      if (custom != null) customBgColor = Color(custom);
-    }
-
-    final backgroundColor = resolveReaderBackground(
-      themeBrightness: await _effectiveThemeBrightness(),
-      themeAmoled: prefs.getBool(PrefKeys.themeAmoled) ?? false,
-      storedBgIndex: bgIndex,
-      customBgColor: customBgColor,
-    );
+    await ref.read(readerSettingsRepositoryProvider).load();
+    await ref.read(readerStyleRepositoryProvider).load();
+    await _effectiveThemeBrightness();
     if (!ref.mounted) return;
-
-    state = state.copyWith(
-      fontSize: fontSize,
-      lineHeight: lineHeight,
-      backgroundColor: backgroundColor,
-      pageTurnMode: PageTurnMode.fromStorage(modeName, legacyIndex),
-    );
+    _applyReadingSettings();
   }
 
-  /// 重新应用主题明暗与纯黑偏好，保留自定义背景及浅色预设。
-  /// 监听传入内存中的新值，避免读取尚未完成持久化的旧值。
+  /// 主题变化只重新选择日夜配色，不替换当前模板或修改保存颜色。
   Future<void> reapplyBackgroundForCurrentTheme({
     ThemeMode? themeMode,
     bool? themeAmoled,
   }) async {
-    late SharedPreferences prefs;
-    try {
-      prefs = await SharedPreferences.getInstance();
-    } catch (e) {
-      debugPrint('ReaderNotifier.reapplyBackgroundForCurrentTheme 异常: $e');
-      return;
-    }
-    if (prefs.getBool('reader_bg_use_custom') ?? false) return;
-    final storedIndex = await _settings.getBgColorIndexOrNull();
-    final hasExplicitIndex =
-        storedIndex != null &&
-        storedIndex >= 0 &&
-        storedIndex < ReaderBackground.presets.length;
-    if (hasExplicitIndex &&
-        ReaderBackground.presets[storedIndex] != ReaderBackground.dark) {
-      return;
-    }
     final brightness = await _effectiveThemeBrightness(mode: themeMode);
     if (!ref.mounted) return;
-    final resolved = resolveReaderBackground(
-      themeBrightness: brightness,
-      themeAmoled: themeAmoled ?? ref.read(uiSettingsProvider).themeAmoled,
-      storedBgIndex: storedIndex,
-      customBgColor: null,
+    _applyReadingSettings(appBrightness: brightness, themeAmoled: themeAmoled);
+    _pushReadBookConfig();
+  }
+
+  /// 投影同源设置；仅字号、行距及翻页选择改变对应布局参数。
+  bool _applyReadingSettings({Brightness? appBrightness, bool? themeAmoled}) {
+    final settings = ref.read(readerSettingsRepositoryProvider).current;
+    final night =
+        ref.read(readerThemeSessionProvider).isNightOverride ??
+        (appBrightness ??
+                _themeBrightness(ref.read(themeNotifierProvider).themeMode)) ==
+            Brightness.dark;
+    final colors = ref
+        .read(readerStyleRepositoryProvider)
+        .current
+        .selected
+        .colors(night);
+    final resolved = colors.resolve(
+      isNight: night,
+      amoled: themeAmoled ?? ref.read(uiSettingsProvider).themeAmoled,
     );
-    if (!ref.mounted) return;
-    if (resolved != state.backgroundColor) {
-      state = state.copyWith(backgroundColor: resolved);
+    final next = state.copyWith(
+      pageTurnMode: settings.pageTurnMode,
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
+      backgroundColor: Color(resolved.background),
+      foregroundColor: Color(resolved.text),
+      readingBrightness: night ? Brightness.dark : Brightness.light,
+    );
+    if (next == state) return false;
+    state = next;
+    return true;
+  }
+
+  Future<void> _saveReadingSettings(Future<void> Function() update) async {
+    final saving = update();
+    _applyReadingSettings();
+    try {
+      await saving;
+    } finally {
+      if (ref.mounted) {
+        _applyReadingSettings();
+        _pushReadBookConfig();
+      }
     }
   }
+
+  Future<void> updateReaderThemeMode(ReaderThemeMode mode) async {
+    ref.read(readerThemeSessionProvider).setMode(mode);
+    _applyReadingSettings();
+    _pushReadBookConfig();
+  }
+
+  Future<void> selectReaderStyle(String id) => _saveReadingSettings(
+    () => ref.read(readerStyleRepositoryProvider).select(id),
+  );
+
+  Future<void> updateCustomTextColor(Color? color) => _saveReadingSettings(
+    () => ref
+        .read(readerStyleRepositoryProvider)
+        .updateColors(
+          isNight: state.isNightMode,
+          update: (colors) => ReaderColors(
+            background: colors.background,
+            text: color?.toARGB32(),
+          ),
+        ),
+  );
 
   /// [M1 深色态默认修复] 解析当前主题的有效亮度
   ///
@@ -430,48 +473,24 @@ class ReaderNotifier extends Notifier<ReaderState> {
   // ===== 阅读设置（更新并持久化） =====
 
   /// 更新字体大小
-  void updateFontSize(double size) {
-    final clamped = size.clamp(12.0, 32.0);
-    state = state.copyWith(fontSize: clamped);
-    _settings.setFontSize(clamped);
-    _pushReadBookConfig();
-  }
+  Future<void> updateFontSize(double size) => _saveReadingSettings(
+    () => ref
+        .read(readerSettingsRepositoryProvider)
+        .update(fontSize: size.clamp(12.0, 32.0)),
+  );
 
   /// 更新行高
   // [UI-fix v2.0.4 | 2026-08-08] 上限 2.5 → 3.0（界面 Sheet 行距连续
   // 滑条 1.0-3.0，对标原版 dsbLineSize 范围）— Qoder
-  void updateLineHeight(double height) {
-    final clamped = height.clamp(1.0, 3.0);
-    state = state.copyWith(lineHeight: clamped);
-    _settings.setLineHeight(clamped);
-    _pushReadBookConfig();
-  }
+  Future<void> updateLineHeight(double height) => _saveReadingSettings(
+    () => ref
+        .read(readerSettingsRepositoryProvider)
+        .update(lineHeight: height.clamp(1.0, 3.0)),
+  );
 
-  /// 更新背景色（预设）
-  void updateBackgroundColor(Color color) {
-    final index = ReaderBackground.presets.indexOf(color);
-    final backgroundColor = index < 0
-        ? color
-        : resolveReaderBackground(
-            themeBrightness: _themeBrightness(
-              ref.read(themeNotifierProvider).themeMode,
-            ),
-            themeAmoled: ref.read(uiSettingsProvider).themeAmoled,
-            storedBgIndex: index,
-          );
-    state = state.copyWith(backgroundColor: backgroundColor);
-    if (index >= 0) {
-      _settings.setBgColorIndex(index);
-      // [UI-fix v2.0.4 | 2026-08-08] 选中预设时清除自定义背景标志，
-      // 下次启动按预设恢复 — Qoder
-      unawaited(
-        SharedPreferences.getInstance().then(
-          (p) => p.setBool('reader_bg_use_custom', false),
-        ),
-      );
-      _pushReadBookConfig();
-    }
-  }
+  /// 颜色更新始终进入当前样式的当前日夜配色。
+  Future<void> updateBackgroundColor(Color color) =>
+      updateCustomBackgroundColor(color);
 
   /// 设置变更后通过注入接口刷新 JS 可见快照；Mock 保持空操作。
   void _pushReadBookConfig() {
@@ -485,21 +504,28 @@ class ReaderNotifier extends Notifier<ReaderState> {
     } catch (_) {}
   }
 
-  // [UI-fix v2.0.4 | 2026-08-08] 自定义背景色（界面 Sheet 长按背景圆圈
-  // 自定义配色）：即时应用并持久化，启动时经 _loadSettings 恢复 — Qoder
-  Future<void> updateCustomBackgroundColor(Color color) async {
-    state = state.copyWith(backgroundColor: color);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('reader_custom_bg_color', color.toARGB32());
-    await prefs.setBool('reader_bg_use_custom', true);
-  }
+  Future<void> updateCustomBackgroundColor(Color color) => _saveReadingSettings(
+    () => ref
+        .read(readerStyleRepositoryProvider)
+        .updateColors(
+          isNight: state.isNightMode,
+          update: (colors) =>
+              ReaderColors(background: color.toARGB32(), text: colors.text),
+        ),
+  );
 
   /// 更新翻页模式
-  void updatePageTurnMode(PageTurnMode mode) {
-    state = state.copyWith(pageTurnMode: mode);
-    // 同时写入 name（新版）和 index（旧版兼容）
-    _settings.setFlipModeName(mode.name);
-    _settings.setFlipMode(mode.index);
+  Future<void> updatePageTurnMode(PageTurnMode mode) async {
+    final repository = ref.read(readerSettingsRepositoryProvider);
+    final saving = repository.update(pageTurnMode: mode);
+    state = state.copyWith(pageTurnMode: repository.current.pageTurnMode);
+    try {
+      await saving;
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(pageTurnMode: repository.current.pageTurnMode);
+      }
+    }
   }
 
   /// 更新当前阅读位置（由 UI 层滚动/翻页时调用）

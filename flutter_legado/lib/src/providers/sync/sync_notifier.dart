@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import '../../models/book.dart';
 import '../../models/misc.dart';
 import '../../services/settings_service.dart';
 import '../providers.dart';
+import '../backup_settings_provider.dart';
 import 'sync_state.dart';
 
 export 'sync_state.dart';
@@ -22,7 +24,14 @@ class SyncNotifier extends Notifier<SyncState> {
   @override
   SyncState build() {
     // 原 SyncProvider 构造不自动加载，配置由页面 initState 触发 loadConfig()
-    return const SyncState();
+    final repository = ref.watch(backupSettingsRepositoryProvider);
+    final subscription = repository.watch().listen((settings) {
+      if (ref.mounted) {
+        state = state.copyWith(syncBookProgress: settings.syncBookProgress);
+      }
+    });
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    return SyncState(syncBookProgress: repository.current.syncBookProgress);
   }
 
   /// 远端子目录（保证以 '/' 结尾；Rust WebDavClient 拼接
@@ -74,13 +83,14 @@ class SyncNotifier extends Notifier<SyncState> {
 
   /// 加载已保存的 WebDAV 配置
   Future<void> loadConfig() async {
+    final backup = await ref.read(backupSettingsRepositoryProvider).load();
     state = state.copyWith(
       webDavUrl: await _settings.getWebDavUrl(),
       webDavUsername: await _settings.getWebDavUsername(),
       webDavPassword: await _settings.getWebDavPassword(),
       remoteDir: await _settings.getWebDavRemoteDir(),
       deviceName: await _settings.getWebDavDeviceName(),
-      syncBookProgress: await _settings.getSyncBookProgress(),
+      syncBookProgress: backup.syncBookProgress,
       syncBookProgressPlus: await _settings.getSyncBookProgressPlus(),
       autoSync: await _settings.getAutoSync(),
       lastSyncTime: await _settings.getLastSyncTime(),
@@ -95,8 +105,20 @@ class SyncNotifier extends Notifier<SyncState> {
 
   /// 设置「同步书籍进度」开关
   Future<void> setSyncBookProgress(bool enabled) async {
-    state = state.copyWith(syncBookProgress: enabled);
-    await _settings.setSyncBookProgress(enabled);
+    final repository = ref.read(backupSettingsRepositoryProvider);
+    final saving = repository.update(syncBookProgress: enabled);
+    state = state.copyWith(
+      syncBookProgress: repository.current.syncBookProgress,
+    );
+    try {
+      await saving;
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(
+          syncBookProgress: repository.current.syncBookProgress,
+        );
+      }
+    }
   }
 
   /// 设置「同步书籍进度增强」开关

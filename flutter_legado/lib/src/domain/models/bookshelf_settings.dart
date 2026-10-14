@@ -9,12 +9,14 @@ final class BookshelfSettings {
     this.groupMode = GroupMode.none,
     this.selectedGroupIndex = 0,
     this.openBookInfoByClickTitle = false,
+    this.deleteBookAlert = true,
   });
   final bool isGridView;
   final int gridColumns;
   final GroupMode groupMode;
   final int selectedGroupIndex;
   final bool openBookInfoByClickTitle;
+  final bool deleteBookAlert;
 
   BookshelfSettings copyWith({
     bool? isGridView,
@@ -22,6 +24,7 @@ final class BookshelfSettings {
     GroupMode? groupMode,
     int? selectedGroupIndex,
     bool? openBookInfoByClickTitle,
+    bool? deleteBookAlert,
   }) => BookshelfSettings(
     isGridView: isGridView ?? this.isGridView,
     gridColumns: gridColumns ?? this.gridColumns,
@@ -29,6 +32,7 @@ final class BookshelfSettings {
     selectedGroupIndex: selectedGroupIndex ?? this.selectedGroupIndex,
     openBookInfoByClickTitle:
         openBookInfoByClickTitle ?? this.openBookInfoByClickTitle,
+    deleteBookAlert: deleteBookAlert ?? this.deleteBookAlert,
   );
 
   @override
@@ -38,7 +42,8 @@ final class BookshelfSettings {
       gridColumns == other.gridColumns &&
       groupMode == other.groupMode &&
       selectedGroupIndex == other.selectedGroupIndex &&
-      openBookInfoByClickTitle == other.openBookInfoByClickTitle;
+      openBookInfoByClickTitle == other.openBookInfoByClickTitle &&
+      deleteBookAlert == other.deleteBookAlert;
 
   @override
   int get hashCode => Object.hashAll([
@@ -47,5 +52,6 @@ final class BookshelfSettings {
     groupMode,
     selectedGroupIndex,
     openBookInfoByClickTitle,
+    deleteBookAlert,
   ]);
 }

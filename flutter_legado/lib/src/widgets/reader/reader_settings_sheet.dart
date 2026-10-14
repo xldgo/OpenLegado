@@ -1,11 +1,12 @@
-import '../../providers/reader/reader_config_provider.dart';
+import '../../providers/reader/reader_settings_provider.dart';
 import '../../models/reader_advanced_config.dart';
+import '../../domain/models/reader_theme_mode.dart';
+import '../../domain/models/reader_style.dart';
 
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_localization.dart';
 import '../../providers/reader/reader_notifier.dart';
@@ -112,6 +113,28 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
   /// 持久化和即时更新统一交给共享配置入口。
   void _commitAdv(ReaderAdvancedConfig cfg) {
     ref.read(readerAdvConfigProvider.notifier).update(cfg);
+  }
+
+  Future<void> _savePageTurnMode(PageTurnMode mode) async {
+    try {
+      await ref.read(readerNotifierProvider.notifier).updatePageTurnMode(mode);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('翻页模式保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _saveTypography(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('阅读排版保存失败，请重试')));
+      }
+    }
   }
 
   @override
@@ -233,7 +256,8 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             min: 1,
             max: 3,
             divisions: 40,
-            onChanged: notifier.updateLineHeight,
+            onChanged: (value) =>
+                _saveTypography(() => notifier.updateLineHeight(value)),
           ),
         ),
         _configPanel(adv, ReaderConfigSection.typography),
@@ -289,7 +313,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             icon: Icons.auto_stories_outlined,
             value: state.pageTurnMode,
             options: _flipLabels,
-            onChanged: notifier.updatePageTurnMode,
+            onChanged: _savePageTurnMode,
           ),
         ],
       );
@@ -307,278 +331,285 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         value: state.fontSize,
         min: 12,
         max: 32,
-        onChanged: notifier.updateFontSize,
+        onChanged: (value) =>
+            _saveTypography(() => notifier.updateFontSize(value)),
       );
 
-  /// 背景分组：标题 + 长按自定义提示 + 月亮夜间切换 + 预设 chips
+  /// 每个模板展示当前模式的配色；切换模式后恢复同一模板另一侧的颜色。
   Widget _buildBackgroundGroup(
     ReaderState state,
     ReaderNotifier notifier,
     ReaderAdvancedConfig adv,
   ) {
     final eyeProtection = ref.watch(eyeProtectionProvider);
+    ref.watch(readerStylesProvider);
+    final styles = ref.read(readerStyleRepositoryProvider).current;
+    ref.watch(readerThemeModeProvider);
+    final themeMode = ref.read(readerThemeSessionProvider).mode;
     return SettingsGroup(
       showDividers: false,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.readerBackground,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '选择预设或自定义配色',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: context.l10n.eyeProtection,
-                    icon: const Icon(Icons.visibility_outlined),
-                    selectedIcon: const Icon(Icons.visibility_rounded),
-                    isSelected: eyeProtection.enabled,
-                    color: eyeProtection.enabled
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                    onPressed: () => ref
-                        .read(eyeProtectionProvider.notifier)
-                        .update(enabled: !eyeProtection.enabled)
-                        .catchError((Object error) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(context.l10n.loginSaveFailed),
-                              ),
-                            );
-                          }
-                        }),
-                    onLongPress: () => EyeProtectionSettingsGroup.show(context),
-                  ),
-                  IconButton(
-                    tooltip: state.isDarkBackground ? '日间背景' : '夜间背景',
-                    icon: const Icon(Icons.dark_mode_rounded),
-                    onPressed: () => notifier.updateBackgroundColor(
-                      state.isDarkBackground
-                          ? ReaderBackground.white
-                          : ReaderBackground.dark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: Row(
+        SettingMenuRow<ReaderThemeMode>(
+          title: '阅读模式',
+          value: themeMode,
+          options: const {
+            ReaderThemeMode.followApp: '跟随应用',
+            ReaderThemeMode.day: '日间',
+            ReaderThemeMode.night: '夜间',
+          },
+          onChanged: (mode) =>
+              _saveColors(() => notifier.updateReaderThemeMode(mode)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 自定义 chip：网格图标，点按弹自定义配色
-                    GestureDetector(
-                      onTap: () =>
-                          _showCustomColorDialog(context, adv, notifier, state),
-                      child: Container(
-                        width: 64,
-                        height: 56,
-                        margin: const EdgeInsets.only(right: 10),
-                        alignment: Alignment.center,
-                        decoration: _bgChipDecoration(selected: false),
-                        child: Icon(
-                          Icons.grid_view_rounded,
-                          size: 22,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                    Text(
+                      context.l10n.readerBackground,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    for (var i = 0; i < ReaderBackground.presets.length; i++)
-                      _bgPresetChip(state, notifier, i),
+                    Text(
+                      '日夜配色分别保存，长按模板自定义',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: context.l10n.eyeProtection,
+                icon: const Icon(Icons.visibility_outlined),
+                selectedIcon: const Icon(Icons.visibility_rounded),
+                isSelected: eyeProtection.enabled,
+                onPressed: () => ref
+                    .read(eyeProtectionProvider.notifier)
+                    .update(enabled: !eyeProtection.enabled)
+                    .catchError((Object error) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(context.l10n.loginSaveFailed)),
+                        );
+                      }
+                    }),
+                onLongPress: () => EyeProtectionSettingsGroup.show(context),
+              ),
+              IconButton(
+                tooltip: state.isNightMode ? '切换日间' : '切换夜间',
+                icon: Icon(
+                  state.isNightMode
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                ),
+                onPressed: () => _saveColors(
+                  () => notifier.updateReaderThemeMode(
+                    state.isNightMode
+                        ? ReaderThemeMode.day
+                        : ReaderThemeMode.night,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                for (final style in styles.styles)
+                  _styleChip(
+                    state,
+                    notifier,
+                    style,
+                    style.id == styles.selectedId,
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  BoxDecoration _bgChipDecoration({required bool selected}) {
-    return BoxDecoration(
-      borderRadius: BorderRadius.circular(14),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      border: Border.all(
-        color: selected
-            ? Theme.of(context).colorScheme.primary
-            : Colors.transparent,
-        width: 2,
-      ),
-    );
+  Future<bool> _saveColors(Future<void> Function() operation) async {
+    try {
+      await operation();
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('阅读配色保存失败，请重试')));
+      }
+      return false;
+    }
   }
 
-  /// 预设背景 chip（颜色预览卡：chip 底色即背景色，对齐参考版；
-  /// 选中加主色描边 + 底部对勾）
-  Widget _bgPresetChip(ReaderState state, ReaderNotifier notifier, int index) {
-    final color = resolveReaderBackground(
-      themeBrightness: Theme.of(context).brightness,
-      themeAmoled: ref.watch(uiSettingsProvider.select((ui) => ui.themeAmoled)),
-      storedBgIndex: index,
+  /// 模板预览同时使用当前模式的背景和文字色，不用全局主题推断配色。
+  Widget _styleChip(
+    ReaderState state,
+    ReaderNotifier notifier,
+    ReaderStyle style,
+    bool selected,
+  ) {
+    final colors = style.colors(state.isNightMode);
+    final resolved = colors.resolve(
+      isNight: state.isNightMode,
+      amoled: ref.read(uiSettingsProvider).themeAmoled,
     );
-    final label = ReaderBackground.labels[index];
-    final isSelected = state.backgroundColor == color;
-    final onColor = color.computeLuminance() > 0.5
-        ? Colors.black87
-        : Colors.white70;
-    return GestureDetector(
-      onLongPress: () => _showCustomColorDialog(context, null, notifier, state),
-      onTap: () =>
-          notifier.updateBackgroundColor(ReaderBackground.presets[index]),
-      child: Container(
-        width: 64,
-        height: 56,
-        margin: const EdgeInsets.only(right: 10),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: color,
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.outlineVariant,
-            width: isSelected ? 2 : 1,
+    final background = Color(resolved.background);
+    final foreground = Color(resolved.text);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${style.name}，${state.isNightMode ? '夜间' : '日间'}配色',
+      child: GestureDetector(
+        key: ValueKey('reader-style-${style.id}'),
+        onTap: () => _saveColors(() => notifier.selectReaderStyle(style.id)),
+        onLongPress: () async {
+          if (await _saveColors(() => notifier.selectReaderStyle(style.id)) &&
+              mounted) {
+            _showCustomColorDialog(
+              context,
+              notifier,
+              ref.read(readerNotifierProvider),
+            );
+          }
+        },
+        child: Container(
+          width: 76,
+          height: 64,
+          margin: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.outlineVariant,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                style.name,
+                style: TextStyle(color: foreground, fontSize: 12),
+              ),
+              const SizedBox(height: 2),
+              SizedBox(
+                height: 14,
+                child: selected
+                    ? Icon(Icons.check_rounded, size: 14, color: foreground)
+                    : null,
+              ),
+            ],
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: onColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            SizedBox(
-              height: 14,
-              child: isSelected
-                  ? Icon(
-                      Icons.check_rounded,
-                      size: 14,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-            ),
-          ],
-        ),
       ),
     );
   }
-
-  // ===== 自定义配色对话框（长按背景 chip 弹出，自绘色板不引入依赖） =====
 
   void _showCustomColorDialog(
     BuildContext context,
-    ReaderAdvancedConfig? adv,
     ReaderNotifier notifier,
     ReaderState state,
   ) {
-    final effectiveAdv =
-        adv ?? ref.read(readerAdvConfigProvider) ?? ReaderAdvancedConfig();
-    var textColorValue = effectiveAdv.customTextColor;
+    final colors = ref
+        .read(readerStyleRepositoryProvider)
+        .current
+        .selected
+        .colors(state.isNightMode);
+    var textColorValue = colors.text ?? 0;
     var bgColorValue = state.backgroundColor.toARGB32();
     showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('自定义配色'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dialogContext.l10n.readerTextColor,
-                  style: Theme.of(dialogContext).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    // 「自动」= 跟随背景明暗自适应（customTextColor 置 0）
-                    _autoTextChip(dialogContext, textColorValue == 0, () {
-                      setDialogState(() => textColorValue = 0);
-                      final cfg = effectiveAdv.copy()..customTextColor = 0;
-                      _commitAdv(cfg);
-                    }),
-                    for (final c in _palette)
-                      _colorBlock(
+        builder: (dialogContext, setDialogState) {
+          Future<void> saveText(Color? color) async {
+            if (await _saveColors(
+                  () => notifier.updateCustomTextColor(color),
+                ) &&
+                dialogContext.mounted) {
+              setDialogState(() => textColorValue = color?.toARGB32() ?? 0);
+            }
+          }
+
+          Future<void> saveBackground(Color color) async {
+            if (await _saveColors(
+                  () => notifier.updateCustomBackgroundColor(color),
+                ) &&
+                dialogContext.mounted) {
+              setDialogState(() => bgColorValue = color.toARGB32());
+            }
+          }
+
+          return AlertDialog(
+            title: Text('自定义${state.isNightMode ? '夜间' : '日间'}配色'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(dialogContext.l10n.readerTextColor),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _autoTextChip(
                         dialogContext,
-                        c,
-                        textColorValue == c.toARGB32(),
-                        () {
-                          setDialogState(() => textColorValue = c.toARGB32());
-                          final cfg = effectiveAdv.copy()
-                            ..customTextColor = c.toARGB32();
-                          _commitAdv(cfg);
-                        },
+                        textColorValue == 0,
+                        () => saveText(null),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  dialogContext.l10n.readerBackgroundColor,
-                  style: Theme.of(dialogContext).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final c in _palette)
-                      _colorBlock(
-                        dialogContext,
-                        c,
-                        bgColorValue == c.toARGB32(),
-                        () {
-                          setDialogState(() => bgColorValue = c.toARGB32());
-                          // 自定义背景经 notifier 持久化并即时应用
-                          unawaited(notifier.updateCustomBackgroundColor(c));
-                        },
-                      ),
-                  ],
-                ),
-              ],
+                      for (final color in _palette)
+                        _colorBlock(
+                          dialogContext,
+                          color,
+                          textColorValue == color.toARGB32(),
+                          () => saveText(color),
+                          key: ValueKey(
+                            'reader-text-color-${color.toARGB32()}',
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(dialogContext.l10n.readerBackgroundColor),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final color in _palette)
+                        _colorBlock(
+                          dialogContext,
+                          color,
+                          bgColorValue == color.toARGB32(),
+                          () => saveBackground(color),
+                          key: ValueKey(
+                            'reader-background-color-${color.toARGB32()}',
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(dialogContext.l10n.readerDone),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(dialogContext.l10n.readerDone),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -618,9 +649,11 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     BuildContext context,
     Color color,
     bool selected,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    Key? key,
+  }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Container(

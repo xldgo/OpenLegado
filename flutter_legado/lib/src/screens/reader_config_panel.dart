@@ -1,4 +1,4 @@
-import '../providers/reader/reader_config_provider.dart';
+import '../providers/reader/reader_settings_provider.dart';
 import '../models/reader_advanced_config.dart';
 
 import 'dart:async';
@@ -6,10 +6,8 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localization.dart';
-import '../models/flip_mode.dart';
 import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
@@ -106,7 +104,11 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   late ReaderAdvancedConfig _config = widget.config.copy();
 
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
-  String? _fontLabel;
+  String? get _fontLabel => ref
+      .read(readerSettingsRepositoryProvider)
+      .current
+      .fontFamily
+      ?.replaceFirst('Custom_', '');
 
   /// 简繁转换类型（0=不转换 1=繁转简 2=简转繁，对标原版 chineseConvertType）
   int _convertType = 0;
@@ -123,12 +125,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
 
   Future<void> _loadFontLabel() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final family = prefs.getString('reader_font_family');
-      if (!mounted || family == null) return;
-      setState(() => _fontLabel = family.replaceFirst('Custom_', ''));
-    } catch (_) {
-      // 读取失败保持默认字体标签
+      await ref.read(readerSettingsRepositoryProvider).load();
+    } catch (error) {
+      debugPrint('阅读字体选择读取失败：$error');
     }
   }
 
@@ -151,6 +150,17 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     setState(() {});
   }
 
+  Future<void> _savePageTurnMode(PageTurnMode mode) async {
+    try {
+      await ref.read(readerNotifierProvider.notifier).updatePageTurnMode(mode);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('翻页模式保存失败，请重试')));
+      }
+    }
+  }
+
   @override
   void didUpdateWidget(covariant ReaderConfigPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -159,6 +169,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readerSettingsProvider);
     // [UI-fix v2.0.4 | 2026-08-08] 区块过滤模式：仅渲染指定区块 — Qoder
     final List<Widget> children;
     switch (widget.section) {

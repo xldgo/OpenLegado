@@ -1,12 +1,14 @@
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/services/reader_settings_migration.dart';
 
+import '../fixtures/reader_settings_repository.dart';
+
 void main() {
-  late PreferencesReaderConfigRepository repository;
-  setUp(() => repository = PreferencesReaderConfigRepository());
+  late AppReaderSettingsRepository repository;
+  setUp(() => repository = createTestReaderSettingsRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('保留最后使用的夜间排版并清理分桶，后续不切换也不覆盖用户新值', () async {
@@ -20,7 +22,7 @@ void main() {
       'reader_layout_night_textBold': 1,
       'reader_layout_night_show_footer_line': false,
     });
-    final loaded = await repository.load();
+    final loaded = await repository.loadAdvanced();
     expect(loaded.pageMarginLeft, 29);
     expect(loaded.headerPaddingTop, 14);
     expect(loaded.letterSpacing, 0.25);
@@ -33,8 +35,8 @@ void main() {
     );
     expect(prefs.containsKey('shareLayout'), isFalse);
     loaded.pageMarginLeft = 23;
-    await repository.save(loaded);
-    final restored = await repository.load();
+    await repository.saveAdvanced(loaded);
+    final restored = await repository.loadAdvanced();
     expect(restored.pageMarginLeft, 23);
     expect(
       prefs.getKeys().any((key) => key.startsWith('reader_layout_')),
@@ -50,7 +52,7 @@ void main() {
       'reader_layout_night_margin_top': 10.0,
       'reader_adv_margin_bottom': 31.0,
     });
-    final config = await repository.load();
+    final config = await repository.loadAdvanced();
     expect(config.pageMarginTop, 40);
     expect(config.pageMarginBottom, 31);
   });

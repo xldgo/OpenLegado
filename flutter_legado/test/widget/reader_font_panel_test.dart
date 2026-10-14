@@ -1,7 +1,6 @@
 /// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
 library;
 
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -15,6 +14,8 @@ import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+
+import '../fixtures/reader_settings_repository.dart';
 
 void main() {
   group('阅读界面 · 字体设置', () {
@@ -52,7 +53,7 @@ void main() {
     testWidgets('面板直测：字重/首行缩进持久化 + 简繁转换 + 字体跳转', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockBookApi();
-      final repository = PreferencesReaderConfigRepository();
+      final repository = createTestReaderSettingsRepository();
       final saves = <Future<void>>[];
       await tester.pumpWidget(
         ProviderScope(
@@ -70,7 +71,7 @@ void main() {
                   child: ReaderFontPanel(
                     config: ReaderAdvancedConfig(),
                     // 模拟存储提交；断言等待保存完成，不依赖排入队列的微任务时序。
-                    onChanged: (cfg) => saves.add(repository.save(cfg)),
+                    onChanged: (cfg) => saves.add(repository.saveAdvanced(cfg)),
                   ),
                 ),
               );

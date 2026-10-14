@@ -35,7 +35,6 @@ Future<void> migrateReaderSettings(SharedPreferences prefs) async {
       'show_header_line': 'showHeaderLine',
       'show_footer_line': 'showFooterLine',
       'textBold': 'textBold',
-      'flip_mode': 'flip_mode',
     };
     if (!(prefs.getBool(migratedKey) ?? false)) {
       for (final entry in layoutKeys.entries) {
@@ -45,7 +44,6 @@ Future<void> migrateReaderSettings(SharedPreferences prefs) async {
           if (const {
             'paragraph_indent_chars',
             'textBold',
-            'flip_mode',
           }.contains(entry.key)) {
             await prefs.setInt(entry.value, value.toInt());
           } else {

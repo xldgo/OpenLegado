@@ -1,0 +1,47 @@
+{
+  "source": "https://raw.githubusercontent.com/HapeLee/legado-with-MD3/60a7cca34dd3e0be456e0f05c10c036c64b70e35/app/src/main/assets/defaultData/readConfig.json",
+  "styles": [
+    {
+      "name": "微信读书",
+      "bgStr": "#ffc0edc6",
+      "textColor": "#ff0b0b0b",
+      "bgStrNight": "#000000",
+      "textColorNight": "#ADADAD"
+    },
+    {
+      "name": "预设1",
+      "bgStr": "#FFFFFF",
+      "textColor": "#000000",
+      "bgStrNight": "#000000",
+      "textColorNight": "#FFFFFF"
+    },
+    {
+      "name": "预设2",
+      "bgStr": "#DDC090",
+      "textColor": "#3E3422",
+      "bgStrNight": "#3C3F43",
+      "textColorNight": "#DCDFE1"
+    },
+    {
+      "name": "预设3",
+      "bgStr": "#C2D8AA",
+      "textColor": "#596C44",
+      "bgStrNight": "#3C3F43",
+      "textColorNight": "#88C16F"
+    },
+    {
+      "name": "预设4",
+      "bgStr": "#DBB8E2",
+      "textColor": "#68516C",
+      "bgStrNight": "#3C3F43",
+      "textColorNight": "#F6AEAE"
+    },
+    {
+      "name": "预设5",
+      "bgStr": "#ABCEE0",
+      "textColor": "#3D4C54",
+      "bgStrNight": "#3C3F43",
+      "textColorNight": "#90BFF5"
+    }
+  ]
+}

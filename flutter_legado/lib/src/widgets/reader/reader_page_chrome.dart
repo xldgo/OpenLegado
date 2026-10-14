@@ -57,7 +57,8 @@ double readerOverlayStatusBarInset(
 String? effectiveTitleFontFamily(
   ReaderPageChromeConfig chrome,
   String? bodyFontFamily,
-) => chrome.titleFont.isNotEmpty ? chrome.titleFont : bodyFontFamily;
+) =>
+    chrome.titleFontFamily.isNotEmpty ? chrome.titleFontFamily : bodyFontFamily;
 
 /// 阅读页页眉/页脚与标题样式（对标原版 ReadBookConfig + ReadTipConfig）
 class ReaderPageChromeConfig {
@@ -89,7 +90,7 @@ class ReaderPageChromeConfig {
   final int titleBottomSpacing;
 
   /// 标题字体（空=跟随正文字体，对齐原版 ReadBookConfig.titleFont）
-  final String titleFont;
+  final String titleFontFamily;
 
   const ReaderPageChromeConfig({
     this.headerMode = 0,
@@ -116,10 +117,13 @@ class ReaderPageChromeConfig {
     this.titleSize = 0,
     this.titleTopSpacing = 0,
     this.titleBottomSpacing = 0,
-    this.titleFont = '',
+    this.titleFontFamily = '',
   });
 
-  factory ReaderPageChromeConfig.fromAdvanced(ReaderAdvancedConfig c) {
+  factory ReaderPageChromeConfig.fromAdvanced(
+    ReaderAdvancedConfig c, {
+    String titleFontFamily = '',
+  }) {
     return ReaderPageChromeConfig(
       headerMode: c.headerMode,
       footerMode: c.footerMode,
@@ -144,7 +148,7 @@ class ReaderPageChromeConfig {
       titleSize: c.titleSize,
       titleTopSpacing: c.titleTopSpacing,
       titleBottomSpacing: c.titleBottomSpacing,
-      titleFont: c.titleFont,
+      titleFontFamily: titleFontFamily,
     );
   }
 
@@ -156,7 +160,7 @@ class ReaderPageChromeConfig {
       '${tipHeaderLeft}_${tipHeaderMiddle}_${tipHeaderRight}_'
       '${tipFooterLeft}_${tipFooterMiddle}_${tipFooterRight}_'
       '${titleMode}_${titleSize}_${titleTopSpacing}_$titleBottomSpacing'
-      '_$titleFont';
+      '_$titleFontFamily';
 
   bool get showPageHeader {
     switch (headerMode.clamp(0, 2)) {

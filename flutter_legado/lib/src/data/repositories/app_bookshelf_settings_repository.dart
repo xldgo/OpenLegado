@@ -18,6 +18,7 @@ final class AppBookshelfSettingsRepository
     _address('bookshelf_group_mode'),
     _address('bookshelf_tab_position'),
     _address('openBookInfoByClickTitle'),
+    _address('delete_book_alert'),
   };
 
   T _read<T>(AppSettingsSnapshot snapshot, String key, T fallback) {
@@ -42,6 +43,7 @@ final class AppBookshelfSettingsRepository
       'openBookInfoByClickTitle',
       false,
     ),
+    deleteBookAlert: _read(snapshot, 'delete_book_alert', true),
   );
   @override
   BookshelfSettings get current => _decode(_service.current);
@@ -72,11 +74,13 @@ final class AppBookshelfSettingsRepository
     GroupMode? groupMode,
     int? selectedGroupIndex,
     bool? openBookInfoByClickTitle,
+    bool? deleteBookAlert,
   }) => _service.update({
     _address('bookshelf_layout'): ?(isGridView),
     _address('bookshelf_grid_columns'): ?(gridColumns?.clamp(2, 6)),
     _address('bookshelf_group_mode'): ?(groupMode?.name),
     _address('bookshelf_tab_position'): ?(selectedGroupIndex),
     _address('openBookInfoByClickTitle'): ?(openBookInfoByClickTitle),
+    _address('delete_book_alert'): ?deleteBookAlert,
   });
 }

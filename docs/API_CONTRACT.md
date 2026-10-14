@@ -247,6 +247,24 @@
 | `set_theme_config` | theme_json（`get_theme_config` 同形 JSON） | Batch 0 R1：启动/切换调色板时注入当前 palette 亮色 role，JS `getThemeConfig()` 优先返回注入值，未注入回退 wh 默认 |
 | `set_theme_mode` | mode（"0"=跟随系统/"1"=亮/"2"=暗，对齐 Kotlin themeMode） | Batch 0 R2 + R 批 R3：`setThemeMode` 时注入，JS `getThemeMode()` 映射为 auto/light/dark（"0"→auto；未注入回退 light） |
 | `set_read_book_config` | read_json（`get_read_book_config` 同形 JSON） | R 批 R4：阅读配置变更时注入当前阅读配置，JS `getReadBookConfig()` 优先返回注入值，未注入回退硬编码默认 |
+
+阅读配色增量（READER-COLOR-STYLES-20261014）：Dart 阅读样式分别保存日夜背景和文字色，
+配置注入从同一仓储解析当前样式，读取与正文共享的阅读会话明暗覆盖及应用明暗。
+手动覆盖不持久化，退出阅读页清除；样式配色与选择继续保存。既有 JSON 键和类型保持，
+`name` 为当前样式名，`bgStr`、`textColor`、`_bgColorHex` 为当前生效颜色；纯色背景
+的 `bgType` 为 0，不再使用旧预设数组下标表示背景类型。颜色切换后刷新现有注入
+入口；字号与其他既有快照参数保持，Rust/FRB 方法签名和数据库不变。
+
+字号行距访问迁移（READER-TYPOGRAPHY-SETTINGS-20261014）：`textSize` 改为读取共享
+ReaderSettingsRepository 的字号并按原规则四舍五入为整数。字号默认20，行距默认1.7，
+继续保存为原 Preferences double 键。行距同步到正文；既有 JS `lineSpacingExtra: 8`
+及其他配置字段、类型和初始化顺序保持，不新增或修改 Rust/FRB 方法。
+
+字体访问迁移（READER-FONT-SETTINGS-20261015）：正文字体沿用`reader_font_family`，
+默认删除键；标题字体统一为`reader_title_font_family`，空串表示跟随正文。两者进入共享阅读设置，
+开发阶段直接使用新键，不读取或迁移旧titleFont；高级配置不再写回标题字体。自定义列表保留StringList及`family|path`格式，字体文件
+仍在Documents/fonts，通过统一平台加载入口注册。既有JS配置的`font`字段及其他
+注入字段保持，Rust/FRB契约、生成物和数据库不变。
 | `set_image_cache_dir` | dir（应用缓存目录下 `image_cache` 子目录，P4-2a） | 与 `set_cache_dir` 同型的进程注入（`set_cache_dir` 服务 JS 缓存）：`saveImageCache`/`getImageCache`（§2.46）图片磁盘缓存落应用私有缓存目录；未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 | `set_audio_cache_dir` | dir（应用缓存目录下 `audio_cache` 子目录，B1） | 与 `set_image_cache_dir` 同型：`audioCacheQuery`/`audioCacheList`/`audioCacheClearChapter`/`audioCacheClearBook`（§2.47）音频章节文件缓存读取与 `audioCacheDownload`/`audioCacheCancel`（§2.48，B2）写入**共用此根目录**（写读同根同键）；未注入时回落 `<temp_dir>/legado-audio-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 

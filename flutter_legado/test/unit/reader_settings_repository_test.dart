@@ -1,0 +1,256 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/data/settings/shared_preferences_settings_storage.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/domain/models/page_turn_mode.dart';
+import 'package:flutter_legado/src/domain/models/reader_settings.dart';
+
+import '../fixtures/home_settings_storage.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late HomeSettingsStorage storage;
+  late AppSettingsService service;
+  late AppReaderSettingsRepository repository;
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    storage = HomeSettingsStorage();
+    service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    repository = AppReaderSettingsRepository(service);
+  });
+  tearDown(() => service.dispose());
+
+  test('默认覆盖，不读取未生效的高级翻页副本，也不补写设置', () async {
+    storage.values['flip_mode'] = 0;
+    expect(await repository.load(), const ReaderSettings());
+    expect(storage.reads.toSet(), {
+      'reader_flip_mode_name',
+      'reader_flip_mode',
+      'reader_font_size',
+      'reader_line_height',
+      'reader_font_family',
+      'reader_title_font_family',
+    });
+    await repository.update();
+    expect(storage.writes, isEmpty);
+    expect(storage.values, {'flip_mode': 0});
+  });
+
+  test('名称优先，原有效整数按原索引恢复，与高级整数含义无关', () async {
+    storage.values.addAll({
+      'reader_flip_mode_name': 'scroll',
+      'reader_flip_mode': 2,
+      'flip_mode': 3,
+    });
+    expect((await repository.load()).pageTurnMode, PageTurnMode.scroll);
+    storage.values.remove('reader_flip_mode_name');
+    for (final (index, mode) in const [
+      (0, PageTurnMode.scroll),
+      (1, PageTurnMode.slide),
+      (2, PageTurnMode.simulate),
+      (3, PageTurnMode.none),
+      (4, PageTurnMode.cover),
+    ]) {
+      storage.values['reader_flip_mode'] = index;
+      await repository.reload();
+      expect(repository.current.pageTurnMode, mode);
+    }
+    expect(storage.writes, isEmpty);
+  });
+
+  test('五种模式只写规范名称，重新装配可恢复，其他偏好保持原值', () async {
+    SharedPreferences.setMockInitialValues({
+      'reader_flip_mode': 3,
+      'flip_mode': 0,
+      'reader_font_size': 24.0,
+      'reader_adv_paragraph_spacing': 8.0,
+    });
+    final actualService = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(actualService.dispose);
+    final actual = AppReaderSettingsRepository(actualService);
+    for (final mode in PageTurnMode.values) {
+      await actual.update(pageTurnMode: mode);
+      final freshService = AppSettingsService(
+        storages: {
+          SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+        },
+      );
+      try {
+        expect(
+          (await AppReaderSettingsRepository(freshService).load()).pageTurnMode,
+          mode,
+        );
+      } finally {
+        await freshService.dispose();
+      }
+    }
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('reader_flip_mode_name'), 'cover');
+    expect(prefs.getInt('reader_flip_mode'), 3);
+    expect(prefs.getInt('flip_mode'), 0);
+    expect(prefs.getDouble('reader_font_size'), 24);
+    expect(prefs.getDouble('reader_adv_paragraph_spacing'), 8);
+  });
+
+  test('加载前选择新模式，不被原值覆盖，也不写旧整数副本', () async {
+    storage.values.addAll({
+      'reader_flip_mode_name': 'slide',
+      'reader_flip_mode': 1,
+      'reader_font_size': 22.0,
+    });
+    final saving = repository.update(pageTurnMode: PageTurnMode.simulate);
+    expect(repository.current.pageTurnMode, PageTurnMode.simulate);
+    await saving;
+    expect((await repository.load()).pageTurnMode, PageTurnMode.simulate);
+    expect(storage.writes, [('reader_flip_mode_name', 'simulate')]);
+    expect(storage.values['reader_flip_mode'], 1);
+    expect(storage.values['reader_font_size'], 22);
+  });
+
+  test('修改高级排版不会重新创建或覆盖翻页副本', () async {
+    SharedPreferences.setMockInitialValues({
+      'reader_flip_mode_name': 'slide',
+      'flip_mode': 2,
+    });
+    final actualService = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(actualService.dispose);
+    final actual = AppReaderSettingsRepository(actualService);
+    final staleAdvanced = await actual.loadAdvanced();
+    await actual.update(pageTurnMode: PageTurnMode.scroll);
+    staleAdvanced.paragraphSpacing = 12;
+    await actual.saveAdvanced(staleAdvanced);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('reader_flip_mode_name'), 'scroll');
+    expect(prefs.getInt('flip_mode'), 2);
+    expect(prefs.getDouble('reader_adv_paragraph_spacing'), 12);
+    expect(actual.current.pageTurnMode, PageTurnMode.scroll);
+  });
+
+  test('保存失败向调用方报错、共享值回退，重试后可恢复', () async {
+    storage.values['reader_flip_mode_name'] = 'none';
+    await repository.load();
+    final observed = <ReaderSettings>[];
+    final subscription = repository.watch().listen(observed.add);
+    addTearDown(subscription.cancel);
+    storage.writeFailure = true;
+    await expectLater(
+      repository.update(pageTurnMode: PageTurnMode.cover),
+      throwsStateError,
+    );
+    expect(repository.current.pageTurnMode, PageTurnMode.none);
+    expect(storage.values['reader_flip_mode_name'], 'none');
+    storage.writeFailure = false;
+    await repository.update(pageTurnMode: PageTurnMode.cover);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.current.pageTurnMode, PageTurnMode.cover);
+    expect(storage.values['reader_flip_mode_name'], 'cover');
+    expect(observed.last.pageTurnMode, PageTurnMode.cover);
+  });
+
+  test('恢复后的显式重读发布新模式，失效名称沿用原回退规则', () async {
+    storage.values['reader_flip_mode_name'] = 'slide';
+    await repository.load();
+    storage.values['reader_flip_mode_name'] = 'simulate';
+    await repository.reload();
+    expect(repository.current.pageTurnMode, PageTurnMode.simulate);
+    storage.values.addAll({
+      'reader_flip_mode_name': '已删除的模式',
+      'reader_flip_mode': 0,
+    });
+    await repository.reload();
+    expect(repository.current.pageTurnMode, PageTurnMode.scroll);
+    storage.values.remove('reader_flip_mode');
+    await repository.reload();
+    expect(repository.current.pageTurnMode, PageTurnMode.cover);
+    expect(storage.writes, isEmpty);
+  });
+
+  test('字号行距按原double键和默认值恢复，独立修改不覆盖其他字段', () async {
+    storage.values.addAll({
+      'reader_font_size': 20.6,
+      'reader_line_height': 1.9,
+      'reader_flip_mode_name': 'slide',
+    });
+    final loaded = await repository.load();
+    expect(loaded.fontSize, 20.6);
+    expect(loaded.lineHeight, 1.9);
+    await repository.update(fontSize: 25.0);
+    expect(repository.current.lineHeight, 1.9);
+    await repository.update(lineHeight: 2.2);
+    expect(repository.current.fontSize, 25);
+    expect(repository.current.pageTurnMode, PageTurnMode.slide);
+    expect(storage.writes, [
+      ('reader_font_size', 25.0),
+      ('reader_line_height', 2.2),
+    ]);
+    final freshService = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(freshService.dispose);
+    expect(
+      await AppReaderSettingsRepository(freshService).load(),
+      const ReaderSettings(
+        pageTurnMode: PageTurnMode.slide,
+        fontSize: 25,
+        lineHeight: 2.2,
+      ),
+    );
+  });
+
+  test('双字段保存中后一项失败，只回退失败字段，重试后保存成功', () async {
+    storage.values.addAll({
+      'reader_font_size': 22.0,
+      'reader_line_height': 1.8,
+    });
+    await repository.load();
+    storage.beforeWrite = (key, _) async {
+      if (key == 'reader_line_height') throw StateError('行距保存失败');
+    };
+    await expectLater(
+      repository.update(fontSize: 24, lineHeight: 2),
+      throwsStateError,
+    );
+    expect(repository.current.fontSize, 24);
+    expect(repository.current.lineHeight, 1.8);
+    expect(storage.values['reader_font_size'], 24);
+    expect(storage.values['reader_line_height'], 1.8);
+    storage.beforeWrite = null;
+    await repository.update(lineHeight: 2);
+    expect(repository.current.lineHeight, 2);
+  });
+
+  test('恢复后的重读包含字号行距，读取失败不覆盖有效快照', () async {
+    storage.values.addAll({
+      'reader_font_size': 22.0,
+      'reader_line_height': 1.8,
+    });
+    await repository.load();
+    storage.values.addAll({
+      'reader_font_size': 26.0,
+      'reader_line_height': 2.4,
+    });
+    storage.readFailure = true;
+    await expectLater(repository.reload(), throwsStateError);
+    expect(repository.current.fontSize, 22);
+    expect(repository.current.lineHeight, 1.8);
+    storage.readFailure = false;
+    await repository.reload();
+    expect(repository.current.fontSize, 26);
+    expect(repository.current.lineHeight, 2.4);
+    expect(storage.writes, isEmpty);
+  });
+}

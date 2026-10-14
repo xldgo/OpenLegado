@@ -15,9 +15,9 @@ import '../widgets/app_search_field.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../constants/pref_keys.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../providers/general_settings_provider.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';
 import '../services/book_api.dart';
@@ -754,9 +754,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
         return;
       }
       // 「默认书籍保存位置」已设置时作为目录选择器初始路径
-      final initialDir = await _settings.getStringPref(
-        PrefKeys.defaultBookTreeUri,
-      );
+      final initialDir =
+          (await ref.read(generalSettingsRepositoryProvider).load())
+              .defaultBookTreeUri;
       if (!mounted) return;
       final savedPath = asMarkdown
           ? await BookmarkExport.exportMarkdown(

@@ -4,25 +4,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
-import 'package:flutter_legado/src/domain/contracts/reader_config_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/reader_settings_repository.dart';
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
-import 'package:flutter_legado/src/providers/reader/reader_config_provider.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 
-class _ControlledRepository implements ReaderConfigRepository {
+import '../fixtures/reader_settings_repository.dart';
+
+class _ControlledRepository extends Fake implements ReaderSettingsRepository {
   final loads = <Completer<ReaderAdvancedConfig>>[];
   final saved = <ReaderAdvancedConfig>[];
   bool failSave = false;
 
   @override
-  Future<ReaderAdvancedConfig> load() {
+  Future<ReaderAdvancedConfig> loadAdvanced() {
     final result = Completer<ReaderAdvancedConfig>();
     loads.add(result);
     return result.future;
   }
 
   @override
-  Future<void> save(ReaderAdvancedConfig config) async {
+  Future<void> saveAdvanced(ReaderAdvancedConfig config) async {
     if (failSave) throw StateError('模拟保存失败');
     saved.add(config);
   }
@@ -34,7 +35,7 @@ void main() {
   ProviderContainer containerFor(_ControlledRepository repository) =>
       ProviderContainer(
         overrides: [
-          readerConfigRepositoryProvider.overrideWithValue(repository),
+          readerSettingsRepositoryProvider.overrideWithValue(repository),
         ],
       );
 
@@ -112,19 +113,19 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final gate = Completer<SharedPreferences>();
     var accesses = 0;
-    final repository = PreferencesReaderConfigRepository(
+    final repository = createTestReaderSettingsRepository(
       preferences: () {
         accesses++;
         return accesses == 1 ? gate.future : Future.value(prefs);
       },
     );
-    final input = ReaderAdvancedConfig(paragraphSpacing: 6, titleFont: '第一份');
-    final first = repository.save(input);
+    final input = ReaderAdvancedConfig(paragraphSpacing: 6, titleTopSpacing: 1);
+    final first = repository.saveAdvanced(input);
     input.paragraphSpacing = 48;
-    final second = repository.save(
-      ReaderAdvancedConfig(paragraphSpacing: 10, titleFont: '最后一份'),
+    final second = repository.saveAdvanced(
+      ReaderAdvancedConfig(paragraphSpacing: 10, titleTopSpacing: 2),
     );
-    final reading = repository.load();
+    final reading = repository.loadAdvanced();
     await Future<void>.delayed(Duration.zero);
     expect(accesses, 1);
     gate.complete(prefs);
@@ -133,23 +134,23 @@ void main() {
     await second;
     final result = await reading;
     expect(result.paragraphSpacing, 10);
-    expect(result.titleFont, '最后一份');
+    expect(result.titleTopSpacing, 2);
   });
 
   test('一次偏好访问失败不阻断后续保存', () async {
     final prefs = await SharedPreferences.getInstance();
     var accesses = 0;
-    final repository = PreferencesReaderConfigRepository(
+    final repository = createTestReaderSettingsRepository(
       preferences: () async {
         if (++accesses == 1) throw StateError('模拟偏好访问失败');
         return prefs;
       },
     );
     await expectLater(
-      repository.save(ReaderAdvancedConfig(titleSize: 8)),
+      repository.saveAdvanced(ReaderAdvancedConfig(titleSize: 8)),
       throwsStateError,
     );
-    await repository.save(ReaderAdvancedConfig(titleSize: 16));
-    expect((await repository.load()).titleSize, 16);
+    await repository.saveAdvanced(ReaderAdvancedConfig(titleSize: 16));
+    expect((await repository.loadAdvanced()).titleSize, 16);
   });
 }

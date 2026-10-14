@@ -23,7 +23,11 @@ final class AppAppearanceSettingsRepository
     storage: SettingsStorageKind.preferences,
     key: 'app_palette_id',
   );
-  static const _addresses = {_mode, _scale, _palette};
+  static const _icon = (
+    storage: SettingsStorageKind.preferences,
+    key: 'launcherIcon',
+  );
+  static const _addresses = {_mode, _scale, _palette, _icon};
 
   AppearanceSettings _decode(AppSettingsSnapshot snapshot) =>
       AppearanceSettings(
@@ -41,12 +45,17 @@ final class AppAppearanceSettingsRepository
           String value => value,
           _ => 'def',
         },
+        launcherIcon: switch (snapshot[_icon]) {
+          String value => value,
+          _ => 'iconMain',
+        },
       );
 
   Map<SettingsAddress, Object?> _encode(AppearanceSettings settings) => {
     _mode: settings.themeMode.name,
     _scale: settings.fontScaleRaw,
     _palette: settings.paletteId,
+    _icon: settings.launcherIcon,
   };
 
   @override

@@ -1,7 +1,5 @@
 import 'dart:ui';
 
-import 'flip_mode.dart';
-
 /// 边距区域（对标原版 PaddingConfigDialog.Region）
 enum PaddingRegion { header, body, footer }
 
@@ -100,9 +98,6 @@ class ReaderAdvancedConfig {
   int textBold;
   bool italic;
 
-  /// 自定义正文文字颜色；零值表示随阅读背景自动选择。
-  int customTextColor;
-
   // [UI-fix v2.0.3 | 2026-08-06] 页面边距（对标原版 ReadBookConfig
   // paddingTop/paddingBottom/paddingLeft/paddingRight） — Qoder
   double pageMarginTop;
@@ -138,17 +133,11 @@ class ReaderAdvancedConfig {
   int titleTopSpacing;
   int titleBottomSpacing;
 
-  /// 标题字体（空=跟随正文字体，对齐原版 ReadBookConfig.titleFont）
-  String titleFont;
-
   // 状态栏提示栏
   bool showBattery;
   bool showTime;
   bool showProgress;
   bool showChapterName;
-
-  // 翻页模式
-  FlipMode flipMode;
 
   // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批无平台依赖项落地：
   // 键名对齐原版 AppConfig/PreferKey（见 MoreConfigDialog.onSharedPreferenceChanged
@@ -246,7 +235,6 @@ class ReaderAdvancedConfig {
     this.textFullJustify = true,
     this.textBold = 0,
     this.italic = false,
-    this.customTextColor = 0,
     this.pageMarginTop = 24,
     this.pageMarginBottom = 24,
     this.pageMarginLeft = 20,
@@ -275,14 +263,12 @@ class ReaderAdvancedConfig {
     this.titleSize = 0,
     this.titleTopSpacing = 0,
     this.titleBottomSpacing = 0,
-    this.titleFont = '',
     // [C2 R4] 顶部「时间+章节名+进度」状态行默认关闭（参考该态无此信息行；
     // 头部信息开关默认关，用户可在「阅读提示信息」面板手动开启）
     this.showBattery = false,
     this.showTime = false,
     this.showProgress = false,
     this.showChapterName = false,
-    this.flipMode = FlipMode.slide,
     this.screenOrientation = 0,
     this.keepLight = 0,
     this.hideStatusBar = false,
@@ -340,7 +326,6 @@ class ReaderAdvancedConfig {
     textFullJustify: textFullJustify,
     textBold: textBold,
     italic: italic,
-    customTextColor: customTextColor,
     pageMarginTop: pageMarginTop,
     pageMarginBottom: pageMarginBottom,
     pageMarginLeft: pageMarginLeft,
@@ -367,12 +352,10 @@ class ReaderAdvancedConfig {
     titleSize: titleSize,
     titleTopSpacing: titleTopSpacing,
     titleBottomSpacing: titleBottomSpacing,
-    titleFont: titleFont,
     showBattery: showBattery,
     showTime: showTime,
     showProgress: showProgress,
     showChapterName: showChapterName,
-    flipMode: flipMode,
     screenOrientation: screenOrientation,
     keepLight: keepLight,
     hideStatusBar: hideStatusBar,

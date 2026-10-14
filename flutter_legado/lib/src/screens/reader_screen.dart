@@ -1,5 +1,6 @@
-import '../providers/reader/reader_config_provider.dart';
+import '../providers/reader/reader_settings_provider.dart';
 import '../models/reader_advanced_config.dart';
+import '../app/session/reader_theme_session.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -9,7 +10,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../constants/pref_keys.dart';
 import '../l10n/app_localization.dart';
 import '../models/book.dart';
 import '../models/book_source.dart';
@@ -18,6 +18,7 @@ import '../providers/audio/audio_notifier.dart';
 import '../features/bookmarks/bookmarks.dart';
 import '../features/bookshelf/bookshelf.dart';
 import '../providers/providers.dart';
+import '../providers/general_settings_provider.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../providers/theme/system_bar_controller.dart';
 import '../routes.dart';
@@ -134,10 +135,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// [P2-30] 退出判定进行中标记（防系统返回连点触发多路判定/重复弹窗）
   bool _exitPending = false;
+  late final ReaderThemeSession _themeSession;
 
   @override
   void initState() {
     super.initState();
+    _themeSession = ref.read(readerThemeSessionProvider)..reset();
     _systemBars = ref.read(systemBarControllerProvider);
     // F6：音量键翻页（对标 volumeKeyPage / volumeKeyPageOnPlay）
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
@@ -173,6 +176,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   void dispose() {
+    // 退出阅读才清除覆盖；目录、设置和后台切换仍属于同一会话。
+    _themeSession.reset();
     _cutoutGeneration++;
     systemBarRouteObserver.unsubscribe(this);
     _systemBars.releaseReader(_systemBarOwner);
@@ -548,9 +553,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         return;
       }
       // 未入架：读「返回时提示放入书架」开关（既有设置项，默认开启）
-      final showAlert = await ref
-          .read(settingsProvider)
-          .getBoolPref(PrefKeys.showAddToShelfAlert, defaultValue: true);
+      final bool showAlert;
+      try {
+        showAlert = (await ref.read(generalSettingsRepositoryProvider).load())
+            .showAddToShelfAlert;
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('读取返回入架设置失败，请重试')));
+        }
+        return;
+      }
       if (!context.mounted) return;
       if (!showAlert) {
         // 开关关 → 静默退出且书不残留（对齐原版第二路）
@@ -693,7 +706,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         body: ReaderMenuThemeHost(
           config: ref.watch(readerAdvConfigProvider) ?? _advConfig,
           readingBackground: state.backgroundColor,
+          readingBrightness: state.readingBrightness,
           builder: (context) {
+            ref.watch(readerSettingsProvider);
+            final fonts = ref.read(readerSettingsRepositoryProvider).current;
             final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
             final bodyInsets = _stableBodyInsets(context);
             final avoidTop = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
@@ -758,6 +774,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               marginRight: _advConfig.pageMarginRight,
                               pageChrome: ReaderPageChromeConfig.fromAdvanced(
                                 _advConfig,
+                                titleFontFamily: fonts.titleFontFamily,
                               ),
                               readBodyToLh: cfg.readBodyToLh,
                               // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
@@ -769,7 +786,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               textBold: _advConfig.textBold,
                               // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
                               italic: _advConfig.italic,
-                              customTextColor: _advConfig.customTextColor,
                               mouseWheelPage: _advConfig.mouseWheelPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
                               // doubleHorizontalPage 0-3 档）— Reasonix

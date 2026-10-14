@@ -50,6 +50,12 @@ mixin _$ReaderState {
   /// 背景色
   Color get backgroundColor;
 
+  /// 当前阅读样式的文字色；空值根据背景亮度自动选择。
+  Color? get foregroundColor;
+
+  /// 阅读模式的有效亮度，与应用主题和背景颜色分别表达。
+  Brightness? get readingBrightness;
+
   /// 翻页模式
   PageTurnMode get pageTurnMode;
 
@@ -96,6 +102,10 @@ mixin _$ReaderState {
                 other.lineHeight == _this.lineHeight) &&
             (identical(other.backgroundColor, _this.backgroundColor) ||
                 other.backgroundColor == _this.backgroundColor) &&
+            (identical(other.foregroundColor, _this.foregroundColor) ||
+                other.foregroundColor == _this.foregroundColor) &&
+            (identical(other.readingBrightness, _this.readingBrightness) ||
+                other.readingBrightness == _this.readingBrightness) &&
             (identical(other.pageTurnMode, _this.pageTurnMode) ||
                 other.pageTurnMode == _this.pageTurnMode) &&
             (identical(other.globalPageIndex, _this.globalPageIndex) ||
@@ -120,6 +130,8 @@ mixin _$ReaderState {
       _this.fontSize,
       _this.lineHeight,
       _this.backgroundColor,
+      _this.foregroundColor,
+      _this.readingBrightness,
       _this.pageTurnMode,
       _this.globalPageIndex,
       _this.totalPages,
@@ -129,7 +141,7 @@ mixin _$ReaderState {
   @override
   String toString() {
     final _this = this as ReaderState;
-    return 'ReaderState(currentBook: ${_this.currentBook}, chapters: ${_this.chapters}, currentChapterIndex: ${_this.currentChapterIndex}, currentChapterPos: ${_this.currentChapterPos}, chapterContent: ${_this.chapterContent}, isLoading: ${_this.isLoading}, error: ${_this.error}, showControls: ${_this.showControls}, fontSize: ${_this.fontSize}, lineHeight: ${_this.lineHeight}, backgroundColor: ${_this.backgroundColor}, pageTurnMode: ${_this.pageTurnMode}, globalPageIndex: ${_this.globalPageIndex}, totalPages: ${_this.totalPages})';
+    return 'ReaderState(currentBook: ${_this.currentBook}, chapters: ${_this.chapters}, currentChapterIndex: ${_this.currentChapterIndex}, currentChapterPos: ${_this.currentChapterPos}, chapterContent: ${_this.chapterContent}, isLoading: ${_this.isLoading}, error: ${_this.error}, showControls: ${_this.showControls}, fontSize: ${_this.fontSize}, lineHeight: ${_this.lineHeight}, backgroundColor: ${_this.backgroundColor}, foregroundColor: ${_this.foregroundColor}, readingBrightness: ${_this.readingBrightness}, pageTurnMode: ${_this.pageTurnMode}, globalPageIndex: ${_this.globalPageIndex}, totalPages: ${_this.totalPages})';
   }
 }
 
@@ -152,6 +164,8 @@ abstract mixin class $ReaderStateCopyWith<$Res> {
     double fontSize,
     double lineHeight,
     Color backgroundColor,
+    Color? foregroundColor,
+    Brightness? readingBrightness,
     PageTurnMode pageTurnMode,
     int globalPageIndex,
     int totalPages,
@@ -183,6 +197,8 @@ class _$ReaderStateCopyWithImpl<$Res> implements $ReaderStateCopyWith<$Res> {
     Object? fontSize = null,
     Object? lineHeight = null,
     Object? backgroundColor = null,
+    Object? foregroundColor = freezed,
+    Object? readingBrightness = freezed,
     Object? pageTurnMode = null,
     Object? globalPageIndex = null,
     Object? totalPages = null,
@@ -233,6 +249,14 @@ class _$ReaderStateCopyWithImpl<$Res> implements $ReaderStateCopyWith<$Res> {
             ? _self.backgroundColor
             : backgroundColor // ignore: cast_nullable_to_non_nullable
                   as Color,
+        foregroundColor: freezed == foregroundColor
+            ? _self.foregroundColor
+            : foregroundColor // ignore: cast_nullable_to_non_nullable
+                  as Color?,
+        readingBrightness: freezed == readingBrightness
+            ? _self.readingBrightness
+            : readingBrightness // ignore: cast_nullable_to_non_nullable
+                  as Brightness?,
         pageTurnMode: null == pageTurnMode
             ? _self.pageTurnMode
             : pageTurnMode // ignore: cast_nullable_to_non_nullable
@@ -369,6 +393,8 @@ extension ReaderStatePatterns on ReaderState {
       double fontSize,
       double lineHeight,
       Color backgroundColor,
+      Color? foregroundColor,
+      Brightness? readingBrightness,
       PageTurnMode pageTurnMode,
       int globalPageIndex,
       int totalPages,
@@ -391,6 +417,8 @@ extension ReaderStatePatterns on ReaderState {
           _that.fontSize,
           _that.lineHeight,
           _that.backgroundColor,
+          _that.foregroundColor,
+          _that.readingBrightness,
           _that.pageTurnMode,
           _that.globalPageIndex,
           _that.totalPages,
@@ -427,6 +455,8 @@ extension ReaderStatePatterns on ReaderState {
       double fontSize,
       double lineHeight,
       Color backgroundColor,
+      Color? foregroundColor,
+      Brightness? readingBrightness,
       PageTurnMode pageTurnMode,
       int globalPageIndex,
       int totalPages,
@@ -448,6 +478,8 @@ extension ReaderStatePatterns on ReaderState {
           _that.fontSize,
           _that.lineHeight,
           _that.backgroundColor,
+          _that.foregroundColor,
+          _that.readingBrightness,
           _that.pageTurnMode,
           _that.globalPageIndex,
           _that.totalPages,
@@ -483,6 +515,8 @@ extension ReaderStatePatterns on ReaderState {
       double fontSize,
       double lineHeight,
       Color backgroundColor,
+      Color? foregroundColor,
+      Brightness? readingBrightness,
       PageTurnMode pageTurnMode,
       int globalPageIndex,
       int totalPages,
@@ -504,6 +538,8 @@ extension ReaderStatePatterns on ReaderState {
           _that.fontSize,
           _that.lineHeight,
           _that.backgroundColor,
+          _that.foregroundColor,
+          _that.readingBrightness,
           _that.pageTurnMode,
           _that.globalPageIndex,
           _that.totalPages,
@@ -529,6 +565,8 @@ class _ReaderState implements ReaderState {
     this.fontSize = 20.0,
     this.lineHeight = 1.7,
     this.backgroundColor = ReaderBackground.white,
+    this.foregroundColor,
+    this.readingBrightness,
     this.pageTurnMode = PageTurnMode.cover,
     this.globalPageIndex = 0,
     this.totalPages = 0,
@@ -597,6 +635,14 @@ class _ReaderState implements ReaderState {
   @JsonKey()
   final Color backgroundColor;
 
+  /// 当前阅读样式的文字色；空值根据背景亮度自动选择。
+  @override
+  final Color? foregroundColor;
+
+  /// 阅读模式的有效亮度，与应用主题和背景颜色分别表达。
+  @override
+  final Brightness? readingBrightness;
+
   /// 翻页模式
   @override
   @JsonKey()
@@ -645,6 +691,10 @@ class _ReaderState implements ReaderState {
                 other.lineHeight == lineHeight) &&
             (identical(other.backgroundColor, backgroundColor) ||
                 other.backgroundColor == backgroundColor) &&
+            (identical(other.foregroundColor, foregroundColor) ||
+                other.foregroundColor == foregroundColor) &&
+            (identical(other.readingBrightness, readingBrightness) ||
+                other.readingBrightness == readingBrightness) &&
             (identical(other.pageTurnMode, pageTurnMode) ||
                 other.pageTurnMode == pageTurnMode) &&
             (identical(other.globalPageIndex, globalPageIndex) ||
@@ -668,6 +718,8 @@ class _ReaderState implements ReaderState {
       fontSize,
       lineHeight,
       backgroundColor,
+      foregroundColor,
+      readingBrightness,
       pageTurnMode,
       globalPageIndex,
       totalPages,
@@ -676,7 +728,7 @@ class _ReaderState implements ReaderState {
 
   @override
   String toString() {
-    return 'ReaderState(currentBook: $currentBook, chapters: $chapters, currentChapterIndex: $currentChapterIndex, currentChapterPos: $currentChapterPos, chapterContent: $chapterContent, isLoading: $isLoading, error: $error, showControls: $showControls, fontSize: $fontSize, lineHeight: $lineHeight, backgroundColor: $backgroundColor, pageTurnMode: $pageTurnMode, globalPageIndex: $globalPageIndex, totalPages: $totalPages)';
+    return 'ReaderState(currentBook: $currentBook, chapters: $chapters, currentChapterIndex: $currentChapterIndex, currentChapterPos: $currentChapterPos, chapterContent: $chapterContent, isLoading: $isLoading, error: $error, showControls: $showControls, fontSize: $fontSize, lineHeight: $lineHeight, backgroundColor: $backgroundColor, foregroundColor: $foregroundColor, readingBrightness: $readingBrightness, pageTurnMode: $pageTurnMode, globalPageIndex: $globalPageIndex, totalPages: $totalPages)';
   }
 }
 
@@ -701,6 +753,8 @@ abstract mixin class _$ReaderStateCopyWith<$Res>
     double fontSize,
     double lineHeight,
     Color backgroundColor,
+    Color? foregroundColor,
+    Brightness? readingBrightness,
     PageTurnMode pageTurnMode,
     int globalPageIndex,
     int totalPages,
@@ -733,6 +787,8 @@ class __$ReaderStateCopyWithImpl<$Res> implements _$ReaderStateCopyWith<$Res> {
     Object? fontSize = null,
     Object? lineHeight = null,
     Object? backgroundColor = null,
+    Object? foregroundColor = freezed,
+    Object? readingBrightness = freezed,
     Object? pageTurnMode = null,
     Object? globalPageIndex = null,
     Object? totalPages = null,
@@ -783,6 +839,14 @@ class __$ReaderStateCopyWithImpl<$Res> implements _$ReaderStateCopyWith<$Res> {
             ? _self.backgroundColor
             : backgroundColor // ignore: cast_nullable_to_non_nullable
                   as Color,
+        foregroundColor: freezed == foregroundColor
+            ? _self.foregroundColor
+            : foregroundColor // ignore: cast_nullable_to_non_nullable
+                  as Color?,
+        readingBrightness: freezed == readingBrightness
+            ? _self.readingBrightness
+            : readingBrightness // ignore: cast_nullable_to_non_nullable
+                  as Brightness?,
         pageTurnMode: null == pageTurnMode
             ? _self.pageTurnMode
             : pageTurnMode // ignore: cast_nullable_to_non_nullable

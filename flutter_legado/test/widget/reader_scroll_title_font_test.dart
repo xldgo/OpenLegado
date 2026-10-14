@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/book_chapter.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
@@ -42,7 +43,7 @@ class _FixedReaderNotifier extends ReaderNotifier {
 void main() {
   const chapterTitle = '第一章 滚动标题';
   const bodyFont = 'SimSun';
-  const titleFont = 'KaiTi';
+  const titleFontFamily = 'KaiTi';
 
   /// 滚动模式状态：单章 + 短正文（排版引擎分页出 1 页，标题块常显）
   ReaderState scrollState() => ReaderState(
@@ -70,12 +71,12 @@ void main() {
   }
 
   group('A4 滚动模式标题字体（_buildScrollContent 标题块）', () {
-    testWidgets('titleFont 非空 → 滚动标题 fontFamily 与单源取值一致', (tester) async {
+    testWidgets('titleFontFamily 非空 → 滚动标题 fontFamily 与单源取值一致', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      const chrome = ReaderPageChromeConfig(titleFont: titleFont);
+      const chrome = ReaderPageChromeConfig(titleFontFamily: titleFontFamily);
       // 单源函数（reader_page_chrome.dart effectiveTitleFontFamily）取值
       final expected = effectiveTitleFontFamily(chrome, bodyFont);
-      expect(expected, titleFont);
+      expect(expected, titleFontFamily);
 
       await tester.pumpWidget(wrap(scrollState(), chrome));
       await tester.pumpAndSettle();
@@ -88,7 +89,7 @@ void main() {
       );
     });
 
-    testWidgets('titleFont 空 → 滚动标题跟随正文字体（_fontFamily）', (tester) async {
+    testWidgets('titleFontFamily 空 → 滚动标题跟随正文字体（_fontFamily）', (tester) async {
       // 正文字体经 SharedPreferences reader_font_family 注入
       // （ReaderPageView._refreshFontFamily 异步读取后 setState 重建）
       SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
@@ -113,8 +114,36 @@ void main() {
       expect(
         titleStyle.fontFamily,
         expected,
-        reason: '空 titleFont 时滚动标题应跟随正文字体',
+        reason: '空 titleFontFamily 时滚动标题应跟随正文字体',
       );
+    });
+
+    testWidgets('原内容区直接订阅字体选择，更新正文后标题同步跟随', (tester) async {
+      SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
+      await tester.pumpWidget(
+        wrap(scrollState(), const ReaderPageChromeConfig()),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderPageView)),
+      );
+      final view = tester.state(find.byType(ReaderPageView));
+      expect(
+        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
+        bodyFont,
+      );
+      await container
+          .read(readerSettingsRepositoryProvider)
+          .update(fontFamily: 'Georgia');
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.state(find.byType(ReaderPageView)), same(view));
+      expect(
+        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
+        'Georgia',
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 }

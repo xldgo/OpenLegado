@@ -8,6 +8,7 @@ import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
@@ -104,6 +105,25 @@ void main() {
     await readNotifier().openBook(readState().currentBook!);
     expect(readNotifier().currentSourceOffset, isNull);
     expect(readState().currentChapterPos, 0);
+  });
+
+  test('字号行距改变保持当前章节和原文锚点，重新开书仍恢复同一位置', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().updateFontSize(26);
+    await readNotifier().updateLineHeight(2.1);
+    await container
+        .read(readerSettingsRepositoryProvider)
+        .update(fontFamily: 'SimSun', titleFontFamily: 'KaiTi');
+    expect(readState().currentChapterIndex, 0);
+    expect(readState().currentChapterPos, 2);
+    expect(readNotifier().currentSourceOffset, 120);
+    await readNotifier().saveProgress();
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, 120);
+    expect(readState().fontSize, 26);
+    expect(readState().lineHeight, 2.1);
   });
 
   group('ReaderState 初始状态', () {
@@ -220,35 +240,35 @@ void main() {
     test('updateFontSize 正常设置', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(22.0);
+      await readNotifier().updateFontSize(22.0);
       expect(readState().fontSize, equals(22.0));
     });
 
     test('updateFontSize 低于下限被 clamp 到 12', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(8.0);
+      await readNotifier().updateFontSize(8.0);
       expect(readState().fontSize, equals(12.0));
     });
 
     test('updateFontSize 超过上限被 clamp 到 32', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(50.0);
+      await readNotifier().updateFontSize(50.0);
       expect(readState().fontSize, equals(32.0));
     });
 
     test('updateLineHeight 正常设置', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(2.0);
+      await readNotifier().updateLineHeight(2.0);
       expect(readState().lineHeight, equals(2.0));
     });
 
     test('updateLineHeight 低于下限被 clamp 到 1.0', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(0.5);
+      await readNotifier().updateLineHeight(0.5);
       expect(readState().lineHeight, equals(1.0));
     });
 
@@ -257,14 +277,14 @@ void main() {
     test('updateLineHeight 超过上限被 clamp 到 3.0', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(4.0);
+      await readNotifier().updateLineHeight(4.0);
       expect(readState().lineHeight, equals(3.0));
     });
 
     test('updateBackgroundColor 设置为预设绿色', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateBackgroundColor(ReaderBackground.green);
+      await readNotifier().updateBackgroundColor(ReaderBackground.green);
       expect(readState().backgroundColor, equals(ReaderBackground.green));
     });
 
@@ -272,16 +292,16 @@ void main() {
       container.read(readerNotifierProvider);
       await pumpInit();
       const custom = Color(0xFF123456);
-      readNotifier().updateBackgroundColor(custom);
+      await readNotifier().updateBackgroundColor(custom);
       expect(readState().backgroundColor, equals(custom));
     });
 
     test('updatePageTurnMode 切换翻页模式', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updatePageTurnMode(PageTurnMode.slide);
+      await readNotifier().updatePageTurnMode(PageTurnMode.slide);
       expect(readState().pageTurnMode, equals(PageTurnMode.slide));
-      readNotifier().updatePageTurnMode(PageTurnMode.scroll);
+      await readNotifier().updatePageTurnMode(PageTurnMode.scroll);
       expect(readState().pageTurnMode, equals(PageTurnMode.scroll));
     });
   });
@@ -613,7 +633,7 @@ void main() {
 
   // 默认背景跟随主题；夜间背景跟随纯黑开关；浅色预设和自定义色保持原选择。
   group('[M1] 深色态背景默认解析', () {
-    test('默认与夜间背景即时跟随纯黑，预设索引保持不变', () async {
+    test('默认夜间跟随纯黑，主动保存的样式背景保持原颜色', () async {
       SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
       container.read(readerNotifierProvider);
       await pumpInit();
@@ -623,12 +643,12 @@ void main() {
       await pumpInit();
       expect(readState().backgroundColor, const Color(0xFF000000));
       expect(readState().textColor, const Color(0xFFCCCCCC));
-      readNotifier().updateBackgroundColor(ReaderBackground.dark);
+      await readNotifier().updateBackgroundColor(ReaderBackground.dark);
       await pumpInit();
-      expect(readState().backgroundColor, const Color(0xFF000000));
+      expect(readState().backgroundColor, ReaderBackground.dark);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('reader_bg_color_index'), 4);
-      expect(prefs.getBool('reader_bg_use_custom'), false);
+      expect(prefs.getInt('reader_bg_color_index'), isNull);
+      expect(prefs.getString('reader_styles'), isNotNull);
       await ui.setThemeAmoled(false);
       await pumpInit();
       expect(readState().backgroundColor, ReaderBackground.dark);

@@ -54,10 +54,13 @@ class RestoreIgnorePrefs {
     'reader_font_size',
     'reader_line_height',
     'reader_bg_color_index',
+    'reader_styles',
     'reader_flip_mode',
     'reader_flip_mode_name',
     'reader_brightness',
     'reader_font_family',
+    'reader_title_font_family',
+    'reader_custom_fonts',
   };
 
   /// 主题颜色相关键（对齐 BackupConfig.themePrefKeys）

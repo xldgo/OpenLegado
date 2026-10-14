@@ -1,4 +1,4 @@
-import 'package:flutter_legado/src/data/repositories/preferences_reader_config_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,9 +8,11 @@ import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 
+import '../fixtures/reader_settings_repository.dart';
+
 void main() {
-  late PreferencesReaderConfigRepository repository;
-  setUp(() => repository = PreferencesReaderConfigRepository());
+  late AppReaderSettingsRepository repository;
+  setUp(() => repository = createTestReaderSettingsRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
   const paper = Color(0xFFF5EEDB);
   const ui = UiSettings();
@@ -48,6 +50,28 @@ void main() {
       lessThan(0.2),
     );
     expect(dark.colorScheme.onSurface.computeLuminance(), greaterThan(0.5));
+  });
+
+  test('独立阅读夜间使用菜单夜间配色，应用主题保持亮色', () {
+    final app = AppTheme.light;
+    final config = ReaderAdvancedConfig(
+      readBarStyle: 2,
+      readMenuColorMode: 1,
+      readMenuBgColor: 0xFFF5EEDB,
+      readMenuBgColorNight: 0xFF232323,
+      readMenuAccentColorNight: 0xFF88C16F,
+    );
+    final theme = resolveReaderMenuTheme(
+      appTheme: app,
+      readingBackground: const Color(0xFF3C3F43),
+      config: config,
+      ui: ui,
+      readingBrightness: Brightness.dark,
+    );
+    expect(app.brightness, Brightness.light);
+    expect(theme.brightness, Brightness.dark);
+    expect(theme.colorScheme.surfaceContainerHigh, const Color(0xFF232323));
+    expect(theme.colorScheme.primary, const Color(0xFF88C16F));
   });
 
   test('组件主题同步局部色板，保留应用字阶', () {
@@ -135,10 +159,10 @@ void main() {
 
   test('旧开关迁移为背景模式，新模式优先；复制与保存保留颜色', () async {
     SharedPreferences.setMockInitialValues({'readBarStyleFollowPage': true});
-    expect((await repository.load()).readBarStyle, 1);
+    expect((await repository.loadAdvanced()).readBarStyle, 1);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('readBarStyle', 2);
-    final config = await repository.load();
+    final config = await repository.loadAdvanced();
     expect(config.readBarStyle, 2);
     config.readMenuPaletteStyle = 'vibrant';
     config.readMenuColorMode = 1;
@@ -150,9 +174,9 @@ void main() {
     config.readMenuContainerColorNight = 0xFF242424;
     config.readMenuTextColor = 0xFF010203;
     config.readMenuTextColorNight = 0xFFFAFBFC;
-    await repository.save(config.copy());
+    await repository.saveAdvanced(config.copy());
     expect(prefs.containsKey('readBarStyleFollowPage'), isFalse);
-    final restored = await repository.load();
+    final restored = await repository.loadAdvanced();
     expect(restored.readBarStyle, 2);
     expect(restored.readMenuPaletteStyle, 'vibrant');
     expect(restored.readMenuColorMode, 1);

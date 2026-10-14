@@ -16,6 +16,7 @@ import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
 import '../providers.dart';
+import '../reader/reader_settings_provider.dart';
 import 'association_state.dart';
 
 export 'association_state.dart';
@@ -460,13 +461,17 @@ class AssociationNotifier extends Notifier<AssociationState> {
         if (item.containsKey('fontSize')) {
           final size = (item['fontSize'] as num?)?.toDouble();
           if (size != null && size > 0) {
-            await prefs.setDouble('reader_font_size', size);
+            await ref
+                .read(readerSettingsRepositoryProvider)
+                .update(fontSize: size);
           }
         }
         if (item.containsKey('lineHeight')) {
           final height = (item['lineHeight'] as num?)?.toDouble();
           if (height != null && height > 0) {
-            await prefs.setDouble('reader_line_height', height);
+            await ref
+                .read(readerSettingsRepositoryProvider)
+                .update(lineHeight: height);
           }
         }
         if (item.containsKey('bgColorIndex')) {

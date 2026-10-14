@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/contracts/backup_settings_repository.dart';
+
 /// 日志条目（对应 Android 原版 [`AppLog`](https://github.com/PAPro-Nightmare/LegadoTeam/blob/main/app/src/main/java/io/legado/app/help/AppLog.kt)）中的 Triple
 class LogEntry {
   /// 时间戳（毫秒）
@@ -57,8 +59,8 @@ class CrashLogService {
   /// SharedPreferences 键：是否记录 HTTP 日志（对应 Android 原版 AppConfig.recordHttpLog）
   static const _keyRecordHttpLog = 'crash_record_http_log';
 
-  /// SharedPreferences 键：备份/导出路径（对应 Android 原版 AppConfig.backupPath）
-  static const _keyBackupPath = 'app_backup_path';
+  /// 目录由备份仓储提供，日志服务只执行文件操作。— Codex + UI
+  BackupSettingsRepository? _backupSettings;
 
   /// SharedPreferences 键：是否记录堆转储（对应 Android 原版 AppConfig.recordHeapDump）
   static const _keyRecordHeapDump = 'crash_record_heap_dump';
@@ -91,7 +93,8 @@ class CrashLogService {
   ///
   /// 使用 [getApplicationDocumentsDirectory] 下的 `crash_log.txt` 作为崩溃日志，
   /// `app_log.txt` 作为普通消息日志。
-  Future<void> init() async {
+  Future<void> init({required BackupSettingsRepository backupSettings}) async {
+    _backupSettings = backupSettings;
     final dir = await getApplicationDocumentsDirectory();
     _crashLogFile = File('${dir.path}/crash_log.txt');
     _messageLogFile = File('${dir.path}/app_log.txt');
@@ -257,27 +260,24 @@ class CrashLogService {
   /// 将崩溃日志保存到备份目录的 crash 子目录
   ///
   /// 文件名格式：`crash-yyyy-MM-dd-HH-mm-ss-时间戳.log`
-  void _saveCrashLogToBackup(String crashLog) {
+  Future<void> _saveCrashLogToBackup(String crashLog) async {
     try {
-      final prefs = SharedPreferences.getInstance();
-      prefs.then((sp) {
-        final backupPath = sp.getString(_keyBackupPath);
-        if (backupPath == null || backupPath.isEmpty) return;
+      final backupPath = await _readBackupPath();
+      if (backupPath == null) return;
 
-        final crashDir = Directory('$backupPath/crash');
-        if (!crashDir.existsSync()) {
-          crashDir.createSync(recursive: true);
-        }
+      final crashDir = Directory('$backupPath/crash');
+      if (!crashDir.existsSync()) {
+        crashDir.createSync(recursive: true);
+      }
 
-        final now = DateTime.now();
-        final timestamp = now.millisecondsSinceEpoch;
-        final timeStr = _formatTimeForFileName(now);
-        final fileName = 'crash-$timeStr-$timestamp.log';
-        File('${crashDir.path}/$fileName').writeAsStringSync(crashLog);
+      final now = DateTime.now();
+      final timestamp = now.millisecondsSinceEpoch;
+      final timeStr = _formatTimeForFileName(now);
+      final fileName = 'crash-$timeStr-$timestamp.log';
+      File('${crashDir.path}/$fileName').writeAsStringSync(crashLog);
 
-        // 清理超过 7 天的旧崩溃日志
-        _cleanOldCrashLogs(crashDir);
-      });
+      // 清理超过 7 天的旧崩溃日志
+      _cleanOldCrashLogs(crashDir);
     } catch (_) {
       // 备份写入失败时静默忽略
     }
@@ -337,7 +337,7 @@ class CrashLogService {
 
   /// 获取备份目录中所有崩溃日志文件列表（按文件名降序，最新的在前）
   Future<List<CrashLogItem>> listCrashLogs() async {
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return [];
 
     final crashDir = Directory('$backupPath/crash');
@@ -364,7 +364,7 @@ class CrashLogService {
   /// [fileName] 崩溃日志文件名
   /// 返回日志文本，文件不存在则返回 null
   Future<String?> readCrashLog(String fileName) async {
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return null;
 
     final file = File('$backupPath/crash/$fileName');
@@ -387,7 +387,7 @@ class CrashLogService {
     await clearCrashLog();
 
     // 删除备份目录中的崩溃日志
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return;
 
     final crashDir = Directory('$backupPath/crash');
@@ -404,23 +404,9 @@ class CrashLogService {
     }
   }
 
-  // ===== 备份路径配置（对应 Android 原版 AppConfig.backupPath） =====
-
-  /// 获取备份/导出路径
-  Future<String?> getBackupPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_keyBackupPath);
-    return (path == null || path.isEmpty) ? null : path;
-  }
-
-  /// 设置备份/导出路径
-  Future<void> setBackupPath(String? value) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (value == null || value.isEmpty) {
-      await prefs.remove(_keyBackupPath);
-    } else {
-      await prefs.setString(_keyBackupPath, value);
-    }
+  Future<String?> _readBackupPath() async {
+    final path = (await _backupSettings?.load())?.backupPath;
+    return path == null || path.isEmpty ? null : path;
   }
 
   // ===== 日志开关（对应 Android 原版 AppConfig.recordLog / recordHttpLog） =====

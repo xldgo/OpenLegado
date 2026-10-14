@@ -12,7 +12,10 @@ import 'src/services/book_api.dart';
 import 'src/app/bootstrap/book_api_bootstrap.dart';
 import 'src/app/bootstrap/app_settings_factory.dart';
 import 'src/app/bootstrap/settings_runtime_configuration.dart';
+import 'src/app/session/reader_theme_session.dart';
+import 'src/providers/reader/reader_settings_provider.dart';
 import 'src/data/repositories/app_appearance_settings_repository.dart';
+import 'src/data/repositories/app_backup_settings_repository.dart';
 import 'src/providers/app_settings_provider.dart';
 import 'src/features/appearance/appearance_settings_provider.dart';
 import 'src/services/crash_log_service.dart';
@@ -24,9 +27,19 @@ void main() {
 
       WidgetsFlutterBinding.ensureInitialized();
 
+      // 只装配共享设置服务；目录读取仍由日志服务需要备份时触发。
+      late final BookApi bookApi;
+      final appSettings = createAppSettingsService(
+        readConfig: (key) => bookApi.getConfig(key),
+        writeConfig: (key, value) => bookApi.setConfig(key, value),
+      );
+
       // 1. 崩溃日志服务（最先初始化，确保后续异常可被捕获）
+      final readerThemeSession = ReaderThemeSession();
       var sw = Stopwatch()..start();
-      await CrashLogService.instance.init();
+      await CrashLogService.instance.init(
+        backupSettings: AppBackupSettingsRepository(appSettings),
+      );
       debugPrint('[启动] CrashLogService 初始化耗时：${sw.elapsedMilliseconds}ms');
 
       // 2. 注册全局错误捕获
@@ -44,14 +57,11 @@ void main() {
       // 4. 并行初始化：SharedPreferences 与 Rust FFI 无依赖，可并行
       // SharedPreferences 预热供 SettingsService；初始化的 BookApi 原实例注入 Provider。
       sw = Stopwatch()..start();
-      late final BookApi bookApi;
-      final appSettings = createAppSettingsService(
-        readConfig: (key) => bookApi.getConfig(key),
-        writeConfig: (key, value) => bookApi.setConfig(key, value),
-      );
       try {
         bookApi = createBookApi(
           configurationSource: SettingsRuntimeConfiguration(
+            appSettings: appSettings,
+            readingSession: readerThemeSession,
             appearance: AppAppearanceSettingsRepository(appSettings),
           ),
         );
@@ -61,8 +71,9 @@ void main() {
           apiInitialization,
         ]);
       } catch (e, stack) {
-        await appSettings.dispose();
         CrashLogService.instance.logError(e, stack);
+        await appSettings.dispose();
+        await readerThemeSession.dispose();
         debugPrint('[Legado] 初始化失败：$e');
         runApp(_FfiErrorApp(error: e.toString()));
         return;
@@ -81,6 +92,10 @@ void main() {
         ProviderScope(
           overrides: [
             bookApiProvider.overrideWithValue(bookApi),
+            readerThemeSessionProvider.overrideWith((ref) {
+              ref.onDispose(() => unawaited(readerThemeSession.dispose()));
+              return readerThemeSession;
+            }),
             themeConfigSyncProvider.overrideWithValue(
               themeConfigSyncFor(bookApi),
             ),

@@ -28,6 +28,7 @@ import '../../services/launcher_icon_service.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/settings_widgets.dart';
 import 'theme_actions.dart';
+import 'appearance_settings_provider.dart';
 import 'widgets/theme_preset_dialogs.dart';
 import 'widgets/cover_rule_config_dialog.dart';
 import 'widgets/theme_mode_selector.dart';
@@ -50,7 +51,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   bool _loading = true;
 
   // ===== 通用组状态（对齐原版顶部无分组项）=====
-  String _launcherIcon = 'iconMain';
+  String get _launcherIcon =>
+      ref.read(appearanceSettingsRepositoryProvider).current.launcherIcon;
   int _barElevation = 0;
   bool _wallpaperColorAutoUpdate = true;
 
@@ -118,10 +120,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   /// 加载持久化偏好（键名对齐原版 PreferKey）
   Future<void> _loadSettings() async {
-    final launcherIcon = await _settings.getStringPref(
-      PrefKeys.launcherIcon,
-      defaultValue: 'iconMain',
-    );
+    try {
+      await ref.read(appearanceSettingsRepositoryProvider).load();
+    } catch (error) {
+      _toast('外观设置读取失败，请重试');
+    }
     final barElevation = await _settings.getIntPref(
       PrefKeys.barElevation,
       defaultValue: 0,
@@ -132,7 +135,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _launcherIcon = launcherIcon;
       _barElevation = barElevation;
       _wallpaperColorAutoUpdate = wallpaperColorAutoUpdate;
       _loading = false;
@@ -434,6 +436,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeNotifierProvider);
+    ref.watch(appearanceSettingsProvider);
     final themeNotifier = ref.read(themeNotifierProvider.notifier);
     final colors = ref.watch(themeColorsProvider);
     final ui = ref.watch(uiSettingsProvider);
@@ -1128,8 +1131,15 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   /// 沿用现有 Android/iOS 切换与结果提示。
   Future<void> _setLauncherIcon(String selected) async {
     if (!mounted) return;
-    setState(() => _launcherIcon = selected);
-    await _settings.setStringPref(PrefKeys.launcherIcon, selected);
+    try {
+      await ref
+          .read(appearanceSettingsRepositoryProvider)
+          .update((current) => current.copyWith(launcherIcon: selected));
+    } catch (error) {
+      _toast('图标设置保存失败，请重试');
+      return;
+    }
+    if (!mounted) return;
     // 下发原生侧实际切换（Android setComponentEnabledSetting /
     // iOS setAlternateIconName）；失败时提示真实原因，不阻断偏好保存
     final result = await LauncherIconService.setIcon(selected);

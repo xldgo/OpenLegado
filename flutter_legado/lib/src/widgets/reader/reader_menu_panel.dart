@@ -1,4 +1,4 @@
-import '../../providers/reader/reader_config_provider.dart';
+import '../../providers/reader/reader_settings_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../app_menu.dart';
 

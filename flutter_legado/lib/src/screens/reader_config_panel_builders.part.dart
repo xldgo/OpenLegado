@@ -28,32 +28,38 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   // ===== 翻页模式 =====
 
   Widget _buildFlipMode() {
+    final selected = ref.watch(
+      readerNotifierProvider.select((state) => state.pageTurnMode),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle(context.l10n.flipMode, Icons.auto_stories_outlined),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: SegmentedButton<FlipMode>(
+          child: SegmentedButton<PageTurnMode>(
             segments: [
-              for (final mode in FlipMode.values)
+              for (final mode in const [
+                PageTurnMode.simulate,
+                PageTurnMode.slide,
+                PageTurnMode.cover,
+                PageTurnMode.none,
+                PageTurnMode.scroll,
+              ])
                 ButtonSegment(
                   value: mode,
                   label: Text(switch (mode) {
-                    FlipMode.simulation => context.l10n.readerSimulation,
-                    FlipMode.slide => context.l10n.readerSlide,
-                    FlipMode.cover => context.l10n.coverMode,
-                    FlipMode.none => context.l10n.noneMode,
-                    FlipMode.scroll => context.l10n.readerScroll,
+                    PageTurnMode.simulate => context.l10n.readerSimulation,
+                    PageTurnMode.slide => context.l10n.readerSlide,
+                    PageTurnMode.cover => context.l10n.coverMode,
+                    PageTurnMode.none => context.l10n.noneMode,
+                    PageTurnMode.scroll => context.l10n.readerScroll,
                   }),
                   icon: Text(mode.icon),
                 ),
             ],
-            selected: {_config.flipMode},
-            onSelectionChanged: (sel) {
-              _config.flipMode = sel.first;
-              _commit();
-            },
+            selected: {selected},
+            onSelectionChanged: (sel) => _savePageTurnMode(sel.first),
           ),
         ),
       ],
@@ -319,8 +325,6 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             await Navigator.pushNamed(context, AppRoutes.fonts);
             if (!mounted) return;
             await _loadFontLabel();
-            // 通知阅读器重建内容区（ReaderPageView.didUpdateWidget 重读字体）
-            widget.onChanged?.call(_config.copy());
           },
         ),
         // 字距调节（对标原版 ReadBookConfig.letterSpacing）

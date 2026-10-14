@@ -325,8 +325,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // [UI-fix v2.0.3 | 2026-08-08] 删除提醒开关持久化（对齐原版
         // LocalConfig.deleteBookAlert：删除/移出书籍时是否弹确认框） — Qoder
         final next = !_deleteBookAlert;
-        await _settingsService.setDeleteBookAlert(next);
-        if (mounted) setState(() => _deleteBookAlert = next);
+        try {
+          await ref
+              .read(bookshelfSettingsRepositoryProvider)
+              .update(deleteBookAlert: next);
+        } catch (error) {
+          if (mounted) _snack('删除提醒设置保存失败，请重试');
+        }
         break;
       case 'bookVariable':
         // [UI-fix v2.0.3 | 2026-08-09] 设置书籍变量接通保存链路（Task #39

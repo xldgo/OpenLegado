@@ -37,20 +37,25 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
   /// 面板内可编辑配置副本（提交经 onChanged 回传主 Sheet）
   late ReaderAdvancedConfig _config;
 
-  /// 当前正文字体显示名（与 FontScreen 持久化键 reader_font_family 同步，
-  /// 读取方式对标 reader_config_panel._loadFontLabel）
-  String? _fontLabel;
+  String? get _fontLabel => ref
+      .read(readerSettingsRepositoryProvider)
+      .current
+      .fontFamily
+      ?.replaceFirst('Custom_', '');
 
-  /// 当前标题字体显示名（与 FontScreen titleFont 键同步；
-  /// 空=「跟随正文」，[C3 标题字体]）
-  String _titleFontLabel = '跟随正文';
+  String get _titleFontLabel {
+    final family = ref
+        .read(readerSettingsRepositoryProvider)
+        .current
+        .titleFontFamily;
+    return family.isEmpty ? '跟随正文' : family.replaceFirst('Custom_', '');
+  }
 
   @override
   void initState() {
     super.initState();
     _config = widget.config.copy();
-    unawaited(_loadFontLabel());
-    unawaited(_loadTitleFontLabel());
+    unawaited(_loadFonts());
   }
 
   @override
@@ -62,33 +67,11 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
     }
   }
 
-  /// 从 SharedPreferences 读取当前阅读字体显示名
-  Future<void> _loadFontLabel() async {
+  Future<void> _loadFonts() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final family = prefs.getString('reader_font_family');
-      if (!mounted || family == null) return;
-      setState(() => _fontLabel = family.replaceFirst('Custom_', ''));
-    } catch (_) {
-      // 读取失败保持默认字体标签
-    }
-  }
-
-  /// 从 SharedPreferences 读取当前标题字体显示名（空=「跟随正文」）
-  Future<void> _loadTitleFontLabel() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final family = prefs.getString('titleFont') ?? '';
-      if (!mounted) return;
-      // 字体管理页已保存新值，回传配置时同步快照，避免旧值覆盖刚选的字体。
-      _config.titleFont = family;
-      setState(
-        () => _titleFontLabel = family.isEmpty
-            ? '跟随正文'
-            : family.replaceFirst('Custom_', ''),
-      );
-    } catch (_) {
-      // 读取失败保持跟随正文标签
+      await ref.read(readerSettingsRepositoryProvider).load();
+    } catch (error) {
+      debugPrint('字体选择读取失败：$error');
     }
   }
 
@@ -125,17 +108,11 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
       AppRoutes.fonts,
       arguments: title ? 'title' : null,
     );
-    if (!mounted) return;
-    if (title) {
-      await _loadTitleFontLabel();
-    } else {
-      await _loadFontLabel();
-    }
-    _commit();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readerSettingsProvider);
     if (widget.titleOnly) {
       final row = _row(
         title: '标题字体',
