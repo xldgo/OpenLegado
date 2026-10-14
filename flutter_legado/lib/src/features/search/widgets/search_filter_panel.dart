@@ -3,11 +3,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
-import '../models/models.dart';
-import '../providers/providers.dart';
-import '../providers/search/search_notifier.dart';
-import '../utils/error_message.dart';
-import 'app_progress_indicator.dart';
+import '../../../models/models.dart';
+import '../../../providers/providers.dart';
+import '../search_notifier.dart';
+import '../../../utils/error_message.dart';
+import '../../../widgets/app_progress_indicator.dart';
 
 /// 搜索范围筛选面板（书源单选）
 ///

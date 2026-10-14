@@ -11,7 +11,6 @@ mixin MockBookApiStore {
   List<BookSource> get _sources => _bookSourceStore.sources;
   final List<RssSource> _rssSources = [];
   final List<ReplaceRule> _replaceRules = [];
-  final List<SearchKeyword> _searchHistory = [];
   final List<RssStar> _rssStars = [];
   // 字典规则内存态（契约 §2.45：dictRule* 七方法；REPLACE by name 语义）
   final List<Map<String, dynamic>> _dictRules = [];

@@ -60,9 +60,8 @@
       - any-glob-to-any-file:
           - 'flutter_legado/lib/src/features/book_sources/**'
           - 'flutter_legado/lib/src/screens/source*'
-          - 'flutter_legado/lib/src/screens/search*'
+          - 'flutter_legado/lib/src/features/search/**'
           - 'flutter_legado/lib/src/providers/source*/**'
-          - 'flutter_legado/lib/src/providers/search/**'
           - 'rust/legado-fetcher/**'
           - 'rust/legado-parser/**'
 'area: web':

@@ -1,3 +1,5 @@
+import '../../data/services/rust_search_service.dart';
+import '../../data/repositories/rust_search_history_repository.dart';
 import '../../data/repositories/rust_source_login_repository.dart';
 import '../../data/services/rust_source_checker.dart';
 import '../../data/repositories/rust_book_source_repository.dart';
@@ -41,6 +43,8 @@ BookApi createBookApi({
     bookGroupRepository: const RustBookGroupRepository(),
     sourceChecker: const RustSourceChecker(),
     sourceLoginRepository: const RustSourceLoginRepository(),
+    searchService: const RustSearchService(),
+    searchHistoryRepository: const RustSearchHistoryRepository(),
     bookSourceRepository: const RustBookSourceRepository(
       onSourcesChanged: CoverDecodeLoader.invalidateSourceRegistry,
     ),

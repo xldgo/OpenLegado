@@ -1,3 +1,6 @@
+import '../../domain/services/search_result_aggregator.dart';
+import '../../domain/services/search_session.dart';
+import 'search_access_providers.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -5,8 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 
 import '../../bridge/ffi.dart';
-import '../../models/models.dart';
-import '../providers.dart';
+import '../../providers/providers.dart';
 import 'search_state.dart';
 
 export 'search_state.dart';
@@ -16,23 +18,17 @@ final _splitGroupRegex = RegExp(r'[,;，；]');
 
 /// 搜索页 Riverpod Notifier
 ///
-/// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律 与 SearchViewModel.kt）：
-/// - 调用 BookApi.searchBooks → 接收纯数据 → 更新 immutable State
-/// - 管理 UI 状态（loading/error/results 三态）
-/// - 管理精准搜索筛选（书源/分组选择 → 解析为 sourceUrls）
-/// - 管理搜索历史（经 BookApi 持久化至 Rust search_keywords 表）
-/// - 管理输入联想（客户端前缀过滤，对标原版 flowSearch）
-/// - 禁止包含搜索匹配/合并逻辑（由 Rust searchBooks 完成）
-///
-/// 说明：原版 Android 为逐源流式搜索 + x/y 进度（协程 flow），
-/// 当前 Rust FFI searchBooks 为一次性返回，故进度仅表现为加载态；
-/// 渐进搜索需 Rust 轨提供 Stream API（见交接文档跨轨需求）。
+/// 消费窄搜索与历史接口，管理展示、范围和增量结果；原生调度由 Rust 负责。
+/// 批次解码、执行会话及纯增量聚合由独立模块承担。— Codex + UI
 class SearchNotifier extends Notifier<SearchState> {
   /// 历史保留上限（UI 展示截断，对标原版）
   static const _maxHistory = 20;
 
-  /// 当前流式搜索订阅（新搜索/清空时取消，对齐原版 cancelSearch）
-  StreamSubscription<Map<String, dynamic>>? _searchSub;
+  /// 查询绑定、清理屏障与资源释放由会话拥有。— Codex + UI
+  SearchSession? _session;
+  Future<void>? _stopping;
+  bool _disposed = false;
+  int _lifecycleGeneration = 0;
 
   /// 搜索序号（使旧搜索的迟到批次/回调失效，对齐原版 searchID）
   int _searchSeq = 0;
@@ -42,43 +38,14 @@ class SearchNotifier extends Notifier<SearchState> {
   /// build 层直接消费 state.results，避免每帧全量分桶卡顿 — Reasonix
   bool _keepOther = true;
 
-  /// 会话级增量聚合桶（跨页去重；批次B G-B-01：同关键词续页 APPEND，
-  /// 新关键词/清空时重置）— Cursor UI
-  ///
-  /// [2026-08-24] 由「每次 flush 全量重聚合」改为增量维护：每本书到达时
-  /// 一次性进入所属桶（O(批次)），flush 仅排序 + 物化（O(k log k)）。
-  /// 对齐原版 SearchModel.mergeItems 在后台线程逐批聚合的语义 —— 避免
-  /// 流式期间主 isolate 持续高频执行全量正则清洗 + 不可变对象拷贝
-  /// （数千书 × 6.7Hz）压满 UI 线程导致界面卡死。
-  /// 桶结构与 [applyPrecisionSearch] 一致：equal/tags/contains/other。
-  final _bucketEqual = <String, _AggGroup>{};
-  final _bucketTags = <String, _AggGroup>{};
-  final _bucketContains = <String, _AggGroup>{};
-  final _bucketOther = <String, _AggGroup>{};
-
-  /// 全局到达顺序序号（桶内排序稳定平局键：同 origin 数按首次出现序，
-  /// 对齐 applyPrecisionSearch 的索引平局语义）— Qoder UI
-  int _groupSeq = 0;
-
-  /// 会话级**跨桶预去重**键集（P2-20 基准语义：书名+作者+书源，与增量桶同步维护）。
-  ///
-  /// 键在批次到达循环以 `'${r.book.name}|${r.book.author}|${r.book.origin}'`
-  /// 计算——**原始（未清洗）**值、`|` 分隔三段、含 origin；管辖「是否入桶」：
-  /// 同一 (name, author, origin) 三元组仅**首次到达**入桶（落哪个桶由首次到达
-  /// 决定），后续同键到达整体丢弃。纯函数 `applyPrecisionSearch`
-  /// （`search_state.dart`）与 Rust `search_aggregate` 的 seen 键与此**逐字
-  /// 对齐**（P2-20 裁决：三条路径统一到同一语义）。
-  /// 注意与 [_addToBuckets] 的**桶内聚合键**（`'$name\u0000$author'`，清洗后
-  /// 值、两段、不含 origin，管辖桶内归并分组）是两个不同的键。
-  /// — Cursor UI
-  final _seenKeys = <String>{};
+  final _aggregator = SearchResultAggregator();
 
   /// 结果列表节流重建间隔（2026-08-24：修复逐批次全量重聚合 + 全量替换
   /// 导致的搜索卡顿；对齐原版增量渲染语义）
   static const _flushInterval = Duration(milliseconds: 150);
 
   /// 结果列表节流重建定时器（至多每 [_flushInterval] 触发一次全量
-  /// applyPrecisionSearch + state 回写）— Qoder UI
+  /// 聚合快照 + state 回写）— Qoder UI
   Timer? _resultsFlushTimer;
 
   /// 待回写的进度字段（批次仅追加累积表，由 [_flushResults] 批量回写，
@@ -89,10 +56,24 @@ class SearchNotifier extends Notifier<SearchState> {
 
   @override
   SearchState build() {
+    // Riverpod 失效重建会复用 Notifier，恢复新生命周期而不复用旧草稿。
+    _disposed = false;
+    final lifecycle = ++_lifecycleGeneration;
+    _keepOther = true;
+    _aggregator.reset();
+    _pendingSearchedCount = 0;
+    _pendingTotalCount = 0;
+    _pendingHasMore = null;
+    ref.onDispose(() {
+      _disposed = true;
+      _lifecycleGeneration++;
+      unawaited(_invalidateSession());
+    });
     // 延迟到 build() 返回后加载历史 + 恢复搜索范围（对齐原版 AppConfig.searchScope）
     Future.microtask(() async {
+      if (!_ownsLifecycle(lifecycle)) return;
       await loadHistory();
-      if (!ref.mounted) return;
+      if (!_ownsLifecycle(lifecycle)) return;
       await _restoreSearchScope();
     });
     return const SearchState();
@@ -100,12 +81,13 @@ class SearchNotifier extends Notifier<SearchState> {
 
   // ===== 搜索历史 =====
 
-  /// 加载搜索历史（经 BookApi.getSearchHistory 从 Rust 读取，取关键词列表）
+  /// 加载搜索历史（经 SearchHistoryRepository.getSearchHistory 从 Rust 读取，取关键词列表）
   Future<void> loadHistory() async {
-    if (!ref.mounted) return;
+    final lifecycle = _lifecycleGeneration;
+    if (!_ownsLifecycle(lifecycle)) return;
     try {
-      final keywords = await ref.read(bookApiProvider).getSearchHistory();
-      if (!ref.mounted) return;
+      final keywords = await ref.read(searchHistoryRepositoryProvider).getSearchHistory();
+      if (!_ownsLifecycle(lifecycle)) return;
       state = state.copyWith(
         searchHistory: keywords.map((k) => k.word).toList(),
       );
@@ -116,7 +98,7 @@ class SearchNotifier extends Notifier<SearchState> {
     }
   }
 
-  /// 添加到搜索历史（客户端去重置顶 + 截断 20 条，并经 BookApi 持久化）
+  /// 添加到搜索历史（客户端去重置顶 + 截断 20 条，并经历史 Repository 持久化）
   ///
   /// 客户端维护去重/截断后的展示列表（即时 UI 反馈，且 Mock/真实后端行为一致）；
   /// Rust `addSearchKeyword` 负责持久化（真实后端按 keyword 去重）。
@@ -128,7 +110,7 @@ class SearchNotifier extends Notifier<SearchState> {
         history.length > _maxHistory ? history.sublist(0, _maxHistory) : history;
     state = state.copyWith(searchHistory: trimmed);
     try {
-      await ref.read(bookApiProvider).addSearchKeyword(keyword, '');
+      await ref.read(searchHistoryRepositoryProvider).addSearchKeyword(keyword, '');
     } catch (e) {
       // 持久化失败不阻断 UI 历史展示
       // [审计修复 §4.1] debugPrint 留痕 — Qoder
@@ -136,11 +118,11 @@ class SearchNotifier extends Notifier<SearchState> {
     }
   }
 
-  /// 清空搜索历史（同步清本地状态并经 BookApi 清后端）
+  /// 清空搜索历史（同步清本地状态并经历史 Repository 清后端）
   Future<void> clearHistory() async {
     state = state.copyWith(searchHistory: []);
     try {
-      await ref.read(bookApiProvider).clearSearchHistory();
+      await ref.read(searchHistoryRepositoryProvider).clearSearchHistory();
     } catch (e) {
       // 后端清空失败不阻断 UI
       // [审计修复 §4.1] debugPrint 留痕 — Qoder
@@ -153,7 +135,7 @@ class SearchNotifier extends Notifier<SearchState> {
     final history = [...state.searchHistory]..remove(keyword);
     state = state.copyWith(searchHistory: history);
     try {
-      await ref.read(bookApiProvider).deleteSearchKeyword(keyword);
+      await ref.read(searchHistoryRepositoryProvider).deleteSearchKeyword(keyword);
     } catch (e) {
       debugPrint('删除搜索历史项失败: $e');
     }
@@ -181,24 +163,25 @@ class SearchNotifier extends Notifier<SearchState> {
   /// （对齐原版 `searchModel.cancelSearch`）。
   Future<void> search(String keyword) async {
     final trimmed = keyword.trim();
-    if (trimmed.isEmpty) return;
+    if (_disposed || trimmed.isEmpty) return;
 
-    await _cancelActiveSearch();
-    final seq = ++_searchSeq;
+    // 请求先取得身份并绑定能力，准备或清理期间也可以取消。— Codex + UI
+    final service = ref.read(searchServiceProvider);
+    final stopping = _invalidateSession();
+    final seq = _searchSeq;
+    final session = SearchSession(service);
+    _session = session;
 
     // G-B-01：新关键词 → 会话重置（页码归 1、累积表清空）；
     // G-B-02：hasMore 乐观置 true（对齐原版 SearchViewModel L135，
     // 首页完成后由批次 has_more 覆写）；isManualStop 复位（原版 onQueryTextSubmit L203）
-    _bucketEqual.clear();
-    _bucketTags.clear();
-    _bucketContains.clear();
-    _bucketOther.clear();
-    _groupSeq = 0;
-    _seenKeys.clear();
+    _aggregator.reset(keyword: trimmed);
     // [2026-08-24] 重置节流状态（防旧批次定时器/待写字段泄漏进新搜索）— Qoder UI
     _resultsFlushTimer?.cancel();
     _resultsFlushTimer = null;
     _pendingHasMore = null;
+    _pendingSearchedCount = 0;
+    _pendingTotalCount = 0;
     state = state.copyWith(
       keyword: trimmed,
       isLoading: true,
@@ -213,12 +196,13 @@ class SearchNotifier extends Notifier<SearchState> {
       // [队列④ P1-B] 新关键词 → 失败源横幅随会话重置
       failedSources: const [],
     );
-    await addToHistory(trimmed);
-    if (seq != _searchSeq) return;
-
     try {
+      await stopping;
+      if (!_ownsSession(session, seq)) return;
+      await addToHistory(trimmed);
+      if (!_ownsSession(session, seq)) return;
       final sourceUrls = await _resolveSearchSources();
-      if (seq != _searchSeq) return;
+      if (!_ownsSession(session, seq)) return;
       // 有筛选条件但解析结果为空，说明所选分组/书源无有效书源
       if (sourceUrls != null && sourceUrls.isEmpty) {
         state = state.copyWith(
@@ -227,10 +211,11 @@ class SearchNotifier extends Notifier<SearchState> {
         );
         return;
       }
-      _attachSearchStream(trimmed, 1, sourceUrls, seq);
+      _attachSearchStream(session, trimmed, 1, sourceUrls, seq);
     } catch (e) {
-      if (seq != _searchSeq) return;
+      if (!_ownsSession(session, seq)) return;
       state = state.copyWith(error: _mapError(e), isLoading: false);
+      unawaited(_invalidateSession());
     }
   }
 
@@ -240,6 +225,7 @@ class SearchNotifier extends Notifier<SearchState> {
   /// 守卫：非加载中、非手动停止、hasMore 为真、关键词非空；
   /// 结果 APPEND（不清空累积表），对齐原版同会话跨页累积语义。
   Future<void> loadNextPage() async {
+    if (_disposed) return;
     final s = state;
     if (s.isLoading || s.isManualStop || !s.hasMore) return;
     final keyword = s.keyword.trim();
@@ -248,6 +234,8 @@ class SearchNotifier extends Notifier<SearchState> {
     // G-B-01：同关键词续页 → page++（原版 SearchModel.searchPage++）
     final nextPage = s.searchPage + 1;
     final seq = ++_searchSeq;
+    final session = _session ?? SearchSession(ref.read(searchServiceProvider));
+    _session = session;
     // [2026-08-24] 续页流重置节流状态（旧定时器不得占用新页调度槽位；
     // _pendingHasMore 归 null → 无新批次信息时保持 state.hasMore 旧语义）— Qoder UI
     _resultsFlushTimer?.cancel();
@@ -260,8 +248,12 @@ class SearchNotifier extends Notifier<SearchState> {
     );
 
     try {
+      final stopping = _stopping;
+      if (stopping != null) await stopping;
+      await session.controlsSettled;
+      if (!_ownsSession(session, seq)) return;
       final sourceUrls = await _resolveSearchSources();
-      if (seq != _searchSeq) return;
+      if (!_ownsSession(session, seq)) return;
       if (sourceUrls != null && sourceUrls.isEmpty) {
         state = state.copyWith(
           error: '所选筛选范围内无有效书源，请调整筛选条件',
@@ -269,32 +261,34 @@ class SearchNotifier extends Notifier<SearchState> {
         );
         return;
       }
-      _attachSearchStream(keyword, nextPage, sourceUrls, seq);
+      _attachSearchStream(session, keyword, nextPage, sourceUrls, seq);
     } catch (e) {
-      if (seq != _searchSeq) return;
+      if (!_ownsSession(session, seq)) return;
       state = state.copyWith(error: _mapError(e), isLoading: false);
+      unawaited(_invalidateSession());
     }
   }
 
   /// 订阅逐源流（新搜索 / 续页共用；批次B：page 参数透传 Rust 侧）
   void _attachSearchStream(
+    SearchSession session,
     String keyword,
     int page,
     List<String>? sourceUrls,
     int seq,
   ) {
-    _searchSub = ref
-        .read(bookApiProvider)
-        .searchMultiStream(keyword, sourceUrls: sourceUrls, page: page)
-        .listen(
-        (batch) {
-          if (seq != _searchSeq) return;
+    session.start(
+      keyword: keyword,
+      page: page,
+      sourceUrls: sourceUrls,
+      onBatch: (batch) {
+          if (!_ownsSession(session, seq)) return;
           // [UI-fix v2.0.11 | 2026-08-10] 消费批次 error（对齐原版 SearchModel：
           // 单源失败静默不弹 UI、仅 AppLog.put 留痕，失败源不阻断整体搜索，
           // 不再产生任何「异常书源」弹窗提示路径）— Reasonix
-          final batchError = batch['error'] as String?;
+          final batchError = batch.error;
           if (batchError != null && batchError.isNotEmpty) {
-            final srcName = (batch['source_name'] as String?) ?? '未知书源';
+            final srcName = batch.sourceName;
             // 日志写入失败不阻断搜索主流程（对齐原版 AppLog.put 尽力而为语义）
             unawaited(ref
                 .read(bookApiProvider)
@@ -306,43 +300,26 @@ class SearchNotifier extends Notifier<SearchState> {
             // 涉及源名）；不改整体搜索交互（失败源不阻断搜索，静默语义保留）
             _recordSourceFailure(srcName, batchError);
           }
-          final books = (batch['books'] as List<dynamic>? ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map((e) => SearchResult.fromSearchBook(
-                    SearchBook.fromJson(e),
-                    // Rust 流式批次附加 hasReadRecord（#424）
-                    hasReadRecord: e['hasReadRecord'] == true,
-                  ));
-          // 按 书名+作者+书源 去重后进入会话级增量桶（批次B：跨页 APPEND，
-          // 键集不清空直至新关键词/清空）；每本书仅到达时分类 + 归并一次
-          // （对齐原版 mergeItems.addOrigin 的逐批后台聚合语义），
-          // flush 不再全量重聚合 — Qoder UI
-          for (final r in books) {
-            // P2-20 基准：跨桶预去重键 = **原始（未清洗）** 书名|作者|书源 三段
-            // （含 origin），管「是否入桶」：同一三元组仅首次到达入桶、落桶由
-            // 首次到达决定，后续同键整体丢弃。纯函数 applyPrecisionSearch 与
-            // Rust search_aggregate 的 seen 键与此逐字对齐（P2-20 裁决：三条
-            // 路径统一到同一语义）；注意与 _addToBuckets 内桶内聚合键
-            // （清洗后 name\u0000author 两段、不含 origin）是两个不同的键
-            final key = '${r.book.name}|${r.book.author}|${r.book.origin}';
-            if (_seenKeys.add(key)) _addToBuckets(r, keyword);
-          }
+          _aggregator.addAll(batch.books);
           // [2026-08-24] 节流重建：批次仅入桶 + 记录待写进度字段，
           // results 列表至多每 150ms 物化一次（排序 O(k log k)，无全量
           // 重聚合），流结束做最终物化 — Qoder UI
-          _pendingSearchedCount = (batch['finished_count'] as int?) ?? 0;
-          _pendingTotalCount = (batch['total_count'] as int?) ?? 0;
-          final hasMoreField = batch['has_more'] as bool?;
+          _pendingSearchedCount = batch.finishedCount;
+          _pendingTotalCount = batch.totalCount;
+          final hasMoreField = batch.hasMore;
           if (hasMoreField != null) _pendingHasMore = hasMoreField;
           _scheduleResultsFlush(seq);
         },
         onError: (Object e) {
-          if (seq != _searchSeq) return;
-          state = state.copyWith(error: _mapError(e), isLoading: false);
+          if (!_ownsSession(session, seq)) return;
+          _resultsFlushTimer?.cancel();
+          _resultsFlushTimer = null;
+          _flushResults();
+          state = state.copyWith(error: _mapError(e), isLoading: false, isPaused: false);
+          unawaited(_invalidateSession());
         },
         onDone: () {
-          if (seq != _searchSeq) return;
-          _searchSub = null;
+          if (!_ownsSession(session, seq)) return;
           // [2026-08-24] 流结束：取消挂起的节流定时器并做最终全量聚合
           // （保证最后一批结果不丢失于节流窗口）— Qoder UI
           _resultsFlushTimer?.cancel();
@@ -352,6 +329,9 @@ class SearchNotifier extends Notifier<SearchState> {
           state = state.copyWith(isLoading: false, isPaused: false);
         },
       );
+    if (_ownsSession(session, seq) && session.requestedPaused) {
+      unawaited(pauseSearch());
+    }
   }
 
   /// 记录单源搜索失败（队列④ P1-B：批次 error 通道 → 可见状态累积）
@@ -378,37 +358,14 @@ class SearchNotifier extends Notifier<SearchState> {
     if (_resultsFlushTimer != null) return; // 已有挂起调度，复用
     _resultsFlushTimer = Timer(_flushInterval, () {
       _resultsFlushTimer = null;
-      if (seq == _searchSeq) _flushResults();
+      if (_isCurrent(seq)) _flushResults();
     });
-  }
-
-  /// 物化展示列表（仅排序，不重聚合）：各桶按 origin 数降序 + 到达顺序
-  /// seq 升序作稳定平局键（对齐 applyPrecisionSearch.sortedBucket 的索引
-  /// 平局语义）。替代旧的全量 applyPrecisionSearch —— 每次 flush O(n)
-  /// 正则清洗 + 不可变拷贝churn，是流式期间主 isolate 卡死的根因 — Qoder UI
-  List<SearchResult> _materializeResults() {
-    final out = <SearchResult>[];
-    void addSorted(Map<String, _AggGroup> bucket) {
-      if (bucket.isEmpty) return;
-      final groups = bucket.values.toList();
-      groups.sort((a, b) {
-        final byCount = b.result.originsCount.compareTo(a.result.originsCount);
-        return byCount != 0 ? byCount : a.seq.compareTo(b.seq);
-      });
-      out.addAll(groups.map((g) => g.result));
-    }
-
-    addSorted(_bucketEqual);
-    addSorted(_bucketTags);
-    addSorted(_bucketContains);
-    if (_keepOther) addSorted(_bucketOther);
-    return out;
   }
 
   /// 将物化列表 + 待写进度字段回写 state（节流窗口内至多一次排序物化）— Qoder UI
   void _flushResults() {
     state = state.copyWith(
-      results: _materializeResults(),
+      results: _aggregator.snapshot(keepOther: _keepOther),
       searchedCount: _pendingSearchedCount,
       totalCount: _pendingTotalCount,
       // G-B-02：消费批次 has_more（Rust 侧当前页非空批次的累积 OR）；
@@ -417,105 +374,86 @@ class SearchNotifier extends Notifier<SearchState> {
     );
   }
 
-  /// 增量入桶（书籍到达时调用一次；语义与 applyPrecisionSearch.mergeInto
-  /// 完全一致：formatBookName/formatBookAuthor 清洗 → 四分桶分类 →
-  /// 以「清洗后书名+作者」为键去重归并多 origin）。每本书仅执行一次，
-  /// 替代旧 flush 时对全量累积表重复执行的清洗 + 拷贝 — Qoder UI
-  ///
-  /// P2-20 双键区分：[_seenKeys] 跨桶预去重键（**原始** `name|author|origin`
-  /// 三段，管「是否入桶」，在批次到达循环计算）≠ 本方法的 [mapKey] 桶内
-  /// 聚合键（清洗后值 `'$name\u0000$author'` 两段、不含 origin，管「桶内归并
-  /// 分组」）。纯函数 / Rust 单一真源对两键分别逐字对齐（P2-20 裁决）。
-  void _addToBuckets(SearchResult r, String key) {
-    final name = formatBookName(r.book.name);
-    final author = formatBookAuthor(r.book.author);
-    // 桶内聚合键：清洗后 name/author、NUL 分隔两段、不含 origin（P2-20：
-    // 与跨桶预去重键 _seenKeys 不同，见方法 doc）
-    final mapKey = '$name\u0000$author';
-    final normalized = (name != r.book.name || author != r.book.author)
-        ? r.copyWith(book: r.book.copyWith(name: name, author: author))
-        : r;
-    final kind = r.book.kind ?? '';
-    final Map<String, _AggGroup> bucket =
-        name == key || author == key
-            ? _bucketEqual
-            : kind.contains(key)
-                ? _bucketTags
-                : name.contains(key) || author.contains(key)
-                    ? _bucketContains
-                    : _bucketOther;
-    final existing = bucket[mapKey];
-    if (existing == null) {
-      bucket[mapKey] = _AggGroup(
-          _groupSeq++,
-          normalized.copyWith(origins: {...normalized.effectiveOrigins}));
-    } else {
-      existing.result = existing.result.withAddedOrigin(normalized);
-    }
-  }
+  bool _ownsLifecycle(int lifecycle) =>
+      !_disposed && ref.mounted && lifecycle == _lifecycleGeneration;
 
-  /// 取消进行中的搜索（对齐原版 searchModel.cancelSearch）
-  ///
-  /// [P0-3 强化] 先调 Rust `cancelSearch` 置会话取消标志（同步生效，drive 循环
-  /// ≤50ms 内 abort 在飞任务），再拆除流订阅——此前先 `await _searchSub?.cancel()`
-  /// （frb 流拆除耗时可达数秒），取消标志滞后落地，期间 drive 循环仍在派发
-  /// 排队源（实机 e2e 观察到停止后 6.5s 仍有补位请求）。
-  Future<void> _cancelActiveSearch() async {
+  bool _isCurrent(int seq) => !_disposed && ref.mounted && seq == _searchSeq;
+
+  bool _ownsSession(SearchSession session, int seq) =>
+      _isCurrent(seq) && identical(_session, session);
+
+  /// 同步隔离旧回调；清理失败留痕，不把旧取消送到后来的执行实例。
+  Future<void> _invalidateSession() {
     _searchSeq++;
-    try {
-      await ref.read(bookApiProvider).cancelSearch();
-    } catch (e) {
-      // 取消失败不阻断新搜索
-      debugPrint('取消搜索失败: $e');
-    }
-    await _searchSub?.cancel();
-    _searchSub = null;
+    _resultsFlushTimer?.cancel();
+    _resultsFlushTimer = null;
+    final session = _session;
+    _session = null;
+    final previous = _stopping;
+    if (session == null) return previous ?? Future<void>.value();
+    final closing = session.close().catchError((Object error) {
+      debugPrint('搜索会话清理失败: $error');
+    });
+    final stopping = Future.wait<void>([
+      ?previous,
+      closing,
+    ]).then<void>((_) {});
+    _stopping = stopping;
+    unawaited(stopping.then((_) {
+      if (identical(_stopping, stopping)) _stopping = null;
+    }));
+    return stopping;
   }
 
-  /// 停止搜索（对齐原版 SearchViewModel.stop / fb_start_stop）
-  ///
-  /// 保留已出结果，仅取消后台搜索并将 [isLoading] 置 false；
-  /// 同时置 [isManualStop]（原版 isManualStopSearch：抑制 play FAB 与
-  /// 滚动自动加载，直至新关键词搜索复位）。
+  /// 停止时先发布已出结果，再关闭当前会话；迟到完成不回写新查询。
   Future<void> stop() async {
-    if (!state.isLoading) return;
-    // [2026-08-24] 取消前先做最终聚合：_cancelActiveSearch 会自增 seq，
-    // 使挂起的节流定时器守卫失效——不在此处手动 flush，节流窗口内
-    // 最后一批结果将丢失于 state.results（违背「保留已出结果」语义）— Qoder UI
+    if (_disposed || !state.isLoading) return;
     _resultsFlushTimer?.cancel();
     _resultsFlushTimer = null;
     _flushResults();
-    await _cancelActiveSearch();
-    state = state.copyWith(isLoading: false, isManualStop: true);
+    final stopping = _invalidateSession();
+    state = state.copyWith(isLoading: false, isManualStop: true, isPaused: false);
+    await stopping;
   }
 
-  /// 软暂停搜索（批次B G-B-04：对齐原版 repeatOnLifecycle(RESUMED) →
-  /// viewModel.pause()，app 退后台时调用）
-  ///
-  /// Rust 侧仅门控未派发书源，已派发任务继续跑完；进度/状态保留。
+  /// 页面销毁期间延迟展示回写，但不让旧页面的停止影响新查询。
+  void stopOnPageExit() {
+    final seq = _searchSeq;
+    Future.microtask(() {
+      if (_isCurrent(seq)) unawaited(stop());
+    });
+  }
+
+  /// 原生只软暂停未派发任务，等待完成后才回写当前会话。
   Future<void> pauseSearch() async {
-    if (!state.isLoading || state.isPaused) return;
+    if (_disposed || !state.isLoading) return;
+    final session = _session;
+    if (session == null) return;
+    final seq = _searchSeq;
     try {
-      await ref.read(bookApiProvider).pauseSearch();
+      final applied = await session.setPaused(true);
+      if (applied && _ownsSession(session, seq)) {
+        state = state.copyWith(isPaused: true);
+      }
     } catch (e) {
-      // bridge 失败 → Rust 实际未暂停，不回写 isPaused（防 UI/Rust 状态漂移）
       debugPrint('暂停搜索失败: $e');
-      return;
     }
-    state = state.copyWith(isPaused: true);
   }
 
-  /// 恢复软暂停的搜索（对齐原版 viewModel.resume()，app 回前台时调用）
+  /// 在途暂停也接受恢复，控制由会话串行，失败保持已确认的状态。
   Future<void> resumeSearch() async {
-    if (!state.isPaused) return;
+    if (_disposed) return;
+    final session = _session;
+    if (session == null || (!state.isPaused && !session.requestedPaused)) return;
+    final seq = _searchSeq;
     try {
-      await ref.read(bookApiProvider).resumeSearch();
+      final applied = await session.setPaused(false);
+      if (applied && _ownsSession(session, seq)) {
+        state = state.copyWith(isPaused: false);
+      }
     } catch (e) {
-      // bridge 失败 → Rust 实际仍暂停，不回写 isPaused（防 UI/Rust 状态漂移）
       debugPrint('恢复搜索失败: $e');
-      return;
     }
-    state = state.copyWith(isPaused: false);
   }
 
   /// 解析搜索范围：将分组和书源选择合并为最终的 sourceUrls 列表
@@ -563,10 +501,12 @@ class SearchNotifier extends Notifier<SearchState> {
 
   /// 从 AppConfig 恢复搜索范围（对齐原版 SearchScope / searchScope 持久化）
   Future<void> _restoreSearchScope() async {
+    final lifecycle = _lifecycleGeneration;
+    if (!_ownsLifecycle(lifecycle)) return;
     try {
       final api = ref.read(bookApiProvider);
       final scope = (await api.getConfig('searchScope'))?.trim() ?? '';
-      if (!ref.mounted) return;
+      if (!_ownsLifecycle(lifecycle)) return;
       if (scope.isEmpty) return;
       // 单书源格式 name::url —— 原版不持久化到下次，此处忽略
       if (scope.contains('::')) return;
@@ -616,25 +556,14 @@ class SearchNotifier extends Notifier<SearchState> {
 
   /// 清空关键词与结果（同时取消进行中的搜索）
   void clearResults() {
-    _searchSeq++;
-    _searchSub?.cancel();
-    _searchSub = null;
-    // [2026-08-24] 清空时同步重置节流状态（旧定时器已被 seq 守卫失效，显式取消避免悬挂）— Qoder UI
-    _resultsFlushTimer?.cancel();
-    _resultsFlushTimer = null;
+    if (_disposed) return;
+    unawaited(_invalidateSession());
     _pendingHasMore = null;
-    // 异步取消 Rust 侧孤儿搜索，失败不阻断 UI — Cursor UI
-    unawaited(ref.read(bookApiProvider).cancelSearch().catchError((e) {
-      debugPrint('清空结果取消搜索失败: $e');
-    }));
+    _pendingSearchedCount = 0;
+    _pendingTotalCount = 0;
     _keepOther = true;
     // 批次B：会话级增量桶与分页态随清空重置
-    _bucketEqual.clear();
-    _bucketTags.clear();
-    _bucketContains.clear();
-    _bucketOther.clear();
-    _groupSeq = 0;
-    _seenKeys.clear();
+    _aggregator.reset();
     state = state.copyWith(
       keyword: '',
       results: [],
@@ -658,17 +587,14 @@ class SearchNotifier extends Notifier<SearchState> {
   /// Flutter 侧 notifier 为全局单例，若不重置则重开页面默认残留上次结果。
   /// 历史与筛选范围保留（原版历史读 DB、searchScope 经 AppConfig 持久化）。
   void resetForOpen() {
-    _searchSeq++;
-    _searchSub?.cancel();
-    _searchSub = null;
+    if (_disposed) return;
+    unawaited(_invalidateSession());
+    _pendingHasMore = null;
+    _pendingSearchedCount = 0;
+    _pendingTotalCount = 0;
     _keepOther = true;
     // 批次B：会话级增量桶与分页态随页面重开重置（新 ViewModel 语义）
-    _bucketEqual.clear();
-    _bucketTags.clear();
-    _bucketContains.clear();
-    _bucketOther.clear();
-    _groupSeq = 0;
-    _seenKeys.clear();
+    _aggregator.reset();
     state = state.copyWith(
       keyword: '',
       inputText: '',
@@ -779,13 +705,3 @@ class SearchNotifier extends Notifier<SearchState> {
 final searchNotifierProvider = NotifierProvider<SearchNotifier, SearchState>(
   SearchNotifier.new,
 );
-
-/// 增量聚合桶条目（私有）：[seq] 为首次到达的全局序号（排序稳定平局键），
-/// [result] 随后续同书归并更新（withAddedOrigin）。桶表本身在批次回调内
-/// 原地维护，flush 仅读取排序 — Qoder UI
-class _AggGroup {
-  _AggGroup(this.seq, this.result);
-
-  final int seq;
-  SearchResult result;
-}

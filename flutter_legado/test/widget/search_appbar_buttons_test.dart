@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/search_batch.dart';
+import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
 // [A1 形态对齐 | full-stack-engineer + UI] 搜索页顶栏三钮 + 结果过滤回归测试
 //
 // 覆盖：
@@ -18,7 +20,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/search_screen.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
 
@@ -31,12 +33,12 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getSearchHistory(limit: any(named: 'limit')))
+    when(() => mockApi.searchHistoryRepository.getSearchHistory(limit: any(named: 'limit')))
         .thenAnswer((_) async => []);
-    when(() => mockApi.addSearchKeyword(any(), any()))
+    when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.clearSearchHistory()).thenAnswer((_) async {});
-    when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory()).thenAnswer((_) async {});
+    when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
     when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
@@ -55,9 +57,9 @@ void main() {
   }
 
   /// 构造流式搜索批次（字段契约同 BookApi.searchMultiStream）
-  Map<String, dynamic> makeBatch(List<Map<String, dynamic>> books,
+  SearchBatch makeBatch(List<Map<String, dynamic>> books,
           {bool isLast = false}) =>
-      {
+      decodeSearchBatch({
         'source_index': 0,
         'source_url': 'https://a.com',
         'source_name': '笔趣阁',
@@ -66,7 +68,7 @@ void main() {
         'finished_count': 1,
         'total_count': 1,
         'is_last': isLast,
-      };
+      });
 
   List<Map<String, dynamic>> makeBooks(List<String> names) =>
       names
@@ -82,10 +84,10 @@ void main() {
 
   group('搜索页顶栏三钮（A1 形态对齐）', () {
     testWidgets('顶栏三钮（设置/范围/过滤）均在位，⋮ 已移除', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
+      final events = StreamController<SearchBatch>();
       // [A1 形态对齐] searchMultiStream 契约含 page 参数（批次B G-B-01 翻页），
       // mock 须显式匹配 page，否则 mocktail 返回 null → 搜索报错、结果不落地
-      when(() => mockApi.searchMultiStream(
+      when(() => mockApi.searchService.searchMultiStream(
               any(),
               sourceUrls: any(named: 'sourceUrls'),
               page: any(named: 'page')))
@@ -105,8 +107,8 @@ void main() {
     });
 
     testWidgets('过滤关闭态：命中词结果全量展示，按钮为常规态', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
+      final events = StreamController<SearchBatch>();
+      when(() => mockApi.searchService.searchMultiStream(
               any(),
               sourceUrls: any(named: 'sourceUrls'),
               page: any(named: 'page')))
@@ -132,8 +134,8 @@ void main() {
       // 搜索结果过滤屏蔽词（对齐原版 PreferKey.searchResultFilter）
       when(() => mockApi.getConfig('searchResultFilter'))
           .thenAnswer((_) async => '遮光');
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
+      final events = StreamController<SearchBatch>();
+      when(() => mockApi.searchService.searchMultiStream(
               any(),
               sourceUrls: any(named: 'sourceUrls'),
               page: any(named: 'page')))
@@ -157,8 +159,8 @@ void main() {
     });
 
     testWidgets('⚙ 设置弹层承载原 ⋮ 设置类项（功能可达性不丢）', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
+      final events = StreamController<SearchBatch>();
+      when(() => mockApi.searchService.searchMultiStream(
               any(),
               sourceUrls: any(named: 'sourceUrls'),
               page: any(named: 'page')))

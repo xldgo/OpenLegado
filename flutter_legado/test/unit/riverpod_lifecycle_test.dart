@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/providers/bottom_bar_skin_notifier.dart';
 import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/search/search_notifier.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
@@ -46,7 +46,7 @@ void main() {
           await gate.future;
           return [];
         });
-        when(api.getSearchHistory).thenAnswer((_) async {
+        when(api.searchHistoryRepository.getSearchHistory).thenAnswer((_) async {
           await gate.future;
           return [];
         });

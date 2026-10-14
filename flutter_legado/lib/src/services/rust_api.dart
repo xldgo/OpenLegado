@@ -1,3 +1,5 @@
+import '../domain/contracts/search_service.dart';
+import '../domain/contracts/search_history_repository.dart';
 import '../domain/contracts/source_login_repository.dart';
 import '../domain/contracts/cloud_tts_repository.dart';
 import '../data/repositories/rust_cloud_tts_repository.dart';
@@ -68,6 +70,8 @@ class RustApi
     required BookSourceRepository bookSourceRepository,
     required SourceChecker sourceChecker,
     required SourceLoginRepository sourceLoginRepository,
+    required SearchService searchService,
+    required SearchHistoryRepository searchHistoryRepository,
   }) => RustApi._(
     initialize,
     readingConfigSync,
@@ -80,6 +84,8 @@ class RustApi
     bookSourceRepository,
     sourceChecker,
     sourceLoginRepository,
+    searchService,
+    searchHistoryRepository,
   );
 
   RustApi._(
@@ -94,6 +100,8 @@ class RustApi
     this.bookSourceRepository,
     this.sourceChecker,
     this.sourceLoginRepository,
+    this.searchService,
+    this.searchHistoryRepository,
   );
 
   final Future<void> Function() _initialize;
@@ -131,6 +139,11 @@ class RustApi
 
   @override
   final SourceLoginRepository sourceLoginRepository;
+
+  @override
+  final SearchService searchService;
+  @override
+  final SearchHistoryRepository searchHistoryRepository;
 
   /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
   @override

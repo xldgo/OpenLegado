@@ -25,39 +25,6 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
   Future<bool> isStarred(String link) async =>
       _rssStars.any((s) => s.link == link);
 
-  // ========== 搜索历史 ==========
-
-  @override
-  Future<List<SearchKeyword>> getSearchHistory({int limit = 50}) async =>
-      _searchHistory.take(limit).toList();
-
-  @override
-  Future<List<String>> searchHistoryByPrefix(
-    String prefix, {
-    int limit = 20,
-  }) async {
-    return _searchHistory
-        .where((k) => k.word.startsWith(prefix))
-        .take(limit)
-        .map((k) => k.word)
-        .toList();
-  }
-
-  @override
-  Future<void> addSearchKeyword(String keyword, String bookName) async {
-    _searchHistory.insert(0, SearchKeyword(word: keyword));
-  }
-
-  @override
-  Future<void> deleteSearchKeyword(String keyword) async {
-    _searchHistory.removeWhere((k) => k.word == keyword);
-  }
-
-  @override
-  Future<void> clearSearchHistory() async {
-    _searchHistory.clear();
-  }
-
   // ========== 缓存管理 ==========
 
   @override

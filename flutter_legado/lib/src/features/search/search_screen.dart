@@ -1,26 +1,26 @@
-import '../widgets/app_menu.dart';
+import '../../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../l10n/app_localization.dart';
-import '../models/models.dart';
-import '../providers/providers.dart';
-import '../features/bookshelf/bookshelf.dart';
-import '../providers/search/search_notifier.dart';
-import '../routes.dart';
-import '../widgets/book_cover.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/error_view.dart';
-import '../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
-import '../widgets/md3_animated_text_line.dart';
+import '../../l10n/app_localization.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../bookshelf/bookshelf.dart';
+import 'search_notifier.dart';
+import '../../routes.dart';
+import '../../widgets/book_cover.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
+import '../../widgets/md3_animated_text_line.dart';
 part 'search_screen_helpers.part.dart';
 part 'search_screen_builders.part.dart';
 part 'search_screen_scope_sheet.part.dart';
@@ -170,7 +170,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _resultsScrollController.dispose();
     super.dispose();
     if (shouldStop) {
-      Future.microtask(() => unawaited(_searchNotifier.stop()));
+      _searchNotifier.stopOnPageExit();
     }
   }
 
@@ -184,7 +184,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         state.isLoading &&
         !state.isPaused) {
       unawaited(notifier.pauseSearch());
-    } else if (lifecycleState == AppLifecycleState.resumed && state.isPaused) {
+    } else if (lifecycleState == AppLifecycleState.resumed && state.isLoading) {
       unawaited(notifier.resumeSearch());
     }
   }

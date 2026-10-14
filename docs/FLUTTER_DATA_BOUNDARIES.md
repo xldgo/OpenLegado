@@ -476,3 +476,56 @@ Flutter CloudTtsProviderProfile 只定义表单默认值与可选格式/风格�
 云端目录附加 styles/sampleRate 是描述信息，FRB 五个签名、schema v112 不变。
 
 编写者：Codex｜2026-10-14
+
+## 第十七步的搜索访问边界
+
+SearchService 负责原 searchBooks、preciseSearch、searchMulti、searchMultiStream、
+cancelSearch、pauseSearch、resumeSearch 七项访问，不持有 Flutter 展示状态或另建
+原生会话。SearchHistoryRepository 负责原五项历史查询/前缀/新增/删除/清空。
+正式适配器直接 FRB，共用既有 JSON 守卫；Mock 搜索延迟及结果保持，历史唯一
+存储由独立 Repository 拥有，原重复插入与 bookName 忽略行为不在本轮修正。
+
+SearchBatch 保存已经解码的结果及源/错误/进度/末批/可空 hasMore；数据层统一
+解析原 JSON，保留 hasReadRecord，缺失 hasMore 不改写已有分页状态。正文搜索
+共用同一历史 Repository，书架精确搜索共用同一 SearchService。根仅分享装配
+引用，Provider 跟随根替换；Notifier 的订阅、取消顺序、过期过滤、分桶和节流
+保持，固定会话实例及纯增量聚合分离为后续批次，不提前引入另一份调度实现。
+
+编写者：Codex｜2026-10-14
+
+## 第十八步的搜索会话与生命周期
+
+SearchSession 是纯 Dart 执行会话，固定 SearchService、一次查询各页的订阅、
+暂停恢复串行队列与幂等关闭。没有原生句柄，不改变 Rust 全局调度语义；
+Notifier 仍拥有查询代数、结果桶和 150ms 展示节流。新关键词在首次 await 前
+取得身份、绑定能力并隔离上一轮；原生取消先于解绑，清理和在途控制的屏障
+结束后才启动最新请求。自然结束保留查询绑定供续页，不对已结束会话重复
+发送原生取消；流异常/同步启动失败不保留活动订阅。
+
+停止、清空、重开和 Provider 销毁同步使旧结果失效并清理节流。停止期间
+立即保留并展示已出结果，不在 await 之后覆盖新查询；前后台软暂停与恢复
+有序处理，完成后仅更新当前会话。页面仍使用全局 Notifier，不调整路由
+或自动释放策略；页退出按既有语义停止任务，Provider 销毁是额外资源收口。
+
+编写者：Codex｜2026-10-14
+
+准备期的后台暂停只保存意图，原生启动后才应用；期间已恢复则不补发暂停。
+Provider 失效重建时恢复新的生命周期，旧历史与范围加载不得回填；不会
+改用 autoDispose 或改变搜索页历史/范围持久化。页面退出仍延迟展示回写，
+但微任务携带原查询身份，不能停止随后打开的新查询。
+
+## 第十九步的纯搜索聚合与功能目录
+
+SearchResultAggregator 只消费 SearchResult 并维护当前查询的增量桶，不引用
+Flutter、Riverpod、FFI、网络或存储。原始 name|author|origin 是入桶前预去重键，
+清洗后 name/author 的 NUL 双键是桶内归并键，两者保持。相同计数按首到序
+稳定排序，元数据取首条，来源集合有序累加且已读标记跨源 OR；清空或新查询
+重置，续页追加。一次性 applyPrecisionSearch 使用同一算法，空 key 原样返回。
+
+features/search 集中页面、State/Freezed、Notifier、能力 Provider、搜索专属
+筛选面板；外部经 search.dart，内部直接引用依赖，不反向引用功能入口。共享
+SearchBarWidget、AppSearchField 和 DynamicSearchAppBar 保留通用 widgets。
+数据层接口/实现、SearchSession 和纯聚合保留 domain/data 边界，不搬进页面目录；
+正文搜索只是移动现有页面与引用，算法、路由、交互及持久化均不改变。
+
+编写者：Codex｜2026-10-14

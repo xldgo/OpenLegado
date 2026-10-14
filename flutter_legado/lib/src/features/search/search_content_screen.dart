@@ -1,19 +1,19 @@
-import '../widgets/app_menu.dart';
+import '../../widgets/app_menu.dart';
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/md3_fast_scroller.dart';
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+import '../../widgets/md3_fast_scroller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../l10n/app_localization.dart';
-import '../models/models.dart';
-import '../providers/providers.dart';
-import '../providers/reader/reader_notifier.dart';
-import '../widgets/app_progress_indicator.dart';
-import '../widgets/empty_state.dart';
+import '../../l10n/app_localization.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../../providers/reader/reader_notifier.dart';
+import '../../widgets/app_progress_indicator.dart';
+import '../../widgets/empty_state.dart';
 
 /// 单条正文搜索结果
 class _ContentMatch {
@@ -169,7 +169,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
   Future<void> _loadHistory() async {
     try {
       final api = ref.read(bookApiProvider);
-      final list = await api.getSearchHistory(limit: 20);
+      final list = await api.searchHistoryRepository.getSearchHistory(limit: 20);
       if (!mounted) return;
       setState(() => _history = list.map((e) => e.word).toList());
     } catch (_) {
@@ -195,7 +195,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     FocusScope.of(context).unfocus();
 
     // 记录搜索历史
-    api.addSearchKeyword(query, widget.effectiveBookName).catchError((_) {});
+    api.searchHistoryRepository.addSearchKeyword(query, widget.effectiveBookName).catchError((_) {});
 
     try {
       final chapters = await api.getChapters(widget.effectiveBookUrl);
@@ -709,7 +709,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
   Future<void> _clearHistory() async {
     try {
       final api = ref.read(bookApiProvider);
-      await api.clearSearchHistory();
+      await api.searchHistoryRepository.clearSearchHistory();
       if (mounted) setState(() => _history = []);
     } catch (_) {
       // 忽略

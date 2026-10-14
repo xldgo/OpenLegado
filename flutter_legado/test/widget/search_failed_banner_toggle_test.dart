@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/search_batch.dart';
+import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
 // 失败横幅展开/收起与结果可见性回归（2026-09-26 真机验收实测）
 //
 // 用户实测（2.0.311）：搜索完成结果可见后，点开失败横幅（展开）结果在
@@ -14,8 +16,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/search/search_notifier.dart';
-import 'package:flutter_legado/src/screens/search_screen.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
 
@@ -28,12 +29,12 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getSearchHistory(limit: any(named: 'limit')))
+    when(() => mockApi.searchHistoryRepository.getSearchHistory(limit: any(named: 'limit')))
         .thenAnswer((_) async => []);
-    when(() => mockApi.addSearchKeyword(any(), any()))
+    when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.clearSearchHistory()).thenAnswer((_) async {});
-    when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory()).thenAnswer((_) async {});
+    when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
     when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.getEnabledBookSources()).thenAnswer((_) async => []);
@@ -54,9 +55,9 @@ void main() {
     );
   }
 
-  Map<String, dynamic> makeBatch(List<Map<String, dynamic>> books,
+  SearchBatch makeBatch(List<Map<String, dynamic>> books,
           {bool isLast = false, String? error, String name = '笔趣阁'}) =>
-      {
+      decodeSearchBatch({
         'source_index': 0,
         'source_url': 'https://a.com',
         'source_name': name,
@@ -65,7 +66,7 @@ void main() {
         'finished_count': 1,
         'total_count': 1,
         'is_last': isLast,
-      };
+      });
 
   List<Map<String, dynamic>> makeBooks(int count, {String prefix = '书'}) =>
       List.generate(
@@ -80,8 +81,8 @@ void main() {
 
   testWidgets('失败横幅展开→收起全程结果可见（回归：收起后结果消失）',
       (tester) async {
-    final events = StreamController<Map<String, dynamic>>();
-    when(() => mockApi.searchMultiStream(any(),
+    final events = StreamController<SearchBatch>();
+    when(() => mockApi.searchService.searchMultiStream(any(),
             sourceUrls: any(named: 'sourceUrls'), page: any(named: 'page')))
         .thenAnswer((_) => events.stream);
 

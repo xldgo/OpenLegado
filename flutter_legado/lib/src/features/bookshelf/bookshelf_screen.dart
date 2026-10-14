@@ -1377,7 +1377,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       }
       try {
         // 对标 Kotlin WebBook.preciseSearchAwait（FFI preciseSearch）
-        final hit = await api.preciseSearch(
+        final hit = await api.searchService.preciseSearch(
           name,
           author,
           sourceUrls: enabledUrls.isEmpty ? null : enabledUrls,

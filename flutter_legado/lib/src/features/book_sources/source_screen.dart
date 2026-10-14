@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../models/models.dart';
-import '../../providers/search/search_notifier.dart';
+import '../search/search.dart';
 import 'source_notifier.dart';
 import '../../providers/source_check/check_source_notifier.dart';
 import '../../routes.dart';

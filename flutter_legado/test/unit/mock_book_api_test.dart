@@ -186,18 +186,18 @@ void main() {
 
   group('搜索操作', () {
     test('searchBooks 返回 5 条结果', () async {
-      final results = await api.searchBooks('斗破');
+      final results = await api.searchService.searchBooks('斗破');
       expect(results.length, 5);
       expect(results[0].book.name, contains('斗破'));
     });
 
     test('searchMulti 返回多源结果', () async {
-      final results = await api.searchMulti('测试');
+      final results = await api.searchService.searchMulti('测试');
       expect(results.length, 3);
     });
 
     test('cancelSearch 不抛异常', () async {
-      await api.cancelSearch();
+      await api.searchService.cancelSearch();
     });
 
     test('searchSource 返回换源结果', () async {
@@ -396,16 +396,16 @@ void main() {
 
   group('搜索历史', () {
     test('addSearchKeyword/getSearchHistory 读写一致', () async {
-      await api.addSearchKeyword('斗破', '斗破苍穹');
-      final history = await api.getSearchHistory();
+      await api.searchHistoryRepository.addSearchKeyword('斗破', '斗破苍穹');
+      final history = await api.searchHistoryRepository.getSearchHistory();
       expect(history.length, 1);
       expect(history[0].word, '斗破');
     });
 
     test('clearSearchHistory 清空', () async {
-      await api.addSearchKeyword('test', '');
-      await api.clearSearchHistory();
-      final history = await api.getSearchHistory();
+      await api.searchHistoryRepository.addSearchKeyword('test', '');
+      await api.searchHistoryRepository.clearSearchHistory();
+      final history = await api.searchHistoryRepository.getSearchHistory();
       expect(history, isEmpty);
     });
   });

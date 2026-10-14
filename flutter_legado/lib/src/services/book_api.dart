@@ -1,3 +1,5 @@
+import '../domain/contracts/search_service.dart';
+import '../domain/contracts/search_history_repository.dart';
 import '../domain/contracts/source_login_repository.dart';
 import '../domain/contracts/cloud_tts_repository.dart';
 import '../domain/contracts/read_aloud_voice_repository.dart';
@@ -19,6 +21,10 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  /// 搜索执行与历史共享装配。
+  SearchService get searchService;
+  SearchHistoryRepository get searchHistoryRepository;
+
   CloudTtsRepository get cloudTtsRepository;
 
   /// 共享书源配置访问，登录与校验仍由各自能力承担。
@@ -156,59 +162,7 @@ abstract class BookApi {
   /// 取消 WebView 请求（空结果唤醒）
   Future<bool> cancelWebviewRequest(String key);
 
-  // ========== 搜索操作 ==========
-
-  /// 搜索书籍
-  Future<List<SearchResult>> searchBooks(
-    String keyword, {
-    List<String>? sourceUrls,
-  });
-
-  /// 精确搜索（对齐原版 `WebBook.preciseSearchAwait` / 契约 §2.4）
-  ///
-  /// 启用源中搜书名，返回首个 name+author 完全匹配；未命中抛错。
-  Future<SearchBook> preciseSearch(
-    String name,
-    String author, {
-    List<String>? sourceUrls,
-  });
-
-  /// 多源并行搜索
-  Future<List<Map<String, dynamic>>> searchMulti(
-    String query, {
-    List<String>? sourceUrls,
-  });
-
-  /// 多源渐进式（流式）搜索
-  ///
-  /// 与 [searchMulti]（一次性返回全部）不同：每完成一个书源即推送一个批次，
-  /// UI 侧可逐源渲染，无需等待最慢书源。流在所有书源完成后自然结束。
-  ///
-  /// [page] — 页码（批次B G-B-01）：同关键词翻页递增、新关键词重置为 1；
-  /// 默认 1（一次性搜索场景）。
-  ///
-  /// 每个元素为一个书源批次 Map，字段：
-  /// `source_index` / `source_url` / `source_name` / `books`(List) /
-  /// `error`(String?) / `finished_count` / `total_count` / `is_last` /
-  /// `has_more`(bool) — 累积值：任一已推送批次非空即 true（G-B-02，
-  /// 对齐原版 SearchModel hasMore OR 语义），驱动 UI 底部自动加载。
-  Stream<Map<String, dynamic>> searchMultiStream(
-    String query, {
-    List<String>? sourceUrls,
-    int page = 1,
-  });
-
-  /// 取消搜索
-  Future<void> cancelSearch();
-
-  /// 暂停正在进行的流式搜索（软挂起，批次B G-B-04）
-  ///
-  /// 仅拦截尚未派发的书源；已派发任务继续完成。状态/进度保留，
-  /// 可经 [resumeSearch] 恢复。对齐原版 workingState 门控语义。
-  Future<void> pauseSearch();
-
-  /// 恢复已暂停的流式搜索（批次B G-B-04）
-  Future<void> resumeSearch();
+  // ========== 换源与封面搜索 ==========
 
   /// 搜索可替换的书源
   ///
@@ -608,23 +562,6 @@ abstract class BookApi {
 
   /// 判断是否已收藏
   Future<bool> isStarred(String link);
-
-  // ========== 搜索历史 ==========
-
-  /// 获取搜索历史
-  Future<List<SearchKeyword>> getSearchHistory({int limit = 50});
-
-  /// 按前缀搜索历史关键词（用于搜索联想）
-  Future<List<String>> searchHistoryByPrefix(String prefix, {int limit = 20});
-
-  /// 添加搜索关键词
-  Future<void> addSearchKeyword(String keyword, String bookName);
-
-  /// 删除搜索关键词
-  Future<void> deleteSearchKeyword(String keyword);
-
-  /// 清空搜索历史
-  Future<void> clearSearchHistory();
 
   // ========== 缓存管理 ==========
 

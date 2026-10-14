@@ -48,7 +48,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:flutter_legado/app.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/search/search_notifier.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/services/search_result_aggregator.dart';
 // 跨端夹具校验（队列⑩a P1-1 项2，2026-09-22）
 //
 // 与 Rust 侧集成测试 `rust/legado-ffi/tests/search_aggregate_fixture.rs` 读
@@ -13,7 +14,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/search/search_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _fixturePath =

@@ -4,6 +4,10 @@
 /// 供 Providers / Services 层测试使用。
 library;
 
+import 'package:flutter_legado/src/domain/contracts/search_service.dart';
+import 'package:flutter_legado/src/domain/contracts/search_history_repository.dart';
+
+
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
@@ -48,7 +52,15 @@ class SourceCheckerMock extends Mock implements SourceChecker {}
 
 class SourceLoginRepositoryMock extends Mock implements SourceLoginRepository {}
 
+class SearchServiceMock extends Mock implements SearchService {}
+
+class SearchHistoryRepositoryMock extends Mock implements SearchHistoryRepository {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final SearchService searchService = SearchServiceMock();
+  @override
+  final SearchHistoryRepository searchHistoryRepository = SearchHistoryRepositoryMock();
   @override final CloudTtsRepository cloudTtsRepository=MockCloudTtsRepository();
   @override
   final ReadAloudVoiceRepository readAloudVoiceRepository =

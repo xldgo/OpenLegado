@@ -1,3 +1,7 @@
+import '../domain/contracts/search_service.dart';
+import '../domain/contracts/search_history_repository.dart';
+import '../data/services/mock_search_service.dart';
+import '../data/repositories/mock_search_history_repository.dart';
 import '../domain/contracts/source_login_repository.dart';
 import '../data/repositories/mock_source_login_repository.dart';
 import '../data/repositories/mock_cloud_tts_repository.dart';
@@ -88,6 +92,8 @@ class MockBookApi
     HttpTtsSynthesizer? httpTtsSynthesizer,
     SourceChecker? sourceChecker,
     SourceLoginRepository? sourceLoginRepository,
+    SearchService? searchService,
+    SearchHistoryRepository? searchHistoryRepository,
   }) {
     _bookshelfStore = MockBookshelfStore(load: _loadBookshelfSample);
     bookshelfRepository = MockBookshelfRepository(store: _bookshelfStore);
@@ -118,6 +124,8 @@ class MockBookApi
         sourceChecker ?? MockSourceChecker(store: _bookSourceStore);
     this.sourceLoginRepository =
         sourceLoginRepository ?? MockSourceLoginRepository();
+    this.searchService = searchService ?? const MockSearchService();
+    this.searchHistoryRepository = searchHistoryRepository ?? MockSearchHistoryRepository();
     _initMockData();
   }
 
@@ -152,6 +160,11 @@ class MockBookApi
 
   @override
   late final SourceLoginRepository sourceLoginRepository;
+
+  @override
+  late final SearchService searchService;
+  @override
+  late final SearchHistoryRepository searchHistoryRepository;
 
   // ========== 初始化/版本 ==========
 

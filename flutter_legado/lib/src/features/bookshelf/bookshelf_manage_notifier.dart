@@ -136,7 +136,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
         onProgress?.call(i + 1, targets.length, book.name);
         try {
           // 对标 Kotlin preciseSearchAwait（FFI preciseSearch）
-          final hit = await api.preciseSearch(
+          final hit = await api.searchService.preciseSearch(
             book.name,
             book.author,
             sourceUrls: [targetSourceUrl],
