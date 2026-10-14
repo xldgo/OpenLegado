@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/constants/pref_keys.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/contracts/settings_storage.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_notifier.dart';
-import 'package:flutter_legado/src/services/settings_service.dart';
 
-class DelayedSystemBarSettings extends SettingsService {
+class DelayedSystemBarSettings implements SettingsStorage {
   DelayedSystemBarSettings([Map<String, bool> initial = const {}])
     : saved = {...initial};
 
@@ -20,22 +22,23 @@ class DelayedSystemBarSettings extends SettingsService {
   bool failNextWrite = false;
 
   @override
-  Future<bool> getBoolPref(String key, {required bool defaultValue}) async {
+  Future<Object?> read(String key) async {
     reads++;
-    final snapshot = saved[key] ?? defaultValue;
+    final snapshot = saved[key];
     await readGate?.future;
     return snapshot;
   }
 
   @override
-  Future<void> setBoolPref(String key, bool value) async {
-    writes.add((key, value));
+  Future<void> write(String key, Object? value) async {
+    final boolValue = value as bool;
+    writes.add((key, boolValue));
     if (writes.length == 1) await writeGate?.future;
     if (failNextWrite) {
       failNextWrite = false;
       throw StateError('模拟系统栏保存失败');
     }
-    saved[key] = value;
+    saved[key] = boolValue;
   }
 }
 
@@ -44,9 +47,19 @@ Future<void> flushOperations() async {
   await Future<void>.delayed(Duration.zero);
 }
 
+AppSettingsService createService(DelayedSystemBarSettings settings) {
+  final service = AppSettingsService(
+    storages: {SettingsStorageKind.preferences: settings},
+  );
+  addTearDown(service.dispose);
+  return service;
+}
+
 ProviderContainer createContainer(DelayedSystemBarSettings settings) =>
     ProviderContainer(
-      overrides: [settingsProvider.overrideWithValue(settings)],
+      overrides: [
+        appSettingsServiceProvider.overrideWithValue(createService(settings)),
+      ],
     );
 
 void main() {
@@ -64,6 +77,8 @@ void main() {
     expect(state.loaded, isTrue);
     expect(state.transparentStatusBar, isFalse);
     expect(state.immNavigationBar, isTrue);
+    expect(state.transparentNavBar, isFalse);
+    expect(state.transparentNavBarNight, isFalse);
   });
 
   test('启动恢复保留显式选择的默认值，同时恢复未修改字段', () async {
@@ -146,32 +161,26 @@ void main() {
     await flushOperations();
   });
 
-  test('较新的重新加载发起后，旧加载不能发布中间状态', () async {
+  test('恢复日夜透明开关后重读，共享快照与页面投影一致', () async {
     final settings = DelayedSystemBarSettings({
       PrefKeys.transparentStatusBar: false,
       PrefKeys.immNavigationBar: false,
-    })..readGate = Completer<void>();
+    });
     final container = createContainer(settings);
     addTearDown(container.dispose);
-    final loadedStates = <SystemBarState>[];
-    container.listen(systemBarProvider, (_, next) {
-      if (next.loaded) loadedStates.add(next);
-    });
+    container.read(systemBarProvider);
     await flushOperations();
-    final oldGate = settings.readGate!;
     settings.saved[PrefKeys.transparentStatusBar] = true;
     settings.saved[PrefKeys.immNavigationBar] = true;
-    settings.readGate = Completer<void>();
-    final reload = container.read(systemBarProvider.notifier).reload();
-    oldGate.complete();
-    await flushOperations();
-    final statesBeforeNewLoad = [...loadedStates];
-    settings.readGate!.complete();
-    await reload;
-    expect(statesBeforeNewLoad, isEmpty);
-    expect(loadedStates, hasLength(1));
-    expect(loadedStates.single.transparentStatusBar, isTrue);
-    expect(loadedStates.single.immNavigationBar, isTrue);
+    settings.saved[PrefKeys.transparentNavBar] = true;
+    settings.saved[PrefKeys.transparentNavBarNight] = true;
+    await container.read(systemBarProvider.notifier).reload();
+    final state = container.read(systemBarProvider);
+    expect(state.loaded, isTrue);
+    expect(state.transparentStatusBar, isTrue);
+    expect(state.immNavigationBar, isTrue);
+    expect(state.transparentNavBar, isTrue);
+    expect(state.transparentNavBarNight, isTrue);
   });
 
   test('替换共享设置服务后旧加载不会短暂发布过期状态', () async {
@@ -188,7 +197,7 @@ void main() {
     });
     await flushOperations();
     container.updateOverrides([
-      settingsProvider.overrideWithValue(newSettings),
+      appSettingsServiceProvider.overrideWithValue(createService(newSettings)),
     ]);
     container.read(systemBarProvider);
     await flushOperations();
@@ -201,7 +210,7 @@ void main() {
     );
   });
 
-  test('保存抛错后保留最新界面状态，后续保存仍可继续', () async {
+  test('保存抛错后回退已保存值，重试仍可继续', () async {
     final settings = DelayedSystemBarSettings();
     final container = createContainer(settings);
     addTearDown(container.dispose);
@@ -209,9 +218,9 @@ void main() {
     await flushOperations();
     settings.failNextWrite = true;
     await expectLater(notifier.setImmNavigationBar(false), throwsStateError);
-    expect(container.read(systemBarProvider).immNavigationBar, isFalse);
-    await notifier.setImmNavigationBar(true);
     expect(container.read(systemBarProvider).immNavigationBar, isTrue);
-    expect(settings.saved[PrefKeys.immNavigationBar], isTrue);
+    await notifier.setImmNavigationBar(false);
+    expect(container.read(systemBarProvider).immNavigationBar, isFalse);
+    expect(settings.saved[PrefKeys.immNavigationBar], isFalse);
   });
 }

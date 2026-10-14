@@ -2,6 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/theme/eye_protection.dart';
+import 'package:flutter_legado/src/data/repositories/app_eye_protection_settings_repository.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/data/settings/shared_preferences_settings_storage.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -88,8 +92,23 @@ void main() {
       startTime: '21:30',
       endTime: '06:45',
     );
-    await settings.save(prefs);
-    final loaded = EyeProtectionSettings.load(prefs);
+    final service = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(service.dispose);
+    final repository = AppEyeProtectionSettingsRepository(service);
+    await repository.update(
+      enabled: settings.enabled,
+      intensity: settings.intensity,
+      autoNight: settings.autoNight,
+      schedule: settings.schedule,
+      startTime: settings.startTime,
+      endTime: settings.endTime,
+    );
+    await repository.reload();
+    final loaded = repository.current;
     expect(loaded.enabled, isTrue);
     expect(loaded.intensity, 65);
     expect(loaded.autoNight, isTrue);

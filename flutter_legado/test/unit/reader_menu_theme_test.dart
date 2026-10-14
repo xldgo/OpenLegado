@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 
@@ -13,13 +13,13 @@ void main() {
   setUp(() => repository = PreferencesReaderConfigRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
   const paper = Color(0xFFF5EEDB);
-  const ui = UiSettingsState();
+  const ui = UiSettings();
 
   ThemeData resolve(
     ReaderAdvancedConfig config, {
     ThemeData? app,
     Color background = paper,
-    UiSettingsState settings = ui,
+    UiSettings settings = ui,
   }) => resolveReaderMenuTheme(
     appTheme: app ?? AppTheme.light,
     readingBackground: background,
@@ -118,7 +118,7 @@ void main() {
     final config = ReaderAdvancedConfig(readBarStyle: 1);
     final inherited = resolve(
       config,
-      settings: const UiSettingsState(
+      settings: const UiSettings(
         themeStyle: 'monochrome',
         themeContrastLevel: '0.5',
       ),
@@ -126,7 +126,7 @@ void main() {
     config.readMenuPaletteStyle = 'monochrome';
     final explicit = resolve(
       config,
-      settings: const UiSettingsState(themeContrastLevel: '0.5'),
+      settings: const UiSettings(themeContrastLevel: '0.5'),
     );
     expect(inherited.colorScheme, explicit.colorScheme);
     final standard = resolve(config);

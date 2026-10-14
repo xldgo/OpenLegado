@@ -106,9 +106,24 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     if (controller == null || controller.indexIsChanging) return;
     final state = ref.read(bookshelfNotifierProvider);
     if (controller.index != state.selectedGroupIndex) {
-      ref
-          .read(bookshelfNotifierProvider.notifier)
-          .selectGroup(controller.index);
+      _saveDisplaySettings(
+        () => ref
+            .read(bookshelfNotifierProvider.notifier)
+            .selectGroup(controller.index),
+      );
+    }
+  }
+
+  /// 保存失败后提示，偏好状态由共享仓储回退。
+  Future<void> _saveDisplaySettings(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.loginSaveFailed)));
+      }
     }
   }
 
@@ -577,6 +592,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             ),
           );
           return PrivacyMaskedContent(
+            key: ValueKey(book.bookUrl),
             book: book,
             child: _buildBatchListItem(context, ref, book, selected),
           );
@@ -1053,13 +1069,15 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref
-        .read(bookshelfNotifierProvider.notifier)
-        .setLayout(
-          isGridView: layout != 0,
-          gridColumns: layout == 0 ? state.gridColumns : layout,
-          groupMode: groupMode,
-        );
+    await _saveDisplaySettings(
+      () => ref
+          .read(bookshelfNotifierProvider.notifier)
+          .setLayout(
+            isGridView: layout != 0,
+            gridColumns: layout == 0 ? state.gridColumns : layout,
+            groupMode: groupMode,
+          ),
+    );
   }
 
   /// 导出书单（对标 Kotlin BookshelfViewModel.exportBookshelf）：

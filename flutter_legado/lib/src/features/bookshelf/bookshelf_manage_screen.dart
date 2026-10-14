@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../constants/pref_keys.dart';
+import '../../providers/bookshelf_settings_provider.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
 import 'bookshelf_manage_notifier.dart';
@@ -47,7 +47,10 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
   String _filter = '';
 
   /// 点击书名打开书籍信息（对齐 openBookInfoByClickTitle）
-  bool _openInfoByTitle = false;
+  bool get _openInfoByTitle => ref
+      .read(bookshelfSettingsRepositoryProvider)
+      .current
+      .openBookInfoByClickTitle;
 
   @override
   void initState() {
@@ -57,15 +60,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(bookshelfManageNotifierProvider.notifier).load();
-      _loadOpenInfoPref();
     });
-  }
-
-  Future<void> _loadOpenInfoPref() async {
-    final v = await ref
-        .read(settingsProvider)
-        .getBoolPref(PrefKeys.openBookInfoByClickTitle, defaultValue: false);
-    if (mounted) setState(() => _openInfoByTitle = v);
   }
 
   @override
@@ -284,6 +279,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(bookshelfSettingsProvider);
     final theme = Theme.of(context);
     final state = ref.watch(bookshelfManageNotifierProvider);
     final selectedCount = state.selectedUrls.length;
@@ -383,11 +379,16 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
         await _exportAllUsedBookSources();
         break;
       case 'open_by_title':
-        final next = !_openInfoByTitle;
-        setState(() => _openInfoByTitle = next);
-        await ref
-            .read(settingsProvider)
-            .setBoolPref(PrefKeys.openBookInfoByClickTitle, next);
+        try {
+          await ref
+              .read(bookshelfSettingsRepositoryProvider)
+              .update(openBookInfoByClickTitle: !_openInfoByTitle);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+          }
+        }
         break;
     }
   }

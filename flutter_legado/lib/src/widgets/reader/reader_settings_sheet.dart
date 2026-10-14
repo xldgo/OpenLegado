@@ -359,11 +359,16 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                         : null,
                     onPressed: () => ref
                         .read(eyeProtectionProvider.notifier)
-                        .update(
-                          eyeProtection.copyWith(
-                            enabled: !eyeProtection.enabled,
-                          ),
-                        ),
+                        .update(enabled: !eyeProtection.enabled)
+                        .catchError((Object error) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(context.l10n.loginSaveFailed),
+                              ),
+                            );
+                          }
+                        }),
                     onLongPress: () => EyeProtectionSettingsGroup.show(context),
                   ),
                   IconButton(

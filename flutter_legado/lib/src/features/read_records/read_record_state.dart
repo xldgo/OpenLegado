@@ -1,14 +1,7 @@
 import '../../models/models.dart';
-
-/// 上游阅读记录三种展示方式，切换不改变底层数据。
-enum ReadRecordDisplayMode { aggregate, timeline, latest }
-
-/// 阅读记录排序（对齐原版 LocalConfig `readRecordSort`）
-///
-/// - [name]：按书名（默认）
-/// - [readTime]：按阅读时长降序
-/// - [lastRead]：按最后阅读时间降序
-enum ReadRecordSortMode { name, readTime, lastRead }
+import '../../domain/models/read_record_settings.dart';
+export '../../domain/models/read_record_settings.dart'
+    show ReadRecordDisplayMode, ReadRecordSortMode;
 
 /// 阅读记录页状态（对齐原版 ReadRecordActivity）
 class ReadRecordState {

@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/ui_settings/ui_settings_notifier.dart';
+import '../domain/models/ui_settings.dart';
+import '../providers/ui_settings/ui_settings_notifier.dart'
+    show uiSettingsProvider;
 
 /// 通用组件按实际用途订阅设置，不接触持久化或全局镜像。
 enum UiSettingsAspect { topBar, details, dividers, readerTheme }
@@ -13,17 +15,17 @@ class UiSettingsScope extends InheritedModel<UiSettingsAspect> {
     required super.child,
   });
 
-  final UiSettingsState settings;
+  final UiSettings settings;
 
   /// 独立组件预览或未装配应用宿主的测试使用不可变默认值。
-  static UiSettingsState of(BuildContext context, UiSettingsAspect aspect) =>
+  static UiSettings of(BuildContext context, UiSettingsAspect aspect) =>
       InheritedModel.inheritFrom<UiSettingsScope>(
         context,
         aspect: aspect,
       )?.settings ??
-      const UiSettingsState();
+      const UiSettings();
 
-  static Object _values(UiSettingsState ui, UiSettingsAspect aspect) =>
+  static Object _values(UiSettings ui, UiSettingsAspect aspect) =>
       switch (aspect) {
         UiSettingsAspect.topBar => (
           ui.topBarButtonStyle,

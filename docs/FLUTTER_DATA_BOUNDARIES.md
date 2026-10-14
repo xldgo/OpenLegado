@@ -637,3 +637,130 @@ ThemeNotifier 只订阅快照并映射 Material ThemeMode，移除独立持久�
 构建安装及本地提交，实际结果和依赖升级记录统一见 Active 计划；不推送或触发 CI。
 
 编写者：Codex｜2026-10-14
+
+## 第二十三步：主界面导航偏好
+
+HomeSettings 只保存 showDiscovery、showRss 与 defaultHomePage 三项纯数据；
+HomeSettingsRepository 定义读取、订阅、显式字段更新和恢复后重读，正式实现
+AppHomeSettingsRepository 委托共享 AppSettingsService。保留 SharedPreferences 原键、
+布尔/字符串类型及默认 true/true/bookshelf，不修改数据库或备份格式。
+
+初始化前的更新仍作为明确差量立即生效，随后读取不能覆盖它，也不保存其他未加载字段。
+错误类型只回退展示，未知首页原字符串保留；空更新不写入。串行写入、失败撤销自身差量、
+较早失败不盖后来选择及多键部分成功，都沿用共享服务，不增加领域写队列。
+MainPrefsNotifier 仅投影快照及加载状态/错误，根替换或释放后忽略旧结果。
+两个开关和默认页选择由页面捕获保存异常并提示；恢复后的 reload 重读同一仓储。
+
+当前逻辑页签和用户导航意图属于 HomeScreen；页索引由可见页签集合派生。
+PageView 子页以逻辑身份设稳定键，显隐变化后在新布局完成时同步位置；
+隐藏当前页回书架，隐藏前置页保留当前页。帧后定位和翻页回调校验修订号及最新集合，
+不会让旧定位盖掉较新的点击。默认页在首次加载成功后应用一次，预加载亦适用；
+隐藏或未知目标回书架；用户点击、返回或开始滑动后不再由晚到默认值接管。
+底栏/侧栏外观、双击、滑动及懒构建保持，其他设置和阅读器不属于本批。
+实际进度、测试和未验证边界统一登记于 Active 计划。
+
+编写者：Codex｜2026-10-14
+
+## 第二十四步：顶栏、底栏和侧栏布局偏好
+
+UiLayoutSettings 为十项布局偏好的纯模型，按钮样式、底栏标签和大屏模式枚举
+移入模型，保留原选项与字符串编码。UiLayoutSettingsRepository 定义当前快照、
+订阅、加载、恢复后重读及显式字段更新；AppUiLayoutSettingsRepository 负责
+类型解释、默认值和透明度 0–100 限值，委托同一 AppSettingsService 读写。
+
+本批覆盖 topBarButtonStyle、mergeTopBarActions、useFlexibleTopAppBar、
+topBarOpacity、labelVisibilityMode、bottomBarOpacity、useFloatingBottomBar、
+showBottomView、tabletInterface、railExtended。保留 SharedPreferences 原键、类型、
+默认值和备份格式；读取仅产生快照，不补写默认值或改写未知枚举。
+更新只保存显式字段，串行落盘、失败撤销差量与订阅通知由共享服务负责。
+
+UiSettingsNotifier 对这十项只做界面状态投影，不再直接访问存储或自行排队保存。
+保留现有消费者的状态和方法入口，未迁移的十七项设置继续原有路径；加载这些
+字段时只合并对应值，不覆盖已恢复的布局快照。封面、卡片、模糊、阅读菜单、
+其他主题参数和系统栏偏好不属于本批，后续分别迁移。
+
+外观页的相关开关、选项及透明度对话框接住保存错误，状态随共享快照回退并提示；
+侧栏展开按钮采用相同保存行为，不改变导航或动画。备份恢复后显式重读布局仓储，
+读取失败独立提示。颜色、阅读排版、Rust/FRB 与数据库均保持。
+实际进度、定向验证与设备验收边界统一登记于 Active 计划。
+
+编写者：Codex｜2026-10-14
+
+## 第二十五步：系统栏普通偏好
+
+SystemBarSettings 保存 transparentStatusBar、immNavigationBar、transparentNavBar、
+transparentNavBarNight 四项布尔值。SystemBarSettingsRepository 提供读取、订阅、
+恢复后重读和显式字段更新，AppSystemBarSettingsRepository 解释默认值并委托共享
+AppSettingsService；沿用 SharedPreferences 原键及 true/true/false/false 默认值。
+读取不补写默认值，更新只保存指定字段，不改变备份格式或存储位置。
+
+SystemBarNotifier 只投影偏好与加载状态/错误，删除直接存储访问、独立写入队列和
+按字段维护的加载修订号。共享服务负责读取、保存及失败回退的顺序；运行时系统栏
+样式继续由 SystemBarBinder 与 SystemBarController 处理，阅读器显隐仍由当前页面
+拥有，不移入偏好仓储。Notifier 释放或根替换沿用已有状态投影的归属检查。
+
+外观页的日夜透明开关直接订阅同一快照，移除局部状态和重复读取。四项开关保存失败
+均提示并回退，备份恢复后显式重读；恢复失败独立提示。日夜透明开关本轮仅统一既有
+偏好的访问，不增加平台样式接线；阴影高度、壁纸取色、阅读器配置与原生服务保持。
+已存在的系统栏控制回归继续保留；旧独立队列的加载修订测试改为四项恢复用例，
+不为罕见且低影响的重载中间状态新增机制。实际验证和未测边界统一见 Active 计划。
+
+编写者：Codex｜2026-10-14
+
+## 第二十六步：集中迁移完整界面偏好
+
+按用户加速迁移指令，将第二十四步的十项布局和剩余十七项合并为 UiSettings。
+模型位于 domain/models/ui_settings.dart，保留全部字段、默认值及 copyWith，
+增加值比较；主题与组件直接消费纯模型。UiSettingsRepository 定义二十七项
+类型化访问，AppUiSettingsRepository 负责原编码与现有保存限值，委托共享
+AppSettingsService。原 ui_layout_settings 模型、仓储与 Provider 入口已替换，
+不保留等价两套访问或旧名称别名。
+
+迁移范围包括封面背景、卡片圆角、模糊、分隔线、壁纸取色、主题参数和阅读菜单
+偏好。UiSettingsNotifier 只加载、订阅和转发用户更新；删除直接 SettingsService
+访问、独立写队列、加载期间字段合并及重复状态模型。既有单项 setter 保留，
+恢复入口改为 reload 完整快照。SharedPreferences 原键、标量类型、默认值和现有
+保存限值不变；字符串不因展示回退而被重写，不搬迁存储或改变备份格式。
+
+外观页的对应开关和选项统一接住保存失败。圆角的覆写开关与数值、各模糊配置的
+半径与透明度，以一次 Repository 更新提交，页面等待结果并提示；修正原模糊
+对话框通过 ValueChanged 丢弃 Future 的路径。多键仍逐项落盘：已成功字段保留，
+失败只撤销未成功差量，不宣称原子事务。图标、封面资源选项、阴影高度和壁纸
+自动更新仍属其他入口，后续按功能块集中迁移，不将本步等同于全部设置迁移完成。
+
+实际进度、集中回归及设备边界统一登记于 Active 计划。
+
+编写者：Codex｜2026-10-14
+
+## 第二十七步：常用偏好五域集中迁移
+
+书架、阅读记录、语言、护眼和欢迎页分别使用类型化 SettingsRepository，
+App 实现共用 AppSettingsService，保留 SharedPreferences 的原键、类型和默认值。
+GroupMode、阅读记录排序/展示枚举、护眼模型与时间判定移入 domain；原状态或
+主题模块继续导出实际使用的类型，滤镜矩阵及页面业务状态仍在原职责模块。
+
+| 领域 | 范围 | 实际消费者 |
+|---|---|---|
+| 书架五项 | 列表/网格、列数、分组模式、选中位置、书名打开详情 | BookshelfNotifier、管理页 |
+| 阅读记录三项 | 记录开关、排序、展示方式 | ReadRecordNotifier、ReaderNotifier |
+| 语言一项 | app_locale | AppLocaleNotifier、其他设置页 |
+| 护眼六项 | 开关、强度、跟随深色、定时、起止时间 | 公共设置组、阅读快捷按钮、滤镜 |
+| 欢迎及启动九项 | 时长、自定义、日夜图、日夜图标/文字、默认开读 | 配置页、启动页、其他设置页 |
+
+Notifier 只订阅和投影共享偏好；实体数据、过滤、路由、选区及读取计时仍由现有
+功能层处理。书架布局更新不重置因实际分组列表变化而调整的索引；切换选中分组
+时才应用选中偏好。记录偏好不另建写队列，记录开关与阅读器使用同一来源。
+语言归一化沿用生成的支持列表，系统 Locale 解析留在界面层；护眼时间及滤镜
+规则不变，强度更新仅保存强度，不整份覆写其他偏好。
+
+欢迎配置页只保留拖动期间的时长预览，结束后保存，失败显示原快照。启动页读取
+本次启动的展示快照，原计时、淡入、默认主页和已登记的直达路由语义保持；
+图片选择仍使用原插件，只把路径更新交给仓储。相关开关、菜单、图片删除和布局
+对话框保存失败提示并回退；备份恢复后逐域重读，单域错误独立报告。
+
+旧 SettingsService 的专用方法暂留至整体消费者清理阶段，本批生产消费者已迁出；
+不提前删除为旧测试或其他入口保留的方法，也不迁移阅读排版或主题预设。
+多键保存继续保留已成功字段，不承诺事务。实际验证、代码状态和设备边界统一
+登记于 Active 计划。
+
+编写者：Codex｜2026-10-14

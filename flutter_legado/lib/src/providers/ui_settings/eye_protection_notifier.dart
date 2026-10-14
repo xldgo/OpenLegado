@@ -2,36 +2,72 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../theme/eye_protection.dart';
+import '../../domain/contracts/eye_protection_settings_repository.dart';
+import '../../domain/models/eye_protection_settings.dart';
+import '../eye_protection_settings_provider.dart';
 
+/// 护眼偏好仅投影共享快照，时段与滤镜规则保持。— Codex + UI
 class EyeProtectionNotifier extends Notifier<EyeProtectionSettings> {
-  bool _modified = false;
-  bool _disposed = false;
-  Future<void> _writes = Future.value();
-
+  int _generation = 0;
   @override
   EyeProtectionSettings build() {
-    ref.onDispose(() => _disposed = true);
+    final repository = ref.watch(eyeProtectionSettingsRepositoryProvider);
+    final generation = ++_generation;
+    final subscription = repository.watch().listen(
+      (_) => _publish(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
     unawaited(
       Future.microtask(() async {
-        final prefs = await SharedPreferences.getInstance();
-        if (!_disposed && !_modified) state = EyeProtectionSettings.load(prefs);
+        if (!ref.mounted || generation != _generation) return;
+        try {
+          await repository.load();
+          _publish(repository, generation);
+        } catch (error) {
+          debugPrint('护眼设置读取失败，可重新加载：$error');
+        }
       }),
     );
-    return const EyeProtectionSettings();
+    return repository.current;
   }
 
-  void update(EyeProtectionSettings settings) {
-    _modified = true;
-    state = settings;
-    // 强度连续拖动时按顺序写入，避免迟到的旧值覆盖最终值。
-    _writes = _writes
-        .then((_) async {
-          await settings.save(await SharedPreferences.getInstance());
-        })
-        .catchError((Object error) => debugPrint('保存护眼设置失败：$error'));
+  void _publish(EyeProtectionSettingsRepository repository, int generation) {
+    if (!ref.mounted || generation != _generation) return;
+    if (state != repository.current) state = repository.current;
+  }
+
+  Future<void> update({
+    bool? enabled,
+    int? intensity,
+    bool? autoNight,
+    bool? schedule,
+    String? startTime,
+    String? endTime,
+  }) async {
+    final repository = ref.read(eyeProtectionSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      final saving = repository.update(
+        enabled: enabled,
+        intensity: intensity,
+        autoNight: autoNight,
+        schedule: schedule,
+        startTime: startTime,
+        endTime: endTime,
+      );
+      _publish(repository, generation);
+      await saving;
+    } finally {
+      _publish(repository, generation);
+    }
+  }
+
+  Future<void> reload() async {
+    final repository = ref.read(eyeProtectionSettingsRepositoryProvider);
+    final generation = _generation;
+    await repository.reload();
+    _publish(repository, generation);
   }
 }
 

@@ -82,50 +82,41 @@ class DelayedSettings extends SettingsService {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('UI 启动恢复保留新操作，同时恢复未修改的字段', () async {
-    final settings = DelayedSettings({
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('完整界面偏好由共享来源恢复，修改单项不影响其他设置', () async {
+    SharedPreferences.setMockInitialValues({
       PrefKeys.topBarButtonStyle: 'liquidGlass',
       PrefKeys.enableBlur: true,
-    })..readGate = Completer<void>();
-    final container = ProviderContainer(
-      overrides: [
-        uiSettingsProvider.overrideWith(
-          () => UiSettingsNotifier(settings: settings),
-        ),
-      ],
-    );
+    });
+    final container = ProviderContainer();
     addTearDown(container.dispose);
     final notifier = container.read(uiSettingsProvider.notifier);
-    await flushLoads();
+    await notifier.load();
     await notifier.setTopBarButtonStyle(TopBarButtonStyle.plain);
-    settings.readGate!.complete();
-    await flushLoads();
     final state = container.read(uiSettingsProvider);
     expect(state.topBarButtonStyle, TopBarButtonStyle.plain);
     expect(state.enableBlur, isTrue);
   });
 
-  test('启动时显式选择默认值也应覆盖旧偏好', () async {
-    final settings = DelayedSettings({PrefKeys.topBarButtonStyle: 'plain'})
-      ..readGate = Completer<void>();
-    final container = ProviderContainer(
-      overrides: [
-        uiSettingsProvider.overrideWith(
-          () => UiSettingsNotifier(settings: settings),
-        ),
-      ],
-    );
+  test('显式选择默认布局值覆盖旧偏好', () async {
+    SharedPreferences.setMockInitialValues({
+      PrefKeys.topBarButtonStyle: 'plain',
+    });
+    final container = ProviderContainer();
     addTearDown(container.dispose);
     final notifier = container.read(uiSettingsProvider.notifier);
-    await flushLoads();
+    await notifier.load();
     await notifier.setTopBarButtonStyle(TopBarButtonStyle.tonal);
-    settings.readGate!.complete();
-    await flushLoads();
     expect(
       container.read(uiSettingsProvider).topBarButtonStyle,
       TopBarButtonStyle.tonal,
     );
-    expect(settings.saved[PrefKeys.topBarButtonStyle], 'tonal');
+    expect(
+      (await SharedPreferences.getInstance()).getString(
+        PrefKeys.topBarButtonStyle,
+      ),
+      'tonal',
+    );
   });
 
   test('颜色恢复保留新颜色及未修改的夜间颜色', () async {
@@ -210,9 +201,6 @@ void main() {
         themeColorsProvider.overrideWith(
           () => ThemeColorsNotifier(settings: settings),
         ),
-        uiSettingsProvider.overrideWith(
-          () => UiSettingsNotifier(settings: settings),
-        ),
       ],
     );
     container.read(themeColorsProvider);
@@ -250,9 +238,6 @@ void main() {
       overrides: [
         themeColorsProvider.overrideWith(
           () => ThemeColorsNotifier(settings: settings),
-        ),
-        uiSettingsProvider.overrideWith(
-          () => UiSettingsNotifier(settings: settings),
         ),
       ],
     );

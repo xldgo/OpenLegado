@@ -1,8 +1,8 @@
 // [UI_SYNC_REFACTOR B3] 底栏设置回归守护：label 三档/大屏形态解析与默认值、
-// UiSettingsState 默认口径（对齐参考仓默认：悬浮关/显示开/透明度 100）。
+// UiSettings 默认口径（对齐参考仓默认：悬浮关/显示开/透明度 100）。
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 
 void main() {
   test('BottomBarLabelMode 解析：合法直取/未知回退 auto', () {
@@ -26,7 +26,7 @@ void main() {
   });
 
   test('默认口径对齐参考仓：悬浮关/显示开/透明度 100', () {
-    const state = UiSettingsState();
+    const state = UiSettings();
     expect(state.useFloatingBottomBar, isFalse);
     expect(state.showBottomView, isTrue);
     expect(state.bottomBarOpacity, 100);

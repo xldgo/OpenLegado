@@ -4,7 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/top_bar_button.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
@@ -124,13 +124,13 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        const UiSettingsScope(settings: UiSettingsState(), child: page),
+        const UiSettingsScope(settings: UiSettings(), child: page),
       );
       expect(tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a, 1);
       // 保留相同页面子树，仅变更作用域快照，验证组件自身订阅会触发更新。
       await tester.pumpWidget(
         const UiSettingsScope(
-          settings: UiSettingsState(topBarOpacity: 50),
+          settings: UiSettings(topBarOpacity: 50),
           child: page,
         ),
       );

@@ -8,9 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
 
-import '../constants/pref_keys.dart';
-import '../providers/providers.dart';
-import '../services/settings_service.dart';
+import '../providers/welcome_settings_provider.dart';
+import '../domain/contracts/welcome_settings_repository.dart';
 import '../widgets/app_progress_indicator.dart';
 import '../widgets/settings_widgets.dart';
 
@@ -26,68 +25,24 @@ class WelcomeConfigScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
-  SettingsService get _settings => ref.read(settingsProvider);
-  bool _loading = true;
+  int? _showTimePreview;
 
-  int _showTime = 500;
-  bool _customWelcome = false;
-  String _imageDay = '';
-  String _imageNight = '';
-  bool _showText = true;
-  bool _showIcon = true;
-  bool _showTextDark = true;
-  bool _showIconDark = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final s = _settings;
-    final showTime = await s.getIntPref(
-      PrefKeys.welcomeShowTime,
-      defaultValue: 500,
-    );
-    final custom = await s.getBoolPref(
-      PrefKeys.customWelcome,
-      defaultValue: false,
-    );
-    final imageDay = await s.getStringPref(PrefKeys.welcomeImage);
-    final imageNight = await s.getStringPref(PrefKeys.welcomeImageDark);
-    final showText = await s.getBoolPref(
-      PrefKeys.welcomeShowText,
-      defaultValue: true,
-    );
-    final showIcon = await s.getBoolPref(
-      PrefKeys.welcomeShowIcon,
-      defaultValue: true,
-    );
-    final showTextDark = await s.getBoolPref(
-      PrefKeys.welcomeShowTextDark,
-      defaultValue: true,
-    );
-    final showIconDark = await s.getBoolPref(
-      PrefKeys.welcomeShowIconDark,
-      defaultValue: true,
-    );
-    if (!mounted) return;
-    setState(() {
-      _showTime = showTime.clamp(0, 800);
-      _customWelcome = custom;
-      _imageDay = imageDay;
-      _imageNight = imageNight;
-      _showText = showText;
-      _showIcon = showIcon;
-      _showTextDark = showTextDark;
-      _showIconDark = showIconDark;
-      _loading = false;
-    });
+  Future<void> _save(
+    Future<void> Function(WelcomeSettingsRepository) save,
+  ) async {
+    try {
+      await save(ref.read(welcomeSettingsRepositoryProvider));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
+    }
   }
 
   Future<void> _pickImage({required bool dark}) async {
-    final current = dark ? _imageNight : _imageDay;
+    final settings = ref.read(welcomeSettingsRepositoryProvider).current;
+    final current = dark ? settings.imageNight : settings.imageDay;
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -124,40 +79,42 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
       );
       final path = result?.path;
       if (path == null || !mounted) return;
-      setState(() {
-        if (dark) {
-          _imageNight = path;
-        } else {
-          _imageDay = path;
-        }
-      });
-      await _settings.setStringPref(
-        dark ? PrefKeys.welcomeImageDark : PrefKeys.welcomeImage,
-        path,
+      await _save(
+        (repository) => repository.update(
+          imageDay: dark ? null : path,
+          imageNight: dark ? path : null,
+        ),
       );
     } else if (action == 'delete') {
-      setState(() {
-        if (dark) {
-          _imageNight = '';
-        } else {
-          _imageDay = '';
-        }
-      });
-      await _settings.setStringPref(
-        dark ? PrefKeys.welcomeImageDark : PrefKeys.welcomeImage,
-        '',
+      await _save(
+        (repository) => repository.update(
+          imageDay: dark ? null : '',
+          imageNight: dark ? '' : null,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loaded = ref.watch(welcomeSettingsProvider);
+    final settings =
+        loaded.value ?? ref.read(welcomeSettingsRepositoryProvider).current;
+    final showTime = _showTimePreview ?? settings.showTime;
+
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: LegadoAppBar(title: const Text('欢迎页样式')),
-      body: _loading
+      body: loaded.isLoading
           // [STAGE-UI-P43UNIFY2 B4] .adaptive() → 标准环（参考版无 adaptive 用法）
           ? const Center(child: AppCircularProgressIndicator())
+          : loaded.hasError
+          ? Center(
+              child: TextButton(
+                onPressed: () => ref.invalidate(welcomeSettingsProvider),
+                child: const Text('设置读取失败，点击重试'),
+              ),
+            )
           : SettingsBody(
               child: ListView(
                 children: [
@@ -171,30 +128,32 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                '启动闪屏停留 $_showTime 毫秒',
+                                '启动闪屏停留 $showTime 毫秒',
                                 style: Theme.of(context).textTheme.bodyLarge,
                               ),
                             ),
                             Text(
-                              '$_showTime',
+                              '$showTime',
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
                         ),
                       ),
                       Slider(
-                        value: _showTime.toDouble(),
+                        value: showTime.toDouble(),
                         min: 0,
                         max: 800,
                         divisions: 80,
-                        label: '$_showTime',
+                        label: '$showTime',
                         onChanged: (v) {
-                          setState(() => _showTime = v.round());
+                          setState(() => _showTimePreview = v.round());
                         },
                         onChangeEnd: (v) {
                           final ms = v.round().clamp(0, 800);
-                          setState(() => _showTime = ms);
-                          _settings.setIntPref(PrefKeys.welcomeShowTime, ms);
+                          setState(() => _showTimePreview = null);
+                          _save(
+                            (repository) => repository.update(showTime: ms),
+                          );
                         },
                       ),
                       Padding(
@@ -219,10 +178,11 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       SwitchListTile.adaptive(
                         title: const Text('自定义欢迎页'),
                         subtitle: const Text('启用后可设置日/夜背景图'),
-                        value: _customWelcome,
+                        value: settings.customWelcome,
                         onChanged: (v) {
-                          setState(() => _customWelcome = v);
-                          _settings.setBoolPref(PrefKeys.customWelcome, v);
+                          _save(
+                            (repository) => repository.update(customWelcome: v),
+                          );
                         },
                       ),
                     ],
@@ -234,25 +194,25 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       SettingTile(
                         icon: Symbols.wallpaper_rounded,
                         title: '背景图片',
-                        subtitle: _imageDay.isEmpty ? '选择图片' : _imageDay,
+                        subtitle: settings.imageDay.isEmpty
+                            ? '选择图片'
+                            : settings.imageDay,
                         onTap: () => _pickImage(dark: false),
                       ),
                       SwitchListTile.adaptive(
                         title: const Text('显示文字'),
                         subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
-                        value: _showText,
+                        value: settings.showText,
                         onChanged: (v) {
-                          setState(() => _showText = v);
-                          _settings.setBoolPref(PrefKeys.welcomeShowText, v);
+                          _save((repository) => repository.update(showText: v));
                         },
                       ),
                       SwitchListTile.adaptive(
                         title: const Text('显示图标'),
                         subtitle: const Text('默认书本图标'),
-                        value: _showIcon,
+                        value: settings.showIcon,
                         onChanged: (v) {
-                          setState(() => _showIcon = v);
-                          _settings.setBoolPref(PrefKeys.welcomeShowIcon, v);
+                          _save((repository) => repository.update(showIcon: v));
                         },
                       ),
                     ],
@@ -264,30 +224,28 @@ class _WelcomeConfigScreenState extends ConsumerState<WelcomeConfigScreen> {
                       SettingTile(
                         icon: Symbols.wallpaper_rounded,
                         title: '背景图片',
-                        subtitle: _imageNight.isEmpty ? '选择图片' : _imageNight,
+                        subtitle: settings.imageNight.isEmpty
+                            ? '选择图片'
+                            : settings.imageNight,
                         onTap: () => _pickImage(dark: true),
                       ),
                       SwitchListTile.adaptive(
                         title: const Text('显示文字'),
                         subtitle: const Text('阅读 / 享受美好时光 / 品读万千故事'),
-                        value: _showTextDark,
+                        value: settings.showTextDark,
                         onChanged: (v) {
-                          setState(() => _showTextDark = v);
-                          _settings.setBoolPref(
-                            PrefKeys.welcomeShowTextDark,
-                            v,
+                          _save(
+                            (repository) => repository.update(showTextDark: v),
                           );
                         },
                       ),
                       SwitchListTile.adaptive(
                         title: const Text('显示图标'),
                         subtitle: const Text('默认书本图标'),
-                        value: _showIconDark,
+                        value: settings.showIconDark,
                         onChanged: (v) {
-                          setState(() => _showIconDark = v);
-                          _settings.setBoolPref(
-                            PrefKeys.welcomeShowIconDark,
-                            v,
+                          _save(
+                            (repository) => repository.update(showIconDark: v),
                           );
                         },
                       ),

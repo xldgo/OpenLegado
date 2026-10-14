@@ -31,6 +31,7 @@ import '../constants/pref_keys.dart';
 import '../bridge/ffi.dart';
 import '../l10n/app_localization.dart';
 import '../providers/app_locale_notifier.dart';
+import '../providers/welcome_settings_provider.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/source_check/check_source_notifier.dart';
@@ -54,12 +55,13 @@ class OtherSettingsScreen extends ConsumerStatefulWidget {
 
 class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   SettingsService get _settingsService => ref.read(settingsProvider);
-  String _localeValue = 'system'; // system / zh / en
+  String get _localeValue => ref.read(appLocaleProvider);
 
   // ===== 主界面分组（对齐原版 auto_refresh 等键）=====
   bool _autoRefresh = false;
   bool _onlyUpdateRead = false;
-  bool _defaultToRead = false;
+  bool get _defaultToRead =>
+      ref.read(welcomeSettingsRepositoryProvider).current.defaultToRead;
 
   // ===== 其他分组 =====
   String _localPassword = '';
@@ -105,14 +107,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLocale();
     _loadOtherSettings();
-  }
-
-  Future<void> _loadLocale() async {
-    _localeValue = await _settingsService.getLocale();
-    // 语言应用由全局状态负责，本页只恢复选项显示。
-    if (mounted) setState(() {});
   }
 
   /// 加载原版对齐新增项（键名对齐 PreferKey）
@@ -124,10 +119,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     _onlyUpdateRead = await s.getBoolPref(
       PrefKeys.onlyUpdateRead,
-      defaultValue: false,
-    );
-    _defaultToRead = await s.getBoolPref(
-      PrefKeys.defaultToRead,
       defaultValue: false,
     );
     _localPassword = await s.getStringPref(PrefKeys.localPassword);
@@ -223,6 +214,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLocaleProvider);
+    ref.watch(welcomeSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
 
@@ -273,20 +266,25 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   title: context.l10n.advancedRecentReading,
                   subtitle: context.l10n.advancedRecentReadingDescription,
                   value: _defaultToRead,
-                  onChanged: (v) {
-                    setState(() => _defaultToRead = v);
-                    _settingsService.setBoolPref(PrefKeys.defaultToRead, v);
-                  },
+                  onChanged: (v) => _saveMainPreferences(
+                    () => ref
+                        .read(welcomeSettingsRepositoryProvider)
+                        .update(defaultToRead: v),
+                  ),
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedShowDiscovery,
                   value: mainPrefs.showDiscovery,
-                  onChanged: (v) => mainPrefsNotifier.setShowDiscovery(v),
+                  onChanged: (v) => _saveMainPreferences(
+                    () => mainPrefsNotifier.setShowDiscovery(v),
+                  ),
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedShowRss,
                   value: mainPrefs.showRss,
-                  onChanged: (v) => mainPrefsNotifier.setShowRss(v),
+                  onChanged: (v) => _saveMainPreferences(
+                    () => mainPrefsNotifier.setShowRss(v),
+                  ),
                 ),
                 SettingTile(
                   icon: Symbols.home_rounded,
@@ -637,7 +635,17 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     // [UI-fix v2.0.5 | 2026-08-08] 异步对话框返回后统一补 mounted 防护，
     // 避免页面已销毁时继续 setState/持久化 — Qoder
     if (selected == null || !mounted) return;
-    await notifier.setDefaultHomePage(selected);
+    await _saveMainPreferences(() => notifier.setDefaultHomePage(selected));
+  }
+
+  /// 保存结果由共享仓储决定；失败回退后向用户提示，不吞掉持久化错误。
+  Future<void> _saveMainPreferences(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      debugPrint('主界面设置保存失败：$error');
+      if (mounted) _toast(context.l10n.loginSaveFailed);
+    }
   }
 
   /// 本地密码编辑（对齐原版 localPassword EditTextPreference）
@@ -1134,9 +1142,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     ).then((selectedLocale) async {
       // 进入 .then 回调后第一时间检查 mounted，再 setState/持久化
       if (selectedLocale == null || !mounted) return;
-      setState(() => _localeValue = selectedLocale);
-      await ref.read(appLocaleProvider.notifier).setLocale(selectedLocale);
-      if (mounted) setState(() {});
+      await _saveMainPreferences(
+        () => ref.read(appLocaleProvider.notifier).setLocale(selectedLocale),
+      );
     });
   }
 

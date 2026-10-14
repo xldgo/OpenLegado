@@ -11,6 +11,7 @@ import '../../bridge/ffi.dart';
 import '../../constants/pref_keys.dart';
 import '../../models/models.dart';
 import '../../features/read_records/read_record_repository_provider.dart';
+import '../read_record_settings_provider.dart';
 import '../../services/settings_service.dart';
 import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
@@ -877,7 +878,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _readStartMs = DateTime.now().millisecondsSinceEpoch;
     _baseReadTimeMs = 0;
     try {
-      final enable = await _settings.getEnableReadRecord();
+      final enable =
+          (await ref.read(readRecordSettingsRepositoryProvider).load())
+              .enableRecord;
       if (!enable) return;
       final records = await ref
           .read(readRecordRepositoryProvider)
@@ -897,7 +900,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> _upReadTime(Book book) async {
     final session = _readRecordSession;
     try {
-      final enable = await _settings.getEnableReadRecord();
+      final enable =
+          (await ref.read(readRecordSettingsRepositoryProvider).load())
+              .enableRecord;
       if (!enable || session != _readRecordSession) return;
       final now = DateTime.now().millisecondsSinceEpoch;
       if (_readStartMs <= 0) {

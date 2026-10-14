@@ -1,11 +1,10 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../models/models.dart';
+import '../../domain/models/bookshelf_settings.dart';
+export '../../domain/models/bookshelf_settings.dart' show GroupMode;
 
 part 'bookshelf_state.freezed.dart';
-
-/// 书架分组模式 —— 纯展示层概念，仅决定 UI 如何分块显示
-enum GroupMode { none, bySource, byGroup }
 
 /// 书籍分组特殊 ID（对标 Kotlin BookGroup companion object）
 class BookGroupId {

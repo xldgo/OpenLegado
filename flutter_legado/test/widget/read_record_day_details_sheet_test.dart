@@ -5,6 +5,12 @@ import 'package:flutter_legado/src/features/read_records/read_record_day_details
 import 'package:flutter_legado/src/features/read_records/read_record_overview_state.dart';
 import 'package:flutter_legado/src/features/read_records/widgets/read_record_day_details_sheet.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
+
+class _LoadedPrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
 
 void main() {
   testWidgets('当天明细展示全部书籍与总时长，书籍不直接跳转', (tester) async {
@@ -12,6 +18,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          privacyControllerProvider.overrideWith(_LoadedPrivacy.new),
           readRecordDayDetailsProvider(date).overrideWithValue(
             const AsyncData([
               ReadBookRanking(

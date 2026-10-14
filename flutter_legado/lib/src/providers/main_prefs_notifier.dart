@@ -1,89 +1,130 @@
-// [UI-fix v2.0.5 | 2026-08-08] 主界面偏好状态管理：对齐原版 pref_config_other.xml
-// 主界面分组（showDiscovery/showRss/defaultHomePage），驱动首页底栏 Tab
-// 显隐与默认首页即时生效（对标原版 MainActivity 读取 AppConfig） — Qoder
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../constants/pref_keys.dart';
-import '../services/settings_service.dart';
+import '../domain/contracts/home_settings_repository.dart';
+import '../domain/models/home_settings.dart';
+import 'home_settings_provider.dart';
 
-/// 主界面偏好状态
-class MainPrefsState {
-  /// 显示发现（对齐原版 showDiscovery，默认 true）
-  final bool showDiscovery;
-
-  /// 显示订阅/RSS（对齐原版 showRss，默认 true）
-  final bool showRss;
-
-  /// 默认首页（对齐原版 defaultHomePage：bookshelf/explore/rss/my）
-  final String defaultHomePage;
-
+/// 偏好快照的界面投影，加载信息不进入持久化模型。— Codex + UI
+final class MainPrefsState {
   const MainPrefsState({
-    this.showDiscovery = true,
-    this.showRss = true,
-    this.defaultHomePage = 'bookshelf',
+    this.settings = const HomeSettings(),
+    this.loaded = false,
+    this.loadError,
   });
 
-  MainPrefsState copyWith({
-    bool? showDiscovery,
-    bool? showRss,
-    String? defaultHomePage,
-  }) {
-    return MainPrefsState(
-      showDiscovery: showDiscovery ?? this.showDiscovery,
-      showRss: showRss ?? this.showRss,
-      defaultHomePage: defaultHomePage ?? this.defaultHomePage,
-    );
-  }
+  final HomeSettings settings;
+  final bool loaded;
+  final Object? loadError;
+
+  bool get showDiscovery => settings.showDiscovery;
+  bool get showRss => settings.showRss;
+  String get defaultHomePage => settings.defaultHomePage;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MainPrefsState &&
+      settings == other.settings &&
+      loaded == other.loaded &&
+      loadError == other.loadError;
+
+  @override
+  int get hashCode => Object.hash(settings, loaded, loadError);
 }
 
-/// 主界面偏好 Notifier（读写 SharedPreferences 并驱动首页重建）
+/// 订阅共享偏好并传递操作结果，不另建存储或写队列。— Codex + UI
 class MainPrefsNotifier extends Notifier<MainPrefsState> {
-  final SettingsService _settings = SettingsService();
+  int _generation = 0;
+  bool _loaded = false;
+  Object? _loadError;
 
   @override
   MainPrefsState build() {
-    _load();
-    return const MainPrefsState();
-  }
-
-  /// 启动时异步加载持久化偏好
-  Future<void> _load() async {
-    state = MainPrefsState(
-      showDiscovery: await _settings.getBoolPref(
-        PrefKeys.showDiscovery,
-        defaultValue: true,
-      ),
-      showRss: await _settings.getBoolPref(
-        PrefKeys.showRss,
-        defaultValue: true,
-      ),
-      defaultHomePage: await _settings.getStringPref(
-        PrefKeys.defaultHomePage,
-        defaultValue: 'bookshelf',
-      ),
+    final repository = ref.watch(homeSettingsRepositoryProvider);
+    final generation = ++_generation;
+    _loaded = false;
+    _loadError = null;
+    final subscription = repository.watch().listen(
+      (_) => _publish(repository, generation),
     );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    unawaited(
+      Future.microtask(() async {
+        if (!_isCurrent(generation)) return;
+        try {
+          await load();
+        } catch (error) {
+          debugPrint('主界面偏好读取失败，保留当前快照，可重新加载：$error');
+        }
+      }),
+    );
+    return MainPrefsState(settings: repository.current);
   }
 
-  /// 设置显示发现
-  Future<void> setShowDiscovery(bool value) async {
-    state = state.copyWith(showDiscovery: value);
-    await _settings.setBoolPref(PrefKeys.showDiscovery, value);
+  bool _isCurrent(int generation) => ref.mounted && generation == _generation;
+
+  void _publish(HomeSettingsRepository repository, int generation) {
+    if (!_isCurrent(generation)) return;
+    final next = MainPrefsState(
+      settings: repository.current,
+      loaded: _loaded,
+      loadError: _loadError,
+    );
+    if (state != next) state = next;
   }
 
-  /// 设置显示订阅
-  Future<void> setShowRss(bool value) async {
-    state = state.copyWith(showRss: value);
-    await _settings.setBoolPref(PrefKeys.showRss, value);
+  Future<void> load() => _read(reload: false);
+  Future<void> reload() => _read(reload: true);
+
+  Future<void> _read({required bool reload}) async {
+    final repository = ref.read(homeSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      if (reload) {
+        await repository.reload();
+      } else {
+        await repository.load();
+      }
+      if (_isCurrent(generation)) {
+        _loaded = true;
+        _loadError = null;
+      }
+    } catch (error) {
+      if (_isCurrent(generation)) _loadError = error;
+      rethrow;
+    } finally {
+      _publish(repository, generation);
+    }
   }
 
-  /// 设置默认首页（bookshelf/explore/rss/my）
-  Future<void> setDefaultHomePage(String value) async {
-    state = state.copyWith(defaultHomePage: value);
-    await _settings.setStringPref(PrefKeys.defaultHomePage, value);
+  Future<void> _update({
+    bool? showDiscovery,
+    bool? showRss,
+    String? defaultHomePage,
+  }) async {
+    final repository = ref.read(homeSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      final saving = repository.update(
+        showDiscovery: showDiscovery,
+        showRss: showRss,
+        defaultHomePage: defaultHomePage,
+      );
+      _publish(repository, generation);
+      await saving;
+    } finally {
+      _publish(repository, generation);
+    }
   }
+
+  Future<void> setShowDiscovery(bool value) => _update(showDiscovery: value);
+  Future<void> setShowRss(bool value) => _update(showRss: value);
+  Future<void> setDefaultHomePage(String value) =>
+      _update(defaultHomePage: value);
 }
 
-/// 主界面偏好全局 Provider
 final mainPrefsProvider = NotifierProvider<MainPrefsNotifier, MainPrefsState>(
   MainPrefsNotifier.new,
 );

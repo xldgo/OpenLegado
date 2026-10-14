@@ -20,10 +20,17 @@ import '../l10n/app_strings.dart';
 import '../models/book.dart';
 import '../features/bookshelf/bookshelf.dart';
 import '../providers/main_prefs_notifier.dart';
+import '../providers/bookshelf_settings_provider.dart';
+import '../providers/read_record_settings_provider.dart';
+import '../providers/locale_settings_provider.dart';
+import '../providers/eye_protection_settings_provider.dart';
+import '../providers/welcome_settings_provider.dart';
 import '../providers/providers.dart';
 import '../providers/sync/sync_notifier.dart';
 import '../providers/theme/theme_colors_notifier.dart';
 import '../providers/theme/theme_notifier.dart';
+import '../providers/ui_settings/ui_settings_notifier.dart';
+import '../providers/theme/system_bar_notifier.dart';
 import '../routes.dart';
 import '../services/crash_log_service.dart';
 import '../services/restore_ignore_prefs.dart';
@@ -295,8 +302,58 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             .showSnackBar(SnackBar(content: const Text('设置已恢复，主题同步失败')));
       }
     }
+    if (!mounted) return;
     ref.invalidate(themeColorsProvider);
-    ref.invalidate(mainPrefsProvider);
+    try {
+      await ref.read(mainPrefsProvider.notifier).reload();
+    } catch (error) {
+      debugPrint('主界面偏好恢复后读取失败：$error');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('主界面设置读取失败，请重试')));
+      }
+    }
+    if (!mounted) return;
+    try {
+      await ref.read(uiSettingsProvider.notifier).reload();
+    } catch (error) {
+      debugPrint('界面布局恢复后读取失败：$error');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('界面布局读取失败，请重试')));
+      }
+    }
+    if (!mounted) return;
+    try {
+      await ref.read(systemBarProvider.notifier).reload();
+    } catch (error) {
+      debugPrint('系统栏偏好恢复后读取失败：$error');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('系统栏设置读取失败，请重试')));
+      }
+    }
+    if (!mounted) return;
+    final reloads = <(String, Future<void> Function())>[
+      ('书架', () => ref.read(bookshelfSettingsRepositoryProvider).reload()),
+      ('阅读记录', () => ref.read(readRecordSettingsRepositoryProvider).reload()),
+      ('语言', () => ref.read(localeSettingsRepositoryProvider).reload()),
+      ('护眼', () => ref.read(eyeProtectionSettingsRepositoryProvider).reload()),
+      ('欢迎页', () => ref.read(welcomeSettingsRepositoryProvider).reload()),
+    ];
+    for (final (label, reload) in reloads) {
+      if (!mounted) return;
+      try {
+        await reload();
+      } catch (error) {
+        debugPrint('$label 设置恢复后读取失败：$error');
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$label 设置读取失败，请重试')));
+        }
+      }
+    }
+    if (!mounted) return;
     ref.invalidate(bookshelfNotifierProvider);
   }
 

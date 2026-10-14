@@ -5,6 +5,7 @@ import 'package:flutter_legado/src/features/read_records/read_record_repository_
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/providers/read_record_settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -99,6 +100,43 @@ void main() {
     await reader.saveProgress();
     verifyZeroInteractions(records);
     expect(container.read(readerNotifierProvider).chapterContent, '测试正文。');
+  });
+
+  test('运行中关闭共享记录偏好立即影响阅读器保存，重新开启继续记录', () async {
+    when(() => records.getReadRecords()).thenAnswer((_) async => []);
+    when(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).thenAnswer((_) async {});
+    final reader = container.read(readerNotifierProvider.notifier);
+    await reader.openBook(book);
+    await container
+        .read(readRecordSettingsRepositoryProvider)
+        .update(enableRecord: false);
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    verifyNever(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    );
+    await container
+        .read(readRecordSettingsRepositoryProvider)
+        .update(enableRecord: true);
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    await reader.saveProgress();
+    verify(
+      () => records.putReadRecord(
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+      ),
+    ).called(1);
   });
 
   test('记录查询和写入失败均不阻断正文或进度保存', () async {

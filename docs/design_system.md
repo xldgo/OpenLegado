@@ -83,9 +83,19 @@ bodySmall / onSurfaceVariant，右侧值为 labelMedium 强调字阶 / primary�
 MenuAnchor 的 OverlayPortal 继承入口主题，根浮层中的菜单也沿用局部配色。
 实际 Cupertino 组件保持原接线，不将平台能力并入通用设置行。
 
+布局、圆角、模糊、分隔线及其他界面偏好使用纯 UiSettings 快照，由共享设置
+仓储读取。开关与选项保存失败提示并回退，圆角和模糊对话框等待组合参数的保存
+结果；组件不直接读取存储，不改现有尺寸、配色、动画或阅读器行为。
+
+书架、阅读记录、语言、护眼及欢迎页偏好分别由类型化仓储提供同一共享快照。
+设置页不再维护已保存值的局部副本，欢迎时长仅在拖动期间保留预览；保存失败提示
+并回退。护眼快捷按钮与完整设置读取同一来源，滤镜和时段规则保持。
+
 ## 系统栏与页面归属（2026-10-13）
 
-应用系统栏偏好由 SystemBarNotifier 管理；SystemBarBinder 在当前帧主题更新后
+应用系统栏偏好经 SystemBarSettingsRepository 复用共享 AppSettingsService，
+SystemBarNotifier 只投影当前偏好和加载状态；外观页开关保存失败提示并回退，
+备份恢复后重读同一仓储。SystemBarBinder 在当前帧主题更新后
 向共享 SystemBarController 提交样式。阅读器只在页面可见期间接管显隐，
 全局主题及偏好变化保留为最新应用样式，离开阅读器后恢复；前台恢复重新下发当前请求。
 平台调用串行执行，过期排队项忽略，Android 原生前台恢复避让阅读器归属。

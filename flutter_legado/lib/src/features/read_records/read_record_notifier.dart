@@ -1,9 +1,11 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/settings_service.dart';
+import '../../domain/contracts/read_record_settings_repository.dart';
+import '../../providers/read_record_settings_provider.dart';
 import '../../providers/providers.dart';
 import 'read_record_repository_provider.dart';
 import 'read_record_state.dart';
@@ -11,45 +13,78 @@ import 'read_record_state.dart';
 /// 阅读记录 Riverpod Notifier（对齐原版 ReadRecordActivity）
 ///
 /// 职责：经 ReadRecordRepository 读写 readRecord；搜索/排序在本层完成；
-/// 偏好 `enableReadRecord` / `readRecordSort` 经 SettingsService 持久化。
+/// 普通偏好经共享 ReadRecordSettingsRepository 访问。
 class ReadRecordNotifier extends Notifier<ReadRecordState> {
-  final SettingsService _settings = SettingsService();
-  int _modeRevision = 0;
-  Future<void> _modeWrite = Future.value();
+  int _preferencesGeneration = 0;
 
   /// 全量原始记录（未过滤），供搜索重算
   List<ReadRecordShow> _all = const [];
 
   @override
-  ReadRecordState build() => const ReadRecordState();
+  ReadRecordState build() {
+    final repository = ref.watch(readRecordSettingsRepositoryProvider);
+    final generation = ++_preferencesGeneration;
+    final subscription = repository.watch().listen(
+      (_) => _publishPreferences(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    return ReadRecordState(
+      enableRecord: repository.current.enableRecord,
+      displayMode: repository.current.displayMode,
+      sortMode: repository.current.sortMode,
+    );
+  }
+
+  void _publishPreferences(
+    ReadRecordSettingsRepository repository,
+    int generation,
+  ) {
+    if (!ref.mounted || generation != _preferencesGeneration) return;
+    final settings = repository.current;
+    state = state.copyWith(
+      enableRecord: settings.enableRecord,
+      displayMode: settings.displayMode,
+      sortMode: settings.sortMode,
+      records: _applyFilterAndSort(_all, state.searchQuery, settings.sortMode),
+    );
+  }
+
+  Future<void> _savePreferences(
+    Future<void> Function(ReadRecordSettingsRepository) save,
+  ) async {
+    final repository = ref.read(readRecordSettingsRepositoryProvider);
+    final generation = _preferencesGeneration;
+    try {
+      final saving = save(repository);
+      _publishPreferences(repository, generation);
+      await saving;
+    } finally {
+      _publishPreferences(repository, generation);
+    }
+  }
 
   /// 加载偏好 + 列表 + 总时长
   Future<void> load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final modeRevision = _modeRevision;
-      final preferences = await SharedPreferences.getInstance();
-      final storedMode = preferences.getString('readRecordDisplayMode');
-      final savedMode =
-          ReadRecordDisplayMode.values
-              .where((m) => m.name == storedMode)
-              .firstOrNull ??
-          ReadRecordDisplayMode.aggregate;
-      final sort = _sortFromRaw(await _settings.getReadRecordSort());
-      final enable = await _settings.getEnableReadRecord();
+      final preferences = ref.read(readRecordSettingsRepositoryProvider);
+      await preferences.load();
       final repository = ref.read(readRecordRepositoryProvider);
       final raw = await repository.getReadRecords();
       _all = _toShowList(raw);
       final total = _all.fold<int>(0, (sum, r) => sum + r.readTime);
-      final filtered = _applyFilterAndSort(_all, state.searchQuery, sort);
+      final settings = preferences.current;
+      final filtered = _applyFilterAndSort(
+        _all,
+        state.searchQuery,
+        settings.sortMode,
+      );
       state = state.copyWith(
         records: filtered,
         totalReadTimeMs: total,
-        sortMode: sort,
-        displayMode: modeRevision == _modeRevision
-            ? savedMode
-            : state.displayMode,
-        enableRecord: enable,
+        sortMode: settings.sortMode,
+        displayMode: settings.displayMode,
+        enableRecord: settings.enableRecord,
         isLoading: false,
       );
     } catch (e) {
@@ -57,16 +92,9 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
     }
   }
 
-  /// 展示方式即时切换，偏好串行保存避免快速点击时写入顺序颠倒。
-  Future<void> setDisplayMode(ReadRecordDisplayMode mode) {
-    _modeRevision++;
-    state = state.copyWith(displayMode: mode);
-    _modeWrite = _modeWrite.catchError((Object _) {}).then((_) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('readRecordDisplayMode', mode.name);
-    });
-    return _modeWrite;
-  }
+  /// 展示偏好通过共享仓储即时生效，保存失败回退。
+  Future<void> setDisplayMode(ReadRecordDisplayMode mode) =>
+      _savePreferences((repository) => repository.update(displayMode: mode));
 
   /// 搜索（对齐原版 SearchView onQueryTextChange → initData）
   void setSearchQuery(String query) {
@@ -77,21 +105,15 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
     );
   }
 
-  /// 切换排序并持久化
-  Future<void> setSortMode(ReadRecordSortMode mode) async {
-    await _settings.setReadRecordSort(_sortToRaw(mode));
-    state = state.copyWith(
-      sortMode: mode,
-      records: _applyFilterAndSort(_all, state.searchQuery, mode),
-    );
-  }
+  /// 切换排序并持久化。
+  Future<void> setSortMode(ReadRecordSortMode mode) =>
+      _savePreferences((repository) => repository.update(sortMode: mode));
 
-  /// 启用/关闭阅读时长记录（对齐菜单 menu_enable_record）
-  Future<void> toggleEnableRecord() async {
-    final next = !state.enableRecord;
-    await _settings.setEnableReadRecord(next);
-    state = state.copyWith(enableRecord: next);
-  }
+  /// 启用/关闭阅读时长记录，与阅读器共享同一来源。
+  Future<void> toggleEnableRecord() => _savePreferences(
+    (repository) =>
+        repository.update(enableRecord: !repository.current.enableRecord),
+  );
 
   /// 删除单本书记录（对齐 deleteByName）
   Future<void> deleteByName(String bookName) async {
@@ -123,28 +145,6 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
       if (b.name == bookName) return b;
     }
     return null;
-  }
-
-  static ReadRecordSortMode _sortFromRaw(int raw) {
-    switch (raw) {
-      case 1:
-        return ReadRecordSortMode.readTime;
-      case 2:
-        return ReadRecordSortMode.lastRead;
-      default:
-        return ReadRecordSortMode.name;
-    }
-  }
-
-  static int _sortToRaw(ReadRecordSortMode mode) {
-    switch (mode) {
-      case ReadRecordSortMode.readTime:
-        return 1;
-      case ReadRecordSortMode.lastRead:
-        return 2;
-      case ReadRecordSortMode.name:
-        return 0;
-    }
   }
 
   /// ReadRecord → ReadRecordShow；同名合并时长（对齐 Room group by bookName）

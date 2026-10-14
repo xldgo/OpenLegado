@@ -6,117 +6,133 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../constants/pref_keys.dart';
-import '../../services/settings_service.dart';
-import '../../services/settings_write_queue.dart';
-import '../providers.dart';
+import '../../domain/contracts/system_bar_settings_repository.dart';
+import '../../domain/models/system_bar_settings.dart';
+import 'system_bar_settings_provider.dart';
 
-/// 系统栏偏好状态
-class SystemBarState {
-  final bool transparentStatusBar;
-  final bool immNavigationBar;
-  final bool loaded;
-
+/// 系统栏偏好投影；加载信息不进入持久化模型。— Codex + UI
+final class SystemBarState {
   const SystemBarState({
-    this.transparentStatusBar = true,
-    this.immNavigationBar = true,
+    this.settings = const SystemBarSettings(),
     this.loaded = false,
+    this.loadError,
   });
 
-  SystemBarState copyWith({
-    bool? transparentStatusBar,
-    bool? immNavigationBar,
-    bool? loaded,
-  }) {
-    return SystemBarState(
-      transparentStatusBar: transparentStatusBar ?? this.transparentStatusBar,
-      immNavigationBar: immNavigationBar ?? this.immNavigationBar,
-      loaded: loaded ?? this.loaded,
-    );
-  }
+  final SystemBarSettings settings;
+  final bool loaded;
+  final Object? loadError;
+
+  bool get transparentStatusBar => settings.transparentStatusBar;
+  bool get immNavigationBar => settings.immNavigationBar;
+  bool get transparentNavBar => settings.transparentNavBar;
+  bool get transparentNavBarNight => settings.transparentNavBarNight;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SystemBarState &&
+      settings == other.settings &&
+      loaded == other.loaded &&
+      loadError == other.loadError;
+
+  @override
+  int get hashCode => Object.hash(settings, loaded, loadError);
 }
 
+/// 订阅共享设置并传递保存结果，不另建存储或写入队列。— Codex + UI
 class SystemBarNotifier extends Notifier<SystemBarState> {
-  late SettingsService _settings;
-  final _operations = SettingsWriteQueue();
   int _generation = 0;
-  int _loadGeneration = 0;
-  int _statusRevision = 0;
-  int _navigationRevision = 0;
+  bool _loaded = false;
+  Object? _loadError;
 
   @override
   SystemBarState build() {
-    _settings = ref.watch(settingsProvider);
-    _statusRevision = 0;
-    _navigationRevision = 0;
+    final repository = ref.watch(systemBarSettingsRepositoryProvider);
     final generation = ++_generation;
-    ref.onDispose(() => _generation++);
+    _loaded = false;
+    _loadError = null;
+    final subscription = repository.watch().listen(
+      (_) => _publish(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
     unawaited(
-      _loadFromPrefs().catchError((Object error) {
-        if (ref.mounted && generation == _generation) {
-          debugPrint('系统栏偏好加载失败: $error');
+      Future.microtask(() async {
+        if (!_isCurrent(generation)) return;
+        try {
+          await load();
+        } catch (error) {
+          debugPrint('系统栏偏好读取失败，可重新加载：$error');
         }
       }),
     );
-    return const SystemBarState();
+    return SystemBarState(settings: repository.current);
   }
 
-  Future<void> _loadFromPrefs() {
-    final settings = _settings;
+  bool _isCurrent(int generation) => ref.mounted && generation == _generation;
+
+  void _publish(SystemBarSettingsRepository repository, int generation) {
+    if (!_isCurrent(generation)) return;
+    final next = SystemBarState(
+      settings: repository.current,
+      loaded: _loaded,
+      loadError: _loadError,
+    );
+    if (state != next) state = next;
+  }
+
+  Future<void> load() => _read(reload: false);
+  Future<void> reload() => _read(reload: true);
+
+  Future<void> _read({required bool reload}) async {
+    final repository = ref.read(systemBarSettingsRepositoryProvider);
     final generation = _generation;
-    final loadGeneration = ++_loadGeneration;
-    final statusRevision = _statusRevision;
-    final navigationRevision = _navigationRevision;
-    bool isCurrent() =>
-        ref.mounted &&
-        generation == _generation &&
-        loadGeneration == _loadGeneration;
-
-    // 重新读取排在此前的保存之后，避免恢复尚未落盘的旧值。
-    return _operations.run(() async {
-      if (!isCurrent()) return;
-      final transparentStatusBar = await settings.getBoolPref(
-        PrefKeys.transparentStatusBar,
-        defaultValue: true,
-      );
-      if (!isCurrent()) return;
-      final immNavigationBar = await settings.getBoolPref(
-        PrefKeys.immNavigationBar,
-        defaultValue: true,
-      );
-      if (!isCurrent()) return;
-      // 即使用户显式选择默认值，也保留加载期间的这次操作。
-      state = state.copyWith(
-        transparentStatusBar: _statusRevision == statusRevision
-            ? transparentStatusBar
-            : null,
-        immNavigationBar: _navigationRevision == navigationRevision
-            ? immNavigationBar
-            : null,
-        loaded: true,
-      );
-    });
+    try {
+      if (reload) {
+        await repository.reload();
+      } else {
+        await repository.load();
+      }
+      if (_isCurrent(generation)) {
+        _loaded = true;
+        _loadError = null;
+      }
+    } catch (error) {
+      if (_isCurrent(generation)) _loadError = error;
+      rethrow;
+    } finally {
+      _publish(repository, generation);
+    }
   }
 
-  Future<void> setTransparentStatusBar(bool value) {
-    _statusRevision++;
-    state = state.copyWith(transparentStatusBar: value);
-    final settings = _settings;
-    return _operations.run(
-      () => settings.setBoolPref(PrefKeys.transparentStatusBar, value),
-    );
+  Future<void> _update({
+    bool? transparentStatusBar,
+    bool? immNavigationBar,
+    bool? transparentNavBar,
+    bool? transparentNavBarNight,
+  }) async {
+    final repository = ref.read(systemBarSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      final saving = repository.update(
+        transparentStatusBar: transparentStatusBar,
+        immNavigationBar: immNavigationBar,
+        transparentNavBar: transparentNavBar,
+        transparentNavBarNight: transparentNavBarNight,
+      );
+      _publish(repository, generation);
+      await saving;
+    } finally {
+      _publish(repository, generation);
+    }
   }
 
-  Future<void> setImmNavigationBar(bool value) {
-    _navigationRevision++;
-    state = state.copyWith(immNavigationBar: value);
-    final settings = _settings;
-    return _operations.run(
-      () => settings.setBoolPref(PrefKeys.immNavigationBar, value),
-    );
-  }
-
-  Future<void> reload() => _loadFromPrefs();
+  Future<void> setTransparentStatusBar(bool value) =>
+      _update(transparentStatusBar: value);
+  Future<void> setImmNavigationBar(bool value) =>
+      _update(immNavigationBar: value);
+  Future<void> setTransparentNavBar(bool value) =>
+      _update(transparentNavBar: value);
+  Future<void> setTransparentNavBarNight(bool value) =>
+      _update(transparentNavBarNight: value);
 }
 
 final systemBarProvider = NotifierProvider<SystemBarNotifier, SystemBarState>(

@@ -256,7 +256,16 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       if (value == 'enable') {
                         ref
                             .read(readRecordNotifierProvider.notifier)
-                            .toggleEnableRecord();
+                            .toggleEnableRecord()
+                            .catchError((Object error) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(context.l10n.loginSaveFailed),
+                                  ),
+                                );
+                              }
+                            });
                       }
                       if (value == 'clear') _clearAll();
                     },

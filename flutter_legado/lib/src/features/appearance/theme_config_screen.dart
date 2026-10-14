@@ -53,10 +53,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   int _barElevation = 0;
   bool _wallpaperColorAutoUpdate = true;
 
-  // ===== 日间/夜间组状态 =====
-  bool _transparentNavBar = false;
-  bool _transparentNavBarNight = false;
-
   /// 颜色选择器预设色板（对齐原版 ColorPreference cpv_dialogType="preset"）
   static const _presetColors = [
     0xFFD32F2F,
@@ -130,21 +126,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       PrefKeys.wallpaperColorAutoUpdate,
       defaultValue: true,
     );
-    final transparentNavBar = await _settings.getBoolPref(
-      PrefKeys.transparentNavBar,
-      defaultValue: false,
-    );
-    final transparentNavBarNight = await _settings.getBoolPref(
-      PrefKeys.transparentNavBarNight,
-      defaultValue: false,
-    );
     if (!mounted) return;
     setState(() {
       _launcherIcon = launcherIcon;
       _barElevation = barElevation;
       _wallpaperColorAutoUpdate = wallpaperColorAutoUpdate;
-      _transparentNavBar = transparentNavBar;
-      _transparentNavBarNight = transparentNavBarNight;
       _loading = false;
     });
   }
@@ -225,10 +211,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         ),
       ),
     );
-    if (confirmed == true) {
-      await ref
-          .read(uiSettingsProvider.notifier)
-          .setTopBarOpacity(value.round());
+    if (confirmed == true && mounted) {
+      await _saveAppearance(
+        () => ref
+            .read(uiSettingsProvider.notifier)
+            .setTopBarOpacity(value.round()),
+      );
     }
   }
 
@@ -272,10 +260,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         ),
       ),
     );
-    if (confirmed == true) {
-      await ref
-          .read(uiSettingsProvider.notifier)
-          .setBottomBarOpacity(value.round());
+    if (confirmed == true && mounted) {
+      await _saveAppearance(
+        () => ref
+            .read(uiSettingsProvider.notifier)
+            .setBottomBarOpacity(value.round()),
+      );
     }
   }
 
@@ -352,10 +342,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         ),
       ),
     );
-    if (confirmed == true) {
-      final notifier = ref.read(uiSettingsProvider.notifier);
-      await notifier.setOverrideBaseCardCornerRadius(override);
-      await notifier.setBaseCardCornerRadius(radius.round());
+    if (confirmed == true && mounted) {
+      await _saveAppearance(
+        () => ref
+            .read(uiSettingsProvider.notifier)
+            .setCardRadius(override: override, radius: radius.round()),
+      );
     }
   }
 
@@ -363,8 +355,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     required String title,
     required int currentRadius,
     required int currentAlpha,
-    required ValueChanged<int> onRadius,
-    required ValueChanged<int> onAlpha,
+    required Future<void> Function(int radius, int alpha) onSave,
   }) async {
     var radius = currentRadius.toDouble();
     var alpha = currentAlpha.toDouble();
@@ -407,9 +398,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         ),
       ),
     );
-    if (confirmed == true) {
-      onRadius(radius.round());
-      onAlpha(alpha.round());
+    if (confirmed == true && mounted) {
+      await _saveAppearance(() => onSave(radius.round(), alpha.round()));
     }
   }
 
@@ -420,8 +410,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       title: '顶栏模糊',
       currentRadius: uiNow.topBarBlurRadius,
       currentAlpha: uiNow.topBarBlurAlpha,
-      onRadius: notifier.setTopBarBlurRadius,
-      onAlpha: notifier.setTopBarBlurAlpha,
+      onSave: (radius, alpha) =>
+          notifier.setTopBarBlur(radius: radius, alpha: alpha),
     );
   }
 
@@ -432,8 +422,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       title: '悬浮底栏模糊',
       currentRadius: uiNow.bottomBarBlurRadius,
       currentAlpha: uiNow.bottomBarBlurAlpha,
-      onRadius: notifier.setBottomBarBlurRadius,
-      onAlpha: notifier.setBottomBarBlurAlpha,
+      onSave: (radius, alpha) =>
+          notifier.setBottomBarBlur(radius: radius, alpha: alpha),
     );
   }
 
@@ -502,18 +492,22 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: '配色风格',
                         value: ui.themeStyle,
                         options: _themeStyleOptions,
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setThemeStyle(value),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setThemeStyle(value),
+                        ),
                       ),
                       if (ui.themeStyle != 'none')
                         SettingMenuRow<String>(
                           title: '对比度',
                           value: ui.themeContrastLevel,
                           options: _contrastOptions,
-                          onChanged: (value) => ref
-                              .read(uiSettingsProvider.notifier)
-                              .setThemeContrastLevel(value),
+                          onChanged: (value) => _saveAppearance(
+                            () => ref
+                                .read(uiSettingsProvider.notifier)
+                                .setThemeContrastLevel(value),
+                          ),
                         ),
                     ],
                   ),
@@ -536,9 +530,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.themePureBlack,
                         subtitle: '暗色模式背景纯黑（省电护屏）',
                         value: ui.themeAmoled,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setThemeAmoled(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setThemeAmoled(v),
+                        ),
                       ),
                       // 切换图标（参考 change_icon=切换图标，摘要
                       // change_icon_summary=切换软件显示在桌面的图标；
@@ -610,22 +606,22 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.themeImmersionStatusBar,
                         subtitle: context.l10n.themeStatusBarImmersion,
                         value: systemBars.transparentStatusBar,
-                        onChanged: (v) async {
-                          await ref
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
                               .read(systemBarProvider.notifier)
-                              .setTransparentStatusBar(v);
-                        },
+                              .setTransparentStatusBar(v),
+                        ),
                       ),
                       SettingSwitchRow(
                         title: context.l10n.themeImmNavigationBar,
                         subtitle:
                             context.l10n.themeImmersiveNavigationDescription,
                         value: systemBars.immNavigationBar,
-                        onChanged: (v) async {
-                          await ref
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
                               .read(systemBarProvider.notifier)
-                              .setImmNavigationBar(v);
-                        },
+                              .setImmNavigationBar(v),
+                        ),
                       ),
                       SettingTile(
                         title: context.l10n.themeBarElevation,
@@ -649,9 +645,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: '跟随壁纸配色',
                         subtitle: '使用系统壁纸色板生成日间和夜间主题（Android 12+/iOS）',
                         value: ui.wallpaperColorFollow,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setWallpaperColorFollow(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setWallpaperColorFollow(v),
+                        ),
                       ),
                       if (ui.wallpaperColorFollow)
                         SettingSwitchRow(
@@ -684,25 +682,31 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           for (final value in TopBarButtonStyle.values)
                             value: _topBarStyleLabel(value),
                         },
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setTopBarButtonStyle(value),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setTopBarButtonStyle(value),
+                        ),
                       ),
                       SettingSwitchRow(
                         title: context.l10n.themeMergeTopBarActions,
                         subtitle: '顶栏按钮收进胶囊容器',
                         value: ui.mergeTopBarActions,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setMergeTopBarActions(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setMergeTopBarActions(v),
+                        ),
                       ),
                       SettingSwitchRow(
                         title: '大顶栏形态',
                         subtitle: '书架/我的等根页使用可折叠大标题',
                         value: ui.useFlexibleTopAppBar,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setUseFlexibleTopAppBar(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setUseFlexibleTopAppBar(v),
+                        ),
                       ),
                       SettingTile(
                         title: context.l10n.themeTopBarOpacity,
@@ -713,17 +717,21 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: '显示底栏',
                         subtitle: '隐藏后仅侧栏/手势切页',
                         value: ui.showBottomView,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setShowBottomView(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setShowBottomView(v),
+                        ),
                       ),
                       SettingSwitchRow(
                         title: context.l10n.themeFloatingBottomBar,
                         subtitle: '64dp 胶囊悬浮形态（ Experimental）',
                         value: ui.useFloatingBottomBar,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setUseFloatingBottomBar(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setUseFloatingBottomBar(v),
+                        ),
                       ),
                       SettingMenuRow<BottomBarLabelMode>(
                         title: '底栏文字',
@@ -732,9 +740,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           for (final value in BottomBarLabelMode.values)
                             value: _labelModeLabel(value),
                         },
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setLabelVisibilityMode(value),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setLabelVisibilityMode(value),
+                        ),
                       ),
                       SettingTile(
                         title: context.l10n.themeBottomBarOpacity,
@@ -750,9 +760,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           for (final value in TabletInterfaceMode.values)
                             value: _tabletLabel(value),
                         },
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setTabletInterface(value),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setTabletInterface(value),
+                        ),
                       ),
                     ],
                   ),
@@ -771,33 +783,39 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         subtitle:
                             context.l10n.themeBookInfoFollowCoverColorSummary,
                         value: ui.bookInfoFollowCoverColor,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setBookInfoFollowCoverColor(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setBookInfoFollowCoverColor(v),
+                        ),
                       ),
                       // 参考 book_info_network_cover_background=网络封面背景设置
                       SettingMenuRow<String>(
                         title: context.l10n.themeBookInfoNetworkCoverBackground,
                         value: ui.bookInfoNetworkCoverBackground,
                         options: _coverBackgroundOptions,
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setBookInfoCoverBackground(
-                              isDefaultCover: false,
-                              value: value,
-                            ),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setBookInfoCoverBackground(
+                                isDefaultCover: false,
+                                value: value,
+                              ),
+                        ),
                       ),
                       // 参考 book_info_default_cover_background=默认封面背景设置
                       SettingMenuRow<String>(
                         title: context.l10n.themeBookInfoDefaultCoverBackground,
                         value: ui.bookInfoDefaultCoverBackground,
                         options: _coverBackgroundOptions,
-                        onChanged: (value) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setBookInfoCoverBackground(
-                              isDefaultCover: true,
-                              value: value,
-                            ),
+                        onChanged: (value) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setBookInfoCoverBackground(
+                                isDefaultCover: true,
+                                value: value,
+                              ),
+                        ),
                       ),
                     ],
                   ),
@@ -826,9 +844,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.readerShowDivider,
                         subtitle: '分组列表行底部显示短分隔线',
                         value: ui.enableItemDivider,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setEnableItemDivider(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setEnableItemDivider(v),
+                        ),
                       ),
                     ],
                   ),
@@ -845,9 +865,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: '启用毛玻璃',
                         subtitle: '低端设备开启可能掉帧',
                         value: ui.enableBlur,
-                        onChanged: (v) => ref
-                            .read(uiSettingsProvider.notifier)
-                            .setEnableBlur(v),
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(uiSettingsProvider.notifier)
+                              .setEnableBlur(v),
+                        ),
                       ),
                       if (ui.enableBlur) ...[
                         SettingTile(
@@ -907,11 +929,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       SettingSwitchRow(
                         title: '透明导航栏',
                         subtitle: _androidOnly,
-                        value: _transparentNavBar,
-                        onChanged: (v) {
-                          setState(() => _transparentNavBar = v);
-                          _settings.setBoolPref(PrefKeys.transparentNavBar, v);
-                        },
+                        value: systemBars.transparentNavBar,
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(systemBarProvider.notifier)
+                              .setTransparentNavBar(v),
+                        ),
                       ),
                       SettingTile(
                         icon: Symbols.save_rounded,
@@ -963,14 +986,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       SettingSwitchRow(
                         title: '透明导航栏',
                         subtitle: _androidOnly,
-                        value: _transparentNavBarNight,
-                        onChanged: (v) {
-                          setState(() => _transparentNavBarNight = v);
-                          _settings.setBoolPref(
-                            PrefKeys.transparentNavBarNight,
-                            v,
-                          );
-                        },
+                        value: systemBars.transparentNavBarNight,
+                        onChanged: (v) => _saveAppearance(
+                          () => ref
+                              .read(systemBarProvider.notifier)
+                              .setTransparentNavBarNight(v),
+                        ),
                       ),
                       SettingTile(
                         icon: Symbols.save_rounded,

@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
@@ -12,13 +12,11 @@ import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 /// 语义合并（MergeSemantics，同 SwitchListTile）、dense/contentPadding 透传、
 /// enableItemDivider 打开时的行底 80dp 分隔线。
 void main() {
-  Widget wrap(
-    Widget child, {
-    UiSettingsState settings = const UiSettingsState(),
-  }) => UiSettingsScope(
-    settings: settings,
-    child: MaterialApp(home: Scaffold(body: child)),
-  );
+  Widget wrap(Widget child, {UiSettings settings = const UiSettings()}) =>
+      UiSettingsScope(
+        settings: settings,
+        child: MaterialApp(home: Scaffold(body: child)),
+      );
 
   testWidgets('渲染标题/副标题，开关取 value', (tester) async {
     await tester.pumpWidget(
@@ -185,7 +183,7 @@ void main() {
     await tester.pumpWidget(
       wrap(
         SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop),
-        settings: const UiSettingsState(enableItemDivider: true),
+        settings: const UiSettings(enableItemDivider: true),
       ),
     );
     expect(pill, findsOneWidget);

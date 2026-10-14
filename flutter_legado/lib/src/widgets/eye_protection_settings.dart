@@ -73,13 +73,13 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
           subtitle: strings.eyeProtectionEnabledSummary,
           value: settings.enabled,
           onChanged: (value) =>
-              notifier.update(settings.copyWith(enabled: value)),
+              _save(context, () => notifier.update(enabled: value)),
         ),
         SettingSwitchRow(
           title: strings.eyeProtectionAutoNight,
           value: settings.autoNight,
           onChanged: (value) =>
-              notifier.update(settings.copyWith(autoNight: value)),
+              _save(context, () => notifier.update(autoNight: value)),
         ),
         if (settings.configured) ...[
           Padding(
@@ -109,8 +109,9 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
                   max: 100,
                   divisions: 100,
                   label: '${settings.intensity}%',
-                  onChanged: (value) => notifier.update(
-                    settings.copyWith(intensity: value.round()),
+                  onChanged: (value) => _save(
+                    context,
+                    () => notifier.update(intensity: value.round()),
                   ),
                 ),
               ],
@@ -121,20 +122,21 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
             subtitle: strings.eyeProtectionScheduleSummary,
             value: settings.schedule,
             onChanged: (value) =>
-                notifier.update(settings.copyWith(schedule: value)),
+                _save(context, () => notifier.update(schedule: value)),
           ),
           if (settings.schedule) ...[
             _timeRow(
               context,
               strings.eyeProtectionStartTime,
               settings.startTime,
-              (value) => notifier.update(settings.copyWith(startTime: value)),
+              (value) =>
+                  _save(context, () => notifier.update(startTime: value)),
             ),
             _timeRow(
               context,
               strings.eyeProtectionEndTime,
               settings.endTime,
-              (value) => notifier.update(settings.copyWith(endTime: value)),
+              (value) => _save(context, () => notifier.update(endTime: value)),
             ),
           ],
         ],
@@ -142,11 +144,22 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
     );
   }
 
+  Future<void> _save(BuildContext context, Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
+    }
+  }
+
   Widget _timeRow(
     BuildContext context,
     String title,
     String value,
-    ValueChanged<String> onChanged,
+    Future<void> Function(String) onChanged,
   ) => SettingTile(
     title: title,
     value: value,
@@ -159,7 +172,7 @@ class EyeProtectionSettingsGroup extends ConsumerWidget {
         helpText: title,
       );
       if (picked == null) return;
-      onChanged(
+      await onChanged(
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
       );
     },

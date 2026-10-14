@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/main_prefs_notifier.dart';
+import 'package:flutter_legado/src/providers/rss/rss_notifier.dart'
+    show kRssSourceVersion, kRssSourceVersionKey;
+import 'package:flutter_legado/src/providers/home_settings_provider.dart';
+import 'package:flutter_legado/src/data/repositories/app_home_settings_repository.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/contracts/home_settings_repository.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 import 'package:flutter_legado/src/screens/home_screen.dart';
@@ -14,6 +24,7 @@ import 'package:flutter_legado/src/screens/home_tab_screen.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
 
 import '../mocks/mocks.dart';
+import '../fixtures/home_settings_storage.dart';
 
 /// 主框架导航对齐验证（对标原版 MainActivity：
 /// PageView 滑动切页（对齐参考 HorizontalPager）+ BottomNavigationView 并存、
@@ -23,12 +34,21 @@ import '../mocks/mocks.dart';
 void main() {
   setUpAll(registerFallbacks);
 
-  Future<void> pumpHome(WidgetTester tester, MockRustApi mockApi) async {
+  Future<void> pumpHome(
+    WidgetTester tester,
+    MockRustApi mockApi, {
+    Map<String, Object> preferences = const {},
+    HomeSettingsRepository? mainPreferences,
+  }) async {
     // 既有底栏交互用例使用手机窗口，避免默认宽窗口启用侧栏。
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    SharedPreferences.setMockInitialValues({});
+    // 本文件只验证导航，默认 RSS 资源导入由独立用例覆盖。
+    SharedPreferences.setMockInitialValues({
+      kRssSourceVersionKey: kRssSourceVersion,
+      ...preferences,
+    });
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
       (_) async => [
         for (var i = 0; i < 30; i++) Book(bookUrl: 'u$i', name: '书籍$i'),
@@ -44,7 +64,11 @@ void main() {
         .thenReturn(MockReadRecordRepository());
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          if (mainPreferences != null)
+            homeSettingsRepositoryProvider.overrideWithValue(mainPreferences),
+        ],
         child: const MaterialApp(home: HomeScreen()),
       ),
     );
@@ -53,6 +77,248 @@ void main() {
 
   int navBarIndex(WidgetTester tester) =>
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+
+  MainPrefsNotifier preferences(WidgetTester tester) =>
+      ProviderScope.containerOf(tester.element(find.byType(HomeScreen)))
+          .read(mainPrefsProvider.notifier);
+
+  double currentPage(WidgetTester tester) =>
+      tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+
+  AppHomeSettingsRepository repositoryFor(HomeSettingsStorage storage) {
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() {
+      final barrier = storage.readBarrier;
+      if (barrier != null && !barrier.isCompleted) barrier.complete();
+      unawaited(service.dispose());
+    });
+    return AppHomeSettingsRepository(service);
+  }
+
+  for (final entry in {
+    'home': 0,
+    'bookshelf': 1,
+    'explore': 2,
+    'rss': 3,
+    'my': 4,
+  }.entries) {
+    testWidgets('启动默认页 ${entry.key} 正确，后续更改默认值不抢走当前页', (tester) async {
+      await pumpHome(
+        tester,
+        MockRustApi(),
+        preferences: {'defaultHomePage': entry.key},
+      );
+      expect(navBarIndex(tester), entry.value);
+      expect(currentPage(tester), entry.value.toDouble());
+      await preferences(tester)
+          .setDefaultHomePage(entry.key == 'home' ? 'my' : 'home');
+      await tester.pumpAndSettle();
+      expect(navBarIndex(tester), entry.value);
+      expect(currentPage(tester), entry.value.toDouble());
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('默认发现页已隐藏时回书架，重新启用后不补跳默认页', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      preferences: {'defaultHomePage': 'explore', 'showDiscovery': false},
+    );
+    expect(navBarIndex(tester), 1);
+    expect(currentPage(tester), 1);
+    await preferences(tester).setShowDiscovery(true);
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 1);
+  });
+
+  testWidgets('未知默认页回书架但不改写原偏好', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      preferences: {'defaultHomePage': 'unknown'},
+    );
+    expect(currentPage(tester), 1);
+    expect(
+      (await SharedPreferences.getInstance()).getString('defaultHomePage'),
+      'unknown',
+    );
+  });
+
+  testWidgets('初始化晚到时用户先切页再回书架，默认页不再接管', (tester) async {
+    final barrier = Completer<void>();
+    final storage = HomeSettingsStorage()
+      ..values['defaultHomePage'] = 'my'
+      ..readBarrier = barrier;
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      mainPreferences: repositoryFor(storage),
+    );
+    await tester.tap(find.byType(NavigationDestination).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(NavigationDestination).at(1));
+    await tester.pumpAndSettle();
+    barrier.complete();
+    await tester.pumpAndSettle();
+    expect(navBarIndex(tester), 1);
+    expect(currentPage(tester), 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('仓储已预加载时仍应用默认页', (tester) async {
+    final storage = HomeSettingsStorage()..values['defaultHomePage'] = 'my';
+    final repository = repositoryFor(storage);
+    await repository.load();
+    await pumpHome(tester, MockRustApi(), mainPreferences: repository);
+    expect(currentPage(tester), 4);
+  });
+
+  testWidgets('用户已开始滑动但尚未换页时，晚到默认页不能打断手势', (tester) async {
+    final barrier = Completer<void>();
+    final storage = HomeSettingsStorage()
+      ..values['defaultHomePage'] = 'my'
+      ..readBarrier = barrier;
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      mainPreferences: repositoryFor(storage),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(PageView)),
+    );
+    await gesture.moveBy(const Offset(-60, 0));
+    await tester.pump();
+    barrier.complete();
+    await tester.pump();
+    expect(currentPage(tester), lessThan(3));
+    await gesture.moveBy(const Offset(-220, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 2);
+    expect(navBarIndex(tester), 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('快速显隐与用户切页不会被旧帧回调改回去', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    final notifier = preferences(tester);
+    await tester.tap(find.byType(NavigationDestination).at(3));
+    await tester.pumpAndSettle();
+    final first = notifier.setShowDiscovery(false);
+    final second = notifier.setShowDiscovery(true);
+    final third = notifier.setShowRss(false);
+    await tester.tap(find.byType(NavigationDestination).at(0));
+    await Future.wait([first, second, third]);
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 0);
+    expect(navBarIndex(tester), 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('隐藏当前页保存失败后恢复开关，导航保持有效且一致', (tester) async {
+    final storage = HomeSettingsStorage();
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      mainPreferences: repositoryFor(storage),
+    );
+    await tester.tap(find.byType(NavigationDestination).at(2));
+    await tester.pumpAndSettle();
+    final barrier = Completer<void>();
+    storage.beforeWrite = (_, _) async {
+      await barrier.future;
+      throw StateError('保存失败');
+    };
+    final failure = expectLater(
+      preferences(tester).setShowDiscovery(false),
+      throwsStateError,
+    );
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 1);
+    barrier.complete();
+    await failure;
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(navBarIndex(tester), 1);
+    expect(currentPage(tester), 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('恢复偏好后重定位当前页，但不重新应用默认首页', (tester) async {
+    final storage = HomeSettingsStorage();
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      mainPreferences: repositoryFor(storage),
+    );
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pumpAndSettle();
+    storage.values.addAll({
+      'showDiscovery': false,
+      'showRss': false,
+      'defaultHomePage': 'home',
+    });
+    await preferences(tester).reload();
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 2);
+    expect(navBarIndex(tester), 2);
+  });
+
+  testWidgets('侧栏与底栏切换时页签显隐仍定位同一逻辑页', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(3));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(800, 600);
+    await tester.pumpAndSettle();
+    await preferences(tester).setShowDiscovery(false);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      2,
+    );
+    expect(currentPage(tester), 2);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(navBarIndex(tester), 2);
+    expect(currentPage(tester), 2);
+  });
+
+  testWidgets('隐藏当前发现页后回书架，页面和底栏一致', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(2));
+    await tester.pumpAndSettle();
+    await preferences(tester).setShowDiscovery(false);
+    await tester.pumpAndSettle();
+    expect(navBarIndex(tester), 1);
+    expect(currentPage(tester), 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('隐藏订阅之前的发现页时保留订阅逻辑页', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(3));
+    await tester.pumpAndSettle();
+    await preferences(tester).setShowDiscovery(false);
+    await tester.pumpAndSettle();
+    expect(navBarIndex(tester), 2);
+    expect(currentPage(tester), 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('我的页连续隐藏发现和订阅后仍停留我的页', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pumpAndSettle();
+    await preferences(tester).setShowDiscovery(false);
+    await preferences(tester).setShowRss(false);
+    await tester.pumpAndSettle();
+    expect(navBarIndex(tester), 2);
+    expect(currentPage(tester), 2);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('初始结构：五页签（首页/书架/发现/订阅/我的），默认落书架', (tester) async {
     await pumpHome(tester, MockRustApi());
@@ -117,7 +383,7 @@ void main() {
   testWidgets('底栏切页到发现页，选中态同步（滑动切页）', (tester) async {
     await pumpHome(tester, MockRustApi());
 
-    // [LAYOUT_MOTION_AUDIT L3] 滑动切页已禁用，切页唯一入口为底栏点击
+    // 此处通过底栏定位发现页；真实滑动另有回归用例。
     await tester.tap(find.byType(NavigationDestination).at(2));
     await tester.pumpAndSettle();
 

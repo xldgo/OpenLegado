@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../services/settings_service.dart';
+import '../domain/contracts/locale_settings_repository.dart';
+import 'locale_settings_provider.dart';
 import '../l10n/generated/app_localizations.dart';
 
 const appSupportedLocales = AppLocalizations.supportedLocales;
@@ -27,29 +30,54 @@ Locale resolveAppLocale(String preference, List<Locale> systemLocales) {
   return appSupportedLocales.first;
 }
 
-/// 保存语言选择并通知应用入口，启动恢复不能覆盖期间的用户操作。
+/// 语言偏好的界面投影，沿用现有系统语言解析。— Codex + UI
 class AppLocaleNotifier extends Notifier<String> {
-  final _settings = SettingsService();
   int _generation = 0;
-
   @override
   String build() {
-    final generation = _generation;
-    Future.microtask(() => _load(generation));
-    return 'system';
+    final repository = ref.watch(localeSettingsRepositoryProvider);
+    final generation = ++_generation;
+    final subscription = repository.watch().listen(
+      (_) => _publish(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    unawaited(
+      Future.microtask(() async {
+        if (!ref.mounted || generation != _generation) return;
+        try {
+          await repository.load();
+          _publish(repository, generation);
+        } catch (error) {
+          debugPrint('语言设置读取失败，可重新加载：$error');
+        }
+      }),
+    );
+    return repository.current.locale;
   }
 
-  Future<void> _load(int generation) async {
-    final locale = await _settings.getLocale();
+  void _publish(LocaleSettingsRepository repository, int generation) {
     if (!ref.mounted || generation != _generation) return;
-    state = _normalizeLocale(locale);
+    final next = repository.current.locale;
+    if (state != next) state = next;
   }
 
   Future<void> setLocale(String locale) async {
-    final selection = _normalizeLocale(locale);
-    _generation++;
-    state = selection;
-    await _settings.setLocale(selection);
+    final repository = ref.read(localeSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      final saving = repository.update(locale: locale);
+      _publish(repository, generation);
+      await saving;
+    } finally {
+      _publish(repository, generation);
+    }
+  }
+
+  Future<void> reload() async {
+    final repository = ref.read(localeSettingsRepositoryProvider);
+    final generation = _generation;
+    await repository.reload();
+    _publish(repository, generation);
   }
 }
 

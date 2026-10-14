@@ -9,7 +9,8 @@ import '../constants/pref_keys.dart';
 import '../models/book.dart';
 import '../providers/providers.dart';
 import '../routes.dart';
-import '../services/settings_service.dart';
+import '../domain/models/welcome_settings.dart';
+import '../providers/welcome_settings_provider.dart';
 import '../utils/book_open_utils.dart';
 import '../widgets/app_scaffold.dart';
 
@@ -27,17 +28,19 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     with SingleTickerProviderStateMixin {
-  SettingsService get _settings => ref.read(settingsProvider);
   Timer? _timer;
   bool _navigating = false;
 
-  bool _customWelcome = false;
-  bool _showIcon = true;
-  bool _showText = true;
-  bool _showIconDark = true;
-  bool _showTextDark = true;
-  String? _bgImageDay;
-  String? _bgImageNight;
+  // 本次启动的展示快照，设置页变化不会重启计时与淡入动画。
+  WelcomeSettings _welcome = const WelcomeSettings();
+  String? get _bgImageDay =>
+      _welcome.customWelcome && _welcome.imageDay.isNotEmpty
+      ? _welcome.imageDay
+      : null;
+  String? get _bgImageNight =>
+      _welcome.customWelcome && _welcome.imageNight.isNotEmpty
+      ? _welcome.imageNight
+      : null;
 
   late final AnimationController _fade = AnimationController(
     vsync: this,
@@ -55,49 +58,16 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
   }
 
   Future<void> _bootstrap() async {
-    final custom = await _settings.getBoolPref(
-      PrefKeys.customWelcome,
-      defaultValue: false,
-    );
-    final showTime = await _settings.getIntPref(
-      PrefKeys.welcomeShowTime,
-      defaultValue: 500,
-    );
-    final showIcon = await _settings.getBoolPref(
-      PrefKeys.welcomeShowIcon,
-      defaultValue: true,
-    );
-    final showText = await _settings.getBoolPref(
-      PrefKeys.welcomeShowText,
-      defaultValue: true,
-    );
-    final showIconDark = await _settings.getBoolPref(
-      PrefKeys.welcomeShowIconDark,
-      defaultValue: true,
-    );
-    final showTextDark = await _settings.getBoolPref(
-      PrefKeys.welcomeShowTextDark,
-      defaultValue: true,
-    );
-    String? imageDay;
-    String? imageNight;
-    if (custom) {
-      final day = await _settings.getStringPref(PrefKeys.welcomeImage);
-      final night = await _settings.getStringPref(PrefKeys.welcomeImageDark);
-      if (day.isNotEmpty) imageDay = day;
-      if (night.isNotEmpty) imageNight = night;
+    WelcomeSettings settings;
+    try {
+      settings = await ref.read(welcomeSettingsRepositoryProvider).load();
+    } catch (error) {
+      debugPrint('欢迎页设置读取失败，沿用默认展示：$error');
+      settings = const WelcomeSettings();
     }
-
     if (!mounted) return;
-    setState(() {
-      _customWelcome = custom;
-      _showIcon = showIcon;
-      _showText = showText;
-      _showIconDark = showIconDark;
-      _showTextDark = showTextDark;
-      _bgImageDay = imageDay;
-      _bgImageNight = imageNight;
-    });
+    setState(() => _welcome = settings);
+    final showTime = settings.showTime;
     _fade.forward();
 
     if (showTime <= 0) {
@@ -113,10 +83,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     _timer?.cancel();
 
     Book? lastRead;
-    final defaultToRead = await _settings.getBoolPref(
-      PrefKeys.defaultToRead,
-      defaultValue: false,
-    );
+    final defaultToRead = ref
+        .read(welcomeSettingsRepositoryProvider)
+        .current
+        .defaultToRead;
     if (defaultToRead) {
       try {
         final books = await ref
@@ -180,12 +150,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final accent = theme.colorScheme.primary;
-    final showIcon = isDark ? _showIconDark : _showIcon;
-    final showText = isDark ? _showTextDark : _showText;
+    final showIcon = isDark ? _welcome.showIconDark : _welcome.showIcon;
+    final showText = isDark ? _welcome.showTextDark : _welcome.showText;
     final path = isDark ? _bgImageNight : _bgImageDay;
 
     DecorationImage? bgImage;
-    if (_customWelcome && path != null && File(path).existsSync()) {
+    if (_welcome.customWelcome && path != null && File(path).existsSync()) {
       bgImage = DecorationImage(
         image: FileImage(File(path)),
         fit: BoxFit.cover,

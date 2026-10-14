@@ -1,12 +1,16 @@
-import '../privacy/privacy_controller.dart';
-import 'bookshelf_repositories.dart';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/settings_service.dart';
+import '../../domain/models/bookshelf_settings.dart';
+import '../../domain/contracts/bookshelf_settings_repository.dart';
+import '../../providers/bookshelf_settings_provider.dart';
 import '../../providers/providers.dart';
+import '../privacy/privacy_controller.dart';
+import 'bookshelf_repositories.dart';
 import 'bookshelf_state.dart';
 
 export 'bookshelf_state.dart';
@@ -19,39 +23,72 @@ export 'bookshelf_state.dart';
 /// - 管理展示层变换（网格/列表切换、分组模式）
 /// - 禁止包含业务计算（排序/过滤/规则解析由 Rust 完成）
 class BookshelfNotifier extends Notifier<BookshelfState> {
-  final SettingsService _settings = SettingsService();
-  static const _gridColumnsKey = 'bookshelf_grid_columns';
-  static const _groupModeKey = 'bookshelf_group_mode';
+  int _preferencesGeneration = 0;
+  BookshelfSettings _previousPreferences = const BookshelfSettings();
 
   @override
   BookshelfState build() {
-    // 延迟到 build() 返回后执行（state 初始化完成后才能访问）
+    final repository = ref.watch(bookshelfSettingsRepositoryProvider);
+    final generation = ++_preferencesGeneration;
+    _previousPreferences = repository.current;
+    final subscription = repository.watch().listen(
+      (_) => _publishPreferences(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
     Future.microtask(() {
-      if (!ref.mounted) return;
-      _loadSettings();
+      if (!ref.mounted || generation != _preferencesGeneration) return;
+      unawaited(
+        repository
+            .load()
+            .then((_) => _publishPreferences(repository, generation))
+            .catchError((Object error) {
+              debugPrint('书架偏好读取失败，可重新加载：$error');
+            }),
+      );
       _loadBooks();
       _loadGroups();
     });
-    return const BookshelfState();
+    return BookshelfState(
+      isGridView: repository.current.isGridView,
+      gridColumns: repository.current.gridColumns,
+      groupMode: repository.current.groupMode,
+    );
   }
 
-  /// 加载持久化的布局、网格列数和分组方式
-  Future<void> _loadSettings() async {
-    final isGridView = await _settings.getBookshelfLayout();
-    final gridColumns = await _settings.getIntPref(
-      _gridColumnsKey,
-      defaultValue: 3,
-    );
-    final groupName = await _settings.getStringPref(_groupModeKey);
-    if (!ref.mounted) return;
+  void _publishPreferences(
+    BookshelfSettingsRepository repository,
+    int generation,
+  ) {
+    if (!ref.mounted || generation != _preferencesGeneration) return;
+    final settings = repository.current;
+    // 只在选中偏好变化时更新索引，布局修改不重置实际分组。
+    final selected =
+        settings.selectedGroupIndex !=
+                _previousPreferences.selectedGroupIndex &&
+            state.groups.isNotEmpty
+        ? settings.selectedGroupIndex.clamp(0, state.groups.length - 1)
+        : state.selectedGroupIndex;
+    _previousPreferences = settings;
     state = state.copyWith(
-      isGridView: isGridView,
-      gridColumns: gridColumns.clamp(2, 6),
-      groupMode: GroupMode.values.firstWhere(
-        (mode) => mode.name == groupName,
-        orElse: () => GroupMode.none,
-      ),
+      isGridView: settings.isGridView,
+      gridColumns: settings.gridColumns,
+      groupMode: settings.groupMode,
+      selectedGroupIndex: selected,
     );
+  }
+
+  Future<void> _savePreferences(
+    Future<void> Function(BookshelfSettingsRepository) save,
+  ) async {
+    final repository = ref.read(bookshelfSettingsRepositoryProvider);
+    final generation = _preferencesGeneration;
+    try {
+      final saving = save(repository);
+      _publishPreferences(repository, generation);
+      await saving;
+    } finally {
+      _publishPreferences(repository, generation);
+    }
   }
 
   /// 调用 Rust API 获取书籍列表
@@ -130,7 +167,10 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       );
       final hasAll = visible.any((g) => g.groupId == BookGroupId.all);
       final list = hasAll ? visible : [allGroup, ...visible];
-      final lastIndex = await _settings.getBookshelfTabPosition();
+      final preferences = await ref
+          .read(bookshelfSettingsRepositoryProvider)
+          .load();
+      final lastIndex = preferences.selectedGroupIndex;
       if (!ref.mounted) return;
       state = state.copyWith(
         groups: list,
@@ -193,8 +233,9 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 切换分组 Tab（对标原版 onTabSelected → AppConfig.saveTabPosition）
   Future<void> selectGroup(int index) async {
     if (index < 0 || index >= state.groups.length) return;
-    state = state.copyWith(selectedGroupIndex: index);
-    await _settings.setBookshelfTabPosition(index);
+    await _savePreferences(
+      (repository) => repository.update(selectedGroupIndex: index),
+    );
   }
 
   /// 添加书籍到书架
@@ -254,30 +295,23 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   // ===== 展示层状态切换（不涉及数据内容变更） =====
 
   /// 切换网格/列表视图（对标原版书架布局切换，持久化到 AppConfig.bookshelfLayout）
-  Future<void> toggleViewMode() async {
-    final newValue = !state.isGridView;
-    state = state.copyWith(isGridView: newValue);
-    await _settings.setBookshelfLayout(newValue);
-  }
+  Future<void> toggleViewMode() => _savePreferences(
+    (repository) =>
+        repository.update(isGridView: !repository.current.isGridView),
+  );
 
-  /// 对话框确认后一次应用并保存展示偏好
+  /// 对话框确认后一次应用并保存展示偏好。
   Future<void> setLayout({
     required bool isGridView,
     required int gridColumns,
     required GroupMode groupMode,
-  }) async {
-    final columns = gridColumns.clamp(2, 6);
-    state = state.copyWith(
+  }) => _savePreferences(
+    (repository) => repository.update(
       isGridView: isGridView,
-      gridColumns: columns,
+      gridColumns: gridColumns,
       groupMode: groupMode,
-    );
-    await Future.wait([
-      _settings.setBookshelfLayout(isGridView),
-      _settings.setIntPref(_gridColumnsKey, columns),
-      _settings.setStringPref(_groupModeKey, groupMode.name),
-    ]);
-  }
+    ),
+  );
 
   /// 设置分组模式
   // [UI_SYNC_REFACTOR T3] 批量选择（对齐参考 SelectionBottomBar 态）
