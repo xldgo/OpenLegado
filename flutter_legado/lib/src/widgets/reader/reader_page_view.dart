@@ -1,3 +1,5 @@
+import '../../domain/models/read_aloud_content.dart';
+
 import '../../providers/reader/reader_settings_provider.dart';
 
 import 'dart:async';
@@ -1030,6 +1032,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           return;
         }
         if (initialComplete) {
+          _publishReadAloudPages();
           notifier.updateChapterPageCount(chapterIndex, pages.length);
         }
         notifier.updatePosition(resolvedPage, sourceOffset: resolvedAnchor);
@@ -1163,12 +1166,27 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         );
       }
       if (session.complete) {
+        _publishReadAloudPages();
         _layoutCache.put(cacheKey, pages);
         _layoutMeasurements += engine.measurementCount;
         notifier.updateChapterPageCount(chapter, pages.length);
         _maybePreloadAdjacent(live, eager: true);
       }
     }
+  }
+
+  void _publishReadAloudPages() {
+    final book = _paginatedBookUrl;
+    if (book == null || !_layoutComplete || _paginatedPages.isEmpty) return;
+    _audio.registerReadAloudPages(
+      book,
+      _paginatedChapterIndex,
+      _paginatedContent,
+      <ReadAloudPageRange>[
+        for (final page in _paginatedPages)
+          (start: page.sourceStart, end: page.sourceEnd),
+      ],
+    );
   }
 
   void _rebuildScrollLayout() {

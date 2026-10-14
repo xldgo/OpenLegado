@@ -4520,5 +4520,12 @@
   "cloudTtsGlobal": "全局",
   "cloudTtsSample": "你好，这是云端朗读试听。",
   "cloudTtsProvider": "服务商",
-  "cloudTtsVoiceLoadFailed": "音色目录加载失败"
+  "cloudTtsVoiceLoadFailed": "音色目录加载失败",
+  "readAloudSplitMode": "内容划分方式",
+  "readAloudSplitParagraph": "整段",
+  "readAloudSplitSymbols": "按符号",
+  "readAloudSplitPage": "整页",
+  "readAloudSplitSymbolsTitle": "划分标点",
+  "readAloudSplitPageHint": "整页朗读需要阅读器完成本章分页",
+  "readAloudSplitSymbolsHint": "连续标点保留在同一单元末尾"
 }

@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_engine.dart';
-import 'package:flutter_legado/src/features/read_aloud/playback/http_tts_synthesis_queue.dart';
+import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_synthesis_queue.dart';
+import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_synthesis_adapter.dart';
 
 class _Lease implements TtsAudioLease {
   int releases = 0;
@@ -87,12 +88,12 @@ Future<void> flush() async {
 void main() {
   late _Synthesis synthesis;
   late _Cache cache;
-  late HttpTtsSynthesisQueue queue;
+  late ReadAloudSynthesisQueue queue;
   setUp(() {
     synthesis = _Synthesis();
     cache = _Cache();
-    queue = HttpTtsSynthesisQueue(
-      synthesizer: () => synthesis,
+    queue = ReadAloudSynthesisQueue(
+      synthesize: (r, c) => synthesizeReadAloudRequest(r, c, http: synthesis),
       cache: () => cache,
     );
   });
@@ -224,5 +225,52 @@ void main() {
     await flush();
     expect(synthesis.texts.where((t) => t.startsWith('失败')), hasLength(6));
     expect(queue.diagnostics.last, contains('连续三章'));
+  });
+  test('云端同音色请求提升，变更音色拒绝复用旧任务，缓存租约释放一次', () async {
+    final pending = <String, Completer<HttpTtsSynthesisResult>>{};
+    final queue = ReadAloudSynthesisQueue(
+      synthesize: (r, c) {
+        final done = Completer<HttpTtsSynthesisResult>();
+        pending[r.voicePresetId!] = done;
+        c.addListener(() {
+          if (!done.isCompleted) done.complete(const HttpTtsCancelled());
+        });
+        return done.future;
+      },
+      cache: () => cache,
+    );
+    ReadAloudRequest cloud(String voice) => ReadAloudRequest(
+      text: '甲',
+      engineUrl: 'cloud://fixture',
+      voicePresetId: voice,
+    );
+    queue.startWindow(
+      key: 'cloud',
+      concurrency: 1,
+      chapters: Stream.value([cloud('a')]),
+    );
+    await flush();
+    final same = queue.foreground(cloud('a'), HttpTtsCancellation());
+    final lease = _Lease();
+    pending['a']!.complete(
+      HttpTtsAudio(audioPath: '/cache/a.wav', lease: lease),
+    );
+    final audio = await same as HttpTtsAudio;
+    expect(lease.releases, 0);
+    await audio.lease!.release();
+    expect(lease.releases, 1);
+    queue.startWindow(
+      key: 'cloud2',
+      concurrency: 1,
+      chapters: Stream.value([cloud('a')]),
+    );
+    await flush();
+    final changed = queue.foreground(cloud('b'), HttpTtsCancellation());
+    await flush();
+    expect(pending.keys, contains('b'));
+    pending['b']!.complete(const HttpTtsAudio(audioPath: '/cache/b.wav'));
+    await changed;
+    queue.cancelAll();
+    await queue.whenIdle();
   });
 }

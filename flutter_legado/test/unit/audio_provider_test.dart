@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // AudioNotifier 单元测试
 //
@@ -20,6 +22,7 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import '../mocks/mocks.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late MockRustApi mockApi;
   late ProviderContainer container;
 
@@ -28,6 +31,7 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],

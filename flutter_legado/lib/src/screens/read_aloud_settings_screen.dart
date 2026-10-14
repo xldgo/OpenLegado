@@ -1,3 +1,7 @@
+import '../domain/models/read_aloud_content.dart';
+import '../widgets/bottom_sheet_widget.dart';
+import '../widgets/app_settings_sheet.dart';
+
 import '../features/read_aloud/tts_cache_screen.dart';
 
 import 'dart:async';
@@ -62,6 +66,36 @@ class _ReadAloudSettingsScreenState
     }
   }
 
+  Future<String?> _chooseSplitSymbols(String current) {
+    final selected = current.split('').toSet();
+    return AppBottomSheet.showContent<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AppSettingsSheet(
+          title: context.l10n.readAloudSplitSymbolsTitle,
+          onSave: selected.isEmpty
+              ? null
+              : () => Navigator.pop(context, selected.join()),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final symbol in readAloudSplitSymbols.split(''))
+                FilterChip(
+                  label: Text(symbol),
+                  selected: selected.contains(symbol),
+                  onSelected: (value) => update(() {
+                    value ? selected.add(symbol) : selected.remove(symbol);
+                  }),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = context.l10n;
@@ -94,6 +128,46 @@ class _ReadAloudSettingsScreenState
             title: strings.readAloudPlaybackGroup,
             showDividers: false,
             children: [
+              SettingMenuRow<ReadAloudSplitMode>(
+                title: strings.readAloudSplitMode,
+                value: preferences.splitMode,
+                options: {
+                  ReadAloudSplitMode.paragraph: strings.readAloudSplitParagraph,
+                  ReadAloudSplitMode.symbols: strings.readAloudSplitSymbols,
+                  ReadAloudSplitMode.page: strings.readAloudSplitPage,
+                },
+                onChanged: enabled
+                    ? (mode) => _save(
+                        () => notifier.setContentSplit(
+                          mode,
+                          preferences.splitSymbols,
+                        ),
+                      )
+                    : null,
+              ),
+              if (preferences.splitMode == ReadAloudSplitMode.symbols)
+                SettingTile(
+                  title: strings.readAloudSplitSymbolsTitle,
+                  subtitle: strings.readAloudSplitSymbolsHint,
+                  trailing: Text(preferences.splitSymbols),
+                  onTap: enabled
+                      ? () async {
+                          final selected = await _chooseSplitSymbols(
+                            preferences.splitSymbols,
+                          );
+                          if (selected != null && mounted) {
+                            await _save(
+                              () => notifier.setContentSplit(
+                                preferences.splitMode,
+                                selected,
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                ),
+              if (preferences.splitMode == ReadAloudSplitMode.page)
+                SettingsSectionFooter(strings.readAloudSplitPageHint),
               SettingSwitchRow(
                 title: strings.readAloudFollowSystem,
                 subtitle: strings.readAloudFollowSystemSummary,

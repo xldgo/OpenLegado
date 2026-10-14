@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -202,5 +204,29 @@ void main() {
       ),
       false,
     );
+  });
+  test('划分策略存储与重读同源，保存失败保持旧快照并能重试', () async {
+    await notifier().load();
+    await notifier().setContentSplit(ReadAloudSplitMode.symbols, '。？！');
+    expect(saved['contentSplitMode'], 'symbols');
+    expect(state().splitMode, ReadAloudSplitMode.symbols);
+    expect(state().splitSymbols.split(''), unorderedEquals('。？！'.split('')));
+    when(() => api.setConfig('contentSplitMode', 'page'))
+        .thenThrow(StateError('划分保存失败'));
+    await expectLater(
+      notifier().setContentSplit(ReadAloudSplitMode.page, '。？！'),
+      throwsStateError,
+    );
+    expect(state().splitMode, ReadAloudSplitMode.symbols);
+    when(() => api.setConfig('contentSplitMode', 'page')).thenAnswer((_) async {
+      saved['contentSplitMode'] = 'page';
+    });
+    await notifier().setContentSplit(ReadAloudSplitMode.page, '。？！');
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    await notifier().load();
+    expect(state().splitMode, ReadAloudSplitMode.page);
   });
 }

@@ -57,6 +57,15 @@ class SearchHistoryRepositoryMock extends Mock
     implements SearchHistoryRepository {}
 
 class MockRustApi extends Mock implements RustApi {
+  MockRustApi() {
+    // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。
+    // 设置/迁移用例按需覆盖为实际数据、空值或读取失败。
+    when(() => getConfig(any())).thenAnswer(
+      (call) async =>
+          call.positionalArguments.first == 'ttsFollowSys' ? 'true' : null,
+    );
+  }
+
   @override
   final SearchService searchService = SearchServiceMock();
   @override

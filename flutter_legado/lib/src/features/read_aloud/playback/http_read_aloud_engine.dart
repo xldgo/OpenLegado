@@ -1,13 +1,13 @@
 import '../../../domain/contracts/http_tts_synthesizer.dart';
 import 'file_read_aloud_engine.dart';
-import 'http_tts_synthesis_queue.dart';
+import 'read_aloud_synthesis_queue.dart';
 
 /// HTTP 只提供合成入口，文件播放生命周期由共用实现负责。— Codex + UI
 final class HttpReadAloudEngine extends FileReadAloudEngine {
   HttpReadAloudEngine({
     required HttpTtsSynthesizer Function() synthesizer,
     required super.player,
-    HttpTtsSynthesisQueue? queue,
+    ReadAloudSynthesisQueue? queue,
   }) : super(
          synthesize: (request, cancellation) => queue != null
              ? queue.foreground(request, cancellation)

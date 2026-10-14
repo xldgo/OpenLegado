@@ -1,3 +1,7 @@
+import '../../domain/models/read_aloud_content.dart';
+
+import 'dart:convert';
+
 import '../../domain/contracts/read_aloud_settings_repository.dart';
 import '../../domain/models/app_settings_snapshot.dart';
 import '../../domain/models/read_aloud_settings.dart';
@@ -12,6 +16,15 @@ final class AppReadAloudSettingsRepository
   Future<ReadAloudSettings>? _loading;
   bool _initialized = false;
   bool _legacyCleanupPending = false;
+
+  static const _splitMode = (
+    storage: SettingsStorageKind.rustConfig,
+    key: 'contentSplitMode',
+  );
+  static const _splitSymbols = (
+    storage: SettingsStorageKind.rustConfig,
+    key: 'contentSplitSymbols',
+  );
 
   static const _follow = (
     storage: SettingsStorageKind.rustConfig,
@@ -47,6 +60,8 @@ final class AppReadAloudSettingsRepository
   );
 
   static const _addresses = {
+    _splitMode,
+    _splitSymbols,
     _follow,
     _rate,
     _interval,
@@ -60,7 +75,21 @@ final class AppReadAloudSettingsRepository
     final follow = snapshot[_follow] as String?;
     final rawRate = snapshot[_rate] as String?;
     final rate = int.tryParse(rawRate ?? '') ?? 5;
+    final rawSymbols = snapshot[_splitSymbols] as String?;
+    final decoded = rawSymbols == null ? null : jsonDecode(rawSymbols);
+    final symbols = decoded is List
+        ? decoded
+              .whereType<String>()
+              .where(readAloudSplitSymbols.contains)
+              .join()
+        : '';
     return ReadAloudSettings(
+      splitMode:
+          ReadAloudSplitMode.values
+              .where((m) => m.name == snapshot[_splitMode])
+              .firstOrNull ??
+          ReadAloudSplitMode.paragraph,
+      splitSymbols: symbols.isEmpty ? defaultReadAloudSplitSymbols : symbols,
       followSystem:
           follow == null || follow.isEmpty || follow == 'true' || follow == '1',
       detachReminder: snapshot[_detach] != 'false' && snapshot[_detach] != '0',
@@ -90,6 +119,10 @@ final class AppReadAloudSettingsRepository
   }
 
   Map<SettingsAddress, Object?> _encode(ReadAloudSettings settings) => {
+    _splitMode: settings.splitMode.name,
+    _splitSymbols: jsonEncode(
+      settings.splitSymbols.split('').toSet().toList()..sort(),
+    ),
     _follow: settings.followSystem ? 'true' : 'false',
     _rate: (settings.manualSpeed * 10 - 5).round().toString(),
     _interval: settings.paragraphIntervalMs.toString(),

@@ -1,6 +1,10 @@
+import 'read_aloud_content.dart';
+
 /// 朗读普通偏好的不可变领域模型，不包含 Provider 或存储细节。— Codex + UI
 final class ReadAloudSettings {
   const ReadAloudSettings({
+    this.splitMode = ReadAloudSplitMode.paragraph,
+    this.splitSymbols = defaultReadAloudSplitSymbols,
     this.followSystem = true,
     this.detachReminder = true,
     this.manualSpeed = 1,
@@ -11,6 +15,8 @@ final class ReadAloudSettings {
     this.hasStoredManualSpeed = false,
   });
 
+  final ReadAloudSplitMode splitMode;
+  final String splitSymbols;
   final bool followSystem;
   final bool detachReminder;
   final double manualSpeed;
@@ -24,6 +30,8 @@ final class ReadAloudSettings {
   double get effectiveSpeed => followSystem ? 1 : manualSpeed;
 
   ReadAloudSettings copyWith({
+    ReadAloudSplitMode? splitMode,
+    String? splitSymbols,
     bool? followSystem,
     bool? detachReminder,
     double? manualSpeed,
@@ -33,6 +41,8 @@ final class ReadAloudSettings {
     int? audioCacheCleanTime,
     bool? hasStoredManualSpeed,
   }) => ReadAloudSettings(
+    splitMode: splitMode ?? this.splitMode,
+    splitSymbols: splitSymbols ?? this.splitSymbols,
     followSystem: followSystem ?? this.followSystem,
     detachReminder: detachReminder ?? this.detachReminder,
     manualSpeed: manualSpeed ?? this.manualSpeed,
@@ -47,6 +57,8 @@ final class ReadAloudSettings {
   @override
   bool operator ==(Object other) =>
       other is ReadAloudSettings &&
+      splitMode == other.splitMode &&
+      splitSymbols == other.splitSymbols &&
       followSystem == other.followSystem &&
       detachReminder == other.detachReminder &&
       manualSpeed == other.manualSpeed &&
@@ -58,6 +70,8 @@ final class ReadAloudSettings {
 
   @override
   int get hashCode => Object.hash(
+    splitMode,
+    splitSymbols,
     followSystem,
     detachReminder,
     manualSpeed,

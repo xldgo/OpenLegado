@@ -7394,6 +7394,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'音色目录加载失败'**
   String get cloudTtsVoiceLoadFailed;
+
+  /// No description provided for @readAloudSplitMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容划分方式'**
+  String get readAloudSplitMode;
+
+  /// No description provided for @readAloudSplitParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'整段'**
+  String get readAloudSplitParagraph;
+
+  /// No description provided for @readAloudSplitSymbols.
+  ///
+  /// In zh, this message translates to:
+  /// **'按符号'**
+  String get readAloudSplitSymbols;
+
+  /// No description provided for @readAloudSplitPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'整页'**
+  String get readAloudSplitPage;
+
+  /// No description provided for @readAloudSplitSymbolsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'划分标点'**
+  String get readAloudSplitSymbolsTitle;
+
+  /// No description provided for @readAloudSplitPageHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'整页朗读需要阅读器完成本章分页'**
+  String get readAloudSplitPageHint;
+
+  /// No description provided for @readAloudSplitSymbolsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'连续标点保留在同一单元末尾'**
+  String get readAloudSplitSymbolsHint;
 }
 
 class _AppLocalizationsDelegate

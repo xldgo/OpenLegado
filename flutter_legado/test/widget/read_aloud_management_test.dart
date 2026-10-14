@@ -531,4 +531,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+  testWidgets('朗读划分菜单与标点Sheet保存经过统一设置仓储', (tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const ReadAloudSettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('内容划分方式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('按符号'));
+    await tester.pumpAndSettle();
+    expect(config['contentSplitMode'], 'symbols');
+    await tester.tap(find.text('划分标点'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppSettingsSheet), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilterChip, '，'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(config['contentSplitSymbols'], contains('，'));
+    expect(find.byType(AppSettingsSheet), findsNothing);
+  });
 }

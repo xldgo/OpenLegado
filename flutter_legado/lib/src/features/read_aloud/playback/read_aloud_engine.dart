@@ -33,6 +33,26 @@ final class ReadAloudRequest {
   final String? emotionTag;
   final TtsCacheContext? cacheContext;
   final String? sourceVersion;
+  ReadAloudRequest copyWith({
+    String? text,
+    double? speed,
+    TtsCacheContext? cacheContext,
+  }) => ReadAloudRequest(
+    text: text ?? this.text,
+    engineId: engineId,
+    engineUrl: engineUrl,
+    speed: speed ?? this.speed,
+    pitch: pitch,
+    volume: volume,
+    voiceName: voiceName,
+    voicePresetId: voicePresetId,
+    cloudVoiceOptions: cloudVoiceOptions,
+    toneId: toneId,
+    speakerName: speakerName,
+    emotionTag: emotionTag,
+    cacheContext: cacheContext ?? this.cacheContext,
+    sourceVersion: sourceVersion,
+  );
 }
 
 /// 起播结果与自然完成分开；无音频由原播放协调层决定如何提示和推进。

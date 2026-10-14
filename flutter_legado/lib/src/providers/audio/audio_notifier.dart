@@ -1,10 +1,14 @@
+import '../../domain/models/read_aloud_content.dart';
+import '../../domain/contracts/cloud_tts_provider.dart';
+
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../features/read_aloud/cloud_tts_providers.dart';
 import '../../features/read_aloud/playback/cloud_read_aloud_engine.dart';
 import '../../features/read_aloud/http_tts_voice_selection.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../domain/contracts/tts_cache_repository.dart';
-import '../../features/read_aloud/playback/http_tts_synthesis_queue.dart';
+import '../../features/read_aloud/playback/read_aloud_synthesis_queue.dart';
+import '../../features/read_aloud/playback/read_aloud_synthesis_adapter.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -161,7 +165,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   late final SystemReadAloudEngine _systemEngine;
   late final HttpReadAloudEngine _httpEngine;
   late final CloudReadAloudEngine _cloudEngine;
-  late final HttpTtsSynthesisQueue _synthesisQueue;
+  late final ReadAloudSynthesisQueue _synthesisQueue;
   int _cacheRetentionMinutes = 10;
   bool _cachePrepared = false;
   List<String> get prefetchDiagnostics => _synthesisQueue.diagnostics;
@@ -235,6 +239,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       },
       onCompleted: () => unawaited(_onParagraphFinished()),
       onError: (error) {
+        if (isCloudTts(engineUrl)) {
+          _paragraphStartOffset =
+              ((readAloudPosition.value?.offset ?? base) - unit.start).clamp(
+                0,
+                unit.text.length,
+              );
+        }
         pause();
         state = state.copyWith(errorMessage: '朗读不可用：$error');
       },
@@ -381,8 +392,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _audioService = ref.read(audioServiceProvider);
     _streamPlayer = ref.read(streamAudioPlayerProvider);
     _systemEngine = SystemReadAloudEngine(ref.read(systemTtsServiceProvider));
-    _synthesisQueue = HttpTtsSynthesisQueue(
-      synthesizer: () => ref.read(httpTtsSynthesizerProvider),
+    _synthesisQueue = ReadAloudSynthesisQueue(
+      synthesize: (request, cancel) => synthesizeReadAloudRequest(
+        request,
+        cancel,
+        http: ref.read(httpTtsSynthesizerProvider),
+        cloud: ref.read(cloudTtsSynthesizerProvider),
+      ),
       cache: () => _api.ttsCacheRepository,
     );
     _httpEngine = HttpReadAloudEngine(
@@ -391,6 +407,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       player: _streamPlayer,
     );
     _cloudEngine = CloudReadAloudEngine(
+      queue: _synthesisQueue,
       repository: () => ref.read(cloudTtsRepositoryProvider),
       synthesizer: () => ref.read(cloudTtsSynthesizerProvider),
       player: _streamPlayer,
@@ -663,7 +680,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (_pendingChapterPos == null &&
           paraText != null &&
           paraText.isNotEmpty) {
-        _pendingParagraphIndex = _mapTextToParagraph(content, paraText);
+        _pendingChapterPos = _mapTextToPosition(content, paraText);
       }
     } catch (e) {
       if (_disposed || token != _playToken) return;
@@ -672,10 +689,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     await play();
   }
 
-  static int? _mapTextToParagraph(String content, String text) {
+  static int? _mapTextToPosition(String content, String text) {
     final paragraphs = splitReadAloudParagraphs(content);
     for (var i = 0; i < paragraphs.length; i++) {
-      if (paragraphs[i].text == text) return i;
+      if (paragraphs[i].text == text) return paragraphs[i].start;
     }
     return null;
   }
@@ -1094,9 +1111,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         }
         _cachePrepared = true;
       }
+      await ref.read(readAloudPreferencesProvider.notifier).load();
+      if (token != _playToken || _disposed) return;
       final content = await _ensureChapterContent(state.currentIndex);
       if (token != _playToken || _disposed) return;
-      final units = splitReadAloudParagraphs(content);
+      final units = _contentUnits(content, state.currentIndex);
       final paragraphs = units.map((p) => p.text).toList();
       if (paragraphs.isEmpty && content.trim().isNotEmpty) {
         paragraphs.add(content.trim());
@@ -1203,9 +1222,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 估算时长 Timer 仅在合成/播放失败降级时使用，且失败经
   /// [AudioState.errorMessage] 给用户可见提示（不静默）。
   ///
-  /// 段间串行：上一段音频停止后才发起下一段合成，避免新旧音频叠放；
-  /// ttsSpeak 为同步 FFI，长段落合成会带来段间短暂静默（预期，未额外
-  /// 引入预取，避免扩大本批改动面）。
+  /// HTTP/云端共用有界预合成；实际播放按单元顺序进行，完成后才推进。
   Future<void> _speakCurrentParagraph(int token) async {
     _paragraphTimer?.cancel();
     _waitingForParagraph = false;
@@ -1259,6 +1276,27 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
                     .ttsPreSynthesisConcurrency,
         );
       }
+      CloudTtsEngine? cloud;
+      String? cloudVersion;
+      if (isCloudTts(engineUrl)) {
+        cloud = (await _api.cloudTtsRepository.list())
+            .where((e) => e.id == cloudTtsId(engineUrl))
+            .firstOrNull;
+        if (_isSpeakStale(token, gen)) return;
+        if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
+        final voices = await _api.readAloudVoiceRepository.list();
+        if (_isSpeakStale(token, gen)) return;
+        cloudVersion = jsonEncode([
+          cloud.toJson(),
+          for (final v in voices.where(
+            (v) => v.engineType == 'cloud_tts' && v.engineId == cloud!.id,
+          ))
+            v.toJson(),
+        ]);
+        _synthesisQueue.configure(
+          ref.read(readAloudPreferencesProvider).ttsPreSynthesisConcurrency,
+        );
+      }
       final voice = engineUrl == systemTtsEngineUrl || isCloudTts(engineUrl)
           ? const HttpTtsVoiceResolution()
           : await _httpVoice(engineId);
@@ -1279,7 +1317,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         pitch: config.pitch,
         volume: config.volume,
         voiceName: config.voiceName,
-        sourceVersion: source == null ? null : jsonEncode(source.toJson()),
+        sourceVersion:
+            cloudVersion ??
+            (source == null ? null : jsonEncode(source.toJson())),
         cacheContext: TtsCacheContext(
           bookUrl: state.bookUrl,
           bookName: state.bookName,
@@ -1304,6 +1344,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         if (voice.warning != null) {
           state = state.copyWith(errorMessage: voice.warning);
         }
+        if (cloud != null && _api.ttsCacheRepository.supportsAudioFiles) {
+          _startCloudPrefetch(request, cloud);
+        }
         if (source != null) {
           _startHttpPrefetch(request, source.synthesisThreadCount);
         }
@@ -1316,9 +1359,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
     if (_isSpeakStale(token, gen)) return;
     session.cancel();
-    if (engineUrl == systemTtsEngineUrl) {
+    if (engineUrl == systemTtsEngineUrl || isCloudTts(engineUrl)) {
       pause();
-      state = state.copyWith(errorMessage: '系统朗读不可用：$failure');
+      state = state.copyWith(errorMessage: '朗读不可用：$failure');
       return;
     }
 
@@ -1326,6 +1369,145 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     // （无引擎配置时已在上面的空判定提前返回，保持既有静默估算行为）
     state = state.copyWith(errorMessage: '朗读音频不可用，本段按估算时长继续：$failure');
     _scheduleEstimateAdvance(text, config.speed, token, gen);
+  }
+
+  final _pageRanges =
+      <(String, int), ({String content, List<ReadAloudPageRange> ranges})>{};
+
+  void registerReadAloudPages(
+    String bookUrl,
+    int chapter,
+    String content,
+    List<ReadAloudPageRange> ranges,
+  ) {
+    final key = (bookUrl, chapter);
+    final old = _pageRanges[key];
+    final unchanged =
+        old != null && old.content == content && listEquals(old.ranges, ranges);
+    if (unchanged) return;
+    splitReadAloudContent(
+      content,
+      mode: ReadAloudSplitMode.page,
+      pages: ranges,
+    );
+    _pageRanges[key] = (content: content, ranges: List.unmodifiable(ranges));
+    if (_pageRanges.length > 6) _pageRanges.remove(_pageRanges.keys.first);
+    if (old != null &&
+        !_disposed &&
+        state.bookUrl == bookUrl &&
+        state.currentIndex == chapter &&
+        !state.isStreamMode &&
+        state.state != PlayerState.idle &&
+        ref.read(readAloudPreferencesProvider).splitMode ==
+            ReadAloudSplitMode.page) {
+      final playing = state.isPlaying;
+      _pendingChapterPos = readAloudPosition.value?.offset ?? 0;
+      unawaited(_playTtsParagraphs(startPlaying: playing));
+    }
+  }
+
+  List<ReadAloudUnit> _contentUnits(String text, int chapter) {
+    final prefs = ref.read(readAloudPreferencesProvider);
+    final pages = _pageRanges[(state.bookUrl, chapter)];
+    return splitReadAloudContent(
+      text,
+      mode: prefs.splitMode,
+      symbols: prefs.splitSymbols,
+      pages: pages?.content == text ? pages?.ranges : null,
+    );
+  }
+
+  Future<void> setContentSplit(ReadAloudSplitMode mode, String symbols) async {
+    final anchor = readAloudPosition.value?.offset;
+    final token = _playToken, generation = _speakGeneration;
+    final playing = state.isPlaying;
+    await ref
+        .read(readAloudPreferencesProvider.notifier)
+        .setContentSplit(mode, symbols);
+    if (_isSpeakStale(token, generation)) return;
+    _synthesisQueue.cancelBackground();
+    if (_disposed || state.isStreamMode || state.state == PlayerState.idle) {
+      return;
+    }
+    _pendingChapterPos = anchor;
+    await _playTtsParagraphs(startPlaying: playing);
+  }
+
+  void _startCloudPrefetch(ReadAloudRequest request, CloudTtsEngine cloud) {
+    final prefs = ref.read(readAloudPreferencesProvider);
+    _cacheRetentionMinutes = prefs.audioCacheCleanTime;
+    if (prefs.audioPreDownloadNum <= 0) {
+      _synthesisQueue.cancelBackground();
+      return;
+    }
+    final bookUrl = state.bookUrl, bookName = state.bookName;
+    final index = state.currentIndex, paragraph = _paragraphIndex;
+    final chapters = List<AudioChapter>.of(state.chapters);
+    final units = List<String>.of(_paragraphs);
+    final remaining = _cloudEngine.remainingRequests;
+    final api = _api;
+    final key = jsonEncode([
+      bookUrl,
+      index,
+      request.engineUrl,
+      request.sourceVersion,
+      request.voicePresetId,
+      prefs.splitMode.name,
+      prefs.splitSymbols,
+    ]);
+    List<ReadAloudRequest> cues(String text, int chapter, int unit) => [
+      for (final part in splitSpeechRequests(
+        text,
+        limit: cloudTtsProfile(cloud.provider).textLimit,
+      ))
+        request.copyWith(
+          text: part.text,
+          cacheContext: TtsCacheContext(
+            bookUrl: bookUrl,
+            bookName: bookName,
+            chapterIndex: chapter,
+            chapterTitle: chapters[chapter].title,
+            paragraphIndex: unit,
+            text: part.text,
+          ),
+        ),
+    ];
+    Stream<List<ReadAloudRequest>> window() async* {
+      yield [
+        ...remaining,
+        for (var p = paragraph + 1; p < units.length; p++)
+          ...cues(units[p], index, p),
+      ];
+      if (prefs.splitMode == ReadAloudSplitMode.page) return;
+      for (
+        var i = index + 1;
+        i < chapters.length && i <= index + prefs.audioPreDownloadNum;
+        i++
+      ) {
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        final text = chapters[i].text.isNotEmpty
+            ? chapters[i].text
+            : await (isLocalBookUrl(bookUrl)
+                  ? api.getChapterContent(bookUrl, i)
+                  : api.getChapterContentFull(bookUrl, i));
+        if (!_synthesisQueue.isWindowCurrent(key)) return;
+        final nextUnits = splitReadAloudContent(
+          text,
+          mode: prefs.splitMode,
+          symbols: prefs.splitSymbols,
+        );
+        yield [
+          for (var p = 0; p < nextUnits.length; p++)
+            ...cues(nextUnits[p].text, i, p),
+        ];
+      }
+    }
+
+    _synthesisQueue.startWindow(
+      key: key,
+      concurrency: prefs.ttsPreSynthesisConcurrency,
+      chapters: window(),
+    );
   }
 
   void _startHttpPrefetch(ReadAloudRequest request, int sourceConcurrency) {
@@ -1379,6 +1561,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         for (var p = paragraphIndex + 1; p < paragraphs.length; p++)
           cue(paragraphs[p], index, p),
       ];
+      if (preferences.splitMode == ReadAloudSplitMode.page) return;
       for (
         var i = index + 1;
         i < chapters.length && i <= index + preferences.audioPreDownloadNum;
@@ -1392,7 +1575,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
                   ? api.getChapterContent(bookUrl, i)
                   : api.getChapterContentFull(bookUrl, i));
         if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final units = splitReadAloudParagraphs(text);
+        final units = _contentUnits(text, i);
         yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];
       }
     }
@@ -1409,6 +1592,23 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<void> refreshHttpPrefetchSettings() async {
     if (_disposed) return;
     final token = _playToken, gen = _speakGeneration;
+    if (isCloudTts(resolveTtsEngineUrl()) &&
+        state.isPlaying &&
+        !state.isStreamMode) {
+      final clouds = await _api.cloudTtsRepository.list();
+      if (_isSpeakStale(token, gen)) return;
+      final cloud = clouds
+          .where((e) => e.id == cloudTtsId(resolveTtsEngineUrl()))
+          .firstOrNull;
+      final request = _cloudEngine.currentRequest;
+      if (cloud != null &&
+          request != null &&
+          _api.ttsCacheRepository.supportsAudioFiles) {
+        _synthesisQueue.cancelBackground();
+        _startCloudPrefetch(request, cloud);
+      }
+      return;
+    }
     _cacheRetentionMinutes = ref
         .read(readAloudPreferencesProvider)
         .audioCacheCleanTime;

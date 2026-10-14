@@ -40,7 +40,7 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 | 外观与界面 | AppearanceSettingsRepository、ThemeColorsSettingsRepository、UiSettingsRepository、SystemBarSettingsRepository、EyeProtectionSettingsRepository | 保留现有拆分；按配色、界面几何、系统栏和护眼各自订阅，不合并成全局大对象 |
 | 书架与阅读记录 | BookshelfSettingsRepository、ReadRecordSettingsRepository | 保留列表、分组、记录偏好的唯一来源；书籍和记录实体仍用各自业务 Repository |
 | 阅读设置 | ReaderSettingsRepository | 从原 ReaderConfigRepository 收拢命名，翻页接入共享服务，其余基础字段继续迁移，不另建同职责入口 |
-| 朗读与媒体 | ReadAloudSettingsRepository | 现有七项保持；耳机控制、退出控制和音频焦点拟归此域，功能接线状态独立核验 |
+| 朗读与媒体 | ReadAloudSettingsRepository | 现有七项保持，新增内容划分方式及符号集合；耳机控制、退出控制和音频焦点拟归此域，功能接线状态独立核验 |
 | 搜索与书源校验 | SearchSettingsRepository、现有校验配置入口 | 已迁移搜索参数保留；校验规则及校验会话保持原独立边界 |
 | 下载、缓存与请求 | 拟新增 DownloadCacheSettingsRepository | 管理图片缓存、正文预下载、相关并发和 UserAgent 等普通偏好 |
 | 备份策略 | BackupSettingsRepository | 首批管理备份目录和有效进度同步开关；连接凭据、恢复集合及未接线策略维持专用边界 |
@@ -86,7 +86,7 @@ AppSettingsStore 当前接受 String、bool、int、double 和 null；null 表�
 
 日志继续使用 `crash_record_log`、`crash_record_http_log`、`crash_record_heap_dump`
 现有键；PrefKeys 中的 `recordLog` 等预留键不是新的持久化来源。
-朗读普通偏好原先使用 Rust config:，归类后仍使用这些原地址。
+朗读普通偏好原先使用 Rust config:，归类后仍使用这些原地址。内容划分新增 `contentSplitMode`（paragraph/symbols/page）和 `contentSplitSymbols`（合法符号的JSON数组），同样由ReadAloudSettingsRepository读写；默认整段，空符号集合回退句末标点，页面范围是当前阅读器布局数据，不作为持久化设置。
 
 ## 5. 访问、状态与运行时应用
 

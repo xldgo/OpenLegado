@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-PLAYBACK-ALIGNMENT-20261015：云端失败保护、内容划分与共用预合成（P1）
+
+- 授权：用户要求执行已分析的三步改进；当前reimplement_tts_t2a_task / edc443391，起始干净；不使用子代理、不建分支、不自动提交/推送/CI或安装，不改版本2.0.373+374。
+- 范围：云端失败暂停保留位置、默认整段/符号/页面内容单元、句末与词边界优先的字形簇安全分片；HTTP/云端共用有界预合成、缓存与取消，保持原系统朗读、媒体会话与数据库。参考固定上游dd97afe4，不扩展角色池、其他Provider或实时流式音频。
+- 边界：保留Rust Provider和现有FRB签名；Dart纯计算与调度分别独立。页面范围只能来自阅读器真实排版，不能假装按字符数分页；设置沿用统一ReadAloudSettingsRepository。预合成文件继续由现有播放器顺序装载，是否无缝衔接需真机测量。
+- 验收：请求失败/空音频/片间失败不自动跳段，重试和停止归属正确；Unicode与原文范围、连续标点、英文词边界、页面范围及设置保存回退；并发上限、前台优先、同请求去重、过期窗口/租约释放和缓存索引正确。保留HTTP/系统回归，实际云账号与iOS另行验收。状态：代码与本地回归通过，真实账号/设备待复验。
+
+- 实现：新增domain/models/read_aloud_content.dart分离用户单元与长度分片；设置模型/仓储新增contentSplitMode及JSON符号集合，复用统一设置行与AppSettingsSheet。ReaderPageView完整分页发布原文范围，当前页范围变化保持朗读原文锚点，未完成页面不猜测。HTTP专用队列更名为ReadAloudSynthesisQueue并注入HTTP/云端适配操作，保留后台重试、前台提升、取消与租约；云端预合成包括剩余片/单元及后续章节，身份覆盖引擎与音色版本，实际分片文本进入缓存索引。云端首次与片间失败暂停，已完成片不会在重试时重播。
+- 验证：首个失败回归在旧实现中复现playing而非paused（tts-playback-failure-red.log），修复后通过。最终347项相关Flutter单元/Widget回归全部通过，包含系统/HTTP/云、并发槽和重复请求、租约、预下载关闭、保存失败/重读、划分菜单与标点Sheet、实际阅读器重排/缓存。真实Rust排版测试宿主通过环境变量复用主目录产物，未复制排版算法；完整flutter analyze --no-pub无问题，git diff --check通过。日志为忽略目录flutter_legado/build/tts-playback-full-regression-final.log、tts-playback-final-analysis.log。旧夹具补配置默认值与Flutter/Preferences初始化，不修改生产错误判断；没有Rust/FRB、依赖或版本变更。
+- 既有门禁：单独API契约回归15项通过、1项失败，额外方法白名单遗漏HEAD已有synchronizeThemeConfig；本轮RustApi与该测试均相对HEAD无差异（git diff --exit-code通过），未放宽门禁或扩大本批修复。证据tts-playback-contract-baseline.log；不称全部门禁通过。
+- 未测边界：未构建安装或使用真实云账号、未做iOS/锁屏/后台验证，未触发CI。仍是完整文件顺序装载，没有ExoPlayer式原生播放列表/下一控制器预初始化；网络等待已预合成覆盖，但不能保证无缝。页面模式只预合成已有真实分页的当前章，后续未排版章节不做页面预合成。按用户要求保留工作区，未提交/推送。
+
+- 提交授权：用户要求本轮提交并合并到主目录；只提交上述TTS范围，主目录未提交阅读设置内容临时保存后恢复，不纳入TTS提交，不推送、不触发CI。
+
+编写者：Codex｜2026-10-15
+
+
 ### READER-FONT-SETTINGS-20261015：阅读字体选择与目录统一访问（P1）
 
 - 授权与范围：用户要求继续迁移正文、标题字体与自定义字体列表；当前feature/ui-reader-selection / 423921865，保留全部未提交成果，单代理，不自动提交、推送、构建安装或CI，版本2.0.373+374不变。

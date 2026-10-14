@@ -1288,5 +1288,12 @@
   "cloudTtsGlobal": "Global",
   "cloudTtsSample": "Hello, this is a cloud speech preview.",
   "cloudTtsProvider": "Provider",
-  "cloudTtsVoiceLoadFailed": "Voice catalog failed to load"
+  "cloudTtsVoiceLoadFailed": "Voice catalog failed to load",
+  "readAloudSplitMode": "Content division",
+  "readAloudSplitParagraph": "Paragraph",
+  "readAloudSplitSymbols": "By punctuation",
+  "readAloudSplitPage": "Page",
+  "readAloudSplitSymbolsTitle": "Division punctuation",
+  "readAloudSplitPageHint": "Page reading requires a completed chapter layout",
+  "readAloudSplitSymbolsHint": "Consecutive punctuation stays with the preceding unit"
 }

@@ -6,10 +6,14 @@ import '../../../domain/contracts/tts_cache_repository.dart';
 import 'read_aloud_engine.dart';
 
 /// 前台优先的有界合成队列；不保存正文位置、不调用播放器。— Codex + UI
-final class HttpTtsSynthesisQueue {
-  HttpTtsSynthesisQueue({required this._synthesizer, required this._cache});
-  final HttpTtsSynthesizer Function() _synthesizer;
-  final TtsCacheRepository Function() _cache;
+final class ReadAloudSynthesisQueue {
+  ReadAloudSynthesisQueue({required this.synthesize, required this.cache});
+  final Future<HttpTtsSynthesisResult> Function(
+    ReadAloudRequest,
+    HttpTtsCancellation,
+  )
+  synthesize;
+  final TtsCacheRepository Function() cache;
   final _jobs = <_Job>[];
   int _running = 0, _limit = 1, _window = 0;
   String? _windowKey;
@@ -40,6 +44,8 @@ final class HttpTtsSynthesisQueue {
     r.toneId,
     r.speakerName,
     r.emotionTag,
+    r.voicePresetId,
+    r.cloudVoiceOptions,
   ]);
   void configure(int limit) {
     _limit = limit.clamp(1, 8);
@@ -102,19 +108,7 @@ final class HttpTtsSynthesisQueue {
   Future<HttpTtsSynthesisResult> _attempt(_Job job) async {
     final r = job.request;
     try {
-      return await _synthesizer().synthesize(
-        engineId: r.engineId,
-        text: r.text,
-        engineUrl: r.engineUrl,
-        speed: r.speed,
-        pitch: r.pitch,
-        volume: r.volume,
-        voiceName: r.voiceName,
-        toneId: r.toneId,
-        speakerName: r.speakerName,
-        emotionTag: r.emotionTag,
-        cancellation: job.cancel,
-      );
+      return await synthesize(r, job.cancel);
     } catch (error) {
       if (job.foreground) rethrow;
       return HttpTtsNoAudio(
@@ -155,7 +149,7 @@ final class HttpTtsSynthesisQueue {
         final context = job.request.cacheContext;
         if (audio != null && context != null) {
           try {
-            await _cache().record(audio.audioPath, context);
+            await cache().record(audio.audioPath, context);
           } catch (error) {
             _log(error);
           }

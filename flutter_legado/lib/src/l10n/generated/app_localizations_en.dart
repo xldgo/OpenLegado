@@ -4138,4 +4138,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cloudTtsVoiceLoadFailed => 'Voice catalog failed to load';
+
+  @override
+  String get readAloudSplitMode => 'Content division';
+
+  @override
+  String get readAloudSplitParagraph => 'Paragraph';
+
+  @override
+  String get readAloudSplitSymbols => 'By punctuation';
+
+  @override
+  String get readAloudSplitPage => 'Page';
+
+  @override
+  String get readAloudSplitSymbolsTitle => 'Division punctuation';
+
+  @override
+  String get readAloudSplitPageHint =>
+      'Page reading requires a completed chapter layout';
+
+  @override
+  String get readAloudSplitSymbolsHint =>
+      'Consecutive punctuation stays with the preceding unit';
 }

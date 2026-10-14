@@ -3914,4 +3914,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cloudTtsVoiceLoadFailed => '音色目录加载失败';
+
+  @override
+  String get readAloudSplitMode => '内容划分方式';
+
+  @override
+  String get readAloudSplitParagraph => '整段';
+
+  @override
+  String get readAloudSplitSymbols => '按符号';
+
+  @override
+  String get readAloudSplitPage => '整页';
+
+  @override
+  String get readAloudSplitSymbolsTitle => '划分标点';
+
+  @override
+  String get readAloudSplitPageHint => '整页朗读需要阅读器完成本章分页';
+
+  @override
+  String get readAloudSplitSymbolsHint => '连续标点保留在同一单元末尾';
 }

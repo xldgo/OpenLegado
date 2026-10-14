@@ -999,6 +999,8 @@ TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Reposi
 
 `ReadAloudVoiceRepository` 窄接口提供查询、系统同步和标记修改，HTTP 导入同步不经过 UI 算法。源级目录情感列表挂到该源每个音色，传入 toneId/speakerName/emotionTag 三项均进入已有 ReadAloudRequest 与 Rust 合成上下文/缓存键。选择按引擎持久化；换引擎不沿用上一源 toneID，选中不可用/排除音色不静默替换，保持默认参数并给出提示。系统选择复用 saveSettings；目录发现不依赖所选音色能成功播放，起播/非原生暂停恢复时校验当前设备目录和用户标记。显式系统音色消失、禁用或排除时保留选择并报错，不自动换声；默认选择避开不可选项。暂不实现系统音频文件合成或新原生桥。
 
+**2026-10-15 播放编排对齐（用户授权）**：不新增或修改FRB方法。内容单元保留原文UTF-16范围，请求分片不改变原文坐标；云端失败暂停并保留当前单元，不按估算推进。HTTP/云端复用有界调度、取消和现有音频租约；云端缓存索引记录实际分片文本。内容划分设置经ReadAloudSettingsRepository维护，页面模式消费真实排版范围；无分页结果时明确报告不可用，不凭字数猜测。
+
 **2026-10-14 音色/引擎职责拆分（用户授权，实施前冻结）**：复用 schema v112 的 read_aloud_voices，不新增表。按固定上游使用 engineType/engineId/speakerId 的稳定身份；同引擎的不同原生音色分别保存，重复添加同一音色编辑原行。用户配置 managedBy=user，目录同步保留用户名称/参数；引擎删除清理关联音色。云端 engineType=cloud_tts、traitsJson 为 CloudVoiceOptions 对象，speakerId 为原生音色 ID；HTTP/系统继续复用现有选择协议。
 
 | 新增接口 | 语义 |

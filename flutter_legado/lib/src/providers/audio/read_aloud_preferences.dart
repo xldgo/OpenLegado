@@ -1,3 +1,5 @@
+import '../../domain/models/read_aloud_content.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -16,6 +18,8 @@ final class ReadAloudPreferences {
   final ReadAloudSettings settings;
   final bool loaded;
 
+  ReadAloudSplitMode get splitMode => settings.splitMode;
+  String get splitSymbols => settings.splitSymbols;
   bool get followSystem => settings.followSystem;
   bool get detachReminder => settings.detachReminder;
   double get manualSpeed => settings.manualSpeed;
@@ -79,6 +83,11 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
       _publish(repository, generation);
     }
   }
+
+  Future<void> setContentSplit(ReadAloudSplitMode mode, String symbols) =>
+      _update(
+        (current) => current.copyWith(splitMode: mode, splitSymbols: symbols),
+      );
 
   Future<void> setAudioPreDownloadNum(int value) =>
       _update((current) => current.copyWith(audioPreDownloadNum: value));

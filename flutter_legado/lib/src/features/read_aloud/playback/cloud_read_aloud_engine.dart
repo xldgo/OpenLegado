@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:characters/characters.dart';
+import '../../../domain/models/read_aloud_content.dart';
 
 import '../../../domain/contracts/cloud_tts_repository.dart';
 import '../../../domain/contracts/cloud_tts_provider.dart';
@@ -10,6 +10,7 @@ import '../../../domain/contracts/http_tts_synthesizer.dart';
 import '../../../services/stream_audio_player.dart';
 import 'file_read_aloud_engine.dart';
 import 'read_aloud_engine.dart';
+import 'read_aloud_synthesis_queue.dart';
 
 /// 分片只属于当前段落，章节队列/通知/定时仍由 AudioNotifier 拥有。— Codex + UI
 final class CloudReadAloudEngine implements ReadAloudEngine {
@@ -18,9 +19,11 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
     required StreamAudioPlayer player,
     required TtsCacheRepository Function() cache,
     this.repository,
+    ReadAloudSynthesisQueue? queue,
   }) : _file = FileReadAloudEngine(
          player: player,
          synthesize: (request, cancellation) async {
+           if (queue != null) return queue.foreground(request, cancellation);
            final result = await synthesizer().synthesize(
              engineId: cloudTtsId(request.engineUrl),
              text: request.text,
@@ -40,6 +43,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
          },
        );
   final FileReadAloudEngine _file;
+  ReadAloudRequest? get currentRequest => _request;
   final CloudTtsRepository Function()? repository;
   ReadAloudSession? _parent;
   ReadAloudRequest? _request;
@@ -59,6 +63,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
           parent.complete();
           return;
         }
+        parent.reportProgress(base + _parts[_index].length);
         _index++;
         unawaited(_next(parent));
       },
@@ -78,20 +83,31 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
     }
   }
 
-  Future<ReadAloudStart> _speakPart(ReadAloudSession parent) {
+  ReadAloudRequest _partRequest(int index) {
     final request = _request!;
-    return _file.speak(
-      ReadAloudRequest(
-        text: _parts[_index],
-        engineUrl: request.engineUrl,
-        voicePresetId: request.voicePresetId,
-        cloudVoiceOptions: request.cloudVoiceOptions,
-        speed: request.speed,
-        cacheContext: request.cacheContext,
-      ),
-      _child(parent),
+    final context = request.cacheContext;
+    return request.copyWith(
+      text: _parts[index],
+      cacheContext: context == null
+          ? null
+          : TtsCacheContext(
+              bookUrl: context.bookUrl,
+              bookName: context.bookName,
+              chapterIndex: context.chapterIndex,
+              chapterTitle: context.chapterTitle,
+              paragraphIndex: context.paragraphIndex,
+              text: _parts[index],
+            ),
     );
   }
+
+  List<ReadAloudRequest> get remainingRequests => [
+    if (_request != null)
+      for (var i = _index + 1; i < _parts.length; i++) _partRequest(i),
+  ];
+
+  Future<ReadAloudStart> _speakPart(ReadAloudSession parent) =>
+      _file.speak(_partRequest(_index), _child(parent));
 
   @override
   Future<ReadAloudStart> speak(
@@ -151,21 +167,5 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
 }
 
 /// 4000 UTF-16 上限比远端字符上限保守；不拆代理对、组合音标或 ZWJ 字形簇。
-List<String> splitCloudSpeechText(String text, {int limit = 4000}) {
-  if (limit < 1) throw ArgumentError.value(limit, 'limit');
-  final parts = <String>[];
-  var current = StringBuffer();
-  var length = 0;
-  for (final cluster in text.characters) {
-    if (cluster.length > limit) throw StateError('单个字形簇超过云端朗读长度限制');
-    if (length + cluster.length > limit) {
-      parts.add(current.toString());
-      current = StringBuffer();
-      length = 0;
-    }
-    current.write(cluster);
-    length += cluster.length;
-  }
-  if (length > 0) parts.add(current.toString());
-  return parts;
-}
+List<String> splitCloudSpeechText(String text, {int limit = 4000}) =>
+    splitSpeechRequests(text, limit: limit).map((part) => part.text).toList();
