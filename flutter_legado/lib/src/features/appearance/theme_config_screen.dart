@@ -4,7 +4,7 @@ import '../../widgets/eye_protection_settings.dart';
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
 // 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/透明导航栏/保存主题。
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
-// Android 专属项持久化并以灰字"仅 Android 生效"标注；
+// 尚未接入功能的选项禁用并说明后续开放；已生效的平台入口保持可用；
 // 分组与设置行复用跨平台 SettingsGroup 和 SettingTile。
 import '../../l10n/app_localization.dart';
 
@@ -17,6 +17,7 @@ import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../constants/pref_keys.dart';
+import '../../domain/models/theme_colors_settings.dart';
 import '../../providers/providers.dart';
 import '../../providers/theme/system_bar_notifier.dart';
 import '../../providers/theme/theme_colors_notifier.dart';
@@ -103,8 +104,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     '图标 6',
   ];
 
-  /// Android 专属项统一灰字标注（与阅读设置面板刘海项先例一致）
-  static const _androidOnly = '仅 Android 生效';
+  /// 暂未接线的设置统一说明，禁用不改写原有偏好。
+  static const _pendingFeature = '待实现';
+
+  static String _pendingDescription(String description) =>
+      '$description\n$_pendingFeature';
 
   @override
   void initState() {
@@ -625,8 +629,10 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                       SettingTile(
                         title: context.l10n.themeBarElevation,
-                        subtitle: '当前阴影大小（elevation）：$_barElevation',
-                        onTap: _showBarElevationDialog,
+                        subtitle: _pendingDescription(
+                          '当前阴影大小（elevation）：$_barElevation',
+                        ),
+                        enabled: false,
                       ),
                       SettingTile(
                         title: context.l10n.themeCoverConfig,
@@ -654,15 +660,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       if (ui.wallpaperColorFollow)
                         SettingSwitchRow(
                           title: '壁纸变化时自动更新',
-                          subtitle: '系统壁纸变化后自动应用新色板',
+                          subtitle: _pendingDescription('系统壁纸变化后自动应用新色板'),
                           value: _wallpaperColorAutoUpdate,
-                          onChanged: (v) {
-                            setState(() => _wallpaperColorAutoUpdate = v);
-                            _settings.setBoolPref(
-                              PrefKeys.wallpaperColorAutoUpdate,
-                              v,
-                            );
-                          },
                         ),
                     ],
                   ),
@@ -898,23 +897,23 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                     title: '自定义主题 · 白天',
                     children: [
                       _colorTile(
-                        PrefKeys.cPrimary,
+                        ThemeColorRole.primary,
                         context.l10n.themePrimary,
                         colors,
                       ),
                       _colorTile(
-                        PrefKeys.cAccent,
+                        ThemeColorRole.accent,
                         context.l10n.themeAccent,
                         colors,
                       ),
                       _colorTile(
-                        PrefKeys.cBackground,
+                        ThemeColorRole.background,
                         context.l10n.bgColor,
                         colors,
                         isBackground: true,
                       ),
                       _colorTile(
-                        PrefKeys.cBBackground,
+                        ThemeColorRole.bottomBackground,
                         context.l10n.themeNavbarColor,
                         colors,
                       ),
@@ -928,13 +927,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                       SettingSwitchRow(
                         title: '透明导航栏',
-                        subtitle: _androidOnly,
+                        subtitle: _pendingDescription('仅 Android 生效'),
                         value: systemBars.transparentNavBar,
-                        onChanged: (v) => _saveAppearance(
-                          () => ref
-                              .read(systemBarProvider.notifier)
-                              .setTransparentNavBar(v),
-                        ),
                       ),
                       SettingTile(
                         icon: Symbols.save_rounded,
@@ -951,26 +945,26 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                     title: '自定义主题 · 夜间',
                     children: [
                       _colorTile(
-                        PrefKeys.cNPrimary,
+                        ThemeColorRole.primaryNight,
                         context.l10n.themePrimary,
                         colors,
                         isNight: true,
                       ),
                       _colorTile(
-                        PrefKeys.cNAccent,
+                        ThemeColorRole.accentNight,
                         context.l10n.themeAccent,
                         colors,
                         isNight: true,
                       ),
                       _colorTile(
-                        PrefKeys.cNBackground,
+                        ThemeColorRole.backgroundNight,
                         context.l10n.bgColor,
                         colors,
                         isNight: true,
                         isBackground: true,
                       ),
                       _colorTile(
-                        PrefKeys.cNBBackground,
+                        ThemeColorRole.bottomBackgroundNight,
                         context.l10n.themeNavbarColor,
                         colors,
                         isNight: true,
@@ -985,13 +979,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                       SettingSwitchRow(
                         title: '透明导航栏',
-                        subtitle: _androidOnly,
+                        subtitle: _pendingDescription('仅 Android 生效'),
                         value: systemBars.transparentNavBarNight,
-                        onChanged: (v) => _saveAppearance(
-                          () => ref
-                              .read(systemBarProvider.notifier)
-                              .setTransparentNavBarNight(v),
-                        ),
                       ),
                       SettingTile(
                         icon: Symbols.save_rounded,
@@ -1010,13 +999,13 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   /// 颜色配置行（值为空时显示"默认"，否则显示色块）
   Widget _colorTile(
-    String key,
+    ThemeColorRole role,
     String title,
-    ThemeColorsState colors, {
+    ThemeColorsSettings colors, {
     bool isNight = false,
     bool isBackground = false,
   }) {
-    final value = colors.valueOf(key);
+    final value = colors.color(role);
     return SettingTile(
       icon: Symbols.palette_rounded,
       title: title,
@@ -1041,7 +1030,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
               ],
             ),
       onTap: () => _showColorPicker(
-        key,
+        role,
         title,
         isNight: isNight,
         isBackground: isBackground,
@@ -1051,12 +1040,12 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   /// 预设色板选择器（对齐原版 ColorPreference preset 对话框 + 背景明暗校验）
   Future<void> _showColorPicker(
-    String key,
+    ThemeColorRole role,
     String title, {
     required bool isNight,
     required bool isBackground,
   }) async {
-    final selected = await showDialog<int>(
+    final selected = await showDialog<(int?,)>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
@@ -1068,7 +1057,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
             children: [
               for (final c in _presetColors)
                 InkWell(
-                  onTap: () => Navigator.pop(ctx, c),
+                  onTap: () => Navigator.pop(ctx, (c,)),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 40,
@@ -1088,10 +1077,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         actions: [
           // 对齐原版长按恢复默认：清除自定义值
           TextButton(
-            onPressed: () {
-              ref.read(themeColorsProvider.notifier).setColor(key, null);
-              Navigator.pop(ctx);
-            },
+            onPressed: () => Navigator.pop(ctx, (null,)),
             child: Text(ctx.l10n.themeRestoreDefault),
           ),
           TextButton(
@@ -1105,9 +1091,10 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     // 避免页面已销毁时继续使用 ref/setState — Qoder
     if (selected == null || !mounted) return;
     // 对齐原版 onColorSelected 背景明暗校验（白天背景过暗/夜间背景过亮拒绝）
-    if (isBackground) {
+    final color = selected.$1;
+    if (isBackground && color != null) {
       final isLight =
-          ThemeData.estimateBrightnessForColor(Color(selected)) ==
+          ThemeData.estimateBrightnessForColor(Color(color)) ==
           Brightness.light;
       if (!isNight && !isLight) {
         _toast('白天背景不能太暗');
@@ -1118,7 +1105,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
         return;
       }
     }
-    await ref.read(themeColorsProvider.notifier).setColor(key, selected);
+    await _saveAppearance(
+      () => ref.read(themeColorsProvider.notifier).setColor(role, color),
+    );
   }
 
   /// 预览复用现有原生图标图片，保持选项与实际图标对应。
@@ -1156,71 +1145,45 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     }
   }
 
-  /// 封面设置（对齐原版 pref_config_cover 布尔项；封面规则依赖书源引擎，
-  /// 已登记台账后置）
+  /// 未接线偏好只展示已保存值；封面规则查询入口保持可用。
   Future<void> _showCoverConfigDialog() async {
-    var onlyWifi = await _settings.getBoolPref(
+    final onlyWifi = await _settings.getBoolPref(
       PrefKeys.loadCoverOnlyWifi,
       defaultValue: false,
     );
-    var useDefault = await _settings.getBoolPref(
+    final useDefault = await _settings.getBoolPref(
       PrefKeys.useDefaultCover,
       defaultValue: false,
     );
-    var showName = await _settings.getBoolPref(
+    final showName = await _settings.getBoolPref(
       PrefKeys.coverShowName,
       defaultValue: true,
     );
-    var showAuthor = await _settings.getBoolPref(
+    final showAuthor = await _settings.getBoolPref(
       PrefKeys.coverShowAuthor,
       defaultValue: true,
     );
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(ctx.l10n.themeCoverConfig),
-          content: Column(
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.themeCoverConfig),
+        content: SingleChildScrollView(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SettingSwitchRow(
-                contentPadding: EdgeInsets.zero,
-                title: '仅 Wifi 加载封面',
-                value: onlyWifi,
-                onChanged: (v) {
-                  setDialogState(() => onlyWifi = v);
-                  _settings.setBoolPref(PrefKeys.loadCoverOnlyWifi, v);
-                },
-              ),
-              SettingSwitchRow(
-                contentPadding: EdgeInsets.zero,
-                title: '优先使用默认封面',
-                value: useDefault,
-                onChanged: (v) {
-                  setDialogState(() => useDefault = v);
-                  _settings.setBoolPref(PrefKeys.useDefaultCover, v);
-                },
-              ),
-              SettingSwitchRow(
-                contentPadding: EdgeInsets.zero,
-                title: '默认封面显示书名',
-                value: showName,
-                onChanged: (v) {
-                  setDialogState(() => showName = v);
-                  _settings.setBoolPref(PrefKeys.coverShowName, v);
-                },
-              ),
-              SettingSwitchRow(
-                contentPadding: EdgeInsets.zero,
-                title: '默认封面显示作者',
-                value: showAuthor,
-                onChanged: (v) {
-                  setDialogState(() => showAuthor = v);
-                  _settings.setBoolPref(PrefKeys.coverShowAuthor, v);
-                },
-              ),
-              // F4：对齐原版 CoverRuleConfigDialog（get/save/delete + 测试搜索）
+              for (final (title, value) in [
+                ('仅 Wifi 加载封面', onlyWifi),
+                ('优先使用默认封面', useDefault),
+                ('默认封面显示书名', showName),
+                ('默认封面显示作者', showAuthor),
+              ])
+                SettingSwitchRow(
+                  contentPadding: EdgeInsets.zero,
+                  title: title,
+                  subtitle: _pendingFeature,
+                  value: value,
+                ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(ctx.l10n.themeCoverRule),
@@ -1229,13 +1192,13 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(ctx.l10n.close),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.l10n.close),
+          ),
+        ],
       ),
     );
   }
@@ -1359,59 +1322,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     } catch (error) {
       _toast('背景图片操作失败：$error');
     }
-  }
-
-  /// 导航栏阴影数值设置（对齐原版 barElevation NumberPicker 0~32）
-  Future<void> _showBarElevationDialog() async {
-    final value = await _showNumberInputDialog(
-      title: context.l10n.themeBarElevation,
-      current: _barElevation,
-      min: 0,
-      max: 32,
-    );
-    // 异步对话框返回后先检查 mounted，再 setState/持久化
-    if (value == null || !mounted) return;
-    setState(() => _barElevation = value);
-    await _settings.setIntPref(PrefKeys.barElevation, value);
-  }
-
-  /// 通用数字输入对话框（返回 null 表示取消）
-  Future<int?> _showNumberInputDialog({
-    required String title,
-    required int current,
-    required int min,
-    required int max,
-  }) async {
-    final controller = TextEditingController(text: '$current');
-    return showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(hintText: '$min ~ $max'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final parsed = int.tryParse(controller.text.trim());
-              if (parsed == null || parsed < min || parsed > max) {
-                _toast('请输入 $min ~ $max 之间的数字');
-                return;
-              }
-              Navigator.pop(ctx, parsed);
-            },
-            child: Text(ctx.l10n.confirm),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 全局字体缩放选择（对齐原版 ThemeConfigFragment fontScale NumberPickerDialog）

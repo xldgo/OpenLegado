@@ -303,7 +303,16 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       }
     }
     if (!mounted) return;
-    ref.invalidate(themeColorsProvider);
+    try {
+      await ref.read(themeColorsProvider.notifier).reload();
+    } catch (error) {
+      debugPrint('主题颜色恢复后读取失败：$error');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('主题颜色读取失败，请重试')));
+      }
+    }
+    if (!mounted) return;
     try {
       await ref.read(mainPrefsProvider.notifier).reload();
     } catch (error) {

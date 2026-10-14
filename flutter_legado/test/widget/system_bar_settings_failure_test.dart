@@ -93,7 +93,7 @@ void main() {
 
   for (final isNight in [false, true]) {
     final groupTitle = isNight ? '自定义主题 · 夜间' : '自定义主题 · 白天';
-    testWidgets('$groupTitle 透明导航栏保存失败回退，不再留下局部副本', (tester) async {
+    testWidgets('$groupTitle 未接线透明导航栏禁用且不保存', (tester) async {
       await open(tester);
       await reveal(tester, groupTitle);
       final group = find.byWidgetPredicate(
@@ -117,7 +117,24 @@ void main() {
             .value,
         isFalse,
       );
-      expect(find.text('保存失败，请重试'), findsOneWidget);
+      expect(
+        tester
+            .widget<SettingSwitchRow>(
+              find.ancestor(of: label, matching: find.byType(SettingSwitchRow)),
+            )
+            .subtitle,
+        '仅 Android 生效\n待实现',
+      );
+      expect(find.text('保存失败，请重试'), findsNothing);
+      expect(
+        tester
+            .widget<SettingSwitchRow>(
+              find.ancestor(of: label, matching: find.byType(SettingSwitchRow)),
+            )
+            .onChanged,
+        isNull,
+      );
+      expect(storage.values, isEmpty);
       expect(tester.takeException(), isNull);
     });
   }

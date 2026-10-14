@@ -764,3 +764,33 @@ Notifier 只订阅和投影共享偏好；实体数据、过滤、路由、选�
 登记于 Active 计划。
 
 编写者：Codex｜2026-10-14
+
+
+## 第二十八步：主题颜色与背景偏好
+
+ThemeColorsSettings 保存八项 nullable ARGB 整数与日夜背景路径；ThemeColorRole
+区分八个颜色槽位，模型不导入 Flutter、Material 或偏好键。数据层的
+AppThemeColorsSettingsRepository 将槽位映射到原 SharedPreferences 键，复用
+AppSettingsService 的快照、串行 IO 和失败回退；不另建缓存或写队列。
+
+ThemeColorsNotifier 订阅同一来源，只投影状态并转交加载、更新和重读。
+颜色选择与恢复默认统一等待保存结果；应用预设、文件导入和背景操作失败向页面
+传播，不能吞掉异常后提示成功。null 颜色删除覆盖键，空背景路径删除路径键；
+未传字段保持。多键保存保留已经成功的字段，不宣称事务式回滚。外部恢复后显式
+调用 reload，不能只重建 Notifier 后复用共享服务的旧缓存。
+
+ThemeActions 仍编排主题交互，命名主题使用独立 ThemePresetRepository，保留
+原 themeConfigList JSON 格式和列表的串行读改写；该队列处理实体集合，与普通
+标量设置的共享队列职责不同，不为了去重而混入 AppSettingsSnapshot。
+ThemeFileService 继续处理实际平台文件选择和导入导出，平台图标操作保持独立。
+
+按生产消费者检索，导航栏阴影、壁纸自动更新、四项默认封面与日夜透明导航栏
+尚未接入实际渲染/平台能力。本轮设置行禁用，保留原说明并追加“待实现”，原值
+保留且不可通过
+这些行继续修改。封面规则查询、系统栏沉浸、动态色、颜色及背景选择等有效入口
+保持可用。后续接线必须同时验证保存值、实际消费和运行效果，再启用对应设置。
+
+不改变 Rust/FRB、数据库、存储位置或主题文件格式。测试范围和交付状态只在
+Active 计划登记。
+
+编写者：Codex｜2026-10-14

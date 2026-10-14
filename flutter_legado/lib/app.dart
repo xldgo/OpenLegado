@@ -383,7 +383,9 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             wrapped = SystemBarBinder(child: wrapped);
             // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
             wrapped = _ThemeBackgroundLayer(
-              path: themeColors.bgImageFor(Theme.of(context).brightness),
+              path: themeColors.bgImageFor(
+                isNight: Theme.of(context).brightness == Brightness.dark,
+              ),
               child: wrapped,
             );
             // Markdown 等第三方组件仍从上下文读取旧设计库主题与本地化。

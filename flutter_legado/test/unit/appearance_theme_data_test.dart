@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/constants/pref_keys.dart';
+import 'package:flutter_legado/src/domain/models/theme_colors_settings.dart';
 import 'package:flutter_legado/src/data/repositories/preferences_theme_preset_repository.dart';
 import 'package:flutter_legado/src/features/appearance/theme_actions.dart';
 import 'package:flutter_legado/src/models/theme_document.dart';
@@ -180,11 +180,17 @@ void main() {
   test('保存与应用预设只更新对应日夜颜色，不修改另一侧和背景图', () async {
     final container = await initializedContainer();
     final colors = container.read(themeColorsProvider.notifier);
-    await colors.applyColors({PrefKeys.cPrimary: 11, PrefKeys.cNPrimary: 22});
+    await colors.applyColors({
+      ThemeColorRole.primary: 11,
+      ThemeColorRole.primaryNight: 22,
+    });
     await colors.setBgImage(day: '原背景');
     final actions = container.read(themeActionsProvider);
     await actions.savePreset('夜间', isNight: true);
-    await colors.applyColors({PrefKeys.cPrimary: 33, PrefKeys.cNPrimary: 44});
+    await colors.applyColors({
+      ThemeColorRole.primary: 33,
+      ThemeColorRole.primaryNight: 44,
+    });
     await actions.applyPreset((await actions.readPresets()).single);
     expect(container.read(themeColorsProvider).primary, 33);
     expect(container.read(themeColorsProvider).primaryNight, 22);
@@ -194,7 +200,10 @@ void main() {
   test('文件导入清除缺省组，更新色板模式，保留背景图', () async {
     final container = await initializedContainer();
     final colors = container.read(themeColorsProvider.notifier);
-    await colors.applyColors({PrefKeys.cPrimary: 11, PrefKeys.cNPrimary: 22});
+    await colors.applyColors({
+      ThemeColorRole.primary: 11,
+      ThemeColorRole.primaryNight: 22,
+    });
     await colors.setBgImage(night: '夜间背景');
     await container
         .read(themeActionsProvider)
@@ -232,7 +241,7 @@ void main() {
     final files = ControlledThemeFiles();
     final container = await initializedContainer(files: files);
     await container.read(themeColorsProvider.notifier).applyColors({
-      PrefKeys.cPrimary: 77,
+      ThemeColorRole.primary: 77,
     });
     final actions = container.read(themeActionsProvider);
     expect(await actions.readThemeFile(), isNull);

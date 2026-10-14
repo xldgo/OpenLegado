@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../constants/pref_keys.dart';
+import '../../domain/models/theme_colors_settings.dart';
 import '../../data/repositories/preferences_theme_preset_repository.dart';
 import '../../domain/contracts/theme_preset_repository.dart';
 import '../../models/theme_document.dart';
@@ -51,11 +51,17 @@ class ThemeActions {
 
   Future<void> applyPreset(ThemePreset preset) =>
       _ref.read(themeColorsProvider.notifier).applyColors({
-        preset.isNight ? PrefKeys.cNPrimary : PrefKeys.cPrimary: preset.primary,
-        preset.isNight ? PrefKeys.cNAccent : PrefKeys.cAccent: preset.accent,
-        preset.isNight ? PrefKeys.cNBackground : PrefKeys.cBackground:
+        preset.isNight ? ThemeColorRole.primaryNight : ThemeColorRole.primary:
+            preset.primary,
+        preset.isNight ? ThemeColorRole.accentNight : ThemeColorRole.accent:
+            preset.accent,
+        preset.isNight
+                ? ThemeColorRole.backgroundNight
+                : ThemeColorRole.background:
             preset.background,
-        preset.isNight ? PrefKeys.cNBBackground : PrefKeys.cBBackground:
+        preset.isNight
+                ? ThemeColorRole.bottomBackgroundNight
+                : ThemeColorRole.bottomBackground:
             preset.bottomBackground,
       });
 
@@ -90,14 +96,14 @@ class ThemeActions {
     final colors = _ref.read(themeColorsProvider.notifier);
     final theme = _ref.read(themeNotifierProvider.notifier);
     await colors.applyColors({
-      PrefKeys.cPrimary: document.day.primary,
-      PrefKeys.cAccent: document.day.accent,
-      PrefKeys.cBackground: document.day.background,
-      PrefKeys.cBBackground: document.day.bottomBackground,
-      PrefKeys.cNPrimary: document.night.primary,
-      PrefKeys.cNAccent: document.night.accent,
-      PrefKeys.cNBackground: document.night.background,
-      PrefKeys.cNBBackground: document.night.bottomBackground,
+      ThemeColorRole.primary: document.day.primary,
+      ThemeColorRole.accent: document.day.accent,
+      ThemeColorRole.background: document.day.background,
+      ThemeColorRole.bottomBackground: document.day.bottomBackground,
+      ThemeColorRole.primaryNight: document.night.primary,
+      ThemeColorRole.accentNight: document.night.accent,
+      ThemeColorRole.backgroundNight: document.night.background,
+      ThemeColorRole.bottomBackgroundNight: document.night.bottomBackground,
     });
     final mode = switch (document.themeMode) {
       'light' => ThemeMode.light,
