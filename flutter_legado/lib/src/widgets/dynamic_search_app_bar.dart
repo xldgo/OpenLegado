@@ -2,82 +2,105 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../l10n/app_localization.dart';
-
 import 'legado_app_bar.dart';
 import 'app_search_field.dart';
+import 'app_search_transition.dart';
 
-/// [UI_SYNC_REFACTOR S1b] Dynamic 搜索行顶栏（对齐参考仓 DynamicTopAppBar）
-///
-/// 结构：标题文字 + 右侧搜索切换钮（actions 前置）+ bottomContent 搜索行
-/// 可追加常驻 bottom（如发现页 FilterChip 横滑条）。
-/// 展开状态由页面控制，保证 Scaffold 同步读取实际顶栏高度。
+/// 与AppScaffold共享搜索进度，动态preferredSize不再直接跳到目标高度。
 class DynamicSearchAppBar extends StatelessWidget
     implements PreferredSizeWidget {
-  final String title;
-
-  /// 副标题（对齐参考 DynamicTopAppBar subtitle：发现/订阅显示当前分组名）
-  final String? subtitle;
-  final List<Widget>? actions;
-  final TextEditingController searchController;
-  final String searchHint;
-  final ValueChanged<String> onChanged;
-  final VoidCallback? onClear;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
-
-  /// 常驻 bottom（如发现 FilterChips 48dp 横滑条），位于搜索行之下
-  final PreferredSizeWidget? persistentBottom;
-
   const DynamicSearchAppBar({
     super.key,
     required this.title,
     this.subtitle,
+    this.titleWidget,
+    this.leading,
+    this.showBack,
+    this.actions,
     required this.searchController,
     required this.searchHint,
     required this.onChanged,
-    this.actions,
+    this.onSubmitted,
     this.onClear,
     required this.expanded,
     required this.onExpandedChanged,
     this.persistentBottom,
+    this.progress,
+    this.showSearchAction = true,
   });
-
+  final String title;
+  final String? subtitle;
+  final Widget? titleWidget, leading;
+  final bool? showBack;
+  final List<Widget>? actions;
+  final TextEditingController searchController;
+  final String searchHint;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onClear;
+  final bool expanded, showSearchAction;
+  final ValueChanged<bool> onExpandedChanged;
+  final PreferredSizeWidget? persistentBottom;
+  final double? progress;
+  double get _progress => progress ?? (expanded ? 1 : 0);
+  DynamicSearchAppBar atProgress(double value) => DynamicSearchAppBar(
+    key: key,
+    title: title,
+    subtitle: subtitle,
+    titleWidget: titleWidget,
+    leading: leading,
+    showBack: showBack,
+    actions: actions,
+    searchController: searchController,
+    searchHint: searchHint,
+    onChanged: onChanged,
+    onSubmitted: onSubmitted,
+    onClear: onClear,
+    expanded: expanded,
+    onExpandedChanged: onExpandedChanged,
+    persistentBottom: persistentBottom,
+    progress: value,
+    showSearchAction: showSearchAction,
+  );
   @override
-  Size get preferredSize {
-    final bottomH =
-        (persistentBottom?.preferredSize.height ?? 0) + (expanded ? 64 : 0);
-    return Size.fromHeight(kToolbarHeight + bottomH);
-  }
-
+  Size get preferredSize => Size.fromHeight(
+    kToolbarHeight +
+        (persistentBottom?.preferredSize.height ?? 0) +
+        64 * _progress,
+  );
   @override
-  Widget build(BuildContext context) {
-    return LegadoAppBar(
-      title: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontSize: 28),
-          ),
-          if (subtitle != null)
+  Widget build(BuildContext context) => LegadoAppBar(
+    leading: leading,
+    showBack: showBack,
+    title:
+        titleWidget ??
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              subtitle!,
+              title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: Theme.of(context).textTheme.headlineMedium
+                  ?.copyWith(fontSize: 28),
             ),
-        ],
-      ),
-      actions: [
-        // [UI_SYNC_REFACTOR S1b] 搜索切换钮（对齐参考 onSearchToggle）
+            if (subtitle != null)
+              Text(
+                subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+    actions: [
+      if (showSearchAction)
         IconButton(
-          tooltip: expanded ? context.l10n.collapseSearch
+          tooltip: expanded
+              ? context.l10n.collapseSearch
               : context.l10n.expandSearch,
           icon: Icon(
             expanded ? Symbols.search_off_rounded : Symbols.search_rounded,
@@ -87,31 +110,36 @@ class DynamicSearchAppBar extends StatelessWidget
             onExpandedChanged(!expanded);
           },
         ),
-        ...?actions,
-      ],
-      bottom: !expanded && persistentBottom == null
-          ? null
-          : PreferredSize(
-              preferredSize: Size.fromHeight(
-                (persistentBottom?.preferredSize.height ?? 0) +
-                    (expanded ? 64 : 0),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (expanded)
-                    AppSearchRow(
+      ...?actions,
+    ],
+    bottom: _progress == 0 && persistentBottom == null
+        ? null
+        : PreferredSize(
+            preferredSize: Size.fromHeight(
+              (persistentBottom?.preferredSize.height ?? 0) + 64 * _progress,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSearchReveal(
+                  progress: _progress,
+                  expanded: expanded,
+                  child: SizedBox(
+                    height: 64,
+                    child: AppSearchRow(
                       field: AppSearchField(
                         controller: searchController,
                         hintText: searchHint,
                         onChanged: onChanged,
+                        onSubmitted: onSubmitted,
                         onClear: onClear,
                       ),
                     ),
-              ?persistentBottom,
-                ],
-              ),
+                  ),
+                ),
+                ?persistentBottom,
+              ],
             ),
-    );
-  }
+          ),
+  );
 }

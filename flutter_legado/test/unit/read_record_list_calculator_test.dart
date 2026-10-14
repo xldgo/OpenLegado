@@ -50,17 +50,15 @@ void main() {
       mode: ReadRecordDisplayMode.aggregate,
       records: [],
       details: details,
-      selectedDate: DateTime(2025, 12, 31),
       query: '甲',
     );
-    expect(selected.single.bookName, '早期');
+    expect(selected.map((r) => r.bookName), ['同名', '早期']);
   });
-  test('最后阅读合并跨日期时长，忽略日期过滤并可按作者搜索', () {
+  test('最后阅读合并跨日期时长，可按作者搜索', () {
     final rows = ReadRecordListCalculator.build(
       mode: ReadRecordDisplayMode.latest,
       records: [],
       details: details,
-      selectedDate: DateTime(2025, 12, 31),
       query: '乙',
     );
     expect(rows.single.author, '乙');

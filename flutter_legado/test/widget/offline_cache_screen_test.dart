@@ -101,7 +101,7 @@ void main() {
     expect(find.widgetWithText(TextButton, '导出'), findsNWidgets(2));
 
     await tester.tap(find.byIcon(Symbols.search_rounded));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), ' 书一 ');
     await tester.pump();
     expect(find.text('书一'), findsOneWidget);
@@ -124,13 +124,13 @@ void main() {
     await tester.enterText(find.byType(TextField), '书一');
     await tester.pump();
     await tester.tap(find.byIcon(Symbols.search_off_rounded));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(SearchBar), findsNothing);
     expect(find.text('书一'), findsOneWidget);
     expect(find.text('书二'), findsOneWidget);
 
     await tester.tap(find.byIcon(Symbols.search_rounded));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       isEmpty,
@@ -175,7 +175,7 @@ void main() {
 
     // 搜索仅筛选显示，菜单中的全部缓存仍涵盖书架全部书籍。
     await tester.tap(find.byIcon(Symbols.search_rounded));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '书一');
     await tester.pump();
 

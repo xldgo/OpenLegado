@@ -1,18 +1,19 @@
+import '../../widgets/dynamic_search_app_bar.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
-import '../../widgets/app_search_field.dart';
-import '../../widgets/legado_app_bar.dart';
 import '../../widgets/md3_fast_scroller.dart';
 import '../../widgets/source_selection_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -55,6 +56,7 @@ class SourceScreen extends ConsumerStatefulWidget {
 class _SourceScreenState extends ConsumerState<SourceScreen> {
   /// 顶栏搜索框（对标原版 activity_book_source.xml 的 view_search）
   final _searchCtrl = TextEditingController();
+  bool _searchExpanded = false;
 
   /// 校验会话结束后的总结 SnackBar 是否已展示（防 build 重复触发）
   bool _checkToastShown = false;
@@ -105,7 +107,9 @@ class _SourceScreenState extends ConsumerState<SourceScreen> {
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
         topBar: _buildAppBar(context, state),
         body: _buildBody(context),
-        bottomBar: state.batchMode ? _buildBatchBottomBar(context, state) : null,
+        bottomBar: state.batchMode
+            ? _buildBatchBottomBar(context, state)
+            : null,
       ),
     );
   }

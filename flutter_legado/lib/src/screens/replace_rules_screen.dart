@@ -1,18 +1,21 @@
+import '../widgets/dynamic_search_app_bar.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/md3_fast_scroller.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/app_search_field.dart';
-import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
 import '../services/bridge_http.dart';
+
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,12 +38,12 @@ class ReplaceRulesScreen extends ConsumerStatefulWidget {
   const ReplaceRulesScreen({super.key, this.initialPattern});
 
   @override
-  ConsumerState<ReplaceRulesScreen> createState() =>
-      _ReplaceRulesScreenState();
+  ConsumerState<ReplaceRulesScreen> createState() => _ReplaceRulesScreenState();
 }
 
 class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
   final _searchCtrl = TextEditingController();
+  bool _searchExpanded = false;
   String _filter = '';
 
   // [UI-fix v2.0.2 | 2026-08-06] 分组筛选（对标原版 menu_group：
@@ -83,15 +86,15 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     return AppScaffold(
       topBar: _batchMode
           ? _buildBatchAppBar()
-          : LegadoAppBar(
-              title: Text(context.l10n.replaceRules),
-              bottom: AppSearchRow(
-                field: AppSearchField(
-                  controller: _searchCtrl,
-                  hintText: '搜索规则',
-                  onChanged: (v) => setState(() => _filter = v.trim()),
-                ),
-              ),
+          : DynamicSearchAppBar(
+              title: context.l10n.replaceRules,
+              searchController: _searchCtrl,
+              searchHint: '搜索规则',
+              expanded: _searchExpanded,
+              onExpandedChanged: (value) =>
+                  setState(() => _searchExpanded = value),
+              onChanged: (v) => setState(() => _filter = v.trim()),
+
               actions: [
                 // [UI-fix v2.0.2 | 2026-08-06] 分组筛选入口（对标原版 menu_group）— Qoder
                 AppMenuButton<String?>(
@@ -242,26 +245,26 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         controller: _ruleListController,
         child: ListView.builder(
           controller: _ruleListController,
-        // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: rules.length,
-        itemBuilder: (context, index) {
-          final rule = rules[index];
-          return _ReplaceRuleTile(
-            key: ValueKey(rule.id),
-            rule: rule,
-            index: index,
-            total: rules.length,
-            batchMode: true,
-            selected: _selected.contains(rule.id),
-            onSelect: () => _toggleSelect(rule.id),
-            onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
-            onEdit: () => _toggleSelect(rule.id),
-            onDelete: () => _confirmDelete(context, provider, rule),
-            onMoveUp: () => provider.moveUp(index),
-            onMoveDown: () => provider.moveDown(index),
-          );
-        },
+          // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: rules.length,
+          itemBuilder: (context, index) {
+            final rule = rules[index];
+            return _ReplaceRuleTile(
+              key: ValueKey(rule.id),
+              rule: rule,
+              index: index,
+              total: rules.length,
+              batchMode: true,
+              selected: _selected.contains(rule.id),
+              onSelect: () => _toggleSelect(rule.id),
+              onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
+              onEdit: () => _toggleSelect(rule.id),
+              onDelete: () => _confirmDelete(context, provider, rule),
+              onMoveUp: () => provider.moveUp(index),
+              onMoveDown: () => provider.moveDown(index),
+            );
+          },
         ),
       );
     }
@@ -346,8 +349,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       default:
         final g = _groupFilter!;
         result = result.where(
-          (r) =>
-              r.group?.split(',').map((e) => e.trim()).contains(g) ?? false,
+          (r) => r.group?.split(',').map((e) => e.trim()).contains(g) ?? false,
         );
     }
     if (_filter.isNotEmpty) {
@@ -386,13 +388,20 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
 
   /// 批量模式顶栏（对标原版 SelectActionBar：关闭 + 已选计数 + 全选）
   PreferredSizeWidget _buildBatchAppBar() {
-    return LegadoAppBar(
+    return DynamicSearchAppBar(
+      title: '已选择 ${_selected.length} 项',
+      titleWidget: Text('已选择 ${_selected.length} 项'),
+      searchController: _searchCtrl,
+      searchHint: '搜索规则',
+      expanded: false,
+      showSearchAction: false,
+      onExpandedChanged: (_) {},
+      onChanged: (value) => setState(() => _filter = value.trim()),
       leading: IconButton(
         icon: const Icon(Symbols.close_rounded),
         tooltip: context.l10n.ruleExitBatchMode,
         onPressed: _exitBatch,
       ),
-      title: Text('已选择 ${_selected.length} 项'),
       actions: [
         IconButton(
           icon: const Icon(Symbols.select_all_rounded),
@@ -471,9 +480,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       if (mounted) _exitBatch();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导出失败：$e')));
       }
     }
   }
@@ -544,9 +552,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         Navigator.of(context).pop();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('获取替换规则失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('获取替换规则失败：$e')));
       }
     }
   }
@@ -569,9 +576,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       await _parseAndConfirm(trimmed);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('扫码内容不是可识别的替换规则数据')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('扫码内容不是可识别的替换规则数据')));
   }
 
   /// 本地文件导入（对标原版 menu_import_local：任选文件，解析层容错）
@@ -585,9 +591,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       if (picked == null) return;
       final path = picked.path;
       if (path == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('无法获取文件路径')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('无法获取文件路径')));
         return;
       }
       final text = await File(path).readAsString();
@@ -595,9 +599,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       await _parseAndConfirm(text);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('从文件导入失败：$e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('从文件导入失败：$e')));
       }
     }
   }
@@ -632,15 +635,13 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     try {
       candidates = _parseRulesText(text);
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到替换规则')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('格式错误，未解析到替换规则')));
       return;
     }
     if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('格式错误，未解析到替换规则')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('格式错误，未解析到替换规则')));
       return;
     }
     if (!mounted) return;
@@ -656,9 +657,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     if (!mounted) return;
     // 确认页返回导入成功条数；取消返回 null/0
     if (imported != null && imported > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导入完成（$imported 条）')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('导入完成（$imported 条）')));
     }
   }
 

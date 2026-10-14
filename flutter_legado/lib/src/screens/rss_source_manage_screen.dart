@@ -1,20 +1,23 @@
+import '../widgets/dynamic_search_app_bar.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/app_search_field.dart';
 import '../widgets/md3_fast_scroller.dart';
 import '../widgets/source_selection_bar.dart';
+
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
 import '../services/bridge_http.dart';
+
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,6 +59,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   // [UI_SYNC_REFACTOR R3] 快速滚动条控制器
   final ScrollController _fsController = ScrollController();
   final _searchCtrl = TextEditingController();
+  bool _searchExpanded = false;
 
   List<RssSource> _sources = [];
   bool _loading = true;
@@ -111,7 +115,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   void _toast(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ===== 过滤（对标原版 upSourceFlow） =====
@@ -165,7 +170,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             .where((s) => (s.loginUrl ?? '').trim().isNotEmpty)
             .toList();
       case '未分组':
-        return _sources.where((s) => _splitGroups(s.sourceGroup).isEmpty).toList();
+        return _sources
+            .where((s) => _splitGroups(s.sourceGroup).isEmpty)
+            .toList();
     }
     if (kw.startsWith('group:')) {
       final group = kw.substring('group:'.length);
@@ -214,7 +221,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    return LegadoAppBar(
+    return DynamicSearchAppBar(
       leading: _batchMode
           ? IconButton(
               icon: const Icon(Symbols.close_rounded),
@@ -222,14 +229,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
               onPressed: _exitBatch,
             )
           : null,
-      title: Text(context.l10n.rssSourceManagement),
-      bottom: AppSearchRow(
-        field: AppSearchField(
-          controller: _searchCtrl,
-          hintText: context.l10n.searchRssSources,
-          onChanged: (v) => setState(() => _keyword = v),
-        ),
-      ),
+      title: context.l10n.rssSourceManagement,
+      searchController: _searchCtrl,
+      searchHint: context.l10n.searchRssSources,
+      expanded: _searchExpanded,
+      onExpandedChanged: (value) => setState(() => _searchExpanded = value),
+      onChanged: (v) => setState(() => _keyword = v),
+
       actions: [
         // 分组菜单（对标原版 rss_source.xml menu_group 子菜单）
         AppMenuButton<String>(
@@ -240,11 +246,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             AppMenuItem(
               enabled: false,
               child: Text(
-                context.l10n.group, style: TextStyle(fontWeight: FontWeight.w600),
+                context.l10n.group,
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             AppMenuItem(
-                value: 'group_manage', child: Text(context.l10n.groupManagement),
+              value: 'group_manage',
+              child: Text(context.l10n.groupManagement),
             ),
             AppMenuItem(
               value: '启用',
@@ -281,12 +289,16 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
           itemBuilder: (_) => [
             AppMenuItem(
               value: 'new',
-              child: _MenuRow(icon: Symbols.add_rounded, label: context.l10n.addRssSource,
+              child: _MenuRow(
+                icon: Symbols.add_rounded,
+                label: context.l10n.addRssSource,
               ),
             ),
             AppMenuItem(
               value: 'import_file',
-              child: _MenuRow(icon: Symbols.download_rounded, label: context.l10n.importLocal,
+              child: _MenuRow(
+                icon: Symbols.download_rounded,
+                label: context.l10n.importLocal,
               ),
             ),
             AppMenuItem(
@@ -298,7 +310,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             ),
             AppMenuItem(
               value: 'import_qr',
-              child: _MenuRow(icon: Symbols.qr_code_rounded, label: context.l10n.importQrCode,
+              child: _MenuRow(
+                icon: Symbols.qr_code_rounded,
+                label: context.l10n.importQrCode,
               ),
             ),
             AppMenuItem(
@@ -313,12 +327,16 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             // 统一收进溢出菜单，iOS 菜单惯例）
             AppMenuItem(
               value: 'rule_sub',
-              child: _MenuRow(icon: Symbols.rss_feed_rounded, label: context.l10n.ruleSubscriptions,
+              child: _MenuRow(
+                icon: Symbols.rss_feed_rounded,
+                label: context.l10n.ruleSubscriptions,
               ),
             ),
             AppMenuItem(
               value: 'help',
-              child: _MenuRow(icon: Symbols.help_rounded, label: context.l10n.help,
+              child: _MenuRow(
+                icon: Symbols.help_rounded,
+                label: context.l10n.help,
               ),
             ),
           ],
@@ -356,26 +374,23 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       onDelete: () => _handleBatchAction('delete'),
       onMenuSelected: _handleBatchAction,
       menuItems: [
+        AppMenuItem(value: 'enable', child: Text(context.l10n.enableSelected)),
         AppMenuItem(
-            value: 'enable', child: Text(context.l10n.enableSelected)),
-        AppMenuItem(
-            value: 'disable', child: Text(context.l10n.disableSelected),
+          value: 'disable',
+          child: Text(context.l10n.disableSelected),
         ),
+        AppMenuItem(value: 'add_group', child: Text(context.l10n.addToGroup)),
         AppMenuItem(
-            value: 'add_group', child: Text(context.l10n.addToGroup)),
-        AppMenuItem(
-            value: 'remove_group', child: Text(context.l10n.removeGroup),
+          value: 'remove_group',
+          child: Text(context.l10n.removeGroup),
         ),
+        AppMenuItem(value: 'top', child: Text(context.l10n.pinSelected)),
+        AppMenuItem(value: 'bottom', child: Text(context.l10n.bottomSelected)),
+        AppMenuItem(value: 'export', child: Text(context.l10n.exportSelected)),
+        AppMenuItem(value: 'share', child: Text(context.l10n.shareSources)),
         AppMenuItem(
-            value: 'top', child: Text(context.l10n.pinSelected)),
-        AppMenuItem(
-            value: 'bottom', child: Text(context.l10n.bottomSelected)),
-        AppMenuItem(
-            value: 'export', child: Text(context.l10n.exportSelected)),
-        AppMenuItem(
-            value: 'share', child: Text(context.l10n.shareSources)),
-        AppMenuItem(
-            value: 'select_range', child: Text(context.l10n.selectRange),
+          value: 'select_range',
+          child: Text(context.l10n.selectRange),
         ),
       ],
     );
@@ -396,10 +411,10 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     if (list.isEmpty) {
       return EmptyState(
         icon: Symbols.rss_feed_rounded,
-        title: _sources.isEmpty ? context.l10n.emptyRssSources
+        title: _sources.isEmpty
+            ? context.l10n.emptyRssSources
             : context.l10n.noMatchingRssSources,
-        subtitle: _sources.isEmpty
-            ? context.l10n.addRssSourceHint : null,
+        subtitle: _sources.isEmpty ? context.l10n.addRssSourceHint : null,
       );
     }
     return Md3FastScroller(
@@ -419,8 +434,10 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
 
   /// 列表项（对标原版 item_rss_source：勾选框 + 源名(分组) +
   /// Switch + 编辑 + 更多）
-  Widget _buildSourceItem(BuildContext context, RssSource source,
-      {required int dragIndex,
+  Widget _buildSourceItem(
+    BuildContext context,
+    RssSource source, {
+    required int dragIndex,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final group = source.sourceGroup ?? '';
@@ -565,9 +582,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             ),
             ListTile(
               leading: Icon(Symbols.delete_rounded, color: colorScheme.error),
-              title:
-                  Text(
-                l10n.delete, style: TextStyle(color: colorScheme.error),
+              title: Text(
+                l10n.delete,
+                style: TextStyle(color: colorScheme.error),
               ),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
@@ -608,9 +625,12 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   /// 移动后按序重排 customOrder，仅持久化发生变化的源）；
   /// onReorderItem 的 newIndex 已按移除项调整，无需手动修正
   Future<void> _reorder(int oldIndex, int newIndex) async {
-    if (_loading || oldIndex == newIndex ||
-        oldIndex < 0 || oldIndex >= _sources.length ||
-        newIndex < 0 || newIndex >= _sources.length) {
+    if (_loading ||
+        oldIndex == newIndex ||
+        oldIndex < 0 ||
+        oldIndex >= _sources.length ||
+        newIndex < 0 ||
+        newIndex >= _sources.length) {
       return;
     }
     final list = List<RssSource>.of(_sources);
@@ -622,9 +642,12 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   /// 筛选后的拖动只交换可见书源的位置，隐藏书源保留原位置。
   Future<void> _reorderVisible(int oldIndex, int newIndex) async {
     final visible = List<RssSource>.of(_filtered);
-    if (_loading || oldIndex == newIndex ||
-        oldIndex < 0 || oldIndex >= visible.length ||
-        newIndex < 0 || newIndex >= visible.length) {
+    if (_loading ||
+        oldIndex == newIndex ||
+        oldIndex < 0 ||
+        oldIndex >= visible.length ||
+        newIndex < 0 ||
+        newIndex >= visible.length) {
       return;
     }
     visible.insert(newIndex, visible.removeAt(oldIndex));
@@ -721,8 +744,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       return;
     }
     final api = ref.read(bookApiProvider);
-    final selectedSources =
-        _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
+    final selectedSources = _sources
+        .where((s) => _selected.contains(s.sourceUrl))
+        .toList();
     switch (action) {
       case 'enable':
       case 'disable':
@@ -738,7 +762,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
             }
           }
           await _load();
-          _toast(enable ? l10n.selectedRssSourcesEnabled
+          _toast(
+            enable
+                ? l10n.selectedRssSourcesEnabled
                 : l10n.selectedRssSourcesDisabled,
           );
         } catch (e) {
@@ -785,8 +811,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _batchMove({required bool toTop}) async {
     final l10n = context.l10n;
     final sel = _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
-    final rest =
-        _sources.where((s) => !_selected.contains(s.sourceUrl)).toList();
+    final rest = _sources
+        .where((s) => !_selected.contains(s.sourceUrl))
+        .toList();
     final list = toTop ? [...sel, ...rest] : [...rest, ...sel];
     final changed = <RssSource>[];
     for (var i = 0; i < list.length; i++) {
@@ -802,7 +829,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       for (final s in changed) {
         await api.updateRssSource(s);
       }
-      _toast(toTop ? l10n.selectedRssSourcesPinned : l10n.selectedRssSourcesBottom,
+      _toast(
+        toTop ? l10n.selectedRssSourcesPinned : l10n.selectedRssSourcesBottom,
       );
     } catch (e) {
       _toast(l10n.operationFailed(e.toString()));
@@ -883,8 +911,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _exportSelected() async {
     final l10n = context.l10n;
     try {
-      final selectedSources =
-          _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
+      final selectedSources = _sources
+          .where((s) => _selected.contains(s.sourceUrl))
+          .toList();
       final json = const JsonEncoder.withIndent('  ')
           .convert(selectedSources.map((s) => s.toJson()).toList());
       await Clipboard.setData(ClipboardData(text: json));
@@ -899,11 +928,14 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _shareSelected() async {
     final l10n = context.l10n;
     try {
-      final selectedSources =
-          _sources.where((s) => _selected.contains(s.sourceUrl)).toList();
+      final selectedSources = _sources
+          .where((s) => _selected.contains(s.sourceUrl))
+          .toList();
       final json = jsonEncode(selectedSources.map((s) => s.toJson()).toList());
       await SharePlus.instance.share(
-        ShareParams(text: json, subject: l10n.shareRssSourceCount(selectedSources.length),
+        ShareParams(
+          text: json,
+          subject: l10n.shareRssSourceCount(selectedSources.length),
         ),
       );
     } catch (e) {
@@ -1086,7 +1118,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       final n = await syncDefaultRssSources(ref.read(bookApiProvider));
       await _load();
       if (!mounted) return;
-      _toast(n > 0 ? l10n.importedDefaultRssSourceCount(n)
+      _toast(
+        n > 0
+            ? l10n.importedDefaultRssSourceCount(n)
             : l10n.defaultRssSourcesSynced,
       );
     } catch (e) {
@@ -1155,7 +1189,8 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
             TextField(
               controller: _controller,
               autofocus: widget.history.isEmpty,
-              decoration: InputDecoration(hintText: context.l10n.rssSourceUrlHint,
+              decoration: InputDecoration(
+                hintText: context.l10n.rssSourceUrlHint,
               ),
               keyboardType: TextInputType.url,
             ),
@@ -1163,7 +1198,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
               const SizedBox(height: 12),
               Text(
                 context.l10n.history,
-                  style: Theme.of(context).textTheme.labelMedium,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
               const SizedBox(height: 4),
               for (final url in widget.history)

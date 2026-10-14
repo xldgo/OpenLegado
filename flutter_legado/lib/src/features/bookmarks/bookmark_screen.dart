@@ -1,12 +1,13 @@
+import '../../widgets/dynamic_search_app_bar.dart';
 import '../../l10n/app_localization.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
-import '../../widgets/legado_app_bar.dart';
-import '../../widgets/app_search_field.dart';
 import '../../widgets/md3_fast_scroller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../widgets/app_menu.dart';
@@ -26,6 +27,7 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
   // [UI_SYNC_REFACTOR R3] 快速滚动条控制器
   final ScrollController _fsController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  bool _searchExpanded = false;
   String _searchQuery = '';
 
   @override
@@ -46,13 +48,15 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
   Widget build(BuildContext context) {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
-      topBar: LegadoAppBar(
-        title: AppSearchField(
-          controller: _searchController,
-          hintText: context.l10n.bookmarkSearchHint,
-          onSubmitted: _searchBookmarks,
-          onClear: () => _searchBookmarks(''),
-        ),
+      topBar: DynamicSearchAppBar(
+        title: context.l10n.bookmarks,
+        searchController: _searchController,
+        searchHint: context.l10n.bookmarkSearchHint,
+        expanded: _searchExpanded,
+        onExpandedChanged: (value) => setState(() => _searchExpanded = value),
+        onChanged: (_) {},
+        onSubmitted: _searchBookmarks,
+        onClear: () => _searchBookmarks(''),
       ),
       body: _buildBody(ref.watch(bookmarkNotifierProvider)),
     );
@@ -113,17 +117,17 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
     return Md3FastScroller(
       controller: _fsController,
       child: ListView.builder(
-      controller: _fsController,
-      itemCount: state.bookmarks.length,
-      itemBuilder: (context, index) {
-        final bookmark = state.bookmarks[index];
-        return _BookmarkTile(
-          bookmark: bookmark,
-          onTap: () => _navigateToChapter(context, bookmark),
-          onDelete: () => _confirmDelete(context, bookmark),
-          onEdit: () => _editNote(bookmark),
-        );
-      },
+        controller: _fsController,
+        itemCount: state.bookmarks.length,
+        itemBuilder: (context, index) {
+          final bookmark = state.bookmarks[index];
+          return _BookmarkTile(
+            bookmark: bookmark,
+            onTap: () => _navigateToChapter(context, bookmark),
+            onDelete: () => _confirmDelete(context, bookmark),
+            onEdit: () => _editNote(bookmark),
+          );
+        },
       ),
     );
   }
@@ -147,9 +151,8 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
       onSave: (note) => notifier.updateNote(bookmark, note),
     );
     if (!mounted || saved != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.bookmarkNoteSaved)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(context.l10n.bookmarkNoteSaved)));
   }
 
   void _confirmDelete(BuildContext context, Bookmark bookmark) {
@@ -186,7 +189,6 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
     setState(() => _searchQuery = query);
     ref.read(bookmarkNotifierProvider.notifier).search(query);
   }
-
 }
 
 class _BookmarkTile extends StatelessWidget {
@@ -215,7 +217,10 @@ class _BookmarkTile extends StatelessWidget {
     return AppMenuAnchor<String>(
       itemBuilder: (ctx) => [
         AppMenuItem(value: 'edit', child: Text(ctx.l10n.bookmarkEditNote)),
-        AppMenuItem(value: 'delete', child: Text(ctx.l10n.readerDeleteBookmark)),
+        AppMenuItem(
+          value: 'delete',
+          child: Text(ctx.l10n.readerDeleteBookmark),
+        ),
       ],
       onSelected: (action) {
         if (action == 'edit') onEdit();

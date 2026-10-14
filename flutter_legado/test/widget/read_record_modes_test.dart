@@ -220,6 +220,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('最后阅读按上游平铺封面、书名、作者和完整阅读时间', (tester) async {
+    await pump(tester);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byTooltip('切换阅读记录视图'));
+      await tester.pumpAndSettle();
+    }
+    final title = find.text('测试小说');
+    expect(title, findsOneWidget);
+    expect(find.ancestor(of: title, matching: find.byType(Card)), findsNothing);
+    expect(find.text('作者'), findsOneWidget);
+    expect(find.text('1分钟 • 2026-10-13 12:00'), findsOneWidget);
+    expect(find.byTooltip('筛选阅读日期'), findsNothing);
+    await tester.longPress(title);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(await repo.getReadRecords(), isEmpty);
+    expect(await repo.getReadRecordSessions(), isEmpty);
+    expect(await repo.getAllReadRecordDetails(), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('三视图顶栏切换、显示真实章节、偏好持久化并保留总览入口', (tester) async {
     await pump(tester);
     expect(find.text('汇总视图'), findsOneWidget);
@@ -250,17 +274,10 @@ void main() {
     expect(find.text('总览入口'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('日期筛选与作者搜索，长按选择删除同步清空真实明细与会话', (tester) async {
+  testWidgets('移除日历入口后作者搜索和选择删除正常', (tester) async {
     await pump(tester);
-    final context = tester.element(find.byType(ReadRecordScreen));
-    final container = ProviderScope.containerOf(context);
-    container
-        .read(readRecordNotifierProvider.notifier)
-        .setSelectedDate(DateTime(2026, 10, 12));
-    await tester.pumpAndSettle();
-    expect(find.text('测试小说'), findsNothing);
-    container.read(readRecordNotifierProvider.notifier).setSelectedDate(null);
-    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选阅读日期'), findsNothing);
+    expect(find.byType(ReadingHeatmapCard), findsNothing);
     await tester.tap(find.byTooltip('搜索'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '作者');

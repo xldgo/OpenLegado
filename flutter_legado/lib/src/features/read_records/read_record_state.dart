@@ -24,7 +24,6 @@ class ReadRecordState {
   /// 排序模式
   final ReadRecordSortMode sortMode;
   final ReadRecordDisplayMode displayMode;
-  final DateTime? selectedDate;
 
   /// 是否启用阅读时长记录（对齐 AppConfig.enableReadRecord）
   final bool enableRecord;
@@ -41,7 +40,6 @@ class ReadRecordState {
     this.searchQuery = '',
     this.sortMode = ReadRecordSortMode.name,
     this.displayMode = ReadRecordDisplayMode.aggregate,
-    this.selectedDate,
     this.enableRecord = true,
     this.isLoading = false,
     this.error,
@@ -53,8 +51,6 @@ class ReadRecordState {
     String? searchQuery,
     ReadRecordSortMode? sortMode,
     ReadRecordDisplayMode? displayMode,
-    DateTime? selectedDate,
-    bool clearSelectedDate = false,
     bool? enableRecord,
     bool? isLoading,
     String? error,
@@ -66,9 +62,6 @@ class ReadRecordState {
       searchQuery: searchQuery ?? this.searchQuery,
       sortMode: sortMode ?? this.sortMode,
       displayMode: displayMode ?? this.displayMode,
-      selectedDate: clearSelectedDate
-          ? null
-          : (selectedDate ?? this.selectedDate),
       enableRecord: enableRecord ?? this.enableRecord,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),

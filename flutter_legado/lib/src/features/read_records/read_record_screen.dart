@@ -1,3 +1,5 @@
+import '../../widgets/app_search_transition.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -19,8 +21,6 @@ import 'read_record_state.dart';
 import 'read_record_dataset.dart';
 import 'read_record_list_provider.dart';
 import 'read_record_list_calculator.dart';
-import 'read_record_overview_notifier.dart';
-import 'widgets/reading_heatmap_card.dart';
 
 /// 对齐上游阅读记录三视图；统计/合并位于计算器，持久化位于Repository。— Codex + UI
 class ReadRecordScreen extends ConsumerStatefulWidget {
@@ -168,31 +168,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     }
   }
 
-  Future<void> _calendar() async {
-    final data = ref.read(homeReadRecordOverviewProvider);
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: ReadingHeatmapCard.fromStringMap(
-            dailySecondsMap: data.allDailyTimes,
-            dailyCountsMap: data.allDailyCounts,
-            selectedDate: ref.read(readRecordNotifierProvider).selectedDate,
-            onDateSelected: (date) {
-              ref
-                  .read(readRecordNotifierProvider.notifier)
-                  .setSelectedDate(date);
-              setState(_selected.clear);
-              Navigator.pop(ctx);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final controls = ref.watch(readRecordNotifierProvider);
@@ -204,7 +179,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
             records: data.asData!.value.records,
             details: data.asData!.value.details,
             query: controls.searchQuery,
-            selectedDate: controls.selectedDate,
           );
     final selection = _selected.isNotEmpty;
     return PopScope(
@@ -263,11 +237,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                     onPressed: _switchMode,
                   ),
                   IconButton(
-                    tooltip: context.l10n.filterReadRecordDate,
-                    icon: const Icon(Symbols.calendar_month_rounded),
-                    onPressed: _calendar,
-                  ),
-                  IconButton(
                     tooltip: context.l10n.search,
                     icon: const Icon(Symbols.search_rounded),
                     onPressed: () {
@@ -306,39 +275,29 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         ),
         body: Column(
           children: [
-            if (_showSearch)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hintText: context.l10n.searchBookOrAuthor,
-                  onChanged: (q) {
-                    setState(_selected.clear);
-                    ref
-                        .read(readRecordNotifierProvider.notifier)
-                        .setSearchQuery(q);
-                  },
-                ),
-              ),
-            if (controls.selectedDate != null &&
-                controls.displayMode != ReadRecordDisplayMode.latest)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: InputChip(
-                  label: Text(
-                    '${controls.selectedDate!.year}-${controls.selectedDate!.month}-${controls.selectedDate!.day}',
+            AppSearchTransition(
+              expanded: _showSearch,
+              builder: (context, progress) => AppSearchReveal(
+                progress: progress,
+                expanded: _showSearch,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  onDeleted: () {
-                    ref
-                        .read(readRecordNotifierProvider.notifier)
-                        .setSelectedDate(null);
-                    setState(_selected.clear);
-                  },
+                  child: AppSearchField(
+                    controller: _searchController,
+                    hintText: context.l10n.searchBookOrAuthor,
+                    onChanged: (q) {
+                      setState(_selected.clear);
+                      ref
+                          .read(readRecordNotifierProvider.notifier)
+                          .setSearchQuery(q);
+                    },
+                  ),
                 ),
               ),
+            ),
             Expanded(
               child: rows.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -368,7 +327,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                               child: _summaryCard(
                                 summary.books,
                                 summary.durationMs,
-                                controls.selectedDate,
                               ),
                             ),
                           ),
@@ -493,15 +451,11 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     );
   }
 
-  Widget _summaryCard(
-    List<ReadRecordListEntry> entries,
-    int duration,
-    DateTime? date,
-  ) {
+  Widget _summaryCard(List<ReadRecordListEntry> entries, int duration) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
-    final covers = entries.take(date == null ? 5 : 3).toList();
+    final covers = entries.take(5).toList();
     return Tooltip(
       message: context.l10n.readRecordOverview,
       child: Card(
@@ -520,12 +474,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        date == null
-                            ? context.l10n.readRecordTotalAchievement
-                            : context.l10n.readRecordDateOverview(
-                                date.month,
-                                date.day,
-                              ),
+                        context.l10n.readRecordTotalAchievement,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: cs.primary,
                         ),
@@ -764,46 +713,90 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ),
             ),
           )
-        : ListTile(
-            selected: selected,
-            leading: selected
-                ? const Icon(Symbols.check_circle_rounded)
-                : SizedBox(
-                    width: 40,
-                    height: 56,
-                    child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
-                  ),
-            title: Text(entry.bookName),
-            subtitle: Text(
-              [
-                if (entry.author.isNotEmpty) entry.author,
-                if (mode == ReadRecordDisplayMode.latest && entry.lastRead > 0)
-                  '${clock.year}-${clock.month}-${clock.day}',
-              ].join(' · '),
-            ),
-            trailing: Text(formatDuring(entry.durationMs)),
+        : InkWell(
             onTap: () => _open(entry),
             onLongPress: () => setState(
               () => selected
                   ? _selected.remove(entry.key)
                   : _selected.add(entry.key),
             ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 44,
+                    height: 62,
+                    child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
+                  ),
+                  if (_selected.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      selected
+                          ? Symbols.check_circle_rounded
+                          : Symbols.radio_button_unchecked_rounded,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                  ] else
+                    const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.bookName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          entry.author.isEmpty
+                              ? context.l10n.readRecordUnknownAuthor
+                              : entry.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${formatDuring(entry.durationMs)} • ',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    '${clock.year}-${clock.month.toString().padLeft(2, '0')}-${clock.day.toString().padLeft(2, '0')} $time',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
-    final tile = mode != ReadRecordDisplayMode.latest
-        ? Material(
-            color: selected
-                ? Theme.of(context).colorScheme.secondaryContainer
-                : Colors.transparent,
-            child: content,
-          )
-        : Card(
-            elevation: 0,
-            color: selected
-                ? Theme.of(context).colorScheme.secondaryContainer
-                : null,
-            clipBehavior: Clip.antiAlias,
-            child: content,
-          );
+    final tile = Material(
+      color: selected
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : Colors.transparent,
+      child: content,
+    );
     if (_selected.isNotEmpty) return tile;
     return Dismissible(
       key: ValueKey(entry.key),

@@ -15,8 +15,6 @@ class ReadingHeatmapCard extends StatefulWidget {
   final Md3HeatmapMode? mode;
   final ValueChanged<Md3HeatmapMode>? onModeChanged;
   final Widget? trailing;
-  final ValueChanged<DateTime>? onDateSelected;
-  final DateTime? selectedDate;
 
   const ReadingHeatmapCard({
     super.key,
@@ -28,8 +26,6 @@ class ReadingHeatmapCard extends StatefulWidget {
     this.mode,
     this.onModeChanged,
     this.trailing,
-    this.onDateSelected,
-    this.selectedDate,
   });
 
   /// 方便从 `Map<String, int>`（如 'YYYY-MM-DD'）直接构造
@@ -43,8 +39,6 @@ class ReadingHeatmapCard extends StatefulWidget {
     Md3HeatmapMode? mode,
     ValueChanged<Md3HeatmapMode>? onModeChanged,
     Widget? trailing,
-    ValueChanged<DateTime>? onDateSelected,
-    DateTime? selectedDate,
   }) {
     return ReadingHeatmapCard(
       key: key,
@@ -56,8 +50,6 @@ class ReadingHeatmapCard extends StatefulWidget {
       mode: mode,
       onModeChanged: onModeChanged,
       trailing: trailing,
-      onDateSelected: onDateSelected,
-      selectedDate: selectedDate,
     );
   }
 
@@ -127,11 +119,14 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
                 Icon(Symbols.grid_on_rounded, size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(widget.title, style: theme.textTheme.titleMedium),
-                ),
-                _ModeSwitchButton(
-                  currentMode: activeMode,
-                  onModeChanged: _onModeChanged,
+                  child: Text(
+                    widget.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 if (widget.trailing != null) widget.trailing!,
               ],
@@ -143,8 +138,10 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
               mode: activeMode,
               endDate: effectiveEndDate,
               weeks: widget.weeks,
-              onDateSelected: widget.onDateSelected,
-              selectedDate: widget.selectedDate,
+              footerLeading: _ModeSwitchButton(
+                currentMode: activeMode,
+                onModeChanged: _onModeChanged,
+              ),
             ),
           ],
         ),
@@ -176,11 +173,11 @@ class _ModeSwitchButton extends StatelessWidget {
       segments: const [
         ButtonSegment<Md3HeatmapMode>(
           value: Md3HeatmapMode.duration,
-          label: Text('时长', style: TextStyle(fontSize: 12)),
+          label: Text('时长'),
         ),
         ButtonSegment<Md3HeatmapMode>(
           value: Md3HeatmapMode.count,
-          label: Text('本数', style: TextStyle(fontSize: 12)),
+          label: Text('本数'),
         ),
       ],
       selected: {currentMode},

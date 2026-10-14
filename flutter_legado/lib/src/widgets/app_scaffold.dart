@@ -1,5 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'dynamic_search_app_bar.dart';
+import 'app_search_transition.dart';
+
 /// Legado 统一页壳（对齐参考版 `AppScaffold` 语义的轻量子集）
 ///
 /// [GLOBALCOMP B4] 参考版 `AppScaffold`（59 文件引用）是统一页壳：HazeState
@@ -30,7 +33,7 @@ import 'package:material_ui/material_ui.dart';
 /// classic_login_dialog（对话框内嵌壳）——上述文件维持原生 Scaffold，
 /// 不迁移。
 ///
-/// 本壳对参数**零改写**直通 `Scaffold`，迁移点视觉/交互逐参数等价
+/// 普通顶栏直通Scaffold；动态搜索顶栏由稳定动画宿主同步其占位高度。
 /// （widget 测试 test/widget/app_scaffold_test.dart 有同构等价用例）。
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
@@ -65,8 +68,19 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bar = topBar;
+    // 宿主层级固定，批量工具栏/搜索栏切换时不重建正文及滚动状态。
+    return AppSearchTransition(
+      expanded: bar is DynamicSearchAppBar && bar.expanded,
+      builder: (context, progress) => _scaffold(
+        bar is DynamicSearchAppBar ? bar.atProgress(progress) : bar,
+      ),
+    );
+  }
+
+  Widget _scaffold(PreferredSizeWidget? bar) {
     return Scaffold(
-      appBar: topBar,
+      appBar: bar,
       bottomNavigationBar: bottomBar,
       body: body,
       floatingActionButton: floatingActionButton,

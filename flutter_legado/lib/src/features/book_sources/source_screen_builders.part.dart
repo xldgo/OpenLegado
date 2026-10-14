@@ -9,7 +9,7 @@ part of 'source_screen.dart';
 
 extension _SourceBuilders on _SourceScreenState {
   PreferredSizeWidget _buildAppBar(BuildContext context, SourceState state) {
-    return LegadoAppBar(
+    return DynamicSearchAppBar(
       leading: state.batchMode
           ? IconButton(
               icon: const Icon(Symbols.close_rounded),
@@ -18,17 +18,13 @@ extension _SourceBuilders on _SourceScreenState {
                   ref.read(sourceNotifierProvider.notifier).exitBatchMode(),
             )
           : null,
-      title: Text(context.l10n.sourceManagement),
-      bottom: AppSearchRow(
-        field: AppSearchField(
-          controller: _searchCtrl,
-          hintText: context.l10n.searchBookSources,
-          onChanged: (v) =>
-              ref.read(sourceNotifierProvider.notifier).setFilter(v),
-          onClear: () =>
-              ref.read(sourceNotifierProvider.notifier).clearFilter(),
-        ),
-      ),
+      title: context.l10n.sourceManagement,
+      searchController: _searchCtrl,
+      searchHint: context.l10n.searchBookSources,
+      expanded: _searchExpanded,
+      onExpandedChanged: (value) => setState(() => _searchExpanded = value),
+      onChanged: (v) => ref.read(sourceNotifierProvider.notifier).setFilter(v),
+      onClear: () => ref.read(sourceNotifierProvider.notifier).clearFilter(),
       actions: [
         // 安卓原版 book_source.xml：排序按钮常驻顶栏（action_sort）
         AppMenuButton<String>(
@@ -259,13 +255,17 @@ extension _SourceBuilders on _SourceScreenState {
       final invalid = checkState.invalidCount;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(checkState.cancelled
-              ? '已取消校验（完成 $invalid 个失效）'
-              : (invalid > 0
-                  ? '校验完成：$invalid 个失效源已归入「失效」分组'
-                  : '校验完成：全部书源可用')),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              checkState.cancelled
+                  ? '已取消校验（完成 $invalid 个失效）'
+                  : (invalid > 0
+                        ? '校验完成：$invalid 个失效源已归入「失效」分组'
+                        : '校验完成：全部书源可用'),
+            ),
+          ),
+        );
       });
     }
 
@@ -305,7 +305,9 @@ extension _SourceBuilders on _SourceScreenState {
     final trimmed = origin.trim();
     if (trimmed.isEmpty) return '#';
     try {
-      final uri = Uri.parse(trimmed.contains('://') ? trimmed : 'http://$trimmed');
+      final uri = Uri.parse(
+        trimmed.contains('://') ? trimmed : 'http://$trimmed',
+      );
       final host = uri.host;
       if (host.isEmpty) return '#';
       final parts = host.split('.').where((p) => p.isNotEmpty).toList();
@@ -432,9 +434,8 @@ extension _SourceBuilders on _SourceScreenState {
             if (!mounted || saved) return;
             final error = ref.read(sourceNotifierProvider).error;
             if (error != null && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('保存排序失败：$error')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('保存排序失败：$error')));
             }
           },
           itemBuilder: (context, index) => KeyedSubtree(

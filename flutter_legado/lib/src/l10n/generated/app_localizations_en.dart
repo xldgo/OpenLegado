@@ -4004,9 +4004,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get switchReadRecordView => 'Switch reading record view';
 
   @override
-  String get filterReadRecordDate => 'Filter reading date';
-
-  @override
   String get readRecordOverview => 'Reading overview';
 
   @override
@@ -4016,11 +4013,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readRecordTotalAchievement => 'Total reading achievements';
-
-  @override
-  String readRecordDateOverview(int month, int day) {
-    return 'Reading overview for $month/$day';
-  }
 
   @override
   String readRecordSummaryBooks(int count) {

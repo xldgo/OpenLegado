@@ -202,6 +202,44 @@ void main() {
       expect(route.opaque, isTrue);
     });
 
+    testWidgets('换源筛选区域展开收起有中间高度且不改变顶栏', (tester) async {
+      stubSearchStream(
+        Stream.value(
+          makeBatch(
+            matches: [
+              rawMatch(sourceUrl: 's', sourceName: '样例源', bookUrl: 'b'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        wrap(const ChangeSourceScreen(bookName: '斗破苍穹', author: '天蚕土豆')),
+      );
+      await tester.pumpAndSettle();
+      final bar = find.byType(AppBar);
+      final barHeight = tester.getSize(bar).height;
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pump();
+      expect(find.byType(TextField), findsNothing);
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.getSize(bar).height, barHeight);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '样例');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '样例',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('顶栏显示书名 title 与作者 subtitle', (tester) async {
       await pumpChangeSource(tester);
 

@@ -1206,7 +1206,6 @@
   "readRecordViewTimeline": "Timeline view",
   "readRecordViewLatest": "Last read view",
   "switchReadRecordView": "Switch reading record view",
-  "filterReadRecordDate": "Filter reading date",
   "readRecordOverview": "Reading overview",
   "readRecordChapter": "Chapter {index}",
   "@readRecordChapter": {
@@ -1217,19 +1216,8 @@
     }
   },
   "readRecordTotalAchievement": "Total reading achievements",
-  "readRecordDateOverview": "Reading overview for {month}/{day}",
   "readRecordSummaryBooks": "{count} books read",
   "readRecordSummaryTime": "Total reading: {duration}",
-  "@readRecordDateOverview": {
-    "placeholders": {
-      "month": {
-        "type": "int"
-      },
-      "day": {
-        "type": "int"
-      }
-    }
-  },
   "@readRecordSummaryBooks": {
     "placeholders": {
       "count": {

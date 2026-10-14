@@ -60,22 +60,16 @@ class ReadRecordListCalculator {
     required List<ReadRecord> records,
     required List<ReadRecordDetail> details,
     String query = '',
-    DateTime? selectedDate,
   }) {
     final books = build(
-      mode: selectedDate == null
-          ? ReadRecordDisplayMode.latest
-          : ReadRecordDisplayMode.aggregate,
+      mode: ReadRecordDisplayMode.latest,
       records: records,
       details: details,
       query: query,
-      selectedDate: selectedDate,
     );
     return (
       books: books,
-      durationMs: selectedDate == null
-          ? records.fold<int>(0, (sum, r) => sum + r.readTime)
-          : books.fold<int>(0, (sum, r) => sum + r.durationMs),
+      durationMs: records.fold<int>(0, (sum, r) => sum + r.readTime),
     );
   }
 
@@ -85,16 +79,12 @@ class ReadRecordListCalculator {
     required List<ReadRecordDetail> details,
     List<ReadRecordSession> sessions = const [],
     String query = '',
-    DateTime? selectedDate,
   }) {
     final needle = query.trim().toLowerCase();
     bool matches(String name, String author) =>
         needle.isEmpty ||
         name.toLowerCase().contains(needle) ||
         author.toLowerCase().contains(needle);
-    final dateKey = selectedDate == null
-        ? null
-        : ReadRecordOverviewCalculator.dateKey(selectedDate);
     if (mode == ReadRecordDisplayMode.timeline) {
       final ordered =
           sessions
@@ -117,7 +107,6 @@ class ReadRecordListCalculator {
         final date = ReadRecordOverviewCalculator.dateKey(
           DateTime.fromMillisecondsSinceEpoch(session.startTime),
         );
-        if (dateKey != null && date != dateKey) continue;
         final row = ReadRecordListEntry(
           bookName: session.bookName,
           author: session.author,
@@ -148,11 +137,6 @@ class ReadRecordListCalculator {
       if (detail.readTime <= 0 ||
           ReadRecordOverviewCalculator.parseDate(detail.date) == null ||
           !matches(detail.bookName, detail.author)) {
-        continue;
-      }
-      if (mode == ReadRecordDisplayMode.aggregate &&
-          dateKey != null &&
-          detail.date != dateKey) {
         continue;
       }
       final date = mode == ReadRecordDisplayMode.aggregate ? detail.date : null;
