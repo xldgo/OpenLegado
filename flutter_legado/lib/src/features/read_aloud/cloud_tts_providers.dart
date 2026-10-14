@@ -40,11 +40,13 @@ class _MockSynthesizer implements CloudTtsSynthesizer {
   Future<HttpTtsSynthesisResult> synthesize({
     required String engineId,
     required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
     HttpTtsCancellation? cancellation,
   }) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.mock);
 }
 
 /// 试听有独立播放器，不能接管正文的完成标签。
-final cloudTtsPreviewPlayerProvider = Provider<StreamAudioPlayer>(
+final cloudTtsPreviewPlayerProvider = Provider.autoDispose<StreamAudioPlayer>(
   (ref) => StreamAudioPlayer(),
 );

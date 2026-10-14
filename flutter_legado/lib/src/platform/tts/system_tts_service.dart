@@ -135,10 +135,11 @@ class SystemTtsService implements SystemTts {
             .toList();
   }
 
-  Future<void> _selectVoice() async {
+  Future<void> _selectVoice([String? voiceOverride]) async {
+    final selectedVoice = voiceOverride ?? _voice;
     await _loadVoices();
     final excluded = await excludedVoiceKeys?.call(_engine) ?? <String>{};
-    if (_voice.isNotEmpty && excluded.contains(_voice)) {
+    if (selectedVoice.isNotEmpty && excluded.contains(selectedVoice)) {
       throw StateError('所选系统音色已禁用或排除，请重新选择音色');
     }
     final allowed = _voices.where((v) => !excluded.contains(v.key)).toList();
@@ -158,9 +159,9 @@ class SystemTtsService implements SystemTts {
     });
     SystemTtsVoice? chosen;
     for (final voice in allowed) {
-      if (voice.key == _voice) chosen = voice;
+      if (voice.key == selectedVoice) chosen = voice;
     }
-    if (_voice.isNotEmpty && chosen == null) {
+    if (selectedVoice.isNotEmpty && chosen == null) {
       throw StateError('所选系统音色已不可用，请重新选择音色');
     }
     chosen ??= chinese.isEmpty ? null : chinese.first;
@@ -242,10 +243,12 @@ class SystemTtsService implements SystemTts {
     double speed = 1,
     double pitch = 1,
     double volume = 1,
+    String? voiceKey,
   }) {
     _cancelActive();
     _paused = null;
-    final run = _Speech(++_generation, text, speed, pitch, volume);
+    final run = _Speech(++_generation, text, speed, pitch, volume)
+      ..voiceOverride = voiceKey;
     run.onProgress = onProgress;
     _active = run;
     unawaited(_begin(run));
@@ -265,6 +268,7 @@ class SystemTtsService implements SystemTts {
             previous.pitch,
             previous.volume,
           )
+          ..voiceOverride = previous.voiceOverride
           ..parts = previous.parts
           ..index = previous.index
           ..partProgress = previous.partProgress
@@ -285,7 +289,9 @@ class SystemTtsService implements SystemTts {
         if (resumeFrom?.nativePaused != true) await _stopNative();
         if (!_current(run)) return;
         // 起播重读目录用户标记；恢复原生暂停内容时不改变原 utterance 音色。
-        if (resumeFrom?.nativePaused != true) await _selectVoice();
+        if (resumeFrom?.nativePaused != true) {
+          await _selectVoice(run.voiceOverride);
+        }
         if (!_current(run)) return;
         if (_platform == TargetPlatform.iOS) {
           // 中断可能使共享会话失活，开始与恢复时重新激活。
@@ -469,6 +475,7 @@ class _Speech {
   final double speed, pitch, volume;
   final result = Completer<SystemTtsOutcome>();
   List<String>? parts;
+  String? voiceOverride;
   int index = 0;
   bool started = false;
   bool nativePaused = false;

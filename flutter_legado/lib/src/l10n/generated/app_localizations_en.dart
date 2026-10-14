@@ -3778,10 +3778,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readAloudVoiceGroup => 'Engines and voices';
 
   @override
-  String get readAloudEngines => 'Speech engines';
+  String get readAloudEngines => 'Speech engines and voices';
 
   @override
-  String get readAloudEnginesSummary => 'Manage system and HTTP speech engines';
+  String get readAloudEnginesSummary => 'Manage system, HTTP and cloud speech';
+
+  @override
+  String get readAloudCloudEngines => 'Cloud TTS';
+
+  @override
+  String get readAloudHttpEngines => 'HTTP protocol TTS';
+
+  @override
+  String get readAloudSystemEngines => 'System TTS';
 
   @override
   String get readAloudSystemVoice => 'System voice';

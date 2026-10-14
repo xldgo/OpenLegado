@@ -84,7 +84,7 @@ class MockBookApi
         MockBookApiContentExt
     implements BookApi {
   @override
-  final CloudTtsRepository cloudTtsRepository = MockCloudTtsRepository();
+  late final CloudTtsRepository cloudTtsRepository;
   MockBookApi({
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,
@@ -106,6 +106,7 @@ class MockBookApi
     this.readRecordRepository =
         readRecordRepository ?? MockReadRecordRepository();
     readAloudVoiceRepository = MockReadAloudVoiceRepository();
+    cloudTtsRepository = MockCloudTtsRepository(onDelete: readAloudVoiceRepository.clearCloud);
     this.httpTtsRepository =
         httpTtsRepository ??
         MockHttpTtsRepository(

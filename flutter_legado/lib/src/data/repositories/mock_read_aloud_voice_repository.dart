@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
-
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 
 /// Mock 会话内目录，不读取设备或伪造原生文件。— Codex + Bridge
@@ -13,7 +11,47 @@ final class MockReadAloudVoiceRepository implements ReadAloudVoiceRepository {
   @override
   Future<List<ReadAloudVoice>> list() async => List.unmodifiable(_voices);
   String _id(String kind, String engine, String speaker) =>
-      'voice:${sha256.convert(utf8.encode('$kind\u0000$engine\u0000$speaker')).toString().substring(0, 32)}';
+      readAloudVoiceId(kind, engine, speaker);
+  @override
+  Future<void> save(ReadAloudVoice voice) async {
+    if (!{'http', 'system', 'cloud_tts'}.contains(voice.engineType) ||
+        voice.speakerId.trim().isEmpty ||
+        voice.displayName.trim().isEmpty ||
+        voice.id !=
+            readAloudVoiceId(
+              voice.engineType,
+              voice.engineId,
+              voice.speakerId,
+            ) ||
+        jsonDecode(voice.traitsJson) is! Map ||
+        jsonDecode(voice.emotionCatalogJson) is! List) {
+      throw const FormatException('音色配置无效');
+    }
+    final previous = _voices.where((v) => v.id == voice.id).firstOrNull;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    _voices.removeWhere((v) => v.id == voice.id);
+    _voices.add(
+      ReadAloudVoice.fromJson({
+        ...voice.toJson(),
+        'managedBy': 'user',
+        'createdAt': previous?.createdAt ?? timestamp,
+        'updatedAt': timestamp,
+        'revision': (previous?.revision ?? 0) + 1,
+      }),
+    );
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    if (!_voices.any((v) => v.id == id && v.managedBy == 'user')) {
+      throw StateError('用户音色不存在');
+    }
+    _voices.removeWhere((v) => v.id == id);
+  }
+
+  void clearCloud(String id) => _voices.removeWhere(
+    (v) => v.engineType == 'cloud_tts' && v.engineId == id,
+  );
   void _sync(
     String kind,
     String engine,
@@ -40,6 +78,8 @@ final class MockReadAloudVoiceRepository implements ReadAloudVoiceRepository {
                 : 'system_catalog',
           ),
         );
+      } else if (_voices[i].managedBy == 'user') {
+        _voices[i] = _voices[i].copyWith(available: true);
       } else {
         _voices[i] = _voices[i].copyWith(
           displayName: e.name,
@@ -50,14 +90,28 @@ final class MockReadAloudVoiceRepository implements ReadAloudVoiceRepository {
       }
     }
     if (kind == 'http') {
+      for (var i = 0; i < _voices.length; i++) {
+        final v = _voices[i];
+        if (v.engineType == kind &&
+            v.engineId == engine &&
+            v.managedBy == 'user' &&
+            !ids.contains(v.id)) {
+          _voices[i] = v.copyWith(available: false);
+        }
+      }
       _voices.removeWhere(
         (v) =>
-            v.engineType == kind && v.engineId == engine && !ids.contains(v.id),
+            v.engineType == kind &&
+            v.engineId == engine &&
+            v.managedBy != 'user' &&
+            !ids.contains(v.id),
       );
     } else {
       for (var i = 0; i < _voices.length; i++) {
         final v = _voices[i];
-        if (v.engineType == kind && v.engineId == engine && !ids.contains(v.id)) {
+        if (v.engineType == kind &&
+            v.engineId == engine &&
+            !ids.contains(v.id)) {
           _voices[i] = v.copyWith(available: false);
         }
       }

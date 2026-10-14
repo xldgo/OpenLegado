@@ -654,3 +654,239 @@ async fn mimo_invalid_stream_and_cancelled_download_leave_no_audio() {
             .is_empty()
     );
 }
+
+fn alibaba_engine() -> CloudTtsEngine {
+    CloudTtsEngine {
+        provider: CloudTtsProviderType::AlibabaCloud,
+        model: "qwen3-tts-flash".into(),
+        ..engine()
+    }
+}
+fn alibaba_request() -> CloudTtsSynthesisRequest {
+    CloudTtsSynthesisRequest {
+        voice_id: "Cherry".into(),
+        ..request()
+    }
+}
+async fn read_http(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
+    let mut data = Vec::new();
+    let header_end = loop {
+        let mut buffer = [0u8; 4096];
+        let n = stream.read(&mut buffer).await.unwrap();
+        assert!(n > 0);
+        data.extend_from_slice(&buffer[..n]);
+        if let Some(i) = data.windows(4).position(|w| w == b"\r\n\r\n") {
+            break i + 4;
+        }
+    };
+    let header = String::from_utf8_lossy(&data[..header_end]);
+    let length = header
+        .lines()
+        .find_map(|l| {
+            let (k, v) = l.split_once(':')?;
+            k.eq_ignore_ascii_case("content-length")
+                .then(|| v.trim().parse::<usize>().unwrap())
+        })
+        .unwrap_or(0);
+    while data.len() < header_end + length {
+        let mut buffer = [0u8; 4096];
+        let n = stream.read(&mut buffer).await.unwrap();
+        assert!(n > 0);
+        data.extend_from_slice(&buffer[..n]);
+    }
+    data
+}
+async fn send_http(stream: &mut tokio::net::TcpStream, mime: &str, bytes: &[u8]) {
+    stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",bytes.len()).as_bytes()).await.unwrap();
+    stream.write_all(bytes).await.unwrap();
+}
+#[tokio::test]
+async fn alibaba_real_sse_signed_download_has_no_authentication_and_cache_avoids_both_requests() {
+    use legado_core::cloud_tts_alibaba::AlibabaCloudTtsProvider;
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let first = read_http(&mut stream).await;
+        let payload = format!(
+            "data: {{\"output\":{{\"finish_reason\":\"stop\",\"audio\":{{\"url\":\"http://{address}/result.wav?Signature=fixture\"}}}}}}\r\n\r\n"
+        );
+        send_http(&mut stream, "text/event-stream", payload.as_bytes()).await;
+        drop(stream);
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let second = read_http(&mut stream).await;
+        send_http(&mut stream, "audio/wav", &wav()).await;
+        (first, second)
+    });
+    let mut engine = alibaba_engine();
+    engine.base_url = format!("http://{address}/api/v1");
+    let transport = CloudTtsHttpTransport::with_proxy_discovery(false).unwrap();
+    let directory = Directory::new();
+    let first = synthesize_cloud_tts(
+        &AlibabaCloudTtsProvider,
+        &transport,
+        &engine,
+        &alibaba_request(),
+        &directory.0,
+        &TtsCancellation::default(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(std::fs::read(&first.audio_path).unwrap(), wav());
+    assert!(!first.from_cache);
+    let (post, get) = tokio::time::timeout(Duration::from_secs(10), server)
+        .await
+        .unwrap()
+        .unwrap();
+    let post = String::from_utf8(post).unwrap();
+    let get = String::from_utf8(get).unwrap();
+    assert!(
+        post.starts_with("POST /api/v1/services/aigc/multimodal-generation/generation HTTP/1.1")
+    );
+    assert!(post.to_lowercase().contains("x-dashscope-sse: enable"));
+    assert!(
+        post.to_lowercase()
+            .contains("authorization: bearer local-fixture-key")
+    );
+    assert!(get.starts_with("GET /result.wav?Signature=fixture HTTP/1.1"));
+    assert!(!get.to_lowercase().contains("authorization:"));
+    assert!(!get.to_lowercase().contains("cookie:"));
+    assert!(!get.contains("local-fixture-key"));
+    let cached = synthesize_cloud_tts(
+        &AlibabaCloudTtsProvider,
+        &transport,
+        &engine,
+        &alibaba_request(),
+        &directory.0,
+        &TtsCancellation::default(),
+    )
+    .await
+    .unwrap();
+    assert!(cached.from_cache);
+}
+#[tokio::test]
+async fn alibaba_pcm_path_and_invalid_streams_never_cache_partial_audio() {
+    use legado_core::cloud_tts_alibaba::AlibabaCloudTtsProvider;
+    for (stream, valid) in [
+        (
+            "data: {\"output\":{\"finish_reason\":\"stop\",\"audio\":{\"data\":\"AAEAAg==\"}}}\n\n",
+            true,
+        ),
+        (
+            "data: {\"output\":{\"audio\":{\"data\":\"AAEAAg==\"}}}\n\n",
+            false,
+        ),
+        ("data: {\"code\":\"InvalidApiKey\"}\n\n", false),
+        (
+            "data: {\"output\":{\"finish_reason\":\"stop\",\"audio\":{\"data\":\"AQ==\"}}}\n\n",
+            false,
+        ),
+    ] {
+        let directory = Directory::new();
+        let transport = Transport {
+            mime: "text/event-stream".into(),
+            bytes: stream.as_bytes().to_vec(),
+            ..Transport::new()
+        };
+        let result = synthesize_cloud_tts(
+            &AlibabaCloudTtsProvider,
+            &transport,
+            &alibaba_engine(),
+            &alibaba_request(),
+            &directory.0,
+            &TtsCancellation::default(),
+        )
+        .await;
+        assert_eq!(result.is_ok(), valid);
+        if valid {
+            assert_eq!(std::fs::read(result.unwrap().audio_path).unwrap(), wav());
+        } else {
+            assert!(
+                !std::fs::read_dir(&directory.0)
+                    .unwrap()
+                    .filter_map(Result::ok)
+                    .any(|e| e.path().extension().is_some_and(|e| e == "wav"))
+            );
+        }
+    }
+}
+struct AlibabaDownloadTransport {
+    entered: Notify,
+    cancelled_download: bool,
+    bad_audio: bool,
+}
+impl CloudTtsTransport for AlibabaDownloadTransport {
+    fn send<'a>(
+        &'a self,
+        _request: &'a PreparedCloudSpeech,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async {
+            Ok(CloudTtsResponse{status:200,content_type:"text/event-stream".into(),bytes:b"data: {\"output\":{\"finish_reason\":\"stop\",\"audio\":{\"url\":\"http://fixture.invalid/audio.wav\"}}}\n\n".to_vec()})
+        })
+    }
+    fn download_audio<'a>(
+        &'a self,
+        _url: &'a str,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async {
+            self.entered.notify_one();
+            if self.cancelled_download {
+                std::future::pending::<()>().await;
+            }
+            Ok(CloudTtsResponse {
+                status: 200,
+                content_type: if self.bad_audio {
+                    "application/json"
+                } else {
+                    "audio/wav"
+                }
+                .into(),
+                bytes: if self.bad_audio {
+                    b"{\"error\":\"private\"}".to_vec()
+                } else {
+                    wav()
+                },
+            })
+        })
+    }
+}
+#[tokio::test]
+async fn alibaba_download_cancel_and_text_error_do_not_publish_audio() {
+    use legado_core::cloud_tts_alibaba::AlibabaCloudTtsProvider;
+    for cancelled in [false, true] {
+        let directory = Directory::new();
+        let cancellation = TtsCancellation::default();
+        let transport = AlibabaDownloadTransport {
+            entered: Notify::new(),
+            cancelled_download: cancelled,
+            bad_audio: !cancelled,
+        };
+        let engine = alibaba_engine();
+        let request = alibaba_request();
+        let operation = synthesize_cloud_tts(
+            &AlibabaCloudTtsProvider,
+            &transport,
+            &engine,
+            &request,
+            &directory.0,
+            &cancellation,
+        );
+        tokio::pin!(operation);
+        let result = if cancelled {
+            tokio::select! { _=&mut operation=>panic!("取消前不能结束下载"), _=transport.entered.notified()=>{} }
+            cancellation.cancel();
+            tokio::time::timeout(Duration::from_secs(2), operation)
+                .await
+                .unwrap()
+        } else {
+            operation.await
+        };
+        assert!(result.is_err());
+        assert!(
+            !std::fs::read_dir(&directory.0)
+                .unwrap()
+                .filter_map(Result::ok)
+                .any(|e| e.path().extension().is_some_and(|e| e == "wav"))
+        );
+    }
+}

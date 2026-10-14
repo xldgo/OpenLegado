@@ -874,8 +874,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
         // [LAYOUT_PLAN P1] Tab 标准化：无分割线 + labelLargeEmphasized
         bottom: TabBar(
           controller: _tabController,
-          // 全局 tabBarTheme 设了 TabAlignment.start，非 scrollable TabBar
-          // 必须覆盖为 fill，否则触发断言崩溃（同 rss_source_edit_screen 先例）
+          // 固定宽度标签等宽铺满，各页面不依赖全局对齐策略。
           tabAlignment: TabAlignment.fill,
           labelColor: cs.primary,
           unselectedLabelColor: cs.onSurfaceVariant,

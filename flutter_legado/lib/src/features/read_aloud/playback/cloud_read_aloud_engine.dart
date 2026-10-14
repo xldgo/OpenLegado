@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:characters/characters.dart';
 
 import '../../../domain/contracts/cloud_tts_repository.dart';
+import '../../../domain/contracts/cloud_tts_provider.dart';
 import '../../../domain/contracts/cloud_tts_synthesizer.dart';
 import '../../../domain/contracts/tts_cache_repository.dart';
 import '../../../domain/contracts/http_tts_synthesizer.dart';
@@ -16,12 +17,15 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
     required CloudTtsSynthesizer Function() synthesizer,
     required StreamAudioPlayer player,
     required TtsCacheRepository Function() cache,
+    this.repository,
   }) : _file = FileReadAloudEngine(
          player: player,
          synthesize: (request, cancellation) async {
            final result = await synthesizer().synthesize(
              engineId: cloudTtsId(request.engineUrl),
              text: request.text,
+             voiceId: request.voicePresetId,
+             voiceOptions: request.cloudVoiceOptions,
              cancellation: cancellation,
            );
            if (result is HttpTtsAudio && request.cacheContext != null) {
@@ -36,6 +40,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
          },
        );
   final FileReadAloudEngine _file;
+  final CloudTtsRepository Function()? repository;
   ReadAloudSession? _parent;
   ReadAloudRequest? _request;
   List<String> _parts = [];
@@ -79,6 +84,8 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
       ReadAloudRequest(
         text: _parts[_index],
         engineUrl: request.engineUrl,
+        voicePresetId: request.voicePresetId,
+        cloudVoiceOptions: request.cloudVoiceOptions,
         speed: request.speed,
         cacheContext: request.cacheContext,
       ),
@@ -95,7 +102,20 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
     if (!session.isCurrent) return ReadAloudStart.cancelled;
     _parent = session;
     _request = request;
-    _parts = splitCloudSpeechText(request.text);
+    var limit = 4000;
+    final resolveRepository = repository;
+    if (resolveRepository != null) {
+      final engines = await resolveRepository().list();
+      if (!identical(_parent, session) || !session.isCurrent) {
+        return ReadAloudStart.cancelled;
+      }
+      final engine = engines
+          .where((e) => e.id == cloudTtsId(request.engineUrl))
+          .firstOrNull;
+      if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
+      limit = cloudTtsProfile(engine.provider).textLimit;
+    }
+    _parts = splitCloudSpeechText(request.text, limit: limit);
     _index = 0;
     if (_parts.isEmpty) return ReadAloudStart.noAudio;
     return _speakPart(session);

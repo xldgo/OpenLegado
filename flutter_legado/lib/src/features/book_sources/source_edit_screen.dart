@@ -570,6 +570,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
           onTap: (_) => FocusScope.of(context).unfocus(),
           tabs: [
             Tab(text: context.l10n.editorBasic),

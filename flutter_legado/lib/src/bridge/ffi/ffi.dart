@@ -1808,6 +1808,14 @@ Future<bool> readAloudVoiceSetFlags({
   excluded: excluded,
 );
 
+/// 保存用户音色配置，稳定身份由数据库核对。
+Future<void> readAloudVoiceSave({required String voiceJson}) =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceSave(voiceJson: voiceJson);
+
+/// 仅删除用户保存的音色；源目录使用排除标记。
+Future<bool> readAloudVoiceDelete({required String id}) =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceDelete(id: id);
+
 /// 登记朗读缓存的书章段索引。
 Future<void> ttsCacheRecord({
   required String audioPath,

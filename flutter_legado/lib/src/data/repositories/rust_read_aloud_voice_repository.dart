@@ -16,6 +16,14 @@ final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
           )
           .toList(growable: false);
   @override
+  Future<void> save(ReadAloudVoice voice) =>
+      bridge.readAloudVoiceSave(voiceJson: jsonEncode(voice.toJson()));
+  @override
+  Future<void> delete(String id) async {
+    if (!await bridge.readAloudVoiceDelete(id: id)) throw StateError('用户音色不存在');
+  }
+
+  @override
   Future<void> syncSystem(
     String engineId,
     List<SystemVoiceCatalogEntry> entries,

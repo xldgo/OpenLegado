@@ -667,9 +667,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
               _isEdit ? context.l10n.editRssSource : context.l10n.newRssSource,
             ),
             bottom: TabBar(
-              // 全局 tabBarTheme 设了 TabAlignment.start，必须 isScrollable
-              // 否则触发断言崩溃（对齐书源编辑页）
+              // 多项规则标签沿用可滚动、左侧起始对齐。
               isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(text: context.l10n.editorBasic),
                 Tab(text: context.l10n.editorPreprocess),

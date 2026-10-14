@@ -51,6 +51,7 @@ class _System extends Fake implements SystemTts {
     double speed = 1,
     double pitch = 1,
     double volume = 1,
+    String? voiceKey,
   }) {
     if (startError != null) throw startError!;
     requests.add((text: text, speed: speed, pitch: pitch, volume: volume));

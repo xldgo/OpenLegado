@@ -18,7 +18,7 @@ pub struct CloudTtsMetadata {
     pub updated_at: i64,
     pub credential_key: String,
 }
-#[derive(Default, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CloudVoiceOptions {
     pub voice_id: Option<String>,
@@ -47,6 +47,7 @@ impl CloudTtsMetadata {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "alloy",
                     CloudTtsProviderType::Mimo => "mimo_default",
+                    CloudTtsProviderType::AlibabaCloud => "Cherry",
                 }
                 .into()
             }),
@@ -56,7 +57,7 @@ impl CloudTtsMetadata {
             format: options.format.unwrap_or_else(|| {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
-                    CloudTtsProviderType::Mimo => "wav",
+                    CloudTtsProviderType::Mimo | CloudTtsProviderType::AlibabaCloud => "wav",
                 }
                 .into()
             }),
@@ -167,11 +168,18 @@ impl<'a> CloudTtsRepository<'a> {
         Ok(())
     }
     pub fn delete(&self, id: &str) -> LegadoResult<bool> {
-        Ok(self
-            .conn
+        let tx = self.conn.unchecked_transaction().map_err(db)?;
+        tx.execute(
+            "DELETE FROM read_aloud_voices WHERE engineType='cloud_tts' AND engineId=?1",
+            [id],
+        )
+        .map_err(db)?;
+        let deleted = tx
             .execute("DELETE FROM cloud_tts_engines WHERE id=?1", [id])
             .map_err(db)?
-            > 0)
+            > 0;
+        tx.commit().map_err(db)?;
+        Ok(deleted)
     }
 }
 #[cfg(test)]
@@ -196,6 +204,8 @@ mod tests {
     #[test]
     fn metadata_crud_preserves_identity_and_rejects_credentials() {
         let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_READ_ALOUD_VOICES)
+            .unwrap();
         c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
             .unwrap();
         let r = CloudTtsRepository::new(&c);
@@ -220,6 +230,8 @@ mod tests {
     #[test]
     fn options_and_address_validated_before_save() {
         let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_READ_ALOUD_VOICES)
+            .unwrap();
         c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
             .unwrap();
         let r = CloudTtsRepository::new(&c);
@@ -238,6 +250,8 @@ mod tests {
     #[test]
     fn mimo_metadata_defaults_and_provider_identity_are_preserved() {
         let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(crate::schema::CREATE_READ_ALOUD_VOICES)
+            .unwrap();
         c.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
             .unwrap();
         let repo = CloudTtsRepository::new(&c);
@@ -259,5 +273,42 @@ mod tests {
         m.provider = CloudTtsProviderType::Mimo;
         m.options_json = r#"{"format":"mp3"}"#.into();
         assert!(repo.save(&m).is_err());
+    }
+    #[test]
+    fn alibaba_metadata_defaults_crud_and_provider_identity() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE cloud_tts_engines(id TEXT PRIMARY KEY,name TEXT,provider TEXT,baseUrl TEXT,model TEXT,optionsJson TEXT,region TEXT,appId TEXT,enabled INTEGER,createdAt INTEGER,updatedAt INTEGER,credentialKey TEXT);").unwrap();
+        let repo = CloudTtsRepository::new(&conn);
+        let mut m = metadata();
+        m.provider = CloudTtsProviderType::AlibabaCloud;
+        m.model = "qwen3-tts-flash".into();
+        m.options_json = "{}".into();
+        let request = m.request("原文".into()).unwrap();
+        assert_eq!(request.voice_id, "Cherry");
+        assert_eq!(request.format, "wav");
+        repo.save(&m).unwrap();
+        assert_eq!(
+            repo.get(&m.id).unwrap().provider,
+            CloudTtsProviderType::AlibabaCloud
+        );
+        m.name = "改名".into();
+        m.options_json =
+            r#"{"voiceId":"Serena","instructions":"用中文朗读","format":"wav"}"#.into();
+        repo.save(&m).unwrap();
+        assert_eq!(
+            repo.get(&m.id)
+                .unwrap()
+                .request("原文".into())
+                .unwrap()
+                .voice_id,
+            "Serena"
+        );
+        m.provider = CloudTtsProviderType::Mimo;
+        m.model = "mimo-v2.5-tts".into();
+        assert!(repo.save(&m).is_err());
+        assert_eq!(
+            repo.get(&m.id).unwrap().provider,
+            CloudTtsProviderType::AlibabaCloud
+        );
     }
 }

@@ -3560,10 +3560,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readAloudVoiceGroup => '引擎与声音';
 
   @override
-  String get readAloudEngines => '朗读引擎';
+  String get readAloudEngines => '朗读引擎与音色';
 
   @override
-  String get readAloudEnginesSummary => '管理系统与 HTTP 朗读引擎';
+  String get readAloudEnginesSummary => '管理系统、HTTP 与云端朗读';
+
+  @override
+  String get readAloudCloudEngines => '云 TTS';
+
+  @override
+  String get readAloudHttpEngines => 'HTTP 协议 TTS';
+
+  @override
+  String get readAloudSystemEngines => '系统 TTS';
 
   @override
   String get readAloudSystemVoice => '系统语音';

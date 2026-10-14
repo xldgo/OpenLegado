@@ -933,9 +933,20 @@ TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Reposi
 
 `ReadAloudVoiceRepository` 窄接口提供查询、系统同步和标记修改，HTTP 导入同步不经过 UI 算法。源级目录情感列表挂到该源每个音色，传入 toneId/speakerName/emotionTag 三项均进入已有 ReadAloudRequest 与 Rust 合成上下文/缓存键。选择按引擎持久化；换引擎不沿用上一源 toneID，选中不可用/排除音色不静默替换，保持默认参数并给出提示。系统选择复用 saveSettings；目录发现不依赖所选音色能成功播放，起播/非原生暂停恢复时校验当前设备目录和用户标记。显式系统音色消失、禁用或排除时保留选择并报错，不自动换声；默认选择避开不可选项。暂不实现系统音频文件合成或新原生桥。
 
+**2026-10-14 音色/引擎职责拆分（用户授权，实施前冻结）**：复用 schema v112 的 read_aloud_voices，不新增表。按固定上游使用 engineType/engineId/speakerId 的稳定身份；同引擎的不同原生音色分别保存，重复添加同一音色编辑原行。用户配置 managedBy=user，目录同步保留用户名称/参数；引擎删除清理关联音色。云端 engineType=cloud_tts、traitsJson 为 CloudVoiceOptions 对象，speakerId 为原生音色 ID；HTTP/系统继续复用现有选择协议。
+
+| 新增接口 | 语义 |
+|---|---|
+| readAloudVoiceSave(voiceJson) | Future<void>；保存完整 ReadAloudVoice 用户配置，验证稳定 ID、引擎存在、参数对象，不允许把一个已有 ID 改绑其他引擎/音色；时间戳与 revision 由 Rust 管理。 |
+| readAloudVoiceDelete(id) | Future<bool>；删除用户音色；自动同步目录通过排除标记保留，不允许删除后重建。 |
+
+CloudTtsSynthesizer.synthesize 增加可选 voiceId（保存的音色记录 ID）、voiceOptions（仅试听草稿）；cloudTtsSpeak 的 requestJson 扩展相同二选一字段。Rust 从音色表读取配置并核对所属引擎/可选标记；草稿只接受受限 CloudVoiceOptions 字段，不能传地址/凭据。选择按 cloudTtsVoice:<engineId> 保存音色记录 ID，不修改引擎 optionsJson 或凭据。实际合成参数覆盖音色、风格、指令、语速和格式，进入现有请求缓存身份。原有省略音色的调用仍使用引擎默认参数；未增加历史回填。
+
+引擎页只管理服务/凭据/请求配置，音色页添加/编辑/删除/试听音色。试听使用独立会话和播放器，先暂停正文，不写默认选择、不改变引擎、不触发正文切段；退出页/换 Tab/停止使过期回调失效并释放租约。系统试听可传临时 voiceKey，不能写入持久化系统选项。
+
 **T4b-1 原生云端合成基础（2026-10-13，实施前冻结）**：本批仅新增 Rust 内部 CloudTtsProvider/OpenAI Speech 与可注入网络传输，不新增 FRB 方法、数据库表或用户入口。参考上游固定 070ca1a 的 OpenAiCloudTtsProvider；模型、音色、请求和格式语义以 TTS_ALIGNMENT 的明确清单为准。凭据仅作为调用输入，在内存准备 Authorization；Debug 和可导出 JSON 不含凭据。缓存身份包含引擎、目标、实际请求与凭据摘要，不将明文凭据落盘。缓存命中仍须先验证引擎启用、必填参数和凭据。取消覆盖锁等待和网络；结果使用既有 TtsCache 活动门禁/音频租约和 SpeakCache 原子发布。此内部接口不是已开放给 Flutter 的云端功能；后续安全存储、CloudTtsRepository、FRB 和 CloudReadAloudEngine 需分别冻结契约。
 
-**T4b-2 云端配置与播放（2026-10-14，实施前冻结）**：schema v112 新增 cloud_tts_engines 元数据表，仅建表、不回填。字段 id/name/provider/baseUrl/model/optionsJson/region/appId/enabled/createdAt/updatedAt/credentialKey；不保存 apiKey 或 secretKey。T4b-2 首批 provider 为 openai_speech，T4b-3 增加 mimo，未知类型拒绝。ID 为 1..128 ASCII 字母/数字/下划线/连字符；credentialKey 为独立平台安全存储引用。正常保存保留 createdAt、更新 updatedAt；optionsJson 必须是合法对象，不接受私有凭据字段。
+**T4b-2 云端配置与播放（2026-10-14，实施前冻结）**：schema v112 新增 cloud_tts_engines 元数据表，仅建表、不回填。字段 id/name/provider/baseUrl/model/optionsJson/region/appId/enabled/createdAt/updatedAt/credentialKey；不保存 apiKey 或 secretKey。T4b-2 首批 provider 为 openai_speech，T4b-3 增加 mimo，T4b-4 增加 alibaba_cloud，未知类型拒绝。ID 为 1..128 ASCII 字母/数字/下划线/连字符；credentialKey 为独立平台安全存储引用。正常保存保留 createdAt、更新 updatedAt；optionsJson 必须是合法对象，不接受私有凭据字段。
 
 | 新增方法 | 返回与约束 |
 |---|---|
@@ -943,7 +954,7 @@ TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Reposi
 | cloudTtsSave(engineJson) | Future<void>，按 ID 原地保存元数据；拒绝载荷中 apiKey/secretKey，完整字段 camelCase。 |
 | cloudTtsDelete(id) | Future<bool>，只删指定元数据，不读取平台凭据。 |
 | cloudTtsVoices(provider) | Future<String>，当前 Provider 静态音色数组 id/displayName/styles/sampleRate（可选）；未知 Provider 抛错。 |
-| cloudTtsSpeak(engineId,apiKey,requestJson,request:TtsRequest) | Future<String>，从 DB 读取当前配置并检查启用；apiKey 仅作为临时输入。requestJson 仅含 text/credentialKey；源语速、音色、格式/指令由当前 DB optionsJson 产生，credentialKey 必须仍匹配 DB，拒绝读取期间已替换的凭据；结果 audioPath/fromCache/contentType，成功租约交给同一个 TtsRequest，沿用取消与释放机制。 |
+| cloudTtsSpeak(engineId,apiKey,requestJson,request:TtsRequest) | Future<String>，从 DB 读取当前配置并检查启用；apiKey 仅作为临时输入。requestJson 含 text/credentialKey 及可选 voiceId 或 voiceOptions；合成参数从所属音色记录或试听草稿读取，省略时使用当前 DB optionsJson，credentialKey 必须仍匹配 DB，拒绝读取期间已替换的凭据；结果 audioPath/fromCache/contentType，成功租约交给同一个 TtsRequest，沿用取消与释放机制。 |
 
 CloudTtsRepository 窄接口仅管理元数据；CloudTtsCredentialStore 独立管理设备凭据；CloudTtsSettings 协调版本化引用写入：新凭据保存成功后再写 DB，DB 失败删除新引用、保留旧配置；DB 成功后清理旧凭据。删除先删元数据，再删凭据；后者失败明确提示已删配置而凭据清理失败，不伪装回滚或跨存储事务。不会读取历史凭据，不做明文存储回退。
 
@@ -956,6 +967,9 @@ MiMo 源选项保留 voiceId/style/instructions/format，format 为 wav；源 sp
 
 Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺序拼接 Base64 PCM，使用 24kHz/16-bit/单声道/小端 WAV 适配。错误事件、坏 JSON/Base64、空音频或未完成流不能落盘；完成以 [DONE] 或 finish_reason=stop 为证，拒绝 length 等截断原因。保留 120 秒超时、完整响应后播放、取消、缓存去重/原子提交及租约，不新增边合成边播放或云端后台预合成。OpenAI 仍使用 Bearer 与直接音频响应，其原有 JSON/text 错误拒绝不能因 SSE 支持而放宽。不调用真实云账号。
 
+**T4b-4 阿里云百炼（2026-10-14，实施前冻结）**：新增 provider `alibaba_cloud`，保持 schema v112、五个 FRB 签名和设备凭据引用。对照固定上游 070ca1a AlibabaCloudTtsProvider：默认 qwen3-tts-flash、Cherry，四个内置音色 Cherry/Serena/Ethan/Chelsie，格式仅 WAV。POST multimodal-generation/generation，Bearer 鉴权及 X-DashScope-SSE: enable；input 为 text/voice/language_type（默认 Auto），仅 instruct 模型发送 style 与 instructions 以中文分号连接后的 instructions。源级数值速度不发送，播放倍速仍独立。
+
+百炼会话采用不超过 600 UTF-16 的字形簇安全分片（保守满足官方 600 字符限制），原文进度累计与段落完成语义不变。SSE output.audio.data 按序拼接 PCM 并封装 24kHz 单声道 WAV；无 PCM 时使用 output.audio.url 下载完整 WAV。仅在 finish_reason=stop 或 [DONE] 后接受完整结果，错误、坏 JSON/Base64、截断、空音频不缓存。音频下载接受无用户凭据/片段的 HTTP(S) 地址（允许 OSS 签名查询），不携带合成请求凭据、不跟随重定向，沿用取消、120 秒超时及文本报错拒绝。UI/Mock/DB 共用新增服务商的默认值、格式和只读 Provider 规则。不调用真实云账号，不新增云端预合成或边合成边播放。
 
 ### 2.43 缓存写/购买/批量下载/导出扩展（Task #136 R5+R6+R7+R8，11 个方法）
 

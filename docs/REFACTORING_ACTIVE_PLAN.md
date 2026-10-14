@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-INTEGRATION-20261014-B：朗读界面与主目录增量合并（P1）
+
+- 用户授权提交朗读worktree并合并主目录，不推送。朗读提交a29f5d51b，主目录feature/ui-reader-selection起点5357d00ef；保留搜索、隐私与阅读记录成果，版本2.0.373+374不变。
+- 集成验证通过：保留双方Active记录、搜索/隐私/阅读记录与朗读接口，FRB 2.13和本地化从合并源码重新生成，配对hash为-319340783，依赖锁文件未变。147项Flutter定向回归通过，全模块静态分析无问题；Rust core/DB/FFI lib回归1630项通过，21项既有忽略，无QuickJS构建档有一条既有login_js未使用提示。git diff --check通过。日志为主目录忽略路径flutter_legado/build/tts-settings-merge-{codegen,l10n,analysis,flutter-tests}.log及rust/target/tts-settings-merge-rust-tests.log。
+- 交付：以merge保留双方提交历史，提交信息仅描述产品/结构变化，不写本机日志。未重建合并后的原生发布库或重新安装设备，此前模拟器安装对应朗读提交；iOS与真实云账号验收边界保留。无独立子代理审查，遵从用户不使用子代理；未推送或触发CI。
+
+编写者：Codex｜2026-10-14
+
 ### UI-PRIVACY-20261014：隐私设置与私密内容访问（P1）
 
 - 用户授权继续隐私功能，Firebase 后置。当前 home-overview / 555d7386d，工作区起始干净；不创建分支、不使用子代理、不更新应用版本，不自动提交或推送。
@@ -67,6 +75,55 @@
 - **状态与验证**：代码实现与定向验证通过，实际页面视觉待用户验收。9个相关测试文件共51项通过，覆盖三视图、每日分组、作者搜索、最后阅读无卡片/完整日期与关联删除，以及首页/总览/当天明细组件保留；相关目录静态分析无问题，git diff --check通过。最后阅读信息超宽时本轮仍采用省略号，不宣称包含上游自动跑马灯。证据位于忽略目录 flutter_legado/build/read-record-simplify-{tests,analysis}.log。版本2.0.373+374保持，未编译安装、提交、合并或推送，未触发远程CI。
 
 - **构建安装（2026-10-14）**：用户随后授权编译安装，当前代码以JDK 25构建Android x86_64 Debug APK，31秒成功（25项执行、381项复用），APK包内Rust来源校验通过。实时确认官方Legado_API_36 / emulator-5556后覆盖安装、启动和无崩溃日志6项检查通过，保留应用数据，版本2.0.373+374不变。未自动操作页面，实际最后阅读布局由用户体验；日志位于忽略目录 read-record-simplify-{apk,apk-verification,install}.log。未提交、合并、推送或触发CI。
+
+### UI-SETTINGS-SHEET-20261014：统一设置 Sheet 与表单（P2）
+
+- **授权与状态**：代码与定向验证通过，Android覆盖安装与音色弹层视觉检查通过；用户同意公共 AppBottomSheet 打开/安全区域、AppSettingsSheet 固定标题/操作和键盘避让、AppSettingsForm 表单间距/说明/错误三层组合，先迁移三个朗读编辑器。当前 reimplement_tts_t2a_task / a0c8b036f，保留前批代码，不使用子代理、不新建分支、不提交/推送或触发CI，版本不变。
+- **边界**：保存、校验、试听、未保存确认由业务页面负责；公共组件不依赖TTS/Repository/Riverpod。既有 AppBottomSheet 调用与外观保持，阅读器拖动面板、书签、帮助文档本批不迁移，Rust/FRB/数据库不变。
+- **验收**：三个编辑器使用同一壳与间距规则，窄屏/键盘/滚动操作栏可用、局部主题继承、保存禁用/取消结果和校验保留；旧 AppBottomSheet 回归与朗读 CRUD/试听回归通过，旧朗读壳无引用后删除。
+
+- **实现与证据**：既有AppBottomSheet增加showContent路由入口和content构造，共用固定标题/滚动正文/键盘避让，原show调用与默认宽度/安全区域保持。新增widgets/app_settings_sheet.dart与app_settings_form.dart，三个编辑器共用操作栏、12dp间距和主题错误提示；HTTP高级配置也使用公共表单。旧read_aloud_engine_sheet已删除，lib/test搜索无引用。公共层只依赖Material组件、主题和本地化，不引入业务、Repository或Riverpod；保存/关闭/校验/试听继续由页面提供。39项定向Widget/试听回归通过，覆盖旧AppBottomSheet、360×640与900×480键盘200px时的固定操作/滚动/640dp内容宽度、局部主题、禁用保存、自定义关闭、表单间距与错误无障碍提示、朗读CRUD/候选/持久化/取消。全Flutter静态分析无问题，git diff --check通过；证据为flutter_legado/build/settings-sheet-{tests,analysis}.log。无独立子代理审查，遵从用户不使用子代理。
+
+- **设备与交付**：Android x86_64 Debug APK构建、包内库来源校验与Legado_API_36覆盖安装通过，保留应用数据。已检查添加音色弹层的标题/操作栏、字段间距与输入框聚焦；设备输入法为侧边手写工具栏，底部键盘遮挡由Widget测试覆盖，不称设备底部键盘实测通过。截图为flutter_legado/build/tts-ui-settings-sheet-{voice,keyboard}-final.png，安装日志settings-sheet-install.log；iOS未实测。用户随后授权将当前朗读成果提交并合并到主目录，不推送、不触发CI，版本2.0.373+374不变。
+
+编写者：Codex｜2026-10-14
+
+### TTS-UI-VOICE-PRESETS-20261014：引擎与音色职责拆分（P1）
+
+- **授权与状态**：代码、定向回归与真实 FFI 验证通过，Android 页面已复验，真实账号/平台后台待用户验收；用户要求继续对照上游，引擎仅配置服务，音色页添加同一引擎的不同音色并试听，试听从引擎页移除。当前 reimplement_tts_t2a_task / a0c8b036f，保留前批未提交代码；不使用子代理、不新建分支、不提交/推送或触发 CI，版本不变。
+- **范围与契约**：参考固定上游 CloudTtsScreen/CloudTtsViewModel 的 EngineEditor、VoiceEnginePicker、VoicePresetEditor 与 buildVoice，API_CONTRACT §2.42 先冻结音色 save/delete 与云端音色请求扩展；复用 v112 表与原播放/缓存/安全存储边界，不增加角色池或其他 Provider。
+- **验收**：同引擎多个音色互不覆盖，音色参数与凭据分开，音色添加/编辑/删除/试听及当前朗读引用正确；未保存草稿可试听且不改变引擎/默认选择，离开/停止不继续播放；自动目录同步保留用户配置；HTTP/系统与既有朗读回归不退化。真实云账号/iOS 后台另行验证。
+
+- **系统音色手动添加（2026-10-14 追加）**：用户要求设备目录不自动进入音色页；目录发现继续维护可用候选，主列表仅显示 managedBy=user 的系统音色，显示已排除项也不放出未添加的系统候选。不删除已有目录或用户偏好；取消添加不加入，手动保存才显示，刷新保留用户名称/参数，删除后重新发现不会自动回到主列表。仅调整 Flutter 展示和回归用例，不改 Rust/FRB/数据库；17项定向Widget/目录回归通过，覆盖取消、保存、刷新、删除后不自动重现，以及空态与候选可选性。3个相关文件静态分析无问题，git diff --check通过；最新Android APK已完成包内校验并覆盖安装Legado_API_36 / emulator-5556，保留应用数据、版本2.0.373+374；本次未重新手动操作页面，设备视觉仍待用户检查。日志为 flutter_legado/build/tts-system-voices-manual-{tests,analysis,install}.log。未提交、推送或触发CI。
+- **表单间距追加**：用户指出名称与风格紧贴，原表单连续排列而未定义控件间距；音色编辑Sheet统一使用12dp垂直间距，音色/风格芯片行间距8dp，移除重复空白块及空候选Wrap。现有多音色Widget场景验证名称与风格之间至少12dp，固定保存栏、候选和保存逻辑保留。当前仍由标准Material组件组合布局，尚未完整复刻上游音色列表外观。
+- **实现**：音色页 FAB 选择云/HTTP/系统引擎，再通过音色 Sheet 保存原生 ID、名称与当前 Provider 支持的合成参数；同一引擎按原生 ID 保存多行，重复添加编辑同一行。引擎 Sheet 只保留服务商、名称、地址、模型、凭据和启用状态；系统设置也只选择设备引擎。新增 ReadAloudVoiceRepository.save/delete 与两个成对 FRB 导出；复用 v112，用户音色标记 user，目录重发现保留用户名称/参数，云端引擎删除原子清理其音色。云端选择通过 cloudTtsVoice:<engineId> 记录音色 ID，正常播放从 Rust 查询其参数，试听草稿通过受限 voiceOptions 临时传递，不改引擎或凭据；系统试听的 voiceKey 不写偏好。
+- **验证与证据**：139 项 Flutter 定向单元/Widget/契约回归通过，含多音色添加/改名/删除、两个 Tab/FAB/分类、取消不写入、保存记录和草稿的试听参数、迟到结果/完成取消、系统临时音色、HTTP/云播放与书级/全局持久化。全 Flutter analyze 无问题，git diff --check通过。配对 FRB 2.13 hash为423577855。Rust 目录相关6项通过，含用户参数保留、身份/私有字段拒绝、两个音色与删除隔离。新 Windows QuickJS DLL Cargo 编译通过，fixture 副本与 Cargo 产物 SHA-256 一致；真实 FFI 验证保存/合成/缓存隔离、草稿不落库、坏引用/私有字段拒绝、修改与删除联动。日志位于 flutter_legado/build/tts-voice-presets-{tests,analysis,rust,native-build,real-ffi,codegen}.log。
+- **设备与限制**：Android x86_64 Debug QuickJS 库已从本批源码重编，APK 构建、来源校验和官方 Legado_API_36 覆盖安装通过；最终 APK 已通过包内来源校验并覆盖安装，应用数据保留。实际进入朗读设置确认统一入口，音色/引擎 Tab、音色 FAB、类型选择、MiMo 音色/风格/试听文本控件及取消、引擎三分类已检查；截图在 flutter_legado/build/tts-ui-{voice-presets,voice-source-picker,mimo-voice-sheet,voice-preview-controls,engine-categories-final}.png。末次安装后的当前应用进程日志未见 Flutter 异常、布局溢出或崩溃，见 tts-voice-presets-runtime-final.log，安装见 tts-voice-presets-install-final.log。没有使用真实云账号或验证 iOS/后台音频，不称全部平台验收完成；Windows fixture 不替代此前默认元数据发布门禁。未提交、合并、推送或触发 CI，版本2.0.373+374不变。
+
+编写者：Codex｜2026-10-14
+
+### TTS-UI-TABS-SHEETS-20261014：朗读音色与引擎分页（P1）
+
+- **状态与授权**：实现与本地回归通过，设备视觉待复验；用户要求对照上游，音色/引擎两个 Tab、引擎 FAB 选择云 TTS 或 HTTP TTS，移除独立云端页面，添加/编辑使用 Sheet；追加云/HTTP 协议/系统三级分类，保留独立卡片，删除顶栏刷新按钮。继续当前朗读 worktree reimplement_tts_t2a_task / a0c8b036f，保留百炼前批未提交成果；不使用子代理、不创建分支、不提交/推送或触发 CI，版本不变。
+- **范围与依据**：上游 CloudTtsScreen 的双 Tab、AddEngineSheet、CloudTtsEngineEditorSheet 与 DefaultEngineScope；点击引擎后选择书/全局，沿用当前持久化与会话机制。整合系统/HTTP/云端管理和音色选择、设置入口与必要 Widget 回归，不改 Rust/FRB/DB，也不新增角色池或其他云服务商。
+- **验收**：Tab 点击/滑动一致；前批 FAB 仅在引擎页（后续音色 FAB 由 TTS-UI-VOICE-PRESETS 追加），类型选择和两种编辑器都是 Sheet，窄屏/键盘可滚动且保存关闭可用；云端试听退出取消、密钥不回显，HTTP 原地编辑保留 ID/高级字段；统一入口无旧云端独立页/菜单，书级/全局持久化和音色选择回归通过。设备视觉仍待用户验收。
+
+- **实现与验证**：拆出云端管理动作、HTTP/云编辑 Sheet、公共 Sheet 外壳和嵌入式音色面板，移除两个旧独立页面；朗读设置只留统一引擎/音色入口，按用户要求移除朗读设置的重复系统语音入口，系统设置保留于引擎 Tab 的系统 TTS 卡片。引擎按上游云→HTTP→系统排序，12dp 分类标题，保留独立卡片；空分类保留标题，不支持的平台不生成系统引擎卡片。顶栏手动刷新删除，新增/编辑/删除/选择后的重读保留；书/全局在点击引擎后选择，取消不改变设置。相关 Widget/契约/主题回归 47 项通过；全 Flutter 静态分析无问题。日志为 flutter_legado/build/tts-ui-categories-{tests,analysis}.log。
+- **主题根因修复**：AppTheme 的全局 TabAlignment.start 被固定 Tab 继承后触发断言；移除全局强制对齐，可滚动的书源/订阅源编辑页显式 start。浅色/深色固定标签测试修复前均复现，修复后固定/滚动四项通过；正文/目录等旧局部 fill 行为保留。测量与截图不代替真账号和后台朗读验收。
+- **设备基线**：双 Tab/Sheet 与全局主题修复的 Android x86_64 Debug APK 已构建、校验并覆盖安装官方 Legado_API_36 / emulator-5556，应用数据保留；原生库包含百炼前批，未使用云账号。分类、刷新及重复系统入口精简后的 APK 已完成构建、校验和覆盖安装；后续音色职责调整与设备复验以 TTS-UI-VOICE-PRESETS 项为准，iOS 未验证。不提交、合并、推送或触发 CI，版本保持 2.0.373+374。
+
+编写者：Codex｜2026-10-14
+
+### TTS-T4B4-ALIBABA-20261014：阿里云百炼朗读（P1）
+
+- **状态与授权**：待复验（实现与本地验证通过，真实账号/移动端待验收）；用户继续已批准的上游朗读对齐任务，按既定顺序补齐百炼。当前朗读 worktree reimplement_tts_t2a_task / a0c8b036f，起始干净；不使用子代理、不创建分支、不提交、推送或触发 CI，版本 2.0.373+374 不变。
+- **范围与验收**：API_CONTRACT §2.42 先冻结新增 Provider、600 UTF-16 分片、PCM/URL 双响应；复用设备凭据/缓存/取消/租约/播放器，不改数据库版本或 FRB 签名。固定上游 070ca1a 与百炼官方接口交叉核对，测试覆盖请求、SSE 错误/截断、无鉴权下载、缓存、取消、服务商切换及段落进度。真实账号和移动后台效果待用户验收。
+
+- **实现与边界**：新增 core/cloud_tts_alibaba；通用 Provider 返回音频或后续下载动作，fetcher 统一执行无鉴权下载/取消/错误拒绝。DB 现有 JSON 元数据完整读写并冻结服务商身份；配置页/Mock 共用百炼默认值与源速度能力。正文和试听通过 Repository 发现服务商，百炼按 600 UTF-16 分片，保留其他两家 4000、单段完成、暂停续播和媒体会话。FRB 五个签名与 hash 1268550618、schema v112、依赖/版本保持不变；主目录未合入本批源码；模拟器已通过后续 TTS-UI-TABS-SHEETS 批次安装包含本批的 Android x86_64 构建，真实百炼调用仍未验收。
+- **验证与证据**：Rust cloud_tts 定向 31 项（core14/DB4/fetcher13）通过，含 SSE PCM、OSS 签名 URL 的真实本机 POST/GET、无鉴权下载、缓存去重、取消/错误/截断不落盘；Flutter 32 项（含14项契约门禁）通过，覆盖两家服务商切换、百炼字形簇边界/进度及配置等待期间停止。9 个受影响文件静态分析无问题；此前全模块分析的4项新增风格提示均已修复。新 Windows Cargo QuickJS DLL 编译成功，与 fixture 加载副本 SHA-256 一致，百炼/OpenAI/MiMo/HTTP 四项真实 FFI 回归通过。Rust 相关文件格式及 git diff --check 通过；Clippy 命令通过，有8条前批/其他模块既有提示（阅读记录、schema注释、JS回调和HTTP源/抓取器），未扩展清理。日志在 flutter_legado/build/tts-alibaba-{rust-tests-final,flutter-final,analysis-final,native-build,real-ffi-final,format,clippy}.log。
+- **未测与后续**：未使用真实云账号、未编译 iOS；后续 UI 批次已编译 Android 并安装，窗口后台/解码/平台凭据效果仍待设备验收。Windows DLL 本轮从成功 Cargo 编译产物复制后做真实调用，未完成 Python 工具的默认元数据发布门禁，既有主目录元数据权限问题未在本批处理。无独立子代理审查，遵从用户不使用子代理；不自动提交/推送或触发 CI，后续按原队列补齐 Azure。
+
+编写者：Codex｜2026-10-14
 
 ### TTS-INTEGRATION-20261014：朗读与主目录合并（P1）
 

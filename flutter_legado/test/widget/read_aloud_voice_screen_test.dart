@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
-import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_screen.dart';
+import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_panel.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 
@@ -56,7 +56,7 @@ void main() {
           systemTtsServiceProvider.overrideWithValue(_System()),
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
         ],
-        child: const MaterialApp(home: ReadAloudVoiceScreen()),
+        child: const MaterialApp(home: Scaffold(body: ReadAloudVoicePanel())),
       ),
     );
     await tester.pumpAndSettle();

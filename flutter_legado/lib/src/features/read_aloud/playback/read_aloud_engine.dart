@@ -10,6 +10,8 @@ final class ReadAloudRequest {
     this.pitch = 1.0,
     this.volume = 1.0,
     this.voiceName,
+    this.voicePresetId,
+    this.cloudVoiceOptions,
     this.toneId,
     this.speakerName,
     this.emotionTag,
@@ -24,6 +26,8 @@ final class ReadAloudRequest {
   final double pitch;
   final double volume;
   final String? voiceName;
+  final String? voicePresetId;
+  final Map<String, dynamic>? cloudVoiceOptions;
   final String? toneId;
   final String? speakerName;
   final String? emotionTag;

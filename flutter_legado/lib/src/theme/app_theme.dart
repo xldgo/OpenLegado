@@ -401,7 +401,7 @@ class AppTheme {
         indicatorSize: TabBarIndicatorSize.label,
         labelStyle: AppTypography.lightTextTheme.titleSmall,
         unselectedLabelStyle: AppTypography.lightTextTheme.titleSmall,
-        tabAlignment: TabAlignment.start,
+        // 对齐依赖 isScrollable，由各 TabBar 或组件默认值决定。
       ),
 
       badgeTheme: BadgeThemeData(

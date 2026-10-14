@@ -123,8 +123,7 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
         // 在 iOS 深色 AppBar 时期成立，M3 化后不可见）
         bottom: TabBar(
           controller: _tabController,
-          // 全局 tabBarTheme 设了 TabAlignment.start，仅可滚动 TabBar 合法；
-          // 非 scrollable 须显式 fill（对齐 toc_screen 处理）— 登录红屏修复
+          // 固定宽度标签等宽铺满，各页面不依赖全局对齐策略。
           tabAlignment: TabAlignment.fill,
           tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
         ),

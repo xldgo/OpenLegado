@@ -145,7 +145,7 @@ class _ReadRecordOverviewScreenState
             color: cs.surface,
             child: TabBar(
               controller: _tabController,
-              // 固定周期标签等宽铺满，覆盖全局可滚动标签的 start 对齐。
+              // 固定周期标签等宽铺满。
               isScrollable: false,
               tabAlignment: TabAlignment.fill,
               onTap: _onTabChanged,
