@@ -99,15 +99,17 @@ class ThemeActions {
       PrefKeys.cNBackground: document.night.background,
       PrefKeys.cNBBackground: document.night.bottomBackground,
     });
-    if (document.paletteId case final String paletteId) {
-      await theme.setPaletteId(paletteId);
-    }
     final mode = switch (document.themeMode) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       'system' => ThemeMode.system,
       _ => null,
     };
-    if (mode != null) await theme.setThemeMode(mode);
+    if (mode != null || document.paletteId != null) {
+      await theme.applyAppearance(
+        themeMode: mode,
+        paletteId: document.paletteId,
+      );
+    }
   }
 }

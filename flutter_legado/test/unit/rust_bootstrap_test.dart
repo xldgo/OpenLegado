@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,9 +12,97 @@ import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/app/bootstrap/app_settings_factory.dart';
+import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
+import 'package:flutter_legado/src/data/repositories/app_appearance_settings_repository.dart';
+import 'package:flutter_legado/src/features/appearance/appearance_settings_provider.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
+import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('主题注入串行执行，较早请求的模式不能在较新请求后回写', () async {
+    final fixture = _Fixture();
+    final barrier = Completer<void>();
+    fixture.runtime.themeBarrier = barrier.future;
+    final first = fixture.bootstrap.configurationSync.synchronizeThemeConfig();
+    await Future<void>.delayed(Duration.zero);
+    final second = fixture.bootstrap.configurationSync.synchronizeThemeConfig();
+    await Future<void>.delayed(Duration.zero);
+    expect(fixture.calls, ['read_theme', 'theme']);
+    barrier.complete();
+    await Future.wait([first, second]);
+    expect(fixture.calls, [
+      'read_theme',
+      'theme',
+      'read_mode',
+      'mode',
+      'read_theme',
+      'theme',
+      'read_mode',
+      'mode',
+    ]);
+  });
+
+  test('正式装配共享启动与 UI 偏好，主题切换不访问配置表或重开数据库', () async {
+    SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
+    final settings = createAppSettingsService(
+      readConfig: (_) async => throw StateError('不应读取 Rust 配置表'),
+      writeConfig: (_, _) async => throw StateError('不应写入 Rust 配置表'),
+    );
+    addTearDown(settings.dispose);
+    final fixture = _Fixture();
+    final bootstrap = RustBootstrap(
+      runtime: fixture.runtime,
+      environment: fixture.environment,
+      configurationSource: SettingsRuntimeConfiguration(
+        appearance: AppAppearanceSettingsRepository(settings),
+      ),
+    );
+    final api = createBookApi(useMock: false, bootstrap: bootstrap);
+    await initializeBookApi(api: api);
+    expect(fixture.runtime.values['mode'], '2');
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsServiceProvider.overrideWithValue(settings),
+        themeConfigSyncProvider.overrideWithValue(themeConfigSyncFor(api)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(themeNotifierProvider.notifier);
+    await notifier.load();
+    expect(container.read(themeNotifierProvider).themeMode, ThemeMode.dark);
+    await notifier.setThemeMode(ThemeMode.light);
+    expect(fixture.runtime.values['mode'], '1');
+    expect(
+      (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+      'light',
+    );
+    expect(fixture.calls.where((c) => c == 'db').length, 1);
+    expect(fixture.calls.where((c) => c == 'native').length, 1);
+  });
+
+  test('运行时主题同步显式报告失败，重试不受失败队列阻断', () async {
+    final fixture = _Fixture();
+    final error = StateError('同步失败');
+    fixture.failures['theme'] = error;
+    await expectLater(
+      fixture.bootstrap.configurationSync.synchronizeThemeConfig(),
+      throwsA(same(error)),
+    );
+    expect(fixture.calls, ['read_theme', 'theme']);
+    fixture.failures.clear();
+    await fixture.bootstrap.configurationSync.synchronizeThemeConfig();
+    expect(fixture.calls, [
+      'read_theme',
+      'theme',
+      'read_theme',
+      'theme',
+      'read_mode',
+      'mode',
+    ]);
+  });
 
   test('完整启动保留原顺序，成功后再次初始化不重复执行', () async {
     final fixture = _Fixture();
@@ -217,6 +308,7 @@ class _Runtime implements RustRuntime {
   final _Fixture fixture;
   final values = <String, Object?>{};
   bool ttsAccepted = true;
+  Future<void>? themeBarrier;
 
   @override
   Future<void> initialize() async => fixture.step('native');
@@ -249,11 +341,16 @@ class _Runtime implements RustRuntime {
   @override
   Future<void> setThemeConfig(RuntimeConfigSnapshot snapshot) async {
     fixture.step('theme');
+    await themeBarrier;
     values['theme'] = snapshot.fields;
   }
 
   @override
-  Future<void> setThemeMode(String mode) async => fixture.step('mode');
+  Future<void> setThemeMode(String mode) async {
+    fixture.step('mode');
+    values['mode'] = mode;
+  }
+
   @override
   Future<void> setReadBookConfig(RuntimeConfigSnapshot snapshot) async {
     fixture.step('reading');

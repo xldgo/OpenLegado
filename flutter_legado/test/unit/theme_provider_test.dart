@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/services/settings_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -86,7 +85,10 @@ void main() {
       await pumpInit();
       await readNotifier().setThemeMode(ThemeMode.light);
       expect(readState().themeMode, ThemeMode.light);
-      expect(await SettingsService().getThemeMode(), ThemeMode.light);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'light',
+      );
     });
 
     test('setThemeMode 触发状态变更通知', () async {
@@ -112,7 +114,10 @@ void main() {
       await pumpInit();
       await readNotifier().toggleDayNight(isNight: false);
       expect(readState().themeMode, ThemeMode.dark);
-      expect(await SettingsService().getThemeMode(), ThemeMode.dark);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'dark',
+      );
     });
 
     test('toggleDayNight 从夜间切回日间并持久化', () async {
@@ -120,7 +125,10 @@ void main() {
       await pumpInit();
       await readNotifier().toggleDayNight(isNight: true);
       expect(readState().themeMode, ThemeMode.light);
-      expect(await SettingsService().getThemeMode(), ThemeMode.light);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'light',
+      );
     });
   });
 
@@ -131,7 +139,10 @@ void main() {
       await readNotifier().setFontScale(14);
       expect(readState().fontScaleRaw, equals(14));
       expect(readState().fontScale, equals(1.4));
-      expect(await SettingsService().getFontScale(), equals(14));
+      expect(
+        (await SharedPreferences.getInstance()).getInt('app_font_scale'),
+        equals(14),
+      );
     });
 
     test('setFontScale 触发状态变更通知', () async {
@@ -200,7 +211,10 @@ void main() {
       await pumpInit();
       await readNotifier().setPaletteId('sora');
       expect(readState().paletteId, equals('sora'));
-      expect(await SettingsService().getPaletteId(), equals('sora'));
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_palette_id'),
+        equals('sora'),
+      );
     });
 
     test('setPaletteId 相同值不触发通知', () async {

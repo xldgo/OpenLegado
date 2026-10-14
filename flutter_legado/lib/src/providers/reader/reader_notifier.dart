@@ -218,9 +218,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// （如纯单测环境 `WidgetsBinding.instance` 抛 FlutterError）时回退
   /// 亮色，保证解析始终有值。
   /// [mode]：已知的新主题模式（主题切换监听路径直接传入）；
-  /// 省略时读持久化值（加载路径）。
+  /// 省略时等待共享外观快照（加载路径）。
   Future<Brightness> _effectiveThemeBrightness({ThemeMode? mode}) async {
-    final effectiveMode = mode ?? await _settings.getThemeMode();
+    if (mode == null) {
+      try {
+        await ref.read(themeNotifierProvider.notifier).load();
+      } catch (error) {
+        debugPrint('外观设置读取失败，阅读背景沿用当前主题：$error');
+      }
+    }
+    if (!ref.mounted) return Brightness.light;
+    final effectiveMode = mode ?? ref.read(themeNotifierProvider).themeMode;
     return _themeBrightness(effectiveMode);
   }
 

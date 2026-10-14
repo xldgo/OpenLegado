@@ -638,6 +638,14 @@
 - **全量格式化与 lint（2026-10-14）**：按用户要求先提交上述设置重构，再格式化全部 983 个受 Git 管理的 Dart 文件，381 个文件产生格式差异；补齐 4 个文件中 6 处无花括号条件语句。显式文件列表的 `dart format --output=none --set-exit-if-changed` 全部返回零变化，`flutter analyze --no-pub` 无问题，`git diff --check` 通过。根目录递归格式检查因 build 缓存中的失效路径失败，正式验证使用受 Git 管理的源码列表。格式化及本条记录保持未提交，额外误建的格式提交已撤销且全部修改保留；未推送、未触发 CI、未构建安装或重跑全量测试。无版本、依赖、Rust/FRB、存储与分析规则改动。
 
 
+- **第二十二步授权与范围（2026-10-14）**：用户同意外观普通偏好迁移及保存失败修复，询问存储位置后确认本轮沿用既有 SharedPreferences 键和类型。基线 `c2aa0c8e0`，同一分支、单代理。新增 AppearanceSettings/Repository，ThemeNotifier 只投影共享状态，移除三项旧 SettingsService 访问；接入启动主题来源、阅读器背景、外观操作错误提示和恢复后重读。存储失败回退，原生同步失败保留已保存值并可重试。不改自定义主题/预设、阅读排版、Rust/FRB、数据库、备份格式、版本或依赖；不自动提交、推送、CI、构建安装。
+- **第二十二步状态与验收**：代码与定向验证完成，按用户明确授权本地提交，提交记录以 Git 为准。外观三项经 AppearanceSettingsRepository 复用共享 AppSettingsService，移除旧 SettingsService 六项读写；生产启动显式注入同一服务与已初始化主题同步能力，独立 UI/Mock 不调用原生。首次定向验证去重共 253 项通过，覆盖保存失败回退、早期失败不盖新值、首次选默认值、根替换迟到结果、阅读背景回退、联合导入先保存、原生同步失败重试、串行主题注入、启动顺序、备份恢复重读及搜索/朗读共享服务。官方源依赖升级后，23 份相关测试共 235 项通过，不与首次结果重复累加；完整 flutter analyze 无问题，24 个改动 Dart 文件格式检查零差异，git diff --check 通过。无 Rust/FRB 签名、生成物、数据库、存储位置、备份格式或版本变更；单代理复核，不宣称独立审查或全平台验收。
+
+- **官方源与依赖补充授权（2026-10-14）**：用户要求停止使用清华 Pub 镜像、修改 lock 并更新过时依赖。199 项 hosted 地址切回 https://pub.dev；先使用 enforce-lockfile 校验原版本摘要，再按当前 SDK/上层约束升级 16 项稳定依赖。直接依赖 Cupertino UI 1.0.2→1.1.2、通知插件 22.3.1→22.3.2、archive 4.5.0→4.5.2，其余为文件选择、SQLite、dbus、同步、时区与 SVG 编译依赖；Flutter 3.47.7、FRB 2.13.0 和应用 2.0.373+374 保持。剩余 cross_file 受文件选择/分享约束，qr 受 qr_flutter 约束，xml 受 vector_graphics_compiler 上限约束，material_color_utilities 与 test_api 被 Flutter SDK 固定，不加 override 强行升级。官方源直连归档部分等待，使用已授权 127.0.0.1:7897 代理后恢复成功；未修改全局源、JDK 或 SDK 配置。依赖与外观实现分开提交。
+- **Android 构建安装（2026-10-14）**：当前 Rust x86_64 Debug QuickJS 库重新编译成功、FFI 门禁通过；系统 JAVA_HOME 对应 JDK 25，编译目标继续 Java/JVM 17，Kotlin 增量保持开启。首次 Gradle 失败堆栈定位为 C 盘 Pub 插件与 E 盘项目之间无法计算相对路径；官方依赖下载至忽略的 E 盘 build/pub-cache，SDK integration_test 复制到同盘，备份受影响的项目增量缓存后恢复。最终 flutter build apk --debug --target-platform android-x64 --no-pub 成功，耗时 129.6 秒；Python APK 校验包含实际 ELF 和 NDK strip 后 Cargo/打包摘要，全部通过。实时识别官方测试设备 emulator-5556（Legado_API_36），覆盖安装保留数据；既有冒烟脚本退出 0，7 项通过，包括版本、进程、无崩溃与主页语义。应用版本保持 2.0.373+374。证据位于忽略目录 flutter_legado/build/appearance-settings-qa 的官方源分析、235 项测试、APK 构建/校验日志及 installed-home 截图；冒烟结果以本次工具 stdout 和退出码为准。外观页面完整交互、真实保存失败注入、验收设备覆盖安装与 iOS 未继续执行，按用户最新提交指令停止扩展设备验证；不宣称这些项目已通过，未推送或触发 CI。
+- **下一步建议（尚未实施）**：迁移 showDiscovery/showRss/defaultHomePage 三项主界面偏好，采用纯 HomeSettings、HomeSettingsRepository 与共享服务适配，保留原 SharedPreferences 键、类型和默认值；MainPrefsNotifier 仅投影并向界面传递保存错误，补初始化晚到读、连续修改、失败回退与恢复后重读。现有 HomeScreen 隐藏当前页签时将书架逻辑页硬编码为索引 0，但当前索引 0 为首页、书架为 1；下一批按逻辑页签查找可见索引并过滤过期导航回调。默认首页五项与只在启动应用一次的语义保持，不改导航外观、阅读器、存储介质或实体。
+
+
 ### BOOKMARK-NOTE-20261013：书签备注编辑与选区新增（P2）
 
 - **授权与基线**：用户同意补齐已有书签备注编辑，以及阅读选区新增时填写备注；基线 `4a5925687`，保留工作区已验证的书签窄接口改动。不使用子代理、不创建分支、不自动提交、推送或触发 CI。

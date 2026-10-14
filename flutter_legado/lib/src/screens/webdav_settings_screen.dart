@@ -285,7 +285,16 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _reloadPrefsAfterRestore() async {
-    await ref.read(themeNotifierProvider.notifier).load();
+    try {
+      await ref.read(themeNotifierProvider.notifier).reload();
+    } on AppearanceSyncException catch (error) {
+      // 恢复已落盘，原生同步失败不能阻断其他界面状态的刷新。
+      debugPrint('外观偏好已恢复，主题同步失败：${error.cause}');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: const Text('设置已恢复，主题同步失败')));
+      }
+    }
     ref.invalidate(themeColorsProvider);
     ref.invalidate(mainPrefsProvider);
     ref.invalidate(bookshelfNotifierProvider);

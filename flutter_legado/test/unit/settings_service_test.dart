@@ -1,4 +1,3 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -98,45 +97,6 @@ void main() {
     test('设置并读取亮度', () async {
       await service.setBrightness(0.8);
       expect(await service.getBrightness(), equals(0.8));
-    });
-  });
-
-  group('SettingsService 主题模式', () {
-    test('默认主题模式为 system', () async {
-      expect(await service.getThemeMode(), equals(ThemeMode.system));
-    });
-
-    test('设置为 light 模式', () async {
-      await service.setThemeMode(ThemeMode.light);
-      expect(await service.getThemeMode(), equals(ThemeMode.light));
-    });
-
-    test('设置为 dark 模式', () async {
-      await service.setThemeMode(ThemeMode.dark);
-      expect(await service.getThemeMode(), equals(ThemeMode.dark));
-    });
-
-    test('设置为 system 模式', () async {
-      await service.setThemeMode(ThemeMode.dark);
-      await service.setThemeMode(ThemeMode.system);
-      expect(await service.getThemeMode(), equals(ThemeMode.system));
-    });
-  });
-
-  group('SettingsService 全局字体缩放', () {
-    test('默认字体缩放为 0（跟随系统）', () async {
-      expect(await service.getFontScale(), equals(0));
-    });
-
-    test('设置并读取字体缩放', () async {
-      await service.setFontScale(12);
-      expect(await service.getFontScale(), equals(12));
-    });
-
-    test('重置为 0（跟随系统）', () async {
-      await service.setFontScale(14);
-      await service.setFontScale(0);
-      expect(await service.getFontScale(), equals(0));
     });
   });
 
@@ -246,23 +206,6 @@ void main() {
         result!.millisecondsSinceEpoch,
         equals(now.millisecondsSinceEpoch),
       );
-    });
-  });
-
-  group('SettingsService 内置 MD3 调色板（UI_MD3_PLAN.md Batch 0）', () {
-    test('默认调色板为 def「默认」（阶段D 2.0.270 起）', () async {
-      expect(await service.getPaletteId(), equals('def'));
-    });
-
-    test('设置并读取调色板 id', () async {
-      await service.setPaletteId('koharu');
-      expect(await service.getPaletteId(), equals('koharu'));
-    });
-
-    test('重复设置取最后值', () async {
-      await service.setPaletteId('sora');
-      await service.setPaletteId('gr');
-      expect(await service.getPaletteId(), equals('gr'));
     });
   });
 }

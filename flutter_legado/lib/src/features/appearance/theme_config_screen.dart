@@ -156,6 +156,31 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _saveAppearance(Future<void> Function() save) async {
+    try {
+      await save();
+    } on AppearanceSyncException catch (error) {
+      debugPrint('外观设置已保存，主题同步失败：${error.cause}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('设置已保存，主题同步失败'),
+          action: SnackBarAction(
+            label: '重试',
+            onPressed: () {
+              _saveAppearance(
+                ref.read(themeNotifierProvider.notifier).synchronizeRuntime,
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('外观设置保存失败：$error');
+      _toast('保存失败，请重试');
+    }
+  }
+
   // ===== [UI_SYNC_REFACTOR B2] 顶栏与布局开关 =====
 
   String _topBarStyleLabel(TopBarButtonStyle s) => switch (s) {
@@ -450,14 +475,18 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       // 跟随系统 / 浅色 / 深色（flow_sys/light_mode/dark_mode）
                       ThemeModeSelector(
                         selected: themeState.themeMode,
-                        onChanged: themeNotifier.setThemeMode,
+                        onChanged: (mode) => _saveAppearance(
+                          () => themeNotifier.setThemeMode(mode),
+                        ),
                       ),
                       // 13 套内置 MD3 preset 选择器（UI_MD3_PLAN.md Batch 1，
                       // [队列⑦a A2] 13 色卡横滑一行形态；paletteId 持久化，
                       // 与自定义主题并存——第九节并存模型）
                       BuiltinPaletteSelector(
                         selectedId: themeState.paletteId,
-                        onSelected: themeNotifier.setPaletteId,
+                        onSelected: (id) => _saveAppearance(
+                          () => themeNotifier.setPaletteId(id),
+                        ),
                       ),
                     ],
                   ),
@@ -1375,54 +1404,78 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     // 跟随系统时默认展示 1.0x
     var current = themeState.fontScaleRaw.toDouble();
     if (current < 8 || current > 16) current = 10;
+    var saving = false;
+    String? failure;
     showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('字体缩放'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // [队列⑦c A3] 半角冒号 + 空格，对齐参考 font_scale_summary
-              // 「当前字体大小: %.1f」（values-zh-rCN/strings.xml :1203），
-              // 与 theme_state.fontScaleLabel 保持一致
-              Text(
-                '当前字体大小: ${(current / 10).toStringAsFixed(1)}',
-                style: Theme.of(ctx).textTheme.bodyMedium,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> save(int raw) async {
+            if (saving) return;
+            setDialogState(() {
+              saving = true;
+              failure = null;
+            });
+            try {
+              await notifier.setFontScale(raw);
+              if (ctx.mounted) Navigator.pop(ctx);
+            } catch (error) {
+              debugPrint('字体缩放保存失败：$error');
+              if (ctx.mounted) {
+                setDialogState(() {
+                  saving = false;
+                  failure = '保存失败，请重试';
+                });
+              }
+            }
+          }
+
+          return PopScope(
+            canPop: !saving,
+            child: AlertDialog(
+              title: const Text('字体缩放'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '当前字体大小: ${(current / 10).toStringAsFixed(1)}',
+                    style: Theme.of(ctx).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Slider(
+                    value: current,
+                    min: 8,
+                    max: 16,
+                    divisions: 8,
+                    label: (current / 10).toStringAsFixed(1),
+                    onChanged: saving
+                        ? null
+                        : (v) => setDialogState(() => current = v),
+                  ),
+                  if (failure != null)
+                    Text(
+                      failure!,
+                      style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+                    ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Slider(
-                value: current,
-                min: 8,
-                max: 16,
-                divisions: 8,
-                label: (current / 10).toStringAsFixed(1),
-                onChanged: (v) => setDialogState(() => current = v),
-              ),
-            ],
-          ),
-          actions: [
-            // 对齐原版「默认」按钮：重置为跟随系统
-            TextButton(
-              onPressed: () {
-                notifier.setFontScale(0);
-                Navigator.pop(ctx);
-              },
-              child: Text(ctx.l10n.themeSystem),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => save(0),
+                  child: Text(ctx.l10n.themeSystem),
+                ),
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.pop(ctx),
+                  child: Text(ctx.l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: saving ? null : () => save(current.round()),
+                  child: Text(ctx.l10n.confirm),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(ctx.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                notifier.setFontScale(current.round());
-                Navigator.pop(ctx);
-              },
-              child: Text(ctx.l10n.confirm),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

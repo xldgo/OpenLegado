@@ -55,7 +55,7 @@ class RustApi
         RustApiMediaFormat,
         RustApiSyncTools,
         RustApiContentExt
-    implements BookApi, ReadingConfigSync {
+    implements BookApi, ReadingConfigSync, ThemeConfigSync {
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
@@ -153,6 +153,11 @@ class RustApi
   @override
   Future<void> refreshReadBookConfig() =>
       _readingConfigSync.refreshReadBookConfig();
+
+  @override
+  Future<void> synchronizeThemeConfig() => _readingConfigSync is ThemeConfigSync
+      ? (_readingConfigSync as ThemeConfigSync).synchronizeThemeConfig()
+      : Future.value();
 
   /// 获取 Rust 引擎版本号
   @override

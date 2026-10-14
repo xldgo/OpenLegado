@@ -9,7 +9,7 @@ import '../../../l10n/app_localization.dart';
 /// flow_sys/light_mode/dark_mode）。此前 2026-08-13 裁决"主题模式仅放
 /// 「我的」枢纽"，本次 A3 任务指令"IA 对齐参考版"予以覆盖，恢复页内选择器；
 /// 复用既有 ThemeState.themeMode 与 ThemeNotifier.setThemeMode（经
-/// SettingsService 持久化），非新增功能。
+/// 共享外观仓储持久化），非新增功能。
 class ThemeModeSelector extends StatelessWidget {
   final ThemeMode selected;
   final ValueChanged<ThemeMode> onChanged;

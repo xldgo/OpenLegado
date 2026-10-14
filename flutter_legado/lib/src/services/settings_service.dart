@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../theme/md3_colors.dart';
-
 /// 阅读设置持久化服务
 class SettingsService {
   static const _keyFontSize = 'reader_font_size';
@@ -13,11 +11,6 @@ class SettingsService {
   static const _keyFlipMode = 'reader_flip_mode';
   static const _keyFlipModeName = 'reader_flip_mode_name'; // 新版枚举名存储
   static const _keyBrightness = 'reader_brightness';
-  static const _keyThemeMode = 'app_theme_mode';
-  static const _keyFontScale = 'app_font_scale';
-  // [MD3 Batch 0 | 2026-08-28] 内置 MD3 调色板 id（UI_MD3_PLAN.md 第九节：
-  // SharedPreferences 本地持久化，非 Rust FFI，免 API_CONTRACT 变更） — Qoder UI
-  static const _keyPaletteId = 'app_palette_id';
   static const _keyLocale = 'app_locale';
   static const _keyBookshelfTabPosition = 'bookshelf_tab_position';
   static const _keyBookshelfLayout = 'bookshelf_layout'; // true=网格 false=列表
@@ -164,92 +157,6 @@ class SettingsService {
       await prefs.setDouble(_keyBrightness, brightness);
     } catch (e) {
       debugPrint('SettingsService.setBrightness 异常: $e');
-    }
-  }
-
-  // ===== 应用主题模式 =====
-
-  Future<ThemeMode> getThemeMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final value = prefs.getString(_keyThemeMode) ?? 'system';
-      switch (value) {
-        case 'light':
-          return ThemeMode.light;
-        case 'dark':
-          return ThemeMode.dark;
-        default:
-          return ThemeMode.system;
-      }
-    } catch (e) {
-      debugPrint('SettingsService.getThemeMode 异常: $e');
-      return ThemeMode.system;
-    }
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String value;
-      switch (mode) {
-        case ThemeMode.light:
-          value = 'light';
-          break;
-        case ThemeMode.dark:
-          value = 'dark';
-          break;
-        default:
-          value = 'system';
-      }
-      await prefs.setString(_keyThemeMode, value);
-    } catch (e) {
-      debugPrint('SettingsService.setThemeMode 异常: $e');
-    }
-  }
-
-  // ===== 全局字体缩放 =====
-
-  /// 全局 UI 字体缩放原始值（对齐原版 PreferKey.fontScale）
-  ///
-  /// 0 = 跟随系统；8~16 → 0.8x~1.6x（见 AppContextWrapper.getFontScale）。
-  Future<int> getFontScale() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyFontScale) ?? 0;
-    } catch (e) {
-      debugPrint('SettingsService.getFontScale 异常: $e');
-      return 0;
-    }
-  }
-
-  Future<void> setFontScale(int value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyFontScale, value);
-    } catch (e) {
-      debugPrint('SettingsService.setFontScale 异常: $e');
-    }
-  }
-
-  // ===== 内置 MD3 调色板 =====
-
-  /// 内置 MD3 调色板 id（对应 [Md3Palettes] 的 id；未知值由 byId 回退默认 def）
-  Future<String> getPaletteId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_keyPaletteId) ?? Md3Palettes.defaultId;
-    } catch (e) {
-      debugPrint('SettingsService.getPaletteId 异常: $e');
-      return Md3Palettes.defaultId;
-    }
-  }
-
-  Future<void> setPaletteId(String value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyPaletteId, value);
-    } catch (e) {
-      debugPrint('SettingsService.setPaletteId 异常: $e');
     }
   }
 

@@ -10,6 +10,11 @@ import 'src/routes.dart';
 import 'src/providers/providers.dart';
 import 'src/services/book_api.dart';
 import 'src/app/bootstrap/book_api_bootstrap.dart';
+import 'src/app/bootstrap/app_settings_factory.dart';
+import 'src/app/bootstrap/settings_runtime_configuration.dart';
+import 'src/data/repositories/app_appearance_settings_repository.dart';
+import 'src/providers/app_settings_provider.dart';
+import 'src/features/appearance/appearance_settings_provider.dart';
 import 'src/services/crash_log_service.dart';
 
 void main() {
@@ -40,14 +45,23 @@ void main() {
       // SharedPreferences 预热供 SettingsService；初始化的 BookApi 原实例注入 Provider。
       sw = Stopwatch()..start();
       late final BookApi bookApi;
+      final appSettings = createAppSettingsService(
+        readConfig: (key) => bookApi.getConfig(key),
+        writeConfig: (key, value) => bookApi.setConfig(key, value),
+      );
       try {
-        final apiInitialization = initializeBookApi();
+        bookApi = createBookApi(
+          configurationSource: SettingsRuntimeConfiguration(
+            appearance: AppAppearanceSettingsRepository(appSettings),
+          ),
+        );
+        final apiInitialization = initializeBookApi(api: bookApi);
         await Future.wait<Object>([
           SharedPreferences.getInstance(),
           apiInitialization,
         ]);
-        bookApi = await apiInitialization;
       } catch (e, stack) {
+        await appSettings.dispose();
         CrashLogService.instance.logError(e, stack);
         debugPrint('[Legado] 初始化失败：$e');
         runApp(_FfiErrorApp(error: e.toString()));
@@ -65,7 +79,16 @@ void main() {
       // （主题/书架/书源/RSS/阅读统计/同步/书签/替换规则/定时任务/阅读器/搜索/发现等）
       runApp(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(bookApi)],
+          overrides: [
+            bookApiProvider.overrideWithValue(bookApi),
+            themeConfigSyncProvider.overrideWithValue(
+              themeConfigSyncFor(bookApi),
+            ),
+            appSettingsServiceProvider.overrideWith((ref) {
+              ref.onDispose(() => unawaited(appSettings.dispose()));
+              return appSettings;
+            }),
+          ],
           // 保留原有手动重试行为，避免 Riverpod 3 自动重试引入额外请求。
           retry: (retryCount, error) => null,
           child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),

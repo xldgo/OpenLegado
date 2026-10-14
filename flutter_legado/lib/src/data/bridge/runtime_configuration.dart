@@ -30,6 +30,18 @@ abstract interface class ReadingConfigSync {
   Future<void> refreshReadBookConfig();
 }
 
+/// 设置已经保存后的主题注入；失败向调用方报告，不回滚偏好。— Codex + Bridge
+abstract interface class ThemeConfigSync {
+  Future<void> synchronizeThemeConfig();
+}
+
+class NoopThemeConfigSync implements ThemeConfigSync {
+  const NoopThemeConfigSync();
+
+  @override
+  Future<void> synchronizeThemeConfig() async {}
+}
+
 /// Mock 不启动原生运行时，也不注入配置。
 class NoopReadingConfigSync implements ReadingConfigSync {
   const NoopReadingConfigSync();

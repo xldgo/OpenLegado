@@ -23,6 +23,7 @@ import 'settings_runtime_configuration.dart';
 BookApi createBookApi({
   bool useMock = const bool.fromEnvironment('USE_MOCK'),
   RustBootstrap? bootstrap,
+  RuntimeConfigurationSource? configurationSource,
 }) {
   if (useMock) return MockBookApi();
   final startup =
@@ -30,7 +31,8 @@ BookApi createBookApi({
       RustBootstrap(
         runtime: const NativeRustRuntime(),
         environment: const NativeAppEnvironment(),
-        configurationSource: SettingsRuntimeConfiguration(),
+        configurationSource:
+            configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
     initialize: startup.initialize,
@@ -62,3 +64,7 @@ Future<BookApi> initializeBookApi({BookApi? api}) async {
 ReadingConfigSync readingConfigSyncFor(BookApi api) => api is ReadingConfigSync
     ? api as ReadingConfigSync
     : const NoopReadingConfigSync();
+
+ThemeConfigSync themeConfigSyncFor(BookApi api) => api is ThemeConfigSync
+    ? api as ThemeConfigSync
+    : const NoopThemeConfigSync();

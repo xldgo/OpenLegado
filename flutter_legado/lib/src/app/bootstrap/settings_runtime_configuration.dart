@@ -1,19 +1,27 @@
-import 'package:material_ui/material_ui.dart' show ThemeMode;
-
+import '../../data/repositories/app_appearance_settings_repository.dart';
+import '../../domain/contracts/appearance_settings_repository.dart';
+import '../../domain/models/appearance_settings.dart';
 import '../../data/bridge/runtime_configuration.dart';
 import '../../services/settings_service.dart';
 import '../../theme/md3_colors.dart';
+import 'app_settings_factory.dart';
 
 /// 设置层把主题对象转成书源原有的数据协议。— Codex + UI
 class SettingsRuntimeConfiguration implements RuntimeConfigurationSource {
-  SettingsRuntimeConfiguration({SettingsService? settings})
-    : _settings = settings ?? SettingsService();
+  SettingsRuntimeConfiguration({
+    SettingsService? settings,
+    AppearanceSettingsRepository? appearance,
+  }) : _settings = settings ?? SettingsService(),
+       _appearance =
+           appearance ??
+           AppAppearanceSettingsRepository(createAppSettingsService());
 
   final SettingsService _settings;
+  final AppearanceSettingsRepository _appearance;
 
   @override
   Future<RuntimeConfigSnapshot> readThemeConfig() async {
-    final palette = Md3Palettes.byId(await _settings.getPaletteId());
+    final palette = Md3Palettes.byId((await _appearance.load()).paletteId);
     final roles = palette.light;
     String hex(int argb) =>
         '#${argb.toRadixString(16).padLeft(8, '0').toUpperCase()}';
@@ -32,10 +40,10 @@ class SettingsRuntimeConfiguration implements RuntimeConfigurationSource {
 
   @override
   Future<String> readThemeMode() async =>
-      switch (await _settings.getThemeMode()) {
-        ThemeMode.light => '1',
-        ThemeMode.dark => '2',
-        ThemeMode.system => '0',
+      switch ((await _appearance.load()).themeMode) {
+        AppThemeMode.light => '1',
+        AppThemeMode.dark => '2',
+        AppThemeMode.system => '0',
       };
 
   @override
