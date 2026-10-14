@@ -56,7 +56,7 @@ dependencies:
   dynamic_color: ^2.1.0
   material_color_utilities: ^0.13.0
   material_ui: 1.6.0
-  cupertino_ui: 1.0.2
+  cupertino_ui: 1.1.2
 
 dev_dependencies:
   flutter_test:
