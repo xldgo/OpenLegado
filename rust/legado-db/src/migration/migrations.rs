@@ -56,8 +56,14 @@ const BOOK_TYPE_NOT_SHELF: i64 = 0b100_0000_0000;
 /// - replace_rules 表补齐: scopeSource（v108 书源作用域开关，防「版本已到 108 但缺列」
 ///   历史坑：user_version 门禁失效/手工建库等场景下兜底补列）
 pub fn repair_legacy_columns(conn: &Connection) -> LegadoResult<()> {
+    conn.execute_batch(crate::repository::privacy_credentials::CREATE_PRIVACY_CREDENTIALS)
+        .map_err(|e| LegadoError::Database(format!("创建隐私凭据表失败: {e}")))?;
+    if table_exists(conn, "book_groups")? {
+        add_column_if_not_exists(conn, "book_groups", "isPrivate", "INTEGER NOT NULL DEFAULT 0")?;
+    }
     // books 表补列（仅当表存在时）
     if table_exists(conn, "books")? {
+        add_column_if_not_exists(conn, "books", "isPrivate", "INTEGER NOT NULL DEFAULT 0")?;
         add_column_if_not_exists(conn, "books", "infoHtml", "TEXT DEFAULT ''")?;
         add_column_if_not_exists(conn, "books", "tocHtml", "TEXT DEFAULT ''")?;
         add_column_if_not_exists(conn, "books", "downloadUrls", "TEXT DEFAULT ''")?;

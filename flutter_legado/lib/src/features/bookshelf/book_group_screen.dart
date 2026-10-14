@@ -1,12 +1,15 @@
 import 'bookshelf_repositories.dart';
+import '../privacy/privacy_controller.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
@@ -78,7 +81,9 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       case _GroupSort.name:
         list.sort((a, b) => a.groupName.compareTo(b.groupName));
       case _GroupSort.bookCount:
-        list.sort((a, b) => _bookCountOf(b.groupId).compareTo(_bookCountOf(a.groupId)));
+        list.sort(
+          (a, b) => _bookCountOf(b.groupId).compareTo(_bookCountOf(a.groupId)),
+        );
     }
     return list;
   }
@@ -255,7 +260,9 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       child: Row(
         children: [
           Icon(
-            _sort == value ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+            _sort == value
+                ? Symbols.radio_button_checked_rounded
+                : Symbols.radio_button_unchecked_rounded,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -373,6 +380,11 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
               onSelected: (action) => _handleAction(action, group),
               itemBuilder: (_) => [
                 AppMenuItem(value: 'assign', child: Text('分配书籍')),
+                if (group.groupId > 0)
+                  AppMenuItem(
+                    value: 'private',
+                    child: Text(group.isPrivate ? '取消私密' : '设为私密'),
+                  ),
                 AppMenuItem(value: 'edit', child: Text(AppStrings.edit)),
                 AppMenuItem(
                   value: 'delete',
@@ -392,8 +404,25 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
     );
   }
 
+  Future<void> _setGroupPrivate(BookGroup group) async {
+    try {
+      await ref
+          .read(privacyControllerProvider.notifier)
+          .setGroupPrivate(group, !group.isPrivate);
+      await _loadGroups();
+      await ref.read(bookshelfNotifierProvider.notifier).refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('私密标记保存失败')));
+      }
+    }
+  }
+
   void _handleAction(String action, BookGroup group) {
     switch (action) {
+      case 'private':
+        _setGroupPrivate(group);
       case 'assign':
         _assignBooks(group);
       case 'edit':
@@ -430,8 +459,16 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
                 return CheckboxListTile(
                   dense: true,
                   value: checked,
-                  title: Text(book.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(book.author, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    book.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    book.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onChanged: (on) {
                     setDialogState(() {
                       if (on == true) {
@@ -475,9 +512,9 @@ class _BookGroupScreenState extends ConsumerState<BookGroupScreen> {
       }
       await ref.read(bookshelfNotifierProvider.notifier).refresh();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已更新「${group.groupName}」的书籍')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已更新「${group.groupName}」的书籍')));
       }
     } catch (e) {
       _showError('分配失败：$e');

@@ -1,3 +1,4 @@
+import '../privacy/privacy_gate.dart';
 import '../../widgets/dynamic_search_app_bar.dart';
 import '../../l10n/app_localization.dart';
 
@@ -214,7 +215,7 @@ class _BookmarkTile extends StatelessWidget {
         '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} '
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-    return AppMenuAnchor<String>(
+    return PrivacyMaskedContent(bookName:bookmark.bookName,author:bookmark.bookAuthor,onTap:onTap,child:AppMenuAnchor<String>(
       itemBuilder: (ctx) => [
         AppMenuItem(value: 'edit', child: Text(ctx.l10n.bookmarkEditNote)),
         AppMenuItem(
@@ -319,6 +320,6 @@ class _BookmarkTile extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

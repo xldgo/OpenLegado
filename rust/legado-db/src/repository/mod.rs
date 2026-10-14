@@ -1,5 +1,6 @@
 //! 数据访问层（Repository 模式）
 
+pub mod privacy_credentials;
 pub mod auto_task_repository;
 pub mod book_chapter_repository;
 pub mod book_group_repository;

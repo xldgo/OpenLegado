@@ -1,3 +1,5 @@
+import '../../features/privacy/privacy_controller.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -135,6 +137,7 @@ class _ReadAloudCapsuleHostState extends ConsumerState<ReadAloudCapsuleHost> {
   @override
   Widget build(BuildContext context) {
     final audio = ref.watch(audioNotifierProvider);
+    final privacy = ref.watch(privacyControllerProvider);
     final settings = ref.watch(readAloudCapsuleProvider);
     final notifier = ref.read(audioNotifierProvider.notifier);
     final readerDisplay = ref.watch(
@@ -159,7 +162,10 @@ class _ReadAloudCapsuleHostState extends ConsumerState<ReadAloudCapsuleHost> {
         valueListenable: widget.observer.top,
         builder: (context, route, _) {
           final name = route?.settings.name;
+          final privateBook = notifier.currentBook;
           final hidden =
+              privacy.loading ||
+              (privateBook != null && privacy.locked(privateBook)) ||
               (_opening && handoffOpacity == 0) ||
               audio.state == PlayerState.idle ||
               audio.isStreamMode ||
@@ -180,18 +186,20 @@ class _ReadAloudCapsuleHostState extends ConsumerState<ReadAloudCapsuleHost> {
               fit: StackFit.expand,
               children: [
                 widget.child,
-                _FloatingCapsule(
-                  key: _capsule,
-                  audio: audio,
-                  notifier: notifier,
-                  book: notifier.currentBook,
-                  settings: settings,
-                  hidden: hidden,
-                  inFlight: _opening,
-                  handoffOpacity: handoffOpacity,
-                  onOpenPlayer: _openPlayer,
-                  onPositionChanged: _savePosition,
-                ),
+                if (!privacy.loading &&
+                    (privateBook == null || !privacy.locked(privateBook)))
+                  _FloatingCapsule(
+                    key: _capsule,
+                    audio: audio,
+                    notifier: notifier,
+                    book: notifier.currentBook,
+                    settings: settings,
+                    hidden: hidden,
+                    inFlight: _opening,
+                    handoffOpacity: handoffOpacity,
+                    onOpenPlayer: _openPlayer,
+                    onPositionChanged: _savePosition,
+                  ),
               ],
             ),
           );

@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-PRIVACY-20261014：隐私设置与私密内容访问（P1）
+
+- 用户授权继续隐私功能，Firebase 后置。当前 home-overview / 555d7386d，工作区起始干净；不创建分支、不使用子代理、不更新应用版本，不自动提交或推送。
+- 契约先行：API_CONTRACT 隐私访问增量条目。独立凭据、书籍/分组标记、统一会话判定、设置页和阅读路由守卫；各列表遮蔽与后台期限使用同一状态。生物识别及权限按真实平台能力验收，不提供空开关。
+- 实现：新增features/privacy统一设置、进程授权、后台宽限及身份验证；我的页增加隐私入口，凭据/验证时机/权限与数据三组，Firebase后置。书籍详情和分组菜单支持私密标记；书架（含选择态）、最近阅读、记录/书签、排行、日历及当天明细共享遮蔽，未恢复状态不闪现原文。详情、正文/漫画/音频/视频和朗读播放器接入守卫，管理入口只验证身份；分组锁定保留导航，朗读胶囊与转场截图立即遮蔽。
+- 平台：密码独立存Rust本地表，仅随机盐Argon2id摘要；改密/清密验证旧密码并撤销快捷凭据。Android使用认证绑定Keystore Cipher，iOS使用biometryCurrentSet/ThisDeviceOnly Keychain；不接受设备PIN替代应用密码。权限入口展示真实状态并跳系统设置，iOS不展示电池优化项；USE_MOCK使用独立内存凭据。默认关闭，版本保持2.0.373+374；FRB 2.13成对生成，hash1902148746，Dart lockfile恢复原版本与镜像，无Dart依赖升级。
+- 验证：Rust DB/FFI 799项通过（343+456，另21项既有忽略）；Windows Debug QuickJS DLL与Android x86_64 Debug库重建/校验通过。真实Windows FRB+临时数据库2项通过，覆盖改密保护、私密标记及普通字段更新保留标记。55项Flutter定向回归通过，后续分组导航补测后15项隐私核心复验通过（原14项+1）；相关静态分析与git diff --check结果见最终日志。Android compileDebugKotlin通过；iOS仅plist/Xcode引用结构校验，不代替编译。证据位于忽略目录flutter_legado/build/privacy-{rust-regression,native-tests,regression-final,core-final-tests,final-analysis,windows-ffi-build,android-ffi-build,android-kotlin-final,diff-check}.log。
+- MuMu安装（2026-10-14）：按用户要求构建当前隐私功能，x86_64 Debug APK在46秒内构建成功；包内Rust库与Cargo源库经NDK strip正规化校验通过。实时探测MuMu Android 15 / 127.0.0.1:16384后覆盖安装，使用原有Launcher4入口启动；六项冒烟全部通过，随后进程持续存活，日志未检出崩溃或Flutter未处理异常。实装版本2.0.373+374，保留用户数据与图标；证据位于忽略目录flutter_legado/build/privacy-mumu-{apk,apk-verification,install,runtime}.log。
+- 状态：已安装MuMu，功能与视觉待用户验收；Android/iOS系统生物认证、录入变化、权限跳转及完整生命周期实机验收未执行。当前Windows环境无法执行Xcode编译，未触发远程CI或生成IPA。
+- 提交与集成授权（2026-10-14）：用户要求提交当前隐私功能，并合并至主目录feature/ui-reader-selection；保留2.0.373+374，不推送远程。提交只包含隐私功能及相关契约、测试，代码生成产生的无内容差异文件不计入提交；集成时保留主目录已完成的朗读及搜索功能。
+
+编写者：Codex｜2026-10-14
+
 - **本地提交授权（2026-10-14）**：用户要求提交当前worktree的已完成修改，统一包含阅读记录日历清理及最后阅读布局、热力图视觉、横屏导航轨和列表搜索过渡四批成果与测试。本次提交标题为`feat(ui): 整理阅读记录、热力图与导航搜索交互`；版本保持2.0.373+374，设备视觉仍按各项记录由用户验收，不合并主目录或推送。
 
 ### UI-SEARCH-TRANSITION-20261014：统一搜索展开动画与默认隐藏（P2）

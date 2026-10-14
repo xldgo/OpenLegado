@@ -1,5 +1,17 @@
 # API 契约文档（BookApi 接口基准）
 
+## 隐私访问增量契约（2026-10-14，实施前冻结）
+
+平台增量：`legado/privacy` 提供 `capabilities`（biometric: available/notEnrolled/noHardware/unavailable，enrolled: bool）、`enrollBiometric`、`authenticateBiometric`、`clearBiometric`、`permissions`、`openNotificationSettings`、Android 专属 `openBatterySettings`。Android 使用认证绑定的 Keystore Cipher，iOS 使用 biometryCurrentSet Keychain 项；成功须完成实际加密/解密或受保护项读取。取消返回 false，不授予权限。改密/清密撤销快捷凭据；平台不支持如实返回，不允许设备 PIN 替代应用密码。隐私设置增加 `biometricEnabled`，开关只在系统认证及保存均成功后开启。
+
+- 用户授权继续隐私功能，Firebase 后置。Book 与 BookGroup JSON 增加 `isPrivate: bool`，默认 false；书籍单独标记或所属私密分组均视为私密。既有读写须保留标记，分组增改桥接增加可空 `isPrivate` 参数，空值保留既有值。
+- 新增 `privacyHasPassword()`、`privacyVerifyPassword(password)`、`privacySetPassword(currentPassword, password)`；修改/清除已有凭据必须验证旧密码，失败不写入。凭据由 Rust 独立本地表保存随机盐 Argon2id 摘要，不返回明文/摘要，不复用既有 Web/备份密码。
+- 两个 `isPrivate` 列及凭据表由初始化 DDL 与既有幂等补列入口创建；本批不占用其他 worktree 正在开发的版本迁移编号。当前数据库打开后即获得加法式结构，应用版本不变。
+- Flutter 内部统一隐私设置、会话授权、后台宽限与书籍判定；设置验证只允许访问设置，启动验证与目标授权分开。默认关闭，关掉保留标记及凭据；进程授权不落盘。密码清除时同步关闭隐私设置。
+- 本轮先验收密码闭环；平台生物识别、通知/电池权限通过独立平台能力接线后验收，不展示无实际效果的开关。沿用原版功能及用户已确认的三组界面设计。
+
+编写者：Codex + Bridge｜2026-10-14
+
 **日期**: 2026-08-01
 **版本**: v1.0
 **维护人**: Legado 开发团队
@@ -1227,13 +1239,14 @@
 | 47 | 音频章节预下载 | 2 |
 | 49 | 视频弹幕数据链 | 1 |
 | 50 | 视频弹幕解析 | 1 |
-| | **合计（§2.x 附录行合计）** | **299** |
+| 51 | 隐私凭据（本页增量契约） | 3 |
+| | **合计（§2.x 附录行合计）** | **302** |
 
 > 口径说明（2026-08-15 程序化计数校准，2026-09-13 C2 批1 增 §2.45 字典规则 7 方法、书源作用域批次增 §2.8 替换规则 1 方法 `applyReplaceRulesToSource`、替换规则预览批次再增 §2.8 1 方法 `previewReplaceRule`、2026-09-24 换源预拉缓存批次增 §2.4 2 方法、2026-09-26 项 B/B1 增 §2.3 1 方法 `submitWebviewResultWithCookies`、2026-09-28 STAGE3-C2B 增 §2.16 单章缓存失效 1 方法 `clearChapterCache`、2026-09-28 P2-28c 增 §2.43 目录实时刷新 1 方法 `listCachedChapters`、2026-09-29 P2-29 增 §2.43 目录下载中态查询 1 方法 `listDownloadingChapters`、2026-09-29 P4-2a 增 §2.46 图片磁盘缓存 2 方法 `saveImageCache`/`getImageCache`、2026-10-03 cbz 批 B 增 §2.34 本地漫画页读取 1 方法 `cbzReadPage`、2026-10-04 B1 增 §2.47 音频章节文件缓存 4 方法、2026-10-03 B2 增 §2.48 音频章节预下载写入 2 方法 `audioCacheDownload`/`audioCacheCancel`、2026-10-13 UI-HOME-OVERVIEW-A1 增 §2.12 阅读记录单书每日明细 2 方法 `getReadRecordDetails`/`getAllReadRecordDetails`，取代人工统计）：
 
-> - 附录行合计 **299** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
+> - 附录行合计 **302** = §2.x 实际方法行总数；删除无调用方的阅读记录和 HTTP 列表别名，其余迁移只改变 Dart 接口归属。
 > - BookApi 代码计数 **240**；书签六项、阅读记录十项（原五项 + 每日单书明细两项 + 会话/删除三项）、HTTP 配置七项、合成一项、书架十项、分组五项、书源十一项及书源校验三项由独立接口承担；
 >   四个纯 FFI 为 `bookmarkGetAll` / `chapterPayAction` / `rssUpdateSource` / `ttsSpeak`，另有 Runtime 缓存设置一项；
 >   `getCachedChapter` / `cacheGetChapter` 在 §2.16 / §2.41 登记同一能力，增加一行登记。
-> - 闭合关系为 **299 = 240 + 6 + 10 + 7 + 1 + 10 + 5 + 11 + 3 + 4 + 1 + 1**：BookApi、书签、记录（含每日明细）、引擎配置、合成、书架、分组、书源、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
+> - 闭合关系为 **302 = 240 + 6 + 10 + 7 + 1 + 10 + 5 + 11 + 3 + 4 + 1 + 1 + 3**：BookApi、书签、记录（含每日明细）、引擎配置、合成、书架、分组、书源、纯 FFI、Runtime 缓存设置及重复缓存登记；测试核对领域接口与旧方法移除。
 > - 2026-08-15 之前的人工校准（F3-10 等）已由程序化计数取代，历史演进见 git 历史。

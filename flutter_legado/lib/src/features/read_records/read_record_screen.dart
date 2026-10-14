@@ -1,3 +1,4 @@
+import '../privacy/privacy_gate.dart';
 import '../../widgets/app_search_transition.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -791,26 +792,36 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ),
             ),
           );
-    final tile = Material(
-      color: selected
-          ? Theme.of(context).colorScheme.secondaryContainer
-          : Colors.transparent,
-      child: content,
+    final tile = PrivacyMaskedContent(
+      bookName: entry.bookName,
+      author: entry.author,
+      onTap: () => _open(entry),
+      child: Material(
+        color: selected
+            ? Theme.of(context).colorScheme.secondaryContainer
+            : Colors.transparent,
+        child: content,
+      ),
     );
     if (_selected.isNotEmpty) return tile;
-    return Dismissible(
-      key: ValueKey(entry.key),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.all(16),
-        child: const Icon(Symbols.delete_rounded),
+    return PrivacyMaskedContent(
+      bookName: entry.bookName,
+      author: entry.author,
+      onTap: () => _open(entry),
+      child: Dismissible(
+        key: ValueKey(entry.key),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.all(16),
+          child: const Icon(Symbols.delete_rounded),
+        ),
+        confirmDismiss: (_) async {
+          await _delete([entry]);
+          return false;
+        },
+        child: tile,
       ),
-      confirmDismiss: (_) async {
-        await _delete([entry]);
-        return false;
-      },
-      child: tile,
     );
   }
 }

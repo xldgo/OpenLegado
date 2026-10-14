@@ -1,3 +1,4 @@
+import '../features/privacy/privacy_gate.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -163,7 +164,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         children: [
           // ===== 最近阅读卡 =====
           if (recent != null)
-            _HomeCard(
+            PrivacyMaskedContent(book:recent,onTap:()=>_openBook(recent!),child:_HomeCard(
               onTap: () => _openBook(recent!),
               child: Row(
                 children: [
@@ -227,7 +228,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   _progressBadge(recent, cs),
                 ],
               ),
-            ),
+            )),
           if (recent != null) const SizedBox(height: 12),
           // ===== 统计双卡 =====
           Row(

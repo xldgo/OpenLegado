@@ -53,6 +53,7 @@ pub mod source_login_v1_api;
 pub mod source_login_v2_api;
 pub mod source_rate_limit;
 pub mod source_switch;
+pub mod privacy_api;
 pub mod tts_speak_api;
 pub mod txt_search_api;
 pub mod verification_api;

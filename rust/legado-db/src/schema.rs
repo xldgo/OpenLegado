@@ -35,6 +35,8 @@ pub const SCHEMA_VERSION: u32 = 109;
 
 /// 初始化全部 Schema（创建所有表）
 pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
+    conn.execute_batch(crate::repository::privacy_credentials::CREATE_PRIVACY_CREDENTIALS)
+        .map_err(|e| LegadoError::Database(format!("创建隐私凭据表失败: {e}")))?;
     conn.execute_batch(crate::repository::read_record_sessions::CREATE_READ_SESSIONS)
         .map_err(|e| LegadoError::Database(format!("创建阅读会话表失败: {e}")))?;
     conn.execute_batch(CREATE_BOOKS)
@@ -145,6 +147,7 @@ CREATE TABLE IF NOT EXISTS books (
     downloadUrls TEXT DEFAULT '',
     coverOrigin TEXT DEFAULT '',
     originBookUrl TEXT NOT NULL DEFAULT '',
+    isPrivate INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(bookUrl)
 );
 ";
@@ -159,6 +162,7 @@ CREATE TABLE IF NOT EXISTS book_groups (
     show INTEGER NOT NULL DEFAULT 1,
     bookSort INTEGER NOT NULL DEFAULT -1,
     onlyUpdateRead INTEGER NOT NULL DEFAULT 0,
+    isPrivate INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(groupId)
 );
 ";

@@ -1,3 +1,4 @@
+import '../privacy/privacy_gate.dart';
 import 'bookshelf_repositories.dart';
 import '../../widgets/app_menu.dart';
 
@@ -135,7 +136,20 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: plainAppBar ? _buildAppBar(context, ref) : null,
-      body: _buildBody(context, ref),
+      body: PrivacyGroupGate(
+        group: ref.watch(bookshelfNotifierProvider).selectedGroup,
+        lockedBuilder: (context, locked) => CustomScrollView(
+          slivers: [
+            _buildHeaderSliver(
+              context,
+              ref,
+              state.copyWith(isBatchMode: false),
+            ),
+            SliverFillRemaining(child: locked),
+          ],
+        ),
+        child: _buildBody(context, ref),
+      ),
     );
   }
 
@@ -562,7 +576,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               (s) => s.selectedUrls.contains(book.bookUrl),
             ),
           );
-          return _buildBatchListItem(context, ref, book, selected);
+          return PrivacyMaskedContent(
+            book: book,
+            child: _buildBatchListItem(context, ref, book, selected),
+          );
         }
         return BookListItem(
           key: ValueKey(book.bookUrl),
@@ -581,7 +598,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       bookshelfNotifierProvider.select((s) => s.isBatchMode),
     );
     if (batch) {
-      return _buildBatchGridItem(context, ref, book);
+      return PrivacyMaskedContent(
+        book: book,
+        child: _buildBatchGridItem(context, ref, book),
+      );
     }
     // 稳定 ValueKey（bookUrl）避免数据变化时整网格重建；RepaintBoundary 隔离重绘区域
     // [骨架对齐 2.0.260 | 台账 1-3] 卡片=封面+居中书名（对齐参考 03b）：
@@ -601,7 +621,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       // 书名区长按：与封面一致直达书籍信息（对齐原版 U1）
       onInfoLongPress: () => _openBookInfo(context, book),
     );
-    return RepaintBoundary(child: item);
+    return RepaintBoundary(
+      child: PrivacyMaskedContent(
+        book: book,
+        onTap: () => _openBook(context, ref, book),
+        child: item,
+      ),
+    );
   }
 
   // ===== 操作 =====
@@ -902,7 +928,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               (s) => s.selectedUrls.contains(book.bookUrl),
             ),
           );
-          return _buildBatchListItem(context, ref, book, selected);
+          return PrivacyMaskedContent(
+            book: book,
+            child: _buildBatchListItem(context, ref, book, selected),
+          );
         }
         return BookListItem(
           key: ValueKey(book.bookUrl),

@@ -1,6 +1,7 @@
+import '../privacy/privacy_controller.dart';
 import 'bookshelf_repositories.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
@@ -37,7 +38,10 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 加载持久化的布局、网格列数和分组方式
   Future<void> _loadSettings() async {
     final isGridView = await _settings.getBookshelfLayout();
-    final gridColumns = await _settings.getIntPref(_gridColumnsKey, defaultValue: 3);
+    final gridColumns = await _settings.getIntPref(
+      _gridColumnsKey,
+      defaultValue: 3,
+    );
     final groupName = await _settings.getStringPref(_groupModeKey);
     if (!ref.mounted) return;
     state = state.copyWith(
@@ -60,6 +64,9 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       final books = await api.getBooks();
       if (!ref.mounted) return;
       state = state.copyWith(books: books, isLoading: false);
+      if (ref.exists(privacyControllerProvider)) {
+        ref.read(privacyControllerProvider.notifier).syncBooks(books);
+      }
       // [P4-2b V4] 书籍就绪后重推视频聚合分组（对齐原版 IdVideo 动态显隐）
       _applyVideoGroup();
     } catch (e) {
@@ -107,6 +114,9 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       final api = ref.read(bookGroupRepositoryProvider);
       final groups = await api.getBookGroups();
       if (!ref.mounted) return;
+      if (ref.exists(privacyControllerProvider)) {
+        ref.read(privacyControllerProvider.notifier).syncGroups(groups);
+      }
       final visible = groups.where((g) => g.show).toList()
         ..sort((a, b) => a.order.compareTo(b.order));
       // 对标原版 upGroup：始终保证「全部」组存在并置顶；
@@ -152,10 +162,10 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// （bookshelf_state.dart，`type & video != 0`，对齐原版 isVideo 判定）。
   void _applyVideoGroup() {
     final groups = state.groups;
-    final hasVideoBook =
-        state.books.any((b) => (b.bookType & BookType.video) != 0);
-    final hasVideoGroup =
-        groups.any((g) => g.groupId == BookGroupId.video);
+    final hasVideoBook = state.books.any(
+      (b) => (b.bookType & BookType.video) != 0,
+    );
+    final hasVideoGroup = groups.any((g) => g.groupId == BookGroupId.video);
     if (hasVideoBook == hasVideoGroup) return;
 
     // 组列表变化后按 groupId 保持当前选中 Tab 不动（防插入/移除导致索引
@@ -166,11 +176,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       // 合成组对齐原版种子：order=-5、show=1（AppDatabase.kt:241-244）
       next = [
         ...groups,
-        const BookGroup(
-          groupId: BookGroupId.video,
-          groupName: '视频',
-          order: -5,
-        ),
+        const BookGroup(groupId: BookGroupId.video, groupName: '视频', order: -5),
       ]..sort((a, b) => a.order.compareTo(b.order));
     } else {
       // 当前体系 DB 无 -6 行，列表中 -6 组必为合成组（见方法注释）
@@ -219,10 +225,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     final api = ref.read(bookApiProvider);
     final book = await api.importLocalBook(filePath);
     state = state.copyWith(
-      books: [
-        ...state.books.where((b) => b.bookUrl != book.bookUrl),
-        book,
-      ],
+      books: [...state.books.where((b) => b.bookUrl != book.bookUrl), book],
     );
     return book;
   }
@@ -279,10 +282,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 设置分组模式
   // [UI_SYNC_REFACTOR T3] 批量选择（对齐参考 SelectionBottomBar 态）
   void toggleBatchMode() {
-    state = state.copyWith(
-      isBatchMode: !state.isBatchMode,
-      selectedUrls: {},
-    );
+    state = state.copyWith(isBatchMode: !state.isBatchMode, selectedUrls: {});
   }
 
   void toggleSelect(String bookUrl) {
@@ -299,9 +299,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
 
   void invertSelection() {
     final all = {for (final b in state.currentGroupBooks) b.bookUrl};
-    state = state.copyWith(
-      selectedUrls: all.difference(state.selectedUrls),
-    );
+    state = state.copyWith(selectedUrls: all.difference(state.selectedUrls));
   }
 
   void clearSelection() {
@@ -382,6 +380,4 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
 /// ref.read(bookshelfNotifierProvider.notifier).refresh();
 /// ```
 final bookshelfNotifierProvider =
-    NotifierProvider<BookshelfNotifier, BookshelfState>(
-  BookshelfNotifier.new,
-);
+    NotifierProvider<BookshelfNotifier, BookshelfState>(BookshelfNotifier.new);

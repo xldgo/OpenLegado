@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
+
 import 'dart:ui' show SemanticsAction;
 
 import 'package:material_symbols_icons/symbols.dart';
@@ -8,9 +10,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+class _PublicPrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
+
 void main() {
   Widget buildTestHost({required Widget child, double width = 360}) {
     return ProviderScope(
+      overrides: [privacyControllerProvider.overrideWith(_PublicPrivacy.new)],
       child: MaterialApp(
         home: Scaffold(
           body: Center(

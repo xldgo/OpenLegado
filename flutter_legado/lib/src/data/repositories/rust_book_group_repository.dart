@@ -26,6 +26,7 @@ final class RustBookGroupRepository implements BookGroupRepository {
       groupName: group.groupName,
       cover: group.cover ?? '',
       order: group.order,
+      isPrivate: group.isPrivate,
     );
     return group.copyWith(groupId: id.toInt());
   }
@@ -38,6 +39,7 @@ final class RustBookGroupRepository implements BookGroupRepository {
       groupName: group.groupName,
       cover: group.cover ?? '',
       order: group.order,
+      isPrivate: group.isPrivate,
     );
   }
 

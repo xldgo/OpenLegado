@@ -1,4 +1,9 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'providers/reader/reader_notifier.dart';
+import 'features/privacy/privacy_screen.dart';
+import 'features/privacy/privacy_gate.dart';
 
 import 'widgets/reader/read_aloud_player_transition.dart';
 
@@ -81,6 +86,7 @@ class AppRoutes {
   static const sourceEdit = '/sources/edit';
   static const exploreShow = '/explore_show';
   static const settings = '/settings';
+  static const privacy = '/privacy';
   static const otherSettings = '/other_settings';
   // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页（集中化分组入口）— Qoder
   static const cacheSettings = '/cache_settings';
@@ -140,13 +146,22 @@ class AppRoutes {
 
   static Map<String, WidgetBuilder> get routes => {
     home: (_) => const HomeScreen(),
-    reader: (_) => const ReaderScreen(),
+    reader: (_) => Consumer(
+      builder: (context, ref, _) => PrivacyBookGate(
+        book: ref.watch(readerNotifierProvider).currentBook,
+        builder: (_) => const ReaderScreen(),
+      ),
+    ),
+    privacy: (_) => const PrivacyScreen(),
     readerComic: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final bookUrl = args is String
           ? args
           : (args is Map ? (args['bookUrl'] as String? ?? '') : '');
-      return ReaderComicScreen(bookUrl: bookUrl);
+      return PrivacyBookGate(
+        book: Book(bookUrl: bookUrl),
+        builder: (_) => ReaderComicScreen(bookUrl: bookUrl),
+      );
     },
     search: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -201,13 +216,19 @@ class AppRoutes {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
-        return AudioScreen(book: args);
+        return PrivacyBookGate(
+          book: args,
+          builder: (_) => AudioScreen(book: args),
+        );
       }
       // 向后兼容：支持 Map<String, String> 传参
       if (args is Map<String, String>) {
-        return AudioScreen(
-          bookUrl: args['bookUrl'] ?? '',
-          bookName: args['bookName'] ?? '',
+        return PrivacyBookGate(
+          book: Book(bookUrl: args['bookUrl'] ?? ''),
+          builder: (_) => AudioScreen(
+            bookUrl: args['bookUrl'] ?? '',
+            bookName: args['bookName'] ?? '',
+          ),
         );
       }
       return const AudioScreen();
@@ -217,18 +238,27 @@ class AppRoutes {
       // [A4 对齐 B | 2026-09-21 裁决] BookInfoArgs：书架未读书单击
       // = 详情页 + 立即自动开读（openReaderImmediately）
       if (args is BookInfoArgs) {
-        return BookInfoScreen(
+        return PrivacyBookGate(
           book: args.book,
-          openReaderImmediately: args.openReaderImmediately,
+          builder: (_) => BookInfoScreen(
+            book: args.book,
+            openReaderImmediately: args.openReaderImmediately,
+          ),
         );
       }
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
-        return BookInfoScreen(book: args);
+        return PrivacyBookGate(
+          book: args,
+          builder: (_) => BookInfoScreen(book: args),
+        );
       }
       // 向后兼容：支持 String(bookUrl) 传参
       final bookUrl = args is String ? args : '';
-      return BookInfoScreen(bookUrl: bookUrl);
+      return PrivacyBookGate(
+        book: Book(bookUrl: bookUrl),
+        builder: (_) => BookInfoScreen(bookUrl: bookUrl),
+      );
     },
     editBookInfo: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -431,7 +461,11 @@ class AppRoutes {
       // [UI-fix v2.0.12] 视频源书籍：章节列表 + 当前章播放（对齐原版
       // VideoPlayerActivity 接收 bookUrl 语义）— Reasonix
       if (args is Book) {
-        return VideoScreen(videoUrl: '', title: args.name, book: args);
+        return PrivacyBookGate(
+          book: args,
+          builder: (_) =>
+              VideoScreen(videoUrl: '', title: args.name, book: args),
+        );
       }
       return const VideoScreen(videoUrl: '');
     },
@@ -453,7 +487,14 @@ class AppRoutes {
       );
     }
     final builder = routes[settings.name] ?? (_) => const HomeScreen();
-    return MaterialPageRoute<dynamic>(builder: builder, settings: settings);
+    return MaterialPageRoute<dynamic>(
+      builder: (context) => PrivacyAppGate(
+        child: settings.name == bookGroups || settings.name == bookshelfManage
+            ? PrivacyVerificationGate(builder: builder)
+            : Builder(builder: builder),
+      ),
+      settings: settings,
+    );
   }
 }
 

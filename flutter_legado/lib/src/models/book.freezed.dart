@@ -890,6 +890,7 @@ class __$ReadConfigCopyWithImpl<$Res> implements _$ReadConfigCopyWith<$Res> {
 mixin _$Book {
   @JsonKey(name: 'bookUrl')
   String get bookUrl;
+  bool get isPrivate;
   @JsonKey(name: 'tocUrl')
   String get tocUrl;
   String get origin;
@@ -970,6 +971,8 @@ mixin _$Book {
             other is Book &&
             (identical(other.bookUrl, _this.bookUrl) ||
                 other.bookUrl == _this.bookUrl) &&
+            (identical(other.isPrivate, _this.isPrivate) ||
+                other.isPrivate == _this.isPrivate) &&
             (identical(other.tocUrl, _this.tocUrl) ||
                 other.tocUrl == _this.tocUrl) &&
             (identical(other.origin, _this.origin) ||
@@ -1046,6 +1049,7 @@ mixin _$Book {
     return Object.hashAll([
       runtimeType,
       _this.bookUrl,
+      _this.isPrivate,
       _this.tocUrl,
       _this.origin,
       _this.originName,
@@ -1085,7 +1089,7 @@ mixin _$Book {
   @override
   String toString() {
     final _this = this as Book;
-    return 'Book(bookUrl: ${_this.bookUrl}, tocUrl: ${_this.tocUrl}, origin: ${_this.origin}, originName: ${_this.originName}, name: ${_this.name}, author: ${_this.author}, kind: ${_this.kind}, customTag: ${_this.customTag}, coverUrl: ${_this.coverUrl}, customCoverUrl: ${_this.customCoverUrl}, intro: ${_this.intro}, customIntro: ${_this.customIntro}, charset: ${_this.charset}, bookType: ${_this.bookType}, group: ${_this.group}, latestChapterTitle: ${_this.latestChapterTitle}, latestChapterTime: ${_this.latestChapterTime}, lastCheckTime: ${_this.lastCheckTime}, lastCheckCount: ${_this.lastCheckCount}, totalChapterNum: ${_this.totalChapterNum}, durChapterTitle: ${_this.durChapterTitle}, durChapterIndex: ${_this.durChapterIndex}, durVolumeIndex: ${_this.durVolumeIndex}, chapterInVolumeIndex: ${_this.chapterInVolumeIndex}, durChapterPos: ${_this.durChapterPos}, durChapterTime: ${_this.durChapterTime}, wordCount: ${_this.wordCount}, canUpdate: ${_this.canUpdate}, order: ${_this.order}, originOrder: ${_this.originOrder}, variable: ${_this.variable}, readConfig: ${_this.readConfig}, syncTime: ${_this.syncTime}, originBookUrl: ${_this.originBookUrl})';
+    return 'Book(bookUrl: ${_this.bookUrl}, isPrivate: ${_this.isPrivate}, tocUrl: ${_this.tocUrl}, origin: ${_this.origin}, originName: ${_this.originName}, name: ${_this.name}, author: ${_this.author}, kind: ${_this.kind}, customTag: ${_this.customTag}, coverUrl: ${_this.coverUrl}, customCoverUrl: ${_this.customCoverUrl}, intro: ${_this.intro}, customIntro: ${_this.customIntro}, charset: ${_this.charset}, bookType: ${_this.bookType}, group: ${_this.group}, latestChapterTitle: ${_this.latestChapterTitle}, latestChapterTime: ${_this.latestChapterTime}, lastCheckTime: ${_this.lastCheckTime}, lastCheckCount: ${_this.lastCheckCount}, totalChapterNum: ${_this.totalChapterNum}, durChapterTitle: ${_this.durChapterTitle}, durChapterIndex: ${_this.durChapterIndex}, durVolumeIndex: ${_this.durVolumeIndex}, chapterInVolumeIndex: ${_this.chapterInVolumeIndex}, durChapterPos: ${_this.durChapterPos}, durChapterTime: ${_this.durChapterTime}, wordCount: ${_this.wordCount}, canUpdate: ${_this.canUpdate}, order: ${_this.order}, originOrder: ${_this.originOrder}, variable: ${_this.variable}, readConfig: ${_this.readConfig}, syncTime: ${_this.syncTime}, originBookUrl: ${_this.originBookUrl})';
   }
 }
 
@@ -1096,6 +1100,7 @@ abstract mixin class $BookCopyWith<$Res> {
   @useResult
   $Res call({
     @JsonKey(name: 'bookUrl') String bookUrl,
+    bool isPrivate,
     @JsonKey(name: 'tocUrl') String tocUrl,
     String origin,
     @JsonKey(name: 'originName') String originName,
@@ -1147,6 +1152,7 @@ class _$BookCopyWithImpl<$Res> implements $BookCopyWith<$Res> {
   @override
   $Res call({
     Object? bookUrl = null,
+    Object? isPrivate = null,
     Object? tocUrl = null,
     Object? origin = null,
     Object? originName = null,
@@ -1187,6 +1193,10 @@ class _$BookCopyWithImpl<$Res> implements $BookCopyWith<$Res> {
             ? _self.bookUrl
             : bookUrl // ignore: cast_nullable_to_non_nullable
                   as String,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         tocUrl: null == tocUrl
             ? _self.tocUrl
             : tocUrl // ignore: cast_nullable_to_non_nullable
@@ -1431,6 +1441,7 @@ extension BookPatterns on Book {
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'bookUrl') String bookUrl,
+      bool isPrivate,
       @JsonKey(name: 'tocUrl') String tocUrl,
       String origin,
       @JsonKey(name: 'originName') String originName,
@@ -1473,6 +1484,7 @@ extension BookPatterns on Book {
       case _Book() when $default != null:
         return $default(
           _that.bookUrl,
+          _that.isPrivate,
           _that.tocUrl,
           _that.origin,
           _that.originName,
@@ -1529,6 +1541,7 @@ extension BookPatterns on Book {
   TResult when<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'bookUrl') String bookUrl,
+      bool isPrivate,
       @JsonKey(name: 'tocUrl') String tocUrl,
       String origin,
       @JsonKey(name: 'originName') String originName,
@@ -1570,6 +1583,7 @@ extension BookPatterns on Book {
       case _Book():
         return $default(
           _that.bookUrl,
+          _that.isPrivate,
           _that.tocUrl,
           _that.origin,
           _that.originName,
@@ -1625,6 +1639,7 @@ extension BookPatterns on Book {
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
       @JsonKey(name: 'bookUrl') String bookUrl,
+      bool isPrivate,
       @JsonKey(name: 'tocUrl') String tocUrl,
       String origin,
       @JsonKey(name: 'originName') String originName,
@@ -1666,6 +1681,7 @@ extension BookPatterns on Book {
       case _Book() when $default != null:
         return $default(
           _that.bookUrl,
+          _that.isPrivate,
           _that.tocUrl,
           _that.origin,
           _that.originName,
@@ -1711,6 +1727,7 @@ extension BookPatterns on Book {
 class _Book implements Book {
   const _Book({
     @JsonKey(name: 'bookUrl') this.bookUrl = '',
+    this.isPrivate = false,
     @JsonKey(name: 'tocUrl') this.tocUrl = '',
     this.origin = 'loc_book',
     @JsonKey(name: 'originName') this.originName = '',
@@ -1750,6 +1767,9 @@ class _Book implements Book {
   @override
   @JsonKey(name: 'bookUrl')
   final String bookUrl;
+  @override
+  @JsonKey()
+  final bool isPrivate;
   @override
   @JsonKey(name: 'tocUrl')
   final String tocUrl;
@@ -1869,6 +1889,8 @@ class _Book implements Book {
         (other.runtimeType == runtimeType &&
             other is _Book &&
             (identical(other.bookUrl, bookUrl) || other.bookUrl == bookUrl) &&
+            (identical(other.isPrivate, isPrivate) ||
+                other.isPrivate == isPrivate) &&
             (identical(other.tocUrl, tocUrl) || other.tocUrl == tocUrl) &&
             (identical(other.origin, origin) || other.origin == origin) &&
             (identical(other.originName, originName) ||
@@ -1934,6 +1956,7 @@ class _Book implements Book {
     return Object.hashAll([
       runtimeType,
       bookUrl,
+      isPrivate,
       tocUrl,
       origin,
       originName,
@@ -1972,7 +1995,7 @@ class _Book implements Book {
 
   @override
   String toString() {
-    return 'Book(bookUrl: $bookUrl, tocUrl: $tocUrl, origin: $origin, originName: $originName, name: $name, author: $author, kind: $kind, customTag: $customTag, coverUrl: $coverUrl, customCoverUrl: $customCoverUrl, intro: $intro, customIntro: $customIntro, charset: $charset, bookType: $bookType, group: $group, latestChapterTitle: $latestChapterTitle, latestChapterTime: $latestChapterTime, lastCheckTime: $lastCheckTime, lastCheckCount: $lastCheckCount, totalChapterNum: $totalChapterNum, durChapterTitle: $durChapterTitle, durChapterIndex: $durChapterIndex, durVolumeIndex: $durVolumeIndex, chapterInVolumeIndex: $chapterInVolumeIndex, durChapterPos: $durChapterPos, durChapterTime: $durChapterTime, wordCount: $wordCount, canUpdate: $canUpdate, order: $order, originOrder: $originOrder, variable: $variable, readConfig: $readConfig, syncTime: $syncTime, originBookUrl: $originBookUrl)';
+    return 'Book(bookUrl: $bookUrl, isPrivate: $isPrivate, tocUrl: $tocUrl, origin: $origin, originName: $originName, name: $name, author: $author, kind: $kind, customTag: $customTag, coverUrl: $coverUrl, customCoverUrl: $customCoverUrl, intro: $intro, customIntro: $customIntro, charset: $charset, bookType: $bookType, group: $group, latestChapterTitle: $latestChapterTitle, latestChapterTime: $latestChapterTime, lastCheckTime: $lastCheckTime, lastCheckCount: $lastCheckCount, totalChapterNum: $totalChapterNum, durChapterTitle: $durChapterTitle, durChapterIndex: $durChapterIndex, durVolumeIndex: $durVolumeIndex, chapterInVolumeIndex: $chapterInVolumeIndex, durChapterPos: $durChapterPos, durChapterTime: $durChapterTime, wordCount: $wordCount, canUpdate: $canUpdate, order: $order, originOrder: $originOrder, variable: $variable, readConfig: $readConfig, syncTime: $syncTime, originBookUrl: $originBookUrl)';
   }
 }
 
@@ -1984,6 +2007,7 @@ abstract mixin class _$BookCopyWith<$Res> implements $BookCopyWith<$Res> {
   @useResult
   $Res call({
     @JsonKey(name: 'bookUrl') String bookUrl,
+    bool isPrivate,
     @JsonKey(name: 'tocUrl') String tocUrl,
     String origin,
     @JsonKey(name: 'originName') String originName,
@@ -2036,6 +2060,7 @@ class __$BookCopyWithImpl<$Res> implements _$BookCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   $Res call({
     Object? bookUrl = null,
+    Object? isPrivate = null,
     Object? tocUrl = null,
     Object? origin = null,
     Object? originName = null,
@@ -2076,6 +2101,10 @@ class __$BookCopyWithImpl<$Res> implements _$BookCopyWith<$Res> {
             ? _self.bookUrl
             : bookUrl // ignore: cast_nullable_to_non_nullable
                   as String,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         tocUrl: null == tocUrl
             ? _self.tocUrl
             : tocUrl // ignore: cast_nullable_to_non_nullable

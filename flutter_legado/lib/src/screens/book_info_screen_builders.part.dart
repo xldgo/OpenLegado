@@ -9,11 +9,7 @@ part of 'book_info_screen.dart';
 
 /// [08 元信息区对齐 | 台账 0922 修订] chips 行单项数据（分组/kind/字数）
 class _MetaChipSpec {
-  const _MetaChipSpec({
-    required this.text,
-    this.onTap,
-    this.onLongPress,
-  });
+  const _MetaChipSpec({required this.text, this.onTap, this.onLongPress});
   final String text;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -59,7 +55,6 @@ class _MetaChip extends StatelessWidget {
 }
 
 extension _BookInfoBuilders on _BookInfoScreenState {
-
   /// 页面主体：封面背景三档（off/off_for_default/on）+ seed 渐变 —— 内容叠层
   /// [UI_SYNC_REFACTOR B4] 对齐参考仓 BookInfoBackdrop：
   /// - on=480dp 顶部封面 + blur24 + seedOverlay(lerp(secondaryContainer,seed,0.42) α0.34)；
@@ -67,7 +62,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// - [G1 | 台账 0917 批六] 垂直渐变 stops 0/0.2/0.35/0.48/1：35% 起→48%
   ///   surface 渐隐至全覆盖，其下为纯 surface 底色区（明暗双态经 cs.surface 槽位）；
   ///   切换 Crossfade 800ms。
-  Widget _buildPage(BuildContext context, Book book, List<BookChapter> chapters) {
+  Widget _buildPage(
+    BuildContext context,
+    Book book,
+    List<BookChapter> chapters,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final coverUrl = book.customCoverUrl ?? book.coverUrl;
     final hasCover = coverUrl != null && coverUrl.isNotEmpty;
@@ -78,8 +77,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         : ui.bookInfoNetworkCoverBackground;
     // [UI-fix v2.0.166] 虚化源降采样：σ24 下 1/3 屏宽与全尺寸视觉无差，
     // 解码+滤波开销降一个量级（进详情转场掉帧根因之一）
-    final blurWidth =
-        (MediaQuery.sizeOf(context).width / 3).round().clamp(120, 480);
+    final blurWidth = (MediaQuery.sizeOf(context).width / 3).round().clamp(
+      120,
+      480,
+    );
     final seed = _coverSeed;
     final seedOverlay = seed == null
         ? cs.secondaryContainer
@@ -122,9 +123,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                 ColoredBox(color: cs.surfaceContainerHighest),
               if (hasCover)
                 Positioned.fill(
-                  child: ColoredBox(
-                    color: seedOverlay.withValues(alpha: 0.34),
-                  ),
+                  child: ColoredBox(color: seedOverlay.withValues(alpha: 0.34)),
                 ),
             ],
           );
@@ -184,7 +183,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     );
   }
 
-
   /// P2-2 自定义按钮：SourceCallBack.callBackBtn + 中途 UI 回放
   Future<void> _onCustomButton() async {
     final book = _loadedBook;
@@ -204,20 +202,19 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       final jsTrue = r['jsTrue'] == true;
       if (!invoked || !jsTrue) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('未配置回调或回调未接管')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('未配置回调或回调未接管')));
         }
       }
     } catch (e) {
       debugPrint('自定义按钮失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('自定义按钮执行失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('自定义按钮执行失败: $e')));
       }
     }
   }
+
   /// 溢出菜单处理（对标原版 BookInfoActivity.onOptionsItemSelected）
   Future<void> _handleMenu(String value) async {
     final api = ref.read(bookApiProvider);
@@ -236,7 +233,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'copyBookUrl':
         if (book != null) {
-          await ref.read(bookApiProvider).sourceCallBackBtn(
+          await ref
+              .read(bookApiProvider)
+              .sourceCallBackBtn(
                 event: 'clickCopyBookUrl',
                 bookUrl: book.bookUrl,
                 bookType: book.bookType,
@@ -244,15 +243,16 @@ extension _BookInfoBuilders on _BookInfoScreenState {
               );
           await Clipboard.setData(ClipboardData(text: book.bookUrl));
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('已拷贝书籍URL')));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('已拷贝书籍URL')));
           }
         }
         break;
       case 'copyTocUrl':
         if (book != null) {
-          await ref.read(bookApiProvider).sourceCallBackBtn(
+          await ref
+              .read(bookApiProvider)
+              .sourceCallBackBtn(
                 event: 'clickCopyTocUrl',
                 bookUrl: book.bookUrl,
                 bookType: book.bookType,
@@ -260,9 +260,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
               );
           await Clipboard.setData(ClipboardData(text: book.tocUrl));
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('已拷贝目录URL')));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('已拷贝目录URL')));
           }
         }
         break;
@@ -270,8 +269,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         if (book == null) return;
         // 对齐原版 menu_can_update：内存切换，在架时 saveBook；关闭时清除 updateError
         // — Cursor UI
-        final toggledCanUpdate =
-            applyBookInfoCanUpdateToggle(book, inBookshelf: _inBookshelf);
+        final toggledCanUpdate = applyBookInfoCanUpdateToggle(
+          book,
+          inBookshelf: _inBookshelf,
+        );
         setState(() => _loadedBook = toggledCanUpdate);
         if (_inBookshelf) {
           await api.bookshelfRepository.updateBook(toggledCanUpdate);
@@ -284,9 +285,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // — Cursor UI
         final cfg = book.readConfig ?? const ReadConfig();
         final toggledSplit = book.copyWith(
-          readConfig: cfg.copyWith(
-            splitLongChapter: !cfg.splitLongChapter,
-          ),
+          readConfig: cfg.copyWith(splitLongChapter: !cfg.splitLongChapter),
         );
         if (_inBookshelf) {
           await api.bookshelfRepository.updateBook(toggledSplit);
@@ -353,6 +352,24 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // WebDav PUT 本地书籍文件 → book.origin = webDavTag+putUrl → update） — Qoder
         await _uploadToRemote();
         break;
+      case 'private':
+        if (book == null) return;
+        try {
+          await ref
+              .read(privacyControllerProvider.notifier)
+              .setBookPrivate(book, !book.isPrivate);
+          if (!mounted) return;
+          setState(
+            () => _loadedBook = book.copyWith(isPrivate: !book.isPrivate),
+          );
+          await ref.read(bookshelfNotifierProvider.notifier).refresh();
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('私密标记保存失败，请重试')));
+          }
+        }
+        break;
       case 'group':
         // [B1 形态对齐 | full-stack-engineer + UI]「分组」由操作宫格收纳进
         // 顶栏 ⋮ 菜单，复用既有 _showChangeGroup（行为不变）
@@ -367,9 +384,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// 未移植功能提示（占位项，待后续版本对齐原版）
   void _todo(String value) {
     final feature = value;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「$feature」后续版本支持')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('「$feature」后续版本支持')));
   }
 
   /// 设置源变量（Task #63 冻结 / #64-65 实现，台账 §5.11-3，对齐原版 BookInfoActivity
@@ -414,14 +430,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       // 单列 UPDATE 语义（契约 §2.3）：仅改 variable 列，空串=清除；
       // 规避 updateBookSource 全行更新覆盖其它字段的风险
-      await api.bookSourceRepository.setSourceVariable(source.bookSourceUrl, input);
+      await api.bookSourceRepository.setSourceVariable(
+        source.bookSourceUrl,
+        input,
+      );
       if (!mounted) return;
       // 刷新本地书源状态（重载页面数据，书源查询自然带出新 variable；
       // 评审 C1：variable 非空串语义，空串即已清除，不再传 null）
       setState(() {
-        _bookSource = source.copyWith(
-          variable: input,
-        );
+        _bookSource = source.copyWith(variable: input);
       });
       _reload();
       _snack(input.isEmpty ? '源变量已清除' : '源变量已保存');
@@ -507,11 +524,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       final full = await api.bookshelfRepository.getBook(book.bookUrl) ?? book;
       final remoteUrl =
           '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}$remotePath';
-      await api.bookshelfRepository.updateBook(full.copyWith(
-        origin: BookType.webDavTag + remoteUrl,
-        // 对齐原版：刷新最后检查时间，使之比远程书籍的时间新
-        lastCheckTime: DateTime.now().millisecondsSinceEpoch,
-      ));
+      await api.bookshelfRepository.updateBook(
+        full.copyWith(
+          origin: BookType.webDavTag + remoteUrl,
+          // 对齐原版：刷新最后检查时间，使之比远程书籍的时间新
+          lastCheckTime: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
       if (!mounted) return;
       _reload();
       _snack('上传至远程成功');
@@ -608,7 +627,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       } else {
         varMap['custom'] = input;
       }
-      await api.bookshelfRepository.updateBook(full.copyWith(variable: jsonEncode(varMap)));
+      await api.bookshelfRepository.updateBook(
+        full.copyWith(variable: jsonEncode(varMap)),
+      );
       if (!mounted) return;
       _reload();
       _snack('书籍变量已保存');
@@ -680,7 +701,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     );
   }
 
-  Widget _buildBody(BuildContext context, Book book, List<BookChapter> chapters) {
+  Widget _buildBody(
+    BuildContext context,
+    Book book,
+    List<BookChapter> chapters,
+  ) {
     final cs = Theme.of(context).colorScheme;
     // [08 元信息区元素集对齐 | 台账 0922 修订] 版块顺序对齐参考 08：
     // ① chips 行（分组 chip 条件显示 + kind chips + 字数，TextCard 观感）→
@@ -744,9 +769,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                           onPressed: () => Navigator.maybePop(context),
                         ),
                       ],
-                      style: t < 0.5
-                          ? TopBarButtonStyle.glass
-                          : topStyle,
+                      style: t < 0.5 ? TopBarButtonStyle.glass : topStyle,
                       merge: false,
                     ).first
                   : null,
@@ -775,9 +798,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // [08 元信息区对齐 | 台账 0922 修订] ① chips 行：分组 chip（条件）+
         // kind chips + 字数 chip（对标参考 BookInfoHeader LazyRow/TextCard；
         // 整行无数据不渲染；章数项已去除——由 ③「共 N 章」行承载）
-        SliverToBoxAdapter(
-          child: _buildKindChipRow(context, book, kinds),
-        ),
+        SliverToBoxAdapter(child: _buildKindChipRow(context, book, kinds)),
         // 操作区：加入书架、查看目录、书源和设置分组。
         SliverToBoxAdapter(child: _buildActionCards(context, book)),
         // [U10 | 台账 0917 批三] ③ 在读/最新/共N章 三行块（原置于四按钮
@@ -804,9 +825,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // ④ 简介面板（[08 元信息区对齐 | 台账 0922 修订] 原 ④ 标签行 /
         // ⑥ 分组行 / 目录行已移除或收编入 ① chips 行，面板内仅余简介；
         // 书名/作者/来源两栏区在 _buildHeader）
-        SliverToBoxAdapter(
-          child: _buildSummaryPanel(context, book),
-        ),
+        SliverToBoxAdapter(child: _buildSummaryPanel(context, book)),
         // 底部续铺纯色：内容不足一屏时填满剩余视口，避免透出封面虚化层
         SliverFillRemaining(
           hasScrollBody: false,
@@ -825,7 +844,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   ///   按参考 08 版块序独立成 sliver（_buildBody 中 ①③④ 位）
   /// — full-stack-engineer + UI
   Widget _buildHeader(
-      BuildContext context, Book book, List<BookChapter> chapters) {
+    BuildContext context,
+    Book book,
+    List<BookChapter> chapters,
+  ) {
     final topPadding = MediaQuery.paddingOf(context).top + kToolbarHeight + 8;
     final cs = Theme.of(context).colorScheme;
     final ts = Theme.of(context).textTheme;
@@ -904,16 +926,20 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                     // 改由文字双（深+浅）柔阴影 heroTextShadows 保证，任意封面
                     // （亮/暗）hero 下均可读
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 书名（对齐原版 tvName 点击/长按 → SearchActivity）
                         GestureDetector(
-                          onTap: () => _openSearch(
-                              book.name, event: 'clickBookName'),
+                          onTap: () =>
+                              _openSearch(book.name, event: 'clickBookName'),
                           onLongPress: () => _sourceCallBackSearch(
-                              'longClickBookName', book.name),
+                            'longClickBookName',
+                            book.name,
+                          ),
                           child: Text(
                             book.name,
                             maxLines: 2,
@@ -936,10 +962,12 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                         const SizedBox(height: 6),
                         // 作者（点击 → 搜索作者；长按 → JS 回调，行为不变）
                         GestureDetector(
-                          onTap: () => _openSearch(book.author,
-                              event: 'clickAuthor'),
+                          onTap: () =>
+                              _openSearch(book.author, event: 'clickAuthor'),
                           onLongPress: () => _sourceCallBackSearch(
-                              'longClickAuthor', book.author),
+                            'longClickAuthor',
+                            book.author,
+                          ),
                           behavior: HitTestBehavior.opaque,
                           child: Text(
                             book.author.isNotEmpty ? book.author : '未知作者',
@@ -962,8 +990,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                         Row(
                           children: [
                             // [F1 | 台账 0917 08 批] 图标随文字改 onSurface 高对比
-                            Icon(Symbols.language_rounded,
-                                size: 14, color: cs.onSurface),
+                            Icon(
+                              Symbols.language_rounded,
+                              size: 14,
+                              color: cs.onSurface,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: GestureDetector(
@@ -987,17 +1018,20 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                                 ),
                               ),
                             ),
-                            _smallAction(context, '换源',
-                                () => _showChangeSourceDialog(book)),
+                            _smallAction(
+                              context,
+                              '换源',
+                              () => _showChangeSourceDialog(book),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
                 ),
-                ],
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -1018,14 +1052,20 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// (181,204,186) 不符，改主题角色色，随激活调色板渲染——与参考版同源
   /// 行为）。
   Widget _buildChapterStatLine(
-      BuildContext context, Book book, List<BookChapter> chapters) {
+    BuildContext context,
+    Book book,
+    List<BookChapter> chapters,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final ts = Theme.of(context).textTheme;
-    final chapterTotal =
-        book.totalChapterNum > 0 ? book.totalChapterNum : chapters.length;
+    final chapterTotal = book.totalChapterNum > 0
+        ? book.totalChapterNum
+        : chapters.length;
     if (chapterTotal <= 0) {
-      return Text('暂无章节',
-          style: ts.bodyLarge?.copyWith(color: cs.onSurfaceVariant));
+      return Text(
+        '暂无章节',
+        style: ts.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+      );
     }
     final dci = book.durChapterIndex;
     final String readState;
@@ -1044,8 +1084,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       children: [
         Text(
           '共 $chapterTotal 章',
-          style:
-              base?.copyWith(color: cs.primary, fontWeight: FontWeight.w700),
+          style: base?.copyWith(color: cs.primary, fontWeight: FontWeight.w700),
         ),
         const SizedBox(width: 8),
         Text('|', style: base?.copyWith(color: cs.secondary)),
@@ -1074,15 +1113,22 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// chip 形态（参考 TextCard 默认量值）：surfaceContainer 底 +
   /// onSurfaceVariant 字、圆角 8dp、内边距 横8/纵4、chip 间距 8dp、
   /// 行左右 13dp（与封面左缘对齐）、超宽横向滚动（参考 LazyRow）
-  Widget _buildKindChipRow(BuildContext context, Book book, List<String> kinds) {
+  Widget _buildKindChipRow(
+    BuildContext context,
+    Book book,
+    List<String> kinds,
+  ) {
     final groupNames = _groupNamesFor(book);
     final chips = <_MetaChipSpec>[
-      if (groupNames.isNotEmpty)
-        _MetaChipSpec(text: groupNames.join(',')),
+      if (groupNames.isNotEmpty) _MetaChipSpec(text: groupNames.join(',')),
       for (final kind in kinds)
         _MetaChipSpec(
           text: kind,
-          onTap: () => _openSearch(kind, sourceUrl: book.origin, event: 'clickBookLabel'),
+          onTap: () => _openSearch(
+            kind,
+            sourceUrl: book.origin,
+            event: 'clickBookLabel',
+          ),
           onLongPress: () => _sourceCallBackLabel('longClickBookLabel', kind),
         ),
       if (isMeaningfulText(book.wordCount))
@@ -1135,7 +1181,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   ///   形态「最新 · {标题}」（参考 dump 中「（全书完）」为站点标题自带，
   ///   非代码追加，故不再追加后缀）
   List<Widget> _buildReadLatestLines(
-      BuildContext context, Book book, List<BookChapter> chapters) {
+    BuildContext context,
+    Book book,
+    List<BookChapter> chapters,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final ts = Theme.of(context).textTheme;
     // [F1 | 台账 0917 08 批] 在读/最新行 onSurfaceVariant（wcag 2.79-2.92）
@@ -1175,9 +1224,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       // [H2 | 台账 0917 反馈批七] 在读行 16sp w700（ref 墨高 46px 粗体）；
       // [P2-21] 形态对齐参考 toc_s「在读 · %s」：标题原文直出，无「第N章」
       // 前缀（原「在读·第N章」前缀 + 1 基取 chapters[durIdx-1] 双错）
-      lines.add(
-        line('在读 · $readTitle', fontSize: 16, weight: FontWeight.w700),
-      );
+      lines.add(line('在读 · $readTitle', fontSize: 16, weight: FontWeight.w700));
     }
     // 最新行（info：latestChapterTitle）
     // [E5 | 台账 0917 反馈批四] 部分书源的 latestChapterTitle 字段返回的是完结
@@ -1188,13 +1235,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // [P2-21] 形态对齐参考 lasted_show「最新 · %s」：去「第N章」前缀与
     // 代码追加的「（全书完）」后缀（参考 dump 中该后缀为站点标题自带，
     // 回落目录末章时同样不加后缀）
-    final latestStatusRe =
-        RegExp(r'^(已完结|完本|已完本|连载中|暂停更新|停更|断更)$');
+    final latestStatusRe = RegExp(r'^(已完结|完本|已完本|连载中|暂停更新|停更|断更)$');
     final latestRaw = (book.latestChapterTitle ?? '').trim();
     var latestTitle = latestRaw;
     if (latestStatusRe.hasMatch(latestTitle)) {
-      final tocTotal =
-          book.totalChapterNum > 0 ? book.totalChapterNum : chapters.length;
+      final tocTotal = book.totalChapterNum > 0
+          ? book.totalChapterNum
+          : chapters.length;
       final tocIdx = tocTotal > 0 ? tocTotal - 1 : chapters.length - 1;
       if (tocIdx >= 0 && tocIdx < chapters.length) {
         final tocTitle = chapters[tocIdx].title.trim();
@@ -1243,10 +1290,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
                   // [F1 | 台账 0917 08 批] 四按钮标签在面板区（非 hero）：
                   // onSurfaceVariant（wcag 2.79）改 onSurface 高对比；
                   // [H1] 卡宽拓宽后标签 11sp 保持可读（ref 33px≈11sp）
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontSize: 11,
-                        color: cs.onSurface,
-                      ),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(fontSize: 11, color: cs.onSurface),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1292,11 +1337,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: card(
-              Symbols.folder_rounded,
-              '设置分组',
-              _showChangeGroup,
-            ),
+            child: card(Symbols.folder_rounded, '设置分组', _showChangeGroup),
           ),
         ],
       ),
@@ -1314,8 +1355,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text('角色',
-              style: Theme.of(context).textTheme.titleMedium),
+          child: Text('角色', style: Theme.of(context).textTheme.titleMedium),
         ),
       ),
       SliverToBoxAdapter(
@@ -1345,8 +1385,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text('相关书籍',
-              style: Theme.of(context).textTheme.titleMedium),
+          child: Text('相关书籍', style: Theme.of(context).textTheme.titleMedium),
         ),
       ),
     ];
@@ -1460,7 +1499,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final book = _loadedBook;
     if (book == null || result.trim().isEmpty) return false;
     try {
-      final r = await ref.read(bookApiProvider).sourceCallBackBtn(
+      final r = await ref
+          .read(bookApiProvider)
+          .sourceCallBackBtn(
             event: event,
             bookUrl: book.bookUrl,
             bookType: book.bookType,
@@ -1494,11 +1535,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       return;
     }
     if (!mounted) return;
-    await Navigator.pushNamed(
-      context,
-      AppRoutes.sourceEdit,
-      arguments: source,
-    );
+    await Navigator.pushNamed(context, AppRoutes.sourceEdit, arguments: source);
     if (mounted) _reload();
   }
 
@@ -1579,9 +1616,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       }
       if (!mounted) return;
       setState(() => _chapters = chapters);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('目录已更新，共 ${chapters.length} 章')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('目录已更新，共 ${chapters.length} 章')));
       if (_inBookshelf) {
         _reload();
       }
@@ -1589,7 +1626,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       if (!mounted) return;
       BookSource? source;
       try {
-        final sources = await ref.read(bookApiProvider).bookSourceRepository.getBookSources();
+        final sources = await ref
+            .read(bookApiProvider)
+            .bookSourceRepository
+            .getBookSources();
         for (final s in sources) {
           if (s.bookSourceUrl == book.origin) {
             source = s;
@@ -1601,9 +1641,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       if (isSourceLoginRequiredError(e)) {
         await promptSourceLoginIfNeeded(_pageContext, error: e, source: source);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('更新失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -1678,16 +1717,16 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         return;
       }
       setState(() => _inBookshelf = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('《${book.name}》已移出书架')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('《${book.name}》已移出书架')));
     } else {
       // 清除 notShelf 位转正：之前阅读时可能已以 notShelf 临时落库，
       // addBook 走原地 UPDATE 安全 upsert（不会级联删章节），同时清掉标记进书架。
       // [F1-hunt F3 | 2026-09-24] 按结果分支：写库失败不得提示「已加入
       // 书架」、不得翻 _inBookshelf（假成功根因），改弹失败提示
-      final ok = await notifier
-          .addBook(book.copyWith(bookType: book.bookType & ~BookType.notShelf));
+      final ok = await notifier.addBook(
+        book.copyWith(bookType: book.bookType & ~BookType.notShelf),
+      );
       if (!mounted) return;
       if (!ok) {
         final err = ref.read(bookshelfNotifierProvider).error;
@@ -1695,9 +1734,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         return;
       }
       setState(() => _inBookshelf = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('《${book.name}》已加入书架')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('《${book.name}》已加入书架')));
     }
   }
 
@@ -1736,7 +1774,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     } else if (selected > 0) {
       // [F1-hunt F3 | 2026-09-24] 同 _toggleShelf：写库失败不得把本地
       // 状态翻成在架（假成功），改弹失败提示
-      final ok = await ref.read(bookshelfNotifierProvider.notifier).addBook(
+      final ok = await ref
+          .read(bookshelfNotifierProvider.notifier)
+          .addBook(
             updated.copyWith(bookType: updated.bookType & ~BookType.notShelf),
           );
       if (!mounted) return;
@@ -1762,9 +1802,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (book == null) return;
     if (book.origin == BookType.localTag ||
         book.origin.startsWith(BookType.webDavTag)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('本地书籍不支持书源登录')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('本地书籍不支持书源登录')));
       return;
     }
     final api = ref.read(bookApiProvider);
@@ -1782,16 +1821,14 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     if (!mounted) return;
     if (source == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未找到本书对应的书源')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('未找到本书对应的书源')));
       return;
     }
     final ok = await showSourceLogin(_pageContext, ref, source);
     if (ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('登录成功')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('登录成功')));
     }
   }
 
@@ -1802,15 +1839,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       await ref.read(bookApiProvider).bookshelfRepository.topBook(book.bookUrl);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已置顶')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已置顶')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('置顶失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('置顶失败: $e')));
       }
     }
   }
@@ -1829,15 +1864,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       final deleted = await api.clearBookCache(book.bookUrl);
       await CacheService.clearSameTitleRemovedFlags();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已清除 $deleted 条章节缓存')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已清除 $deleted 条章节缓存')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除缓存失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清除缓存失败: $e')));
       }
     }
   }
@@ -1845,7 +1878,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   // ===== 操作 =====
 
   Future<void> _openReader(
-      BuildContext context, Book book, int chapterIndex) async {
+    BuildContext context,
+    Book book,
+    int chapterIndex,
+  ) async {
     // [UI-fix v2.0.3 | 2026-08-06] 对齐原版 readBook：未入库在线书阅读前先落库 — Qoder
     // 带正确 origin 落库，使阅读器 DB 依赖成立（get_chapter_content_full 按
     // book.origin 找书源取正文），规避「章节不存在 / 未配置书源」；已入库则幂等跳过。
@@ -1873,19 +1909,24 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           // （按 origin 取正文），但不进书架列表；用户显式「加入书架」时再
           // 清标记转正（见 _toggleShelf）。
           await api.bookshelfRepository.addBook(
-              book.copyWith(bookType: typeBits | BookType.notShelf));
+            book.copyWith(bookType: typeBits | BookType.notShelf),
+          );
         } else if (typeBits != 0 &&
             (existing.bookType & typeMask) != typeBits) {
           // 缺类型位，或文本→图片提升（必应漫画）→ 回填媒体位
-          await api.bookshelfRepository.updateBook(existing.copyWith(
-              bookType: (existing.bookType & ~typeMask) | typeBits));
+          await api.bookshelfRepository.updateBook(
+            existing.copyWith(
+              bookType: (existing.bookType & ~typeMask) | typeBits,
+            ),
+          );
         }
         // 漫画/视频等非文本阅读器只收 bookUrl，不会走 ReaderNotifier 的
         // 空目录自愈；详情页「未入库」路径又不落库章节 → 必须在开读前
         // 把目录写入 DB，否则进 comic/video 仍是「暂无章节」。
         // 对齐原版 readBook 前确保目录可用。— Reasonix + UI
         if (!BookOpenUtils.needsReaderNotifier(
-            BookOpenUtils.routeForTypeBits(typeBits))) {
+          BookOpenUtils.routeForTypeBits(typeBits),
+        )) {
           final existingChapters = await api.getChapters(book.bookUrl);
           if (existingChapters.isEmpty && book.origin.isNotEmpty) {
             await api.refreshToc(book.bookUrl, book.origin);

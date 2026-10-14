@@ -1,3 +1,4 @@
+import '../../privacy/privacy_gate.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -79,7 +80,7 @@ class ReadingRankingCard extends StatelessWidget {
                   final rank = index + 1;
                   final isTop3 = rank <= 3;
 
-                  return InkWell(
+                  return PrivacyMaskedContent(bookName:book.bookName,author:book.author,onTap:onBookTap==null?null:()=>onBookTap!(book),child:InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: onBookTap != null ? () => onBookTap!(book) : null,
                     child: Padding(
@@ -147,7 +148,7 @@ class ReadingRankingCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                  );
+                  ));
                 },
               ),
           ],

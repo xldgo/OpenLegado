@@ -31,6 +31,23 @@ Future<String> readerLayoutFinish({required String sessionId}) =>
 Future<void> readerLayoutCancel({required String sessionId}) =>
     RustLib.instance.api.crateFfiReaderLayoutCancel(sessionId: sessionId);
 
+/// 是否已设置隐私密码，不导出凭据。
+Future<bool> privacyHasPassword() =>
+    RustLib.instance.api.crateFfiPrivacyHasPassword();
+
+/// 只验证，不产生会话授权。
+Future<bool> privacyVerifyPassword({required String password}) =>
+    RustLib.instance.api.crateFfiPrivacyVerifyPassword(password: password);
+
+/// 修改或清除密码必须验证旧凭据。
+Future<bool> privacySetPassword({
+  required String currentPassword,
+  required String password,
+}) => RustLib.instance.api.crateFfiPrivacySetPassword(
+  currentPassword: currentPassword,
+  password: password,
+);
+
 /// frb 桥接错误类型
 ///
 /// 所有桥接函数统一返回 `Result<T, BridgeError>`。

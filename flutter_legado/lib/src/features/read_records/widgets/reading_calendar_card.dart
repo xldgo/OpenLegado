@@ -1,3 +1,4 @@
+import '../../privacy/privacy_gate.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -149,7 +150,7 @@ class _CalendarDayCell extends StatelessWidget {
         : '${date.month}月${date.day}日 无阅读记录';
 
     // 仅有真实阅读记录的日期可查看明细，空日期不提供点击动作。
-    return Semantics(
+    return PrivacyMaskedContent(bookName:topBook?.bookName,author:topBook?.author,onTap:onTap,child:Semantics(
       container: true,
       label: description,
       button: onTap != null,
@@ -191,6 +192,6 @@ class _CalendarDayCell extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
