@@ -8,13 +8,13 @@ import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
+import '../../domain/models/search_settings.dart';
 import '../../providers/providers.dart';
 import '../bookshelf/bookshelf.dart';
 import 'search_notifier.dart';
+import 'search_settings_provider.dart';
 import '../../routes.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/empty_state.dart';
@@ -68,14 +68,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   late final SearchNotifier _searchNotifier;
   SearchState? _lastBuiltState;
   // 精准搜索开关（对标原版 menu_precision_search，展示层精确书名过滤）
-  bool _precision = false;
+  bool get _precision =>
+      ref.read(searchSettingsRepositoryProvider).current.precisionSearch;
   // 标识读过的书籍（对标原版 AppConfig.showSearchReadRecord）
-  bool _showReadRecord = false;
-  static const _prefsShowReadRecord = 'showSearchReadRecord';
+  bool get _showReadRecord =>
+      ref.read(searchSettingsRepositoryProvider).current.showReadRecord;
   // [A1 形态对齐 | full-stack-engineer + UI] 搜索结果过滤屏蔽词（对标原版
   // PreferKey.searchResultFilter：每行一个普通文本，匹配书名/作者/分类标签，
   // 忽略英文大小写）。空串 = 过滤关闭；非空 = 过滤开启（顶栏实心绿）。
-  String _resultFilter = '';
+  String get _resultFilter =>
+      ref.read(searchSettingsRepositoryProvider).current.resultFilter;
   // 输入帮助层显隐（对标原版 ll_input_help / setOnQueryTextFocusChangeListener）
   bool _showInputHelp = true;
   // 空结果智能引导弹窗：每次搜索最多弹一次
@@ -126,30 +128,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         ref.read(searchNotifierProvider.notifier).search(q);
       }
     });
-    // 恢复「标识读过的书籍」偏好
-    SharedPreferences.getInstance().then((prefs) {
+  }
+
+  /// UI 只提交差量并展示保存错误；回退状态由同一设置快照通知。
+  Future<void> _updateSearchSettings(
+    SearchSettings Function(SearchSettings) transform,
+  ) async {
+    try {
+      await ref.read(searchSettingsRepositoryProvider).update(transform);
+    } catch (error, stackTrace) {
+      debugPrint('保存搜索设置失败: $error\n$stackTrace');
       if (!mounted) return;
-      setState(() {
-        _showReadRecord = prefs.getBool(_prefsShowReadRecord) ?? false;
-      });
-    });
-    // 恢复精准搜索偏好（对齐原版 PreferKey.precisionSearch）— Cursor UI
-    ref.read(bookApiProvider).getConfig('precisionSearch').then((raw) {
-      if (!mounted) return;
-      final precision = raw == 'true';
-      setState(() => _precision = precision);
-      ref.read(searchNotifierProvider.notifier).setPrecision(precision);
-    });
-    // [A1 形态对齐 | full-stack-engineer + UI] 恢复搜索结果过滤屏蔽词
-    //（对齐原版 PreferKey.searchResultFilter，经 bookApiProvider 持久化）
-    ref.read(bookApiProvider).getConfig('searchResultFilter').then((raw) {
-      if (!mounted) return;
-      final filter = (raw ?? '').trim();
-      // 仅当与初始值不同才 setState，避免无谓重建
-      if (_resultFilter != filter) {
-        setState(() => _resultFilter = filter);
-      }
-    });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('搜索设置保存失败，请重试')));
+    }
   }
 
   @override
@@ -191,6 +183,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    // 只订阅变化触发绘制，字段始终读取 Repository 当前快照。
+    ref.watch(searchSettingsProvider);
+    ref.listen(searchSettingsProvider, (_, next) {
+      if (next case AsyncError(:final error, :final stackTrace)) {
+        debugPrint('恢复搜索设置失败: $error\n$stackTrace');
+      }
+    });
     final state = ref.watch(searchNotifierProvider);
     _lastBuiltState = state;
 

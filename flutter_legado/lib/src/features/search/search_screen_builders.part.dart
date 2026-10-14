@@ -427,12 +427,13 @@ extension _SearchBuilders on _SearchScreenState {
       case 'precision':
         // [UI-fix v2.0.10 | 2026-08-10] 切换联动 notifier（other 桶
         // 保留策略）并重搜（对齐原版 SearchActivity 切换后重新搜索）— Reasonix
-        setState(() => _precision = !_precision);
-        ref.read(searchNotifierProvider.notifier).setPrecision(_precision);
         // 持久化精准搜索偏好（对齐原版 PreferKey.precisionSearch）— Cursor UI
-        ref
-            .read(bookApiProvider)
-            .setConfig('precisionSearch', _precision ? 'true' : 'false');
+        unawaited(
+          _updateSearchSettings(
+            (current) =>
+                current.copyWith(precisionSearch: !current.precisionSearch),
+          ),
+        );
         final kw = ref.read(searchNotifierProvider).keyword;
         if (kw.isNotEmpty) {
           ref.read(searchNotifierProvider.notifier).search(kw);
@@ -440,13 +441,12 @@ extension _SearchBuilders on _SearchScreenState {
         break;
       case 'readRecord':
         // P1-3：对标原版「标识读过的书籍」（show_search_read_record）
-        setState(() => _showReadRecord = !_showReadRecord);
-        SharedPreferences.getInstance().then((prefs) {
-          prefs.setBool(
-            _SearchScreenState._prefsShowReadRecord,
-            _showReadRecord,
-          );
-        });
+        unawaited(
+          _updateSearchSettings(
+            (current) =>
+                current.copyWith(showReadRecord: !current.showReadRecord),
+          ),
+        );
         break;
       case 'sources':
         // 与顶栏「设置⚙」直达语义一致（原 ⋮ 项并入后仍保留直达）
@@ -864,9 +864,12 @@ extension _SearchBuilders on _SearchScreenState {
       builder: (ctx) => _ResultFilterDialog(initialFilter: _resultFilter),
     );
     if (filter == null || !mounted) return;
-    setState(() => _resultFilter = filter);
     // 持久化（对齐原版 putPrefString(PreferKey.searchResultFilter, filter)）
-    ref.read(bookApiProvider).setConfig('searchResultFilter', filter);
+    unawaited(
+      _updateSearchSettings(
+        (current) => current.copyWith(resultFilter: filter),
+      ),
+    );
     // 屏蔽词变更不改搜索范围、无需重搜：_buildBody 依据新屏蔽词表即时重过滤
     // 既有结果（对齐原版 adapter.setItems 对现有结果重过滤，非重新搜索）
   }
@@ -1284,9 +1287,11 @@ extension _SearchBuilders on _SearchScreenState {
     final notifier = ref.read(searchNotifierProvider.notifier);
     final kw = state.keyword;
     if (action == 'disable_precision') {
-      setState(() => _precision = false);
-      notifier.setPrecision(false);
-      ref.read(bookApiProvider).setConfig('precisionSearch', 'false');
+      unawaited(
+        _updateSearchSettings(
+          (current) => current.copyWith(precisionSearch: false),
+        ),
+      );
     } else if (action == 'clear_scope') {
       notifier.clearAllFilter();
     }

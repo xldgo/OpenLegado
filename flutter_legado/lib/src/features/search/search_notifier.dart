@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import '../../bridge/ffi.dart';
 import '../../providers/providers.dart';
 import 'search_state.dart';
+import 'search_settings_provider.dart';
 
 export 'search_state.dart';
 
@@ -29,14 +30,14 @@ class SearchNotifier extends Notifier<SearchState> {
   Future<void>? _stopping;
   bool _disposed = false;
   int _lifecycleGeneration = 0;
+  int _scopeRevision = 0;
+  Future<void> _scopeRestored = Future.value();
+
+  /// 当前查询使用的精准搜索快照；只在流启动前从设置来源派生。
+  bool _keepOther = true;
 
   /// 搜索序号（使旧搜索的迟到批次/回调失效，对齐原版 searchID）
   int _searchSeq = 0;
-
-  /// 精准搜索开关对应的 other 桶保留策略（true=默认保留，false=精准丢弃）
-  /// [UI-fix v2.0.10 | 2026-08-10] 分桶排序移至批次回调内一次性完成，
-  /// build 层直接消费 state.results，避免每帧全量分桶卡顿 — Reasonix
-  bool _keepOther = true;
 
   final _aggregator = SearchResultAggregator();
 
@@ -59,7 +60,6 @@ class SearchNotifier extends Notifier<SearchState> {
     // Riverpod 失效重建会复用 Notifier，恢复新生命周期而不复用旧草稿。
     _disposed = false;
     final lifecycle = ++_lifecycleGeneration;
-    _keepOther = true;
     _aggregator.reset();
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
@@ -69,12 +69,15 @@ class SearchNotifier extends Notifier<SearchState> {
       _lifecycleGeneration++;
       unawaited(_invalidateSession());
     });
-    // 延迟到 build() 返回后加载历史 + 恢复搜索范围（对齐原版 AppConfig.searchScope）
+    // 延迟到 build() 返回后读取，范围恢复单独提供搜索启动屏障。
+    final scopeRevision = _scopeRevision;
+    _scopeRestored = Future.microtask(() async {
+      if (!_ownsLifecycle(lifecycle)) return;
+      await _restoreSearchScope(scopeRevision);
+    });
     Future.microtask(() async {
       if (!_ownsLifecycle(lifecycle)) return;
       await loadHistory();
-      if (!_ownsLifecycle(lifecycle)) return;
-      await _restoreSearchScope();
     });
     return const SearchState();
   }
@@ -147,12 +150,6 @@ class SearchNotifier extends Notifier<SearchState> {
     state = state.copyWith(inputText: text);
   }
 
-  /// 设置精准搜索开关（对齐原版 SearchActivity 菜单 precision_search：
-  /// 切换后重新搜索，见 search_screen 调用处）
-  void setPrecision(bool precision) {
-    _keepOther = !precision;
-  }
-
   // ===== 搜索 =====
 
   /// 执行搜索（对齐 SearchViewModel/SearchModel：关键词非空 → 记录历史 →
@@ -167,6 +164,8 @@ class SearchNotifier extends Notifier<SearchState> {
 
     // 请求先取得身份并绑定能力，准备或清理期间也可以取消。— Codex + UI
     final service = ref.read(searchServiceProvider);
+    final settings = ref.read(searchSettingsRepositoryProvider);
+    final scopeRestored = _scopeRestored;
     final stopping = _invalidateSession();
     final seq = _searchSeq;
     final session = SearchSession(service);
@@ -199,6 +198,8 @@ class SearchNotifier extends Notifier<SearchState> {
     try {
       await stopping;
       if (!_ownsSession(session, seq)) return;
+      await scopeRestored;
+      if (!_ownsSession(session, seq)) return;
       await addToHistory(trimmed);
       if (!_ownsSession(session, seq)) return;
       final sourceUrls = await _resolveSearchSources();
@@ -211,6 +212,11 @@ class SearchNotifier extends Notifier<SearchState> {
         );
         return;
       }
+      // 原生搜索读取 config 表，先完成当前根的配置同步与已提交写入。
+      await settings.reloadRuntime();
+      await settings.settled();
+      if (!_ownsSession(session, seq)) return;
+      _keepOther = !settings.current.precisionSearch;
       _attachSearchStream(session, trimmed, 1, sourceUrls, seq);
     } catch (e) {
       if (!_ownsSession(session, seq)) return;
@@ -233,6 +239,7 @@ class SearchNotifier extends Notifier<SearchState> {
 
     // G-B-01：同关键词续页 → page++（原版 SearchModel.searchPage++）
     final nextPage = s.searchPage + 1;
+    final settings = ref.read(searchSettingsRepositoryProvider);
     final seq = ++_searchSeq;
     final session = _session ?? SearchSession(ref.read(searchServiceProvider));
     _session = session;
@@ -261,6 +268,10 @@ class SearchNotifier extends Notifier<SearchState> {
         );
         return;
       }
+      await settings.reloadRuntime();
+      await settings.settled();
+      if (!_ownsSession(session, seq)) return;
+      _keepOther = !settings.current.precisionSearch;
       _attachSearchStream(session, keyword, nextPage, sourceUrls, seq);
     } catch (e) {
       if (!_ownsSession(session, seq)) return;
@@ -444,7 +455,9 @@ class SearchNotifier extends Notifier<SearchState> {
   Future<void> resumeSearch() async {
     if (_disposed) return;
     final session = _session;
-    if (session == null || (!state.isPaused && !session.requestedPaused)) return;
+    if (session == null || (!state.isPaused && !session.requestedPaused)) {
+      return;
+    }
     final seq = _searchSeq;
     try {
       final applied = await session.setPaused(false);
@@ -500,13 +513,15 @@ class SearchNotifier extends Notifier<SearchState> {
   }
 
   /// 从 AppConfig 恢复搜索范围（对齐原版 SearchScope / searchScope 持久化）
-  Future<void> _restoreSearchScope() async {
+  Future<void> _restoreSearchScope(int scopeRevision) async {
     final lifecycle = _lifecycleGeneration;
     if (!_ownsLifecycle(lifecycle)) return;
     try {
-      final api = ref.read(bookApiProvider);
-      final scope = (await api.getConfig('searchScope'))?.trim() ?? '';
-      if (!_ownsLifecycle(lifecycle)) return;
+      final repository = ref.read(searchSettingsRepositoryProvider);
+      await repository.loadRuntime();
+      final settings = repository.current;
+      final scope = settings.scope;
+      if (!_ownsLifecycle(lifecycle) || scopeRevision != _scopeRevision) return;
       if (scope.isEmpty) return;
       // 单书源格式 name::url —— 原版不持久化到下次，此处忽略
       if (scope.contains('::')) return;
@@ -525,8 +540,8 @@ class SearchNotifier extends Notifier<SearchState> {
 
   /// 持久化搜索范围（对齐原版 SearchScope.save → AppConfig.searchScope/searchGroup）
   Future<void> _persistSearchScope() async {
+    _scopeRevision++;
     try {
-      final api = ref.read(bookApiProvider);
       final groups = state.selectedGroups.toList()..sort();
       final urls = state.selectedSourceUrls;
       String scope;
@@ -547,8 +562,12 @@ class SearchNotifier extends Notifier<SearchState> {
         scope = groups.isNotEmpty ? groups.join(',') : '';
         searchGroup = groups.length == 1 ? groups.first : '';
       }
-      await api.setConfig('searchScope', scope);
-      await api.setConfig('searchGroup', searchGroup);
+      await ref
+          .read(searchSettingsRepositoryProvider)
+          .update(
+            (current) =>
+                current.copyWith(scope: scope, searchGroup: searchGroup),
+          );
     } catch (e) {
       debugPrint('持久化搜索范围失败: $e');
     }
@@ -561,7 +580,6 @@ class SearchNotifier extends Notifier<SearchState> {
     _pendingHasMore = null;
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
-    _keepOther = true;
     // 批次B：会话级增量桶与分页态随清空重置
     _aggregator.reset();
     state = state.copyWith(
@@ -592,7 +610,6 @@ class SearchNotifier extends Notifier<SearchState> {
     _pendingHasMore = null;
     _pendingSearchedCount = 0;
     _pendingTotalCount = 0;
-    _keepOther = true;
     // 批次B：会话级增量桶与分页态随页面重开重置（新 ViewModel 语义）
     _aggregator.reset();
     state = state.copyWith(

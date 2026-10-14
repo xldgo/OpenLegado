@@ -17,6 +17,7 @@ import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/features/search/search_settings_provider.dart';
 
 import '../mocks/mocks.dart';
 
@@ -49,8 +50,14 @@ void main() {
             page: any(named: 'page')))
         .thenAnswer((_) => const Stream<SearchBatch>.empty());
     // [v2.0.31] 搜索范围持久化：默认无持久化 scope
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+    final configs = <String, String>{};
+    when(() => mockApi.getConfig(any())).thenAnswer(
+      (call) async => configs[call.positionalArguments[0] as String],
+    );
+    when(() => mockApi.setConfig(any(), any())).thenAnswer((call) async {
+      configs[call.positionalArguments[0] as String] =
+          call.positionalArguments[1] as String;
+    });
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -1356,7 +1363,7 @@ void main() {
       expect(bookA.origins.toSet(), equals({'https://a.com', 'https://d.com'}));
     });
 
-    test('精准开关：setPrecision(true) 后重搜丢弃 other 桶（对齐原版 precision）', () async {
+    test('精准开关：保存设置后重搜丢弃 other 桶（对齐原版 precision）', () async {
       final books = [
         b('重生', '土豆', origin: 'https://a.com'), // equal
         b('噪声书', '路人', origin: 'https://d.com'), // other
@@ -1374,7 +1381,9 @@ void main() {
       expect(readState().results, hasLength(2), reason: '默认保留 other 桶');
 
       // 切换精准搜索后重新搜索（对齐 SearchActivity 菜单行为）
-      readNotifier().setPrecision(true);
+      await container
+          .read(searchSettingsRepositoryProvider)
+          .update((current) => current.copyWith(precisionSearch: true));
       when(() => mockApi.searchService.searchMultiStream(
               any(),
               sourceUrls: any(named: 'sourceUrls'),

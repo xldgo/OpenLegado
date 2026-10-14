@@ -93,6 +93,40 @@ void main() {
     );
   });
 
+  test('读取已保存值时统一应用朗读偏好范围', () async {
+    saved.addAll({
+      'ttsSpeechRate': '99',
+      'ttsParagraphInterval': '-10',
+      'audioPreDownloadNum': '999',
+      'ttsPreSynthesisConcurrency': '0',
+      'audioCacheCleanTime': '9999',
+    });
+    await notifier().load();
+    expect(state().manualSpeed, 3);
+    expect(state().paragraphIntervalMs, 0);
+    expect(state().audioPreDownloadNum, 100);
+    expect(state().ttsPreSynthesisConcurrency, 1);
+    expect(state().audioCacheCleanTime, 1440);
+  });
+
+  test('首次保存标准手动语速也要落盘，重建后不能误判为尚未设置', () async {
+    await notifier().load();
+    expect(state().manualSpeed, 1);
+    expect(state().hasStoredManualSpeed, false);
+
+    await notifier().setManualSpeed(1);
+    expect(saved['ttsSpeechRate'], '5');
+    expect(state().hasStoredManualSpeed, true);
+
+    final restored = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    addTearDown(restored.dispose);
+    await restored.read(readAloudPreferencesProvider.notifier).load();
+    expect(restored.read(readAloudPreferencesProvider).manualSpeed, 1);
+    expect(restored.read(readAloudPreferencesProvider).hasStoredManualSpeed, true);
+  });
+
   test('保存失败保留旧值，重试成功后才更新状态', () async {
     await notifier().load();
     when(() => api.setConfig('ttsParagraphInterval', '500'))
@@ -135,5 +169,35 @@ void main() {
     );
     await notifier().load();
     verify(() => api.setConfig('ttsFollowSys', 'false')).called(1);
+  });
+
+  test('旧跟随偏好迁移失败后可重试，不能提前删除旧键', () async {
+    SharedPreferences.setMockInitialValues({
+      'read_aloud_follow_system_speed': false,
+    });
+    var failed = true;
+    when(() => api.setConfig('ttsFollowSys', 'false')).thenAnswer((_) async {
+      if (failed) {
+        failed = false;
+        throw StateError('迁移写入失败');
+      }
+      saved['ttsFollowSys'] = 'false';
+    });
+
+    await expectLater(notifier().load(), throwsStateError);
+    expect(
+      (await SharedPreferences.getInstance()).getBool(
+        'read_aloud_follow_system_speed',
+      ),
+      false,
+    );
+    await notifier().load();
+    expect(state().followSystem, false);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(
+        'read_aloud_follow_system_speed',
+      ),
+      false,
+    );
   });
 }

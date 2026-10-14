@@ -529,3 +529,91 @@ SearchBarWidget、AppSearchField 和 DynamicSearchAppBar 保留通用 widgets。
 正文搜索只是移动现有页面与引用，算法、路由、交互及持久化均不改变。
 
 编写者：Codex｜2026-10-14
+
+
+## 第二十步：普通设置访问与搜索试点
+
+用户批准以类型化访问与唯一状态来源收敛普通设置，不迁移存储介质。
+参考 HapeLee/legado-with-MD3 main `60a7cca34dd3e0be456e0f05c10c036c64b70e35`
+的 AppConfigStore 与 ReadAloudSettingsRepository；借鉴职责，不移植 DataStore。
+
+### 分层与命名
+
+- AppSettingsStore 为纯 Dart 状态核心，只拥有已读/已保存快照和带身份的待保存变更。
+- AppSettingsService 协调初始化、串行存储写入、重新加载和失败，不包含领域默认值。
+- SearchSettingsRepository 提供不可变 SearchSettings、当前快照、变化订阅和类型化更新；
+  `loadRuntime`/`reloadRuntime` 只读取 Rust config 键，供原生搜索启动前同步，避免把
+  SharedPreferences 平台能力带入搜索调度。
+  正式投影实现只解码、编码及委托同一 Service，不建立另一份可变设置。
+- SettingsStorage 为存储适配边界。配置适配器第一阶段绑定同一 BookApi 的既有配置
+  方法，确保未迁移消费者与 Mock 的唯一配置表仍互通；SharedPreferences 适配器
+  沿用原键和类型。后续全域迁移后再删除根配置入口，不新建重复数据库或原生接口。
+- 文件使用小写下划线，类型 UpperCamelCase，Provider/成员 lowerCamelCase；保留
+  Riverpod，不为了命名引入额外 AppSettingsRepository 或改用另一套状态框架。
+
+### 试点范围与所有权
+
+| 字段 | 既有位置 | 类型/读取语义 |
+|---|---|---|
+| precisionSearch | Rust config:precisionSearch | 字符串严格等于 true 时开启 |
+| resultFilter | Rust config:searchResultFilter | 字符串，读取 trim，默认空 |
+| scope | Rust config:searchScope | 沿用分组与 ::URL 编码，默认空 |
+| searchGroup | Rust config:searchGroup | 沿用单分组/空字符串 |
+| showReadRecord | SharedPreferences showSearchReadRecord | bool，默认 false |
+
+搜索页面只订阅并展示这些值，输入框及临时范围选择仍是 UI/会话状态。
+原生精确搜索会读数据库，因此新搜索/续页在订阅原生流前等待配置加载与已排队写入。
+范围初始读取不得覆盖加载期间的用户选择。保留会话 token、取消顺序、150ms 节流、
+结果聚合、单源下次不恢复及显式路由范围等既有语义。
+
+### 状态及失败规则
+
+更新先提交待保存差量，使所有读侧即时可见；串行按调用顺序落盘。成功更新已保存
+快照并移除自己的待保存项；失败只撤销自己的项，后续操作继续，不覆盖更新的值。
+初始化/重新读取只更新已保存基底，不能盖掉在途用户修改。不存在和读取失败区分，
+后者向调用方报错，允许重试；禁止吞保存错误后报告成功。
+
+跨 SharedPreferences/SQLite、多键逐项写入不承诺事务。某项成功、后项失败时保留
+已成功落盘事实，撤销未成功项并返回错误；UI 以实际快照恢复，不伪造全批回滚。
+重要关联项的原子事务另行设计。订阅拿到不可变快照，只对字段变化通知。
+
+迁移期间旧域仍可能写同一配置表，提供显式重新加载；搜索入口重新核对已迁移的
+Rust 配置并等待自己的写入，备份恢复后使用相同 reload。暂不宣称具备原生跨进程
+推送或全部旧写入自动监听。默认不扫描整张 config 表，避免读取凭据和业务载荷。
+
+### 验收与后续
+
+覆盖初始化合并、晚到读、连续同键写、旧失败不覆盖新值、部分成功、失败后重试、
+字段订阅、不可变快照、存储失败及共享根替换。搜索回归验证恢复、精确重搜与过滤、
+范围持久化、加载期间用户操作、退出及流准备；移动设备与全量 CI 不在本批自动运行。
+后续逐域迁移普通偏好及 Rust 运行时快照同步；实体、排版预设、
+安全凭据与临时授权继续由各自 Repository/会话拥有。
+
+编写者：Codex｜2026-10-14
+
+## 第二十一步：朗读普通偏好
+
+`ReadAloudSettings` 保存纯数据和派生有效语速，`ReadAloudSettingsRepository` 负责
+七项偏好的默认值、限值和旧语速编码；正式实现委托同一 `AppSettingsService`。
+朗读设置 Provider 只等待初始化并订阅快照，加载/错误不写入设置模型，
+也不再维护第二套写入队列。
+移除 `ReadAloudPreferencesNotifier` 的直接配置访问和独立写队列，保留现有消费者的
+状态投影入口，由它委托朗读窄接口并订阅共享快照。播放参数应用仍由 AudioNotifier
+在原有调用点执行，不因为打开设置界面、订阅快照或重建 Widget 自动重启播放。
+
+| 键 | 默认与语义 |
+|---|---|
+| ttsFollowSys | 缺失/空、true、1 为跟随；跟随使用标准 1 倍速 |
+| ttsSpeechRate | 默认 5；倍率 = (rate + 5) / 10，限制 0.5–3；存储标记保留 |
+| ttsParagraphInterval | 默认 0，限制 0–5000 ms |
+| readAloudDetachReminderEnabled | 除 false、0 外默认开启 |
+| audioPreDownloadNum | 默认 10，限制 0–100 |
+| ttsPreSynthesisConcurrency | 默认 3，限制 1–8 |
+| audioCacheCleanTime | 默认 10，限制 0–1440 分钟 |
+
+旧 `read_aloud_follow_system_speed` 仅在 Rust 跟随键缺失/空时迁移；先成功写入新键，
+再删除旧偏好，失败保留真实落盘结果并向调用方报告。重复初始化复用同一在途任务，
+已有新值优先。手动语速缺失时由现有播放启动逻辑迁入书级值，不调整书籍数据结构。
+引擎/音色实体、系统平台偏好、凭据、胶囊展示状态和音频书片头片尾配置不属于本批。
+
+编写者：Codex｜2026-10-14
