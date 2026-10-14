@@ -1,3 +1,4 @@
+import '../../privacy/privacy_gate.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -32,7 +33,7 @@ class BookListItem extends StatelessWidget {
     final progress = bookReadProgress(book);
     final summaryStyle = TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant);
 
-    return InkWell(
+    return PrivacyMaskedContent(book:book,onTap:onTap,child:InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Padding(
@@ -138,7 +139,7 @@ class BookListItem extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

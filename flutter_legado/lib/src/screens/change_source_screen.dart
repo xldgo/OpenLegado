@@ -1,12 +1,15 @@
+import '../widgets/app_search_transition.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
 import '../widgets/legado_app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../bridge/ffi.dart' show BridgeError;
@@ -77,10 +80,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
   // [A2 形态对齐 | full-stack-engineer + UI] 未达关闭阈值时把手回弹动画
   // （拖拽位移 → 0；关闭路径直接 pop，收尾滑出由路由反向转场承接）
   late final AnimationController _sheetSpringController;
-  Tween<Offset> _sheetSpringTween = Tween(
-    begin: Offset.zero,
-    end: Offset.zero,
-  );
+  Tween<Offset> _sheetSpringTween = Tween(begin: Offset.zero, end: Offset.zero);
   // [A2 形态对齐 | full-stack-engineer + UI] 弹层拖拽实时下移量（仅下滑生效；
   // 列表区域内的垂直拖拽被内层 Scrollable 优先仲裁，不会误触面板拖拽）
   double _sheetDragOffset = 0;
@@ -336,9 +336,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           .read(changeSourceNotifierProvider.notifier)
           .applySource(result, bookUrl: widget.effectiveBookUrl);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已切换到「${result.sourceName}」')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已切换到「${result.sourceName}」')));
       Navigator.pop(context, newBookUrl);
     } catch (e) {
       if (!mounted) return;
@@ -346,9 +345,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       // 无信息的「Instance of 'BridgeError'」。改用 .message 暴露 Rust 侧真实
       // 错误（如「新书源未解析到任何章节」），便于用户与排查 — Qoder
       final msg = e is BridgeError ? e.message : e.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('换源失败: $msg')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('换源失败: $msg')));
     }
   }
 
@@ -452,9 +450,9 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                           ),
                       ],
@@ -562,43 +560,49 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
                         ],
                       ),
                     ],
-                    bottom: _searchFilterVisible
-                        ? PreferredSize(
-                            preferredSize: const Size.fromHeight(48),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                              child: TextField(
-                                controller: _searchFilterCtrl,
-                                onChanged: (v) =>
-                                    setState(() => _searchFilter = v.trim()),
-                                decoration: InputDecoration(
-                                  hintText: '按书源名称筛选',
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  // [B3] 筛选搜索框：无描边无底线、聚焦零变化
-                                  // （显式声明防主题底部指示线渗入）
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none,
-                                  ),
+                  ),
+                  body: Column(
+                    children: [
+                      AppSearchTransition(
+                        expanded: _searchFilterVisible,
+                        builder: (context, progress) => AppSearchReveal(
+                          progress: progress,
+                          expanded: _searchFilterVisible,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: TextField(
+                              controller: _searchFilterCtrl,
+                              onChanged: (v) =>
+                                  setState(() => _searchFilter = v.trim()),
+                              decoration: InputDecoration(
+                                hintText: '按书源名称筛选',
+                                isDense: true,
+                                filled: true,
+                                fillColor: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                                // [B3] 筛选搜索框：无描边无底线、聚焦零变化
+                                // （显式声明防主题底部指示线渗入）
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
                             ),
-                          )
-                        : null,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: _buildBody(state, results)),
+                    ],
                   ),
-                  body: _buildBody(state, results),
                   bottomBar: _buildBottomBar(state, results),
                   // [A2 形态对齐 | full-stack-engineer + UI] 搜索 FAB 原样
                   // 保留于面板内（相对面板右下角，位置语义不变）
@@ -815,9 +819,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     } catch (e) {
       if (!mounted) return;
       final msg = e is BridgeError ? e.message : e.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('评分失败: $msg')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
   }
 
@@ -830,9 +833,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     } catch (e) {
       if (!mounted) return;
       final msg = e is BridgeError ? e.message : e.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('评分失败: $msg')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
   }
 
@@ -895,9 +897,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
         } catch (e) {
           if (!mounted) return;
           final msg = e is BridgeError ? e.message : e.toString();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('禁用失败: $msg')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('禁用失败: $msg')));
         }
       case 'delete':
         await _confirmDeleteItem(item);
@@ -939,9 +940,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     } catch (e) {
       if (!mounted) return;
       final msg = e is BridgeError ? e.message : e.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('删除失败: $msg')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('删除失败: $msg')));
     }
   }
 
@@ -1259,9 +1259,8 @@ class _SearchWaitMessageState extends State<_SearchWaitMessage> {
     final sourceText = (count == null || count <= 0) ? '' : ' $count 个书源';
     return Text(
       '正在搜索$sourceText… 已等待 $_seconds 秒',
-      style: Theme.of(
-        context,
-      ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+      style: Theme.of(context).textTheme.bodyMedium
+          ?.copyWith(color: colorScheme.onSurfaceVariant),
     );
   }
 }

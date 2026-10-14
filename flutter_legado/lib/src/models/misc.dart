@@ -257,6 +257,7 @@ abstract class Bookmark with _$Bookmark {
 abstract class BookGroup with _$BookGroup {
   const factory BookGroup({
     @Default(1) @JsonKey(name: 'groupId') int groupId,
+    @Default(false) bool isPrivate,
     @Default('') @JsonKey(name: 'groupName') String groupName,
     String? cover,
     @Default(0) int order,

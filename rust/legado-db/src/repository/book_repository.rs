@@ -28,7 +28,7 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE bookUrl = ?1",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -62,7 +62,7 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE originBookUrl = ?1",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -89,7 +89,7 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE name = ?1 AND author = ?2",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -119,7 +119,7 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE (type & 1024) = 0 ORDER BY \"order\" ASC",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -388,10 +388,10 @@ impl<'a> BookRepository<'a> {
               lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
               durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
               wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-              infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl)
+              infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,
                      ?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,
-                     ?34,?35,?36,?37,?38)",
+                     ?34,?35,?36,?37,?38,?39)",
                 params![
                     item.book_url,
                     item.toc_url,
@@ -432,6 +432,7 @@ impl<'a> BookRepository<'a> {
                     item.cover_origin,
                     // [P2-8] 当前书源详情页地址（空=未换源，回退 book_url）
                     item.origin_book_url,
+                    item.is_private,
                 ],
             )
             .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
@@ -515,7 +516,7 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books ORDER BY \"order\" ASC",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -594,8 +595,8 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                     wordCount=?22, canUpdate=?23, \"order\"=?24,
                     originOrder=?25, variable=?26, readConfig=?27, syncTime=?28,
                     infoHtml=?29, tocHtml=?30, downloadUrls=?31, coverOrigin=?32,
-                    originBookUrl=?33
-                 WHERE bookUrl=?34",
+                    originBookUrl=?33, isPrivate=?34
+                 WHERE bookUrl=?35",
                 params![
                     item.toc_url,
                     item.origin,
@@ -631,6 +632,7 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                     item.cover_origin,
                     // [P2-8] 当前书源详情页地址（换源事务写入）
                     item.origin_book_url,
+                    item.is_private,
                     item.book_url,
                 ],
             )
@@ -695,6 +697,7 @@ fn row_to_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
         cover_origin: row.get(36)?,
         // [P2-8] 当前书源下该书的详情页地址（换源事务写入；空=回退 book_url）
         origin_book_url: row.get(37)?,
+        is_private: row.get(38)?,
     })
 }
 

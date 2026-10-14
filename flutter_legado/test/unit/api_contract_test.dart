@@ -71,10 +71,17 @@ void main() {
   );
 
   final searchNames = _extractMethods(
-    _read('lib/src/domain/contracts/search_service.dart'), 'SearchService',
+    _read('lib/src/domain/contracts/search_service.dart'),
+    'SearchService',
   );
   final searchHistoryNames = _extractMethods(
-    _read('lib/src/domain/contracts/search_history_repository.dart'), 'SearchHistoryRepository',
+    _read('lib/src/domain/contracts/search_history_repository.dart'),
+    'SearchHistoryRepository',
+  );
+
+  final privacyNames = _extractMethods(
+    _read('lib/src/domain/contracts/privacy_credential_repository.dart'),
+    'PrivacyCredentialRepository',
   );
 
   final doc = _read('../docs/API_CONTRACT.md');
@@ -362,6 +369,7 @@ void main() {
             sourceLoginNames.length +
             searchNames.length +
             searchHistoryNames.length +
+            privacyNames.length +
             6 +
             1 +
             1,
@@ -536,24 +544,79 @@ void main() {
     });
 
     test('搜索七项与历史五项独立，根旧方法移除且正式/Mock 完整', () {
-      const search = {'searchBooks', 'preciseSearch', 'searchMulti', 'searchMultiStream',
-        'cancelSearch', 'pauseSearch', 'resumeSearch'};
-      const history = {'getSearchHistory', 'searchHistoryByPrefix', 'addSearchKeyword',
-        'deleteSearchKeyword', 'clearSearchHistory'};
+      const search = {
+        'searchBooks',
+        'preciseSearch',
+        'searchMulti',
+        'searchMultiStream',
+        'cancelSearch',
+        'pauseSearch',
+        'resumeSearch',
+      };
+      const history = {
+        'getSearchHistory',
+        'searchHistoryByPrefix',
+        'addSearchKeyword',
+        'deleteSearchKeyword',
+        'clearSearchHistory',
+      };
       expect(searchNames.toSet(), search);
       expect(searchHistoryNames.toSet(), history);
       for (final implementation in ['rust', 'mock']) {
         final prefix = implementation == 'rust' ? 'Rust' : 'Mock';
-        expect(_extractMethods(_read('lib/src/data/services/${implementation}_search_service.dart'),
-          '${prefix}SearchService').toSet(), search);
-        expect(_extractMethods(_read('lib/src/data/repositories/${implementation}_search_history_repository.dart'),
-          '${prefix}SearchHistoryRepository').toSet(), history);
+        expect(
+          _extractMethods(
+            _read(
+              'lib/src/data/services/${implementation}_search_service.dart',
+            ),
+            '${prefix}SearchService',
+          ).toSet(),
+          search,
+        );
+        expect(
+          _extractMethods(
+            _read(
+              'lib/src/data/repositories/${implementation}_search_history_repository.dart',
+            ),
+            '${prefix}SearchHistoryRepository',
+          ).toSet(),
+          history,
+        );
       }
       final expected = {...search, ...history};
       for (final names in [bNames, rNames, mNames]) {
         expect(names.toSet().intersection(expected), isEmpty);
       }
-      expect(expected.every((name) => allRowNames.contains(name) || pairs.containsKey(name)), isTrue);
+      expect(
+        expected.every(
+          (name) => allRowNames.contains(name) || pairs.containsKey(name),
+        ),
+        isTrue,
+      );
+    });
+
+    test('隐私凭据使用独立接口，三个桥接方法完整登记', () {
+      expect(privacyNames.toSet(), {'hasPassword', 'verify', 'change'});
+      expect(
+        allRowNames.containsAll({
+          'privacyHasPassword',
+          'privacyVerifyPassword',
+          'privacySetPassword',
+        }),
+        isTrue,
+      );
+      for (final implementation in ['rust', 'mock']) {
+        final prefix = implementation == 'rust' ? 'Rust' : 'Mock';
+        expect(
+          _extractMethods(
+            _read(
+              'lib/src/data/repositories/${implementation}_privacy_credential_repository.dart',
+            ),
+            '${prefix}PrivacyCredentialRepository',
+          ).toSet(),
+          privacyNames.toSet(),
+        );
+      }
     });
 
     test('HTTP 合成独立，原生合成及缓存导出不再包装到 BookApi', () {

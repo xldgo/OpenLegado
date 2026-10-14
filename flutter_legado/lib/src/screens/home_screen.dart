@@ -1,8 +1,6 @@
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../l10n/app_localization.dart';
@@ -91,12 +89,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// [UI_SYNC_REFACTOR S6 | 2026-09-08] 新增首页页签（最近阅读+统计+目标表盘，
   /// 对齐参考版首页；恒显示，模块管理登记后续批次）— Qoder
   List<_HomeTab> _visibleTabs(MainPrefsState prefs) => [
-        _HomeTab.home,
-        _HomeTab.bookshelf,
-        if (prefs.showDiscovery) _HomeTab.explore,
-        if (prefs.showRss) _HomeTab.rss,
-        _HomeTab.my,
-      ];
+    _HomeTab.home,
+    _HomeTab.bookshelf,
+    if (prefs.showDiscovery) _HomeTab.explore,
+    if (prefs.showRss) _HomeTab.rss,
+    _HomeTab.my,
+  ];
 
   /// 默认首页偏好值 → 逻辑 Tab（对标原版 defaultHomePage 数组值）
   /// [UI_SYNC_REFACTOR S6 | 2026-09-08] 新增首页页签后补 'home' 映射 — Qoder
@@ -190,7 +188,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
   }
-
 
   /// 逻辑 Tab → 页面内容（未访问过的 Tab 用占位以保留懒构建语义）
   Widget _pageOf(_HomeTab tab) {
@@ -319,40 +316,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// 导航项规格（三态底栏统一消费源）
   List<AppNavSpec> _specsFor(List<_HomeTab> tabs) => [
-        for (final tab in tabs)
-          switch (tab) {
-            // [UI_SYNC_REFACTOR S6] 首页页签底栏项（新皮肤槽位，无皮肤回退 symbol）
-            _HomeTab.home => AppNavSpec(
-                symbol: Symbols.home_rounded,
-                label: context.l10n.home,
-                skinSlot: 'home_page',
-              ),
-            _HomeTab.bookshelf => AppNavSpec(
-                symbol: Symbols.menu_book_rounded,
-                label: context.l10n.bookshelf,
-                skinSlot: 'bookshelf',
-              ),
-            _HomeTab.explore => AppNavSpec(
-                symbol: Symbols.explore_rounded,
-                label: context.l10n.discover,
-                skinSlot: 'home',
-              ),
-            _HomeTab.rss => AppNavSpec(
-                // [parity C3 B5] 订阅页签图标改 RSS 选形：参考底栏第 4 项
-                // 为经典 RSS（左下圆点 + 双弧，量测 ref 01 底栏），原
-                // feed_rounded 为报纸/文档版式（参考判为「文档图标」），
-                // 改 rss_feed_rounded 对齐
-                symbol: Symbols.rss_feed_rounded,
-                label: context.l10n.rss,
-                skinSlot: 'notes',
-              ),
-            _HomeTab.my => AppNavSpec(
-                symbol: Symbols.person_rounded,
-                label: context.l10n.my,
-                skinSlot: 'settings',
-              ),
-          },
-      ];
+    for (final tab in tabs)
+      switch (tab) {
+        // [UI_SYNC_REFACTOR S6] 首页页签底栏项（新皮肤槽位，无皮肤回退 symbol）
+        _HomeTab.home => AppNavSpec(
+          symbol: Symbols.home_rounded,
+          label: context.l10n.home,
+          skinSlot: 'home_page',
+        ),
+        _HomeTab.bookshelf => AppNavSpec(
+          symbol: Symbols.menu_book_rounded,
+          label: context.l10n.bookshelf,
+          skinSlot: 'bookshelf',
+        ),
+        _HomeTab.explore => AppNavSpec(
+          symbol: Symbols.explore_rounded,
+          label: context.l10n.discover,
+          skinSlot: 'home',
+        ),
+        _HomeTab.rss => AppNavSpec(
+          // [parity C3 B5] 订阅页签图标改 RSS 选形：参考底栏第 4 项
+          // 为经典 RSS（左下圆点 + 双弧，量测 ref 01 底栏），原
+          // feed_rounded 为报纸/文档版式（参考判为「文档图标」），
+          // 改 rss_feed_rounded 对齐
+          symbol: Symbols.rss_feed_rounded,
+          label: context.l10n.rss,
+          skinSlot: 'notes',
+        ),
+        _HomeTab.my => AppNavSpec(
+          symbol: Symbols.person_rounded,
+          label: context.l10n.my,
+          skinSlot: 'settings',
+        ),
+      },
+  ];
 
   /// Rail 激活判定（对齐参考仓 tabletInterface：auto/always/landscape/off）
   bool _railActive(UiSettingsState ui, double width, Orientation orientation) {
@@ -368,7 +365,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// 平板侧栏（组件化：皮肤图标+头部搜索钮+书架分组菜单+expand 持久化）
+  /// 大屏侧栏：分组选择先定位到书架，再更新与页内共用的分组状态。
   Widget _buildRail(UiSettingsState ui, List<_HomeTab> tabs, int currentIndex) {
     final bookshelf = ref.watch(bookshelfNotifierProvider);
     return AppRailBar(
@@ -381,12 +378,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .read(uiSettingsProvider.notifier)
           .setRailExtended(!ui.railExtended),
       onSearch: () => Navigator.of(context).pushNamed(AppRoutes.search),
+      bookshelfIndex: tabs.indexOf(_HomeTab.bookshelf),
       groups: [
         for (final g in bookshelf.groups) bookshelfGroupLabel(context, g),
       ],
       selectedGroupIndex: bookshelf.selectedGroupIndex,
-      onGroupSelected: (index) =>
-          ref.read(bookshelfNotifierProvider.notifier).selectGroup(index),
+      onGroupSelected: (index) {
+        _onDestinationSelected(tabs, tabs.indexOf(_HomeTab.bookshelf));
+        ref.read(bookshelfNotifierProvider.notifier).selectGroup(index);
+      },
     );
   }
 
@@ -427,9 +427,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
-
-
-
 
 /// [UI_SYNC_REFACTOR S1] 页保活（对齐参考 HorizontalPager
 /// beyondViewportPageCount=4：全部页常驻不销毁，懒构建语义保留）

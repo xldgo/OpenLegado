@@ -1,4 +1,6 @@
+import '../features/privacy/privacy_controller.dart';
 import '../widgets/app_menu.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,8 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_strings.dart';
@@ -90,13 +91,17 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   /// [UI_SYNC_REFACTOR B4] 顶栏折叠进度（对齐参考仓 collapsedFraction：
   /// 封面区滚动归一化，驱动透明→玻璃色插值）
   final ValueNotifier<double> _topCollapse = ValueNotifier<double>(0);
+
   /// [UI_SYNC_REFACTOR B4] 封面取色 seed（null=未取/关闭开关）
   Color? _coverSeed;
   bool _isLoading = false;
+
   /// 整页首屏：仅在连 Book 壳都没有时显示（对齐原版先 post bookData）
   bool _pageLoading = true;
+
   /// 目录联网补全中（信息区已可交互）
   bool _tocLoading = false;
+
   /// 顶栏网络加载（对标原版 refreshProgressBar.isAutoLoading）
   bool _networkLoading = false;
   String? _loadError;
@@ -163,7 +168,6 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
     setState(() => _coverSeed = seed);
   }
 
-
   /// [PARITY C1 D3] 右下「阅读」胶囊 FAB（对齐参考 08 量化：
   /// 阅读按钮的容器和前景使用当前局部主题；位置与阅读跳转行为保持原样。
   /// 标签固定「阅读」（原「继续阅读」文案移除，参考即固定「阅读」）；
@@ -208,9 +212,9 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
               // [审计修复 §4.1] 不再静默吞异常，向用户提示 — Qoder
               debugPrint('编辑书籍信息失败: $e');
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')));
               }
             }
           },
@@ -224,8 +228,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             if (book == null) return;
             // 对齐原版 menu_share_it：bookUrl#bookJson + SourceCallBack
             // — Cursor UI
-            final shareStr =
-                '${book.bookUrl}#${jsonEncode(book.toJson())}';
+            final shareStr = '${book.bookUrl}#${jsonEncode(book.toJson())}';
             final api = ref.read(bookApiProvider);
             final r = await api.sourceCallBackBtn(
               event: 'clickShareBook',
@@ -242,9 +245,9 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             // [审计修复 §4.1] 不再静默吞异常，向用户提示 — Qoder
             debugPrint('分享书籍失败: $e');
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('书籍信息暂不可用，请稍后重试')));
             }
           }
         },
@@ -271,7 +274,10 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
           // [U1 | 台账 0917] 勾选项尾部化：CheckboxListTile 式右侧 ✓
           //（对齐参考 08 勾选项尾样式；原 AppMenuItem 为 leading ✓）
           AppMenuItem<String> checkedItem(
-              String value, String label, bool checked) {
+            String value,
+            String label,
+            bool checked,
+          ) {
             return AppMenuItem<String>(
               value: value,
               child: Row(
@@ -290,19 +296,11 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             // 设置源变量（Task #63 冻结 / #64-65 实现，§5.11-3 已接通）/
             // 设置书籍变量（[Task #39 §5.11-4] 已接通变量对话框 + updateBook）
             if (hasSource)
-              const AppMenuItem(
-                value: 'sourceVariable',
-                child: Text('设置源变量'),
-              ),
+              const AppMenuItem(value: 'sourceVariable', child: Text('设置源变量')),
             if (hasSource)
-              const AppMenuItem(
-                value: 'bookVariable',
-                child: Text('设置书籍变量'),
-              ),
-            const AppMenuItem(
-                value: 'copyBookUrl', child: Text('拷贝书籍URL')),
-            const AppMenuItem(
-                value: 'copyTocUrl', child: Text('拷贝目录URL')),
+              const AppMenuItem(value: 'bookVariable', child: Text('设置书籍变量')),
+            const AppMenuItem(value: 'copyBookUrl', child: Text('拷贝书籍URL')),
+            const AppMenuItem(value: 'copyTocUrl', child: Text('拷贝目录URL')),
             const AppMenuItem(value: 'top', child: Text('置顶')),
             // 允许更新（书源存在；勾选态尾部 ✓）
             if (hasSource)
@@ -310,8 +308,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             // [UI-fix v2.0.3] 删除提醒接通本地持久化（对齐原版
             // LocalConfig.deleteBookAlert；勾选态尾部 ✓）
             checkedItem('deleteAlert', '删除提醒', _deleteBookAlert),
-            const AppMenuItem(
-                value: 'clearCache', child: Text('清理缓存')),
+            const AppMenuItem(value: 'clearCache', child: Text('清理缓存')),
             // ── 分隔线后：本端独有项（双基准 + 红线：功能不删除）──
             // [GLOBALCOMP B5] 自造 disabled AppMenuItem+Divider 换统一
             // AppMenuDivider（对齐 B1 批 8 处弹窗菜单分隔形态）
@@ -323,24 +320,25 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             // 创建书籍更新任务（在架 + 书源 + 非本地 + 允许更新；
             // [Task #39 §5.11-2] 已接通 AutoTaskScreen 编辑/创建流程）
             if (_inBookshelf && hasSource && !isLocal && canUpd)
-              const AppMenuItem(
-                value: 'updateTask',
-                child: Text('创建书籍更新任务'),
-              ),
+              const AppMenuItem(value: 'updateTask', child: Text('创建书籍更新任务')),
             // 登录（书源支持登录时）
-            if (hasLogin)
-              const AppMenuItem(value: 'login', child: Text('登录')),
+            if (hasLogin) const AppMenuItem(value: 'login', child: Text('登录')),
             // [B1 形态对齐]「分组」由操作宫格收纳进 ⋮ 菜单（复用 _showChangeGroup）
             const AppMenuItem(value: 'group', child: Text('设置分组')),
+            if (book != null && _inBookshelf)
+              AppMenuItem(
+                value: 'private',
+                child: Text(book.isPrivate ? '取消私密' : '设为私密'),
+              ),
             // 拆分长章节（仅本地 txt；勾选态尾部 ✓；
             // isLocalTxt 已隐含 book != null，Dart 3 提升生效）
             if (isLocalTxt)
               checkedItem(
-                  'splitLongChapter',
-                  '拆分长章节',
-                  book.readConfig?.splitLongChapter ?? true),
-            const AppMenuItem(
-                value: 'cacheDownloads', child: Text('缓存下载队列')),
+                'splitLongChapter',
+                '拆分长章节',
+                book.readConfig?.splitLongChapter ?? true,
+              ),
+            const AppMenuItem(value: 'cacheDownloads', child: Text('缓存下载队列')),
             const AppMenuItem(value: 'log', child: Text('日志')),
           ];
         },

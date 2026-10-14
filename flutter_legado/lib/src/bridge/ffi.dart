@@ -33,6 +33,23 @@ Future<void> readerLayoutCancel({required String sessionId}) =>
 
 TtsRequest ttsRequestNew() => RustLib.instance.api.crateFfiTtsRequestNew();
 
+/// 是否已设置隐私密码，不导出凭据。
+Future<bool> privacyHasPassword() =>
+    RustLib.instance.api.crateFfiPrivacyHasPassword();
+
+/// 只验证，不产生会话授权。
+Future<bool> privacyVerifyPassword({required String password}) =>
+    RustLib.instance.api.crateFfiPrivacyVerifyPassword(password: password);
+
+/// 修改或清除密码必须验证旧凭据。
+Future<bool> privacySetPassword({
+  required String currentPassword,
+  required String password,
+}) => RustLib.instance.api.crateFfiPrivacySetPassword(
+  currentPassword: currentPassword,
+  password: password,
+);
+
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TtsRequest>>
 abstract class TtsRequest implements RustOpaqueInterface {
   void cancel();

@@ -1384,10 +1384,12 @@ Future<PlatformInt64> bookGroupAdd({
   required String groupName,
   required String cover,
   required int order,
+  bool? isPrivate,
 }) => RustLib.instance.api.crateFfiFfiBookGroupAdd(
   groupName: groupName,
   cover: cover,
   order: order,
+  isPrivate: isPrivate,
 );
 
 /// 更新书籍分组
@@ -1396,11 +1398,13 @@ Future<bool> bookGroupUpdate({
   required String groupName,
   required String cover,
   required int order,
+  bool? isPrivate,
 }) => RustLib.instance.api.crateFfiFfiBookGroupUpdate(
   id: id,
   groupName: groupName,
   cover: cover,
   order: order,
+  isPrivate: isPrivate,
 );
 
 /// 删除书籍分组

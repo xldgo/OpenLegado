@@ -476,6 +476,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: context.l10n.otherSettings,
                   children: [
                     SettingTile(
+                      icon: Symbols.lock_rounded,
+                      title: '隐私',
+                      subtitle: '私密内容与访问验证',
+                      onTap:()=>Navigator.pushNamed(context,AppRoutes.privacy),
+                    ),
+                    SettingTile(
                       icon: Symbols.tune_rounded,
                       title: context.l10n.advanced,
                       subtitle: context.l10n.advancedSummary,

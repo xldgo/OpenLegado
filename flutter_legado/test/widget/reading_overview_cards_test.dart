@@ -1,15 +1,24 @@
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
+
 import 'dart:ui' show SemanticsAction;
 
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/widgets/md3_heatmap_calendar.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+class _PublicPrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
+
 void main() {
   Widget buildTestHost({required Widget child, double width = 360}) {
     return ProviderScope(
+      overrides: [privacyControllerProvider.overrideWith(_PublicPrivacy.new)],
       child: MaterialApp(
         home: Scaffold(
           body: Center(
@@ -165,6 +174,19 @@ void main() {
       expect(find.text('阅读热力图'), findsOneWidget);
       expect(find.text('时长'), findsOneWidget);
       expect(find.text('本数'), findsOneWidget);
+      expect(find.text('Mon'), findsOneWidget);
+      expect(find.text('Wed'), findsOneWidget);
+      expect(find.text('Fri'), findsOneWidget);
+      expect(find.text('Sun'), findsOneWidget);
+      final todayCell = find.byKey(
+        ValueKey('heatmap-day-${today.year}-${today.month}-${today.day}'),
+      );
+      expect(
+        tester
+            .getRect(todayCell)
+            .overlaps(tester.getRect(find.byType(Md3HeatmapCalendar))),
+        isTrue,
+      );
 
       // 切换为「本数」
       await tester.tap(find.text('本数'));
@@ -175,6 +197,45 @@ void main() {
       expect(find.textContaining('格 ='), findsNothing);
       expect(tester.takeException(), isNull);
     });
+
+    for (final dark in [false, true]) {
+      testWidgets('热力图${dark ? '暗' : '亮'}主题窄屏与放大文字不溢出', (tester) async {
+        tester.view.physicalSize = const Size(320, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? AppTheme.dark : AppTheme.light,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: MediaQuery(
+                  data: const MediaQueryData(
+                    textScaler: TextScaler.linear(1.8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ReadingHeatmapCard(
+                      weeks: 52,
+                      trailing: IconButton(
+                        icon: const Icon(Symbols.chevron_right_rounded),
+                        onPressed: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('阅读热力图'), findsOneWidget);
+        expect(find.text('少'), findsOneWidget);
+        expect(find.text('多'), findsOneWidget);
+        await tester.tap(find.text('本数'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('空数据及 string map 构造不崩溃', (tester) async {
       await tester.pumpWidget(

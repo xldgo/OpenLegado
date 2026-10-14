@@ -1,11 +1,13 @@
+import '../widgets/dynamic_search_app_bar.dart';
+
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/app_search_field.dart';
 import '../widgets/bottom_sheet_widget.dart';
+
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -33,6 +35,7 @@ class FileManageScreen extends StatefulWidget {
 
 class _FileManageScreenState extends State<FileManageScreen> {
   final _searchCtrl = TextEditingController();
+  bool _searchExpanded = false;
   String _filter = '';
 
   /// 根目录（沙盒文档目录）
@@ -61,8 +64,7 @@ class _FileManageScreenState extends State<FileManageScreen> {
   }
 
   /// 当前目录（子目录链末端，空链时为根目录）
-  Directory get _currentDir =>
-      _subDocs.isNotEmpty ? _subDocs.last : _rootDoc!;
+  Directory get _currentDir => _subDocs.isNotEmpty ? _subDocs.last : _rootDoc!;
 
   Future<void> _initRoot() async {
     try {
@@ -140,9 +142,8 @@ class _FileManageScreenState extends State<FileManageScreen> {
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开文件: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('无法打开文件: $e')));
     }
   }
 
@@ -154,8 +155,10 @@ class _FileManageScreenState extends State<FileManageScreen> {
       title: '文件操作',
       children: [
         ListTile(
-          leading: Icon(Symbols.delete_rounded,
-              color: Theme.of(context).colorScheme.error),
+          leading: Icon(
+            Symbols.delete_rounded,
+            color: Theme.of(context).colorScheme.error,
+          ),
           title: Text(
             '删除',
             style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -195,9 +198,8 @@ class _FileManageScreenState extends State<FileManageScreen> {
       await entity.delete(recursive: true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('删除失败: $e')));
       return;
     }
     await _upFiles();
@@ -214,29 +216,36 @@ class _FileManageScreenState extends State<FileManageScreen> {
       },
       child: AppScaffold(
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-        topBar: LegadoAppBar(
-          title: AppSearchField(controller: _searchCtrl, hintText: '筛选 · 文件管理'),
-              ),
+        topBar: DynamicSearchAppBar(
+          title: '文件管理',
+          searchController: _searchCtrl,
+          searchHint: '筛选 · 文件管理',
+          expanded: _searchExpanded,
+          onExpandedChanged: (value) => setState(() => _searchExpanded = value),
+          // 控制器监听统一处理输入及程序化清除，避免重复刷新。
+          onChanged: (_) {},
+        ),
         body: Builder(
           builder: (context) {
-          if (_rootDoc == null && _error == null) {
-            return const LoadingIndicator(message: '加载文件...');
-          }
-          if (_error != null) {
-            return Center(child: Text('加载失败: $_error'));
-          }
-          return Column(
-            children: [
-              _buildBreadcrumb(context),
-              const Divider(height: 1),
-              Expanded(
-                child: _loading
-                    ? const LoadingIndicator()
-                    : _buildFileList(context),
-              ),
-            ],
-          );
-        }),
+            if (_rootDoc == null && _error == null) {
+              return const LoadingIndicator(message: '加载文件...');
+            }
+            if (_error != null) {
+              return Center(child: Text('加载失败: $_error'));
+            }
+            return Column(
+              children: [
+                _buildBreadcrumb(context),
+                const Divider(height: 1),
+                Expanded(
+                  child: _loading
+                      ? const LoadingIndicator()
+                      : _buildFileList(context),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -251,8 +260,11 @@ class _FileManageScreenState extends State<FileManageScreen> {
         // [LAYOUT_PLAN P3] 页面水平边距16dp
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _subDocs.length + 1,
-        separatorBuilder: (_, _) => Icon(Symbols.chevron_right_rounded,
-            size: 18, color: cs.onSurfaceVariant),
+        separatorBuilder: (_, _) => Icon(
+          Symbols.chevron_right_rounded,
+          size: 18,
+          color: cs.onSurfaceVariant,
+        ),
         itemBuilder: (context, index) {
           final label = index == 0
               ? 'root'
@@ -265,9 +277,8 @@ class _FileManageScreenState extends State<FileManageScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: cs.primary,
-                      ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: cs.primary),
                 ),
               ),
             ),
@@ -331,9 +342,8 @@ class _FileManageScreenState extends State<FileManageScreen> {
               : Text(
                   _formatSize(entity),
                   // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
                 ),
           onTap: () {
             if (isDir) {

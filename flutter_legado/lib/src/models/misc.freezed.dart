@@ -3015,6 +3015,7 @@ class __$BookmarkCopyWithImpl<$Res> implements _$BookmarkCopyWith<$Res> {
 mixin _$BookGroup {
   @JsonKey(name: 'groupId')
   int get groupId;
+  bool get isPrivate;
   @JsonKey(name: 'groupName')
   String get groupName;
   String? get cover;
@@ -3045,6 +3046,8 @@ mixin _$BookGroup {
             other is BookGroup &&
             (identical(other.groupId, _this.groupId) ||
                 other.groupId == _this.groupId) &&
+            (identical(other.isPrivate, _this.isPrivate) ||
+                other.isPrivate == _this.isPrivate) &&
             (identical(other.groupName, _this.groupName) ||
                 other.groupName == _this.groupName) &&
             (identical(other.cover, _this.cover) ||
@@ -3067,6 +3070,7 @@ mixin _$BookGroup {
     return Object.hash(
       runtimeType,
       _this.groupId,
+      _this.isPrivate,
       _this.groupName,
       _this.cover,
       _this.order,
@@ -3080,7 +3084,7 @@ mixin _$BookGroup {
   @override
   String toString() {
     final _this = this as BookGroup;
-    return 'BookGroup(groupId: ${_this.groupId}, groupName: ${_this.groupName}, cover: ${_this.cover}, order: ${_this.order}, enableRefresh: ${_this.enableRefresh}, show: ${_this.show}, bookSort: ${_this.bookSort}, onlyUpdateRead: ${_this.onlyUpdateRead})';
+    return 'BookGroup(groupId: ${_this.groupId}, isPrivate: ${_this.isPrivate}, groupName: ${_this.groupName}, cover: ${_this.cover}, order: ${_this.order}, enableRefresh: ${_this.enableRefresh}, show: ${_this.show}, bookSort: ${_this.bookSort}, onlyUpdateRead: ${_this.onlyUpdateRead})';
   }
 }
 
@@ -3091,6 +3095,7 @@ abstract mixin class $BookGroupCopyWith<$Res> {
   @useResult
   $Res call({
     @JsonKey(name: 'groupId') int groupId,
+    bool isPrivate,
     @JsonKey(name: 'groupName') String groupName,
     String? cover,
     int order,
@@ -3114,6 +3119,7 @@ class _$BookGroupCopyWithImpl<$Res> implements $BookGroupCopyWith<$Res> {
   @override
   $Res call({
     Object? groupId = null,
+    Object? isPrivate = null,
     Object? groupName = null,
     Object? cover = freezed,
     Object? order = null,
@@ -3128,6 +3134,10 @@ class _$BookGroupCopyWithImpl<$Res> implements $BookGroupCopyWith<$Res> {
             ? _self.groupId
             : groupId // ignore: cast_nullable_to_non_nullable
                   as int,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         groupName: null == groupName
             ? _self.groupName
             : groupName // ignore: cast_nullable_to_non_nullable
@@ -3256,6 +3266,7 @@ extension BookGroupPatterns on BookGroup {
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3272,6 +3283,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup() when $default != null:
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3302,6 +3314,7 @@ extension BookGroupPatterns on BookGroup {
   TResult when<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3317,6 +3330,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup():
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3346,6 +3360,7 @@ extension BookGroupPatterns on BookGroup {
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3361,6 +3376,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup() when $default != null:
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3380,6 +3396,7 @@ extension BookGroupPatterns on BookGroup {
 class _BookGroup implements BookGroup {
   const _BookGroup({
     @JsonKey(name: 'groupId') this.groupId = 1,
+    this.isPrivate = false,
     @JsonKey(name: 'groupName') this.groupName = '',
     this.cover,
     this.order = 0,
@@ -3394,6 +3411,9 @@ class _BookGroup implements BookGroup {
   @override
   @JsonKey(name: 'groupId')
   final int groupId;
+  @override
+  @JsonKey()
+  final bool isPrivate;
   @override
   @JsonKey(name: 'groupName')
   final String groupName;
@@ -3434,6 +3454,8 @@ class _BookGroup implements BookGroup {
         (other.runtimeType == runtimeType &&
             other is _BookGroup &&
             (identical(other.groupId, groupId) || other.groupId == groupId) &&
+            (identical(other.isPrivate, isPrivate) ||
+                other.isPrivate == isPrivate) &&
             (identical(other.groupName, groupName) ||
                 other.groupName == groupName) &&
             (identical(other.cover, cover) || other.cover == cover) &&
@@ -3453,6 +3475,7 @@ class _BookGroup implements BookGroup {
     return Object.hash(
       runtimeType,
       groupId,
+      isPrivate,
       groupName,
       cover,
       order,
@@ -3465,7 +3488,7 @@ class _BookGroup implements BookGroup {
 
   @override
   String toString() {
-    return 'BookGroup(groupId: $groupId, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
+    return 'BookGroup(groupId: $groupId, isPrivate: $isPrivate, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
   }
 }
 
@@ -3480,6 +3503,7 @@ abstract mixin class _$BookGroupCopyWith<$Res>
   @useResult
   $Res call({
     @JsonKey(name: 'groupId') int groupId,
+    bool isPrivate,
     @JsonKey(name: 'groupName') String groupName,
     String? cover,
     int order,
@@ -3503,6 +3527,7 @@ class __$BookGroupCopyWithImpl<$Res> implements _$BookGroupCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   $Res call({
     Object? groupId = null,
+    Object? isPrivate = null,
     Object? groupName = null,
     Object? cover = freezed,
     Object? order = null,
@@ -3517,6 +3542,10 @@ class __$BookGroupCopyWithImpl<$Res> implements _$BookGroupCopyWith<$Res> {
             ? _self.groupId
             : groupId // ignore: cast_nullable_to_non_nullable
                   as int,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         groupName: null == groupName
             ? _self.groupName
             : groupName // ignore: cast_nullable_to_non_nullable

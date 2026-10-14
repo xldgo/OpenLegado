@@ -13,9 +13,7 @@ import '../../services/bottom_bar_skin_service.dart';
 /// AppNavigationBar/FloatingBottomBar/Rail）
 ///
 /// 三态统一消费底栏皮肤图标：标准栏/悬浮胶囊/Rail 全部走 [SkinNavIcon]；
-/// Rail 头部对齐参考：搜索钮（折叠态 ExpandedFAB 等效）+ 书架分组菜单
-///（参考为 Rail 项长按菜单，本地交互等效为入口钮，登记差异）+ 展开切换
-///（railExtended 持久化）。
+/// Rail 头部提供搜索与展开切换；长按书架图标显示分组菜单。
 
 /// 导航项规格（图标/文案/皮肤槽位）
 class AppNavSpec {
@@ -241,8 +239,7 @@ class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
   }
 }
 
-/// 大屏侧栏（WideNavigationRail 简版等效：皮肤图标+头部搜索钮+书架分组
-/// 菜单+展开切换 railExtended 持久化）
+/// 大屏侧栏：标准可滚动NavigationRail，书架分组收敛到长按书架图标。
 class AppRailBar extends StatelessWidget {
   final List<AppNavSpec> specs;
   final int currentIndex;
@@ -252,7 +249,8 @@ class AppRailBar extends StatelessWidget {
   final VoidCallback onToggleExtended;
   final VoidCallback onSearch;
 
-  /// 书架分组菜单（参考 Rail 项长按菜单的入口钮等效；null 隐藏）
+  /// 书架导航项索引；其他页面不承载分组菜单。
+  final int? bookshelfIndex;
   final List<String>? groups;
   final int? selectedGroupIndex;
   final ValueChanged<int>? onGroupSelected;
@@ -266,6 +264,7 @@ class AppRailBar extends StatelessWidget {
     required this.onSelect,
     required this.onToggleExtended,
     required this.onSearch,
+    this.bookshelfIndex,
     this.groups,
     this.selectedGroupIndex,
     this.onGroupSelected,
@@ -285,60 +284,126 @@ class AppRailBar extends StatelessWidget {
       );
     }
 
+    Widget destinationIcon(int index, {required bool selected}) {
+      final hasGroupMenu =
+          index == bookshelfIndex &&
+          groups != null &&
+          groups!.length >= 2 &&
+          onGroupSelected != null;
+      final icon = Tooltip(
+        message: specs[index].label,
+        // 分组长按交给入口手势，避免Tooltip抢占同一个长按动作；鼠标提示保留。
+        triggerMode: hasGroupMenu
+            ? TooltipTriggerMode.manual
+            : TooltipTriggerMode.longPress,
+        child: railIcon(specs[index], selected: selected),
+      );
+      if (!hasGroupMenu) return icon;
+      return AppMenuAnchor<int>(
+        onSelected: onGroupSelected,
+        itemBuilder: (_) => [
+          for (var i = 0; i < groups!.length; i++)
+            AppMenuItem<int>(
+              value: i,
+              checked: selectedGroupIndex == i,
+              child: Text(groups![i]),
+            ),
+        ],
+        builder: (_, controller, _) => GestureDetector(
+          key: const ValueKey('rail-bookshelf-groups'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onSelect(index),
+          onLongPress: controller.open,
+          child: Semantics(
+            hint: context.l10n.bookshelfGroups,
+            child: SizedBox(width: 40, height: 40, child: Center(child: icon)),
+          ),
+        ),
+      );
+    }
+
     return NavigationRail(
       selectedIndex: currentIndex,
       onDestinationSelected: onSelect,
-      // 展开态走 extended 侧栏形态；折叠态仅选中显示 label
       extended: extended,
+      minWidth: 80,
+      minExtendedWidth: 200,
+      groupAlignment: -1,
+      scrollable: true,
+      backgroundColor: cs.surfaceContainerLow,
       labelType: extended
           ? NavigationRailLabelType.none
-          : NavigationRailLabelType.all,
-      leading: Column(
-        children: [
-          const SizedBox(height: 8),
-          // 展开切换（railExtended 持久化）
-          IconButton(
-            tooltip: extended
-                ? context.l10n.collapseSidebar
-                : context.l10n.expandSidebar,
-            icon: Icon(
-              extended ? Symbols.menu_open_rounded : Symbols.menu_rounded,
-            ),
-            onPressed: onToggleExtended,
-          ),
-          // 头部搜索钮（对齐参考 Rail header 搜索入口）
-          IconButton(
-            tooltip: context.l10n.search,
-            icon: Icon(Symbols.search_rounded, color: cs.onSurfaceVariant),
-            onPressed: onSearch,
-          ),
-          // 书架分组菜单（对齐参考 BookshelfRailGroupMenu）
-          if (groups != null && groups!.isNotEmpty)
-            AppMenuButton<int>(
-              tooltip: context.l10n.bookshelfGroups,
-              icon: Icon(
-                Symbols.folder_copy_rounded,
-                color: cs.onSurfaceVariant,
-              ),
-              onSelected: onGroupSelected,
-              itemBuilder: (context) => [
-                for (var i = 0; i < groups!.length; i++)
-                  AppMenuItem<int>(
-                    value: i,
-                    checked: selectedGroupIndex == i,
-                    child: Text(groups![i]),
+          : NavigationRailLabelType.selected,
+      leading: Builder(
+        builder: (context) {
+          final animation = NavigationRail.extendedAnimation(context);
+          return AnimatedBuilder(
+            animation: animation,
+            builder: (context, _) {
+              final progress = animation.value;
+              return SizedBox(
+                width: 80 + 120 * progress,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton.filledTonal(
+                        tooltip: extended
+                            ? context.l10n.collapseSidebar
+                            : context.l10n.expandSidebar,
+                        icon: Icon(
+                          extended
+                              ? Symbols.menu_open_rounded
+                              : Symbols.menu_rounded,
+                        ),
+                        onPressed: onToggleExtended,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 56 + 120 * progress,
+                        height: 56,
+                        child: FloatingActionButton(
+                          heroTag: null,
+                          tooltip: context.l10n.search,
+                          onPressed: onSearch,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Symbols.search_rounded),
+                              SizeTransition(
+                                sizeFactor: animation,
+                                axis: Axis.horizontal,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(context.l10n.search),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-              ],
-            ),
-          const SizedBox(height: 8),
-        ],
+                ),
+              );
+            },
+          );
+        },
       ),
       destinations: [
-        for (final spec in specs)
+        for (var i = 0; i < specs.length; i++)
           NavigationRailDestination(
-            icon: railIcon(spec, selected: false),
-            selectedIcon: railIcon(spec, selected: true),
-            label: Text(spec.label),
+            icon: destinationIcon(i, selected: false),
+            selectedIcon: destinationIcon(i, selected: true),
+            label: Text(
+              specs[i].label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
       ],
     );

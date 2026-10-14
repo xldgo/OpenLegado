@@ -7149,12 +7149,6 @@ abstract class AppLocalizations {
   /// **'切换阅读记录视图'**
   String get switchReadRecordView;
 
-  /// No description provided for @filterReadRecordDate.
-  ///
-  /// In zh, this message translates to:
-  /// **'筛选阅读日期'**
-  String get filterReadRecordDate;
-
   /// No description provided for @readRecordOverview.
   ///
   /// In zh, this message translates to:
@@ -7172,12 +7166,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'累计阅读成就'**
   String get readRecordTotalAchievement;
-
-  /// No description provided for @readRecordDateOverview.
-  ///
-  /// In zh, this message translates to:
-  /// **'{month}月{day}日阅读概览'**
-  String readRecordDateOverview(int month, int day);
 
   /// No description provided for @readRecordSummaryBooks.
   ///

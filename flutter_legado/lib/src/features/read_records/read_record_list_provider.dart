@@ -39,7 +39,6 @@ final readRecordListProvider =
                 details: const [],
                 sessions: sessions,
                 query: controls.searchQuery,
-                selectedDate: controls.selectedDate,
               ),
             );
       }
@@ -49,7 +48,6 @@ final readRecordListProvider =
           records: data.records,
           details: data.details,
           query: controls.searchQuery,
-          selectedDate: controls.selectedDate,
         ),
       );
     });

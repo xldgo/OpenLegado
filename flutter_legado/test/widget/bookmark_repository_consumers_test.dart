@@ -1,4 +1,5 @@
 import '../mocks/bookshelf_fixture.dart';
+
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
@@ -39,7 +40,8 @@ const _bookmark = Bookmark(
 /// 目录其他数据走根对象；书签误用根 Repository 时直接报错。— Codex + UI
 class _TocApi extends MockBookApi {
   late final _fixtureShelf = TestBookshelfRepository(
-    delegate: super.bookshelfRepository, getBook: _fixtureGetBook,
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
   );
   @override
   TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
@@ -91,6 +93,37 @@ void main() {
     verify(() => repository.deleteBookmark(42)).called(1);
     expect(find.text('精准书签章节'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('目录标题搜索交叉淡入且不改变顶栏高度，收起释放焦点', (tester) async {
+    when(() => repository.getBookmarksByBook('同名书', '作者甲'))
+        .thenAnswer((_) async => [_bookmark]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bookApiProvider.overrideWithValue(_TocApi()),
+          bookmarkRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: TocScreen(book: _book)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bar = find.byType(AppBar);
+    final height = tester.getSize(bar).height;
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pump();
+    expect(tester.getSize(bar).height, height);
+    await tester.pump(const Duration(milliseconds: 70));
+    expect(find.byType(TextField), findsOneWidget);
+    expect(tester.getSize(bar).height, height);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('关闭搜索'));
+    await tester.pump();
+    expect(tester.getSize(bar).height, height);
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('目录书签按双键查询并通过同一窄接口删除', (tester) async {

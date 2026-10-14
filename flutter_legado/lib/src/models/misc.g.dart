@@ -156,6 +156,7 @@ Map<String, dynamic> _$BookmarkToJson(_Bookmark instance) => <String, dynamic>{
 
 _BookGroup _$BookGroupFromJson(Map<String, dynamic> json) => _BookGroup(
   groupId: (json['groupId'] as num?)?.toInt() ?? 1,
+  isPrivate: json['isPrivate'] as bool? ?? false,
   groupName: json['groupName'] as String? ?? '',
   cover: json['cover'] as String?,
   order: (json['order'] as num?)?.toInt() ?? 0,
@@ -168,6 +169,7 @@ _BookGroup _$BookGroupFromJson(Map<String, dynamic> json) => _BookGroup(
 Map<String, dynamic> _$BookGroupToJson(_BookGroup instance) =>
     <String, dynamic>{
       'groupId': instance.groupId,
+      'isPrivate': instance.isPrivate,
       'groupName': instance.groupName,
       'cover': instance.cover,
       'order': instance.order,

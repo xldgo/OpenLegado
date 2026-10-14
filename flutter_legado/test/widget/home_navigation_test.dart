@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,12 +31,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     when(() => mockApi.bookshelfRepository.getBooks()).thenAnswer(
       (_) async => [
-        for (var i = 0; i < 30; i++)
-          Book(bookUrl: 'u$i', name: '书籍$i'),
+        for (var i = 0; i < 30; i++) Book(bookUrl: 'u$i', name: '书籍$i'),
       ],
     );
-    when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
     when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）
     when(() => mockApi.readRecordRepository)
@@ -54,8 +54,7 @@ void main() {
   int navBarIndex(WidgetTester tester) =>
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-  testWidgets('初始结构：五页签（首页/书架/发现/订阅/我的），默认落书架',
-      (tester) async {
+  testWidgets('初始结构：五页签（首页/书架/发现/订阅/我的），默认落书架', (tester) async {
     await pumpHome(tester, MockRustApi());
 
     // [UI_SYNC_REFACTOR S1] 恢复 PageView 滑动切页（2026-09-05 拉参考源码
@@ -83,6 +82,36 @@ void main() {
     expect(find.text('阅读时长'), findsOneWidget);
     expect(find.text('今日阅读目标'), findsOneWidget);
     expect(navBarIndex(tester), 0);
+  });
+
+  testWidgets('横屏从首页选择书架分组会先切到书架', (tester) async {
+    final api = MockRustApi();
+    await pumpHome(tester, api);
+    when(
+      () => api.bookGroupRepository.getBookGroups(),
+    ).thenAnswer((_) async => [const BookGroup(groupId: 8, groupName: '测试分组')]);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    await container.read(bookshelfNotifierProvider.notifier).refresh();
+    tester.view.physicalSize = const Size(800, 600);
+    await tester.pumpAndSettle();
+    final rail = find.byType(NavigationRail);
+    expect(rail, findsOneWidget);
+    await tester.tap(find.descendant(of: rail, matching: find.byTooltip('首页')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<NavigationRail>(rail).selectedIndex, 0);
+    await tester.longPress(find.byKey(const ValueKey('rail-bookshelf-groups')));
+    await tester.pumpAndSettle();
+    final item = find.descendant(
+      of: find.byType(CheckboxMenuButton),
+      matching: find.text('测试分组'),
+    );
+    await tester.tap(item);
+    await tester.pumpAndSettle();
+    expect(tester.widget<NavigationRail>(rail).selectedIndex, 1);
+    expect(container.read(bookshelfNotifierProvider).selectedGroup?.groupId, 8);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('底栏切页到发现页，选中态同步（滑动切页）', (tester) async {
@@ -154,8 +183,10 @@ void main() {
     // 先向下滚动一段距离
     await tester.drag(scrollable, const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(tester.state<ScrollableState>(scrollable).position.pixels,
-        greaterThan(0));
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      greaterThan(0),
+    );
 
     // 300ms 内双击底栏书架项
     await tester.tap(find.byType(NavigationDestination).at(1));

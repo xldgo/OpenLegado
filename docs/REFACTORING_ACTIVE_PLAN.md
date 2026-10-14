@@ -1,5 +1,73 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-PRIVACY-20261014：隐私设置与私密内容访问（P1）
+
+- 用户授权继续隐私功能，Firebase 后置。当前 home-overview / 555d7386d，工作区起始干净；不创建分支、不使用子代理、不更新应用版本，不自动提交或推送。
+- 契约先行：API_CONTRACT 隐私访问增量条目。独立凭据、书籍/分组标记、统一会话判定、设置页和阅读路由守卫；各列表遮蔽与后台期限使用同一状态。生物识别及权限按真实平台能力验收，不提供空开关。
+- 实现：新增features/privacy统一设置、进程授权、后台宽限及身份验证；我的页增加隐私入口，凭据/验证时机/权限与数据三组，Firebase后置。书籍详情和分组菜单支持私密标记；书架（含选择态）、最近阅读、记录/书签、排行、日历及当天明细共享遮蔽，未恢复状态不闪现原文。详情、正文/漫画/音频/视频和朗读播放器接入守卫，管理入口只验证身份；分组锁定保留导航，朗读胶囊与转场截图立即遮蔽。
+- 平台：密码独立存Rust本地表，仅随机盐Argon2id摘要；改密/清密验证旧密码并撤销快捷凭据。Android使用认证绑定Keystore Cipher，iOS使用biometryCurrentSet/ThisDeviceOnly Keychain；不接受设备PIN替代应用密码。权限入口展示真实状态并跳系统设置，iOS不展示电池优化项；USE_MOCK使用独立内存凭据。默认关闭，版本保持2.0.373+374；FRB 2.13成对生成，hash1902148746，Dart lockfile恢复原版本与镜像，无Dart依赖升级。
+- 验证：Rust DB/FFI 799项通过（343+456，另21项既有忽略）；Windows Debug QuickJS DLL与Android x86_64 Debug库重建/校验通过。真实Windows FRB+临时数据库2项通过，覆盖改密保护、私密标记及普通字段更新保留标记。55项Flutter定向回归通过，后续分组导航补测后15项隐私核心复验通过（原14项+1）；相关静态分析与git diff --check结果见最终日志。Android compileDebugKotlin通过；iOS仅plist/Xcode引用结构校验，不代替编译。证据位于忽略目录flutter_legado/build/privacy-{rust-regression,native-tests,regression-final,core-final-tests,final-analysis,windows-ffi-build,android-ffi-build,android-kotlin-final,diff-check}.log。
+- MuMu安装（2026-10-14）：按用户要求构建当前隐私功能，x86_64 Debug APK在46秒内构建成功；包内Rust库与Cargo源库经NDK strip正规化校验通过。实时探测MuMu Android 15 / 127.0.0.1:16384后覆盖安装，使用原有Launcher4入口启动；六项冒烟全部通过，随后进程持续存活，日志未检出崩溃或Flutter未处理异常。实装版本2.0.373+374，保留用户数据与图标；证据位于忽略目录flutter_legado/build/privacy-mumu-{apk,apk-verification,install,runtime}.log。
+- 状态：已安装MuMu，功能与视觉待用户验收；Android/iOS系统生物认证、录入变化、权限跳转及完整生命周期实机验收未执行。当前Windows环境无法执行Xcode编译，未触发远程CI或生成IPA。
+- 提交与集成授权（2026-10-14）：用户要求提交当前隐私功能，并合并至主目录feature/ui-reader-selection；保留2.0.373+374，不推送远程。提交只包含隐私功能及相关契约、测试，代码生成产生的无内容差异文件不计入提交；集成时保留主目录已完成的朗读及搜索功能。
+- 主目录集成（2026-10-14）：隐私提交f09b446c2与既有界面提交555d7386d一并合入主目录a5899f05b，使用merge保留历史。保留朗读/搜索模块与DB v112，模型及FRB从合并源码重新生成，当前hash429525333；依赖锁文件沿用原有镜像，未升级Dart依赖。补齐隐私凭据§2.51及契约闭合校验（304项）。Rust DB/FFI含集成及文档测试951项通过、44项既有忽略；真实Windows隐私FRB两项通过。Flutter定向回归首轮62项通过、一项总览交互夹具因未提供已恢复隐私状态失败；补齐公开状态夹具后相关总览与契约21项复验全部通过，没有放宽生产守卫。全lib及新增测试分析无问题，后续改动的两份测试复查无问题；git diff --check通过。日志位于主目录忽略路径flutter_legado/build/privacy-merge-{codegen,dart-generation,analysis,flutter-tests,recheck,native-tests,test-analysis}.log及rust/target/privacy-merge-rust-tests.log。原MuMu安装对应合并前worktree，未重新安装合并包；两端生物识别与iOS编译未测边界保留。未推送远程。
+
+编写者：Codex｜2026-10-14
+
+- **本地提交授权（2026-10-14）**：用户要求提交当前worktree的已完成修改，统一包含阅读记录日历清理及最后阅读布局、热力图视觉、横屏导航轨和列表搜索过渡四批成果与测试。本次提交标题为`feat(ui): 整理阅读记录、热力图与导航搜索交互`；版本保持2.0.373+374，设备视觉仍按各项记录由用户验收，不合并主目录或推送。
+
+### UI-SEARCH-TRANSITION-20261014：统一搜索展开动画与默认隐藏（P2）
+
+- **授权与基线**：用户同意审计后的修复方案，并授权书源管理、订阅源管理等页面搜索默认隐藏。继续home-overview / 64e4d98a3及前几批未提交改动；不使用子代理、不更新版本、不自动提交/合并/推送。
+- **实施范围**：新增AppSearchTransition / AppSearchReveal共用控制器，高度/透明度同步、快速反向、收起焦点和命中/语义关闭。AppScaffold以稳定动画宿主将当前进度传至DynamicSearchAppBar的实际preferredSize，常驻底部与正文状态保留；普通顶栏行为不改。发现/订阅/离线缓存自动接入；书源管理、订阅源管理、替换规则、文件管理和书签页新增默认隐藏的顶栏搜索动作，控制器与筛选保留原逻辑（书签仍按提交查询）。阅读记录/换源采用正文共用区域，目录固定顶栏高度并交叉淡入淡出。字典与独立全局搜索是页面主要功能，保持常驻，不扩大改为隐藏。无DB/FFI、依赖或原生改动。
+- **状态与验证**：代码整理完成，设备交互待验收。11份定向测试共55项通过，包含首帧/中间帧/快速反向、焦点/查询保留、正文与滚动状态、管理页过滤与书源批量选择、目录固定高度、换源与记录页回归；补齐文件管理真实临时目录、替换规则过滤及批量模式收起/恢复过渡。最终修改后的共用组件、替换规则和文件管理8项复验通过；离线缓存旧测试更新为等待过渡后输入。相关18文件静态分析无问题，git diff --check通过。设计系统§1.5同步当前显隐与动画规则。证据为忽略目录flutter_legado/build/search-transition-tests-final.log、search-transition-final-recheck.log及search-transition-final-analysis.log。版本2.0.373+374保持，未提交或触发远程CI；后续MuMu安装结果见下。
+
+- **MuMu构建安装（2026-10-14）**：按用户要求编译当前worktree的全部已授权改动，x86_64 Debug APK 58秒构建成功，包内原生库与Cargo源库经NDK strip正规化校验通过。实时探测MuMu Android 15 / 127.0.0.1:16384后覆盖安装，使用现有Launcher4入口启动；六项冒烟通过，进程持续存活，启动日志未检出Flutter未处理异常或崩溃。实装版本2.0.373+374，保留用户数据；搜索过渡的设备视觉体验待用户验收。证据位于忽略目录flutter_legado/build/home-search-transition-mumu-{apk,apk-verification,install,runtime}.log。未提交或推送。
+
+编写者：Codex｜2026-10-14
+
+### UI-SEARCH-TRANSITION-AUDIT-20261014：隐藏搜索区域过渡缺失审计（P2）
+
+- **授权与状态**：用户要求先编译安装导航轨修复，再分析各页隐藏搜索框展开/收起动画缺失。继续home-overview / 64e4d98a3与既有未提交内容；本项仅分析，未修改搜索产品代码，不更新版本、不自动提交或推送。
+- **确认的共因**：DynamicSearchAppBar是无状态PreferredSizeWidget，展开时将preferredSize和bottom高度立即增加64dp，用if(expanded)插入/移除搜索行；LegadoAppBar和AppScaffold直接消费目标高度。单独为输入框加AnimatedSize不足以解决Scaffold仍按目标preferredSize立刻挤压正文的问题。阅读记录正文使用if(_showSearch)；换源弹层使用bottom条件48/null；目录页使用title条件替换。这些路径均缺搜索区域过渡，和输入控件本身的主题/焦点动画不同。
+- **页面范围**：发现/订阅/离线缓存共用DynamicSearchAppBar；阅读记录、换源弹层分别走直接显隐；目录是同高度标题/搜索替换。书源管理、订阅源管理、替换规则、字典、书签与文件管理的搜索栏当前常驻，不属于同一显隐问题，不应为动画擅自改成交互开关。
+- **证据**：与上游[DynamicTopAppBar](https://github.com/HapeLee/legado-with-MD3/blob/main/app/src/main/java/io/legado/app/ui/widget/components/topbar/DynamicTopAppBar.kt)核对，上游enter=expandVertically+fadeIn、exit=shrinkVertically+fadeOut；阅读记录也使用AnimatedVisibility。本地1项只读几何复现通过：正文收起y=56、展开首帧y=120、80ms仍y=120、收起首帧y=56，确认没有中间高度。脚本与日志位于忽略目录 flutter_legado/build/search_expansion_audit_test.dart、search-expansion-runtime-audit.log；静态引用清单为search-expansion-audit.txt。未实机逐页录屏或性能取样。
+- **建议下一批**：共用折叠搜索区域统一高度/透明度，并使顶栏preferredSize/Scaffold正文约束消费同一动画进度，保留退出组件直到收起结束；阅读记录与换源复用相同区域，目录单独按同高度标题切换处理。验证展开首帧、中间帧、反向打断、查询/焦点/键盘与列表位置；不能只等待pumpAndSettle核对终态。实施需要用户后续指示，本轮不扩大修改范围。
+
+编写者：Codex｜2026-10-14
+
+### UI-HOME-RAIL-20261014：横屏导航轨布局与分组入口（P2）
+
+- **授权与基线**：用户要求优化横屏左侧导航轨并说明书架分组用途；在home-overview/64e4d98a3及既有未提交内容基础上继续，不使用子代理、不更新版本、不自动提交/合并/推送。
+- **依据与范围**：上游MainScreen把分组菜单挂在书架图标长按，选择前切回书架。原实现将分组作为独立顶部按钮，在其他页选择后不定位书架；横屏高度不足时导航项不可滚动。改用标准NavigationRail.scrollable，收敛分组入口到长按书架（至少两个实际分组时显示），选择前定位到书架并复用原selectGroup/存储。折叠宽80、展开宽200，折叠仅显示当前页标签，其他项有Tooltip；头部tonal展开钮与FAB搜索，维持皮肤、导航页签、展开偏好和返回行为。只修改首页/导航组件及相关测试，不改DB/FFI或分组数据。
+- **状态与验收**：代码实现与定向验证通过，设备视觉待用户体验。3项Rail组件、8项首页导航及3项偏好回归共14项通过，覆盖640×280/1.4文字缩放的展开/折叠滚动、普通点击、长按分组菜单和从首页选组后切回书架；相关4文件静态分析及git diff --check通过。初次长按被内层Tooltip竞争导致两项失败，书架菜单的Tooltip改用手动触发（保留鼠标提示）后全部复验通过。证据为忽略目录 flutter_legado/build/home-rail-{tests,analysis}.log。版本2.0.373+374不变，未编译安装、提交/合并/推送或触发CI。
+
+- **MuMu构建安装（2026-10-14）**：用户授权编译安装，MuMuManager实时确认index 0 / Android 15 / 127.0.0.1:16384在线；当前x86_64 Debug APK以JDK 25构建33秒成功（25项执行、381项复用），包内Rust来源校验通过。覆盖安装Success，解析并保留现有Launcher4入口后冷启动Status: ok（4905ms）、进程4066存活，进程日志未见致命/Flutter/布局异常。版本2.0.373+374和数据/图标设置保留；未自动旋转或操作页面，横屏布局实际体验待用户确认。日志位于忽略目录 home-rail-mumu-{apk,apk-verification,install,start,runtime}.log；未提交、合并、推送或触发CI。
+
+- **宽度过渡修复（2026-10-14）**：用户实测右侧首页瞬间变窄。根因是本轮leading头部SizedBox根据extended直接在80/200间切换，立即撑大整个Rail，不能归因于默认组件效果。头部改为读取NavigationRail.extendedAnimation并按同一进度更新宽度，搜索按钮与标签同步，移除条件切换两种FAB造成的突变；不新增独立动画控制器或另定时长曲线。新增展开/收起首帧、中间帧与右侧剩余宽度回归，连同既有导航共15项通过，相关静态分析与git差异检查通过。证据为忽略目录 home-rail-transition-{tests,analysis}.log；本次源码修复未重新编译安装，MuMu当前仍为上一次构建，实际视觉待更新安装后验收。版本不变，未提交、合并或推送。
+
+- **过渡修复更新安装（2026-10-14）**：用户授权再次编译安装；当前x86_64 Debug APK 29秒构建通过，包内Rust来源校验通过。实时确认MuMu index 0 / 127.0.0.1:16384后覆盖安装Success，通过系统解析的Launcher4入口冷启动Status: ok（3750ms）、进程5032存活，进程日志未见致命/Flutter/布局异常。版本2.0.373+374、数据及图标保留；未自动操作导航轨，实际动画待用户检查。日志位于忽略目录 home-rail-transition-mumu-{apk,apk-verification,install,start,runtime}.log；未提交、合并或推送。
+
+编写者：Codex｜2026-10-14
+
+### UI-HEATMAP-VISUAL-20261014：热力图日期坐标与视觉层次（P2）
+
+- **授权与基线**：用户要求继续优化热力图UI视觉；在home-overview / 64e4d98a3及本轮未提交的记录页简化基础上继续，不覆盖已有改动，不使用子代理、不更新版本、不自动提交或推送。
+- **范围与实现**：参考上游HeatmapCalendarComponents的星期轴、月份与配色，保留既有固定周范围及秒数/本数分级阈值。标题与跳转单独一行，模式切换移至图例旁；新增月份标签与固定的周一/三/五/日轴，14dp圆角格子、18dp以上节距，按文字缩放调整坐标行高。空格与四档强度在卡片底色上合成主题色，今天描边，未来格不显示提示；继续默认显示最近一端，支持横向查看。底部控件宽度不足时自动换行。日期提示补齐年份，日历日构造避免夏令时偏移；不恢复记录页的日历筛选或“格=当日…”说明，不改数据/FFI。
+- **状态与验收**：代码与定向验证通过，实际设备视觉待用户验收。23项卡片/首页/总览/当天明细回归通过，覆盖固定星期轴、最近日期可见、模式切换以及亮暗主题320dp/1.8文字缩放；另外1项本机字体Widget渲染预览通过，亮暗PNG已检查。初始预览测试使用默认占位字体且图片等待未结束，已将图片生成放入真实异步并加载本机中文/图标字体后单独复验；不将初始图作为视觉依据。相关静态分析及git差异检查通过。证据位于忽略目录 flutter_legado/build/heatmap-visual-{tests,analysis,preview}.log 与 heatmap-{light,dark}-preview.png；预览仅代表Widget渲染，不是模拟器截图。保持2.0.373+374，未编译安装、提交、合并或推送，未触发远程CI。
+
+- **MuMu安装（2026-10-14）**：用户明确要求安装MuMu，按MuMuManager实时查询确认index 0已启动、Android 15、端点127.0.0.1:16384，设备ABI含x86_64。当前代码Android Debug APK 36秒构建通过（25项执行、381项复用），包内Rust来源校验通过，覆盖安装Success且保留数据。通用冒烟脚本5通过/1失败：默认MainActivity被用户的旧图标配置禁用，显式启动报告Activity不存在；随后通过系统resolve-activity获取实际Launcher4入口，保留图标设置后启动Status: ok（冷启动3832ms），进程3217存活，进程日志未见致命/Flutter/布局异常。版本2.0.373+374不变。日志位于忽略目录 heatmap-visual-mumu-{apk,apk-verification,install,start-resolved,runtime-resolved}.log，初始脚本失败如实保留，不宣称其6项通过。未自动操作热力图页面，视觉待用户体验，未提交/合并/推送或触发CI。
+
+编写者：Codex｜2026-10-14
+
+### UI-READ-RECORD-SIMPLIFY-20261014：清理记录页日历并对齐最后阅读（P2）
+
+- **授权与基线**：用户要求更新home-overview至主目录最新基线，移除历史记录页的日历显示及开关，继续对照上游修改最后阅读。工作树已从88e5681ac快进到feature/ui-reader-selection/64e4d98a3，起始干净；不使用子代理，不更新版本，不自动提交、合并或推送。
+- **范围与实现**：阅读记录顶栏日历按钮、热力图弹层、选定日期状态/筛选标签/计算分支及仅为筛选新增的共享热力图参数一并移除；首页和阅读总览的热力图/读书日历展示、当天阅读明细保留。按上游ReadRecordScreen.LatestReadItem调整最后阅读：无独立卡片，44×62封面，书名/作者/累计时长与最后时间分层，时间为yyyy-MM-dd HH:mm；时长与日期分别使用outline/primary。保留最后阅读排序、作者搜索、点击、长按选择和删除；不加入历史身份合并、数据库修复或隐私模块，不改DB/FFI。
+- **状态与验证**：代码实现与定向验证通过，实际页面视觉待用户验收。9个相关测试文件共51项通过，覆盖三视图、每日分组、作者搜索、最后阅读无卡片/完整日期与关联删除，以及首页/总览/当天明细组件保留；相关目录静态分析无问题，git diff --check通过。最后阅读信息超宽时本轮仍采用省略号，不宣称包含上游自动跑马灯。证据位于忽略目录 flutter_legado/build/read-record-simplify-{tests,analysis}.log。版本2.0.373+374保持，未编译安装、提交、合并或推送，未触发远程CI。
+
+- **构建安装（2026-10-14）**：用户随后授权编译安装，当前代码以JDK 25构建Android x86_64 Debug APK，31秒成功（25项执行、381项复用），APK包内Rust来源校验通过。实时确认官方Legado_API_36 / emulator-5556后覆盖安装、启动和无崩溃日志6项检查通过，保留应用数据，版本2.0.373+374不变。未自动操作页面，实际最后阅读布局由用户体验；日志位于忽略目录 read-record-simplify-{apk,apk-verification,install}.log。未提交、合并、推送或触发CI。
+
 ### TTS-INTEGRATION-20261014：朗读与主目录合并（P1）
 
 - **状态与授权**：整合代码与本地验证通过；本轮在主目录形成 merge 提交，再将当前朗读 worktree 快进至同一提交。用户授权合并并同步，使用 merge 保留原始历史，不推送、不触发 CI。合并前主目录 feature/ui-reader-selection / 311e96f5a，朗读 reimplement_tts_t2a_task / 4456c33de，两边工作区干净。

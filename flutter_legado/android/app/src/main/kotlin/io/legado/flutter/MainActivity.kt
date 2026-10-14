@@ -8,13 +8,13 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 // open：供图标变体桩类 Launcher1~6 继承（对齐原版 WelcomeActivity ×6 子类机制）
-open class MainActivity : FlutterActivity() {
+open class MainActivity : FlutterFragmentActivity() {
 
     private val webViewBridge = WebViewBridge()
     private val ttsBridge = TtsBridge()
@@ -98,6 +98,10 @@ open class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 cookieBridge.handleMethodCall(call, result, this)
             }
+
+        val privacyBridge = PrivacyBridge(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "legado/privacy")
+            .setMethodCallHandler { call, result -> privacyBridge.handle(call, result) }
 
         // 注册通知通道
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NOTIFICATION)

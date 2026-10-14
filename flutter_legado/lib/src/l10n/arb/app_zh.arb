@@ -4438,7 +4438,6 @@
   "readRecordViewTimeline": "时间线视图",
   "readRecordViewLatest": "最后阅读视图",
   "switchReadRecordView": "切换阅读记录视图",
-  "filterReadRecordDate": "筛选阅读日期",
   "readRecordOverview": "阅读总览",
   "readRecordChapter": "第{index}章",
   "@readRecordChapter": {
@@ -4449,19 +4448,8 @@
     }
   },
   "readRecordTotalAchievement": "累计阅读成就",
-  "readRecordDateOverview": "{month}月{day}日阅读概览",
   "readRecordSummaryBooks": "已读 {count} 本",
   "readRecordSummaryTime": "累计阅读 {duration}",
-  "@readRecordDateOverview": {
-    "placeholders": {
-      "month": {
-        "type": "int"
-      },
-      "day": {
-        "type": "int"
-      }
-    }
-  },
   "@readRecordSummaryBooks": {
     "placeholders": {
       "count": {

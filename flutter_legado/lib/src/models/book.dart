@@ -65,6 +65,7 @@ abstract class ReadConfig with _$ReadConfig {
 abstract class Book with _$Book {
   const factory Book({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
+    @Default(false) bool isPrivate,
     @Default('') @JsonKey(name: 'tocUrl') String tocUrl,
     @Default('loc_book') String origin,
     @Default('') @JsonKey(name: 'originName') String originName,

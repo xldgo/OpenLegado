@@ -4,6 +4,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../features/privacy/privacy_gate.dart';
+import '../../features/privacy/privacy_controller.dart';
+import '../../providers/audio/audio_notifier.dart';
 
 import '../../screens/read_aloud_player_screen.dart';
 
@@ -182,7 +187,15 @@ class ReadAloudPlayerRoute extends PageRoute<String> {
     Animation<double> secondaryAnimation,
   ) => ReadAloudPlayerTransition(
     route: this,
-    child: const ReadAloudPlayerScreen(),
+    child: Consumer(
+      builder: (context, ref, _) {
+        ref.watch(audioNotifierProvider);
+        return PrivacyBookGate(
+          book: ref.read(audioNotifierProvider.notifier).currentBook,
+          builder: (_) => const ReadAloudPlayerScreen(),
+        );
+      },
+    ),
   );
 
   @override
@@ -191,83 +204,94 @@ class ReadAloudPlayerRoute extends PageRoute<String> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => AnimatedBuilder(
-    animation: animation,
-    child: child,
-    builder: (context, child) {
-      final progress = animation.value.clamp(0.0, 1.0);
-      final complete = animation.status == AnimationStatus.completed;
-      final reduced = MediaQuery.disableAnimationsOf(context);
-      if (reduced || anchor == null) {
-        // 无可靠起点时简化为淡入，不猜测封面位置。
-        return FadeTransition(opacity: animation, child: child);
+  ) => Consumer(
+    builder: (context, ref, _) {
+      final privacy = ref.watch(privacyControllerProvider);
+      ref.watch(audioNotifierProvider);
+      final book = ref.read(audioNotifierProvider.notifier).currentBook;
+      if (privacy.loading || (book != null && privacy.locked(book))) {
+        return child;
       }
-      final size = MediaQuery.sizeOf(context);
-      final screen = Offset.zero & size;
-      _panelStart ??= anchor?.bounds();
-      _coverStart ??= anchor?.coverBounds();
-      if (!_dragging && animation.status != AnimationStatus.reverse) {
-        _coverEnd = _measureCover();
-      }
-      final source = _panelStart;
-      if (source == null) {
-        return FadeTransition(opacity: animation, child: child);
-      }
-      final panel = Rect.lerp(source, screen, progress)!;
-      final radius = lerpDouble(source.height / 2, 0, progress)!;
-      final playerColor = Theme.of(context).scaffoldBackgroundColor;
-      final color = Color.lerp(anchor!.color, playerColor, progress)!;
-      final coverSource = _coverStart;
-      final target = _coverEnd;
-      final movingCover =
-          coverSource != null && coverImage != null && !complete;
-      final cover = target == null
-          ? coverSource
-          : Rect.lerp(coverSource, target, progress);
-      final flightOpacity = 1 - capsuleOpacity.value;
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fromRect(
-            rect: panel,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(radius),
+      return AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, child) {
+          final progress = animation.value.clamp(0.0, 1.0);
+          final complete = animation.status == AnimationStatus.completed;
+          final reduced = MediaQuery.disableAnimationsOf(context);
+          if (reduced || anchor == null) {
+            // 无可靠起点时简化为淡入，不猜测封面位置。
+            return FadeTransition(opacity: animation, child: child);
+          }
+          final size = MediaQuery.sizeOf(context);
+          final screen = Offset.zero & size;
+          _panelStart ??= anchor?.bounds();
+          _coverStart ??= anchor?.coverBounds();
+          if (!_dragging && animation.status != AnimationStatus.reverse) {
+            _coverEnd = _measureCover();
+          }
+          final source = _panelStart;
+          if (source == null) {
+            return FadeTransition(opacity: animation, child: child);
+          }
+          final panel = Rect.lerp(source, screen, progress)!;
+          final radius = lerpDouble(source.height / 2, 0, progress)!;
+          final playerColor = Theme.of(context).scaffoldBackgroundColor;
+          final color = Color.lerp(anchor!.color, playerColor, progress)!;
+          final coverSource = _coverStart;
+          final target = _coverEnd;
+          final movingCover =
+              coverSource != null && coverImage != null && !complete;
+          final cover = target == null
+              ? coverSource
+              : Rect.lerp(coverSource, target, progress);
+          final flightOpacity = 1 - capsuleOpacity.value;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fromRect(
+                rect: panel,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(radius),
+                  ),
+                ),
               ),
-            ),
-          ),
-          ClipPath(
-            clipper: _PlayerPanelClipper(panel, radius),
-            child: IgnorePointer(
-              ignoring: !complete && !_dragging,
-              child: Opacity(
-                opacity: ((progress - 0.25) / 0.75).clamp(0, 1),
-                child: child,
+              ClipPath(
+                clipper: _PlayerPanelClipper(panel, radius),
+                child: IgnorePointer(
+                  ignoring: !complete && !_dragging,
+                  child: Opacity(
+                    opacity: ((progress - 0.25) / 0.75).clamp(0, 1),
+                    child: child,
+                  ),
+                ),
               ),
-            ),
-          ),
-          if (movingCover && cover != null)
-            Positioned.fromRect(
-              rect: cover,
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: (target == null ? 1 - progress : 1) * flightOpacity,
-                  child: Transform.rotate(
-                    angle: anchor!.rotation * (1 - progress),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        lerpDouble(coverSource.height / 2, 16, progress)!,
-                      ),
-                      child: RepaintBoundary(
-                        child: FittedBox(
-                          fit: BoxFit.cover,
-                          child: SizedBox(
-                            width: 220,
-                            height: 308,
-                            child: RawImage(
-                              image: coverImage,
+              if (movingCover && cover != null)
+                Positioned.fromRect(
+                  rect: cover,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity:
+                          (target == null ? 1 - progress : 1) * flightOpacity,
+                      child: Transform.rotate(
+                        angle: anchor!.rotation * (1 - progress),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            lerpDouble(coverSource.height / 2, 16, progress)!,
+                          ),
+                          child: RepaintBoundary(
+                            child: FittedBox(
                               fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: 220,
+                                height: 308,
+                                child: RawImage(
+                                  image: coverImage,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -275,9 +299,9 @@ class ReadAloudPlayerRoute extends PageRoute<String> {
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       );
     },
   );

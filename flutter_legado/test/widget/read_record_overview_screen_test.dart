@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
+
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -36,6 +38,12 @@ class _FakeOverviewNotifier extends ReadRecordOverviewNotifier {
   }
 }
 
+// 总览交互夹具显式提供公开状态，隐私行为由独立测试覆盖。
+class _PublicPrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
+
 void main() {
   final sampleState = ReadRecordOverviewState(
     period: ReadPeriod.day,
@@ -64,6 +72,7 @@ void main() {
     final effectiveState = state ?? sampleState;
     return ProviderScope(
       overrides: [
+        privacyControllerProvider.overrideWith(_PublicPrivacy.new),
         readRecordOverviewNotifierProvider.overrideWith(
           () => _FakeOverviewNotifier(effectiveState),
         ),
@@ -205,6 +214,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            privacyControllerProvider.overrideWith(_PublicPrivacy.new),
             readRecordOverviewNotifierProvider.overrideWith(
               () => _FakeOverviewNotifier(
                 sampleState.copyWith(period: ReadPeriod.all),

@@ -75,6 +75,8 @@ flutter {
 }
 
 dependencies {
+    // 生物识别逐次认证与 Keystore 绑定，沿用参考版稳定依赖。
+    implementation("androidx.biometric:biometric:1.1.0")
     // AndroidX Media（MediaSessionCompat + 音频焦点管理）
     implementation("androidx.media:media:1.7.0")
     // [V-B3] 视频悬浮窗服务自建播放器（VideoPlayService）：

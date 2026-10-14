@@ -68,13 +68,6 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
     return _modeWrite;
   }
 
-  void setSelectedDate(DateTime? date) => state = state.copyWith(
-    selectedDate: date == null
-        ? null
-        : DateTime(date.year, date.month, date.day),
-    clearSelectedDate: date == null,
-  );
-
   /// 搜索（对齐原版 SearchView onQueryTextChange → initData）
   void setSearchQuery(String query) {
     final q = query.trim();

@@ -1846,8 +1846,9 @@ pub mod ffi {
         group_name: String,
         cover: String,
         order: i32,
+        is_private: Option<bool>,
     ) -> Result<i64, BridgeError> {
-        let id = crate::api::book_group_api::add_book_group(&group_name, &cover, order)?;
+        let id = crate::api::book_group_api::add_book_group(&group_name, &cover, order, is_private)?;
         Ok(id)
     }
 
@@ -1857,8 +1858,9 @@ pub mod ffi {
         group_name: String,
         cover: String,
         order: i32,
+        is_private: Option<bool>,
     ) -> Result<bool, BridgeError> {
-        let ok = crate::api::book_group_api::update_book_group(id, &group_name, &cover, order)?;
+        let ok = crate::api::book_group_api::update_book_group(id, &group_name, &cover, order, is_private)?;
         Ok(ok)
     }
 
@@ -3155,4 +3157,17 @@ pub mod ffi {
         let result = crate::api::rule_sub_api::apply_sub_update_db(id)?;
         to_json(&result)
     }
+}
+
+/// 是否已设置隐私密码，不导出凭据。
+pub fn privacy_has_password() -> Result<bool, BridgeError> {
+    Ok(crate::api::privacy_api::has_password()?)
+}
+/// 只验证，不产生会话授权。
+pub fn privacy_verify_password(password: String) -> Result<bool, BridgeError> {
+    Ok(crate::api::privacy_api::verify_password(&password)?)
+}
+/// 修改或清除密码必须验证旧凭据。
+pub fn privacy_set_password(current_password: String, password: String) -> Result<bool, BridgeError> {
+    Ok(crate::api::privacy_api::set_password(&current_password, &password)?)
 }

@@ -138,6 +138,9 @@ pub struct Book {
     /// `book_url`（未换源书籍与存量库向后兼容）。
     #[serde(default, rename = "originBookUrl")]
     pub origin_book_url: String,
+    /// 独立私密标记。
+    #[serde(default, rename = "isPrivate")]
+    pub is_private: bool,
     /// 书源URL(默认BookType.local)
     #[serde(default = "Book::default_origin")]
     pub origin: String,
@@ -251,6 +254,7 @@ impl Default for Book {
             book_url: String::new(),
             toc_url: String::new(),
             origin_book_url: String::new(),
+            is_private: false,
             origin: book_type::LOCAL_TAG.to_string(),
             origin_name: String::new(),
             name: String::new(),

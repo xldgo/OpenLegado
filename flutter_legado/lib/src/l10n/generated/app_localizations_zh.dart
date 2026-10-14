@@ -3781,9 +3781,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get switchReadRecordView => '切换阅读记录视图';
 
   @override
-  String get filterReadRecordDate => '筛选阅读日期';
-
-  @override
   String get readRecordOverview => '阅读总览';
 
   @override
@@ -3793,11 +3790,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readRecordTotalAchievement => '累计阅读成就';
-
-  @override
-  String readRecordDateOverview(int month, int day) {
-    return '$month月$day日阅读概览';
-  }
 
   @override
   String readRecordSummaryBooks(int count) {
