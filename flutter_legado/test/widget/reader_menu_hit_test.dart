@@ -1,6 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 
 import '../helpers/reader_layout_host.dart';
+import '../fixtures/home_settings_storage.dart';
+
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -76,6 +84,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
   WidgetTester tester, {
   ReaderState? initialState,
   RouteFactory? onGenerateRoute,
+  AppSettingsService? settingsService,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final hits = _Hits();
@@ -83,6 +92,8 @@ Future<(_Reader, _Hits)> _pumpMenu(
     overrides: [
       readerNotifierProvider.overrideWith(() => _Reader(initialState)),
       bookApiProvider.overrideWithValue(MockBookApi()),
+      if (settingsService != null)
+        appSettingsServiceProvider.overrideWithValue(settingsService),
     ],
   );
   addTearDown(container.dispose);
@@ -158,12 +169,15 @@ void _expectNoBodyActions(_Hits hits) {
 Future<ProviderContainer> _pumpReader(
   WidgetTester tester, {
   PageTurnMode mode = PageTurnMode.none,
+  AppSettingsService? settingsService,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final container = ProviderContainer(
     overrides: [
       readerNotifierProvider.overrideWith(() => _ScreenReader(mode)),
       bookApiProvider.overrideWithValue(MockBookApi()),
+      if (settingsService != null)
+        appSettingsServiceProvider.overrideWithValue(settingsService),
     ],
   );
   addTearDown(container.dispose);
@@ -186,6 +200,54 @@ Future<ProviderContainer> _pumpReader(
 }
 
 void main() {
+  testWidgets('正文按同源八项排版设置接参，恢复重读刷新且高级保存不覆盖', (tester) async {
+    final storage = HomeSettingsStorage();
+    storage.values.addAll({
+      'reader_paragraph_spacing': 9.0,
+      'reader_letter_spacing': 0.2,
+      'reader_paragraph_indent': 3,
+      'reader_text_full_justify': false,
+      'reader_text_bold': 2,
+      'reader_italic': true,
+      'reader_use_zh_layout': true,
+      'reader_hanging_punctuation': true,
+    });
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repository = container.read(readerSettingsRepositoryProvider);
+    await repository.load();
+    await tester.pumpAndSettle();
+    ReaderPageView view() =>
+        tester.widget<ReaderPageView>(find.byType(ReaderPageView));
+    expect(view().paragraphSpacing, 9);
+    expect(view().letterSpacing, 0.2);
+    expect(view().paragraphIndent, 3);
+    expect(view().textFullJustify, isFalse);
+    expect(view().textBold, 2);
+    expect(view().italic, isTrue);
+    expect(view().useZhLayout, isTrue);
+    expect(view().hangingPunctuation, isTrue);
+    await repository.updateTextLayout(letterSpacing: 0, textBold: 1);
+    await tester.pumpAndSettle();
+    expect(view().letterSpacing, 0);
+    expect(view().textBold, 1);
+    storage.values['reader_paragraph_indent'] = 1;
+    await repository.reload();
+    await tester.pumpAndSettle();
+    expect(view().paragraphIndent, 1);
+    final advanced = await repository.loadAdvanced();
+    advanced.pageMarginTop = 30;
+    await container.read(readerAdvConfigProvider.notifier).commit(advanced);
+    await tester.pumpAndSettle();
+    expect(view().letterSpacing, 0);
+    expect(view().textBold, 1);
+    expect(view().paragraphIndent, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('编辑内容继承阅读菜单主题，关闭动画与再次编辑不访问已释放控制器', (tester) async {
     final (reader, hits) = await _pumpMenu(
       tester,
@@ -619,8 +681,12 @@ void main() {
           return MaterialPageRoute<void>(builder: (_) => const SizedBox());
         },
       );
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('readUrlInBrowser', true);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderMenuPanel)),
+      );
+      await container
+          .read(readerSettingsRepositoryProvider)
+          .update(chapterInSystemBrowser: true);
       await tester.tap(find.text('章节网页'));
       await tester.pumpAndSettle();
       expect(calls, hasLength(1));
@@ -636,4 +702,155 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final failed in [false, true]) {
+    testWidgets('长按选择系统浏览器${failed ? '保存失败提示但仍打开，重试可保存' : '保存成功且后续点击沿用'}', (
+      tester,
+    ) async {
+      final storage = HomeSettingsStorage();
+      final service = AppSettingsService(
+        storages: {SettingsStorageKind.preferences: storage},
+      );
+      addTearDown(() => unawaited(service.dispose()));
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return true;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final (reader, hits) = await _pumpMenu(
+        tester,
+        settingsService: service,
+        initialState: linkState(
+          const BookChapter(title: '章节网页', url: 'https://source.test/1.html'),
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderMenuPanel)),
+      );
+      final repository = container.read(readerSettingsRepositoryProvider);
+      await repository.load();
+      storage.writeFailure = failed;
+      await tester.longPress(find.text('章节网页'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('系统浏览器打开'));
+      await tester.pumpAndSettle();
+      expect(calls, hasLength(1));
+      expect(calls.single.arguments['url'], 'https://source.test/1.html');
+      expect(repository.current.chapterInSystemBrowser, !failed);
+      if (failed) {
+        expect(find.text('打开方式保存失败，本次仍按所选方式打开'), findsOneWidget);
+        expect(
+          storage.values.containsKey('reader_chapter_in_system_browser'),
+          isFalse,
+        );
+        storage.writeFailure = false;
+        await tester.longPress(find.text('章节网页'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('系统浏览器打开'));
+        await tester.pumpAndSettle();
+        calls.clear();
+      }
+      expect(storage.values['reader_chapter_in_system_browser'], isTrue);
+      await tester.tap(find.text('章节网页'));
+      await tester.pumpAndSettle();
+      expect(calls, hasLength(failed ? 1 : 2));
+      expect(
+        storage.writes.map((entry) => entry.$1),
+        everyElement('reader_chapter_in_system_browser'),
+      );
+      expect(reader.value.showControls, isTrue);
+      _expectNoBodyEvents(hits);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('长按选择内置浏览器保存偏好，后续点击沿用', (tester) async {
+    final storage = HomeSettingsStorage();
+    storage.values['reader_chapter_in_system_browser'] = true;
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    var routes = 0;
+    await _pumpMenu(
+      tester,
+      settingsService: service,
+      initialState: linkState(
+        const BookChapter(title: '章节网页', url: 'https://source.test/1.html'),
+      ),
+      onGenerateRoute: (settings) {
+        expect(settings.name, AppRoutes.browser);
+        routes++;
+        return MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('内置浏览器测试')),
+        );
+      },
+    );
+    await tester.longPress(find.text('章节网页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('内置浏览器打开'));
+    await tester.pumpAndSettle();
+    expect(routes, 1);
+    expect(storage.values['reader_chapter_in_system_browser'], isFalse);
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('章节网页'));
+    await tester.pumpAndSettle();
+    expect(routes, 2);
+    expect(storage.writes, [('reader_chapter_in_system_browser', false)]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('复制章节链接不修改打开偏好', (tester) async {
+    final clipboardWrites = <Object?>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardWrites.add(call.arguments);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final storage = HomeSettingsStorage();
+    storage.values['reader_chapter_in_system_browser'] = true;
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    await _pumpMenu(
+      tester,
+      settingsService: service,
+      initialState: linkState(
+        const BookChapter(title: '章节网页', url: 'https://source.test/1.html'),
+      ),
+    );
+    await tester.longPress(find.text('章节网页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('复制链接'));
+    await tester.pumpAndSettle();
+    expect(clipboardWrites, [
+      {'text': 'https://source.test/1.html'},
+    ]);
+    expect(find.text('章节链接已复制'), findsOneWidget);
+    expect(storage.writes, isEmpty);
+    expect(storage.values['reader_chapter_in_system_browser'], isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }

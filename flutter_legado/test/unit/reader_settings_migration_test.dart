@@ -25,9 +25,9 @@ void main() {
     final loaded = await repository.loadAdvanced();
     expect(loaded.pageMarginLeft, 29);
     expect(loaded.headerPaddingTop, 14);
-    expect(loaded.letterSpacing, 0.25);
-    expect(loaded.textBold, 1);
     expect(loaded.showFooterLine, isFalse);
+    expect((await repository.load()).textLayout.letterSpacing, 0);
+    expect(repository.current.textLayout.textBold, 0);
     final prefs = await SharedPreferences.getInstance();
     expect(
       prefs.getKeys().any((key) => key.startsWith('reader_layout_')),

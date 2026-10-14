@@ -709,8 +709,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           readingBrightness: state.readingBrightness,
           builder: (context) {
             ref.watch(readerSettingsProvider);
-            final fonts = ref.read(readerSettingsRepositoryProvider).current;
+            final readingSettings = ref
+                .read(readerSettingsRepositoryProvider)
+                .current;
+            final textLayout = readingSettings.textLayout;
             final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
+            _advConfig = cfg;
             final bodyInsets = _stableBodyInsets(context);
             final avoidTop = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
             final avoidSides = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
@@ -754,19 +758,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               // 阅读页头部补章节链接与书源名（书名在菜单顶栏）— Qoder
                               // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 书源名优先取 Book.originName
                               //（同步可靠），解析结果作兜底 — Qoder
-                              // [UI-fix v2.0.4 | 2026-08-08] 共享配置源：面板/界面 Sheet 的
-                              // 修改统一推送 readerAdvConfigProvider，watch 触发重建并同步
-                              // _advConfig（Stack 子级按序求值，后续 ReaderStatusStrip 等
-                              // 消费点拿到最新配置；provider 未加载完成时兜底用自加载值）— Qoder
-                              paragraphSpacing:
-                                  (_advConfig =
-                                          ref.watch(readerAdvConfigProvider) ??
-                                          _advConfig)
-                                      .paragraphSpacing,
-                              // [UI-fix v2.0.2 | 2026-08-06] 阅读配置面板新增排版参数接入分页渲染 — Qoder
-                              letterSpacing: _advConfig.letterSpacing,
-                              paragraphIndent: _advConfig.paragraphIndent,
-                              textFullJustify: _advConfig.textFullJustify,
+                              // 排版使用共享不可变快照，渲染参数保持原单位。— Codex + UI
+                              paragraphSpacing: textLayout.paragraphSpacing,
+                              letterSpacing: textLayout.letterSpacing,
+                              paragraphIndent: textLayout.paragraphIndent,
+                              textFullJustify: textLayout.textFullJustify,
                               // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
                               marginTop: _advConfig.pageMarginTop,
                               marginBottom: _advConfig.pageMarginBottom,
@@ -774,7 +770,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               marginRight: _advConfig.pageMarginRight,
                               pageChrome: ReaderPageChromeConfig.fromAdvanced(
                                 _advConfig,
-                                titleFontFamily: fonts.titleFontFamily,
+                                titleFontFamily:
+                                    readingSettings.titleFontFamily,
                               ),
                               readBodyToLh: cfg.readBodyToLh,
                               // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
@@ -783,9 +780,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               noAnimScroll: _advConfig.noAnimScrollPage,
                               // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
                               // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
-                              textBold: _advConfig.textBold,
+                              textBold: textLayout.textBold,
                               // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
-                              italic: _advConfig.italic,
+                              italic: textLayout.italic,
                               mouseWheelPage: _advConfig.mouseWheelPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
                               // doubleHorizontalPage 0-3 档）— Reasonix
@@ -793,10 +790,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                                   _advConfig.doubleHorizontalPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
                               // useZhLayout）— Reasonix
-                              useZhLayout: _advConfig.useZhLayout,
+                              useZhLayout: textLayout.useZhLayout,
                               // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂透传（对标原版
                               // hangingPunctuation）— Reasonix
-                              hangingPunctuation: _advConfig.hangingPunctuation,
+                              hangingPunctuation: textLayout.hangingPunctuation,
                               reviewCounts: _reviewCounts,
                               onReviewTap: _onReviewTap,
                             ),

@@ -9,10 +9,9 @@ class SettingsService {
   static const _keyLocale = 'app_locale';
   static const _keyBookshelfTabPosition = 'bookshelf_tab_position';
   static const _keyBookshelfLayout = 'bookshelf_layout'; // true=网格 false=列表
-  // [UI-fix v2.0.3 | 2026-08-08] 删除提醒/目录页加载字数开关（对齐原版
-  // LocalConfig.deleteBookAlert / AppConfig.tocCountWords） — Qoder
+  // [UI-fix v2.0.3 | 2026-08-08] 删除提醒开关（对齐原版
+  // LocalConfig.deleteBookAlert） — Qoder
   static const _keyDeleteBookAlert = 'delete_book_alert';
-  static const _keyTocLoadWordCount = 'toc_load_word_count';
   // 对齐原版 PreferKey.enableReadRecord / LocalConfig readRecordSort
   static const _keyEnableReadRecord = 'enableReadRecord';
   static const _keyReadRecordSort = 'readRecordSort';
@@ -438,28 +437,6 @@ class SettingsService {
       await prefs.setBool(_keyDeleteBookAlert, value);
     } catch (e) {
       debugPrint('SettingsService.setDeleteBookAlert 异常: $e');
-    }
-  }
-
-  // ===== 目录页加载字数（对齐原版 AppConfig.tocCountWords，默认开启） =====
-  // [UI-fix v2.0.3 | 2026-08-08] 控制目录页章节字数显隐 — Qoder
-
-  Future<bool> getTocLoadWordCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyTocLoadWordCount) ?? true;
-    } catch (e) {
-      debugPrint('SettingsService.getTocLoadWordCount 异常: $e');
-      return true;
-    }
-  }
-
-  Future<void> setTocLoadWordCount(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyTocLoadWordCount, value);
-    } catch (e) {
-      debugPrint('SettingsService.setTocLoadWordCount 异常: $e');
     }
   }
 

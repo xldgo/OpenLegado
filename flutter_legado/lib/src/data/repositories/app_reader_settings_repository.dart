@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/contracts/reader_settings_repository.dart';
 import '../../domain/models/reader_settings.dart';
+import '../../domain/models/reader_text_layout_settings.dart';
 import '../../domain/models/page_turn_mode.dart';
 import '../../domain/models/app_settings_snapshot.dart';
 import '../services/app_settings_service.dart';
@@ -44,6 +45,38 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_title_font_family',
   );
+  static const _paragraphSpacing = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_paragraph_spacing',
+  );
+  static const _letterSpacing = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_letter_spacing',
+  );
+  static const _paragraphIndent = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_paragraph_indent',
+  );
+  static const _textFullJustify = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_text_full_justify',
+  );
+  static const _textBold = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_text_bold',
+  );
+  static const _italic = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_italic',
+  );
+  static const _useZhLayout = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_use_zh_layout',
+  );
+  static const _hangingPunctuation = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_hanging_punctuation',
+  );
   static const _addresses = {
     _mode,
     _legacyIndex,
@@ -51,7 +84,25 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _lineHeight,
     _fontFamily,
     _titleFont,
+    _tocLoadWordCount,
+    _chapterInSystemBrowser,
+    _paragraphSpacing,
+    _letterSpacing,
+    _paragraphIndent,
+    _textFullJustify,
+    _textBold,
+    _italic,
+    _useZhLayout,
+    _hangingPunctuation,
   };
+  static const _tocLoadWordCount = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_toc_load_word_count',
+  );
+  static const _chapterInSystemBrowser = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_chapter_in_system_browser',
+  );
   final Future<SharedPreferences> Function() _preferences;
   final SettingsWriteQueue _operations = SettingsWriteQueue();
 
@@ -72,6 +123,43 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     titleFontFamily: snapshot[_titleFont] is String
         ? snapshot[_titleFont] as String
         : '',
+    tocLoadWordCount: snapshot[_tocLoadWordCount] is bool
+        ? snapshot[_tocLoadWordCount] as bool
+        : true,
+    chapterInSystemBrowser: snapshot[_chapterInSystemBrowser] is bool
+        ? snapshot[_chapterInSystemBrowser] as bool
+        : false,
+    textLayout: ReaderTextLayoutSettings(
+      paragraphSpacing:
+          (snapshot[_paragraphSpacing] is double
+                  ? snapshot[_paragraphSpacing] as double
+                  : 2)
+              .clamp(0, 48)
+              .toDouble(),
+      letterSpacing:
+          (snapshot[_letterSpacing] is double
+                  ? snapshot[_letterSpacing] as double
+                  : 0)
+              .clamp(-0.5, 1)
+              .toDouble(),
+      paragraphIndent:
+          (snapshot[_paragraphIndent] is int
+                  ? snapshot[_paragraphIndent] as int
+                  : 2)
+              .clamp(0, 3),
+      textFullJustify: (snapshot[_textFullJustify] is bool
+          ? snapshot[_textFullJustify] as bool
+          : true),
+      textBold: (snapshot[_textBold] is int ? snapshot[_textBold] as int : 0)
+          .clamp(0, 2),
+      italic: (snapshot[_italic] is bool ? snapshot[_italic] as bool : false),
+      useZhLayout: (snapshot[_useZhLayout] is bool
+          ? snapshot[_useZhLayout] as bool
+          : false),
+      hangingPunctuation: (snapshot[_hangingPunctuation] is bool
+          ? snapshot[_hangingPunctuation] as bool
+          : false),
+    ),
   );
 
   @override
@@ -103,12 +191,37 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     double? lineHeight,
     String? fontFamily,
     String? titleFontFamily,
+    bool? tocLoadWordCount,
+    bool? chapterInSystemBrowser,
   }) => _service.update({
     _mode: ?pageTurnMode?.name,
     _fontSize: ?fontSize,
     _lineHeight: ?lineHeight,
     if (fontFamily != null) _fontFamily: fontFamily.isEmpty ? null : fontFamily,
     _titleFont: ?titleFontFamily,
+    _tocLoadWordCount: ?tocLoadWordCount,
+    _chapterInSystemBrowser: ?chapterInSystemBrowser,
+  });
+
+  @override
+  Future<void> updateTextLayout({
+    double? paragraphSpacing,
+    double? letterSpacing,
+    int? paragraphIndent,
+    bool? textFullJustify,
+    int? textBold,
+    bool? italic,
+    bool? useZhLayout,
+    bool? hangingPunctuation,
+  }) => _service.update({
+    _paragraphSpacing: ?paragraphSpacing?.clamp(0.0, 48.0),
+    _letterSpacing: ?letterSpacing?.clamp(-0.5, 1.0),
+    _paragraphIndent: ?paragraphIndent?.clamp(0, 3),
+    _textFullJustify: ?textFullJustify,
+    _textBold: ?textBold?.clamp(0, 2),
+    _italic: ?italic,
+    _useZhLayout: ?useZhLayout,
+    _hangingPunctuation: ?hangingPunctuation,
   });
 
   @override
@@ -168,23 +281,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       return [...columns, ...columns, ...columns];
     }
 
-    // [UI-fix v2.0.4 | 2026-08-08] 字距旧值一次性迁移：旧版以 px 存储
-    // （0~5，UI 25 档），若仅按 raw>1.0 判断会漏掉 0<raw≤1.0 的旧 px
-    // 值（如 0.5px 会被当作 0.5em，渲染后放大一个数量级）。首次读取
-    // 若无迁移标志，则将存量值一律按 px 语义 ÷18（默认字号）换算为
-    // em 并写回 + 置标志；标志存在后直接按 em 读取，重复启动不再
-    // 二次缩放（幂等）；save() 同步置标志防止新写入的 em 值被误
-    // 迁移 — Qoder
-    const migratedKey = '${_prefix}letter_spacing_migrated';
-    if (!(prefs.getBool(migratedKey) ?? false)) {
-      final legacyPx = prefs.getDouble('${_prefix}letter_spacing');
-      if (legacyPx != null) {
-        final em = (legacyPx / 18.0).clamp(-0.5, 1.0);
-        await prefs.setDouble('${_prefix}letter_spacing', em.toDouble());
-      }
-      await prefs.setBool(migratedKey, true);
-    }
-
     // [N4 偏好迁移 | 2.0.271 | 子代理] 一次性默认值迁移（幂等）：
     // C2 批（2.0.262）将两项默认值改新——R4 顶部「时间/章节名/进度」状态行
     // 四开关由默认开改默认关；R5 底栏左侧 tipFooterLeft 由 1(章节名) 改
@@ -223,34 +319,12 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     double layoutDouble(String key, double def) =>
         (prefs.getDouble('$_prefix$key') ?? def).toDouble();
 
-    double letterSpacingEm() {
-      final raw = layoutDouble('letter_spacing', 0);
-      return raw.clamp(-0.5, 1.0);
-    }
-
-    // [UI-fix v2.0.4 | 2026-08-08] 缩进档位兼容：新 int 键缺失时读取
-    // 旧 bool 键（true→2 字符 / false→0），默认 2 字符 — Qoder
-    int indentChars() {
-      final v = prefs.getInt('${_prefix}paragraph_indent_chars');
-      if (v != null) return v.clamp(0, 3);
-      final legacy = prefs.getBool('${_prefix}paragraph_indent');
-      if (legacy == null) return 2;
-      return legacy ? 2 : 0;
-    }
-
     return ReaderAdvancedConfig(
       autoPageTurn: prefs.getBool('${_prefix}auto_page_turn') ?? false,
       autoPageTurnInterval: (prefs.getDouble('${_prefix}auto_interval') ?? 10)
           .clamp(3.0, 120.0),
       autoPageTurnForward: prefs.getBool('${_prefix}auto_forward') ?? true,
       tapActions: loadTapActions(),
-      paragraphSpacing: layoutDouble('paragraph_spacing', 2).clamp(0.0, 48.0),
-      letterSpacing: letterSpacingEm(),
-      paragraphIndent: indentChars(),
-      textFullJustify: prefs.getBool('${_prefix}text_full_justify') ?? true,
-      textBold: (prefs.getInt('textBold') ?? 0).clamp(0, 2),
-      // [C3 斜体 | Qoder UI] 斜体（参考版行内面板开关；双基准补齐）
-      italic: prefs.getBool('${_prefix}italic') ?? false,
       pageMarginTop: layoutDouble('margin_top', 24).clamp(0.0, 400.0),
       pageMarginBottom: layoutDouble('margin_bottom', 24).clamp(0.0, 400.0),
       pageMarginLeft: layoutDouble('margin_left', 20).clamp(0.0, 100.0),
@@ -340,8 +414,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
         0,
         3,
       ),
-      useZhLayout: prefs.getBool('useZhLayout') ?? false,
-      hangingPunctuation: prefs.getBool('hangingPunctuation') ?? false,
       pageTouchSlop: (prefs.getInt('pageTouchSlop') ?? 0).clamp(0, 9999),
       pageTouchClick: (prefs.getInt('pageTouchClick') ?? 0).clamp(0, 399),
       readBodyToLh: prefs.getBool('readBodyToLh') ?? false,
@@ -378,23 +450,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     await _write(
       prefs.setInt('${_prefix}right_action', config.tapActions[5].index),
     );
-    // 边距和排版只保存一套。
-    await _write(
-      prefs.setDouble('${_prefix}paragraph_spacing', config.paragraphSpacing),
-    );
-    await _write(
-      prefs.setDouble('${_prefix}letter_spacing', config.letterSpacing),
-    );
-    // [UI-fix v2.0.4 | 2026-08-08] 写入即为 em 语义，同步置迁移标志，
-    // 避免 save 先于 load 时新值被误当旧 px 二次换算 — Qoder
-    await _write(prefs.setBool('${_prefix}letter_spacing_migrated', true));
-    // [UI-fix v2.0.4 | 2026-08-08] 缩进档位写新 int 键（旧 bool 键保留不再更新）— Qoder
-    await _write(
-      prefs.setInt('${_prefix}paragraph_indent_chars', config.paragraphIndent),
-    );
-    await _write(
-      prefs.setBool('${_prefix}text_full_justify', config.textFullJustify),
-    );
+    // 边距仍使用现有高级配置；正文排版由共享快照逐字段保存。
     await _write(prefs.setDouble('${_prefix}margin_top', config.pageMarginTop));
     await _write(
       prefs.setDouble('${_prefix}margin_bottom', config.pageMarginBottom),
@@ -484,7 +540,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     await _write(
       prefs.setString('brightnessVwPos', config.brightnessOnLeft ? '0' : '1'),
     );
-    await _write(prefs.setBool('${_prefix}italic', config.italic));
     await _write(
       prefs.setBool('showReadTitleAddition', config.showReadTitleAddition),
     );
@@ -518,7 +573,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     );
     // [UI-fix v2.0.4 | 2026-08-08] 界面面板 + 第②批 MoreConfig 项持久化
     // （字重及第②批键名=原版键）— Qoder
-    await _write(prefs.setInt('textBold', config.textBold));
     await _write(prefs.setBool('volumeKeyPage', config.volumeKeyPage));
     await _write(
       prefs.setBool('volumeKeyPageOnPlay', config.volumeKeyPageOnPlay),
@@ -526,10 +580,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     await _write(prefs.setBool('mouseWheelPage', config.mouseWheelPage));
     await _write(
       prefs.setInt('doubleHorizontalPage', config.doubleHorizontalPage),
-    );
-    await _write(prefs.setBool('useZhLayout', config.useZhLayout));
-    await _write(
-      prefs.setBool('hangingPunctuation', config.hangingPunctuation),
     );
     await _write(prefs.setInt('pageTouchSlop', config.pageTouchSlop));
     await _write(prefs.setInt('pageTouchClick', config.pageTouchClick));

@@ -2,6 +2,7 @@ import '../../providers/reader/reader_settings_provider.dart';
 import '../../models/reader_advanced_config.dart';
 import '../../domain/models/reader_theme_mode.dart';
 import '../../domain/models/reader_style.dart';
+import '../../domain/models/reader_text_layout_settings.dart';
 
 import 'dart:async';
 
@@ -22,7 +23,7 @@ import 'reader_tip_config_sheet.dart';
 
 part 'reader_settings_sheet_font_panel.part.dart';
 
-// 字体设置复用既有管理入口，与主文件共享配置提交方法。
+// 字体设置复用既有管理入口，正文排版直接访问共享阅读设置。
 
 /// 完整阅读设置的分组；快捷面板复用同一套控件与配置。
 enum ReaderSettingsCategory {
@@ -246,8 +247,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     final children = switch (category) {
       ReaderSettingsCategory.typography => <Widget>[
         ReaderFontPanel(
-          config: adv.copy(),
-          onChanged: _commitAdv,
           fontSizeControl: _buildFontSizeControl(state, notifier),
           lineHeightControl: _ReaderSliderSetting(
             title: context.l10n.lineHeight,
@@ -278,12 +277,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           onChanged: _commitAdv,
           embedded: true,
           showStatusBar: false,
-          titleFont: ReaderFontPanel(
-            config: adv.copy(),
-            onChanged: _commitAdv,
-            titleOnly: true,
-            embedded: true,
-          ),
+          titleFont: ReaderFontPanel(titleOnly: true, embedded: true),
         ),
       ],
       ReaderSettingsCategory.screen => <Widget>[

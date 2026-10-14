@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
@@ -54,10 +55,12 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockBookApi();
       final repository = createTestReaderSettingsRepository();
-      final saves = <Future<void>>[];
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: [
+            bookApiProvider.overrideWithValue(mockApi),
+            readerSettingsRepositoryProvider.overrideWithValue(repository),
+          ],
           child: MaterialApp(
             // 「字体」跳转 AppRoutes.fonts：以桩路由承接，验证链路不丢失
             onGenerateRoute: (settings) {
@@ -67,13 +70,8 @@ void main() {
                 );
               }
               return MaterialPageRoute<void>(
-                builder: (_) => SingleChildScrollView(
-                  child: ReaderFontPanel(
-                    config: ReaderAdvancedConfig(),
-                    // 模拟存储提交；断言等待保存完成，不依赖排入队列的微任务时序。
-                    onChanged: (cfg) => saves.add(repository.saveAdvanced(cfg)),
-                  ),
-                ),
+                builder: (_) =>
+                    SingleChildScrollView(child: const ReaderFontPanel()),
               );
             },
           ),
@@ -87,12 +85,12 @@ void main() {
       expect(find.text('字间距'), findsOneWidget);
       expect(find.text('简繁转换'), findsNothing);
 
-      // ① 字重切「粗体」→ 持久化 textBold=1（既有字段链路）
+      // ① 字重切「粗体」→ 共享排版仓储保存reader_text_bold=1
       await tester.tap(find.text('粗体').last);
       await tester.pump();
       final prefs = await SharedPreferences.getInstance();
-      await Future.wait(saves);
-      expect(prefs.getInt('textBold'), 1);
+      await tester.pumpAndSettle();
+      expect(prefs.getInt('reader_text_bold'), 1);
 
       // ② 首行缩进 → 选「三字符」→ 持久化 paragraph_indent_chars=3
       // 保存统一的正文排版键。
@@ -102,18 +100,18 @@ void main() {
       await tester.tap(find.text('三字符').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      await Future.wait(saves);
-      expect(prefs.getInt('reader_adv_paragraph_indent_chars'), 3);
+      await tester.pumpAndSettle();
+      expect(prefs.getInt('reader_paragraph_indent'), 3);
 
       // ④ 斜体开关（双基准补齐）→ 持久化 reader_adv_italic
-      // 前序 save() 已写过该键（默认 false），此处验证开关可置真
-      expect(prefs.getBool('reader_adv_italic'), isFalse);
+      // 默认未保存时为false，此处验证开关可置真
+      expect(repository.current.textLayout.italic, isFalse);
       await tester.ensureVisible(find.text('斜体').last);
       await tester.tap(find.text('斜体').last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      await Future.wait(saves);
-      expect(prefs.getBool('reader_adv_italic'), isTrue);
+      await tester.pumpAndSettle();
+      expect(prefs.getBool('reader_italic'), isTrue);
 
       // ⑤ 「字体」跳转字体管理路由（AppRoutes.fonts → FontScreen）
       await tester.ensureVisible(find.text('字体').last);
@@ -124,7 +122,10 @@ void main() {
       // 简繁转换移到内容分组，仍沿用原 BookApi 持久化调用。
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: [
+            bookApiProvider.overrideWithValue(mockApi),
+            readerSettingsRepositoryProvider.overrideWithValue(repository),
+          ],
           child: MaterialApp(
             key: UniqueKey(),
             home: Scaffold(

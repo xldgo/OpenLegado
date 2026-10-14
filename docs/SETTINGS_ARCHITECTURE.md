@@ -57,9 +57,10 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 接口、数据实现、Provider、文件名、消费者和测试一起收拢命名，使用
 AppReaderSettingsRepository 与 readerSettingsRepositoryProvider；旧
 ReaderConfigRepository 名称及转发接口不保留。ReaderSettings 表达已接入共享服务
-的普通偏好，当前包含翻页模式、字号和行距；ReaderAdvancedConfig 继续表达其余高级参数，
-通过 loadAdvanced/saveAdvanced 保持原格式，不重复保存翻页。其余基础字段迁入
-同一仓储的步骤另行推进，字体选择等尚未全部迁移，不能将仓储改名等同于所有阅读偏好迁移完成。
+的普通偏好，包含翻页模式、字号、行距、正文/标题字体、目录字数显示和章节打开方式，
+并通过textLayout持有ReaderTextLayoutSettings正文排版分组；
+ReaderAdvancedConfig 继续表达其余高级参数，通过 loadAdvanced/saveAdvanced 保持原格式，
+不重复保存已迁走的基础字段。其他阅读偏好继续按实际消费者迁入，仓储改名不代表全域迁移完成。
 
 GeneralSettings 是有范围的应用偏好集合，并不对应“其他设置”页面的全部内容。
 耳机控制、缓存、备份、语言和主题等有明确归属的字段不能放入这个集合。默认
@@ -268,11 +269,11 @@ PreferencesThemePresetRepository；已经使用检查写入结果的 setStringPr
 它保留独立列表格式和串行读改写，不并入 AppSettingsStore 的标量快照。
 日夜背景图片、配色和其他已迁移领域均保持原仓储。
 
-### 6.5 阅读设置：基础值、75 个高级字段及格式边界
+### 6.5 阅读设置B1基线：基础值、75个高级字段及格式边界
 
-目标统一归 ReaderSettingsRepository；原存储均为 SharedPreferences。基础值目前
-由 ReaderNotifier / SettingsService 写入，高级值由 PreferencesReaderConfigRepository
-保存完整配置；字体页也直接写同源字体键。B3 必须同时收敛这些写入入口。
+目标统一归 ReaderSettingsRepository；原存储均为 SharedPreferences。基础值在B1基线中
+由ReaderNotifier / SettingsService写入，高级值由原PreferencesReaderConfigRepository
+保存完整配置，字体页直接写字体键。B3的逐批接线见第11～16节，已迁字段只经其所属仓储写入。
 
 | 功能 / 真实键 | 类型、缺省与单位 | 消费/处理 |
 |---|---|---|
@@ -286,15 +287,16 @@ PreferencesThemePresetRepository；已经使用检查写入结果的 setStringPr
 | 亮度 / `reader_brightness` | double / -1 跟随系统 | 已接线；ReaderBrightnessControl，漫画亮度设置也写此键；保持共享消费者 |
 | 正文字体 / `reader_font_family` | String / 未选系统字体 | 已接线；FontScreen 写入，ReaderPageView 恢复字体并测量 |
 | 自定义字体集合 / `reader_custom_fonts` | StringList / 空列表；每项为family\|path | 已接线；字体导入、选择及运行时加载，当前没有删除界面；独立目录仓储管理 |
-| 目录加载字数 / `toc_load_word_count` | bool / true | 已接线；TocScreen 查询/显示字数，旧服务读写；归 ReaderSettings |
+| 目录加载字数 / `reader_toc_load_word_count` | bool / true | TocScreen显示/菜单保存使用ReaderSettingsRepository，不读取原toc_load_word_count |
+| 章节系统浏览器 / `reader_chapter_in_system_browser` | bool / false | 章节点击和长按选择使用ReaderSettingsRepository，不读取原readUrlInBrowser |
 | 默认文本替换、抗锯齿 | 见第 6.2 节原键 | 同属 ReaderSettings，未接线，B3 不假装实现 |
 
 AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSettingsNotifier
 读取；它的写入所有权已经在 UiSettingsRepository，B3 改为从该公共接口取值，
 阅读域不重分配该键。阅读位置、书级配置及书籍实体不属于上述全局设置。
 
-下面按功能组列出高级配置的全部字段；同一组逐个列明真实键及默认值。
-除说明为未接线的三项外，均能追踪到对应消费路径；组内仍各自保存原值。
+下面按功能组记录B1基线的字段、键与消费者，不把已转出的字段算入当前高级模型。
+翻页、配色、字体及正文排版分别按第11～16节使用新入口；其余字段仍由高级配置保存。
 
 | 高级字段 / 真实键 | 原类型、缺省及范围 | 实际消费路径 |
 |---|---|---|
@@ -370,8 +372,9 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
   `reader_layout_night_*`、`shareLayout`、`reader_unified_layout_v1`、`readBarStyleFollowPage`：
   ReaderSettingsMigration 的既有转换输入/中间标记，运行时仍使用上表的统一键。
 
-这里登记现有算法以避免分类时漏改或误删，不要求长期保留旧入口，也不新增兼容
-机制。B3 的格式处理必须与当前实际值一致；是否删除已有转换代码另行明确范围。
+上述旧转换用于追溯B1基线，不作为新迁移的兼容要求。正文排版的字距px转换、旧bool缩进
+及分桶中的对应字段转换已经移除；尚未迁走的页面/提示参数暂沿用原入口。后续迁移直接
+采用目标模型和规范键，不为未发布应用增加旧值双读、转换标识或兼容副本。
 翻页两套 int 编码不能相互直接赋值；实际模式默认 cover，高级副本默认 slide。
 收拢时应保留实际生效来源，并让全部可见选择器读写同一个领域值，不再保留仅
 保存而不生效的独立副本。这项正确性问题优先于单纯重命名仓储。
@@ -652,5 +655,65 @@ FontScreen、ReaderFontPanel、ReaderConfigPanel与ReaderPageView通过同源仓
 对应验证覆盖目录持久化与读写失败、导入选择顺序、重复字体条目、Documents文件
 读取、注册复用与新实例注册、选择失败重试、共享标签、正文直接订阅字体更新、
 标题跟随与独立选择及原文锚点保持。结果和未测设备边界只维护在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 15. 目录与章节链接偏好
+
+目录字数开关tocLoadWordCount（默认true）和章节打开方式chapterInSystemBrowser
+（默认false）归ReaderSettingsRepository。键统一为reader_toc_load_word_count、
+reader_chapter_in_system_browser，直接采用目标键，不读取或迁移旧键。
+存储仍为现有Preferences，不新增数据库表、独立设置服务或本地可写副本。
+
+TocScreen从仓储当前快照读取，订阅该字段刷新字数胶囊和菜单勾选；开关不改变
+章节字数的获取、缓存状态和轮询。保存失败由共享服务回退，并在目录提示，允许重试。
+删除SettingsService对应的旧getter/setter；其他尚未迁走的方法保持。
+
+章节标题点击在加载同源偏好后打开内置或系统浏览器；长按选择写回同一仓储。
+保存失败明确提示，但仍执行用户本次选择，显式打开方式不再次依赖保存结果。
+复制链接不写偏好。网页地址解析、卷标题/本地书守卫、系统打开失败反馈保持。
+这两项不进入Rust所需的JS快照，不改变FFI签名或配置注入顺序。
+
+备份恢复已有的阅读仓储reload同时重读两项；阅读配置忽略集合纳入规范键。
+对应仓储、目录缓存状态、阅读菜单交互及恢复过滤回归复用现有测试文件。
+执行结果和设备未测边界仅记录在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 16. 正文排版的不可变分组
+
+ReaderSettings.textLayout持有ReaderTextLayoutSettings，只表达正文排版规则，
+不依赖dart:ui、TextPainter、渲染对象或平台插件。读取和订阅仍由同一
+ReaderSettingsRepository提供，不新增第二个仓储或缓存。updateTextLayout只提交
+传入字段，使字体面板和中文排版面板不会相互写回旧快照。
+
+| 字段 | Preferences规范键 | 默认与有效范围 |
+|---|---|---|
+| paragraphSpacing | reader_paragraph_spacing | 2dp；0～48 |
+| letterSpacing | reader_letter_spacing | 0em；-0.5～1 |
+| paragraphIndent | reader_paragraph_indent | 2字符；0～3 |
+| textFullJustify | reader_text_full_justify | true |
+| textBold | reader_text_bold | 0常规；1粗体、2细体 |
+| italic | reader_italic | false |
+| useZhLayout | reader_use_zh_layout | false |
+| hangingPunctuation | reader_hanging_punctuation | false |
+
+字距缺省0em取自当前实际存储解码，显式0不会被当成未传字段。范围由仓储统一处理。
+按未发布开发口径不读取或迁移reader_adv_*、textBold、useZhLayout及hangingPunctuation
+中的对应旧值；移除字距px转换、bool缩进转换及旧分桶的这些字段转换，不增加新标识。
+存储位置仍为Preferences，字段从ReaderAdvancedConfig的构造、copy、加载和保存中移除。
+其他高级配置仍由原入口管理；本轮不删除其他组的历史代码。
+
+ReaderFontPanel不再接收高级配置或回传整份配置，它直接订阅共享设置并保存单字段。
+ReaderConfigPanel的中文断行、对齐与悬挂使用同一来源；保存失败回退控件并提示，
+重试可继续。ReaderScreen将同源八项值传入ReaderPageView，保持原单位、有效默认、
+测量与分页参数及原文锚点路径；不修改断行、分页、选区、翻页算法或绘制方式。
+
+备份恢复已有阅读仓储reload覆盖这八项，阅读配置忽略集合纳入规范键。
+JS书源配置中的既有段距、字距和字重快照保持原值，不扩展本轮到FFI或业务契约修改。
+回归覆盖真实Preferences恢复、逐字段保存、旧高级快照隔离、保存失败重试、
+两个控件入口及实际ReaderScreen接参；执行结果和未测平台仅登记在活动计划。
 
 编写者：Codex｜2026-10-15

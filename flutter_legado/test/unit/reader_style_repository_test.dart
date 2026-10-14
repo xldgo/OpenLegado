@@ -130,7 +130,7 @@ void main() {
     storage.writeFailure = false;
     final advanced = AppReaderSettingsRepository(service);
     final config = await advanced.loadAdvanced();
-    config.paragraphSpacing = 12;
+    config.pageMarginTop = 12;
     await advanced.saveAdvanced(config);
     expect(repository.current, before);
     expect(

@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/book_chapter.dart';
+import '../../providers/reader/reader_settings_provider.dart';
 import '../../routes.dart';
 
 /// 章节导航只接受网页地址；相对路径使用章节目录的原始地址补全。
@@ -27,7 +28,7 @@ String? resolveReaderChapterWebUrl(BookChapter chapter) {
       : null;
 }
 
-/// 新旧阅读菜单共用既有浏览器偏好；显式打开方式可覆盖该偏好。
+/// 阅读菜单共用阅读仓储中的浏览器偏好；显式方式只覆盖本次打开。— Codex + UI
 Future<void> openReaderChapterUrl(
   BuildContext context,
   String url, {
@@ -36,10 +37,14 @@ Future<void> openReaderChapterUrl(
   var useSystemBrowser = inSystemBrowser ?? false;
   if (inSystemBrowser == null) {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      useSystemBrowser = prefs.getBool('readUrlInBrowser') ?? false;
-    } catch (_) {
+      final repository = ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(readerSettingsRepositoryProvider);
+      useSystemBrowser = (await repository.load()).chapterInSystemBrowser;
+    } catch (error) {
       // 读取失败时保留默认的内置浏览器入口。
+      debugPrint('章节打开方式读取失败：$error');
     }
   }
   if (!context.mounted) return;

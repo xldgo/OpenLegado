@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2，2026-09 升级后）新编译的
 // Windows 前端对无扩展名包导入（package:x/x）解析失败（报「系统找不到
 // 指定的文件」），显式 .dart 扩展名为当前可编译形态；存量测试文件沿用
@@ -12,6 +14,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
+
+import '../fixtures/home_settings_storage.dart';
 import '../mocks/mocks.dart';
 
 class _MockBookmarks extends Mock implements BookmarkRepository {}
@@ -204,6 +212,70 @@ void main() {
     await tester.pump();
   }
 
+  for (final failed in [false, true]) {
+    testWidgets('目录菜单修改字数${failed ? '失败回退并允许重试' : '成功保存，外部恢复刷新'}', (
+      tester,
+    ) async {
+      final storage = HomeSettingsStorage();
+      final service = AppSettingsService(
+        storages: {SettingsStorageKind.preferences: storage},
+      );
+      addTearDown(() => unawaited(service.dispose()));
+      final settingsContainer = ProviderContainer(
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          appSettingsServiceProvider.overrideWithValue(service),
+        ],
+      );
+      addTearDown(settingsContainer.dispose);
+      stubCommon(makeChapters(), const ['u0', 'u3']);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: settingsContainer,
+          child: MaterialApp(home: TocScreen(book: makeBook())),
+        ),
+      );
+      await settleInitial(tester);
+      expect(find.text('1200'), findsOneWidget);
+      storage.writeFailure = failed;
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加载字数'));
+      await tester.pumpAndSettle();
+      final repository = settingsContainer.read(
+        readerSettingsRepositoryProvider,
+      );
+      expect(repository.current.tocLoadWordCount, failed);
+      expect(find.text('1200'), failed ? findsOneWidget : findsNothing);
+      if (failed) {
+        expect(find.text('目录字数设置保存失败，请重试'), findsOneWidget);
+        expect(
+          storage.values.containsKey('reader_toc_load_word_count'),
+          isFalse,
+        );
+        storage.writeFailure = false;
+        await tester.tap(find.byTooltip('更多'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('加载字数'));
+        await tester.pumpAndSettle();
+        expect(repository.current.tocLoadWordCount, isFalse);
+        expect(find.text('1200'), findsNothing);
+      }
+      expect(storage.values['reader_toc_load_word_count'], isFalse);
+      storage.values['reader_toc_load_word_count'] = true;
+      await repository.reload();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('1200'), findsOneWidget);
+      expect(
+        storage.writes.map((entry) => entry.$1),
+        everyElement('reader_toc_load_word_count'),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets('未缓存网络章显示离线下载图标⬇，已缓存章与卷标题行无状态图标', (tester) async {
     // 缓存集合命中 u0（第一章）与 u3（当前章），u2 未缓存；卷 v0 不在集合
     stubCommon(makeChapters(), const ['u0', 'u3']);
@@ -334,7 +406,9 @@ void main() {
     // 开关持久化为 false（默认 true）：wordCount 非空也不显示胶囊；
     // [P2-29b] 已缓存且无胶囊的章走参考版 SUCCESS 分支 → 对勾图标
     // （CheckCircle，secondary 色，:1069-1071）
-    SharedPreferences.setMockInitialValues({'toc_load_word_count': false});
+    SharedPreferences.setMockInitialValues({
+      'reader_toc_load_word_count': false,
+    });
     stubCommon(makeChapters(), const ['u0', 'u3']);
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
     await settleInitial(tester);

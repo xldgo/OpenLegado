@@ -54,7 +54,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final advanced = await repository.loadAdvanced();
       await repository.update(titleFontFamily: 'Georgia');
-      advanced.paragraphSpacing = 12;
+      advanced.pageMarginTop = 12;
       await repository.saveAdvanced(advanced);
       expect(repository.current.titleFontFamily, 'Georgia');
       expect(
@@ -164,10 +164,7 @@ void main() {
                 );
               }
               return MaterialPageRoute<void>(
-                builder: (_) => ReaderFontPanel(
-                  config: ReaderAdvancedConfig(),
-                  titleOnly: true,
-                ),
+                builder: (_) => ReaderFontPanel(titleOnly: true),
               );
             },
           ),
@@ -194,12 +191,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
-          child: MaterialApp(
-            home: ReaderFontPanel(
-              config: ReaderAdvancedConfig(),
-              titleOnly: true,
-            ),
-          ),
+          child: MaterialApp(home: ReaderFontPanel(titleOnly: true)),
         ),
       );
       await tester.pump();

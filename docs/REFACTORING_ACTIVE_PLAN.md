@@ -16,6 +16,35 @@
 
 编写者：Codex｜2026-10-15
 
+### READER-TEXT-LAYOUT-SETTINGS-20261015：正文排版设置分组（P1）
+
+- 授权与范围：用户要求继续B3，在feature/ui-reader-selection / edc443391保留目录与章节设置等未提交成果；迁移段距、字距、缩进、两端对齐、字重、斜体、中文断行及标点悬挂八项。单代理，不创建分支、不自动提交或推送、不编译安装，版本2.0.373+374不变。
+- 状态：本轮实现和本地验证完成，按用户授权纳入本地提交。ReaderTextLayoutSettings作为ReaderSettings的不可变分组，ReaderSettingsRepository提供逐字段updateTextLayout；共享服务承担读取、订阅、写队列和失败回退。正文、字体面板与中文排版面板使用同源值，不再保存高级配置中的八项副本。
+- 存储与边界：仍用Preferences，直接采用reader_前缀规范键，不读取或迁移这八项旧值；删除对应旧字距/缩进转换及旧分桶字段转换，其余未迁字段沿用原入口。缺省按当前实际存储解码：段距2dp、字距0em、缩进2、对齐true、字重0，其余false。不改变排版算法、选区、动画、原文坐标、Rust/FFI、JS快照或数据库。
+- 验收：八项默认/范围/恢复、独立保存及失败回退重试、保存高级快照不覆盖已迁值、两类控件同源、正文实际接参和恢复重读。新键加入阅读配置忽略集合；设备与iOS验证按后续用户要求执行。
+- 首轮验证：34份相关回归375项全部通过，完整flutter analyze --no-pub无问题；新增仓储7项、控件3项和实际ReaderScreen接参1项。覆盖真实Preferences新服务恢复、显式零值、范围、失败回退/重试、外部恢复、八项控件写入与高级快照隔离。原高级配置队列/复制测试改用仍属于高级组的页面边距，保留原断言含义。
+- 测试夹具：整页初始化会保存已有reader_styles文档，控件断言从初始化结束后记录写入；旧字体面板测试的两次根装配同步使用相同覆盖集合，消除Riverpod拒绝增减覆盖项的错误。没有为通过测试改变生产行为或放宽正文参数断言。
+- 证据与边界：忽略目录flutter_legado/build/reader-color-styles-qa/text-layout-regression.log、text-layout-regression-files.txt、text-layout-analysis.log保留最终结果。格式与git diff --check通过；生产代码无八项旧键读写或高级字段副本。未改Rust/FFI、依赖或应用版本，未构建安装、执行iOS/远程CI、提交或推送。不使用子代理，不宣称独立审查或真机视觉验收；B3其余页面布局、操作、屏幕和菜单字段继续按组迁移。
+
+- 合并后复验：用户确认其他会话已完成朗读分支合并，当前HEAD为6f6b2d3a1。本轮排版与目录设置保留为未提交修改，未纳入朗读提交；两份文档中的双方条目及ReaderPageView真实分页发布逻辑均保留，无冲突标记。36份相关回归389项全部通过，包含新增朗读内容/偏好测试，完整flutter analyze --no-pub无问题，30份改动及新增Dart格式检查、git diff --check通过。最终证据为忽略目录flutter_legado/build/reader-color-styles-qa/text-layout-merged-regression.log、text-layout-merged-regression-files.txt、text-layout-merged-analysis.log；没有重复执行整个朗读测试集合。设备、iOS及编译安装边界保持；本会话未提交、推送或触发CI。
+
+- 提交与构建授权：用户要求提交本轮并触发iOS Build；统一提交正文排版分组、目录与章节偏好及相关测试/文档，推送feature/ui-reader-selection后手动触发ios-build.yml。保留已合并的朗读成果，版本2.0.373+374不变；提交正文只描述结构与行为，不写本机日志或测试失败证据。设备构建由Actions执行，实际运行链接与状态在交付中说明，不另做回填提交。
+
+编写者：Codex｜2026-10-15
+
+### READER-CHAPTER-SETTINGS-20261015：目录与章节链接设置统一访问（P1）
+
+- 授权与范围：用户要求继续B3，在feature/ui-reader-selection / edc443391迁移已有的目录字数开关和章节链接打开偏好；不创建分支，不使用子代理，不自动提交、推送、构建安装或CI，版本2.0.373+374不变。
+- 状态：本轮实现和本地验证完成，按用户授权纳入本地提交。两项普通偏好归ReaderSettingsRepository，直接采用reader_toc_load_word_count和reader_chapter_in_system_browser规范键；默认分别为true和false，不读取、迁移旧toc_load_word_count或readUrlInBrowser。
+- 行为边界：目录订阅共享设置，不另存可写副本；保存失败回退并提示。章节点击读取同源偏好，长按选择保存到同一仓储，保存失败提示但仍按本次选择打开；复制不修改偏好。备份恢复重读及阅读配置忽略集合包含两项，不改网页解析、目录缓存状态、排版、Rust/FFI或数据库。
+- 验收：仓储默认与规范键、订阅、独立更新、保存失败回退、恢复重读；目录实际显隐/菜单保存和失败；章节内置/系统打开、长按选择与保存失败。设备和iOS验证按用户后续要求执行。
+- 验证：12份相关回归263项全部通过，完整flutter analyze --no-pub无问题；改动Dart格式检查和git diff --check通过。目录菜单测试等待完整关闭/打开动画，保存失败重试通过；剪贴板平台通道明确模拟，验证复制内容及不写偏好。Widget夹具释放沿用现有非阻塞服务关闭，未改生产生命周期。
+- 契约回归：发现既有RustApi已实现ThemeConfigSync.synchronizeThemeConfig，但公共额外方法断言仍只列两项；根据既有主题同步契约补齐严格三项允许集合，不新增RustApi方法，不扩大BookApi或FFI计数。
+- 证据与边界：最终日志位于忽略目录flutter_legado/build/reader-color-styles-qa/chapter-settings-regression.log、chapter-settings-regression-files.txt、chapter-settings-analysis.log。未构建安装、执行iOS/Rust或远程CI，未提交或推送；版本保持2.0.373+374。下一批继续高级阅读设置分组及实际消费者接线，不把本轮两项完成等同于B3整体完成。
+
+- 提交与构建授权：用户要求提交本轮并触发iOS Build；统一提交正文排版分组、目录与章节偏好及相关测试/文档，推送feature/ui-reader-selection后手动触发ios-build.yml。保留已合并的朗读成果，版本2.0.373+374不变；提交正文只描述结构与行为，不写本机日志或测试失败证据。设备构建由Actions执行，实际运行链接与状态在交付中说明，不另做回填提交。
+
+编写者：Codex｜2026-10-15
 
 ### READER-FONT-SETTINGS-20261015：阅读字体选择与目录统一访问（P1）
 

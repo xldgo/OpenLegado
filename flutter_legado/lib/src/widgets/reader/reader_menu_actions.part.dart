@@ -773,10 +773,14 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'inner':
       case 'system':
         try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('readUrlInBrowser', choice == 'system');
-        } catch (_) {
-          // 偏好持久化失败不阻断本次打开
+          await ref
+              .read(readerSettingsRepositoryProvider)
+              .update(chapterInSystemBrowser: choice == 'system');
+        } catch (error) {
+          debugPrint('章节打开方式保存失败：$error');
+          if (context.mounted) {
+            _snack(context, '打开方式保存失败，本次仍按所选方式打开');
+          }
         }
         if (!context.mounted) return;
         if (choice == 'system') {

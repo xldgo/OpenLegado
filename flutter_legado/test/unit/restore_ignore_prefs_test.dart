@@ -41,6 +41,27 @@ void main() {
       );
     });
 
+    test('阅读普通偏好及正文排版纳入配置备份忽略', () {
+      for (final key in [
+        'reader_toc_load_word_count',
+        'reader_chapter_in_system_browser',
+        'reader_paragraph_spacing',
+        'reader_letter_spacing',
+        'reader_paragraph_indent',
+        'reader_text_full_justify',
+        'reader_text_bold',
+        'reader_italic',
+        'reader_use_zh_layout',
+        'reader_hanging_punctuation',
+      ]) {
+        expect(RestoreIgnorePrefs.keyIsNotIgnore(key, const {}), isTrue);
+        expect(
+          RestoreIgnorePrefs.keyIsNotIgnore(key, {'readConfig': true}),
+          isFalse,
+        );
+      }
+    });
+
     test('勾选 themeMode / showRss / threadCount / bookshelfLayout', () {
       expect(
         RestoreIgnorePrefs.keyIsNotIgnore(

@@ -81,23 +81,6 @@ class ReaderAdvancedConfig {
     return List<TapAction>.of(actions ?? defaultTapActions, growable: false);
   }
 
-  // 段落间距
-  double paragraphSpacing;
-
-  // [UI-fix v2.0.2 | 2026-08-06] 对标原版 ReadBookConfig：
-  // 字距调节/首行缩进/两端对齐（MoreConfig textFullJustify） — Qoder
-  // [UI-fix v2.0.4 | 2026-08-08] 字距语义升级为 em（-0.5~1.0，对标原版
-  // dsbTextLetterSpacing (it-50)/100，渲染时乘以字号转 px）；首行缩进由
-  // bool 升级为 int 档位（0-3 字符，对标原版 tvTextIndent 缩进选择），
-  // 旧 bool 值兼容读取：true→2、false→0 — Qoder
-  double letterSpacing;
-  int paragraphIndent;
-  bool textFullJustify;
-
-  /// 文字字重（0=常规、1=粗体、2=细体）与正文斜体。
-  int textBold;
-  bool italic;
-
   // [UI-fix v2.0.3 | 2026-08-06] 页面边距（对标原版 ReadBookConfig
   // paddingTop/paddingBottom/paddingLeft/paddingRight） — Qoder
   double pageMarginTop;
@@ -206,12 +189,6 @@ class ReaderAdvancedConfig {
   /// 对标原版 doubleHorizontalPage；已接入 ReaderPageView 分页/渲染）
   int doubleHorizontalPage;
 
-  /// 使用自定义中文分行（对标原版 useZhLayout；false=朴素按宽断行）
-  bool useZhLayout;
-
-  /// 段首标点悬挂（对标原版 hangingPunctuation；已接入排版引擎）
-  bool hangingPunctuation;
-
   /// 滑动翻页阈值（px，0=系统默认值，对标原版 pageTouchSlop）
   int pageTouchSlop;
 
@@ -229,12 +206,6 @@ class ReaderAdvancedConfig {
     this.autoPageTurnInterval = 10,
     this.autoPageTurnForward = true,
     List<TapAction>? tapActions,
-    this.paragraphSpacing = 2,
-    this.letterSpacing = 0.1,
-    this.paragraphIndent = 2,
-    this.textFullJustify = true,
-    this.textBold = 0,
-    this.italic = false,
     this.pageMarginTop = 24,
     this.pageMarginBottom = 24,
     this.pageMarginLeft = 20,
@@ -297,8 +268,6 @@ class ReaderAdvancedConfig {
     this.volumeKeyPageOnPlay = false,
     this.mouseWheelPage = true,
     this.doubleHorizontalPage = 0,
-    this.useZhLayout = false,
-    this.hangingPunctuation = false,
     this.pageTouchSlop = 0,
     this.pageTouchClick = 0,
     this.readBodyToLh = false,
@@ -320,12 +289,6 @@ class ReaderAdvancedConfig {
     autoPageTurnInterval: autoPageTurnInterval,
     autoPageTurnForward: autoPageTurnForward,
     tapActions: tapActions,
-    paragraphSpacing: paragraphSpacing,
-    letterSpacing: letterSpacing,
-    paragraphIndent: paragraphIndent,
-    textFullJustify: textFullJustify,
-    textBold: textBold,
-    italic: italic,
     pageMarginTop: pageMarginTop,
     pageMarginBottom: pageMarginBottom,
     pageMarginLeft: pageMarginLeft,
@@ -382,8 +345,6 @@ class ReaderAdvancedConfig {
     volumeKeyPageOnPlay: volumeKeyPageOnPlay,
     mouseWheelPage: mouseWheelPage,
     doubleHorizontalPage: doubleHorizontalPage,
-    useZhLayout: useZhLayout,
-    hangingPunctuation: hangingPunctuation,
     pageTouchSlop: pageTouchSlop,
     pageTouchClick: pageTouchClick,
     readBodyToLh: readBodyToLh,

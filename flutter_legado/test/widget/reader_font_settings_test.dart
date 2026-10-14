@@ -10,7 +10,6 @@ import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 
 import '../fixtures/home_settings_storage.dart';
@@ -105,12 +104,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          home: Scaffold(
-            body: ReaderFontPanel(
-              config: ReaderAdvancedConfig(),
-              titleOnly: true,
-            ),
-          ),
+          home: Scaffold(body: ReaderFontPanel(titleOnly: true)),
         ),
       ),
     );

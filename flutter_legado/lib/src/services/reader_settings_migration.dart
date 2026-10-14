@@ -17,9 +17,6 @@ Future<void> migrateReaderSettings(SharedPreferences prefs) async {
         ? 'reader_layout_night_'
         : 'reader_layout_day_';
     const layoutKeys = {
-      'paragraph_spacing': 'reader_adv_paragraph_spacing',
-      'letter_spacing': 'reader_adv_letter_spacing',
-      'paragraph_indent_chars': 'reader_adv_paragraph_indent_chars',
       'margin_top': 'reader_adv_margin_top',
       'margin_bottom': 'reader_adv_margin_bottom',
       'margin_left': 'reader_adv_margin_left',
@@ -34,24 +31,13 @@ Future<void> migrateReaderSettings(SharedPreferences prefs) async {
       'footer_padding_right': 'reader_adv_footer_padding_right',
       'show_header_line': 'showHeaderLine',
       'show_footer_line': 'showFooterLine',
-      'textBold': 'textBold',
     };
     if (!(prefs.getBool(migratedKey) ?? false)) {
       for (final entry in layoutKeys.entries) {
         final value = prefs.get('$selected${entry.key}');
         if (value is bool) await prefs.setBool(entry.value, value);
         if (value is num) {
-          if (const {
-            'paragraph_indent_chars',
-            'textBold',
-          }.contains(entry.key)) {
-            await prefs.setInt(entry.value, value.toInt());
-          } else {
-            await prefs.setDouble(entry.value, value.toDouble());
-          }
-        }
-        if (entry.key == 'letter_spacing' && value is num) {
-          await prefs.setBool('reader_adv_letter_spacing_migrated', true);
+          await prefs.setDouble(entry.value, value.toDouble());
         }
       }
       await prefs.setBool(migratedKey, true);

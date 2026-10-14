@@ -49,11 +49,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(repository.loads, hasLength(1));
 
-    await notifier.commit(ReaderAdvancedConfig(paragraphSpacing: 12));
-    repository.loads.single.complete(ReaderAdvancedConfig(paragraphSpacing: 4));
-    expect((await first).paragraphSpacing, 12);
-    expect((await second).paragraphSpacing, 12);
-    expect(container.read(readerAdvConfigProvider)!.paragraphSpacing, 12);
+    await notifier.commit(ReaderAdvancedConfig(pageMarginTop: 12));
+    repository.loads.single.complete(ReaderAdvancedConfig(pageMarginTop: 4));
+    expect((await first).pageMarginTop, 12);
+    expect((await second).pageMarginTop, 12);
+    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 12);
     expect(repository.saved, hasLength(1));
   });
 
@@ -91,22 +91,22 @@ void main() {
     final container = containerFor(repository);
     addTearDown(container.dispose);
     final notifier = container.read(readerAdvConfigProvider.notifier);
-    final edited = ReaderAdvancedConfig(paragraphSpacing: 6);
+    final edited = ReaderAdvancedConfig(pageMarginTop: 6);
     await notifier.commit(edited);
-    edited.paragraphSpacing = 48;
+    edited.pageMarginTop = 48;
     edited.tapActions[0] = TapAction.none;
-    expect(container.read(readerAdvConfigProvider)!.paragraphSpacing, 6);
+    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 6);
     expect(repository.saved.single.tapActions[0], TapAction.prevPage);
 
     repository.failSave = true;
     await expectLater(
-      notifier.commit(ReaderAdvancedConfig(paragraphSpacing: 8)),
+      notifier.commit(ReaderAdvancedConfig(pageMarginTop: 8)),
       throwsStateError,
     );
-    expect(container.read(readerAdvConfigProvider)!.paragraphSpacing, 8);
+    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 8);
     repository.failSave = false;
-    await notifier.commit(ReaderAdvancedConfig(paragraphSpacing: 10));
-    expect(repository.saved.last.paragraphSpacing, 10);
+    await notifier.commit(ReaderAdvancedConfig(pageMarginTop: 10));
+    expect(repository.saved.last.pageMarginTop, 10);
   });
 
   test('偏好读写串行，等待保存时不会读到半份配置或可变输入', () async {
@@ -119,21 +119,21 @@ void main() {
         return accesses == 1 ? gate.future : Future.value(prefs);
       },
     );
-    final input = ReaderAdvancedConfig(paragraphSpacing: 6, titleTopSpacing: 1);
+    final input = ReaderAdvancedConfig(pageMarginTop: 6, titleTopSpacing: 1);
     final first = repository.saveAdvanced(input);
-    input.paragraphSpacing = 48;
+    input.pageMarginTop = 48;
     final second = repository.saveAdvanced(
-      ReaderAdvancedConfig(paragraphSpacing: 10, titleTopSpacing: 2),
+      ReaderAdvancedConfig(pageMarginTop: 10, titleTopSpacing: 2),
     );
     final reading = repository.loadAdvanced();
     await Future<void>.delayed(Duration.zero);
     expect(accesses, 1);
     gate.complete(prefs);
     await first;
-    expect(prefs.getDouble('reader_adv_paragraph_spacing'), 6);
+    expect(prefs.getDouble('reader_adv_margin_top'), 6);
     await second;
     final result = await reading;
-    expect(result.paragraphSpacing, 10);
+    expect(result.pageMarginTop, 10);
     expect(result.titleTopSpacing, 2);
   });
 

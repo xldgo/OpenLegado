@@ -1,19 +1,10 @@
 // 字体设置复用原有字号、字距、缩进、斜体和字重配置。
 // 标题字体归入页面布局；简繁转换归入内容处理。
-// 本文件与阅读设置主文件共享导入和配置提交方法。
+// 本文件与阅读设置主文件共享导入；保存由阅读仓储逐字段执行。
 part of 'reader_settings_sheet.dart';
 
-/// 行内字体面板配置提交回调（对标 _commitAdv：持久化 + 推送共享 Provider）
-typedef ReaderFontPanelCommit = void Function(ReaderAdvancedConfig config);
-
-/// 字体设置控件，正文与章节标题分别展示，复用现有字体管理与配置保存。
+/// 字体与正文排版直接读写共享阅读设置，不持有高级配置编辑副本。— Codex + UI
 class ReaderFontPanel extends ConsumerStatefulWidget {
-  /// 当前高级配置快照（面板修改后经 [onChanged] 回传，主 Sheet 负责提交）
-  final ReaderAdvancedConfig config;
-
-  /// 配置变更提交（持久化 + 推送共享 Provider，对标 _commitAdv）
-  final ReaderFontPanelCommit? onChanged;
-
   final bool titleOnly;
   final bool embedded;
   final Widget? fontSizeControl;
@@ -21,8 +12,6 @@ class ReaderFontPanel extends ConsumerStatefulWidget {
 
   const ReaderFontPanel({
     super.key,
-    required this.config,
-    this.onChanged,
     this.titleOnly = false,
     this.embedded = false,
     this.fontSizeControl,
@@ -34,8 +23,8 @@ class ReaderFontPanel extends ConsumerStatefulWidget {
 }
 
 class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
-  /// 面板内可编辑配置副本（提交经 onChanged 回传主 Sheet）
-  late ReaderAdvancedConfig _config;
+  ReaderTextLayoutSettings get _textLayout =>
+      ref.read(readerSettingsRepositoryProvider).current.textLayout;
 
   String? get _fontLabel => ref
       .read(readerSettingsRepositoryProvider)
@@ -54,17 +43,7 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
   @override
   void initState() {
     super.initState();
-    _config = widget.config.copy();
     unawaited(_loadFonts());
-  }
-
-  @override
-  void didUpdateWidget(covariant ReaderFontPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 主 Sheet 重建（如切主题分桶重载）时同步外部配置快照
-    if (oldWidget.config != widget.config) {
-      _config = widget.config.copy();
-    }
   }
 
   Future<void> _loadFonts() async {
@@ -75,9 +54,15 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
     }
   }
 
-  /// 提交配置（持久化 + 共享 Provider 推送）
-  void _commit() {
-    widget.onChanged?.call(_config.copy());
+  Future<void> _saveTextLayout(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('阅读排版保存失败，请重试')));
+      }
+    }
   }
 
   /// 面板内分组标题行
@@ -179,11 +164,13 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                             ),
                           ),
                         ],
-                        selected: {_config.textBold.clamp(0, 2)},
+                        selected: {_textLayout.textBold.clamp(0, 2)},
                         onSelectionChanged: (selected) {
-                          _config.textBold = selected.first;
-                          _commit();
-                          setState(() {});
+                          _saveTextLayout(
+                            () => ref
+                                .read(readerSettingsRepositoryProvider)
+                                .updateTextLayout(textBold: selected.first),
+                          );
                         },
                       ),
                     ],
@@ -191,11 +178,13 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                 ),
                 SettingSwitchRow(
                   title: context.l10n.readerItalic,
-                  value: _config.italic,
+                  value: _textLayout.italic,
                   onChanged: (value) {
-                    _config.italic = value;
-                    _commit();
-                    setState(() {});
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(italic: value),
+                    );
                   },
                 ),
               ],
@@ -213,35 +202,39 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                 _ReaderSliderSetting(
                   title: '字间距',
                   displayValue:
-                      '${_config.letterSpacing.toStringAsFixed(2)} em',
-                  value: _config.letterSpacing,
+                      '${_textLayout.letterSpacing.toStringAsFixed(2)} em',
+                  value: _textLayout.letterSpacing,
                   min: -0.5,
                   max: 1,
                   divisions: 75,
                   onChanged: (value) {
-                    _config.letterSpacing = value;
-                    _commit();
-                    setState(() {});
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(letterSpacing: value),
+                    );
                   },
                 ),
                 if (widget.lineHeightControl != null) widget.lineHeightControl!,
                 _ReaderSliderSetting(
                   title: context.l10n.readerParagraphSpacing,
                   displayValue:
-                      '${_config.paragraphSpacing.toStringAsFixed(0)} dp',
-                  value: _config.paragraphSpacing,
+                      '${_textLayout.paragraphSpacing.toStringAsFixed(0)} dp',
+                  value: _textLayout.paragraphSpacing,
                   min: 0,
                   max: 48,
                   divisions: 16,
                   onChanged: (value) {
-                    _config.paragraphSpacing = value;
-                    _commit();
-                    setState(() {});
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(paragraphSpacing: value),
+                    );
                   },
                 ),
                 SettingMenuRow<int>(
                   title: '首行缩进',
-                  value: _config.paragraphIndent,
+                  value: _textLayout.paragraphIndent,
                   options: {
                     0: context.l10n.readerIndentNone,
                     1: context.l10n.readerIndentOne,
@@ -249,9 +242,11 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                     3: context.l10n.readerIndentThree,
                   },
                   onChanged: (value) {
-                    _config.paragraphIndent = value;
-                    _commit();
-                    setState(() {});
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(paragraphIndent: value),
+                    );
                   },
                 ),
               ],

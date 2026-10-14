@@ -36,6 +36,16 @@ void main() {
       'reader_line_height',
       'reader_font_family',
       'reader_title_font_family',
+      'reader_toc_load_word_count',
+      'reader_chapter_in_system_browser',
+      'reader_paragraph_spacing',
+      'reader_letter_spacing',
+      'reader_paragraph_indent',
+      'reader_text_full_justify',
+      'reader_text_bold',
+      'reader_italic',
+      'reader_use_zh_layout',
+      'reader_hanging_punctuation',
     });
     await repository.update();
     expect(storage.writes, isEmpty);
@@ -69,7 +79,7 @@ void main() {
       'reader_flip_mode': 3,
       'flip_mode': 0,
       'reader_font_size': 24.0,
-      'reader_adv_paragraph_spacing': 8.0,
+      'reader_adv_margin_top': 8.0,
     });
     final actualService = AppSettingsService(
       storages: {
@@ -99,7 +109,7 @@ void main() {
     expect(prefs.getInt('reader_flip_mode'), 3);
     expect(prefs.getInt('flip_mode'), 0);
     expect(prefs.getDouble('reader_font_size'), 24);
-    expect(prefs.getDouble('reader_adv_paragraph_spacing'), 8);
+    expect(prefs.getDouble('reader_adv_margin_top'), 8);
   });
 
   test('加载前选择新模式，不被原值覆盖，也不写旧整数副本', () async {
@@ -131,12 +141,12 @@ void main() {
     final actual = AppReaderSettingsRepository(actualService);
     final staleAdvanced = await actual.loadAdvanced();
     await actual.update(pageTurnMode: PageTurnMode.scroll);
-    staleAdvanced.paragraphSpacing = 12;
+    staleAdvanced.pageMarginTop = 12;
     await actual.saveAdvanced(staleAdvanced);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('reader_flip_mode_name'), 'scroll');
     expect(prefs.getInt('flip_mode'), 2);
-    expect(prefs.getDouble('reader_adv_paragraph_spacing'), 12);
+    expect(prefs.getDouble('reader_adv_margin_top'), 12);
     expect(actual.current.pageTurnMode, PageTurnMode.scroll);
   });
 
@@ -251,6 +261,96 @@ void main() {
     await repository.reload();
     expect(repository.current.fontSize, 26);
     expect(repository.current.lineHeight, 2.4);
+    expect(storage.writes, isEmpty);
+  });
+
+  test('目录与链接使用规范键、原默认，不读取旧键', () async {
+    storage.values.addAll({
+      'toc_load_word_count': false,
+      'readUrlInBrowser': true,
+    });
+    expect(await repository.load(), const ReaderSettings());
+    expect(storage.reads, isNot(contains('toc_load_word_count')));
+    expect(storage.reads, isNot(contains('readUrlInBrowser')));
+    expect(storage.writes, isEmpty);
+  });
+
+  test('目录与链接独立保存到规范键，新装配恢复同一偏好', () async {
+    storage.values['reader_font_size'] = 23.0;
+    await repository.load();
+    await repository.update(tocLoadWordCount: false);
+    expect(repository.current.chapterInSystemBrowser, isFalse);
+    await repository.update(chapterInSystemBrowser: true);
+    expect(repository.current.tocLoadWordCount, isFalse);
+    expect(repository.current.fontSize, 23);
+    expect(storage.writes, [
+      ('reader_toc_load_word_count', false),
+      ('reader_chapter_in_system_browser', true),
+    ]);
+    final freshService = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(freshService.dispose);
+    expect(
+      await AppReaderSettingsRepository(freshService).load(),
+      const ReaderSettings(
+        fontSize: 23,
+        tocLoadWordCount: false,
+        chapterInSystemBrowser: true,
+      ),
+    );
+  });
+
+  test('目录与链接保存失败均回退，订阅发布成功重试值', () async {
+    await repository.load();
+    final observed = <ReaderSettings>[];
+    final subscription = repository.watch().listen(observed.add);
+    addTearDown(subscription.cancel);
+    storage.writeFailure = true;
+    await expectLater(
+      repository.update(tocLoadWordCount: false),
+      throwsStateError,
+    );
+    await expectLater(
+      repository.update(chapterInSystemBrowser: true),
+      throwsStateError,
+    );
+    expect(repository.current, const ReaderSettings());
+    expect(storage.values, isEmpty);
+    storage.writeFailure = false;
+    await repository.update(
+      tocLoadWordCount: false,
+      chapterInSystemBrowser: true,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      observed.last,
+      const ReaderSettings(
+        tocLoadWordCount: false,
+        chapterInSystemBrowser: true,
+      ),
+    );
+    expect(observed, contains(const ReaderSettings()));
+  });
+
+  test('外部恢复重读两项偏好，失败保留有效快照', () async {
+    await repository.load();
+    storage.values.addAll({
+      'reader_toc_load_word_count': false,
+      'reader_chapter_in_system_browser': true,
+    });
+    storage.readFailure = true;
+    await expectLater(repository.reload(), throwsStateError);
+    expect(repository.current, const ReaderSettings());
+    storage.readFailure = false;
+    await repository.reload();
+    expect(
+      repository.current,
+      const ReaderSettings(
+        tocLoadWordCount: false,
+        chapterInSystemBrowser: true,
+      ),
+    );
     expect(storage.writes, isEmpty);
   });
 }

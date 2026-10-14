@@ -265,6 +265,18 @@ ReaderSettingsRepository 的字号并按原规则四舍五入为整数。字号�
 开发阶段直接使用新键，不读取或迁移旧titleFont；高级配置不再写回标题字体。自定义列表保留StringList及`family|path`格式，字体文件
 仍在Documents/fonts，通过统一平台加载入口注册。既有JS配置的`font`字段及其他
 注入字段保持，Rust/FRB契约、生成物和数据库不变。
+
+目录与章节链接设置（READER-CHAPTER-SETTINGS-20261015）：ReaderSettingsRepository
+管理`reader_toc_load_word_count`（默认true）和`reader_chapter_in_system_browser`（默认false）。
+目录显示、章节点击及长按保存使用同源快照；开发阶段直接使用规范键，不读取或迁移旧键。
+保存失败回退并反馈，章节长按仍执行本次所选的打开方式。备份恢复重读这两项，
+阅读配置忽略集合覆盖它们；既有JS快照、Rust/FRB方法和数据库保持。
+
+正文排版设置分组（READER-TEXT-LAYOUT-SETTINGS-20261015）：ReaderTextLayoutSettings
+归ReaderSettingsRepository，八项标量使用reader_前缀规范键，按字段保存并同步正文和控件。
+高级配置不再包含或写回这些字段；不读取或迁移它们的旧键，实际默认与单位保持。
+原JS配置中的段距、字距、字重等既有字段和值保持，本轮不改变Rust/FRB签名或生成物。
+
 | `set_image_cache_dir` | dir（应用缓存目录下 `image_cache` 子目录，P4-2a） | 与 `set_cache_dir` 同型的进程注入（`set_cache_dir` 服务 JS 缓存）：`saveImageCache`/`getImageCache`（§2.46）图片磁盘缓存落应用私有缓存目录；未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 | `set_audio_cache_dir` | dir（应用缓存目录下 `audio_cache` 子目录，B1） | 与 `set_image_cache_dir` 同型：`audioCacheQuery`/`audioCacheList`/`audioCacheClearChapter`/`audioCacheClearBook`（§2.47）音频章节文件缓存读取与 `audioCacheDownload`/`audioCacheCancel`（§2.48，B2）写入**共用此根目录**（写读同根同键）；未注入时回落 `<temp_dir>/legado-audio-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 

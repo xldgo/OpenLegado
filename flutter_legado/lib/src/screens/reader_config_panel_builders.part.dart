@@ -278,14 +278,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               ),
               Expanded(
                 child: Slider(
-                  value: _config.paragraphSpacing,
+                  value: _textLayout.paragraphSpacing,
                   min: 0,
                   max: 48,
                   divisions: 16,
-                  label: _config.paragraphSpacing.toStringAsFixed(0),
+                  label: _textLayout.paragraphSpacing.toStringAsFixed(0),
                   onChanged: (v) {
-                    _config.paragraphSpacing = v;
-                    _commit();
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(paragraphSpacing: v),
+                    );
                   },
                 ),
               ),
@@ -296,7 +299,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               SizedBox(
                 width: 48,
                 child: Text(
-                  '${_config.paragraphSpacing.toStringAsFixed(0)}px',
+                  '${_textLayout.paragraphSpacing.toStringAsFixed(0)}px',
                   textAlign: TextAlign.end,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
@@ -337,21 +340,24 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               Text('字距', style: Theme.of(context).textTheme.titleMedium),
               Expanded(
                 child: Slider(
-                  value: _config.letterSpacing.clamp(-0.5, 1.0),
+                  value: _textLayout.letterSpacing.clamp(-0.5, 1.0),
                   min: -0.5,
                   max: 1.0,
                   divisions: 75,
-                  label: _config.letterSpacing.toStringAsFixed(2),
+                  label: _textLayout.letterSpacing.toStringAsFixed(2),
                   onChanged: (v) {
-                    _config.letterSpacing = v;
-                    _commit();
+                    _saveTextLayout(
+                      () => ref
+                          .read(readerSettingsRepositoryProvider)
+                          .updateTextLayout(letterSpacing: v),
+                    );
                   },
                 ),
               ),
               SizedBox(
                 width: 48,
                 child: Text(
-                  _config.letterSpacing.toStringAsFixed(2),
+                  _textLayout.letterSpacing.toStringAsFixed(2),
                   textAlign: TextAlign.end,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
@@ -363,7 +369,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         // [UI-fix v2.0.4 | 2026-08-08] bool 开关升级为 0-3 字符档位 — Qoder
         SettingMenuRow<int>(
           title: '首行缩进',
-          value: _config.paragraphIndent,
+          value: _textLayout.paragraphIndent,
           options: {
             0: context.l10n.readerIndentNone,
             1: context.l10n.readerIndentOne,
@@ -371,8 +377,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             3: context.l10n.readerIndentThree,
           },
           onChanged: (value) {
-            _config.paragraphIndent = value;
-            _commit();
+            _saveTextLayout(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateTextLayout(paragraphIndent: value),
+            );
           },
         ),
       ],
@@ -420,31 +429,40 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: '两端对齐',
         subtitle: '正文行尾对齐（末行除外）',
-        value: _config.textFullJustify,
+        value: _textLayout.textFullJustify,
         onChanged: (v) {
-          _config.textFullJustify = v;
-          _commit();
+          _saveTextLayout(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTextLayout(textFullJustify: v),
+          );
         },
       ),
       // 中文优化分行（原版 useZhLayout；关闭后走朴素按宽断行）
       SettingSwitchRow(
         title: '中文优化分行',
         subtitle: '开启后启用中文避头尾与更优断行',
-        value: _config.useZhLayout,
+        value: _textLayout.useZhLayout,
         onChanged: (v) {
-          _config.useZhLayout = v;
-          _commit();
+          _saveTextLayout(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTextLayout(useZhLayout: v),
+          );
         },
       ),
-      if (_config.useZhLayout)
+      if (_textLayout.useZhLayout)
         // 段首标点悬挂（原版 hangingPunctuation；已接入排版引擎）
         SettingSwitchRow(
           title: '段首标点悬挂',
           subtitle: '段首引号等标点悬挂于缩进内，使正文首字与其他段落对齐',
-          value: _config.hangingPunctuation,
+          value: _textLayout.hangingPunctuation,
           onChanged: (v) {
-            _config.hangingPunctuation = v;
-            _commit();
+            _saveTextLayout(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateTextLayout(hangingPunctuation: v),
+            );
           },
         ),
     ],

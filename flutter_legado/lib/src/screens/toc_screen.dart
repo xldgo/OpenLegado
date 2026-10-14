@@ -18,11 +18,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../models/models.dart';
 import '../providers/providers.dart';
 import '../providers/general_settings_provider.dart';
+import '../providers/reader/reader_settings_provider.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';
 import '../services/book_api.dart';
 import '../services/bookmark_export.dart';
-import '../services/settings_service.dart';
 import '../utils/app_route_observer.dart';
 import '../utils/book_open_utils.dart';
 
@@ -103,7 +103,6 @@ class _TocScreenState extends ConsumerState<TocScreen>
   late final TabController _tabController;
   final ScrollController _tocScrollController = ScrollController();
   final TextEditingController _searchCtrl = TextEditingController();
-  SettingsService get _settings => ref.read(settingsProvider);
 
   /// 搜索防抖计时器（300ms，对齐任务规范）
   Timer? _debounce;
@@ -117,8 +116,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 倒序目录（纯本地显示序反转，对齐原版 menu_reverse_toc 语义的展示部分）
   bool _reverseToc = false;
 
-  /// 加载字数开关（本地持久化，对齐原版 AppConfig.tocCountWords）
-  bool _loadWordCount = true;
+  /// 加载字数开关使用共享阅读设置，不维护独立持久化副本。— Codex + UI
+  bool get _loadWordCount =>
+      ref.read(readerSettingsRepositoryProvider).current.tocLoadWordCount;
 
   /// 目录 FAB 展开菜单显隐（定位/顶部/底部/一键缓存，对齐参考版）— 2026-09-08
   bool _jumpMenuOpen = false;
@@ -394,10 +394,17 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
   }
 
-  /// 加载「加载字数」开关（本地持久化）
+  /// 加载目录偏好，后续变更由共享订阅刷新。
   Future<void> _loadSettings() async {
-    final v = await _settings.getTocLoadWordCount();
-    if (mounted) setState(() => _loadWordCount = v);
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+    } catch (error) {
+      debugPrint('目录设置读取失败：$error');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('目录设置读取失败，请重试')));
+      }
+    }
   }
 
   /// 加载章节列表（经 BookApi），完成后自动滚动定位当前章节
@@ -716,10 +723,17 @@ class _TocScreenState extends ConsumerState<TocScreen>
         );
         break;
       case 'loadWordCount':
-        // 本地持久化并即时刷新字数显隐（对齐原版 menu_load_word_count）
-        final next = !_loadWordCount;
-        await _settings.setTocLoadWordCount(next);
-        if (mounted) setState(() => _loadWordCount = next);
+        try {
+          await ref
+              .read(readerSettingsRepositoryProvider)
+              .update(tocLoadWordCount: !_loadWordCount);
+        } catch (error) {
+          debugPrint('目录字数设置保存失败：$error');
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('目录字数设置保存失败，请重试')));
+          }
+        }
         break;
       case 'exportBookmark':
         // [Task #40 | 2026-08-09] §5.11-5 接线：导出书签 JSON
@@ -799,6 +813,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(
+      readerSettingsProvider.select((value) => value.value?.tocLoadWordCount),
+    );
     final cs = Theme.of(context).colorScheme;
     // [PARITY C2 T3] 头部对齐参考版：章名大标题与「N / M」页码同行（参考为
     // 「章节名 + 页码」整体大标题，与右侧 🔍/⋮ 分离；此前为两行 Column 堆叠）。

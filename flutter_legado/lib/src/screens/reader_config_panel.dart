@@ -1,5 +1,6 @@
 import '../providers/reader/reader_settings_provider.dart';
 import '../models/reader_advanced_config.dart';
+import '../domain/models/reader_text_layout_settings.dart';
 
 import 'dart:async';
 
@@ -102,6 +103,8 @@ class ReaderConfigPanel extends ConsumerStatefulWidget {
 
 class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   late ReaderAdvancedConfig _config = widget.config.copy();
+  ReaderTextLayoutSettings get _textLayout =>
+      ref.read(readerSettingsRepositoryProvider).current.textLayout;
 
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
   String? get _fontLabel => ref
@@ -148,6 +151,17 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
       ref.read(readerAdvConfigProvider.notifier).update(_config);
     }
     setState(() {});
+  }
+
+  Future<void> _saveTextLayout(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('阅读排版保存失败，请重试')));
+      }
+    }
   }
 
   Future<void> _savePageTurnMode(PageTurnMode mode) async {

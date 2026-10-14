@@ -61,6 +61,16 @@ class RestoreIgnorePrefs {
     'reader_font_family',
     'reader_title_font_family',
     'reader_custom_fonts',
+    'reader_toc_load_word_count',
+    'reader_chapter_in_system_browser',
+    'reader_paragraph_spacing',
+    'reader_letter_spacing',
+    'reader_paragraph_indent',
+    'reader_text_full_justify',
+    'reader_text_bold',
+    'reader_italic',
+    'reader_use_zh_layout',
+    'reader_hanging_punctuation',
   };
 
   /// 主题颜色相关键（对齐 BackupConfig.themePrefKeys）

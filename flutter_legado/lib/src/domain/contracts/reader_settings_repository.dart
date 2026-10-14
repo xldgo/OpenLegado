@@ -16,6 +16,20 @@ abstract interface class ReaderSettingsRepository {
     double? lineHeight,
     String? fontFamily,
     String? titleFontFamily,
+    bool? tocLoadWordCount,
+    bool? chapterInSystemBrowser,
+  });
+
+  /// 只修改传入的正文排版字段，不保存其他页面的旧快照。
+  Future<void> updateTextLayout({
+    double? paragraphSpacing,
+    double? letterSpacing,
+    int? paragraphIndent,
+    bool? textFullJustify,
+    int? textBold,
+    bool? italic,
+    bool? useZhLayout,
+    bool? hangingPunctuation,
   });
   Future<ReaderAdvancedConfig> loadAdvanced();
   Future<void> saveAdvanced(ReaderAdvancedConfig config);
