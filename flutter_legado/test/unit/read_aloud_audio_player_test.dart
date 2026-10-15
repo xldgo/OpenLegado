@@ -27,6 +27,8 @@ class _Native extends Fake implements audio.AudioPlayer {
   @override
   double speed = 1;
   Completer<void>? loadGate;
+  Completer<void>? appendGate;
+  final seeks = <(Duration?, int?)>[];
   Object? loadError;
   bool reportRemovalIndex = true;
   @override
@@ -85,6 +87,7 @@ class _Native extends Fake implements audio.AudioPlayer {
   Future<void> addAudioSource(audio.AudioSource source) async {
     sequence.addAll(source.sequence);
     emit();
+    await appendGate?.future;
   }
 
   @override
@@ -137,6 +140,7 @@ class _Native extends Fake implements audio.AudioPlayer {
 
   @override
   Future<void> seek(Duration? value, {int? index}) async {
+    seeks.add((value, index));
     if (index != null) currentIndex = index;
     position = value ?? Duration.zero;
     processingState = audio.ProcessingState.ready;
@@ -217,6 +221,118 @@ void main() {
     expect(player.currentTag, same(b));
     expect(native.loads, 1);
     expect(native.plays, plays + 1);
+  });
+  test('追加确认前原生已进入下一片，不回退段首或重复调用播放', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    native.finish();
+    final plays = native.plays;
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: b),
+    );
+    await flush();
+    native.transition(1);
+    native.position = const Duration(milliseconds: 350);
+    native.appendGate!.complete();
+    await append;
+    expect(native.seeks, isEmpty);
+    expect(native.plays, plays);
+    expect(native.position, const Duration(milliseconds: 350));
+    expect(player.currentTag, same(b));
+    expect(started, [a, b]);
+    expect(ended, [a]);
+  });
+  test('仍停在已结束的旧片时恢复相邻项，连续追加不跳过正文', () async {
+    final a = Object(), b = Object(), c = Object();
+    await start(a);
+    native.finish();
+    final plays = native.plays;
+    final first = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: b),
+    );
+    final second = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/c.wav', tag: c),
+    );
+    await Future.wait([first, second]);
+    expect(native.seeks, [(Duration.zero, 1)]);
+    expect(native.plays, plays + 1);
+    expect(player.currentTag, same(b));
+    expect(started, [a, b]);
+    native.transition(2);
+    expect(started, [a, b, c]);
+  });
+  test('追加期间用户暂停，不定位或自动续播', () async {
+    await start(Object());
+    native.finish();
+    final plays = native.plays;
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
+    );
+    await flush();
+    await player.pause();
+    native.appendGate!.complete();
+    await append;
+    expect(native.seeks, isEmpty);
+    expect(native.plays, plays);
+    expect(native.playing, isFalse);
+  });
+  test('追加期间停止作废旧会话，不产生迟到定位或播放', () async {
+    await start(Object());
+    native.finish();
+    final plays = native.plays;
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
+    );
+    await flush();
+    final stop = player.stop();
+    native.appendGate!.complete();
+    await Future.wait([append, stop]);
+    expect(native.seeks, isEmpty);
+    expect(native.plays, plays);
+    expect(player.currentTag, isNull);
+    native.appendGate = null;
+    final next = Object();
+    await start(next);
+    expect(player.currentTag, same(next));
+  });
+  test('追加后的缓冲状态不当成音频结束，不强制定位', () async {
+    final a = Object();
+    await start(a);
+    native.finish();
+    final plays = native.plays;
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
+    );
+    await flush();
+    native.processingState = audio.ProcessingState.buffering;
+    native.appendGate!.complete();
+    await append;
+    expect(native.seeks, isEmpty);
+    expect(native.plays, plays);
+    expect(player.currentTag, same(a));
+  });
+  test('追加期间已经进入新片且新片也播完，不依据旧身份重播新片', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    native.finish();
+    final plays = native.plays;
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist(
+      AudioPlaylistItem(path: '/cache/b.wav', tag: b),
+    );
+    await flush();
+    native.transition(1);
+    native.finish();
+    native.appendGate!.complete();
+    await append;
+    expect(native.seeks, isEmpty);
+    expect(native.plays, plays);
+    expect(started, [a, b]);
+    expect(ended, [a, b]);
   });
   test('停止使旧事件失效，下一会话复用播放器对象并清空旧队列', () async {
     final a = Object(), b = Object();

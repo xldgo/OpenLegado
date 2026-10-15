@@ -201,17 +201,28 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final generation = _generation;
     return _mutate(generation, () async {
       final player = _native!;
-      final ended = playlistFinished;
+      final endedTag = playlistFinished
+          ? player.sequenceState.currentSource?.tag
+          : null;
       await player.addAudioSource(
         audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
       );
-      if (generation != _generation || !_queueMode) return;
-      if (ended && _playRequested) {
-        // 下一项晚于前项结束时才就绪，显式恢复；暂停期间绝不自行起播。
-        await player.seek(Duration.zero, index: player.sequence.length - 1);
-        if (generation == _generation && _queueMode && _playRequested) {
-          _play(generation);
-        }
+      if (generation != _generation || !_queueMode || !_playRequested) return;
+      // 追加期间原生可能已经换项，旧的队尾状态不能用来重置新音频。
+      if (endedTag == null ||
+          !identical(player.sequenceState.currentSource?.tag, endedTag) ||
+          !_itemFinished) {
+        return;
+      }
+      final endedIndex = player.sequence.indexWhere(
+        (source) => identical(source.tag, endedTag),
+      );
+      final nextIndex = endedIndex + 1;
+      if (endedIndex < 0 || nextIndex >= player.sequence.length) return;
+      // 仍停在原音频末尾时才恢复相邻项，不跳到队尾而漏播中间内容。
+      await player.seek(Duration.zero, index: nextIndex);
+      if (generation == _generation && _queueMode && _playRequested) {
+        _play(generation);
       }
     });
   }
