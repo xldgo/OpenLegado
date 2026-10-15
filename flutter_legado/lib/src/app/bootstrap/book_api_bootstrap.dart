@@ -1,3 +1,7 @@
+import '../../data/services/rust_local_book_service.dart';
+import '../../data/services/rust_book_archive_service.dart';
+import '../../data/services/rust_book_export_service.dart';
+import '../../data/services/rust_review_service.dart';
 import '../../data/repositories/rust_cache_repository.dart';
 import '../../data/services/rust_database_maintenance_service.dart';
 import '../../data/repositories/rust_app_log_repository.dart';
@@ -56,6 +60,10 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    localBookService: const RustLocalBookService(),
+    bookArchiveService: const RustBookArchiveService(),
+    bookExportService: const RustBookExportService(),
+    reviewService: const RustReviewService(),
     cacheRepository: const RustCacheRepository(),
     databaseMaintenanceService: const RustDatabaseMaintenanceService(),
     appLogRepository: const RustAppLogRepository(),

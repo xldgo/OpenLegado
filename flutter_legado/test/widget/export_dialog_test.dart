@@ -1,9 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:flutter_legado/src/domain/models/book_content_result.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/services/export_service.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
 import 'package:flutter_legado/src/widgets/export_dialog.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -19,7 +21,11 @@ class FakeExportService extends ExportService {
   /// WebDAV 上传是否被调用
   bool webdavCalled = false;
 
-  FakeExportService() : super(createBookApi(useMock: false));
+  FakeExportService()
+    : super(
+        exporter: createBookApi(useMock: true).bookExportService,
+        webDav: createBookApi(useMock: true).webDavService,
+      );
 
   @override
   List<String> get supportedFormats => ['txt', 'epub', 'html'];
@@ -28,7 +34,7 @@ class FakeExportService extends ExportService {
   List<String> get supportedEncodings => ['UTF-8', 'GBK', 'Big5'];
 
   @override
-  Future<Map<String, dynamic>> export({
+  Future<BookExportData> export({
     required String bookUrl,
     required String format,
     required bool includeToc,
@@ -41,19 +47,19 @@ class FakeExportService extends ExportService {
     if (shouldFail) {
       throw const ExportException('模拟导出失败');
     }
-    return {
-      'success': true,
-      'file_name': '测试书籍.txt',
-      'data_base64': 'dGVzdA==',
-    };
+    return BookExportData(
+      fileName: '测试书籍.txt',
+      bytes: Uint8List.fromList([116, 101, 115, 116]),
+      mimeType: 'text/plain',
+    );
   }
 
   @override
-  Future<Map<String, dynamic>> getExportInfo({
+  Future<BookExportInfo> getExportInfo({
     required String bookUrl,
     required String format,
   }) async {
-    return {'success': true, 'file_name': '测试书籍.txt', 'chapter_count': 100};
+    return const BookExportInfo(fileName: '测试书籍.txt', chapterCount: 100);
   }
 
   @override
@@ -69,11 +75,9 @@ class FakeExportService extends ExportService {
 
 void main() {
   late FakeExportService fakeExportService;
-  late RustApi fakeRustApi;
 
   setUp(() {
     fakeExportService = FakeExportService();
-    fakeRustApi = createBookApi(useMock: false) as RustApi;
   });
 
   /// 构建测试用 Widget
@@ -81,7 +85,6 @@ void main() {
     ThemeData? theme,
     Book? book,
     ExportService? exportService,
-    RustApi? rustApi,
     WebDavConnection? webDavConfig,
   }) {
     // 构造测试用书籍对象
@@ -94,7 +97,7 @@ void main() {
           child: ExportDialog(
             book: testBook,
             exportService: exportService ?? fakeExportService,
-            rustApi: rustApi ?? fakeRustApi,
+
             webDavConfig: webDavConfig,
           ),
         ),
@@ -108,7 +111,6 @@ void main() {
     ThemeData? theme,
     Book? book,
     ExportService? exportService,
-    RustApi? rustApi,
     WebDavConnection? webDavConfig,
   }) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -122,7 +124,6 @@ void main() {
         theme: theme,
         book: book,
         exportService: exportService,
-        rustApi: rustApi,
         webDavConfig: webDavConfig,
       ),
     );

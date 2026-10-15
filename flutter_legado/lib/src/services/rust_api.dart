@@ -1,3 +1,7 @@
+import '../domain/contracts/local_book_service.dart';
+import '../domain/contracts/book_archive_service.dart';
+import '../domain/contracts/book_export_service.dart';
+import '../domain/contracts/review_service.dart';
 import '../domain/contracts/cache_repository.dart';
 import '../domain/contracts/database_maintenance_service.dart';
 import '../domain/contracts/app_log_repository.dart';
@@ -33,7 +37,6 @@ import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
@@ -47,7 +50,6 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 import '../bridge/rust_lib.dart' as bridge;
 import '../models/models.dart';
 import 'book_api.dart';
-import '../data/bridge/rust_api_exception.dart';
 export '../data/bridge/rust_api_exception.dart';
 import 'platform_bridge_service.dart';
 
@@ -58,7 +60,6 @@ part 'rust_api_reader_data.part.dart';
 part 'rust_api_discovery_cache.part.dart';
 part 'rust_api_media_format.part.dart';
 part 'rust_api_sync_tools.part.dart';
-part 'rust_api_content_ext.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：RustApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -75,12 +76,16 @@ class RustApi
         RustApiReaderData,
         RustApiDiscoveryCache,
         RustApiMediaFormat,
-        RustApiSyncTools,
-        RustApiContentExt
+        RustApiSyncTools
     implements BookApi, ReadingConfigSync, ThemeConfigSync {
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required LocalBookService localBookService,
+    required BookArchiveService bookArchiveService,
+    required BookExportService bookExportService,
+    required ReviewService reviewService,
+
     required CacheRepository cacheRepository,
     required DatabaseMaintenanceService databaseMaintenanceService,
     required AppLogRepository appLogRepository,
@@ -115,6 +120,10 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    localBookService,
+    bookArchiveService,
+    bookExportService,
+    reviewService,
     cacheRepository,
     databaseMaintenanceService,
     appLogRepository,
@@ -151,6 +160,10 @@ class RustApi
   );
 
   RustApi._(
+    this.localBookService,
+    this.bookArchiveService,
+    this.bookExportService,
+    this.reviewService,
     this.cacheRepository,
     this.databaseMaintenanceService,
     this.appLogRepository,
@@ -185,6 +198,15 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final LocalBookService localBookService;
+  @override
+  final BookArchiveService bookArchiveService;
+  @override
+  final BookExportService bookExportService;
+  @override
+  final ReviewService reviewService;
 
   @override
   final CacheRepository cacheRepository;

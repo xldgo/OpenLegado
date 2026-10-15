@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/providers.dart';
-import '../services/book_api.dart';
+import '../providers/book_content_provider.dart';
+import '../domain/contracts/book_archive_service.dart';
 import '../utils/error_message.dart';
 
 /// 支持的编码列表（用于 TXT 子文件编码选择）
@@ -36,8 +36,8 @@ class ArchiveImportDialog extends ConsumerStatefulWidget {
 }
 
 class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
-  /// 经 Riverpod 注入层获取 BookApi（对齐 §0.2 铁律，不直接实例化 RustApi）
-  BookApi get _api => ref.read(bookApiProvider);
+  /// 通过窄Provider读取压缩包能力。
+  BookArchiveService get _api => ref.read(bookArchiveServiceProvider);
 
   /// 压缩包内的书籍文件名列表
   List<String> _fileNames = [];
@@ -148,36 +148,21 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
           '${tempDir.path}${Platform.pathSeparator}archive_detect_${DateTime.now().millisecondsSinceEpoch}';
 
       // 解压到临时目录
-      final Map<String, dynamic> result;
+      final List<String> extractedFiles;
       if (_isRar) {
         final pwd = _passwordController.text.trim();
-        result = await _api.archiveImportRar(
+        extractedFiles = await _api.archiveImportRar(
           rarPath: widget.archivePath,
           outputDir: extractDir,
           password: pwd.isEmpty ? null : pwd,
         );
       } else {
-        result = await _api.archiveImportZip(
+        extractedFiles = await _api.archiveImportZip(
           zipPath: widget.archivePath,
           outputDir: extractDir,
         );
       }
 
-      if (result['success'] != true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('解压失败: ${result['error'] ?? '未知错误'}')),
-          );
-        }
-        return;
-      }
-
-      // 对解压后的 txt 文件逐个检测编码
-      final extractedFiles =
-          (result['extracted_files'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [];
       for (final filePath in extractedFiles) {
         if (!filePath.toLowerCase().endsWith('.txt')) continue;
         final fileName = filePath.split(Platform.pathSeparator).last;
@@ -186,8 +171,8 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
           final encResult = await _api.archiveDetectEncoding(
             filePath: filePath,
           );
-          final encoding = encResult['encoding'] as String? ?? '未知';
-          final confidence = encResult['confidence'] as String? ?? '';
+          final encoding = encResult.encoding;
+          final confidence = encResult.confidence;
           if (mounted) {
             setState(() {
               _detectedEncodings[fileName] = '$encoding ($confidence)';
@@ -244,36 +229,21 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
       }
 
       // 调用 FFI 解压
-      final Map<String, dynamic> result;
+      final List<String> extractedFiles;
       if (_isRar) {
         final pwd = _passwordController.text.trim();
-        result = await _api.archiveImportRar(
+        extractedFiles = await _api.archiveImportRar(
           rarPath: widget.archivePath,
           outputDir: outputDir,
           password: pwd.isEmpty ? null : pwd,
         );
       } else {
-        result = await _api.archiveImportZip(
+        extractedFiles = await _api.archiveImportZip(
           zipPath: widget.archivePath,
           outputDir: outputDir,
         );
       }
 
-      if (result['success'] != true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('解压失败: ${result['error'] ?? '未知错误'}')),
-          );
-        }
-        return;
-      }
-
-      // 将解压出的书籍逐个导入书架
-      final extractedFiles =
-          (result['extracted_files'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [];
       if (!mounted) return;
       final notifier = ref.read(bookshelfNotifierProvider.notifier);
 
@@ -282,11 +252,12 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         // 只导入用户选中的文件
         if (!_selected.contains(fileName)) continue;
 
+        var importPath = filePath;
         // 如果是 TXT 文件且选择了非 UTF-8 编码，先转换编码
         if (filePath.toLowerCase().endsWith('.txt') &&
             _selectedEncoding != 'UTF-8') {
           try {
-            await _api.archiveConvertEncoding(
+            importPath = await _api.archiveConvertEncoding(
               filePath: filePath,
               fromEncoding: _selectedEncoding,
               toEncoding: 'utf-8',
@@ -297,13 +268,14 @@ class _ArchiveImportDialogState extends ConsumerState<ArchiveImportDialog> {
         }
 
         try {
-          await notifier.importLocalBook(filePath);
+          await notifier.importLocalBook(importPath);
+          _importDone++;
         } catch (_) {
           // 单个文件导入失败不阻断整体流程
         }
 
         if (mounted) {
-          setState(() => _importDone++);
+          setState(() {});
         }
       }
 

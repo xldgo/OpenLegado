@@ -1,91 +1,10 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiSyncTools mixin：WebDAV / 段评 / 书籍导出 / 自动任务。
+// 本文件承载 RustApiSyncTools mixin：自动任务。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
 
 mixin RustApiSyncTools on RustApiDecode implements BookApi {
-  // ========== 段评（书源 ruleReview）==========
-
-  /// 段评摘要（P2-9）
-  @override
-  Future<String> reviewGetSummary(String sourceJson, String requestJson) =>
-      bridge.reviewGetSummary(sourceJson: sourceJson, requestJson: requestJson);
-
-  /// 段评详情分页（P2-9）
-  @override
-  Future<String> reviewGetDetail(
-    String sourceJson,
-    String requestJson,
-    int page,
-  ) => bridge.reviewGetDetail(
-    sourceJson: sourceJson,
-    requestJson: requestJson,
-    page: page,
-  );
-
-  /// 按需加载段评回复（上游 #519）
-  ///
-  /// 返回 JSON 对象字符串 `{"items": [回复列表], "nextPageUrl": String?}`。
-  @override
-  Future<String> reviewGetReplies(
-    String sourceJson,
-    String requestJson,
-    int page,
-  ) => bridge.reviewGetReplies(
-    sourceJson: sourceJson,
-    requestJson: requestJson,
-    page: page,
-  );
-
-  // ========== 书籍导出 ==========
-
-  /// 导出书籍（返回 ExportResult JSON）
-  ///
-  /// # 参数
-  /// - `bookUrl`: 书籍 URL
-  /// - `format`: 导出格式（txt/epub/html）
-  /// - `includeToc`: 是否包含目录
-  @override
-  Future<Map<String, dynamic>> bookExport({
-    required String bookUrl,
-    required String format,
-    required bool includeToc,
-  }) async {
-    final json = await bridge.bookExport(
-      bookUrl: bookUrl,
-      format: format,
-      includeToc: includeToc,
-    );
-    return _decodeMap(json, 'bookApi');
-  }
-
-  @override
-  Future<Map<String, dynamic>> bookExportWithOptions({
-    required String bookUrl,
-    required String format,
-    required bool includeToc,
-    String optionsJson = '',
-  }) async {
-    final json = await bridge.bookExportWithOptions(
-      bookUrl: bookUrl,
-      format: format,
-      includeToc: includeToc,
-      optionsJson: optionsJson,
-    );
-    return _decodeMap(json, 'bookApi');
-  }
-
-  /// 获取导出预览信息（返回 ExportResult JSON）
-  @override
-  Future<Map<String, dynamic>> bookExportInfo({
-    required String bookUrl,
-    required String format,
-  }) async {
-    final json = await bridge.bookExportInfo(bookUrl: bookUrl, format: format);
-    return _decodeMap(json, 'bookApi');
-  }
-
   // ========== 自动任务（auto_task FFI） ==========
 
   /// 构建书籍更新定时任务（返回 AutoTaskRule JSON）

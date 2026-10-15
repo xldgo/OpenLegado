@@ -1,5 +1,24 @@
 # API 契约文档（BookApi 接口基准）
 
+## 书籍内容Dart边界（2026-10-16，实施前冻结）
+
+LocalBookService接管importLocalBook与cbzReadPage，导入仍返回Book，CBZ返回Uint8List，
+base64及长度校验归数据层。BookArchiveService接管七项压缩包/编码能力：解包返回文件路径列表，
+失败抛异常；编码检测返回EncodingDetection，转换返回输出路径。BookExportService接管
+bookExportWithOptions与bookExportInfo，分别返回BookExportData和BookExportInfo，选项以
+BookExportOptions传入，由适配器编码；已有ExportService只组合导出与WebDavService窄依赖。
+ReviewService接管reviewGetSummary/reviewGetDetail/reviewGetReplies，返回ReviewSummary和
+ReviewPage，ReviewDetailItem从Widget迁至共享模型；请求上下文由数据层编码，分页及字段不变。
+应用装配注入共享正式/Mock实例，各领域Provider可独立替换；根十四项旧方法移除、不保留转发。
+
+无生产消费者的scanLocalBooks/detectFormat/parseMetadata/parseTxt/parseEpub/exportBook、
+txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport十一项Dart旧壳
+同时删除，底层Rust/FRB能力保留。合计根接口122→97；不重写TXT断章、EPUB解析或导出算法，
+不新增FFI、生成绑定、数据库变更或历史兼容。Mock压缩包改为返回同一契约的解出路径，
+导入后立即可从同一Mock书架读取；真实文件和网络行为须另行验证。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 媒体进度与通知导航增量（2026-10-15，实施前冻结）
 
 用户授权正文/音频书系统进度、锁屏拖动、通知返回播放页面和前后按钮切段/切章；不增加旧系统通知兼容分支，不改变Rust/FRB或数据库。
@@ -380,7 +399,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `tool/check_api_contract.dart` 自动校验。
-> BookApi 接口当前共 **122 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167；替换规则配置六项与执行两项迁走：167→159；规则订阅配置五项与更新两项迁走：159→152；正文标注七项与高亮规则四项迁走：152→141；词典查询一项与规则七项迁走：141→133；应用日志五项迁走：133→128；全局缓存五项与数据库维护一项迁走：128→122）。
+> BookApi 接口当前共 **97 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167；替换规则配置六项与执行两项迁走：167→159；规则订阅配置五项与更新两项迁走：159→152；正文标注七项与高亮规则四项迁走：152→141；词典查询一项与规则七项迁走：141→133；应用日志五项迁走：133→128；全局缓存五项与数据库维护一项迁走：128→122；书籍内容十四项迁走、无生产消费者包装十一项移除：122→97）。
 > 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）

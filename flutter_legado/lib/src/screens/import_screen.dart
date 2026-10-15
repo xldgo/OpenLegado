@@ -1,3 +1,5 @@
+import '../providers/book_content_provider.dart';
+
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -11,7 +13,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../l10n/app_strings.dart';
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_indicator.dart';
@@ -553,7 +554,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     // 经 BookApi（Riverpod 注入层）确认是否为压缩包
     try {
       final isArchive = await ref
-          .read(bookApiProvider)
+          .read(bookArchiveServiceProvider)
           .archiveIsArchive(filePath: path);
       if (!isArchive) {
         if (mounted) {

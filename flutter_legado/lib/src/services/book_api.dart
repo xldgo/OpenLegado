@@ -1,3 +1,7 @@
+import '../domain/contracts/local_book_service.dart';
+import '../domain/contracts/book_archive_service.dart';
+import '../domain/contracts/book_export_service.dart';
+import '../domain/contracts/review_service.dart';
 import '../domain/contracts/cache_repository.dart';
 import '../domain/contracts/database_maintenance_service.dart';
 import '../domain/contracts/app_log_repository.dart';
@@ -36,11 +40,16 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 
 /// 书籍 API 抽象接口
 ///
-/// 定义所有数据层公开方法签名，供 UI 层依赖。
+/// 保留待迁移能力与应用装配引用；已拆分领域由消费者的窄接口访问。
 /// 实现类：
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  LocalBookService get localBookService;
+  BookArchiveService get bookArchiveService;
+  BookExportService get bookExportService;
+  ReviewService get reviewService;
+
   CacheRepository get cacheRepository;
   DatabaseMaintenanceService get databaseMaintenanceService;
   AppLogRepository get appLogRepository;
@@ -273,65 +282,6 @@ abstract class BookApi {
 
   /// 删除换源列表项（按 bookUrl，对标换源页长按「删除」）
   Future<void> deleteSearchBook(String bookUrl);
-
-  // ========== 本地书籍操作 ==========
-
-  /// 导入本地书籍
-  Future<Book> importLocalBook(String filePath);
-
-  /// 扫描本地书籍
-  Future<List<Map<String, dynamic>>> scanLocalBooks(String dirPath);
-
-  /// 检测书籍文件格式
-  Future<String> detectFormat(String filePath);
-
-  /// 解析书籍元数据
-  Future<String> parseMetadata(String filePath);
-
-  // ========== 本地 TXT 全文搜索（Task #98 缺口#4，加法式新增） ==========
-
-  /// 搜索本地 TXT 文件内容（纯文本模式，章节感知）
-  ///
-  /// 对齐 Android 原版搜索页内“搜本地书正文”场景。
-  /// 返回搜索结果列表，每项字段（snake_case）：
-  /// `chapter_index`（章节序号）/ `chapter_title`（章节标题）/
-  /// `char_offset`（匹配在章节内的字符偏移）/ `matched_text`（匹配文本）/
-  /// `context`（上下文摘要）/ `context_match_start` / `context_match_end`
-  /// （匹配在上下文中的起止位置）。
-  Future<List<Map<String, dynamic>>> txtSearch(
-    String path,
-    String query, {
-    bool caseSensitive = false,
-    int maxResults = 500,
-  });
-
-  /// 使用正则表达式搜索本地 TXT 文件内容
-  ///
-  /// 返回格式同 [txtSearch]。
-  Future<List<Map<String, dynamic>>> txtSearchRegex(
-    String path,
-    String pattern, {
-    bool caseSensitive = false,
-    int maxResults = 500,
-  });
-
-  /// 在本地 TXT 文件指定章节内搜索
-  ///
-  /// [chapterIndex] 为章节序号（从 0 开始）。返回格式同 [txtSearch]。
-  Future<List<Map<String, dynamic>>> txtSearchInChapter(
-    String path,
-    String query,
-    int chapterIndex, {
-    bool caseSensitive = false,
-    int maxResults = 50,
-  });
-
-  /// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
-  Future<int> txtSearchCount(
-    String path,
-    String query, {
-    bool caseSensitive = false,
-  });
 
   // ========== 阅读器操作 ==========
 
@@ -605,16 +555,6 @@ abstract class BookApi {
   /// 返回原始图片 base64。[sourceJson] 为书源 JSON（单对象）。
   Future<String> fetchImageWithDecode(String url, String sourceJson);
 
-  /// 读取本地 cbz 漫画单页图片字节（返回 JSON：{ base64, len }）
-  ///
-  /// [cbz 批 D | 2026-10-03] 与 Rust FFI `cbz_read_page` 对齐：本地 `.cbz`
-  /// 书（bookType=LOCAL|image=0x1040）章节正文为 `cbz://<条目名>` 行列表，
-  /// 漫画阅读器逐行调用本方法取图后渲染。
-  ///
-  /// - [path] — 本地书 bookUrl（绝对路径，或相对可迁移标识）
-  /// - [entry] — ZIP 条目名（兼容带/不带 `cbz://` 前缀）
-  Future<String> cbzReadPage({required String path, required String entry});
-
   // ========== JS 引擎 ==========
 
   /// 执行 JS 脚本
@@ -669,17 +609,6 @@ abstract class BookApi {
   /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
   Future<bool> deleteCoverRule();
 
-  // ========== 书籍格式解析 ==========
-
-  /// 解析 TXT 文件
-  Future<List<BookChapter>> parseTxt(String filePath);
-
-  /// 解析 EPUB 文件
-  Future<List<BookChapter>> parseEpub(String filePath);
-
-  /// 导出书籍（将章节内容写入文件）
-  Future<String> exportBook(String bookUrl, String format, String outDir);
-
   // ========== 音频播放 ==========
 
   /// 获取章节媒体信息
@@ -726,64 +655,6 @@ abstract class BookApi {
   /// type7 保留 JSON 属性原文（V-B2 不渲染，登记边界）；解析失败/非 XML/空
   /// → `null`（对齐原版 SAX 失败→null 静默无弹幕）。Dart 侧仅 JSON 解码。
   Future<List<VideoDanmakuItem>?> parseVideoDanmaku({required String raw});
-
-  // ========== 段评（书源 ruleReview，对齐原版）==========
-
-  /// 段评摘要（P2-9，对标 loadReviewSummary + parseSummary）
-  ///
-  /// 返回 JSON `{"counts":{"1":5},"keys":{"1":"paraData"}}`。
-  /// 规则缺失/未启用返回空 maps（非异常）。
-  Future<String> reviewGetSummary(String sourceJson, String requestJson);
-
-  /// 段评详情分页（P2-9，对标 ReviewDetailDialog + parseDetailPage）
-  ///
-  /// 返回 JSON `{"items":[...],"nextPageUrl":String?,"hasReplyUrl":bool}`。
-  Future<String> reviewGetDetail(
-    String sourceJson,
-    String requestJson,
-    int page,
-  );
-
-  /// 按需加载段评回复（上游 #519）
-  ///
-  /// 返回 JSON 对象字符串 `{"items": [回复列表], "nextPageUrl": String?}`；
-  /// 回复条目字段：id/avatar/name/badges/content/imageUrl/audioUrl/time。
-  ///
-  /// # 参数
-  /// - `sourceJson`: BookSource JSON（含 ruleReview）
-  /// - `requestJson`: 请求上下文 JSON，支持
-  ///   reviewId/paraIndex/paraData/chapterUrl/replyUrl 字段
-  /// - `page`: 回复页码（从 1 开始）
-  Future<String> reviewGetReplies(
-    String sourceJson,
-    String requestJson,
-    int page,
-  );
-
-  // ========== 书籍导出 ==========
-
-  /// 导出书籍（返回 ExportResult JSON）
-  Future<Map<String, dynamic>> bookExport({
-    required String bookUrl,
-    required String format,
-    required bool includeToc,
-  });
-
-  /// 带选项导出（对齐 ExportBookService / API_CONTRACT §2.43.4）
-  ///
-  /// [optionsJson] 示例：`{"encoding":"GBK","startChapter":0,"endChapter":9,"fileNameTemplate":"{name} 作者：{author}"}`
-  Future<Map<String, dynamic>> bookExportWithOptions({
-    required String bookUrl,
-    required String format,
-    required bool includeToc,
-    String optionsJson = '',
-  });
-
-  /// 获取导出预览信息
-  Future<Map<String, dynamic>> bookExportInfo({
-    required String bookUrl,
-    required String format,
-  });
 
   // ========== 自动任务（auto_task FFI） ==========
 
@@ -864,43 +735,4 @@ abstract class BookApi {
     String? requestedBookUrl,
     String? cachedBookJson,
   });
-
-  // ========== 压缩包导入 ==========
-
-  /// 导入 ZIP 压缩包中的书籍文件
-  Future<Map<String, dynamic>> archiveImportZip({
-    required String zipPath,
-    required String outputDir,
-  });
-
-  /// 导入 RAR 压缩包中的书籍文件
-  Future<Map<String, dynamic>> archiveImportRar({
-    required String rarPath,
-    required String outputDir,
-    String? password,
-  });
-
-  /// 列出 ZIP 压缩包中的书籍文件名
-  Future<List<String>> archiveListZipFiles({required String zipPath});
-
-  /// 列出 RAR 压缩包中的书籍文件名
-  Future<List<String>> archiveListRarFiles({
-    required String rarPath,
-    String? password,
-  });
-
-  /// 检测 TXT 文件编码
-  Future<Map<String, dynamic>> archiveDetectEncoding({
-    required String filePath,
-  });
-
-  /// 转换 TXT 文件编码
-  Future<Map<String, dynamic>> archiveConvertEncoding({
-    required String filePath,
-    required String fromEncoding,
-    required String toEncoding,
-  });
-
-  /// 判断文件是否为压缩包格式
-  Future<bool> archiveIsArchive({required String filePath});
 }

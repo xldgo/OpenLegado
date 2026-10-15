@@ -1,3 +1,11 @@
+import '../data/services/mock_local_book_service.dart';
+import '../data/services/mock_book_archive_service.dart';
+import '../data/services/mock_book_export_service.dart';
+import '../data/services/mock_review_service.dart';
+import '../domain/contracts/local_book_service.dart';
+import '../domain/contracts/book_archive_service.dart';
+import '../domain/contracts/book_export_service.dart';
+import '../domain/contracts/review_service.dart';
 import '../data/repositories/mock_cache_repository.dart';
 import '../data/services/mock_database_maintenance_service.dart';
 import '../domain/contracts/cache_repository.dart';
@@ -124,6 +132,15 @@ class MockBookApi
         MockBookApiContentExt
     implements BookApi {
   @override
+  late final LocalBookService localBookService;
+  @override
+  late final BookArchiveService bookArchiveService;
+  @override
+  late final BookExportService bookExportService;
+  @override
+  late final ReviewService reviewService;
+
+  @override
   late final CacheRepository cacheRepository;
   @override
   late final DatabaseMaintenanceService databaseMaintenanceService;
@@ -174,6 +191,11 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    LocalBookService? localBookService,
+    BookArchiveService? bookArchiveService,
+    BookExportService? bookExportService,
+    ReviewService? reviewService,
+
     CacheRepository? cacheRepository,
     DatabaseMaintenanceService? databaseMaintenanceService,
     AppLogRepository? appLogRepository,
@@ -241,6 +263,17 @@ class MockBookApi
           chapters: _chaptersCache,
           contents: _contentCache,
         );
+    this.localBookService =
+        localBookService ?? MockLocalBookService(store: _bookshelfStore);
+    this.bookArchiveService =
+        bookArchiveService ?? const MockBookArchiveService();
+    this.bookExportService =
+        bookExportService ??
+        MockBookExportService(
+          bookshelf: bookshelfRepository,
+          reading: this.readingRepository,
+        );
+    this.reviewService = reviewService ?? const MockReviewService();
     bookGroupRepository = MockBookGroupRepository(
       nextId: () => _nextId++,
       withDefaultGroups: true,

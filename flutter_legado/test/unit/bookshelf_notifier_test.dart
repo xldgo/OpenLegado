@@ -176,7 +176,7 @@ void main() {
     test('importLocalBook 成功后更新列表', () async {
       await pumpInit();
       const imported = Book(name: '导入书', bookUrl: 'book://import');
-      when(() => mockApi.importLocalBook('/path/to/file.epub'))
+      when(() => mockApi.localBookService.importLocalBook('/path/to/file.epub'))
           .thenAnswer((_) async => imported);
 
       final result = await readNotifier().importLocalBook('/path/to/file.epub');
@@ -189,7 +189,7 @@ void main() {
     test('importLocalBook 重复导入时替换旧记录', () async {
       await pumpInit();
       const updated = Book(name: '斗破苍穹(更新)', bookUrl: 'book://1');
-      when(() => mockApi.importLocalBook(any()))
+      when(() => mockApi.localBookService.importLocalBook(any()))
           .thenAnswer((_) async => updated);
 
       await readNotifier().importLocalBook('/path/txt');

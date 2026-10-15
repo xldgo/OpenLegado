@@ -69,22 +69,29 @@ void main() {
         .thenAnswer((_) async => <Book>[]);
     when(() => api.bookGroupRepository.getBookGroups())
         .thenAnswer((_) async => <BookGroup>[]);
-    when(() => api.importLocalBook(any())).thenAnswer((invocation) async {
-      final path = invocation.positionalArguments.first as String;
-      importedPaths.add(path);
-      // 与 Rust importLocalBook 对齐：cbz → LOCAL|image（本测试仅路径为 cbz）
-      return Book(
-        bookUrl: path,
-        name: '本地漫画',
-        author: '本地导入',
-        origin: BookType.localTag,
-        bookType: BookType.local | BookType.image,
-      );
-    });
-    when(() => api.archiveIsArchive(filePath: any(named: 'filePath')))
-        .thenAnswer((_) async => true);
-    when(() => api.archiveListZipFiles(zipPath: any(named: 'zipPath')))
-        .thenAnswer((_) async => <String>[]);
+    when(() => api.localBookService.importLocalBook(any()))
+        .thenAnswer((invocation) async {
+          final path = invocation.positionalArguments.first as String;
+          importedPaths.add(path);
+          // 与 Rust importLocalBook 对齐：cbz → LOCAL|image（本测试仅路径为 cbz）
+          return Book(
+            bookUrl: path,
+            name: '本地漫画',
+            author: '本地导入',
+            origin: BookType.localTag,
+            bookType: BookType.local | BookType.image,
+          );
+        });
+    when(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    ).thenAnswer((_) async => true);
+    when(
+      () => api.bookArchiveService.archiveListZipFiles(
+        zipPath: any(named: 'zipPath'),
+      ),
+    ).thenAnswer((_) async => <String>[]);
   });
 
   tearDown(() async {
@@ -138,7 +145,11 @@ void main() {
 
     // 选中 cbz 不弹压缩包对话框
     expect(find.byType(ArchiveImportDialog), findsNothing);
-    verifyNever(() => api.archiveIsArchive(filePath: any(named: 'filePath')));
+    verifyNever(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    );
 
     // 放入书架 → 走 importLocalBook 整本导入
     await tester.tap(find.textContaining('放入书架'));
@@ -147,7 +158,11 @@ void main() {
     expect(importedPaths, hasLength(1));
     expect(importedPaths.single, endsWith('本地漫画.cbz'));
     // 全程未触碰解压判定/对话框
-    verifyNever(() => api.archiveIsArchive(filePath: any(named: 'filePath')));
+    verifyNever(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    );
     expect(find.byType(ArchiveImportDialog), findsNothing);
   });
 
@@ -157,8 +172,11 @@ void main() {
     await tester.tap(find.text('合集包.zip'));
     await tester.pumpAndSettle();
 
-    verify(() => api.archiveIsArchive(filePath: any(named: 'filePath')))
-        .called(1);
+    verify(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    ).called(1);
     expect(find.byType(ArchiveImportDialog), findsOneWidget);
     // 压缩包内文件导入走对话框，不直接整本导入压缩包本身
     expect(importedPaths, isEmpty);

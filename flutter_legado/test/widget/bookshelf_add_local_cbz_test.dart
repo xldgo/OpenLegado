@@ -120,7 +120,7 @@ void main() {
     ];
     final fake = _RecordingFilePicker(files: files);
     _useFakeFilePicker(fake);
-    when(() => api.importLocalBook(any())).thenAnswer(
+    when(() => api.localBookService.importLocalBook(any())).thenAnswer(
       (call) async =>
           Book(bookUrl: call.positionalArguments.single as String, name: '本地书'),
     );
@@ -132,7 +132,7 @@ void main() {
 
     expect(fake.pickCalls, 1);
     for (final file in files) {
-      verify(() => api.importLocalBook(file.path!)).called(1);
+      verify(() => api.localBookService.importLocalBook(file.path!)).called(1);
     }
     expect(find.textContaining('已导入 2 本书籍'), findsOneWidget);
   });

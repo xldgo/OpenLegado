@@ -331,7 +331,7 @@ void main() {
           .thenAnswer((_) async => <Book>[]);
       when(() => mockApi.webDavService.webdavDownloadFile(any(), any(), any()))
           .thenAnswer((_) async {});
-      when(() => mockApi.importLocalBook(any())).thenAnswer(
+      when(() => mockApi.localBookService.importLocalBook(any())).thenAnswer(
         (_) async => const Book(
           bookUrl: '/tmp/novel.epub',
           name: 'novel',
@@ -371,7 +371,7 @@ void main() {
           any(),
         ),
       ).called(1);
-      verify(() => mockApi.importLocalBook(any())).called(1);
+      verify(() => mockApi.localBookService.importLocalBook(any())).called(1);
       final imported =
           verify(() => mockApi.bookshelfRepository.updateBook(captureAny()))
                   .captured

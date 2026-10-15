@@ -1,5 +1,5 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 格式解析 / 音频播放。
+// 本文件承载 MockBookApiMediaFormat mixin：规则解析 / 网络 / JS 引擎 / 服务器 / 音频播放。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
@@ -31,16 +31,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
   @override
   Future<String> fetchImageWithDecode(String url, String sourceJson) async =>
       '{"base64": "", "len": 0}';
-
-  /// 读取本地 cbz 漫画单页图片字节（Mock 默认空结果；测试子类按需覆写）
-  ///
-  /// [cbz 批 D | 2026-10-03] 与 Rust FFI `cbz_read_page` 同返回形态
-  /// （JSON：{ base64, len }）。
-  @override
-  Future<String> cbzReadPage({
-    required String path,
-    required String entry,
-  }) async => '{"base64": "", "len": 0}';
 
   // ========== JS 引擎 ==========
 
@@ -150,45 +140,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
       'coverRule': '\$.cover',
     };
     return true;
-  }
-
-  // ========== 书籍格式解析 ==========
-
-  @override
-  Future<List<BookChapter>> parseTxt(String filePath) async {
-    return List.generate(
-      5,
-      (i) => BookChapter(
-        title: '第${i + 1}章',
-        bookUrl: filePath,
-        index: i,
-        start: i * 1000,
-        end: (i + 1) * 1000,
-      ),
-    );
-  }
-
-  @override
-  Future<List<BookChapter>> parseEpub(String filePath) async {
-    return List.generate(
-      8,
-      (i) => BookChapter(
-        title: 'Chapter ${i + 1}',
-        bookUrl: filePath,
-        index: i,
-        start: i * 2000,
-        end: (i + 1) * 2000,
-      ),
-    );
-  }
-
-  @override
-  Future<String> exportBook(
-    String bookUrl,
-    String format,
-    String outDir,
-  ) async {
-    return '$outDir/export_mock.$format';
   }
 
   // ========== 音频播放 ==========

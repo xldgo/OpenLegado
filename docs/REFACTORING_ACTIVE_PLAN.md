@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### BOOK-CONTENT-BOUNDARY-20261016：书籍内容整域拆分（P1）
+
+- 授权与基线：用户要求加快整域迁移，并优先书籍内容；feature/ui-reader-selection / 938e228ec，开始工作区干净。Codex直接执行、不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批整域拆分与本地验证完成；用户已明确授权本地提交，提交以Git记录为准，不推送或触发CI；真实解包/编码/导出文件、网络段评及设备复验后置。
+- 范围：LocalBookService负责导入与CBZ字节，BookArchiveService负责七项解包/编码能力，BookExportService负责带选项导出与预览，ReviewService负责摘要/详情/回复。正式实现直接复用现有FRB，Mock共用原书架和阅读数据；返回类型化结果，响应JSON解码在数据层，消费者只处理交互和状态。
+- 清理：全仓核对无生产消费者的scanLocalBooks/detectFormat/parseMetadata/parseTxt/parseEpub/exportBook、四项txtSearch包装及无选项bookExport共十一项Dart旧壳直接移除，保留底层Rust/FRB真实能力；不另建无消费者接口。连同十四项活动方法，共移除根BookApi二十五项，目标122→97，不留转发。
+- 行为：保留CBZ整本导入与读页缓存、压缩包列表/密码/选择、编码、导出格式/范围/文件名/WebDAV、段评分页/回复及行内位置。导入失败不计成功、坏响应不当空结果；不改变Rust、数据库、排版、媒体缓存或UI布局。真实文件解包/网络/设备复验后置。
+- 验收：已有导入、远程书籍、书架、导出、漫画CBZ、段评相关行为回归；补充FRB参数/错误/解码、共享Mock和独立Provider注入，以及实际界面交互。批末统一静态分析、格式与差异检查；不以接口计数或源码文本断言代替测试。
+- 实现：四类契约、各自正式/Mock实现、类型化内容结果与共享ReviewDetailItem、独立Provider及应用装配完成。迁移书架导入、远程下载入库、压缩包入口和对话框、离线导出、正文段评摘要与详情回复、CBZ预载/渲染/存图。CBZ统一解码字节，导出结果统一解码base64；ExportDialog移除未使用的BookApi参数。根二十五项和重复part实现移除，空的rust_api_content_ext.part.dart及其引用删除，语法树复核BookApi为97项。
+- 行为修正与限制：压缩包只累计成功入库数量，编码转换成功使用返回的新文件路径；Mock解包从不匹配的files字段改为同一契约的输出路径列表，不声称真实解包。导出预览章节数仍适配当前Rust成功响应的error字段，但页面只读chapterCount；尚未改变底层协议。格式、文件名、范围、WebDAV和段评请求字段/分页保持，坏响应及失败不伪造成功。上述本地测试不证明真实Rust解析、导出或网络规则已验收。
+- 验证结果：flutter test --no-pub相关17份测试237项通过（22秒），新增3份25项覆盖FRB参数/错误/严格解码、共享数据、窄Provider、选项过滤、段评详情/回复、压缩包重试取消和失败计数。既有书架、远程导入、CBZ整本导入与预载/重试/存图、在线图片解码/缓存、行内段评、导出对话框与离线缓存回归通过。先行145项和24项不重复累计；完整flutter analyze --no-pub无问题（16.4秒），本批50份Dart格式与git diff --check通过。
+- 失败记录：首轮格式化发现测试library指令顺序，首轮分析提示无用导入及机械lint，均已修正；新增测试一处误把新导入未解析目录的CBZ当成10章，应为0章，修正预期。真实临时目录创建需置于WidgetTester.runAsync，首轮暂停后重跑通过；最终完整组合无失败，不累计失败或中断轮次。
+- 证据与边界：日志为flutter_legado/build/book-content-{existing-initial,new-initial,new-retry,regression-final,analysis-initial,analysis-final,analysis-complete}.log；忽略目录build/book-content-boundary-qa/保存清单、差异、结果。Codex直接实现与自查、不声称独立审查；未改Rust、FRB/模型生成物、数据库、依赖、平台、CI或版本，未提交/推送/触发CI/构建安装。此前已登记规则写入、订阅落库和自动过期缺口继续后置。
+
+编写者：Codex｜2026-10-16
+
 ### CACHE-MAINTENANCE-BOUNDARY-20261016：拆分全局缓存与数据库维护（P1）
 
 - 授权与基线：用户同意下一批计划并要求继续；feature/ui-reader-selection / 9079c2861，保留此前未提交修改，开始快照位于忽略目录build/cache-maintenance-boundary-qa/。不使用子代理、不另建分支、不提交或推送、不触发CI、不构建安装，版本保持2.0.373+374。

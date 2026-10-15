@@ -1,3 +1,4 @@
+import '../providers/book_content_provider.dart';
 import '../providers/reader/reader_settings_provider.dart';
 import '../domain/models/reader_interaction_settings.dart';
 import '../widgets/reader/reader_tap_hit_test.dart';
@@ -396,25 +397,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         if (chapter != null) 'chapter': chapter.toJson(),
       };
       final sourceJson = jsonEncode(matched.toJson());
-      final raw = await api.reviewGetSummary(sourceJson, jsonEncode(request));
+      final summary = await ref
+          .read(reviewServiceProvider)
+          .reviewGetSummary(sourceJson, request);
       if (!mounted || token != _reviewLoadToken) return;
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      final countsRaw = map['counts'] as Map? ?? {};
-      final keysRaw = map['keys'] as Map? ?? {};
-      final counts = <int, int>{};
-      for (final e in countsRaw.entries) {
-        final k = int.tryParse(e.key.toString());
-        final v = (e.value as num?)?.toInt();
-        if (k != null && v != null && v > 0) counts[k] = v;
-      }
-      final keys = <int, String>{};
-      for (final e in keysRaw.entries) {
-        final k = int.tryParse(e.key.toString());
-        if (k != null) keys[k] = e.value.toString();
-      }
       setState(() {
-        _reviewCounts = counts;
-        _reviewKeys = keys;
+        _reviewCounts = summary.counts;
+        _reviewKeys = summary.keys;
         _reviewSourceJson = sourceJson;
       });
     } catch (_) {
@@ -437,7 +426,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final paraData = _reviewKeys[paragraphIndex] ?? '$paragraphIndex';
     ReviewDetailSheet.show(
       context,
-      api: ref.read(bookApiProvider),
+      service: ref.read(reviewServiceProvider),
       sourceJson: sourceJson,
       bookUrl: book.bookUrl,
       chapterUrl: chapter.url,

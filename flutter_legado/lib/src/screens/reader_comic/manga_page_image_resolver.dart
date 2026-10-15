@@ -44,11 +44,11 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   // 1b. 本地 cbz 页：cbzReadPage 读条目（与渲染链 _LocalCbzImage 同字节源）
   if (cbzPath != null && url.startsWith('cbz://')) {
     try {
-      final json = await api.cbzReadPage(path: cbzPath, entry: url);
-      final decoded = jsonDecode(json) as Map<String, dynamic>;
-      final b64 = decoded['base64'] as String? ?? '';
-      if (b64.isEmpty) return null;
-      final bytes = base64Decode(b64);
+      final bytes = await api.localBookService.cbzReadPage(
+        path: cbzPath,
+        entry: url,
+      );
+      if (bytes.isEmpty) return null;
       if (!looksLikeImageBytes(bytes)) return null;
       return MangaPageImageBytes(
         Uint8List.fromList(bytes),

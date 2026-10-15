@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -34,7 +36,28 @@ const _kEntry0 = 'cbz://01 封面.png';
 const _kEntry1 = 'cbz://02.png';
 
 /// 测试专用 MockBookApi：本地 cbz 书 + `cbz://` 正文章节 + 读页计数/失败注入
+class _CbzReader implements LocalBookService {
+  _CbzReader(this.delegate, this.read);
+  final LocalBookService delegate;
+  final Future<Uint8List> Function({
+    required String path,
+    required String entry,
+  })
+  read;
+  @override
+  Future<Book> importLocalBook(String filePath) =>
+      delegate.importLocalBook(filePath);
+  @override
+  Future<Uint8List> cbzReadPage({
+    required String path,
+    required String entry,
+  }) => read(path: path, entry: entry);
+}
+
 class _CbzMockApi extends MockBookApi {
+  late final _fixtureLocal = _CbzReader(super.localBookService, _readCbz);
+  @override
+  LocalBookService get localBookService => _fixtureLocal;
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -116,14 +139,13 @@ class _CbzMockApi extends MockBookApi {
     int chapterIndex,
   ) async => '$_kEntry0\n$_kEntry1';
 
-  @override
-  Future<String> cbzReadPage({
+  Future<Uint8List> _readCbz({
     required String path,
     required String entry,
   }) async {
     readCalls.add('$path|$entry');
     if (failRead) throw StateError('cbz 读页失败（模拟）');
-    return jsonEncode({'base64': _kPngBase64, 'len': 68});
+    return base64Decode(_kPngBase64);
   }
 }
 

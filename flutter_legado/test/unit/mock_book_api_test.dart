@@ -1,7 +1,5 @@
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/services/mock_book_api.dart';
@@ -84,7 +82,9 @@ void main() {
     // [cbz 批 C | 2026-10-03] mock importLocalBook 与 Rust 行为对齐：
     // .cbz → LOCAL|image(0x1040)；其余本地格式仅 LOCAL 无媒体位。
     test('importLocalBook cbz 返回 LOCAL|image(0x1040)，与 Rust 对齐', () async {
-      final book = await api.importLocalBook('/books/本地漫画.cbz');
+      final book = await api.localBookService.importLocalBook(
+        '/books/本地漫画.cbz',
+      );
       expect(book.bookType, 0x1040, reason: 'cbz 应为 LOCAL|image 位域组合');
       expect(book.bookType & BookType.local, BookType.local);
       expect(book.bookType & BookType.image, BookType.image);
@@ -93,17 +93,19 @@ void main() {
     });
 
     test('importLocalBook cbz 扩展名大小写不敏感', () async {
-      final book = await api.importLocalBook(r'D:\Books\Comic.CBZ');
+      final book = await api.localBookService.importLocalBook(
+        r'D:\Books\Comic.CBZ',
+      );
       expect(book.bookType, BookType.local | BookType.image);
       expect(book.bookType & BookType.image, BookType.image);
     });
 
     test('importLocalBook 非 cbz（txt/epub）保持 LOCAL 无媒体位', () async {
-      final txt = await api.importLocalBook('/books/小说.txt');
+      final txt = await api.localBookService.importLocalBook('/books/小说.txt');
       expect(txt.bookType, BookType.local);
       expect(txt.bookType & BookType.image, 0);
 
-      final epub = await api.importLocalBook('/books/小说.epub');
+      final epub = await api.localBookService.importLocalBook('/books/小说.epub');
       expect(epub.bookType, BookType.local);
       expect(epub.bookType & BookType.image, 0);
     });
@@ -512,19 +514,32 @@ void main() {
 
   group('压缩包导入', () {
     test('archiveIsArchive 正确判断', () async {
-      expect(await api.archiveIsArchive(filePath: 'test.zip'), true);
-      expect(await api.archiveIsArchive(filePath: 'test.rar'), true);
-      expect(await api.archiveIsArchive(filePath: 'test.txt'), false);
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.zip'),
+        true,
+      );
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.rar'),
+        true,
+      );
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.txt'),
+        false,
+      );
     });
 
     test('archiveListZipFiles 返回文件列表', () async {
-      final files = await api.archiveListZipFiles(zipPath: 'test.zip');
+      final files = await api.bookArchiveService.archiveListZipFiles(
+        zipPath: 'test.zip',
+      );
       expect(files, isNotEmpty);
     });
 
     test('archiveDetectEncoding 返回编码信息', () async {
-      final result = await api.archiveDetectEncoding(filePath: 'test.txt');
-      expect(result['encoding'], 'UTF-8');
+      final result = await api.bookArchiveService.archiveDetectEncoding(
+        filePath: 'test.txt',
+      );
+      expect(result.encoding, 'UTF-8');
     });
   });
 
@@ -545,22 +560,21 @@ void main() {
 
   group('书籍导出', () {
     test('bookExport 返回成功', () async {
-      final result = await api.bookExport(
+      final result = await api.bookExportService.bookExportWithOptions(
         bookUrl: 'mock://book/1',
         format: 'txt',
         includeToc: true,
       );
-      expect(result['success'], true);
-      expect(result['file_name'], contains('示例书籍 01'));
+      expect(result.bytes, isNotEmpty);
+      expect(result.fileName, contains('示例书籍 01'));
     });
 
     test('bookExportInfo 返回预览信息', () async {
-      final result = await api.bookExportInfo(
+      final result = await api.bookExportService.bookExportInfo(
         bookUrl: 'mock://book/1',
         format: 'txt',
       );
-      expect(result['success'], true);
-      expect(result['chapter_count'], '10');
+      expect(result.chapterCount, 10);
     });
   });
 
@@ -640,25 +654,18 @@ void main() {
 
   group('段评（ruleReview）', () {
     test('reviewGetSummary 返回 counts/keys', () async {
-      final result = await api.reviewGetSummary('{}', '{}');
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['counts'], isA<Map>());
-      expect(map['keys'], isA<Map>());
-      expect((map['counts'] as Map)['1'], 3);
+      final result = await api.reviewService.reviewGetSummary('{}', {});
+      expect(result.counts[1], 3);
+      expect(result.keys[1], 'mock-para-1');
     });
-
-    test('reviewGetDetail 返回 items/hasReplyUrl', () async {
-      final result = await api.reviewGetDetail('{}', '{}', 1);
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['items'], isA<List>());
-      expect(map['hasReplyUrl'], isTrue);
-      expect((map['items'] as List).length, greaterThan(0));
+    test('reviewGetDetail 返回分页和回复能力', () async {
+      final result = await api.reviewService.reviewGetDetail('{}', {}, 1);
+      expect(result.items, isNotEmpty);
+      expect(result.hasReplyUrl, isTrue);
     });
-
-    test('reviewGetReplies 返回 items', () async {
-      final result = await api.reviewGetReplies('{}', '{}', 1);
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['items'], isA<List>());
+    test('reviewGetReplies 返回回复', () async {
+      final result = await api.reviewService.reviewGetReplies('{}', {}, 1);
+      expect(result.items, isNotEmpty);
     });
   });
 

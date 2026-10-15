@@ -2800,7 +2800,7 @@ class ComicImageDecodeCache {
   }
 
   /// 本地 cbz 页预加载（[cbz 批 D | 2026-10-03]）：调用
-  /// [BookApi.cbzReadPage] 并写入缓存（已命中则跳过）；与 [_LocalCbzImage]
+  /// [LocalBookService.cbzReadPage] 并写入缓存（已命中则跳过）；与 [_LocalCbzImage]
   /// 正式渲染共用同一缓存键（[cacheKey] = 活跃 bookUrl + 条目名）。
   /// — 全栈工程师 + UI
   static Future<void> preloadCbz({
@@ -2810,11 +2810,11 @@ class ComicImageDecodeCache {
     required String entry,
   }) async {
     if (_cache.containsKey(keyOf(cacheKey, entry))) return;
-    final json = await api.cbzReadPage(path: path, entry: entry);
-    final decoded = jsonDecode(json) as Map<String, dynamic>;
-    final b64 = decoded['base64'] as String? ?? '';
-    if (b64.isEmpty) return;
-    final bytes = base64Decode(b64);
+    final bytes = await api.localBookService.cbzReadPage(
+      path: path,
+      entry: entry,
+    );
+    if (bytes.isEmpty) return;
     if (!looksLikeImageBytes(bytes)) return;
     put(cacheKey, entry, bytes);
   }
@@ -3131,7 +3131,7 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
 /// 本地 cbz 漫画页图片项（[cbz 批 D | 2026-10-03]）
 ///
 /// 图片 URL 为 `cbz://<ZIP 条目名>` 伪 URL（Rust `get_chapter_content` 对
-/// `.cbz` 本地书产出）：经 [BookApi.cbzReadPage]（FFI `cbz_read_page`）读取
+/// `.cbz` 本地书产出）：经 [LocalBookService.cbzReadPage]（FFI `cbz_read_page`）读取
 /// 条目字节 → base64 解码 → [looksLikeImageBytes] 魔数校验 → [Image.memory]
 /// 显示（校验不过的字节不送图片解码器）。
 ///
@@ -3258,16 +3258,13 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
         await _applyEpaperIfNeeded(hit);
         return;
       }
-      final json = await api.cbzReadPage(
+      final bytes = await api.localBookService.cbzReadPage(
         path: widget.path,
         entry: widget.entry,
       );
-      final decoded = jsonDecode(json) as Map<String, dynamic>;
-      final b64 = decoded['base64'] as String? ?? '';
-      if (b64.isEmpty) {
+      if (bytes.isEmpty) {
         throw Exception('CBZ 页数据为空');
       }
-      final bytes = base64Decode(b64);
       if (!looksLikeImageBytes(bytes)) {
         throw Exception('CBZ 页数据不是有效图片');
       }

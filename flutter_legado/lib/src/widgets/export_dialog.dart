@@ -1,6 +1,5 @@
 import '../domain/models/webdav_connection.dart';
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -9,7 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
 import '../services/export_service.dart';
-import '../services/book_api.dart';
+import '../domain/models/book_content_result.dart';
 import '../utils/error_message.dart';
 
 /// 导出对话框
@@ -30,9 +29,6 @@ class ExportDialog extends StatefulWidget {
   /// 导出服务实例
   final ExportService exportService;
 
-  /// Rust API 实例（用于 WebDAV 上传）
-  final BookApi rustApi;
-
   /// WebDAV 连接快照（可选）
   final WebDavConnection? webDavConfig;
 
@@ -40,7 +36,6 @@ class ExportDialog extends StatefulWidget {
     super.key,
     required this.book,
     required this.exportService,
-    required this.rustApi,
     this.webDavConfig,
   });
 
@@ -401,7 +396,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// 预览信息
   Widget _buildPreviewInfo() {
-    return FutureBuilder<Map<String, dynamic>>(
+    return FutureBuilder<BookExportInfo>(
       future: _getPreviewInfo(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -419,10 +414,9 @@ class _ExportDialogState extends State<ExportDialog> {
         }
 
         final data = snapshot.data;
-        if (data != null && data['success'] == true) {
-          final fileName = data['file_name'] as String? ?? '';
-          final chapterCount =
-              int.tryParse(data['error']?.split(': ').last ?? '0') ?? 0;
+        if (data != null) {
+          final fileName = data.fileName;
+          final chapterCount = data.chapterCount;
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -490,7 +484,7 @@ class _ExportDialogState extends State<ExportDialog> {
   }
 
   /// 获取预览信息
-  Future<Map<String, dynamic>> _getPreviewInfo() async {
+  Future<BookExportInfo> _getPreviewInfo() async {
     return await widget.exportService.getExportInfo(
       bookUrl: widget.book.bookUrl,
       format: _selectedFormat,
@@ -544,13 +538,10 @@ class _ExportDialogState extends State<ExportDialog> {
       // 非 WebDAV 模式下将导出文件写入用户选择的目录
       if (_exportPath != null && !_enableWebDav) {
         try {
-          final dataBase64 = result['data_base64'] as String?;
-          final fileName = result['file_name'] as String? ?? 'export.txt';
-          if (dataBase64 != null) {
-            final bytes = base64Decode(dataBase64);
-            writtenPath = '$_exportPath${Platform.pathSeparator}$fileName';
-            await File(writtenPath).writeAsBytes(bytes);
-          }
+          final bytes = result.bytes;
+          final fileName = result.fileName;
+          writtenPath = '$_exportPath${Platform.pathSeparator}$fileName';
+          await File(writtenPath).writeAsBytes(bytes);
         } catch (e) {
           debugPrint('[ExportDialog] 写入文件失败：$e');
           if (mounted) {
@@ -563,35 +554,33 @@ class _ExportDialogState extends State<ExportDialog> {
       // 检查是否需要上传到 WebDAV（二进制走 webdavUploadFile）
       if (_enableWebDav && widget.webDavConfig != null) {
         try {
-          final data = result['data_base64'] as String?;
-          final fileName = result['file_name'] as String? ?? 'export';
+          final data = result.bytes;
+          final fileName = result.fileName;
 
-          if (data != null) {
-            setState(() {
-              _progressText = '上传到 WebDAV...';
-            });
+          setState(() {
+            _progressText = '上传到 WebDAV...';
+          });
 
-            final tmp = File(
-              '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName',
+          final tmp = File(
+            '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName',
+          );
+          await tmp.writeAsBytes(data);
+          try {
+            await widget.exportService.webdavUploadFile(
+              widget.webDavConfig!,
+              '/books/$fileName',
+              tmp.path,
             );
-            await tmp.writeAsBytes(base64Decode(data));
-            try {
-              await widget.exportService.webdavUploadFile(
-                widget.webDavConfig!,
-                '/books/$fileName',
-                tmp.path,
-              );
-            } finally {
-              if (await tmp.exists()) {
-                await tmp.delete();
-              }
+          } finally {
+            if (await tmp.exists()) {
+              await tmp.delete();
             }
-
-            setState(() {
-              _progress = 1.0;
-              _progressText = '导出并上传成功！';
-            });
           }
+
+          setState(() {
+            _progress = 1.0;
+            _progressText = '导出并上传成功！';
+          });
         } catch (e) {
           debugPrint('[ExportDialog] WebDAV 上传失败：$e');
           setState(() {

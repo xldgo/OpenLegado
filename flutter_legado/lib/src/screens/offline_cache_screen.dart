@@ -1,3 +1,5 @@
+import '../domain/models/book_content_result.dart';
+import '../providers/book_content_provider.dart';
 import '../providers/chapter_cache_provider.dart';
 import '../domain/models/cache_download_task.dart';
 import '../widgets/error_view.dart';
@@ -251,27 +253,25 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
 
   /// 打开导出对话框：格式 txt/epub/pdf、charset、文件名模板、章节范围、进度与 WebDAV
   Future<void> _exportBook(Book book) async {
-    final api = ref.read(bookApiProvider);
     final sync = ref.read(syncNotifierProvider);
     WebDavConnection? webDavConfig;
     if (sync.webDavUrl.trim().isNotEmpty) {
       webDavConfig = ref.read(syncNotifierProvider.notifier).connection;
     }
 
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<BookExportData>(
       context: context,
       builder: (_) => ExportDialog(
         book: book,
-        exportService: ExportService(api),
-        rustApi: api,
+        exportService: ExportService(
+          exporter: ref.read(bookExportServiceProvider),
+          webDav: ref.read(bookApiProvider).webDavService,
+        ),
         webDavConfig: webDavConfig,
       ),
     );
     if (!mounted || result == null) return;
-    if (result['success'] == true) {
-      final name = result['file_name'] ?? book.name;
-      _snack('已导出 $name');
-    }
+    _snack('已导出 ${result.fileName}');
   }
 
   // ===== 顶栏菜单 =====

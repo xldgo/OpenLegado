@@ -83,7 +83,9 @@ void main() {
       chapterPos: 201,
     );
     expect((await shelf.getBook(_book.bookUrl))!.durChapterPos, 201);
-    final imported = await api.importLocalBook('fixture/book.txt');
+    final imported = await api.localBookService.importLocalBook(
+      'fixture/book.txt',
+    );
     expect(await shelf.getBook(imported.bookUrl), imported);
     await shelf.updateBook(_book.copyWith(name: '更新', durChapterPos: 123));
     await shelf.setBookGroup(_book.bookUrl, -3);

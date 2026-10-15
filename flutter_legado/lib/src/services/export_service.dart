@@ -1,18 +1,19 @@
 import '../domain/models/webdav_connection.dart';
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
-import 'book_api.dart';
+import '../domain/contracts/book_export_service.dart';
+import '../domain/contracts/webdav_service.dart';
+import '../domain/models/book_content_result.dart';
 
 /// 导出服务
 ///
 /// 提供书籍导出功能，对接 Rust `bookExport` / `bookExportWithOptions`。
 class ExportService {
-  final BookApi _rustApi;
+  final BookExportService _exporter;
+  final WebDavService _webDav;
 
-  ExportService(this._rustApi);
+  ExportService({required this._exporter, required this._webDav});
 
   /// 支持的导出格式（对齐原版 CacheActivity：txt/epub/pdf；html 为重构版保留）
   List<String> get supportedFormats => ['txt', 'epub', 'pdf', 'html'];
@@ -33,7 +34,7 @@ class ExportService {
   ];
 
   /// 导出书籍（透传 options → bookExportWithOptions）
-  Future<Map<String, dynamic>> export({
+  Future<BookExportData> export({
     required String bookUrl,
     required String format,
     required bool includeToc,
@@ -46,44 +47,34 @@ class ExportService {
       throw ExportException('不支持的导出格式：$format');
     }
 
-    final options = <String, dynamic>{};
-    if (encoding != null && encoding.isNotEmpty) {
-      options['encoding'] = encoding;
-    }
-    if (startChapter != null && startChapter >= 0) {
-      options['startChapter'] = startChapter;
-    }
-    if (endChapter != null && endChapter >= 0) {
-      options['endChapter'] = endChapter;
-    }
-    if (fileNameTemplate != null && fileNameTemplate.trim().isNotEmpty) {
-      options['fileNameTemplate'] = fileNameTemplate.trim();
-    }
-    final optionsJson = options.isEmpty ? '' : jsonEncode(options);
-
-    final result = await _rustApi.bookExportWithOptions(
+    final options = BookExportOptions(
+      encoding: encoding != null && encoding.isNotEmpty ? encoding : null,
+      startChapter: startChapter != null && startChapter >= 0
+          ? startChapter
+          : null,
+      endChapter: endChapter != null && endChapter >= 0 ? endChapter : null,
+      fileNameTemplate:
+          fileNameTemplate != null && fileNameTemplate.trim().isNotEmpty
+          ? fileNameTemplate.trim()
+          : null,
+    );
+    return _exporter.bookExportWithOptions(
       bookUrl: bookUrl,
       format: format,
       includeToc: includeToc,
-      optionsJson: optionsJson,
+      options: options,
     );
-
-    if (result['success'] == false) {
-      final error = result['error'] as String? ?? '导出失败';
-      throw ExportException(error);
-    }
-    return result;
   }
 
   /// 获取导出预览信息
-  Future<Map<String, dynamic>> getExportInfo({
+  Future<BookExportInfo> getExportInfo({
     required String bookUrl,
     required String format,
   }) async {
     if (!supportedFormats.contains(format)) {
       throw ExportException('不支持的导出格式：$format');
     }
-    return _rustApi.bookExportInfo(bookUrl: bookUrl, format: format);
+    return _exporter.bookExportInfo(bookUrl: bookUrl, format: format);
   }
 
   /// 将导出的文件上传到 WebDAV（文本路径，兼容旧调用）
@@ -93,7 +84,7 @@ class ExportService {
     String data,
   ) async {
     try {
-      await _rustApi.webDavService.webdavUpload(connection, path, data);
+      await _webDav.webdavUpload(connection, path, data);
       return true;
     } catch (e) {
       debugPrint('[ExportService] WebDAV 上传失败：$e');
@@ -108,11 +99,7 @@ class ExportService {
     String localFilePath,
   ) async {
     try {
-      await _rustApi.webDavService.webdavUploadFile(
-        connection,
-        remotePath,
-        localFilePath,
-      );
+      await _webDav.webdavUploadFile(connection, remotePath, localFilePath);
       return true;
     } catch (e) {
       debugPrint('[ExportService] WebDAV 文件上传失败：$e');

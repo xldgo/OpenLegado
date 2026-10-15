@@ -1,5 +1,10 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
+import 'package:flutter_legado/src/domain/contracts/book_archive_service.dart';
+import 'package:flutter_legado/src/domain/contracts/book_export_service.dart';
+import 'package:flutter_legado/src/domain/contracts/review_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/cache_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/database_maintenance_service.dart';
 import 'package:flutter_legado/src/domain/contracts/app_log_repository.dart';
@@ -133,7 +138,24 @@ class CacheRepositoryMock extends Mock implements CacheRepository {}
 class DatabaseMaintenanceServiceMock extends Mock
     implements DatabaseMaintenanceService {}
 
+class LocalBookServiceMock extends Mock implements LocalBookService {}
+
+class BookArchiveServiceMock extends Mock implements BookArchiveService {}
+
+class BookExportServiceMock extends Mock implements BookExportService {}
+
+class ReviewServiceMock extends Mock implements ReviewService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final LocalBookService localBookService = LocalBookServiceMock();
+  @override
+  final BookArchiveService bookArchiveService = BookArchiveServiceMock();
+  @override
+  final BookExportService bookExportService = BookExportServiceMock();
+  @override
+  final ReviewService reviewService = ReviewServiceMock();
+
   @override
   final CacheRepository cacheRepository = CacheRepositoryMock();
   @override

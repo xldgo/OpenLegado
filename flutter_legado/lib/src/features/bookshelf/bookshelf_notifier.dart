@@ -1,3 +1,5 @@
+import '../../providers/book_content_provider.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -8,7 +10,6 @@ import '../../models/models.dart';
 import '../../domain/models/bookshelf_settings.dart';
 import '../../domain/contracts/bookshelf_settings_repository.dart';
 import '../../providers/bookshelf_settings_provider.dart';
-import '../../providers/providers.dart';
 import '../privacy/privacy_controller.dart';
 import 'bookshelf_repositories.dart';
 import 'bookshelf_state.dart';
@@ -263,8 +264,9 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
   /// 成功后将返回的书籍加入列表；
   /// 失败时异常向上抛出，由 UI 层负责提示。
   Future<Book> importLocalBook(String filePath) async {
-    final api = ref.read(bookApiProvider);
-    final book = await api.importLocalBook(filePath);
+    final book = await ref
+        .read(localBookServiceProvider)
+        .importLocalBook(filePath);
     state = state.copyWith(
       books: [...state.books.where((b) => b.bookUrl != book.bookUrl), book],
     );

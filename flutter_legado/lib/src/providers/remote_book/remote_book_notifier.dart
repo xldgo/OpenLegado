@@ -1,3 +1,4 @@
+import '../../providers/book_content_provider.dart';
 import '../../domain/models/webdav_connection.dart';
 
 import 'dart:io';
@@ -302,7 +303,9 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
           item.relativePath,
           localPath,
         );
-        final book = await api.importLocalBook(localPath);
+        final book = await ref
+            .read(localBookServiceProvider)
+            .importLocalBook(localPath);
         // 对齐原版：origin = dav: + 远程路径
         var remoteUrl = item.relativePath;
         if (state.serverId == defaultRemoteServerId) {

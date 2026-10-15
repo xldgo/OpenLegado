@@ -1,5 +1,5 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiContentExt mixin：音频播放模式 / 压缩包导入。
+// 本文件承载 MockBookApiContentExt mixin：音频播放模式。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
@@ -33,60 +33,5 @@ mixin MockBookApiContentExt on MockBookApiStore implements BookApi {
     }
     final book = await bookshelfRepository.getBook(requestedBookUrl);
     return book?.toJson();
-  }
-
-  // ========== 压缩包导入 ==========
-
-  @override
-  Future<Map<String, dynamic>> archiveImportZip({
-    required String zipPath,
-    required String outputDir,
-  }) async => {
-    'success': true,
-    'imported_count': 2,
-    'files': ['book1.txt', 'book2.epub'],
-  };
-
-  @override
-  Future<Map<String, dynamic>> archiveImportRar({
-    required String rarPath,
-    required String outputDir,
-    String? password,
-  }) async => {
-    'success': true,
-    'imported_count': 1,
-    'files': ['book1.txt'],
-  };
-
-  @override
-  Future<List<String>> archiveListZipFiles({required String zipPath}) async => [
-    'book1.txt',
-    'book2.epub',
-    'readme.md',
-  ];
-
-  @override
-  Future<List<String>> archiveListRarFiles({
-    required String rarPath,
-    String? password,
-  }) async => ['novel.txt'];
-
-  @override
-  Future<Map<String, dynamic>> archiveDetectEncoding({
-    required String filePath,
-  }) async => {'encoding': 'UTF-8', 'has_bom': false, 'confidence': 'high'};
-
-  @override
-  Future<Map<String, dynamic>> archiveConvertEncoding({
-    required String filePath,
-    required String fromEncoding,
-    required String toEncoding,
-  }) async => {'success': true, 'output_path': '$filePath.converted'};
-
-  @override
-  Future<bool> archiveIsArchive({required String filePath}) async {
-    return filePath.endsWith('.zip') ||
-        filePath.endsWith('.rar') ||
-        filePath.endsWith('.7z');
   }
 }
