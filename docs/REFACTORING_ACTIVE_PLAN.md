@@ -1,9 +1,42 @@
 # Legado 后续重构执行计划（Active）
 
+### RESTORE-IGNORE-REPOSITORY-20261015：拆分恢复忽略配置（P1）
+
+- 授权与基线：用户要求继续下一步架构迁移；当前feature/ui-reader-selection / 41ffd18f0，前两批连接仓储成果及其他会话Android Gradle五行均未提交并保留。本轮只迁移实际生效的恢复忽略配置，不自动提交/推送、触发CI、新建分支、改版本或编译安装。
+- 状态：本批实现、独立审查及本地回归完成，已获用户授权与连接两批一并本地提交。connection_migration编码，主代理维护方案及复核，settings_review独立只读审查。修改前保存本批既有文件快照供区分前两批改动；进度仅维护本条。
+- 目标：以RestoreIgnoreRepository及Preferences实现接管restoreIgnore单个JSON字符串，建立不可变RestoreIgnoreConfig；八项的键、顺序、标题、默认false与现有过滤行为不变，不迁成八个普通偏好键，不加入AppSettingsStore或旧数据迁移层。
+- 接线：WebDavSettingsScreen通过Provider读取和保存，RestoreIgnoreDialog只编辑本地草稿；SettingsService删除两个专用方法和相关常量，RestoreIgnorePrefs按统一键继续始终排除忽略策略自身。保存检查写入结果，失败恢复原值并反馈，取消不写入；读取异常不伪装成全false继续操作。
+- 验收：默认/原JSON恢复、未知项与损坏JSON原规则、写入拒绝/异常后的缓存和存储回退、重试/串行保存；控件八项显示与取消、成功/失败提示及再次打开、读取失败。复用现有过滤和WebDAV回归，再做相关组合、完整分析、格式及差异检查；不扩展备份恢复算法、云端同步、Rust/FFI或数据库。
+- 边界：同步扩展/自动同步/上次同步时间六个旧方法和剩余通用读取本轮保持，未落地功能继续禁用；不修改前批连接行为、Android签名或其他会话成果。真实WebDAV、文件选择器平台行为和设备未纳入本轮验证，不将控件测试视为设备验证。
+- 实现：新增领域模型/合同、Preferences仓储和Provider；WebDAV页三个读取/一个保存及Dialog均已接入，取消只丢弃草稿，读取失败不打开默认草稿，保存失败保持原值并可重试。备份策略读取前移到api.backup之前，恢复仍在应用偏好和api.restore前读取；helper只更换自身排除键来源，过滤集合保持。SettingsService剩余十个方法签名及正文与本批快照一致，旧恢复忽略方法/常量全仓Dart引用为零。
+- 验证：本批仓储10项、过滤/备份规则8项和真实页面控件5项通过；最终12份相关组合124项全部通过，完整flutter analyze --no-pub无问题，12份Dart格式无差异，git diff --check通过。首轮控件夹具在FakeAsync外初始化写队列，Future未推进；改为首次Widget读取时初始化测试delegate后五项全部通过，生产未为测试添加适配。
+- 审查与证据：settings_review按六份文件的基线SHA-256和本批差异独立核对生产与新增测试，结论无阻塞；主代理复核最终日志。忽略目录flutter_legado/build/restore-ignore-qa/保存baseline/、baseline-manifest.json、batch-diff.patch、baseline-check.log及final-{tests,analysis,format,diff-check,references}.log，widget-tests.log保留控件复验，minimal-tests.log保留首轮装配失败。当前HEAD仍41ffd18f0，前两批与其他会话Gradle五行完整保留；没有提交、推送、构建安装或触发CI，应用版本2.0.373+374不变。
+- 后续授权：用户要求先提交已完成三批，再执行同步策略、同步时间元数据及主题预设三项整理。此次提交排除其他会话Android Gradle五行，不推送、不触发CI；后续新改动完成后待审，不自动提交。提交信息只描述结构与行为，不写入验证日志或过程。
+
+编写者：Codex｜2026-10-15
+
+### CONNECTION-REPOSITORIES-20261015：拆分WebDAV与远程书库配置（P1）
+
+- 授权与基线：用户要求先提交旧服务清理，再完成WebDAV连接与远程服务器两个批次；清理已提交ca2cac0c7，当前feature/ui-reader-selection，开始时工作区干净。沿用分支，不推送、不触发CI、不编译安装，应用版本2.0.373+374保持；新改动完成后留待审核，不自动提交。
+- 状态：两个批次的实现、独立审查与本地回归完成，已获用户授权与恢复忽略配置一并本地提交。connection_migration实现，主代理维护计划、复核及验收；按本轮最新提供的AGENTS.md派发实现和独立审查，最多两个子代理并行。
+- 批1：建立WebDavConnection不可变模型、WebDavConnectionRepository与Preferences实现，通过Provider供SyncNotifier注入；五字段沿用sync_webdav_*原键，密码保持原样，目录缺省/legado/，地址、账号、目录和设备名保持原规范化。成功保存后更新投影，写入失败传播并提示重试；界面不把未保存草稿显示为成功。移除旧服务连接方法及专属测试，保留同步扩展、自动同步及上次同步时间原行为。
+- 批2：建立RemoteServerRepository，迁出页面状态中的服务器配置模型，接管remote_servers列表JSON、remote_server_id选中项与串行增删改；默认服务器标识仍-1。RemoteBookNotifier使用仓储结果呈现服务器配置，默认连接直接来自同一WebDAV仓储；目录浏览、下载与导入算法不改，失败不更新为已保存状态。
+- 验收：真实Preferences默认/恢复、密码原样、写入拒绝/异常、保存失败重试、连续列表变更、删除当前服务器回默认；Notifier成功/失败状态与既有FFI JSON一致，设置页错误可见且可重新编辑。运行相关单元/控件回归、改动格式检查和完整Flutter分析，并安排独立只读审查。
+- 边界：连接凭据不纳入AppSettingsStore，不新增安全存储依赖或旧键迁移层；保留存储位置与格式，不修改Rust/FRB、数据库、Android签名、TTS和无关UI。真实WebDAV服务器、设备及iOS行为未在本轮验证范围内；不以Mock测试宣称真实网络或平台验证通过。
+- 批1结果：连接模型、仓储与Provider已接入SyncNotifier；设置页直接呈现成功保存的投影，失败提示并保留原值，保存时禁止重复编辑。删除SettingsService十个连接方法及其专属测试，迁至仓储回归；全仓getWebDav/setWebDav零引用。6份相关测试61项通过，仓储17项覆盖五字段各位置的拒绝/异常、回退重试、缺键与串行读取；独立settings_review审查结论无阻塞，五键保存不保证进程中断原子性。
+- 批1验证收尾：首轮命令误列不存在的sync_book_progress_test.dart，新增Notifier用例尝试给既有容器增加override导致装配断言；移除错误路径并新建带注入的容器后，六份全部通过。生产实现未为测试失败添加兼容逻辑。日志位于忽略目录flutter_legado/build/connection-repositories-qa/webdav-{tests,format}.log；完整静态分析安排两批结束后执行一次。
+- 审查收口范围：新仓储的实际读取错误向上传递，除了WebDAV页和远程书库，还需同步阅读菜单云端进度、菜单预加载及书籍详情上传的四处原裸读取；仅补最小错误接线，不改变其业务操作。独立审查指出服务器sheet会遮挡页面SnackBar，失败提示必须位于弹层之上；导入配置读取失败还须清除上次导入计数，避免沿用旧成功结果。
+- 批2结果：RemoteServerConfig迁入领域，RemoteServerSnapshot冻结列表；RemoteServerRepository与Preferences实现接管JSON和选中项的最新值读改写。成功后发布配置，删除当前服务器清除目录与选择并回默认；默认请求及导入origin直接读连接仓储，不再初始化SyncNotifier。SettingsService十四个连接/远程方法及默认ID移除，剩余十二个有效方法原样保留，旧方法全仓Dart引用为零；格式与职责见SETTINGS_ARCHITECTURE第24节。
+- 失败路径修正：服务器操作错误在sheet之上的对话框显示，失败保持已保存列表和选择，可重新编辑或重试。控件回归发现原编辑对话框pop后立即dispose控制器，退场动画仍访问表单；改为等待DialogRoute.completed后释放，不新增定时等待。导入读取失败清空旧计数，阅读与详情四处接线失败终止操作；使用既有夹具验证网络零调用，不新增异常恢复框架。
+- 最终验证：12份相关回归160项通过，完整flutter analyze --no-pub无问题，26份本轮Dart格式无差异，git diff --check通过。失败路径专门复验5份89项通过，覆盖五种服务器失败UI、重试、导入先成功后读取失败及四处读取异常。首轮静态分析的两处测试冗余导入已删除，复验无问题；settings_review独立复核生产改动及89项日志，结论无剩余阻塞。
+- 证据与范围：忽略目录flutter_legado/build/connection-repositories-qa/final-{tests,analysis,format,diff-check,references}.log保存最终结果，failure-path-tests.log保存失败路径复验。运行期间其他会话提交6c7935b6e与41ffd18f0并修改Android Gradle五行，本轮均保留；最终按41ffd18f0工作区验证。没有构建安装、真实WebDAV账号/设备验证、提交新两批、推送或触发CI，版本2.0.373+374保持；不将单元/控件测试表述为真实网络或三端验证。
+
+编写者：Codex｜2026-10-15
+
 ### SETTINGS-SERVICE-CLEANUP-20261015：清理失效与重复设置入口（P1）
 
 - 授权与基线：用户要求开始B4清理，当前feature/ui-reader-selection / 1168a4726；保留现有Android发行签名全部未提交改动与活动记录。不使用子代理、不新建分支、不自动提交/推送或触发CI，不编译安装，版本2.0.373+374不变。
-- 状态：实现与本地验证完成，用户已授权本地提交，再继续WebDAV连接与远程书库两批迁移。进入本批时SettingsService有56个公开异步方法，核对消费者后删除30个失效或已迁移方法，保留26个仍使用的连接、远程列表、同步元数据、恢复忽略和通用读取/主题预设写入接口。
+- 状态：已按用户授权提交ca2cac0c7，实现与本地验证完成。进入本批时SettingsService有56个公开异步方法，核对消费者后删除30个失效或已迁移方法，保留26个仍使用的连接、远程列表、同步元数据、恢复忽略和通用读取/主题预设写入接口。
 - 清理范围：亮度2、书架Tab/布局4、语言2、旧代理/超时8、进度同步2、删除提醒2、阅读记录4、无调用通用写入/删除与颜色助手6。SystemBrightness、AppLocaleNotifier与SyncNotifier的同名方法均为其他对象，不作为旧服务消费者，不修改其代码。
 - 验收：重新扫描所有调用与方法引用；26个保留方法实施前后逐一比对；保留WebDAV现有测试，删除8项仅测试旧亮度、语言、代理/超时读写的专属用例；使用现有领域仓储、连接、恢复和相关设置界面回归及完整静态分析。本批不新增测试框架、兼容层或仓储，不改变存储位置、实际功能、凭据、Rust/FFI及Android签名改动。
 

@@ -15,12 +15,17 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
 
 import '../mocks/mocks.dart';
+
+class _MockConnectionRepository extends Mock
+    implements WebDavConnectionRepository {}
 
 void main() {
   setUpAll(registerFallbacks);
@@ -50,10 +55,11 @@ void main() {
     BookChapter(title: '第三章'),
   ];
 
-  Future<void> pumpBookInfo(
+  Future<MockRustApi> pumpBookInfo(
     WidgetTester tester,
     Book book, {
     List<BookChapter> chapters = const [],
+    WebDavConnectionRepository? connectionRepository,
   }) async {
     tester.view.physicalSize = const Size(1080, 2260);
     tester.view.devicePixelRatio = 3.0;
@@ -73,13 +79,42 @@ void main() {
         .thenAnswer((_) async => '内容');
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          if (connectionRepository != null)
+            webDavConnectionRepositoryProvider.overrideWithValue(
+              connectionRepository,
+            ),
+        ],
         child: themeWrap(BookInfoScreen(book: book)),
       ),
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    return mockApi;
   }
+
+  testWidgets('详情上传前连接读取失败提示并停止，不使用旧配置上传', (tester) async {
+    final repository = _MockConnectionRepository();
+    when(() => repository.load()).thenThrow(StateError('模拟连接读取失败'));
+    final api = await pumpBookInfo(
+      tester,
+      const Book(
+        bookUrl: 'loc_book/test.txt',
+        name: '本地测试',
+        origin: BookType.localTag,
+      ),
+      connectionRepository: repository,
+    );
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('上传至远程'));
+    await tester.tap(find.text('上传至远程'));
+    await tester.pumpAndSettle();
+    expect(find.text('WebDAV 配置读取失败，请重试'), findsOneWidget);
+    verifyNever(() => api.webdavUploadFile(any(), any(), any()));
+    expect(tester.takeException(), isNull);
+  });
 
   Book makeBook({
     int durChapterIndex = 0,

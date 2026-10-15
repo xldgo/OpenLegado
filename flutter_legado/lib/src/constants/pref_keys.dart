@@ -8,6 +8,9 @@
 class PrefKeys {
   PrefKeys._();
 
+  /// 恢复忽略策略，保持原单个JSON存储键并始终排除备份。
+  static const restoreIgnore = 'restoreIgnore';
+
   // ===== 主题设置页（pref_config_theme.xml）=====
 
   /// 启动图标（仅 Android 生效，原版 launcherIcon）

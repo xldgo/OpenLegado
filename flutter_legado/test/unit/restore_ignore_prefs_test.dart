@@ -24,6 +24,10 @@ void main() {
         RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.launcherIcon, const {}),
         isFalse,
       );
+      expect(
+        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.restoreIgnore, const {}),
+        isFalse,
+      );
     });
 
     test('勾选 readConfig 跳过阅读键', () {
@@ -176,6 +180,7 @@ void main() {
         PrefKeys.threadCount: 8,
         'reader_font_size': 20.0,
         PrefKeys.launcherIcon: 'icon_a',
+        PrefKeys.restoreIgnore: '{"readConfig":true}',
       });
     });
 
@@ -188,6 +193,7 @@ void main() {
       expect(collected[PrefKeys.threadCount], 8);
       expect(collected.containsKey('reader_font_size'), isFalse);
       expect(collected.containsKey(PrefKeys.launcherIcon), isFalse);
+      expect(collected.containsKey(PrefKeys.restoreIgnore), isFalse);
     });
 
     test('apply 尊重 ignore 不覆盖本地项', () async {
@@ -196,6 +202,7 @@ void main() {
           PrefKeys.showRss: true,
           PrefKeys.threadCount: 32,
           'reader_font_size': 14.0,
+          PrefKeys.restoreIgnore: '{"readConfig":false}',
         },
         {'showRss': true, 'readConfig': false},
       );
@@ -204,6 +211,7 @@ void main() {
       expect(prefs.getBool(PrefKeys.showRss), isFalse);
       expect(prefs.getInt(PrefKeys.threadCount), 32);
       expect(prefs.getDouble('reader_font_size'), 14.0);
+      expect(prefs.getString(PrefKeys.restoreIgnore), '{"readConfig":true}');
     });
   });
 }

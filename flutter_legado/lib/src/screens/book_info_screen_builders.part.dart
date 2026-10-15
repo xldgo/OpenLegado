@@ -471,7 +471,12 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     // 前置：读取已保存的 WebDAV 配置（复用 SyncNotifier 既有配置链路）
     final syncNotifier = ref.read(syncNotifierProvider.notifier);
-    await syncNotifier.loadConfig();
+    try {
+      await syncNotifier.loadConfig();
+    } catch (_) {
+      if (mounted) _snack('WebDAV 配置读取失败，请重试');
+      return;
+    }
     if (!mounted) return;
     final sync = ref.read(syncNotifierProvider);
     if (!sync.isConfigured) {

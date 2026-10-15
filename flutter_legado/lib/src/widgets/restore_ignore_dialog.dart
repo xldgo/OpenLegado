@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../services/settings_service.dart';
+import '../domain/models/restore_ignore_config.dart';
 
 /// 恢复忽略项多选 Dialog（对齐原版 BackupConfigFragment.backupIgnore）
 ///
@@ -9,22 +9,30 @@ import '../services/settings_service.dart';
 class RestoreIgnoreDialog extends StatefulWidget {
   const RestoreIgnoreDialog({super.key, required this.initial});
 
-  final Map<String, bool> initial;
+  final RestoreIgnoreConfig initial;
 
   @override
   State<RestoreIgnoreDialog> createState() => _RestoreIgnoreDialogState();
 }
 
 class _RestoreIgnoreDialogState extends State<RestoreIgnoreDialog> {
+  static const _titles = <String>[
+    '阅读界面配置',
+    '主题模式',
+    '主题配置',
+    '封面规则',
+    '书架布局',
+    '显示订阅',
+    '线程数',
+    '本地书籍',
+  ];
   late final Map<String, bool> _checked;
 
   @override
   void initState() {
     super.initState();
-    _checked = {
-      for (final k in SettingsService.restoreIgnoreKeys)
-        k: widget.initial[k] == true,
-    };
+    // 草稿只在确定后交回调用方，勾选和取消都不修改已保存快照。
+    _checked = Map.of(widget.initial.values);
   }
 
   @override
@@ -45,16 +53,15 @@ class _RestoreIgnoreDialogState extends State<RestoreIgnoreDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              for (var i = 0; i < SettingsService.restoreIgnoreKeys.length; i++)
+              for (var i = 0; i < RestoreIgnoreConfig.keys.length; i++)
                 CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  value: _checked[SettingsService.restoreIgnoreKeys[i]] == true,
-                  title: Text(SettingsService.restoreIgnoreTitles[i]),
+                  value: _checked[RestoreIgnoreConfig.keys[i]] == true,
+                  title: Text(_titles[i]),
                   onChanged: (v) {
                     setState(
-                      () => _checked[SettingsService.restoreIgnoreKeys[i]] =
-                          v == true,
+                      () => _checked[RestoreIgnoreConfig.keys[i]] = v == true,
                     );
                   },
                 ),
@@ -69,7 +76,7 @@ class _RestoreIgnoreDialogState extends State<RestoreIgnoreDialog> {
         ),
         TextButton(
           onPressed: () =>
-              Navigator.pop(context, Map<String, bool>.from(_checked)),
+              Navigator.pop(context, RestoreIgnoreConfig(_checked)),
           child: const Text('确定'),
         ),
       ],

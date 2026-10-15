@@ -16,6 +16,7 @@ import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
+import '../domain/models/restore_ignore_config.dart';
 import '../l10n/app_strings.dart';
 import '../models/book.dart';
 import '../features/bookshelf/bookshelf.dart';
@@ -35,6 +36,7 @@ import '../providers/theme/system_bar_notifier.dart';
 import '../routes.dart';
 import '../providers/backup_settings_provider.dart';
 import '../providers/general_settings_provider.dart';
+import '../providers/restore_ignore_provider.dart';
 import '../services/restore_ignore_prefs.dart';
 import '../services/settings_service.dart';
 import '../widgets/settings_widgets.dart';
@@ -82,16 +84,17 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     }
   }
 
-  String _url = '';
-  String _user = '';
-  String _pass = '';
-  String _dir = '/legado/';
-  String _device = '';
+  String get _url => ref.read(syncNotifierProvider).webDavUrl;
+  String get _user => ref.read(syncNotifierProvider).webDavUsername;
+  String get _pass => ref.read(syncNotifierProvider).webDavPassword;
+  String get _dir => ref.read(syncNotifierProvider).remoteDir;
+  String get _device => ref.read(syncNotifierProvider).deviceName;
   String get _backupPath =>
       ref.read(backupSettingsRepositoryProvider).current.backupPath;
   bool _onlyLatestBackup = true;
   bool _autoCheckNewBackup = true;
   bool _busy = false;
+  bool _savingConnection = false;
 
   /// 「测试配置」行连接测试状态（差异清单 C7）
   _WebDavTestStatus _testStatus = _WebDavTestStatus.notTested;
@@ -112,7 +115,6 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   Future<void> _loadAll() async {
     final notifier = ref.read(syncNotifierProvider.notifier);
     await notifier.loadConfig();
-    final state = ref.read(syncNotifierProvider);
     final onlyLatest = await _settings.getBoolPref(
       PrefKeys.onlyLatestBackup,
       defaultValue: true,
@@ -123,29 +125,46 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _url = state.webDavUrl;
-      _user = state.webDavUsername;
-      _pass = state.webDavPassword;
-      _dir = state.remoteDir;
-      _device = state.deviceName;
       _onlyLatestBackup = onlyLatest;
       _autoCheckNewBackup = autoCheck;
     });
   }
 
-  Future<void> _saveWebDav() async {
-    await ref
-        .read(syncNotifierProvider.notifier)
-        .saveConfig(_url, _user, _pass, _dir, deviceName: _device);
+  Future<void> _saveWebDav({
+    String? url,
+    String? username,
+    String? password,
+    String? remoteDir,
+  }) async {
+    setState(() => _savingConnection = true);
+    try {
+      await ref
+          .read(syncNotifierProvider.notifier)
+          .saveConfig(
+            url ?? _url,
+            username ?? _user,
+            password ?? _pass,
+            remoteDir ?? _dir,
+            deviceName: _device,
+          );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('WebDAV 连接保存失败，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingConnection = false);
+    }
   }
 
   Future<void> _editTextPref({
     required String title,
     required String initial,
-    required ValueChanged<String> onSaved,
+    required Future<void> Function(String) onSaved,
     bool obscure = false,
     String? hint,
   }) async {
+    if (_savingConnection) return;
     final controller = TextEditingController(text: initial);
     final result = await showDialog<String>(
       context: context,
@@ -172,9 +191,8 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         ],
       ),
     );
-    if (result == null) return;
-    setState(() => onSaved(result));
-    await _saveWebDav();
+    if (result == null || !mounted) return;
+    await onSaved(result);
   }
 
   Future<void> _pickBackupPath() async {
@@ -188,6 +206,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
   Future<void> _doLocalBackup() async {
     await _runWithProgress('备份中…', () async {
+      final ignore = await ref.read(restoreIgnoreRepositoryProvider).load();
       final api = ref.read(bookApiProvider);
       var dirPath = _backupPath;
       if (dirPath.isEmpty) {
@@ -199,8 +218,10 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             .update(backupPath: dirPath);
       }
       final filePath = await api.backup(dirPath);
-      final ignore = await _settings.getRestoreIgnoreConfig();
-      await RestoreIgnorePrefs.injectAppPrefsIntoBackupFile(filePath, ignore);
+      await RestoreIgnorePrefs.injectAppPrefsIntoBackupFile(
+        filePath,
+        ignore.values,
+      );
       // 同步 WebDAV（对齐原版本地与 WebDav 一起备份）
       final sync = ref.read(syncNotifierProvider);
       if (sync.isConfigured) {
@@ -251,13 +272,16 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
       if (backupPath == null) return;
 
       var pathToRestore = backupPath;
-      final ignore = await _settings.getRestoreIgnoreConfig();
+      final ignore = await ref.read(restoreIgnoreRepositoryProvider).load();
       if (ignore['localBook'] == true &&
           backupPath.toLowerCase().endsWith('.json')) {
         pathToRestore = await _backupPathSkippingLocalBooks(backupPath);
       }
 
-      await RestoreIgnorePrefs.applyAppPrefsFromBackupFile(backupPath, ignore);
+      await RestoreIgnorePrefs.applyAppPrefsFromBackupFile(
+        backupPath,
+        ignore.values,
+      );
       await api.restore(pathToRestore);
       if (!mounted) return;
       await _reloadPrefsAfterRestore();
@@ -268,14 +292,32 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _showRestoreIgnore() async {
-    final initial = await _settings.getRestoreIgnoreConfig();
+    final repository = ref.read(restoreIgnoreRepositoryProvider);
+    final RestoreIgnoreConfig initial;
+    try {
+      initial = await repository.load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('恢复忽略项读取失败，请重试')));
+      }
+      return;
+    }
     if (!mounted) return;
-    final result = await showDialog<Map<String, bool>>(
+    final result = await showDialog<RestoreIgnoreConfig>(
       context: context,
       builder: (ctx) => RestoreIgnoreDialog(initial: initial),
     );
-    if (result == null) return;
-    await _settings.saveRestoreIgnoreConfig(result);
+    if (result == null || !mounted) return;
+    try {
+      await repository.save(result);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('恢复忽略项保存失败，请重试')));
+      }
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('已保存恢复忽略项')));
@@ -600,45 +642,53 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   subtitle: _url.isEmpty
                       ? context.l10n.webdavServerAddressHint
                       : _url,
-                  onTap: () => _editTextPref(
-                    title: context.l10n.webdavServerAddress,
-                    initial: _url,
-                    hint: 'https://dav.example.com/',
-                    onSaved: (v) => _url = v,
-                  ),
+                  onTap: _savingConnection
+                      ? null
+                      : () => _editTextPref(
+                          title: context.l10n.webdavServerAddress,
+                          initial: _url,
+                          hint: 'https://dav.example.com/',
+                          onSaved: (v) => _saveWebDav(url: v),
+                        ),
                 ),
                 SettingTile(
                   title: context.l10n.webdavAccount,
                   subtitle: _user.isEmpty
                       ? context.l10n.webdavAccountHint
                       : _user,
-                  onTap: () => _editTextPref(
-                    title: context.l10n.webdavAccount,
-                    initial: _user,
-                    onSaved: (v) => _user = v,
-                  ),
+                  onTap: _savingConnection
+                      ? null
+                      : () => _editTextPref(
+                          title: context.l10n.webdavAccount,
+                          initial: _user,
+                          onSaved: (v) => _saveWebDav(username: v),
+                        ),
                 ),
                 SettingTile(
                   title: context.l10n.webdavPassword,
                   subtitle: _pass.isEmpty
                       ? context.l10n.webdavPasswordHint
                       : '*' * _pass.length,
-                  onTap: () => _editTextPref(
-                    title: context.l10n.webdavPassword,
-                    initial: _pass,
-                    obscure: true,
-                    onSaved: (v) => _pass = v,
-                  ),
+                  onTap: _savingConnection
+                      ? null
+                      : () => _editTextPref(
+                          title: context.l10n.webdavPassword,
+                          initial: _pass,
+                          obscure: true,
+                          onSaved: (v) => _saveWebDav(password: v),
+                        ),
                 ),
                 SettingTile(
                   title: '子目录',
                   subtitle: _dir.isEmpty ? 'legado' : _dir,
-                  onTap: () => _editTextPref(
-                    title: '子目录',
-                    initial: _dir,
-                    hint: 'legado',
-                    onSaved: (v) => _dir = v,
-                  ),
+                  onTap: _savingConnection
+                      ? null
+                      : () => _editTextPref(
+                          title: '子目录',
+                          initial: _dir,
+                          hint: 'legado',
+                          onSaved: (v) => _saveWebDav(remoteDir: v),
+                        ),
                 ),
                 SettingTile(
                   title: context.l10n.backupWebdavDeviceName,

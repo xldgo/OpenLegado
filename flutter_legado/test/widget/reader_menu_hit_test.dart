@@ -1,4 +1,7 @@
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
+import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 
 import 'dart:async';
 
@@ -75,6 +78,39 @@ class _Hits {
   int catalogTaps = 0;
 }
 
+class _ConnectionRepository implements WebDavConnectionRepository {
+  bool fail = false;
+
+  @override
+  Future<WebDavConnection> load() async {
+    if (fail) throw StateError('模拟连接读取失败');
+    return const WebDavConnection(
+      url: 'https://dav.example',
+      username: 'u',
+      password: 'p',
+    );
+  }
+
+  @override
+  Future<WebDavConnection> save(WebDavConnection connection) async =>
+      connection;
+}
+
+class _SyncNetworkApi extends MockBookApi {
+  int requests = 0;
+
+  @override
+  Future<String> webdavDownload(String configJson, String path) async {
+    requests++;
+    return '';
+  }
+
+  @override
+  Future<void> webdavUpload(String configJson, String path, String data) async {
+    requests++;
+  }
+}
+
 class _ScreenReader extends _Reader {
   final PageTurnMode mode;
   _ScreenReader([this.mode = PageTurnMode.none]);
@@ -148,13 +184,19 @@ Future<(_Reader, _Hits)> _pumpMenu(
   ReaderState? initialState,
   RouteFactory? onGenerateRoute,
   AppSettingsService? settingsService,
+  WebDavConnectionRepository? connectionRepository,
+  MockBookApi? api,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final hits = _Hits();
   final container = ProviderContainer(
     overrides: [
       readerNotifierProvider.overrideWith(() => _Reader(initialState)),
-      bookApiProvider.overrideWithValue(MockBookApi()),
+      bookApiProvider.overrideWithValue(api ?? MockBookApi()),
+      if (connectionRepository != null)
+        webDavConnectionRepositoryProvider.overrideWithValue(
+          connectionRepository,
+        ),
       if (settingsService != null)
         appSettingsServiceProvider.overrideWithValue(settingsService),
     ],
@@ -265,6 +307,34 @@ Future<ProviderContainer> _pumpReader(
 }
 
 void main() {
+  testWidgets('阅读菜单连接预加载失败不产生未捕获异常', (tester) async {
+    final repository = _ConnectionRepository()..fail = true;
+    final api = _SyncNetworkApi();
+    await _pumpMenu(tester, connectionRepository: repository, api: api);
+    expect(api.requests, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final label in ['同步阅读进度', '覆盖云端进度']) {
+    testWidgets('$label连接重读失败反馈且不沿用旧配置发网络', (tester) async {
+      final repository = _ConnectionRepository();
+      final api = _SyncNetworkApi();
+      await _pumpMenu(tester, connectionRepository: repository, api: api);
+      repository.fail = true;
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(label == '同步阅读进度' ? '同步进度失败' : '上传进度失败'),
+        findsOneWidget,
+      );
+      expect(api.requests, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('章节错误按共享自动换源开关触发，保存失败回退后仍使用当前值', (tester) async {
     final storage = HomeSettingsStorage();
     storage.values['reader_auto_change_source'] = false;

@@ -3,9 +3,13 @@
 // 覆盖 Phase 5.4 provider→Riverpod 迁移后的 WebDAV 云同步状态管理：
 // 初始状态/配置管理（saveConfig/loadConfig/toggle/setter）/真实同步操作
 // （backupToWebDav/restoreFromWebDav）/lastSyncTimeLabel/SyncStatus 枚举。
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/services/settings_service.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,6 +18,22 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';
+
+class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
+  WebDavConnection saved = const WebDavConnection();
+  Completer<void>? gate;
+  bool fail = false;
+
+  @override
+  Future<WebDavConnection> load() async => saved;
+
+  @override
+  Future<WebDavConnection> save(WebDavConnection connection) async {
+    await gate?.future;
+    if (fail) throw StateError('模拟保存失败');
+    return saved = connection.normalized;
+  }
+}
 
 void main() {
   late MockRustApi mockApi;
@@ -91,6 +111,43 @@ void main() {
   });
 
   group('SyncNotifier 配置管理', () {
+    test('仓储成功前不更新投影，失败原值保持且可重试', () async {
+      final repository = _ConnectionRepository()
+        ..saved = const WebDavConnection(url: 'https://old.example');
+      container = ProviderContainer(
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          webDavConnectionRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await readNotifier().loadConfig();
+      final gate = Completer<void>();
+      repository.gate = gate;
+      final saving = readNotifier().saveConfig(
+        ' https://new.example ',
+        ' 账号 ',
+        ' 密码 ',
+        ' /new ',
+      );
+      expect(readState().webDavUrl, 'https://old.example');
+      gate.complete();
+      await saving;
+      expect(readState().webDavUrl, 'https://new.example');
+      expect(readState().webDavPassword, ' 密码 ');
+      expect(readNotifier().normalizedRemoteDir, '/new/');
+      repository.fail = true;
+      await expectLater(
+        readNotifier().saveConfig('https://failed.example', '', '', ''),
+        throwsStateError,
+      );
+      expect(readState().webDavUrl, 'https://new.example');
+      expect(readState().status, SyncStatus.idle);
+      repository.fail = false;
+      await readNotifier().saveConfig('https://retry.example', '', '', '');
+      expect(readState().webDavUrl, 'https://retry.example');
+    });
+
     test('saveConfig 保存 WebDAV 配置（含设备名）', () async {
       await readNotifier().saveConfig(
         'https://dav.example.com',
@@ -184,7 +241,10 @@ void main() {
     test('loadConfig 触发状态变更通知', () async {
       var notified = false;
       container.listen(syncNotifierProvider, (_, _) => notified = true);
-      await SettingsService().setWebDavUrl('https://changed.com');
+      await (await SharedPreferences.getInstance()).setString(
+        'sync_webdav_url',
+        'https://changed.com',
+      );
       await readNotifier().loadConfig();
       expect(notified, isTrue);
       expect(readState().webDavUrl, 'https://changed.com');

@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/pref_keys.dart';
-import 'settings_service.dart';
 
 /// 备份 JSON 中偏好字段名（Flutter 单文件备份扩展，对齐原版 config.xml）
 const kBackupAppPrefsKey = 'appPrefs';
@@ -30,7 +29,7 @@ class RestoreIgnorePrefs {
     PrefKeys.launcherIcon,
     'readAloudWakeLock',
     'audioPlayWakeLock',
-    SettingsService.restoreIgnoreStorageKey,
+    PrefKeys.restoreIgnore,
     'reader_unified_layout_v1',
   };
 

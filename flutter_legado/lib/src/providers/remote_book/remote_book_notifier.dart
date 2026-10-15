@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/book.dart';
-import '../../services/settings_service.dart';
 import '../providers.dart';
-import '../sync/sync_notifier.dart';
+import '../webdav_connection_provider.dart';
 import 'remote_book_state.dart';
+import 'remote_server_provider.dart';
 
 export 'remote_book_state.dart';
 
@@ -17,8 +17,6 @@ export 'remote_book_state.dart';
 /// 对齐原版 RemoteBookActivity：WebDAV 服务器切换 + 目录浏览 + 下载导入。
 /// 列举：`webdavListDir`；导入：`webdavDownloadFile` → `importLocalBook`。
 class RemoteBookNotifier extends Notifier<RemoteBookState> {
-  final SettingsService _settings = SettingsService();
-
   static const _bookExts = {'epub', 'txt', 'mobi', 'pdf', 'azw3', 'umd'};
   static const _archiveExts = {'zip', 'rar', '7z'};
 
@@ -27,11 +25,10 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
 
   /// 初始化：加载服务器列表与当前选中，并拉取目录
   Future<void> init() async {
-    final servers = await _loadServers();
-    final serverId = await _settings.getRemoteServerId();
+    final saved = await ref.read(remoteServerRepositoryProvider).load();
     state = state.copyWith(
-      servers: servers,
-      serverId: serverId,
+      servers: saved.servers,
+      serverId: saved.selectedId,
       dirStack: const [],
       selectedPaths: {},
       clearError: true,
@@ -39,34 +36,28 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     await refresh();
   }
 
-  Future<List<RemoteServerConfig>> _loadServers() async {
-    try {
-      final raw = await _settings.getRemoteServersJson();
-      final list = jsonDecode(raw);
-      if (list is! List) return [];
-      return list
-          .whereType<Map>()
-          .map((e) => RemoteServerConfig.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> _persistServers(List<RemoteServerConfig> servers) async {
-    await _settings.setRemoteServersJson(
-      jsonEncode(servers.map((e) => e.toJson()).toList()),
-    );
+  String _normalizedRemoteDir(String value) {
+    final dir = value.isEmpty ? '/legado/' : value;
+    return dir.endsWith('/') ? dir : '$dir/';
   }
 
   /// 构建当前服务器的 WebDavConfig JSON
   Future<String?> buildActiveConfigJson() async {
-    if (state.serverId == SettingsService.defaultRemoteServerId) {
-      final sync = ref.read(syncNotifierProvider.notifier);
-      await sync.loadConfig();
-      final s = ref.read(syncNotifierProvider);
-      if (!s.isConfigured) return null;
-      return sync.buildConfigJson();
+    if (state.serverId == defaultRemoteServerId) {
+      final connection = await ref
+          .read(webDavConnectionRepositoryProvider)
+          .load();
+      if (connection.url.isEmpty ||
+          connection.username.isEmpty ||
+          connection.password.isEmpty) {
+        return null;
+      }
+      return jsonEncode({
+        'url': connection.url,
+        'username': connection.username,
+        'password': connection.password,
+        'remote_dir': _normalizedRemoteDir(connection.remoteDir),
+      });
     }
     RemoteServerConfig? server;
     for (final s in state.servers) {
@@ -88,9 +79,10 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
   }
 
   Future<void> selectServer(int id) async {
-    await _settings.setRemoteServerId(id);
+    final saved = await ref.read(remoteServerRepositoryProvider).select(id);
     state = state.copyWith(
-      serverId: id,
+      servers: saved.servers,
+      serverId: saved.selectedId,
       dirStack: const [],
       selectedPaths: {},
       clearError: true,
@@ -99,28 +91,20 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
   }
 
   Future<void> saveServer(RemoteServerConfig server) async {
-    final list = [...state.servers];
-    final idx = list.indexWhere((e) => e.id == server.id);
-    if (idx >= 0) {
-      list[idx] = server;
-    } else {
-      list.add(server);
-    }
-    await _persistServers(list);
-    state = state.copyWith(servers: list);
+    final saved = await ref.read(remoteServerRepositoryProvider).save(server);
+    state = state.copyWith(servers: saved.servers, serverId: saved.selectedId);
   }
 
   Future<void> deleteServer(int id) async {
-    final list = state.servers.where((e) => e.id != id).toList();
-    await _persistServers(list);
-    var serverId = state.serverId;
-    if (serverId == id) {
-      serverId = SettingsService.defaultRemoteServerId;
-      await _settings.setRemoteServerId(serverId);
-    }
-    state = state.copyWith(servers: list, serverId: serverId);
-    if (state.serverId == SettingsService.defaultRemoteServerId ||
-        state.serverId == id) {
+    final saved = await ref.read(remoteServerRepositoryProvider).delete(id);
+    final selectionChanged = saved.selectedId != state.serverId;
+    state = state.copyWith(
+      servers: saved.servers,
+      serverId: saved.selectedId,
+      dirStack: selectionChanged ? const [] : null,
+      selectedPaths: selectionChanged ? {} : null,
+    );
+    if (state.serverId == defaultRemoteServerId || state.serverId == id) {
       await refresh();
     }
   }
@@ -137,7 +121,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         state = state.copyWith(
           isLoading: false,
           items: const [],
-          error: state.serverId == SettingsService.defaultRemoteServerId
+          error: state.serverId == defaultRemoteServerId
               ? '请先在备份设置中配置默认 WebDAV，或在「服务器配置」中添加服务器'
               : '服务器配置无效',
         );
@@ -294,7 +278,17 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       state = state.copyWith(error: '请先选择要导入的书籍');
       return;
     }
-    final config = await buildActiveConfigJson();
+    String? config;
+    try {
+      config = await buildActiveConfigJson();
+    } catch (_) {
+      state = state.copyWith(
+        isImporting: false,
+        clearImported: true,
+        error: 'WebDAV 配置读取失败，请重试',
+      );
+      return;
+    }
     if (config == null) {
       state = state.copyWith(error: 'WebDAV 未配置');
       return;
@@ -317,13 +311,14 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         await api.webdavDownloadFile(config, item.relativePath, localPath);
         final book = await api.importLocalBook(localPath);
         // 对齐原版：origin = dav: + 远程路径
-        final syncNotifier = ref.read(syncNotifierProvider.notifier);
-        await syncNotifier.loadConfig();
-        final sync = ref.read(syncNotifierProvider);
-        final remoteUrl =
-            state.serverId == SettingsService.defaultRemoteServerId
-            ? '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}${item.relativePath}'
-            : item.relativePath;
+        var remoteUrl = item.relativePath;
+        if (state.serverId == defaultRemoteServerId) {
+          final connection = await ref
+              .read(webDavConnectionRepositoryProvider)
+              .load();
+          remoteUrl =
+              '${connection.url}${_normalizedRemoteDir(connection.remoteDir)}${item.relativePath}';
+        }
         await api.bookshelfRepository.updateBook(
           book.copyWith(
             origin: BookType.webDavTag + remoteUrl,

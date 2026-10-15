@@ -93,6 +93,9 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         if (mounted) {
           return ref.read(syncNotifierProvider.notifier).loadConfig();
         }
+      }).catchError((Object _) {
+        // 预加载失败交由实际同步操作重试，不记录可能含凭据的平台错误。
+        debugPrint('WebDAV 配置预加载失败，将在使用时重试');
       }),
     );
   }

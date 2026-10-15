@@ -4,11 +4,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../../domain/models/webdav_connection.dart';
 import '../../models/book.dart';
 import '../../models/misc.dart';
 import '../../services/settings_service.dart';
 import '../providers.dart';
 import '../backup_settings_provider.dart';
+import '../webdav_connection_provider.dart';
 import 'sync_state.dart';
 
 export 'sync_state.dart';
@@ -63,33 +65,39 @@ class SyncNotifier extends Notifier<SyncState> {
     String dir, {
     String deviceName = '',
   }) async {
-    final webDavUrl = url.trim();
-    final webDavUsername = username.trim();
-    final remoteDir = dir.trim().isEmpty ? '/legado/' : dir.trim();
-    final device = deviceName.trim();
+    final saved = await ref
+        .read(webDavConnectionRepositoryProvider)
+        .save(
+          WebDavConnection(
+            url: url,
+            username: username,
+            password: password,
+            remoteDir: dir,
+            deviceName: deviceName,
+          ),
+        );
+    if (!ref.mounted) return;
     state = state.copyWith(
-      webDavUrl: webDavUrl,
-      webDavUsername: webDavUsername,
-      webDavPassword: password,
-      remoteDir: remoteDir,
-      deviceName: device,
+      webDavUrl: saved.url,
+      webDavUsername: saved.username,
+      webDavPassword: saved.password,
+      remoteDir: saved.remoteDir,
+      deviceName: saved.deviceName,
     );
-    await _settings.setWebDavUrl(webDavUrl);
-    await _settings.setWebDavUsername(webDavUsername);
-    await _settings.setWebDavPassword(password);
-    await _settings.setWebDavRemoteDir(remoteDir);
-    await _settings.setWebDavDeviceName(device);
   }
 
   /// 加载已保存的 WebDAV 配置
   Future<void> loadConfig() async {
     final backup = await ref.read(backupSettingsRepositoryProvider).load();
+    final connection = await ref
+        .read(webDavConnectionRepositoryProvider)
+        .load();
     state = state.copyWith(
-      webDavUrl: await _settings.getWebDavUrl(),
-      webDavUsername: await _settings.getWebDavUsername(),
-      webDavPassword: await _settings.getWebDavPassword(),
-      remoteDir: await _settings.getWebDavRemoteDir(),
-      deviceName: await _settings.getWebDavDeviceName(),
+      webDavUrl: connection.url,
+      webDavUsername: connection.username,
+      webDavPassword: connection.password,
+      remoteDir: connection.remoteDir,
+      deviceName: connection.deviceName,
       syncBookProgress: backup.syncBookProgress,
       syncBookProgressPlus: await _settings.getSyncBookProgressPlus(),
       autoSync: await _settings.getAutoSync(),

@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../features/bookshelf/bookshelf.dart';
 import '../providers/remote_book/remote_book_notifier.dart';
 import '../routes.dart';
-import '../services/settings_service.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 
@@ -32,7 +31,10 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(remoteBookNotifierProvider.notifier).init();
+      _runServerChange(
+        () => ref.read(remoteBookNotifierProvider.notifier).init(),
+        '服务器配置读取失败，请重试',
+      );
     });
   }
 
@@ -40,6 +42,34 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  /// 所有服务器编辑入口统一处理失败，继续显示已保存的仓储投影。
+  Future<bool> _runServerChange(
+    Future<void> Function() change,
+    String failureMessage,
+  ) async {
+    try {
+      await change();
+      return true;
+    } catch (_) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('操作失败'),
+            content: Text(failureMessage),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+      return false;
+    }
   }
 
   Future<void> _onWillPop() async {
@@ -107,7 +137,7 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                       context,
                       AppRoutes.webdavSettings,
                     );
-                    await notifier.init();
+                    await _runServerChange(notifier.init, '服务器配置读取失败，请重试');
                 }
               },
               itemBuilder: (_) => [
@@ -337,7 +367,10 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                         onPressed: () async {
                           final created = await _editServerDialog();
                           if (created != null) {
-                            await notifier.saveServer(created);
+                            await _runServerChange(
+                              () => notifier.saveServer(created),
+                              '服务器配置保存失败，请重试',
+                            );
                           }
                         },
                       ),
@@ -347,14 +380,17 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                       groupValue: state.serverId,
                       onChanged: (v) async {
                         if (v == null) return;
-                        await notifier.selectServer(v);
-                        if (ctx.mounted) Navigator.pop(ctx);
+                        final saved = await _runServerChange(
+                          () => notifier.selectServer(v),
+                          '服务器切换失败，请重试',
+                        );
+                        if (saved && ctx.mounted) Navigator.pop(ctx);
                       },
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           RadioListTile<int>(
-                            value: SettingsService.defaultRemoteServerId,
+                            value: defaultRemoteServerId,
                             title: const Text('默认'),
                             subtitle: const Text('使用备份设置中的 WebDAV（books/）'),
                           ),
@@ -383,7 +419,10 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                                                 existing: s,
                                               );
                                           if (edited != null) {
-                                            await notifier.saveServer(edited);
+                                            await _runServerChange(
+                                              () => notifier.saveServer(edited),
+                                              '服务器配置保存失败，请重试',
+                                            );
                                           }
                                         },
                                       ),
@@ -412,7 +451,10 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                                             ),
                                           );
                                           if (ok == true) {
-                                            await notifier.deleteServer(s.id);
+                                            await _runServerChange(
+                                              () => notifier.deleteServer(s.id),
+                                              '服务器删除失败，请重试',
+                                            );
                                           }
                                         },
                                       ),
@@ -443,7 +485,7 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
     final urlCtrl = TextEditingController(text: existing?.url ?? '');
     final userCtrl = TextEditingController(text: existing?.username ?? '');
     final passCtrl = TextEditingController(text: existing?.password ?? '');
-    final result = await showDialog<RemoteServerConfig>(
+    final dialog = DialogRoute<RemoteServerConfig>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(existing == null ? '添加服务器' : '编辑服务器'),
@@ -502,6 +544,12 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
         ],
       ),
     );
+    final result = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(dialog);
+    // 退出动画仍会使用表单，等路由真正移除后再释放控制器。
+    await dialog.completed;
     nameCtrl.dispose();
     urlCtrl.dispose();
     userCtrl.dispose();

@@ -1,3 +1,7 @@
+import '../../domain/models/remote_server_config.dart';
+
+export '../../domain/models/remote_server_config.dart';
+
 /// 远程书库条目（对齐原版 RemoteBook / WebDavFileInfo）
 class RemoteBookItem {
   final String filename;
@@ -23,55 +27,6 @@ class RemoteBookItem {
     lastModified: lastModified,
     isDir: isDir,
     isOnBookShelf: isOnBookShelf ?? this.isOnBookShelf,
-  );
-}
-
-/// 远程书库自定义服务器（对齐原版 Server + WebDavConfig）
-class RemoteServerConfig {
-  final int id;
-  final String name;
-  final String url;
-  final String username;
-  final String password;
-
-  const RemoteServerConfig({
-    required this.id,
-    required this.name,
-    required this.url,
-    this.username = '',
-    this.password = '',
-  });
-
-  factory RemoteServerConfig.fromJson(Map<String, dynamic> json) {
-    return RemoteServerConfig(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: (json['name'] as String?) ?? '',
-      url: (json['url'] as String?) ?? '',
-      username: (json['username'] as String?) ?? '',
-      password: (json['password'] as String?) ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'url': url,
-    'username': username,
-    'password': password,
-  };
-
-  RemoteServerConfig copyWith({
-    int? id,
-    String? name,
-    String? url,
-    String? username,
-    String? password,
-  }) => RemoteServerConfig(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    url: url ?? this.url,
-    username: username ?? this.username,
-    password: password ?? this.password,
   );
 }
 
@@ -102,7 +57,7 @@ class RemoteBookState {
     this.filter = '',
     this.sortKey = RemoteBookSort.time,
     this.sortAscending = false,
-    this.serverId = -1,
+    this.serverId = defaultRemoteServerId,
     this.servers = const [],
     this.importedCount,
     this.error,
@@ -110,7 +65,7 @@ class RemoteBookState {
 
   /// 展示路径（对齐原版 tvPath：默认 books/，自定义服务器从 / 起）
   String get displayPath {
-    final isDefault = serverId == -1;
+    final isDefault = serverId == defaultRemoteServerId;
     final buf = StringBuffer(isDefault ? 'books/' : '/');
     for (final d in dirStack) {
       buf.write(d.filename);
@@ -121,7 +76,7 @@ class RemoteBookState {
 
   /// 当前相对 remote_dir 的列举路径
   String get listPath {
-    if (serverId == -1) {
+    if (serverId == defaultRemoteServerId) {
       if (dirStack.isEmpty) return 'books/';
       return 'books/${dirStack.map((e) => e.filename).join('/')}/';
     }

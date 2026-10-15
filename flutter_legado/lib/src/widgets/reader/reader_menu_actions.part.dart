@@ -56,7 +56,6 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final book = reader.currentBook;
     if (book == null) return;
     final syncNotifier = ref.read(syncNotifierProvider.notifier);
-    await syncNotifier.loadConfig();
     final liveBook = book.copyWith(
       durChapterIndex: reader.currentChapterIndex,
       durChapterPos: reader.currentChapterPos,
@@ -64,6 +63,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       durChapterTime: DateTime.now().millisecondsSinceEpoch,
     );
     try {
+      await syncNotifier.loadConfig();
       final result = await syncNotifier.syncBookProgressForBook(
         liveBook,
         onCloudNewer: (progress) async {
@@ -126,7 +126,6 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final book = reader.currentBook;
     if (book == null) return;
     final syncNotifier = ref.read(syncNotifierProvider.notifier);
-    await syncNotifier.loadConfig();
     final liveBook = book.copyWith(
       durChapterIndex: reader.currentChapterIndex,
       durChapterPos: reader.currentChapterPos,
@@ -134,6 +133,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       durChapterTime: DateTime.now().millisecondsSinceEpoch,
     );
     try {
+      await syncNotifier.loadConfig();
       await syncNotifier.uploadBookProgress(liveBook);
       if (!context.mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('进度上传成功')));

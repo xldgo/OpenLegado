@@ -4,7 +4,7 @@
 HapeLee/legado-with-MD3 的 `60a7cca34dd3e0be456e0f05c10c036c64b70e35`。
 本文保存职责划分、字段归属、迁移方法与验收标准；实施授权、当前任务与验证结果
 只维护在 [活动计划](REFACTORING_ACTIVE_PLAN.md)。第6节保留历史基线盘点，
-第10～23节说明普通偏好、阅读分组与旧服务清理边界；后续按第7节的领域顺序推进。
+第10～25节说明普通偏好、阅读分组、旧服务清理、连接仓储及恢复忽略配置边界；后续按第7节的领域顺序推进。
 
 ## 1. 设计目标
 
@@ -392,7 +392,7 @@ B1审计时的高级存储包含下列解码/迁移键，仅作历史输入记�
 | 隐私密码/授权 | 原 PrivacyCredentialRepository 与进程会话；本批不合并本地密码、WebDAV 密码或令牌 |
 
 B1基线的SettingsService曾有69个公开异步方法，按以下互不重叠的组归档；
-以下表格仅保留审计来源，当前保留接口见第23节。无调用方判定排除
+以下表格仅保留审计来源，清理边界见第23节，连接迁出后的职责见第24节。无调用方判定排除
 定义、生成代码、测试和其他对象的同名方法；例如 AppLocaleNotifier.setLocale
 不是 SettingsService.setLocale 的消费者。
 
@@ -966,7 +966,8 @@ ReaderScreen不再保留高级配置副本；原onOpenAdvancedConfig在菜单内
 
 ## 23. 旧SettingsService失效入口清理
 
-本节规定B4的保留边界；第6节的方法数量与消费者属于B1历史审计，不作为当前接口表。
+本节记录B4清理结束时的保留边界，连接随后按第24节迁出；
+第6节的方法数量与消费者属于B1历史审计，不作为当前接口表。
 进入本批时SettingsService还有56个公开异步方法，逐项核对生产调用和方法引用后
 删除30个，只保留26个。SystemBrightness、AppLocaleNotifier、SyncNotifier的同名
 方法分别承担原生亮度、语言及同步编排，不能误算成旧SettingsService的消费者。
@@ -1001,5 +1002,75 @@ SettingsService不再描述为阅读设置服务，只作为尚存连接、结�
 删除仅验证旧亮度、语言及代理/超时读写的8项专属测试，保留已有WebDAV测试，
 不新增只反映方法删除的测试框架。现有领域仓储、同步/远程书库、恢复及设置界面
 回归继续验证实际行为；执行结果与平台边界仅登记在活动计划。
+
+编写者：Codex｜2026-10-15
+
+## 24. 连接配置与远程服务器仓储
+
+连接配置含凭据和结构化实体，不纳入普通偏好的AppSettingsStore。存储介质继续使用
+SharedPreferences，按实际职责建立独立仓储；不为统一入口迁移数据库或新增依赖。
+
+| 归属 | 内容 | 原存储与默认 |
+|---|---|---|
+| WebDavConnectionRepository | 地址、账号、密码、子目录、设备名 | sync_webdav_*五键；空连接，目录/legado/ |
+| RemoteServerRepository | 自定义服务器列表及当前服务器标识 | remote_servers原JSON、remote_server_id；默认-1 |
+| BackupSettingsRepository | 备份路径、同步书籍进度等普通偏好 | 原普通偏好键，沿用共享AppSettingsService |
+| SettingsService剩余适配 | 同步扩展、自动同步、上次同步时间及恢复忽略等 | 本轮保持原实现，后续按实际消费者拆分 |
+
+连接值对象与服务器实体放在domain/models，仓储接口放在domain/contracts，
+Preferences实现在data/repositories，通过Provider注入。数据层不依赖界面状态模型，
+页面及Notifier不解析持久化JSON或自行维护列表的读改写算法。
+
+WebDAV保存沿用地址、账号、目录与设备名的trim规则；密码原样保存。空目录使用
+/legado/，传给现有WebDAV接口时保持末尾斜线及原JSON字段，不改变Rust/FFI契约。
+默认远程书库直接读取同一个连接仓储，不再为取得连接而初始化整个同步Notifier。
+
+仓储复用SettingsWriteQueue串行完成读取及保存。每次增删改基于持久化的最新列表，
+不把Notifier的展示快照作为下一次写入的唯一依据。检查Preferences写入结果并传播失败，
+同步状态及服务器列表只在保存成功后更新；设置页负责错误提示和重新编辑。
+涉及多个键时回退已尝试写入的字段，避免常规写入失败留下半份连接或失效选中项；
+这不等同SharedPreferences具有数据库事务或断电原子性，不增加灾难恢复协议。
+
+自定义服务器JSON仍含id、name、url、username、password；删除当前服务器后回到-1，
+默认books/路径、自定义服务器根目录、浏览、下载与导入行为保持。
+连接与服务器配置不增加旧键迁移、双读、兼容标识或冗余可写缓存；界面编辑草稿与
+已保存配置区分，缺键按原默认值读取，实际读写异常不得伪装成成功。
+
+迁出后删除SettingsService原十个WebDAV方法、四个远程服务器方法及默认服务器常量，
+只剩十二个有效方法：同步扩展/自动同步/上次同步时间六项、恢复忽略两项、
+通用读取与主题预设检查写入四项。默认服务器标识由领域模型定义，
+RemoteBookState仅持有展示快照，不再定义持久化服务器实体。
+
+实际读取错误由调用方按操作反馈：远程导入清除旧成功计数并展示失败，云端进度及
+详情上传在读取失败时终止本次操作；菜单预加载失败留给实际操作重试。服务器操作
+失败使用位于sheet上方的错误对话框，选择失败保留服务器列表；编辑弹窗通过
+DialogRoute.completed等待退场结束后释放控制器，避免动画期间访问已释放的表单资源。
+
+编写者：Codex｜2026-10-15
+
+## 25. 恢复忽略配置的独立访问
+
+恢复忽略配置是一份结构化的备份策略，由RestoreIgnoreRepository与Preferences实现
+读取和保存，不放入普通标量的AppSettingsStore。保留单个restoreIgnore JSON字符串，
+不拆成八个新键，也不增加旧键双读或迁移层。
+
+RestoreIgnoreConfig提供不可变的已知项布尔映射，缺省全部false，顺序为readConfig、
+themeMode、themeConfig、coverConfig、bookshelfLayout、showRss、threadCount、localBook。
+保持原解码规则：只接受值为true的已知项，忽略未知项，缺失或损坏JSON回到原默认；
+实际平台读取异常向调用方传播，不把读取失败解释为已成功加载默认策略。
+中文标题由对话框维护，不由存储服务或数据模型持有展示职责。
+
+WebDavSettingsScreen注入仓储，RestoreIgnoreDialog只维护当前编辑草稿，取消不写入。
+保存操作复用现有写队列并检查Preferences返回值；写入拒绝或异常时恢复已尝试键的
+缓存和存储值，错误交给页面提示，只有保存成功才显示“已保存恢复忽略项”。
+再次打开读取已保存值，不把未保存草稿当成实际策略。
+
+本地备份和恢复读取同一配置后，把普通Map交给既有RestoreIgnorePrefs过滤流程。
+不修改过滤集合、备份JSON、zip路径或本地书识别算法；restoreIgnore自身仍始终排除，
+保持本机忽略策略不被备份中的同名项覆盖。共享键由PrefKeys定义，不让过滤助手
+依赖具体仓储实现或旧SettingsService。
+
+迁出后SettingsService只保留同步元数据及原有通用读取/主题预设检查写入十个方法。
+自动同步和同步增强尚未实现的功能保持原状态，不借本轮启用或调整调度。
 
 编写者：Codex｜2026-10-15

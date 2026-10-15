@@ -12,10 +12,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 
 import '../mocks/mocks.dart';
+
+class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
+  WebDavConnection saved = const WebDavConnection(url: 'https://saved.example');
+  bool failSave = true;
+  bool failLoad = false;
+
+  @override
+  Future<WebDavConnection> load() async {
+    if (failLoad) throw StateError('模拟读取失败');
+    return saved;
+  }
+
+  @override
+  Future<WebDavConnection> save(WebDavConnection connection) async {
+    if (failSave) throw StateError('模拟保存失败');
+    return saved = connection.normalized;
+  }
+}
 
 void main() {
   late MockRustApi mockApi;
@@ -32,15 +53,61 @@ void main() {
         .thenAnswer((_) async => const []);
   });
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    WebDavConnectionRepository? repository,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          if (repository != null)
+            webDavConnectionRepositoryProvider.overrideWithValue(repository),
+        ],
         child: const MaterialApp(home: WebDavSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('连接保存失败提示并保持已保存展示，再编辑成功可重试', (tester) async {
+    final repository = _ConnectionRepository();
+    await pumpScreen(tester, repository: repository);
+    expect(find.text('https://saved.example'), findsOneWidget);
+
+    await tester.tap(find.text('WebDAV 服务器地址'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'https://unsaved.example');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WebDAV 连接保存失败，请重试'), findsOneWidget);
+    expect(find.text('https://saved.example'), findsOneWidget);
+    expect(find.text('https://unsaved.example'), findsNothing);
+    expect(repository.saved.url, 'https://saved.example');
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('WebDAV 服务器地址'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'https://saved.example',
+    );
+    repository.failSave = false;
+    await tester.enterText(find.byType(TextField), ' https://retry.example ');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('https://retry.example'), findsOneWidget);
+    expect(repository.saved.url, 'https://retry.example');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('连接读取异常由页面提示处理', (tester) async {
+    final repository = _ConnectionRepository()..failLoad = true;
+    await pumpScreen(tester, repository: repository);
+    expect(find.text('备份设置读取失败，请重试'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('地址为空：点击「测试配置」提示「请先填写服务器地址」', (tester) async {
     await pumpScreen(tester);
