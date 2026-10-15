@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../providers.dart';
+import '../rule_sub_repository_provider.dart';
+import '../../domain/models/rule_sub_update_result.dart';
 
 /// 规则订阅列表状态
 class RuleSubState {
@@ -30,7 +29,7 @@ class RuleSubState {
   }
 }
 
-/// 规则订阅 Notifier（接通契约 §2.39 ruleSub* 七方法）
+/// 规则订阅状态通过仓储与更新服务访问（契约 §2.39）。
 ///
 /// 对标原版 RuleSubActivity 数据职责：列表 CRUD / 拖拽排序 /
 /// 启用切换 / 检查更新 / 应用更新。URL 重复校验在 UI 层
@@ -43,9 +42,8 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
   Future<void> loadSubs() async {
     state = state.copyWith(loading: state.subs.isEmpty, clearError: true);
     try {
-      final api = ref.read(bookApiProvider);
-      final list = await api.ruleSubList();
-      final subs = list.map(RuleSub.fromJson).toList()
+      final list = await ref.read(ruleSubRepositoryProvider).ruleSubList();
+      final subs = List<RuleSub>.of(list)
         ..sort((a, b) => a.customOrder.compareTo(b.customOrder));
       state = state.copyWith(subs: subs, loading: false);
     } catch (e) {
@@ -64,7 +62,6 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
   /// 新增/更新订阅（对标原版 okButton 保存；新增时 customOrder 追加到末尾）
   Future<void> saveSub(RuleSub sub) async {
     try {
-      final api = ref.read(bookApiProvider);
       final effective = sub.id > 0
           ? sub
           : sub.copyWith(
@@ -78,7 +75,10 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
                   ? sub.createdAt
                   : DateTime.now().millisecondsSinceEpoch,
             );
-      await api.ruleSubSave(subJson: jsonEncode(effective.toJson()));
+      _requireSuccess(
+        await ref.read(ruleSubRepositoryProvider).ruleSubSave(effective),
+        '保存订阅失败',
+      );
       await loadSubs();
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
@@ -88,8 +88,10 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
   /// 删除订阅（对标原版 delSubscription）
   Future<void> deleteSub(int id) async {
     try {
-      final api = ref.read(bookApiProvider);
-      await api.ruleSubDelete(id: id);
+      _requireSuccess(
+        await ref.read(ruleSubRepositoryProvider).ruleSubDelete(id: id),
+        '删除订阅失败',
+      );
       state = state.copyWith(
         subs: state.subs.where((s) => s.id != id).toList(),
       );
@@ -103,8 +105,12 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
     final index = state.subs.indexWhere((s) => s.id == id);
     if (index == -1) return;
     try {
-      final api = ref.read(bookApiProvider);
-      await api.ruleSubSetEnabled(id: id, enabled: enabled);
+      _requireSuccess(
+        await ref
+            .read(ruleSubRepositoryProvider)
+            .ruleSubSetEnabled(id: id, enabled: enabled),
+        '切换订阅状态失败',
+      );
       final subs = List<RuleSub>.of(state.subs);
       subs[index] = subs[index].copyWith(isEnabled: enabled);
       state = state.copyWith(subs: subs);
@@ -122,24 +128,30 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
     // 乐观更新 UI
     state = state.copyWith(subs: subs);
     try {
-      final api = ref.read(bookApiProvider);
-      await api.ruleSubUpdateOrder(ids: subs.map((s) => s.id).toList());
+      _requireSuccess(
+        await ref
+            .read(ruleSubRepositoryProvider)
+            .ruleSubUpdateOrder(ids: subs.map((s) => s.id).toList()),
+        '保存订阅顺序失败',
+      );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
       await loadSubs();
+      state = state.copyWith(error: _mapError(e));
     }
   }
 
   /// 检查更新（契约 §2.39 CheckUpdate：dueForUpdate / hasUpdate / error）
-  Future<Map<String, dynamic>> checkUpdate(int id) {
-    return ref.read(bookApiProvider).ruleSubCheckUpdate(id: id);
+  Future<RuleSubCheckResult> checkUpdate(int id) {
+    return ref.read(ruleSubServiceProvider).ruleSubCheckUpdate(id: id);
   }
 
   /// 应用更新（契约 §2.39 ApplyUpdate：success / items* / error）
-  Future<Map<String, dynamic>> applyUpdate(int id) async {
-    final result = await ref.read(bookApiProvider).ruleSubApplyUpdate(id: id);
+  Future<RuleSubApplyResult> applyUpdate(int id) async {
+    final result = await ref
+        .read(ruleSubServiceProvider)
+        .ruleSubApplyUpdate(id: id);
     // 应用成功后 Rust 已回写版本号与最后更新时间，刷新列表
-    if (result['success'] == true) await loadSubs();
+    if (result.success) await loadSubs();
     return result;
   }
 
@@ -154,3 +166,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
 final ruleSubNotifierProvider = NotifierProvider<RuleSubNotifier, RuleSubState>(
   RuleSubNotifier.new,
 );
+
+void _requireSuccess(bool success, String message) {
+  if (!success) throw StateError(message);
+}

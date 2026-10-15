@@ -39,7 +39,9 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       // FFI 不可用时保持默认开启（不再以 SP 镜像为权威态）
     }
     try {
-      final rules = await ref.read(bookApiProvider).getEnabledReplaceRules();
+      final rules = await ref
+          .read(replaceRuleRepositoryProvider)
+          .getEnabledReplaceRules();
       if (mounted) setState(() => _effectiveReplaceCount = rules.length);
     } catch (_) {
       // 替换规则 API 不可用时不展示计数

@@ -17,9 +17,7 @@ import '../widgets/help/show_help.dart';
 /// 字典查询页面
 ///
 /// 优先查询内置本地词典，未命中时可通过在线词典规则跳转查询。
-/// 在线词典规则经 [DictNotifier] 持久化到 Rust 配置库（BookApi.getConfig/setConfig），
-/// 不再使用 SharedPreferences；词典查询已接通 Rust FFI（BookApi.dictLookup，
-/// 见 dict_notifier.dart）。[审计修复 §4.5] 清理陈旧注释 — Qoder
+/// 在线规则与管理页共用SQLite规则仓储，释义查询委托DictionaryService。
 class DictScreen extends ConsumerStatefulWidget {
   const DictScreen({super.key});
 
@@ -99,8 +97,12 @@ class _DictScreenState extends ConsumerState<DictScreen> {
           IconButton(
             icon: const Icon(Symbols.manage_search_rounded),
             tooltip: '规则管理',
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.dictRule),
+            onPressed: () async {
+              await Navigator.of(context).pushNamed(AppRoutes.dictRule);
+              if (mounted) {
+                await ref.read(dictNotifierProvider.notifier).loadRules();
+              }
+            },
           ),
         ],
       ),
@@ -114,6 +116,9 @@ class _DictScreenState extends ConsumerState<DictScreen> {
     }
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null) {
+      return Center(child: Text(state.error!));
     }
     final entry = state.result;
     final notFound = entry == null || entry.definitions.isEmpty;
@@ -260,6 +265,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
             spacing: 8,
             runSpacing: 8,
             children: state.rules
+                .where((rule) => rule.enabled)
                 .map(
                   (rule) => ActionChip(
                     avatar: const Icon(Symbols.open_in_new_rounded, size: 16),
@@ -312,10 +318,18 @@ class _DictScreenState extends ConsumerState<DictScreen> {
                           trailing: IconButton(
                             icon: const Icon(Symbols.delete_rounded, size: 20),
                             onPressed: () async {
-                              await ref
+                              final removed = await ref
                                   .read(dictNotifierProvider.notifier)
                                   .deleteRule(index);
                               setDialogState(() {});
+                              if (!removed && mounted) {
+                                final error = ref
+                                    .read(dictNotifierProvider)
+                                    .error;
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(content: Text('删除失败：$error')),
+                                );
+                              }
                             },
                           ),
                         );
@@ -390,11 +404,16 @@ class _DictScreenState extends ConsumerState<DictScreen> {
               final name = nameCtrl.text.trim();
               final url = urlCtrl.text.trim();
               if (name.isEmpty || url.isEmpty) return;
-              await ref
+              final saved = await ref
                   .read(dictNotifierProvider.notifier)
                   .addRule(DictRule(name: name, urlRule: url));
               onSaved(() {});
-              if (editCtx.mounted) Navigator.of(editCtx).pop();
+              if (saved && editCtx.mounted) Navigator.of(editCtx).pop();
+              if (!saved && mounted) {
+                final error = ref.read(dictNotifierProvider).error;
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('保存失败：$error')));
+              }
             },
             child: const Text('保存'),
           ),

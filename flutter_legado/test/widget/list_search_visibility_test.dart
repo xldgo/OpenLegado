@@ -27,7 +27,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('替换规则默认隐藏，展开后实时筛选，收起不改已有条件', (tester) async {
     final api = MockRustApi();
-    when(() => api.getReplaceRules()).thenAnswer(
+    when(() => api.replaceRuleRepository.getReplaceRules()).thenAnswer(
       (_) async => [
         const ReplaceRule(id: 1, name: '甲规则', pattern: '甲'),
         const ReplaceRule(id: 2, name: '乙规则', pattern: '乙'),

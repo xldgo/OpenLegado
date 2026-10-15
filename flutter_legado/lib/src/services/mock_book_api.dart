@@ -1,3 +1,25 @@
+import '../data/repositories/mock_cache_repository.dart';
+import '../data/services/mock_database_maintenance_service.dart';
+import '../domain/contracts/cache_repository.dart';
+import '../domain/contracts/database_maintenance_service.dart';
+import '../domain/contracts/app_log_repository.dart';
+import '../data/repositories/mock_app_log_repository.dart';
+import '../domain/contracts/dictionary_service.dart';
+import '../domain/contracts/dict_rule_repository.dart';
+import '../data/services/mock_dictionary_service.dart';
+import '../data/repositories/mock_dict_rule_repository.dart';
+import '../domain/contracts/highlight_repository.dart';
+import '../domain/contracts/highlight_rule_repository.dart';
+import '../data/repositories/mock_highlight_repository.dart';
+import '../data/repositories/mock_highlight_rule_repository.dart';
+import '../data/repositories/mock_rule_sub_repository.dart';
+import '../data/services/mock_rule_sub_service.dart';
+import '../domain/contracts/rule_sub_repository.dart';
+import '../domain/contracts/rule_sub_service.dart';
+import '../data/repositories/mock_replace_rule_repository.dart';
+import '../data/services/mock_replace_rule_service.dart';
+import '../domain/contracts/replace_rule_repository.dart';
+import '../domain/contracts/replace_rule_service.dart';
 import '../data/repositories/mock_rss_star_repository.dart';
 import '../data/repositories/mock_rss_read_record_repository.dart';
 import '../data/repositories/mock_rss_article_repository.dart';
@@ -102,6 +124,31 @@ class MockBookApi
         MockBookApiContentExt
     implements BookApi {
   @override
+  late final CacheRepository cacheRepository;
+  @override
+  late final DatabaseMaintenanceService databaseMaintenanceService;
+
+  @override
+  late final RuleSubRepository ruleSubRepository;
+  @override
+  late final HighlightRepository highlightRepository;
+  @override
+  late final DictionaryService dictionaryService;
+  @override
+  late final AppLogRepository appLogRepository;
+  @override
+  late final DictRuleRepository dictRuleRepository;
+  @override
+  late final HighlightRuleRepository highlightRuleRepository;
+  @override
+  late final RuleSubService ruleSubService;
+
+  @override
+  late final ReplaceRuleRepository replaceRuleRepository;
+  @override
+  late final ReplaceRuleService replaceRuleService;
+
+  @override
   late final RssSourceRepository rssSourceRepository;
 
   @override
@@ -127,6 +174,17 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    CacheRepository? cacheRepository,
+    DatabaseMaintenanceService? databaseMaintenanceService,
+    AppLogRepository? appLogRepository,
+    DictionaryService? dictionaryService,
+    DictRuleRepository? dictRuleRepository,
+    HighlightRepository? highlightRepository,
+    HighlightRuleRepository? highlightRuleRepository,
+    RuleSubRepository? ruleSubRepository,
+    RuleSubService? ruleSubService,
+    ReplaceRuleRepository? replaceRuleRepository,
+    ReplaceRuleService? replaceRuleService,
     RssSourceRepository? rssSourceRepository,
     RssArticleRepository? rssArticleRepository,
     RssReadRecordRepository? rssReadRecordRepository,
@@ -143,6 +201,25 @@ class MockBookApi
     SearchService? searchService,
     SearchHistoryRepository? searchHistoryRepository,
   }) {
+    this.cacheRepository = cacheRepository ?? const MockCacheRepository();
+    this.databaseMaintenanceService =
+        databaseMaintenanceService ?? const MockDatabaseMaintenanceService();
+    this.appLogRepository = appLogRepository ?? MockAppLogRepository();
+    this.dictionaryService = dictionaryService ?? const MockDictionaryService();
+    this.dictRuleRepository = dictRuleRepository ?? MockDictRuleRepository();
+    this.highlightRepository = highlightRepository ?? MockHighlightRepository();
+    this.highlightRuleRepository =
+        highlightRuleRepository ??
+        MockHighlightRuleRepository(nextId: () => _nextId++);
+    this.ruleSubRepository = ruleSubRepository ?? MockRuleSubRepository();
+    this.ruleSubService =
+        ruleSubService ??
+        MockRuleSubService(repository: this.ruleSubRepository);
+    this.replaceRuleRepository =
+        replaceRuleRepository ??
+        MockReplaceRuleRepository(nextId: () => _nextId++);
+    this.replaceRuleService =
+        replaceRuleService ?? const MockReplaceRuleService();
     this.rssSourceRepository =
         rssSourceRepository ??
         MockRssSourceRepository(withDefaultSources: true);

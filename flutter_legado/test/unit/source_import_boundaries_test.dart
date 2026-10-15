@@ -329,8 +329,13 @@ void main() {
       when(
         () => api.httpGet(any()),
       ).thenAnswer((_) async => jsonEncode({'status': 200, 'body': _source}));
-      when(() => api.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((inv) async => inv.positionalArguments.first as String);
+      when(
+        () => api.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((inv) async => inv.positionalArguments.first as String);
       when(() => api.bookSourceRepository.importBookSources(any()))
           .thenAnswer((_) async => 1);
     }
@@ -350,8 +355,11 @@ void main() {
         .called(2);
     for (final api in [first, second]) {
       verify(
-        () =>
-            api.applyReplaceRulesToSource(any(), '中文源', 'https://source.test'),
+        () => api.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          '中文源',
+          'https://source.test',
+        ),
       ).called(2);
       verifyNever(() => api.initialize());
     }

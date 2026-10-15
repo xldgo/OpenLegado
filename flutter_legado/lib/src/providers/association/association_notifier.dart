@@ -1,3 +1,5 @@
+import '../dictionary_provider.dart';
+import '../replace_rule_repository_provider.dart';
 import '../rss_repository_provider.dart';
 
 import 'dart:convert';
@@ -28,7 +30,7 @@ export 'association_state.dart';
 /// 对齐原版 BaseAssociationViewModel.importJson 流程：
 /// - 加载内容（URL / 文件 / 剪贴板）→ JSON 解析 → 类型自动识别
 /// - 拉取本地快照，逐条计算新/更新/已存在状态
-/// - 确认导入按类型走真实 FFI（书源/RSS/TTS 批量；替换规则按名 upsert；字典/TXT 规则配置合并）
+/// - 确认导入按类型走对应仓储；TXT规则配置沿用现有合并。
 class AssociationNotifier extends Notifier<AssociationState> {
   @override
   AssociationState build() => const AssociationState();
@@ -214,7 +216,10 @@ class AssociationNotifier extends Notifier<AssociationState> {
           return map;
         case ImportType.replaceRule:
           final map = <String, ReplaceRule>{};
-          for (final r in await _api.getReplaceRules()) {
+          for (final r
+              in await ref
+                  .read(replaceRuleRepositoryProvider)
+                  .getReplaceRules()) {
             map[r.name] = r;
           }
           return map;
@@ -226,7 +231,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
           }
           return map;
         case ImportType.dictRule:
-          return await _readConfigList('dict_rules');
+          return (await ref.read(dictRuleRepositoryProvider).dictRuleList())
+              .map((rule) => rule.toJson())
+              .toList();
         case ImportType.txtTocRule:
           return await _readConfigList('txt_toc_rules');
         case ImportType.theme:
@@ -416,7 +423,8 @@ class AssociationNotifier extends Notifier<AssociationState> {
   ) async {
     final locals = <String, ReplaceRule>{};
     try {
-      for (final r in await _api.getReplaceRules()) {
+      for (final r
+          in await ref.read(replaceRuleRepositoryProvider).getReplaceRules()) {
         locals[r.name] = r;
       }
     } catch (_) {}
@@ -428,9 +436,11 @@ class AssociationNotifier extends Notifier<AssociationState> {
         if (rule.name.isEmpty) throw Exception('缺少名称');
         final local = locals[rule.name];
         if (local == null) {
-          await _api.addReplaceRule(rule);
+          await ref.read(replaceRuleRepositoryProvider).addReplaceRule(rule);
         } else {
-          await _api.updateReplaceRule(rule.copyWith(id: local.id));
+          await ref
+              .read(replaceRuleRepositoryProvider)
+              .updateReplaceRule(rule.copyWith(id: local.id));
         }
         success++;
       } catch (e) {
@@ -524,30 +534,24 @@ class AssociationNotifier extends Notifier<AssociationState> {
     );
   }
 
-  /// 导入字典规则（按名称 upsert 合并写入配置键 dict_rules）
+  /// 通过同一仓储按名称导入，查询与管理可立即重新读取。
   Future<ImportResult> _importDictRules(
     ImportType type,
     List<Map<String, dynamic>> items,
   ) async {
-    final existing = await _readConfigList('dict_rules');
     var success = 0;
     final errors = <String>[];
     for (final item in items) {
       try {
         final rule = DictRule.fromJson(item);
         if (rule.name.isEmpty) throw Exception('缺少名称');
-        final idx = existing.indexWhere((e) => e['name'] == rule.name);
-        if (idx >= 0) {
-          existing[idx] = rule.toJson(); // 同名覆盖（对应原版 importSelect）
-        } else {
-          existing.add(rule.toJson());
-        }
-        success++;
+        success += await ref
+            .read(dictRuleRepositoryProvider)
+            .dictRuleImport(jsonOrUrl: jsonEncode(rule.toJson()), kind: 'text');
       } catch (e) {
         errors.add('导入字典规则「${item['name']}」失败：$e');
       }
     }
-    await _api.setConfig('dict_rules', jsonEncode(existing));
     return ImportResult(
       total: items.length,
       success: success,

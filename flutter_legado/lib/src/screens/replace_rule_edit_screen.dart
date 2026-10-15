@@ -1,3 +1,4 @@
+import '../providers/replace_rule_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
@@ -10,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/replace_rule/replace_rule_notifier.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
@@ -30,7 +30,7 @@ import 'code_edit_screen.dart';
 /// 对标原版 menu replace_edit.xml（menu_save always、menu_copy_rule /
 /// menu_paste_rule never、menu_fullscreen_edit always → 归入 ⋮ 菜单）。
 ///
-/// 保存链路沿用现有 `bookApi` 的 replaceRule 增删改方法（不新开数据链）；
+/// 保存链路使用共享ReplaceRuleRepository，预览使用独立执行服务；
 /// 分组下拉复用现有分组数据来源（规则列表中的 group 字段，逗号分隔多分组）。
 class ReplaceRuleEditScreen extends ConsumerStatefulWidget {
   /// 已有规则（编辑模式）；null 表示新建
@@ -407,7 +407,7 @@ class _ReplaceRuleEditScreenState extends ConsumerState<ReplaceRuleEditScreen> {
     final ruleJson = jsonEncode(_currentRule().toJson());
     try {
       final output = await ref
-          .read(bookApiProvider)
+          .read(replaceRuleServiceProvider)
           .previewReplaceRule(ruleJson, sample);
       if (seq != _previewSeq || !mounted) return;
       _updatePreview(output, null);

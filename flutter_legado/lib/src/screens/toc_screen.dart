@@ -1,3 +1,5 @@
+import '../domain/models/book_highlight.dart';
+import '../providers/highlight_repository_provider.dart';
 import '../providers/chapter_cache_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
@@ -36,7 +38,7 @@ import '../utils/book_open_utils.dart';
 ///   章节字数胶囊（[PARITY C2 T2]，受「加载字数」开关控制）、
 ///   缓存状态图标（[P2-28]，对齐原版 ChapterListAdapter.upHasCache 三态）
 ///   [PARITY C2 T4] 底部当前章节信息条 + 跳转顶/底已移除（跳转能力保留于目录 FAB）
-/// - 书签 Tab 经 BookmarkRepository / bookmarkNotifier；标注经 BookApi.highlightListByBook
+/// - 书签 Tab 经 BookmarkRepository / bookmarkNotifier；标注经 HighlightRepository.highlightListByBook
 /// - 溢出菜单对齐 book_toc.xml 顺序与条件显隐（随 Tab 切换，对齐 TocActivity.onMenuOpened）
 /// - 返回值：选中章节 index（int），供调用方走现有阅读跳转链路
 /// - [P2-28b] 章节行缓存状态三态（未缓存=离线下载图标⬇ / 已缓存=无图标 /
@@ -184,8 +186,8 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 参考版 CacheDownloadStateStore.markFailed/markSuccess 语义）。
   Set<int> _failedIndices = const {};
 
-  /// 标注列表（BookHighlight JSON 解析后的 Map，经 BookApi.highlightListByBook）
-  List<Map<String, dynamic>> _highlights = [];
+  /// 标注列表（BookHighlight实体，经 HighlightRepository.highlightListByBook）
+  List<BookHighlight> _highlights = [];
   bool _highlightsLoading = true;
   String? _highlightsError;
 
@@ -516,24 +518,19 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
   }
 
-  /// 加载标注列表（经 BookApi.highlightListByBook，返回 BookHighlight 数组 JSON）
+  /// 加载标注列表（经 HighlightRepository.highlightListByBook，返回BookHighlight实体列表）
   Future<void> _loadHighlights() async {
     setState(() {
       _highlightsLoading = true;
       _highlightsError = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      final json = await api.highlightListByBook(bookUrl: _book.bookUrl);
-      final decoded = jsonDecode(json);
+      final highlights = await ref
+          .read(highlightRepositoryProvider)
+          .highlightListByBook(bookUrl: _book.bookUrl);
       if (!mounted) return;
       setState(() {
-        _highlights = decoded is List
-            ? decoded
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e))
-                  .toList()
-            : <Map<String, dynamic>>[];
+        _highlights = highlights;
         _highlightsLoading = false;
       });
     } catch (e) {
@@ -1592,11 +1589,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
     final highlights = query.isEmpty
         ? _highlights
         : _highlights.where((h) {
-            final chapterName = (h['chapterName'] ?? '')
-                .toString()
-                .toLowerCase();
-            final bookText = (h['bookText'] ?? '').toString().toLowerCase();
-            final note = (h['note'] ?? '').toString().toLowerCase();
+            final chapterName = h.chapterName.toLowerCase();
+            final bookText = h.bookText.toLowerCase();
+            final note = h.note.toLowerCase();
             return chapterName.contains(query) ||
                 bookText.contains(query) ||
                 note.contains(query);
@@ -1625,13 +1620,13 @@ class _TocScreenState extends ConsumerState<TocScreen>
   }
 
   /// 标注列表项：章节名/标注内容/时间，点击跳转对应章节
-  Widget _buildHighlightTile(BuildContext context, Map<String, dynamic> h) {
+  Widget _buildHighlightTile(BuildContext context, BookHighlight h) {
     final theme = Theme.of(context);
-    final chapterName = (h['chapterName'] ?? '').toString();
-    final bookText = (h['bookText'] ?? '').toString();
-    final note = (h['note'] ?? '').toString();
-    final time = (h['time'] as num?)?.toInt() ?? 0;
-    final chapterIndex = (h['chapterIndex'] as num?)?.toInt() ?? 0;
+    final chapterName = h.chapterName;
+    final bookText = h.bookText;
+    final note = h.note;
+    final time = h.time;
+    final chapterIndex = h.chapterIndex;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: InkWell(

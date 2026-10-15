@@ -5,49 +5,6 @@
 part of 'rust_api.dart';
 
 mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
-  // ========== 缓存管理 ==========
-
-  /// 获取缓存大小
-  @override
-  Future<int> getCacheSize() async {
-    final size = await bridge.cacheGetSize();
-    return size.toInt();
-  }
-
-  /// 清除缓存
-  @override
-  Future<void> clearCache() async {
-    await bridge.cacheClear();
-  }
-
-  /// 获取缓存书籍数量
-  @override
-  Future<int> getCacheBookCount() async {
-    final count = await bridge.cacheGetBookCount();
-    return count.toInt();
-  }
-
-  /// 获取缓存章节数量
-  @override
-  Future<int> getCacheChapterCount() async {
-    final count = await bridge.cacheGetChapterCount();
-    return count.toInt();
-  }
-
-  /// 清除指定时间之前的缓存
-  @override
-  Future<void> clearCacheBefore(int beforeTimestampMs) async {
-    await bridge.cacheClearBefore(beforeTimestampMs: beforeTimestampMs);
-  }
-
-  /// 执行 SQLite VACUUM 压缩数据库，返回释放的字节数（契约 §2.16.6，
-  /// Task #50 加法式新增；失败/未初始化时 Rust 侧降级返回 0）
-  @override
-  Future<int> shrinkDatabase() async {
-    final freed = await bridge.cacheShrinkDatabase();
-    return freed.toInt();
-  }
-
   // ========== 图片磁盘缓存（对齐原版 BookHelp.saveImage/getImage，契约 §2.46） ==========
 
   /// [P4-2a | 2026-09-29] 接通 save_image_cache FFI（契约 §2.46 image_cache）：

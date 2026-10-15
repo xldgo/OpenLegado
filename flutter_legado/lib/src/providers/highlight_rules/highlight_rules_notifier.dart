@@ -1,21 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
-import '../providers.dart';
+import '../highlight_repository_provider.dart';
+import '../../domain/models/highlight_rule.dart';
 import 'highlight_rules_state.dart';
 
 export 'highlight_rules_state.dart';
 
 /// 高亮规则列表 Riverpod Notifier
 ///
-/// [审计修复 §4.3 第二批] JSON 解析与规则 CRUD 下沉至本层 — Qoder
-///
-/// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
-/// - 调用 BookApi.highlightRule* → 接收纯数据 → 更新 immutable State
-/// - JSON 解析在本层完成（UI 层仅消费类型化的 [HighlightRule]）
-/// - 对标 Android 原版 HighlightRuleActivity 的加载/开关/删除/保存行为
+/// 配置访问与解码由仓储完成，本层管理加载和操作状态。— Codex + UI
 class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
   @override
   HighlightRulesState build() => const HighlightRulesState();
@@ -24,14 +18,12 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
   Future<void> load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final raw = await ref.read(bookApiProvider).highlightRuleList();
-      state = state.copyWith(rules: _decode(raw), isLoading: false);
+      final rules = await ref
+          .read(highlightRuleRepositoryProvider)
+          .highlightRuleList();
+      state = state.copyWith(rules: rules, isLoading: false);
     } catch (e) {
-      state = state.copyWith(
-        rules: const [],
-        isLoading: false,
-        error: _mapError(e),
-      );
+      state = state.copyWith(isLoading: false, error: _mapError(e));
     }
   }
 
@@ -43,7 +35,10 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
   /// 删除规则（成功后刷新列表）
   Future<void> deleteRule(HighlightRule rule) async {
     try {
-      await ref.read(bookApiProvider).highlightRuleDelete(id: rule.id);
+      final deleted = await ref
+          .read(highlightRuleRepositoryProvider)
+          .highlightRuleDelete(id: rule.id);
+      if (!deleted) throw StateError('删除高亮规则失败');
       await load();
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
@@ -57,24 +52,14 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
 
   Future<void> _save(HighlightRule rule) async {
     try {
-      await ref
-          .read(bookApiProvider)
-          .highlightRuleSave(ruleJson: jsonEncode(rule.toJson()));
+      final id = await ref
+          .read(highlightRuleRepositoryProvider)
+          .highlightRuleSave(rule);
+      if (id <= 0) throw StateError('保存高亮规则失败');
       await load();
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
     }
-  }
-
-  /// 解析规则 JSON 数组（容错：非法条目跳过）
-  List<HighlightRule> _decode(String raw) {
-    if (raw.isEmpty || raw == 'null') return const [];
-    final decoded = jsonDecode(raw);
-    if (decoded is! List) return const [];
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(HighlightRule.fromJson)
-        .toList();
   }
 
   /// 统一错误映射

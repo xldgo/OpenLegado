@@ -1,36 +1,33 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'book_api.dart';
+import '../domain/contracts/cache_repository.dart';
+import '../domain/models/cache_stats.dart';
 
 /// 缓存管理服务
 ///
-/// 提供缓存统计、清理功能和自动过期策略配置。
+/// 提供缓存统计、清理功能；自动过期目前仅保存配置，执行入口待实现。
 /// 对应 Android 原版 CacheBookService 中的缓存管理功能。
 class CacheService {
-  final BookApi _api;
+  final CacheRepository _repository;
 
   /// 自动过期天数持久化键
   static const _keyAutoExpireDays = 'cache_auto_expire_days';
 
-  CacheService(this._api);
+  CacheService(this._repository);
 
   /// 获取缓存统计信息
   ///
-  /// 返回 Map 包含：
-  /// - totalSize: 缓存总大小（字节）
-  /// - bookCount: 缓存书籍数量
-  /// - chapterCount: 缓存章节数量
-  Future<Map<String, dynamic>> getCacheStats() async {
-    final totalSize = await _api.getCacheSize();
-    // 通过 Rust 侧获取缓存书籍和章节统计
-    final bookCount = await _api.getCacheBookCount();
-    final chapterCount = await _api.getCacheChapterCount();
-    return {
-      'totalSize': totalSize,
-      'bookCount': bookCount,
-      'chapterCount': chapterCount,
-    };
+  /// 任一查询失败都向调用方报错，不拼出部分成功的统计。
+  Future<CacheStats> getCacheStats() async {
+    final totalSize = await _repository.getCacheSize();
+    final bookCount = await _repository.getCacheBookCount();
+    final chapterCount = await _repository.getCacheChapterCount();
+    return CacheStats(
+      totalSize: totalSize,
+      bookCount: bookCount,
+      chapterCount: chapterCount,
+    );
   }
 
   /// 清除缓存
@@ -39,13 +36,13 @@ class CacheService {
   /// 若为 null，则清除全部缓存。
   /// 返回清除的缓存大小（字节）。
   Future<int> clearCache({DateTime? before}) async {
-    final sizeBefore = await _api.getCacheSize();
+    final sizeBefore = await _repository.getCacheSize();
     if (before != null) {
-      await _api.clearCacheBefore(before.millisecondsSinceEpoch);
+      await _repository.clearCacheBefore(before.millisecondsSinceEpoch);
     } else {
-      await _api.clearCache();
+      await _repository.clearCache();
     }
-    final sizeAfter = await _api.getCacheSize();
+    final sizeAfter = await _repository.getCacheSize();
     final cleared = sizeBefore - sizeAfter;
     return cleared > 0 ? cleared : 0;
   }

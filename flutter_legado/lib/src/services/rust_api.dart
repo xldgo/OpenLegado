@@ -1,3 +1,14 @@
+import '../domain/contracts/cache_repository.dart';
+import '../domain/contracts/database_maintenance_service.dart';
+import '../domain/contracts/app_log_repository.dart';
+import '../domain/contracts/dictionary_service.dart';
+import '../domain/contracts/dict_rule_repository.dart';
+import '../domain/contracts/highlight_repository.dart';
+import '../domain/contracts/highlight_rule_repository.dart';
+import '../domain/contracts/rule_sub_repository.dart';
+import '../domain/contracts/rule_sub_service.dart';
+import '../domain/contracts/replace_rule_repository.dart';
+import '../domain/contracts/replace_rule_service.dart';
 import '../domain/contracts/rss_source_repository.dart';
 import '../domain/contracts/rss_article_repository.dart';
 import '../domain/contracts/rss_read_record_repository.dart';
@@ -70,6 +81,17 @@ class RustApi
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required CacheRepository cacheRepository,
+    required DatabaseMaintenanceService databaseMaintenanceService,
+    required AppLogRepository appLogRepository,
+    required DictionaryService dictionaryService,
+    required DictRuleRepository dictRuleRepository,
+    required HighlightRepository highlightRepository,
+    required HighlightRuleRepository highlightRuleRepository,
+    required RuleSubRepository ruleSubRepository,
+    required RuleSubService ruleSubService,
+    required ReplaceRuleRepository replaceRuleRepository,
+    required ReplaceRuleService replaceRuleService,
     required RssSourceRepository rssSourceRepository,
     required RssArticleRepository rssArticleRepository,
     required RssReadRecordRepository rssReadRecordRepository,
@@ -93,6 +115,17 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    cacheRepository,
+    databaseMaintenanceService,
+    appLogRepository,
+    dictionaryService,
+    dictRuleRepository,
+    highlightRepository,
+    highlightRuleRepository,
+    ruleSubRepository,
+    ruleSubService,
+    replaceRuleRepository,
+    replaceRuleService,
     rssSourceRepository,
     rssArticleRepository,
     rssReadRecordRepository,
@@ -118,6 +151,17 @@ class RustApi
   );
 
   RustApi._(
+    this.cacheRepository,
+    this.databaseMaintenanceService,
+    this.appLogRepository,
+    this.dictionaryService,
+    this.dictRuleRepository,
+    this.highlightRepository,
+    this.highlightRuleRepository,
+    this.ruleSubRepository,
+    this.ruleSubService,
+    this.replaceRuleRepository,
+    this.replaceRuleService,
     this.rssSourceRepository,
     this.rssArticleRepository,
     this.rssReadRecordRepository,
@@ -141,6 +185,31 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final CacheRepository cacheRepository;
+  @override
+  final DatabaseMaintenanceService databaseMaintenanceService;
+
+  @override
+  final RuleSubRepository ruleSubRepository;
+  @override
+  final HighlightRepository highlightRepository;
+  @override
+  final DictionaryService dictionaryService;
+  @override
+  final AppLogRepository appLogRepository;
+  @override
+  final DictRuleRepository dictRuleRepository;
+  @override
+  final HighlightRuleRepository highlightRuleRepository;
+  @override
+  final RuleSubService ruleSubService;
+
+  @override
+  final ReplaceRuleRepository replaceRuleRepository;
+  @override
+  final ReplaceRuleService replaceRuleService;
 
   @override
   final RssSourceRepository rssSourceRepository;

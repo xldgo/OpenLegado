@@ -33,7 +33,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getReplaceRules()).thenAnswer((_) async => []);
+    when(() => mockApi.replaceRuleRepository.getReplaceRules())
+        .thenAnswer((_) async => []);
   });
 
   group('D2 回归：作用范围 chips 360dp + 字体放大不溢出', () {

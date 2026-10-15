@@ -14,7 +14,7 @@ import '../providers/app_log/app_log_notifier.dart';
 /// 应用日志页面
 ///
 /// [审计修复 §1.2 第二批] 对齐 Android 原版 AppLogDialog（关于页入口，
-/// 查看 message/crash/http 三级日志）；数据经 AppLogNotifier → BookApi.appLog*。 — Qoder
+/// 查看 message/crash/http 三级日志）；数据经AppLogNotifier → AppLogRepository。 — Qoder
 class AppLogScreen extends ConsumerStatefulWidget {
   const AppLogScreen({super.key});
 
@@ -82,10 +82,19 @@ class _AppLogScreenState extends ConsumerState<AppLogScreen>
     );
     if (confirmed != true || !mounted) return;
     final notifier = ref.read(appLogNotifierProvider.notifier);
-    await (all ? notifier.clearAll() : notifier.clearCurrentLevel());
+    final cleared = await (all
+        ? notifier.clearAll()
+        : notifier.clearCurrentLevel());
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(all ? '已清空全部日志' : '已清空当前级别日志')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            cleared
+                ? (all ? '已清空全部日志' : '已清空当前级别日志')
+                : '清空失败：${ref.read(appLogNotifierProvider).error}',
+          ),
+        ),
+      );
     }
   }
 

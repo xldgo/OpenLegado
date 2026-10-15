@@ -1,3 +1,4 @@
+import '../../providers/app_log_repository_provider.dart';
 import '../../domain/services/search_result_aggregator.dart';
 import '../../domain/services/search_session.dart';
 import 'search_access_providers.dart';
@@ -299,14 +300,15 @@ class SearchNotifier extends Notifier<SearchState> {
           final srcName = batch.sourceName;
           // 日志写入失败不阻断搜索主流程（对齐原版 AppLog.put 尽力而为语义）
           unawaited(
-            ref
-                .read(bookApiProvider)
-                // Rust AppLog 三级（message/crash/http），'error' 非法会被 FFI 丢弃 — Qoder
-                .appLogPush(
-                  level: 'message',
-                  message: '书源搜索出错\n$srcName: $batchError',
-                )
-                .catchError((_) {}),
+            Future<void>.sync(
+              () => ref
+                  .read(appLogRepositoryProvider)
+                  // Rust日志使用message/crash/http，非法级别会返回错误。
+                  .appLogPush(
+                    level: 'message',
+                    message: '书源搜索出错\n$srcName: $batchError',
+                  ),
+            ).catchError((_) {}),
           );
           // [队列④ P1-B] 单源失败不再完全不可见：累积进 failedSources，
           // 由搜索结果页顶部非阻断横幅呈现（文案=批次 error，展开可见

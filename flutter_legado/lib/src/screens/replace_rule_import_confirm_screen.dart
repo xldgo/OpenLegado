@@ -1,3 +1,4 @@
+import '../providers/replace_rule_repository_provider.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -11,7 +12,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/replace_rule/replace_rule_notifier.dart';
 import '../widgets/custom_group_dialog.dart';
 import '../theme/import_status_colors.dart' show AppColorsExt;
@@ -130,7 +130,6 @@ class _ReplaceRuleImportConfirmScreenState
     setState(() => _importing = true);
     try {
       final group = _groupName?.trim();
-      final api = ref.read(bookApiProvider);
       var success = 0;
       for (var i = 0; i < widget.raws.length; i++) {
         if (!_selected[i]) continue;
@@ -153,9 +152,13 @@ class _ReplaceRuleImportConfirmScreenState
         }
         try {
           if (_localById.containsKey(target.id)) {
-            await api.updateReplaceRule(target);
+            await ref
+                .read(replaceRuleRepositoryProvider)
+                .updateReplaceRule(target);
           } else {
-            await api.addReplaceRule(target);
+            await ref
+                .read(replaceRuleRepositoryProvider)
+                .addReplaceRule(target);
           }
           success++;
         } catch (_) {

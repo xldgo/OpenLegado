@@ -631,11 +631,65 @@ void main() {
       expect(readState().isEmpty, isTrue, reason: 'UI 应显示无结果空态');
     });
 
+    for (final synchronous in [true, false]) {
+      test('日志写入同步异常=$synchronous不阻断成功源结果', () async {
+        final stub = when(
+          () => mockApi.appLogRepository.appLogPush(
+            level: any(named: 'level'),
+            message: any(named: 'message'),
+          ),
+        );
+        if (synchronous) {
+          stub.thenThrow(StateError('写日志失败'));
+        } else {
+          stub.thenAnswer((_) async => throw StateError('写日志失败'));
+        }
+        when(
+          () => mockApi.searchService.searchMultiStream(
+            any(),
+            sourceUrls: any(named: 'sourceUrls'),
+            page: any(named: 'page'),
+          ),
+        ).thenAnswer(
+          (_) => Stream.fromIterable([
+            makeBatch(error: '失败源', finished: 1, total: 2, isLast: false),
+            makeBatch(
+              books: [
+                {
+                  'origin': 'https://a',
+                  'originName': '成功源',
+                  'name': '成功书',
+                  'author': '作者',
+                  'bookUrl': 'https://a/book',
+                },
+              ],
+              finished: 2,
+              total: 2,
+              isLast: true,
+            ),
+          ]),
+        );
+        container.read(searchNotifierProvider);
+        await pumpInit();
+        await readNotifier().search('关键词');
+        await pumpStream();
+        expect(readState().results.single.book.name, '成功书');
+        expect(readState().isLoading, isFalse);
+        expect(readState().error, isNull);
+        verify(
+          () => mockApi.appLogRepository.appLogPush(
+            level: 'message',
+            message: any(named: 'message'),
+          ),
+        ).called(1);
+      });
+    }
+
     test('失败批次静默不弹错误、仅 appLogPush 留痕（对齐原版 SearchModel）', () async {
       // [UI-fix v2.0.11 | 2026-08-10] 批次 error 消费：单源失败不阻断整体、
       // 不写 state.error（杜绝「异常书源」弹窗路径），按原版 AppLog.put 语义留痕 — Reasonix
       when(
-        () => mockApi.appLogPush(
+        () => mockApi.appLogRepository.appLogPush(
           level: any(named: 'level'),
           message: any(named: 'message'),
         ),
@@ -683,7 +737,7 @@ void main() {
       expect(readState().isLoading, isFalse);
       // 留痕：error 级别记录「书源搜索出错」（对齐原版 AppLog.put 文案）
       final captured = verify(
-        () => mockApi.appLogPush(
+        () => mockApi.appLogRepository.appLogPush(
           level: 'message',
           message: captureAny(named: 'message'),
         ),
@@ -693,7 +747,7 @@ void main() {
 
     test('全部批次失败时结果为空、error 仍为 null（UI 走无结果空态）', () async {
       when(
-        () => mockApi.appLogPush(
+        () => mockApi.appLogRepository.appLogPush(
           level: any(named: 'level'),
           message: any(named: 'message'),
         ),
@@ -724,7 +778,7 @@ void main() {
       expect(readState().error, isNull);
       expect(readState().isEmpty, isTrue, reason: '全部失败按原版语义显示空态而非错误页');
       final captured = verify(
-        () => mockApi.appLogPush(
+        () => mockApi.appLogRepository.appLogPush(
           level: 'message',
           message: captureAny(named: 'message'),
         ),

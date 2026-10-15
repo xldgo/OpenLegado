@@ -6,7 +6,8 @@ import '../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
+import '../domain/models/cache_stats.dart';
+import '../providers/cache_provider.dart';
 import '../services/cache_service.dart';
 
 /// 缓存管理页面
@@ -30,14 +31,9 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
   /// 清理操作进行中标记
   bool _clearing = false;
 
-  /// 缓存总大小（字节）
-  int _totalSize = 0;
-
-  /// 缓存书籍数量
-  int _bookCount = 0;
-
-  /// 缓存章节数量
-  int _chapterCount = 0;
+  /// 仅在三项查询全部成功后替换快照，失败时保留最近成功结果。
+  CacheStats? _stats;
+  String? _statsError;
 
   /// 当前自动过期天数（0 = 永不过期）
   int _expireDays = 0;
@@ -52,28 +48,31 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    final api = ref.read(bookApiProvider);
-    _cacheService = CacheService(api);
+    _cacheService = ref.read(cacheServiceProvider);
     _loadStats();
     _loadExpireDays();
   }
 
   /// 加载缓存统计数据
   Future<void> _loadStats() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _statsError = null;
+    });
     try {
       final stats = await _cacheService.getCacheStats();
       if (mounted) {
         setState(() {
-          _totalSize = stats['totalSize'] as int;
-          _bookCount = stats['bookCount'] as int;
-          _chapterCount = stats['chapterCount'] as int;
+          _stats = stats;
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _statsError = '缓存统计读取失败：$error';
+        });
       }
     }
   }
@@ -105,7 +104,7 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
         ],
       ),
     ).then((confirmed) {
-      if (confirmed == true) {
+      if (confirmed == true && mounted) {
         _doClearCache();
       }
     });
@@ -191,33 +190,41 @@ class _CacheSettingsScreenState extends ConsumerState<CacheSettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Symbols.storage_rounded,
-                    label: '总大小',
-                    value: CacheService.formatSize(_totalSize),
+            if (_statsError case final error?) ...[
+              Text(
+                error,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              TextButton(onPressed: _loadStats, child: const Text('重试')),
+            ],
+            if (_stats case final stats?)
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Symbols.storage_rounded,
+                      label: '总大小',
+                      value: CacheService.formatSize(stats.totalSize),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Symbols.menu_book_rounded,
-                    label: '书籍数量',
-                    value: '$_bookCount',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Symbols.menu_book_rounded,
+                      label: '书籍数量',
+                      value: '${stats.bookCount}',
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Symbols.article_rounded,
-                    label: '章节数量',
-                    value: '$_chapterCount',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Symbols.article_rounded,
+                      label: '章节数量',
+                      value: '${stats.chapterCount}',
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
           // [LAYOUT_PLAN P3] 分组卡圆角16dp 闭合
         ),

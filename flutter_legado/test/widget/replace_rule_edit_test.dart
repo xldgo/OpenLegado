@@ -43,7 +43,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getReplaceRules()).thenAnswer((_) async => []);
+    when(() => mockApi.replaceRuleRepository.getReplaceRules())
+        .thenAnswer((_) async => []);
   });
 
   /// 泵送宿主页并打开整页编辑器（Navigator push，与真实入口一致）
@@ -155,10 +156,11 @@ void main() {
     });
 
     testWidgets('保存新规则时全字段传递给数据层并返回上一页', (tester) async {
-      when(() => mockApi.addReplaceRule(any())).thenAnswer(
-        (inv) async =>
-            (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
-      );
+      when(() => mockApi.replaceRuleRepository.addReplaceRule(any()))
+          .thenAnswer(
+            (inv) async =>
+                (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
+          );
       await pumpEdit(tester);
 
       // 按字段 label 定位输入（顶栏无 TextField，表单从名称起）
@@ -176,7 +178,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final captured =
-          verify(() => mockApi.addReplaceRule(captureAny())).captured.single
+          verify(
+                () =>
+                    mockApi.replaceRuleRepository.addReplaceRule(captureAny()),
+              ).captured.single
               as ReplaceRule;
       expect(captured.name, '去广告');
       expect(captured.pattern, '广告');
@@ -198,12 +203,14 @@ void main() {
       // 内存「数据库」：add 存对象、get 回读，模拟 Rust 侧 add 全字段
       // 持久化 + get 回读链路
       final stored = <ReplaceRule>[];
-      when(() => mockApi.addReplaceRule(any())).thenAnswer((inv) async {
+      when(
+        () => mockApi.replaceRuleRepository.addReplaceRule(any()),
+      ).thenAnswer((inv) async {
         final r = (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 9);
         stored.add(r);
         return r;
       });
-      when(() => mockApi.getReplaceRules())
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
           .thenAnswer((_) async => List.of(stored));
 
       await pumpEdit(tester);
@@ -267,7 +274,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('正则语法错误或不支持'), findsOneWidget);
-      verifyNever(() => mockApi.addReplaceRule(any()));
+      verifyNever(() => mockApi.replaceRuleRepository.addReplaceRule(any()));
       // 未保存成功，仍停留在编辑页
       expect(find.text('保存'), findsOneWidget);
     });
@@ -281,7 +288,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('匹配规则不能为空'), findsOneWidget);
-      verifyNever(() => mockApi.addReplaceRule(any()));
+      verifyNever(() => mockApi.replaceRuleRepository.addReplaceRule(any()));
     });
 
     testWidgets('编辑模式回填已有规则全字段', (tester) async {
@@ -299,8 +306,10 @@ void main() {
         isEnabled: true,
         timeoutMillisecond: 5000,
       );
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [rule]);
-      when(() => mockApi.updateReplaceRule(any())).thenAnswer((_) async {});
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
+          .thenAnswer((_) async => [rule]);
+      when(() => mockApi.replaceRuleRepository.updateReplaceRule(any()))
+          .thenAnswer((_) async {});
       await pumpEdit(tester, rule: rule);
 
       // 标题切换为编辑态
@@ -359,7 +368,11 @@ void main() {
       await tester.tap(find.byWidgetPredicate((w) => w is FilledButton));
       await tester.pumpAndSettle();
       final captured =
-          verify(() => mockApi.updateReplaceRule(captureAny())).captured.single
+          verify(
+                () => mockApi.replaceRuleRepository.updateReplaceRule(
+                  captureAny(),
+                ),
+              ).captured.single
               as ReplaceRule;
       expect(captured.id, 1);
       expect(captured.name, '去广告');
@@ -377,7 +390,7 @@ void main() {
 
     testWidgets('复制规则：规则 JSON 写入剪贴板（含预览样本 previewText）', (tester) async {
       final written = mockClipboard(tester);
-      when(() => mockApi.addReplaceRule(any()))
+      when(() => mockApi.replaceRuleRepository.addReplaceRule(any()))
           .thenAnswer((inv) async => const ReplaceRule());
       await pumpEdit(tester);
 
@@ -457,9 +470,9 @@ void main() {
       // payload 捕获模式，直接断言 FFI 单一语义源收到的规则/样本）
       Map<String, dynamic>? previewRule;
       String? previewSample;
-      when(() => mockApi.previewReplaceRule(any(), any())).thenAnswer((
-        inv,
-      ) async {
+      when(
+        () => mockApi.replaceRuleService.previewReplaceRule(any(), any()),
+      ).thenAnswer((inv) async {
         previewRule = jsonDecode(
           inv.positionalArguments[0] as String,
         ) as Map<String, dynamic>;
@@ -492,7 +505,7 @@ void main() {
       await pumpEdit(tester);
 
       // 捕获组引用：$1 展开为第 1 个捕获组（Rust 侧真实替换管线语义）
-      when(() => mockApi.previewReplaceRule(any(), any()))
+      when(() => mockApi.replaceRuleService.previewReplaceRule(any(), any()))
           .thenAnswer((inv) async => 'abc[123]def[456]');
       await tester.enterText(byLabel('匹配规则'), r'(\d+)');
       await tester.enterText(byLabel('替换为'), r'[$1]');
@@ -504,7 +517,7 @@ void main() {
 
       // @js: 规则 + 规则级错误（非法正则/JS 异常/超时）：FFI 返回
       // `⚠️ ` 前缀错误文本，输出区原样展示（不上抛异常、不降级为「不可用」）
-      when(() => mockApi.previewReplaceRule(any(), any()))
+      when(() => mockApi.replaceRuleService.previewReplaceRule(any(), any()))
           .thenAnswer((inv) async => '⚠️ 规则执行超时（50ms），已跳过该规则');
       await tester.enterText(byLabel('替换为'), r"@js:'x'");
       await tester.pump(const Duration(milliseconds: 300));

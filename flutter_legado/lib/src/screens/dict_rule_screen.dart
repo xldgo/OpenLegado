@@ -1,16 +1,14 @@
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../bridge/ffi.dart';
-import '../providers/dict/dict_notifier.dart' show kDefaultDictRulesAsset;
-import '../providers/providers.dart';
+import '../data/defaults/dict_rule_defaults.dart';
+import '../models/misc.dart' show DictRule;
+import '../providers/dictionary_provider.dart';
 import '../routes.dart' show AppRoutes;
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
@@ -24,7 +22,7 @@ import '../widgets/loading_indicator.dart';
 ///
 /// [C2 批2 | full-stack-engineer + UI] 对齐原版
 /// `DictRuleActivity`（app/src/main/java/io/legado/app/ui/dict/rule/）
-/// 行形态与操作，接通批1 交付的 BookApi 七方法（契约 §2.45）：
+/// 行形态与操作，使用DictRuleRepository七项配置访问（契约 §2.45）：
 /// dictRuleList / dictRuleAdd / dictRuleUpdate / dictRuleDelete /
 /// dictRuleSetEnabled / dictRuleReorder / dictRuleImport。
 ///
@@ -48,8 +46,7 @@ import '../widgets/loading_indicator.dart';
 ///   dictRuleImport(kind:'text', payload=内置 dictRules.json) 实现同语义
 ///   （空表 seed 由 dictRuleList 侧自动完成，导入为显式恢复动作）。
 ///
-/// 行模型说明：契约 §2.45 行字段含 `id`，而既有 `DictRule` 模型（无 id、
-/// 冻结不改）不承载主键，故本页使用私有 [_DictRuleRow] 携带 id。
+/// 列表、查询和导入共用DictRuleRepository与共享实体。
 class DictRuleScreen extends ConsumerStatefulWidget {
   const DictRuleScreen({super.key});
 
@@ -57,61 +54,9 @@ class DictRuleScreen extends ConsumerStatefulWidget {
   ConsumerState<DictRuleScreen> createState() => _DictRuleScreenState();
 }
 
-/// 字典规则行（本地 UI 模型）
-///
-/// 契约 §2.45 dictRuleList 行字段：
-/// `{id, name, urlRule, showRule, enabled, sortNumber}`。
-class _DictRuleRow {
-  const _DictRuleRow({
-    required this.id,
-    required this.name,
-    required this.urlRule,
-    required this.showRule,
-    required this.enabled,
-    required this.sortNumber,
-  });
-
-  final int id;
-  final String name;
-  final String urlRule;
-  final String showRule;
-  final bool enabled;
-  final int sortNumber;
-
-  factory _DictRuleRow.fromMap(Map<String, dynamic> m) {
-    return _DictRuleRow(
-      id: (m['id'] as num?)?.toInt() ?? 0,
-      name: (m['name'] ?? '').toString(),
-      urlRule: (m['urlRule'] ?? '').toString(),
-      showRule: (m['showRule'] ?? '').toString(),
-      // 兼容 FFI 返回 bool 与 0/1 两种形态
-      enabled: m['enabled'] == true || m['enabled'] == 1,
-      sortNumber: (m['sortNumber'] as num?)?.toInt() ?? 0,
-    );
-  }
-
-  _DictRuleRow copyWithEnabled(bool value) => _DictRuleRow(
-    id: id,
-    name: name,
-    urlRule: urlRule,
-    showRule: showRule,
-    enabled: value,
-    sortNumber: sortNumber,
-  );
-
-  _DictRuleRow copyWithSortNumber(int value) => _DictRuleRow(
-    id: id,
-    name: name,
-    urlRule: urlRule,
-    showRule: showRule,
-    enabled: enabled,
-    sortNumber: value,
-  );
-}
-
 class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
   // ========== 列表状态 ==========
-  List<_DictRuleRow> _rows = const [];
+  List<DictRule> _rows = const [];
   bool _loading = true;
   String? _error;
   bool _busy = false;
@@ -136,10 +81,10 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       _error = null;
     });
     try {
-      final raw = await ref.read(bookApiProvider).dictRuleList();
+      final raw = await ref.read(dictRuleRepositoryProvider).dictRuleList();
       if (!mounted) return;
       setState(() {
-        _rows = raw.map(_DictRuleRow.fromMap).toList();
+        _rows = raw;
         _loading = false;
       });
     } catch (e) {
@@ -159,19 +104,20 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
 
   // ========== 启停（对标 swtEnabled.setOnUserCheckedChangeListener） ==========
 
-  Future<void> _toggleEnabled(_DictRuleRow row, bool value) async {
+  Future<void> _toggleEnabled(DictRule row, bool value) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final updated = row.copyWithEnabled(value);
+    final updated = row.copyWith(enabled: value);
     // 乐观更新，失败回滚并上报
     final previous = _rows;
     final next = [..._rows]..[_rows.indexOf(row)] = updated;
     _rows = next;
     setState(() {});
     try {
-      await ref
-          .read(bookApiProvider)
+      final changed = await ref
+          .read(dictRuleRepositoryProvider)
           .dictRuleSetEnabled(id: row.id, enabled: value);
+      if (!changed) throw StateError('规则不存在或未更新');
     } catch (e) {
       _rows = previous;
       setState(() {});
@@ -195,13 +141,14 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       _busy = true;
     });
     try {
-      await ref
-          .read(bookApiProvider)
-          .dictRuleReorder(jsonEncode(list.map((r) => r.id).toList()));
+      final changed = await ref
+          .read(dictRuleRepositoryProvider)
+          .dictRuleReorder(list.map((r) => r.id).toList());
+      if (changed != list.length) throw StateError('规则排序未完整保存');
       // 对标 upSortNumber 重编号语义：本地 sortNumber 同步为 0..n-1
       setState(() {
         for (var i = 0; i < _rows.length; i++) {
-          _rows[i] = _rows[i].copyWithSortNumber(i);
+          _rows[i] = _rows[i].copyWith(sortNumber: i);
         }
       });
     } catch (e) {
@@ -256,14 +203,18 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     final ids = _selectedIds.toList();
     final targets = _rows.where((r) => _selectedIds.contains(r.id)).toList();
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(dictRuleRepositoryProvider);
       for (final row in targets) {
-        await api.dictRuleSetEnabled(id: row.id, enabled: enabled);
+        final changed = await api.dictRuleSetEnabled(
+          id: row.id,
+          enabled: enabled,
+        );
+        if (!changed) throw StateError('规则不存在或未更新');
       }
       setState(() {
         for (var i = 0; i < _rows.length; i++) {
           if (_selectedIds.contains(_rows[i].id)) {
-            _rows[i] = _rows[i].copyWithEnabled(enabled);
+            _rows[i] = _rows[i].copyWith(enabled: enabled);
           }
         }
         _exitSelectMode();
@@ -307,9 +258,10 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     if (confirmed != true) return;
     setState(() => _busy = true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(dictRuleRepositoryProvider);
       for (final row in targets) {
-        await api.dictRuleDelete(row.id);
+        final removed = await api.dictRuleDelete(row.id);
+        if (!removed) throw StateError('规则不存在或未删除');
       }
       setState(() {
         _rows.removeWhere((r) => _selectedIds.contains(r.id));
@@ -325,7 +277,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
 
   // ========== 编辑弹层（对标 DictRuleEditDialog 三字段） ==========
 
-  Future<void> _showRuleEditor({_DictRuleRow? row}) async {
+  Future<void> _showRuleEditor({DictRule? row}) async {
     // 控制器由弹层 State 持有并在其 dispose 释放（退出动画期间父层
     // setState 重建不得触碰已释放控制器）
     await showDialog<void>(
@@ -348,7 +300,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
   }
 
   Future<void> _saveRule({
-    _DictRuleRow? row,
+    DictRule? row,
     required String name,
     required String urlRule,
     required String showRule,
@@ -356,16 +308,22 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(dictRuleRepositoryProvider);
       if (row == null) {
-        await api.dictRuleAdd(name: name, urlRule: urlRule, showRule: showRule);
+        final id = await api.dictRuleAdd(
+          name: name,
+          urlRule: urlRule,
+          showRule: showRule,
+        );
+        if (id <= 0) throw StateError('新增规则未返回有效主键');
       } else {
-        await api.dictRuleUpdate(
+        final changed = await api.dictRuleUpdate(
           id: row.id,
           name: name,
           urlRule: urlRule,
           showRule: showRule,
         );
+        if (!changed) throw StateError('规则不存在或未更新');
       }
       // 新增的 sortNumber/id 以服务端为准，直接重载保证顺序与主键一致
       await _load();
@@ -415,7 +373,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     setState(() => _busy = true);
     try {
       final n = await ref
-          .read(bookApiProvider)
+          .read(dictRuleRepositoryProvider)
           .dictRuleImport(jsonOrUrl: payload, kind: 'text');
       await _load();
       _snack('已导入 $n 条字典规则');
@@ -444,7 +402,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     setState(() => _busy = true);
     try {
       final n = await ref
-          .read(bookApiProvider)
+          .read(dictRuleRepositoryProvider)
           .dictRuleImport(jsonOrUrl: payload, kind: 'text');
       await _load();
       _snack('已导入 $n 条字典规则');
@@ -478,7 +436,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     setState(() => _busy = true);
     try {
       final n = await ref
-          .read(bookApiProvider)
+          .read(dictRuleRepositoryProvider)
           .dictRuleImport(jsonOrUrl: value, kind: 'url');
       await _load();
       _snack('已导入 $n 条字典规则');
@@ -496,10 +454,9 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final payload = await rootBundle.loadString(kDefaultDictRulesAsset);
-      final n = await ref
-          .read(bookApiProvider)
-          .dictRuleImport(jsonOrUrl: payload, kind: 'text');
+      final n = await importDefaultDictRules(
+        ref.read(dictRuleRepositoryProvider),
+      );
       await _load();
       _snack('已导入 $n 条默认字典规则');
     } catch (e) {

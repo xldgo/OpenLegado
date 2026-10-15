@@ -8,11 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/audio/audio_notifier.dart';
 import '../../features/bookmarks/bookmarks.dart';
-import '../../providers/providers.dart';
+import '../../providers/highlight_repository_provider.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
 import '../../l10n/app_localization.dart';
-import '../../services/book_api.dart';
+import '../../domain/contracts/highlight_repository.dart';
+import '../../domain/models/book_highlight.dart';
 import '../dict_dialog.dart';
 import 'reader_selection_controller.dart';
 import 'reader_selection_menu_config.dart';
@@ -63,8 +64,8 @@ class ReaderSelectionActions {
     final audio = action == ReaderSelectionAction.aloud
         ? ref.read(audioNotifierProvider.notifier)
         : null;
-    final api = action == ReaderSelectionAction.highlight
-        ? ref.read(bookApiProvider)
+    final highlights = action == ReaderSelectionAction.highlight
+        ? ref.read(highlightRepositoryProvider)
         : null;
     final navigator = Navigator.of(context, rootNavigator: true);
     final size = MediaQuery.sizeOf(context);
@@ -127,7 +128,7 @@ class ReaderSelectionActions {
             _toast(context.l10n.bookmarkAdded);
           }
         case ReaderSelectionAction.highlight:
-          await _highlight(state!, api!);
+          await _highlight(state!, highlights!);
         case ReaderSelectionAction.dictionary:
           await showDictDialog(context, word: selection.text.trim());
         case ReaderSelectionAction.replace:
@@ -146,7 +147,10 @@ class ReaderSelectionActions {
     }
   }
 
-  Future<void> _highlight(ReaderState state, BookApi api) async {
+  Future<void> _highlight(
+    ReaderState state,
+    HighlightRepository repository,
+  ) async {
     var note = '';
     var selectedColor = _lastHighlightColor;
     final ok = await showModalBottomSheet<bool>(
@@ -222,26 +226,25 @@ class ReaderSelectionActions {
     if (ok != true || !context.mounted) return;
     final book = state.currentBook!;
     final chapter = state.currentChapter;
-    await api.highlightAdd(
-      highlightJson: jsonEncode({
-        'time': 0,
-        'bookUrl': book.bookUrl,
-        'chapterUrl': chapter?.url ?? '',
-        'bookName': book.name,
-        'bookAuthor': book.author,
-        'chapterIndex': state.currentChapterIndex,
-        'chapterPos': selection.start,
-        'chapterPosEnd': selection.end,
-        'layoutTitleLength': 0,
-        'chapterName': chapter?.title ?? '',
-        'bookText': selection.text,
-        'style': jsonEncode({
+    await repository.highlightAdd(
+      BookHighlight(
+        bookUrl: book.bookUrl,
+        chapterUrl: chapter?.url ?? '',
+        bookName: book.name,
+        bookAuthor: book.author,
+        chapterIndex: state.currentChapterIndex,
+        chapterPos: selection.start,
+        chapterPosEnd: selection.end,
+        layoutTitleLength: 0,
+        chapterName: chapter?.title ?? '',
+        bookText: selection.text,
+        style: jsonEncode({
           'type': 'background',
           'color':
               '#${chosen.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}',
         }),
-        'note': note.trim(),
-      }),
+        note: note.trim(),
+      ),
     );
     _lastHighlightColor = chosen;
     _toast(note.trim().isEmpty ? '已添加高亮' : '已添加高亮与笔记');

@@ -1,3 +1,5 @@
+import '../domain/models/rule_sub_update_result.dart';
+import '../providers/replace_rule_repository_provider.dart';
 import '../providers/rss_repository_provider.dart';
 
 import 'dart:convert';
@@ -223,7 +225,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
           barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator()),
         );
-        Map<String, dynamic> result;
+        RuleSubCheckResult result;
         try {
           result = await notifier.checkUpdate(sub.id);
         } catch (e) {
@@ -235,9 +237,9 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
         }
         if (!context.mounted) return;
         Navigator.of(context).pop(); // 关闭加载指示
-        final error = (result['error'] ?? '').toString();
-        final hasUpdate = result['hasUpdate'] == true;
-        final version = (result['remoteVersion'] ?? '').toString();
+        final error = result.error ?? '';
+        final hasUpdate = result.hasUpdate;
+        final version = result.remoteVersion ?? '';
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -255,7 +257,7 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
           barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator()),
         );
-        Map<String, dynamic> result;
+        RuleSubApplyResult result;
         try {
           result = await notifier.applyUpdate(sub.id);
         } catch (e) {
@@ -267,15 +269,15 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
         }
         if (!context.mounted) return;
         Navigator.of(context).pop(); // 关闭加载指示
-        final error = (result['error'] ?? '').toString();
-        if (error.isNotEmpty || result['success'] != true) {
+        final error = result.error ?? '';
+        if (error.isNotEmpty || !result.success) {
           messenger.showSnackBar(
             SnackBar(content: Text('应用更新失败：${error.isEmpty ? '未知错误' : error}')),
           );
         } else {
-          final added = (result['itemsAdded'] ?? 0).toString();
-          final updated = (result['itemsUpdated'] ?? 0).toString();
-          final removed = (result['itemsRemoved'] ?? 0).toString();
+          final added = result.itemsAdded.toString();
+          final updated = result.itemsUpdated.toString();
+          final removed = result.itemsRemoved.toString();
           messenger.showSnackBar(
             SnackBar(content: Text('更新完成：新增 $added、更新 $updated、移除 $removed')),
           );
@@ -458,7 +460,9 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
     // 本地规则用于新增/更新状态判定与同 id 更新入库
     List<ReplaceRule> localRules;
     try {
-      localRules = await ref.read(bookApiProvider).getReplaceRules();
+      localRules = await ref
+          .read(replaceRuleRepositoryProvider)
+          .getReplaceRules();
     } catch (_) {
       localRules = [];
     }

@@ -1,8 +1,9 @@
+import '../replace_rule_repository_provider.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../providers.dart';
 import '../../utils/error_message.dart';
 import 'replace_rule_state.dart';
 
@@ -11,7 +12,7 @@ export 'replace_rule_state.dart';
 /// 替换规则 Riverpod Notifier
 ///
 /// 职责严格限定（对齐旧 ReplaceRuleProvider）：
-/// - 调用 BookApi → 接收纯数据 → 更新 immutable State
+/// - 调用 ReplaceRuleRepository → 接收纯数据 → 更新 immutable State
 /// - 管理列表加载三态（loading/error/data）
 /// - 规则 CRUD 与启停透传
 /// - 本地排序（moveUp/moveDown）
@@ -26,8 +27,9 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
   Future<void> load() async {
     state = state.copyWith(loading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
-      final rules = await api.getReplaceRules();
+      final rules = await ref
+          .read(replaceRuleRepositoryProvider)
+          .getReplaceRules();
       state = state.copyWith(rules: rules);
     } catch (e) {
       if (e is BridgeError) {
@@ -42,16 +44,16 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
 
   /// 添加替换规则
   Future<ReplaceRule> addRule(ReplaceRule rule) async {
-    final api = ref.read(bookApiProvider);
-    final added = await api.addReplaceRule(rule);
+    final added = await ref
+        .read(replaceRuleRepositoryProvider)
+        .addReplaceRule(rule);
     state = state.copyWith(rules: [...state.rules, added]);
     return added;
   }
 
   /// 更新替换规则
   Future<void> updateRule(ReplaceRule rule) async {
-    final api = ref.read(bookApiProvider);
-    await api.updateReplaceRule(rule);
+    await ref.read(replaceRuleRepositoryProvider).updateReplaceRule(rule);
     final idx = state.rules.indexWhere((r) => r.id == rule.id);
     if (idx >= 0) {
       final list = [...state.rules];
@@ -62,8 +64,7 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
 
   /// 删除替换规则
   Future<void> deleteRule(int id) async {
-    final api = ref.read(bookApiProvider);
-    await api.deleteReplaceRule(id);
+    await ref.read(replaceRuleRepositoryProvider).deleteReplaceRule(id);
     state = state.copyWith(
       rules: state.rules.where((r) => r.id != id).toList(),
     );
@@ -71,8 +72,9 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
 
   /// 启用/禁用替换规则
   Future<void> setEnabled(int id, bool enabled) async {
-    final api = ref.read(bookApiProvider);
-    await api.setReplaceRuleEnabled(id, enabled);
+    await ref
+        .read(replaceRuleRepositoryProvider)
+        .setReplaceRuleEnabled(id, enabled);
     final idx = state.rules.indexWhere((r) => r.id == id);
     if (idx >= 0) {
       final list = [...state.rules];
@@ -106,9 +108,9 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
   }
 
   // [UI-fix v2.0.2 | 2026-08-06] 批量置顶/置底（对标原版
-  // replace_rule_sel.xml menu_top_sel/menu_bottom_sel），重排后逐条持久化 — Qoder
+  // replace_rule_sel.xml menu_top_sel/menu_bottom_sel），重排后逐条调用更新接口 — Qoder
 
-  /// 将指定规则批量置顶并持久化 order
+  /// 将指定规则批量置顶，按现有更新接口提交。
   Future<void> moveToTop(List<int> ids) async {
     if (ids.isEmpty) return;
     final selected = state.rules.where((r) => ids.contains(r.id)).toList();
@@ -116,7 +118,7 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
     await _persistOrder([...selected, ...rest]);
   }
 
-  /// 将指定规则批量置底并持久化 order
+  /// 将指定规则批量置底，按现有更新接口提交。
   Future<void> moveToBottom(List<int> ids) async {
     if (ids.isEmpty) return;
     final selected = state.rules.where((r) => ids.contains(r.id)).toList();
@@ -124,14 +126,13 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
     await _persistOrder([...rest, ...selected]);
   }
 
-  /// 按目标顺序重排 order（连续编号）并逐条持久化
+  /// 按目标顺序重排并逐条更新；现有FRB不传sortOrder，真实排序落库另行补齐。
   Future<void> _persistOrder(List<ReplaceRule> ordered) async {
-    final api = ref.read(bookApiProvider);
     final updated = <ReplaceRule>[];
     for (var i = 0; i < ordered.length; i++) {
       final rule = ordered[i].copyWith(order: i);
       if (rule.order != ordered[i].order) {
-        await api.updateReplaceRule(rule);
+        await ref.read(replaceRuleRepositoryProvider).updateReplaceRule(rule);
       }
       updated.add(rule);
     }

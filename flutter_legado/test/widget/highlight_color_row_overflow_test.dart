@@ -22,7 +22,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.highlightRuleList()).thenAnswer((_) async => '[]');
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => []);
   });
 
   /// 弹窗内圆形色块（ColorScheme 预设色板）

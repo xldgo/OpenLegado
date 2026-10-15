@@ -135,6 +135,47 @@ void main() {
       ).thenAnswer((_) => stream);
     }
 
+    for (final synchronous in [true, false]) {
+      test('换源写日志同步异常=$synchronous仍可接收后续候选', () async {
+        final stub = when(
+          () => mockApi.appLogRepository.appLogPush(
+            level: any(named: 'level'),
+            message: any(named: 'message'),
+          ),
+        );
+        if (synchronous) {
+          stub.thenThrow(StateError('写日志失败'));
+        } else {
+          stub.thenAnswer((_) async => throw StateError('写日志失败'));
+        }
+        stubSearchStream(
+          Stream.fromIterable([
+            {
+              ...makeBatch(matches: [], finished: 1, total: 2),
+              'error': '源失败',
+              'is_last': false,
+            },
+            makeBatch(
+              matches: [rawMatch('https://a', '成功源', 90)],
+              finished: 2,
+              total: 2,
+            ),
+          ]),
+        );
+        await readNotifier().search('斗破苍穹', '天蚕土豆');
+        await Future<void>.delayed(Duration.zero);
+        expect(readState().results.single.sourceName, '成功源');
+        expect(readState().isLoading, isFalse);
+        expect(readState().error, isNull);
+        verify(
+          () => mockApi.appLogRepository.appLogPush(
+            level: 'message',
+            message: any(named: 'message'),
+          ),
+        ).called(1);
+      });
+    }
+
     test('初始状态为空', () {
       final state = readState();
       expect(state.results, isEmpty);

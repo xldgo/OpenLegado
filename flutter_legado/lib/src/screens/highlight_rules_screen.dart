@@ -1,3 +1,5 @@
+import '../domain/models/highlight_rule.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -21,7 +23,7 @@ import '../widgets/loading_indicator.dart';
 /// - 顶栏「+」新增规则（menu_add_highlight_rule）
 /// - 编辑（HighlightRuleEditDialog）/ 删除（确认对话框 sure_del）
 ///
-/// 数据经 BookApi highlightRule* 系列接口（Rust 侧 highlight_api）。
+/// 数据经 HighlightRuleRepository 访问现有Rust highlight_api。
 /// [审计修复 §4.3 第二批] JSON 解析已下沉至 HighlightRulesNotifier，
 /// 本层仅消费类型化的 [HighlightRule] — Qoder
 class HighlightRulesScreen extends ConsumerStatefulWidget {
@@ -118,7 +120,7 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
           if (state.isLoading) {
             return const LoadingIndicator(message: '加载高亮规则...');
           }
-          if (state.error != null) {
+          if (state.error != null && state.rules.isEmpty) {
             return Center(child: Text('加载失败: ${state.error}'));
           }
           if (state.rules.isEmpty) {
@@ -344,6 +346,8 @@ class _HighlightRuleEditSheetState extends State<_HighlightRuleEditSheet> {
       applyToTitle: _applyToTitle,
       scope: scope.isEmpty ? null : scope,
       isEnabled: base?.isEnabled ?? true,
+      sortOrder: base?.sortOrder ?? 0,
+      timeoutMillisecond: base?.timeoutMillisecond ?? 3000,
       style: jsonEncode({'textColor': _color}),
     );
     Navigator.pop(context, rule);

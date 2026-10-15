@@ -198,8 +198,9 @@ void main() {
     // stub（真实数据源，ERROR 态不再依赖 UI 注入缝）
     when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
         .thenAnswer((_) async => failed);
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
   }
@@ -473,8 +474,9 @@ void main() {
         .thenAnswer((_) async => localChapters);
     when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
         .thenAnswer((_) async => const ['u0']);
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
@@ -563,8 +565,9 @@ void main() {
           dlPollCount++;
           return const <int>[];
         });
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
@@ -768,8 +771,9 @@ void main() {
         .thenAnswer((_) async => const <int>[]);
     when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
         .thenAnswer((_) async => hasFailure ? const [2] : const <int>[]);
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
@@ -1038,8 +1042,9 @@ void main() {
               ? const <String, String>{'u0': '1200', 'u2': ''}
               : const <String, String>{'u0': '1200'},
         );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
     when(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/models/rule_sub.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +19,8 @@ void main() {
   testWidgets('规则订阅页空数据渲染空态', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.ruleSubList()).thenAnswer((_) async => []);
+    when(() => mockApi.ruleSubRepository.ruleSubList())
+        .thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -34,15 +36,14 @@ void main() {
   testWidgets('规则订阅页有数据渲染列表', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.ruleSubList()).thenAnswer(
+    when(() => mockApi.ruleSubRepository.ruleSubList()).thenAnswer(
       (_) async => [
-        {
-          'id': 1,
-          'url': 'https://example.com/sub.json',
-          'name': '测试订阅',
-          'sub_type': 'bookSource',
-          'customOrder': 1,
-        },
+        const RuleSub(
+          id: 1,
+          url: 'https://example.com/sub.json',
+          name: '测试订阅',
+          customOrder: 1,
+        ),
       ],
     );
     await tester.pumpWidget(

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/models/misc.dart' show DictRule;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -39,7 +40,7 @@ void main() {
   }
 
   /// 三条样例规则（id/name/urlRule/showRule/enabled/sortNumber）
-  List<Map<String, dynamic>> sampleRows() => [
+  List<DictRule> sampleRows() => [
     {
       'id': 1,
       'name': '海词中文',
@@ -64,11 +65,12 @@ void main() {
       'enabled': true,
       'sortNumber': 2,
     },
-  ];
+  ].map(DictRule.fromJson).toList();
 
   group('DictRuleScreen', () {
     testWidgets('加载并显示规则列表（名称 + urlRule 副行 + 开关）', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
@@ -91,9 +93,12 @@ void main() {
     });
 
     testWidgets('切换开关调用 dictRuleSetEnabled 并乐观更新', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
-      when(() => mockApi.dictRuleSetEnabled(id: 2, enabled: true))
-          .thenAnswer((_) async => true);
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
+      when(
+        () =>
+            mockApi.dictRuleRepository.dictRuleSetEnabled(id: 2, enabled: true),
+      ).thenAnswer((_) async => true);
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
@@ -104,14 +109,18 @@ void main() {
       await tester.tap(switches.at(1));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.dictRuleSetEnabled(id: 2, enabled: true)).called(1);
+      verify(
+        () =>
+            mockApi.dictRuleRepository.dictRuleSetEnabled(id: 2, enabled: true),
+      ).called(1);
       // 乐观更新后开关呈开启态
       final sw = tester.widget<Switch>(switches.at(1));
       expect(sw.value, true);
     });
 
     testWidgets('空列表显示空态', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => []);
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
@@ -121,7 +130,7 @@ void main() {
     });
 
     testWidgets('加载失败显示错误与重试', (tester) async {
-      when(() => mockApi.dictRuleList())
+      when(() => mockApi.dictRuleRepository.dictRuleList())
           .thenThrow(Exception('ffi dictRuleList'));
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
@@ -133,9 +142,10 @@ void main() {
     });
 
     testWidgets('FAB 新增：名称为空时校验拦截，填写后调用 dictRuleAdd', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
       when(
-        () => mockApi.dictRuleAdd(
+        () => mockApi.dictRuleRepository.dictRuleAdd(
           name: '新词典',
           urlRule: 'https://example.com/dict?q={{key}}',
           showRule: '',
@@ -155,7 +165,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('规则名称不能为空'), findsOneWidget);
       verifyNever(
-        () => mockApi.dictRuleAdd(
+        () => mockApi.dictRuleRepository.dictRuleAdd(
           name: any(named: 'name'),
           urlRule: any(named: 'urlRule'),
           showRule: any(named: 'showRule'),
@@ -173,7 +183,7 @@ void main() {
       await tester.pumpAndSettle();
 
       verify(
-        () => mockApi.dictRuleAdd(
+        () => mockApi.dictRuleRepository.dictRuleAdd(
           name: '新词典',
           urlRule: 'https://example.com/dict?q={{key}}',
           showRule: '',
@@ -184,9 +194,14 @@ void main() {
     });
 
     testWidgets('长按进入多选：批量禁用调用 dictRuleSetEnabled(false)', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
-      when(() => mockApi.dictRuleSetEnabled(id: 1, enabled: false))
-          .thenAnswer((_) async => true);
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
+      when(
+        () => mockApi.dictRuleRepository.dictRuleSetEnabled(
+          id: 1,
+          enabled: false,
+        ),
+      ).thenAnswer((_) async => true);
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
@@ -200,15 +215,22 @@ void main() {
       await tester.tap(find.byTooltip('禁用选中'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.dictRuleSetEnabled(id: 1, enabled: false)).called(1);
+      verify(
+        () => mockApi.dictRuleRepository.dictRuleSetEnabled(
+          id: 1,
+          enabled: false,
+        ),
+      ).called(1);
       expect(find.text('已禁用 1 条规则'), findsOneWidget);
       // 退出多选模式
       expect(find.text('已选 1 项'), findsNothing);
     });
 
     testWidgets('长按多选：批量删除需确认并调用 dictRuleDelete', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
-      when(() => mockApi.dictRuleDelete(2)).thenAnswer((_) async => true);
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleDelete(2))
+          .thenAnswer((_) async => true);
 
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
@@ -227,7 +249,7 @@ void main() {
       // 先取消 → 不删除
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
-      verifyNever(() => mockApi.dictRuleDelete(2));
+      verifyNever(() => mockApi.dictRuleRepository.dictRuleDelete(2));
       expect(find.text('百度汉语'), findsOneWidget);
 
       // 再次触发并确认
@@ -236,15 +258,16 @@ void main() {
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.dictRuleDelete(2)).called(1);
+      verify(() => mockApi.dictRuleRepository.dictRuleDelete(2)).called(1);
       expect(find.text('已删除 1 条规则'), findsOneWidget);
       expect(find.text('百度汉语'), findsNothing);
     });
 
     testWidgets('菜单「导入默认」调用 dictRuleImport(kind: text)', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
       when(
-        () => mockApi.dictRuleImport(
+        () => mockApi.dictRuleRepository.dictRuleImport(
           jsonOrUrl: any(named: 'jsonOrUrl'),
           kind: 'text',
         ),
@@ -262,7 +285,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final captured = verify(
-        () => mockApi.dictRuleImport(
+        () => mockApi.dictRuleRepository.dictRuleImport(
           jsonOrUrl: captureAny(named: 'jsonOrUrl'),
           kind: 'text',
         ),
@@ -277,9 +300,14 @@ void main() {
     ) async {
       const qrPayload =
           '[{"name":"扫码词典","urlRule":"https://qr.example.com/dict?q={{key}}","showRule":""}]';
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
-      when(() => mockApi.dictRuleImport(jsonOrUrl: qrPayload, kind: 'text'))
-          .thenAnswer((_) async => 1);
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
+      when(
+        () => mockApi.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: qrPayload,
+          kind: 'text',
+        ),
+      ).thenAnswer((_) async => 1);
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -304,13 +332,18 @@ void main() {
       await tester.tap(find.text('扫码导入'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.dictRuleImport(jsonOrUrl: qrPayload, kind: 'text'))
-          .called(1);
+      verify(
+        () => mockApi.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: qrPayload,
+          kind: 'text',
+        ),
+      ).called(1);
       expect(find.text('已导入 1 条字典规则'), findsOneWidget);
     });
 
     testWidgets('菜单「扫码导入」：取消（pop null）不调用导入且提示', (tester) async {
-      when(() => mockApi.dictRuleList()).thenAnswer((_) async => sampleRows());
+      when(() => mockApi.dictRuleRepository.dictRuleList())
+          .thenAnswer((_) async => sampleRows());
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -330,7 +363,7 @@ void main() {
       await tester.pumpAndSettle();
 
       verifyNever(
-        () => mockApi.dictRuleImport(
+        () => mockApi.dictRuleRepository.dictRuleImport(
           jsonOrUrl: any(named: 'jsonOrUrl'),
           kind: any(named: 'kind'),
         ),

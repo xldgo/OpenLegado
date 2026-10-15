@@ -45,7 +45,7 @@ void main() {
         .thenAnswer((_) async => []);
     // 错误批次路径先 appLogPush 再记账——不打桩回调会在记账前抛异常
     when(
-      () => mockApi.appLogPush(
+      () => mockApi.appLogRepository.appLogPush(
         level: any(named: 'level'),
         message: any(named: 'message'),
       ),

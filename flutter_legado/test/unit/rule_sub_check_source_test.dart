@@ -10,8 +10,6 @@
 ///   已有分组跳过、不退出批量模式）
 library;
 
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -123,16 +121,11 @@ void main() {
     RuleSubNotifier readNotifier() =>
         container.read(ruleSubNotifierProvider.notifier);
 
-    Map<String, dynamic> subJson(int id, String url, int order) => {
-      'id': id,
-      'url': url,
-      'name': '订阅$id',
-      'sub_type': 'bookSource',
-      'customOrder': order,
-    };
+    RuleSub subJson(int id, String url, int order) =>
+        RuleSub(id: id, url: url, name: '订阅$id', customOrder: order);
 
     test('loadSubs 按 customOrder 排序', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer(
+      when(() => mockApi.ruleSubRepository.ruleSubList()).thenAnswer(
         (_) async => [
           subJson(2, 'https://b', 2),
           subJson(1, 'https://a', 1),
@@ -147,7 +140,7 @@ void main() {
     });
 
     test('findDuplicate 命中他人、排除自身', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer(
+      when(() => mockApi.ruleSubRepository.ruleSubList()).thenAnswer(
         (_) async => [subJson(1, 'https://a', 1), subJson(2, 'https://b', 2)],
       );
       await readNotifier().loadSubs();
@@ -158,9 +151,9 @@ void main() {
     });
 
     test('saveSub 新增时 customOrder 追加到末尾并持久化', () async {
-      when(() => mockApi.ruleSubList())
+      when(() => mockApi.ruleSubRepository.ruleSubList())
           .thenAnswer((_) async => [subJson(1, 'https://a', 3)]);
-      when(() => mockApi.ruleSubSave(subJson: any(named: 'subJson')))
+      when(() => mockApi.ruleSubRepository.ruleSubSave(any()))
           .thenAnswer((_) async => true);
       await readNotifier().loadSubs();
 
@@ -168,24 +161,20 @@ void main() {
         const RuleSub(url: 'https://new', name: '新订阅'),
       );
 
-      final captured =
-          verify(
-                () =>
-                    mockApi.ruleSubSave(subJson: captureAny(named: 'subJson')),
-              ).captured.single
-              as String;
-      final saved = RuleSub.fromJson(
-        jsonDecode(captured) as Map<String, dynamic>,
-      );
+      final saved =
+          verify(() => mockApi.ruleSubRepository.ruleSubSave(captureAny()))
+                  .captured
+                  .single
+              as RuleSub;
       expect(saved.customOrder, equals(4)); // max(3) + 1
       expect(saved.createdAt, greaterThan(0));
     });
 
     test('deleteSub 移除条目', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer(
+      when(() => mockApi.ruleSubRepository.ruleSubList()).thenAnswer(
         (_) async => [subJson(1, 'https://a', 1), subJson(2, 'https://b', 2)],
       );
-      when(() => mockApi.ruleSubDelete(id: any(named: 'id')))
+      when(() => mockApi.ruleSubRepository.ruleSubDelete(id: any(named: 'id')))
           .thenAnswer((_) async => true);
       await readNotifier().loadSubs();
 
@@ -194,15 +183,18 @@ void main() {
     });
 
     test('reorder 重排并以新 ID 序列持久化', () async {
-      when(() => mockApi.ruleSubList()).thenAnswer(
+      when(() => mockApi.ruleSubRepository.ruleSubList()).thenAnswer(
         (_) async => [
           subJson(1, 'https://a', 0),
           subJson(2, 'https://b', 1),
           subJson(3, 'https://c', 2),
         ],
       );
-      when(() => mockApi.ruleSubUpdateOrder(ids: any(named: 'ids')))
-          .thenAnswer((_) async => true);
+      when(
+        () => mockApi.ruleSubRepository.ruleSubUpdateOrder(
+          ids: any(named: 'ids'),
+        ),
+      ).thenAnswer((_) async => true);
       await readNotifier().loadSubs();
 
       // 将末项拖到首位（ReorderableListView 语义：oldIndex=2, newIndex=0）
@@ -211,17 +203,19 @@ void main() {
       expect(readState().subs.map((s) => s.id), equals([3, 1, 2]));
       final captured =
           verify(
-                () => mockApi.ruleSubUpdateOrder(ids: captureAny(named: 'ids')),
+                () => mockApi.ruleSubRepository.ruleSubUpdateOrder(
+                  ids: captureAny(named: 'ids'),
+                ),
               ).captured.single
               as List<int>;
       expect(captured, equals([3, 1, 2]));
     });
 
     test('setEnabled 切换启用状态', () async {
-      when(() => mockApi.ruleSubList())
+      when(() => mockApi.ruleSubRepository.ruleSubList())
           .thenAnswer((_) async => [subJson(1, 'https://a', 1)]);
       when(
-        () => mockApi.ruleSubSetEnabled(
+        () => mockApi.ruleSubRepository.ruleSubSetEnabled(
           id: any(named: 'id'),
           enabled: any(named: 'enabled'),
         ),

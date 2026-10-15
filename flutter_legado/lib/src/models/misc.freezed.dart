@@ -6437,6 +6437,7 @@ class __$CacheCopyWithImpl<$Res> implements _$CacheCopyWith<$Res> {
 
 /// @nodoc
 mixin _$DictRule {
+  int get id;
   String get name;
   @JsonKey(name: 'urlRule')
   String get urlRule;
@@ -6462,6 +6463,7 @@ mixin _$DictRule {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is DictRule &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
             (identical(other.name, _this.name) || other.name == _this.name) &&
             (identical(other.urlRule, _this.urlRule) ||
                 other.urlRule == _this.urlRule) &&
@@ -6479,6 +6481,7 @@ mixin _$DictRule {
     final _this = this as DictRule;
     return Object.hash(
       runtimeType,
+      _this.id,
       _this.name,
       _this.urlRule,
       _this.showRule,
@@ -6490,7 +6493,7 @@ mixin _$DictRule {
   @override
   String toString() {
     final _this = this as DictRule;
-    return 'DictRule(name: ${_this.name}, urlRule: ${_this.urlRule}, showRule: ${_this.showRule}, enabled: ${_this.enabled}, sortNumber: ${_this.sortNumber})';
+    return 'DictRule(id: ${_this.id}, name: ${_this.name}, urlRule: ${_this.urlRule}, showRule: ${_this.showRule}, enabled: ${_this.enabled}, sortNumber: ${_this.sortNumber})';
   }
 }
 
@@ -6500,6 +6503,7 @@ abstract mixin class $DictRuleCopyWith<$Res> {
       _$DictRuleCopyWithImpl;
   @useResult
   $Res call({
+    int id,
     String name,
     @JsonKey(name: 'urlRule') String urlRule,
     @JsonKey(name: 'showRule') String showRule,
@@ -6520,6 +6524,7 @@ class _$DictRuleCopyWithImpl<$Res> implements $DictRuleCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? id = null,
     Object? name = null,
     Object? urlRule = null,
     Object? showRule = null,
@@ -6528,6 +6533,10 @@ class _$DictRuleCopyWithImpl<$Res> implements $DictRuleCopyWith<$Res> {
   }) {
     return _then(
       DictRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
         name: null == name
             ? _self.name
             : name // ignore: cast_nullable_to_non_nullable
@@ -6647,6 +6656,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6660,6 +6670,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule() when $default != null:
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6687,6 +6698,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
     TResult Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6699,6 +6711,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule():
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6725,6 +6738,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6737,6 +6751,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule() when $default != null:
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6753,6 +6768,7 @@ extension DictRulePatterns on DictRule {
 @JsonSerializable()
 class _DictRule implements DictRule {
   const _DictRule({
+    this.id = 0,
     this.name = '',
     @JsonKey(name: 'urlRule') this.urlRule = '',
     @JsonKey(name: 'showRule') this.showRule = '',
@@ -6762,6 +6778,9 @@ class _DictRule implements DictRule {
   factory _DictRule.fromJson(Map<String, dynamic> json) =>
       _$DictRuleFromJson(json);
 
+  @override
+  @JsonKey()
+  final int id;
   @override
   @JsonKey()
   final String name;
@@ -6796,6 +6815,7 @@ class _DictRule implements DictRule {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _DictRule &&
+            (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.urlRule, urlRule) || other.urlRule == urlRule) &&
             (identical(other.showRule, showRule) ||
@@ -6810,6 +6830,7 @@ class _DictRule implements DictRule {
   int get hashCode {
     return Object.hash(
       runtimeType,
+      id,
       name,
       urlRule,
       showRule,
@@ -6820,7 +6841,7 @@ class _DictRule implements DictRule {
 
   @override
   String toString() {
-    return 'DictRule(name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
+    return 'DictRule(id: $id, name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
   }
 }
 
@@ -6832,6 +6853,7 @@ abstract mixin class _$DictRuleCopyWith<$Res>
   @override
   @useResult
   $Res call({
+    int id,
     String name,
     @JsonKey(name: 'urlRule') String urlRule,
     @JsonKey(name: 'showRule') String showRule,
@@ -6852,6 +6874,7 @@ class __$DictRuleCopyWithImpl<$Res> implements _$DictRuleCopyWith<$Res> {
   @override
   @pragma('vm:prefer-inline')
   $Res call({
+    Object? id = null,
     Object? name = null,
     Object? urlRule = null,
     Object? showRule = null,
@@ -6860,6 +6883,10 @@ class __$DictRuleCopyWithImpl<$Res> implements _$DictRuleCopyWith<$Res> {
   }) {
     return _then(
       _DictRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
         name: null == name
             ? _self.name
             : name // ignore: cast_nullable_to_non_nullable

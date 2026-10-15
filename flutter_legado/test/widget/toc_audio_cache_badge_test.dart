@@ -141,8 +141,9 @@ void main() {
           audioListCalls++;
           return audioCachedByCall != null ? audioCachedByCall() : audioCached;
         });
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
     when(() => mockBookmarks.getBookmarksByBook('听书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
   }

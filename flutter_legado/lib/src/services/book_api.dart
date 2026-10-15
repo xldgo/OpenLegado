@@ -1,3 +1,14 @@
+import '../domain/contracts/cache_repository.dart';
+import '../domain/contracts/database_maintenance_service.dart';
+import '../domain/contracts/app_log_repository.dart';
+import '../domain/contracts/dictionary_service.dart';
+import '../domain/contracts/dict_rule_repository.dart';
+import '../domain/contracts/highlight_repository.dart';
+import '../domain/contracts/highlight_rule_repository.dart';
+import '../domain/contracts/rule_sub_repository.dart';
+import '../domain/contracts/rule_sub_service.dart';
+import '../domain/contracts/replace_rule_repository.dart';
+import '../domain/contracts/replace_rule_service.dart';
 import '../domain/contracts/rss_source_repository.dart';
 import '../domain/contracts/rss_article_repository.dart';
 import '../domain/contracts/rss_read_record_repository.dart';
@@ -30,6 +41,17 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  CacheRepository get cacheRepository;
+  DatabaseMaintenanceService get databaseMaintenanceService;
+  AppLogRepository get appLogRepository;
+  DictionaryService get dictionaryService;
+  DictRuleRepository get dictRuleRepository;
+  HighlightRepository get highlightRepository;
+  HighlightRuleRepository get highlightRuleRepository;
+  RuleSubRepository get ruleSubRepository;
+  RuleSubService get ruleSubService;
+  ReplaceRuleRepository get replaceRuleRepository;
+  ReplaceRuleService get replaceRuleService;
   RssSourceRepository get rssSourceRepository;
   RssArticleRepository get rssArticleRepository;
   RssReadRecordRepository get rssReadRecordRepository;
@@ -311,49 +333,6 @@ abstract class BookApi {
     bool caseSensitive = false,
   });
 
-  // ========== 替换规则操作 ==========
-
-  /// 获取所有替换规则
-  Future<List<ReplaceRule>> getReplaceRules();
-
-  /// 获取启用的替换规则
-  Future<List<ReplaceRule>> getEnabledReplaceRules();
-
-  /// 添加替换规则
-  Future<ReplaceRule> addReplaceRule(ReplaceRule rule);
-
-  /// 更新替换规则
-  Future<void> updateReplaceRule(ReplaceRule rule);
-
-  /// 删除替换规则
-  Future<void> deleteReplaceRule(int id);
-
-  /// 启用/禁用替换规则
-  Future<void> setReplaceRuleEnabled(int id, bool enabled);
-
-  /// 书源导入时应用「书源作用域」替换规则（契约 §2.8 `applyReplaceRulesToSource`）
-  ///
-  /// [书源作用域 | 2026-09-13] 对整源 [sourceJson] 应用
-  /// `isEnabled && scopeSource && pattern 非空` 且 scope/excludeScope
-  /// 按 [sourceName]/[sourceUrl]（忽略大小写）匹配的规则；
-  /// 未命中返回原文；任何规则级/DB 错误均原样返回输入 JSON（不上抛），
-  /// 保证导入流程不中断。
-  Future<String> applyReplaceRulesToSource(
-    String sourceJson,
-    String sourceName,
-    String sourceUrl,
-  );
-
-  /// 替换规则编辑器预览：对单条规则在示例文本上执行真实替换管线（契约 §2.8 `previewReplaceRule`）
-  ///
-  /// [替换规则预览 | 2026-09-13] [ruleJson] 为单条 [ReplaceRule] 模型 JSON
-  /// （camelCase 字段，即 `ReplaceRule.toJson()` 产物）；在 [sampleContent]
-  /// 上执行真实替换管线（正则 / 字面量 / `@js:` QuickJS 执行 + 逐规则超时）。
-  /// 成功=返回替换后文本；规则级错误（非法正则 / `@js:` JS 异常 / 执行超时）
-  /// =返回 `⚠️ ` 前缀错误文本（可直接展示于预览区，不上抛）；
-  /// 非法输入（JSON 解析失败）MAY Err。
-  Future<String> previewReplaceRule(String ruleJson, String sampleContent);
-
   // ========== 阅读器操作 ==========
 
   /// 设置阅读器繁简转换类型并持久化
@@ -398,79 +377,6 @@ abstract class BookApi {
 
   /// 获取所有配置
   Future<Map<String, String>> getAllConfigs();
-
-  // ========== 词典操作 ==========
-
-  /// 词典查询（本地内置词典）
-  ///
-  /// 按单词查询释义（API_CONTRACT.md §3 需求 4，用于 `dict_screen`）。
-  /// 返回字段：`word`（归一化单词）/ `phonetic`（音标，可空）/ `definitions`（释义列表）。
-  /// 未收录词返回空 `definitions`（非异常）；查询异常抛出经 bridge 映射为 [BridgeError]。
-  Future<Map<String, dynamic>> dictLookup(String word);
-
-  // ========== 字典规则操作（dict_rule FFI，契约 §2.45） ==========
-
-  /// 列出全部字典规则（契约 §2.45，`ORDER BY sortNumber, id`）
-  ///
-  /// 空表先注入原版默认 5 源（海词中文/海词英文/有道/哔哩/百度汉语）。
-  /// 返回每行 `{id, name, urlRule, showRule, enabled, sortNumber}`。
-  Future<List<Map<String, dynamic>>> dictRuleList();
-
-  /// 新增字典规则（enabled=1, sortNumber=0），返回新 ID；name 重复抛错
-  Future<int> dictRuleAdd({
-    required String name,
-    required String urlRule,
-    required String showRule,
-  });
-
-  /// 按 id 更新字典规则（name/urlRule/showRule），返回是否实际更新
-  Future<bool> dictRuleUpdate({
-    required int id,
-    required String name,
-    required String urlRule,
-    required String showRule,
-  });
-
-  /// 按 id 删除字典规则，返回是否实际删除
-  Future<bool> dictRuleDelete(int id);
-
-  /// 按 id 启用/禁用字典规则，返回是否实际更新
-  Future<bool> dictRuleSetEnabled({required int id, required bool enabled});
-
-  /// 按给定 ID 顺序重编号 sortNumber（0..n，对标原版 upSortNumber），返回重排条数
-  ///
-  /// [idsJson] 为 JSON 数组（如 `[3,1,2]`），表示拖拽后的完整有序 ID 列表。
-  Future<int> dictRuleReorder(String idsJson);
-
-  /// 导入字典规则（GSON 数组/单对象，REPLACE by name），返回导入条数
-  ///
-  /// [kind] = `text`：[jsonOrUrl] 为 JSON 文本（数组或单对象）；
-  /// [kind] = `url`：[jsonOrUrl] 为 URL，先经既有抓取链路取 body 再解析。
-  Future<int> dictRuleImport({required String jsonOrUrl, required String kind});
-
-  // ========== 缓存管理 ==========
-
-  /// 获取缓存大小
-  Future<int> getCacheSize();
-
-  /// 清除全部缓存
-  Future<void> clearCache();
-
-  /// 获取缓存书籍数量
-  Future<int> getCacheBookCount();
-
-  /// 获取缓存章节数量
-  Future<int> getCacheChapterCount();
-
-  /// 清除指定时间之前的缓存
-  Future<void> clearCacheBefore(int beforeTimestampMs);
-
-  /// 执行 SQLite VACUUM 压缩数据库，返回释放的字节数（契约 §2.16.6，
-  /// Task #50 加法式新增）
-  ///
-  /// VACUUM 失败（数据库锁/文件损坏）或数据库未初始化时降级返回 0，
-  /// 不抛异常阻断业务。
-  Future<int> shrinkDatabase();
 
   // ========== 图片磁盘缓存（对齐原版 BookHelp.saveImage/getImage，契约 §2.46） ==========
 
@@ -997,97 +903,4 @@ abstract class BookApi {
 
   /// 判断文件是否为压缩包格式
   Future<bool> archiveIsArchive({required String filePath});
-
-  // ========== 正文高亮（highlight FFI） ==========
-
-  /// 新增/更新高亮记录（BookHighlight JSON，time=0 时自动分配），返回 time
-  Future<int> highlightAdd({required String highlightJson});
-
-  /// 按主键 time 删除高亮记录，返回是否实际删除
-  Future<bool> highlightDelete({required int time});
-
-  /// 按书籍删除全部高亮记录，返回删除数量
-  Future<int> highlightDeleteByBook({required String bookUrl});
-
-  /// 按书籍获取高亮列表（BookHighlight 数组 JSON）
-  Future<String> highlightListByBook({required String bookUrl});
-
-  /// 按书籍 + 章节索引获取高亮列表（BookHighlight 数组 JSON）
-  Future<String> highlightListByChapter({
-    required String bookUrl,
-    required int chapterIndex,
-  });
-
-  /// 全局关键词搜索高亮（BookHighlight 数组 JSON）
-  Future<String> highlightSearch({required String keyword});
-
-  /// 获取所有高亮记录（BookHighlight 数组 JSON）
-  Future<String> highlightListAll();
-
-  /// 获取所有高亮规则（HighlightRule 数组 JSON，按 sortOrder 升序）
-  Future<String> highlightRuleList();
-
-  /// 保存高亮规则（HighlightRule JSON，id=0 时自增新增），返回规则 ID
-  Future<int> highlightRuleSave({required String ruleJson});
-
-  /// 按 ID 删除高亮规则，返回是否实际删除
-  Future<bool> highlightRuleDelete({required int id});
-
-  /// 按书籍查找启用的高亮规则（HighlightRule 数组 JSON）
-  Future<String> highlightRuleFindEnabled({
-    required String bookName,
-    required String origin,
-  });
-
-  // ========== 应用日志（appLog FFI） ==========
-  // [审计修复 §1.2] 补齐契约 §2.38 已交付但接口缺失的 appLog* 五方法 — QoderCN
-
-  /// 推送一条应用日志（对齐 Android AppLog.put；空消息由 Rust 侧短路忽略）
-  ///
-  /// [level] 取值：`message` / `crash` / `http`（对齐契约 §2.38）。
-  Future<void> appLogPush({required String level, required String message});
-
-  /// 获取指定级别的日志列表（JSON 数组，最新在前）
-  ///
-  /// 每项字段：`timestamp`（毫秒）/ `level` / `message`。
-  Future<String> appLogList({required String level});
-
-  /// 清空指定级别的日志
-  Future<void> appLogClear({required String level});
-
-  /// 清空全部级别日志（对齐 #543 AppLog.clear + HttpLogStore.clear）
-  Future<void> appLogClearAll();
-
-  /// 导出全部日志为格式化文本（时间升序，64_000 字符截断，对齐 #543）
-  Future<String> appLogExport();
-
-  // ========== 规则订阅（rule_sub FFI，Task #89） ==========
-
-  /// 获取规则订阅列表（按 customOrder 排序，对齐 Kotlin RuleSubDao.all）
-  ///
-  /// 每项字段：`id` / `name` / `url` / `type`（0 书源 / 1 订阅源 / 2 替换规则）/
-  /// `customOrder` / `autoUpdate` / `update`（最后更新时间戳）/
-  /// `updateInterval`（小时）/ `silentUpdate` / `js`? / `showRule`? / `sourceUrl`?。
-  Future<List<Map<String, dynamic>>> ruleSubList();
-
-  /// 新增/更新规则订阅（RuleSub JSON；id>0 且存在则更新，否则新增）
-  Future<bool> ruleSubSave({required String subJson});
-
-  /// 删除规则订阅，返回是否实际删除
-  Future<bool> ruleSubDelete({required int id});
-
-  /// 切换规则订阅启用状态，返回记录是否存在
-  Future<bool> ruleSubSetEnabled({required int id, required bool enabled});
-
-  /// 拖拽排序：按新顺序 ID 列表重写 customOrder（0 起）
-  Future<bool> ruleSubUpdateOrder({required List<int> ids});
-
-  /// 检查更新（返回检查结果 Map：
-  /// `id` / `url` / `name` / `dueForUpdate` / `hasUpdate` / `remoteVersion` / `error`）
-  Future<Map<String, dynamic>> ruleSubCheckUpdate({required int id});
-
-  /// 应用更新（返回应用结果 Map：
-  /// `id` / `url` / `success` / `itemsAdded` / `itemsUpdated` /
-  /// `itemsRemoved` / `totalItems` / `error`）
-  Future<Map<String, dynamic>> ruleSubApplyUpdate({required int id});
 }

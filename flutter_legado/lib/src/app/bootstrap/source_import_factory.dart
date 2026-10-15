@@ -10,6 +10,6 @@ SourceImportService createSourceImportService(BookApi api) {
     fetchText: (url, {required timeout}) =>
         bridgeHttpGet(api, url, timeout: timeout),
     readFile: readSourceImportFile,
-    applyReplaceRules: api.applyReplaceRulesToSource,
+    applyReplaceRules: api.replaceRuleService.applyReplaceRulesToSource,
   );
 }

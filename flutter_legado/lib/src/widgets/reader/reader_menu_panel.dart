@@ -1,3 +1,4 @@
+import '../../providers/replace_rule_repository_provider.dart';
 import '../../providers/chapter_cache_provider.dart';
 import '../../providers/reader/reader_settings_provider.dart';
 import '../../l10n/app_localization.dart';

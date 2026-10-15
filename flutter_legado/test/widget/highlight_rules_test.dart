@@ -6,7 +6,7 @@
 // - 启用开关切换调用 highlightRuleSave（isEnabled 翻转）
 // - 新增表单包含原版字段并保存时经 highlightRuleSave 传递
 // - 删除走确认对话框并调用 highlightRuleDelete
-import 'dart:convert';
+import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -35,13 +35,19 @@ void main() {
     'applyToTitle': false,
   };
 
+  setUpAll(registerFallbacks);
+
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.highlightRuleList()).thenAnswer((_) async => '[]');
-    when(() => mockApi.highlightRuleSave(ruleJson: any(named: 'ruleJson')))
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.highlightRuleRepository.highlightRuleSave(any()))
         .thenAnswer((_) async => 1);
-    when(() => mockApi.highlightRuleDelete(id: any(named: 'id')))
-        .thenAnswer((_) async => true);
+    when(
+      () => mockApi.highlightRuleRepository.highlightRuleDelete(
+        id: any(named: 'id'),
+      ),
+    ).thenAnswer((_) async => true);
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -62,8 +68,8 @@ void main() {
   });
 
   testWidgets('列表渲染规则名称/模式/范围', (tester) async {
-    when(() => mockApi.highlightRuleList())
-        .thenAnswer((_) async => jsonEncode([sampleRule]));
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => [HighlightRule.fromJson(sampleRule)]);
     await pumpScreen(tester);
 
     expect(find.text('关键词高亮'), findsOneWidget);
@@ -73,23 +79,22 @@ void main() {
   });
 
   testWidgets('切换启用开关保存翻转后的 isEnabled', (tester) async {
-    when(() => mockApi.highlightRuleList())
-        .thenAnswer((_) async => jsonEncode([sampleRule]));
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => [HighlightRule.fromJson(sampleRule)]);
     await pumpScreen(tester);
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
-    final captured =
+    final saved =
         verify(
-              () => mockApi.highlightRuleSave(
-                ruleJson: captureAny(named: 'ruleJson'),
+              () => mockApi.highlightRuleRepository.highlightRuleSave(
+                captureAny(),
               ),
             ).captured.single
-            as String;
-    final saved = jsonDecode(captured) as Map<String, dynamic>;
-    expect(saved['isEnabled'], false);
-    expect(saved['id'], 1);
+            as HighlightRule;
+    expect(saved.isEnabled, false);
+    expect(saved.id, 1);
   });
 
   testWidgets('新增表单包含原版字段且保存传递 pattern', (tester) async {
@@ -110,22 +115,21 @@ void main() {
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
-    final captured =
+    final saved =
         verify(
-              () => mockApi.highlightRuleSave(
-                ruleJson: captureAny(named: 'ruleJson'),
+              () => mockApi.highlightRuleRepository.highlightRuleSave(
+                captureAny(),
               ),
             ).captured.single
-            as String;
-    final saved = jsonDecode(captured) as Map<String, dynamic>;
-    expect(saved['name'], '测试规则');
-    expect(saved['pattern'], '关键词');
-    expect(saved['isEnabled'], true);
+            as HighlightRule;
+    expect(saved.name, '测试规则');
+    expect(saved.pattern, '关键词');
+    expect(saved.isEnabled, true);
   });
 
   testWidgets('删除走确认对话框并调用 highlightRuleDelete', (tester) async {
-    when(() => mockApi.highlightRuleList())
-        .thenAnswer((_) async => jsonEncode([sampleRule]));
+    when(() => mockApi.highlightRuleRepository.highlightRuleList())
+        .thenAnswer((_) async => [HighlightRule.fromJson(sampleRule)]);
     await pumpScreen(tester);
 
     await tester.tap(find.byIcon(Symbols.delete_rounded));
@@ -136,6 +140,7 @@ void main() {
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
 
-    verify(() => mockApi.highlightRuleDelete(id: 1)).called(1);
+    verify(() => mockApi.highlightRuleRepository.highlightRuleDelete(id: 1))
+        .called(1);
   });
 }

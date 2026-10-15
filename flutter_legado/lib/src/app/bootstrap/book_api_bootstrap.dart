@@ -1,3 +1,14 @@
+import '../../data/repositories/rust_cache_repository.dart';
+import '../../data/services/rust_database_maintenance_service.dart';
+import '../../data/repositories/rust_app_log_repository.dart';
+import '../../data/services/rust_dictionary_service.dart';
+import '../../data/repositories/rust_dict_rule_repository.dart';
+import '../../data/repositories/rust_highlight_repository.dart';
+import '../../data/repositories/rust_highlight_rule_repository.dart';
+import '../../data/repositories/rust_rule_sub_repository.dart';
+import '../../data/services/rust_rule_sub_service.dart';
+import '../../data/repositories/rust_replace_rule_repository.dart';
+import '../../data/services/rust_replace_rule_service.dart';
 import '../../data/repositories/rust_rss_source_repository.dart';
 import '../../data/repositories/rust_rss_article_repository.dart';
 import '../../data/repositories/rust_rss_read_record_repository.dart';
@@ -45,6 +56,17 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    cacheRepository: const RustCacheRepository(),
+    databaseMaintenanceService: const RustDatabaseMaintenanceService(),
+    appLogRepository: const RustAppLogRepository(),
+    dictionaryService: const RustDictionaryService(),
+    dictRuleRepository: const RustDictRuleRepository(),
+    highlightRepository: const RustHighlightRepository(),
+    highlightRuleRepository: const RustHighlightRuleRepository(),
+    ruleSubRepository: const RustRuleSubRepository(),
+    ruleSubService: const RustRuleSubService(),
+    replaceRuleRepository: const RustReplaceRuleRepository(),
+    replaceRuleService: const RustReplaceRuleService(),
     rssSourceRepository: const RustRssSourceRepository(),
     rssArticleRepository: const RustRssArticleRepository(),
     rssReadRecordRepository: const RustRssReadRecordRepository(),

@@ -35,14 +35,16 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getReplaceRules()).thenAnswer((_) async => []);
+    when(() => mockApi.replaceRuleRepository.getReplaceRules())
+        .thenAnswer((_) async => []);
   });
 
   Future<void> pumpScreen(
     WidgetTester tester, {
     List<ReplaceRule> rules = const [],
   }) async {
-    when(() => mockApi.getReplaceRules()).thenAnswer((_) async => rules);
+    when(() => mockApi.replaceRuleRepository.getReplaceRules())
+        .thenAnswer((_) async => rules);
     await tester.binding.setSurfaceSize(const Size(800, 2000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -76,7 +78,8 @@ void main() {
         replacement: '【广告】',
         scope: '某书',
       );
-      when(() => mockApi.updateReplaceRule(any())).thenAnswer((_) async {});
+      when(() => mockApi.replaceRuleRepository.updateReplaceRule(any()))
+          .thenAnswer((_) async {});
       await pumpScreen(tester, rules: [rule]);
 
       // 点行内编辑图标（对标 iv_edit）
@@ -92,10 +95,11 @@ void main() {
     });
 
     testWidgets('整页保存新规则后返回列表且规则出现在列表', (tester) async {
-      when(() => mockApi.addReplaceRule(any())).thenAnswer(
-        (inv) async =>
-            (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
-      );
+      when(() => mockApi.replaceRuleRepository.addReplaceRule(any()))
+          .thenAnswer(
+            (inv) async =>
+                (inv.positionalArguments[0] as ReplaceRule).copyWith(id: 1),
+          );
       await pumpScreen(tester);
 
       await tester.tap(find.byIcon(Symbols.add_rounded));
@@ -114,7 +118,7 @@ void main() {
     });
 
     testWidgets('路由预填 pattern 时首帧后直接打开整页编辑器', (tester) async {
-      when(() => mockApi.addReplaceRule(any()))
+      when(() => mockApi.replaceRuleRepository.addReplaceRule(any()))
           .thenAnswer((inv) async => const ReplaceRule());
       await tester.binding.setSurfaceSize(const Size(800, 2000));
       addTearDown(() => tester.binding.setSurfaceSize(null));

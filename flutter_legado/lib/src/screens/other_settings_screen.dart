@@ -13,7 +13,7 @@
 // uploadRule（直链上传规则）/ Cronet：缺引擎支撑，诚实不展示空壳；
 // [Task #40 | 2026-08-09] checkSource 配置入口已接线（§5.13-2，
 // 「校验书源配置」对话框经 CheckSourceNotifier 持久化并入 configJson）；
-// [Task #52 | 2026-08-10] 压缩数据库已接线（§5.13-9，经 BookApi.shrinkDatabase
+// [Task #52 | 2026-08-10] 压缩数据库已接线（§5.13-9，经 DatabaseMaintenanceService.shrinkDatabase
 // 接通 cacheShrinkDatabase FFI，契约 §2.16.6） — Qoder
 import 'dart:convert';
 
@@ -36,6 +36,7 @@ import '../providers/general_settings_provider.dart';
 import '../providers/main_prefs_notifier.dart';
 import '../providers/providers.dart';
 import '../providers/source_check/check_source_notifier.dart';
+import '../providers/cache_provider.dart';
 import '../services/crash_log_service.dart';
 import '../services/settings_service.dart';
 import '../widgets/settings_widgets.dart';
@@ -812,7 +813,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     if (ok != true || !mounted) return;
     try {
-      await ref.read(bookApiProvider).clearCache();
+      await ref.read(cacheRepositoryProvider).clearCache();
       if (mounted) _toast('成功清理缓存');
     } catch (e) {
       if (mounted) _toast('清理失败：$e');
@@ -872,7 +873,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     if (confirmed != true || !mounted) return;
     _toast('正在压缩数据库…');
     try {
-      final freed = await ref.read(bookApiProvider).shrinkDatabase();
+      final freed = await ref
+          .read(databaseMaintenanceServiceProvider)
+          .shrinkDatabase();
       if (!mounted) return;
       if (freed <= 0) {
         // 契约约定：失败/未初始化降级返回 0

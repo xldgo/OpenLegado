@@ -1,3 +1,5 @@
+import '../app_log_repository_provider.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -123,14 +125,15 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
           // 单源失败静默不弹 UI、仅 AppLog 留痕（对齐 SearchNotifier 批次
           // error 处理）；末批错误记为终态错误，无结果时展示
           unawaited(
-            ref
-                .read(bookApiProvider)
-                .appLogPush(
-                  level: 'message',
-                  message:
-                      '换源搜索出错\n${(batch['source_name'] as String?) ?? '未知书源'}: $batchError',
-                )
-                .catchError((_) {}),
+            Future<void>.sync(
+              () => ref
+                  .read(appLogRepositoryProvider)
+                  .appLogPush(
+                    level: 'message',
+                    message:
+                        '换源搜索出错\n${(batch['source_name'] as String?) ?? '未知书源'}: $batchError',
+                  ),
+            ).catchError((_) {}),
           );
           if (batch['is_last'] == true) terminalError = batchError;
         }

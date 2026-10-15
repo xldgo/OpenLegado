@@ -1,7 +1,5 @@
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,19 +27,9 @@ class _Reader extends ReaderNotifier {
 
 class _Bookmarks extends Mock implements BookmarkRepository {}
 
-class _Api extends MockBookApi {
-  Map<String, dynamic>? highlight;
-
-  @override
-  Future<int> highlightAdd({required String highlightJson}) async {
-    highlight = jsonDecode(highlightJson) as Map<String, dynamic>;
-    return 1;
-  }
-}
-
 Future<void> _showToolbar(
   WidgetTester tester,
-  _Api api, {
+  MockBookApi api, {
   BookmarkRepository? bookmarks,
 }) async {
   await tester.pumpWidget(
@@ -86,7 +74,7 @@ void main() {
     }),
   );
   testWidgets('书签保存精准选区的原文和全局起始偏移', (tester) async {
-    final api = _Api();
+    final api = MockBookApi();
     final bookmarks = _Bookmarks();
     when(() => bookmarks.addBookmark(any())).thenAnswer(
       (invocation) async => invocation.positionalArguments.single as Bookmark,
@@ -126,7 +114,7 @@ void main() {
   });
 
   testWidgets('选区新增取消不写入，直接保存时原文和空备注分离', (tester) async {
-    final api = _Api();
+    final api = MockBookApi();
     final bookmarks = _Bookmarks();
     when(() => bookmarks.addBookmark(any())).thenAnswer(
       (invocation) async => invocation.positionalArguments.single as Bookmark,
@@ -155,7 +143,7 @@ void main() {
   });
 
   testWidgets('高亮使用打开笔记时的选区，焦点变化不会改成整段', (tester) async {
-    final api = _Api();
+    final api = MockBookApi();
     await _showToolbar(tester, api);
     final menuTheme = Theme.of(
       tester.element(find.byType(ReaderSelectionToolbar)),
@@ -180,10 +168,12 @@ void main() {
     await tester.enterText(find.byType(TextField), '选区笔记');
     await tester.tap(find.text('保存高亮'));
     await tester.pumpAndSettle();
-    expect(api.highlight!['chapterPos'], 102);
-    expect(api.highlight!['chapterPosEnd'], 106);
-    expect(api.highlight!['bookText'], '实际选区');
-    expect(api.highlight!['note'], '选区笔记');
+    final saved = (await api.highlightRepository.highlightListAll()).single;
+    expect(saved.chapterPos, 102);
+    expect(saved.chapterPosEnd, 106);
+    expect(saved.bookText, '实际选区');
+    expect(saved.note, '选区笔记');
+    expect(saved.layoutTitleLength, 0);
     expect(tester.takeException(), isNull);
   });
 }

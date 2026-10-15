@@ -43,6 +43,12 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-16 | **全局缓存与数据库维护Dart边界冻结**：CacheRepository接管五项全局统计与清理，DatabaseMaintenanceService接管VACUUM，CacheService返回CacheStats；设置页使用窄Provider，统计失败可重试、清理拒绝不报成功，根BookApi 128→122。Rust/FRB和实际缓存清理范围不变，见§2.16。 |
+| 2026-10-16 | **应用日志Dart边界冻结**：appLog五项迁入AppLogRepository，列表返回共享AppLogEntry，JSON解码归数据层；正式/Mock实现共用应用装配实例，搜索与换源写入失败不阻断业务。根旧五项移除，BookApi 133→128；Rust/FRB及崩溃采集备份不变，见§2.38。 |
+| 2026-10-16 | **词典Dart边界冻结**：dictLookup迁入DictionaryService，返回DictEntry；七项规则访问迁入DictRuleRepository，列表返回补齐id的DictRule，排序接受ID列表。查询、管理和关联导入统一使用现有dictRules表，删除config:dict_rules第二份权威及版本标记，不迁移旧配置。BookApi 141→133，Rust/FRB/数据库不变，见§2.45与§3词典说明。 |
+| 2026-10-16 | **正文标注与高亮规则Dart边界冻结**：标注七项与规则四项分别迁入HighlightRepository和HighlightRuleRepository，列表返回共享模型、保存传实体，JSON由数据层处理；规则保留sortOrder/timeoutMillisecond。根旧十一项移除，BookApi 152→141；Rust/FRB签名及数据库不变，见§2.36。 |
+| 2026-10-16 | **规则订阅Dart边界冻结**：五项配置访问迁入RuleSubRepository，两项检查/应用迁入RuleSubService；列表使用已有RuleSub，保存与响应JSON解码归数据层，更新返回类型化结果。根旧七项移除，BookApi 159→152；现有Rust/FRB签名、数据库及更新能力不变，见§2.39。 |
+| 2026-10-16 | **替换规则Dart边界冻结**：六项配置访问迁入ReplaceRuleRepository，两项预览/书源作用域替换迁入ReplaceRuleService；正式实现直接复用既有FRB，根旧八项移除，BookApi 167→159。保留现有字段映射、错误及排序行为；现有FRB更新缺少scope/sortOrder，排序与范围更新能力缺口独立后续处理，本批不修改Rust导出、生成绑定或数据库，见§2.8。 |
 | 2026-10-16 | **RSS Dart边界冻结**：源八项、文章两项、已读七项、收藏四项分别迁入RssSourceRepository、RssArticleRepository、RssReadRecordRepository、RssStarRepository；已读列表返回已有RssReadRecordRow，JSON解码集中于数据层。RSS启停使用rssUpdateSource更新原RSS实体的enabled，不再调用书源启停接口；现有Rust/FRB签名、存储与默认源策略不变。根BookApi移除21项，188→167（纠正上一版文档少计一项），见§2.5、§2.13、§2.35。 |
 | 2026-10-15 | **章节缓存与下载边界冻结**：五项章节缓存迁入ChapterCacheRepository，六项真实批量下载迁入CacheDownloadService；列表/进度返回共享CacheDownloadTask，严格解码失败不得伪装空任务。仅删除无生产消费者的旧download管理器七项Dart包装，Rust公开签名保留；BookApi 205→187，见§2.43的Dart接线。 |
 | 2026-10-15 | **阅读访问边界冻结**：目录、正文、抓取、正文保存及进度八项迁入ReadingRepository，正式实现直接调用既有FRB；平台载荷处理从应用装配注入，Mock复用同一书架/目录/正文数据。旧根接口移除八项，BookApi 213→205；目录错误响应明确报错，不按空目录处理。Rust签名、生成绑定、原文锚点及音视频进度语义不变，详见§2.9。 |
@@ -374,7 +380,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `tool/check_api_contract.dart` 自动校验。
-> BookApi 接口当前共 **167 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167）。
+> BookApi 接口当前共 **122 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167；替换规则配置六项与执行两项迁走：167→159；规则订阅配置五项与更新两项迁走：159→152；正文标注七项与高亮规则四项迁走：152→141；词典查询一项与规则七项迁走：141→133；应用日志五项迁走：133→128；全局缓存五项与数据库维护一项迁走：128→122）。
 > 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
@@ -561,6 +567,10 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 ### 2.8 替换规则操作（8 个方法）
 
+**Dart访问边界（2026-10-16）**：前六项由`ReplaceRuleRepository`访问，后两项由`ReplaceRuleService`执行；两种正式实现均直接复用既有FRB，根BookApi不保留旧方法。源导入装配、直导入口、编辑器和阅读菜单复用同一装配实例；合法空列表成功，坏列表结构或字段明确报错，不当作空规则。Mock保留原有规则内存与固定预览结果，不建立第二套执行引擎。
+
+**已确认的既有写入缺口**：FRB `replaceRuleUpdate`不接受scope/sortOrder，Rust `update_replace_rule`保留原scope/order，因此本批不宣称修复编辑范围或排序持久化。拖拽仍为现有内存排序；批量置顶/置底虽调用更新也不能落库顺序。补齐需后续独立扩参、codegen与原生库配对，本批不改Rust/FRB签名、生成绑定和存储格式。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `getReplaceRules()` | 无 | `Future<List<ReplaceRule>>` | 获取所有替换规则 |
@@ -714,6 +724,18 @@ Rust导出、参数、返回和数据库格式保持。
 | `clearSearchHistory()` | 无 | `Future<void>` | 清空搜索历史 |
 
 ### 2.16 缓存管理（9 个方法）
+
+**全局缓存与维护Dart边界冻结（2026-10-16，实施前）**：CacheRepository接管
+getCacheSize/getCacheBookCount/getCacheChapterCount/clearCache/clearCacheBefore五项，
+DatabaseMaintenanceService接管shrinkDatabase。应用装配共享实例并提供可独立替换的Provider；
+根BookApi六项旧方法及part实现移除，不保留转发。CacheService仅依赖CacheRepository，
+统计返回不可变CacheStats（totalSize/bookCount/chapterCount），不再返回动态Map。
+Rust/FRB签名、数据库及生成绑定不变；清理false视为失败，异常原样传播，不伪造成功。
+统计仍来自cached_chapters；全部清理仍清cached_chapters和通用caches表，按时间清理
+仍使用毫秒截止时间并复位受影响书籍的sameTitleRemoved键，不新增文件或媒体缓存清理。
+VACUUM的0继续表示无需压缩或Rust降级，Dart不将其重新解释为确定成功。
+Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示样例，不作为真实清理证据。
+自动过期仍仅有配置、执行入口待实现；不在本批新增调度或迁移设置存储。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -960,6 +982,15 @@ Rust导出、参数、返回和数据库格式保持。
 
 ### 2.36 正文高亮（highlight FFI）（11 个方法）
 
+> **Dart边界（2026-10-16）**：下表保留FRB传输签名，十一项不再属于根BookApi。
+> HighlightRepository保留标注七项方法名，highlightAdd(BookHighlight highlight)在仓储编码，返回实际time；
+> 四项列表/搜索返回Future<List<BookHighlight>>，删除保留原bool/数量返回。
+> HighlightRuleRepository保留规则四项方法名，highlightRuleSave(HighlightRule rule)返回ID，
+> 列表与适用规则查询返回Future<List<HighlightRule>>；模型移出Provider状态文件并保留既有排序和超时字段。
+> 两份仓储直接调用现有FRB；Mock通过同一装配实例共享状态，规则ID复用原分配器。
+> 空数组合法，坏JSON/根结构/列表条目不当空列表；保存无有效主键或删除返回false不报告成功。
+> 消费者通过独立Provider注入，不在目录页或规则Notifier解码传输JSON；不改变原文偏移、绘制或规则执行。
+>
 > **Flutter 选区调用口径（2026-10-11，UI-READER-SELECTION-20261011）**：新增选区记录的 `chapterPos` / `chapterPosEnd` 为收到的章节正文中的 UTF-16 起止偏移（左闭右开），与 Dart 选区一致；`bookText` 从同一原文区间取得，排版生成的缩进不计入原文。阅读器现有页索引与字符偏移分别管理。Rust 沿用现有整数存储，不新增字段、方法或数据库迁移，也不重写历史高亮记录。
 
 > 对齐上游 `BookHighlight` / `HighlightRule` 实体与 DAO（DB v96-v99）。
@@ -992,6 +1023,13 @@ Rust导出、参数、返回和数据库格式保持。
 
 ### 2.38 应用日志（app_log FFI，Task #79）（5 个方法）
 
+> **Dart边界（2026-10-16）**：下表保留FRB传输签名，根BookApi不再提供五项日志方法。
+> AppLogRepository保留五个方法名与既有参数，appLogList返回Future<List<AppLogEntry>>；
+> JSON解码在正式仓储完成，坏结构/条目/字段类型明确报错，合法空数组正常返回空列表。
+> AppLogEntry从Provider状态文件移至共享模型，时间显示语义不变；正式实现直接调用原FRB，
+> Mock共享同一装配内存缓冲。搜索/换源日志写入失败不阻断结果，清空失败不报告成功。
+> 不改变日志采集/备份、级别、正式导出格式与截断规则，不改Rust或生成绑定。
+>
 > 对齐 Kotlin `AppLog.kt` / `AppLogDialog.kt`（旧欠账 + 上游 #512/#524/#543）。
 > Rust 侧进程级环形缓冲（每级上限 500 条，最新在前），三级独立：`message` / `crash` / `http`（大小写不敏感）。
 > 日志条目 JSON 字段：`timestamp`（毫秒）/ `level` / `message`（对齐 Kotlin `Triple<Long, String, Throwable?>`）。
@@ -1008,6 +1046,16 @@ Rust导出、参数、返回和数据库格式保持。
 
 ### 2.39 规则订阅（rule_sub FFI，Task #89）（7 个方法）
 
+> **Dart边界（2026-10-16）**：以下表格仍为原有FRB传输签名，不再属于根BookApi。
+> RuleSubRepository接管配置五项：ruleSubList返回Future<List<RuleSub>>，
+> ruleSubSave(RuleSub sub)在仓储内编码JSON，删除/启停保留命名参数，
+> ruleSubUpdateOrder({required List<int> ids})在仓储内编码ID数组；写入保留bool返回，false不得误报成功。
+> RuleSubService接管ruleSubCheckUpdate与ruleSubApplyUpdate，分别返回RuleSubCheckResult与RuleSubApplyResult；
+> 结果必需字段按实际JSON类型检查，错误不转换为空列表、已是最新或更新成功。
+> 两个Provider可分别替换，正式实现直接复用本节FRB；Mock更新服务读取同一Mock仓储，不再复制配置集合。
+> 本批不修改Rust签名/生成绑定/数据库。既有应用更新未将merged_json写入各类实体表，
+> 以及Flutter RuleSub未覆盖js/showRule/sourceUrl的往返缺口，登记于Active的RULE-SUB-UPDATE-GAPS-20261016。
+>
 > 对齐 Kotlin `RuleSub.kt` 实体与 `RuleSubActivity.kt`（列表 CRUD / 拖拽排序 / 自动更新 / 静默更新 / 更新间隔）。
 > DB v100（Rust 轨自有扩展）：rule_subs 表补全 Kotlin RuleSub 字段 `customOrder` / `autoUpdate` / `updateInterval` /
 > `silentUpdate` / `js` / `showRule` / `sourceUrl`（Migration99To100，幂等补列，不动 v95-v99 高亮体系迁移）。
@@ -1053,7 +1101,7 @@ Rust导出、参数、返回和数据库格式保持。
 | `cacheGetChapter` | 缓存管理（§2.16 扩展） | 获取已缓存章节内容（离线缓存 UI 批次依赖）——✅ 已封装接通（本次评审修复提交，`RustApi.getCachedChapter` 封装，书架菜单缓存导出） |
 | `bookGroupSetShow` | 书籍分组（§2.14 扩展） | 设置分组显示状态——✅ 已封装 `BookApi.bookGroupSetShow`（F3-20） |
 | `httpTtsSetEnabled` | HTTP TTS（§2.25 扩展） | 启用/禁用 HTTP TTS 配置——✅ 已封装 `BookApi.httpTtsSetEnabled`（F3-20） |
-| `dictLookup` | 词典（§3 需求 4） | 词典释义查询——✅ 已封装 `BookApi.dictLookup`（F3-10 补登记） |
+| `dictLookup` | 词典（§3 需求 4） | 词典释义查询——已迁入 `DictionaryService.dictLookup`，返回DictEntry（2026-10-16，见§2.45） |
 
 ### 2.42 TTS 合成、请求取消与登录管线（4 个方法）
 
@@ -1257,6 +1305,16 @@ Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺
 
 ### 2.45 字典规则操作（dict_rule FFI，7 个方法）
 
+> **Dart边界（2026-10-16）**：下表为既有FRB传输签名，根BookApi不再提供这些方法。
+> DictRuleRepository接管七项：dictRuleList返回Future<List<DictRule>>，DictRule补齐id；
+> dictRuleReorder(List<int> ids)在仓储内编码JSON，其他入参/返回不变。
+> DictionaryService.dictLookup(String word)复用既有dictLookup FRB，返回Future<DictEntry>；
+> 响应结构与字段类型错误明确失败，合法空definitions仍为未命中，不在Dart重新实现规则查询。
+> 查询页、选词面板、规则管理及关联导入统一使用现有dictRules表，config:dict_rules和词典专用
+> SharedPreferences版本标记不再读写，不迁移旧配置、不双写；空表seed沿用Rust，显式默认导入按名称覆盖并保留自定义项。
+> 查询入口只展示启用项，管理页返回时重新读取共享仓储；保存无有效ID、写入false或排序计数不完整不得提示成功。
+> 正式实现直接委托既有FRB，Mock保持原默认五源与无网络查询示例；Rust、绑定、数据库与默认资源未修改。
+>
 > [C2 批1 | 2026-09-13] 加法式新增（不改既有签名/行为）：字典规则 CRUD / 重排 / 导入经 frb 主链路（`ffi.rs` → `dict_api.rs`）暴露。
 > 数据源 `dictRules` 表（`name` UNIQUE，按 `sortNumber` 排序）；`dictRuleList` 空表先注入原版默认 5 源（与 `dictLookup` 同 seed 语义）。
 > 复杂类型以 JSON String 跨 FFI（§1.3）；`dictRuleReorder` / `dictRuleImport` 返回处理条数；解析/抓取失败返回**明确错误**（导入为显式动作，非静默跳过）。

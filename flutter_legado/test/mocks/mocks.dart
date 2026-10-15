@@ -1,5 +1,23 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/cache_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/database_maintenance_service.dart';
+import 'package:flutter_legado/src/domain/contracts/app_log_repository.dart';
+
+import 'package:flutter_legado/src/domain/contracts/dictionary_service.dart';
+import 'package:flutter_legado/src/domain/contracts/dict_rule_repository.dart';
+
+import 'package:flutter_legado/src/domain/contracts/highlight_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/highlight_rule_repository.dart';
+import 'package:flutter_legado/src/domain/models/book_highlight.dart';
+import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
+
+import 'package:flutter_legado/src/domain/contracts/rule_sub_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/rule_sub_service.dart';
+
+import 'package:flutter_legado/src/domain/contracts/replace_rule_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/replace_rule_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/rss_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/rss_article_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/rss_read_record_repository.dart';
@@ -91,7 +109,56 @@ class RssReadRecordRepositoryMock extends Mock
 
 class RssStarRepositoryMock extends Mock implements RssStarRepository {}
 
+class ReplaceRuleRepositoryMock extends Mock implements ReplaceRuleRepository {}
+
+class ReplaceRuleServiceMock extends Mock implements ReplaceRuleService {}
+
+class RuleSubRepositoryMock extends Mock implements RuleSubRepository {}
+
+class RuleSubServiceMock extends Mock implements RuleSubService {}
+
+class HighlightRepositoryMock extends Mock implements HighlightRepository {}
+
+class HighlightRuleRepositoryMock extends Mock
+    implements HighlightRuleRepository {}
+
+class DictionaryServiceMock extends Mock implements DictionaryService {}
+
+class DictRuleRepositoryMock extends Mock implements DictRuleRepository {}
+
+class AppLogRepositoryMock extends Mock implements AppLogRepository {}
+
+class CacheRepositoryMock extends Mock implements CacheRepository {}
+
+class DatabaseMaintenanceServiceMock extends Mock
+    implements DatabaseMaintenanceService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final CacheRepository cacheRepository = CacheRepositoryMock();
+  @override
+  final DatabaseMaintenanceService databaseMaintenanceService =
+      DatabaseMaintenanceServiceMock();
+  @override
+  final AppLogRepository appLogRepository = AppLogRepositoryMock();
+  @override
+  final DictionaryService dictionaryService = DictionaryServiceMock();
+  @override
+  final DictRuleRepository dictRuleRepository = DictRuleRepositoryMock();
+  @override
+  final HighlightRepository highlightRepository = HighlightRepositoryMock();
+  @override
+  final HighlightRuleRepository highlightRuleRepository =
+      HighlightRuleRepositoryMock();
+  @override
+  final RuleSubRepository ruleSubRepository = RuleSubRepositoryMock();
+  @override
+  final RuleSubService ruleSubService = RuleSubServiceMock();
+  @override
+  final ReplaceRuleRepository replaceRuleRepository =
+      ReplaceRuleRepositoryMock();
+  @override
+  final ReplaceRuleService replaceRuleService = ReplaceRuleServiceMock();
   @override
   final RssSourceRepository rssSourceRepository = RssSourceRepositoryMock();
   @override
@@ -366,6 +433,9 @@ class FakeUri extends Fake implements Uri {}
 
 /// 注册所有 fallback 值（在 setUpAll 中调用）
 void registerFallbacks() {
+  registerFallbackValue(const RuleSub());
+  registerFallbackValue(const BookHighlight());
+  registerFallbackValue(const HighlightRule());
   registerFallbackValue(const WebDavConnection());
   registerFallbackValue(HttpTtsCancellation());
   registerFallbackValue(FakeBook());

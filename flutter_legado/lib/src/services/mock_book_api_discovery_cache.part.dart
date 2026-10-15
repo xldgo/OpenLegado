@@ -5,32 +5,6 @@
 part of 'mock_book_api.dart';
 
 mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
-  // ========== 缓存管理 ==========
-
-  @override
-  Future<int> getCacheSize() async => 1024 * 1024 * 50; // 50MB
-
-  @override
-  Future<void> clearCache() async {}
-
-  @override
-  Future<int> getCacheBookCount() async => 3;
-
-  @override
-  Future<int> getCacheChapterCount() async => 30;
-
-  @override
-  Future<void> clearCacheBefore(int beforeTimestampMs) async {}
-
-  /// 压缩数据库（契约 §2.16.6，Task #50）
-  ///
-  /// Mock：短延迟模拟 VACUUM 耗时，固定返回 10MB 释放量。
-  @override
-  Future<int> shrinkDatabase() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return 10 * 1024 * 1024;
-  }
-
   // ========== 图片磁盘缓存（契约 §2.46，Mock 以内存 Map 模拟落盘） ==========
 
   /// [P4-2a | 2026-09-29] mock 图片磁盘缓存写侧：存入内存 Map（模拟 Rust

@@ -1,5 +1,108 @@
 # Legado 后续重构执行计划（Active）
 
+### CACHE-MAINTENANCE-BOUNDARY-20261016：拆分全局缓存与数据库维护（P1）
+
+- 授权与基线：用户同意下一批计划并要求继续；feature/ui-reader-selection / 9079c2861，保留此前未提交修改，开始快照位于忽略目录build/cache-maintenance-boundary-qa/。不使用子代理、不另建分支、不提交或推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批实现与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实SQLite、VACUUM及设备复验后置。
+- 范围：CacheRepository接管全局缓存大小、书数、章数、全部清理与按时间清理五项；DatabaseMaintenanceService接管数据库压缩一项。现有CacheService改为窄依赖并返回CacheStats，缓存设置与其他设置同步迁移；移除根六项及重复part实现，不保留转发。
+- 行为边界：复用当前Rust/FRB，统计针对cached_chapters，全部清理仍清cached_chapters和通用caches表；按时间清理仍使用毫秒时间戳并复位受影响书籍的章级标记。保留VACUUM返回0含义，不把0当作明确压缩成功。读取失败显式提示、可重试，不伪造空缓存；清理拒绝或异常不提示成功。不改章节下载、媒体缓存、数据库结构、设置存储或应用版本。
+- 已确认后置缺口：cache_auto_expire_days仅存储和展示，未发现启动清理执行入口；本批登记待实现，不新增自动过期调度。其他设置的清理确认提到字体，但现有Rust全局清理只处理数据库缓存；本批保留既有清理范围，不宣称清除了字体文件。
+- 验收：FRB参数/返回/异常，Mock既有固定统计与清理占位行为，窄Provider替换，类型化统计、按时清理、失败传播，真实缓存页加载失败/重试/清理确认取消和成功失败，其他设置压缩0/成功/异常。运行相关行为测试、完整Flutter静态分析、格式与差异检查；真实SQLite、VACUUM和设备复验后置。
+- 实现：两类契约、各自Rust/Mock实现、不可变CacheStats及窄Provider已接入应用装配。CacheService只依赖CacheRepository，缓存页通过cacheServiceProvider读取；其他设置分别使用仓储与维护服务。旧六项及part实现移除、不留转发，语法树复核根BookApi为122项（128→122）。Rust清理false在适配器转为错误，既有异常继续传播；统计首次失败不显示假零值，刷新失败保留最近成功结果并提供重试。
+- 验证结果：flutter test --no-pub相关14份测试191项通过（10秒）；新增3份18项及既有CacheService新增6项，覆盖FRB参数/超过32位大小/false与异常、装配替换、Mock固定语义、统计和时间清理失败，以及实际两页确认/取消/成功/失败/重试。章节下载、离线缓存、目录缓存状态及普通设置回归通过。先行110项单元与10项页面验证不重复累计。flutter analyze --no-pub无问题（44.9秒），本批23份Dart格式与git diff --check通过。
+- 证据与保护：日志位于flutter_legado/build/cache-maintenance-{existing-initial,widget-initial,regression-final,analysis-initial}.log；忽略目录build/cache-maintenance-boundary-qa/保存开始快照、增量差异及保护核对。本批25条路径，与此前113条未提交路径交集8条，其余105条字节未变。Codex直接实现与自查，不使用子代理、不声称独立审查；未改Rust、生成代码、依赖、数据库、原生平台、CI或版本，未提交/推送/触发CI/构建安装。
+
+编写者：Codex｜2026-10-16
+
+### APP-LOG-BOUNDARY-20261016：拆分应用日志访问（P1）
+
+- 授权与基线：用户同意下一批方案并要求继续；feature/ui-reader-selection / 9079c2861，保留此前97条未提交路径，快照位于忽略目录build/app-log-boundary-qa/。同一分支、不使用子代理、不自动提交/推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批实现与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实Rust日志及设备复验后置。
+- 范围：AppLogRepository接管写入、分级读取、分级清空、全部清空与导出五项；列表返回AppLogEntry，JSON在数据层解码。模型从Provider状态文件移至共享模型层，正式实现复用既有FRB，Mock同一实例共享缓冲。迁移AppLogNotifier、搜索与换源日志写入，根旧五项及part实现移除，不留转发，133→128。
+- 行为与边界：保留message/crash/http级别、最新在前、导出原格式及截断、清空确认和复制；日志写入失败不阻断搜索/换源，读取坏响应不当空列表，清空失败不提示成功。不改Rust日志存储/采集/备份、FFI、数据库、生成代码、依赖、UI布局或应用版本；此前已标记功能缺口继续后置。
+- 验收：FRB参数/异常、严格列表正反例、Mock共享/缓冲上限/清空隔离/导出；窄Provider独立注入，日志页面切换级别/清空确认/失败/复制，以及日志写入失败下搜索/换源继续产生结果。仅运行相关测试与完整Flutter静态分析。
+- 实现与行为：一份仓储契约、正式/Mock实现、共享AppLogEntry及独立Provider已接入应用装配，旧五项及part实现移除，根接口语法树复核128项。正式导出直接透传，Mock保留每级500条、旧格式与64000字符截断；两端均不在状态层解码JSON。搜索/换源以Future.sync承接同步抛出和异步失败后忽略日志错误，继续消费成功源；清空返回明确操作结果，页面失败时不再显示已清空。分级切换失败时沿用原错误态且不显示其他级别数据。
+- 验证结果：flutter test --no-pub相关12份测试221项全部通过（5秒），含新增3份25项及既有搜索/换源文件新增4项，覆盖FRB Mock参数/坏响应、Mock共享与容量、Provider替换、清空失败、日志页确认取消/级别切换/剪贴板导出，以及同步/异步写日志失败不阻断结果；既有搜索横幅、根装配和崩溃采集/备份相关回归通过。单独执行168项、22项、97项不重复累计。完整flutter analyze --no-pub无问题（16.1秒），本批24份Dart格式零差异，git diff --check通过。
+- 失败记录：新增搜索测试误用SearchResult.name、换源测试误传不存在的sourceUrls参数，首轮未能加载；按现有模型book.name及search签名修正后，相关97项及最终组合均通过。无生产代码编译问题或未解决测试失败，不将首轮加载失败算作验收通过。
+- 证据与保护：日志位于flutter_legado/build/app-log-boundary-{existing-initial,new-initial,behavior-initial,behavior-retry,regression-final,analysis-final}.log；忽略目录build/app-log-boundary-qa/保存开始快照、增量清单/差异与结果。本批26条路径，与此前97条未提交路径交集10条，其余87条字节未变，交集保留前批成果并增加本批接线/文档/测试。Codex直接实现与自查，不使用子代理、不声称独立审查；未修改Rust、FRB/模型生成文件、数据库、依赖、原生平台、CI配置或应用版本，未提交/推送/触发CI/构建安装。
+
+编写者：Codex｜2026-10-16
+
+### DICTIONARY-BOUNDARY-20261016：统一词典查询与规则访问（P1）
+
+- 授权与基线：用户同意下一批计划并要求继续；feature/ui-reader-selection / 9079c2861，保留此前76条未提交路径，快照位于忽略目录build/dictionary-boundary-qa/。同一分支、不使用子代理、不自动提交/推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批实现与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实网络、SQLite及设备复验后置。
+- 数据来源：现有DictNotifier与关联导入读写config:dict_rules，管理页与Rust查询使用dictRules表；本批统一到后者，不保留双写或历史数据兼容。删除词典专用SharedPreferences版本标记逻辑；默认初始化沿用Rust空表seed，显式导入默认按名称合并覆盖，不清空自定义规则。
+- 范围：DictionaryService接管dictLookup并返回既有DictEntry；DictRuleRepository接管七项规则访问，列表返回既有DictRule（补齐id），排序接受List<int>，数据层编码与解码。查询页、选词面板、管理页及关联导入共用仓储；在线入口只展示启用项，保留大小写归一化、跳转与当前释义呈现，不改Rust查询引擎。根旧八方法及part实现移除，不留转发，141→133。
+- 验收：FRB参数/异常、严格响应解析、默认规则与共享Mock数据、重名/启停/排序/导入；两个窄Provider可独立替换。查询未命中、失败与空词，规则管理保存/删除/启停失败，关联导入与查询读取同一规则数据；只跑相关测试与完整静态分析，不跑全量CI，不改Rust/FRB/数据库/依赖/版本。
+- 实现与行为：服务和仓储各有正式/Mock实现，应用装配及两个窄Provider共享实例；旧八项及part实现移除，根接口语法树复核133项。DictRule增加id，移除管理页私有重复行模型，对应misc.freezed.dart/misc.g.dart由生成器更新。关联导入按名称走既有dictRuleImport，查询与管理重新读取同一仓储；管理页返回刷新查询列表，在线跳转/选词页签只展示启用项。查询失败显示错误，不冒充未命中；启停/编辑/删除返回false不报成功，排序接受ID列表且由仓储编码。Mock保留无网络查询占位与默认规则，重名更新按既有SQLite唯一约束拒绝，不新增Dart查询引擎。
+- 验证结果：flutter test --no-pub相关14份测试188项通过（20秒），其中新增3份26项，覆盖FRB Mock调用/严格坏响应、仓储共享配置与根替换、关联导入保留ID、加载/写入失败、规则管理返回后的启停同步、选词页签和查询失败展示。迁移后的既有词典CRUD/默认/扫码导入、装配及前批规则/选区回归通过；单独执行96项、22项、4项不另累计。flutter analyze --no-pub无问题（17.2秒），本批31份Dart格式零差异，git diff --check通过。
+- 生成与失败记录：定向build_runner执行成功（45秒），但清理了36份非目标已提交生成文件，引起首轮测试加载失败及分析错误；依据开始时工作区记录确认这些文件无先前修改后，恢复其HEAD原字节。最终仅DictRule对应两份生成文件存在内容差异，无无关删除；恢复后重跑相关组合及分析通过。生成器副作用未作为业务失败或未通过用例计入验收。
+- 证据与保护：日志位于flutter_legado/build/dictionary-boundary-{codegen,existing-initial,existing-retry,new-initial,widget-initial,analysis-initial,analysis-second,regression-final}.log；build/dictionary-boundary-qa/保存开始快照、增量清单/差异及生成文件恢复清单（均为忽略目录）。本批33条路径，与此前76条未提交路径交集12条，其余64条字节未变，交集仅增加本批装配/关联导入/测试/文档。Codex直接实现与自查，不使用子代理、不声称独立审查；Rust、FRB生成绑定、平台目录、依赖、默认资源和应用版本未改，未提交/推送/触发CI/构建安装。
+
+编写者：Codex｜2026-10-16
+
+### HIGHLIGHT-BOUNDARY-20261016：拆分正文标注与高亮规则访问（P1）
+
+- 授权与基线：用户同意下一批方案并要求继续；feature/ui-reader-selection / 9079c2861，开始时保留前两批54条未提交路径，快照位于忽略目录build/highlight-boundary-qa/。同一分支、不使用子代理、不自动提交/推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批实现及本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；原生库、真实数据库与设备复验后置。
+- 范围：HighlightRepository接管七项标注访问，HighlightRuleRepository接管四项规则访问；列表返回BookHighlight/HighlightRule，保存传实体，由数据层处理JSON。HighlightRule从Provider状态文件移至共享模型，保留Rust已有sortOrder与timeoutMillisecond，编辑/启停不丢字段。根旧十一项和part实现移除，不留转发，152→141。
+- 消费与边界：迁移阅读选区保存、目录标注列表及规则Notifier/管理页；不改正文绘制、排版、选区映射、导航、规则执行引擎或标注能力，不改Rust/FRB/数据库。此前替换规则和订阅更新缺口继续后置。
+- 验收：实际FRB Mock参数、模型字段往返、坏列表明确报错、写入失败不报成功；Mock共享数据/主键与独立Provider替换；规则保存启停删除、选区原文/偏移/笔记及目录标注加载搜索跳转。只运行相关测试与完整Flutter静态分析，不把Mock结果当真实原生或设备验收。
+- 实现与行为：两份契约、各自Rust/Mock仓储、两个共享模型及Provider已接入装配，旧十一方法及part实现移除，根接口语法树复核为141项。模型保留原文位置、layoutTitleLength、样式和笔记；规则编辑/启停保留sortOrder/timeoutMillisecond。坏JSON不再伪装空列表，无效保存主键、删除false明确报错；加载/操作失败保留最近成功规则，页面已有列表继续展示并通过原提示反馈错误。Mock查询按现有Rust章内排序/搜索字段/非空作用范围语义处理，规则ID仍用原装配分配器，不新增规则执行引擎。
+- 行为验证：相关13份测试159项全部通过（flutter test --no-pub，10秒），其中新3份26项覆盖直接FRB Mock参数/字段/错误、共享状态与窄Provider注入、规则启停/编辑保留字段、删除失败提示，以及目录标注笔记搜索和章节跳转。既有选区精确偏移/原文/笔记、窄屏颜色选择和目录缓存状态回归通过。首轮新增页面用例发现错误页会遮盖保留列表，修正错误页条件后3项与最终组合均通过；不将失败或重复轮次累计为通过数。
+- 检查与证据：完整flutter analyze --no-pub无问题（17秒），本批29份Dart格式检查与git diff --check通过。日志为flutter_legado/build/highlight-boundary-{existing-initial,new-initial,widget-initial,widget-final,regression-final,analysis-final}.log；增量清单/差异及迁移前快照位于build/highlight-boundary-qa/（均为忽略目录）。本批31条路径，与此前54条未提交路径仅交集9条；其余45条字节未变，交集保留前批成果并新增装配或文档记录。
+- 交付边界：Codex直接实现并自查，不使用子代理或声称独立审查；未修改Rust、FRB生成物、依赖、数据库、原生平台目录或应用版本，未提交/推送/触发CI/构建安装。不据Mock测试宣称真实Rust落库、规则执行或设备高亮显示已验收。
+
+编写者：Codex｜2026-10-16
+
+### RULE-SUB-BOUNDARY-20261016：拆分规则订阅配置与更新访问（P1）
+
+- 授权与基线：用户要求标记替换规则现有问题后续完善，继续处理BookApi；当前feature/ui-reader-selection / 9079c2861，保留上一批38条未提交路径。不另建分支、不使用子代理、不自动提交/推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批拆分与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实网络、原生库与设备复验后置，既有功能缺口单独登记。
+- 范围：RuleSubRepository接管列表、保存、删除、启停和排序；RuleSubService接管检查和应用更新。列表返回已有RuleSub，保存由仓储编码；检查/应用返回不可变结果模型，数据层解码。应用装配共享正式/Mock实现，Notifier与页面不再解析底层Map，根旧七项移除且不保留转发壳，159→152。
+- 行为与限制：保留新增排序追加、URL重复提示、拖拽顺序、手动导入三类源、现有Rust更新返回及调用方向；列表错误不当空列表，更新成功才重读配置。原Rust更新能力、规则执行及实体未覆盖字段不在本批扩展，不改FRB、数据库或网络协议。
+- 验收：FRB参数/异常与JSON正反例、已有RuleSub字段、Mock共享CRUD/启停/排序、独立Provider替换；Notifier加载失败保留结果、CRUD返回false不误报成功、检查/应用成功失败分流；页面新增/启停/更新结果展示。只运行受影响测试，真实网络和原生/设备验证后置。
+- 实现与行为变化：新增两份契约、各自正式/Mock实现、不可变更新结果及共享Provider；应用装配注入，旧七方法与part实现移除，语法树复核根接口152项。JSON编解码从Notifier/页面移至数据层。额外明确bool=false为失败，排序失败重读后保留错误；Mock启停改用实体isEnabled，修正旧Map写isEnabled而读取is_enabled造成的假启停，其余无网络更新占位行为保留。
+- 验证结果：flutter test --no-pub相关12份测试202项通过（16秒），包括新增3份28项，覆盖直接FRB Mock调用/坏响应、共享配置和窄接口注入、失败保留状态、页面新增与启停、检查版本及应用成功/失败展示。flutter analyze --no-pub无问题（24.6秒）；本批22份Dart格式检查无差异，git diff --check通过。不运行全量CI或构建安装，不将Mock结果当真实规则导入。
+- 证据与复核：日志为flutter_legado/build/rule-sub-boundary-{existing-initial,new-initial,regression-final,analysis-final}.log；增量清单/差异及开始快照位于忽略目录build/rule-sub-boundary-qa/。本批增量24条路径，保留上一批38条未提交成果；无交集的30条路径字节未变，交集仅增加本批接线与文档。Codex直接复核调用、错误与装配，不使用子代理或声称独立审查；Rust、生成绑定、依赖和版本均未修改。
+
+编写者：Codex｜2026-10-16
+
+### RULE-SUB-UPDATE-GAPS-20261016：规则订阅更新落库与字段往返（P1，后续完善）
+
+- 状态与边界：本批静态核查确认的既有缺口，后续完善；不扩入当前BookApi拆分，不以Mock统计关闭问题。
+- 更新落库：rust/legado-ffi/src/api/rule_sub_api.rs的apply_sub_update_db使用空本地列表参与merge_subscription，只读取merged_json的长度并回写订阅版本/时间，没有将合并结果写入书源、RSS源或替换规则表；现有页面“更新完成”不能证明这些实体已更新。后续应按订阅类型实现真实导入/合并，并由事务成功结果返回统计；当前手动点击条目打开导入页的流程保留。
+- 字段往返：Rust RuleSubRecord已有js/showRule/sourceUrl，flutter_legado/lib/src/models/rule_sub.dart尚无这三项，既有编辑再保存会丢失它们；本批保留模型，不声称完整实体往返。后续补齐模型、数据映射及编辑前后保留测试，不另存第二份配置。
+- 证据与后续验收：现有Rust实现与RuleSubRecord/RuleSub源码可直接核对；本批未运行真实网络。恢复该任务时更新契约，使用固定HTTP样本和真实数据库验证三类实体落库、已有配置保留、失败不提前更新时间；不得用Dart类型化解码成功代替业务验收。
+
+编写者：Codex｜2026-10-16
+
+### REPLACE-RULE-WRITE-GAPS-20261016：替换规则写入缺口（P1，后续完善）
+
+- 授权与状态：用户于2026-10-16明确要求先标记、后续完善；当前不实施，不阻塞BookApi拆分主线。
+- 已确认：现有FRB更新不接受scope/sortOrder，Rust保留旧值；新增固定isEnabled=true、order=0。页面拖拽只改内存，批量置顶/置底虽调用更新也不能持久化排序；筛选视图使用局部索引操作完整列表，存在错移路径。
+- 后续目标：完整实体写入保留已有字段，排序按规则ID定位并由Rust事务保存；更新原有ID，重新读取仍保留范围、启停与顺序。先冻结FFI契约，再同批生成两端绑定并配对原生库，不在Dart配置中保存第二份权威数据。
+- 边界：不以本批Mock或Flutter测试关闭这些缺口；恢复实施须单独登记实际范围与验证。
+
+编写者：Codex｜2026-10-16
+
+### REPLACE-RULE-BOUNDARY-20261016：拆分替换规则访问与执行（P1）
+
+- 授权与基线：用户确认下一步方案并要求开始；feature/ui-reader-selection / 9079c2861，开始时工作区干净。不另建分支、不使用子代理、不自动提交或推送、不触发CI、不构建安装，版本保持2.0.373+374。
+- 状态：本批拆分实现与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；原生库、真实规则执行与设备复验后置。排序和范围更新缺口独立后续处理。
+- 范围：ReplaceRuleRepository承接列表、启用列表、添加、更新、删除和启停六项；ReplaceRuleService承接编辑预览与书源作用域替换两项。正式实现直接调用既有FRB，Mock共用装配实例的规则数据；根BookApi移除八项，不保留转发壳，167→159。
+- 行为：保留既有规则字段映射、Rust返回顺序、预览警告文本与书源导入失败回退；JSON解码在数据层完成，坏结构不按空列表处理。规则执行仍在Rust，页面仅管理交互与状态；不增加Dart替换引擎。
+- 消费迁移：替换规则Notifier、列表/编辑/导入确认、分组、关联导入、规则订阅、阅读菜单、书源导入装配与直导入口。共享Provider支持单独注入，删除旧part实现及根Mock测试计数；执行调用由服务Mock验证。
+- 排序核查与后续：列表拖拽确实调用只改内存的moveUp/moveDown；批量置顶/置底调用updateReplaceRule，但既有FRB replaceRuleUpdate与Rust update_replace_rule不接收scope或sortOrder，更新会保留旧值。因此本批不声称修复排序持久化或范围字段更新，保留原行为；后续需独立冻结FFI扩参并生成、重编原生库，不能在Dart保存第二份权威顺序或以Mock成功代替修复。
+- 验收：直接FRB参数/异常、列表严格解码、预览和作用域替换原样传递、Mock共享CRUD与启停、独立Provider注入、真实Widget编辑/保存/预览及两条书源导入成功/失败回退。仅跑受影响测试，原生库、真实替换引擎与设备复验后置。
+- 实现：六项仓储与两项服务的直接FRB/Mock实现、共享Provider及应用装配均已完成，现有生产/测试消费者迁移，根旧八项及重复part实现移除。Mock规则使用原装配ID分配器，不与书签等实体重复编号；删除根接口为测试暴露的执行计数，改用服务调用和实际输出验证。书源直导明确注入同一根的执行服务，已有SourceImportService回调指向同一实例。
+- 行为回归：21份相关测试共278项全部通过（flutter test --no-pub，30秒）；覆盖直接FRB字段/异常、坏列表拒绝、预览警告原样返回、Mock共享CRUD/启停、独立Provider替换、编辑器预览保存返回、书源导入成功/失败回退及阅读菜单。测试中Mock同步异常断言和编辑器保存按钮定位曾失败，修正测试后完整组合通过；不把失败轮次或重复执行累计为通过数量，不以Mock验证声称Rust排序落库或真实引擎验收。
+- 检查与限制：完整flutter analyze --no-pub无问题（14.6秒）；36份本批Dart格式零差异，git diff --check通过，BookApi声明只读核对167→159。Codex单代理复核，不宣称独立审查；无Rust、FRB生成物、数据库、依赖、原生平台目录或应用版本修改，未提交/推送/触发CI，也未构建安装。
+- 证据：忽略目录flutter_legado/build/replace-rule-boundary-{core-initial,analysis-initial,analysis-second,analysis-final,regression-initial,regression-final,widget-retry,widget-final}.log保留执行记录；根build/replace-rule-boundary-qa/保存迁移前文件、本批Dart与回归清单及结果摘要。源码检索和接口计数仅用于范围复核，不作为功能测试证据。
+
+编写者：Codex｜2026-10-16
+
 ### RSS-REPOSITORIES-20261016：拆分订阅数据访问（P1）
 
 - 授权与基线：用户要求继续下一步；当前feature/ui-reader-selection / d897d8c64，工作区干净，保留已合入的朗读修复。不另建分支、不使用子代理、不自动提交或推送、不触发CI、不构建安装，应用版本保持2.0.373+374。

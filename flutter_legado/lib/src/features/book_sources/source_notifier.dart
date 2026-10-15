@@ -1,3 +1,4 @@
+import '../../domain/contracts/replace_rule_service.dart';
 import 'book_source_repository_provider.dart';
 
 import 'dart:convert';
@@ -8,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../data/services/book_source_export_service.dart';
-import '../../services/book_api.dart' show BookApi;
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
@@ -142,7 +142,10 @@ class SourceNotifier extends Notifier<SourceState> {
       // [书源作用域 | 2026-09-13] 该入口为原始 JSON 直传（绕过 SourceImportService），
       // 同样须在交 importBookSources 前对每项应用「书源作用域」替换规则；
       // 解析/替换失败保持原文，绝不中断导入
-      final payload = await _applySourceReplaceRules(api, jsonContent);
+      final payload = await _applySourceReplaceRules(
+        api.replaceRuleService,
+        jsonContent,
+      );
       await api.bookSourceRepository.importBookSources(payload);
       // 重新加载书源列表
       final sources = await api.bookSourceRepository.getBookSources();
@@ -158,7 +161,7 @@ class SourceNotifier extends Notifier<SourceState> {
   /// `applyReplaceRulesToSource`（按源名称/源 URL 匹配 scope）；
   /// 任何解析或替换失败 → 整体保持输入原文（不中断导入）。
   Future<String> _applySourceReplaceRules(
-    BookApi api,
+    ReplaceRuleService service,
     String jsonContent,
   ) async {
     try {
@@ -175,7 +178,7 @@ class SourceNotifier extends Notifier<SourceState> {
         }
         final json = jsonEncode(item);
         processed.add(
-          await api.applyReplaceRulesToSource(
+          await service.applyReplaceRulesToSource(
             json,
             (item['bookSourceName'] as String?) ?? '',
             (item['bookSourceUrl'] as String?) ?? '',

@@ -313,6 +313,7 @@ Map<String, dynamic> _$CacheToJson(_Cache instance) => <String, dynamic>{
 };
 
 _DictRule _$DictRuleFromJson(Map<String, dynamic> json) => _DictRule(
+  id: (json['id'] as num?)?.toInt() ?? 0,
   name: json['name'] as String? ?? '',
   urlRule: json['urlRule'] as String? ?? '',
   showRule: json['showRule'] as String? ?? '',
@@ -321,6 +322,7 @@ _DictRule _$DictRuleFromJson(Map<String, dynamic> json) => _DictRule(
 );
 
 Map<String, dynamic> _$DictRuleToJson(_DictRule instance) => <String, dynamic>{
+  'id': instance.id,
   'name': instance.name,
   'urlRule': instance.urlRule,
   'showRule': instance.showRule,

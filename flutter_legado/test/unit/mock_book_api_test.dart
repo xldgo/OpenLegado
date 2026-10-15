@@ -392,8 +392,8 @@ void main() {
   group('替换规则操作', () {
     test('addReplaceRule/getReplaceRules 读写一致', () async {
       final rule = ReplaceRule(name: '测试规则', pattern: 'a', replacement: 'b');
-      await api.addReplaceRule(rule);
-      final rules = await api.getReplaceRules();
+      await api.replaceRuleRepository.addReplaceRule(rule);
+      final rules = await api.replaceRuleRepository.getReplaceRules();
       expect(rules.length, 1);
       expect(rules[0].name, '测试规则');
     });
@@ -434,12 +434,12 @@ void main() {
 
   group('缓存管理', () {
     test('getCacheSize 返回正数', () async {
-      final size = await api.getCacheSize();
+      final size = await api.cacheRepository.getCacheSize();
       expect(size, greaterThan(0));
     });
 
     test('clearCache 不抛异常', () async {
-      await api.clearCache();
+      await api.cacheRepository.clearCache();
     });
   });
 
@@ -598,39 +598,41 @@ void main() {
   group('应用日志', () {
     // [审计修复 §1.2] appLog* 五方法可调用性验证 — QoderCN
     test('appLogPush/appLogList 读写一致且最新在前', () async {
-      await api.appLogPush(level: 'message', message: '第一条');
-      await api.appLogPush(level: 'message', message: '第二条');
-      final json = await api.appLogList(level: 'message');
-      expect(json, contains('第二条'));
-      expect(json.indexOf('第二条'), lessThan(json.indexOf('第一条')));
+      await api.appLogRepository.appLogPush(level: 'message', message: '第一条');
+      await api.appLogRepository.appLogPush(level: 'message', message: '第二条');
+      final entries = await api.appLogRepository.appLogList(level: 'message');
+      expect(entries.map((entry) => entry.message), ['第二条', '第一条']);
     });
 
     test('空消息短路不入列', () async {
-      await api.appLogPush(level: 'message', message: '');
-      final json = await api.appLogList(level: 'message');
-      expect(json, '[]');
+      await api.appLogRepository.appLogPush(level: 'message', message: '');
+      final json = await api.appLogRepository.appLogList(level: 'message');
+      expect(json, isEmpty);
     });
 
     test('appLogClear 只清指定级别', () async {
-      await api.appLogPush(level: 'message', message: 'a');
-      await api.appLogPush(level: 'http', message: 'b');
-      await api.appLogClear(level: 'message');
-      expect(await api.appLogList(level: 'message'), '[]');
-      expect(await api.appLogList(level: 'http'), contains('b'));
+      await api.appLogRepository.appLogPush(level: 'message', message: 'a');
+      await api.appLogRepository.appLogPush(level: 'http', message: 'b');
+      await api.appLogRepository.appLogClear(level: 'message');
+      expect(await api.appLogRepository.appLogList(level: 'message'), isEmpty);
+      expect(
+        (await api.appLogRepository.appLogList(level: 'http')).single.message,
+        'b',
+      );
     });
 
     test('appLogClearAll 清空全部', () async {
-      await api.appLogPush(level: 'message', message: 'a');
-      await api.appLogPush(level: 'crash', message: 'b');
-      await api.appLogClearAll();
-      expect(await api.appLogList(level: 'message'), '[]');
-      expect(await api.appLogList(level: 'crash'), '[]');
+      await api.appLogRepository.appLogPush(level: 'message', message: 'a');
+      await api.appLogRepository.appLogPush(level: 'crash', message: 'b');
+      await api.appLogRepository.appLogClearAll();
+      expect(await api.appLogRepository.appLogList(level: 'message'), isEmpty);
+      expect(await api.appLogRepository.appLogList(level: 'crash'), isEmpty);
     });
 
     test('appLogExport 时间升序导出', () async {
-      await api.appLogPush(level: 'message', message: '第一条');
-      await api.appLogPush(level: 'http', message: '第二条');
-      final text = await api.appLogExport();
+      await api.appLogRepository.appLogPush(level: 'message', message: '第一条');
+      await api.appLogRepository.appLogPush(level: 'http', message: '第二条');
+      final text = await api.appLogRepository.appLogExport();
       expect(text, contains('[message] 第一条'));
       expect(text.indexOf('第一条'), lessThan(text.indexOf('第二条')));
     });
@@ -662,9 +664,9 @@ void main() {
 
   group('字典规则操作（契约 §2.45）', () {
     test('list 空表 seed 原版默认 5 源（sortNumber 升序）', () async {
-      final list = await api.dictRuleList();
+      final list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 5);
-      expect(list.map((r) => r['name']).toList(), [
+      expect(list.map((r) => r.name).toList(), [
         '海词中文',
         '海词英文',
         '有道',
@@ -675,12 +677,12 @@ void main() {
 
     test('add → update → setEnabled → reorder → delete 全链路往返', () async {
       // add（enabled=true, sortNumber=0）
-      final idA = await api.dictRuleAdd(
+      final idA = await api.dictRuleRepository.dictRuleAdd(
         name: '测试源A',
         urlRule: 'http://a.com/{{key}}',
         showRule: 'json.data',
       );
-      final idB = await api.dictRuleAdd(
+      final idB = await api.dictRuleRepository.dictRuleAdd(
         name: '测试源B',
         urlRule: 'http://b.com/{{key}}',
         showRule: '',
@@ -688,18 +690,22 @@ void main() {
       expect(idA, greaterThan(5));
       expect(idB, idA + 1);
 
-      var list = await api.dictRuleList();
+      var list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 7);
 
       // name 重复 → 错误（对标原版 name 主键）
       expect(
-        () => api.dictRuleAdd(name: '海词中文', urlRule: '', showRule: ''),
+        () => api.dictRuleRepository.dictRuleAdd(
+          name: '海词中文',
+          urlRule: '',
+          showRule: '',
+        ),
         throwsA(isA<Exception>()),
       );
 
       // update（改 name/urlRule/showRule；不存在返回 false）
       expect(
-        await api.dictRuleUpdate(
+        await api.dictRuleRepository.dictRuleUpdate(
           id: idA,
           name: '测试源A2',
           urlRule: 'http://a2.com',
@@ -708,7 +714,7 @@ void main() {
         isTrue,
       );
       expect(
-        await api.dictRuleUpdate(
+        await api.dictRuleRepository.dictRuleUpdate(
           id: 99999,
           name: 'X',
           urlRule: '',
@@ -716,89 +722,110 @@ void main() {
         ),
         isFalse,
       );
-      list = await api.dictRuleList();
-      final updated = list.firstWhere((r) => r['id'] == idA);
-      expect(updated['name'], '测试源A2');
-      expect(updated['urlRule'], 'http://a2.com');
+      list = await api.dictRuleRepository.dictRuleList();
+      final updated = list.firstWhere((r) => r.id == idA);
+      expect(updated.name, '测试源A2');
+      expect(updated.urlRule, 'http://a2.com');
 
       // setEnabled（禁用；不存在返回 false）
-      expect(await api.dictRuleSetEnabled(id: idA, enabled: false), isTrue);
-      expect(await api.dictRuleSetEnabled(id: 99999, enabled: true), isFalse);
-      list = await api.dictRuleList();
-      expect(list.firstWhere((r) => r['id'] == idA)['enabled'], isFalse);
+      expect(
+        await api.dictRuleRepository.dictRuleSetEnabled(
+          id: idA,
+          enabled: false,
+        ),
+        isTrue,
+      );
+      expect(
+        await api.dictRuleRepository.dictRuleSetEnabled(
+          id: 99999,
+          enabled: true,
+        ),
+        isFalse,
+      );
+      list = await api.dictRuleRepository.dictRuleList();
+      expect(list.firstWhere((r) => r.id == idA).enabled, isFalse);
 
       // reorder（全量重编号：[idB, idA, 默认 5 源 id] → 新顺序与 sortNumber 生效）
-      final allIds = (await api.dictRuleList())
-          .map((r) => r['id'] as int)
+      final allIds = (await api.dictRuleRepository.dictRuleList())
+          .map((r) => r.id)
           .toList();
       final defaultIds = allIds.where((i) => i <= 5).toList(); // 默认 5 源
       final newOrder = [idB, idA, ...defaultIds];
-      expect(await api.dictRuleReorder(jsonEncode(newOrder)), 7);
-      list = await api.dictRuleList();
-      expect(list.map((r) => r['id']).toList(), newOrder);
-      expect(list.first['sortNumber'], 0);
-      expect(list.last['sortNumber'], 6);
-
-      // reorder 非法 JSON → 明确错误
-      expect(
-        () => api.dictRuleReorder('not a json array'),
-        throwsA(isA<Exception>()),
-      );
-      expect(() => api.dictRuleReorder('{"a":1}'), throwsA(isA<Exception>()));
+      expect(await api.dictRuleRepository.dictRuleReorder(newOrder), 7);
+      list = await api.dictRuleRepository.dictRuleList();
+      expect(list.map((r) => r.id).toList(), newOrder);
+      expect(list.first.sortNumber, 0);
+      expect(list.last.sortNumber, 6);
 
       // delete（不存在返回 false）
-      expect(await api.dictRuleDelete(idA), isTrue);
-      expect(await api.dictRuleDelete(99999), isFalse);
-      list = await api.dictRuleList();
+      expect(await api.dictRuleRepository.dictRuleDelete(idA), isTrue);
+      expect(await api.dictRuleRepository.dictRuleDelete(99999), isFalse);
+      list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 6);
-      expect(list.where((r) => r['id'] == idA), isEmpty);
+      expect(list.where((r) => r.id == idA), isEmpty);
     });
 
     test('import REPLACE by name：异名插入 / 同名覆盖保留 id / 单对象', () async {
       final json1 =
           '[{"name":"导入A","urlRule":"http://a","showRule":"sa"},'
           '{"name":"导入B","urlRule":"http://b","showRule":"sb"}]';
-      expect(await api.dictRuleImport(jsonOrUrl: json1, kind: 'text'), 2);
-      final list = await api.dictRuleList();
-      final idA = list.firstWhere((r) => r['name'] == '导入A')['id'] as int;
+      expect(
+        await api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: json1,
+          kind: 'text',
+        ),
+        2,
+      );
+      final list = await api.dictRuleRepository.dictRuleList();
+      final idA = list.firstWhere((r) => r.name == '导入A').id;
 
       // 二次导入：A/B 同名覆盖（A 的 urlRule 变化、id 保留），C 新名插入
       final json2 =
           '[{"name":"导入A","urlRule":"http://a2","showRule":"sa2"},'
           '{"name":"导入B","urlRule":"http://b2","showRule":"sb2"},'
           '{"name":"导入C","urlRule":"http://c","showRule":"sc"}]';
-      expect(await api.dictRuleImport(jsonOrUrl: json2, kind: 'text'), 3);
-      var after = await api.dictRuleList();
-      final a = after.firstWhere((r) => r['name'] == '导入A');
-      expect(a['id'], idA, reason: 'REPLACE by name 应保留原 id');
-      expect(a['urlRule'], 'http://a2');
+      expect(
+        await api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: json2,
+          kind: 'text',
+        ),
+        3,
+      );
+      var after = await api.dictRuleRepository.dictRuleList();
+      final a = after.firstWhere((r) => r.name == '导入A');
+      expect(a.id, idA, reason: 'REPLACE by name 应保留原 id');
+      expect(a.urlRule, 'http://a2');
       expect(after.length, 8); // 默认 5 + A + B + C
 
       // 单对象导入（GSON 缺省 enabled=true / sortNumber=0）
       expect(
-        await api.dictRuleImport(
+        await api.dictRuleRepository.dictRuleImport(
           jsonOrUrl: '{"name":"导入D","urlRule":"http://d","showRule":"sd"}',
           kind: 'text',
         ),
         1,
       );
-      after = await api.dictRuleList();
-      final d = after.firstWhere((r) => r['name'] == '导入D');
-      expect(d['enabled'], isTrue);
-      expect(d['sortNumber'], 0);
+      after = await api.dictRuleRepository.dictRuleList();
+      final d = after.firstWhere((r) => r.name == '导入D');
+      expect(d.enabled, isTrue);
+      expect(d.sortNumber, 0);
       expect(after.length, 9);
 
       // 非法 JSON / 空内容 / URL 导入 → 明确错误（mock 无网络）
       expect(
-        () => api.dictRuleImport(jsonOrUrl: 'not json', kind: 'text'),
+        () => api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: 'not json',
+          kind: 'text',
+        ),
         throwsA(isA<Exception>()),
       );
       expect(
-        () => api.dictRuleImport(jsonOrUrl: '', kind: 'text'),
+        () =>
+            api.dictRuleRepository.dictRuleImport(jsonOrUrl: '', kind: 'text'),
         throwsA(isA<Exception>()),
       );
       expect(
-        () => api.dictRuleImport(
+        () => api.dictRuleRepository.dictRuleImport(
           jsonOrUrl: 'https://x.com/rules.json',
           kind: 'url',
         ),
@@ -808,16 +835,20 @@ void main() {
   });
 
   group('替换规则预览（契约 §2.8 previewReplaceRule，[替换规则预览 | 2026-09-13]）', () {
-    test('previewReplaceRule 确定性返回 [mock预览] + 输入并累计调用计数', () async {
+    test('previewReplaceRule 确定性返回 [mock预览] + 输入', () async {
       const ruleJson =
           '{"name":"去广告","pattern":"广告","replacement":"【广告】","isRegex":false}';
-      final out = await api.previewReplaceRule(ruleJson, 'AAAA广告');
+      final out = await api.replaceRuleService.previewReplaceRule(
+        ruleJson,
+        'AAAA广告',
+      );
       expect(out, '[mock预览] AAAA广告');
-      expect(api.previewReplaceRuleCalls, 1);
 
       // 空输入同样确定性返回（前缀 + 空串）
-      expect(await api.previewReplaceRule(ruleJson, ''), '[mock预览] ');
-      expect(api.previewReplaceRuleCalls, 2);
+      expect(
+        await api.replaceRuleService.previewReplaceRule(ruleJson, ''),
+        '[mock预览] ',
+      );
     });
   });
 }

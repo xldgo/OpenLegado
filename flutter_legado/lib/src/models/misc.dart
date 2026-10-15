@@ -383,6 +383,7 @@ abstract class Cache with _$Cache {
 @freezed
 abstract class DictRule with _$DictRule {
   const factory DictRule({
+    @Default(0) int id,
     @Default('') String name,
     @Default('') @JsonKey(name: 'urlRule') String urlRule,
     @Default('') @JsonKey(name: 'showRule') String showRule,
