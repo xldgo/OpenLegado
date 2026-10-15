@@ -1,10 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../constants/pref_keys.dart';
+import '../../constants/pref_keys.dart';
+import '../../services/settings_write_queue.dart';
 
 /// 备份 JSON 中偏好字段名（Flutter 单文件备份扩展，对齐原版 config.xml）
 const kBackupAppPrefsKey = 'appPrefs';
@@ -13,8 +10,12 @@ const kBackupAppPrefsKey = 'appPrefs';
 ///
 /// 原版 ZIP 含 SharedPreferences `config`；重构版 JSON 仅有业务表时，
 /// 由本助手在备份后注入 / 恢复前应用 `appPrefs`，使 ignore 键除 localBook 外亦可生效。
-class RestoreIgnorePrefs {
-  RestoreIgnorePrefs._();
+class BackupPreferencesService {
+  BackupPreferencesService({
+    Future<SharedPreferences> Function()? loadPreferences,
+  }) : _loadPreferences = loadPreferences ?? SharedPreferences.getInstance;
+  final Future<SharedPreferences> Function() _loadPreferences;
+  final _queue = SettingsWriteQueue();
 
   /// 始终不备份/不恢复（对齐 BackupConfig.ignorePrefKeys）
   static const alwaysIgnoreKeys = <String>{
@@ -205,10 +206,10 @@ class RestoreIgnorePrefs {
   }
 
   /// 从当前 SharedPreferences 收集可备份偏好（已按 ignore 过滤）
-  static Future<Map<String, dynamic>> collectForBackup(
+  Future<Map<String, dynamic>> collectForBackup(
     Map<String, bool> ignore,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _loadPreferences();
     final out = <String, dynamic>{};
     for (final key in prefs.getKeys()) {
       if (!keyIsNotIgnore(key, ignore)) continue;
@@ -220,86 +221,42 @@ class RestoreIgnorePrefs {
   }
 
   /// 将备份中的 appPrefs 写入 SharedPreferences（按 ignore 过滤）
-  static Future<void> applyFromBackup(
+  Future<void> applyFromBackup(
     Map<String, dynamic>? appPrefs,
     Map<String, bool> ignore,
-  ) async {
+  ) => _queue.run(() async {
     if (appPrefs == null || appPrefs.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _loadPreferences();
     for (final entry in appPrefs.entries) {
       final key = entry.key;
       if (!keyIsNotIgnore(key, ignore)) continue;
       final value = entry.value;
+      if (value == null) continue;
+      final previous = prefs.get(key);
       try {
-        if (value is bool) {
-          await prefs.setBool(key, value);
-        } else if (value is int) {
-          await prefs.setInt(key, value);
-        } else if (value is double) {
-          await prefs.setDouble(key, value);
-        } else if (value is String) {
-          await prefs.setString(key, value);
-        } else if (value is List) {
-          await prefs.setStringList(key, value.map((e) => '$e').toList());
-        } else if (value is num) {
-          if (value == value.roundToDouble()) {
-            await prefs.setInt(key, value.toInt());
-          } else {
-            await prefs.setDouble(key, value.toDouble());
-          }
+        if (!await _write(prefs, key, value)) throw StateError('写入被拒绝');
+      } catch (error) {
+        var restored = false;
+        try {
+          restored = previous == null
+              ? await prefs.remove(key)
+              : await _write(prefs, key, previous);
+        } catch (_) {
+          // 已写入的其他偏好保留，当前键回退失败也如实报告。
         }
-      } catch (e) {
-        debugPrint('RestoreIgnorePrefs.applyFromBackup($key) 异常: $e');
+        throw StateError('设置$key恢复失败${restored ? '' : '，原值恢复失败'}: $error');
       }
     }
-  }
+  });
 
-  /// 向备份 JSON 注入 appPrefs
-  static Future<void> injectAppPrefsIntoBackupFile(
-    String backupPath,
-    Map<String, bool> ignore,
-  ) async {
-    if (!backupPath.toLowerCase().endsWith('.json')) return;
-    try {
-      final file = await _readJsonMap(backupPath);
-      if (file == null) return;
-      file[kBackupAppPrefsKey] = await collectForBackup(ignore);
-      await File(backupPath)
-          .writeAsString(const JsonEncoder.withIndent('  ').convert(file));
-    } catch (e) {
-      debugPrint('RestoreIgnorePrefs.injectAppPrefsIntoBackupFile 异常: $e');
+  Future<bool> _write(SharedPreferences prefs, String key, Object value) {
+    if (value is bool) return prefs.setBool(key, value);
+    if (value is int) return prefs.setInt(key, value);
+    if (value is double) return prefs.setDouble(key, value);
+    if (value is String) return prefs.setString(key, value);
+    if (value is List) {
+      return prefs.setStringList(key, value.map((e) => '$e').toList());
     }
-  }
-
-  /// 从备份 JSON 读取并应用 appPrefs（不改动供 Rust restore 的文件）
-  static Future<void> applyAppPrefsFromBackupFile(
-    String backupPath,
-    Map<String, bool> ignore,
-  ) async {
-    if (!backupPath.toLowerCase().endsWith('.json')) return;
-    try {
-      final file = await _readJsonMap(backupPath);
-      if (file == null) return;
-      final raw = file[kBackupAppPrefsKey];
-      Map<String, dynamic>? appPrefs;
-      if (raw is Map<String, dynamic>) {
-        appPrefs = raw;
-      } else if (raw is Map) {
-        appPrefs = raw.map((k, v) => MapEntry('$k', v));
-      }
-      await applyFromBackup(appPrefs, ignore);
-    } catch (e) {
-      debugPrint('RestoreIgnorePrefs.applyAppPrefsFromBackupFile 异常: $e');
-    }
-  }
-
-  static Future<Map<String, dynamic>?> _readJsonMap(String path) async {
-    final raw = await File(path).readAsString();
-    final decoded = jsonDecode(raw);
-    if (decoded is Map<String, dynamic>) return decoded;
-    if (decoded is Map) {
-      return decoded.map((k, v) => MapEntry('$k', v));
-    }
-    return null;
+    throw FormatException('不支持的设置类型：$key');
   }
 }

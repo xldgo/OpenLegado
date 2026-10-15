@@ -1,4 +1,5 @@
-import 'dart:convert';
+import '../../domain/models/webdav_connection.dart';
+
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -36,13 +37,8 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     await refresh();
   }
 
-  String _normalizedRemoteDir(String value) {
-    final dir = value.isEmpty ? '/legado/' : value;
-    return dir.endsWith('/') ? dir : '$dir/';
-  }
-
-  /// 构建当前服务器的 WebDavConfig JSON
-  Future<String?> buildActiveConfigJson() async {
+  /// 默认连接从唯一仓储读取，自定义服务器以根目录为起点。
+  Future<WebDavConnection?> loadActiveConnection() async {
     if (state.serverId == defaultRemoteServerId) {
       final connection = await ref
           .read(webDavConnectionRepositoryProvider)
@@ -52,17 +48,12 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
           connection.password.isEmpty) {
         return null;
       }
-      return jsonEncode({
-        'url': connection.url,
-        'username': connection.username,
-        'password': connection.password,
-        'remote_dir': _normalizedRemoteDir(connection.remoteDir),
-      });
+      return connection;
     }
     RemoteServerConfig? server;
-    for (final s in state.servers) {
-      if (s.id == state.serverId) {
-        server = s;
+    for (final candidate in state.servers) {
+      if (candidate.id == state.serverId) {
+        server = candidate;
         break;
       }
     }
@@ -70,12 +61,12 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     var url = server.url.trim();
     if (url.isEmpty) return null;
     if (!url.endsWith('/')) url = '$url/';
-    return jsonEncode({
-      'url': url,
-      'username': server.username,
-      'password': server.password,
-      'remote_dir': '',
-    });
+    return WebDavConnection(
+      url: url,
+      username: server.username,
+      password: server.password,
+      remoteDir: '',
+    );
   }
 
   Future<void> selectServer(int id) async {
@@ -116,7 +107,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       selectedPaths: {},
     );
     try {
-      final config = await buildActiveConfigJson();
+      final config = await loadActiveConnection();
       if (config == null) {
         state = state.copyWith(
           isLoading: false,
@@ -128,11 +119,10 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         return;
       }
       final api = ref.read(bookApiProvider);
-      final raw = await api.webdavListDir(config, state.listPath);
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) {
-        throw Exception('目录列表格式错误');
-      }
+      final decoded = await api.webDavService.webdavListDir(
+        config,
+        state.listPath,
+      );
       final shelf = await api.bookshelfRepository.getBooks();
       final onShelf = <String>{};
       for (final b in shelf) {
@@ -145,7 +135,6 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
 
       final items = <RemoteBookItem>[];
       for (final e in decoded) {
-        if (e is! Map) continue;
         final map = Map<String, dynamic>.from(e);
         final name = (map['name'] as String?)?.trim() ?? '';
         if (name.isEmpty || name == '.' || name == '..') continue;
@@ -278,9 +267,9 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       state = state.copyWith(error: '请先选择要导入的书籍');
       return;
     }
-    String? config;
+    WebDavConnection? config;
     try {
-      config = await buildActiveConfigJson();
+      config = await loadActiveConnection();
     } catch (_) {
       state = state.copyWith(
         isImporting: false,
@@ -308,7 +297,11 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     for (final item in selected) {
       try {
         final localPath = '${dir.path}/${item.filename}';
-        await api.webdavDownloadFile(config, item.relativePath, localPath);
+        await api.webDavService.webdavDownloadFile(
+          config,
+          item.relativePath,
+          localPath,
+        );
         final book = await api.importLocalBook(localPath);
         // 对齐原版：origin = dav: + 远程路径
         var remoteUrl = item.relativePath;
@@ -317,7 +310,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
               .read(webDavConnectionRepositoryProvider)
               .load();
           remoteUrl =
-              '${connection.url}${_normalizedRemoteDir(connection.remoteDir)}${item.relativePath}';
+              '${connection.url}${connection.directoryPrefix}${item.relativePath}';
         }
         await api.bookshelfRepository.updateBook(
           book.copyWith(

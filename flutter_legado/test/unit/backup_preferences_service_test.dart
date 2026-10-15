@@ -2,43 +2,97 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/constants/pref_keys.dart';
-import 'package:flutter_legado/src/services/restore_ignore_prefs.dart';
+import 'package:flutter_legado/src/data/services/backup_preferences_service.dart';
+
+class _RejectingPreferences extends Fake implements SharedPreferences {
+  _RejectingPreferences(this.delegate, this.throwsOnFailure);
+  final SharedPreferences delegate;
+  final bool throwsOnFailure;
+  bool reject = true;
+  @override
+  Object? get(String key) => delegate.get(key);
+  @override
+  Future<bool> setInt(String key, int value) async {
+    final saved = await delegate.setInt(key, value);
+    if (reject) {
+      reject = false;
+      if (throwsOnFailure) throw StateError('模拟写入失败');
+      return false;
+    }
+    return saved;
+  }
+
+  @override
+  Future<bool> setBool(String key, bool value) => delegate.setBool(key, value);
+  @override
+  Future<bool> remove(String key) => delegate.remove(key);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('RestoreIgnorePrefs.keyIsNotIgnore', () {
+  for (final throwsOnFailure in [false, true]) {
+    test(
+      '偏好写入${throwsOnFailure ? '异常' : 'false'}回退失败当前键，保留已完成字段并可重试',
+      () async {
+        SharedPreferences.setMockInitialValues({'count': 1});
+        final prefs = await SharedPreferences.getInstance();
+        final controlled = _RejectingPreferences(prefs, throwsOnFailure);
+        final service = BackupPreferencesService(
+          loadPreferences: () async => controlled,
+        );
+        await expectLater(
+          service.applyFromBackup({'savedFirst': true, 'count': 2}, {}),
+          throwsStateError,
+        );
+        expect(prefs.getBool('savedFirst'), isTrue);
+        expect(prefs.getInt('count'), 1);
+        await prefs.reload();
+        expect(prefs.getInt('count'), 1);
+        await service.applyFromBackup({'count': 2}, {});
+        expect(prefs.getInt('count'), 2);
+      },
+    );
+  }
+
+  group('BackupPreferencesService.keyIsNotIgnore', () {
     test('默认全部可备份', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.showRss, const {}),
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.showRss, const {}),
         isTrue,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore('reader_font_size', const {}),
+        BackupPreferencesService.keyIsNotIgnore('reader_font_size', const {}),
         isTrue,
       );
     });
 
     test('alwaysIgnore 永远跳过', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.launcherIcon, const {}),
+        BackupPreferencesService.keyIsNotIgnore(
+          PrefKeys.launcherIcon,
+          const {},
+        ),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.restoreIgnore, const {}),
+        BackupPreferencesService.keyIsNotIgnore(
+          PrefKeys.restoreIgnore,
+          const {},
+        ),
         isFalse,
       );
     });
 
     test('勾选 readConfig 跳过阅读键', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore('reader_font_size', {
+        BackupPreferencesService.keyIsNotIgnore('reader_font_size', {
           'readConfig': true,
         }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.showRss, {
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.showRss, {
           'readConfig': true,
         }),
         isTrue,
@@ -122,9 +176,9 @@ void main() {
         'reader_brightness_control_mode',
         'reader_brightness_control_on_left',
       ]) {
-        expect(RestoreIgnorePrefs.keyIsNotIgnore(key, const {}), isTrue);
+        expect(BackupPreferencesService.keyIsNotIgnore(key, const {}), isTrue);
         expect(
-          RestoreIgnorePrefs.keyIsNotIgnore(key, {'readConfig': true}),
+          BackupPreferencesService.keyIsNotIgnore(key, {'readConfig': true}),
           isFalse,
         );
       }
@@ -132,25 +186,27 @@ void main() {
 
     test('勾选 themeMode / showRss / threadCount / bookshelfLayout', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          RestoreIgnorePrefs.themeModeStorageKey,
+        BackupPreferencesService.keyIsNotIgnore(
+          BackupPreferencesService.themeModeStorageKey,
           {'themeMode': true},
         ),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.showRss, {'showRss': true}),
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.showRss, {
+          'showRss': true,
+        }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.threadCount, {
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.threadCount, {
           'threadCount': true,
         }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(
-          RestoreIgnorePrefs.bookshelfLayoutStorageKey,
+        BackupPreferencesService.keyIsNotIgnore(
+          BackupPreferencesService.bookshelfLayoutStorageKey,
           {'bookshelfLayout': true},
         ),
         isFalse,
@@ -159,13 +215,13 @@ void main() {
 
     test('勾选 themeConfig / coverConfig', () {
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.cPrimary, {
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.cPrimary, {
           'themeConfig': true,
         }),
         isFalse,
       );
       expect(
-        RestoreIgnorePrefs.keyIsNotIgnore(PrefKeys.coverShowName, {
+        BackupPreferencesService.keyIsNotIgnore(PrefKeys.coverShowName, {
           'coverConfig': true,
         }),
         isFalse,
@@ -173,7 +229,7 @@ void main() {
     });
   });
 
-  group('RestoreIgnorePrefs collect/apply', () {
+  group('BackupPreferencesService collect/apply', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({
         PrefKeys.showRss: false,
@@ -185,7 +241,7 @@ void main() {
     });
 
     test('collect 按 ignore 过滤并跳过 alwaysIgnore', () async {
-      final collected = await RestoreIgnorePrefs.collectForBackup({
+      final collected = await BackupPreferencesService().collectForBackup({
         'readConfig': true,
       });
       expect(collected.containsKey(PrefKeys.showRss), isTrue);
@@ -197,7 +253,7 @@ void main() {
     });
 
     test('apply 尊重 ignore 不覆盖本地项', () async {
-      await RestoreIgnorePrefs.applyFromBackup(
+      await BackupPreferencesService().applyFromBackup(
         {
           PrefKeys.showRss: true,
           PrefKeys.threadCount: 32,

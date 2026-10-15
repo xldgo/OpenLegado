@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book.dart';
@@ -56,7 +57,11 @@ class FakeExportService extends ExportService {
   }
 
   @override
-  Future<bool> webdavUpload(String configJson, String path, String data) async {
+  Future<bool> webdavUpload(
+    WebDavConnection connection,
+    String path,
+    String data,
+  ) async {
     webdavCalled = true;
     return true;
   }
@@ -77,7 +82,7 @@ void main() {
     Book? book,
     ExportService? exportService,
     RustApi? rustApi,
-    String? webDavConfig,
+    WebDavConnection? webDavConfig,
   }) {
     // 构造测试用书籍对象
     final testBook =
@@ -104,7 +109,7 @@ void main() {
     Book? book,
     ExportService? exportService,
     RustApi? rustApi,
-    String? webDavConfig,
+    WebDavConnection? webDavConfig,
   }) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
@@ -171,7 +176,7 @@ void main() {
     testWidgets('有 WebDAV 配置时显示 WebDAV 选项', (tester) async {
       await pumpTestWidget(
         tester,
-        webDavConfig: '{"url":"https://dav.example.com"}',
+        webDavConfig: const WebDavConnection(url: 'https://dav.example.com'),
       );
       await tester.ensureVisible(find.text('上传到 WebDAV'));
 

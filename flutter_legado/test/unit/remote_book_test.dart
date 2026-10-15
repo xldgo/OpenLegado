@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -94,15 +96,15 @@ void main() {
     RemoteBookState readState() => container.read(remoteBookNotifierProvider);
 
     void stubEmptyDirectory() {
-      when(() => mockApi.webdavListDir(any(), any()))
-          .thenAnswer((_) async => '[]');
+      when(() => mockApi.webDavService.webdavListDir(any(), any()))
+          .thenAnswer((_) async => const []);
       when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => <Book>[]);
     }
 
     test('默认配置直接从连接仓储读取，不创建同步Notifier', () async {
-      final config = jsonDecode(
-        (await readNotifier().buildActiveConfigJson())!,
+      final config = _connectionJson(
+        (await readNotifier().loadActiveConnection())!,
       );
       expect(config, {
         'url': 'https://dav.example.com/',
@@ -114,13 +116,13 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('sync_webdav_remote_dir', '/custom');
       expect(
-        jsonDecode(
-          (await readNotifier().buildActiveConfigJson())!,
+        _connectionJson(
+          (await readNotifier().loadActiveConnection())!,
         )['remote_dir'],
         '/custom/',
       );
       await prefs.setString('sync_webdav_password', '');
-      expect(await readNotifier().buildActiveConfigJson(), isNull);
+      expect(await readNotifier().loadActiveConnection(), isNull);
     });
 
     test('自定义配置从根目录列举，URL补斜线且不使用默认凭据', () async {
@@ -133,8 +135,8 @@ void main() {
       );
       await readNotifier().saveServer(server);
       await readNotifier().selectServer(1);
-      final config = jsonDecode(
-        (await readNotifier().buildActiveConfigJson())!,
+      final config = _connectionJson(
+        (await readNotifier().loadActiveConnection())!,
       );
       expect(config, {
         'url': 'https://custom.example/',
@@ -237,7 +239,7 @@ void main() {
       final previous = readState();
       await expectLater(readNotifier().init(), throwsStateError);
       expect(identical(previous, readState()), isTrue);
-      verifyNever(() => mockApi.webdavListDir(any(), any()));
+      verifyNever(() => mockApi.webDavService.webdavListDir(any(), any()));
     });
 
     test('导入前连接读取失败通过状态反馈，不抛未捕获异常', () async {
@@ -257,20 +259,25 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      when(() => mockApi.webdavListDir(any(), any()))
-          .thenAnswer((_) async => '[{"name":"book.epub","is_dir":false}]');
+      when(() => mockApi.webDavService.webdavListDir(any(), any())).thenAnswer(
+        (_) async => [
+          {'name': 'book.epub', 'is_dir': false},
+        ],
+      );
       await readNotifier().init();
       readNotifier().toggleSelect(readState().items.single);
       when(() => connection.load()).thenThrow(StateError('模拟读取失败'));
       await readNotifier().addSelectedToBookshelf();
       expect(readState().error, 'WebDAV 配置读取失败，请重试');
       expect(readState().isImporting, isFalse);
-      verifyNever(() => mockApi.webdavDownloadFile(any(), any(), any()));
+      verifyNever(
+        () => mockApi.webDavService.webdavDownloadFile(any(), any(), any()),
+      );
     });
 
     test('refresh 解析目录并过滤非书籍文件', () async {
-      when(() => mockApi.webdavListDir(any(), any())).thenAnswer(
-        (_) async => jsonEncode([
+      when(() => mockApi.webDavService.webdavListDir(any(), any())).thenAnswer(
+        (_) async => [
           {
             'name': 'novel.epub',
             'path': '/legado/books/novel.epub',
@@ -289,7 +296,7 @@ void main() {
             'size': 0,
             'is_dir': true,
           },
-        ]),
+        ],
       );
       when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => <Book>[]);
@@ -298,7 +305,8 @@ void main() {
 
       final items = readState().items;
       expect(items.map((e) => e.filename).toSet(), {'novel.epub', 'folder'});
-      verify(() => mockApi.webdavListDir(any(), 'books/')).called(1);
+      verify(() => mockApi.webDavService.webdavListDir(any(), 'books/'))
+          .called(1);
     });
 
     test('addSelectedToBookshelf 下载并 importLocalBook', () async {
@@ -317,11 +325,11 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      when(() => mockApi.webdavListDir(any(), any()))
-          .thenAnswer((_) async => jsonEncode([]));
+      when(() => mockApi.webDavService.webdavListDir(any(), any()))
+          .thenAnswer((_) async => []);
       when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => <Book>[]);
-      when(() => mockApi.webdavDownloadFile(any(), any(), any()))
+      when(() => mockApi.webDavService.webdavDownloadFile(any(), any(), any()))
           .thenAnswer((_) async {});
       when(() => mockApi.importLocalBook(any())).thenAnswer(
         (_) async => const Book(
@@ -340,15 +348,15 @@ void main() {
       container.read(remoteBookNotifierProvider.notifier);
       final n = readNotifier();
       // 直接改 state 较难；通过 refresh 数据再选
-      when(() => mockApi.webdavListDir(any(), any())).thenAnswer(
-        (_) async => jsonEncode([
+      when(() => mockApi.webDavService.webdavListDir(any(), any())).thenAnswer(
+        (_) async => [
           {
             'name': 'novel.epub',
             'path': '/legado/books/novel.epub',
             'size': 12,
             'is_dir': false,
           },
-        ]),
+        ],
       );
       await n.refresh();
       final item = readState().items.single;
@@ -356,8 +364,13 @@ void main() {
       await n.addSelectedToBookshelf();
 
       expect(readState().importedCount, 1);
-      verify(() => mockApi.webdavDownloadFile(any(), 'books/novel.epub', any()))
-          .called(1);
+      verify(
+        () => mockApi.webDavService.webdavDownloadFile(
+          any(),
+          'books/novel.epub',
+          any(),
+        ),
+      ).called(1);
       verify(() => mockApi.importLocalBook(any())).called(1);
       final imported =
           verify(() => mockApi.bookshelfRepository.updateBook(captureAny()))
@@ -378,7 +391,12 @@ void main() {
       expect(readState().importedCount, isNull);
       expect(readState().error, 'WebDAV 配置读取失败，请重试');
       expect(readState().isImporting, isFalse);
-      verifyNever(() => mockApi.webdavDownloadFile(any(), any(), any()));
+      verifyNever(
+        () => mockApi.webDavService.webdavDownloadFile(any(), any(), any()),
+      );
     });
   });
 }
+
+Map<String, dynamic> _connectionJson(WebDavConnection connection) =>
+    jsonDecode(encodeWebDavConfig(connection)) as Map<String, dynamic>;

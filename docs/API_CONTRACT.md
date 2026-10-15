@@ -20,6 +20,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-15 | **WebDAV恢复调用方向冻结**：恢复通过既有webdavDownload读取bookshelf.json和sources.json，两份载荷结构校验完成后，经现有BookshelfRepository.importBooks和BookSourceRepository.importBookSources回写；恢复禁止调用上传或webdavFullSync。空列表不清空本地，下载/解码失败不以空列表代替；导入失败如实报告已完成阶段，不更新完整成功时间。备份仍保留现有目录准备与上传路径，Rust导出、FRB签名和方法数量不变。 |
 | 2026-10-13 | **阅读记录上游三视图/会话契约冻结**：新增真实会话查询、每日单书删除和原始会话集合删除三项；累计写入带副本URL及章节序号。新增时段与累计/每日数据原子提交，重复快照不计时，删除按作者/设备隔离并同步四表，跨午夜每日删除裁剪原会话。不补造旧会话。领域方法7→10，附录296→299。 |
 | 2026-10-13 | **阅读记录明细契约冻结（加法式，+2 方法；契约先行）**：补齐阅读记录单书每日明细（readRecordDetail）数据链与写入跨午夜原子事务语义。书籍身份由 `(bookName, author)` 标识，阅读器保存时透传真实 author；`putReadRecord` 写入事务计算有效增量 `delta = 新 readTime − 旧 readTime`，`delta <= 0` 幂等忽略；以 `[startTime, endTime]` 判断是否跨本地午夜，跨午夜时原子拆分毫秒至对应日期，单事务原子更新 `readRecord`、`readRecordDetail` 及 `readRecordDaily`，失败全量回滚；`deleteReadRecord` 级联删除指定书籍在 `readRecordDetail` 的所有明细；`clearReadRecords` 同时清空三表。新增 `getReadRecordDetails(int year)` 与 `getAllReadRecordDetails()`（均返回毫秒单位 `List<ReadRecordDetail>`）。§2.12 方法数 5→**7**，附录合计 294→**296**，ReadRecordRepository 口径 5→**7**（契约先行，实现批封装后程序化计数转齐）。 |
 | 2026-10-14 | **搜索聚合与功能目录冻结**：SearchResultAggregator 独立纯 Dart，复用原增量桶、原始 name/author/origin 预去重与清洗后桶内双键、来源/已读合并、首条元数据及稳定排序；applyPrecisionSearch 使用同一实现，空关键词保留原返回。搜索页/书内搜索页、State/Freezed、Notifier、访问 Provider 与筛选面板集中到 features/search，外部经 search.dart；共享搜索栏保持原路径，旧入口不保留转发。会话/暂停取消/节流、Rust/FRB、方法计数、DB/版本/依赖不变。 |
@@ -347,7 +348,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **224 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236）。
+> BookApi 接口当前共 **213 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213）。
 > 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
@@ -575,10 +576,14 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 ### 2.11 备份操作（3 个方法）
 
+**Dart归属**：本节三项及既有`backupList`统一由`BackupRepository`及直接FRB/Mock实现承担，
+根BookApi只装配共享实例；备份文件及偏好编排由`BackupService`负责。
+Rust导出、参数、返回和数据库格式保持。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `backup(String dirPath)` | dirPath | `Future<String>` | 备份数据，返回备份文件路径。**P2-4（2026-08-13）**：Flutter 在 FFI 写出 JSON 后注入 `appPrefs`（当前 SharedPreferences 快照，已按 restoreIgnore + alwaysIgnore 过滤）；无新 FFI 签名 |
-| `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。**P2-4（2026-08-13）**：UI 先读 `SettingsService.restoreIgnore`；`localBook` 预过滤备份 JSON 本地书；其余 ignore 键在应用备份内 `appPrefs` 时经 `RestoreIgnorePrefs.keyIsNotIgnore` 跳过（对齐 BackupConfig）；再调用本方法恢复业务表（无需改 FFI 签名） |
+| `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
 | `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<String>`（统计 JSON） | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回 JSON：`{books, bookSources, replaceRules, messages: string[]}` |
 
 ### 2.12 阅读记录（10 个方法）
@@ -799,17 +804,37 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 ### 2.28 WebDAV 云同步（7 个方法）
 
+**Dart数据边界拆分（2026-10-15，实施前冻结）**：七项远程操作由`WebDavService`
+及其直接FRB/Mock实现承担，配置参数改为`WebDavConnection`，JSON仅在FRB适配层编码。
+本地备份四项由`BackupRepository`及直接FRB/Mock实现承担。根`BookApi`只装配共享实例，
+迁移消费者后删除原十一项方法及其part实现；Rust导出、FRB签名和总方法表不变。
+本地备份编排统一为`BackupService`，偏好写入失败向上传递；恢复先完成业务数据，
+再应用偏好，部分完成不得误报整体成功。恢复后的设置刷新由应用层集中执行，
+不因个别失败或页面卸载跳过其余刷新；原有顺序和配置同步能力保留。
+
+**应用恢复调用方向（2026-10-15，实施前冻结）**：`SyncNotifier.restoreFromWebDav`
+只使用`webdavDownload`依次读取`bookshelf.json`与`sources.json`，保留原文件名、
+配置字段及远程目录。两份载荷须先通过JSON数组、条目对象及书籍/书源标识校验，
+再分别交给现有`BookshelfRepository.importBooks`和`BookSourceRepository.importBookSources`。
+未知字段原样传入，不通过Dart模型重编码；最终字段解析和导入规则仍由Rust负责。
+有效空列表不执行导入或清库；文件不存在、网络或格式错误不回退成本地数据或空数组。
+恢复不得调用上传、删除或`webdavFullSync`，不以恢复名义覆盖远端。
+两类导入全部完成后才记录成功时间；中途失败不重试已完成步骤，并区分已经完成的回写。
+本地时间记录失败沿用数据已完成的成功状态和独立警告，不重复远程请求。
+`backupToWebDav`暂时保留现有`webdavFullSync`路径，其实际行为为先建目录、上传，
+再回读，不能当作恢复或真正的合并操作。Rust/FRB签名和下表方法数量均不变。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `webdavListDir(String configJson, String path)` | configJson, path | `Future<String>` | WebDAV 列出远程目录；返回 `Vec<WebDavFileInfo>` JSON：`name` / `path` / `size` / `last_modified` / `etag` / `is_dir` |
-| `webdavUpload(String configJson, String path, String data)` | configJson, path, data | `Future<void>` | WebDAV 上传文件 |
-| `webdavDownload(String configJson, String path)` | configJson, path | `Future<String>` | WebDAV 下载文件（**仅 UTF-8 文本**；二进制请用 `webdavDownloadFile`） |
-| `webdavDelete(String configJson, String path)` | configJson, path | `Future<void>` | WebDAV 删除远程文件 |
-| `webdavFullSync(String configJson, String localBooks, String localSources)` | configJson, localBooks, localSources | `Future<String>` | WebDAV 全量同步 |
-| `webdavUploadFile(String configJson, String path, String localFilePath)` | configJson（与既有 `webdavUpload` 相同，WebDavConfig JSON）；path: 远程目标路径；localFilePath: 本地文件绝对路径 | `Future<void>` | WebDAV 从本地文件路径读取并上传（大文件场景，如书籍上传至远程），区别于既有 `webdavUpload` 的 String data 直传；既有 `webdavUpload` 签名保持不变。错误码：Io（文件不存在/读取失败）/ Net（上传失败）/ Internal（配置解析失败）（台账 §5.11-1 上传至远程，Task #50，加法式新增） |
-| `webdavDownloadFile(String configJson, String path, String localFilePath)` | configJson（WebDavConfig JSON，字段 `url`/`username`/`password`/`remote_dir`）；path: 相对 `remote_dir` 的远程路径；localFilePath: 本地落盘绝对路径 | `Future<void>` | WebDAV 下载**二进制**到本地文件（对齐远程书库 `RemoteBookActivity` 导入；镜像 `webdavUploadFile`）。父目录不存在时创建；错误码：Io（写盘失败）/ Net（下载失败）/ Internal（配置解析失败）。既有 `webdavDownload` 签名保持不变（加法式新增，2026-08-12 P1-5） |
+| `webdavListDir(WebDavConnection connection, String path)` | connection, path | `Future<List<Map<String, dynamic>>>` | WebDAV 列出远程目录；FRB返回JSON，数据层解码为对象列表，字段：`name` / `path` / `size` / `last_modified` / `etag` / `is_dir` |
+| `webdavUpload(WebDavConnection connection, String path, String data)` | connection, path, data | `Future<void>` | WebDAV 上传文件 |
+| `webdavDownload(WebDavConnection connection, String path)` | connection, path | `Future<String>` | WebDAV 下载文件（**仅 UTF-8 文本**；二进制请用 `webdavDownloadFile`） |
+| `webdavDelete(WebDavConnection connection, String path)` | connection, path | `Future<void>` | WebDAV 删除远程文件 |
+| `webdavFullSync(WebDavConnection connection, String localBooks, String localSources)` | connection, localBooks, localSources | `Future<String>` | WebDAV 全量同步 |
+| `webdavUploadFile(WebDavConnection connection, String path, String localFilePath)` | connection（适配层编码为原WebDavConfig JSON）；path: 远程目标路径；localFilePath: 本地文件绝对路径 | `Future<void>` | WebDAV 从本地文件路径读取并上传（大文件场景，如书籍上传至远程），区别于既有 `webdavUpload` 的 String data 直传；既有 `webdavUpload` 签名保持不变。错误码：Io（文件不存在/读取失败）/ Net（上传失败）/ Internal（配置解析失败）（台账 §5.11-1 上传至远程，Task #50，加法式新增） |
+| `webdavDownloadFile(WebDavConnection connection, String path, String localFilePath)` | connection（适配层编码为WebDavConfig JSON，字段 `url`/`username`/`password`/`remote_dir`）；path: 相对 `remote_dir` 的远程路径；localFilePath: 本地落盘绝对路径 | `Future<void>` | WebDAV 下载**二进制**到本地文件（对齐远程书库 `RemoteBookActivity` 导入；镜像 `webdavUploadFile`）。父目录不存在时创建；错误码：Io（写盘失败）/ Net（下载失败）/ Internal（配置解析失败）。既有 `webdavDownload` 签名保持不变（加法式新增，2026-08-12 P1-5） |
 
-> **远程书库服务器列表（非 FFI）**：对齐原版 `servers` 表 + `AppConfig.remoteServerId`。Flutter 侧以 `SettingsService` 持久化 `remote_servers`（JSON 数组：`id`/`name`/`url`/`username`/`password`）与 `remote_server_id`（`-1` = 默认 WebDAV，即同步设置中的账号，根目录相对 path 为 `books/`）。目录浏览复用 `webdavListDir`；导入 = `webdavDownloadFile` → `importLocalBook`。
+> **远程书库服务器列表（非 FFI）**：对齐原版 `servers` 表 + `AppConfig.remoteServerId`。Flutter 侧以 `RemoteServerRepository` 持久化 `remote_servers`（JSON 数组：`id`/`name`/`url`/`username`/`password`）与 `remote_server_id`（`-1` = 默认 WebDAV，即同步设置中的账号，根目录相对 path 为 `books/`）。目录浏览复用 `webdavListDir`；导入 = `webdavDownloadFile` → `importLocalBook`。
 
 ### 2.29 下载管理器（7 个方法）
 

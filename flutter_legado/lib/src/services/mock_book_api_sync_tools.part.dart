@@ -5,54 +5,6 @@
 part of 'mock_book_api.dart';
 
 mixin MockBookApiSyncTools on MockBookApiStore implements BookApi {
-  // ========== WebDAV 云同步 ==========
-
-  @override
-  Future<String> webdavListDir(String configJson, String path) async =>
-      jsonEncode([]);
-
-  @override
-  Future<void> webdavUpload(
-    String configJson,
-    String path,
-    String data,
-  ) async {}
-
-  /// WebDAV 本地文件上传（契约 §2.28.6，Task #50）
-  ///
-  /// Mock：短延迟模拟上传耗时，不做真实网络请求。
-  @override
-  Future<void> webdavUploadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  ) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  @override
-  Future<String> webdavDownload(String configJson, String path) async => '';
-
-  /// WebDAV 二进制下载到本地（契约 §2.28，2026-08-12 P1-5）
-  @override
-  Future<void> webdavDownloadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  ) async {
-    await Future.delayed(const Duration(milliseconds: 50));
-  }
-
-  @override
-  Future<void> webdavDelete(String configJson, String path) async {}
-
-  @override
-  Future<String> webdavFullSync(
-    String configJson,
-    String localBooks,
-    String localSources,
-  ) async => '{"synced": true}';
-
   // ========== 下载管理器 ==========
 
   @override

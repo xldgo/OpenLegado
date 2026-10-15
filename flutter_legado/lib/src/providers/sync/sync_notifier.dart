@@ -10,6 +10,7 @@ import '../../models/misc.dart';
 import '../providers.dart';
 import '../backup_settings_provider.dart';
 import '../sync_metadata_provider.dart';
+import '../backup_provider.dart';
 import '../webdav_connection_provider.dart';
 import 'sync_state.dart';
 
@@ -42,24 +43,15 @@ class SyncNotifier extends Notifier<SyncState> {
     );
   }
 
-  /// 远端子目录（保证以 '/' 结尾；Rust WebDavClient 拼接
-  /// full_url = url + remote_dir + path，直接拼接 path）
-  /// [Task #52 | 2026-08-10] — Qoder
-  String get normalizedRemoteDir {
-    final dir = state.remoteDir.isEmpty ? '/legado/' : state.remoteDir;
-    return dir.endsWith('/') ? dir : '$dir/';
-  }
+  WebDavConnection get connection => WebDavConnection(
+    url: state.webDavUrl,
+    username: state.webDavUsername,
+    password: state.webDavPassword,
+    remoteDir: state.remoteDir.isEmpty ? '/legado/' : state.remoteDir,
+    deviceName: state.deviceName,
+  );
 
-  /// 构建 Rust 侧 WebDavConfig 期望的 JSON（{url, username, password, remote_dir}）
-  ///
-  /// [Task #52 | 2026-08-10] 补齐 remote_dir（legado-net WebDavConfig 必需字段，
-  /// 缺失会导致 Rust 侧配置解析失败） — Qoder
-  String buildConfigJson() => jsonEncode({
-    'url': state.webDavUrl,
-    'username': state.webDavUsername,
-    'password': state.webDavPassword,
-    'remote_dir': normalizedRemoteDir,
-  });
+  String get normalizedRemoteDir => connection.directoryPrefix;
 
   // ===== 配置管理 =====
 
@@ -153,8 +145,8 @@ class SyncNotifier extends Notifier<SyncState> {
       durChapterTitle: book.durChapterTitle,
     );
     final api = ref.read(bookApiProvider);
-    await api.webdavUpload(
-      buildConfigJson(),
+    await api.webDavService.webdavUpload(
+      connection,
       bookProgressRemotePath(book.name, book.author),
       jsonEncode(progress.toJson()),
     );
@@ -165,8 +157,8 @@ class SyncNotifier extends Notifier<SyncState> {
     if (!state.isConfigured) return null;
     try {
       final api = ref.read(bookApiProvider);
-      final jsonStr = await api.webdavDownload(
-        buildConfigJson(),
+      final jsonStr = await api.webDavService.webdavDownload(
+        connection,
         bookProgressRemotePath(book.name, book.author),
       );
       if (jsonStr.trim().isEmpty) return null;
@@ -249,20 +241,17 @@ class SyncNotifier extends Notifier<SyncState> {
     }
     _setStatus(SyncStatus.syncing);
     try {
-      final api = ref.read(bookApiProvider);
-      final (localBooks, localSources) = await _collectLocalData();
-      await api.webdavFullSync(buildConfigJson(), localBooks, localSources);
+      await ref.read(backupServiceProvider).backupToWebDav(connection);
       await _markSyncSuccess();
     } catch (e) {
       _setError('备份失败: $e');
     }
   }
 
-  /// 从 WebDAV 恢复（获取远端数据并回写书源）
+  /// 只下载并恢复远端书架、书源，不上传本地数据。— Codex + UI
   ///
-  /// 调用真实 webdavFullSync 取得远端合并数据，书源经 importBookSources 回写；
-  /// 书架批量回写受限于 BookApi 暂无批量导入契约，登记为跨轨需求。
-  /// 返回用于展示的结果描述。
+  /// 两份载荷先完成结构校验，再沿用各仓储的导入规则；不清空本地数据。
+  /// 返回实际完成情况，部分回写失败不记录为完整同步成功。
   Future<String> restoreFromWebDav() async {
     if (!state.isConfigured) {
       _setError('请先配置 WebDAV 服务器信息');
@@ -270,39 +259,16 @@ class SyncNotifier extends Notifier<SyncState> {
     }
     _setStatus(SyncStatus.syncing);
     try {
-      final api = ref.read(bookApiProvider);
-      final (localBooks, localSources) = await _collectLocalData();
-      final result = await api.webdavFullSync(
-        buildConfigJson(),
-        localBooks,
-        localSources,
-      );
-      var imported = 0;
-      final remote = jsonDecode(result) as Map<String, dynamic>;
-      final remoteSources = remote['sources']?.toString() ?? '';
-      if (remoteSources.isNotEmpty && remoteSources != '[]') {
-        imported = await api.bookSourceRepository.importBookSources(
-          remoteSources,
-        );
-      }
+      final restored = await ref
+          .read(backupServiceProvider)
+          .restoreFromWebDav(connection);
       await _markSyncSuccess();
-      return '恢复完成，回写 $imported 条书源';
-    } catch (e) {
-      _setError('恢复失败: $e');
-      return '恢复失败: $e';
+      return '恢复完成，回写 ${restored.books} 本书籍、${restored.sources} 条书源';
+    } catch (error) {
+      final message = '$error';
+      _setError(message);
+      return message;
     }
-  }
-
-  // ===== Internal helpers =====
-
-  /// 序列化本地书架 + 书源为 JSON（供 webdavFullSync 上传）
-  Future<(String, String)> _collectLocalData() async {
-    final api = ref.read(bookApiProvider);
-    final books = await api.bookshelfRepository.getBooks();
-    final sources = await api.bookSourceRepository.getBookSources();
-    final localBooks = jsonEncode(books.map((e) => e.toJson()).toList());
-    final localSources = jsonEncode(sources.map((e) => e.toJson()).toList());
-    return (localBooks, localSources);
   }
 
   Future<void> _markSyncSuccess() async {

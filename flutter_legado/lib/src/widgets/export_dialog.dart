@@ -1,3 +1,5 @@
+import '../domain/models/webdav_connection.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -31,8 +33,8 @@ class ExportDialog extends StatefulWidget {
   /// Rust API 实例（用于 WebDAV 上传）
   final BookApi rustApi;
 
-  /// WebDAV 配置 JSON（可选）
-  final String? webDavConfig;
+  /// WebDAV 连接快照（可选）
+  final WebDavConnection? webDavConfig;
 
   const ExportDialog({
     super.key,
@@ -380,7 +382,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// WebDAV 复选框
   Widget _buildWebDavCheckbox() {
-    if (widget.webDavConfig == null || widget.webDavConfig!.isEmpty) {
+    if (widget.webDavConfig == null || widget.webDavConfig!.url.isEmpty) {
       return const SizedBox.shrink();
     }
 

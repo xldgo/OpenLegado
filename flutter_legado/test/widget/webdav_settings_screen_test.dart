@@ -21,6 +21,10 @@ import 'package:flutter_legado/src/providers/sync_metadata_provider.dart';
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/data/services/backup_service.dart';
+import 'package:flutter_legado/src/app/bootstrap/restored_settings_refresher.dart';
+import 'package:flutter_legado/src/providers/backup_provider.dart';
+import 'package:flutter_legado/src/providers/restored_settings_provider.dart';
 
 import '../mocks/mocks.dart';
 
@@ -54,6 +58,8 @@ class _MetadataRepository implements SyncMetadataRepository {
   }
 }
 
+class _BackupService extends Mock implements BackupService {}
+
 void main() {
   late MockRustApi mockApi;
 
@@ -73,6 +79,8 @@ void main() {
     WidgetTester tester, {
     WebDavConnectionRepository? repository,
     SyncMetadataRepository? metadata,
+    BackupService? backup,
+    RestoredSettingsRefresher? refresher,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -82,6 +90,9 @@ void main() {
             webDavConnectionRepositoryProvider.overrideWithValue(repository),
           if (metadata != null)
             syncMetadataRepositoryProvider.overrideWithValue(metadata),
+          if (backup != null) backupServiceProvider.overrideWithValue(backup),
+          if (refresher != null)
+            restoredSettingsRefresherProvider.overrideWithValue(refresher),
         ],
         child: const MaterialApp(home: WebDavSettingsScreen()),
       ),
@@ -98,9 +109,9 @@ void main() {
       'sync_book_progress_plus': true,
       'app_backup_path': 'E:/备份',
     });
-    when(() => mockApi.webdavFullSync(any(), any(), any()))
+    when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
         .thenAnswer((_) async => '{}');
-    when(() => mockApi.backup(any()))
+    when(() => mockApi.backupRepository.backup(any()))
         .thenAnswer((_) async => 'E:/备份/backup.zip');
     final metadata = _MetadataRepository();
     await pumpScreen(tester, metadata: metadata);
@@ -137,6 +148,150 @@ void main() {
     await tester.tap(find.text('备份'));
     await tester.pumpAndSettle();
     expect(find.text(warning), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final failSources in [false, true]) {
+    testWidgets('云端恢复${failSources ? '部分完成时显示失败阶段' : '显示书籍和书源回写数量'}', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'sync_webdav_url': 'https://dav.example',
+        'sync_webdav_username': 'u',
+        'sync_webdav_password': 'p',
+      });
+      when(() => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'))
+          .thenAnswer((_) async => '[{"bookUrl":"remote-book"}]');
+      when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
+          .thenAnswer((_) async => '[{"bookSourceUrl":"remote-source"}]');
+      when(() => mockApi.bookshelfRepository.importBooks(any()))
+          .thenAnswer((_) async => 1);
+      if (failSources) {
+        when(() => mockApi.bookSourceRepository.importBookSources(any()))
+            .thenThrow(StateError('模拟书源写入失败'));
+      } else {
+        when(() => mockApi.bookSourceRepository.importBookSources(any()))
+            .thenAnswer((_) async => 1);
+      }
+      final metadata = _MetadataRepository()..failSave = false;
+      await pumpScreen(tester, metadata: metadata);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(WebDavSettingsScreen)),
+      );
+
+      await tester.scrollUntilVisible(find.text('恢复').hitTestable(), 120);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('恢复'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      if (failSources) {
+        expect(
+          find.textContaining('恢复未完成，已回写 1 本书籍；书源恢复失败').hitTestable(),
+          findsOneWidget,
+        );
+        expect(container.read(syncNotifierProvider).status, SyncStatus.error);
+        expect(metadata.saved?.millisecondsSinceEpoch, 1234);
+      } else {
+        expect(find.text('恢复完成，回写 1 本书籍、1 条书源').hitTestable(), findsOneWidget);
+        expect(container.read(syncNotifierProvider).status, SyncStatus.success);
+        expect(metadata.saved?.millisecondsSinceEpoch, isNot(1234));
+      }
+      verifyNever(
+        () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
+      );
+      verifyNever(
+        () => mockApi.webDavService.webdavUpload(any(), any(), any()),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('本地备份成功但云端失败分别显示，不重复生成本地备份', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sync_webdav_url': 'https://dav.example',
+      'sync_webdav_username': 'u',
+      'sync_webdav_password': 'p',
+      'app_backup_path': 'E:/备份',
+    });
+    when(() => mockApi.backupRepository.backup(any()))
+        .thenAnswer((_) async => 'E:/备份/backup.zip');
+    when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
+        .thenThrow(StateError('模拟上传失败'));
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('备份').hitTestable(), 120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('备份'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('备份成功：E:/备份/backup.zip').hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.textContaining('云端备份失败').hitTestable(), findsOneWidget);
+    verify(() => mockApi.backupRepository.backup(any())).called(1);
+    verify(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
+        .called(1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('偏好备份失败明确提示已生成文件，不继续上传云端', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sync_webdav_url': 'https://dav.example',
+      'sync_webdav_username': 'u',
+      'sync_webdav_password': 'p',
+      'app_backup_path': 'E:/备份',
+    });
+    final backup = _BackupService();
+    when(() => backup.backupLocal(any())).thenAnswer(
+      (_) async =>
+          (path: 'E:/备份/backup.json', preferencesError: StateError('模拟偏好失败')),
+    );
+    await pumpScreen(tester, backup: backup);
+    await tester.scrollUntilVisible(find.text('备份').hitTestable(), 120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('备份'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('业务备份已生成：E:/备份/backup.json').hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.textContaining('设置备份失败').hitTestable(), findsOneWidget);
+    verifyNever(
+      () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('恢复成功但部分刷新失败保留恢复结果并展示失败项', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sync_webdav_url': 'https://dav.example',
+      'sync_webdav_username': 'u',
+      'sync_webdav_password': 'p',
+    });
+    when(() => mockApi.webDavService.webdavDownload(any(), any()))
+        .thenAnswer((_) async => '[]');
+    var refreshedShelf = false;
+    final refresher = RestoredSettingsRefresher([
+      ('主题', () async => throw StateError('模拟刷新失败')),
+      (
+        '书架',
+        () async {
+          refreshedShelf = true;
+        },
+      ),
+    ]);
+    await pumpScreen(tester, refresher: refresher);
+    await tester.scrollUntilVisible(find.text('恢复').hitTestable(), 120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复'));
+    await tester.pumpAndSettle();
+    expect(refreshedShelf, isTrue);
+    expect(
+      find.textContaining('恢复完成，回写 0 本书籍、0 条书源').hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.textContaining('部分界面刷新失败：主题').hitTestable(), findsOneWidget);
+    verify(() => mockApi.webDavService.webdavDownload(any(), any())).called(2);
     expect(tester.takeException(), isNull);
   });
 

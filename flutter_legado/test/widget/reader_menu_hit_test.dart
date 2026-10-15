@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
@@ -97,18 +98,34 @@ class _ConnectionRepository implements WebDavConnectionRepository {
 }
 
 class _SyncNetworkApi extends MockBookApi {
-  int requests = 0;
-
   @override
-  Future<String> webdavDownload(String configJson, String path) async {
+  WebDavService get webDavService => _service;
+  final _service = _SyncNetworkService();
+  int get requests => _service.requests;
+}
+
+class _SyncNetworkService implements WebDavService {
+  int requests = 0;
+  @override
+  Future<String> webdavDownload(
+    WebDavConnection connection,
+    String path,
+  ) async {
     requests++;
     return '';
   }
 
   @override
-  Future<void> webdavUpload(String configJson, String path, String data) async {
+  Future<void> webdavUpload(
+    WebDavConnection connection,
+    String path,
+    String data,
+  ) async {
     requests++;
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _ScreenReader extends _Reader {

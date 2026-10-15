@@ -41,7 +41,10 @@ void main() {
 
   setUpAll(registerFallbacks);
   setUp(() {
-    SharedPreferences.setMockInitialValues({PrefKeys.restoreIgnore: initial});
+    SharedPreferences.setMockInitialValues({
+      PrefKeys.restoreIgnore: initial,
+      'app_backup_path': 'E:/备份',
+    });
     repository = _ControlledRepository();
     api = MockRustApi();
   });
@@ -155,7 +158,7 @@ void main() {
     expect(find.textContaining('恢复忽略项读取失败').hitTestable(), findsOneWidget);
     expect(find.textContaining('备份成功'), findsNothing);
     expect(find.byType(AlertDialog), findsNothing);
-    verifyNever(() => api.backup(any()));
+    verifyNever(() => api.backupRepository.backup(any()));
     expect(tester.takeException(), isNull);
   });
 }

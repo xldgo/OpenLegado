@@ -1,3 +1,4 @@
+import '../domain/models/webdav_connection.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:async';
@@ -280,9 +281,9 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   Future<void> _exportBook(Book book) async {
     final api = ref.read(bookApiProvider);
     final sync = ref.read(syncNotifierProvider);
-    String? webDavConfig;
+    WebDavConnection? webDavConfig;
     if (sync.webDavUrl.trim().isNotEmpty) {
-      webDavConfig = ref.read(syncNotifierProvider.notifier).buildConfigJson();
+      webDavConfig = ref.read(syncNotifierProvider.notifier).connection;
     }
 
     final result = await showDialog<Map<String, dynamic>>(

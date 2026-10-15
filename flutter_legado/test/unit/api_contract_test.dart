@@ -190,6 +190,14 @@ void main() {
     }
   }
 
+  final webDavNames = _extractMethods(
+    _read('lib/src/domain/contracts/webdav_service.dart'),
+    'WebDavService',
+  );
+  final backupNames = _extractMethods(
+    _read('lib/src/domain/contracts/backup_repository.dart'),
+    'BackupRepository',
+  );
   final bSet = bNames.toSet();
   final allRowNames = <String>{};
   for (final s in sections) {
@@ -199,6 +207,55 @@ void main() {
   final methodSections = sections.where((s) => s.declared >= 0).toList();
 
   group('API 契约自动校验', () {
+    test('备份四项与WebDAV七项从根接口迁走，正式和Mock契约闭合', () {
+      for (final (names, expected, paths) in [
+        (
+          backupNames,
+          {'backup', 'restore', 'backupList', 'importOldData'},
+          [
+            (
+              'data/repositories/rust_backup_repository.dart',
+              'RustBackupRepository',
+            ),
+            (
+              'data/repositories/mock_backup_repository.dart',
+              'MockBackupRepository',
+            ),
+          ],
+        ),
+        (
+          webDavNames,
+          {
+            'webdavListDir',
+            'webdavUpload',
+            'webdavUploadFile',
+            'webdavDownload',
+            'webdavDownloadFile',
+            'webdavDelete',
+            'webdavFullSync',
+          },
+          [
+            ('data/services/rust_webdav_service.dart', 'RustWebDavService'),
+            ('data/services/mock_webdav_service.dart', 'MockWebDavService'),
+          ],
+        ),
+      ]) {
+        expect(names.toSet(), expected);
+        for (final rootNames in [bNames, rNames, mNames]) {
+          expect(rootNames.toSet().intersection(expected), isEmpty);
+        }
+        for (final (path, name) in paths) {
+          expect(
+            _extractMethods(
+              _read('lib/src/$path'),
+              name,
+            ).where((method) => !method.startsWith('_')).toSet(),
+            expected,
+          );
+        }
+      }
+    });
+
     test('契约文档结构前置（§1.7 与附录合计行存在）', () {
       expect(hasSec17, isTrue, reason: 'API_CONTRACT.md 缺少 §1.7 命名等价表');
       expect(hasAppTotal, isTrue, reason: 'API_CONTRACT.md 缺少附录合计行');
@@ -222,14 +279,13 @@ void main() {
       );
     });
 
-    test('公共额外方法钉死：RustApi={toString, refreshReadBookConfig, synchronizeThemeConfig}，MockBookApi=∅', () {
+    test('公共额外方法钉死：RustApi={refreshReadBookConfig, synchronizeThemeConfig}，MockBookApi=∅', () {
       final rExtra =
           rNames.where((n) => !n.startsWith('_') && !bSet.contains(n)).toList()
             ..sort();
       expect(rExtra, [
         'refreshReadBookConfig',
         'synchronizeThemeConfig',
-        'toString',
       ], reason: 'RustApi 公共额外方法集合漂移（新增/删除了 BookApi 之外的公共方法）：$rExtra');
       final mExtra =
           mNames.where((n) => !n.startsWith('_') && !bSet.contains(n)).toList()
@@ -360,6 +416,8 @@ void main() {
             searchNames.length +
             searchHistoryNames.length +
             privacyNames.length +
+            webDavNames.length +
+            backupNames.length +
             6 +
             1 +
             1,

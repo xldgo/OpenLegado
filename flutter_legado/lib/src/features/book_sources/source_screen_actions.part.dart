@@ -348,7 +348,7 @@ extension _SourceActions on _SourceScreenState {
     try {
       final notifier = ref.read(sourceNotifierProvider.notifier);
       final state = ref.read(sourceNotifierProvider);
-      final json = await notifier.backupService.exportSelectedSources(
+      final json = await notifier.exportService.exportSelectedSources(
         state.selectedUrls.toList(),
       );
       final dir = await getTemporaryDirectory();

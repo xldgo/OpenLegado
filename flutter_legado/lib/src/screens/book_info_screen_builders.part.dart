@@ -517,8 +517,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // [Task #55 F9 | 2026-08-10] 上传与 origin 回写分两段 try/catch：
     // 回写失败时提示「上传成功但保存记录失败」而非误报「上传失败」 — Qoder
     try {
-      await api.webdavUploadFile(
-        syncNotifier.buildConfigJson(),
+      await api.webDavService.webdavUploadFile(
+        syncNotifier.connection,
         remotePath,
         localPath,
       );

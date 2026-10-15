@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/backup_service.dart';
+import '../../data/services/book_source_export_service.dart';
 import '../../services/book_api.dart' show BookApi;
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
@@ -37,8 +37,9 @@ class SourceNotifier extends Notifier<SourceState> {
   SourceImportService get importService =>
       createSourceImportService(ref.read(bookApiProvider));
 
-  /// 获取备份服务实例
-  BackupService get backupService => BackupService(ref.read(bookApiProvider));
+  /// 获取书源导出服务实例
+  BookSourceExportService get exportService =>
+      BookSourceExportService(ref.read(bookSourceRepositoryProvider));
 
   // ===== CRUD 操作 =====
 
@@ -679,14 +680,14 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 导出选中的书源为 JSON
   Future<String> exportSelectedSources() async {
-    return await backupService.exportSelectedSources(
+    return await exportService.exportSelectedSources(
       state.selectedUrls.toList(),
     );
   }
 
   /// 导出全部书源为 JSON
   Future<String> exportAllSources() async {
-    return await backupService.exportAllSourcesFormatted();
+    return await exportService.exportAllSourcesFormatted();
   }
 
   // ===== 搜索过滤 =====

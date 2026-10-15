@@ -1,8 +1,13 @@
+library;
+
+import 'package:flutter_legado/src/domain/contracts/backup_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+
 /// 单元测试 Mock 定义
 ///
 /// 使用 mocktail 生成 RustApi / AudioService / http.Client 的 mock 实例，
 /// 供 Providers / Services 层测试使用。
-library;
 
 import 'package:flutter_legado/src/domain/contracts/search_service.dart';
 import 'package:flutter_legado/src/domain/contracts/search_history_repository.dart';
@@ -56,7 +61,15 @@ class SearchServiceMock extends Mock implements SearchService {}
 class SearchHistoryRepositoryMock extends Mock
     implements SearchHistoryRepository {}
 
+class BackupRepositoryMock extends Mock implements BackupRepository {}
+
+class WebDavServiceMock extends Mock implements WebDavService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final BackupRepository backupRepository = BackupRepositoryMock();
+  @override
+  final WebDavService webDavService = WebDavServiceMock();
   MockRustApi() {
     // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。
     // 设置/迁移用例按需覆盖为实际数据、空值或读取失败。
@@ -284,6 +297,7 @@ class FakeUri extends Fake implements Uri {}
 
 /// 注册所有 fallback 值（在 setUpAll 中调用）
 void registerFallbacks() {
+  registerFallbackValue(const WebDavConnection());
   registerFallbackValue(HttpTtsCancellation());
   registerFallbackValue(FakeBook());
   registerFallbackValue(FakeRssSource());

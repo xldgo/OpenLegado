@@ -1,3 +1,5 @@
+import '../domain/contracts/backup_repository.dart';
+import '../domain/contracts/webdav_service.dart';
 import '../domain/contracts/search_service.dart';
 import '../domain/contracts/search_history_repository.dart';
 import '../domain/contracts/source_login_repository.dart';
@@ -21,6 +23,9 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  BackupRepository get backupRepository;
+  WebDavService get webDavService;
+
   /// 搜索执行与历史共享装配。
   SearchService get searchService;
   SearchHistoryRepository get searchHistoryRepository;
@@ -532,23 +537,6 @@ abstract class BookApi {
   /// [kind] = `url`：[jsonOrUrl] 为 URL，先经既有抓取链路取 body 再解析。
   Future<int> dictRuleImport({required String jsonOrUrl, required String kind});
 
-  // ========== 备份操作 ==========
-
-  /// 备份数据
-  Future<String> backup(String dirPath);
-
-  /// 恢复数据
-  Future<void> restore(String backupPath);
-
-  /// 列出目录下备份文件（JSON 数组，F3-20）
-  Future<List<String>> backupList(String dir);
-
-  /// 导入旧版（阅读 2.x）备份目录
-  ///
-  /// 对齐 [API_CONTRACT] §2.11 `importOldData` / 原版 `ImportOldData.importUri`。
-  /// 返回统计 JSON：`{books, bookSources, replaceRules, messages}`。
-  Future<String> importOldData(String dirPath);
-
   // ========== RSS 收藏操作 ==========
 
   /// 获取所有 RSS 收藏
@@ -997,48 +985,6 @@ abstract class BookApi {
   /// type7 保留 JSON 属性原文（V-B2 不渲染，登记边界）；解析失败/非 XML/空
   /// → `null`（对齐原版 SAX 失败→null 静默无弹幕）。Dart 侧仅 JSON 解码。
   Future<List<VideoDanmakuItem>?> parseVideoDanmaku({required String raw});
-
-  // ========== WebDAV 云同步 ==========
-
-  /// WebDAV 列出远程目录
-  Future<String> webdavListDir(String configJson, String path);
-
-  /// WebDAV 上传文件
-  Future<void> webdavUpload(String configJson, String path, String data);
-
-  /// WebDAV 从本地文件路径读取并上传（契约 §2.28.6，Task #50 加法式新增）
-  ///
-  /// 大文件场景（如本地书籍上传至远程 books 目录），区别于
-  /// [webdavUpload] 的 String data 直传。
-  /// 错误码：文件不存在/读取失败 → Io；上传失败 → Net；配置解析失败 → Internal。
-  Future<void> webdavUploadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  );
-
-  /// WebDAV 下载文件（仅 UTF-8 文本；二进制请用 [webdavDownloadFile]）
-  Future<String> webdavDownload(String configJson, String path);
-
-  /// WebDAV 下载二进制到本地文件（契约 §2.28，2026-08-12 P1-5）
-  ///
-  /// 对齐远程书库导入；镜像 [webdavUploadFile]。
-  /// 错误码：写盘失败 → Io；下载失败 → Net；配置解析失败 → Internal。
-  Future<void> webdavDownloadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  );
-
-  /// WebDAV 删除远程文件
-  Future<void> webdavDelete(String configJson, String path);
-
-  /// WebDAV 全量同步
-  Future<String> webdavFullSync(
-    String configJson,
-    String localBooks,
-    String localSources,
-  );
 
   // ========== 下载管理器 ==========
 

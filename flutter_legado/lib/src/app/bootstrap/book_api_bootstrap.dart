@@ -1,3 +1,5 @@
+import '../../data/repositories/rust_backup_repository.dart';
+import '../../data/services/rust_webdav_service.dart';
 import '../../data/services/rust_search_service.dart';
 import '../../data/repositories/rust_search_history_repository.dart';
 import '../../data/repositories/rust_source_login_repository.dart';
@@ -35,6 +37,8 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    backupRepository: const RustBackupRepository(),
+    webDavService: const RustWebDavService(),
     initialize: startup.initialize,
     readingConfigSync: startup.configurationSync,
     bookmarkRepository: const RustBookmarkRepository(),

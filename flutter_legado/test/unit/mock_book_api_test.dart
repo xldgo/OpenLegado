@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -472,13 +474,20 @@ void main() {
   });
 
   group('WebDAV 云同步', () {
-    test('webdavListDir 返回 JSON', () async {
-      final result = await api.webdavListDir('{}', '/');
-      expect(result, isNotEmpty);
+    test('webdavListDir 返回目录列表', () async {
+      final result = await api.webDavService.webdavListDir(
+        const WebDavConnection(),
+        '/',
+      );
+      expect(result, isEmpty);
     });
 
     test('webdavFullSync 返回成功', () async {
-      final result = await api.webdavFullSync('{}', '/books', '/sources');
+      final result = await api.webDavService.webdavFullSync(
+        const WebDavConnection(),
+        '/books',
+        '/sources',
+      );
       expect(result, contains('synced'));
     });
   });

@@ -1,3 +1,7 @@
+import '../domain/contracts/backup_repository.dart';
+import '../domain/contracts/webdav_service.dart';
+import '../data/repositories/mock_backup_repository.dart';
+import '../data/services/mock_webdav_service.dart';
 import '../domain/contracts/search_service.dart';
 import '../domain/contracts/search_history_repository.dart';
 import '../data/services/mock_search_service.dart';
@@ -85,6 +89,10 @@ class MockBookApi
     implements BookApi {
   @override
   late final CloudTtsRepository cloudTtsRepository;
+  @override
+  final BackupRepository backupRepository = const MockBackupRepository();
+  @override
+  final WebDavService webDavService = const MockWebDavService();
   MockBookApi({
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,

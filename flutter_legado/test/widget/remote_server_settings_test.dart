@@ -34,7 +34,8 @@ void main() {
     api = MockRustApi();
     when(() => repository.load())
         .thenAnswer((_) async => RemoteServerSnapshot(servers: [server]));
-    when(() => api.webdavListDir(any(), any())).thenAnswer((_) async => '[]');
+    when(() => api.webDavService.webdavListDir(any(), any()))
+        .thenAnswer((_) async => const []);
     when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
   });
 

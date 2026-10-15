@@ -14,6 +14,10 @@ final class WebDavConnection {
   final String remoteDir;
   final String deviceName;
 
+  /// 空目录保持根目录语义，其他目录统一补齐末尾斜线。
+  String get directoryPrefix =>
+      remoteDir.isEmpty || remoteDir.endsWith('/') ? remoteDir : '$remoteDir/';
+
   /// 沿用原保存规则，密码中的首尾空白也是凭据的一部分。
   WebDavConnection get normalized => WebDavConnection(
     url: url.trim(),

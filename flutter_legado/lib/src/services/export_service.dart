@@ -1,3 +1,5 @@
+import '../domain/models/webdav_connection.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -85,9 +87,13 @@ class ExportService {
   }
 
   /// 将导出的文件上传到 WebDAV（文本路径，兼容旧调用）
-  Future<bool> webdavUpload(String configJson, String path, String data) async {
+  Future<bool> webdavUpload(
+    WebDavConnection connection,
+    String path,
+    String data,
+  ) async {
     try {
-      await _rustApi.webdavUpload(configJson, path, data);
+      await _rustApi.webDavService.webdavUpload(connection, path, data);
       return true;
     } catch (e) {
       debugPrint('[ExportService] WebDAV 上传失败：$e');
@@ -97,12 +103,16 @@ class ExportService {
 
   /// 上传本地文件到 WebDAV（二进制，对齐 webdavUploadFile）
   Future<bool> webdavUploadFile(
-    String configJson,
+    WebDavConnection connection,
     String remotePath,
     String localFilePath,
   ) async {
     try {
-      await _rustApi.webdavUploadFile(configJson, remotePath, localFilePath);
+      await _rustApi.webDavService.webdavUploadFile(
+        connection,
+        remotePath,
+        localFilePath,
+      );
       return true;
     } catch (e) {
       debugPrint('[ExportService] WebDAV 文件上传失败：$e');

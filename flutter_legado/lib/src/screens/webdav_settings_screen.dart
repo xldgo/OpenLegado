@@ -1,9 +1,11 @@
+import 'dart:convert';
+
+import '../providers/backup_provider.dart';
+import '../providers/restored_settings_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -18,26 +20,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../constants/pref_keys.dart';
 import '../domain/models/restore_ignore_config.dart';
 import '../l10n/app_strings.dart';
-import '../models/book.dart';
-import '../features/bookshelf/bookshelf.dart';
-import '../providers/main_prefs_notifier.dart';
-import '../providers/bookshelf_settings_provider.dart';
-import '../providers/read_record_settings_provider.dart';
-import '../providers/reader/reader_settings_provider.dart';
-import '../providers/locale_settings_provider.dart';
-import '../providers/eye_protection_settings_provider.dart';
-import '../providers/welcome_settings_provider.dart';
 import '../providers/providers.dart';
 import '../providers/sync/sync_notifier.dart';
-import '../providers/theme/theme_colors_notifier.dart';
-import '../providers/theme/theme_notifier.dart';
-import '../providers/ui_settings/ui_settings_notifier.dart';
-import '../providers/theme/system_bar_notifier.dart';
 import '../routes.dart';
 import '../providers/backup_settings_provider.dart';
-import '../providers/general_settings_provider.dart';
 import '../providers/restore_ignore_provider.dart';
-import '../services/restore_ignore_prefs.dart';
 import '../services/settings_service.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
@@ -205,90 +192,81 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _doLocalBackup() async {
+    final service = ref.read(backupServiceProvider);
+    final settings = ref.read(backupSettingsRepositoryProvider);
+    final sync = ref.read(syncNotifierProvider.notifier);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final hasCloud = ref.read(syncNotifierProvider).isConfigured;
     await _runWithProgress('备份中…', () async {
-      final ignore = await ref.read(restoreIgnoreRepositoryProvider).load();
-      final api = ref.read(bookApiProvider);
-      var dirPath = _backupPath;
-      if (dirPath.isEmpty) {
+      var directory = settings.current.backupPath;
+      if (directory.isEmpty) {
         final picked = await FilePicker.getDirectoryPath();
         if (picked == null) return;
-        dirPath = picked;
-        await ref
-            .read(backupSettingsRepositoryProvider)
-            .update(backupPath: dirPath);
+        directory = picked;
+        await settings.update(backupPath: directory);
       }
-      final filePath = await api.backup(dirPath);
-      await RestoreIgnorePrefs.injectAppPrefsIntoBackupFile(
-        filePath,
-        ignore.values,
-      );
-      // 同步 WebDAV（对齐原版本地与 WebDav 一起备份）
-      final sync = ref.read(syncNotifierProvider);
-      if (sync.isConfigured) {
-        try {
-          await ref.read(syncNotifierProvider.notifier).backupToWebDav();
-        } catch (_) {
-          // WebDAV 失败不阻断本地备份成功提示
-        }
+      final result = await service.backupLocal(directory);
+      if (result.preferencesError != null) {
+        _showResult(
+          '业务备份已生成：${result.path}\n设置备份失败：${result.preferencesError}',
+        );
+        return;
       }
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
-        SnackBar(content: Text('${AppStrings.backupSuccess}：$filePath')),
+      String? warning;
+      if (hasCloud) {
+        await sync.backupToWebDav();
+        final cloud = container.read(syncNotifierProvider);
+        warning = cloud.status == SyncStatus.error
+            ? '云端备份失败：${cloud.error}'
+            : cloud.error;
+      }
+      _showResult(
+        '${AppStrings.backupSuccess}：${result.path}${warning == null ? '' : '\n$warning'}',
       );
     });
   }
 
-  /// 默认恢复：优先 WebDAV；失败或未配置则提示（长按走本地）
+  /// 默认恢复从WebDAV下载，长按从本地文件恢复。
   Future<void> _doRestore() async {
-    final sync = ref.read(syncNotifierProvider);
-    if (sync.isConfigured) {
-      await _runWithProgress('恢复中…', () async {
-        final message = await ref
-            .read(syncNotifierProvider.notifier)
-            .restoreFromWebDav();
-        if (!mounted) return;
-        await _reloadPrefsAfterRestore();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.isEmpty ? '恢复完成' : message)),
-        );
-      });
+    if (!ref.read(syncNotifierProvider).isConfigured) {
+      _showResult('未配置 WebDAV，请长按「恢复」从本地恢复');
       return;
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('未配置 WebDAV，请长按「恢复」从本地恢复')));
+    final sync = ref.read(syncNotifierProvider.notifier);
+    final refresher = ref.read(restoredSettingsRefresherProvider);
+    await _runWithProgress('恢复中…', () async {
+      final message = await sync.restoreFromWebDav();
+      final failures = await refresher.refresh();
+      _showResult(message, failures);
+    });
   }
 
   Future<void> _doRestoreFromLocal() async {
+    final service = ref.read(backupServiceProvider);
+    final refresher = ref.read(restoredSettingsRefresherProvider);
     await _runWithProgress('恢复中…', () async {
-      final api = ref.read(bookApiProvider);
-      final result = await FilePicker.pickFile(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['json', 'zip'],
       );
-      final backupPath = result?.path;
-      if (backupPath == null) return;
-
-      var pathToRestore = backupPath;
-      final ignore = await ref.read(restoreIgnoreRepositoryProvider).load();
-      if (ignore['localBook'] == true &&
-          backupPath.toLowerCase().endsWith('.json')) {
-        pathToRestore = await _backupPathSkippingLocalBooks(backupPath);
-      }
-
-      await RestoreIgnorePrefs.applyAppPrefsFromBackupFile(
-        backupPath,
-        ignore.values,
+      final path = file?.path;
+      if (path == null) return;
+      final result = await service.restoreLocal(path);
+      final failures = await refresher.refresh();
+      _showResult(
+        result.preferencesError == null
+            ? AppStrings.restoreSuccess
+            : '业务数据已恢复，但设置恢复失败：${result.preferencesError}',
+        failures,
       );
-      await api.restore(pathToRestore);
-      if (!mounted) return;
-      await _reloadPrefsAfterRestore();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(AppStrings.restoreSuccess)));
     });
+  }
+
+  void _showResult(String message, [List<String> failures = const []]) {
+    if (!mounted) return;
+    final warning = failures.isEmpty ? '' : '\n部分界面刷新失败：${failures.join('、')}';
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$message$warning')));
   }
 
   Future<void> _showRestoreIgnore() async {
@@ -324,142 +302,15 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _doImportOldData() async {
+    final service = ref.read(backupServiceProvider);
+    final refresher = ref.read(restoredSettingsRefresherProvider);
     await _runWithProgress('导入中…', () async {
-      final dirPath = await FilePicker.getDirectoryPath(
-        dialogTitle: '选择旧版备份目录',
-      );
-      if (dirPath == null) return;
-
-      final api = ref.read(bookApiProvider);
-      final raw = await api.importOldData(dirPath);
-      final decoded = jsonDecode(raw);
-      String message;
-      if (decoded is Map) {
-        final msgs = decoded['messages'];
-        if (msgs is List && msgs.isNotEmpty) {
-          message = msgs.map((e) => '$e').join('\n');
-        } else {
-          final books = decoded['books'] ?? 0;
-          final sources = decoded['bookSources'] ?? 0;
-          final rules = decoded['replaceRules'] ?? 0;
-          message = '书架 $books · 书源 $sources · 替换规则 $rules';
-        }
-      } else {
-        message = '导入完成';
-      }
-
-      ref.read(bookshelfNotifierProvider.notifier).refresh();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      final path = await FilePicker.getDirectoryPath(dialogTitle: '选择旧版备份目录');
+      if (path == null) return;
+      final message = await service.importOldData(path);
+      final failures = await refresher.refresh();
+      _showResult(message, failures);
     });
-  }
-
-  Future<void> _reloadPrefsAfterRestore() async {
-    try {
-      await ref.read(themeNotifierProvider.notifier).reload();
-    } on AppearanceSyncException catch (error) {
-      // 恢复已落盘，原生同步失败不能阻断其他界面状态的刷新。
-      debugPrint('外观偏好已恢复，主题同步失败：${error.cause}');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: const Text('设置已恢复，主题同步失败')));
-      }
-    }
-    if (!mounted) return;
-    try {
-      await ref.read(themeColorsProvider.notifier).reload();
-    } catch (error) {
-      debugPrint('主题颜色恢复后读取失败：$error');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('主题颜色读取失败，请重试')));
-      }
-    }
-    if (!mounted) return;
-    try {
-      await ref.read(mainPrefsProvider.notifier).reload();
-    } catch (error) {
-      debugPrint('主界面偏好恢复后读取失败：$error');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('主界面设置读取失败，请重试')));
-      }
-    }
-    if (!mounted) return;
-    try {
-      await ref.read(uiSettingsProvider.notifier).reload();
-    } catch (error) {
-      debugPrint('界面布局恢复后读取失败：$error');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('界面布局读取失败，请重试')));
-      }
-    }
-    if (!mounted) return;
-    try {
-      await ref.read(systemBarProvider.notifier).reload();
-    } catch (error) {
-      debugPrint('系统栏偏好恢复后读取失败：$error');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('系统栏设置读取失败，请重试')));
-      }
-    }
-    if (!mounted) return;
-    final reloads = <(String, Future<void> Function())>[
-      ('书架', () => ref.read(bookshelfSettingsRepositoryProvider).reload()),
-      ('阅读记录', () => ref.read(readRecordSettingsRepositoryProvider).reload()),
-      ('基础阅读', () => ref.read(readerSettingsRepositoryProvider).reload()),
-      ('字体目录', () => ref.read(readerFontRepositoryProvider).reload()),
-      ('阅读配色', () => ref.read(readerStyleRepositoryProvider).reload()),
-      ('语言', () => ref.read(localeSettingsRepositoryProvider).reload()),
-      ('护眼', () => ref.read(eyeProtectionSettingsRepositoryProvider).reload()),
-      ('欢迎页', () => ref.read(welcomeSettingsRepositoryProvider).reload()),
-      ('应用行为', () => ref.read(generalSettingsRepositoryProvider).reload()),
-      ('备份', () => ref.read(backupSettingsRepositoryProvider).reload()),
-    ];
-    for (final (label, reload) in reloads) {
-      if (!mounted) return;
-      try {
-        await reload();
-      } catch (error) {
-        debugPrint('$label 设置恢复后读取失败：$error');
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('$label 设置读取失败，请重试')));
-        }
-      }
-    }
-    if (!mounted) return;
-    ref.invalidate(bookshelfNotifierProvider);
-  }
-
-  Future<String> _backupPathSkippingLocalBooks(String backupPath) async {
-    final raw = await File(backupPath).readAsString();
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map<String, dynamic>) return backupPath;
-    final books = decoded['books'];
-    if (books is! List) return backupPath;
-
-    decoded['books'] = books.where((item) {
-      if (item is! Map) return true;
-      final origin = item['origin']?.toString() ?? '';
-      final type = item['type'];
-      final typeInt = type is int ? type : int.tryParse('$type') ?? 0;
-      final isLocal =
-          origin == BookType.localTag ||
-          origin.startsWith(BookType.webDavTag) ||
-          (typeInt & BookType.local) != 0;
-      return !isLocal;
-    }).toList();
-
-    final dir = Directory.systemTemp;
-    final out = File(
-      '${dir.path}${Platform.pathSeparator}legado_restore_no_local_${DateTime.now().millisecondsSinceEpoch}.json',
-    );
-    await out.writeAsString(jsonEncode(decoded));
-    return out.path;
   }
 
   Future<void> _runWithProgress(

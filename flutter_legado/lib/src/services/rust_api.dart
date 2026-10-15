@@ -1,3 +1,5 @@
+import '../domain/contracts/backup_repository.dart';
+import '../domain/contracts/webdav_service.dart';
 import '../domain/contracts/search_service.dart';
 import '../domain/contracts/search_history_repository.dart';
 import '../domain/contracts/source_login_repository.dart';
@@ -27,6 +29,8 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 import '../bridge/rust_lib.dart' as bridge;
 import '../models/models.dart';
 import 'book_api.dart';
+import '../data/bridge/rust_api_exception.dart';
+export '../data/bridge/rust_api_exception.dart';
 import 'platform_bridge_service.dart';
 
 part 'rust_api_decode.part.dart';
@@ -72,6 +76,8 @@ class RustApi
     required SourceLoginRepository sourceLoginRepository,
     required SearchService searchService,
     required SearchHistoryRepository searchHistoryRepository,
+    required BackupRepository backupRepository,
+    required WebDavService webDavService,
   }) => RustApi._(
     initialize,
     readingConfigSync,
@@ -86,6 +92,8 @@ class RustApi
     sourceLoginRepository,
     searchService,
     searchHistoryRepository,
+    backupRepository,
+    webDavService,
   );
 
   RustApi._(
@@ -102,7 +110,14 @@ class RustApi
     this.sourceLoginRepository,
     this.searchService,
     this.searchHistoryRepository,
+    this.backupRepository,
+    this.webDavService,
   );
+
+  @override
+  final BackupRepository backupRepository;
+  @override
+  final WebDavService webDavService;
 
   final Future<void> Function() _initialize;
   final ReadingConfigSync _readingConfigSync;

@@ -4,7 +4,7 @@ import '../domain/models/restore_ignore_config.dart';
 
 /// 恢复忽略项多选 Dialog（对齐原版 BackupConfigFragment.backupIgnore）
 ///
-/// 勾选项在备份/恢复时经 [RestoreIgnorePrefs] 过滤偏好；
+/// 勾选项由备份服务读取，并按策略过滤数据与偏好；
 /// 「本地书籍」在调用 restore 前预过滤备份 JSON 中的本地书。
 class RestoreIgnoreDialog extends StatefulWidget {
   const RestoreIgnoreDialog({super.key, required this.initial});

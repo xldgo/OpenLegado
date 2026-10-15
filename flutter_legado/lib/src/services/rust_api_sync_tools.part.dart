@@ -5,64 +5,6 @@
 part of 'rust_api.dart';
 
 mixin RustApiSyncTools on RustApiDecode implements BookApi {
-  // ========== WebDAV 云同步 ==========
-
-  /// WebDAV 列出远程目录
-  @override
-  Future<String> webdavListDir(String configJson, String path) =>
-      bridge.webdavListDir(configJson: configJson, path: path);
-
-  /// WebDAV 上传文件
-  @override
-  Future<void> webdavUpload(String configJson, String path, String data) =>
-      bridge.webdavUpload(configJson: configJson, path: path, data: data);
-
-  /// WebDAV 从本地文件路径读取并上传（契约 §2.28.6，Task #50 加法式新增）
-  @override
-  Future<void> webdavUploadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  ) => bridge.webdavUploadFile(
-    configJson: configJson,
-    path: path,
-    localFilePath: localFilePath,
-  );
-
-  /// WebDAV 下载文件
-  @override
-  Future<String> webdavDownload(String configJson, String path) =>
-      bridge.webdavDownload(configJson: configJson, path: path);
-
-  /// WebDAV 下载二进制到本地文件（契约 §2.28，2026-08-12 P1-5）
-  @override
-  Future<void> webdavDownloadFile(
-    String configJson,
-    String path,
-    String localFilePath,
-  ) => bridge.webdavDownloadFile(
-    configJson: configJson,
-    path: path,
-    localFilePath: localFilePath,
-  );
-
-  /// WebDAV 删除远程文件
-  @override
-  Future<void> webdavDelete(String configJson, String path) =>
-      bridge.webdavDelete(configJson: configJson, path: path);
-
-  /// WebDAV 全量同步
-  @override
-  Future<String> webdavFullSync(
-    String configJson,
-    String localBooks,
-    String localSources,
-  ) => bridge.webdavFullSync(
-    configJson: configJson,
-    localBooks: localBooks,
-    localSources: localSources,
-  );
-
   // ========== 下载管理器 ==========
 
   /// 添加下载任务

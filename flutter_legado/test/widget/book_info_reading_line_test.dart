@@ -112,7 +112,7 @@ void main() {
     await tester.tap(find.text('上传至远程'));
     await tester.pumpAndSettle();
     expect(find.text('WebDAV 配置读取失败，请重试'), findsOneWidget);
-    verifyNever(() => api.webdavUploadFile(any(), any(), any()));
+    verifyNever(() => api.webDavService.webdavUploadFile(any(), any(), any()));
     expect(tester.takeException(), isNull);
   });
 

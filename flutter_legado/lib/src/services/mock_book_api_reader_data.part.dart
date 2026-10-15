@@ -418,27 +418,4 @@ mixin MockBookApiReaderData on MockBookApiStore implements BookApi {
     }
     _dictRules.add({'id': _nextDictRuleId++, ...rule});
   }
-
-  // ========== 备份操作 ==========
-
-  @override
-  Future<String> backup(String dirPath) async {
-    return '$dirPath/legado_backup_mock.json';
-  }
-
-  @override
-  Future<void> restore(String backupPath) async {}
-
-  @override
-  Future<List<String>> backupList(String dir) async => [];
-
-  @override
-  Future<String> importOldData(String dirPath) async {
-    return jsonEncode({
-      'books': 0,
-      'bookSources': 0,
-      'replaceRules': 0,
-      'messages': <String>['mock: 未找到旧版备份文件'],
-    });
-  }
 }
