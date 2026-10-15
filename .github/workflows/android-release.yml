@@ -1,21 +1,31 @@
-name: Android Release
+name: Application Release
 
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Build Windows desktop release package'
+        type: boolean
+        default: true
+      build_android:
+        description: 'Build Android APK release package'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-release-${{ github.event_name }}-${{ github.ref }}
+  group: app-release-${{ github.event_name }}-${{ github.ref }}
   # 手动构建可取消旧任务，标签发布保持完整上传。
   cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
 
 jobs:
-  build:
+  build-android:
+    if: ${{ github.event_name == 'push' || inputs.build_android != false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
@@ -94,43 +104,86 @@ jobs:
         if: always()
         run: python3 .github/scripts/android_signing.py --clean
 
+  build-windows:
+    if: ${{ github.event_name == 'push' || inputs.build_windows != false }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    outputs:
+      artifact_id: ${{ steps.upload-windows.outputs.artifact-id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter and Rust
+        uses: ./.github/actions/setup-flutter-rust
+
+      - name: Run flutter pub get
+        working-directory: flutter_legado
+        run: flutter pub get
+
+      - name: Build Windows release package
+        run: python scripts/dev.py build windows --profile release
+
+      - name: Archive Windows release bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-windows | Out-Null
+          $bundleDir = "flutter_legado/build/windows/x64/runner/Release"
+          Compress-Archive -Path "$bundleDir/*" -DestinationPath "release-windows/legado-windows-x64.zip" -Force
+          Write-Host "Windows release archive generated successfully."
+
+      - name: Upload Windows release artifacts
+        id: upload-windows
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-bin-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-windows/legado-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 2
+
   publish:
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
-    needs: build
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && (needs.build-android.result == 'success' || needs.build-windows.result == 'success') }}
+    needs: [build-android, build-windows]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      # 仅重跑 publish 时沿用成功 build 的产物 ID，不使用新的 run_attempt 推测名称。
-      - name: Verify artifact ID
-        env:
-          ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
-        run: |
-          if [[ ! "$ARTIFACT_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::成功构建未提供有效的 APK 产物 ID"
-            exit 1
-          fi
-
-      - name: Download release APKs
+      - name: Download all release artifacts
         uses: actions/download-artifact@v8
         with:
-          artifact-ids: ${{ needs.build.outputs.artifact_id }}
-          path: release-apk
+          path: release-assets
           merge-multiple: true
 
-      - name: Create release and upload assets
+      - name: Prepare release assets directory
+        run: |
+          mkdir -p release-dist
+          if ls release-assets/*-release.apk 1> /dev/null 2>&1; then
+            cp release-assets/*-release.apk release-dist/
+          fi
+          if ls release-assets/*.zip 1> /dev/null 2>&1; then
+            cp release-assets/*.zip release-dist/
+          fi
+          echo "Files to publish:"
+          ls -lh release-dist/
+
+      - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          name: Android Release ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          body: |
-            Flutter + Rust 自动构建版本
-            Tag: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('Release {0}', github.ref_name) || 'Alpha Build (Rolling)' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'alpha' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
           draft: false
-          prerelease: false
-          files: release-apk/*-release.apk
+          body: |
+            ${{ startsWith(github.ref, 'refs/tags/v') && format('Release version {0}', github.ref_name) || '### OpenLegado Rolling Alpha Build' }}
+            
+            - **Commit**: ${{ github.sha }}
+            - **Build Date**: ${{ github.event.head_commit.timestamp || github.run_id }}
+            - **Workflow**: [${{ github.workflow }} #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          files: release-dist/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

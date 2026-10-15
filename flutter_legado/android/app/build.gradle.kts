@@ -8,7 +8,7 @@ plugins {
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
-apply(from = "../ffi-verification.gradle.kts")
+apply(from = file("../ffi-verification.gradle.kts"))
 
 @Suppress("UNCHECKED_CAST")
 val ffiAbisByProfile = extra["legadoFfiAbisByProfile"] as Map<String, List<String>>
