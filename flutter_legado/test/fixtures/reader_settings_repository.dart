@@ -21,5 +21,5 @@ AppReaderSettingsRepository createTestReaderSettingsRepository({
   );
   // 部分仓储在普通 setUp 装配；释放由原事件循环完成，不在 Widget 假时钟内等待。
   addTearDown(() => unawaited(service.dispose()));
-  return AppReaderSettingsRepository(service, preferences: preferences);
+  return AppReaderSettingsRepository(service);
 }

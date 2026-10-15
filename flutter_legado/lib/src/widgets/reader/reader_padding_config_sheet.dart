@@ -1,5 +1,5 @@
 import '../../providers/reader/reader_settings_provider.dart';
-import '../../models/reader_advanced_config.dart';
+import '../../domain/models/reader_page_layout_settings.dart';
 
 import 'dart:async';
 
@@ -15,8 +15,6 @@ import '../settings_widgets.dart';
 /// - 四向 ± 步进（DetailSeekBar 语义：上/下 0-400，左/右 0-100）
 /// - 左右联动开关、页眉/页脚显示分隔线开关
 class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
-  final ReaderAdvancedConfig config;
-  final ValueChanged<ReaderAdvancedConfig>? onChanged;
   final bool embedded;
 
   /// 指定区域时直接显示对应边距，不再绘制区域切换控件。
@@ -24,17 +22,11 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
 
   const ReaderPaddingConfigSheet({
     super.key,
-    required this.config,
-    this.onChanged,
     this.embedded = false,
     this.region,
   });
 
-  static Future<void> show(
-    BuildContext context, {
-    required ReaderAdvancedConfig config,
-    ValueChanged<ReaderAdvancedConfig>? onChanged,
-  }) {
+  static Future<void> show(BuildContext context) {
     return showModalBottomSheet<void>(
       showDragHandle: false,
 
@@ -47,7 +39,7 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
         maxChildSize: 0.85,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: ReaderPaddingConfigSheet(config: config, onChanged: onChanged),
+          child: const ReaderPaddingConfigSheet(),
         ),
       ),
     );
@@ -60,7 +52,8 @@ class ReaderPaddingConfigSheet extends ConsumerStatefulWidget {
 
 class _ReaderPaddingConfigSheetState
     extends ConsumerState<ReaderPaddingConfigSheet> {
-  late ReaderAdvancedConfig _config = widget.config.copy();
+  ReaderPageLayoutSettings get _layout =>
+      ref.read(readerSettingsRepositoryProvider).current.pageLayout;
   PaddingRegion _region = PaddingRegion.body;
   bool _lockLr = false;
 
@@ -69,6 +62,7 @@ class _ReaderPaddingConfigSheetState
     super.initState();
     _region = widget.region ?? PaddingRegion.body;
     _syncLockLrFromRegion();
+    unawaited(_loadSettings());
   }
 
   void _syncLockLrFromRegion() {
@@ -80,129 +74,100 @@ class _ReaderPaddingConfigSheetState
   @override
   void didUpdateWidget(covariant ReaderPaddingConfigSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _config = widget.config.copy();
     if (oldWidget.region != widget.region) {
       _region = widget.region ?? PaddingRegion.body;
       _syncLockLrFromRegion();
     }
   }
 
-  void _commit() {
-    if (widget.onChanged != null) {
-      widget.onChanged!(_config.copy());
-    } else {
-      ref.read(readerAdvConfigProvider.notifier).update(_config);
+  Future<void> _loadSettings() async {
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+      if (mounted) setState(_syncLockLrFromRegion);
+    } catch (error) {
+      debugPrint('页面边距读取失败：$error');
     }
-    setState(() {});
+  }
+
+  Future<void> _save(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('页面布局保存失败，请重试')));
+      }
+    }
   }
 
   double _paddingFor(PaddingRegion region, _Side side) {
-    switch (region) {
-      case PaddingRegion.header:
-        switch (side) {
-          case _Side.top:
-            return _config.headerPaddingTop;
-          case _Side.bottom:
-            return _config.headerPaddingBottom;
-          case _Side.left:
-            return _config.headerPaddingLeft;
-          case _Side.right:
-            return _config.headerPaddingRight;
-        }
-      case PaddingRegion.body:
-        switch (side) {
-          case _Side.top:
-            return _config.pageMarginTop;
-          case _Side.bottom:
-            return _config.pageMarginBottom;
-          case _Side.left:
-            return _config.pageMarginLeft;
-          case _Side.right:
-            return _config.pageMarginRight;
-        }
-      case PaddingRegion.footer:
-        switch (side) {
-          case _Side.top:
-            return _config.footerPaddingTop;
-          case _Side.bottom:
-            return _config.footerPaddingBottom;
-          case _Side.left:
-            return _config.footerPaddingLeft;
-          case _Side.right:
-            return _config.footerPaddingRight;
-        }
-    }
+    final padding = _layout.paddingFor(region);
+    return switch (side) {
+      _Side.top => padding.top,
+      _Side.bottom => padding.bottom,
+      _Side.left => padding.left,
+      _Side.right => padding.right,
+    };
   }
 
-  void _setPadding(PaddingRegion region, _Side side, double value) {
-    switch (region) {
-      case PaddingRegion.header:
-        switch (side) {
-          case _Side.top:
-            _config.headerPaddingTop = value;
-          case _Side.bottom:
-            _config.headerPaddingBottom = value;
-          case _Side.left:
-            _config.headerPaddingLeft = value;
-          case _Side.right:
-            _config.headerPaddingRight = value;
-        }
-      case PaddingRegion.body:
-        switch (side) {
-          case _Side.top:
-            _config.pageMarginTop = value;
-          case _Side.bottom:
-            _config.pageMarginBottom = value;
-          case _Side.left:
-            _config.pageMarginLeft = value;
-          case _Side.right:
-            _config.pageMarginRight = value;
-        }
-      case PaddingRegion.footer:
-        switch (side) {
-          case _Side.top:
-            _config.footerPaddingTop = value;
-          case _Side.bottom:
-            _config.footerPaddingBottom = value;
-          case _Side.left:
-            _config.footerPaddingLeft = value;
-          case _Side.right:
-            _config.footerPaddingRight = value;
-        }
-    }
-  }
+  Future<void> _savePadding({
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+  }) => _save(() {
+    final repository = ref.read(readerSettingsRepositoryProvider);
+    return switch (_region) {
+      PaddingRegion.body => repository.updatePageLayout(
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+      ),
+      PaddingRegion.header => repository.updatePageEdge(
+        ReaderPageEdge.header,
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+      ),
+      PaddingRegion.footer => repository.updatePageEdge(
+        ReaderPageEdge.footer,
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+      ),
+    };
+  });
 
-  void _updatePadding(_Side side, double proposedValue) {
-    final max = (side == _Side.left || side == _Side.right) ? 100.0 : 400.0;
-    final value = proposedValue.clamp(0.0, max);
-    _setPadding(_region, side, value);
-    if (_lockLr && (side == _Side.left || side == _Side.right)) {
-      final other = side == _Side.left ? _Side.right : _Side.left;
-      _setPadding(_region, other, value);
-    }
-    _commit();
-  }
+  Future<void> _updatePadding(_Side side, double proposedValue) => _savePadding(
+    top: side == _Side.top ? proposedValue : null,
+    bottom: side == _Side.bottom ? proposedValue : null,
+    left: side == _Side.left || (_lockLr && side == _Side.right)
+        ? proposedValue
+        : null,
+    right: side == _Side.right || (_lockLr && side == _Side.left)
+        ? proposedValue
+        : null,
+  );
 
-  void _resetRegion() {
-    for (final side in _Side.values) {
-      final key = switch (side) {
-        _Side.top => 'top',
-        _Side.bottom => 'bottom',
-        _Side.left => 'left',
-        _Side.right => 'right',
-      };
-      _setPadding(
-        _region,
-        side,
-        ReaderAdvancedConfig.defaultPaddingFor(_region, key),
-      );
-    }
-    _syncLockLrFromRegion();
-    _commit();
+  Future<void> _resetRegion() async {
+    final defaults = ReaderPageLayoutSettings.resetPaddingFor(_region);
+    await _savePadding(
+      top: defaults.top,
+      bottom: defaults.bottom,
+      left: defaults.left,
+      right: defaults.right,
+    );
+    if (mounted) setState(_syncLockLrFromRegion);
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(
+      readerSettingsProvider.select((value) => value.value?.pageLayout),
+    );
     final fixedRegion = widget.region != null;
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -290,15 +255,15 @@ class _ReaderPaddingConfigSheetState
 
   Widget _lineSwitch({required bool header}) => SettingSwitchRow(
     title: header ? '显示页眉分隔线' : '显示页脚分隔线',
-    value: header ? _config.showHeaderLine : _config.showFooterLine,
-    onChanged: (value) {
-      if (header) {
-        _config.showHeaderLine = value;
-      } else {
-        _config.showFooterLine = value;
-      }
-      _commit();
-    },
+    value: header ? _layout.header.showLine : _layout.footer.showLine,
+    onChanged: (value) => _save(
+      () => ref
+          .read(readerSettingsRepositoryProvider)
+          .updatePageEdge(
+            header ? ReaderPageEdge.header : ReaderPageEdge.footer,
+            showLine: value,
+          ),
+    ),
   );
 
   Widget _paddingRow(String label, _Side side) => SettingStepperRow(

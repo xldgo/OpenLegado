@@ -1,24 +1,18 @@
-import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 
-import '../fixtures/reader_settings_repository.dart';
-
 void main() {
-  late AppReaderSettingsRepository repository;
-  setUp(() => repository = createTestReaderSettingsRepository());
   TestWidgetsFlutterBinding.ensureInitialized();
   const paper = Color(0xFFF5EEDB);
   const ui = UiSettings();
 
   ThemeData resolve(
-    ReaderAdvancedConfig config, {
+    ReaderMenuThemeSettings config, {
     ThemeData? app,
     Color background = paper,
     UiSettings settings = ui,
@@ -33,11 +27,14 @@ void main() {
     final app = AppTheme.dark.copyWith(
       colorScheme: AppTheme.dark.colorScheme.copyWith(surface: Colors.black),
     );
-    expect(identical(resolve(ReaderAdvancedConfig(), app: app), app), isTrue);
+    expect(
+      identical(resolve(ReaderMenuThemeSettings(), app: app), app),
+      isTrue,
+    );
   });
 
   test('正文背景生成完整颜色角色，明暗仍跟随应用', () {
-    final config = ReaderAdvancedConfig(readBarStyle: 1);
+    final config = ReaderMenuThemeSettings(mode: 1);
     final light = resolve(config);
     final green = resolve(config, background: const Color(0xFFCCE8CF));
     final dark = resolve(config, app: AppTheme.dark, background: Colors.white);
@@ -54,12 +51,12 @@ void main() {
 
   test('独立阅读夜间使用菜单夜间配色，应用主题保持亮色', () {
     final app = AppTheme.light;
-    final config = ReaderAdvancedConfig(
-      readBarStyle: 2,
-      readMenuColorMode: 1,
-      readMenuBgColor: 0xFFF5EEDB,
-      readMenuBgColorNight: 0xFF232323,
-      readMenuAccentColorNight: 0xFF88C16F,
+    final config = ReaderMenuThemeSettings(
+      mode: 2,
+      colorMode: 1,
+      backgroundColor: 0xFFF5EEDB,
+      backgroundColorNight: 0xFF232323,
+      accentColorNight: 0xFF88C16F,
     );
     final theme = resolveReaderMenuTheme(
       appTheme: app,
@@ -76,7 +73,7 @@ void main() {
 
   test('组件主题同步局部色板，保留应用字阶', () {
     final app = AppTheme.light;
-    final theme = resolve(ReaderAdvancedConfig(readBarStyle: 1), app: app);
+    final theme = resolve(ReaderMenuThemeSettings(mode: 1), app: app);
     final colors = theme.colorScheme;
     expect(theme.textTheme.titleMedium?.color, colors.onSurface);
     expect(
@@ -96,15 +93,15 @@ void main() {
   });
 
   test('自定义实色分别选择日夜值并计算主色上的前景', () {
-    final config = ReaderAdvancedConfig(
-      readBarStyle: 2,
-      readMenuColorMode: 1,
-      readMenuAccentColor: 0xFFFFFFFF,
-      readMenuAccentColorNight: 0xFF123456,
-      readMenuBgColor: 0xFFF0E0D0,
-      readMenuBgColorNight: 0xFF121212,
-      readMenuContainerColor: 0xFFE0D0C0,
-      readMenuContainerColorNight: 0xFF242424,
+    final config = ReaderMenuThemeSettings(
+      mode: 2,
+      colorMode: 1,
+      accentColor: 0xFFFFFFFF,
+      accentColorNight: 0xFF123456,
+      backgroundColor: 0xFFF0E0D0,
+      backgroundColorNight: 0xFF121212,
+      containerColor: 0xFFE0D0C0,
+      containerColorNight: 0xFF242424,
     );
     final light = resolve(config).colorScheme;
     final dark = resolve(config, app: AppTheme.dark).colorScheme;
@@ -119,27 +116,36 @@ void main() {
   });
 
   test('种子生成模式忽略手动背景；自定义默认容器回退菜单背景', () {
-    final config = ReaderAdvancedConfig(
-      readBarStyle: 2,
-      readMenuAccentColor: 0xFF6750A4,
-      readMenuBgColor: 0xFFFF0000,
+    final config = ReaderMenuThemeSettings(
+      mode: 2,
+      accentColor: 0xFF6750A4,
+      backgroundColor: 0xFFFF0000,
     );
     expect(
       resolve(config).colorScheme.surfaceContainerHigh,
       isNot(const Color(0xFFFF0000)),
     );
-    config.readMenuColorMode = 1;
+    final manual = ReaderMenuThemeSettings(
+      mode: 2,
+      colorMode: 1,
+      accentColor: 0xFF6750A4,
+      backgroundColor: 0xFFFF0000,
+    );
     expect(
-      resolve(config).colorScheme.surfaceContainerLow,
+      resolve(manual).colorScheme.surfaceContainerLow,
       const Color(0xFFFF0000),
     );
-    config.readMenuBgColor = 0;
-    expect(resolve(config).colorScheme.surfaceContainerHigh, paper);
-    expect(resolve(config).colorScheme.surfaceContainerLow, paper);
+    final fallback = ReaderMenuThemeSettings(
+      mode: 2,
+      colorMode: 1,
+      accentColor: 0xFF6750A4,
+    );
+    expect(resolve(fallback).colorScheme.surfaceContainerHigh, paper);
+    expect(resolve(fallback).colorScheme.surfaceContainerLow, paper);
   });
 
   test('菜单可继承或独立选择配色风格与对比度', () {
-    final config = ReaderAdvancedConfig(readBarStyle: 1);
+    final config = ReaderMenuThemeSettings(mode: 1);
     final inherited = resolve(
       config,
       settings: const UiSettings(
@@ -147,49 +153,14 @@ void main() {
         themeContrastLevel: '0.5',
       ),
     );
-    config.readMenuPaletteStyle = 'monochrome';
     final explicit = resolve(
-      config,
+      ReaderMenuThemeSettings(mode: 1, paletteStyle: 'monochrome'),
       settings: const UiSettings(themeContrastLevel: '0.5'),
     );
     expect(inherited.colorScheme, explicit.colorScheme);
-    final standard = resolve(config);
-    expect(standard.colorScheme.outline, isNot(explicit.colorScheme.outline));
-  });
-
-  test('旧开关迁移为背景模式，新模式优先；复制与保存保留颜色', () async {
-    SharedPreferences.setMockInitialValues({'readBarStyleFollowPage': true});
-    expect((await repository.loadAdvanced()).readBarStyle, 1);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('readBarStyle', 2);
-    final config = await repository.loadAdvanced();
-    expect(config.readBarStyle, 2);
-    config.readMenuPaletteStyle = 'vibrant';
-    config.readMenuColorMode = 1;
-    config.readMenuAccentColor = 0xFF123456;
-    config.readMenuAccentColorNight = 0xFFABCDEF;
-    config.readMenuBgColor = 0xFFF0E0D0;
-    config.readMenuBgColorNight = 0xFF121212;
-    config.readMenuContainerColor = 0xFFE0D0C0;
-    config.readMenuContainerColorNight = 0xFF242424;
-    config.readMenuTextColor = 0xFF010203;
-    config.readMenuTextColorNight = 0xFFFAFBFC;
-    await repository.saveAdvanced(config.copy());
-    expect(prefs.containsKey('readBarStyleFollowPage'), isFalse);
-    final restored = await repository.loadAdvanced();
-    expect(restored.readBarStyle, 2);
-    expect(restored.readMenuPaletteStyle, 'vibrant');
-    expect(restored.readMenuColorMode, 1);
-    expect(restored.readMenuAccentColor, config.readMenuAccentColor);
-    expect(restored.readMenuAccentColorNight, config.readMenuAccentColorNight);
-    expect(restored.readMenuBgColor, config.readMenuBgColor);
-    expect(restored.readMenuBgColorNight, config.readMenuBgColorNight);
-    expect(restored.readMenuContainerColor, config.readMenuContainerColor);
-    expect(
-      restored.readMenuContainerColorNight,
-      config.readMenuContainerColorNight,
+    final standard = resolve(
+      ReaderMenuThemeSettings(mode: 1, paletteStyle: 'monochrome'),
     );
-    expect(restored.readMenuTextColor, config.readMenuTextColor);
-    expect(restored.readMenuTextColorNight, config.readMenuTextColorNight);
+    expect(standard.colorScheme.outline, isNot(explicit.colorScheme.outline));
   });
 }

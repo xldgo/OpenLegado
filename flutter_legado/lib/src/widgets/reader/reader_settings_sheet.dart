@@ -1,5 +1,4 @@
 import '../../providers/reader/reader_settings_provider.dart';
-import '../../models/reader_advanced_config.dart';
 import '../../domain/models/reader_theme_mode.dart';
 import '../../domain/models/reader_style.dart';
 import '../../domain/models/reader_text_layout_settings.dart';
@@ -111,9 +110,20 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     Color(0xFF000000),
   ];
 
-  /// 持久化和即时更新统一交给共享配置入口。
-  void _commitAdv(ReaderAdvancedConfig cfg) {
-    ref.read(readerAdvConfigProvider.notifier).update(cfg);
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSettings());
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('阅读设置读取失败，请重试')));
+    }
   }
 
   Future<void> _savePageTurnMode(PageTurnMode mode) async {
@@ -142,7 +152,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
   Widget build(BuildContext context) {
     final state = ref.watch(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
-    final adv = ref.watch(readerAdvConfigProvider);
+    ref.watch(readerSettingsProvider);
 
     if (widget.fullPage) {
       return AppScaffold(
@@ -150,23 +160,15 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           title: Text(widget.category?.title ?? context.l10n.readingInterface),
           showBack: true,
         ),
-        body: adv == null
-            ? const Center(child: CircularProgressIndicator())
-            : SettingsBody(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: _buildPage(state, notifier, adv),
-                ),
-              ),
+        body: SettingsBody(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: _buildPage(state, notifier),
+          ),
+        ),
       );
     }
 
-    if (adv == null) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
     return SafeArea(
       top: false,
       child: Padding(
@@ -177,11 +179,11 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
           children: [
             _buildFontSizeGroup(state, notifier),
             const SizedBox(height: 12),
-            _buildBackgroundGroup(state, notifier, adv),
+            _buildBackgroundGroup(state, notifier),
             const SizedBox(height: 12),
             _buildFlipGroup(state, notifier),
             const SizedBox(height: 12),
-            _configPanel(adv, ReaderConfigSection.brightness),
+            _configPanel(ReaderConfigSection.brightness),
             const SizedBox(height: 12),
             SettingsGroup(
               showDividers: false,
@@ -210,18 +212,10 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     );
   }
 
-  Widget _configPanel(ReaderAdvancedConfig adv, ReaderConfigSection section) =>
-      ReaderConfigPanel(
-        config: adv.copy(),
-        onChanged: _commitAdv,
-        section: section,
-      );
+  Widget _configPanel(ReaderConfigSection section) =>
+      ReaderConfigPanel(section: section);
 
-  Widget _buildPage(
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
+  Widget _buildPage(ReaderState state, ReaderNotifier notifier) {
     final category = widget.category;
     if (category == null) {
       return Column(
@@ -259,32 +253,30 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
                 _saveTypography(() => notifier.updateLineHeight(value)),
           ),
         ),
-        _configPanel(adv, ReaderConfigSection.typography),
+        _configPanel(ReaderConfigSection.typography),
       ],
       ReaderSettingsCategory.background => <Widget>[
-        _buildBackgroundGroup(state, notifier, adv),
-        _configPanel(adv, ReaderConfigSection.menuTheme),
+        _buildBackgroundGroup(state, notifier),
+        _configPanel(ReaderConfigSection.menuTheme),
         const EyeProtectionSettingsGroup(),
       ],
       ReaderSettingsCategory.interaction => <Widget>[
         _buildFlipGroup(state, notifier),
-        _configPanel(adv, ReaderConfigSection.interaction),
+        _configPanel(ReaderConfigSection.interaction),
       ],
       ReaderSettingsCategory.layout => <Widget>[
-        _configPanel(adv, ReaderConfigSection.pageLayout),
+        _configPanel(ReaderConfigSection.pageLayout),
         ReaderTipConfigSheet(
-          config: adv.copy(),
-          onChanged: _commitAdv,
           embedded: true,
           showStatusBar: false,
           titleFont: ReaderFontPanel(titleOnly: true, embedded: true),
         ),
       ],
       ReaderSettingsCategory.screen => <Widget>[
-        _configPanel(adv, ReaderConfigSection.screen),
+        _configPanel(ReaderConfigSection.screen),
       ],
       ReaderSettingsCategory.content => <Widget>[
-        _configPanel(adv, ReaderConfigSection.content),
+        _configPanel(ReaderConfigSection.content),
       ],
     };
     return Column(
@@ -330,11 +322,7 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       );
 
   /// 每个模板展示当前模式的配色；切换模式后恢复同一模板另一侧的颜色。
-  Widget _buildBackgroundGroup(
-    ReaderState state,
-    ReaderNotifier notifier,
-    ReaderAdvancedConfig adv,
-  ) {
+  Widget _buildBackgroundGroup(ReaderState state, ReaderNotifier notifier) {
     final eyeProtection = ref.watch(eyeProtectionProvider);
     ref.watch(readerStylesProvider);
     final styles = ref.read(readerStyleRepositoryProvider).current;

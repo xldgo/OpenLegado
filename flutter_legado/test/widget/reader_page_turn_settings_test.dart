@@ -73,17 +73,13 @@ void main() {
   }
 
   Future<void> showAdvanced(WidgetTester tester) async {
-    final config = await container
-        .read(readerAdvConfigProvider.notifier)
-        .ensureLoaded();
+    await container.read(readerSettingsRepositoryProvider).load();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: ReaderConfigPanel(config: config),
-            ),
+            body: SingleChildScrollView(child: const ReaderConfigPanel()),
           ),
         ),
       ),
@@ -206,7 +202,14 @@ void main() {
     }
     await tester.tap(find.text('启用自动翻页'));
     await tester.pumpAndSettle();
-    expect(container.read(readerAdvConfigProvider)!.autoPageTurn, isTrue);
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .autoPageTurn
+          .enabled,
+      isTrue,
+    );
     expect(
       container.read(readerNotifierProvider).pageTurnMode,
       PageTurnMode.cover,

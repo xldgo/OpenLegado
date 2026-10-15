@@ -1,5 +1,6 @@
 import '../../providers/reader/reader_settings_provider.dart';
-import '../../models/reader_advanced_config.dart';
+import '../../domain/models/reader_status_strip_settings.dart';
+import '../../domain/models/reader_page_layout_settings.dart';
 
 import 'dart:async';
 
@@ -22,8 +23,6 @@ enum ReaderTipSection { all, title, header, footer, statusBar }
 
 /// 阅读提示信息配置（对标原版 TipConfigDialog + dialog_tip_config.xml）
 class ReaderTipConfigSheet extends ConsumerStatefulWidget {
-  final ReaderAdvancedConfig config;
-  final ValueChanged<ReaderAdvancedConfig>? onChanged;
   final bool embedded;
   final ReaderTipSection section;
   final bool showStatusBar;
@@ -31,19 +30,13 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
 
   const ReaderTipConfigSheet({
     super.key,
-    required this.config,
-    this.onChanged,
     this.embedded = false,
     this.section = ReaderTipSection.all,
     this.showStatusBar = true,
     this.titleFont,
   });
 
-  static Future<void> show(
-    BuildContext context, {
-    required ReaderAdvancedConfig config,
-    ValueChanged<ReaderAdvancedConfig>? onChanged,
-  }) {
+  static Future<void> show(BuildContext context) {
     return showModalBottomSheet<void>(
       showDragHandle: false,
 
@@ -56,7 +49,7 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
         maxChildSize: 0.92,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: ReaderTipConfigSheet(config: config, onChanged: onChanged),
+          child: const ReaderTipConfigSheet(),
         ),
       ),
     );
@@ -68,7 +61,24 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
 }
 
 class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
-  late ReaderAdvancedConfig _config = widget.config.copy();
+  ReaderPageLayoutSettings get _layout =>
+      ref.read(readerSettingsRepositoryProvider).current.pageLayout;
+  ReaderStatusStripSettings get _status =>
+      ref.read(readerSettingsRepositoryProvider).current.statusStrip;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSettings());
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+    } catch (error) {
+      debugPrint('页面提示设置读取失败：$error');
+    }
+  }
 
   List<ReadTipOption> get _tipOptions => [
     ReadTipOption(0, context.l10n.readerTipNone),
@@ -85,29 +95,50 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     ReadTipOption(9, context.l10n.readerTipTimeBatteryPercent),
   ];
 
-  Map<int, String> get _modeOptions => {
+  Map<int, String> get _headerModeOptions => {
     0: context.l10n.readerHideWithStatusBar,
     1: context.l10n.readerShow,
     2: context.l10n.readerHide,
   };
 
-  @override
-  void didUpdateWidget(covariant ReaderTipConfigSheet oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _config = widget.config.copy();
+  Map<int, String> get _footerModeOptions => {
+    0: context.l10n.readerShow,
+    1: context.l10n.readerHide,
+  };
+
+  Future<void> _save(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('页面布局保存失败，请重试')));
+      }
+    }
   }
 
-  void _commit() {
-    if (widget.onChanged != null) {
-      widget.onChanged!(_config.copy());
-    } else {
-      ref.read(readerAdvConfigProvider.notifier).update(_config);
+  Future<void> _saveStatus(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('阅读状态条保存失败，请重试')));
+      }
     }
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(
+      readerSettingsProvider.select((value) => value.value?.pageLayout),
+    );
+    if (widget.section == ReaderTipSection.statusBar ||
+        (widget.section == ReaderTipSection.all && widget.showStatusBar)) {
+      ref.watch(
+        readerSettingsProvider.select((value) => value.value?.statusStrip),
+      );
+    }
     final groups = <Widget>[
       if (widget.section == ReaderTipSection.all ||
           widget.section == ReaderTipSection.title)
@@ -148,31 +179,43 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     children: [
       SettingMenuRow<int>(
         title: '显示与对齐',
-        value: _config.titleMode.clamp(0, 2),
+        value: _layout.title.mode.clamp(0, 2),
         options: {
           0: context.l10n.readerAlignLeft,
           1: context.l10n.readerAlignCenter,
           2: context.l10n.readerHide,
         },
         onChanged: (value) {
-          _config.titleMode = value;
-          _commit();
+          _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(mode: value),
+          );
         },
       ),
-      if (_config.titleMode != 2) ...[
+      if (_layout.title.mode != 2) ...[
         if (widget.titleFont != null) widget.titleFont!,
-        _stepRow('标题字号增量', _config.titleSize, 0, 20, (value) {
-          _config.titleSize = value;
-          _commit();
+        _stepRow('标题字号增量', _layout.title.size, 0, 20, (value) {
+          _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(size: value),
+          );
         }, showPlus: true),
         const Divider(height: 16, indent: 16, endIndent: 16),
-        _stepRow('标题上间距', _config.titleTopSpacing, 0, 100, (value) {
-          _config.titleTopSpacing = value;
-          _commit();
+        _stepRow('标题上间距', _layout.title.topSpacing, 0, 100, (value) {
+          _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(topSpacing: value),
+          );
         }),
-        _stepRow('标题下间距', _config.titleBottomSpacing, 0, 100, (value) {
-          _config.titleBottomSpacing = value;
-          _commit();
+        _stepRow('标题下间距', _layout.title.bottomSpacing, 0, 100, (value) {
+          _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(bottomSpacing: value),
+          );
         }),
         const Divider(height: 16, indent: 16, endIndent: 16),
       ],
@@ -180,7 +223,9 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
   );
 
   Widget _edgeGroup({required bool header}) {
-    final mode = header ? _config.headerMode : _config.footerMode;
+    final edge = header ? ReaderPageEdge.header : ReaderPageEdge.footer;
+    final settings = header ? _layout.header : _layout.footer;
+    final repository = ref.read(readerSettingsRepositoryProvider);
     final label = header
         ? context.l10n.readerHeader
         : context.l10n.readerFooter;
@@ -190,74 +235,39 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       children: [
         SettingMenuRow<int>(
           title: '显示模式',
-          value: mode.clamp(0, 2),
-          options: _modeOptions,
-          onChanged: (value) {
-            if (header) {
-              _config.headerMode = value;
-            } else {
-              _config.footerMode = value;
-            }
-            _commit();
-          },
+          value: settings.mode,
+          options: header ? _headerModeOptions : _footerModeOptions,
+          onChanged: (value) =>
+              _save(() => repository.updatePageEdge(edge, mode: value)),
         ),
-        if (mode != 2) ...[
+        if (settings.mode != (header ? 2 : 1)) ...[
           _tipRow(
             '左侧提示',
-            header ? _config.tipHeaderLeft : _config.tipFooterLeft,
-            (value) {
-              if (header) {
-                _config.tipHeaderLeft = value;
-              } else {
-                _config.tipFooterLeft = value;
-              }
-              _commit();
-            },
+            settings.leftTip,
+            (value) =>
+                _save(() => repository.updatePageEdge(edge, leftTip: value)),
           ),
           _tipRow(
             '中间提示',
-            header ? _config.tipHeaderMiddle : _config.tipFooterMiddle,
-            (value) {
-              if (header) {
-                _config.tipHeaderMiddle = value;
-              } else {
-                _config.tipFooterMiddle = value;
-              }
-              _commit();
-            },
+            settings.middleTip,
+            (value) =>
+                _save(() => repository.updatePageEdge(edge, middleTip: value)),
           ),
           _tipRow(
             '右侧提示',
-            header ? _config.tipHeaderRight : _config.tipFooterRight,
-            (value) {
-              if (header) {
-                _config.tipHeaderRight = value;
-              } else {
-                _config.tipFooterRight = value;
-              }
-              _commit();
-            },
+            settings.rightTip,
+            (value) =>
+                _save(() => repository.updatePageEdge(edge, rightTip: value)),
           ),
           ReaderPaddingConfigSheet(
-            config: _config.copy(),
             embedded: true,
             region: header ? PaddingRegion.header : PaddingRegion.footer,
-            onChanged: (config) {
-              _config = config.copy();
-              _commit();
-            },
           ),
           SettingSwitchRow(
             title: context.l10n.readerShowDivider,
-            value: header ? _config.showHeaderLine : _config.showFooterLine,
-            onChanged: (value) {
-              if (header) {
-                _config.showHeaderLine = value;
-              } else {
-                _config.showFooterLine = value;
-              }
-              _commit();
-            },
+            value: settings.showLine,
+            onChanged: (value) =>
+                _save(() => repository.updatePageEdge(edge, showLine: value)),
           ),
         ],
       ],
@@ -271,34 +281,46 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     children: [
       SettingSwitchRow(
         title: '显示电量',
-        value: _config.showBattery,
+        value: _status.showBattery,
         onChanged: (value) {
-          _config.showBattery = value;
-          _commit();
+          _saveStatus(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateStatusStrip(showBattery: value),
+          );
         },
       ),
       SettingSwitchRow(
         title: '显示时间',
-        value: _config.showTime,
+        value: _status.showTime,
         onChanged: (value) {
-          _config.showTime = value;
-          _commit();
+          _saveStatus(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateStatusStrip(showTime: value),
+          );
         },
       ),
       SettingSwitchRow(
         title: '显示进度',
-        value: _config.showProgress,
+        value: _status.showProgress,
         onChanged: (value) {
-          _config.showProgress = value;
-          _commit();
+          _saveStatus(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateStatusStrip(showProgress: value),
+          );
         },
       ),
       SettingSwitchRow(
         title: '显示章节名',
-        value: _config.showChapterName,
+        value: _status.showChapterName,
         onChanged: (value) {
-          _config.showChapterName = value;
-          _commit();
+          _saveStatus(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateStatusStrip(showChapterName: value),
+          );
         },
       ),
     ],

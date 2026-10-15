@@ -75,30 +75,36 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         _sectionTitle(context.l10n.readerAutoPageTurn, Icons.timer_outlined),
         SettingSwitchRow(
           title: '启用自动翻页',
-          value: _config.autoPageTurn,
+          value: _autoPageTurn.enabled,
           onChanged: (v) {
-            _config.autoPageTurn = v;
-            _commit();
+            _saveOperation(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateAutoPageTurn(enabled: v),
+            );
           },
         ),
-        if (_config.autoPageTurn) ...[
+        if (_autoPageTurn.enabled) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               children: [
                 Text(
-                  '间隔 ${_config.autoPageTurnInterval.toStringAsFixed(0)} 秒',
+                  '间隔 ${_autoPageTurn.intervalSeconds.toStringAsFixed(0)} 秒',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Expanded(
                   child: Slider(
-                    value: _config.autoPageTurnInterval,
+                    value: _autoPageTurn.intervalSeconds,
                     min: 3,
-                    max: 60,
-                    divisions: 57,
+                    max: 120,
+                    divisions: 117,
                     onChanged: (v) {
-                      _config.autoPageTurnInterval = v;
-                      _commit();
+                      _saveOperation(
+                        () => ref
+                            .read(readerSettingsRepositoryProvider)
+                            .updateAutoPageTurn(intervalSeconds: v),
+                      );
                     },
                   ),
                 ),
@@ -123,10 +129,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
                         label: Text(context.l10n.previousChapter),
                       ),
                     ],
-                    selected: {_config.autoPageTurnForward},
+                    selected: {_autoPageTurn.forward},
                     onSelectionChanged: (sel) {
-                      _config.autoPageTurnForward = sel.first;
-                      _commit();
+                      _saveOperation(
+                        () => ref
+                            .read(readerSettingsRepositoryProvider)
+                            .updateAutoPageTurn(forward: sel.first),
+                      );
                     },
                   ),
                 ),
@@ -158,12 +167,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               tooltip: '恢复默认点击区域',
               icon: const Icon(Icons.restore),
               onPressed: () {
-                _config.tapActions.setRange(
-                  0,
-                  9,
-                  ReaderAdvancedConfig.defaultTapActions,
+                _saveOperation(
+                  () => ref
+                      .read(readerSettingsRepositoryProvider)
+                      .updateInteraction(
+                        tapActions: ReaderInteractionSettings.defaultTapActions,
+                      ),
                 );
-                _commit();
               },
             ),
             const SizedBox(width: 8),
@@ -207,7 +217,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
   }
 
   Widget _tapZoneCell(int index, String position, ColorScheme colors) {
-    final action = _config.tapActions[index];
+    final action = _interaction.tapActions[index];
     final (icon, label) = switch (action) {
       TapAction.none => (Icons.block_outlined, context.l10n.readerNoAction),
       TapAction.prevPage => (Icons.arrow_back, context.l10n.readerPreviousPage),
@@ -226,8 +236,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           ),
       ],
       onSelected: (value) {
-        _config.tapActions[index] = value;
-        _commit();
+        final actions = List<TapAction>.of(_interaction.tapActions);
+        actions[index] = value;
+        _saveOperation(
+          () => ref
+              .read(readerSettingsRepositoryProvider)
+              .updateInteraction(tapActions: actions),
+        );
       },
       builder: (_, controller, _) => SizedBox.expand(
         child: Tooltip(
@@ -327,7 +342,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           onTap: () async {
             await Navigator.pushNamed(context, AppRoutes.fonts);
             if (!mounted) return;
-            await _loadFontLabel();
+            await _loadReaderSettings();
           },
         ),
         // 字距调节（对标原版 ReadBookConfig.letterSpacing）
@@ -476,51 +491,66 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerSelectText,
         subtitle: '长按正文段落弹出选择面板',
-        value: _config.selectText,
+        value: _interaction.selectText,
         onChanged: (v) {
-          _config.selectText = v;
-          _commit();
+          _saveOperation(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateInteraction(selectText: v),
+          );
         },
       ),
       // 滚动翻页无动画（原版 noAnimScrollPage：程序化翻页去除动画）
       SettingSwitchRow(
         title: '滚动翻页无动画',
         subtitle: '点击/自动翻页直接切换不带动画',
-        value: _config.noAnimScrollPage,
+        value: _interaction.noAnimScrollPage,
         onChanged: (v) {
-          _config.noAnimScrollPage = v;
-          _commit();
+          _saveOperation(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateInteraction(noAnimScrollPage: v),
+          );
         },
       ),
       // 鼠标滚轮翻页（原版 mouseWheelPage；桌面端真实生效）
       SettingSwitchRow(
         title: context.l10n.readerMouseWheelPage,
         subtitle: '分页模式下滚轮上下滚动翻页',
-        value: _config.mouseWheelPage,
+        value: _interaction.mouseWheelPage,
         onChanged: (v) {
-          _config.mouseWheelPage = v;
-          _commit();
+          _saveOperation(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateInteraction(mouseWheelPage: v),
+          );
         },
       ),
       // 音量键翻页（原版 volumeKeyPage；桌面端无音量键事件）
       SettingSwitchRow(
         title: context.l10n.readerVolumeKeyPage,
         subtitle: '仅 Android 生效',
-        value: _config.volumeKeyPage,
+        value: _interaction.volumeKeyPage,
         onChanged: (v) {
-          _config.volumeKeyPage = v;
-          _commit();
+          _saveOperation(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateInteraction(volumeKeyPage: v),
+          );
         },
       ),
-      if (_config.volumeKeyPage)
+      if (_interaction.volumeKeyPage)
         // 朗读时音量键翻页（原版 volumeKeyPageOnPlay）
         SettingSwitchRow(
           title: context.l10n.readerVolumeKeyPageReading,
           subtitle: '仅 Android 生效',
-          value: _config.volumeKeyPageOnPlay,
+          value: _interaction.volumeKeyPageOnPlay,
           onChanged: (v) {
-            _config.volumeKeyPageOnPlay = v;
-            _commit();
+            _saveOperation(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateInteraction(volumeKeyPageOnPlay: v),
+            );
           },
         ),
       // 滑动翻页阈值（原版 pageTouchSlop：NumberPicker 0-9999，
@@ -528,15 +558,20 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 的 MediaQuery.gestureSettings 覆写拖拽识别阈值，修改即时生效）
       _moreRow(
         context.l10n.readerPageTouchSlop,
-        _config.pageTouchSlop == 0 ? '系统默认' : '${_config.pageTouchSlop}px',
+        _interaction.pageTouchSlop == 0
+            ? '系统默认'
+            : '${_interaction.pageTouchSlop}px',
         () {
           _showNumberDialog(
             title: context.l10n.readerPageTouchSlopDialog,
-            current: _config.pageTouchSlop,
+            current: _interaction.pageTouchSlop,
             max: 9999,
             onPick: (v) {
-              _config.pageTouchSlop = v;
-              _commit();
+              _saveOperation(
+                () => ref
+                    .read(readerSettingsRepositoryProvider)
+                    .updateInteraction(pageTouchSlop: v),
+              );
             },
           );
         },
@@ -544,14 +579,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 边缘点击阈值（原版 pageTouchClick：NumberPicker 0-399，
       // 左右边缘多少距离不触发点击；[fix Task#41 | 2026-08-09] 已经
       // reader_screen._handleTap 收缩左右分区边缘死区，修改即时生效）
-      _moreRow('边缘点击阈值', '${_config.pageTouchClick}px', () {
+      _moreRow('边缘点击阈值', '${_interaction.pageTouchClick}px', () {
         _showNumberDialog(
           title: '边缘点击阈值',
-          current: _config.pageTouchClick,
+          current: _interaction.pageTouchClick,
           max: 399,
           onPick: (v) {
-            _config.pageTouchClick = v;
-            _commit();
+            _saveOperation(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateInteraction(pageTouchClick: v),
+            );
           },
         );
       }),
@@ -568,7 +606,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 屏幕方向（原版第 1 项 screenOrientation）
       SettingMenuRow<int>(
         title: context.l10n.readerScreenOrientation,
-        value: _config.screenOrientation,
+        value: _screen.orientation,
         options: {
           0: context.l10n.themeSystem,
           1: context.l10n.readerPortrait,
@@ -578,16 +616,18 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           5: context.l10n.readerLandscapeReversed,
         },
         onChanged: (value) {
-          _config.screenOrientation = value;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(orientation: value),
+          );
         },
       ),
-      // 保持亮屏（原版第 2 项 keep_light；平台限制诚实标注：项目未引入
-      // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
-      // 与 audio_screen 的 audioWakeLock 标注一致）
+      // 保持亮屏尚未接入平台能力，保留原选项并禁用。— Codex + UI
       SettingMenuRow<int>(
         title: context.l10n.readerKeepAwake,
-        value: _config.keepLight,
+        subtitle: '设置阅读时保持屏幕点亮的时长（待实现）',
+        value: _screen.keepScreenOnSeconds,
         options: {
           0: context.l10n.readerDefault,
           60: context.l10n.readerAwakeMinute,
@@ -595,10 +635,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           600: context.l10n.readerAwakeTenMinutes,
           -1: context.l10n.readerAwakeAlways,
         },
-        onChanged: (value) {
-          _config.keepLight = value;
-          _commit();
-        },
+        onChanged: null,
       ),
     ],
   );
@@ -611,20 +648,26 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerHideStatusBar,
         subtitle: '阅读时隐藏系统状态栏',
-        value: _config.hideStatusBar,
+        value: _screen.hideStatusBar,
         onChanged: (v) {
-          _config.hideStatusBar = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(hideStatusBar: v),
+          );
         },
       ),
       // 隐藏导航栏（原版第 4 项：SystemUiMode 移除底部 overlay）
       SettingSwitchRow(
         title: context.l10n.readerHideNavigationBar,
         subtitle: '阅读时隐藏系统导航栏',
-        value: _config.hideNavigationBar,
+        value: _screen.hideNavigationBar,
         onChanged: (v) {
-          _config.hideNavigationBar = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(hideNavigationBar: v),
+          );
         },
       ),
       // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
@@ -634,20 +677,26 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerExtendCutout,
         subtitle: '正文延伸到刘海区域',
-        value: _config.readBodyToLh,
+        value: _screen.extendIntoCutout,
         onChanged: (v) {
-          _config.readBodyToLh = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(extendIntoCutout: v),
+          );
         },
       ),
       // 填充刘海区域（原版 paddingDisplayCutouts）
       SettingSwitchRow(
         title: context.l10n.readerFillCutout,
         subtitle: '页面边距避开刘海区域',
-        value: _config.paddingDisplayCutouts,
+        value: _screen.avoidDisplayCutouts,
         onChanged: (v) {
-          _config.paddingDisplayCutouts = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(avoidDisplayCutouts: v),
+          );
         },
       ),
     ],
@@ -655,7 +704,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
   Widget _buildDoublePageOptions() => SettingMenuRow<int>(
     title: context.l10n.readerDualPageMode,
-    value: _config.doubleHorizontalPage,
+    value: _pageLayout.doubleHorizontalPage,
     options: {
       0: context.l10n.readerSinglePage,
       1: context.l10n.readerDoublePage,
@@ -663,8 +712,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       3: context.l10n.readerDualPageMode,
     },
     onChanged: (value) {
-      _config.doubleHorizontalPage = value;
-      _commit();
+      _savePageLayout(
+        () => ref
+            .read(readerSettingsRepositoryProvider)
+            .updatePageLayout(doubleHorizontalPage: value),
+      );
     },
   );
 
@@ -727,10 +779,20 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerAutoChangeSource,
         subtitle: '章节加载失败时自动切换书源',
-        value: _config.autoChangeSource,
-        onChanged: (v) {
-          _config.autoChangeSource = v;
-          _commit();
+        value: ref
+            .read(readerSettingsRepositoryProvider)
+            .current
+            .autoChangeSource,
+        onChanged: (value) async {
+          try {
+            await ref
+                .read(readerSettingsRepositoryProvider)
+                .update(autoChangeSource: value);
+          } catch (_) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('自动换源设置保存失败，请重试')));
+          }
         },
       ),
     ],
@@ -743,21 +805,27 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
       SettingMenuRow<String>(
         title: context.l10n.readerProgressBarBehavior,
-        value: _config.progressBarBehavior,
+        value: _interaction.progressBarBehavior,
         options: {
           'page': context.l10n.readerAdjustChapterPage,
           'chapter': context.l10n.readerAdjustChapterIndex,
         },
         onChanged: (value) {
-          _config.progressBarBehavior = value;
-          _commit();
+          _saveOperation(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateInteraction(progressBarBehavior: value),
+          );
         },
       ),
       _buildBrightnessDisplayMenu(),
       SettingSwitchRow(
         title: '显示标题附加区',
-        subtitle: '暂未接入，后续随顶栏布局配置实现',
-        value: _config.showReadTitleAddition,
+        subtitle: '书名后追加章节名（待实现）',
+        value: ref
+            .read(readerSettingsRepositoryProvider)
+            .current
+            .showTitleAddition,
         onChanged: null,
       ),
     ],
@@ -772,21 +840,24 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     return [
       SettingMenuRow<int>(
         title: l10n.readerMenuTheme,
-        value: _config.readBarStyle,
+        value: _menuTheme.mode,
         options: {
           0: l10n.readerMenuFollowApp,
           1: l10n.readerMenuFollowBackground,
           2: l10n.readerMenuCustom,
         },
         onChanged: (value) {
-          _config.readBarStyle = value;
-          _commit();
+          _saveMenuSetting(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateMenuTheme(mode: value),
+          );
         },
       ),
-      if (_config.readBarStyle != 0)
+      if (_menuTheme.mode != 0)
         SettingMenuRow<String>(
           title: l10n.readerMenuPalette,
-          value: _config.readMenuPaletteStyle,
+          value: _menuTheme.paletteStyle,
           options: {
             '': l10n.readerMenuFollowApp,
             'tonalSpot': l10n.readerMenuTonalSpot,
@@ -800,18 +871,24 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
             'monochrome': l10n.readerMenuMonochrome,
           },
           onChanged: (value) {
-            _config.readMenuPaletteStyle = value;
-            _commit();
+            _saveMenuSetting(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateMenuTheme(paletteStyle: value),
+            );
           },
         ),
-      if (_config.readBarStyle == 2) ...[
+      if (_menuTheme.mode == 2) ...[
         SettingMenuRow<int>(
           title: l10n.readerMenuColorMode,
-          value: _config.readMenuColorMode,
+          value: _menuTheme.colorMode,
           options: {0: l10n.readerMenuSeedOnly, 1: l10n.readerMenuManual},
           onChanged: (value) {
-            _config.readMenuColorMode = value;
-            _commit();
+            _saveMenuSetting(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateMenuTheme(colorMode: value),
+            );
           },
         ),
         SettingMenuRow<bool>(
@@ -822,58 +899,53 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         ),
         _menuColorRow(
           l10n.readerMenuAccent,
-          night
-              ? _config.readMenuAccentColorNight
-              : _config.readMenuAccentColor,
+          night ? _menuTheme.accentColorNight : _menuTheme.accentColor,
           colors.primary,
-          (value) {
-            if (night) {
-              _config.readMenuAccentColorNight = value;
-            } else {
-              _config.readMenuAccentColor = value;
-            }
-          },
+          (value) => ref
+              .read(readerSettingsRepositoryProvider)
+              .updateMenuTheme(
+                accentColor: night ? null : value,
+                accentColorNight: night ? value : null,
+              ),
         ),
-        if (_config.readMenuColorMode != 0) ...[
+        if (_menuTheme.colorMode != 0) ...[
           _menuColorRow(
             l10n.readerMenuBackground,
-            night ? _config.readMenuBgColorNight : _config.readMenuBgColor,
+            night
+                ? _menuTheme.backgroundColorNight
+                : _menuTheme.backgroundColor,
             readingBackground,
-            (value) {
-              if (night) {
-                _config.readMenuBgColorNight = value;
-              } else {
-                _config.readMenuBgColor = value;
-              }
-            },
+            (value) => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateMenuTheme(
+                  backgroundColor: night ? null : value,
+                  backgroundColorNight: night ? value : null,
+                ),
           ),
           _menuColorRow(
             l10n.readerMenuContainer,
-            night
-                ? _config.readMenuContainerColorNight
-                : _config.readMenuContainerColor,
+            night ? _menuTheme.containerColorNight : _menuTheme.containerColor,
             Color(
               (night
-                          ? _config.readMenuBgColorNight
-                          : _config.readMenuBgColor) ==
+                          ? _menuTheme.backgroundColorNight
+                          : _menuTheme.backgroundColor) ==
                       0
                   ? readingBackground.toARGB32()
                   : (night
-                        ? _config.readMenuBgColorNight
-                        : _config.readMenuBgColor),
+                        ? _menuTheme.backgroundColorNight
+                        : _menuTheme.backgroundColor),
             ),
-            (value) {
-              if (night) {
-                _config.readMenuContainerColorNight = value;
-              } else {
-                _config.readMenuContainerColor = value;
-              }
-            },
+            (value) => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateMenuTheme(
+                  containerColor: night ? null : value,
+                  containerColorNight: night ? value : null,
+                ),
           ),
         ],
       ],
       // 上游的标题文字覆盖独立于菜单背景模式；默认仍使用 onSurface。
-      if (_config.readBarStyle != 2)
+      if (_menuTheme.mode != 2)
         SettingMenuRow<bool>(
           title: l10n.readerMenuEditingMode,
           value: night,
@@ -882,15 +954,14 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         ),
       _menuColorRow(
         l10n.readerMenuTitleColor,
-        night ? _config.readMenuTextColorNight : _config.readMenuTextColor,
+        night ? _menuTheme.textColorNight : _menuTheme.textColor,
         colors.onSurface,
-        (value) {
-          if (night) {
-            _config.readMenuTextColorNight = value;
-          } else {
-            _config.readMenuTextColor = value;
-          }
-        },
+        (value) => ref
+            .read(readerSettingsRepositoryProvider)
+            .updateMenuTheme(
+              textColor: night ? null : value,
+              textColorNight: night ? value : null,
+            ),
       ),
     ];
   }
@@ -899,7 +970,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     String title,
     int value,
     Color fallback,
-    ValueChanged<int> apply,
+    Future<void> Function(int) save,
   ) => SettingTile(
     title: title,
     showChevron: false,
@@ -925,8 +996,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         ),
       );
       if (!mounted || picked == null) return;
-      apply(picked);
-      _commit();
+      await _saveMenuSetting(() => save(picked));
     },
   );
 
@@ -937,18 +1007,23 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       2: '纵向·左侧',
       3: '纵向·右侧',
     };
-    final current = _config.brightnessMode == 2
-        ? (_config.brightnessOnLeft ? 2 : 3)
-        : _config.brightnessMode;
+    final current = _brightnessControl.mode == 2
+        ? (_brightnessControl.onLeft ? 2 : 3)
+        : _brightnessControl.mode;
     return SettingMenuRow<int>(
       title: '亮度控件',
       value: current,
       options: options,
       onChanged: (value) {
-        _config.brightnessMode = value < 2 ? value : 2;
-        // 关闭或横向时保留原先的侧栏位置。
-        if (value >= 2) _config.brightnessOnLeft = value == 2;
-        _commit();
+        _saveMenuSetting(
+          () => ref
+              .read(readerSettingsRepositoryProvider)
+              .updateBrightnessControl(
+                mode: value < 2 ? value : 2,
+                // 关闭或横向时保留原先的侧栏位置。
+                onLeft: value >= 2 ? value == 2 : null,
+              ),
+        );
       },
     );
   }

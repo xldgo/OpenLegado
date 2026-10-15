@@ -1,4 +1,3 @@
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 // 回归守卫：debug 模式 RenderFlex 右溢（台账 P2-13 ②，设备 crash_log 右溢 12px）。
 // 约定：360dp 画布（1080x1920 @ 3.0），MockBookApi + MockAudioService 覆写，
 // 逐屏 pump 后断言无布局溢出异常（takeException == null）。
@@ -229,9 +228,7 @@ void main() {
       'ReaderConfigPanel',
       ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 588),
-        child: SingleChildScrollView(
-          child: ReaderConfigPanel(config: ReaderAdvancedConfig()),
-        ),
+        child: SingleChildScrollView(child: const ReaderConfigPanel()),
       ),
     ),
   ];

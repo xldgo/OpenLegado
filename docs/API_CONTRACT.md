@@ -277,6 +277,40 @@ ReaderSettingsRepository 的字号并按原规则四舍五入为整数。字号�
 高级配置不再包含或写回这些字段；不读取或迁移它们的旧键，实际默认与单位保持。
 原JS配置中的段距、字距、字重等既有字段和值保持，本轮不改变Rust/FRB签名或生成物。
 
+页面布局设置分组（READER-PAGE-LAYOUT-SETTINGS-20261015）：正文边距、横向双页、
+章节标题及页眉页脚27项归ReaderPageLayoutSettings，使用reader_前缀规范键，逐字段保存。
+高级配置不再读写这些字段，不迁移旧键或旧日夜分桶；控件与ReaderPageChrome共用快照。
+既有首次缺省、恢复默认入口、提示编号及显示规则保持；Rust/FRB、JS快照与数据库不变。
+
+屏幕与状态条分组（READER-SCREEN-STATUS-SETTINGS-20261015）：ReaderSettings.screen与
+statusStrip管理九项普通偏好，使用reader_规范键和同一仓储逐字段更新，不迁移旧值。
+系统栏、方向、安全区及提示控件读取同一快照；高级配置不再包含对应字段或默认转换。
+系统栏临时覆盖、原方向编码、Rust/FRB、JS快照与数据库保持，保持亮屏仍待实现。
+
+剩余阅读设置（READER-SETTINGS-CLEANUP-20261015）：ReaderSettings.autoChangeSource默认true、
+showTitleAddition默认true，update按字段保存；screen.keepScreenOnSeconds默认0，
+updateScreen接受-1/0/60/300/600秒，分别为常亮/系统/1分钟/5分钟/10分钟。
+三项仅使用reader_auto_change_source、reader_show_title_addition、reader_keep_screen_on_seconds。
+后两项保留读取与存储定义，界面继续禁用，不宣称平台功能已接入。
+ReaderAdvancedConfig、readerAdvConfigProvider、loadAdvanced/saveAdvanced及独立高级队列删除，
+设置界面不再接收或回传整份高级快照；自动换源读取共享当前值，原执行策略保持。
+备份忽略及reload覆盖三项，不迁移旧值。Rust/FRB、JS快照、数据库保持不变。
+
+菜单配色与亮度控件（READER-MENU-SETTINGS-20261015）：ReaderSettings新增menuTheme与
+brightnessControl两个不可变分组，分别由updateMenuTheme和updateBrightnessControl逐字段更新。
+菜单来源0跟随应用/1阅读背景/2自定义，生成方式0种子/1手动；日夜ARGB颜色零值沿用现有回退。
+亮度控件0关闭/1横向/2纵向，onLeft默认false；关闭或横向时保留侧栏位置，不修改实际亮度。
+13项直接使用reader_规范键，不读旧值、不补写默认；菜单主题、标题颜色及侧栏均消费共享快照。
+日夜编辑选择不持久化；旧高级快照不得覆盖已迁字段。通用UiSettings中无消费者的旧亮度
+竖条开关和位置字段同时移除，不迁入无效值。Rust/FRB签名、JS快照和数据库不变。
+
+翻页与操作分组（READER-INTERACTION-SETTINGS-20261015）：ReaderSettings新增autoPageTurn
+与interaction，十二项偏好经同一仓储逐字段保存；九宫格StringList使用动作枚举名称。
+不读取旧索引列表或三列键，不回写兼容副本；点击命中与平台动作仍由Flutter层处理。
+原默认、范围、定时器方向与间隔语义保持，Rust/FRB、JS配置快照及数据库不变。
+StringList进入共享快照前转为SettingsStringList不可变配置值，Preferences仍用
+setStringList落盘；不扩展共享快照承载实体列表、凭据或可变集合。
+
 | `set_image_cache_dir` | dir（应用缓存目录下 `image_cache` 子目录，P4-2a） | 与 `set_cache_dir` 同型的进程注入（`set_cache_dir` 服务 JS 缓存）：`saveImageCache`/`getImageCache`（§2.46）图片磁盘缓存落应用私有缓存目录；未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 | `set_audio_cache_dir` | dir（应用缓存目录下 `audio_cache` 子目录，B1） | 与 `set_image_cache_dir` 同型：`audioCacheQuery`/`audioCacheList`/`audioCacheClearChapter`/`audioCacheClearBook`（§2.47）音频章节文件缓存读取与 `audioCacheDownload`/`audioCacheCancel`（§2.48，B2）写入**共用此根目录**（写读同根同键）；未注入时回落 `<temp_dir>/legado-audio-cache`（一次性告警）。Dart Bootstrap 经平台环境获取路径，再调用 Bridge 注入 |
 

@@ -10,7 +10,7 @@
 library;
 
 import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,12 +50,10 @@ void main() {
       expect(repository.current.titleFontFamily, '');
     });
 
-    test('保存旧高级快照不会覆盖刚选择的标题字体', () async {
+    test('保存其他阅读设置不会覆盖刚选择的标题字体', () async {
       SharedPreferences.setMockInitialValues({});
-      final advanced = await repository.loadAdvanced();
       await repository.update(titleFontFamily: 'Georgia');
-      advanced.pageMarginTop = 12;
-      await repository.saveAdvanced(advanced);
+      await repository.updateScreen(keepScreenOnSeconds: 60);
       expect(repository.current.titleFontFamily, 'Georgia');
       expect(
         (await SharedPreferences.getInstance()).getString(
@@ -135,10 +133,10 @@ void main() {
       expect(a.layoutKey.endsWith('_KaiTi'), isTrue);
     });
 
-    test('fromAdvanced 透传 titleFontFamily', () {
-      final cfg = ReaderAdvancedConfig();
+    test('fromSettings 透传 titleFontFamily', () {
+      const cfg = ReaderPageLayoutSettings();
       expect(
-        ReaderPageChromeConfig.fromAdvanced(
+        ReaderPageChromeConfig.fromSettings(
           cfg,
           titleFontFamily: 'KaiTi',
         ).titleFontFamily,

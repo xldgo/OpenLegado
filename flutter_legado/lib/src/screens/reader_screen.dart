@@ -1,5 +1,6 @@
 import '../providers/reader/reader_settings_provider.dart';
-import '../models/reader_advanced_config.dart';
+import '../domain/models/reader_interaction_settings.dart';
+import '../widgets/reader/reader_tap_hit_test.dart';
 import '../app/session/reader_theme_session.dart';
 
 import 'dart:async';
@@ -60,9 +61,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _readerRouteActive = true;
   final GlobalKey<ReaderPageViewState> _pageViewKey =
       GlobalKey<ReaderPageViewState>();
-
-  /// 阅读器高级配置（自动翻页/点击区域/段距/状态栏）
-  ReaderAdvancedConfig _advConfig = ReaderAdvancedConfig();
 
   Size? _insetViewportSize;
   EdgeInsets _bodySystemInsets = EdgeInsets.zero;
@@ -131,7 +129,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   static const int _autoSwitchMaxAttempts = 3;
 
-  bool _configLoaded = false;
+  bool _settingsLoaded = false;
 
   /// [P2-30] 退出判定进行中标记（防系统返回连点触发多路判定/重复弹窗）
   bool _exitPending = false;
@@ -158,9 +156,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _systemBarRoute = route;
       systemBarRouteObserver.subscribe(this, route);
     }
-    if (!_configLoaded) {
-      _configLoaded = true;
-      unawaited(_loadAdvancedConfig());
+    if (!_settingsLoaded) {
+      _settingsLoaded = true;
+      unawaited(_loadReaderSettings());
     }
   }
 
@@ -198,13 +196,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didPush() {
     _readerRouteActive = true;
-    _applySystemChrome(_advConfig);
+    _applySystemChrome();
   }
 
   @override
   void didPopNext() {
     _readerRouteActive = true;
-    _applySystemChrome(_advConfig);
+    _applySystemChrome();
   }
 
   @override
@@ -256,7 +254,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// [menuVisible] 为 true 时强制显示状态栏（对标原版
   /// `upSystemUiVisibility(toolBarHide=false)`，ReadMenu 展开时不隐藏状态栏）。
-  void _applySystemChrome(ReaderAdvancedConfig cfg, {bool? menuVisible}) {
+  void _applySystemChrome({bool? menuVisible}) {
+    final cfg = ref.read(readerSettingsRepositoryProvider).current.screen;
     if (!_readerRouteActive) return;
     final showMenu =
         menuVisible ?? ref.read(readerNotifierProvider).showControls;
@@ -264,12 +263,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       statusBarVisible: !cfg.hideStatusBar || showMenu,
       navigationBarVisible: !cfg.hideNavigationBar || showMenu,
     ));
-    SystemChrome.setPreferredOrientations(
-      _orientationsFor(cfg.screenOrientation),
-    );
-    // keep_light（保持亮屏）：项目未引入 wakelock 依赖（不改 pubspec），
-    // 设置仅持久化，待平台能力接入后生效（与 audio_screen audioWakeLock
-    // 标注一致，诚实标注平台限制）— Qoder
+    SystemChrome.setPreferredOrientations(_orientationsFor(cfg.orientation));
   }
 
   /// 原版 screen_direction_value → Flutter DeviceOrientation 映射
@@ -293,15 +287,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
-  Future<void> _loadAdvancedConfig() async {
-    final config = await ref
-        .read(readerAdvConfigProvider.notifier)
-        .ensureLoaded();
-    if (!mounted) return;
-    setState(() => _advConfig = config);
-    _syncAutoTimer();
-    // [UI-fix v2.0.3 | 2026-08-08] 进入阅读器即应用隐藏栏/方向配置 — Qoder
-    _applySystemChrome(config);
+  Future<void> _loadReaderSettings() async {
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+      if (mounted) _applySystemChrome();
+    } catch (error) {
+      debugPrint('阅读设置读取失败：$error');
+    }
   }
 
   /// F6：音量键翻页（仅 Android 有效；桌面无音量键事件）
@@ -311,7 +303,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final isVolDown = event.logicalKey == LogicalKeyboardKey.audioVolumeDown;
     if (!isVolUp && !isVolDown) return false;
 
-    final cfg = ref.read(readerAdvConfigProvider) ?? _advConfig;
+    final cfg = ref.read(readerSettingsRepositoryProvider).current.interaction;
     final aloud = ref.read(audioNotifierProvider).isPlaying;
     final allow = cfg.volumeKeyPage && (!aloud || cfg.volumeKeyPageOnPlay);
     if (!allow) return false;
@@ -330,14 +322,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _syncAutoTimer() {
     _autoTimer?.cancel();
     _autoTimer = null;
-    final cfg = _advConfig;
-    if (!cfg.autoPageTurn) return;
-    final seconds = cfg.autoPageTurnInterval.round().clamp(3, 120);
+    final cfg = ref.read(readerSettingsRepositoryProvider).current.autoPageTurn;
+    if (!cfg.enabled) return;
+    final seconds = cfg.intervalSeconds.round().clamp(3, 120);
     _autoTimer = Timer.periodic(Duration(seconds: seconds), (_) {
       if (!mounted) return;
       final pageView = _pageViewKey.currentState;
       if (pageView == null) return;
-      if (cfg.autoPageTurnForward) {
+      if (cfg.forward) {
         pageView.nextPageOrChapter();
       } else {
         pageView.prevPageOrChapter();
@@ -681,9 +673,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       next,
     ) {
       if (prev != next) {
-        _applySystemChrome(_advConfig, menuVisible: next);
+        _applySystemChrome(menuVisible: next);
       }
     });
+
+    ref.listen(readerSettingsProvider.select((value) => value.value?.screen), (
+      previous,
+      next,
+    ) {
+      if (next != null && previous != next) _applySystemChrome();
+    });
+
+    ref.listen(
+      readerSettingsProvider.select((value) => value.value?.autoPageTurn),
+      (previous, next) {
+        if (next != null && previous != next) _syncAutoTimer();
+      },
+    );
 
     return PopScope<Object?>(
       // [P2-30] 退出判定统一收敛到 onPopInvokedWithResult（canPop=false 使
@@ -704,7 +710,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         backgroundColor: state.backgroundColor,
         // F6：刘海/挖孔边距（paddingDisplayCutouts / readBodyToLh）
         body: ReaderMenuThemeHost(
-          config: ref.watch(readerAdvConfigProvider) ?? _advConfig,
+          config:
+              ref.watch(readerSettingsProvider).value?.menuTheme ??
+              ref.read(readerSettingsRepositoryProvider).current.menuTheme,
           readingBackground: state.backgroundColor,
           readingBrightness: state.readingBrightness,
           builder: (context) {
@@ -713,18 +721,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 .read(readerSettingsRepositoryProvider)
                 .current;
             final textLayout = readingSettings.textLayout;
-            final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
-            _advConfig = cfg;
+            final pageLayout = readingSettings.pageLayout;
+            final screen = readingSettings.screen;
+            final interaction = readingSettings.interaction;
+            final autoPageTurn = readingSettings.autoPageTurn;
             final bodyInsets = _stableBodyInsets(context);
-            final avoidTop = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
-            final avoidSides = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
+            final avoidTop =
+                !screen.extendIntoCutout || screen.avoidDisplayCutouts;
+            final avoidSides =
+                !screen.extendIntoCutout || screen.avoidDisplayCutouts;
             final avoidBottom =
-                !cfg.hideNavigationBar || cfg.paddingDisplayCutouts;
+                !screen.hideNavigationBar || screen.avoidDisplayCutouts;
             final bottomInset = readerContentBottomInset(
               systemBottomInset: bodyInsets.bottom,
               cutoutBottomInset: _cutoutBottomInset,
-              hideNavigationBar: cfg.hideNavigationBar,
-              paddingDisplayCutouts: cfg.paddingDisplayCutouts,
+              hideNavigationBar: screen.hideNavigationBar,
+              paddingDisplayCutouts: screen.avoidDisplayCutouts,
             );
             final bodyPadding = EdgeInsets.only(
               top: avoidTop ? bodyInsets.top : 0,
@@ -733,7 +745,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               bottom: bottomInset,
             );
             final pageInsets = bodyPadding.copyWith(
-              top: avoidTop || !cfg.hideStatusBar ? bodyInsets.top : 0,
+              top: avoidTop || !screen.hideStatusBar ? bodyInsets.top : 0,
             );
             return Stack(
               children: [
@@ -764,30 +776,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               paragraphIndent: textLayout.paragraphIndent,
                               textFullJustify: textLayout.textFullJustify,
                               // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
-                              marginTop: _advConfig.pageMarginTop,
-                              marginBottom: _advConfig.pageMarginBottom,
-                              marginLeft: _advConfig.pageMarginLeft,
-                              marginRight: _advConfig.pageMarginRight,
-                              pageChrome: ReaderPageChromeConfig.fromAdvanced(
-                                _advConfig,
+                              marginTop: pageLayout.bodyPadding.top,
+                              marginBottom: pageLayout.bodyPadding.bottom,
+                              marginLeft: pageLayout.bodyPadding.left,
+                              marginRight: pageLayout.bodyPadding.right,
+                              pageChrome: ReaderPageChromeConfig.fromSettings(
+                                pageLayout,
+                                hideStatusBar: screen.hideStatusBar,
                                 titleFontFamily:
                                     readingSettings.titleFontFamily,
                               ),
-                              readBodyToLh: cfg.readBodyToLh,
+                              readBodyToLh: screen.extendIntoCutout,
                               // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
                               // 文本开关与滚动翻页无动画接入内容区 — Qoder
-                              selectText: _advConfig.selectText,
-                              noAnimScroll: _advConfig.noAnimScrollPage,
+                              selectText: interaction.selectText,
+                              noAnimScroll: interaction.noAnimScrollPage,
                               // [UI-fix v2.0.4 | 2026-08-08] 界面面板字重/自定义文字色与
                               // MoreConfig 第②批鼠标滚轮翻页接入内容区 — Qoder
                               textBold: textLayout.textBold,
                               // [C3 斜体 | Qoder UI] 斜体透传（参考版行内面板开关）
                               italic: textLayout.italic,
-                              mouseWheelPage: _advConfig.mouseWheelPage,
+                              mouseWheelPage: interaction.mouseWheelPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
                               // doubleHorizontalPage 0-3 档）— Reasonix
                               doubleHorizontalPage:
-                                  _advConfig.doubleHorizontalPage,
+                                  pageLayout.doubleHorizontalPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
                               // useZhLayout）— Reasonix
                               useZhLayout: textLayout.useZhLayout,
@@ -801,6 +814,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                         Padding(
                           padding: bodyPadding,
                           child: Stack(
+                            fit: StackFit.expand,
                             children: [
                               if (imageDominant)
                                 ReaderImageDominantBody(
@@ -815,13 +829,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                                 ),
                               if (!state.showControls)
                                 ReaderStatusStrip(
-                                  config: _advConfig,
-                                  readBodyToLh: cfg.readBodyToLh,
+                                  settings: readingSettings.statusStrip,
+                                  hideStatusBar: screen.hideStatusBar,
+                                  readBodyToLh: screen.extendIntoCutout,
                                 ),
                               // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
                               //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
                               // 步进与 目录/停止/设置 快捷操作（对齐参考版「即开即调」形态）
-                              if (_advConfig.autoPageTurn &&
+                              if (autoPageTurn.enabled &&
                                   !state.showControls &&
                                   !aloudActive)
                                 Positioned(
@@ -834,7 +849,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                                       onTap: () {},
                                       child: AutoTurnPanel(
                                         intervalSeconds:
-                                            _advConfig.autoPageTurnInterval,
+                                            autoPageTurn.intervalSeconds,
                                         onIntervalChanged: _setAutoPageInterval,
                                         onStop: _toggleAutoPage,
                                         onOpenCatalog: () =>
@@ -936,8 +951,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                           onOpenCatalog: () => unawaited(_openToc()),
                           onOpenSettings: () =>
                               ReaderSettingsSheet.show(context),
-                          onOpenAdvancedConfig: () =>
-                              _openAdvancedConfig(context),
                           onOpenContentSearch: () => _openContentSearch(state),
                           onReadAloud: _onReadAloudTap,
                           onToggleAutoPage: _toggleAutoPage,
@@ -945,9 +958,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                             context,
                             AppRoutes.replaceRules,
                           ),
-                          brightnessMode: cfg.brightnessMode,
-                          brightnessOnLeft: cfg.brightnessOnLeft,
-                          progressBehavior: _advConfig.progressBarBehavior,
+                          progressBehavior: interaction.progressBarBehavior,
                           onSeekPage: (page) =>
                               _pageViewKey.currentState?.goToPage(page),
                         ),
@@ -1062,21 +1073,34 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     unawaited(_startReadAloud(state));
   }
 
-  /// 底栏自动翻页 FAB（对标原版 fabAutoPage → autoPage）
-  void _toggleAutoPage() {
-    _advConfig = _advConfig.copy()..autoPageTurn = !_advConfig.autoPageTurn;
-    ref.read(readerAdvConfigProvider.notifier).update(_advConfig);
-    _syncAutoTimer();
-    if (mounted) setState(() {});
-  }
+  /// 菜单与浮条通过共享仓储启停，计时器订阅同一配置。
+  Future<void> _toggleAutoPage() => _saveAutoPageTurn(
+    () => ref
+        .read(readerSettingsRepositoryProvider)
+        .updateAutoPageTurn(
+          enabled: !ref
+              .read(readerSettingsRepositoryProvider)
+              .current
+              .autoPageTurn
+              .enabled,
+        ),
+  );
 
-  /// 调整自动翻页间隔（运行时浮条速度步进；范围与定时器 clamp(3,120) 一致）
-  void _setAutoPageInterval(double seconds) {
-    _advConfig = _advConfig.copy()
-      ..autoPageTurnInterval = seconds.clamp(3, 120);
-    ref.read(readerAdvConfigProvider.notifier).update(_advConfig);
-    _syncAutoTimer(); // 间隔变更需重建定时器周期
-    if (mounted) setState(() {});
+  Future<void> _setAutoPageInterval(double seconds) => _saveAutoPageTurn(
+    () => ref
+        .read(readerSettingsRepositoryProvider)
+        .updateAutoPageTurn(intervalSeconds: seconds),
+  );
+
+  Future<void> _saveAutoPageTurn(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('自动翻页设置保存失败，请重试')));
+      }
+    }
   }
 
   /// 启动当前书的朗读（链路：AudioNotifier.startReadAloud → play → audioSpeak）
@@ -1112,7 +1136,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final pageView = _pageViewKey.currentState;
     final body = _pageViewKey.currentContext?.findRenderObject();
     if (body is! RenderBox || !body.hasSize) return;
-    final action = _advConfig.actionForPosition(
+    final action = readerTapActionForPosition(
+      ref.read(readerSettingsRepositoryProvider).current.interaction,
       body.globalToLocal(details.globalPosition),
       body.size,
     );
@@ -1175,15 +1200,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   /// 进入完整阅读设置，返回后同步系统显示与自动翻页。
-  Future<void> _openAdvancedConfig(BuildContext context) async {
-    await ReaderSettingsSheet.showPage(context);
-    if (!mounted) return;
-    _advConfig = ref.read(readerAdvConfigProvider) ?? _advConfig;
-    _syncAutoTimer();
-    _applySystemChrome(_advConfig);
-    setState(() {});
-  }
-
   // ===== [UI-fix v2.0.3 | 2026-08-08] 自动换源最小路径 =====
   // 对标原版 ReadBook 内容加载失败后 AutoChangeSource 按书名搜替代源并切换：
   // 复用 searchSource/switchSource FFI（与换源页同源链路）；完整重试策略/
@@ -1223,7 +1239,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 章节加载失败时尝试自动换源（在线书且开关开启时）
   void _maybeAutoChangeSource(ReaderState state) {
-    if (!_advConfig.autoChangeSource) return;
+    if (!ref.read(readerSettingsRepositoryProvider).current.autoChangeSource) {
+      return;
+    }
     if (_autoSwitching) return;
     final book = state.currentBook;
     if (book == null) return;

@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
@@ -51,7 +50,6 @@ void main() {
                   )
                 : SingleChildScrollView(
                     child: ReaderConfigPanel(
-                      config: ReaderAdvancedConfig(),
                       section: ReaderConfigSection.typography,
                     ),
                   ),
@@ -155,13 +153,9 @@ void main() {
     storage.writeFailure = false;
     await tap(tester, '中文优化分行');
     await tap(tester, '段首标点悬挂');
-    final advanced = await container
-        .read(readerSettingsRepositoryProvider)
-        .loadAdvanced();
-    advanced.pageMarginTop = 36;
     await container
         .read(readerSettingsRepositoryProvider)
-        .saveAdvanced(advanced);
+        .updateScreen(keepScreenOnSeconds: 60);
     expect(storage.values['reader_use_zh_layout'], isTrue);
     expect(storage.values['reader_hanging_punctuation'], isTrue);
     expect(tester.takeException(), isNull);

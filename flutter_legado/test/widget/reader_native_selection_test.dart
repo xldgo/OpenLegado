@@ -1,4 +1,4 @@
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
 import '../helpers/reader_layout_host.dart';
 
@@ -43,7 +43,7 @@ Future<void> _pumpReader(
         ),
         home: Scaffold(
           body: ReaderMenuThemeHost(
-            config: ReaderAdvancedConfig(readBarStyle: outerOverlay ? 1 : 0),
+            config: ReaderMenuThemeSettings(mode: outerOverlay ? 1 : 0),
             readingBackground: const Color(0xFFF5EEDB),
             builder: (_) => SizedBox(
               width: 320,

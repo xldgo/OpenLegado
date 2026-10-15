@@ -1,4 +1,4 @@
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
 import 'dart:convert';
 
@@ -56,7 +56,7 @@ Future<void> _showToolbar(
         builder: (_, child) => Overlay.wrap(child: child!),
         home: Scaffold(
           body: ReaderMenuThemeHost(
-            config: ReaderAdvancedConfig(readBarStyle: 1),
+            config: const ReaderMenuThemeSettings(mode: 1),
             readingBackground: const Color(0xFFF5EEDB),
             builder: (context) => TextButton(
               onPressed: () => ReaderSelectionToolbar.show(

@@ -135,7 +135,7 @@ Widget wrapMenuPanel(
               onAddBookmark: () {},
               onOpenCatalog: () {},
               onOpenSettings: () {},
-              onOpenAdvancedConfig: () {},
+
               onOpenContentSearch: () {},
               onReadAloud: () {},
               onToggleAutoPage: () {},
@@ -377,18 +377,18 @@ void main() {
     });
   });
 
-  group('④ 换源路由真实类型回归（PageRouteBuilder<dynamic> 不崩溃）', () {
+  group('④ 换源路由真实类型回归（PopupRoute<dynamic> 不崩溃）', () {
     test('generateRoute 对 /change_source 返回 dynamic 型路由（非 Route<String?>）', () {
       // 类型守卫：生产路由 _ChangeSourceSheetRoute 继承
-      // PageRouteBuilder<dynamic>（routes.dart:465），不是 Route<String?>
+      // PopupRoute<dynamic>，不是 Route<String?>
       // 的子类型——任何 pushNamed<String>(AppRoutes.changeSource) 都会
       // 在运行期强转处抛 TypeError（真机崩溃，证据
       // docs/parity_shots/verify_ui_20260922/p29_crash_dialog_change_source.xml）
       final route = AppRoutes.generateRoute(
         const RouteSettings(name: AppRoutes.changeSource),
       );
-      expect(route, isA<PageRouteBuilder<dynamic>>());
-      // PageRouteBuilder<dynamic> 不是 Route<String?> 的子类型
+      expect(route, isA<PopupRoute<dynamic>>());
+      // PopupRoute<dynamic> 不是 Route<String?> 的子类型
       // （dynamic 非 String? 子类型）：类型化 pushNamed<String> 的
       // 运行期强转即在此断裂
       expect(route is Route<String?>, isFalse);

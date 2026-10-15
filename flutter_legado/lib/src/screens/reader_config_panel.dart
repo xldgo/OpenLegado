@@ -1,6 +1,11 @@
 import '../providers/reader/reader_settings_provider.dart';
-import '../models/reader_advanced_config.dart';
 import '../domain/models/reader_text_layout_settings.dart';
+import '../domain/models/reader_page_layout_settings.dart';
+import '../domain/models/reader_screen_settings.dart';
+import '../domain/models/reader_auto_page_turn_settings.dart';
+import '../domain/models/reader_interaction_settings.dart';
+import '../domain/models/reader_menu_theme_settings.dart';
+import '../domain/models/reader_brightness_control_settings.dart';
 
 import 'dart:async';
 
@@ -40,7 +45,7 @@ enum ReaderConfigSection {
   pageLayout,
 }
 
-/// 阅读器高级配置面板
+/// 阅读器配置分组，直接消费所属仓储的共享快照。
 ///
 /// 以底部弹出面板形式展示，支持：
 /// - 自动翻页（开关 / 间隔 / 方向）
@@ -51,27 +56,15 @@ enum ReaderConfigSection {
 /// - [UI-fix v2.0.2 | 2026-08-06] 字体选择/字距调节/首行缩进/
 ///   简繁转换/MoreConfig（两端对齐） — Qoder
 class ReaderConfigPanel extends ConsumerStatefulWidget {
-  final ReaderAdvancedConfig config;
-
-  /// 配置变更回调（每次修改后触发，便于阅读器实时应用）
-  final ValueChanged<ReaderAdvancedConfig>? onChanged;
-
   // [UI-fix v2.0.4 | 2026-08-08] 区块过滤：界面 Sheet 的「边距/信息」
   // 按钮仅展示对应区块（对标原版独立弹层）— Qoder
   final ReaderConfigSection section;
 
-  const ReaderConfigPanel({
-    super.key,
-    required this.config,
-    this.onChanged,
-    this.section = ReaderConfigSection.all,
-  });
+  const ReaderConfigPanel({super.key, this.section = ReaderConfigSection.all});
 
   /// 便捷入口：弹出配置面板
   static Future<void> show(
     BuildContext context, {
-    required ReaderAdvancedConfig config,
-    ValueChanged<ReaderAdvancedConfig>? onChanged,
     ReaderConfigSection section = ReaderConfigSection.all,
   }) {
     return showModalBottomSheet<void>(
@@ -87,11 +80,7 @@ class ReaderConfigPanel extends ConsumerStatefulWidget {
         maxChildSize: 0.92,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: ReaderConfigPanel(
-            config: config,
-            onChanged: onChanged,
-            section: section,
-          ),
+          child: ReaderConfigPanel(section: section),
         ),
       ),
     );
@@ -102,9 +91,34 @@ class ReaderConfigPanel extends ConsumerStatefulWidget {
 }
 
 class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
-  late ReaderAdvancedConfig _config = widget.config.copy();
   ReaderTextLayoutSettings get _textLayout =>
       ref.read(readerSettingsRepositoryProvider).current.textLayout;
+
+  ReaderPageLayoutSettings get _pageLayout =>
+      ref.read(readerSettingsRepositoryProvider).current.pageLayout;
+
+  ReaderScreenSettings get _screen =>
+      ref.read(readerSettingsRepositoryProvider).current.screen;
+
+  ReaderAutoPageTurnSettings get _autoPageTurn =>
+      ref.read(readerSettingsRepositoryProvider).current.autoPageTurn;
+  ReaderInteractionSettings get _interaction =>
+      ref.read(readerSettingsRepositoryProvider).current.interaction;
+
+  ReaderMenuThemeSettings get _menuTheme =>
+      ref.read(readerSettingsRepositoryProvider).current.menuTheme;
+  ReaderBrightnessControlSettings get _brightnessControl =>
+      ref.read(readerSettingsRepositoryProvider).current.brightnessControl;
+
+  Future<void> _saveMenuSetting(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('菜单设置保存失败，请重试')));
+    }
+  }
 
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
   String? get _fontLabel => ref
@@ -122,11 +136,11 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadFontLabel());
+    unawaited(_loadReaderSettings());
     unawaited(_loadConvertType());
   }
 
-  Future<void> _loadFontLabel() async {
+  Future<void> _loadReaderSettings() async {
     try {
       await ref.read(readerSettingsRepositoryProvider).load();
     } catch (error) {
@@ -144,15 +158,6 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     }
   }
 
-  void _commit() {
-    if (widget.onChanged != null) {
-      widget.onChanged!(_config.copy());
-    } else {
-      ref.read(readerAdvConfigProvider.notifier).update(_config);
-    }
-    setState(() {});
-  }
-
   Future<void> _saveTextLayout(Future<void> Function() update) async {
     try {
       await update();
@@ -160,6 +165,39 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('阅读排版保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _savePageLayout(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('页面布局保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _saveScreen(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('屏幕设置保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _saveOperation(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('翻页与操作设置保存失败，请重试')));
       }
     }
   }
@@ -173,12 +211,6 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             .showSnackBar(const SnackBar(content: Text('翻页模式保存失败，请重试')));
       }
     }
-  }
-
-  @override
-  void didUpdateWidget(covariant ReaderConfigPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _config = widget.config.copy();
   }
 
   @override
@@ -224,14 +256,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             children: [_buildSystemBarOptions(showTitle: false)],
           ),
           const SizedBox(height: 12),
-          ReaderTipConfigSheet(
-            config: _config.copy(),
+          const ReaderTipConfigSheet(
             section: ReaderTipSection.statusBar,
             embedded: true,
-            onChanged: (config) {
-              _config = config.copy();
-              _commit();
-            },
           ),
           const SizedBox(height: 12),
           SettingsGroup(
@@ -248,14 +275,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             title: '正文区域',
             children: [
               _buildDoublePageOptions(),
-              ReaderPaddingConfigSheet(
-                config: _config.copy(),
+              const ReaderPaddingConfigSheet(
                 embedded: true,
                 region: PaddingRegion.body,
-                onChanged: (config) {
-                  _config = config.copy();
-                  _commit();
-                },
               ),
             ],
           ),
@@ -296,26 +318,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
         ];
         break;
       case ReaderConfigSection.margins:
-        children = [
-          ReaderPaddingConfigSheet(
-            config: _config.copy(),
-            onChanged: (cfg) {
-              _config = cfg.copy();
-              widget.onChanged?.call(_config.copy());
-            },
-          ),
-        ];
+        children = [const ReaderPaddingConfigSheet()];
         break;
       case ReaderConfigSection.statusBar:
-        children = [
-          ReaderTipConfigSheet(
-            config: _config.copy(),
-            onChanged: (cfg) {
-              _config = cfg.copy();
-              widget.onChanged?.call(_config.copy());
-            },
-          ),
-        ];
+        children = [const ReaderTipConfigSheet()];
         break;
       case ReaderConfigSection.menu:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「菜单」页 — Qoder
@@ -350,14 +356,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                 icon: Icons.crop_free,
                 title: '页面边距',
                 subtitle: '页眉 / 正文 / 页脚四向边距',
-                onTap: () => ReaderPaddingConfigSheet.show(
-                  context,
-                  config: _config.copy(),
-                  onChanged: (cfg) {
-                    _config = cfg.copy();
-                    _commit();
-                  },
-                ),
+                onTap: () => ReaderPaddingConfigSheet.show(context),
               ),
             ],
           ),
@@ -395,27 +394,13 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                     icon: Icons.crop_free,
                     title: '页面边距',
                     subtitle: '页眉 / 正文 / 页脚四向边距',
-                    onTap: () => ReaderPaddingConfigSheet.show(
-                      context,
-                      config: _config.copy(),
-                      onChanged: (cfg) {
-                        _config = cfg.copy();
-                        _commit();
-                      },
-                    ),
+                    onTap: () => ReaderPaddingConfigSheet.show(context),
                   ),
                   SettingTile(
                     icon: Icons.info_outline,
                     title: '阅读提示信息',
                     subtitle: '页眉页脚提示项与标题样式',
-                    onTap: () => ReaderTipConfigSheet.show(
-                      context,
-                      config: _config.copy(),
-                      onChanged: (cfg) {
-                        _config = cfg.copy();
-                        _commit();
-                      },
-                    ),
+                    onTap: () => ReaderTipConfigSheet.show(context),
                   ),
                 ],
               ),

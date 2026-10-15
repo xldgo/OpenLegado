@@ -135,12 +135,6 @@ final class UiSettings {
   /// 大屏侧栏展开态（持久化）
   final bool railExtended;
 
-  /// 阅读菜单亮度竖条开关
-  final bool readMenuBrightnessVertical;
-
-  /// 阅读菜单亮度竖条位置（left/right）
-  final String readMenuBrightnessPos;
-
   /// 主题引擎 paletteStyle（'none'=关闭参数化，9 档见 kPaletteStyles）
   final String themeStyle;
 
@@ -173,8 +167,6 @@ final class UiSettings {
     this.wallpaperColorFollow = false,
     this.enableItemDivider = false,
     this.railExtended = false,
-    this.readMenuBrightnessVertical = false,
-    this.readMenuBrightnessPos = 'right',
     this.themeStyle = 'none',
     this.themeContrastLevel = '0.0',
     this.themeAmoled = false,
@@ -203,8 +195,6 @@ final class UiSettings {
     bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
-    bool? readMenuBrightnessVertical,
-    String? readMenuBrightnessPos,
     String? themeStyle,
     String? themeContrastLevel,
     bool? themeAmoled,
@@ -236,10 +226,6 @@ final class UiSettings {
       wallpaperColorFollow: wallpaperColorFollow ?? this.wallpaperColorFollow,
       enableItemDivider: enableItemDivider ?? this.enableItemDivider,
       railExtended: railExtended ?? this.railExtended,
-      readMenuBrightnessVertical:
-          readMenuBrightnessVertical ?? this.readMenuBrightnessVertical,
-      readMenuBrightnessPos:
-          readMenuBrightnessPos ?? this.readMenuBrightnessPos,
       themeStyle: themeStyle ?? this.themeStyle,
       themeContrastLevel: themeContrastLevel ?? this.themeContrastLevel,
       themeAmoled: themeAmoled ?? this.themeAmoled,
@@ -271,8 +257,6 @@ final class UiSettings {
       wallpaperColorFollow == other.wallpaperColorFollow &&
       enableItemDivider == other.enableItemDivider &&
       railExtended == other.railExtended &&
-      readMenuBrightnessVertical == other.readMenuBrightnessVertical &&
-      readMenuBrightnessPos == other.readMenuBrightnessPos &&
       themeStyle == other.themeStyle &&
       themeContrastLevel == other.themeContrastLevel &&
       themeAmoled == other.themeAmoled;
@@ -301,8 +285,6 @@ final class UiSettings {
     wallpaperColorFollow,
     enableItemDivider,
     railExtended,
-    readMenuBrightnessVertical,
-    readMenuBrightnessPos,
     themeStyle,
     themeContrastLevel,
     themeAmoled,

@@ -1,4 +1,4 @@
-import '../../models/reader_advanced_config.dart';
+import '../../domain/models/reader_page_layout_settings.dart';
 
 import 'package:material_ui/material_ui.dart';
 
@@ -120,34 +120,35 @@ class ReaderPageChromeConfig {
     this.titleFontFamily = '',
   });
 
-  factory ReaderPageChromeConfig.fromAdvanced(
-    ReaderAdvancedConfig c, {
+  factory ReaderPageChromeConfig.fromSettings(
+    ReaderPageLayoutSettings c, {
+    bool hideStatusBar = false,
     String titleFontFamily = '',
   }) {
     return ReaderPageChromeConfig(
-      headerMode: c.headerMode,
-      footerMode: c.footerMode,
-      hideStatusBar: c.hideStatusBar,
-      headerPaddingTop: c.headerPaddingTop,
-      headerPaddingBottom: c.headerPaddingBottom,
-      headerPaddingLeft: c.headerPaddingLeft,
-      headerPaddingRight: c.headerPaddingRight,
-      footerPaddingTop: c.footerPaddingTop,
-      footerPaddingBottom: c.footerPaddingBottom,
-      footerPaddingLeft: c.footerPaddingLeft,
-      footerPaddingRight: c.footerPaddingRight,
-      showHeaderLine: c.showHeaderLine,
-      showFooterLine: c.showFooterLine,
-      tipHeaderLeft: c.tipHeaderLeft,
-      tipHeaderMiddle: c.tipHeaderMiddle,
-      tipHeaderRight: c.tipHeaderRight,
-      tipFooterLeft: c.tipFooterLeft,
-      tipFooterMiddle: c.tipFooterMiddle,
-      tipFooterRight: c.tipFooterRight,
-      titleMode: c.titleMode,
-      titleSize: c.titleSize,
-      titleTopSpacing: c.titleTopSpacing,
-      titleBottomSpacing: c.titleBottomSpacing,
+      headerMode: c.header.mode,
+      footerMode: c.footer.mode,
+      hideStatusBar: hideStatusBar,
+      headerPaddingTop: c.header.padding.top,
+      headerPaddingBottom: c.header.padding.bottom,
+      headerPaddingLeft: c.header.padding.left,
+      headerPaddingRight: c.header.padding.right,
+      footerPaddingTop: c.footer.padding.top,
+      footerPaddingBottom: c.footer.padding.bottom,
+      footerPaddingLeft: c.footer.padding.left,
+      footerPaddingRight: c.footer.padding.right,
+      showHeaderLine: c.header.showLine,
+      showFooterLine: c.footer.showLine,
+      tipHeaderLeft: c.header.leftTip,
+      tipHeaderMiddle: c.header.middleTip,
+      tipHeaderRight: c.header.rightTip,
+      tipFooterLeft: c.footer.leftTip,
+      tipFooterMiddle: c.footer.middleTip,
+      tipFooterRight: c.footer.rightTip,
+      titleMode: c.title.mode,
+      titleSize: c.title.size,
+      titleTopSpacing: c.title.topSpacing,
+      titleBottomSpacing: c.title.bottomSpacing,
       titleFontFamily: titleFontFamily,
     );
   }

@@ -30,7 +30,7 @@ final class AppSettingsStore {
   });
 
   void hydrate(Map<SettingsAddress, Object?> values) {
-    _committed.addAll(values);
+    _committed.addAll(AppSettingsSnapshot(values).values);
     _rebuild();
   }
 
@@ -40,8 +40,9 @@ final class AppSettingsStore {
           value is! String &&
           value is! bool &&
           value is! int &&
-          value is! double) {
-        throw ArgumentError('普通设置只接受标量值');
+          value is! double &&
+          value is! SettingsStringList) {
+        throw ArgumentError('普通设置只接受标量或不可变StringList配置值');
       }
     }
     final mutation = SettingsMutation._(values);

@@ -39,6 +39,26 @@ void main() {
     expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
   });
 
+  test('通用UI设置不再读取或写回无消费者的旧阅读亮度字段', () async {
+    SharedPreferences.setMockInitialValues({
+      'readMenuBrightnessVertical': true,
+      'readMenuBrightnessVwPos': 'left',
+    });
+    expect(await repository.load(), const UiSettings());
+    expect(
+      service.current.values.keys.map((address) => address.key),
+      isNot(contains('readMenuBrightnessVertical')),
+    );
+    expect(
+      service.current.values.keys.map((address) => address.key),
+      isNot(contains('readMenuBrightnessVwPos')),
+    );
+    await repository.update(enableBlur: true);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('readMenuBrightnessVertical'), isTrue);
+    expect(prefs.getString('readMenuBrightnessVwPos'), 'left');
+  });
+
   test('十项布局保留原键和类型，可从新仓储恢复', () async {
     await repository.update(
       topBarButtonStyle: TopBarButtonStyle.plain,
@@ -80,7 +100,7 @@ void main() {
     );
   });
 
-  test('剩余十七项完整保存原键及类型，并从共享仓储恢复', () async {
+  test('其余十五项完整保存原键及类型，并从共享仓储恢复', () async {
     await repository.update(
       bookInfoFollowCoverColor: false,
       bookInfoNetworkCoverBackground: 'off',
@@ -94,8 +114,6 @@ void main() {
       bottomBarBlurAlpha: 90,
       wallpaperColorFollow: true,
       enableItemDivider: true,
-      readMenuBrightnessVertical: true,
-      readMenuBrightnessPos: 'left',
       themeStyle: 'fruitSalad',
       themeContrastLevel: '0.5',
       themeAmoled: true,
@@ -116,8 +134,6 @@ void main() {
         'bottomBarBlurAlpha': 90,
         'wallpaperColorFollow': true,
         'enableItemDivider': true,
-        'readMenuBrightnessVertical': true,
-        'readMenuBrightnessVwPos': 'left',
         'themeStyle': 'fruitSalad',
         'themeContrastLevel': '0.5',
         'themeAmoled': true,
@@ -244,13 +260,11 @@ void main() {
     await prefs.setBool('useFloatingBottomBar', true);
     await prefs.setInt('bottomBarOpacity', 60);
     await prefs.setBool('enableBlur', true);
-    await prefs.setString('readMenuBrightnessVwPos', 'left');
     await prefs.setString('themeStyle', 'expressive');
     await notifier.reload();
     expect(container.read(uiSettingsProvider).useFloatingBottomBar, isTrue);
     expect(container.read(uiSettingsProvider).bottomBarOpacity, 60);
     expect(container.read(uiSettingsProvider).enableBlur, isTrue);
-    expect(container.read(uiSettingsProvider).readMenuBrightnessPos, 'left');
     expect(container.read(uiSettingsProvider).themeStyle, 'expressive');
   });
 }

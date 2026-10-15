@@ -58,7 +58,8 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 AppReaderSettingsRepository 与 readerSettingsRepositoryProvider；旧
 ReaderConfigRepository 名称及转发接口不保留。ReaderSettings 表达已接入共享服务
 的普通偏好，包含翻页模式、字号、行距、正文/标题字体、目录字数显示和章节打开方式，
-并通过textLayout持有ReaderTextLayoutSettings正文排版分组；
+并通过textLayout持有ReaderTextLayoutSettings正文排版分组、pageLayout持有
+ReaderPageLayoutSettings页面分组；
 ReaderAdvancedConfig 继续表达其余高级参数，通过 loadAdvanced/saveAdvanced 保持原格式，
 不重复保存已迁走的基础字段。其他阅读偏好继续按实际消费者迁入，仓储改名不代表全域迁移完成。
 
@@ -80,10 +81,12 @@ OpenLegado 的实际接口确定分组；内部类划分不要求一对一复制
 | 凭据 | 密码、Token、登录 Header/Cookie、隐私验证材料 | 现有凭据接口；普通设置模型不复制敏感内容 |
 | 临时状态 | 弹层显隐、输入草稿、播放进度、解锁授权、加载错误 | 相应 UI/会话持有，按生命周期释放 |
 
-AppSettingsStore 当前接受 String、bool、int、double 和 null；null 表示删除原键。
+AppSettingsStore 接受String、bool、int、double、null及SettingsStringList；null表示删除原键。
 不为迁移阅读点击动作列表而把原 StringList 改成 JSON，也不把可变集合直接塞进
-共享标量快照。结构化字段通过专用存储适配保留格式，其完整读写仍由对应领域
-仓储拥有；标量字段与集合字段各自的键不能出现重叠写入。
+共享快照。SettingsStringList复制并冻结字符串列表，读入的StringList也先冻结，再放入
+已保存基底；Preferences适配仍用setStringList落盘。共享服务拒绝直接写入可变List。
+动作列表的完整格式由ReaderSettingsRepository及其Codec拥有；其他结构化集合继续由
+专用仓储管理，标量字段与集合字段各自的键不能出现重叠写入。九宫格接线见第20节。
 
 日志继续使用 `crash_record_log`、`crash_record_http_log`、`crash_record_heap_dump`
 现有键；PrefKeys 中的 `recordLog` 等预留键不是新的持久化来源。
@@ -273,7 +276,7 @@ PreferencesThemePresetRepository；已经使用检查写入结果的 setStringPr
 
 目标统一归 ReaderSettingsRepository；原存储均为 SharedPreferences。基础值在B1基线中
 由ReaderNotifier / SettingsService写入，高级值由原PreferencesReaderConfigRepository
-保存完整配置，字体页直接写字体键。B3的逐批接线见第11～16节，已迁字段只经其所属仓储写入。
+保存完整配置，字体页直接写字体键。B3的逐批接线见第11～22节，已迁字段只经其所属仓储写入。
 
 | 功能 / 真实键 | 类型、缺省与单位 | 消费/处理 |
 |---|---|---|
@@ -296,7 +299,7 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
 阅读域不重分配该键。阅读位置、书级配置及书籍实体不属于上述全局设置。
 
 下面按功能组记录B1基线的字段、键与消费者，不把已转出的字段算入当前高级模型。
-翻页、配色、字体及正文排版分别按第11～16节使用新入口；其余字段仍由高级配置保存。
+翻页、配色、字体、正文排版、页面布局、屏幕状态条、操作及菜单按第11～22节使用新入口；旧高级模型、独立Provider与整份保存入口已在第22节移除。
 
 | 高级字段 / 真实键 | 原类型、缺省及范围 | 实际消费路径 |
 |---|---|---|
@@ -361,10 +364,10 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
 | 正文进入刘海区 / `readBodyToLh` | bool / false | ReaderScreen 内容区域与 Insets |
 | 避让开孔 / `paddingDisplayCutouts` | bool / false | 同上 |
 
-高级存储还保留下列解码/迁移键，它们是格式元数据或历史输入，不是新增用户设置：
+B1审计时的高级存储包含下列解码/迁移键，仅作历史输入记录，不是新增用户设置：
 
 - `reader_adv_left_action`、`reader_adv_center_action`、`reader_adv_right_action`：旧三列
-  int 动作，九宫格缺失时回读，自定义列复制到三行；当前保存仍写九宫格中间一行。
+  int动作，B1基线在九宫格缺失时回读并复制到三行，保存时回写中间一行；该转换已移除。
 - `reader_adv_paragraph_indent`：旧 bool 缩进，整数档位缺失时 true→2、false→0。
 - `reader_adv_letter_spacing_migrated`：字距 px→em 一次性转换标记；读取及保存均涉及。
 - `settingsMigrated_v271`：历史默认值转换标记，涉及信息栏四开关和 tipFooterLeft。
@@ -373,7 +376,8 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
   ReaderSettingsMigration 的既有转换输入/中间标记，运行时仍使用上表的统一键。
 
 上述旧转换用于追溯B1基线，不作为新迁移的兼容要求。正文排版的字距px转换、旧bool缩进
-及分桶中的对应字段转换已经移除；尚未迁走的页面/提示参数暂沿用原入口。后续迁移直接
+及旧日夜布局转换已经移除；旧九宫格/三列转换与回写、页脚和状态条旧默认转换及菜单旧开关
+转换也已删除。上述表格保留B1审计证据，现行入口见第11～22节。后续迁移直接
 采用目标模型和规范键，不为未发布应用增加旧值双读、转换标识或兼容副本。
 翻页两套 int 编码不能相互直接赋值；实际模式默认 cover，高级副本默认 slide。
 收拢时应保留实际生效来源，并让全部可见选择器读写同一个领域值，不再保留仅
@@ -715,5 +719,246 @@ ReaderConfigPanel的中文断行、对齐与悬挂使用同一来源；保存失
 JS书源配置中的既有段距、字距和字重快照保持原值，不扩展本轮到FFI或业务契约修改。
 回归覆盖真实Preferences恢复、逐字段保存、旧高级快照隔离、保存失败重试、
 两个控件入口及实际ReaderScreen接参；执行结果和未测平台仅登记在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 17. 页面边距、标题及页眉页脚分组
+
+ReaderSettings.pageLayout持有ReaderPageLayoutSettings，按bodyPadding、title、
+header、footer与doubleHorizontalPage组成不可变快照。ReaderPagePadding只含
+四向dp数值，ReaderTitleSettings保存标题的显示模式、字号增量和上下间距；
+ReaderPageEdgeSettings保存某一边缘的模式、四向边距、分隔线与三个提示编号。
+这些模型不依赖Flutter类型，ReaderPageChromeConfig负责最终渲染投影。
+
+| 分组 | Preferences键 | 默认与范围 |
+|---|---|---|
+| 正文边距 | reader_page_margin_top/bottom/left/right | 24/24/20/20dp；上下0～400、左右0～100 |
+| 双页 | reader_double_horizontal_page | 0；0～3，原有效编码保持 |
+| 标题 | reader_title_mode/size/top_spacing/bottom_spacing | 均0；模式0～2、字号增量0～20、间距0～100 |
+| 页眉边距 | reader_header_padding_top/bottom/left/right | 0/0/16/16dp；范围同正文 |
+| 页脚边距 | reader_footer_padding_top/bottom/left/right | 6/6/16/16dp；范围同正文 |
+| 模式与分隔线 | reader_header_mode、reader_footer_mode、reader_header_show_line、reader_footer_show_line | 模式缺省0；页眉0～2、页脚0～1；分隔线false/true |
+| 提示 | reader_header_tip_left/middle/right、reader_footer_tip_left/middle/right | 页眉2/0/3，页脚7/0/6；沿用现有提示编号 |
+
+存储仍为Preferences，直接使用新键，不读取或迁移该组旧reader_adv_*、驼峰键和
+旧日夜分桶，不增加兼容标识。ReaderPageLayoutCodec集中定义地址、解码和局部写入映射，
+不执行IO或缓存；ReaderSettingsRepository使用同一AppSettingsService加载、订阅和保存。
+updatePageLayout只写传入正文字段及双页；updatePageEdge指定页眉或页脚，
+updateTitle只写传入标题字段。边距左右联动一次提交两项，但落盘仍是逐字段操作，
+不宣称整批事务；失败按现有共享服务保留已成功字段并回退未成功字段。
+
+原“恢复默认边距”对正文采用6/6/16/16，与首次缺省不同，本轮分别保留。
+页眉恢复0/0/16/16，页脚恢复6/6/16/16。页眉和页脚模式分别定义选项与有效范围，
+不共用同一张选项表；含义见第18节。恢复默认入口与首次缺省的区别分别验证。
+
+ReaderPaddingConfigSheet不再接收或回传高级配置副本，只保留当前区域和左右联动
+这两个交互状态；边距、重置及分隔线直接访问页面设置。ReaderTipConfigSheet的
+页面字段同源保存并订阅；状态条也从ReaderSettings.statusStrip读写（见第19节），
+不再传入高级配置和保存回调。保存失败提示、回退控件并允许重试。
+
+ReaderScreen从同源分组向ReaderPageView传正文边距和双页，并通过
+ReaderPageChromeConfig.fromSettings生成页眉页脚与标题快照；hideStatusBar和标题字体
+分别由原屏幕配置、共享字体选择传入。保持既有几何、原文锚点、选区、翻页与朗读分页
+发布，不改排版算法、Rust/FRB或JS快照。备份恢复reload包含全部27项，阅读配置
+忽略集合覆盖规范键。
+
+移除该组在ReaderAdvancedConfig构造、复制及存储中的字段和旧默认转换，删除旧日夜
+布局迁移逻辑及其专属测试；reader_settings_migration仅暂留未迁菜单风格转换。
+剩余高级配置的队列和复制测试继续保留；用新页面仓储、控件与实际阅读器
+接参回归替代已失效的迁移测试。执行结果和设备边界只记录在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 18. 页眉与页脚的显示模式
+
+两组模式虽然同为整数，但含义不同。按参考版
+[TypographyTabs.kt](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/ui/book/read/sheet/TypographyTabs.kt#L1241-L1250)
+与[页装饰显示判断](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderPageDecorationFactory.kt#L333-L339)，
+固定采用以下语义：
+
+| 区域 | 0 | 1 | 2 |
+|---|---|---|---|
+| 页眉 | 状态栏显示时隐藏 | 显示 | 隐藏 |
+| 页脚 | 显示 | 隐藏 | 无此选项 |
+
+默认均为0。ReaderPageLayoutCodec在解码及保存时分别限制页眉0～2、页脚0～1，
+不读取旧键或做数据迁移。菜单使用对应选项，隐藏模式下收起该区域的提示、边距及
+分隔线控件；恢复显示后从同一共享快照读回已有配置。页眉不受页脚修改影响。
+设置保存失败仍由AppSettingsService回退，并在控件中提示及允许重试。
+
+ReaderPageChromeConfig仍以footerMode != 1决定信息页脚显示，保持既有正文几何链路。
+基础页码回退是独立的测量和绘制分支，不属于此模式选项修正；其与参考版的差异及
+后续处理仅登记在活动计划，不借选项修正改变有效正文高度或页数。
+
+编写者：Codex｜2026-10-15
+
+
+## 19. 屏幕与阅读状态条分组
+
+ReaderSettings.screen持有ReaderScreenSettings，statusStrip持有ReaderStatusStripSettings。
+前者表达系统显示和安全区，后者表达阅读时附加信息；两者不依赖Flutter或平台类型，
+继续由同一ReaderSettingsRepository读取、订阅、重读和逐字段保存，不另建缓存或服务。
+
+| 分组字段 | Preferences规范键 | 默认与有效范围 |
+|---|---|---|
+| screen.orientation | reader_screen_orientation | 0；0～5，跟随系统/竖屏/横屏/传感器/反向竖屏/反向横屏 |
+| screen.hideStatusBar | reader_hide_status_bar | false |
+| screen.hideNavigationBar | reader_hide_navigation_bar | false |
+| screen.extendIntoCutout | reader_extend_into_cutout | false |
+| screen.avoidDisplayCutouts | reader_avoid_display_cutouts | false |
+| statusStrip.showBattery | reader_status_show_battery | false |
+| statusStrip.showTime | reader_status_show_time | false |
+| statusStrip.showProgress | reader_status_show_progress | false |
+| statusStrip.showChapterName | reader_status_show_chapter_name | false |
+
+updateScreen与updateStatusStrip只保存显式传入字段；false有效，方向在解码和写入时
+统一限制0～5。沿用AppSettingsService的写队列、订阅及失败回退，不承诺多字段原子事务。
+新键加入备份的阅读配置忽略集合，已有阅读仓储reload覆盖全部九项。按未发布口径
+不读取或迁移旧screenOrientation、hideStatusBar、hideNavigationBar、readBodyToLh、
+paddingDisplayCutouts及reader_adv_show_*，删除settingsMigrated_v271默认转换及其专属
+测试；保留尚未迁走的点击与菜单旧入口。
+
+ReaderConfigPanel和ReaderTipConfigSheet直接订阅对应共享分组；状态条设置不再接收
+statusConfig、onStatusChanged或保存局部高级副本。连续修改、保存失败提示与回退、
+重新保存及外部重读都使用同一来源，静态弹层与完整设置页一致。
+
+ReaderScreen订阅screen分组，按当前快照调用既有SystemBarController及SystemChrome。
+菜单打开期间临时显示系统栏，离开阅读路由释放显示归属，返回后应用当前设置；
+隐藏状态栏、导航栏和缺口几何仍沿用原公式。ReaderPageChrome、ReaderPageView和
+ReaderStatusStrip接收同源值，页眉页脚、正文及附加信息不保存第二份可写配置。
+不调整方向编码、分页算法、选区、翻页、Rust/FRB或JS配置快照。
+
+保持亮屏仍缺少平台执行能力。保留keep_light键、原选择及选项，将设置行禁用并
+追加“待实现”说明；不新增依赖、不将仅存储的选择宣称为已生效功能。
+执行结果、设备及iOS未测边界仅登记在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 20. 自动翻页与操作分组
+
+ReaderSettings.autoPageTurn保存ReaderAutoPageTurnSettings；interaction保存
+ReaderInteractionSettings。两组都是纯Dart不可变值，继续使用同一个阅读仓储和共享
+设置服务，不单独保存UI副本。ReaderInteractionCodec集中解码、范围和局部写入映射。
+
+| 字段 | Preferences规范键 | 默认与有效范围 |
+|---|---|---|
+| autoPageTurn.enabled | reader_auto_page_turn_enabled | false |
+| autoPageTurn.intervalSeconds | reader_auto_page_turn_interval_seconds | double / 10；3～120秒 |
+| autoPageTurn.forward | reader_auto_page_turn_forward | true；前进/后退 |
+| interaction.tapActions | reader_tap_actions | StringList / 九格动作名称，沿用原九宫格默认排列 |
+| interaction.selectText | reader_select_text | true |
+| interaction.noAnimScrollPage | reader_no_anim_scroll_page | false |
+| interaction.volumeKeyPage | reader_volume_key_page | true |
+| interaction.volumeKeyPageOnPlay | reader_volume_key_page_on_play | false |
+| interaction.mouseWheelPage | reader_mouse_wheel_page | true |
+| interaction.pageTouchSlop | reader_page_touch_slop | int / 0；0～9999，保持原阈值单位 |
+| interaction.pageTouchClick | reader_page_touch_click | int / 0；0～399，保持原边缘规则 |
+| interaction.progressBarBehavior | reader_progress_bar_behavior | page；page/chapter |
+
+updateAutoPageTurn与updateInteraction只写传入字段，不覆盖其他分组。九宫格输入在
+提交时复制冻结，快照中的动作列表不可变；存储仍为StringList，元素改用none、prevPage、
+nextPage、toggleControls、openCatalog名称，不再依赖枚举顺序。读取损坏列表回退本字段
+默认值；不读旧reader_adv_tap_actions_v1、旧三列或其他旧操作键，也不回写兼容副本。
+AppSettingsService承接同一写队列、逐字段失败回退和订阅，未增加第二份已保存缓存。
+
+TapAction与默认排列归纯数据模型；reader_tap_hit_test负责Flutter正文坐标的九宫格
+命中。正文外忽略、边缘防误触及分区公式沿用原实现，配置模型不再导入dart:ui。
+ReaderPageView的滑动阈值改读共享仓储，滚动模式仍使用系统阈值，不改手势识别算法。
+
+设置页、菜单自动翻页按钮、浮条启停和间隔、音量键、正文选区开关、滚轮、滚动动画
+和进度条行为读取同源值。ReaderScreen只在自动翻页分组改变时同步定时器，修改其他
+设置不重置计时；保存失败后显示提示并按回退快照同步运行状态。原计时器的四舍五入、
+方向与翻页调用保持；设置页滑块与既有浮条统一支持3～120秒，避免浮条选择大于60秒
+后打开设置导致Slider越界。
+
+浮条定位容器使用StackFit.expand，防止默认状态条全关时占位组件把Stack收缩为零，
+导致浮条定位到屏幕外。不调整正文分页、选区或翻页动画。漫画音量键继续属于原Rust
+配置域，与小说Preferences键分开；不改漫画、Rust/FFI、JS快照或数据库。
+新键纳入备份的阅读设置忽略集合，已有仓储reload覆盖两组；未测平台边界见活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 21. 阅读菜单配色与亮度控件分组
+
+ReaderSettings.menuTheme保存ReaderMenuThemeSettings，brightnessControl保存
+ReaderBrightnessControlSettings。两组都是纯Dart不可变值，通过原阅读仓储和共享设置
+服务读取、订阅、局部更新及失败回退；ReaderMenuSettingsCodec集中解释键、范围与默认。
+实际亮度值仍由原亮度控制流程管理，本组只决定菜单控件的显示方式和位置。
+
+| 字段 | Preferences规范键 | 默认与有效范围 |
+|---|---|---|
+| menuTheme.mode | reader_menu_theme_mode | int / 0；0跟随应用、1阅读背景生成、2自定义 |
+| menuTheme.paletteStyle | reader_menu_palette_style | 空串跟随应用调色板 |
+| menuTheme.colorMode | reader_menu_color_mode | int / 0；0种子生成、1手动表面颜色 |
+| menuTheme.accentColor | reader_menu_accent_color | int / 0；日间主色 |
+| menuTheme.accentColorNight | reader_menu_accent_color_night | int / 0；夜间主色 |
+| menuTheme.backgroundColor | reader_menu_background_color | int / 0；日间菜单背景 |
+| menuTheme.backgroundColorNight | reader_menu_background_color_night | int / 0；夜间菜单背景 |
+| menuTheme.containerColor | reader_menu_container_color | int / 0；日间弹层背景 |
+| menuTheme.containerColorNight | reader_menu_container_color_night | int / 0；夜间弹层背景 |
+| menuTheme.textColor | reader_menu_text_color | int / 0；日间标题文字 |
+| menuTheme.textColorNight | reader_menu_text_color_night | int / 0；夜间标题文字 |
+| brightnessControl.mode | reader_brightness_control_mode | int / 0；0关闭、1横向、2纵向 |
+| brightnessControl.onLeft | reader_brightness_control_on_left | false；纵向侧栏位置 |
+
+颜色保存ARGB整数，零值保留原回退语义。updateMenuTheme只保存传入字段，日夜值独立；
+设置页的“编辑配色”仅为本地编辑状态，不写入共享仓储，重新进入跟随当前界面明暗。
+updateBrightnessControl同样只保存传入字段；选择关闭或横向不覆盖既有侧栏位置，
+菜单侧栏的左右切换只写onLeft。失败时显示提示并回退对应字段，允许再次操作。
+
+ReaderMenuThemeHost消费共享菜单分组，保留原颜色生成及缓存条件、正文应用主题、
+稳定的导航和弹层上下文。菜单本体读取同源模式、标题日夜颜色及亮度控件设置。
+标题颜色仍独立于菜单来源；跟随应用模式的有效明暗以应用菜单主题为准。
+不改配色算法、毛玻璃、菜单手势、正文分页或原生选区。
+
+13项纳入阅读配置备份忽略集合及仓储reload；未增加独立缓存。删除高级配置中的
+对应字段、读写和reader_settings_migration.dart最后一项菜单旧开关转换，不读旧值、
+不自动改写旧键。同时移除通用UiSettings中没有界面消费者的readMenuBrightnessVertical
+和readMenuBrightnessPos及其常量、仓储映射和Notifier写入口，不迁入无效值。
+保留尚未迁移的自动换源、保持亮屏及标题附加区；后两项仍禁用。
+Rust/FRB、JS快照和数据库不变；验证结果及平台边界仅登记在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 22. 剩余阅读设置与旧高级入口收尾
+
+最后三项配置归入现有类型，不新建通用“高级设置”容器。ReaderSettings保存
+自动换源和菜单标题附加区，ReaderScreenSettings保存保持亮屏时长；更新继续使用
+原共享设置服务，订阅、备份恢复重读和逐字段失败回退均沿用同一来源。
+
+| 字段 | Preferences规范键 | 默认与范围 |
+|---|---|---|
+| autoChangeSource | reader_auto_change_source | bool / true |
+| showTitleAddition | reader_show_title_addition | bool / true；当前未启用 |
+| screen.keepScreenOnSeconds | reader_keep_screen_on_seconds | int / 0；-1、0、60、300、600秒，当前未启用 |
+
+update只修改传入的自动换源或标题附加区字段；updateScreen保存亮屏时长，与方向、
+系统栏及安全区设置独立。保持亮屏的已有选项不变，未支持的时长读取和写入均解释为0，
+不补写存储。三项不读取autoChangeSource、showReadTitleAddition和keep_light旧键，
+不迁移旧值，不新增转换标记或兼容副本；新键纳入阅读设置备份忽略集合。
+
+自动换源开关直接保存共享字段，失败显示提示并回退；ReaderScreen在章节错误发生时
+读取共享当前值，保留原网络书判断、首个非同源候选选择、三次尝试上限、详情地址
+保留及重开书流程。本轮不重构换源业务，也不把设置启用等同于立即发起搜索。
+保持亮屏和标题附加区继续禁用，保留原说明并追加“待实现”，不执行新的平台操作。
+
+ReaderAdvancedConfig及其复制、loadAdvanced/saveAdvanced、直接SharedPreferences
+访问和独立写队列删除；readerAdvConfigProvider及其独立加载和可写状态删除。
+AppReaderSettingsRepository只依赖AppSettingsService，领域接口不再导入旧UI模型。
+ReaderConfigPanel仅接收展示分区，不传配置副本、回调或整份保存；ReaderSettingsSheet
+直接加载统一仓储并订阅共享设置，不再等待独立高级Provider或传递无关配置。
+ReaderScreen不再保留高级配置副本；原onOpenAdvancedConfig在菜单内没有消费者，
+其参数和失效回调一并移除，实际“设置”按钮及其导航保持。
+
+删除旧模型/Provider/独立队列的专属测试。原字体、排版、操作、菜单、页面和状态条
+用例仍验证跨字段隔离，改为共享仓储更新其他字段；共享服务的并发加载、迟到读取、
+序列化落盘和失败回退测试继续覆盖现行实现。新回归验证三项真实Preferences恢复、
+不可变快照、范围、失败重试、外部重读及自动换源的实际触发和切换结果。
+本轮不改分页、翻页、选区、Rust/FRB、JS快照、数据库或实际亮度执行流程。
 
 编写者：Codex｜2026-10-15

@@ -46,6 +46,70 @@ void main() {
       'reader_italic',
       'reader_use_zh_layout',
       'reader_hanging_punctuation',
+      'reader_page_margin_top',
+      'reader_page_margin_bottom',
+      'reader_page_margin_left',
+      'reader_page_margin_right',
+      'reader_double_horizontal_page',
+      'reader_title_mode',
+      'reader_title_size',
+      'reader_title_top_spacing',
+      'reader_title_bottom_spacing',
+      'reader_header_padding_top',
+      'reader_header_padding_bottom',
+      'reader_header_padding_left',
+      'reader_header_padding_right',
+      'reader_header_mode',
+      'reader_header_show_line',
+      'reader_header_tip_left',
+      'reader_header_tip_middle',
+      'reader_header_tip_right',
+      'reader_footer_padding_top',
+      'reader_footer_padding_bottom',
+      'reader_footer_padding_left',
+      'reader_footer_padding_right',
+      'reader_footer_mode',
+      'reader_footer_show_line',
+      'reader_footer_tip_left',
+      'reader_footer_tip_middle',
+      'reader_footer_tip_right',
+      'reader_screen_orientation',
+      'reader_hide_status_bar',
+      'reader_hide_navigation_bar',
+      'reader_extend_into_cutout',
+      'reader_avoid_display_cutouts',
+      'reader_status_show_battery',
+      'reader_status_show_time',
+      'reader_status_show_progress',
+      'reader_status_show_chapter_name',
+      'reader_auto_page_turn_enabled',
+      'reader_auto_page_turn_interval_seconds',
+      'reader_auto_page_turn_forward',
+      'reader_tap_actions',
+      'reader_select_text',
+      'reader_no_anim_scroll_page',
+      'reader_volume_key_page',
+      'reader_volume_key_page_on_play',
+      'reader_mouse_wheel_page',
+      'reader_page_touch_slop',
+      'reader_page_touch_click',
+      'reader_progress_bar_behavior',
+      'reader_auto_change_source',
+      'reader_show_title_addition',
+      'reader_keep_screen_on_seconds',
+      'reader_menu_theme_mode',
+      'reader_menu_palette_style',
+      'reader_menu_color_mode',
+      'reader_menu_accent_color',
+      'reader_menu_accent_color_night',
+      'reader_menu_background_color',
+      'reader_menu_background_color_night',
+      'reader_menu_container_color',
+      'reader_menu_container_color_night',
+      'reader_menu_text_color',
+      'reader_menu_text_color_night',
+      'reader_brightness_control_mode',
+      'reader_brightness_control_on_left',
     });
     await repository.update();
     expect(storage.writes, isEmpty);
@@ -79,7 +143,7 @@ void main() {
       'reader_flip_mode': 3,
       'flip_mode': 0,
       'reader_font_size': 24.0,
-      'reader_adv_margin_top': 8.0,
+      'keep_light': 8,
     });
     final actualService = AppSettingsService(
       storages: {
@@ -109,7 +173,7 @@ void main() {
     expect(prefs.getInt('reader_flip_mode'), 3);
     expect(prefs.getInt('flip_mode'), 0);
     expect(prefs.getDouble('reader_font_size'), 24);
-    expect(prefs.getDouble('reader_adv_margin_top'), 8);
+    expect(prefs.getInt('keep_light'), 8);
   });
 
   test('加载前选择新模式，不被原值覆盖，也不写旧整数副本', () async {
@@ -127,7 +191,7 @@ void main() {
     expect(storage.values['reader_font_size'], 22);
   });
 
-  test('修改高级排版不会重新创建或覆盖翻页副本', () async {
+  test('修改屏幕设置不会重新创建或覆盖翻页副本', () async {
     SharedPreferences.setMockInitialValues({
       'reader_flip_mode_name': 'slide',
       'flip_mode': 2,
@@ -139,14 +203,12 @@ void main() {
     );
     addTearDown(actualService.dispose);
     final actual = AppReaderSettingsRepository(actualService);
-    final staleAdvanced = await actual.loadAdvanced();
     await actual.update(pageTurnMode: PageTurnMode.scroll);
-    staleAdvanced.pageMarginTop = 12;
-    await actual.saveAdvanced(staleAdvanced);
+    await actual.updateScreen(keepScreenOnSeconds: 60);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('reader_flip_mode_name'), 'scroll');
     expect(prefs.getInt('flip_mode'), 2);
-    expect(prefs.getDouble('reader_adv_margin_top'), 12);
+    expect(prefs.getInt('reader_keep_screen_on_seconds'), 60);
     expect(actual.current.pageTurnMode, PageTurnMode.scroll);
   });
 

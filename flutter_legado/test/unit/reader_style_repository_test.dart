@@ -128,10 +128,8 @@ void main() {
     );
     expect(repository.current, before);
     storage.writeFailure = false;
-    final advanced = AppReaderSettingsRepository(service);
-    final config = await advanced.loadAdvanced();
-    config.pageMarginTop = 12;
-    await advanced.saveAdvanced(config);
+    final settings = AppReaderSettingsRepository(service);
+    await settings.updateScreen(keepScreenOnSeconds: 60);
     expect(repository.current, before);
     expect(
       (await SharedPreferences.getInstance()).containsKey(

@@ -176,15 +176,13 @@ void main() {
     expect(storage.values['reader_letter_spacing'], 0.4);
   });
 
-  test('旧高级快照不写回正文排版，也不生成旧转换标识', () async {
-    final advanced = await repository.loadAdvanced();
+  test('其他阅读设置不写回正文排版，也不生成旧转换标识', () async {
     await repository.updateTextLayout(
       letterSpacing: 0.24,
       paragraphSpacing: 12,
       italic: true,
     );
-    advanced.pageMarginTop = 38;
-    await repository.saveAdvanced(advanced);
+    await repository.updateScreen(keepScreenOnSeconds: 60);
     expect(
       repository.current.textLayout,
       const ReaderTextLayoutSettings(
@@ -208,7 +206,8 @@ void main() {
     ]) {
       expect(prefs.containsKey(key), isFalse, reason: key);
     }
-    expect(prefs.getDouble('reader_adv_margin_top'), 38);
+    expect(storage.values['reader_keep_screen_on_seconds'], 60);
+    expect(prefs.containsKey('keep_light'), isFalse);
   });
 
   test('恢复重读八项，读取失败保留当前快照', () async {
