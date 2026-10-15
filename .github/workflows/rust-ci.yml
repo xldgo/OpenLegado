@@ -1,4 +1,5 @@
 name: Rust CI
+
 on:
   push:
     branches: [dev, master]
@@ -20,33 +21,39 @@ jobs:
     outputs:
       rust: ${{ steps.changes.outputs.rust }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - id: changes
+
+      - name: Determine change scope
+        id: changes
         uses: ./.github/actions/ci-changes
 
   quality:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Rust toolchain
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          toolchain: stable
-          components: rustfmt,clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - name: Cargo fmt check
+          flutter-version: 'none'
+          rust-components: rustfmt,clippy
+
+      - name: Run cargo fmt check
         working-directory: rust
         run: cargo fmt --all -- --check
-      - name: Cargo clippy (default features)
+
+      - name: Run cargo clippy (default features)
         working-directory: rust
         run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Cargo clippy (quickjs — 体检§三.10 门控代码此前从未 lint)
+
+      - name: Run cargo clippy (quickjs features)
         working-directory: rust
         run: cargo clippy -p legado-js -p legado-ffi -p legado-server --features quickjs --all-targets -- -D warnings
 
@@ -54,26 +61,30 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Rust toolchain
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - name: Cargo test
+          flutter-version: 'none'
+
+      - name: Run cargo test
         working-directory: rust
         run: cargo test --workspace
+
       # 保留 QuickJS 全量回归，不跳过沙箱 OOM 用例。
-      - name: Cargo test (quickjs)
+      - name: Run cargo test (quickjs)
         working-directory: rust
         run: cargo test -p legado-js --features quickjs
-      - name: Cargo test legado-ffi full (quickjs)
+
+      - name: Run cargo test legado-ffi full (quickjs)
         working-directory: rust
         run: cargo test -p legado-ffi --features quickjs
-      - name: Cargo test legado-server (quickjs)
+
+      - name: Run cargo test legado-server (quickjs)
         working-directory: rust
         run: cargo test -p legado-server --features quickjs
 
@@ -81,17 +92,23 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Rust toolchain
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          toolchain: stable
+          flutter-version: 'none'
+          rust-cache: 'false'
+
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
-      - name: Cargo audit (RustSec advisories)
+
+      - name: Run cargo audit (RustSec advisories)
         working-directory: rust
         run: cargo audit
 
@@ -102,8 +119,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-      - name: 汇总 Rust 门禁
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Aggregate Rust check results
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
         run: python3 .github/scripts/ci_changes.py check quality=rust tests=rust audit=rust

@@ -88,7 +88,7 @@ class MatrixTests(unittest.TestCase):
 
     def test_ios_bundle_gates_precede_signing_and_keep_ipa_and_diagnostic_contracts(self):
         text = (ROOT / ".github" / "workflows" / "ios-build.yml").read_text(encoding="utf-8-sig")
-        self.assertLess(text.index("prepare icons ios"), text.index("name: 准备设备签名材料"))
+        self.assertLess(text.index("prepare icons ios"), text.index("name: Prepare device signing materials"))
         self.assertLess(text.index("codesign -v --strict"), text.index("scripts/dev.py package ios"))
         self.assertIn("id: package", text)
         self.assertIn('if [ -n "$IOS_P12_BASE64" ]; then', text)

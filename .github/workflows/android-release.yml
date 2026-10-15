@@ -17,73 +17,71 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     outputs:
       artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     env:
-      FLUTTER_VERSION: '3.47.7'
       ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
 
     steps:
-      - name: 检出源码
+      - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: 设置 Rust 工具链
-        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Flutter and Rust
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-      - name: Rust 缓存
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - name: 设置 Java
+          rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Setup Java with Gradle cache
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
-      - name: 恢复发行签名密钥
+          cache: 'gradle'
+
+      - name: Restore release signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: python3 .github/scripts/android_signing.py
-      - name: 设置 Android SDK
+
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
-      - name: 安装 Android NDK
+
+      - name: Install Android NDK
         run: |
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - name: 构建并校验 Android release FFI（Python 统一入口）
+
+      - name: Build and verify Android release FFI
         run: python3 scripts/dev.py build ffi android --profile release --abis arm64-v8a,armeabi-v7a,x86_64
-      # 直接使用仓库中固定为 2.13.0 的生成物，禁止构建后重新生成绑定。
-      - name: 设置 Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
-      - name: Flutter pub get
+
+      - name: Run flutter pub get
         working-directory: flutter_legado
         run: flutter pub get
-      - name: 构建与本次 Rust 动态库对应的 release APK
+
+      - name: Build release APKs
         working-directory: flutter_legado
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
-      - name: 核对 APK 发行签名和 Rust 动态库并收集产物
+
+      - name: Verify release APK signatures and Rust libraries
         run: >-
           python3 scripts/dev.py collect apk android --profile release
           --abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target
           --signing-cert-sha256 "$ANDROID_SIGNING_CERT_SHA256"
-      - name: 上传 APK 构建产物
+
+      - name: Upload release APK artifacts
         id: upload-apk
         uses: actions/upload-artifact@v7
         with:
@@ -91,7 +89,8 @@ jobs:
           path: release-apk/*-release.apk
           if-no-files-found: error
           retention-days: 2
-      - name: 清理临时发行密钥
+
+      - name: Clean temporary signing key
         if: always()
         run: python3 .github/scripts/android_signing.py --clean
 
@@ -104,7 +103,7 @@ jobs:
       contents: write
     steps:
       # 仅重跑 publish 时沿用成功 build 的产物 ID，不使用新的 run_attempt 推测名称。
-      - name: 核对构建产物 ID
+      - name: Verify artifact ID
         env:
           ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
         run: |
@@ -112,13 +111,15 @@ jobs:
             echo "::error::成功构建未提供有效的 APK 产物 ID"
             exit 1
           fi
-      - name: 下载本次构建的 APK
+
+      - name: Download release APKs
         uses: actions/download-artifact@v8
         with:
           artifact-ids: ${{ needs.build.outputs.artifact_id }}
           path: release-apk
           merge-multiple: true
-      - name: 创建标签 Release 并上传 APK
+
+      - name: Create release and upload assets
         uses: softprops/action-gh-release@v3
         with:
           name: Android Release ${{ github.ref_name }}

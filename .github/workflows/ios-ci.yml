@@ -14,69 +14,58 @@ concurrency:
 jobs:
   ios-simulator:
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     env:
-      FLUTTER_VERSION: '3.47.7'
       # 与设备构建使用同一版本的 Xcode。
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: 确认 Xcode 与模拟器 SDK
+      - name: Verify Xcode and simulator SDK
         run: |
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
 
-      - name: 安装 Rust 模拟器工具链
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Flutter and Rust
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          targets: aarch64-apple-ios-sim
-
-      - name: 缓存 Rust 构建
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
+          rust-targets: aarch64-apple-ios-sim
+          rust-components: llvm-tools-preview
 
       # 在工作区内补装目标，确保使用 rust-toolchain.toml 锁定的工具链。
-      - name: 确认工作区模拟器目标
+      - name: Verify workspace simulator target
         working-directory: rust
         run: |
           rustup target add aarch64-apple-ios-sim
           rustup component add llvm-tools-preview
           rustup target list --installed
 
-      - name: 安装 Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: 安装 Flutter 依赖
+      - name: Install Flutter dependencies
         working-directory: flutter_legado
         run: flutter pub get
 
-      - name: 构建模拟器 Rust 静态库
+      - name: Build simulator Rust static library
         run: python3 scripts/dev.py build ffi ios --target simulator --profile release
 
-      - name: 安装模拟器 CocoaPods 依赖
+      - name: Install simulator CocoaPods dependencies
         working-directory: flutter_legado/ios
         run: pod install --repo-update
 
-      - name: 构建模拟器应用
+      - name: Build simulator application
         working-directory: flutter_legado
         run: |
           set -euo pipefail
           flutter build ios --simulator --debug 2>&1 | tee ios_simulator_build.log
 
       # Debug 主体可能位于 Runner.debug.dylib，不能只检查 Runner 加载桩。
-      - name: 校验模拟器 PDE 符号
+      - name: Verify simulator PDE symbols
         run: python3 scripts/dev.py verify app ios --target simulator --profile release --app flutter_legado/build/ios/iphonesimulator/Runner.app --cargo-target-dir rust/target
 
-      - name: 选择并启动测试模拟器
+      - name: Select and boot test simulator
         run: |
           set -euo pipefail
           UDID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(device["udid"] for group in devices.values() for device in group if device.get("isAvailable") and device["name"].startswith("iPhone")))')
@@ -86,21 +75,21 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
 
       # 校验通道接线和已安装声明；真实切图标仍是测试内的非断言取证。
-      - name: 运行图标状态集成测试
+      - name: Run icon state integration tests
         working-directory: flutter_legado
         run: |
           set -euo pipefail
           flutter test integration_test/launcher_icon_ios_test.dart -d "$UDID" 2>&1 | tee ios_launcher_icon_test.log
 
       # 搜索、进书和翻章走本地回环书源，保持原测试断言，失败必须使作业变红。
-      - name: 运行离线搜索阅读测试
+      - name: Run offline search and reading tests
         working-directory: flutter_legado
         run: |
           set -euo pipefail
           flutter test integration_test/e2e_search_read_ios_test.dart -d "$UDID" 2>&1 | tee ios_search_read_test.log
 
       # Flutter 集成测试会覆写 Runner.app；不将测试宿主重新启动当作生产首屏验收。
-      - name: 收集模拟器测试证据
+      - name: Collect simulator test evidence
         if: always()
         continue-on-error: true
         run: |
@@ -115,7 +104,7 @@ jobs:
               | head -40 > ios-ci-evidence/sim_errors.log || true
           fi
 
-      - name: 上传模拟器测试证据
+      - name: Upload simulator test evidence
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7

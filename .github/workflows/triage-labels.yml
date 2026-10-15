@@ -27,9 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
+
       - name: Parse triage configuration
         run: >-
           ruby -e "require 'yaml'; ARGV.each { |file| YAML.load_file(file); puts \"validated #{file}\" }"
@@ -40,7 +42,8 @@ jobs:
           .github/workflows/triage-labels.yml
           .github/dependabot.yml
           .github/release.yml
-      - name: 验证当前标签规则及回填脚本语法
+
+      - name: Validate label rules and backfill script syntax
         run: |
           ruby -c .github/scripts/backfill-labels.rb
           ruby - <<'RUBY'
@@ -85,7 +88,8 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: github/issue-labeler@v3.4
+      - name: Apply content-based labels
+        uses: github/issue-labeler@v3.4
         with:
           configuration-path: .github/issue-labeler.yml
           enable-versioned-regex: 0
@@ -102,7 +106,8 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/labeler@v7
+      - name: Apply changed file labels
+        uses: actions/labeler@v7
         with:
           configuration-path: .github/pr-labeler.yml
           repo-token: ${{ github.token }}
@@ -116,9 +121,11 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
+
       - name: Label existing open issues and pull requests
         env:
           GH_TOKEN: ${{ github.token }}
