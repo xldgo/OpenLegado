@@ -655,7 +655,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
 
   Widget _buildDoublePageOptions() => SettingMenuRow<int>(
     title: context.l10n.readerDualPageMode,
-    value: _config.doubleHorizontalPage,
+    value: _pageLayout.doubleHorizontalPage,
     options: {
       0: context.l10n.readerSinglePage,
       1: context.l10n.readerDoublePage,
@@ -663,8 +663,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       3: context.l10n.readerDualPageMode,
     },
     onChanged: (value) {
-      _config.doubleHorizontalPage = value;
-      _commit();
+      _savePageLayout(
+        () => ref
+            .read(readerSettingsRepositoryProvider)
+            .updatePageLayout(doubleHorizontalPage: value),
+      );
     },
   );
 

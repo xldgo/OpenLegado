@@ -1,6 +1,7 @@
 import '../../models/reader_advanced_config.dart';
 import '../models/reader_settings.dart';
 import '../models/page_turn_mode.dart';
+import '../models/reader_page_layout_settings.dart';
 
 /// 阅读设置同源访问；高级配置不重复保存基础偏好和字体。— Codex + UI
 abstract interface class ReaderSettingsRepository {
@@ -30,6 +31,31 @@ abstract interface class ReaderSettingsRepository {
     bool? italic,
     bool? useZhLayout,
     bool? hangingPunctuation,
+  });
+  Future<void> updatePageLayout({
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+    int? doubleHorizontalPage,
+  });
+  Future<void> updatePageEdge(
+    ReaderPageEdge edge, {
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+    int? mode,
+    bool? showLine,
+    int? leftTip,
+    int? middleTip,
+    int? rightTip,
+  });
+  Future<void> updateTitle({
+    int? mode,
+    int? size,
+    int? topSpacing,
+    int? bottomSpacing,
   });
   Future<ReaderAdvancedConfig> loadAdvanced();
   Future<void> saveAdvanced(ReaderAdvancedConfig config);

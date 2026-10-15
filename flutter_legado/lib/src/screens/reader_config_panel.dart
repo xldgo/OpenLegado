@@ -1,6 +1,7 @@
 import '../providers/reader/reader_settings_provider.dart';
 import '../models/reader_advanced_config.dart';
 import '../domain/models/reader_text_layout_settings.dart';
+import '../domain/models/reader_page_layout_settings.dart';
 
 import 'dart:async';
 
@@ -106,6 +107,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   ReaderTextLayoutSettings get _textLayout =>
       ref.read(readerSettingsRepositoryProvider).current.textLayout;
 
+  ReaderPageLayoutSettings get _pageLayout =>
+      ref.read(readerSettingsRepositoryProvider).current.pageLayout;
+
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
   String? get _fontLabel => ref
       .read(readerSettingsRepositoryProvider)
@@ -160,6 +164,17 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('阅读排版保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _savePageLayout(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('页面布局保存失败，请重试')));
       }
     }
   }
@@ -225,10 +240,10 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
           ),
           const SizedBox(height: 12),
           ReaderTipConfigSheet(
-            config: _config.copy(),
+            statusConfig: _config.copy(),
             section: ReaderTipSection.statusBar,
             embedded: true,
-            onChanged: (config) {
+            onStatusChanged: (config) {
               _config = config.copy();
               _commit();
             },
@@ -248,14 +263,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             title: '正文区域',
             children: [
               _buildDoublePageOptions(),
-              ReaderPaddingConfigSheet(
-                config: _config.copy(),
+              const ReaderPaddingConfigSheet(
                 embedded: true,
                 region: PaddingRegion.body,
-                onChanged: (config) {
-                  _config = config.copy();
-                  _commit();
-                },
               ),
             ],
           ),
@@ -296,21 +306,13 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
         ];
         break;
       case ReaderConfigSection.margins:
-        children = [
-          ReaderPaddingConfigSheet(
-            config: _config.copy(),
-            onChanged: (cfg) {
-              _config = cfg.copy();
-              widget.onChanged?.call(_config.copy());
-            },
-          ),
-        ];
+        children = [const ReaderPaddingConfigSheet()];
         break;
       case ReaderConfigSection.statusBar:
         children = [
           ReaderTipConfigSheet(
-            config: _config.copy(),
-            onChanged: (cfg) {
+            statusConfig: _config.copy(),
+            onStatusChanged: (cfg) {
               _config = cfg.copy();
               widget.onChanged?.call(_config.copy());
             },
@@ -350,14 +352,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                 icon: Icons.crop_free,
                 title: '页面边距',
                 subtitle: '页眉 / 正文 / 页脚四向边距',
-                onTap: () => ReaderPaddingConfigSheet.show(
-                  context,
-                  config: _config.copy(),
-                  onChanged: (cfg) {
-                    _config = cfg.copy();
-                    _commit();
-                  },
-                ),
+                onTap: () => ReaderPaddingConfigSheet.show(context),
               ),
             ],
           ),
@@ -395,14 +390,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                     icon: Icons.crop_free,
                     title: '页面边距',
                     subtitle: '页眉 / 正文 / 页脚四向边距',
-                    onTap: () => ReaderPaddingConfigSheet.show(
-                      context,
-                      config: _config.copy(),
-                      onChanged: (cfg) {
-                        _config = cfg.copy();
-                        _commit();
-                      },
-                    ),
+                    onTap: () => ReaderPaddingConfigSheet.show(context),
                   ),
                   SettingTile(
                     icon: Icons.info_outline,
@@ -410,8 +398,8 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                     subtitle: '页眉页脚提示项与标题样式',
                     onTap: () => ReaderTipConfigSheet.show(
                       context,
-                      config: _config.copy(),
-                      onChanged: (cfg) {
+                      statusConfig: _config.copy(),
+                      onStatusChanged: (cfg) {
                         _config = cfg.copy();
                         _commit();
                       },

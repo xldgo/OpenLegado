@@ -239,13 +239,80 @@ void main() {
     await tester.pumpAndSettle();
     expect(view().paragraphIndent, 1);
     final advanced = await repository.loadAdvanced();
-    advanced.pageMarginTop = 30;
+    advanced.autoPageTurnInterval = 30;
     await container.read(readerAdvConfigProvider.notifier).commit(advanced);
     await tester.pumpAndSettle();
     expect(view().letterSpacing, 0);
     expect(view().textBold, 1);
     expect(view().paragraphIndent, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('正文边距、双页和页壳从同源页面设置接参，修改及恢复重读同步', (tester) async {
+    final storage = HomeSettingsStorage();
+    storage.values.addAll({
+      'reader_page_margin_top': 30.0,
+      'reader_page_margin_bottom': 31.0,
+      'reader_page_margin_left': 21.0,
+      'reader_page_margin_right': 22.0,
+      'reader_title_mode': 1,
+      'reader_title_size': 3,
+      'reader_title_top_spacing': 5,
+      'reader_title_bottom_spacing': 6,
+      'reader_header_mode': 1,
+      'reader_header_padding_top': 4.0,
+      'reader_header_show_line': true,
+      'reader_header_tip_left': 7,
+      'reader_footer_mode': 2,
+      'reader_footer_padding_bottom': 8.0,
+      'reader_footer_show_line': false,
+      'reader_footer_tip_right': 5,
+      'reader_double_horizontal_page': 2,
+    });
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repository = container.read(readerSettingsRepositoryProvider);
+    await repository.load();
+    await tester.pumpAndSettle();
+    ReaderPageView view() =>
+        tester.widget<ReaderPageView>(find.byType(ReaderPageView));
+    expect(view().marginTop, 30);
+    expect(view().marginBottom, 31);
+    expect(view().marginLeft, 21);
+    expect(view().marginRight, 22);
+    expect(view().doubleHorizontalPage, 2);
+    expect(view().pageChrome.titleSize, 3);
+    expect(view().pageChrome.titleMode, 1);
+    expect(view().pageChrome.headerMode, 1);
+    expect(view().pageChrome.headerPaddingTop, 4);
+    expect(view().pageChrome.showHeaderLine, isTrue);
+    expect(view().pageChrome.tipHeaderLeft, 7);
+    expect(view().pageChrome.footerPaddingBottom, 8);
+    expect(view().pageChrome.showFooterLine, isFalse);
+    expect(view().pageChrome.tipFooterRight, 5);
+    await repository.updatePageLayout(left: 23);
+    await repository.updateTitle(size: 4);
+    await tester.pumpAndSettle();
+    expect(view().marginLeft, 23);
+    expect(view().pageChrome.titleSize, 4);
+    storage.values['reader_header_tip_left'] = 2;
+    await repository.reload();
+    await tester.pumpAndSettle();
+    expect(view().pageChrome.tipHeaderLeft, 2);
+    final advanced = await repository.loadAdvanced();
+    advanced.hideStatusBar = true;
+    await container.read(readerAdvConfigProvider.notifier).commit(advanced);
+    await tester.pumpAndSettle();
+    expect(view().pageChrome.hideStatusBar, isTrue);
+    expect(view().pageChrome.titleSize, 4);
+    expect(view().marginLeft, 23);
+    expect(tester.takeException(), isNull);
+    // 系统栏变化后排版会安排下一轮回写，卸载并推进事件时钟完成回调。
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('编辑内容继承阅读菜单主题，关闭动画与再次编辑不访问已释放控制器', (tester) async {

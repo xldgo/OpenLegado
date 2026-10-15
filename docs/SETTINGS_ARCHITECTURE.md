@@ -58,7 +58,8 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 AppReaderSettingsRepository 与 readerSettingsRepositoryProvider；旧
 ReaderConfigRepository 名称及转发接口不保留。ReaderSettings 表达已接入共享服务
 的普通偏好，包含翻页模式、字号、行距、正文/标题字体、目录字数显示和章节打开方式，
-并通过textLayout持有ReaderTextLayoutSettings正文排版分组；
+并通过textLayout持有ReaderTextLayoutSettings正文排版分组、pageLayout持有
+ReaderPageLayoutSettings页面分组；
 ReaderAdvancedConfig 继续表达其余高级参数，通过 loadAdvanced/saveAdvanced 保持原格式，
 不重复保存已迁走的基础字段。其他阅读偏好继续按实际消费者迁入，仓储改名不代表全域迁移完成。
 
@@ -273,7 +274,7 @@ PreferencesThemePresetRepository；已经使用检查写入结果的 setStringPr
 
 目标统一归 ReaderSettingsRepository；原存储均为 SharedPreferences。基础值在B1基线中
 由ReaderNotifier / SettingsService写入，高级值由原PreferencesReaderConfigRepository
-保存完整配置，字体页直接写字体键。B3的逐批接线见第11～16节，已迁字段只经其所属仓储写入。
+保存完整配置，字体页直接写字体键。B3的逐批接线见第11～17节，已迁字段只经其所属仓储写入。
 
 | 功能 / 真实键 | 类型、缺省与单位 | 消费/处理 |
 |---|---|---|
@@ -296,7 +297,7 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
 阅读域不重分配该键。阅读位置、书级配置及书籍实体不属于上述全局设置。
 
 下面按功能组记录B1基线的字段、键与消费者，不把已转出的字段算入当前高级模型。
-翻页、配色、字体及正文排版分别按第11～16节使用新入口；其余字段仍由高级配置保存。
+翻页、配色、字体、正文排版及页面布局按第11～17节使用新入口；其余字段仍由高级配置保存。
 
 | 高级字段 / 真实键 | 原类型、缺省及范围 | 实际消费路径 |
 |---|---|---|
@@ -373,7 +374,8 @@ AMOLED 背景判断目前既直接读取 PrefKeys.themeAmoled，又从 UiSetting
   ReaderSettingsMigration 的既有转换输入/中间标记，运行时仍使用上表的统一键。
 
 上述旧转换用于追溯B1基线，不作为新迁移的兼容要求。正文排版的字距px转换、旧bool缩进
-及分桶中的对应字段转换已经移除；尚未迁走的页面/提示参数暂沿用原入口。后续迁移直接
+及旧日夜布局转换已经移除；页脚旧默认转换也已删除，状态条四开关和菜单风格暂沿用
+剩余旧入口。后续迁移直接
 采用目标模型和规范键，不为未发布应用增加旧值双读、转换标识或兼容副本。
 翻页两套 int 编码不能相互直接赋值；实际模式默认 cover，高级副本默认 slide。
 收拢时应保留实际生效来源，并让全部可见选择器读写同一个领域值，不再保留仅
@@ -715,5 +717,53 @@ ReaderConfigPanel的中文断行、对齐与悬挂使用同一来源；保存失
 JS书源配置中的既有段距、字距和字重快照保持原值，不扩展本轮到FFI或业务契约修改。
 回归覆盖真实Preferences恢复、逐字段保存、旧高级快照隔离、保存失败重试、
 两个控件入口及实际ReaderScreen接参；执行结果和未测平台仅登记在活动计划。
+
+编写者：Codex｜2026-10-15
+
+
+## 17. 页面边距、标题及页眉页脚分组
+
+ReaderSettings.pageLayout持有ReaderPageLayoutSettings，按bodyPadding、title、
+header、footer与doubleHorizontalPage组成不可变快照。ReaderPagePadding只含
+四向dp数值，ReaderTitleSettings保存标题的显示模式、字号增量和上下间距；
+ReaderPageEdgeSettings保存某一边缘的模式、四向边距、分隔线与三个提示编号。
+这些模型不依赖Flutter类型，ReaderPageChromeConfig负责最终渲染投影。
+
+| 分组 | Preferences键 | 默认与范围 |
+|---|---|---|
+| 正文边距 | reader_page_margin_top/bottom/left/right | 24/24/20/20dp；上下0～400、左右0～100 |
+| 双页 | reader_double_horizontal_page | 0；0～3，原有效编码保持 |
+| 标题 | reader_title_mode/size/top_spacing/bottom_spacing | 均0；模式0～2、字号增量0～20、间距0～100 |
+| 页眉边距 | reader_header_padding_top/bottom/left/right | 0/0/16/16dp；范围同正文 |
+| 页脚边距 | reader_footer_padding_top/bottom/left/right | 6/6/16/16dp；范围同正文 |
+| 模式与分隔线 | reader_header_mode、reader_footer_mode、reader_header_show_line、reader_footer_show_line | 模式0；分隔线false/true |
+| 提示 | reader_header_tip_left/middle/right、reader_footer_tip_left/middle/right | 页眉2/0/3，页脚7/0/6；沿用现有提示编号 |
+
+存储仍为Preferences，直接使用新键，不读取或迁移该组旧reader_adv_*、驼峰键和
+旧日夜分桶，不增加兼容标识。ReaderPageLayoutCodec集中定义地址、解码和局部写入映射，
+不执行IO或缓存；ReaderSettingsRepository使用同一AppSettingsService加载、订阅和保存。
+updatePageLayout只写传入正文字段及双页；updatePageEdge指定页眉或页脚，
+updateTitle只写传入标题字段。边距左右联动一次提交两项，但落盘仍是逐字段操作，
+不宣称整批事务；失败按现有共享服务保留已成功字段并回退未成功字段。
+
+原“恢复默认边距”对正文采用6/6/16/16，与首次缺省不同，本轮分别保留。
+页眉恢复0/0/16/16，页脚恢复6/6/16/16。页脚模式也保留当前渲染函数的有效行为，
+不借设置迁移修改模式含义。上述区别在回归中分别验证，后续行为调整需单独核对。
+
+ReaderPaddingConfigSheet不再接收或回传高级配置副本，只保留当前区域和左右联动
+这两个交互状态；边距、重置及分隔线直接访问页面设置。ReaderTipConfigSheet的
+页面字段同源保存并订阅；仍属高级组的阅读状态条通过statusConfig/onStatusChanged
+单独接线，不携带页面副本。保存失败提示、回退控件并允许重试。
+
+ReaderScreen从同源分组向ReaderPageView传正文边距和双页，并通过
+ReaderPageChromeConfig.fromSettings生成页眉页脚与标题快照；hideStatusBar和标题字体
+分别由原屏幕配置、共享字体选择传入。保持既有几何、原文锚点、选区、翻页与朗读分页
+发布，不改排版算法、Rust/FRB或JS快照。备份恢复reload包含全部27项，阅读配置
+忽略集合覆盖规范键。
+
+移除该组在ReaderAdvancedConfig构造、复制及存储中的字段和旧默认转换，删除旧日夜
+布局迁移逻辑及其专属测试；reader_settings_migration仅暂留未迁菜单风格转换。
+剩余高级配置的队列、复制和状态条测试继续保留；用新页面仓储、控件与实际阅读器
+接参回归替代已失效的迁移测试。执行结果和设备边界只记录在活动计划。
 
 编写者：Codex｜2026-10-15

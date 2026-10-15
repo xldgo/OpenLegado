@@ -158,7 +158,7 @@ void main() {
     final advanced = await container
         .read(readerSettingsRepositoryProvider)
         .loadAdvanced();
-    advanced.pageMarginTop = 36;
+    advanced.autoPageTurnInterval = 36;
     await container
         .read(readerSettingsRepositoryProvider)
         .saveAdvanced(advanced);

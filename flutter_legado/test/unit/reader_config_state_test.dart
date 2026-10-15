@@ -49,11 +49,13 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(repository.loads, hasLength(1));
 
-    await notifier.commit(ReaderAdvancedConfig(pageMarginTop: 12));
-    repository.loads.single.complete(ReaderAdvancedConfig(pageMarginTop: 4));
-    expect((await first).pageMarginTop, 12);
-    expect((await second).pageMarginTop, 12);
-    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 12);
+    await notifier.commit(ReaderAdvancedConfig(autoPageTurnInterval: 12));
+    repository.loads.single.complete(
+      ReaderAdvancedConfig(autoPageTurnInterval: 4),
+    );
+    expect((await first).autoPageTurnInterval, 12);
+    expect((await second).autoPageTurnInterval, 12);
+    expect(container.read(readerAdvConfigProvider)!.autoPageTurnInterval, 12);
     expect(repository.saved, hasLength(1));
   });
 
@@ -65,8 +67,8 @@ void main() {
         .ensureLoaded();
     await Future<void>.delayed(Duration.zero);
     container.dispose();
-    repository.loads.single.complete(ReaderAdvancedConfig(titleSize: 16));
-    expect((await pending).titleSize, 16);
+    repository.loads.single.complete(ReaderAdvancedConfig(keepLight: 16));
+    expect((await pending).keepLight, 16);
     await Future<void>.delayed(Duration.zero);
   });
 
@@ -82,8 +84,8 @@ void main() {
     await failure;
     final retry = notifier.ensureLoaded();
     expect(repository.loads, hasLength(2));
-    repository.loads.last.complete(ReaderAdvancedConfig(titleSize: 14));
-    expect((await retry).titleSize, 14);
+    repository.loads.last.complete(ReaderAdvancedConfig(keepLight: 14));
+    expect((await retry).keepLight, 14);
   });
 
   test('提交持有独立快照，保存失败不回退新界面且后续操作可重试', () async {
@@ -91,22 +93,22 @@ void main() {
     final container = containerFor(repository);
     addTearDown(container.dispose);
     final notifier = container.read(readerAdvConfigProvider.notifier);
-    final edited = ReaderAdvancedConfig(pageMarginTop: 6);
+    final edited = ReaderAdvancedConfig(autoPageTurnInterval: 6);
     await notifier.commit(edited);
-    edited.pageMarginTop = 48;
+    edited.autoPageTurnInterval = 48;
     edited.tapActions[0] = TapAction.none;
-    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 6);
+    expect(container.read(readerAdvConfigProvider)!.autoPageTurnInterval, 6);
     expect(repository.saved.single.tapActions[0], TapAction.prevPage);
 
     repository.failSave = true;
     await expectLater(
-      notifier.commit(ReaderAdvancedConfig(pageMarginTop: 8)),
+      notifier.commit(ReaderAdvancedConfig(autoPageTurnInterval: 8)),
       throwsStateError,
     );
-    expect(container.read(readerAdvConfigProvider)!.pageMarginTop, 8);
+    expect(container.read(readerAdvConfigProvider)!.autoPageTurnInterval, 8);
     repository.failSave = false;
-    await notifier.commit(ReaderAdvancedConfig(pageMarginTop: 10));
-    expect(repository.saved.last.pageMarginTop, 10);
+    await notifier.commit(ReaderAdvancedConfig(autoPageTurnInterval: 10));
+    expect(repository.saved.last.autoPageTurnInterval, 10);
   });
 
   test('偏好读写串行，等待保存时不会读到半份配置或可变输入', () async {
@@ -119,22 +121,25 @@ void main() {
         return accesses == 1 ? gate.future : Future.value(prefs);
       },
     );
-    final input = ReaderAdvancedConfig(pageMarginTop: 6, titleTopSpacing: 1);
+    final input = ReaderAdvancedConfig(
+      autoPageTurnInterval: 6,
+      pageTouchClick: 1,
+    );
     final first = repository.saveAdvanced(input);
-    input.pageMarginTop = 48;
+    input.autoPageTurnInterval = 48;
     final second = repository.saveAdvanced(
-      ReaderAdvancedConfig(pageMarginTop: 10, titleTopSpacing: 2),
+      ReaderAdvancedConfig(autoPageTurnInterval: 10, pageTouchClick: 2),
     );
     final reading = repository.loadAdvanced();
     await Future<void>.delayed(Duration.zero);
     expect(accesses, 1);
     gate.complete(prefs);
     await first;
-    expect(prefs.getDouble('reader_adv_margin_top'), 6);
+    expect(prefs.getDouble('reader_adv_auto_interval'), 6);
     await second;
     final result = await reading;
-    expect(result.pageMarginTop, 10);
-    expect(result.titleTopSpacing, 2);
+    expect(result.autoPageTurnInterval, 10);
+    expect(result.pageTouchClick, 2);
   });
 
   test('一次偏好访问失败不阻断后续保存', () async {
@@ -147,10 +152,10 @@ void main() {
       },
     );
     await expectLater(
-      repository.saveAdvanced(ReaderAdvancedConfig(titleSize: 8)),
+      repository.saveAdvanced(ReaderAdvancedConfig(keepLight: 8)),
       throwsStateError,
     );
-    await repository.saveAdvanced(ReaderAdvancedConfig(titleSize: 16));
-    expect((await repository.loadAdvanced()).titleSize, 16);
+    await repository.saveAdvanced(ReaderAdvancedConfig(keepLight: 16));
+    expect((await repository.loadAdvanced()).keepLight, 16);
   });
 }

@@ -713,6 +713,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 .read(readerSettingsRepositoryProvider)
                 .current;
             final textLayout = readingSettings.textLayout;
+            final pageLayout = readingSettings.pageLayout;
             final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
             _advConfig = cfg;
             final bodyInsets = _stableBodyInsets(context);
@@ -764,12 +765,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               paragraphIndent: textLayout.paragraphIndent,
                               textFullJustify: textLayout.textFullJustify,
                               // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
-                              marginTop: _advConfig.pageMarginTop,
-                              marginBottom: _advConfig.pageMarginBottom,
-                              marginLeft: _advConfig.pageMarginLeft,
-                              marginRight: _advConfig.pageMarginRight,
-                              pageChrome: ReaderPageChromeConfig.fromAdvanced(
-                                _advConfig,
+                              marginTop: pageLayout.bodyPadding.top,
+                              marginBottom: pageLayout.bodyPadding.bottom,
+                              marginLeft: pageLayout.bodyPadding.left,
+                              marginRight: pageLayout.bodyPadding.right,
+                              pageChrome: ReaderPageChromeConfig.fromSettings(
+                                pageLayout,
+                                hideStatusBar: cfg.hideStatusBar,
                                 titleFontFamily:
                                     readingSettings.titleFontFamily,
                               ),
@@ -787,7 +789,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               // [UI-fix v2.0.5 | 2026-08-10] 双页模式档位透传（对标原版
                               // doubleHorizontalPage 0-3 档）— Reasonix
                               doubleHorizontalPage:
-                                  _advConfig.doubleHorizontalPage,
+                                  pageLayout.doubleHorizontalPage,
                               // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关透传（对标原版
                               // useZhLayout）— Reasonix
                               useZhLayout: textLayout.useZhLayout,

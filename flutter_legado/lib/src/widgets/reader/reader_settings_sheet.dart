@@ -273,8 +273,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       ReaderSettingsCategory.layout => <Widget>[
         _configPanel(adv, ReaderConfigSection.pageLayout),
         ReaderTipConfigSheet(
-          config: adv.copy(),
-          onChanged: _commitAdv,
           embedded: true,
           showStatusBar: false,
           titleFont: ReaderFontPanel(titleOnly: true, embedded: true),

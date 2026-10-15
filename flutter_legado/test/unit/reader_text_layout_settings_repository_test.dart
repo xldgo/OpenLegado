@@ -183,7 +183,7 @@ void main() {
       paragraphSpacing: 12,
       italic: true,
     );
-    advanced.pageMarginTop = 38;
+    advanced.autoPageTurnInterval = 38;
     await repository.saveAdvanced(advanced);
     expect(
       repository.current.textLayout,
@@ -208,7 +208,7 @@ void main() {
     ]) {
       expect(prefs.containsKey(key), isFalse, reason: key);
     }
-    expect(prefs.getDouble('reader_adv_margin_top'), 38);
+    expect(prefs.getDouble('reader_adv_auto_interval'), 38);
   });
 
   test('恢复重读八项，读取失败保留当前快照', () async {

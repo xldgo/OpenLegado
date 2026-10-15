@@ -130,7 +130,7 @@ void main() {
     storage.writeFailure = false;
     final advanced = AppReaderSettingsRepository(service);
     final config = await advanced.loadAdvanced();
-    config.pageMarginTop = 12;
+    config.autoPageTurnInterval = 12;
     await advanced.saveAdvanced(config);
     expect(repository.current, before);
     expect(

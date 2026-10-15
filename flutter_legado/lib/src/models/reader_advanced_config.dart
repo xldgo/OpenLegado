@@ -1,8 +1,5 @@
 import 'dart:ui';
 
-/// 边距区域（对标原版 PaddingConfigDialog.Region）
-enum PaddingRegion { header, body, footer }
-
 /// 点击区域可映射的功能
 enum TapAction {
   none,
@@ -81,41 +78,6 @@ class ReaderAdvancedConfig {
     return List<TapAction>.of(actions ?? defaultTapActions, growable: false);
   }
 
-  // [UI-fix v2.0.3 | 2026-08-06] 页面边距（对标原版 ReadBookConfig
-  // paddingTop/paddingBottom/paddingLeft/paddingRight） — Qoder
-  double pageMarginTop;
-  double pageMarginBottom;
-  double pageMarginLeft;
-  double pageMarginRight;
-
-  // [UI-fix v2.0.57 | 2026-08-14] 页眉/页脚边距（对标 ReadBookConfig
-  // headerPadding*/footerPadding*）— Cursor UI
-  double headerPaddingTop;
-  double headerPaddingBottom;
-  double headerPaddingLeft;
-  double headerPaddingRight;
-  double footerPaddingTop;
-  double footerPaddingBottom;
-  double footerPaddingLeft;
-  double footerPaddingRight;
-  bool showHeaderLine;
-  bool showFooterLine;
-
-  // [UI-fix v2.0.57 | 2026-08-14] 阅读提示信息（对标 TipConfigDialog /
-  // ReadTipConfig）— Cursor UI
-  int headerMode;
-  int footerMode;
-  int tipHeaderLeft;
-  int tipHeaderMiddle;
-  int tipHeaderRight;
-  int tipFooterLeft;
-  int tipFooterMiddle;
-  int tipFooterRight;
-  int titleMode;
-  int titleSize;
-  int titleTopSpacing;
-  int titleBottomSpacing;
-
   // 状态栏提示栏
   bool showBattery;
   bool showTime;
@@ -185,10 +147,6 @@ class ReaderAdvancedConfig {
   /// 鼠标滚轮翻页（对标原版 mouseWheelPage，桌面端真实生效）
   bool mouseWheelPage;
 
-  /// 双页模式（0全局单页/1全局双页/2横屏双页/3平板或横屏双页，
-  /// 对标原版 doubleHorizontalPage；已接入 ReaderPageView 分页/渲染）
-  int doubleHorizontalPage;
-
   /// 滑动翻页阈值（px，0=系统默认值，对标原版 pageTouchSlop）
   int pageTouchSlop;
 
@@ -206,34 +164,6 @@ class ReaderAdvancedConfig {
     this.autoPageTurnInterval = 10,
     this.autoPageTurnForward = true,
     List<TapAction>? tapActions,
-    this.pageMarginTop = 24,
-    this.pageMarginBottom = 24,
-    this.pageMarginLeft = 20,
-    this.pageMarginRight = 20,
-    this.headerPaddingTop = 0,
-    this.headerPaddingBottom = 0,
-    this.headerPaddingLeft = 16,
-    this.headerPaddingRight = 16,
-    this.footerPaddingTop = 6,
-    this.footerPaddingBottom = 6,
-    this.footerPaddingLeft = 16,
-    this.footerPaddingRight = 16,
-    this.showHeaderLine = false,
-    this.showFooterLine = true,
-    this.headerMode = 0,
-    this.footerMode = 0,
-    this.tipHeaderLeft = 2,
-    this.tipHeaderMiddle = 0,
-    this.tipHeaderRight = 3,
-    // [C2 R5] 底栏左侧语义对齐参考：参考底栏左显示书名（斗罗大陆），
-    // 我方原为章节名（截断）。tipFooterLeft 由 1(章节名) 改 7(书名)。
-    this.tipFooterLeft = 7,
-    this.tipFooterMiddle = 0,
-    this.tipFooterRight = 6,
-    this.titleMode = 0,
-    this.titleSize = 0,
-    this.titleTopSpacing = 0,
-    this.titleBottomSpacing = 0,
     // [C2 R4] 顶部「时间+章节名+进度」状态行默认关闭（参考该态无此信息行；
     // 头部信息开关默认关，用户可在「阅读提示信息」面板手动开启）
     this.showBattery = false,
@@ -267,7 +197,6 @@ class ReaderAdvancedConfig {
     this.volumeKeyPage = true,
     this.volumeKeyPageOnPlay = false,
     this.mouseWheelPage = true,
-    this.doubleHorizontalPage = 0,
     this.pageTouchSlop = 0,
     this.pageTouchClick = 0,
     this.readBodyToLh = false,
@@ -275,46 +204,11 @@ class ReaderAdvancedConfig {
   }) : tapActions = _copyTapActions(tapActions);
 
   /// 各区域默认边距（对标 ReadBookConfig.Config 默认值）
-  static Map<PaddingRegion, Map<String, double>> regionDefaultPaddings() => {
-    PaddingRegion.header: {'top': 0, 'bottom': 0, 'left': 16, 'right': 16},
-    PaddingRegion.body: {'top': 6, 'bottom': 6, 'left': 16, 'right': 16},
-    PaddingRegion.footer: {'top': 6, 'bottom': 6, 'left': 16, 'right': 16},
-  };
-
-  static double defaultPaddingFor(PaddingRegion region, String side) =>
-      regionDefaultPaddings()[region]![side]!;
-
   ReaderAdvancedConfig copy() => ReaderAdvancedConfig(
     autoPageTurn: autoPageTurn,
     autoPageTurnInterval: autoPageTurnInterval,
     autoPageTurnForward: autoPageTurnForward,
     tapActions: tapActions,
-    pageMarginTop: pageMarginTop,
-    pageMarginBottom: pageMarginBottom,
-    pageMarginLeft: pageMarginLeft,
-    pageMarginRight: pageMarginRight,
-    headerPaddingTop: headerPaddingTop,
-    headerPaddingBottom: headerPaddingBottom,
-    headerPaddingLeft: headerPaddingLeft,
-    headerPaddingRight: headerPaddingRight,
-    footerPaddingTop: footerPaddingTop,
-    footerPaddingBottom: footerPaddingBottom,
-    footerPaddingLeft: footerPaddingLeft,
-    footerPaddingRight: footerPaddingRight,
-    showHeaderLine: showHeaderLine,
-    showFooterLine: showFooterLine,
-    headerMode: headerMode,
-    footerMode: footerMode,
-    tipHeaderLeft: tipHeaderLeft,
-    tipHeaderMiddle: tipHeaderMiddle,
-    tipHeaderRight: tipHeaderRight,
-    tipFooterLeft: tipFooterLeft,
-    tipFooterMiddle: tipFooterMiddle,
-    tipFooterRight: tipFooterRight,
-    titleMode: titleMode,
-    titleSize: titleSize,
-    titleTopSpacing: titleTopSpacing,
-    titleBottomSpacing: titleBottomSpacing,
     showBattery: showBattery,
     showTime: showTime,
     showProgress: showProgress,
@@ -344,7 +238,6 @@ class ReaderAdvancedConfig {
     volumeKeyPage: volumeKeyPage,
     volumeKeyPageOnPlay: volumeKeyPageOnPlay,
     mouseWheelPage: mouseWheelPage,
-    doubleHorizontalPage: doubleHorizontalPage,
     pageTouchSlop: pageTouchSlop,
     pageTouchClick: pageTouchClick,
     readBodyToLh: readBodyToLh,
