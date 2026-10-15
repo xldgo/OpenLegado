@@ -190,6 +190,21 @@ class _ReadAloudSettingsScreenState
                       )
                     : null,
               ),
+              SettingMenuRow<bool>(
+                title: strings.readAloudMediaButtons,
+                value: preferences.mediaButtonPerNext,
+                options: {
+                  true: strings.readAloudMediaByChapter,
+                  false: strings.readAloudMediaByParagraph,
+                },
+                onChanged: enabled
+                    ? (value) => _save(
+                        () => ref
+                            .read(readAloudPreferencesProvider.notifier)
+                            .setMediaButtonPerNext(value),
+                      )
+                    : null,
+              ),
               SettingStepperRow(
                 title: strings.readAloudSpeed,
                 value: preferences.manualSpeed,

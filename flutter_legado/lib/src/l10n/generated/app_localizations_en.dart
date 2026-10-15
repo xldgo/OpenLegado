@@ -4197,4 +4197,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readAloudCurrentChapter => 'Current chapter';
+
+  @override
+  String get readAloudMediaButtons => 'Notification and headset previous/next';
+
+  @override
+  String get readAloudMediaByChapter => 'Change chapter';
+
+  @override
+  String get readAloudMediaByParagraph => 'Change spoken segment';
 }

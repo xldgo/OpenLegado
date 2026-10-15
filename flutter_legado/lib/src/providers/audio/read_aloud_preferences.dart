@@ -22,6 +22,7 @@ final class ReadAloudPreferences {
   String get splitSymbols => settings.splitSymbols;
   bool get followSystem => settings.followSystem;
   bool get detachReminder => settings.detachReminder;
+  bool get mediaButtonPerNext => settings.mediaButtonPerNext;
   double get manualSpeed => settings.manualSpeed;
   int get paragraphIntervalMs => settings.paragraphIntervalMs;
   int get audioPreDownloadNum => settings.audioPreDownloadNum;
@@ -100,6 +101,9 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
 
   Future<void> setDetachReminder(bool value) =>
       _update((current) => current.copyWith(detachReminder: value));
+
+  Future<void> setMediaButtonPerNext(bool value) =>
+      _update((current) => current.copyWith(mediaButtonPerNext: value));
 
   Future<void> setFollowSystem(bool follow) =>
       _update((current) => current.copyWith(followSystem: follow));

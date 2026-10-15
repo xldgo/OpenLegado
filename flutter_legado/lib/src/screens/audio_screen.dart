@@ -79,6 +79,19 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final notifier = ref.read(audioNotifierProvider.notifier);
+      final current = ref.read(audioNotifierProvider);
+      unawaited(
+        notifier.isWakeLockEnabled().then((v) {
+          if (mounted) setState(() => _wakeLock = v);
+        }),
+      );
+      // 通知回到已有会话只显示页面，不重新应用配置、取章或重启音频。
+      if (current.bookUrl == widget.effectiveBookUrl &&
+          current.hasChapters &&
+          current.state != PlayerState.idle &&
+          current.isMediaSessionReady) {
+        return;
+      }
       // 音频书 → 流媒体；否则保持 TTS（阅读器朗读入口会强制 TTS）
       notifier.setAudioBookMode(_canCopyPlayUrl);
       notifier.bindBook(widget.book);
@@ -96,11 +109,6 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
             }),
       );
       notifier.initMediaSession(bookName: widget.effectiveBookName);
-      unawaited(
-        notifier.isWakeLockEnabled().then((v) {
-          if (mounted) setState(() => _wakeLock = v);
-        }),
-      );
       if (!ref.read(audioNotifierProvider).hasChapters) {
         notifier.loadChapters(widget.effectiveBookUrl);
       }
@@ -109,14 +117,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
 
   @override
   void dispose() {
-    // 定时归 Notifier 所有，退出听书页不取消倒计时或按章停止。
-    // 释放媒体会话资源（后台播放/焦点）
-    // [UI-fix v2.0.11 | 2026-08-10] 防御卸载时序边界：element 已 dispose
-    // 时（快速连续导航/测试环境树卸载）ref.read 会抛
-    // 「Cannot use ref after the widget was disposed」，跳过释放 — Reasonix
-    try {
-      ref.read(audioNotifierProvider.notifier).releaseMediaSession();
-    } catch (_) {}
+    // 播放与媒体会话归AudioNotifier所有，页面退出不撤销后台控制。
     super.dispose();
   }
 

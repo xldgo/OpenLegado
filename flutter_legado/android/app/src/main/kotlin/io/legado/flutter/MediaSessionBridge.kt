@@ -2,7 +2,11 @@ package io.legado.flutter
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
 import android.os.PowerManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -30,6 +34,7 @@ import io.flutter.plugin.common.MethodChannel
  * - abandonAudioFocus: 放弃音频焦点
  * - updatePlaybackState: 更新播放状态
  * - updateMetadata: 更新媒体元数据
+ * - updateArtwork: 更新当前媒体封面，拒绝过期身份
  * - release: 释放资源
  *
  * 回调事件（Android → Flutter）：
@@ -43,6 +48,7 @@ import io.flutter.plugin.common.MethodChannel
 class MediaSessionBridge {
 
     companion object {
+        const val ACTION_OPEN_PLAYBACK = "io.legado.flutter.OPEN_PLAYBACK"
         /// [体检 §一.2] 当前活跃桥(前台服务构建媒体通知时读取 session token)
         @Volatile
         var active: MediaSessionBridge? = null
@@ -76,31 +82,29 @@ class MediaSessionBridge {
     private var isPlaying = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var wakeLockEnabled = false
+    private var metadataMediaId: String? = null
+    private var metadataSessionToken = 0L
+    private var artwork: Bitmap? = null
 
-    /// MediaSession 支持的操作（复刻原版 MediaHelp.MEDIA_SESSION_ACTIONS）
-    private val mediaSessionActions = (
-        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-            or PlaybackStateCompat.ACTION_REWIND
-            or PlaybackStateCompat.ACTION_PLAY
-            or PlaybackStateCompat.ACTION_PLAY_PAUSE
-            or PlaybackStateCompat.ACTION_PAUSE
-            or PlaybackStateCompat.ACTION_STOP
-            or PlaybackStateCompat.ACTION_FAST_FORWARD
-            or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-            or PlaybackStateCompat.ACTION_SEEK_TO
-            or PlaybackStateCompat.ACTION_SET_RATING
-            or PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID
-            or PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
-            or PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM
-            or PlaybackStateCompat.ACTION_PLAY_FROM_URI
-            or PlaybackStateCompat.ACTION_PREPARE
-            or PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
-            or PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH
-            or PlaybackStateCompat.ACTION_PREPARE_FROM_URI
-            or PlaybackStateCompat.ACTION_SET_REPEAT_MODE
-            or PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE
-            or PlaybackStateCompat.ACTION_SET_CAPTIONING_ENABLED
-    )
+    // 只公开已经接通的操作，未知时长时不宣称支持拖动。— Codex + Bridge
+    private var timelineChapter = -1
+    private var timelineKnown = false
+    private var seekEnabled = false
+    private var previousEnabled = true
+    private var nextEnabled = true
+    private var timelineSpeed = 1f
+    private var navigationReady = false
+    private var pendingOpen: Map<String, Any>? = null
+    private var navigationKey: String? = null
+
+    private fun mediaActions(): Long {
+        var actions = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
+            PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_STOP
+        if (previousEnabled) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+        if (nextEnabled) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+        if (seekEnabled) actions = actions or PlaybackStateCompat.ACTION_SEEK_TO
+        return actions
+    }
 
     /// 音频焦点变化监听器（复刻原版 BaseReadAloudService.onAudioFocusChange）
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
@@ -139,6 +143,15 @@ class MediaSessionBridge {
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result, context: Context) {
         when (call.method) {
             "init" -> initMediaSession(context, result)
+            "takePendingOpen" -> {
+                navigationReady = true
+                result.success(pendingOpen)
+                pendingOpen = null
+            }
+            "updateProgress" -> {
+                updateProgress(call)
+                result.success(null)
+            }
             "requestAudioFocus" -> requestAudioFocus(result)
             "abandonAudioFocus" -> abandonAudioFocus(result)
             "updatePlaybackState" -> {
@@ -152,7 +165,18 @@ class MediaSessionBridge {
                 val title = call.argument<String>("title") ?: ""
                 val artist = call.argument<String>("artist") ?: ""
                 val album = call.argument<String>("album") ?: ""
-                updateMetadata(title, artist, album)
+                val mediaId = call.argument<String>("mediaId") ?: ""
+                val sessionToken = longFromArgument(call.argument("sessionToken"))
+                val timerText = call.argument<String>("timerText") ?: ""
+                updateMetadata(title, artist, album, mediaId, sessionToken, timerText)
+                result.success(null)
+            }
+            "updateArtwork" -> {
+                updateArtwork(
+                    call.argument<String>("mediaId") ?: "",
+                    longFromArgument(call.argument("sessionToken")),
+                    call.argument<ByteArray>("artworkBytes"),
+                )
                 result.success(null)
             }
             "setPlaying" -> {
@@ -232,6 +256,15 @@ class MediaSessionBridge {
 
             // 注册回调（复刻原版 MediaSessionCompat.Callback）
             setCallback(object : MediaSessionCompat.Callback() {
+                override fun onSeekTo(pos: Long) {
+                    val id = metadataMediaId ?: return
+                    if (!seekEnabled || timelineChapter < 0) return
+                    invokeFlutter("onSeekTo", mapOf(
+                        "mediaId" to id, "sessionToken" to metadataSessionToken,
+                        "chapterIndex" to timelineChapter, "position" to pos.coerceAtLeast(0),
+                    ))
+                }
+
                 override fun onPlay() {
                     invokeFlutter("onPlay", null)
                 }
@@ -327,6 +360,7 @@ class MediaSessionBridge {
      * 更新播放状态（复刻原版 upMediaSessionPlaybackState）
      */
     private fun updatePlaybackState(state: String, position: Long) {
+        if (state == "stopped") clearArtworkIdentity()
         val playbackState = when (state) {
             "playing" -> PlaybackStateCompat.STATE_PLAYING
             "paused" -> PlaybackStateCompat.STATE_PAUSED
@@ -335,10 +369,18 @@ class MediaSessionBridge {
             else -> PlaybackStateCompat.STATE_NONE
         }
 
+        val previous = mediaSession?.controller?.playbackState
+        // 播放/暂停便捷消息不把已发布的时间轴重置到默认0。
+        val effectivePosition = if (timelineKnown && previous != null) {
+            val elapsed = if (previous.state == PlaybackStateCompat.STATE_PLAYING)
+                (SystemClock.elapsedRealtime() - previous.lastPositionUpdateTime).coerceAtLeast(0) else 0
+            val duration = currentMetadata()?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: 0
+            (previous.position + (elapsed * previous.playbackSpeed).toLong()).coerceIn(0, duration.coerceAtLeast(0))
+        } else position
         mediaSession?.setPlaybackState(
             PlaybackStateCompat.Builder()
-                .setActions(mediaSessionActions)
-                .setState(playbackState, position, 1f)
+                .setActions(mediaActions())
+                .setState(playbackState, effectivePosition, if (state == "playing") timelineSpeed else 0f)
                 .build()
         )
 
@@ -359,18 +401,123 @@ class MediaSessionBridge {
     /**
      * 更新媒体元数据（复刻原版 upMediaMetadata）
      */
-    private fun updateMetadata(title: String, artist: String, album: String) {
+    private fun updateMetadata(
+        title: String, artist: String, album: String,
+        mediaId: String, sessionToken: Long, timerText: String,
+    ) {
+        // 同书切章和倒计时保留图片，换书或遮蔽变化先清空。— Codex + Bridge
+        if (metadataMediaId != mediaId || metadataSessionToken != sessionToken) {
+            artwork = null
+            timelineKnown = false
+            seekEnabled = false
+            timelineChapter = -1
+        }
+        metadataMediaId = mediaId
+        metadataSessionToken = sessionToken
         val metadata = MediaMetadataCompat.Builder()
             .putText(MediaMetadataCompat.METADATA_KEY_TITLE, title)
             .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
             .putText(MediaMetadataCompat.METADATA_KEY_ALBUM, album)
+            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
+            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, artist)
+            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, timerText)
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_ART, artwork)
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artwork)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION,
+                if (timelineKnown) currentMetadata()?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: 0 else 0)
             .build()
         mediaSession?.setMetadata(metadata)
-        // [听书定时第2项 | 2026-10-03] 元数据变化 → 重发前台通知：
-        // 定时剩余量（分钟整数/剩余章数）随 ARTIST 变化即时刷新通知标题，
-        // 复刻原版 upReadAloudNotification 在 upMediaMetadata 后重发通知的行为
-        // （BaseReadAloudService.kt:768-777）。服务未运行时为空操作。
         PlaybackForegroundService.refreshNotification()
+    }
+
+    private fun updateArtwork(mediaId: String, sessionToken: Long, bytes: ByteArray?) {
+        if (metadataMediaId != mediaId || metadataSessionToken != sessionToken) return
+        val current = currentMetadata() ?: return
+        var image: Bitmap? = null
+        if (bytes != null) {
+            if (bytes.isEmpty() || bytes.size > 1024 * 1024) return
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth !in 1..384 || bounds.outHeight !in 1..384) return
+            image = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
+        }
+        artwork = image
+        mediaSession?.setMetadata(
+            MediaMetadataCompat.Builder(current)
+                .putBitmap(MediaMetadataCompat.METADATA_KEY_ART, image)
+                .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, image)
+                .build()
+        )
+        // 图片更新不启动服务，也不更改章节、计时或播放状态。
+        PlaybackForegroundService.refreshNotification()
+    }
+
+    private fun updateProgress(call: MethodCall) {
+        val id = call.argument<String>("mediaId") ?: return
+        val token = longFromArgument(call.argument("sessionToken"))
+        if (metadataMediaId != id || metadataSessionToken != token) return
+        val chapter = longFromArgument(call.argument("chapterIndex")).toInt()
+        if (chapter < 0) return
+        val duration = longFromArgument(call.argument("duration")).coerceAtLeast(0)
+        val position = longFromArgument(call.argument("position")).coerceIn(0, duration)
+        val speed = (call.argument<Number>("speed")?.toFloat() ?: 1f)
+        if (!speed.isFinite() || speed <= 0) return
+        val metadata = currentMetadata() ?: return
+        timelineChapter = chapter
+        timelineKnown = true
+        timelineSpeed = speed
+        seekEnabled = duration > 0 && call.argument<Boolean>("canSeek") == true
+        previousEnabled = call.argument<Boolean>("hasPrevious") == true
+        nextEnabled = call.argument<Boolean>("hasNext") == true
+        val state = when (call.argument<String>("state")) {
+            "playing" -> PlaybackStateCompat.STATE_PLAYING
+            "buffering" -> PlaybackStateCompat.STATE_BUFFERING
+            else -> PlaybackStateCompat.STATE_PAUSED
+        }
+        if (metadata.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) != duration) {
+            mediaSession?.setMetadata(MediaMetadataCompat.Builder(metadata)
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration).build())
+        }
+        mediaSession?.setPlaybackState(PlaybackStateCompat.Builder()
+            .setActions(mediaActions())
+            .setState(state, position, if (state == PlaybackStateCompat.STATE_PLAYING) speed else 0f)
+            .build())
+        val key = "$id\u0001$token\u0001$chapter"
+        if (key != navigationKey) {
+            val context = appContext ?: return
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+            intent.action = ACTION_OPEN_PLAYBACK
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            intent.putExtra("mediaId", id)
+            intent.putExtra("sessionToken", token)
+            intent.putExtra("chapterIndex", chapter)
+            mediaSession?.setSessionActivity(PendingIntent.getActivity(context, 0x1E61, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            navigationKey = key
+            PlaybackForegroundService.refreshNotification()
+        }
+    }
+
+    /** 入口Activity负责接收Intent，导航是否仍属于当前会话由Dart校验。 */
+    fun handlePlaybackIntent(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_PLAYBACK) return
+        val id = intent.getStringExtra("mediaId") ?: return
+        val token = intent.getLongExtra("sessionToken", 0)
+        val chapter = intent.getIntExtra("chapterIndex", -1)
+        if (id.isEmpty() || token <= 0 || chapter < 0) return
+        val target = mapOf<String, Any>("mediaId" to id, "sessionToken" to token, "chapterIndex" to chapter)
+        if (navigationReady) invokeFlutter("onOpenPlayback", target) else pendingOpen = target
+    }
+
+    private fun clearArtworkIdentity() {
+        timelineKnown = false
+        seekEnabled = false
+        timelineChapter = -1
+        navigationKey = null
+        metadataMediaId = null
+        metadataSessionToken = 0L
+        artwork = null
+        mediaSession?.setMetadata(null)
     }
 
     /**
@@ -392,6 +539,7 @@ class MediaSessionBridge {
         mediaSession?.controller?.sessionActivity
 
     fun release() {
+        clearArtworkIdentity()
         // 放弃焦点
         audioManager?.let { am ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

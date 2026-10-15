@@ -4539,5 +4539,8 @@
   "readAloudTimerFinishChapterHint": "倒计时结束后继续播放，到本章结束再停止。",
   "readAloudChapters": "{chapters} 章",
   "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
-  "readAloudCurrentChapter": "当前章"
+  "readAloudCurrentChapter": "当前章",
+  "readAloudMediaButtons": "通知和耳机前后按钮",
+  "readAloudMediaByChapter": "切换章节",
+  "readAloudMediaByParagraph": "切换朗读段落"
 }

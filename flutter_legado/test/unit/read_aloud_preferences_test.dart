@@ -69,6 +69,26 @@ void main() {
     expect(restored.read(readAloudPreferencesProvider).detachReminder, false);
   });
 
+  test('媒体按钮默认切章，切段保存和失败回退均来自同一设置仓库', () async {
+    await notifier().load();
+    expect(state().mediaButtonPerNext, isTrue);
+    await notifier().setMediaButtonPerNext(false);
+    expect(saved['mediaButtonPerNext'], 'false');
+    final restored = ProviderContainer(
+      overrides: [bookApiProvider.overrideWithValue(api)],
+    );
+    addTearDown(restored.dispose);
+    await restored.read(readAloudPreferencesProvider.notifier).load();
+    expect(
+      restored.read(readAloudPreferencesProvider).mediaButtonPerNext,
+      isFalse,
+    );
+    when(() => api.setConfig('mediaButtonPerNext', 'true'))
+        .thenThrow(StateError('保存失败'));
+    await expectLater(notifier().setMediaButtonPerNext(true), throwsStateError);
+    expect(state().mediaButtonPerNext, isFalse);
+  });
+
   test('跟随模式切换保留手动语速，重建容器恢复偏好', () async {
     saved.addAll({
       'ttsFollowSys': 'false',

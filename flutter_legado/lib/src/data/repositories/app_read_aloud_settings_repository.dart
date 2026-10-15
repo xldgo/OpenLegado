@@ -42,6 +42,10 @@ final class AppReadAloudSettingsRepository
     storage: SettingsStorageKind.rustConfig,
     key: 'readAloudDetachReminderEnabled',
   );
+  static const _mediaButtons = (
+    storage: SettingsStorageKind.rustConfig,
+    key: 'mediaButtonPerNext',
+  );
   static const _preDownload = (
     storage: SettingsStorageKind.rustConfig,
     key: 'audioPreDownloadNum',
@@ -66,6 +70,7 @@ final class AppReadAloudSettingsRepository
     _rate,
     _interval,
     _detach,
+    _mediaButtons,
     _preDownload,
     _concurrency,
     _cleanTime,
@@ -93,6 +98,8 @@ final class AppReadAloudSettingsRepository
       followSystem:
           follow == null || follow.isEmpty || follow == 'true' || follow == '1',
       detachReminder: snapshot[_detach] != 'false' && snapshot[_detach] != '0',
+      mediaButtonPerNext:
+          snapshot[_mediaButtons] != 'false' && snapshot[_mediaButtons] != '0',
       manualSpeed: ((rate + 5) / 10).clamp(0.5, 3),
       paragraphIntervalMs:
           (int.tryParse(snapshot[_interval] as String? ?? '') ?? 0).clamp(
@@ -128,6 +135,7 @@ final class AppReadAloudSettingsRepository
     _follow: settings.followSystem ? 'true' : 'false',
     _interval: settings.paragraphIntervalMs.toString(),
     _detach: settings.detachReminder ? 'true' : 'false',
+    _mediaButtons: settings.mediaButtonPerNext ? 'true' : 'false',
     _preDownload: settings.audioPreDownloadNum.toString(),
     _concurrency: settings.ttsPreSynthesisConcurrency.toString(),
     _cleanTime: settings.audioCacheCleanTime.toString(),

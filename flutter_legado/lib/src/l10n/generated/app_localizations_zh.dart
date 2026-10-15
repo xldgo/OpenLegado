@@ -3969,4 +3969,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readAloudCurrentChapter => '当前章';
+
+  @override
+  String get readAloudMediaButtons => '通知和耳机前后按钮';
+
+  @override
+  String get readAloudMediaByChapter => '切换章节';
+
+  @override
+  String get readAloudMediaByParagraph => '切换朗读段落';
 }

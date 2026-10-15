@@ -180,6 +180,7 @@ open class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initialDeepLink = intent?.dataString
+        mediaSessionBridge.handlePlaybackIntent(intent)
         pendingAutoTaskDue =
             intent?.getBooleanExtra(AutoTaskJobBridge.EXTRA_AUTO_TASK_DUE, false) == true
         pendingAutoTaskMinimize =
@@ -192,6 +193,7 @@ open class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        mediaSessionBridge.handlePlaybackIntent(intent)
         val link = intent.dataString
         if (!link.isNullOrEmpty()) {
             deepLinkChannel?.invokeMethod("onLink", link)

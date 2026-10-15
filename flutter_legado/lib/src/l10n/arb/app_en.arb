@@ -1307,5 +1307,8 @@
   "readAloudTimerFinishChapterHint": "Continue until the current chapter finishes after the countdown ends.",
   "readAloudChapters": "{chapters} chapters",
   "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
-  "readAloudCurrentChapter": "Current chapter"
+  "readAloudCurrentChapter": "Current chapter",
+  "readAloudMediaButtons": "Notification and headset previous/next",
+  "readAloudMediaByChapter": "Change chapter",
+  "readAloudMediaByParagraph": "Change spoken segment"
 }

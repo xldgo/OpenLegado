@@ -413,20 +413,20 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 IconButton(
-                  tooltip: strings.readAloudPreviousParagraph,
+                  tooltip: strings.previousChapter,
                   icon: const Icon(Icons.skip_previous),
+                  onPressed: enabled && audio.hasPrevious
+                      ? () => _run(notifier.previous)
+                      : null,
+                ),
+                IconButton(
+                  tooltip: strings.readAloudPreviousParagraph,
+                  icon: const Icon(Icons.fast_rewind),
                   onPressed:
                       enabled &&
                           paragraphs.isNotEmpty &&
                           (notifier.hasPrevParagraph || audio.hasPrevious)
                       ? () => _run(notifier.prevParagraph)
-                      : null,
-                ),
-                IconButton(
-                  tooltip: strings.previousChapter,
-                  icon: const Icon(Icons.fast_rewind),
-                  onPressed: enabled && audio.hasPrevious
-                      ? () => _run(notifier.previous)
                       : null,
                 ),
                 ReadAloudPlayPauseButton(
@@ -443,20 +443,20 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
                       : null,
                 ),
                 IconButton(
-                  tooltip: strings.nextChapter,
-                  icon: const Icon(Icons.fast_forward),
-                  onPressed: enabled && audio.hasNext
-                      ? () => _run(notifier.next)
-                      : null,
-                ),
-                IconButton(
                   tooltip: strings.readAloudNextParagraph,
-                  icon: const Icon(Icons.skip_next),
+                  icon: const Icon(Icons.fast_forward),
                   onPressed:
                       enabled &&
                           paragraphs.isNotEmpty &&
                           (notifier.hasNextParagraph || audio.hasNext)
                       ? () => _run(notifier.nextParagraph)
+                      : null,
+                ),
+                IconButton(
+                  tooltip: strings.nextChapter,
+                  icon: const Icon(Icons.skip_next),
+                  onPressed: enabled && audio.hasNext
+                      ? () => _run(notifier.next)
                       : null,
                 ),
               ],

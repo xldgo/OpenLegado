@@ -19,6 +19,7 @@ import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 
 import '../mocks/mocks.dart';
+import '../fixtures/media_artwork_loader.dart';
 
 void main() {
   late MockRustApi mockApi;
@@ -27,6 +28,17 @@ void main() {
   late ProviderContainer container;
   late StreamController<AudioFocusEvent> focusController;
   late StreamController<MediaButtonEvent> buttonController;
+
+  // 播放中的周期时钟必须在Widget测试检查计时器前销毁。
+  void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        container.dispose();
+      }
+    });
+  }
 
   setUpAll(() {
     registerFallbacks();
@@ -51,6 +63,9 @@ void main() {
         title: any(named: 'title'),
         artist: any(named: 'artist'),
         album: any(named: 'album'),
+        mediaId: any(named: 'mediaId'),
+        sessionToken: any(named: 'sessionToken'),
+        timerText: any(named: 'timerText'),
       ),
     ).thenAnswer((_) async {});
     when(() => mockAudio.notifyPlaying(position: any(named: 'position')))
@@ -74,9 +89,9 @@ void main() {
         bookApiProvider.overrideWithValue(mockApi),
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(mockAudio),
+        mediaArtworkLoaderProvider.overrideWithValue(FakeMediaArtworkLoader()),
       ],
     );
-    addTearDown(container.dispose);
     addTearDown(() async {
       await focusController.close();
       await buttonController.close();
@@ -145,7 +160,7 @@ void main() {
   }
 
   group('流模式焦点事件（外部抢占暂停语义保留）', () {
-    testWidgets('lossTransient → 暂停流播放（pause，不丢弃进度）', (tester) async {
+    testPlayback('lossTransient → 暂停流播放（pause，不丢弃进度）', (tester) async {
       await startStreamPlayback();
       expect(readState().state, PlayerState.playing);
       final pauseBefore = fakePlayer.pauseCount;
@@ -158,7 +173,7 @@ void main() {
       expect(fakePlayer.stopCount, 0);
     });
 
-    testWidgets('loss（永久丢失）→ 暂停流播放', (tester) async {
+    testPlayback('loss（永久丢失）→ 暂停流播放', (tester) async {
       await startStreamPlayback();
 
       focusController.add(AudioFocusEvent.loss);
@@ -168,7 +183,7 @@ void main() {
       expect(fakePlayer.pauseCount, greaterThan(0));
     });
 
-    testWidgets('gain（暂停后）→ 恢复流播放且重新同步媒体会话', (tester) async {
+    testPlayback('gain（暂停后）→ 恢复流播放且重新同步媒体会话', (tester) async {
       await startStreamPlayback();
       focusController.add(AudioFocusEvent.lossTransient);
       await tester.pump();
@@ -183,7 +198,7 @@ void main() {
       verify(() => mockAudio.requestAudioFocus()).called(greaterThan(0));
     });
 
-    testWidgets('lossTransientCanDuck → 保持播放（可 duck，不暂停）', (tester) async {
+    testPlayback('lossTransientCanDuck → 保持播放（可 duck，不暂停）', (tester) async {
       await startStreamPlayback();
 
       focusController.add(AudioFocusEvent.lossTransientCanDuck);
@@ -195,7 +210,7 @@ void main() {
   });
 
   group('TTS 焦点事件（与流模式同链路）', () {
-    testWidgets('loss → 原位暂停 HTTP 音频，不销毁已加载段落', (tester) async {
+    testPlayback('loss → 原位暂停 HTTP 音频，不销毁已加载段落', (tester) async {
       await startTtsPlayback();
       expect(readState().state, PlayerState.playing);
       final stopBefore = fakePlayer.stopCount;
@@ -209,7 +224,7 @@ void main() {
       expect(readNotifier().currentParagraphIndex, 0);
     });
 
-    testWidgets('临时焦点中断恢复 HTTP 原位置，不重新合成；用户暂停后不自动恢复', (tester) async {
+    testPlayback('临时焦点中断恢复 HTTP 原位置，不重新合成；用户暂停后不自动恢复', (tester) async {
       await startTtsPlayback();
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
@@ -233,7 +248,7 @@ void main() {
       expect(fakePlayer.resumeCount, 1);
     });
 
-    testWidgets('lossTransientCanDuck → 保持播放', (tester) async {
+    testPlayback('lossTransientCanDuck → 保持播放', (tester) async {
       await startTtsPlayback();
 
       focusController.add(AudioFocusEvent.lossTransientCanDuck);

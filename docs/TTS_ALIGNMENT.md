@@ -2,6 +2,42 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 系统媒体时间轴与控制（2026-10-15）
+
+本批对照[上游BaseReadAloudService](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt)及同版本AudioPlayService：
+正文每秒4个UTF-16字符乘语速估算章节时长，单调时钟补齐稀疏进度，暂停冻结；音频书使用真实音轨时长与播放倍率。
+正文估算不等于云端实际音频时长；显示和定位均按同一原文坐标换算，最终用现有字形簇安全定位修正。
+主动定位、切段、换章和变速重置时间轴，旧书/旧章/旧会话事件不定位当前播放器。
+系统拖动串行提交，连续拖动保留最新位置；暂停中定位保持暂停。未知音轨时长时不开放拖动。
+
+前后按钮共用持久化mediaButtonPerNext：正文可以选择切章或切当前朗读划分单元，音频书始终切章。
+Android原生会话公开实际已接通的操作，系统从会话时长、进度和能力生成媒体面板；不增加旧系统专用兼容布局。
+通知PendingIntent使用当前启用的桌面入口，Dart导航等待欢迎页退出并复用已有播放页，不重新创建音频会话。
+停止会话后的通知不得恢复旧播放。iOS接通NowPlaying时长及changePlaybackPositionCommand；
+iOS系统媒体卡片的应用入口由系统处理，本批不把任意回前台事件冒充通知点击，不承诺强制跳转指定页面。
+
+本地规则与路由由单元/Widget测试保护；integration_test/media_controls_test.dart仅供隔离Android设备，
+宿主实际拖动系统进度条、点击前后按钮和两次通知卡片，核对原生dumpsys及导航去重。
+运行前备份并显式--no-uninstall，测试期间需要按pump推进Flutter帧。真实iOS锁屏/中断仍需Apple平台验收。
+
+编写者：Codex UI / Bridge｜2026-10-15
+
+## 媒体通知封面与标题（2026-10-15）
+
+本批依据用户明确授权调整通知和锁屏展示：书名为主标题、章节为次标题，去掉播放/朗读前缀，
+定时通过独立辅助字段传输。沿用现有媒体会话，不新增播放器或后台服务。
+封面由MediaArtworkLoader复用已有网络图片缓存及CoverDecodeLoader的解密/复合请求头路径，
+兼容本地和自定义封面，生成最长边384px、最大1MiB的PNG，失败使用默认封面。
+文字先发布，图片异步补入；书籍、封面或隐私遮蔽改变更新身份，切章与倒计时不重复加载图片。
+停止与释放清空身份，Flutter与原生双方拒绝过期图片；隐私锁定时不向系统暴露真实标题或封面。
+协议见API_CONTRACT.md的媒体通知本地通道。Android使用媒体ART/ALBUM_ART与通知largeIcon，
+iOS使用MPMediaItemArtwork；Android定时放subText，iOS写独立comment，实际是否展示由系统决定。
+隔离设备验证使用integration_test/media_notification_test.dart，显式--no-uninstall，事前备份，
+阶段标记用于宿主核对dumpsys和截图；不能仅凭通道调用成功宣称原生展示通过。
+iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能代替。
+
+编写者：Codex UI｜2026-10-15
+
 ## 基线与边界
 
 - 工作目录：`reimplement_tts_t2a_task`，沿用同名分支。

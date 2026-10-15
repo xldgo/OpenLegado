@@ -24,6 +24,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
+import 'package:flutter_legado/src/services/media_session_models.dart';
 
 import 'package:flutter_legado/src/services/rust_api.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_repository.dart';
@@ -96,7 +97,29 @@ class MockRustApi extends Mock implements RustApi {
 }
 
 /// AudioService 的 mock 实现
-class MockAudioService extends Mock implements AudioService {}
+class MockAudioService extends Mock implements AudioService {
+  MockAudioService() {
+    registerFallbackValue(
+      const MediaPlaybackProgress(
+        mediaId: '',
+        sessionToken: 0,
+        chapterIndex: 0,
+        state: 'paused',
+        position: 0,
+        duration: 0,
+        speed: 1,
+        canSeek: false,
+        hasPrevious: false,
+        hasNext: false,
+        isStream: false,
+      ),
+    );
+    when(() => updateProgress(any())).thenAnswer((_) async {});
+    when(() => seekStream).thenAnswer((_) => const Stream.empty());
+    when(() => openPlaybackStream).thenAnswer((_) => const Stream.empty());
+    when(() => takePendingOpen()).thenAnswer((_) async => null);
+  }
+}
 
 /// StreamAudioPlayer 的 Fake 实现（A1 批 TTS 本地播放链测试）
 ///
@@ -145,6 +168,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   /// 置为非空后 [playUrl] 抛出该异常（模拟网络流播放失败）
   Object? playUrlError;
   Future<void>? pauseBarrier;
+  Future<void>? seekBarrier;
   Object? resumeError;
 
   @override
@@ -208,6 +232,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   @override
   Future<void> seek(Duration position) async {
     seekCount++;
+    await seekBarrier;
     lastSeekPosition = position;
     this.position = position;
   }
