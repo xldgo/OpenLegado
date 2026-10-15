@@ -11,7 +11,18 @@
 
 `AppBottomSheet.showContent` 统一弹层打开、安全区域、最大640dp宽度与调用方的关闭策略；
 `AppBottomSheet.content` 提供固定标题与可滚动正文、键盘避让。
+朗读管理的添加引擎类型列表及音色的引擎选择列表都使用该正文壳，避免仅调用
+showContent后手写标题/列表而绕过共用行主题；长列表由壳提供滚动，标题保持固定。
 `AppSettingsSheet` 组合取消/标题/保存栏，禁用状态和关闭回调由页面传入。
+标题对齐由ThemeData的AppSheetTheme扩展统一配置，默认居中；AppBottomSheet与
+AppSettingsSheet共用NavigationToolbar，左右操作不等宽时标题仍居中，局部可显式覆盖。
+标题旁状态通过titleSuffix接入同一标题组，不另起一行。
+AppBottomSheet（含show/content）和AppSettingsSheet正文默认EdgeInsets.zero，
+设置行铺满正文并用ListTile.contentPadding保留文字留白；共用正文的默认行形状为
+矩形，分组可自行覆盖。弹层由外层Material按Sheet形状裁剪Ink。标题、键盘避让和
+安全区域仍由外壳负责，不计入正文留白。表单编辑器和阅读明细显式声明内容间距；
+混合正文中的滑块、分段控件、快捷按钮单独留出16dp，设置行不再套水平Padding。快捷项使用AppSheetPresetGrid
+等宽铺满当前行，窄屏或大字体减少列数，控件保留原有Material交互。
 `AppSettingsForm` 统一12dp控件间距，可选分组标题、说明和错误提示；错误使用当前
 主题error色和无障碍即时提示。输入控件、芯片和设置行继续使用标准Material组件。
 

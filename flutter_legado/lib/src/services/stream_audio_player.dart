@@ -46,6 +46,8 @@ class StreamAudioPlayer {
   @visibleForTesting
   static final VideoPlayerOptions playbackOptions = VideoPlayerOptions(
     mixWithOthers: true,
+    // 纯音频由媒体会话控制暂停；插件默认的页面生命周期暂停会打断后台朗读。
+    allowBackgroundPlayback: true,
   );
 
   bool get isInitialized => _controller?.value.isInitialized ?? false;

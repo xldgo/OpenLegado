@@ -191,3 +191,24 @@ HTTP 失败时原有提示与估算推进保留，不自动切换系统引擎。
 - [CloudTtsModels](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/domain/model/readaloud/CloudTtsModels.kt)：云端 Provider 与配置模型。
 
 编写者：Codex｜2026-10-14
+
+## 播放器倍速和定时面板（2026-10-15）
+
+参照固定上游dd97afe4的ReadAloudPlayerScreen与ReadAloudTimerSheet，保留Flutter平台实现，
+使用AppBottomSheet统一外壳，界面直接操作已有共享设置和播放会话，不复制第二套计时器。
+
+- 倍速滑块范围0.5–3.0，0.1一档；拖动只预览，松手或点预设才保存。手动选择使用
+  setReadAloudSpeed(activateManual: true)，通过ReadAloudPreferences更新倍率和跟随开关；
+  写入先倍率后开关，失败保留有效播放状态，重试继续完成剩余保存。
+- 定时保持时间/章节两类，0为关闭，沿用当前项目180分钟/99章的范围。切换类别清空
+  对方计时，打开面板不启动计时。共享入口同时供经典条、独立播放器和音频书使用。
+- startSleepTimer(finishCurrentChapter: true)到点后进入等待自然章末状态，模式仍为duration；
+  只有自然章末完成路径消费等待状态，普通段落、云端内部长度分片不会提前停止。
+  setFinishCurrentChapterAfterTimer修改当前策略不重置剩余秒数；等待中关闭立即停止。
+  取消定时继续播放，停止/重设/换模式清除等待状态，暂停时倒计时仍冻结。
+- 定时配置不加入数据库或普通偏好，生命周期沿用当前播放会话。iOS后台长期计时和真实音频
+  续播依赖实际运行能力，不能由Widget测试证明；本轮按用户要求跳过设备验收。
+
+参考：[上游定时面板](https://github.com/HapeLee/legado-with-MD3/blob/dd97afe4f1184ac6b9840dc8faf821b40e162583/app/src/main/java/io/legado/app/ui/book/readaloud/ReadAloudTimerSheet.kt)。
+
+编写者：Codex｜2026-10-15

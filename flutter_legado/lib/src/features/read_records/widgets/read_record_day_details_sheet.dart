@@ -30,6 +30,7 @@ class ReadRecordDayDetailsSheet extends ConsumerWidget {
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.7,
       child: AppBottomSheet(
+        contentPadding: const EdgeInsets.all(16),
         title: '${date.year}年${date.month}月${date.day}日 阅读明细',
         trailing: IconButton(
           tooltip: '关闭',

@@ -331,15 +331,11 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
     final type = await AppBottomSheet.showContent<String>(
       context: context,
       showDragHandle: true,
-      builder: (c) => SafeArea(
-        top: false,
+      builder: (c) => AppBottomSheet.content(
+        title: '添加引擎',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('添加引擎', style: Theme.of(c).textTheme.titleLarge),
-            ),
             ListTile(
               leading: const Icon(Icons.cloud_outlined),
               title: const Text('云 TTS'),

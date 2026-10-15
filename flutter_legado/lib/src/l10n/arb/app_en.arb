@@ -1295,5 +1295,17 @@
   "readAloudSplitPage": "Page",
   "readAloudSplitSymbolsTitle": "Division punctuation",
   "readAloudSplitPageHint": "Page reading requires a completed chapter layout",
-  "readAloudSplitSymbolsHint": "Consecutive punctuation stays with the preceding unit"
+  "readAloudSplitSymbolsHint": "Consecutive punctuation stays with the preceding unit",
+  "readAloudDefaultVoice": "Engine default voice",
+  "readAloudPlayerInfoUnavailable": "Voice and engine information unavailable",
+  "readAloudNoEngine": "No read-aloud engine selected",
+  "readAloudSourceProgress": "Text position {current}/{total}",
+  "@readAloudSourceProgress": {"description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。", "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "readAloudTimerTimeMode": "Time",
+  "readAloudTimerChapterMode": "Chapters",
+  "readAloudTimerFinishChapter": "Finish chapter when time is up",
+  "readAloudTimerFinishChapterHint": "Continue until the current chapter finishes after the countdown ends.",
+  "readAloudChapters": "{chapters} chapters",
+  "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
+  "readAloudCurrentChapter": "Current chapter"
 }

@@ -142,33 +142,25 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(c).height * .75,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('选择引擎', style: Theme.of(c).textTheme.titleLarge),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final source in sources)
-                    ListTile(
-                      title: Text(source.name),
-                      subtitle: Text(
-                        source.kind == 'cloud_tts'
-                            ? '云 TTS'
-                            : source.kind == 'http'
-                            ? 'HTTP 协议 TTS'
-                            : '系统 TTS',
-                      ),
-                      onTap: () => Navigator.pop(c, source),
-                    ),
-                ],
-              ),
-            ),
-          ],
+        child: AppBottomSheet.content(
+          title: '选择引擎',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final source in sources)
+                ListTile(
+                  title: Text(source.name),
+                  subtitle: Text(
+                    source.kind == 'cloud_tts'
+                        ? '云 TTS'
+                        : source.kind == 'http'
+                        ? 'HTTP 协议 TTS'
+                        : '系统 TTS',
+                  ),
+                  onTap: () => Navigator.pop(c, source),
+                ),
+            ],
+          ),
         ),
       ),
     );

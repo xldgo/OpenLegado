@@ -199,6 +199,33 @@ void main() {
     expect(system.texts.last, '章。');
   });
 
+  for (final paused in [true, false]) {
+    test('原文拖动定位保留组合字符，播放态不变：暂停=$paused', () async {
+      const content = '  甲e\u0301👨‍👩‍👧‍👦乙。\r\n\n 末段。';
+      when(() => api.getChapterContentFull(any(), any()))
+          .thenAnswer((_) async => content);
+      await start();
+      if (paused) {
+        notifier().pause();
+        await flush();
+      }
+      final requests = system.texts.length;
+      final anchor = content.indexOf('👨');
+      await notifier().seekToChapterPosition(0, anchor + 3);
+      await flush();
+      expect(state().state, paused ? PlayerState.paused : PlayerState.playing);
+      expect(notifier().readAloudPosition.value!.offset, anchor);
+      if (paused) {
+        expect(system.texts.length, requests);
+        await notifier().resumeOrPlay();
+        await flush();
+      }
+      expect(system.texts.last, startsWith('👨‍👩‍👧‍👦乙。'));
+      system.onProgress!(0, 11);
+      expect(notifier().readAloudPosition.value!.offset, anchor);
+    });
+  }
+
   test('HTTP 进度估算原文位置，切段后的旧音频事件被丢弃', () async {
     await notifier().loadChapters('book');
     notifier().updateConfig(engineUrl: 'https://tts.test');

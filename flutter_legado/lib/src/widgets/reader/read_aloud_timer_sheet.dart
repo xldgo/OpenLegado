@@ -2,15 +2,16 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localization.dart';
 import '../../providers/audio/audio_notifier.dart';
+import '../bottom_sheet_widget.dart';
+import '../settings_widgets.dart';
 
-/// 两种朗读界面共用定时入口，计时仍由播放会话持有。
+/// 经典面板、独立播放器与音频书共用入口，计时只由 AudioNotifier 持有。— Codex + UI
 Future<void> showReadAloudTimerSheet(
   BuildContext context,
   AudioNotifier notifier,
-) => showModalBottomSheet<void>(
+) => AppBottomSheet.showContent<void>(
   context: context,
   showDragHandle: true,
-  isScrollControlled: true,
   builder: (_) => _ReadAloudTimerSheet(notifier: notifier),
 );
 
@@ -23,92 +24,170 @@ class _ReadAloudTimerSheet extends StatefulWidget {
 }
 
 class _ReadAloudTimerSheetState extends State<_ReadAloudTimerSheet> {
-  final _minutes = TextEditingController();
-  bool _invalid = false;
+  late SleepTimerMode _mode;
+  late double _minutes;
+  late double _chapters;
+  late bool _finishChapter;
+  bool _previewing = false;
 
   @override
-  void dispose() {
-    _minutes.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    final timer = widget.notifier;
+    _mode = timer.sleepTimerMode == SleepTimerMode.chapters
+        ? SleepTimerMode.chapters
+        : SleepTimerMode.duration;
+    _minutes = timer.sleepRemainingSeconds > 0
+        ? (timer.sleepRemainingSeconds / 60).ceilToDouble()
+        : 0;
+    _chapters = timer.chaptersToStopRemaining > 0
+        ? timer.chaptersToStopRemaining.toDouble()
+        : 0;
+    _finishChapter = timer.finishCurrentChapterAfterTimer;
   }
 
-  void _start(int minutes) {
-    if (minutes < 1 || minutes > kMaxSleepTimerMinutes) {
-      setState(() => _invalid = true);
-      return;
+  void _apply({bool close = false}) {
+    if (_mode == SleepTimerMode.chapters) {
+      widget.notifier.startChapterStop(_chapters.round());
+    } else {
+      widget.notifier.startSleepTimer(
+        _minutes.round(),
+        finishCurrentChapter: _finishChapter,
+      );
     }
-    widget.notifier.startSleepTimer(minutes);
-    Navigator.pop(context);
+    setState(() => _previewing = false);
+    if (close) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final strings = context.l10n;
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
+    final byChapter = _mode == SleepTimerMode.chapters;
+    String valueLabel(int value) => value == 0
+        ? strings.close
+        : byChapter
+        ? value == 1
+              ? strings.readAloudCurrentChapter
+              : strings.readAloudChapters(value)
+        : strings.readAloudMinutes(value);
+    return ListenableBuilder(
+      listenable: widget.notifier,
+      builder: (context, _) => AppBottomSheet.content(
+        title: strings.readAloudTimer,
+        titleSuffix: Text(
+          _previewing || !widget.notifier.isSleepTimerActive
+              ? valueLabel((byChapter ? _chapters : _minutes).round())
+              : byChapter && widget.notifier.chaptersToStopRemaining == 1
+              ? strings.readAloudCurrentChapter
+              : widget.notifier.sleepTimerRemainingLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
-        child: SingleChildScrollView(
-          child: ListenableBuilder(
-            listenable: widget.notifier,
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  strings.readAloudTimer,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (widget.notifier.isSleepTimerActive)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(widget.notifier.sleepTimerRemainingLabel),
-                  ),
-                for (final minutes in [10, 20, 30, 60])
-                  ListTile(
-                    leading: const Icon(Icons.timer_outlined),
-                    title: Text(strings.readAloudMinutes(minutes)),
-                    onTap: () => _start(minutes),
-                  ),
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: TextField(
-                    controller: _minutes,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: strings.readAloudCustomMinutes,
-                      errorText: _invalid
-                          ? strings.readAloudTimerRange(kMaxSleepTimerMinutes)
-                          : null,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SegmentedButton<SleepTimerMode>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: SleepTimerMode.duration,
+                      label: Text(strings.readAloudTimerTimeMode),
                     ),
-                    onSubmitted: (value) => _start(int.tryParse(value) ?? 0),
-                  ),
-                  trailing: IconButton(
-                    tooltip: strings.confirm,
-                    icon: const Icon(Icons.check),
-                    onPressed: () => _start(int.tryParse(_minutes.text) ?? 0),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(strings.readAloudStopAfterChapter),
-                  onTap: () {
-                    widget.notifier.startChapterStop(1);
-                    Navigator.pop(context);
+                    ButtonSegment(
+                      value: SleepTimerMode.chapters,
+                      label: Text(strings.readAloudTimerChapterMode),
+                    ),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: (values) {
+                    setState(() => _mode = values.single);
+                    _apply();
                   },
                 ),
-                if (widget.notifier.isSleepTimerActive)
-                  ListTile(
-                    leading: const Icon(Icons.timer_off_outlined),
-                    title: Text(strings.readAloudCancelTimer),
-                    onTap: () {
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Slider(
+                  min: 0,
+                  max: byChapter
+                      ? kMaxChapterStopCount.toDouble()
+                      : kMaxSleepTimerMinutes.toDouble(),
+                  divisions: byChapter
+                      ? kMaxChapterStopCount
+                      : kMaxSleepTimerMinutes,
+                  value: byChapter ? _chapters : _minutes,
+                  label: valueLabel((byChapter ? _chapters : _minutes).round()),
+                  onChanged: (value) => setState(() {
+                    _previewing = true;
+                    if (byChapter) {
+                      _chapters = value;
+                    } else {
+                      _minutes = value;
+                    }
+                  }),
+                  onChangeEnd: (_) => _apply(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AppSheetPresetGrid(
+                  maxColumns: 5,
+                  minItemWidth: 56,
+                  children: [
+                    for (final value
+                        in byChapter ? [1, 2, 3, 4, 5] : [10, 30, 45, 60, 90])
+                      ActionChip(
+                        labelPadding: EdgeInsets.zero,
+                        label: Text(valueLabel(value)),
+                        onPressed: () {
+                          setState(() {
+                            if (byChapter) {
+                              _chapters = value.toDouble();
+                            } else {
+                              _minutes = value.toDouble();
+                            }
+                          });
+                          _apply(close: true);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              if (!byChapter) ...[
+                const SizedBox(height: 12),
+                SettingSwitchRow(
+                  title: strings.readAloudTimerFinishChapter,
+                  subtitle: strings.readAloudTimerFinishChapterHint,
+                  value: _finishChapter,
+                  onChanged: (value) {
+                    setState(() => _finishChapter = value);
+                    widget.notifier.setFinishCurrentChapterAfterTimer(value);
+                  },
+                ),
+              ],
+              if (widget.notifier.isSleepTimerActive) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextButton.icon(
+                    onPressed: () {
                       widget.notifier.cancelSleepTimer();
                       Navigator.pop(context);
                     },
+                    icon: const Icon(Icons.timer_off_outlined),
+                    label: Text(strings.readAloudCancelTimer),
                   ),
-                const SizedBox(height: 16),
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

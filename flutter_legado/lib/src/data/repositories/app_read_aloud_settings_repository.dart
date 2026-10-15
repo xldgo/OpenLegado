@@ -123,8 +123,9 @@ final class AppReadAloudSettingsRepository
     _splitSymbols: jsonEncode(
       settings.splitSymbols.split('').toSet().toList()..sort(),
     ),
-    _follow: settings.followSystem ? 'true' : 'false',
+    // 同时切入手动倍率时先保存数值，避免后续写失败却已关闭跟随模式。
     _rate: (settings.manualSpeed * 10 - 5).round().toString(),
+    _follow: settings.followSystem ? 'true' : 'false',
     _interval: settings.paragraphIntervalMs.toString(),
     _detach: settings.detachReminder ? 'true' : 'false',
     _preDownload: settings.audioPreDownloadNum.toString(),

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'app_typography.dart';
+import 'app_sheet_theme.dart';
 import 'md3_colors.dart';
 
 /// 应用主题定义（Material Design 3 Expressive）
@@ -247,6 +248,7 @@ class AppTheme {
     );
 
     return ThemeData(
+      extensions: const [AppSheetTheme()],
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,

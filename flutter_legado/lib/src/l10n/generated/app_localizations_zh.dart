@@ -3935,4 +3935,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readAloudSplitSymbolsHint => '连续标点保留在同一单元末尾';
+
+  @override
+  String get readAloudDefaultVoice => '引擎默认音色';
+
+  @override
+  String get readAloudPlayerInfoUnavailable => '音色与引擎信息暂不可用';
+
+  @override
+  String get readAloudNoEngine => '尚未选择朗读引擎';
+
+  @override
+  String readAloudSourceProgress(int current, int total) {
+    return '原文位置 $current/$total';
+  }
+
+  @override
+  String get readAloudTimerTimeMode => '时间模式';
+
+  @override
+  String get readAloudTimerChapterMode => '章节模式';
+
+  @override
+  String get readAloudTimerFinishChapter => '到时后读完本章';
+
+  @override
+  String get readAloudTimerFinishChapterHint => '倒计时结束后继续播放，到本章结束再停止。';
+
+  @override
+  String readAloudChapters(int chapters) {
+    return '$chapters 章';
+  }
+
+  @override
+  String get readAloudCurrentChapter => '当前章';
 }

@@ -92,6 +92,7 @@ class _HttpTtsEngineSheetState extends State<HttpTtsEngineSheet> {
   @override
   Widget build(BuildContext context) {
     return AppSettingsSheet(
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.engine != null ? '编辑 HTTP TTS 引擎' : '添加 HTTP TTS 引擎',
       onSave: _submit,
       child: Form(

@@ -31,6 +31,12 @@ void main() {
                       showDragHandle: true,
                       builder: (s) => AppSettingsSheet(
                         title: '设置',
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          16,
+                          8,
+                          16,
+                          24,
+                        ),
                         onSave: () => Navigator.pop(s, 'saved'),
                         child: AppSettingsForm(
                           children: [
@@ -62,6 +68,10 @@ void main() {
         tester.getSize(find.byType(AppBottomSheet)).width,
         lessThanOrEqualTo(640),
       );
+      final sheetBounds = tester.getRect(find.byType(AppBottomSheet));
+      final formBounds = tester.getRect(form);
+      expect(formBounds.left, closeTo(sheetBounds.left + 16, .01));
+      expect(formBounds.right, closeTo(sheetBounds.right - 16, .01));
       tester.view.viewInsets = const FakeViewPadding(bottom: 200);
       await tester.pumpAndSettle();
       final save = find.widgetWithText(FilledButton, '保存');

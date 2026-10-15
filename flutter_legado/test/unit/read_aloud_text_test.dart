@@ -44,4 +44,21 @@ void main() {
     expect(start, (paragraph: 0, offset: 2));
     expect(paragraphs[start.paragraph].text.substring(start.offset), '😀后文');
   });
+
+  for (final cluster in ['e\u0301', '👨‍👩‍👧‍👦', '🇨🇳', '👍🏽', '𠮷']) {
+    test('原文定位不拆开字形簇 $cluster，章末仍从完整字符开始', () {
+      final text = '  前$cluster后\r\n\n 末$cluster';
+      final units = splitReadAloudParagraphs(text);
+      final start = text.indexOf(cluster);
+      for (var i = 0; i < cluster.length; i++) {
+        expect(readAloudStartAt(units, start + i), (paragraph: 0, offset: 1));
+      }
+      expect(readAloudStartAt(units, text.length), (paragraph: 1, offset: 1));
+      expect(readAloudStartAt(units, text.length + 10), (
+        paragraph: 1,
+        offset: 1,
+      ));
+      expect(readAloudStartAt(units, -10), (paragraph: 0, offset: 0));
+    });
+  }
 }

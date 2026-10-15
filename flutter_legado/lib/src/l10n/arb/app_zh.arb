@@ -4527,5 +4527,17 @@
   "readAloudSplitPage": "整页",
   "readAloudSplitSymbolsTitle": "划分标点",
   "readAloudSplitPageHint": "整页朗读需要阅读器完成本章分页",
-  "readAloudSplitSymbolsHint": "连续标点保留在同一单元末尾"
+  "readAloudSplitSymbolsHint": "连续标点保留在同一单元末尾",
+  "readAloudDefaultVoice": "引擎默认音色",
+  "readAloudPlayerInfoUnavailable": "音色与引擎信息暂不可用",
+  "readAloudNoEngine": "尚未选择朗读引擎",
+  "readAloudSourceProgress": "原文位置 {current}/{total}",
+  "@readAloudSourceProgress": {"description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。", "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "readAloudTimerTimeMode": "时间模式",
+  "readAloudTimerChapterMode": "章节模式",
+  "readAloudTimerFinishChapter": "到时后读完本章",
+  "readAloudTimerFinishChapterHint": "倒计时结束后继续播放，到本章结束再停止。",
+  "readAloudChapters": "{chapters} 章",
+  "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
+  "readAloudCurrentChapter": "当前章"
 }

@@ -73,6 +73,7 @@ class _ReadAloudSettingsScreenState
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
         builder: (context, update) => AppSettingsSheet(
+          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           title: context.l10n.readAloudSplitSymbolsTitle,
           onSave: selected.isEmpty
               ? null

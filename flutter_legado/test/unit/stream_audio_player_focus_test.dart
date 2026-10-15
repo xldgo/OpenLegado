@@ -24,6 +24,10 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 
 import 'package:flutter_legado/src/screens/video_screen.dart';
 import 'package:flutter_legado/src/services/stream_audio_player.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+import 'package:flutter_legado/src/features/read_aloud/playback/cloud_read_aloud_engine.dart';
+import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_engine.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +47,7 @@ void main() {
     // video_player 的 mixWithOthers 是插件级 sharedOptions（全局），
     // 听书/TTS 置 true 后，视频页必须显式置 false 才能保持默认焦点语义。
     expect(videoPlaybackOptions.mixWithOthers, isFalse);
+    expect(videoPlaybackOptions.allowBackgroundPlayback, isFalse);
   });
 
   test('playLocalFile：底层播放器收到 mixWithOthers=true（不抢焦点）', () async {
@@ -61,6 +66,129 @@ void main() {
 
     expect(fakePlatform.mixWithOthersCalls, [true]);
     expect(fakePlatform.createdCount, 1);
+  });
+
+  for (final local in [true, false]) {
+    testWidgets('音频切到后台继续播放，返回前台不重复启动：本地=$local', (tester) async {
+      final player = StreamAudioPlayer();
+      await tester.runAsync(() async {
+        try {
+          if (local) {
+            await player.playLocalFile('/tmp/cloud-tts/paragraph.wav');
+          } else {
+            await player.playUrl('https://cdn.example.com/book.mp3');
+          }
+          final pauses = fakePlatform.pauses.length;
+          final plays = fakePlatform.plays.length;
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(player.isPlaying, isTrue);
+          expect(fakePlatform.pauses.length, pauses);
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(fakePlatform.plays.length, plays);
+        } finally {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await player.dispose();
+        }
+      });
+    });
+  }
+
+  testWidgets('后台手动暂停后，返回前台不会擅自续播', (tester) async {
+    final player = StreamAudioPlayer();
+    await tester.runAsync(() async {
+      try {
+        await player.playLocalFile('/tmp/cloud-tts/paragraph.wav');
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await Future<void>.delayed(Duration.zero);
+        await player.pause();
+        final plays = fakePlatform.plays.length;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(player.isPlaying, isFalse);
+        expect(fakePlatform.plays.length, plays);
+      } finally {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await player.dispose();
+      }
+    });
+  });
+
+  testWidgets('云端分片在后台完成后装载下一片，停止后前台恢复不重播', (tester) async {
+    final player = StreamAudioPlayer();
+    final synthesizer = _CloudSynthesizer();
+    final engine = CloudReadAloudEngine(
+      synthesizer: () => synthesizer,
+      player: player,
+      cache: () => throw StateError('本夹具不登记缓存'),
+    );
+    player.onCompleted = engine.handleCompleted;
+    var completed = 0;
+    final session = ReadAloudSession(
+      isCurrent: () => true,
+      onProgress: (_) {},
+      onError: (error) => fail('$error'),
+      onCompleted: () => completed++,
+    );
+    await tester.runAsync(() async {
+      try {
+        await engine.speak(
+          ReadAloudRequest(engineUrl: 'cloud://test', text: '甲' * 4001),
+          session,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await Future<void>.delayed(Duration.zero);
+        expect(player.isPlaying, isTrue);
+        fakePlatform.emit(1, VideoEvent(eventType: VideoEventType.completed));
+        for (var i = 0; i < 15; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(synthesizer.texts, hasLength(2));
+        expect(synthesizer.texts.join(), '甲' * 4001);
+        expect(player.isPlaying, isTrue);
+        expect(completed, 0);
+        fakePlatform.emit(2, VideoEvent(eventType: VideoEventType.completed));
+        await Future<void>.delayed(Duration.zero);
+        expect(completed, 1);
+        await engine.stop();
+        final plays = fakePlatform.plays.length;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(player.isPlaying, isFalse);
+        expect(fakePlatform.plays.length, plays);
+      } finally {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await engine.stop();
+        await player.dispose();
+      }
+    });
   });
   test('原位续播保留位置和控制器，回调仅绑定新会话并且只完成一次', () async {
     final player = StreamAudioPlayer();
@@ -135,6 +263,26 @@ void main() {
   });
 }
 
+class _CloudSynthesizer implements CloudTtsSynthesizer {
+  final texts = <String>[];
+
+  @override
+  Future<HttpTtsSynthesisResult> synthesize({
+    required String engineId,
+    required String text,
+    String? voiceId,
+    Map<String, dynamic>? voiceOptions,
+    HttpTtsCancellation? cancellation,
+  }) async {
+    texts.add(text);
+    return HttpTtsAudio(
+      audioPath: '/tmp/cloud-tts/part-${texts.length}.wav',
+      fromCache: true,
+      contentType: 'audio/wav',
+    );
+  }
+}
+
 /// 记录 setMixWithOthers / createWithOptions 的最小 Fake 平台实现。
 ///
 /// initialize() 需要 initialized 事件才能完成，这里在创建时向单订阅
@@ -147,6 +295,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   bool autoInitialize = true;
   Completer<void>? pauseBarrier;
   final plays = <int>[];
+  final pauses = <int>[];
   final positions = <int, Duration>{};
 
   void emit(int id, VideoEvent event) => _events[id]!.add(event);
@@ -194,6 +343,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> pause(int playerId) async {
+    pauses.add(playerId);
     await pauseBarrier?.future;
   }
 

@@ -104,10 +104,14 @@ class ReadAloudPreferencesNotifier extends Notifier<ReadAloudPreferences> {
   Future<void> setFollowSystem(bool follow) =>
       _update((current) => current.copyWith(followSystem: follow));
 
-  Future<void> setManualSpeed(double speed) => _update(
-    (current) =>
-        current.copyWith(manualSpeed: speed, hasStoredManualSpeed: true),
-  );
+  Future<void> setManualSpeed(double speed, {bool activateManual = false}) =>
+      _update(
+        (current) => current.copyWith(
+          manualSpeed: speed,
+          followSystem: activateManual ? false : current.followSystem,
+          hasStoredManualSpeed: true,
+        ),
+      );
 
   Future<void> setParagraphInterval(int milliseconds) =>
       _update((current) => current.copyWith(paragraphIntervalMs: milliseconds));

@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/app_localization.dart';
+import '../features/read_aloud/read_aloud_player_info.dart';
+import '../features/read_aloud/widgets/read_aloud_player_content.dart';
+import '../features/read_aloud/widgets/read_aloud_chapter_text.dart';
+import '../features/read_aloud/widgets/read_aloud_progress_slider.dart';
 import '../providers/audio/audio_notifier.dart';
 import '../providers/audio/read_aloud_preferences.dart';
 import '../providers/audio/read_aloud_capsule.dart';
@@ -13,6 +17,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/reader/read_aloud_timer_sheet.dart';
+import '../widgets/reader/read_aloud_speed_sheet.dart';
 import '../widgets/reader/read_aloud_player_transition.dart';
 
 /// 独立播放器只观察和控制已有朗读会话，进入与退出均不重新加载书籍。
@@ -26,9 +31,35 @@ class ReadAloudPlayerScreen extends ConsumerStatefulWidget {
 
 class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
   bool _busy = false;
-  double? _seekValue;
-  String? _seekBook;
-  int? _seekChapter;
+  final _pages = PageController(initialPage: 1);
+  int _page = 1;
+  bool _textScrolling = false;
+  (String, int)? _textChapter;
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _showPage(int page) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pages.jumpToPage(page);
+    } else {
+      unawaited(
+        _pages.animateToPage(
+          page,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+  }
+
+  void _onTextScroll(bool scrolling) {
+    if (!mounted || _page != 2 || _textScrolling == scrolling) return;
+    setState(() => _textScrolling = scrolling);
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
@@ -54,90 +85,125 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     final notifier = ref.read(audioNotifierProvider.notifier);
     final strings = context.l10n;
     final transition = ReadAloudPlayerTransition.maybeOf(context);
-    return DefaultTabController(
-      length: 3,
-      initialIndex: 1,
-      child: ListenableBuilder(
-        listenable: notifier,
-        builder: (context, _) {
-          final paragraphs = notifier.currentParagraphs;
-          final enabled = !_busy && !audio.isLoading && !audio.isStreamMode;
-          return AppScaffold(
-            topBar: LegadoAppBar(
-              title: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragStart: transition?.dragStart,
-                onVerticalDragUpdate: transition?.dragUpdate,
-                onVerticalDragEnd: transition?.dragEnd,
-                onVerticalDragCancel: transition?.dragCancel,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+    return ListenableBuilder(
+      listenable: notifier,
+      builder: (context, _) {
+        final paragraphs = notifier.currentParagraphs;
+        final chapter = (audio.bookUrl, audio.currentIndex);
+        if (_textChapter != chapter || paragraphs.isEmpty) {
+          _textChapter = chapter;
+          _textScrolling = false;
+        }
+        final enabled = !_busy && !audio.isLoading && !audio.isStreamMode;
+        return AppScaffold(
+          topBar: LegadoAppBar(
+            toolbarHeight: _toolbarHeight(audio.currentChapter != null),
+            title: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: transition?.dragStart,
+              onVerticalDragUpdate: transition?.dragUpdate,
+              onVerticalDragEnd: transition?.dragEnd,
+              onVerticalDragCancel: transition?.dragCancel,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    audio.bookName.isEmpty ? strings.readAloud : audio.bookName,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (audio.currentChapter != null)
                     Text(
-                      audio.bookName.isEmpty
-                          ? strings.readAloud
-                          : audio.bookName,
+                      audio.currentChapter!.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    if (audio.currentChapter != null)
-                      Text(
-                        audio.currentChapter!.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                IconButton(
-                  tooltip: strings.readAloudSettingsTitle,
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.readAloudSettings),
-                ),
-              ],
-              bottom: TabBar(
-                tabAlignment: TabAlignment.fill,
-                tabs: [
-                  Tab(text: strings.catalog),
-                  Tab(text: strings.readAloudPlayer),
-                  Tab(text: strings.readAloudChapterText),
                 ],
               ),
             ),
-            body: Column(
-              children: [
-                if (audio.isLoading) const LinearProgressIndicator(),
-                if (audio.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Text(
-                      audio.errorMessage!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+            actions: [
+              AppMenuAnchor<int>(
+                itemBuilder: (_) => [
+                  for (final (index, label) in [
+                    (0, strings.catalog),
+                    (1, strings.readAloudPlayer),
+                    (2, strings.readAloudChapterText),
+                  ])
+                    AppMenuItem(
+                      value: index,
+                      child: Text(label),
+                      checked: _page == index,
+                    ),
+                ],
+                onSelected: _showPage,
+                builder: (context, controller, _) => IconButton(
+                  tooltip: strings.readAloudPlayer,
+                  icon: const Icon(Icons.view_carousel_outlined),
+                  onPressed: () => controller.isOpen
+                      ? controller.close()
+                      : controller.open(),
+                ),
+              ),
+              IconButton(
+                tooltip: strings.readAloudSettingsTitle,
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.readAloudSettings),
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              if (audio.isLoading) const LinearProgressIndicator(),
+              if (audio.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    audio.errorMessage!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _catalog(audio, notifier, enabled),
-                      _cover(audio, notifier, paragraphs),
-                      _chapterText(audio, notifier, paragraphs, enabled),
-                    ],
-                  ),
                 ),
-              ],
-            ),
-            bottomBar: _controls(audio, notifier, paragraphs, enabled),
-          );
-        },
-      ),
+              Expanded(
+                child: PageView(
+                  controller: _pages,
+                  onPageChanged: (page) => setState(() {
+                    _page = page;
+                    _textScrolling = false;
+                  }),
+                  children: [
+                    _catalog(audio, notifier, enabled),
+                    _cover(audio, notifier, paragraphs),
+                    _chapterText(audio, notifier, paragraphs, enabled),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          bottomBar: ReadAloudControlsVisibility(
+            visible: _page != 2 || !_textScrolling,
+            child: _controls(audio, notifier, paragraphs, enabled),
+          ),
+        );
+      },
     );
+  }
+
+  double _toolbarHeight(bool hasChapter) {
+    final theme = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    double height(TextStyle style) =>
+        scaler.scale(style.fontSize!) * (style.height ?? 1.4);
+    return (height(theme.titleMedium!) +
+            (hasChapter ? height(theme.bodySmall!) : 0) +
+            16)
+        .clamp(kToolbarHeight, double.infinity);
   }
 
   Widget _catalog(AudioState audio, AudioNotifier notifier, bool enabled) {
@@ -161,9 +227,10 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     final transition = ReadAloudPlayerTransition.maybeOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = (constraints.maxHeight * 0.4)
-            .clamp(64.0, 220.0)
-            .clamp(0.0, constraints.maxWidth * 0.6);
+        final width = (constraints.maxWidth * 0.52).clamp(
+          0.0,
+          (constraints.maxHeight * 0.42).clamp(64.0, 220.0),
+        );
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Center(
@@ -192,45 +259,23 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
                             borderRadius: 16,
                           ),
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    audio.bookName,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  if (book != null && book.author.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(book.author, style: theme.textTheme.bodyMedium),
-                  ],
                   const SizedBox(height: 24),
-                  if (current < paragraphs.length) ...[
-                    Text(
-                      paragraphs[current],
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    if (current + 1 < paragraphs.length) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        paragraphs[current + 1],
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ] else
+                  if (current >= 0 && current < paragraphs.length)
+                    ReadAloudPlayerText(
+                      current: paragraphs[current],
+                      next: current + 1 < paragraphs.length
+                          ? paragraphs[current + 1]
+                          : null,
+                    )
+                  else
                     Text(
                       context.l10n.readAloudTextUnavailable,
-                      textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium,
                     ),
+                  if (!audio.isStreamMode) ...[
+                    const SizedBox(height: 24),
+                    _engineInfo(),
+                  ],
                 ],
               ),
             ),
@@ -239,6 +284,41 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
       },
     );
   }
+
+  Widget _engineInfo() => Consumer(
+    builder: (context, ref, _) {
+      final strings = context.l10n;
+      final info = ref.watch(readAloudPlayerInfoProvider);
+      return info.when(
+        loading: () => const SizedBox(
+          height: 48,
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+        error: (_, _) => Text(
+          strings.readAloudPlayerInfoUnavailable,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        data: (info) => Chip(
+          avatar: const Icon(Icons.record_voice_over_outlined, size: 16),
+          side: BorderSide.none,
+          label: Text(
+            info.voiceName ??
+                (info.engineName != null || info.system
+                    ? strings.readAloudDefaultVoice
+                    : strings.readAloudNoEngine),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    },
+  );
 
   Widget _transitionCover(Widget cover) {
     final transition = ReadAloudPlayerTransition.maybeOf(context);
@@ -273,8 +353,10 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     }
     return ValueListenableBuilder(
       valueListenable: notifier.readAloudPosition,
-      builder: (context, position, _) => _ReadAloudChapterText(
+      builder: (context, position, _) => ReadAloudChapterText(
         key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
+        active: _page == 2,
+        onUserScrollChanged: _onTextScroll,
         paragraphs: paragraphs,
         activeIndex:
             position?.bookUrl == audio.bookUrl &&
@@ -295,10 +377,6 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     bool enabled,
   ) {
     final strings = context.l10n;
-    final validSeek =
-        _seekBook == audio.bookUrl && _seekChapter == audio.currentIndex;
-    final current = notifier.currentParagraphIndex;
-    final last = paragraphs.isEmpty ? 0 : paragraphs.length - 1;
     return SafeArea(
       top: false,
       child: Padding(
@@ -306,52 +384,30 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    min: 0,
-                    max: last < 1 ? 1 : last.toDouble(),
-                    value:
-                        (validSeek
-                                ? _seekValue ?? current.toDouble()
-                                : current.toDouble())
-                            .clamp(0, last < 1 ? 1.0 : last.toDouble()),
-                    label: strings.readAloudParagraphProgress(
-                      ((validSeek ? _seekValue : null) ?? current.toDouble())
-                              .round() +
-                          1,
-                      paragraphs.length,
-                    ),
-                    onChanged: enabled && last > 0
-                        ? (value) => setState(() {
-                            _seekValue = value;
-                            _seekBook = audio.bookUrl;
-                            _seekChapter = audio.currentIndex;
-                          })
-                        : null,
-                    onChangeEnd: enabled && last > 0
-                        ? (value) {
-                            if (_seekBook == audio.bookUrl &&
-                                _seekChapter == audio.currentIndex) {
-                              unawaited(
-                                _run(
-                                  () => notifier.seekToParagraph(value.round()),
-                                ),
-                              );
-                            }
-                            setState(() => _seekValue = null);
-                          }
-                        : null,
-                  ),
+            ValueListenableBuilder(
+              valueListenable: notifier.readAloudPosition,
+              builder: (context, position, _) => ReadAloudProgressSlider(
+                bookUrl: audio.bookUrl,
+                chapterIndex: audio.currentIndex,
+                sourceText: audio.currentChapter?.text ?? '',
+                position: position,
+                enabled: enabled && paragraphs.isNotEmpty,
+                onSeek: (offset) => unawaited(
+                  _run(() async {
+                    final current = ref.read(audioNotifierProvider);
+                    if (current.bookUrl != audio.bookUrl ||
+                        current.currentIndex != audio.currentIndex ||
+                        current.isLoading ||
+                        current.isStreamMode) {
+                      return;
+                    }
+                    await notifier.seekToChapterPosition(
+                      audio.currentIndex,
+                      offset,
+                    );
+                  }),
                 ),
-                Text(
-                  paragraphs.isEmpty
-                      ? '—'
-                      : '${current + 1}/${paragraphs.length}',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ],
+              ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -373,10 +429,9 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
                       ? () => _run(notifier.previous)
                       : null,
                 ),
-                IconButton.filled(
-                  iconSize: 36,
+                ReadAloudPlayPauseButton(
+                  playing: audio.isPlaying,
                   tooltip: audio.isPlaying ? strings.pause : strings.play,
-                  icon: Icon(audio.isPlaying ? Icons.pause : Icons.play_arrow),
                   onPressed: enabled && audio.hasChapters
                       ? () {
                           if (audio.isPlaying) {
@@ -419,7 +474,7 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
                     Navigator.pop(context, 'classic');
                   },
                 ),
-                _speedMenu(notifier, enabled),
+                Flexible(child: _speedButton(enabled)),
                 IconButton(
                   tooltip: strings.readAloudStop,
                   icon: const Icon(Icons.stop_circle_outlined),
@@ -446,45 +501,12 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     );
   }
 
-  Widget _speedMenu(AudioNotifier notifier, bool enabled) {
-    final strings = context.l10n;
+  Widget _speedButton(bool enabled) {
     final preferences = ref.watch(readAloudPreferencesProvider);
-    return AppMenuAnchor<double>(
-      itemBuilder: (_) => [
-        AppMenuItem(
-          value: 0,
-          child: Text(strings.readAloudFollowSystem),
-          checked: preferences.followSystem,
-        ),
-        const AppMenuDivider(),
-        for (final speed in [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0])
-          AppMenuItem(
-            value: speed,
-            child: Text('$speed×'),
-            checked:
-                !preferences.followSystem &&
-                (preferences.manualSpeed - speed).abs() < 0.001,
-          ),
-      ],
-      onSelected: enabled
-          ? (speed) => _run(() async {
-              if (speed == 0) {
-                await notifier.setReadAloudFollowSystem(true);
-              } else {
-                await notifier.setReadAloudSpeed(speed);
-                if (ref.read(readAloudPreferencesProvider).followSystem) {
-                  await notifier.setReadAloudFollowSystem(false);
-                }
-              }
-            })
-          : null,
-      builder: (context, controller, _) => TextButton.icon(
-        onPressed: enabled
-            ? () => controller.isOpen ? controller.close() : controller.open()
-            : null,
-        icon: const Icon(Icons.speed),
-        label: Text('${preferences.effectiveSpeed.toStringAsFixed(2)}×'),
-      ),
+    return TextButton.icon(
+      onPressed: enabled ? () => showReadAloudSpeedSheet(context) : null,
+      icon: const Icon(Icons.speed),
+      label: Text('${preferences.effectiveSpeed.toStringAsFixed(2)}×'),
     );
   }
 }
@@ -537,168 +559,3 @@ class _ReadAloudCatalogState extends State<_ReadAloudCatalog> {
 }
 
 /// 段落高度只在正文或排版参数改变时测量；播放范围回调复用缓存。
-class _ReadAloudChapterText extends StatefulWidget {
-  const _ReadAloudChapterText({
-    super.key,
-    required this.paragraphs,
-    required this.activeIndex,
-    this.onSeek,
-  });
-  final List<String> paragraphs;
-  final int activeIndex;
-  final ValueChanged<int>? onSeek;
-
-  @override
-  State<_ReadAloudChapterText> createState() => _ReadAloudChapterTextState();
-}
-
-class _ReadAloudChapterTextState extends State<_ReadAloudChapterText> {
-  final _scroll = ScrollController();
-  final List<double> _tops = [8];
-  final List<double> _heights = [];
-  Object? _metricsKey;
-  bool _pending = false;
-  bool _dragging = false;
-  int? _lastFollowed;
-
-  @override
-  void didUpdateWidget(covariant _ReadAloudChapterText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.activeIndex != widget.activeIndex) _scheduleFollow();
-  }
-
-  void _scheduleFollow() {
-    if (_pending) return;
-    _pending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pending = false;
-      if (!mounted ||
-          _dragging ||
-          !_scroll.hasClients ||
-          _tops.length <= widget.activeIndex) {
-        return;
-      }
-      if (_lastFollowed == widget.activeIndex) return;
-      _lastFollowed = widget.activeIndex;
-      final position = _scroll.position;
-      final target =
-          (_tops[widget.activeIndex] - position.viewportDimension * 0.32).clamp(
-            position.minScrollExtent,
-            position.maxScrollExtent,
-          );
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _scroll.jumpTo(target);
-      } else {
-        // 跨越很远时先靠近目标，避免整章高速掠过。
-        if ((target - _scroll.offset).abs() > position.viewportDimension * 2) {
-          _scroll.jumpTo(
-            (target + position.viewportDimension * 0.08).clamp(
-              position.minScrollExtent,
-              position.maxScrollExtent,
-            ),
-          );
-        }
-        unawaited(
-          _scroll.animateTo(
-            target,
-            duration: const Duration(milliseconds: 520),
-            curve: Curves.fastOutSlowIn,
-          ),
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodyLarge!.copyWith(height: 1.6);
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final key = (
-          widget.paragraphs,
-          constraints.maxWidth,
-          style,
-          scaler,
-          direction,
-        );
-        if (_metricsKey != key) {
-          _metricsKey = key;
-          _tops
-            ..clear()
-            ..add(8);
-          _heights.clear();
-          final painter = TextPainter(
-            textDirection: direction,
-            textScaler: scaler,
-          );
-          for (final text in widget.paragraphs) {
-            painter.text = TextSpan(text: text, style: style);
-            painter.layout(
-              maxWidth: (constraints.maxWidth - 56).clamp(1, double.infinity),
-            );
-            final height = painter.height + 32;
-            _heights.add(height);
-            _tops.add(_tops.last + height);
-          }
-          painter.dispose();
-          _lastFollowed = null;
-        }
-        _scheduleFollow();
-        return NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification.depth != 0) return false;
-            if (notification is ScrollStartNotification &&
-                notification.dragDetails != null) {
-              _dragging = true;
-            } else if (notification is ScrollEndNotification && _dragging) {
-              _dragging = false;
-              _scheduleFollow();
-            }
-            return false;
-          },
-          child: ListView.builder(
-            controller: _scroll,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: widget.paragraphs.length,
-            itemExtentBuilder: (index, _) => _heights[index],
-            itemBuilder: (context, index) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: widget.onSeek == null
-                      ? null
-                      : () => widget.onSeek!(index),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      widget.paragraphs[index],
-                      style: style.copyWith(
-                        color: index == widget.activeIndex
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.5,
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}

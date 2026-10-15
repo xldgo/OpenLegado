@@ -118,7 +118,8 @@ void main() {
 
   Future<void> tapSheetOption(WidgetTester tester, String label) async {
     // 面板内容超出弹窗高度时先滚动到可见区（小屏实测底部项会被折叠）
-    final target = find.text(label);
+    final chip = find.widgetWithText(ActionChip, label);
+    final target = chip.evaluate().isNotEmpty ? chip : find.text(label);
     await tester.ensureVisible(target);
     await tester.pump();
     await tester.tap(target);
@@ -131,7 +132,13 @@ void main() {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
-    await tapSheetOption(tester, '20 分钟');
+    // 20分钟不再是快捷项，仍可通过滑块设置任意分钟。
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(20);
+    await tester.pump();
+    tester.widget<Slider>(find.byType(Slider)).onChangeEnd!(20);
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(Slider))).pop();
+    await tester.pumpAndSettle();
 
     final notifier = readNotifier();
     // 旧实现：朗读条只改本地 _remainingSeconds，Notifier 计时为 off（红）
@@ -230,7 +237,9 @@ void main() {
     await startStream();
     await pumpBar(tester);
     await openTimerPicker(tester);
-    await tapSheetOption(tester, '读完本章后停止');
+    await tester.tap(find.text('章节模式').first);
+    await tester.pump();
+    await tapSheetOption(tester, '当前章');
 
     final notifier = readNotifier();
     // 旧实现只记本地 _chapterStopTarget，Notifier 无按章计时（红）

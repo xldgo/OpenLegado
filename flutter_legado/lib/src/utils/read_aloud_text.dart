@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 import '../domain/models/read_aloud_content.dart';
 
 /// 朗读单元保留章节原文的 UTF-16 起点，不使用裁剪后文本累加偏移。
@@ -16,17 +18,16 @@ List<ReadAloudParagraph> splitReadAloudParagraphs(String content) =>
     final paragraph = paragraphs[index];
     final end = paragraph.start + paragraph.text.length;
     if (chapterOffset < end || index == paragraphs.length - 1) {
-      var offset = (chapterOffset - paragraph.start).clamp(
+      final requested = (chapterOffset - paragraph.start).clamp(
         0,
         paragraph.text.length - 1,
       );
-      // 来源是 UTF-16；防止外部旧坐标落在代理对中间产生非法文本。
-      if (offset > 0 &&
-          paragraph.text.codeUnitAt(offset) >= 0xdc00 &&
-          paragraph.text.codeUnitAt(offset) <= 0xdfff &&
-          paragraph.text.codeUnitAt(offset - 1) >= 0xd800 &&
-          paragraph.text.codeUnitAt(offset - 1) <= 0xdbff) {
-        offset--;
+      // 原文坐标使用 UTF-16；朗读必须从完整字形簇开始，包含组合音标和 ZWJ 表情。
+      var offset = 0;
+      for (final cluster in paragraph.text.characters) {
+        final next = offset + cluster.length;
+        if (next > requested) break;
+        offset = next;
       }
       return (paragraph: index, offset: offset);
     }

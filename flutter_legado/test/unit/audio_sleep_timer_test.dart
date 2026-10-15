@@ -80,6 +80,138 @@ void main() {
   }
 
   group('a) 按章停止（章末边界，对齐原版 ChapterStopTimer）', () {
+    testWidgets('TTS 到点不在段末停止，播完最后一段才在章末停止', (tester) async {
+      when(() => mockApi.getChapters(any())).thenAnswer(
+        (_) async => const [
+          BookChapter(title: '第一章', index: 0),
+          BookChapter(title: '第二章', index: 1),
+        ],
+      );
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.getChapterContentFull(any(), any()))
+          .thenAnswer((_) async => '第一段。\n第二段。');
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => const HttpTtsAudio(audioPath: '/tmp/tts/timer.mp3'),
+      );
+      await readNotifier().loadChapters('url');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
+      await readNotifier().play();
+      readNotifier().startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      expect(readNotifier().isWaitingForTimerChapterEnd, isTrue);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.playing);
+      expect(readNotifier().currentParagraphIndex, 1);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(readState().currentIndex, 0);
+    });
+    testWidgets('时间到点后等待章末，保持时间模式且不进入下一章', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(seconds: 60));
+      expect(readState().state, PlayerState.playing);
+      expect(notifier.sleepTimerMode, SleepTimerMode.duration);
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      expect(notifier.sleepRemainingSeconds, 0);
+      expect(notifier.sleepTimerRemainingLabel, contains('读完本章'));
+      await tester.pump(const Duration(minutes: 2));
+      expect(readState().state, PlayerState.playing);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(readState().currentIndex, 0);
+      expect(notifier.isSleepTimerActive, isFalse);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+    });
+
+    testWidgets('到点前自然切章继续倒计时，到点后当前章完成才停', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(seconds: 30));
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+      await tester.pump(const Duration(seconds: 30));
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      expect(readState().state, PlayerState.idle);
+    });
+
+    testWidgets('切换到点策略不重置秒数，章末等待中关闭策略立即停止', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1);
+      await tester.pump(const Duration(seconds: 20));
+      notifier.setFinishCurrentChapterAfterTimer(true);
+      expect(notifier.sleepRemainingSeconds, 40);
+      notifier.pause();
+      await tester.pump(const Duration(minutes: 2));
+      expect(notifier.sleepRemainingSeconds, 40);
+      await notifier.resumeOrPlay();
+      await tester.pump(const Duration(seconds: 40));
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      notifier.setFinishCurrentChapterAfterTimer(false);
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(notifier.isSleepTimerActive, isFalse);
+    });
+
+    testWidgets('章末等待可取消/重设，取消不停止播放也不会遗留幽灵章末停止', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      notifier.cancelSleepTimer();
+      expect(readState().state, PlayerState.playing);
+      expect(notifier.isSleepTimerActive, isFalse);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      notifier.startChapterStop(2);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+      expect(notifier.finishCurrentChapterAfterTimer, isFalse);
+      expect(notifier.sleepTimerMode, SleepTimerMode.chapters);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 2);
+      expect(notifier.chaptersToStopRemaining, 1);
+      notifier.startSleepTimer(1);
+      expect(notifier.chaptersToStopRemaining, 0);
+      await tester.pump(const Duration(minutes: 1));
+      expect(readState().state, PlayerState.idle);
+    });
+
     testWidgets('流媒体：按章停止 1 = 本章播完即停，不进入下一章且写进度', (tester) async {
       await startStream(); // 3 章
       readNotifier().startChapterStop(1);

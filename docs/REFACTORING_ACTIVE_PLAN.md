@@ -1,5 +1,85 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-PLAYER-INTEGRATION-20261015：播放器与共用Sheet提交集成（P1）
+
+- 授权：用户要求提交当前worktree并合并到主目录。包含TTS-PLAYER-UI、TTS-BACKGROUND、TTS-SOURCE-PROGRESS、TTS-TIMER-SPEED及TTS-SHEET-DESIGN五批已验证成果；保留2.0.373+374，不推送、不触发CI。
+- 集成基线：worktree基于abaf70e7c，主目录feature/ui-reader-selection已到dc64de2da且工作区干净。先提交本批，再在worktree合并主目录基线、验证后快进主目录；不重写已有提交。
+- 验证依据：各批定向测试及完整分析见下方记录，最新两处引擎弹层28项回归通过；MuMu覆盖安装与六项启动冒烟通过。iOS真实后台、锁屏及真实云账号验证仍按用户要求跳过，不以Fake平台或启动检查代替。
+- 状态：提交与本地集成中，日志与截图留在忽略的build目录；未推送。
+
+编写者：Codex｜2026-10-15
+
+### TTS-SHEET-DESIGN-20261015：朗读面板精简与共用标题主题（P2）
+
+- 授权与边界：用户要求同类弹层标题居中、删除滑块上方重复模式名称和解释、剩余量并入定时标题、当前章/2/3/4章快捷项、按钮等宽铺排。沿用当前worktree和前批全部未提交成果，版本2.0.373+374不变，不提交/推送或触发CI。
+- 实现：AppSheetTheme作为ThemeData扩展统一居中规则；共用Sheet使用NavigationToolbar，标题及titleSuffix同排，设置编辑器继承同一主题。新增无业务依赖的AppSheetPresetGrid供定时和倍速共享，标准字体四列、大字体减少列数，删除重复提示资源。定时标题滑动时显示预选值、应用后显示实际剩余量；只改展示，不改变定时和保存语义。
+- 验证：5份Widget回归37项全部通过，覆盖主题切换与不等宽左右操作、标题剩余量同排、快捷项等宽满行、当前章/4章操作、窄屏/横屏/大字体，以及经典朗读条和播放器入口；完整flutter analyze --no-pub无问题，git diff --check通过。经典条用例同步新文案“当前章”，主题切换用例等待主题动画结束再校验。日志在忽略目录flutter_legado/build/tts-sheet-design-{tests,analysis}.log。本批已按后续授权重新构建并覆盖安装MuMu，详见下条；未提交/推送。
+
+- MuMu复装（2026-10-15 15:40）：实时确认127.0.0.1:16384在线；最新工作区Debug APK构建及包内原生库校验通过，adb install -r覆盖安装2.0.373+374，保留数据与Launcher4图标。六项启动冒烟通过，本次PID日志无FATAL/E/flutter，前台应用正常。证据在忽略目录flutter_legado/build/tts-sheet-design-mumu-{build,install,logcat}.log和tts-sheet-design-mumu-home.png；启动另显示15:05:00的历史Navigator上下文错误，早于本次15:40安装，保留tts-sheet-design-mumu-previous-crash.png后关闭提示；本次未声称修复该历史问题。本次验证安装和启动，面板实际视觉待用户验收；未提交/推送。
+
+- 快捷项调整：按用户后续要求将时间预设改为10/30/45/60/90分钟，章节为当前章/2/3/4/5章。定时快捷网格允许五列，标准宽度等分整行，窄屏和大字体保留自适应换行；倍速维持原有四列策略。11项定向Widget测试通过，目标文件静态分析无问题，日志tts-timer-presets-tests.log。尚未重新安装本次预设调整，未提交/推送。
+
+- 共用内边距调整：按用户授权将AppBottomSheet及AppSettingsSheet正文默认内边距设为零，正文横向铺满；设置行保留自身文字留白，矩形按压区域延伸到两侧，弹层外层按Sheet形状裁剪Ink。定时与倍速只给滑块、分段控件和快捷区补回16dp；云端/HTTP引擎、音色编辑器、标点选择及只读阅读明细显式保留原内容间距。7份相关Widget回归45项全部通过，含两种构造入口边缘长按/点击、全宽开关操作、表单间距/键盘避让、阅读明细和管理页；完整静态分析无问题。旧20分钟回归改由滑块设值，继续验证第10分钟不暂停、第20分钟停止，不恢复已删除的快捷项。日志sheet-content-padding-{tests,analysis}.log；已按后续授权覆盖安装MuMu，详见下条；未提交/推送。
+
+- MuMu复装（2026-10-15 15:55）：用户要求重新安装；实时探测127.0.0.1:16384在线并确认Launcher4，使用当前全部未提交内容构建Debug APK（Gradle30秒），严格原生库与APK校验通过。adb install -r覆盖安装2.0.373+374，保留原数据与图标，六项启动冒烟通过；书架显示正常，本次PID日志无FATAL/E/flutter。安装包包含无内边距正文及10/30/45/60/90分钟、当前章至5章预设。证据在忽略目录flutter_legado/build/sheet-content-padding-mumu-{build,install,logcat}.log及sheet-content-padding-mumu-home.png。实际面板视觉与长按效果待用户验收，未提交/推送。
+
+- 引擎选择接线修复：用户发现添加引擎列表仍有圆角Ink，根因为两处只使用showContent打开弹层、内部手写标题/列表，未继承AppBottomSheet.content的矩形行主题。添加引擎类型列表和添加音色的引擎选择列表现接入共用正文，保留来源选择与75%高度上限，移除重复标题及嵌套ListView；长列表由共用壳滚动。新增320×568/640×360与1.8倍文字用例检查标题居中、全宽矩形行、边缘长按选择、16条列表滚动与固定标题、取消不写音色；4项新增用例通过。完整静态分析无问题，4份相关Widget回归共28项全部通过；日志tts-engine-sheet-style-{red,new-tests,tests,analysis}.log。测试云端fixture补合法凭据引用，不读取真实密钥；本批已按后续授权覆盖安装MuMu，详见下条；未提交/推送。
+
+- MuMu复装（2026-10-15 16:09）：用户授权重新安装；实时确认127.0.0.1:16384及Launcher4，当前工作区Debug APK构建（Gradle30.3秒）与包内原生库校验通过。adb install -r覆盖安装2.0.373+374并保留数据/图标，六项启动冒烟通过，前台进程持续存活，本次PID日志无FATAL/E/flutter。证据位于忽略目录flutter_legado/build/tts-engine-sheet-style-mumu-{build,install,logcat}.log及tts-engine-sheet-style-mumu-home.png；两处弹层实际视觉待用户验收，未提交/推送。
+
+编写者：Codex｜2026-10-15
+
+### TTS-TIMER-SPEED-20261015：倍速Sheet与时间/章节定时（P1）
+
+- 授权与范围：用户要求继续倍速/定时面板，定时明确分为章节模式和时间模式，时间模式可开启读完本章；沿用reimplement_tts_t2a_task / abaf70e7c与前批未提交成果，不建分支、不使用子代理、不自动提交/推送/CI（构建安装按本轮后续授权执行），版本2.0.373+374不变。iOS实机验证按用户要求继续跳过。
+- 界面：播放器倍速菜单替换为共用AppBottomSheet外壳，0.5–3.0倍/0.1档滑块、八个常用倍率及跟随系统，滑动只预览、松手保存；选择手动倍率同时退出跟随系统。加载/保存失败提示并允许重试，保存期间禁用重复操作。时间/章节用固定分段控件，不依赖全局TabAlignment；时间0–180分钟、章节0–99章保留当前项目范围，0为关闭，提供时间与章数预设。打开不启动定时，切模式即清理互斥计时并应用该模式的已选值，未选择值时保持关闭。
+- 状态：AudioNotifier仍是唯一计时所有者。时间到点默认stop；开启finishCurrentChapter后到点取消秒ticker并进入等待自然章末，sleepTimerMode仍为duration，显示“计时已结束，读完本章后停止”；不在段末或云端分片完成时停止。等待期间关闭此开关立即停止，取消定时继续播放，重设/换模式/停止清除等待状态。修改到点策略不重置剩余秒数，暂停仍冻结倒计时；手动切章沿用原有不消费自然完成计数的规则。
+- 共用与边界：经典朗读条、独立播放器和音频书共用同一定时Sheet，移除音频书重复面板/输入控制器；通知、经典控制条与音频书状态栏显示章末等待状态。倍速沿用ReadAloudSettingsRepository、Preferences和AudioNotifier；同一更新先写倍率再切跟随开关，后一步失败保留跟随，不错误应用新倍率，可重试。不宣称多个独立配置键具备数据库事务性。计时与章末开关仅属于现有播放会话，不新增持久化键或数据库字段。
+- 验证：12份相关回归147项通过，覆盖TTS/音频书到点等待/自然切章/真正末段停止、即时停止、取消和重设、暂停冻结、通知、HTTP/云端/系统会话、预合成与原文定位；新增播放器入口后该文件10项复验通过，共148个唯一用例。最后“未启用显示关闭”调整后定时/倍速面板和经典条16项复验通过，包含320x568/640x360及1.8倍字体暗色、保存失败和分步写入失败。设置夹具的真实异步写队列与Widget时钟分开推进，明确取消测试遗留ticker，未放宽计时与保存断言。完整flutter analyze --no-pub、格式和git diff --check通过。
+- 证据与限制：日志在忽略目录flutter_legado/build/tts-timer-speed-{core-tests,sheet-tests,regression,player-test,final-ui,analysis}.log；Widget与平台替身只验证本地流程，现已按后续授权覆盖安装MuMu，未构建IPA、未做锁屏/后台/真实账号验收。保留前批音色徽标、封面精简、后台播放器选项、原文进度及现有排版成果，没有Rust/FRB、依赖或版本变更；未提交/推送。
+
+- MuMu安装（2026-10-15）：用户授权编译安装当前全部未提交成果。实时确认127.0.0.1:16384、Android 15、x86_64；复用经严格源码指纹和摘要校验的Debug Rust库，Gradle构建61.2秒，APK包内原生库正规化摘要校验通过。覆盖安装2.0.373+374并沿用Launcher4，六项启动冒烟通过，书架数据保留、进程存活且本次PID日志无FATAL/E/flutter。启动显示14:55:01的历史Navigator上下文错误记录，早于本次14:57:54安装；已保留截图并关闭提示，确认书架正常显示，不认定该历史问题已修复。证据在忽略目录flutter_legado/build/tts-timer-speed-mumu-{build,install,runtime,logcat}.log与tts-timer-speed-mumu-{home,previous-crash}.png。本次仅验证构建安装与启动，实际朗读、定时及后台仍待用户验收；未提交/推送。
+
+编写者：Codex｜2026-10-15
+
+### TTS-SOURCE-PROGRESS-20261015：播放器章内原文进度（P1）
+
+- 授权：用户明确跳过下一步第1项iOS实机复验，继续第2项原文进度优化。当前reimplement_tts_t2a_task / abaf70e7c，保留前批界面与后台修复；单代理、不建分支、不提交/推送、不构建安装或CI，版本2.0.373+374不变。iOS锁屏/后台问题保留未验证状态。
+- 范围：播放器进度条使用AudioState.currentChapter.text的完整章节UTF-16长度和readAloudPosition.offset，保留换行/缩进坐标，不按裁剪后的朗读单元数量平均分配。滑块显示百分比，并提供原文位置提示和读屏增减位置；ValueListenableBuilder仅更新进度子树。
+- 定位：复用既有seekToChapterPosition，不新增Notifier/FFI协议或数据库字段；拖动只预览、松手调用一次，播放回调不覆盖拖动预览。换书、切章、正文变化、朗读会话变化、禁用或销毁会取消旧拖动，迟到的松手/重复结束事件不触发定位。暂停状态保留，实际合成从目标后缀开始。
+- Unicode：readAloudStartAt从只保护UTF-16代理对改为对齐完整字形簇起点，覆盖组合音标、肤色修饰、ZWJ家庭表情、国旗和生僻字；空白间隙仍定位到后一个单元，章末与越界定位到最后一个完整字符。进度条不另写一套文本分段或业务坐标映射。
+- 证据：其余9份回归118项通过，包含真实AudioNotifier的播放/暂停原文定位、HTTP/系统/云端、内容划分及前批后台暂停回归；进度组件9项随后单独通过，共127项。组件覆盖unequal段长/原文换行、段内实时回调、单次提交、同章进度刷新不覆盖预览、书/章/正文/会话变化取消、禁用/销毁及真实读屏increase动作。首轮新增测试文件的import位置错误修正后独立复验，读屏夹具选择真实increase语义节点并在finally释放句柄，没有放宽生产守卫。完整flutter analyze --no-pub无问题；格式及git diff --check通过。
+- 日志：忽略目录flutter_legado/build/tts-source-progress-{tests,regression,slider-tests,analysis}.log。系统TTS为原生文字进度，HTTP/云端仍沿用文件播放时长映射，不能称逐字时间戳或实际百分比字数。Widget与Fake平台验证不等于设备视觉或后台验收；MuMu旧安装包未包含本批。下一批为倍速Sheet及定时交互，本批不混入。
+
+编写者：Codex｜2026-10-15
+
+### TTS-BACKGROUND-20261015：音色徽标与后台音频暂停修复（P1）
+
+- 授权与范围：用户要求音色只保留一个不可点击徽标，删除封面下的书名和作者，并检查iOS云TTS退后台停播。沿用reimplement_tts_t2a_task / abaf70e7c及已有未提交成果，单代理，不创建分支、不提交或推送，版本2.0.373+374不变。
+- 界面：音色使用无点击/删除动作的Chip，不显示引擎副标题、箭头或进入管理页的操作；书名与章节仍留在顶栏。保留当前/下一单元和封面转场，音色缺失时展示原默认状态。
+- 已确认根因：当前video_player 2.14.1在allowBackgroundPlayback缺省false时注册_VideoAppLifeCycleObserver，paused直接调用controller.pause，resumed按先前状态play；StreamAudioPlayer原来只配置mixWithOthers，云端/HTTP本地音频和音频书网络流都会被此观察者暂停。iOS已有UIBackgroundModes=audio及AVAudioSession.playback/spokenAudio，并非缺少这两项声明。插件逻辑发生在Dart层，可能导致AudioNotifier仍显示playing而实际控制器已经暂停。
+- 最小修复：StreamAudioPlayer统一开启allowBackgroundPlayback，网络和本地控制器共同使用；保留Android音频焦点唯一所有者、NowPlayingBridge中断事件、手动暂停和停止，视频页继续采用默认前后台暂停策略。不修改Swift、Info.plist、Rust、FRB、数据库或依赖，不增加静音保活。
+- 证据：新增本地/网络后台继续播放、返回前台不重复启动、后台手动暂停不被前台恢复覆盖三项测试，旧实现全部失败，修复后通过；另覆盖真实CloudReadAloudEngine经VideoPlayerController/Fake平台在后台推进下一片及停止后不重播，不以简单配置值断言替代流程。播放器Widget断言只有一个音色Chip、无引擎副标题/作者、书名仅出现一次、点击不导航，原窄屏/大字体/滚动回归保留。
+- 验证：7份相关测试共92项通过，包含系统/HTTP/云端会话和媒体焦点回归；日志在忽略目录flutter_legado/build/tts-background-{red,green,regression,analysis}.log。当前测试验证的是Flutter生命周期与命令，不代表AVPlayer真实后台音频和云网络运行。
+- 状态与边界：代码修复和本地回归通过；Windows不能执行Xcode/iPhone验证，iOS新IPA的切后台、锁屏、长时间播放、切章及来电恢复按用户后续要求跳过，保留未验证。上一轮MuMu安装包不包含本次后续调整；本轮未构建安装、提交/推送或触发CI。
+- 资料：[VideoPlayerOptions默认值](https://pub.dev/documentation/video_player/2.14.1/video_player/VideoPlayerOptions-class.html)、[Apple音频会话](https://developer.apple.com/documentation/AVFAudio/AVAudioSession)。根因同时核对本地锁定插件源码video_player.dart的initialize和_VideoAppLifeCycleObserver。
+
+编写者：Codex｜2026-10-15
+
+### TTS-PLAYER-UI-20261015：播放器主体视觉与滚动交互（P1）
+
+- 授权与基线：用户要求继续在现有朗读worktree执行第一批播放器优化，并从主目录更新基线。reimplement_tts_t2a_task已从6f6b2d3a1快进至主目录feature/ui-reader-selection的abaf70e7c；只同步已提交代码，保留主目录未提交修改。单代理，不创建分支、不自动提交、合并、推送、CI或安装；版本2.0.373+374不变。
+- 参考：[HapeLee播放器](https://github.com/HapeLee/legado-with-MD3/blob/dd97afe4f1184ac6b9840dc8faf821b40e162583/app/src/main/java/io/legado/app/ui/book/readaloud/player/ReadAloudPlayerScreen.kt)，固定dd97afe4。本批采用三页横滑、当前/下一文本400ms淡入淡出与纵向过渡、音色摘要（后续按用户要求精简为不可点击徽标）、播放按钮形态动画、正文手动滚动结束650ms后恢复控制栏；适配现有Flutter组件与应用主题，不宣称逐像素一致。
+- 实现：紧凑顶栏保留书名/章节及下拖退出，常驻标签改为PageView和可访问的页面菜单；封面继续复用原图片转场。ReadAloudPlayerText、ReadAloudPlayPauseButton、ReadAloudControlsVisibility和ReadAloudChapterText为独立展示组件。正文使用较大字体及当前/非当前颜色层级，沿用32%视口跟随和520ms定位，不改变原文单元、合成和播放队列。
+- 滚动边界：只响应手动拖动/用户滚动，程序跟随不隐藏控制栏；新拖动撤销旧恢复计时器，离开正文、切章或正文暂时为空恢复控制栏，销毁取消计时。隐藏期间排除点击与读屏语义，减少动画时直接切换；退出文本不进入读屏内容。控制栏让出正文高度，并针对窄屏、横屏、大字体修正顶栏与倍速按钮约束。
+- 信息边界：ReadAloudPlayerInfo通过既有仓储及选择解析器读取当前HTTP/云端/系统音色；不暴露HTTP请求URL，不读取云端凭据，不保存配置、不合成、不初始化或枚举系统插件。缺失/排除音色显示引擎默认状态，读取失败显示提示，慢目录期间切换引擎不使用失效Ref或回写旧结果。
+- 验证：8份定向回归共96项通过，含播放器8项、信息5项及HTTP/系统/云端播放、书级/全局持久化、定时停止。最终文本过渡方向和信息Consumer订阅调整后，13项新增测试复验通过。完整flutter analyze --no-pub无问题，格式与git diff --check通过。日志保留于忽略目录flutter_legado/build/tts-player-ui-{regression,final-tests,analysis}.log；测试使用确定的播放快照，实际引擎由既有回归覆盖。
+- 状态与未测：本批代码和本地回归通过，按后续授权已安装MuMu；播放器设备视觉/胶囊转场/真实后台朗读待用户验收，未触发CI或提交。未修改AudioNotifier、Rust、FRB、数据库、依赖或版本。原文偏移进度、倍速Sheet、定时扩展、背景取色及更多音色操作留作后续批次。
+
+- MuMu安装（2026-10-15）：用户要求编译并安装。实时确认127.0.0.1:16384、Android 15、x86_64后，重编当前Rust FFI（QuickJS启用，63秒）与Flutter Debug APK（Gradle 104.1秒），Python元数据及APK/Cargo库经NDK strip正规化校验通过。adb install -r覆盖安装2.0.373+374，保留数据和原Launcher4图标入口；六项启动冒烟通过，进程持续存活，PID日志未检出FATAL/Flutter未处理异常，截图确认书架正常显示。证据位于忽略目录flutter_legado/build/tts-player-mumu-{build,install,runtime,logcat}.log及tts-player-mumu-home.png；未验证实际朗读、锁屏或后台连续播放，未提交/推送。
+
+编写者：Codex｜2026-10-15
+
 ### TTS-PLAYBACK-ALIGNMENT-20261015：云端失败保护、内容划分与共用预合成（P1）
 
 - 授权：用户要求执行已分析的三步改进；当前reimplement_tts_t2a_task / edc443391，起始干净；不使用子代理、不建分支、不自动提交/推送/CI或安装，不改版本2.0.373+374。

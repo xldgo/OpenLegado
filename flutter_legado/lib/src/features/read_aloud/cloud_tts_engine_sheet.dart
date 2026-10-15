@@ -84,6 +84,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       'apiKey': l.cloudTtsApiKey,
     };
     return AppSettingsSheet(
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.engine == null ? l.cloudTtsAdd : l.cloudTtsEdit,
       onSave: () {
         if (!_form.currentState!.validate()) return;

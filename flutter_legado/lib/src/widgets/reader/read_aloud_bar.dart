@@ -72,6 +72,9 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
   String _timerTooltip(AudioNotifier notifier) {
     switch (notifier.sleepTimerMode) {
       case SleepTimerMode.duration:
+        if (notifier.isWaitingForTimerChapterEnd) {
+          return notifier.sleepTimerRemainingLabel;
+        }
         return '定时停止：剩余 '
             '${_formatCountdown(notifier.sleepRemainingSeconds)}';
       case SleepTimerMode.chapters:
@@ -391,7 +394,11 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                     if (notifier.sleepTimerMode == SleepTimerMode.duration)
                       Flexible(
                         child: Text(
-                          _formatCountdown(notifier.sleepRemainingSeconds),
+                          notifier.isWaitingForTimerChapterEnd
+                              ? notifier.sleepTimerRemainingLabel
+                              : _formatCountdown(
+                                  notifier.sleepRemainingSeconds,
+                                ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(

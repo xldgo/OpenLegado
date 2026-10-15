@@ -11,6 +11,7 @@ import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart'
 import 'package:flutter_legado/src/features/read_aloud/http_tts_seed.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_config_screen.dart';
 import 'package:flutter_legado/src/widgets/app_settings_sheet.dart';
+import 'package:flutter_legado/src/widgets/bottom_sheet_widget.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
@@ -115,8 +116,14 @@ void main() {
     );
     addTearDown(container.dispose);
   });
-  Future<void> pump(WidgetTester tester, {int tab = 0, Widget? screen}) async {
-    tester.view.physicalSize = const Size(360, 640);
+  Future<void> pump(
+    WidgetTester tester, {
+    int tab = 0,
+    Widget? screen,
+    Size size = const Size(360, 640),
+    double scale = 1,
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -124,6 +131,11 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: screen ?? ReadAloudConfigScreen(initialTab: tab),
           routes: {
             AppRoutes.readAloudConfig: (_) => const ReadAloudConfigScreen(),
@@ -137,6 +149,101 @@ void main() {
   Future<void> engines(WidgetTester tester) async {
     await tester.tap(find.widgetWithText(Tab, '引擎'));
     await tester.pumpAndSettle();
+  }
+
+  void expectSharedList(WidgetTester tester, Finder row, String title) {
+    final sheet = find.byType(AppBottomSheet);
+    expect(sheet, findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.text(title)),
+      findsOneWidget,
+    );
+    final bounds = tester.getRect(sheet);
+    expect(tester.getRect(row).left, closeTo(bounds.left, .01));
+    expect(tester.getRect(row).right, closeTo(bounds.right, .01));
+    expect(
+      ListTileTheme.of(tester.element(row)).shape,
+      const RoundedRectangleBorder(),
+    );
+    final header = find.descendant(
+      of: sheet,
+      matching: find.byType(NavigationToolbar),
+    );
+    expect(tester.widget<NavigationToolbar>(header).centerMiddle, isTrue);
+    expect(
+      tester
+          .getCenter(find.descendant(of: header, matching: find.text(title)))
+          .dx,
+      closeTo(bounds.center.dx, .01),
+    );
+  }
+
+  for (final size in [const Size(320, 568), const Size(640, 360)]) {
+    testWidgets('添加引擎选择共用Sheet，边缘长按后进入编辑页 $size', (tester) async {
+      await pump(tester, tab: 1, size: size, scale: 1.8);
+      await tester.tap(find.byTooltip('添加引擎'));
+      await tester.pumpAndSettle();
+      final row = find.widgetWithText(ListTile, 'HTTP TTS');
+      expectSharedList(tester, row, '添加引擎');
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(row);
+      final press = await tester.startGesture(
+        Offset(bounds.left + 2, bounds.center.dy),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(AppSettingsSheet), findsOneWidget);
+      expect(find.text('添加 HTTP TTS 引擎'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('添加音色选择引擎共用Sheet，长列表可滚动且标题固定 $size', (tester) async {
+      for (var i = 0; i < 16; i++) {
+        await api.cloudTtsRepository.save(
+          CloudTtsEngine(
+            id: 'fixture-$i',
+            name: '候选引擎$i',
+            provider: 'alibaba_cloud',
+            model: cloud.model,
+            credentialKey: 'cloud-tts:fixture-$i:test',
+          ),
+        );
+      }
+      await pump(tester, size: size, scale: 1.8);
+      await tester.tap(find.byTooltip('添加音色'));
+      await tester.pumpAndSettle();
+      final sheet = find.byType(AppBottomSheet);
+      final first = find.widgetWithText(ListTile, '候选引擎0');
+      expectSharedList(tester, first, '选择引擎');
+      final title = find.descendant(of: sheet, matching: find.text('选择引擎'));
+      final before = tester.getRect(title);
+      final last = find.widgetWithText(ListTile, '候选引擎15');
+      await tester.ensureVisible(last);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(title), before);
+      expect(last.hitTestable(), findsOneWidget);
+      final bounds = tester.getRect(last);
+      await tester.tapAt(Offset(bounds.right - 2, bounds.center.dy));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppSettingsSheet), findsOneWidget);
+      expect(find.text('添加音色'), findsWidgets);
+      expect(find.text('候选引擎15'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(
+        (await api.readAloudVoiceRepository.list()).where(
+          (v) => v.managedBy == 'user',
+        ),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('引擎按云、HTTP、系统分类，独立卡片与系统引擎选择保留', (tester) async {

@@ -148,6 +148,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
         ? null
         : cloudTtsProfile(source.provider!);
     return AppSettingsSheet(
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       title: widget.voice == null ? '添加音色' : '编辑音色',
       onSave: _previewing
           ? null

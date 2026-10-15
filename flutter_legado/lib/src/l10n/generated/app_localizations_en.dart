@@ -4161,4 +4161,40 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get readAloudSplitSymbolsHint =>
       'Consecutive punctuation stays with the preceding unit';
+
+  @override
+  String get readAloudDefaultVoice => 'Engine default voice';
+
+  @override
+  String get readAloudPlayerInfoUnavailable =>
+      'Voice and engine information unavailable';
+
+  @override
+  String get readAloudNoEngine => 'No read-aloud engine selected';
+
+  @override
+  String readAloudSourceProgress(int current, int total) {
+    return 'Text position $current/$total';
+  }
+
+  @override
+  String get readAloudTimerTimeMode => 'Time';
+
+  @override
+  String get readAloudTimerChapterMode => 'Chapters';
+
+  @override
+  String get readAloudTimerFinishChapter => 'Finish chapter when time is up';
+
+  @override
+  String get readAloudTimerFinishChapterHint =>
+      'Continue until the current chapter finishes after the countdown ends.';
+
+  @override
+  String readAloudChapters(int chapters) {
+    return '$chapters chapters';
+  }
+
+  @override
+  String get readAloudCurrentChapter => 'Current chapter';
 }

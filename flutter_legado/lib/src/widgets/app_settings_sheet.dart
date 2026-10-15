@@ -11,16 +11,18 @@ class AppSettingsSheet extends StatelessWidget {
     required this.child,
     required this.onSave,
     this.onClose,
+    this.contentPadding = EdgeInsets.zero,
   });
   final String title;
   final Widget child;
   final VoidCallback? onSave;
   final VoidCallback? onClose;
+  final EdgeInsets contentPadding;
 
   @override
   Widget build(BuildContext context) => AppBottomSheet.content(
     title: title,
-    centerTitle: true,
+    contentPadding: contentPadding,
     leading: TextButton(
       onPressed: onClose ?? () => Navigator.pop(context),
       child: Text(context.l10n.cancel),

@@ -306,6 +306,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   ///
   /// 分钟倒计时剩余秒数（>0 时 duration 模式生效）
   int _sleepRemainingSeconds = 0;
+  bool _finishCurrentChapterAfterTimer = false;
+  bool _waitingForTimerChapterEnd = false;
+
+  bool get finishCurrentChapterAfterTimer => _finishCurrentChapterAfterTimer;
+  bool get isWaitingForTimerChapterEnd => _waitingForTimerChapterEnd;
 
   /// 按章停止剩余章数（>0 时 chapters 模式生效）
   int _chaptersToStopRemaining = 0;
@@ -317,7 +322,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 定时停止模式（分钟与按章互斥；均未启用为 off）
   SleepTimerMode get sleepTimerMode {
     if (_chaptersToStopRemaining > 0) return SleepTimerMode.chapters;
-    if (_sleepRemainingSeconds > 0) return SleepTimerMode.duration;
+    if (_sleepRemainingSeconds > 0 || _waitingForTimerChapterEnd) {
+      return SleepTimerMode.duration;
+    }
     return SleepTimerMode.off;
   }
 
@@ -342,6 +349,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       case SleepTimerMode.chapters:
         return '剩余 $_chaptersToStopRemaining 章';
       case SleepTimerMode.duration:
+        if (_waitingForTimerChapterEnd) return '计时已结束，读完本章后停止';
         return '剩余 ${(_sleepRemainingSeconds + 59) ~/ 60} 分钟';
       case SleepTimerMode.off:
         return '';
@@ -1822,8 +1830,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     );
   }
 
-  Future<void> setReadAloudSpeed(double speed) async {
-    await ref.read(readAloudPreferencesProvider.notifier).setManualSpeed(speed);
+  Future<void> setReadAloudSpeed(
+    double speed, {
+    bool activateManual = false,
+  }) async {
+    await ref
+        .read(readAloudPreferencesProvider.notifier)
+        .setManualSpeed(speed, activateManual: activateManual);
     if (_disposed || state.isStreamMode) return;
     updateConfig(
       speed: ref.read(readAloudPreferencesProvider).effectiveSpeed,
@@ -2134,21 +2147,34 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   // ===== 定时停止（A4 批：计时下沉，退出听书页不失效）=====
 
-  /// 启动分钟倒计时：到点停止播放并保存进度（流媒体经 A3 force 写）
+  /// 启动分钟倒计时：默认到点停止，可选等待自然章末再停止并保存进度。
   ///
   /// 与按章停止互斥（对齐原版 setTimer → chapterStopTimer.clear()，
   /// BaseReadAloudService.kt:553-559）。递减仅在播放中进行（对齐原版
   /// doDs 的 `if (!pause)` 守卫，BaseReadAloudService.kt:586-601）：
   /// 暂停期间剩余时间冻结，恢复播放后继续。
-  void startSleepTimer(int minutes) {
+  void startSleepTimer(int minutes, {bool finishCurrentChapter = false}) {
     final normalized = minutes.clamp(0, kMaxSleepTimerMinutes).toInt();
     _clearSleepTimerState();
     if (normalized > 0) {
       _sleepRemainingSeconds = normalized * 60;
+      _finishCurrentChapterAfterTimer = finishCurrentChapter;
       _ensureSleepTicker();
     }
     notifyListeners();
     // [第2项] 定时启用/关闭立即反映到通知标题（签名去重）
+    unawaited(_pushMediaSessionMetadata());
+  }
+
+  /// 修改当前时间模式的到点策略，不重置剩余秒数；等待章末时关闭即停止。
+  void setFinishCurrentChapterAfterTimer(bool enabled) {
+    if (sleepTimerMode != SleepTimerMode.duration) return;
+    _finishCurrentChapterAfterTimer = enabled;
+    if (!enabled && _waitingForTimerChapterEnd) {
+      stop();
+      return;
+    }
+    notifyListeners();
     unawaited(_pushMediaSessionMetadata());
   }
 
@@ -2182,6 +2208,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _sleepTicker = null;
     _sleepRemainingSeconds = 0;
     _chaptersToStopRemaining = 0;
+    _finishCurrentChapterAfterTimer = false;
+    _waitingForTimerChapterEnd = false;
   }
 
   void _ensureSleepTicker() {
@@ -2193,6 +2221,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (_sleepRemainingSeconds <= 0) return;
       _sleepRemainingSeconds--;
       if (_sleepRemainingSeconds <= 0) {
+        if (_finishCurrentChapterAfterTimer) {
+          _sleepTicker?.cancel();
+          _sleepTicker = null;
+          _waitingForTimerChapterEnd = true;
+          notifyListeners();
+          unawaited(_pushMediaSessionMetadata());
+          return;
+        }
         _clearSleepTimerState();
         notifyListeners();
         stop();
@@ -2210,6 +2246,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 仅在「章自然播完」路径调用（流媒体完成回调 / TTS 末段完成）；手动
   /// next()/jumpTo 不计数，保持与原版一致。
   bool _consumeChapterStopAtBoundary() {
+    if (_waitingForTimerChapterEnd) return true;
     if (_chaptersToStopRemaining <= 0) return false;
     _chaptersToStopRemaining--;
     final shouldStop = _chaptersToStopRemaining <= 0;

@@ -7436,6 +7436,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'连续标点保留在同一单元末尾'**
   String get readAloudSplitSymbolsHint;
+
+  /// No description provided for @readAloudDefaultVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎默认音色'**
+  String get readAloudDefaultVoice;
+
+  /// No description provided for @readAloudPlayerInfoUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色与引擎信息暂不可用'**
+  String get readAloudPlayerInfoUnavailable;
+
+  /// No description provided for @readAloudNoEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未选择朗读引擎'**
+  String get readAloudNoEngine;
+
+  /// 章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。
+  ///
+  /// In zh, this message translates to:
+  /// **'原文位置 {current}/{total}'**
+  String readAloudSourceProgress(int current, int total);
+
+  /// No description provided for @readAloudTimerTimeMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间模式'**
+  String get readAloudTimerTimeMode;
+
+  /// No description provided for @readAloudTimerChapterMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'章节模式'**
+  String get readAloudTimerChapterMode;
+
+  /// No description provided for @readAloudTimerFinishChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'到时后读完本章'**
+  String get readAloudTimerFinishChapter;
+
+  /// No description provided for @readAloudTimerFinishChapterHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'倒计时结束后继续播放，到本章结束再停止。'**
+  String get readAloudTimerFinishChapterHint;
+
+  /// No description provided for @readAloudChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'{chapters} 章'**
+  String readAloudChapters(int chapters);
+
+  /// No description provided for @readAloudCurrentChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前章'**
+  String get readAloudCurrentChapter;
 }
 
 class _AppLocalizationsDelegate
