@@ -37,6 +37,7 @@ void main() {
       ),
     );
     storage = HomeSettingsStorage();
+    storage.values['reader_keep_screen_on_seconds'] = 300;
     service = AppSettingsService(
       storages: {SettingsStorageKind.preferences: storage},
     );

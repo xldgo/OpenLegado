@@ -29,8 +29,6 @@ abstract interface class UiSettingsRepository {
     bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
-    bool? readMenuBrightnessVertical,
-    String? readMenuBrightnessPos,
     String? themeStyle,
     String? themeContrastLevel,
     bool? themeAmoled,

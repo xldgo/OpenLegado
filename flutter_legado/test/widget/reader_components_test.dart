@@ -1,4 +1,4 @@
-import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
+import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/domain/models/reader_status_strip_settings.dart';
 import 'package:flutter/services.dart';
 
@@ -16,7 +16,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
 
 import '../mocks/mocks.dart';
-import '../fixtures/reader_settings_repository.dart';
 
 /// 阅读器子组件 Widget 测试
 ///
@@ -27,8 +26,6 @@ import '../fixtures/reader_settings_repository.dart';
 /// （改独立目录页 TocScreen，测试组同步移除）；搜索/夜间按钮自顶栏
 /// 迁至底栏悬浮按钮行，断言同步迁移 — Qoder
 void main() {
-  late AppReaderSettingsRepository repository;
-  setUp(() => repository = createTestReaderSettingsRepository());
   late MockRustApi mockApi;
   late ProviderContainer container;
 
@@ -150,7 +147,7 @@ void main() {
           buildReaderMenu(
             onOpenCatalog: () {},
             onOpenSettings: () {},
-            onOpenAdvancedConfig: () {},
+
             onOpenContentSearch: () => searchTapped = true,
             onReadAloud: () {},
           ),
@@ -172,7 +169,7 @@ void main() {
           buildReaderMenu(
             onOpenCatalog: () => catalogTapped = true,
             onOpenSettings: () {},
-            onOpenAdvancedConfig: () {},
+
             onOpenContentSearch: () {},
             onReadAloud: () {},
           ),
@@ -194,7 +191,7 @@ void main() {
           buildReaderMenu(
             onOpenCatalog: () {},
             onOpenSettings: () {},
-            onOpenAdvancedConfig: () {},
+
             onOpenContentSearch: () {},
             onReadAloud: () {},
           ),
@@ -242,13 +239,16 @@ void main() {
         messenger.setMockMethodCallHandler(channel, null);
         messenger.setMockMethodCallHandler(eventChannel, null);
       });
+      await container.read(readerSettingsRepositoryProvider).load();
+      await container
+          .read(readerSettingsRepositoryProvider)
+          .updateBrightnessControl(mode: 1);
       await tester.pumpWidget(
         wrapStack(
           buildReaderMenu(
-            brightnessMode: 1,
             onOpenCatalog: () {},
             onOpenSettings: () {},
-            onOpenAdvancedConfig: () {},
+
             onOpenContentSearch: () {},
             onReadAloud: () {},
           ),
@@ -314,18 +314,6 @@ void main() {
         ),
       );
     });
-  });
-
-  test('亮度三档保存并兼容旧布尔值', () async {
-    SharedPreferences.setMockInitialValues({'showBrightnessView': true});
-    final config = await repository.loadAdvanced();
-    expect(config.brightnessMode, 1);
-    config.brightnessMode = 2;
-    config.brightnessOnLeft = true;
-    await repository.saveAdvanced(config);
-    final restored = await repository.loadAdvanced();
-    expect(restored.brightnessMode, 2);
-    expect(restored.brightnessOnLeft, isTrue);
   });
 
   group('ReaderStatusStrip（Phase 2.4/2.6 状态栏）', () {

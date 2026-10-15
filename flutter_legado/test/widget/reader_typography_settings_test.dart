@@ -49,7 +49,7 @@ void main() {
       throw PlatformException(code: 'unsupported');
     });
     addTearDown(() => messenger.setMockMethodCallHandler(brightness, null));
-    await container.read(readerAdvConfigProvider.notifier).ensureLoaded();
+    await container.read(readerSettingsRepositoryProvider).load();
   }
 
   Future<void> show(WidgetTester tester, {bool fullPage = false}) async {

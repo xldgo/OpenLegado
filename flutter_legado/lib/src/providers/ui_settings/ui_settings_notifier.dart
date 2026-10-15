@@ -126,13 +126,6 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
   Future<void> setRailExtended(bool value) =>
       _save((repository) => repository.update(railExtended: value));
 
-  Future<void> setReadMenuBrightnessVertical(bool value) => _save(
-    (repository) => repository.update(readMenuBrightnessVertical: value),
-  );
-
-  Future<void> setReadMenuBrightnessPos(String value) =>
-      _save((repository) => repository.update(readMenuBrightnessPos: value));
-
   Future<void> setThemeStyle(String value) =>
       _save((repository) => repository.update(themeStyle: value));
 

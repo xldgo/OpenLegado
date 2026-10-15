@@ -96,6 +96,54 @@ void main() {
       expect(original[address], 'before');
     });
 
+    test('StringList读取冻结外部列表，写入只接受不可变配置值', () async {
+      final input = ['before'];
+      storage.values[address.key] = input;
+      await service.load({address});
+      final original = service.current[address] as SettingsStringList;
+      input[0] = 'external';
+      expect(original.values, ['before']);
+      expect(() => original.values[0] = 'changed', throwsUnsupportedError);
+      expect(
+        () => service.update({
+          address: ['mutable'],
+        }),
+        throwsArgumentError,
+      );
+      final changed = ['after'];
+      final saving = service.update({address: SettingsStringList(changed)});
+      changed[0] = 'caller-changed';
+      await saving;
+      expect((service.current[address] as SettingsStringList).values, [
+        'after',
+      ]);
+      expect(original.values, ['before']);
+    });
+
+    test('不可变StringList保存失败回退并可重试，旧快照不改变', () async {
+      storage.values[address.key] = ['before'];
+      await service.load({address});
+      final original = service.current;
+      storage.beforeWrite = (_, _) async => throw StateError('模拟保存失败');
+      await expectLater(
+        service.update({
+          address: SettingsStringList(['pending']),
+        }),
+        throwsStateError,
+      );
+      expect((service.current[address] as SettingsStringList).values, [
+        'before',
+      ]);
+      storage.beforeWrite = null;
+      await service.update({
+        address: SettingsStringList(['after']),
+      });
+      expect((service.current[address] as SettingsStringList).values, [
+        'after',
+      ]);
+      expect((original[address] as SettingsStringList).values, ['before']);
+    });
+
     test('后提交的同键更新不会被先提交的失败覆盖', () async {
       final entered = Completer<void>();
       final release = Completer<void>();

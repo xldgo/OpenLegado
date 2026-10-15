@@ -48,7 +48,7 @@ void main() {
     await repository.updateScreen();
     await repository.updateStatusStrip();
     expect(storage.writes, isEmpty);
-    await repository.loadAdvanced();
+    await repository.load();
     expect(
       (await SharedPreferences.getInstance()).containsKey(
         'settingsMigrated_v271',
@@ -208,12 +208,10 @@ void main() {
     expect(storage.writes, isEmpty);
   });
 
-  test('保存剩余高级快照不会覆盖九项或触碰旧键和默认标记', () async {
-    final advanced = await repository.loadAdvanced();
+  test('修改剩余阅读设置不会覆盖九项或触碰旧键和默认标记', () async {
     await repository.updateScreen(hideStatusBar: true, extendIntoCutout: true);
     await repository.updateStatusStrip(showTime: true);
-    advanced.autoPageTurnInterval = 12;
-    await repository.saveAdvanced(advanced);
+    await repository.updateScreen(keepScreenOnSeconds: 60);
     expect(repository.current.screen.hideStatusBar, isTrue);
     expect(repository.current.screen.extendIntoCutout, isTrue);
     expect(repository.current.statusStrip.showTime, isTrue);
@@ -232,6 +230,7 @@ void main() {
     ]) {
       expect(prefs.containsKey(key), isFalse, reason: key);
     }
-    expect(prefs.getDouble('reader_adv_auto_interval'), 12);
+    expect(storage.values['reader_keep_screen_on_seconds'], 60);
+    expect(prefs.containsKey('keep_light'), isFalse);
   });
 }

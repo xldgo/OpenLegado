@@ -1,5 +1,51 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-SETTINGS-CLEANUP-20261015：剩余阅读设置与旧高级入口收尾（P1）
+
+- 授权与基线：用户同意继续自动换源及两项禁用配置收尾。当前feature/ui-reader-selection / 365243192，保留翻页操作和菜单配色两批未提交改动；不用子代理、不创建分支、不自动提交、推送或触发CI，不编译安装，版本2.0.373+374不变。
+- 状态：实现与本地定向验证完成，按用户授权纳入本地统一提交。自动换源和标题附加区归ReaderSettings；保持亮屏时长归ReaderScreenSettings，按字段通过原共享服务读写。实际自动换源执行策略保持；亮屏与标题附加区仍禁用，不接入新平台能力。
+- 提交授权：用户明确要求提交commit。本次统一提交翻页与操作、菜单配色与亮度控件、剩余阅读设置及旧高级入口清理三批成果；提交正文只描述结构与行为，不写本地日志或失败证据。不推送、不触发CI，应用版本保持。
+- 清理范围：删除ReaderAdvancedConfig、旧高级Provider/整份快照存取及其独立队列；设置面板不再传配置副本和回调，阅读器不再保留高级副本，删除无消费者的高级菜单回调。只用reader_规范键，不迁旧值，不保留兼容入口。
+- 验收：三字段真实存储恢复、独立更新与失败回退、订阅和备份重读；自动换源开关、实际错误触发路径、禁用项状态；原设置、菜单、字体、选区及溢出回归。旧高级入口专属测试移除，相关隔离断言改为共享仓储分组隔离，不放宽已有功能断言。
+
+- 结构收尾：AppReaderSettingsRepository只依赖共享服务，不再直接获取Preferences或使用SettingsWriteQueue；ReaderSettingsRepository不再导入UI侧旧模型。ReaderConfigPanel只传section，删除复制、didUpdateWidget回填和整份保存；ReaderSettingsSheet直接加载和订阅共享仓储，ReaderScreen只保留实际会话状态，不加载或缓存旧高级配置。onOpenAdvancedConfig未在菜单内部消费，其参数与失效回调删除；实际设置按钮保持。
+- 验证：41份相关回归403项全部通过，ReaderConfigPanel的360dp定向溢出回归1项通过，共404项；完整flutter analyze --no-pub无问题，59份改动及新增Dart格式无差异，git diff --check通过。新增内容设置仓储7项、控件2项、实际ReaderScreen自动换源2项；原保持亮屏控件回归改用规范键300秒，保留禁用、已有选项和旧键不改写断言。旧高级模型及其Provider/独立队列的6项专属测试删除，现行共享服务的加载、并发写入及失败回退回归保持。
+- 实际行为证据：自动换源关闭时章节错误不调用搜索，启用及失败回退后使用共享当前值；首个同源候选跳过，使用非同源候选调用switchSource、保留详情地址并重开返回地址。以上使用真实ReaderScreen与可计数API夹具，不涉及真实网站。标题附加区及亮屏时长按共享字段恢复，保留禁用与待实现说明，不宣称唤醒锁或附加标题已接入。
+- 验证收尾：辅助加载方法重命名时漏改part内一处字体返回调用，静态检查定位后已统一；4份旧高级隔离回归仍断言原Preferences后端/键，已改为断言同一共享测试存储的新键并继续拒绝旧键。原换源路由测试误断言PageRouteBuilder，现生产实现为PopupRoute，仅修正类型断言和说明，保留dynamic非String路由及菜单重载回归；没有修改路由实现、换源算法或放宽结果断言。
+- 证据与边界：忽略目录flutter_legado/build/reader-color-styles-qa/settings-cleanup-{initial-tests,initial-regression,regression,analysis,format,panel-layout}.log及settings-cleanup-regression-files.txt；最终结果以regression/analysis/format/panel-layout为准。保留前两批未提交成果，未构建安装、执行设备/iOS/远程CI、提交或推送，版本2.0.373+374不变；Codex直接实现复核，不用子代理、不宣称独立审查。Flutter源码与测试已无旧高级模型、Provider、整份存取或失效菜单回调引用；仅文档保留历史追溯。
+
+
+编写者：Codex｜2026-10-15
+
+### READER-MENU-SETTINGS-20261015：菜单配色与亮度控件统一访问（P1）
+
+- 授权与基线：用户同意继续迁移13项，当前feature/ui-reader-selection / 365243192；保留前批翻页与操作设置未提交成果。不使用子代理、不创建分支、不自动提交、推送或触发CI，不编译安装，版本2.0.373+374不变。
+- 状态：实现与本地定向验证完成，按用户授权纳入本地统一提交。菜单配色11项归ReaderMenuThemeSettings，亮度控件显示方式和侧栏位置归ReaderBrightnessControlSettings，继续使用ReaderSettingsRepository/AppSettingsService；实际亮度值保持原流程。
+- 边界：使用reader_规范键，不读取迁移旧值；移除对应高级字段和菜单旧开关转换。保留现有调色算法、日夜颜色回退、标题颜色覆盖、稳定弹层上下文与菜单交互；日夜颜色编辑切换只在界面内存中保存。
+- 验收：真实Preferences恢复、字段隔离、失败回退重试、外部重读与备份忽略；菜单配色及亮度控件实际交互、阅读器接参、选区与菜单主题回归。不改分页、选区算法、翻页动画、Rust/FFI或数据库。
+
+- 清理：ReaderMenuSettingsCodec集中13项解码与局部写入；删除高级模型对应字段及旧格式读写，删除reader_settings_migration.dart最后的菜单开关转换。另确认通用UiSettings中readMenuBrightnessVertical/readMenuBrightnessPos只在存储定义与测试中出现、没有界面消费者，一并移除常量、模型、仓储及Notifier写入口；不读取或迁移无效值，新增负向回归确认旧键不进入两类共享快照。
+- 验证：37份相关回归377项全部通过，完整flutter analyze --no-pub无问题，49份改动及新增Dart格式无差异、git diff --check通过。新增菜单仓储6项、设置控件4项、实际ReaderScreen2项，以及通用UI旧字段不读取1项；原主题7项继续覆盖应用/背景/自定义、日夜、实色与种子、回退及对比度。旧菜单转换和旧亮度布尔兼容专属用例移除，剩余高级队列测试改用autoChangeSource并保持复制与串行断言。
+- 实际接线证据：八项日夜颜色通过真实对话框分别保存，编辑模式不落盘，重新打开恢复当前界面明暗；来源/调色板/生成方式、颜色失败回退、四档亮度显示、左右切换失败重试及外部重读通过。真实阅读器验证主题和标题颜色响应，正文应用主题、章内位置及稳定导航上下文保持；侧栏切换只写位置，选区、菜单点击/滑动及弹层回归通过。
+- 验证收尾：首轮静态检查定位菜单横条辅助构建方法漏接共享亮度快照，补齐后通过；相关全套发现读取键集合断言未加入13个新键，保留严格集合断言并补全；新增测试补齐一处if花括号。没有为通过测试放宽保存失败、旧键隔离或真实交互断言。
+- 证据与边界：最终日志为忽略目录flutter_legado/build/reader-color-styles-qa/menu-settings-{regression,analysis,format}.log，测试清单menu-settings-regression-files.txt；定向记录为menu-settings-{initial-tests,recheck,runtime}.log。Codex直接实现与复核，不使用子代理、不宣称独立审查或真机视觉验收；未构建安装、执行iOS/远程CI、提交或推送，版本2.0.373+374不变。保留前批全部未提交改动；下一批收尾自动换源与两项禁用配置，再移除旧高级配置入口。
+
+
+编写者：Codex｜2026-10-15
+
+### READER-INTERACTION-SETTINGS-20261015：翻页与操作设置统一访问（P1）
+
+- 授权与基线：用户要求提交当前成果并继续本批，前批本地提交365243192，当前feature/ui-reader-selection，起始干净。不使用子代理、不创建分支、不自动提交/推送或触发CI、不编译安装，版本2.0.373+374不变。
+- 状态与范围：实现与本地定向验证完成，按用户授权纳入本地统一提交。自动翻页开关、间隔、方向归ReaderAutoPageTurnSettings；九宫格动作、长按选字、滚动无动画、音量键及朗读时音量键、滚轮、滑动阈值、边缘点击阈值、进度条行为归ReaderInteractionSettings。继续由ReaderSettingsRepository和共享设置服务管理，共12项。
+- 边界：规范reader_键直接存储；动作列表仍为StringList，使用枚举名称，不读旧九宫格或三列值，不保留回写兼容。动作列表不可变，九宫格命中函数从配置模型移入Flutter交互辅助文件，算法与边缘规则保持。漫画音量键仍由原Rust配置域管理，不改其存储与行为。
+- 接线与验收：设置页、阅读器、菜单快捷按钮、自动翻页浮条使用同源快照；定时器按自动翻页分组变化同步，停止或保存回退后不保留旧定时器，修改其他设置不重置计时。覆盖真实Preferences恢复、逐字段及列表隔离、失败回退/重试、外部重读、实际点击与阈值接参、自动翻页启停/方向/间隔和菜单状态。保留选区、动画、分页算法、Rust/FFI、JS快照与数据库。
+- 实现补充：ReaderInteractionCodec集中规范键、默认与局部映射，移除高级模型的12项及旧三列读写兼容。共享服务原先只接受标量，首轮回归确认动作列表不能保存；新增SettingsStringList不可变配置值，读入列表先复制冻结，写入拒绝可变List，Preferences适配仍用setStringList。没有新增独立仓储缓存或更改落盘为JSON；两项共享服务回归证明输入/输出不可变、保存失败回退和旧快照保持。
+- 实际缺陷：回归复现默认状态条全关时定位Stack被SizedBox.shrink压成零高度，自动翻页浮条停止按钮落在屏幕外；仅将该定位容器设置StackFit.expand，正文分页不变。设置页Slider从原3～60统一为既有定时器/浮条3～120，避免浮条设置80/120秒后打开设置越界。菜单按钮测试使用实际文字定位，不把不存在的Tooltip当作入口；真实浮条仍通过可见按钮操作验证。
+- 验证：29份相关回归320项全部通过，完整flutter analyze --no-pub无问题；新增仓储7项、设置控件6项、共享列表服务2项、实际阅读器3项。九宫格命中原两项回归迁入reader_tap_hit_test.dart，删除专属旧三列/旧列表兼容测试。实际回归覆盖按时前进/后退、改间隔、修改其他字段不重置计时、菜单启用、浮条调速、失败回退后重试停止及无续翻；选区开关、滚动动画/滚轮接参、滑动阈值、边缘死区、九宫格和音量键经真实ReaderScreen验证。
+- 证据与边界：日志位于忽略目录flutter_legado/build/reader-color-styles-qa/interaction-{initial-tests,settings-recheck,runtime,runtime-recheck,regression,analysis}.log；最终清单interaction-regression-files.txt。其他领域、备份、旧高级队列及菜单交互回归保留；原Generic测试改用仍由高级模型管理的keepLight/brightnessMode等字段，不放宽隔离断言。Codex直接实现与复核，不使用子代理；未构建安装、执行设备/iOS验证、提交、推送或触发CI，版本2.0.373+374不变。
+
+编写者：Codex｜2026-10-15
+
 ### READER-SCREEN-STATUS-SETTINGS-20261015：屏幕与阅读状态条统一访问（P1）
 
 - 授权与基线：用户同意继续迁移屏幕及阅读状态条。当前feature/ui-reader-selection / 2371b68e6，保留尚未提交的页脚模式修正；不用子代理、不创建分支、不自动提交/推送或触发CI、不编译安装，版本2.0.373+374不变。

@@ -2,6 +2,7 @@
 final class ReaderScreenSettings {
   const ReaderScreenSettings({
     this.orientation = 0,
+    this.keepScreenOnSeconds = 0,
     this.hideStatusBar = false,
     this.hideNavigationBar = false,
     this.extendIntoCutout = false,
@@ -10,6 +11,9 @@ final class ReaderScreenSettings {
 
   /// 0跟随系统、1竖屏、2横屏、3传感器、4反向竖屏、5反向横屏。
   final int orientation;
+
+  /// 保持亮屏时长尚未接入；-1常亮、0系统、60/300/600秒。
+  final int keepScreenOnSeconds;
   final bool hideStatusBar;
   final bool hideNavigationBar;
   final bool extendIntoCutout;
@@ -19,6 +23,7 @@ final class ReaderScreenSettings {
   bool operator ==(Object other) =>
       other is ReaderScreenSettings &&
       orientation == other.orientation &&
+      keepScreenOnSeconds == other.keepScreenOnSeconds &&
       hideStatusBar == other.hideStatusBar &&
       hideNavigationBar == other.hideNavigationBar &&
       extendIntoCutout == other.extendIntoCutout &&
@@ -27,6 +32,7 @@ final class ReaderScreenSettings {
   @override
   int get hashCode => Object.hash(
     orientation,
+    keepScreenOnSeconds,
     hideStatusBar,
     hideNavigationBar,
     extendIntoCutout,

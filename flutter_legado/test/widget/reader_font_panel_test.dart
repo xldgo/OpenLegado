@@ -1,8 +1,6 @@
 /// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
 library;
 
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,10 +127,7 @@ void main() {
           child: MaterialApp(
             key: UniqueKey(),
             home: Scaffold(
-              body: ReaderConfigPanel(
-                config: ReaderAdvancedConfig(),
-                section: ReaderConfigSection.content,
-              ),
+              body: ReaderConfigPanel(section: ReaderConfigSection.content),
             ),
           ),
         ),

@@ -1,6 +1,6 @@
-import 'dart:async';
+import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'dart:async';
 
 import '../helpers/reader_layout_host.dart';
 import '../fixtures/home_settings_storage.dart';
@@ -12,6 +12,9 @@ import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dar
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
+import 'package:flutter_legado/src/domain/models/reader_interaction_settings.dart';
+import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +32,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_content_edit_dialog.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_brightness_control.dart';
 
 class _Reader extends ReaderNotifier {
   final ReaderState? initialState;
@@ -75,12 +79,68 @@ class _ScreenReader extends _Reader {
   final PageTurnMode mode;
   _ScreenReader([this.mode = PageTurnMode.none]);
 
+  void changeReadingBrightness(Brightness brightness) {
+    state = state.copyWith(readingBrightness: brightness);
+  }
+
   @override
   ReaderState build() => super.build().copyWith(
     chapterContent: List.filled(60, '这是用于验证菜单遮挡与正文翻页的测试段落。').join('\n'),
     currentChapterPos: 1,
     pageTurnMode: mode,
   );
+}
+
+class _AutoSourceReader extends _ScreenReader {
+  Book? openedBook;
+
+  @override
+  ReaderState build() => super.build().copyWith(
+    currentBook: const Book(
+      bookUrl: 'https://original.test/book',
+      name: '自动换源测试',
+      author: '作者',
+      origin: 'https://original.test',
+    ),
+  );
+
+  void chapterFailed(String? error) => state = state.copyWith(error: error);
+
+  @override
+  Future<void> openBook(Book book) async {
+    openedBook = book;
+    state = state.copyWith(currentBook: book, error: null);
+  }
+}
+
+class _AutoSourceApi extends MockBookApi {
+  int searches = 0;
+  final switches = <(String, String, String)>[];
+  List<Map<String, dynamic>> matches = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> searchSource(
+    String bookName,
+    String author, {
+    List<String>? sourceUrls,
+    bool loadInfo = false,
+    bool loadToc = false,
+    bool loadWordCount = false,
+    bool forceRefresh = false,
+  }) async {
+    searches++;
+    return matches;
+  }
+
+  @override
+  Future<String> switchSource(
+    String bookUrl,
+    String newSourceUrl,
+    String newBookUrl,
+  ) async {
+    switches.add((bookUrl, newSourceUrl, newBookUrl));
+    return '{"bookUrl":"https://new.test/book"}';
+  }
 }
 
 Future<(_Reader, _Hits)> _pumpMenu(
@@ -128,7 +188,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
                 ),
                 Consumer(
                   builder: (context, ref, _) => ReaderMenuThemeHost(
-                    config: ReaderAdvancedConfig(readBarStyle: 1),
+                    config: const ReaderMenuThemeSettings(mode: 1),
                     readingBackground: const Color(0xFFF5EEDB),
                     builder: (_) => ReaderMenuTheme(
                       builder: (context) => ReaderMenuPanel(
@@ -137,7 +197,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
                         onAddBookmark: () {},
                         onOpenCatalog: () => hits.catalogTaps++,
                         onOpenSettings: () {},
-                        onOpenAdvancedConfig: () {},
+
                         onOpenContentSearch: () {},
                         onReadAloud: () {},
                         onToggleAutoPage: () {},
@@ -173,12 +233,14 @@ Future<ProviderContainer> _pumpReader(
   WidgetTester tester, {
   PageTurnMode mode = PageTurnMode.none,
   AppSettingsService? settingsService,
+  _ScreenReader? reader,
+  MockBookApi? api,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final container = ProviderContainer(
     overrides: [
-      readerNotifierProvider.overrideWith(() => _ScreenReader(mode)),
-      bookApiProvider.overrideWithValue(MockBookApi()),
+      readerNotifierProvider.overrideWith(() => reader ?? _ScreenReader(mode)),
+      bookApiProvider.overrideWithValue(api ?? MockBookApi()),
       if (settingsService != null)
         appSettingsServiceProvider.overrideWithValue(settingsService),
     ],
@@ -203,6 +265,408 @@ Future<ProviderContainer> _pumpReader(
 }
 
 void main() {
+  testWidgets('章节错误按共享自动换源开关触发，保存失败回退后仍使用当前值', (tester) async {
+    final storage = HomeSettingsStorage();
+    storage.values['reader_auto_change_source'] = false;
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final api = _AutoSourceApi();
+    final reader = _AutoSourceReader();
+    final container = await _pumpReader(
+      tester,
+      settingsService: service,
+      api: api,
+      reader: reader,
+    );
+    final repo = container.read(readerSettingsRepositoryProvider);
+    reader.chapterFailed('测试章节加载失败');
+    await tester.pumpAndSettle();
+    expect(api.searches, 0);
+    await repo.update(autoChangeSource: true);
+    reader.chapterFailed(null);
+    await tester.pumpAndSettle();
+    reader.chapterFailed('再次加载失败');
+    await tester.pumpAndSettle();
+    expect(api.searches, 1);
+    expect(find.text('自动换源：无可用替代书源'), findsOneWidget);
+    storage.writeFailure = true;
+    await expectLater(repo.update(autoChangeSource: false), throwsStateError);
+    expect(repo.current.autoChangeSource, isTrue);
+    reader.chapterFailed(null);
+    await tester.pumpAndSettle();
+    reader.chapterFailed('保存回退后加载失败');
+    await tester.pumpAndSettle();
+    expect(api.searches, 2);
+    storage.writeFailure = false;
+    await repo.update(autoChangeSource: false);
+    reader.chapterFailed(null);
+    await tester.pumpAndSettle();
+    reader.chapterFailed('关闭后再次失败');
+    await tester.pumpAndSettle();
+    expect(api.searches, 2);
+    expect(api.switches, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('自动换源沿用首个非同源候选，切换后重开返回地址并保留详情地址', (tester) async {
+    final api = _AutoSourceApi()
+      ..matches = [
+        {
+          'source_url': 'https://original.test',
+          'book_url': 'https://original.test/book',
+        },
+        {
+          'source_url': 'https://new.test',
+          'source_name': '新书源',
+          'book_url': 'https://new.test/detail',
+        },
+      ];
+    final reader = _AutoSourceReader();
+    await _pumpReader(tester, reader: reader, api: api);
+    reader.chapterFailed('章节加载失败');
+    await tester.pumpAndSettle();
+    expect(api.searches, 1);
+    expect(api.switches, [
+      (
+        'https://original.test/book',
+        'https://new.test',
+        'https://new.test/detail',
+      ),
+    ]);
+    expect(reader.openedBook?.bookUrl, 'https://new.test/book');
+    expect(reader.openedBook?.origin, 'https://new.test');
+    expect(reader.openedBook?.originBookUrl, 'https://new.test/detail');
+    expect(find.text('章节加载失败，已自动换源：新书源'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('实际阅读菜单响应共享日夜配色，标题覆盖独立，正文主题与位置保持', (tester) async {
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repo = container.read(readerSettingsRepositoryProvider);
+    final page = find.byType(ReaderPageView);
+    final bodyTheme = Theme.of(tester.element(page));
+    final position = container.read(readerNotifierProvider).currentChapterPos;
+    final menu = find.byType(ReaderMenuPanel);
+    final stableContext = readerMenuContextOf(tester.element(menu));
+    await repo.updateMenuTheme(
+      mode: 2,
+      colorMode: 1,
+      accentColor: 0xff123456,
+      backgroundColor: 0xfff0e0d0,
+      containerColor: 0xffe0d0c0,
+      accentColorNight: 0xffabcdef,
+      backgroundColorNight: 0xff121212,
+      containerColorNight: 0xff242424,
+      textColor: 0xff010203,
+      textColorNight: 0xfffafbfc,
+    );
+    await tester.pumpAndSettle();
+    ThemeData menuTheme() => Theme.of(tester.element(menu));
+    Color? titleColor() => tester
+        .widget<Text>(find.descendant(of: menu, matching: find.text('菜单点击测试')))
+        .style
+        ?.color;
+    expect(menuTheme().colorScheme.primary, const Color(0xff123456));
+    expect(
+      menuTheme().colorScheme.surfaceContainerHigh,
+      const Color(0xfff0e0d0),
+    );
+    expect(
+      menuTheme().colorScheme.surfaceContainerLow,
+      const Color(0xffe0d0c0),
+    );
+    expect(titleColor(), const Color(0xff010203));
+    expect(Theme.of(tester.element(page)), bodyTheme);
+    expect(container.read(readerNotifierProvider).currentChapterPos, position);
+    expect(
+      identical(readerMenuContextOf(tester.element(menu)), stableContext),
+      isTrue,
+    );
+    expect(Navigator.maybeOf(stableContext), isNotNull);
+    final reader =
+        container.read(readerNotifierProvider.notifier) as _ScreenReader;
+    reader.changeReadingBrightness(Brightness.dark);
+    await tester.pumpAndSettle();
+    expect(menuTheme().brightness, Brightness.dark);
+    expect(menuTheme().colorScheme.primary, const Color(0xffabcdef));
+    expect(
+      menuTheme().colorScheme.surfaceContainerHigh,
+      const Color(0xff121212),
+    );
+    expect(
+      menuTheme().colorScheme.surfaceContainerLow,
+      const Color(0xff242424),
+    );
+    expect(titleColor(), const Color(0xfffafbfc));
+    await repo.updateMenuTheme(mode: 0);
+    await tester.pumpAndSettle();
+    expect(menuTheme(), bodyTheme);
+    // 跟随应用时仍允许独立覆盖标题文字；使用菜单的实际明暗主题选择颜色。
+    expect(titleColor(), const Color(0xff010203));
+    expect(container.read(readerNotifierProvider).currentChapterPos, position);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('实际菜单亮度横条和侧栏同源，切换左右仅保存位置，失败回退后可重试', (tester) async {
+    const channel = MethodChannel('github.com/aaassseee/screen_brightness');
+    const events = MethodChannel(
+      'github.com/aaassseee/screen_brightness/application_brightness_changed',
+    );
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      channel,
+      (call) async => switch (call.method) {
+        'getApplicationScreenBrightness' => 0.5,
+        'hasApplicationScreenBrightnessChanged' => false,
+        _ => null,
+      },
+    );
+    messenger.setMockMethodCallHandler(events, (_) async => null);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      messenger.setMockMethodCallHandler(events, null);
+    });
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repo = container.read(readerSettingsRepositoryProvider);
+    final control = find.byType(ReaderBrightnessControl);
+    expect(control, findsNothing);
+    await repo.updateBrightnessControl(mode: 1);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ReaderBrightnessControl>(control).vertical, isFalse);
+    await repo.updateBrightnessControl(mode: 2);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ReaderBrightnessControl>(control).vertical, isTrue);
+    final right = tester.getCenter(control).dx;
+    storage.writes.clear();
+    await tester.tap(find.byTooltip('切换亮度控件位置'));
+    await tester.pumpAndSettle();
+    expect(repo.current.brightnessControl.onLeft, isTrue);
+    expect(tester.getCenter(control).dx, lessThan(right));
+    expect(storage.writes, [('reader_brightness_control_on_left', true)]);
+    storage.writeFailure = true;
+    await tester.tap(find.byTooltip('切换亮度控件位置'));
+    await tester.pumpAndSettle();
+    expect(find.text('亮度控件设置保存失败，请重试'), findsOneWidget);
+    expect(repo.current.brightnessControl.onLeft, isTrue);
+    expect(tester.getCenter(control).dx, lessThan(right));
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('切换亮度控件位置'));
+    await tester.pumpAndSettle();
+    expect(repo.current.brightnessControl.onLeft, isFalse);
+    expect(tester.getCenter(control).dx, right);
+    await repo.updateBrightnessControl(mode: 0);
+    await tester.pumpAndSettle();
+    expect(control, findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('实际自动翻页按间隔和方向运行，其他操作更新不重置计时，停止后不续翻', (tester) async {
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repository = container.read(readerSettingsRepositoryProvider);
+    final reader =
+        container.read(readerNotifierProvider.notifier) as _ScreenReader;
+    reader.hideControls();
+    await tester.pumpAndSettle();
+    await repository.updateAutoPageTurn(enabled: true, intervalSeconds: 3);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byType(AutoTurnPanel)).top,
+      greaterThanOrEqualTo(0),
+    );
+    final before = container.read(readerNotifierProvider).currentChapterPos;
+    await tester.pump(const Duration(seconds: 2));
+    expect(container.read(readerNotifierProvider).currentChapterPos, before);
+    await repository.updateInteraction(selectText: false);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(readerNotifierProvider).currentChapterPos,
+      before + 1,
+    );
+    await repository.updateAutoPageTurn(intervalSeconds: 4, forward: false);
+    await tester.pumpAndSettle();
+    final afterForward = container
+        .read(readerNotifierProvider)
+        .currentChapterPos;
+    await tester.pump(const Duration(seconds: 3));
+    expect(
+      container.read(readerNotifierProvider).currentChapterPos,
+      afterForward,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(container.read(readerNotifierProvider).currentChapterPos, before);
+    await tester.tap(find.byTooltip('停止自动翻页'));
+    await tester.pumpAndSettle();
+    expect(repository.current.autoPageTurn.enabled, isFalse);
+    expect(find.byType(AutoTurnPanel), findsNothing);
+    await tester.pump(const Duration(seconds: 12));
+    await tester.pumpAndSettle();
+    expect(container.read(readerNotifierProvider).currentChapterPos, before);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('菜单快捷启用与浮条速度同源，失败提示回退，重试停止无残留定时器', (tester) async {
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repository = container.read(readerSettingsRepositoryProvider);
+    storage.writeFailure = true;
+    await tester.tap(find.text('自动翻页').hitTestable());
+    await tester.pumpAndSettle();
+    expect(find.text('自动翻页设置保存失败，请重试'), findsOneWidget);
+    expect(repository.current.autoPageTurn.enabled, isFalse);
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自动翻页').hitTestable());
+    await tester.pumpAndSettle();
+    expect(repository.current.autoPageTurn.enabled, isTrue);
+    final reader =
+        container.read(readerNotifierProvider.notifier) as _ScreenReader;
+    reader.hideControls();
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AutoTurnPanel>(find.byType(AutoTurnPanel)).intervalSeconds,
+      10,
+    );
+    await tester.tap(find.byTooltip('加快翻页'));
+    await tester.pumpAndSettle();
+    expect(repository.current.autoPageTurn.intervalSeconds, 15);
+    expect(storage.values['reader_auto_page_turn_interval_seconds'], 15);
+    storage.writeFailure = true;
+    await tester.tap(find.byTooltip('停止自动翻页'));
+    await tester.pumpAndSettle();
+    expect(repository.current.autoPageTurn.enabled, isTrue);
+    expect(find.text('自动翻页设置保存失败，请重试'), findsOneWidget);
+    expect(find.byType(AutoTurnPanel), findsOneWidget);
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('停止自动翻页'));
+    await tester.pumpAndSettle();
+    final before = container.read(readerNotifierProvider).currentChapterPos;
+    await tester.pump(const Duration(seconds: 20));
+    await tester.pumpAndSettle();
+    expect(container.read(readerNotifierProvider).currentChapterPos, before);
+    expect(repository.current.autoPageTurn.enabled, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('操作设置接入真实正文和菜单，边缘防误触及九宫格立即生效', (tester) async {
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    addTearDown(() => unawaited(service.dispose()));
+    final container = await _pumpReader(tester, settingsService: service);
+    final repository = container.read(readerSettingsRepositoryProvider);
+    await repository.updateInteraction(
+      selectText: false,
+      noAnimScrollPage: true,
+      mouseWheelPage: false,
+      pageTouchSlop: 45,
+      pageTouchClick: 30,
+      progressBarBehavior: 'chapter',
+      volumeKeyPage: false,
+    );
+    await tester.pumpAndSettle();
+    final view = tester.widget<ReaderPageView>(find.byType(ReaderPageView));
+    expect(view.selectText, isFalse);
+    expect(view.noAnimScroll, isTrue);
+    expect(view.mouseWheelPage, isFalse);
+    expect(find.byType(ReaderSelectionRegion), findsNothing);
+    expect(
+      tester
+          .widget<ReaderMenuPanel>(find.byType(ReaderMenuPanel))
+          .progressBehavior,
+      'chapter',
+    );
+    final customSlop = find.descendant(
+      of: find.byType(ReaderPageView),
+      matching: find.byWidgetPredicate(
+        (w) => w is MediaQuery && w.data.gestureSettings.touchSlop == 45,
+      ),
+    );
+    expect(customSlop, findsWidgets);
+    final reader =
+        container.read(readerNotifierProvider.notifier) as _ScreenReader;
+    reader.hideControls();
+    await tester.pumpAndSettle();
+    final before = container.read(readerNotifierProvider).currentChapterPos;
+    await tester.tapAt(const Offset(8, 300));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(792, 300));
+    await tester.pumpAndSettle();
+    expect(container.read(readerNotifierProvider).currentChapterPos, before);
+    final actions = List<TapAction>.of(
+      repository.current.interaction.tapActions,
+    )..[4] = TapAction.nextPage;
+    await repository.updateInteraction(tapActions: actions, pageTouchSlop: 0);
+    await tester.pumpAndSettle();
+    expect(customSlop, findsNothing);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(readerNotifierProvider).currentChapterPos,
+      before + 1,
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(readerNotifierProvider).currentChapterPos,
+      before + 1,
+    );
+    await repository.updateInteraction(volumeKeyPage: true);
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(readerNotifierProvider).currentChapterPos,
+      before + 2,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('屏幕状态条同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final storage = HomeSettingsStorage();
@@ -395,9 +859,7 @@ void main() {
     await repository.reload();
     await tester.pumpAndSettle();
     expect(view().paragraphIndent, 1);
-    final advanced = await repository.loadAdvanced();
-    advanced.autoPageTurnInterval = 30;
-    await container.read(readerAdvConfigProvider.notifier).commit(advanced);
+    await repository.updateScreen(keepScreenOnSeconds: 60);
     await tester.pumpAndSettle();
     expect(view().letterSpacing, 0);
     expect(view().textBold, 1);

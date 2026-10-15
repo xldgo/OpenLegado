@@ -48,13 +48,10 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
   final VoidCallback onAddBookmark;
   final VoidCallback onOpenCatalog;
   final VoidCallback onOpenSettings;
-  final VoidCallback onOpenAdvancedConfig;
   final VoidCallback onOpenContentSearch;
   final VoidCallback onReadAloud;
   final VoidCallback onToggleAutoPage;
   final VoidCallback onOpenReplaceRules;
-  final int brightnessMode;
-  final bool brightnessOnLeft;
   final String progressBehavior;
   final ValueChanged<int>? onSeekPage;
 
@@ -66,13 +63,10 @@ class ReaderMenuPanel extends ConsumerStatefulWidget {
     required this.onAddBookmark,
     required this.onOpenCatalog,
     required this.onOpenSettings,
-    required this.onOpenAdvancedConfig,
     required this.onOpenContentSearch,
     required this.onReadAloud,
     required this.onToggleAutoPage,
     required this.onOpenReplaceRules,
-    this.brightnessMode = 0,
-    this.brightnessOnLeft = false,
     this.progressBehavior = 'chapter',
     this.onSeekPage,
   });
@@ -158,9 +152,11 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         ? state.chapters[state.currentChapterIndex]
         : null;
     final cs = Theme.of(context).colorScheme;
-    final adv = ref.watch(readerAdvConfigProvider);
-    final autoPageActive = adv?.autoPageTurn ?? false;
-    final foreground = adv?.readBarStyle == 2 ? cs.primary : cs.onSurface;
+    ref.watch(readerSettingsProvider);
+    final settings = ref.read(readerSettingsRepositoryProvider).current;
+    final brightnessControl = settings.brightnessControl;
+    final autoPageActive = settings.autoPageTurn.enabled;
+    final foreground = settings.menuTheme.mode == 2 ? cs.primary : cs.onSurface;
     final barColor = cs.surfaceContainerHigh;
     // 毛玻璃只改变表面的透明度和模糊，不改变菜单配色来源。
     final ui = ref.watch(uiSettingsProvider);
@@ -254,14 +250,14 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                           _releaseDismissalPointer(event.pointer),
                     ),
                   ),
-                  if (widget.brightnessMode == 2)
+                  if (brightnessControl.mode == 2)
                     Align(
-                      alignment: widget.brightnessOnLeft
+                      alignment: brightnessControl.onLeft
                           ? Alignment.centerLeft
                           : Alignment.centerRight,
                       child: SlideTransition(
                         position: Tween<Offset>(
-                          begin: Offset(widget.brightnessOnLeft ? -1 : 1, 0),
+                          begin: Offset(brightnessControl.onLeft ? -1 : 1, 0),
                           end: Offset.zero,
                         ).animate(_menuSlideCurve),
                         child: SafeArea(
@@ -356,6 +352,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     bool autoPageActive,
   ) {
     // 亮度横条位于章节进度上方；背景延伸到系统导航区，内容仅避让一次。
+    final brightnessControl = ref
+        .read(readerSettingsRepositoryProvider)
+        .current
+        .brightnessControl;
     return Material(
       color: barColor,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -372,7 +372,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (widget.brightnessMode == 1)
+              if (brightnessControl.mode == 1)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: ReaderBrightnessControl(compact: true),
@@ -443,10 +443,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     // [PARITY C2 M2] 移除来源 URL 全文行：参考版顶栏信息块只保留
     // 章节名 + 书源小字徽标，不再渲染章节链接全文（来源名并入小字行）。
     final theme = Theme.of(context);
-    final config = ref.watch(readerAdvConfigProvider);
+    final config = ref.read(readerSettingsRepositoryProvider).current.menuTheme;
     final customText = theme.brightness == Brightness.dark
-        ? config?.readMenuTextColorNight ?? 0
-        : config?.readMenuTextColor ?? 0;
+        ? config.textColorNight
+        : config.textColor;
     final titleColor = customText == 0
         ? theme.colorScheme.onSurface
         : Color(customText);
@@ -641,11 +641,17 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     ),
   );
 
-  void _switchBrightnessSide() {
-    final config = ref.read(readerAdvConfigProvider);
-    if (config == null) return;
-    final updated = config.copy()..brightnessOnLeft = !widget.brightnessOnLeft;
-    ref.read(readerAdvConfigProvider.notifier).update(updated);
+  Future<void> _switchBrightnessSide() async {
+    final repository = ref.read(readerSettingsRepositoryProvider);
+    try {
+      await repository.updateBrightnessControl(
+        onLeft: !repository.current.brightnessControl.onLeft,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('亮度控件设置保存失败，请重试')));
+    }
   }
 
   // ── 分区：单行五键行动作行（[PARITY A5] 键集对齐参考版默认键集）──

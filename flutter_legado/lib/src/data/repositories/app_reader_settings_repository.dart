@@ -1,5 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../domain/contracts/reader_settings_repository.dart';
 import '../../domain/models/reader_settings.dart';
 import '../../domain/models/reader_text_layout_settings.dart';
@@ -7,22 +5,20 @@ import '../../domain/models/reader_page_layout_settings.dart';
 import '../../domain/models/reader_screen_settings.dart';
 import '../../domain/models/reader_status_strip_settings.dart';
 import '../settings/reader_page_layout_codec.dart';
+import '../settings/reader_interaction_codec.dart';
+import '../settings/reader_menu_settings_codec.dart';
+import '../../domain/models/reader_interaction_settings.dart';
 import '../../domain/models/page_turn_mode.dart';
 import '../../domain/models/app_settings_snapshot.dart';
 import '../services/app_settings_service.dart';
-import '../../models/reader_advanced_config.dart';
-import '../../services/reader_settings_migration.dart';
-import '../../services/settings_write_queue.dart';
 
-/// 基础阅读偏好使用共享服务，高级配置沿用原格式和串行读改写。— Codex + UI
+/// 阅读普通偏好统一经共享服务读取、订阅及逐字段保存。— Codex + UI
 class AppReaderSettingsRepository implements ReaderSettingsRepository {
-  AppReaderSettingsRepository(
-    this._service, {
-    Future<SharedPreferences> Function()? preferences,
-  }) : _preferences = preferences ?? SharedPreferences.getInstance;
+  AppReaderSettingsRepository(this._service);
 
-  static const _prefix = 'reader_adv_';
   static const _pageLayout = ReaderPageLayoutCodec();
+  static const _interaction = ReaderInteractionCodec();
+  static const _menu = ReaderMenuSettingsCodec();
   final AppSettingsService _service;
   bool _loaded = false;
   Future<ReaderSettings>? _loading;
@@ -118,7 +114,26 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_status_show_chapter_name',
   );
+  static const _autoChangeSource = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_auto_change_source',
+  );
+  static const _showTitleAddition = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_show_title_addition',
+  );
+  static const _keepScreenOnSeconds = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_keep_screen_on_seconds',
+  );
+
+  static int _keepScreenOn(int value) =>
+      const {-1, 0, 60, 300, 600}.contains(value) ? value : 0;
+
   static const _addresses = {
+    _autoChangeSource,
+    _showTitleAddition,
+    _keepScreenOnSeconds,
     _orientation,
     _hideStatusBar,
     _hideNavigationBar,
@@ -154,8 +169,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_chapter_in_system_browser',
   );
-  final Future<SharedPreferences> Function() _preferences;
-  final SettingsWriteQueue _operations = SettingsWriteQueue();
 
   ReaderSettings _decode(AppSettingsSnapshot snapshot) => ReaderSettings(
     pageTurnMode: PageTurnMode.fromStorage(
@@ -180,8 +193,23 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     chapterInSystemBrowser: snapshot[_chapterInSystemBrowser] is bool
         ? snapshot[_chapterInSystemBrowser] as bool
         : false,
+    autoChangeSource: snapshot[_autoChangeSource] is bool
+        ? snapshot[_autoChangeSource] as bool
+        : true,
+    showTitleAddition: snapshot[_showTitleAddition] is bool
+        ? snapshot[_showTitleAddition] as bool
+        : true,
     pageLayout: _pageLayout.decode(snapshot),
+    autoPageTurn: _interaction.decodeAutoPageTurn(snapshot),
+    interaction: _interaction.decodeInteraction(snapshot),
+    menuTheme: _menu.decodeTheme(snapshot),
+    brightnessControl: _menu.decodeBrightnessControl(snapshot),
     screen: ReaderScreenSettings(
+      keepScreenOnSeconds: _keepScreenOn(
+        snapshot[_keepScreenOnSeconds] is int
+            ? snapshot[_keepScreenOnSeconds] as int
+            : 0,
+      ),
       orientation:
           (snapshot[_orientation] is int ? snapshot[_orientation] as int : 0)
               .clamp(0, 5),
@@ -253,7 +281,12 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   Future<ReaderSettings> load() {
     if (_loaded) return Future.value(current);
     return _loading ??= _service
-        .load({..._addresses, ..._pageLayout.addresses})
+        .load({
+          ..._addresses,
+          ..._pageLayout.addresses,
+          ..._interaction.addresses,
+          ..._menu.addresses,
+        })
         .then((_) {
           _loaded = true;
           return current;
@@ -263,7 +296,12 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
 
   @override
   Future<void> reload() async {
-    await _service.reload({..._addresses, ..._pageLayout.addresses});
+    await _service.reload({
+      ..._addresses,
+      ..._pageLayout.addresses,
+      ..._interaction.addresses,
+      ..._menu.addresses,
+    });
     _loaded = true;
   }
 
@@ -276,6 +314,8 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     String? titleFontFamily,
     bool? tocLoadWordCount,
     bool? chapterInSystemBrowser,
+    bool? autoChangeSource,
+    bool? showTitleAddition,
   }) => _service.update({
     _mode: ?pageTurnMode?.name,
     _fontSize: ?fontSize,
@@ -284,6 +324,8 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _titleFont: ?titleFontFamily,
     _tocLoadWordCount: ?tocLoadWordCount,
     _chapterInSystemBrowser: ?chapterInSystemBrowser,
+    _autoChangeSource: ?autoChangeSource,
+    _showTitleAddition: ?showTitleAddition,
   });
 
   @override
@@ -369,12 +411,15 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   @override
   Future<void> updateScreen({
     int? orientation,
+    int? keepScreenOnSeconds,
     bool? hideStatusBar,
     bool? hideNavigationBar,
     bool? extendIntoCutout,
     bool? avoidDisplayCutouts,
   }) => _service.update({
     _orientation: ?orientation?.clamp(0, 5),
+    if (keepScreenOnSeconds != null)
+      _keepScreenOnSeconds: _keepScreenOn(keepScreenOnSeconds),
     _hideStatusBar: ?hideStatusBar,
     _hideNavigationBar: ?hideNavigationBar,
     _extendIntoCutout: ?extendIntoCutout,
@@ -395,190 +440,73 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   });
 
   @override
-  Future<ReaderAdvancedConfig> loadAdvanced() async {
-    late ReaderAdvancedConfig result;
-    await _operations.run(() async => result = await _load());
-    return result;
-  }
+  Future<void> updateAutoPageTurn({
+    bool? enabled,
+    double? intervalSeconds,
+    bool? forward,
+  }) => _service.update(
+    _interaction.autoPageTurnPatch(
+      enabled: enabled,
+      intervalSeconds: intervalSeconds,
+      forward: forward,
+    ),
+  );
 
   @override
-  Future<void> saveAdvanced(ReaderAdvancedConfig config) {
-    final snapshot = config.copy();
-    return _operations.run(() => _save(snapshot));
-  }
+  Future<void> updateInteraction({
+    List<TapAction>? tapActions,
+    bool? selectText,
+    bool? noAnimScrollPage,
+    bool? volumeKeyPage,
+    bool? volumeKeyPageOnPlay,
+    bool? mouseWheelPage,
+    int? pageTouchSlop,
+    int? pageTouchClick,
+    String? progressBarBehavior,
+  }) => _service.update(
+    _interaction.interactionPatch(
+      tapActions: tapActions,
+      selectText: selectText,
+      noAnimScrollPage: noAnimScrollPage,
+      volumeKeyPage: volumeKeyPage,
+      volumeKeyPageOnPlay: volumeKeyPageOnPlay,
+      mouseWheelPage: mouseWheelPage,
+      pageTouchSlop: pageTouchSlop,
+      pageTouchClick: pageTouchClick,
+      progressBarBehavior: progressBarBehavior,
+    ),
+  );
 
-  Future<void> _write(Future<bool> result) async {
-    if (!await result) throw StateError('阅读配置保存失败');
-  }
+  @override
+  Future<void> updateMenuTheme({
+    int? mode,
+    String? paletteStyle,
+    int? colorMode,
+    int? accentColor,
+    int? accentColorNight,
+    int? backgroundColor,
+    int? backgroundColorNight,
+    int? containerColor,
+    int? containerColorNight,
+    int? textColor,
+    int? textColorNight,
+  }) => _service.update(
+    _menu.themePatch(
+      mode: mode,
+      paletteStyle: paletteStyle,
+      colorMode: colorMode,
+      accentColor: accentColor,
+      accentColorNight: accentColorNight,
+      backgroundColor: backgroundColor,
+      backgroundColorNight: backgroundColorNight,
+      containerColor: containerColor,
+      containerColorNight: containerColorNight,
+      textColor: textColor,
+      textColorNight: textColorNight,
+    ),
+  );
 
-  int _menuStyle(Object? value) {
-    final parsed = value is int ? value : int.tryParse('$value');
-    return parsed != null && parsed >= 0 && parsed <= 2 ? parsed : 0;
-  }
-
-  /// 从持久化存储加载唯一一套排版；旧值只在迁移入口转换一次。
-  Future<ReaderAdvancedConfig> _load() async {
-    final prefs = await _preferences();
-    await migrateReaderSettings(prefs);
-
-    TapAction tap(String key, TapAction def) {
-      final i = prefs.getInt('$_prefix$key');
-      if (i == null || i < 0 || i >= TapAction.values.length) return def;
-      return TapAction.values[i];
-    }
-
-    List<TapAction> loadTapActions() {
-      final stored = prefs.getStringList('${_prefix}tap_actions_v1');
-      if (stored != null && stored.length == 9) {
-        final indices = stored.map(int.tryParse).toList();
-        if (indices.every(
-          (i) => i != null && i >= 0 && i < TapAction.values.length,
-        )) {
-          return indices.map((i) => TapAction.values[i!]).toList();
-        }
-      }
-      final columns = [
-        tap('left_action', TapAction.prevPage),
-        tap('center_action', TapAction.toggleControls),
-        tap('right_action', TapAction.nextPage),
-      ];
-      // 旧默认采用新九宫格；自定义三列沿用到每一行，不覆盖用户选择。
-      if (columns[0] == TapAction.prevPage &&
-          columns[1] == TapAction.toggleControls &&
-          columns[2] == TapAction.nextPage) {
-        return ReaderAdvancedConfig.defaultTapActions;
-      }
-      return [...columns, ...columns, ...columns];
-    }
-
-    return ReaderAdvancedConfig(
-      autoPageTurn: prefs.getBool('${_prefix}auto_page_turn') ?? false,
-      autoPageTurnInterval: (prefs.getDouble('${_prefix}auto_interval') ?? 10)
-          .clamp(3.0, 120.0),
-      autoPageTurnForward: prefs.getBool('${_prefix}auto_forward') ?? true,
-      tapActions: loadTapActions(),
-      // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项读取（键名=原版键）— Qoder
-      keepLight: prefs.getInt('keep_light') ?? 0,
-      progressBarBehavior: (prefs.getString('progressBarBehavior') == 'chapter')
-          ? 'chapter'
-          : 'page',
-      noAnimScrollPage: prefs.getBool('noAnimScrollPage') ?? false,
-      autoChangeSource: prefs.getBool('autoChangeSource') ?? true,
-      selectText: prefs.getBool('selectText') ?? true,
-      // [PARITY C2 M5] load 缺省对齐构造器默认（关闭），参考菜单该态无亮度条。
-      brightnessMode: _brightnessMode(prefs.get('showBrightnessView')),
-      brightnessOnLeft: prefs.getString('brightnessVwPos') == '0',
-      showReadTitleAddition: prefs.getBool('showReadTitleAddition') ?? true,
-      readBarStyle: _menuStyle(prefs.get('readBarStyle')),
-      readMenuPaletteStyle: prefs.getString('readMenuPaletteStyle') ?? '',
-      readMenuColorMode: prefs.getInt('readMenuColorMode') ?? 0,
-      readMenuAccentColor: prefs.getInt('readMenuAccentColor') ?? 0,
-      readMenuAccentColorNight: prefs.getInt('readMenuAccentColorNight') ?? 0,
-      readMenuBgColor: prefs.getInt('readMenuBgColor') ?? 0,
-      readMenuBgColorNight: prefs.getInt('readMenuBgColorNight') ?? 0,
-      readMenuContainerColor: prefs.getInt('readMenuContainerColor') ?? 0,
-      readMenuContainerColorNight:
-          prefs.getInt('readMenuContainerColorNight') ?? 0,
-      readMenuTextColor: prefs.getInt('readMenuTextColor') ?? 0,
-      readMenuTextColorNight: prefs.getInt('readMenuTextColorNight') ?? 0,
-      // [UI-fix v2.0.4 | 2026-08-08] 第②批 MoreConfig 项读取（键名=原版键，
-      // 默认值对齐 pref_config_read.xml android:defaultValue）— Qoder
-      volumeKeyPage: prefs.getBool('volumeKeyPage') ?? true,
-      volumeKeyPageOnPlay: prefs.getBool('volumeKeyPageOnPlay') ?? false,
-      mouseWheelPage: prefs.getBool('mouseWheelPage') ?? true,
-      pageTouchSlop: (prefs.getInt('pageTouchSlop') ?? 0).clamp(0, 9999),
-      pageTouchClick: (prefs.getInt('pageTouchClick') ?? 0).clamp(0, 399),
-    );
-  }
-
-  /// 保存唯一一套排版；正文与菜单的日夜颜色仍保持独立。
-  Future<void> _save(ReaderAdvancedConfig config) async {
-    final prefs = await _preferences();
-
-    await _write(
-      prefs.setBool('${_prefix}auto_page_turn', config.autoPageTurn),
-    );
-    await _write(
-      prefs.setDouble('${_prefix}auto_interval', config.autoPageTurnInterval),
-    );
-    await _write(
-      prefs.setBool('${_prefix}auto_forward', config.autoPageTurnForward),
-    );
-    await _write(
-      prefs.setStringList(
-        '${_prefix}tap_actions_v1',
-        config.tapActions.map((a) => a.index.toString()).toList(),
-      ),
-    );
-    // 旧版本只能表达三列，以中间一行保留其可读取的动作。
-    await _write(
-      prefs.setInt('${_prefix}left_action', config.tapActions[3].index),
-    );
-    await _write(
-      prefs.setInt('${_prefix}center_action', config.tapActions[4].index),
-    );
-    await _write(
-      prefs.setInt('${_prefix}right_action', config.tapActions[5].index),
-    );
-    // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项持久化（键名=原版键）— Qoder
-    await _write(prefs.setInt('keep_light', config.keepLight));
-    await _write(
-      prefs.setString('progressBarBehavior', config.progressBarBehavior),
-    );
-    await _write(prefs.setBool('noAnimScrollPage', config.noAnimScrollPage));
-    await _write(prefs.setBool('autoChangeSource', config.autoChangeSource));
-    await _write(prefs.setBool('selectText', config.selectText));
-    await _write(
-      prefs.setString('showBrightnessView', '${config.brightnessMode}'),
-    );
-    await _write(
-      prefs.setString('brightnessVwPos', config.brightnessOnLeft ? '0' : '1'),
-    );
-    await _write(
-      prefs.setBool('showReadTitleAddition', config.showReadTitleAddition),
-    );
-    await _write(prefs.setInt('readBarStyle', config.readBarStyle));
-    await _write(
-      prefs.setString('readMenuPaletteStyle', config.readMenuPaletteStyle),
-    );
-    await _write(prefs.setInt('readMenuColorMode', config.readMenuColorMode));
-    await _write(
-      prefs.setInt('readMenuAccentColor', config.readMenuAccentColor),
-    );
-    await _write(
-      prefs.setInt('readMenuAccentColorNight', config.readMenuAccentColorNight),
-    );
-    await _write(prefs.setInt('readMenuBgColor', config.readMenuBgColor));
-    await _write(
-      prefs.setInt('readMenuBgColorNight', config.readMenuBgColorNight),
-    );
-    await _write(
-      prefs.setInt('readMenuContainerColor', config.readMenuContainerColor),
-    );
-    await _write(
-      prefs.setInt(
-        'readMenuContainerColorNight',
-        config.readMenuContainerColorNight,
-      ),
-    );
-    await _write(prefs.setInt('readMenuTextColor', config.readMenuTextColor));
-    await _write(
-      prefs.setInt('readMenuTextColorNight', config.readMenuTextColorNight),
-    );
-    // [UI-fix v2.0.4 | 2026-08-08] 界面面板 + 第②批 MoreConfig 项持久化
-    // （字重及第②批键名=原版键）— Qoder
-    await _write(prefs.setBool('volumeKeyPage', config.volumeKeyPage));
-    await _write(
-      prefs.setBool('volumeKeyPageOnPlay', config.volumeKeyPageOnPlay),
-    );
-    await _write(prefs.setBool('mouseWheelPage', config.mouseWheelPage));
-    await _write(prefs.setInt('pageTouchSlop', config.pageTouchSlop));
-    await _write(prefs.setInt('pageTouchClick', config.pageTouchClick));
-  }
-}
-
-int _brightnessMode(Object? value) {
-  if (value is bool) return value ? 1 : 0;
-  final mode = int.tryParse('$value');
-  return mode != null && mode >= 0 && mode <= 2 ? mode : 0;
+  @override
+  Future<void> updateBrightnessControl({int? mode, bool? onLeft}) =>
+      _service.update(_menu.brightnessControlPatch(mode: mode, onLeft: onLeft));
 }

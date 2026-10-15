@@ -50,12 +50,10 @@ void main() {
       expect(repository.current.titleFontFamily, '');
     });
 
-    test('保存旧高级快照不会覆盖刚选择的标题字体', () async {
+    test('保存其他阅读设置不会覆盖刚选择的标题字体', () async {
       SharedPreferences.setMockInitialValues({});
-      final advanced = await repository.loadAdvanced();
       await repository.update(titleFontFamily: 'Georgia');
-      advanced.autoPageTurnInterval = 12;
-      await repository.saveAdvanced(advanced);
+      await repository.updateScreen(keepScreenOnSeconds: 60);
       expect(repository.current.titleFontFamily, 'Georgia');
       expect(
         (await SharedPreferences.getInstance()).getString(

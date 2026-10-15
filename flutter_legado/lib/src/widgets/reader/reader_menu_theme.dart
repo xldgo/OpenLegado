@@ -1,4 +1,4 @@
-import '../../models/reader_advanced_config.dart';
+import '../../domain/models/reader_menu_theme_settings.dart';
 
 import 'package:material_ui/material_ui.dart';
 
@@ -12,21 +12,19 @@ import '../ui_settings_scope.dart';
 ThemeData resolveReaderMenuTheme({
   required ThemeData appTheme,
   required Color readingBackground,
-  required ReaderAdvancedConfig config,
+  required ReaderMenuThemeSettings config,
   required UiSettings ui,
   Brightness? readingBrightness,
 }) {
-  if (config.readBarStyle == 0) return appTheme;
+  if (config.mode == 0) return appTheme;
   final night = (readingBrightness ?? appTheme.brightness) == Brightness.dark;
-  final storedAccent = night
-      ? config.readMenuAccentColorNight
-      : config.readMenuAccentColor;
+  final storedAccent = night ? config.accentColorNight : config.accentColor;
   final accent = storedAccent == 0
       ? appTheme.colorScheme.primary
       : Color(storedAccent);
-  final seed = config.readBarStyle == 1 ? readingBackground : accent;
-  final style = config.readMenuPaletteStyle.isNotEmpty
-      ? config.readMenuPaletteStyle
+  final seed = config.mode == 1 ? readingBackground : accent;
+  final style = config.paletteStyle.isNotEmpty
+      ? config.paletteStyle
       : ui.themeStyle == 'none'
       ? 'tonalSpot'
       : ui.themeStyle;
@@ -43,16 +41,16 @@ ThemeData resolveReaderMenuTheme({
     dark: roles.dark,
   );
   var scheme = night ? md3DarkScheme(palette) : md3LightScheme(palette);
-  if (config.readBarStyle == 2 && config.readMenuColorMode != 0) {
+  if (config.mode == 2 && config.colorMode != 0) {
     final backgroundValue = night
-        ? config.readMenuBgColorNight
-        : config.readMenuBgColor;
+        ? config.backgroundColorNight
+        : config.backgroundColor;
     final background = backgroundValue == 0
         ? readingBackground
         : Color(backgroundValue);
     final containerValue = night
-        ? config.readMenuContainerColorNight
-        : config.readMenuContainerColor;
+        ? config.containerColorNight
+        : config.containerColor;
     final container = containerValue == 0 ? background : Color(containerValue);
     scheme = scheme.copyWith(
       primary: accent,
@@ -75,7 +73,7 @@ class ReaderMenuThemeHost extends StatefulWidget {
     this.readingBrightness,
   });
 
-  final ReaderAdvancedConfig config;
+  final ReaderMenuThemeSettings config;
   final Color readingBackground;
   final Brightness? readingBrightness;
   final WidgetBuilder builder;
@@ -97,15 +95,15 @@ class _ReaderMenuThemeHostState extends State<ReaderMenuThemeHost> {
       appTheme,
       widget.readingBackground,
       widget.readingBrightness,
-      config.readBarStyle,
-      config.readMenuPaletteStyle,
-      config.readMenuColorMode,
-      config.readMenuAccentColor,
-      config.readMenuAccentColorNight,
-      config.readMenuBgColor,
-      config.readMenuBgColorNight,
-      config.readMenuContainerColor,
-      config.readMenuContainerColorNight,
+      config.mode,
+      config.paletteStyle,
+      config.colorMode,
+      config.accentColor,
+      config.accentColorNight,
+      config.backgroundColor,
+      config.backgroundColorNight,
+      config.containerColor,
+      config.containerColorNight,
       ui.themeStyle,
       ui.themeContrastLevel,
     );

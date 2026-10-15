@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/contracts/settings_storage.dart';
+import '../../domain/models/app_settings_snapshot.dart';
 
 /// 只操作请求的普通偏好键；不扫描凭据或其他功能数据。— Codex + UI
 final class SharedPreferencesSettingsStorage implements SettingsStorage {
@@ -22,6 +23,7 @@ final class SharedPreferencesSettingsStorage implements SettingsStorage {
       String value => preferences.setString(key, value),
       int value => preferences.setInt(key, value),
       double value => preferences.setDouble(key, value),
+      SettingsStringList value => preferences.setStringList(key, value.values),
       _ => throw ArgumentError('普通偏好不支持此类型：$key'),
     };
     if (!saved) throw StateError('设置保存失败：$key');

@@ -303,13 +303,11 @@ void main() {
     expect(storage.values['reader_title_size'], 5);
   });
 
-  test('高级旧快照不覆盖页面设置，也不再写旧页面键', () async {
-    final advanced = await repository.loadAdvanced();
+  test('其他阅读设置不覆盖页面设置，也不再写旧页面键', () async {
     await repository.updatePageLayout(top: 31, left: 21);
     await repository.updateTitle(size: 3);
     await repository.updatePageEdge(ReaderPageEdge.footer, leftTip: 3);
-    advanced.autoPageTurnInterval = 15;
-    await repository.saveAdvanced(advanced);
+    await repository.updateScreen(keepScreenOnSeconds: 60);
     expect(repository.current.pageLayout.bodyPadding.top, 31);
     expect(repository.current.pageLayout.title.size, 3);
     expect(repository.current.pageLayout.footer.leftTip, 3);
@@ -328,7 +326,8 @@ void main() {
     ]) {
       expect(prefs.containsKey(key), isFalse, reason: key);
     }
-    expect(prefs.getDouble('reader_adv_auto_interval'), 15);
+    expect(storage.values['reader_keep_screen_on_seconds'], 60);
+    expect(prefs.containsKey('keep_light'), isFalse);
   });
 
   test('外部恢复重读所有区域，失败保留有效快照', () async {

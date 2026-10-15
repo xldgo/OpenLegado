@@ -1,9 +1,9 @@
-import '../../models/reader_advanced_config.dart';
 import '../models/reader_settings.dart';
 import '../models/page_turn_mode.dart';
 import '../models/reader_page_layout_settings.dart';
+import '../models/reader_interaction_settings.dart';
 
-/// 阅读设置同源访问；高级配置不重复保存基础偏好和字体。— Codex + UI
+/// 阅读普通偏好同源访问，按字段更新并订阅共享快照。— Codex + UI
 abstract interface class ReaderSettingsRepository {
   ReaderSettings get current;
   Stream<ReaderSettings> watch();
@@ -19,6 +19,8 @@ abstract interface class ReaderSettingsRepository {
     String? titleFontFamily,
     bool? tocLoadWordCount,
     bool? chapterInSystemBrowser,
+    bool? autoChangeSource,
+    bool? showTitleAddition,
   });
 
   /// 只修改传入的正文排版字段，不保存其他页面的旧快照。
@@ -59,6 +61,7 @@ abstract interface class ReaderSettingsRepository {
   });
   Future<void> updateScreen({
     int? orientation,
+    int? keepScreenOnSeconds,
     bool? hideStatusBar,
     bool? hideNavigationBar,
     bool? extendIntoCutout,
@@ -70,6 +73,34 @@ abstract interface class ReaderSettingsRepository {
     bool? showProgress,
     bool? showChapterName,
   });
-  Future<ReaderAdvancedConfig> loadAdvanced();
-  Future<void> saveAdvanced(ReaderAdvancedConfig config);
+  Future<void> updateAutoPageTurn({
+    bool? enabled,
+    double? intervalSeconds,
+    bool? forward,
+  });
+  Future<void> updateInteraction({
+    List<TapAction>? tapActions,
+    bool? selectText,
+    bool? noAnimScrollPage,
+    bool? volumeKeyPage,
+    bool? volumeKeyPageOnPlay,
+    bool? mouseWheelPage,
+    int? pageTouchSlop,
+    int? pageTouchClick,
+    String? progressBarBehavior,
+  });
+  Future<void> updateMenuTheme({
+    int? mode,
+    String? paletteStyle,
+    int? colorMode,
+    int? accentColor,
+    int? accentColorNight,
+    int? backgroundColor,
+    int? backgroundColorNight,
+    int? containerColor,
+    int? containerColorNight,
+    int? textColor,
+    int? textColorNight,
+  });
+  Future<void> updateBrightnessControl({int? mode, bool? onLeft});
 }

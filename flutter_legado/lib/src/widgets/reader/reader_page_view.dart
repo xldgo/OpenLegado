@@ -1474,16 +1474,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // [fix Task#41 | 2026-08-09] pageTouchSlop 消费点（对标原版
     // ReadView.upPageSlopSquare：0=系统默认值，非 0 用自定义阈值）：
     // 经 MediaQuery.gestureSettings 覆写内层 PageView/Scrollable 拖拽
-    // 识别器的 touchSlop；面板修改经 readerAdvConfigProvider watch 触发
+    // 识别器的 touchSlop；面板修改经共享阅读设置订阅触发
     // 重建即时生效（Scrollable.didChangeDependencies 重读 gestureSettings），
     // 无需重启阅读页
     // [fix Task#45 | 2026-08-09] 滚动模式不包裹（M3）：原版该阈值仅
     // 作用于横向翻页手势，滚动模式正文纵向起拖不应被放大阈值，
     // 强制取 0 走系统默认；其余模式保持现实现 — Qoder
-    final advCfg = ref.watch(readerAdvConfigProvider);
+    ref.watch(
+      readerSettingsProvider.select(
+        (value) => value.value?.interaction.pageTouchSlop,
+      ),
+    );
     final slop = state.pageTurnMode == PageTurnMode.scroll
         ? 0
-        : (advCfg?.pageTouchSlop ?? 0);
+        : ref
+              .read(readerSettingsRepositoryProvider)
+              .current
+              .interaction
+              .pageTouchSlop;
     if (widget.selectText && _paginatedPages.isNotEmpty) {
       final pages = state.pageTurnMode == PageTurnMode.scroll
           ? _paginatedPages

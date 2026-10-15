@@ -85,7 +85,7 @@ Widget wrapMenuPanel(ProviderContainer container) {
               onAddBookmark: () {},
               onOpenCatalog: () {},
               onOpenSettings: () {},
-              onOpenAdvancedConfig: () {},
+
               onOpenContentSearch: () {},
               onReadAloud: () {},
               onToggleAutoPage: () {},
