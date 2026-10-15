@@ -1,6 +1,8 @@
 import 'page_turn_mode.dart';
 import 'reader_text_layout_settings.dart';
 import 'reader_page_layout_settings.dart';
+import 'reader_screen_settings.dart';
+import 'reader_status_strip_settings.dart';
 
 /// 阅读普通偏好的共享投影；存储键、默认值和单位由仓储统一解释。— Codex + UI
 final class ReaderSettings {
@@ -14,6 +16,8 @@ final class ReaderSettings {
     this.chapterInSystemBrowser = false,
     this.textLayout = const ReaderTextLayoutSettings(),
     this.pageLayout = const ReaderPageLayoutSettings(),
+    this.screen = const ReaderScreenSettings(),
+    this.statusStrip = const ReaderStatusStripSettings(),
   });
 
   final PageTurnMode pageTurnMode;
@@ -25,6 +29,8 @@ final class ReaderSettings {
   final bool chapterInSystemBrowser;
   final ReaderTextLayoutSettings textLayout;
   final ReaderPageLayoutSettings pageLayout;
+  final ReaderScreenSettings screen;
+  final ReaderStatusStripSettings statusStrip;
 
   @override
   bool operator ==(Object other) =>
@@ -37,7 +43,9 @@ final class ReaderSettings {
       tocLoadWordCount == other.tocLoadWordCount &&
       chapterInSystemBrowser == other.chapterInSystemBrowser &&
       textLayout == other.textLayout &&
-      pageLayout == other.pageLayout;
+      pageLayout == other.pageLayout &&
+      screen == other.screen &&
+      statusStrip == other.statusStrip;
 
   @override
   int get hashCode => Object.hash(
@@ -50,5 +58,7 @@ final class ReaderSettings {
     chapterInSystemBrowser,
     textLayout,
     pageLayout,
+    screen,
+    statusStrip,
   );
 }

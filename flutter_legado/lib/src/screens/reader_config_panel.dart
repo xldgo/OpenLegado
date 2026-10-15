@@ -2,6 +2,7 @@ import '../providers/reader/reader_settings_provider.dart';
 import '../models/reader_advanced_config.dart';
 import '../domain/models/reader_text_layout_settings.dart';
 import '../domain/models/reader_page_layout_settings.dart';
+import '../domain/models/reader_screen_settings.dart';
 
 import 'dart:async';
 
@@ -110,6 +111,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
   ReaderPageLayoutSettings get _pageLayout =>
       ref.read(readerSettingsRepositoryProvider).current.pageLayout;
 
+  ReaderScreenSettings get _screen =>
+      ref.read(readerSettingsRepositoryProvider).current.screen;
+
   /// 当前阅读字体显示名（与 FontScreen 持久化键 reader_font_family 同步）
   String? get _fontLabel => ref
       .read(readerSettingsRepositoryProvider)
@@ -179,6 +183,17 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
     }
   }
 
+  Future<void> _saveScreen(Future<void> Function() update) async {
+    try {
+      await update();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('屏幕设置保存失败，请重试')));
+      }
+    }
+  }
+
   Future<void> _savePageTurnMode(PageTurnMode mode) async {
     try {
       await ref.read(readerNotifierProvider.notifier).updatePageTurnMode(mode);
@@ -239,14 +254,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             children: [_buildSystemBarOptions(showTitle: false)],
           ),
           const SizedBox(height: 12),
-          ReaderTipConfigSheet(
-            statusConfig: _config.copy(),
+          const ReaderTipConfigSheet(
             section: ReaderTipSection.statusBar,
             embedded: true,
-            onStatusChanged: (config) {
-              _config = config.copy();
-              _commit();
-            },
           ),
           const SizedBox(height: 12),
           SettingsGroup(
@@ -309,15 +319,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
         children = [const ReaderPaddingConfigSheet()];
         break;
       case ReaderConfigSection.statusBar:
-        children = [
-          ReaderTipConfigSheet(
-            statusConfig: _config.copy(),
-            onStatusChanged: (cfg) {
-              _config = cfg.copy();
-              widget.onChanged?.call(_config.copy());
-            },
-          ),
-        ];
+        children = [const ReaderTipConfigSheet()];
         break;
       case ReaderConfigSection.menu:
         // [UI_SYNC_REFACTOR S5 修] 阅读界面弹层「菜单」页 — Qoder
@@ -396,14 +398,7 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
                     icon: Icons.info_outline,
                     title: '阅读提示信息',
                     subtitle: '页眉页脚提示项与标题样式',
-                    onTap: () => ReaderTipConfigSheet.show(
-                      context,
-                      statusConfig: _config.copy(),
-                      onStatusChanged: (cfg) {
-                        _config = cfg.copy();
-                        _commit();
-                      },
-                    ),
+                    onTap: () => ReaderTipConfigSheet.show(context),
                   ),
                 ],
               ),

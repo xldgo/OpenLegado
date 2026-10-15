@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
@@ -72,6 +71,13 @@ void main() {
       tester.widget<SettingStepperRow>(
         find.byWidgetPredicate(
           (w) => w is SettingStepperRow && w.title == title,
+        ),
+      );
+
+  SettingMenuRow<int> modeRow(WidgetTester tester) =>
+      tester.widget<SettingMenuRow<int>>(
+        find.byWidgetPredicate(
+          (w) => w is SettingMenuRow<int> && w.title == '显示模式',
         ),
       );
 
@@ -228,75 +234,161 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('静态提示弹层连续切换状态条，控件与回调保留前次修改', (tester) async {
-    final initial = ReaderAdvancedConfig(showProgress: true);
-    final updates = <ReaderAdvancedConfig>[];
+  testWidgets('页脚模式仅有显示和隐藏，隐藏保存1并收起配置项，显示后恢复', (tester) async {
+    await initialize(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.footer,
+      ),
+    );
+    final headerBefore = container
+        .read(readerSettingsRepositoryProvider)
+        .current
+        .pageLayout
+        .header;
+    expect(modeRow(tester).options, {0: '显示', 1: '隐藏'});
+    expect(modeRow(tester).value, 0);
+    expect(find.text('左侧提示'), findsOneWidget);
+    await tap(tester, find.text('显示模式'));
+    expect(find.text('状态栏显示时隐藏'), findsNothing);
+    expect(find.text('隐藏').hitTestable(), findsOneWidget);
+    await tap(tester, find.text('隐藏').hitTestable());
+    expect(storage.values['reader_footer_mode'], 1);
+    expect(modeRow(tester).value, 1);
+    for (final label in ['左侧提示', '中间提示', '右侧提示', '显示分隔线']) {
+      expect(find.text(label), findsNothing);
+    }
+    expect(find.byType(ReaderPaddingConfigSheet), findsNothing);
+    await tap(tester, find.text('显示模式'));
+    await tap(tester, find.text('显示').hitTestable());
+    expect(storage.values['reader_footer_mode'], 0);
+    expect(modeRow(tester).value, 0);
+    for (final label in ['左侧提示', '中间提示', '右侧提示', '显示分隔线']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.byType(ReaderPaddingConfigSheet), findsOneWidget);
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .pageLayout
+          .header,
+      headerBefore,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('页脚模式保存失败回退显示并反馈，重试隐藏后收起配置项', (tester) async {
+    await initialize(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.footer,
+      ),
+    );
+    storage.writeFailure = true;
+    await tap(tester, find.text('显示模式'));
+    await tap(tester, find.text('隐藏').hitTestable());
+    expect(find.text('页面布局保存失败，请重试'), findsOneWidget);
+    expect(modeRow(tester).value, 0);
+    expect(find.text('左侧提示'), findsOneWidget);
+    expect(storage.values.containsKey('reader_footer_mode'), isFalse);
+    expect(storage.writes.where((entry) => entry.$1 == 'reader_footer_mode'), [
+      ('reader_footer_mode', 1),
+    ]);
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tap(tester, find.text('显示模式'));
+    await tap(tester, find.text('隐藏').hitTestable());
+    expect(storage.values['reader_footer_mode'], 1);
+    expect(modeRow(tester).value, 1);
+    expect(find.text('左侧提示'), findsNothing);
+    expect(find.byType(ReaderPaddingConfigSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('页眉保留状态栏联动、显示和隐藏三档，页脚设置独立', (tester) async {
+    await initialize(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.header,
+      ),
+    );
+    final repository = container.read(readerSettingsRepositoryProvider);
+    await repository.updatePageEdge(ReaderPageEdge.footer, mode: 1);
+    await tester.pumpAndSettle();
+    expect(modeRow(tester).options, {0: '状态栏显示时隐藏', 1: '显示', 2: '隐藏'});
+    expect(modeRow(tester).value, 0);
+    for (final (label, mode, visible) in [
+      ('显示', 1, true),
+      ('隐藏', 2, false),
+      ('状态栏显示时隐藏', 0, true),
+    ]) {
+      await tap(tester, find.text('显示模式'));
+      await tap(tester, find.text(label).hitTestable());
+      expect(storage.values['reader_header_mode'], mode);
+      expect(modeRow(tester).value, mode);
+      expect(find.text('左侧提示'), visible ? findsOneWidget : findsNothing);
+      expect(
+        find.byType(ReaderPaddingConfigSheet),
+        visible ? findsOneWidget : findsNothing,
+      );
+      expect(repository.current.pageLayout.footer.mode, 1);
+      expect(storage.values['reader_footer_mode'], 1);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('静态提示弹层连续切换状态条，控件与共享存储保留前次修改', (tester) async {
     await initialize(
       tester,
       Builder(
         builder: (context) => TextButton(
-          onPressed: () => unawaited(
-            ReaderTipConfigSheet.show(
-              context,
-              statusConfig: initial,
-              onStatusChanged: updates.add,
-            ),
-          ),
+          onPressed: () => unawaited(ReaderTipConfigSheet.show(context)),
           child: const Text('打开提示设置'),
         ),
       ),
     );
+    final repository = container.read(readerSettingsRepositoryProvider);
+    await repository.updateStatusStrip(showProgress: true);
     await tap(tester, find.text('打开提示设置'));
-    expect(switchValue(tester, '显示时间'), isFalse);
-    expect(switchValue(tester, '显示电量'), isFalse);
     await tap(tester, find.text('显示时间'));
-    expect(updates, hasLength(1));
-    expect(updates.first.showTime, isTrue);
-    expect(updates.first.showBattery, isFalse);
-    expect(updates.first.showProgress, isTrue);
-    final timeAfterFirstChange = switchValue(tester, '显示时间');
     await tap(tester, find.text('显示电量'));
-    expect(updates, hasLength(2));
-    expect(updates.last.showTime, isTrue);
-    expect(updates.last.showBattery, isTrue);
-    expect(updates.last.showProgress, isTrue);
-    expect(updates.first.showBattery, isFalse);
-    expect(timeAfterFirstChange, isTrue);
+    expect(repository.current.statusStrip.showTime, isTrue);
+    expect(repository.current.statusStrip.showBattery, isTrue);
+    expect(repository.current.statusStrip.showProgress, isTrue);
     expect(switchValue(tester, '显示时间'), isTrue);
     expect(switchValue(tester, '显示电量'), isTrue);
-    expect(initial.showTime, isFalse);
-    expect(initial.showBattery, isFalse);
-    expect(storage.writes, isEmpty);
+    expect(storage.values['reader_status_show_time'], isTrue);
+    expect(storage.values['reader_status_show_battery'], isTrue);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('状态条接收父级新配置后继续操作保留新配置', (tester) async {
+  testWidgets('状态条外部恢复后继续操作保留新配置', (tester) async {
     await initialize(
       tester,
-      ReaderTipConfigSheet(
+      const ReaderTipConfigSheet(
         embedded: true,
         section: ReaderTipSection.statusBar,
-        statusConfig: ReaderAdvancedConfig(),
       ),
     );
     await tap(tester, find.text('显示时间'));
-    expect(switchValue(tester, '显示时间'), isTrue);
-    await show(
-      tester,
-      ReaderTipConfigSheet(
-        embedded: true,
-        section: ReaderTipSection.statusBar,
-        statusConfig: ReaderAdvancedConfig(showChapterName: true),
-      ),
-    );
+    final repository = container.read(readerSettingsRepositoryProvider);
+    storage.values.addAll({
+      'reader_status_show_time': false,
+      'reader_status_show_chapter_name': true,
+    });
+    await repository.reload();
+    await tester.pumpAndSettle();
     expect(switchValue(tester, '显示时间'), isFalse);
     expect(switchValue(tester, '显示章节名'), isTrue);
     await tap(tester, find.text('显示电量'));
-    expect(switchValue(tester, '显示电量'), isTrue);
-    expect(switchValue(tester, '显示章节名'), isTrue);
-    expect(container.read(readerAdvConfigProvider)!.showTime, isFalse);
-    expect(container.read(readerAdvConfigProvider)!.showBattery, isTrue);
-    expect(container.read(readerAdvConfigProvider)!.showChapterName, isTrue);
+    expect(repository.current.statusStrip.showTime, isFalse);
+    expect(repository.current.statusStrip.showBattery, isTrue);
+    expect(repository.current.statusStrip.showChapterName, isTrue);
     expect(tester.takeException(), isNull);
   });
 
@@ -317,18 +409,35 @@ void main() {
         .pageLayout;
     await show(
       tester,
-      ReaderTipConfigSheet(
-        embedded: true,
-        section: ReaderTipSection.statusBar,
-        statusConfig: ReaderAdvancedConfig(),
-      ),
+      ReaderTipConfigSheet(embedded: true, section: ReaderTipSection.statusBar),
     );
     await tap(tester, find.text('显示时间'));
-    expect(container.read(readerAdvConfigProvider)!.showTime, isTrue);
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .statusStrip
+          .showTime,
+      isTrue,
+    );
     final timeAfterFirstChange = switchValue(tester, '显示时间');
     await tap(tester, find.text('显示电量'));
-    expect(container.read(readerAdvConfigProvider)!.showTime, isTrue);
-    expect(container.read(readerAdvConfigProvider)!.showBattery, isTrue);
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .statusStrip
+          .showTime,
+      isTrue,
+    );
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .statusStrip
+          .showBattery,
+      isTrue,
+    );
     expect(timeAfterFirstChange, isTrue);
     expect(switchValue(tester, '显示时间'), isTrue);
     expect(switchValue(tester, '显示电量'), isTrue);
@@ -338,7 +447,11 @@ void main() {
     );
     expect(
       storage.writes.map((e) => e.$1).where((key) => key.startsWith('reader_')),
-      ['reader_double_horizontal_page'],
+      [
+        'reader_double_horizontal_page',
+        'reader_status_show_time',
+        'reader_status_show_battery',
+      ],
     );
     expect(tester.takeException(), isNull);
   });

@@ -99,7 +99,7 @@ void main() {
       bottom: 8,
       left: 20,
       right: 21,
-      mode: 2,
+      mode: 1,
       showLine: false,
       leftTip: 2,
       middleTip: 3,
@@ -140,7 +140,7 @@ void main() {
         ),
         footer: ReaderPageEdgeSettings(
           padding: ReaderPagePadding(top: 7, bottom: 8, left: 20, right: 21),
-          mode: 2,
+          mode: 1,
           showLine: false,
           leftTip: 2,
           middleTip: 3,
@@ -152,7 +152,70 @@ void main() {
     expect(prefs.getKeys(), hasLength(29));
     expect(prefs.getDouble('reader_header_padding_left'), 18);
     expect(prefs.getInt('reader_title_size'), 3);
+    expect(prefs.getInt('reader_footer_mode'), 1);
     expect(prefs.getBool('reader_footer_show_line'), isFalse);
+  });
+
+  test('页眉页脚模式从真实Preferences读取时按区域夹取上下界', () async {
+    for (final (input, header, footer) in [
+      (-5, 0, 0),
+      (0, 0, 0),
+      (1, 1, 1),
+      (2, 2, 1),
+      (9, 2, 1),
+    ]) {
+      SharedPreferences.setMockInitialValues({
+        'reader_header_mode': input,
+        'reader_footer_mode': input,
+      });
+      final actualService = AppSettingsService(
+        storages: {
+          SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+        },
+      );
+      addTearDown(actualService.dispose);
+      final actual = AppReaderSettingsRepository(actualService);
+      final layout = (await actual.load()).pageLayout;
+      expect(layout.header.mode, header, reason: '页眉读取 $input');
+      expect(layout.footer.mode, footer, reason: '页脚读取 $input');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('reader_header_mode'), input);
+      expect(prefs.getInt('reader_footer_mode'), input);
+    }
+  });
+
+  test('页眉页脚模式写入真实Preferences后新实例保持独立范围', () async {
+    for (final (input, header, footer) in [
+      (-5, 0, 0),
+      (0, 0, 0),
+      (1, 1, 1),
+      (2, 2, 1),
+      (9, 2, 1),
+    ]) {
+      SharedPreferences.setMockInitialValues({});
+      final actualService = AppSettingsService(
+        storages: {
+          SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+        },
+      );
+      addTearDown(actualService.dispose);
+      final actual = AppReaderSettingsRepository(actualService);
+      await actual.load();
+      await actual.updatePageEdge(ReaderPageEdge.header, mode: input);
+      await actual.updatePageEdge(ReaderPageEdge.footer, mode: input);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('reader_header_mode'), header, reason: '页眉写入 $input');
+      expect(prefs.getInt('reader_footer_mode'), footer, reason: '页脚写入 $input');
+      final freshService = AppSettingsService(
+        storages: {
+          SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+        },
+      );
+      addTearDown(freshService.dispose);
+      final restored = await AppReaderSettingsRepository(freshService).load();
+      expect(restored.pageLayout.header.mode, header);
+      expect(restored.pageLayout.footer.mode, footer);
+    }
   });
 
   test('各区域只保存传入字段，显式零值不覆盖其他区域', () async {
@@ -318,11 +381,26 @@ void main() {
     expect(chrome.hideStatusBar, isTrue);
     expect(chrome.titleFontFamily, 'KaiTi');
     expect(chrome.showPageHeader, isTrue);
-    for (final (mode, visible) in [(0, true), (1, false), (2, true)]) {
+    for (final (mode, visible) in [(0, true), (1, false)]) {
       final snapshot = ReaderPageChromeConfig.fromSettings(
         ReaderPageLayoutSettings(footer: ReaderPageEdgeSettings(mode: mode)),
       );
       expect(snapshot.showPageFooter, visible);
+    }
+    // 仅锁定页壳既有规则，2不是可保存的页脚选项。— footer_semantics + UI
+    expect(const ReaderPageChromeConfig(footerMode: 2).showPageFooter, isTrue);
+    for (final hideStatusBar in [false, true]) {
+      for (final (mode, visible) in [
+        (0, hideStatusBar),
+        (1, true),
+        (2, false),
+      ]) {
+        final snapshot = ReaderPageChromeConfig.fromSettings(
+          ReaderPageLayoutSettings(header: ReaderPageEdgeSettings(mode: mode)),
+          hideStatusBar: hideStatusBar,
+        );
+        expect(snapshot.showPageHeader, visible);
+      }
     }
   });
 }

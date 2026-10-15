@@ -78,28 +78,8 @@ class ReaderAdvancedConfig {
     return List<TapAction>.of(actions ?? defaultTapActions, growable: false);
   }
 
-  // 状态栏提示栏
-  bool showBattery;
-  bool showTime;
-  bool showProgress;
-  bool showChapterName;
-
-  // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批无平台依赖项落地：
-  // 键名对齐原版 AppConfig/PreferKey（见 MoreConfigDialog.onSharedPreferenceChanged
-  // 事件语义与 pref_config_read.xml），持久化不使用 reader_adv_ 前缀 — Qoder
-
-  /// 屏幕方向（0跟随系统 1竖屏 2横屏 3自动传感器 4反向竖屏 5反向横屏，
-  /// 对标原版 screenOrientation/screen_direction_value）
-  int screenOrientation;
-
   /// 保持亮屏时长（秒：0默认 60/300/600 -1常亮，对标原版 keep_light/screen_time_out）
   int keepLight;
-
-  /// 隐藏状态栏（对标原版 hideStatusBar）
-  bool hideStatusBar;
-
-  /// 隐藏导航栏（对标原版 hideNavigationBar）
-  bool hideNavigationBar;
 
   /// 进度条行为（'page'=调章内页 'chapter'=调章节，对标原版 progressBarBehavior）
   String progressBarBehavior;
@@ -153,27 +133,12 @@ class ReaderAdvancedConfig {
   /// 边缘点击阈值（px，左右边缘多少距离不触发点击，对标原版 pageTouchClick）
   int pageTouchClick;
 
-  /// 扩展到刘海（正文延伸到刘海区域，对标原版 readBodyToLh）
-  bool readBodyToLh;
-
-  /// 填充刘海区域（对标原版 paddingDisplayCutouts）
-  bool paddingDisplayCutouts;
-
   ReaderAdvancedConfig({
     this.autoPageTurn = false,
     this.autoPageTurnInterval = 10,
     this.autoPageTurnForward = true,
     List<TapAction>? tapActions,
-    // [C2 R4] 顶部「时间+章节名+进度」状态行默认关闭（参考该态无此信息行；
-    // 头部信息开关默认关，用户可在「阅读提示信息」面板手动开启）
-    this.showBattery = false,
-    this.showTime = false,
-    this.showProgress = false,
-    this.showChapterName = false,
-    this.screenOrientation = 0,
     this.keepLight = 0,
-    this.hideStatusBar = false,
-    this.hideNavigationBar = false,
     this.progressBarBehavior = 'page',
     this.noAnimScrollPage = false,
     this.autoChangeSource = true,
@@ -199,24 +164,15 @@ class ReaderAdvancedConfig {
     this.mouseWheelPage = true,
     this.pageTouchSlop = 0,
     this.pageTouchClick = 0,
-    this.readBodyToLh = false,
-    this.paddingDisplayCutouts = false,
   }) : tapActions = _copyTapActions(tapActions);
 
-  /// 各区域默认边距（对标 ReadBookConfig.Config 默认值）
+  /// 为剩余高级设置建立独立的编辑副本。
   ReaderAdvancedConfig copy() => ReaderAdvancedConfig(
     autoPageTurn: autoPageTurn,
     autoPageTurnInterval: autoPageTurnInterval,
     autoPageTurnForward: autoPageTurnForward,
     tapActions: tapActions,
-    showBattery: showBattery,
-    showTime: showTime,
-    showProgress: showProgress,
-    showChapterName: showChapterName,
-    screenOrientation: screenOrientation,
     keepLight: keepLight,
-    hideStatusBar: hideStatusBar,
-    hideNavigationBar: hideNavigationBar,
     progressBarBehavior: progressBarBehavior,
     noAnimScrollPage: noAnimScrollPage,
     autoChangeSource: autoChangeSource,
@@ -240,7 +196,5 @@ class ReaderAdvancedConfig {
     mouseWheelPage: mouseWheelPage,
     pageTouchSlop: pageTouchSlop,
     pageTouchClick: pageTouchClick,
-    readBodyToLh: readBodyToLh,
-    paddingDisplayCutouts: paddingDisplayCutouts,
   );
 }

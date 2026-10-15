@@ -1,5 +1,29 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-SCREEN-STATUS-SETTINGS-20261015：屏幕与阅读状态条统一访问（P1）
+
+- 授权与基线：用户同意继续迁移屏幕及阅读状态条。当前feature/ui-reader-selection / 2371b68e6，保留尚未提交的页脚模式修正；不用子代理、不创建分支、不自动提交/推送或触发CI、不编译安装，版本2.0.373+374不变。
+- 状态：实现与本地定向验证完成，按用户授权纳入本地提交。ReaderSettings新增screen和statusStrip不可变分组，继续使用同一ReaderSettingsRepository/AppSettingsService。迁移屏幕方向、系统状态栏/导航栏、正文延伸及避让刘海五项，和电量、时间、进度、章节名四项状态条开关；控件、系统栏编排、安全区、正文接参与状态条渲染同时切换。
+- 存储边界：Preferences直接采用reader_规范键，不读取或转换旧值，删除对应高级字段和状态条旧默认转换。屏幕方向仍0～5，其他八项缺省false；菜单打开时临时显示系统栏、离开阅读路由释放归属的行为保持。保持亮屏未实现，本轮保留其存储及原有选项说明，追加待实现并禁用，不新增平台依赖。
+- 验收：真实Preferences恢复、单字段及分组隔离、失败回退重试、订阅/恢复重读；控件连续修改、实际系统栏/方向调用、菜单显示与路由返回、安全区及状态条接参。删除提示面板旧statusConfig/onStatusChanged与局部副本，剩余高级设置保持；不改分页、选区、动画、Rust/FFI或数据库。
+- 验证：25份相关回归294项全部通过，完整flutter analyze --no-pub无问题，22份改动及新增Dart格式无差异、git diff --check通过。新增仓储6项、屏幕页控件4项、真实ReaderScreen接线1项；原弹层连续编辑及新快照接收用例改为共享仓储连续保存和外部恢复，原九宫格回归保留，删除状态条旧默认转换专属5项测试。
+- 验证收尾：屏幕页首轮测试缺少亮度插件模拟导致等待未结束，按既有设置页夹具明确返回不支持；真实阅读器的电量图标断言限定到状态条，避免把页眉图标一并计数。只修测试装配与定位，未修改平台错误处理、正文几何或时间行为。新增测试的一处if补齐花括号后完整静态检查通过。
+- 证据与边界：日志位于忽略目录flutter_legado/build/reader-color-styles-qa/screen-status-{initial-tests,widget-recheck,regression,analysis,format}.log，最终测试清单为screen-status-regression-files.txt。基线仍2371b68e6，保留前批页脚修正；Codex直接实现与复核，不使用子代理，不宣称独立审查、设备或iOS验证。未构建安装、提交、推送或触发CI，版本2.0.373+374保持。
+- 提交授权：用户要求提交当前成果并继续翻页与操作设置迁移。本地提交包含本组与前批页脚模式修正，不推送、不触发CI；提交正文只描述结构与行为，后续迁移单独留在工作区待审。
+
+编写者：Codex｜2026-10-15
+
+### READER-FOOTER-MODE-20261015：修正页脚模式选项与显示语义（P1）
+
+- 授权与基线：用户要求提交页面布局迁移并继续任务，前批已提交2371b68e6，当前feature/ui-reader-selection，工作区干净。修正前批发现的页脚模式接线，不创建分支、不自动提交/推送或触发CI，不构建安装，版本2.0.373+374不变。
+- 状态与范围：代码与本地定向验证完成，按用户授权与屏幕状态条迁移一并纳入本地提交。页脚误用了页眉的三档选项：文案与实际0显示、1隐藏的渲染规则不符，隐藏后配置项也未正确收起。本批拆分两组选项，页眉仍0～2，页脚读写限制0～1；默认和现有渲染判断保持，不迁移旧数据或增加高级模式。
+- 参考依据：核对HapeLee/legado-with-MD3的main并固定到4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5。[TypographyTabs.kt](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/ui/book/read/sheet/TypographyTabs.kt#L1241-L1250)分别给出页眉三档和页脚显示/隐藏两档；[LegacyReaderPageDecorationFactory.kt](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderPageDecorationFactory.kt#L333-L339)确认页脚仅1隐藏。Rimchars分支的高级模式不是当前MD3界面选项，不扩展到本批。
+- 验收与执行：覆盖两档菜单、模式保存及失败回退、隐藏后设置项收起、真实存储重读、读写边界与页眉三档独立语义。起初按本轮AGENTS委派研究与回归准备，用户指出此前禁止使用子代理的直接指示后已停止代理，后续由Codex直接完成；文档同步至设置架构，不改变分页、原文锚点、选区、翻页、Rust/FFI及其他设置。
+- 独立遗留：本地关闭信息页脚后仍显示旧基础页码，测量与绘制保持一致；MD3关闭页脚时不保留该区域。该项涉及正文有效高度与页数，本批只修选项接线，不将其计作完整页脚隐藏行为对齐，后续另行处理。
+- 验证：新增回归在旧实现中16项通过、4项失败，确认读写范围、菜单编码及失败回退目标不一致；修复后仓储、页面控件及真实ReaderScreen菜单三份回归共57项通过，五改动Dart文件静态分析无问题，格式及git diff --check通过。证据保存在忽略目录flutter_legado/build/reader-color-styles-qa/footer-mode-{red,regression,analysis,format}.log。没有新增提交或推送，未运行完整CI、构建安装或设备视觉验收。
+
+编写者：Codex｜2026-10-15
+
 ### READER-PAGE-LAYOUT-SETTINGS-20261015：页面与标题提示设置分组（P1）
 
 - 授权与范围：用户要求继续B3，当前feature/ui-reader-selection / abaf70e7c，起始工作区干净；迁移正文四向边距、横向双页、章节标题四项、页眉页脚各九项，共27项。单代理，不创建分支、不自动提交/推送/CI或安装，版本2.0.373+374不变。

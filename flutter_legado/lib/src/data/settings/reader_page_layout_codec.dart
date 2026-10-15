@@ -81,7 +81,12 @@ final class ReaderPageLayoutCodec {
     final prefix = edge.name;
     return ReaderPageEdgeSettings(
       padding: _padding(snapshot, '${prefix}_padding', defaults.padding),
-      mode: _int(snapshot, '${prefix}_mode', defaults.mode, max: 2),
+      mode: _int(
+        snapshot,
+        '${prefix}_mode',
+        defaults.mode,
+        max: edge == ReaderPageEdge.header ? 2 : 1,
+      ),
       showLine: _bool(snapshot, '${prefix}_show_line', defaults.showLine),
       leftTip: _int(snapshot, '${prefix}_tip_left', defaults.leftTip),
       middleTip: _int(snapshot, '${prefix}_tip_middle', defaults.middleTip),
@@ -165,7 +170,10 @@ final class ReaderPageLayoutCodec {
       left: left,
       right: right,
     ),
-    _address('${edge.name}_mode'): ?mode?.clamp(0, 2),
+    _address('${edge.name}_mode'): ?mode?.clamp(
+      0,
+      edge == ReaderPageEdge.header ? 2 : 1,
+    ),
     _address('${edge.name}_show_line'): ?showLine,
     _address('${edge.name}_tip_left'): ?leftTip,
     _address('${edge.name}_tip_middle'): ?middleTip,

@@ -4,6 +4,8 @@ import '../../domain/contracts/reader_settings_repository.dart';
 import '../../domain/models/reader_settings.dart';
 import '../../domain/models/reader_text_layout_settings.dart';
 import '../../domain/models/reader_page_layout_settings.dart';
+import '../../domain/models/reader_screen_settings.dart';
+import '../../domain/models/reader_status_strip_settings.dart';
 import '../settings/reader_page_layout_codec.dart';
 import '../../domain/models/page_turn_mode.dart';
 import '../../domain/models/app_settings_snapshot.dart';
@@ -80,7 +82,53 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_hanging_punctuation',
   );
+  static const _orientation = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_screen_orientation',
+  );
+  static const _hideStatusBar = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_hide_status_bar',
+  );
+  static const _hideNavigationBar = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_hide_navigation_bar',
+  );
+  static const _extendIntoCutout = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_extend_into_cutout',
+  );
+  static const _avoidDisplayCutouts = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_avoid_display_cutouts',
+  );
+  static const _showBattery = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_status_show_battery',
+  );
+  static const _showTime = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_status_show_time',
+  );
+  static const _showProgress = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_status_show_progress',
+  );
+  static const _showChapterName = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_status_show_chapter_name',
+  );
   static const _addresses = {
+    _orientation,
+    _hideStatusBar,
+    _hideNavigationBar,
+    _extendIntoCutout,
+    _avoidDisplayCutouts,
+    _showBattery,
+    _showTime,
+    _showProgress,
+    _showChapterName,
+
     _mode,
     _legacyIndex,
     _fontSize,
@@ -133,6 +181,37 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
         ? snapshot[_chapterInSystemBrowser] as bool
         : false,
     pageLayout: _pageLayout.decode(snapshot),
+    screen: ReaderScreenSettings(
+      orientation:
+          (snapshot[_orientation] is int ? snapshot[_orientation] as int : 0)
+              .clamp(0, 5),
+      hideStatusBar: snapshot[_hideStatusBar] is bool
+          ? snapshot[_hideStatusBar] as bool
+          : false,
+      hideNavigationBar: snapshot[_hideNavigationBar] is bool
+          ? snapshot[_hideNavigationBar] as bool
+          : false,
+      extendIntoCutout: snapshot[_extendIntoCutout] is bool
+          ? snapshot[_extendIntoCutout] as bool
+          : false,
+      avoidDisplayCutouts: snapshot[_avoidDisplayCutouts] is bool
+          ? snapshot[_avoidDisplayCutouts] as bool
+          : false,
+    ),
+    statusStrip: ReaderStatusStripSettings(
+      showBattery: snapshot[_showBattery] is bool
+          ? snapshot[_showBattery] as bool
+          : false,
+      showTime: snapshot[_showTime] is bool
+          ? snapshot[_showTime] as bool
+          : false,
+      showProgress: snapshot[_showProgress] is bool
+          ? snapshot[_showProgress] as bool
+          : false,
+      showChapterName: snapshot[_showChapterName] is bool
+          ? snapshot[_showChapterName] as bool
+          : false,
+    ),
     textLayout: ReaderTextLayoutSettings(
       paragraphSpacing:
           (snapshot[_paragraphSpacing] is double
@@ -288,6 +367,34 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   );
 
   @override
+  Future<void> updateScreen({
+    int? orientation,
+    bool? hideStatusBar,
+    bool? hideNavigationBar,
+    bool? extendIntoCutout,
+    bool? avoidDisplayCutouts,
+  }) => _service.update({
+    _orientation: ?orientation?.clamp(0, 5),
+    _hideStatusBar: ?hideStatusBar,
+    _hideNavigationBar: ?hideNavigationBar,
+    _extendIntoCutout: ?extendIntoCutout,
+    _avoidDisplayCutouts: ?avoidDisplayCutouts,
+  });
+
+  @override
+  Future<void> updateStatusStrip({
+    bool? showBattery,
+    bool? showTime,
+    bool? showProgress,
+    bool? showChapterName,
+  }) => _service.update({
+    _showBattery: ?showBattery,
+    _showTime: ?showTime,
+    _showProgress: ?showProgress,
+    _showChapterName: ?showChapterName,
+  });
+
+  @override
   Future<ReaderAdvancedConfig> loadAdvanced() async {
     late ReaderAdvancedConfig result;
     await _operations.run(() async => result = await _load());
@@ -344,40 +451,14 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       return [...columns, ...columns, ...columns];
     }
 
-    // 尚未迁走的阅读状态条保留原四开关的默认转换，本组页面设置不参与。
-    const c2DefaultsMigratedKey = 'settingsMigrated_v271';
-    if (!(prefs.getBool(c2DefaultsMigratedKey) ?? false)) {
-      const statusRowKeys = <String>[
-        '${_prefix}show_battery',
-        '${_prefix}show_time',
-        '${_prefix}show_progress',
-        '${_prefix}show_chapter_name',
-      ];
-      for (final key in statusRowKeys) {
-        // 旧默认=true（开）；存量 true 视为未手动修改 → 改新默认 false（关）
-        if (prefs.getBool(key) == true) {
-          await prefs.setBool(key, false);
-        }
-      }
-      await prefs.setBool(c2DefaultsMigratedKey, true);
-    }
-
     return ReaderAdvancedConfig(
       autoPageTurn: prefs.getBool('${_prefix}auto_page_turn') ?? false,
       autoPageTurnInterval: (prefs.getDouble('${_prefix}auto_interval') ?? 10)
           .clamp(3.0, 120.0),
       autoPageTurnForward: prefs.getBool('${_prefix}auto_forward') ?? true,
       tapActions: loadTapActions(),
-      // [C2 R4] 状态行四开关 load 缺省对齐构造器默认（关闭），参考该态无此信息行
-      showBattery: prefs.getBool('${_prefix}show_battery') ?? false,
-      showTime: prefs.getBool('${_prefix}show_time') ?? false,
-      showProgress: prefs.getBool('${_prefix}show_progress') ?? false,
-      showChapterName: prefs.getBool('${_prefix}show_chapter_name') ?? false,
       // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项读取（键名=原版键）— Qoder
-      screenOrientation: (prefs.getInt('screenOrientation') ?? 0).clamp(0, 5),
       keepLight: prefs.getInt('keep_light') ?? 0,
-      hideStatusBar: prefs.getBool('hideStatusBar') ?? false,
-      hideNavigationBar: prefs.getBool('hideNavigationBar') ?? false,
       progressBarBehavior: (prefs.getString('progressBarBehavior') == 'chapter')
           ? 'chapter'
           : 'page',
@@ -407,8 +488,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       mouseWheelPage: prefs.getBool('mouseWheelPage') ?? true,
       pageTouchSlop: (prefs.getInt('pageTouchSlop') ?? 0).clamp(0, 9999),
       pageTouchClick: (prefs.getInt('pageTouchClick') ?? 0).clamp(0, 399),
-      readBodyToLh: prefs.getBool('readBodyToLh') ?? false,
-      paddingDisplayCutouts: prefs.getBool('paddingDisplayCutouts') ?? false,
     );
   }
 
@@ -441,17 +520,8 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     await _write(
       prefs.setInt('${_prefix}right_action', config.tapActions[5].index),
     );
-    await _write(prefs.setBool('${_prefix}show_battery', config.showBattery));
-    await _write(prefs.setBool('${_prefix}show_time', config.showTime));
-    await _write(prefs.setBool('${_prefix}show_progress', config.showProgress));
-    await _write(
-      prefs.setBool('${_prefix}show_chapter_name', config.showChapterName),
-    );
     // [UI-fix v2.0.3 | 2026-08-08] 第①批 MoreConfig 项持久化（键名=原版键）— Qoder
-    await _write(prefs.setInt('screenOrientation', config.screenOrientation));
     await _write(prefs.setInt('keep_light', config.keepLight));
-    await _write(prefs.setBool('hideStatusBar', config.hideStatusBar));
-    await _write(prefs.setBool('hideNavigationBar', config.hideNavigationBar));
     await _write(
       prefs.setString('progressBarBehavior', config.progressBarBehavior),
     );
@@ -504,10 +574,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     await _write(prefs.setBool('mouseWheelPage', config.mouseWheelPage));
     await _write(prefs.setInt('pageTouchSlop', config.pageTouchSlop));
     await _write(prefs.setInt('pageTouchClick', config.pageTouchClick));
-    await _write(prefs.setBool('readBodyToLh', config.readBodyToLh));
-    await _write(
-      prefs.setBool('paddingDisplayCutouts', config.paddingDisplayCutouts),
-    );
   }
 }
 

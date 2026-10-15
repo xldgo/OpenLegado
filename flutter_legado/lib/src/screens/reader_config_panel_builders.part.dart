@@ -568,7 +568,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // 屏幕方向（原版第 1 项 screenOrientation）
       SettingMenuRow<int>(
         title: context.l10n.readerScreenOrientation,
-        value: _config.screenOrientation,
+        value: _screen.orientation,
         options: {
           0: context.l10n.themeSystem,
           1: context.l10n.readerPortrait,
@@ -578,15 +578,17 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           5: context.l10n.readerLandscapeReversed,
         },
         onChanged: (value) {
-          _config.screenOrientation = value;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(orientation: value),
+          );
         },
       ),
-      // 保持亮屏（原版第 2 项 keep_light；平台限制诚实标注：项目未引入
-      // wakelock 依赖（不改 pubspec），设置仅持久化，待平台能力接入后生效，
-      // 与 audio_screen 的 audioWakeLock 标注一致）
+      // 保持亮屏尚未接入平台能力，保留原选项并禁用。— Codex + UI
       SettingMenuRow<int>(
         title: context.l10n.readerKeepAwake,
+        subtitle: '设置阅读时保持屏幕点亮的时长（待实现）',
         value: _config.keepLight,
         options: {
           0: context.l10n.readerDefault,
@@ -595,10 +597,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           600: context.l10n.readerAwakeTenMinutes,
           -1: context.l10n.readerAwakeAlways,
         },
-        onChanged: (value) {
-          _config.keepLight = value;
-          _commit();
-        },
+        onChanged: null,
       ),
     ],
   );
@@ -611,20 +610,26 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerHideStatusBar,
         subtitle: '阅读时隐藏系统状态栏',
-        value: _config.hideStatusBar,
+        value: _screen.hideStatusBar,
         onChanged: (v) {
-          _config.hideStatusBar = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(hideStatusBar: v),
+          );
         },
       ),
       // 隐藏导航栏（原版第 4 项：SystemUiMode 移除底部 overlay）
       SettingSwitchRow(
         title: context.l10n.readerHideNavigationBar,
         subtitle: '阅读时隐藏系统导航栏',
-        value: _config.hideNavigationBar,
+        value: _screen.hideNavigationBar,
         onChanged: (v) {
-          _config.hideNavigationBar = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(hideNavigationBar: v),
+          );
         },
       ),
       // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
@@ -634,20 +639,26 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       SettingSwitchRow(
         title: context.l10n.readerExtendCutout,
         subtitle: '正文延伸到刘海区域',
-        value: _config.readBodyToLh,
+        value: _screen.extendIntoCutout,
         onChanged: (v) {
-          _config.readBodyToLh = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(extendIntoCutout: v),
+          );
         },
       ),
       // 填充刘海区域（原版 paddingDisplayCutouts）
       SettingSwitchRow(
         title: context.l10n.readerFillCutout,
         subtitle: '页面边距避开刘海区域',
-        value: _config.paddingDisplayCutouts,
+        value: _screen.avoidDisplayCutouts,
         onChanged: (v) {
-          _config.paddingDisplayCutouts = v;
-          _commit();
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(avoidDisplayCutouts: v),
+          );
         },
       ),
     ],

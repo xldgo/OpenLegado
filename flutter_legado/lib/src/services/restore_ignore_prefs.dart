@@ -98,6 +98,15 @@ class RestoreIgnorePrefs {
     'reader_footer_tip_left',
     'reader_footer_tip_middle',
     'reader_footer_tip_right',
+    'reader_screen_orientation',
+    'reader_hide_status_bar',
+    'reader_hide_navigation_bar',
+    'reader_extend_into_cutout',
+    'reader_avoid_display_cutouts',
+    'reader_status_show_battery',
+    'reader_status_show_time',
+    'reader_status_show_progress',
+    'reader_status_show_chapter_name',
   };
 
   /// 主题颜色相关键（对齐 BackupConfig.themePrefKeys）

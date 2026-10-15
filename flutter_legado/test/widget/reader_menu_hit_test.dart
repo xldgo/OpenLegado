@@ -9,6 +9,9 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
+import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
+import 'package:flutter_legado/src/utils/app_route_observer.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -200,6 +203,160 @@ Future<ProviderContainer> _pumpReader(
 }
 
 void main() {
+  testWidgets('屏幕状态条同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = HomeSettingsStorage();
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    final barEvents = <ReaderSystemBars>[];
+    final appEvents = <ApplicationSystemBars>[];
+    final orientationCalls = <Object?>[];
+    final controller = SystemBarController(
+      applyApplication: (value) async => appEvents.add(value),
+      applyReader: (value) async => barEvents.add(value),
+    );
+    controller.updateApplication((
+      transparentStatusBar: false,
+      immNavigationBar: false,
+      appBarColor: Colors.white,
+      navigationBarColor: Colors.white,
+    ));
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'SystemChrome.setPreferredOrientations') {
+          orientationCalls.add(call.arguments);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsServiceProvider.overrideWithValue(service),
+        systemBarControllerProvider.overrideWithValue(controller),
+        readerNotifierProvider.overrideWith(_ScreenReader.new),
+        bookApiProvider.overrideWithValue(MockBookApi()),
+      ],
+    );
+    addTearDown(() {
+      container.dispose();
+      controller.dispose();
+      unawaited(service.dispose());
+    });
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          navigatorKey: navigator,
+          navigatorObservers: [systemBarRouteObserver],
+          builder: (context, child) => readerLayoutTestBuilder(
+            context,
+            MediaQuery(
+              data: const MediaQueryData(
+                size: Size(800, 600),
+                viewPadding: EdgeInsets.fromLTRB(7, 24, 8, 20),
+              ),
+              child: child!,
+            ),
+          ),
+          home: const ReaderScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final reader =
+        container.read(readerNotifierProvider.notifier) as _ScreenReader;
+    final repository = container.read(readerSettingsRepositoryProvider);
+    reader.hideControls();
+    await tester.pumpAndSettle();
+    await repository.updateScreen(
+      orientation: 2,
+      hideStatusBar: true,
+      hideNavigationBar: true,
+      extendIntoCutout: true,
+    );
+    await repository.updateStatusStrip(
+      showBattery: true,
+      showTime: true,
+      showProgress: true,
+      showChapterName: true,
+    );
+    await tester.pumpAndSettle();
+    ReaderPageView view() =>
+        tester.widget<ReaderPageView>(find.byType(ReaderPageView));
+    expect(barEvents.last, (
+      statusBarVisible: false,
+      navigationBarVisible: false,
+    ));
+    expect(orientationCalls.last, [
+      'DeviceOrientation.landscapeLeft',
+      'DeviceOrientation.landscapeRight',
+    ]);
+    expect(view().pageChrome.hideStatusBar, isTrue);
+    expect(view().readBodyToLh, isTrue);
+    expect(view().contentInsets, EdgeInsets.zero);
+    final strip = tester.widget<ReaderStatusStrip>(
+      find.byType(ReaderStatusStrip),
+    );
+    expect(strip.settings, repository.current.statusStrip);
+    expect(strip.hideStatusBar, isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(ReaderStatusStrip),
+        matching: find.byIcon(Icons.battery_std),
+      ),
+      findsOneWidget,
+    );
+    await repository.updateScreen(avoidDisplayCutouts: true);
+    await tester.pumpAndSettle();
+    expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 24, 8, 0));
+    reader.toggleControls();
+    await tester.pumpAndSettle();
+    expect(barEvents.last, (
+      statusBarVisible: true,
+      navigationBarVisible: true,
+    ));
+    expect(find.byType(ReaderStatusStrip), findsNothing);
+    reader.hideControls();
+    await tester.pumpAndSettle();
+    expect(barEvents.last, (
+      statusBarVisible: false,
+      navigationBarVisible: false,
+    ));
+    final applicationsBefore = appEvents.length;
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('临时页面')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(appEvents.length, applicationsBefore + 1);
+    final callsBefore = orientationCalls.length;
+    await repository.updateScreen(orientation: 1);
+    await tester.pumpAndSettle();
+    expect(orientationCalls, hasLength(callsBefore));
+    navigator.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(orientationCalls.last, ['DeviceOrientation.portraitUp']);
+    expect(barEvents.last, (
+      statusBarVisible: false,
+      navigationBarVisible: false,
+    ));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('正文按同源八项排版设置接参，恢复重读刷新且高级保存不覆盖', (tester) async {
     final storage = HomeSettingsStorage();
     storage.values.addAll({
@@ -263,7 +420,7 @@ void main() {
       'reader_header_padding_top': 4.0,
       'reader_header_show_line': true,
       'reader_header_tip_left': 7,
-      'reader_footer_mode': 2,
+      'reader_footer_mode': 1,
       'reader_footer_padding_bottom': 8.0,
       'reader_footer_show_line': false,
       'reader_footer_tip_right': 5,
@@ -290,6 +447,8 @@ void main() {
     expect(view().pageChrome.headerPaddingTop, 4);
     expect(view().pageChrome.showHeaderLine, isTrue);
     expect(view().pageChrome.tipHeaderLeft, 7);
+    expect(view().pageChrome.footerMode, 1);
+    expect(view().pageChrome.showPageFooter, isFalse);
     expect(view().pageChrome.footerPaddingBottom, 8);
     expect(view().pageChrome.showFooterLine, isFalse);
     expect(view().pageChrome.tipFooterRight, 5);
@@ -302,9 +461,7 @@ void main() {
     await repository.reload();
     await tester.pumpAndSettle();
     expect(view().pageChrome.tipHeaderLeft, 2);
-    final advanced = await repository.loadAdvanced();
-    advanced.hideStatusBar = true;
-    await container.read(readerAdvConfigProvider.notifier).commit(advanced);
+    await repository.updateScreen(hideStatusBar: true);
     await tester.pumpAndSettle();
     expect(view().pageChrome.hideStatusBar, isTrue);
     expect(view().pageChrome.titleSize, 4);

@@ -161,6 +161,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!_configLoaded) {
       _configLoaded = true;
       unawaited(_loadAdvancedConfig());
+      unawaited(_loadScreenSettings());
     }
   }
 
@@ -198,13 +199,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didPush() {
     _readerRouteActive = true;
-    _applySystemChrome(_advConfig);
+    _applySystemChrome();
   }
 
   @override
   void didPopNext() {
     _readerRouteActive = true;
-    _applySystemChrome(_advConfig);
+    _applySystemChrome();
   }
 
   @override
@@ -256,7 +257,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// [menuVisible] 为 true 时强制显示状态栏（对标原版
   /// `upSystemUiVisibility(toolBarHide=false)`，ReadMenu 展开时不隐藏状态栏）。
-  void _applySystemChrome(ReaderAdvancedConfig cfg, {bool? menuVisible}) {
+  void _applySystemChrome({bool? menuVisible}) {
+    final cfg = ref.read(readerSettingsRepositoryProvider).current.screen;
     if (!_readerRouteActive) return;
     final showMenu =
         menuVisible ?? ref.read(readerNotifierProvider).showControls;
@@ -264,12 +266,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       statusBarVisible: !cfg.hideStatusBar || showMenu,
       navigationBarVisible: !cfg.hideNavigationBar || showMenu,
     ));
-    SystemChrome.setPreferredOrientations(
-      _orientationsFor(cfg.screenOrientation),
-    );
-    // keep_light（保持亮屏）：项目未引入 wakelock 依赖（不改 pubspec），
-    // 设置仅持久化，待平台能力接入后生效（与 audio_screen audioWakeLock
-    // 标注一致，诚实标注平台限制）— Qoder
+    SystemChrome.setPreferredOrientations(_orientationsFor(cfg.orientation));
   }
 
   /// 原版 screen_direction_value → Flutter DeviceOrientation 映射
@@ -293,6 +290,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
+  Future<void> _loadScreenSettings() async {
+    try {
+      await ref.read(readerSettingsRepositoryProvider).load();
+      if (mounted) _applySystemChrome();
+    } catch (error) {
+      debugPrint('阅读屏幕设置读取失败：$error');
+    }
+  }
+
   Future<void> _loadAdvancedConfig() async {
     final config = await ref
         .read(readerAdvConfigProvider.notifier)
@@ -300,8 +306,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!mounted) return;
     setState(() => _advConfig = config);
     _syncAutoTimer();
-    // [UI-fix v2.0.3 | 2026-08-08] 进入阅读器即应用隐藏栏/方向配置 — Qoder
-    _applySystemChrome(config);
   }
 
   /// F6：音量键翻页（仅 Android 有效；桌面无音量键事件）
@@ -681,8 +685,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       next,
     ) {
       if (prev != next) {
-        _applySystemChrome(_advConfig, menuVisible: next);
+        _applySystemChrome(menuVisible: next);
       }
+    });
+
+    ref.listen(readerSettingsProvider.select((value) => value.value?.screen), (
+      previous,
+      next,
+    ) {
+      if (next != null && previous != next) _applySystemChrome();
     });
 
     return PopScope<Object?>(
@@ -714,18 +725,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 .current;
             final textLayout = readingSettings.textLayout;
             final pageLayout = readingSettings.pageLayout;
+            final screen = readingSettings.screen;
             final cfg = ref.watch(readerAdvConfigProvider) ?? _advConfig;
             _advConfig = cfg;
             final bodyInsets = _stableBodyInsets(context);
-            final avoidTop = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
-            final avoidSides = !cfg.readBodyToLh || cfg.paddingDisplayCutouts;
+            final avoidTop =
+                !screen.extendIntoCutout || screen.avoidDisplayCutouts;
+            final avoidSides =
+                !screen.extendIntoCutout || screen.avoidDisplayCutouts;
             final avoidBottom =
-                !cfg.hideNavigationBar || cfg.paddingDisplayCutouts;
+                !screen.hideNavigationBar || screen.avoidDisplayCutouts;
             final bottomInset = readerContentBottomInset(
               systemBottomInset: bodyInsets.bottom,
               cutoutBottomInset: _cutoutBottomInset,
-              hideNavigationBar: cfg.hideNavigationBar,
-              paddingDisplayCutouts: cfg.paddingDisplayCutouts,
+              hideNavigationBar: screen.hideNavigationBar,
+              paddingDisplayCutouts: screen.avoidDisplayCutouts,
             );
             final bodyPadding = EdgeInsets.only(
               top: avoidTop ? bodyInsets.top : 0,
@@ -734,7 +748,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               bottom: bottomInset,
             );
             final pageInsets = bodyPadding.copyWith(
-              top: avoidTop || !cfg.hideStatusBar ? bodyInsets.top : 0,
+              top: avoidTop || !screen.hideStatusBar ? bodyInsets.top : 0,
             );
             return Stack(
               children: [
@@ -771,11 +785,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               marginRight: pageLayout.bodyPadding.right,
                               pageChrome: ReaderPageChromeConfig.fromSettings(
                                 pageLayout,
-                                hideStatusBar: cfg.hideStatusBar,
+                                hideStatusBar: screen.hideStatusBar,
                                 titleFontFamily:
                                     readingSettings.titleFontFamily,
                               ),
-                              readBodyToLh: cfg.readBodyToLh,
+                              readBodyToLh: screen.extendIntoCutout,
                               // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
                               // 文本开关与滚动翻页无动画接入内容区 — Qoder
                               selectText: _advConfig.selectText,
@@ -817,8 +831,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                                 ),
                               if (!state.showControls)
                                 ReaderStatusStrip(
-                                  config: _advConfig,
-                                  readBodyToLh: cfg.readBodyToLh,
+                                  settings: readingSettings.statusStrip,
+                                  hideStatusBar: screen.hideStatusBar,
+                                  readBodyToLh: screen.extendIntoCutout,
                                 ),
                               // [C10 对齐 | Qoder UI] 自动翻页运行时浮条：翻页进行中、菜单未展开
                               //（朗读浮条为底部另一占用方，互斥显示）时浮于正文底部，支持速度
@@ -1182,7 +1197,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!mounted) return;
     _advConfig = ref.read(readerAdvConfigProvider) ?? _advConfig;
     _syncAutoTimer();
-    _applySystemChrome(_advConfig);
+    _applySystemChrome();
     setState(() {});
   }
 

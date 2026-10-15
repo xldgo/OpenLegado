@@ -1,5 +1,5 @@
 import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
-import 'package:flutter_legado/src/models/reader_advanced_config.dart';
+import 'package:flutter_legado/src/domain/models/reader_status_strip_settings.dart';
 import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -316,11 +316,10 @@ void main() {
     });
   });
 
-  test('亮度三档保存并兼容旧布尔值，刘海扩展默认关闭', () async {
+  test('亮度三档保存并兼容旧布尔值', () async {
     SharedPreferences.setMockInitialValues({'showBrightnessView': true});
     final config = await repository.loadAdvanced();
     expect(config.brightnessMode, 1);
-    expect(config.readBodyToLh, isFalse);
     config.brightnessMode = 2;
     config.brightnessOnLeft = true;
     await repository.saveAdvanced(config);
@@ -334,7 +333,7 @@ void main() {
     // 电量/进度等改为「开启开关才渲染」。
     testWidgets('默认配置（全关）不渲染内容', (tester) async {
       await tester.pumpWidget(
-        wrapStack(ReaderStatusStrip(config: ReaderAdvancedConfig())),
+        wrapStack(ReaderStatusStrip(settings: ReaderStatusStripSettings())),
       );
       await tester.pump();
 
@@ -342,11 +341,11 @@ void main() {
     });
 
     testWidgets('开启电量+进度开关时渲染电量图标与进度', (tester) async {
-      final config = ReaderAdvancedConfig(
+      const config = ReaderStatusStripSettings(
         showBattery: true,
         showProgress: true,
       );
-      await tester.pumpWidget(wrapStack(ReaderStatusStrip(config: config)));
+      await tester.pumpWidget(wrapStack(ReaderStatusStrip(settings: config)));
       await tester.pump();
 
       expect(find.byIcon(Icons.battery_std), findsOneWidget);

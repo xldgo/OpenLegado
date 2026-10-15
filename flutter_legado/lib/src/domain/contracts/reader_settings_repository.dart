@@ -57,6 +57,19 @@ abstract interface class ReaderSettingsRepository {
     int? topSpacing,
     int? bottomSpacing,
   });
+  Future<void> updateScreen({
+    int? orientation,
+    bool? hideStatusBar,
+    bool? hideNavigationBar,
+    bool? extendIntoCutout,
+    bool? avoidDisplayCutouts,
+  });
+  Future<void> updateStatusStrip({
+    bool? showBattery,
+    bool? showTime,
+    bool? showProgress,
+    bool? showChapterName,
+  });
   Future<ReaderAdvancedConfig> loadAdvanced();
   Future<void> saveAdvanced(ReaderAdvancedConfig config);
 }
