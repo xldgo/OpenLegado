@@ -74,7 +74,7 @@ class ReadRecordOverviewState {
   /// 本周期内在读书籍数
   final int readingBooks;
 
-  /// 柱状图数据源（周内每天/月内每天/年内每月/总为空）
+  /// 柱状图数据源（日内每小时/周内每天/月内每天/年内每月/总为空）
   final List<({DateTime date, int seconds})> dailyTimeData;
 
   /// 按本周期阅读时长降序排序的前10本

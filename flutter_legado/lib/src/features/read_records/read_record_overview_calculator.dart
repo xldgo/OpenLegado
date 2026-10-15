@@ -98,12 +98,49 @@ class ReadRecordOverviewCalculator {
     return List.unmodifiable(books);
   }
 
+  /// 用真实会话与本地小时区间求交集；不从每日累计量推算小时分布。
+  static List<({DateTime date, int seconds})> hourlyDistribution(
+    DateTime date,
+    List<ReadRecordSession> sessions,
+  ) {
+    final boundaries = List.generate(
+      25,
+      (hour) => DateTime(date.year, date.month, date.day, hour),
+    );
+    final milliseconds = List.filled(24, 0);
+    final dayStart = boundaries.first.millisecondsSinceEpoch;
+    final dayEnd = boundaries.last.millisecondsSinceEpoch;
+    for (final session in sessions) {
+      if (session.endTime <= session.startTime ||
+          session.endTime <= dayStart ||
+          session.startTime >= dayEnd) {
+        continue;
+      }
+      for (var hour = 0; hour < 24; hour++) {
+        final start = session.startTime.clamp(
+          boundaries[hour].millisecondsSinceEpoch,
+          boundaries[hour + 1].millisecondsSinceEpoch,
+        );
+        final end = session.endTime.clamp(
+          boundaries[hour].millisecondsSinceEpoch,
+          boundaries[hour + 1].millisecondsSinceEpoch,
+        );
+        milliseconds[hour] += end - start;
+      }
+    }
+    return List.generate(
+      24,
+      (hour) => (date: boundaries[hour], seconds: milliseconds[hour] ~/ 1000),
+    );
+  }
+
   static ReadRecordOverviewState compute({
     required ReadPeriod period,
     required DateTime referenceDate,
     required List<ReadRecordDetail> details,
     required List<ReadRecord> records,
     required List<Book> shelfBooks,
+    List<ReadRecordSession> sessions = const [],
   }) {
     final refDate = DateTime(
       referenceDate.year,
@@ -173,7 +210,9 @@ class ReadRecordOverviewCalculator {
     final sorted = periodBooks.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final chart = <({DateTime date, int seconds})>[];
-    if (period == ReadPeriod.year) {
+    if (period == ReadPeriod.day) {
+      chart.addAll(hourlyDistribution(refDate, sessions));
+    } else if (period == ReadPeriod.year) {
       for (var month = 1; month <= 12; month++) {
         final total = periodDays.entries
             .where((e) => parseDate(e.key)!.month == month)

@@ -423,20 +423,23 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       if (mode == ReadRecordDisplayMode.aggregate) ...[
                         const SizedBox(width: 12),
                         Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              context.l10n.readRecordDayDuration(
-                                formatDuring(group.durationMs),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                              style: Theme.of(context).textTheme.labelSmall,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.readRecordDayDuration(
+                                  formatDuring(group.durationMs),
+                                ),
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
                             ),
                           ),
                         ),

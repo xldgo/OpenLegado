@@ -38,8 +38,12 @@ void main() {
       chapterIndex: 2,
     );
   });
-  Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(360, 800);
+  Future<void> pump(
+    WidgetTester tester, {
+    double width = 360,
+    double textScale = 1,
+  }) async {
+    tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -50,6 +54,11 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           routes: {
             AppRoutes.readRecordOverview: (_) =>
                 const Scaffold(body: Text('总览入口')),
@@ -107,6 +116,43 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+  for (final size in [(360.0, 1.0), (320.0, 2.0)]) {
+    testWidgets('汇总已读徽标靠右且不溢出：${size.$1}dp / ${size.$2}倍文字', (tester) async {
+      await repo.clearReadRecords();
+      final now = DateTime.now();
+      final day = DateTime(now.year, now.month, now.day - 6, 23);
+      final duration = const Duration(hours: 12, minutes: 35).inMilliseconds;
+      await repo.putReadRecord(
+        ReadRecord(
+          bookName: '长时长样例',
+          readTime: duration,
+          startTime: day.millisecondsSinceEpoch - duration,
+          lastRead: day.millisecondsSinceEpoch,
+        ),
+      );
+      await pump(tester, width: size.$1, textScale: size.$2);
+      final date =
+          '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      final card = find.byKey(ValueKey('read-record-day-$date'));
+      final label = find.descendant(
+        of: card,
+        matching: find.textContaining('已读 '),
+      );
+      final badge = find
+          .ancestor(of: label, matching: find.byType(Container))
+          .first;
+      expect(
+        tester.getRect(badge).right,
+        closeTo(tester.getRect(card).right - 12, 0.01),
+      );
+      expect(
+        tester.getRect(find.text(date)).right,
+        lessThanOrEqualTo(tester.getRect(badge).left - 12),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final days in [1, 2, 5, 6]) {
     testWidgets('日期对齐上游：$days天前的显示边界', (tester) async {
       await repo.clearReadRecords();

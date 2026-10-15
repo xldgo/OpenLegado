@@ -239,6 +239,62 @@ void main() {
     end.complete([]);
     await f;
   });
+  test('日分布订阅真实会话并随新增删除及刷新更新，切换日期重新分桶', () async {
+    final repo = MockReadRecordRepository();
+    final c = containerFor(repo);
+    addTearDown(c.dispose);
+    final sub = c.listen(readRecordOverviewNotifierProvider, (_, _) {});
+    addTearDown(sub.close);
+    await flush();
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day, 10, 15);
+    await repo.putReadRecord(
+      ReadRecord(
+        bookName: '小时书',
+        author: '甲',
+        readTime: 1800000,
+        lastRead: end.millisecondsSinceEpoch,
+      ),
+    );
+    await flush();
+    final n = c.read(readRecordOverviewNotifierProvider.notifier);
+    expect(
+      c.read(readRecordOverviewNotifierProvider).dailyTimeData[9].seconds,
+      900,
+    );
+    expect(
+      c.read(readRecordOverviewNotifierProvider).dailyTimeData[10].seconds,
+      900,
+    );
+    n.previousPeriod();
+    expect(
+      c
+          .read(readRecordOverviewNotifierProvider)
+          .dailyTimeData
+          .every((e) => e.seconds == 0),
+      isTrue,
+    );
+    n.nextPeriod();
+    expect(
+      c.read(readRecordOverviewNotifierProvider).dailyTimeData[10].seconds,
+      900,
+    );
+    await n.refresh();
+    expect(
+      c.read(readRecordOverviewNotifierProvider).dailyTimeData[9].seconds,
+      900,
+    );
+    await repo.deleteReadRecord('小时书');
+    await flush();
+    expect(
+      c
+          .read(readRecordOverviewNotifierProvider)
+          .dailyTimeData
+          .every((e) => e.seconds == 0),
+      isTrue,
+    );
+  });
+
   test('首页日历和排行不跟随总览周期选择', () async {
     final c = containerFor(MockReadRecordRepository());
     addTearDown(c.dispose);

@@ -4,6 +4,74 @@ import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 void main() {
+  ReadRecordSession session(int id, DateTime start, DateTime end) =>
+      ReadRecordSession(
+        id: id,
+        bookName: '甲',
+        author: '作者',
+        startTime: start.millisecondsSinceEpoch,
+        endTime: end.millisecondsSinceEpoch,
+      );
+  test('日分布为24个小时，跨小时及午夜只计区间交集', () {
+    final state = ReadRecordOverviewNotifier.computeOverview(
+      period: ReadPeriod.day,
+      referenceDate: DateTime(2026, 5, 20),
+      details: [],
+      records: [],
+      shelfBooks: [],
+      sessions: [
+        session(1, DateTime(2026, 5, 19, 23, 45), DateTime(2026, 5, 20, 0, 15)),
+        session(2, DateTime(2026, 5, 20, 8, 45), DateTime(2026, 5, 20, 10, 15)),
+        session(3, DateTime(2026, 5, 20, 23, 50), DateTime(2026, 5, 21, 0, 20)),
+        session(4, DateTime(2026, 5, 21, 1), DateTime(2026, 5, 21, 2)),
+      ],
+    );
+    final data = state.dailyTimeData;
+    expect(data.length, 24);
+    expect(data.map((e) => e.date.hour), List.generate(24, (i) => i));
+    expect(data[0].seconds, 900);
+    expect(data[8].seconds, 900);
+    expect(data[9].seconds, 3600);
+    expect(data[10].seconds, 900);
+    expect(data[23].seconds, 600);
+    expect(data.fold<int>(0, (sum, e) => sum + e.seconds), 6900);
+  });
+  test('小时汇总先合并毫秒再取秒，忽略倒序和空会话，小时边界不重复', () {
+    final start = DateTime(2026, 5, 20, 9);
+    final data = ReadRecordOverviewCalculator.hourlyDistribution(start, [
+      session(1, start, start.add(const Duration(milliseconds: 600))),
+      session(
+        2,
+        start.add(const Duration(seconds: 1)),
+        start.add(const Duration(milliseconds: 1600)),
+      ),
+      session(3, start, start),
+      session(4, start.add(const Duration(hours: 1)), start),
+      session(5, DateTime(2026, 5, 20, 8, 59), start),
+    ]);
+    expect(data[8].seconds, 60);
+    expect(data[9].seconds, 1);
+    expect(data[10].seconds, 0);
+  });
+  test('缺少会话时不以日累计或最后阅读时间伪造小时分布', () {
+    final state = ReadRecordOverviewNotifier.computeOverview(
+      period: ReadPeriod.day,
+      referenceDate: DateTime(2026, 5, 20),
+      details: const [
+        ReadRecordDetail(
+          bookName: '甲',
+          author: '',
+          date: '2026-05-20',
+          readTime: 60000,
+        ),
+      ],
+      records: [],
+      shelfBooks: [],
+    );
+    expect(state.totalTimeMs, 60000);
+    expect(state.dailyTimeData.length, 24);
+    expect(state.dailyTimeData.every((e) => e.seconds == 0), isTrue);
+  });
   group('周期范围', () {
     test('日', () {
       expect(

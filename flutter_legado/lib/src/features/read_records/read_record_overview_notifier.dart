@@ -13,6 +13,7 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
   @override
   ReadRecordOverviewState build() {
     final data = ref.watch(readRecordDatasetProvider);
+    final sessions = ref.watch(readRecordSessionsProvider);
     final books = ref.watch(bookshelfNotifierProvider.select((s) => s.books));
     final previous =
         stateOrNull ?? ReadRecordOverviewState(referenceDate: DateTime.now());
@@ -23,6 +24,14 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
         details: snapshot.value.details,
         records: snapshot.value.records,
         shelfBooks: books,
+        sessions: sessions.asData?.value ?? const [],
+      ).copyWith(
+        isLoading:
+            data.isLoading ||
+            (previous.period == ReadPeriod.day && sessions.isLoading),
+        error: previous.period == ReadPeriod.day
+            ? sessions.error?.toString()
+            : null,
       );
     }
     return previous.copyWith(
@@ -53,6 +62,7 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
 
   void _select(ReadPeriod period, DateTime date) {
     final snapshot = ref.read(readRecordDatasetProvider).asData?.value;
+    final sessions = ref.read(readRecordSessionsProvider);
     state = snapshot == null
         ? state.copyWith(period: period, referenceDate: date)
         : computeOverview(
@@ -61,6 +71,10 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
             details: snapshot.details,
             records: snapshot.records,
             shelfBooks: ref.read(bookshelfNotifierProvider).books,
+            sessions: sessions.asData?.value ?? const [],
+          ).copyWith(
+            isLoading: period == ReadPeriod.day && sessions.isLoading,
+            error: period == ReadPeriod.day ? sessions.error?.toString() : null,
           );
   }
 
@@ -69,7 +83,12 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
     final generation = ++_requestGeneration;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final snapshot = await ref.refresh(readRecordDatasetProvider.future);
+      final results = await Future.wait<Object>([
+        ref.refresh(readRecordDatasetProvider.future),
+        ref.refresh(readRecordSessionsProvider.future),
+      ]);
+      final snapshot = results[0] as ReadRecordDataset;
+      final sessions = results[1] as List<ReadRecordSession>;
       if (!ref.mounted || generation != _requestGeneration) return;
       state = computeOverview(
         period: state.period,
@@ -77,6 +96,7 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
         details: snapshot.details,
         records: snapshot.records,
         shelfBooks: ref.read(bookshelfNotifierProvider).books,
+        sessions: sessions,
       );
     } catch (error) {
       if (ref.mounted && generation == _requestGeneration) {
@@ -91,12 +111,14 @@ class ReadRecordOverviewNotifier extends Notifier<ReadRecordOverviewState> {
     required List<ReadRecordDetail> details,
     required List<ReadRecord> records,
     required List<Book> shelfBooks,
+    List<ReadRecordSession> sessions = const [],
   }) => ReadRecordOverviewCalculator.compute(
     period: period,
     referenceDate: referenceDate,
     details: details,
     records: records,
     shelfBooks: shelfBooks,
+    sessions: sessions,
   );
 
   static (DateTime, DateTime) getPeriodRange(

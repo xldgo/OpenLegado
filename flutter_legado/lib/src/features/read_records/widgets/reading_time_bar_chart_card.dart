@@ -207,7 +207,9 @@ class _BarColumn extends StatelessWidget {
             index == totalCount - 1;
         return isKeyDay ? '${item.date.day}' : '';
       case ReadPeriod.day:
-        return '${item.date.day}';
+        return item.date.hour % 6 == 0 || item.date.hour == 23
+            ? '${item.date.hour}'
+            : '';
       case ReadPeriod.all:
         return '${item.date.year}';
     }
@@ -221,8 +223,11 @@ class _BarColumn extends StatelessWidget {
     final factor = (item.seconds / roundedMaxSec).clamp(0.0, 1.0);
     final labelText = _getLabelText();
 
+    final interval = period == ReadPeriod.day
+        ? ' ${item.date.hour.toString().padLeft(2, '0')}:00–${(item.date.hour + 1).toString().padLeft(2, '0')}:00'
+        : '';
     final tooltip =
-        '${item.date.month}月${item.date.day}日 · ${formatDuring(item.seconds * 1000)}';
+        '${item.date.month}月${item.date.day}日$interval · ${formatDuring(item.seconds * 1000)}';
 
     return Column(
       children: [
