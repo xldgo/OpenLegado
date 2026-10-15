@@ -1,3 +1,5 @@
+import '../providers/rss_repository_provider.dart';
+
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,7 +15,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/open_url_confirm_dialog.dart';
 
@@ -98,7 +99,7 @@ class _RssArticleDetailScreenState
   Future<void> _loadStarState() async {
     try {
       final starred = await ref
-          .read(bookApiProvider)
+          .read(rssStarRepositoryProvider)
           .isStarred(widget.article.url);
       if (mounted) setState(() => _isStarred = starred);
     } catch (_) {}
@@ -108,26 +109,29 @@ class _RssArticleDetailScreenState
   Future<void> _toggleStar() async {
     if (_starBusy) return;
     setState(() => _starBusy = true);
-    final api = ref.read(bookApiProvider);
     try {
       if (_isStarred) {
-        await api.deleteRssStar(widget.article.url);
+        await ref
+            .read(rssStarRepositoryProvider)
+            .deleteRssStar(widget.article.url);
       } else {
         final article = widget.article;
-        await api.addRssStar(
-          RssStar(
-            origin: widget.sourceUrl,
-            sort: '',
-            title: article.title,
-            starTime: DateTime.now().millisecondsSinceEpoch,
-            link: article.url,
-            pubDate: article.pubDate,
-            description: article.description,
-            content: article.content,
-            image: article.imageUrl,
-            group: widget.sourceName.isEmpty ? '默认分组' : widget.sourceName,
-          ),
-        );
+        await ref
+            .read(rssStarRepositoryProvider)
+            .addRssStar(
+              RssStar(
+                origin: widget.sourceUrl,
+                sort: '',
+                title: article.title,
+                starTime: DateTime.now().millisecondsSinceEpoch,
+                link: article.url,
+                pubDate: article.pubDate,
+                description: article.description,
+                content: article.content,
+                image: article.imageUrl,
+                group: widget.sourceName.isEmpty ? '默认分组' : widget.sourceName,
+              ),
+            );
       }
       if (!mounted) return;
       setState(() => _isStarred = !_isStarred);

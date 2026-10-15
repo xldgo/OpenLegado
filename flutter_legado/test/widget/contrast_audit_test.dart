@@ -66,13 +66,14 @@ void main() {
   testWidgets('订阅页有数据亮色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer(
+    when(() => mockApi.rssSourceRepository.getRssSources()).thenAnswer(
       (_) async => const [
         RssSource(sourceUrl: 'u1', sourceName: '测试源一'),
         RssSource(sourceUrl: 'u2', sourceName: '测试源二', sourceGroup: '分组A'),
       ],
     );
-    when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
+    when(() => mockApi.rssSourceRepository.importRssSources(any()))
+        .thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
@@ -118,10 +119,11 @@ void main() {
   testWidgets('订阅页有数据暗色对比度审计', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer(
+    when(() => mockApi.rssSourceRepository.getRssSources()).thenAnswer(
       (_) async => const [RssSource(sourceUrl: 'u1', sourceName: '测试源一')],
     );
-    when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
+    when(() => mockApi.rssSourceRepository.importRssSources(any()))
+        .thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],

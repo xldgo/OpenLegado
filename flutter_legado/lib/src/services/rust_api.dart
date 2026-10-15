@@ -1,3 +1,7 @@
+import '../domain/contracts/rss_source_repository.dart';
+import '../domain/contracts/rss_article_repository.dart';
+import '../domain/contracts/rss_read_record_repository.dart';
+import '../domain/contracts/rss_star_repository.dart';
 import '../domain/contracts/chapter_cache_repository.dart';
 import '../domain/contracts/cache_download_service.dart';
 import '../domain/contracts/reading_repository.dart';
@@ -66,6 +70,10 @@ class RustApi
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required RssSourceRepository rssSourceRepository,
+    required RssArticleRepository rssArticleRepository,
+    required RssReadRecordRepository rssReadRecordRepository,
+    required RssStarRepository rssStarRepository,
     required ChapterCacheRepository chapterCacheRepository,
     required CacheDownloadService cacheDownloadService,
     required ReadingRepository readingRepository,
@@ -85,6 +93,10 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    rssSourceRepository,
+    rssArticleRepository,
+    rssReadRecordRepository,
+    rssStarRepository,
     chapterCacheRepository,
     cacheDownloadService,
     readingRepository,
@@ -106,6 +118,10 @@ class RustApi
   );
 
   RustApi._(
+    this.rssSourceRepository,
+    this.rssArticleRepository,
+    this.rssReadRecordRepository,
+    this.rssStarRepository,
     this.chapterCacheRepository,
     this.cacheDownloadService,
     this.readingRepository,
@@ -125,6 +141,18 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final RssSourceRepository rssSourceRepository;
+
+  @override
+  final RssArticleRepository rssArticleRepository;
+
+  @override
+  final RssReadRecordRepository rssReadRecordRepository;
+
+  @override
+  final RssStarRepository rssStarRepository;
 
   @override
   final BackupRepository backupRepository;

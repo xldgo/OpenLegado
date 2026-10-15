@@ -1,3 +1,7 @@
+import '../domain/contracts/rss_source_repository.dart';
+import '../domain/contracts/rss_article_repository.dart';
+import '../domain/contracts/rss_read_record_repository.dart';
+import '../domain/contracts/rss_star_repository.dart';
 import '../domain/contracts/chapter_cache_repository.dart';
 import '../domain/contracts/cache_download_service.dart';
 import '../domain/contracts/reading_repository.dart';
@@ -26,6 +30,10 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  RssSourceRepository get rssSourceRepository;
+  RssArticleRepository get rssArticleRepository;
+  RssReadRecordRepository get rssReadRecordRepository;
+  RssStarRepository get rssStarRepository;
   ChapterCacheRepository get chapterCacheRepository;
   CacheDownloadService get cacheDownloadService;
   ReadingRepository get readingRepository;
@@ -244,64 +252,6 @@ abstract class BookApi {
   /// 删除换源列表项（按 bookUrl，对标换源页长按「删除」）
   Future<void> deleteSearchBook(String bookUrl);
 
-  // ========== RSS 源操作 ==========
-
-  /// 获取所有 RSS 源
-  Future<List<RssSource>> getRssSources();
-
-  /// 添加 RSS 源
-  Future<RssSource> addRssSource(RssSource source);
-
-  /// 更新 RSS 源
-  Future<void> updateRssSource(RssSource source);
-
-  /// 删除 RSS 源
-  Future<void> deleteRssSource(String sourceUrl);
-
-  /// 启用 RSS 源
-  Future<void> enableRssSource(String sourceUrl);
-
-  /// 禁用 RSS 源
-  Future<void> disableRssSource(String sourceUrl);
-
-  /// 导入 RSS 源
-  Future<int> importRssSources(String jsonArray);
-
-  /// 导出 RSS 源
-  Future<String> exportRssSources();
-
-  /// 获取 RSS 文章列表
-  Future<List<RssFeedArticle>> getRssArticles(String sourceUrl);
-
-  /// 清空指定 RSS 源本地文章缓存（对齐 clearArticles）
-  Future<void> rssClearArticles(String sourceUrl);
-
-  // ========== RSS 已读记录 ==========
-
-  /// 标记 RSS 文章为已读
-  Future<void> rssMarkRead(String origin, String title, [String? link]);
-
-  /// 判断 RSS 文章是否已读（按 link）
-  Future<bool> rssIsRead(String link);
-
-  /// 判断 RSS 文章是否已读（按 origin + title）
-  Future<bool> rssIsReadByTitle(String origin, String title);
-
-  /// 清空所有 RSS 已读记录
-  Future<void> rssClearReadRecords();
-
-  /// 获取 RSS 已读记录总数
-  Future<int> rssReadRecordCount();
-
-  /// 获取 RSS 已读记录列表（按 readTime 降序）
-  Future<List<Map<String, dynamic>>> rssListReadRecords([int? limit]);
-
-  /// 按 RSS 源 origin 获取已读记录（对齐原版 getRecordsByOrigin）
-  Future<List<Map<String, dynamic>>> rssListReadRecordsByOrigin(
-    String origin, [
-    int? limit,
-  ]);
-
   // ========== 本地书籍操作 ==========
 
   /// 导入本地书籍
@@ -497,20 +447,6 @@ abstract class BookApi {
   /// [kind] = `text`：[jsonOrUrl] 为 JSON 文本（数组或单对象）；
   /// [kind] = `url`：[jsonOrUrl] 为 URL，先经既有抓取链路取 body 再解析。
   Future<int> dictRuleImport({required String jsonOrUrl, required String kind});
-
-  // ========== RSS 收藏操作 ==========
-
-  /// 获取所有 RSS 收藏
-  Future<List<RssStar>> getRssStars();
-
-  /// 添加 RSS 收藏
-  Future<RssStar> addRssStar(RssStar star);
-
-  /// 删除 RSS 收藏
-  Future<void> deleteRssStar(String link);
-
-  /// 判断是否已收藏
-  Future<bool> isStarred(String link);
 
   // ========== 缓存管理 ==========
 

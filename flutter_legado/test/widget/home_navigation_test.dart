@@ -58,7 +58,8 @@ void main() {
         .thenAnswer((_) async => []);
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => []);
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
+    when(() => mockApi.rssSourceRepository.getRssSources())
+        .thenAnswer((_) async => []);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）
     when(() => mockApi.readRecordRepository)
         .thenReturn(MockReadRecordRepository());

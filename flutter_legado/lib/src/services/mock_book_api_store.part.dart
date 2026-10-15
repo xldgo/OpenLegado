@@ -9,9 +9,7 @@ mixin MockBookApiStore {
   List<Book> get _books => _bookshelfStore.books;
   late final MockBookSourceStore _bookSourceStore;
   List<BookSource> get _sources => _bookSourceStore.sources;
-  final List<RssSource> _rssSources = [];
   final List<ReplaceRule> _replaceRules = [];
-  final List<RssStar> _rssStars = [];
   // 字典规则内存态（契约 §2.45：dictRule* 七方法；REPLACE by name 语义）
   final List<Map<String, dynamic>> _dictRules = [];
   final Map<String, String> _configs = {};
@@ -91,50 +89,6 @@ mixin MockBookApiStore {
         lastUpdateTime: 1630656684531,
         respondTime: 180000,
         weight: 0,
-      ),
-    ]);
-
-    // ── RSS 订阅源（来源：app/src/main/assets/defaultData/rssSources.json）──
-    _rssSources.addAll([
-      RssSource(
-        sourceUrl: 'https://www.yuque.com/legado',
-        sourceName: '使用说明',
-        sourceIcon: 'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
-        sourceGroup: 'legado',
-        enabled: true,
-        singleUrl: true,
-        enableJs: true,
-        customOrder: 2,
-      ),
-      RssSource(
-        sourceUrl: 'snssdk1128://user/profile/562564899806367',
-        sourceName: '小说拾遗',
-        sourceIcon: 'http://mmbiz.qpic.cn/mmbiz_png/hpfMV8hEuL2eS6vnCxvTzoOiaCAibV6exBzJWq9xMic9xDg3YXAick87tsfafic0icRwkQ5ibV0bJ84JtSuxhPuEDVquA/0?wx_fmt=png',
-        sourceGroup: 'legado',
-        enabled: true,
-        singleUrl: true,
-        enableJs: true,
-        customOrder: 3,
-      ),
-      RssSource(
-        sourceUrl: 'https://pan.miaogongzi.net',
-        sourceName: 'Meow云',
-        sourceIcon: 'https://cdn.jsdelivr.net/gh/mgz0227/meowcloud/icon.png',
-        sourceGroup: 'legado',
-        enabled: true,
-        singleUrl: true,
-        enableJs: true,
-        customOrder: 4,
-      ),
-      RssSource(
-        sourceUrl: 'https://www.lanzout.com/b0bw8jwoh',
-        sourceName: '烏雲净化',
-        sourceIcon: 'https://cdn.jsdelivr.net/gh/gedoor/legado@master/app/src/main/res/mipmap-hdpi/ic_launcher.png',
-        sourceGroup: 'legado',
-        enabled: true,
-        singleUrl: true,
-        enableJs: true,
-        customOrder: 5,
       ),
     ]);
 

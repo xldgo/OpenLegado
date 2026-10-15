@@ -1,3 +1,11 @@
+import '../data/repositories/mock_rss_star_repository.dart';
+import '../data/repositories/mock_rss_read_record_repository.dart';
+import '../data/repositories/mock_rss_article_repository.dart';
+import '../data/repositories/mock_rss_source_repository.dart';
+import '../domain/contracts/rss_source_repository.dart';
+import '../domain/contracts/rss_article_repository.dart';
+import '../domain/contracts/rss_read_record_repository.dart';
+import '../domain/contracts/rss_star_repository.dart';
 import '../domain/contracts/chapter_cache_repository.dart';
 import '../domain/contracts/cache_download_service.dart';
 import '../data/repositories/mock_chapter_cache_repository.dart';
@@ -94,6 +102,18 @@ class MockBookApi
         MockBookApiContentExt
     implements BookApi {
   @override
+  late final RssSourceRepository rssSourceRepository;
+
+  @override
+  late final RssArticleRepository rssArticleRepository;
+
+  @override
+  late final RssReadRecordRepository rssReadRecordRepository;
+
+  @override
+  late final RssStarRepository rssStarRepository;
+
+  @override
   late final CloudTtsRepository cloudTtsRepository;
   @override
   final BackupRepository backupRepository = const MockBackupRepository();
@@ -107,6 +127,10 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    RssSourceRepository? rssSourceRepository,
+    RssArticleRepository? rssArticleRepository,
+    RssReadRecordRepository? rssReadRecordRepository,
+    RssStarRepository? rssStarRepository,
     ChapterCacheRepository? chapterCacheRepository,
     CacheDownloadService? cacheDownloadService,
     ReadingRepository? readingRepository,
@@ -119,6 +143,14 @@ class MockBookApi
     SearchService? searchService,
     SearchHistoryRepository? searchHistoryRepository,
   }) {
+    this.rssSourceRepository =
+        rssSourceRepository ??
+        MockRssSourceRepository(withDefaultSources: true);
+    this.rssArticleRepository =
+        rssArticleRepository ?? const MockRssArticleRepository();
+    this.rssReadRecordRepository =
+        rssReadRecordRepository ?? MockRssReadRecordRepository();
+    this.rssStarRepository = rssStarRepository ?? MockRssStarRepository();
     this.chapterCacheRepository =
         chapterCacheRepository ?? const MockChapterCacheRepository();
     this.cacheDownloadService =

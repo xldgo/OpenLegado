@@ -176,17 +176,19 @@ void main() {
 
   group('RssScreen 阅读记录对话框', () {
     testWidgets('历史入口打开阅读记录对话框并渲染记录', (tester) async {
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
-        (_) async => [
-          {
-            'origin': 'https://rss.example.com/feed',
-            'title': '文章一',
-            'link': 'https://rss.example.com/a1',
-            'read_time': 1750000000000,
-          },
-        ],
-      );
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => []);
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenAnswer(
+            (_) async => [
+              const RssReadRecordRow(
+                origin: 'https://rss.example.com/feed',
+                title: '文章一',
+                link: 'https://rss.example.com/a1',
+                readTime: 1750000000000,
+              ),
+            ],
+          );
 
       await tester.pumpWidget(wrap(const RssScreen()));
       await tester.pump();
@@ -203,8 +205,10 @@ void main() {
     });
 
     testWidgets('空记录显示空态且清除禁用', (tester) async {
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => []);
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => []);
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const RssScreen()));
       await tester.pump();

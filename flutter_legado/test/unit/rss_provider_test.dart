@@ -70,7 +70,8 @@ void main() {
         const RssSource(sourceUrl: 'https://rss1.com', sourceName: '源1'),
         const RssSource(sourceUrl: 'https://rss2.com', sourceName: '源2'),
       ];
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => sources);
 
       await readNotifier().loadSources();
 
@@ -81,7 +82,7 @@ void main() {
     });
 
     test('加载失败时设置 BridgeError', () async {
-      when(() => mockApi.getRssSources())
+      when(() => mockApi.rssSourceRepository.getRssSources())
           .thenThrow(const BridgeError(message: 'RSS 加载失败'));
 
       await readNotifier().loadSources();
@@ -92,7 +93,8 @@ void main() {
     });
 
     test('加载失败时设置普通异常', () async {
-      when(() => mockApi.getRssSources()).thenThrow(Exception('网络'));
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenThrow(Exception('网络'));
 
       await readNotifier().loadSources();
 
@@ -101,7 +103,8 @@ void main() {
     });
 
     test('loadSources 触发状态更新（loading→data 至少两次）', () async {
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => []);
       var notifyCount = 0;
       container.listen(rssNotifierProvider, (_, _) => notifyCount++);
 
@@ -121,7 +124,7 @@ void main() {
         const RssFeedArticle(title: '文章1', url: 'https://a.com/1'),
         const RssFeedArticle(title: '文章2', url: 'https://a.com/2'),
       ];
-      when(() => mockApi.getRssArticles(any()))
+      when(() => mockApi.rssArticleRepository.getRssArticles(any()))
           .thenAnswer((_) async => articles);
 
       await readNotifier().selectSource(testSource);
@@ -133,7 +136,7 @@ void main() {
     });
 
     test('选择源失败时设置错误', () async {
-      when(() => mockApi.getRssArticles(any()))
+      when(() => mockApi.rssArticleRepository.getRssArticles(any()))
           .thenThrow(const BridgeError(message: '获取文章失败'));
 
       await readNotifier().selectSource(testSource);
@@ -145,7 +148,7 @@ void main() {
 
     test('selectSource 清空旧文章', () async {
       when(
-        () => mockApi.getRssArticles(any()),
+        () => mockApi.rssArticleRepository.getRssArticles(any()),
       ).thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
 
       await readNotifier().selectSource(testSource);
@@ -156,8 +159,9 @@ void main() {
         sourceUrl: 'https://other.com',
         sourceName: '其他',
       );
-      when(() => mockApi.getRssArticles('https://other.com'))
-          .thenAnswer((_) async => []);
+      when(
+        () => mockApi.rssArticleRepository.getRssArticles('https://other.com'),
+      ).thenAnswer((_) async => []);
       await readNotifier().selectSource(other);
 
       expect(readState().articles, isEmpty);
@@ -178,13 +182,14 @@ void main() {
         sourceName: 'R',
       );
       when(
-        () => mockApi.getRssArticles(any()),
+        () => mockApi.rssArticleRepository.getRssArticles(any()),
       ).thenAnswer((_) async => [const RssFeedArticle(title: 'x', url: 'u')]);
 
       await readNotifier().selectSource(source);
       await readNotifier().refreshArticles();
 
-      verify(() => mockApi.getRssArticles('https://r.com')).called(2);
+      verify(() => mockApi.rssArticleRepository.getRssArticles('https://r.com'))
+          .called(2);
     });
   });
 
@@ -194,7 +199,8 @@ void main() {
         sourceUrl: 'https://new.com',
         sourceName: '新源',
       );
-      when(() => mockApi.addRssSource(any())).thenAnswer((_) async => added);
+      when(() => mockApi.rssSourceRepository.addRssSource(any()))
+          .thenAnswer((_) async => added);
 
       await readNotifier().addSource('新源', 'https://new.com');
 
@@ -204,7 +210,7 @@ void main() {
     });
 
     test('添加失败时设置错误', () async {
-      when(() => mockApi.addRssSource(any()))
+      when(() => mockApi.rssSourceRepository.addRssSource(any()))
           .thenThrow(const BridgeError(message: '添加失败'));
 
       await readNotifier().addSource('bad', 'https://bad.com');
@@ -220,8 +226,10 @@ void main() {
         const RssSource(sourceUrl: 'https://a.com', sourceName: 'A'),
         const RssSource(sourceUrl: 'https://b.com', sourceName: 'B'),
       ];
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => sources);
-      when(() => mockApi.deleteRssSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => sources);
+      when(() => mockApi.rssSourceRepository.deleteRssSource(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().loadSources();
       await readNotifier().removeSource('https://a.com');
@@ -235,9 +243,12 @@ void main() {
         sourceUrl: 'https://a.com',
         sourceName: 'A',
       );
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => [source]);
-      when(() => mockApi.getRssArticles(any())).thenAnswer((_) async => []);
-      when(() => mockApi.deleteRssSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => [source]);
+      when(() => mockApi.rssArticleRepository.getRssArticles(any()))
+          .thenAnswer((_) async => []);
+      when(() => mockApi.rssSourceRepository.deleteRssSource(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().loadSources();
       await readNotifier().selectSource(source);
@@ -248,7 +259,7 @@ void main() {
     });
 
     test('删除失败时设置错误', () async {
-      when(() => mockApi.deleteRssSource(any()))
+      when(() => mockApi.rssSourceRepository.deleteRssSource(any()))
           .thenThrow(const BridgeError(message: '删除失败'));
 
       await readNotifier().removeSource('https://x.com');
@@ -270,7 +281,7 @@ void main() {
         sourceName: 'A',
       );
       when(
-        () => mockApi.getRssArticles(any()),
+        () => mockApi.rssArticleRepository.getRssArticles(any()),
       ).thenAnswer((_) async => [const RssFeedArticle(title: 'a', url: 'u')]);
       await readNotifier().selectSource(source);
 
@@ -286,7 +297,7 @@ void main() {
     });
 
     test('clearError 状态变更触发监听', () async {
-      when(() => mockApi.getRssSources())
+      when(() => mockApi.rssSourceRepository.getRssSources())
           .thenThrow(const BridgeError(message: 'e'));
       await readNotifier().loadSources();
       expect(readState().error, isNotNull);
@@ -310,7 +321,8 @@ void main() {
 
   group('RssNotifier 分组筛选（对齐安卓 RssFragment）', () {
     Future<void> loadWithGroups(List<RssSource> sources) async {
-      when(() => mockApi.getRssSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.rssSourceRepository.getRssSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     }
 
@@ -428,19 +440,29 @@ void main() {
         sourceName: '自定义',
         sourceGroup: '我的',
       );
-      when(() => mockApi.getRssSources())
+      when(() => mockApi.rssSourceRepository.getRssSources())
           .thenAnswer((_) async => [legado, custom]);
-      when(() => mockApi.deleteRssSource(any())).thenAnswer((_) async {});
-      when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 4);
+      when(() => mockApi.rssSourceRepository.deleteRssSource(any()))
+          .thenAnswer((_) async {});
+      when(() => mockApi.rssSourceRepository.importRssSources(any()))
+          .thenAnswer((_) async => 4);
 
       const payload =
           '[{"sourceUrl":"https://www.yuque.com/legado","sourceName":"使用说明","sourceGroup":"legado"}]';
-      final n = await syncDefaultRssSources(mockApi, jsonOverride: payload);
+      final n = await syncDefaultRssSources(
+        mockApi.rssSourceRepository,
+        jsonOverride: payload,
+      );
 
       expect(n, equals(4));
-      verify(() => mockApi.deleteRssSource('https://old.legado')).called(1);
-      verifyNever(() => mockApi.deleteRssSource('https://custom'));
-      verify(() => mockApi.importRssSources(payload)).called(1);
+      verify(
+        () => mockApi.rssSourceRepository.deleteRssSource('https://old.legado'),
+      ).called(1);
+      verifyNever(
+        () => mockApi.rssSourceRepository.deleteRssSource('https://custom'),
+      );
+      verify(() => mockApi.rssSourceRepository.importRssSources(payload))
+          .called(1);
     });
   });
 }

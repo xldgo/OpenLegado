@@ -43,6 +43,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-16 | **RSS Dart边界冻结**：源八项、文章两项、已读七项、收藏四项分别迁入RssSourceRepository、RssArticleRepository、RssReadRecordRepository、RssStarRepository；已读列表返回已有RssReadRecordRow，JSON解码集中于数据层。RSS启停使用rssUpdateSource更新原RSS实体的enabled，不再调用书源启停接口；现有Rust/FRB签名、存储与默认源策略不变。根BookApi移除21项，188→167（纠正上一版文档少计一项），见§2.5、§2.13、§2.35。 |
 | 2026-10-15 | **章节缓存与下载边界冻结**：五项章节缓存迁入ChapterCacheRepository，六项真实批量下载迁入CacheDownloadService；列表/进度返回共享CacheDownloadTask，严格解码失败不得伪装空任务。仅删除无生产消费者的旧download管理器七项Dart包装，Rust公开签名保留；BookApi 205→187，见§2.43的Dart接线。 |
 | 2026-10-15 | **阅读访问边界冻结**：目录、正文、抓取、正文保存及进度八项迁入ReadingRepository，正式实现直接调用既有FRB；平台载荷处理从应用装配注入，Mock复用同一书架/目录/正文数据。旧根接口移除八项，BookApi 213→205；目录错误响应明确报错，不按空目录处理。Rust签名、生成绑定、原文锚点及音视频进度语义不变，详见§2.9。 |
 | 2026-10-15 | **WebDAV恢复调用方向冻结**：恢复通过既有webdavDownload读取bookshelf.json和sources.json，两份载荷结构校验完成后，经现有BookshelfRepository.importBooks和BookSourceRepository.importBookSources回写；恢复禁止调用上传或webdavFullSync。空列表不清空本地，下载/解码失败不以空列表代替；导入失败如实报告已完成阶段，不更新完整成功时间。备份仍保留现有目录准备与上传路径，Rust导出、FRB签名和方法数量不变。 |
@@ -373,7 +374,7 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 ## 2. 方法清单
 
 > 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `tool/check_api_contract.dart` 自动校验。
-> BookApi 接口当前共 **187 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187）。
+> BookApi 接口当前共 **167 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187；RSS批次前语法树复核为188（上一版文档少计一项），RSS源/文章/已读/收藏二十一项迁走：188→167）。
 > 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
@@ -502,16 +503,18 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 ### 2.5 RSS 源操作（11 个方法）
 
+**Dart访问边界（2026-10-16）**：源增删改、启停与导入导出八项由`RssSourceRepository`提供；文章获取与清缓存两项由`RssArticleRepository`提供。启停读取原RSS实体并调用既有`rssUpdateSource`仅修改enabled，源不存在报错，不再调用书源表接口。列表和实体在数据层解码，坏响应不作为空结果；默认源导入、逐项导入与导出字段保持不变。Rust签名和底层存储不变。
+
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `getRssSources()` | 无 | `Future<List<RssSource>>` | 获取所有 RSS 源 |
 | `addRssSource(RssSource source)` | source: RssSource 对象 | `Future<RssSource>` | 添加 RSS 源 |
-| `updateRssSource(RssSource source)` | source: RssSource 对象 | `Future<void>` | 更新 RSS 源（Rust 侧 `ffi::rss_update_source`：按 `sourceUrl` 主键单条 UPDATE 原子更新，替代「删旧+加新」workaround，规避级联串表风险；Task #108，加法式新增 FFI）。✅ UI 封装接通：`rust_api.updateRssSource` 已由误接 `sourceUpdate` 改接 `rssUpdateSource` 真实管线（本次评审修复提交），Mock 同步对齐「源不存在时报错」语义 |
+| `updateRssSource(RssSource source)` | source: RssSource 对象 | `Future<void>` | 更新 RSS 源（Rust 侧 `ffi::rss_update_source`：按 `sourceUrl` 主键单条 UPDATE 原子更新，替代「删旧+加新」workaround，规避级联串表风险；Task #108，加法式新增 FFI）。✅ UI 封装接通：`RustRssSourceRepository.updateRssSource` 已由误接 `sourceUpdate` 改接 `rssUpdateSource` 真实管线（本次评审修复提交），Mock 同步对齐「源不存在时报错」语义 |
 | `rssUpdateSource(String sourceJson)` | sourceJson: RssSource JSON | `Future<String>` | 原子更新 RSS 源（按 `sourceUrl` 主键单条 UPDATE 全字段），源不存在时报错，返回更新后的 RssSource JSON（Task #108，加法式新增） |
 | `deleteRssSource(String sourceUrl)` | sourceUrl | `Future<void>` | 删除 RSS 源 |
 | `enableRssSource(String sourceUrl)` | sourceUrl | `Future<void>` | 启用 RSS 源 |
 | `disableRssSource(String sourceUrl)` | sourceUrl | `Future<void>` | 禁用 RSS 源 |
-| `importRssSources(String jsonArray)` | jsonArray: JSON 数组字符串 | `Future<int>` | 导入 RSS 源，返回成功数量。✅ **2026-08-12 纠偏**：Flutter `rust_api.importRssSources` 曾误接 `sourceImport`（写入书源表）；现改为逐条 `rssAddSource` 落 `rssSources`。Rust `add_rss_source` 已改走 `RssSourceRepository::insert` 全字段；`import_rss_sources` 已在 `api/rss.rs` 备好，待 FRB 生成后可改批量 FFI |
+| `importRssSources(String jsonArray)` | jsonArray: JSON 数组字符串 | `Future<int>` | 导入 RSS 源，返回成功数量。✅ **2026-08-12 纠偏**：Flutter `RustRssSourceRepository.importRssSources` 曾误接 `sourceImport`（写入书源表）；现改为逐条 `rssAddSource` 落 `rssSources`。Rust `add_rss_source` 已改走 `RssSourceRepository::insert` 全字段；`import_rss_sources` 已在 `api/rss.rs` 备好，待 FRB 生成后可改批量 FFI |
 | `exportRssSources()` | 无 | `Future<String>` | 导出 RSS 源。✅ **2026-08-12 纠偏**：勿走 `sourceExport`；现导出 `getRssSources()` JSON |
 | `getRssArticles(String sourceUrl)` | sourceUrl | `Future<List<RssFeedArticle>>` | 获取 RSS 文章列表 |
 | `rssClearArticles(String sourceUrl)` | sourceUrl | `Future<void>` | 清空指定 RSS 源本地文章缓存（对齐原版 clearArticles，F3-10 补登记） |
@@ -679,6 +682,8 @@ Rust导出、参数、返回和数据库格式保持。
 | `deleteReadRecordSessions(List<int> ids)` | 原始会话ID列表 | `Future<void>` | 原子删除选定会话，重复/不存在ID不扣减；同步每日与累计 |
 
 ### 2.13 RSS 收藏操作（4 个方法）
+
+**Dart访问边界（2026-10-16）**：列表、添加、删除和收藏状态四项由`RssStarRepository`提供；保留已有按link操作与添加返回实体的语义，不增加二次存储。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -940,6 +945,8 @@ Rust导出、参数、返回和数据库格式保持。
 | `cbzReadPage({required String path, required String entry})` | path: 本地 CBZ 书 `bookUrl`（绝对路径，或相对可迁移标识——经 `resolve_local_book_path` 同语义解析）；entry: ZIP 条目名（兼容带/不带 `cbz://` 前缀，中文/空格原样） | `Future<String>` | **2026-10-03 批 B 加法式新增（E9 参考版扩展，用户已授权；纯 FFI，尚未封装进 BookApi）**：读取 CBZ 漫画单页图片字节，返回 JSON `{base64, len}`（与 `fetchImageWithDecode`/图片缓存同惯例）。配合 §2.6 链路：`getChapterContent` 返回 `cbz://<条目名>` 行列表，Dart 侧逐行调用本方法取图。错误语义：文件不存在 / ZIP 解析失败 / 条目不存在 / 包内无图片条目 → 抛 BridgeError |
 
 ### 2.35 RSS 已读记录（7 个方法）
+
+**Dart访问边界（2026-10-16）**：七项由`RssReadRecordRepository`提供，列表在数据层解码为已有`RssReadRecordRow`，保留snake_case read_time、nullable link、Rust返回顺序和limit语义；页面不再解析Map。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|

@@ -1,3 +1,5 @@
+import '../rss_repository_provider.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -205,7 +207,8 @@ class AssociationNotifier extends Notifier<AssociationState> {
           return map;
         case ImportType.rssSource:
           final map = <String, RssSource>{};
-          for (final s in await _api.getRssSources()) {
+          for (final s
+              in await ref.read(rssSourceRepositoryProvider).getRssSources()) {
             map[s.sourceUrl] = s;
           }
           return map;
@@ -393,7 +396,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
     ImportType type,
     List<Map<String, dynamic>> items,
   ) async {
-    final n = await _api.importRssSources(jsonEncode(items));
+    final n = await ref
+        .read(rssSourceRepositoryProvider)
+        .importRssSources(jsonEncode(items));
     return ImportResult(
       total: items.length,
       success: n.clamp(0, items.length),

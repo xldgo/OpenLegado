@@ -1,5 +1,10 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/rss_source_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/rss_article_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/rss_read_record_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/rss_star_repository.dart';
+
 import 'package:flutter_legado/src/domain/contracts/chapter_cache_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/cache_download_service.dart';
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
@@ -77,7 +82,26 @@ class ChapterCacheRepositoryMock extends Mock
 
 class CacheDownloadServiceMock extends Mock implements CacheDownloadService {}
 
+class RssSourceRepositoryMock extends Mock implements RssSourceRepository {}
+
+class RssArticleRepositoryMock extends Mock implements RssArticleRepository {}
+
+class RssReadRecordRepositoryMock extends Mock
+    implements RssReadRecordRepository {}
+
+class RssStarRepositoryMock extends Mock implements RssStarRepository {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final RssSourceRepository rssSourceRepository = RssSourceRepositoryMock();
+  @override
+  final RssArticleRepository rssArticleRepository = RssArticleRepositoryMock();
+  @override
+  final RssReadRecordRepository rssReadRecordRepository =
+      RssReadRecordRepositoryMock();
+  @override
+  final RssStarRepository rssStarRepository = RssStarRepositoryMock();
+
   @override
   final ChapterCacheRepository chapterCacheRepository =
       ChapterCacheRepositoryMock();

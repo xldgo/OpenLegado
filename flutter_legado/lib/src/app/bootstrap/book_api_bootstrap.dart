@@ -1,3 +1,7 @@
+import '../../data/repositories/rust_rss_source_repository.dart';
+import '../../data/repositories/rust_rss_article_repository.dart';
+import '../../data/repositories/rust_rss_read_record_repository.dart';
+import '../../data/repositories/rust_rss_star_repository.dart';
 import '../../data/repositories/rust_chapter_cache_repository.dart';
 import '../../data/services/rust_cache_download_service.dart';
 import '../../data/repositories/rust_reading_repository.dart';
@@ -41,6 +45,10 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    rssSourceRepository: const RustRssSourceRepository(),
+    rssArticleRepository: const RustRssArticleRepository(),
+    rssReadRecordRepository: const RustRssReadRecordRepository(),
+    rssStarRepository: const RustRssStarRepository(),
     chapterCacheRepository: const RustChapterCacheRepository(),
     cacheDownloadService: const RustCacheDownloadService(),
     readingRepository: RustReadingRepository(

@@ -1,3 +1,5 @@
+import '../providers/rss_repository_provider.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -402,7 +404,9 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
     // 本地订阅源用于新增/更新状态判定与保留选项合并
     List<RssSource> localSources;
     try {
-      localSources = await ref.read(bookApiProvider).getRssSources();
+      localSources = await ref
+          .read(rssSourceRepositoryProvider)
+          .getRssSources();
     } catch (_) {
       localSources = [];
     }

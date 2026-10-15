@@ -1,11 +1,12 @@
+import '../rss_repository_provider.dart';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/book_api.dart';
-import '../providers.dart';
+import '../../domain/contracts/rss_source_repository.dart';
 import 'rss_state.dart';
 
 export 'rss_state.dart';
@@ -21,21 +22,24 @@ const kDefaultRssSourcesAsset = 'assets/default_data/rssSources.json';
 /// 删除 `sourceGroup == legado` 后灌入 assets 默认源，返回导入条数。
 ///
 /// [jsonOverride] 仅用于单测注入，生产路径传 null 走 assets。
-Future<int> syncDefaultRssSources(BookApi api, {String? jsonOverride}) async {
-  final existing = await api.getRssSources();
+Future<int> syncDefaultRssSources(
+  RssSourceRepository repository, {
+  String? jsonOverride,
+}) async {
+  final existing = await repository.getRssSources();
   for (final s in existing.where((e) => e.sourceGroup == 'legado')) {
-    await api.deleteRssSource(s.sourceUrl);
+    await repository.deleteRssSource(s.sourceUrl);
   }
   final text =
       jsonOverride ?? await rootBundle.loadString(kDefaultRssSourcesAsset);
-  return api.importRssSources(text);
+  return repository.importRssSources(text);
 }
 
 /// RSS Riverpod Notifier
 ///
 /// 迁移自原 RssProvider（ChangeNotifier）：忠实保留全部方法与错误处理语义，
 /// 仅将 `notifyListeners()` 替换为 `state = state.copyWith(...)`。
-/// - 调用 BookApi → 接收纯数据 → 更新 immutable State
+/// - 调用订阅仓储 → 接收纯数据 → 更新 immutable State
 /// - 管理源/文章加载状态（loading/error/data）
 /// - 管理分组筛选（对齐安卓 RssFragment）
 class RssNotifier extends Notifier<RssState> {
@@ -57,9 +61,9 @@ class RssNotifier extends Notifier<RssState> {
     state = state.copyWith(isLoadingSources: true, error: null);
 
     try {
-      final api = ref.read(bookApiProvider);
-      await _ensureDefaultRssSources(api);
-      final sources = await api.getRssSources();
+      final repository = ref.read(rssSourceRepositoryProvider);
+      await _ensureDefaultRssSources(repository);
+      final sources = await repository.getRssSources();
       state = state.copyWith(sources: sources, isLoadingSources: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoadingSources: false);
@@ -67,20 +71,20 @@ class RssNotifier extends Notifier<RssState> {
   }
 
   /// 首启/版本升级时导入默认订阅源（对标 DefaultData.upVersion + importDefaultRssSources）
-  Future<void> _ensureDefaultRssSources(BookApi api) async {
+  Future<void> _ensureDefaultRssSources(RssSourceRepository repository) async {
     final prefs = await SharedPreferences.getInstance();
     final version = prefs.getInt(kRssSourceVersionKey) ?? 0;
     if (version >= kRssSourceVersion) return;
 
-    await syncDefaultRssSources(api);
+    await syncDefaultRssSources(repository);
     await prefs.setInt(kRssSourceVersionKey, kRssSourceVersion);
   }
 
   /// 菜单「导入默认」：立即覆盖 legado 分组（对齐 RssSourceViewModel.importDefault）
   Future<int> importDefaultSources() async {
-    final api = ref.read(bookApiProvider);
-    final n = await syncDefaultRssSources(api);
-    final sources = await api.getRssSources();
+    final repository = ref.read(rssSourceRepositoryProvider);
+    final n = await syncDefaultRssSources(repository);
+    final sources = await repository.getRssSources();
     state = state.copyWith(sources: sources, error: null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(kRssSourceVersionKey, kRssSourceVersion);
@@ -97,8 +101,9 @@ class RssNotifier extends Notifier<RssState> {
     );
 
     try {
-      final api = ref.read(bookApiProvider);
-      final articles = await api.getRssArticles(source.sourceUrl);
+      final articles = await ref
+          .read(rssArticleRepositoryProvider)
+          .getRssArticles(source.sourceUrl);
       state = state.copyWith(articles: articles, isLoadingArticles: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoadingArticles: false);
@@ -123,8 +128,9 @@ class RssNotifier extends Notifier<RssState> {
 
     try {
       final newSource = RssSource(sourceUrl: url, sourceName: name);
-      final api = ref.read(bookApiProvider);
-      final added = await api.addRssSource(newSource);
+      final added = await ref
+          .read(rssSourceRepositoryProvider)
+          .addRssSource(newSource);
       state = state.copyWith(sources: [...state.sources, added]);
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
@@ -136,8 +142,7 @@ class RssNotifier extends Notifier<RssState> {
     state = state.copyWith(error: null);
 
     try {
-      final api = ref.read(bookApiProvider);
-      await api.deleteRssSource(sourceUrl);
+      await ref.read(rssSourceRepositoryProvider).deleteRssSource(sourceUrl);
       var next = state.copyWith(
         sources: state.sources.where((s) => s.sourceUrl != sourceUrl).toList(),
       );

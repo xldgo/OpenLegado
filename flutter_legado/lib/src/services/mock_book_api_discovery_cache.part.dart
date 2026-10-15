@@ -1,30 +1,10 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiDiscoveryCache mixin：RSS 收藏 / 分组 / 搜索历史 / 缓存 / 章节购买 / WebBook / 发现页。
+// 本文件承载 MockBookApiDiscoveryCache mixin：分组 / 搜索历史 / 缓存 / 章节购买 / WebBook / 发现页。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
 
 mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
-  // ========== RSS 收藏操作 ==========
-
-  @override
-  Future<List<RssStar>> getRssStars() async => List.from(_rssStars);
-
-  @override
-  Future<RssStar> addRssStar(RssStar star) async {
-    _rssStars.add(star);
-    return star;
-  }
-
-  @override
-  Future<void> deleteRssStar(String link) async {
-    _rssStars.removeWhere((s) => s.link == link);
-  }
-
-  @override
-  Future<bool> isStarred(String link) async =>
-      _rssStars.any((s) => s.link == link);
-
   // ========== 缓存管理 ==========
 
   @override

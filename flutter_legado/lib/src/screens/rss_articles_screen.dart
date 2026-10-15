@@ -1,3 +1,4 @@
+import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
@@ -322,7 +323,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     // [UI-fix v2.0.2 | 2026-08-06] 接通 rssMarkRead FFI（对标原版
     // RssReadViewModel.recordRead），失败不阻断阅读 — Qoder
     ref
-        .read(bookApiProvider)
+        .read(rssReadRecordRepositoryProvider)
         .rssMarkRead(widget.source.sourceUrl, article.title, article.url)
         .catchError((_) {});
     Navigator.push(
@@ -532,7 +533,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     setState(() => _articleStyle = next);
     final updated = widget.source.copyWith(articleStyle: next);
     try {
-      await ref.read(bookApiProvider).updateRssSource(updated);
+      await ref.read(rssSourceRepositoryProvider).updateRssSource(updated);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -563,7 +564,9 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await ref.read(bookApiProvider).rssClearArticles(widget.source.sourceUrl);
+      await ref
+          .read(rssArticleRepositoryProvider)
+          .rssClearArticles(widget.source.sourceUrl);
       ref.read(rssNotifierProvider.notifier).refreshArticles();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

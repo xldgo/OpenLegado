@@ -172,7 +172,8 @@ void main() {
         .thenAnswer((_) async => []);
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => []);
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
+    when(() => mockApi.rssSourceRepository.getRssSources())
+        .thenAnswer((_) async => []);
     when(() => mockApi.readRecordRepository)
         .thenReturn(MockReadRecordRepository());
 

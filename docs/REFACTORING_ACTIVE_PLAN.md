@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### RSS-REPOSITORIES-20261016：拆分订阅数据访问（P1）
+
+- 授权与基线：用户要求继续下一步；当前feature/ui-reader-selection / d897d8c64，工作区干净，保留已合入的朗读修复。不另建分支、不使用子代理、不自动提交或推送、不触发CI、不构建安装，应用版本保持2.0.373+374。
+- 状态：本批实现与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI，真实网络、原生库和设备验证后置。Rust导出与生成绑定不变。
+- 范围：RssSourceRepository接管源增删改、启停、导入导出八项；RssArticleRepository接管获取文章和清缓存两项；RssReadRecordRepository接管七项已读操作，列表直接返回已有RssReadRecordRow；RssStarRepository接管收藏四项。正式实现直接调用既有FRB，Mock保存同一装配实例的内存状态，根BookApi移除21项旧方法且不保留转发壳。
+- 行为：保留默认源版本与资源导入、文章字段别名、已读记录顺序及limit、收藏返回和现有界面。RSS启停当前误走书源sourceEnable/sourceDisable，改为读取RSS源后经既有rssUpdateSource更新enabled，不修改书源表。查询坏结构明确报错，不伪装空列表；已读JSON解码归数据层。
+- 消费者：订阅与历史Notifier、源管理/编辑/调试/导入、关联导入、规则订阅、分组、文章详情和收藏页面；通用网络、登录及规则订阅本体继续使用原有接口。不扩展RSS功能、不改设置存储、Rust导出、生成绑定或数据库。
+- 验收：FRB参数/异常、源启停不触及书源、严格解码及文章别名、Mock默认源/CRUD/已读/收藏共享状态、窄Provider独立替换；现有订阅/历史及相关页面回归。只执行受影响测试，不跑全量CI；真实网络、原生库和设备验证后置。
+- 实现与范围：四类契约、各自Rust/Mock实现和四个共享Provider已接入应用装配；源启停经RSS原子更新，源不存在明确报错，正式与Mock一致。已读列表在数据边界解析为已有模型，Mock直接保存记录模型。生产与测试消费者均迁移，根旧21项和重复part实现移除，不保留转发。Dart语法树只读核对当前BookApi为167项，本批前实际188项，纠正旧文档187项的少计；计数与源码检索不作为行为验收。
+- 行为验证：四份核心64项通过；17份相关组合221项全部通过（30秒），含订阅/历史、默认源同步、关联导入、规则订阅、分组、首页导航、RSS页面、源管理开关及取消收藏。最后收拢Mock记录模型与源不存在语义后，复验四份受影响测试100项全部通过；不与221重复累加。
+- 检查与限制：在flutter_legado模块执行flutter analyze --no-pub无问题（16.3秒），49份本批Dart格式零差异，git diff --check通过。分析曾误从根目录扫描build中的历史副本，正确模块重跑后通过；迁移中清理了多余依赖和Map夹具类型错误。一次契约脚本误用Python而未执行，不计通过，也未新增源码字符串断言。Codex单代理复核，不宣称独立审查、真实FRB、网络或设备验收；未变更依赖、版本、原生目录或存储格式。本轮仅按用户后续明确授权本地提交，不推送或触发CI。
+- 证据：忽略目录flutter_legado/build/rss-repositories-{core-initial,regression-initial,changed-final,analysis-initial,analysis-second,analysis-module}.log保存相关输出；根build/rss-repositories-qa/保存本批迁移前文件副本、Dart清单与结果摘要。错误根目录分析输出另存根build/rss-repositories-analysis-final.log，不作为当前工程缺陷或验收依据。
+
+编写者：Codex｜2026-10-16
+
 ### TTS-APPEND-RESUME-20261016：追加音频后重新确认续播条件（P1）
 
 - 授权：用户明确只修“依据旧状态直接seek(0)”并本地提交、合入主目录；每段开始清理队列的策略保持原样。不使用子代理，不推送或触发CI，应用版本保持2.0.373+374。

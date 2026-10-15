@@ -1,3 +1,4 @@
+import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
@@ -435,12 +436,11 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
 
     setState(() => _saving = true);
     try {
-      final api = ref.read(bookApiProvider);
       final source = _buildSource();
       if (_isEdit) {
-        await api.updateRssSource(source);
+        await ref.read(rssSourceRepositoryProvider).updateRssSource(source);
       } else {
-        await api.addRssSource(source);
+        await ref.read(rssSourceRepositoryProvider).addRssSource(source);
       }
       if (!mounted) return;
       // 保存成功后更新快照，退出不再提示未保存
@@ -500,8 +500,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       _testError = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      final articles = await api.getRssArticles(url);
+      final articles = await ref
+          .read(rssArticleRepositoryProvider)
+          .getRssArticles(url);
       if (!mounted) return;
       if (articles.isEmpty) {
         setState(() => _testResult = (l10n) => l10n.sourceTestNoArticles);

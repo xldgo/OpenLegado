@@ -243,12 +243,14 @@ void main() {
 
   group('RSS 源操作', () {
     test('getRssSources 返回 4 个预置源', () async {
-      final sources = await api.getRssSources();
+      final sources = await api.rssSourceRepository.getRssSources();
       expect(sources.length, 4);
     });
 
     test('getRssArticles 每源返回 5 篇文章', () async {
-      final articles = await api.getRssArticles('https://www.yuque.com/legado');
+      final articles = await api.rssArticleRepository.getRssArticles(
+        'https://www.yuque.com/legado',
+      );
       expect(articles.length, 5);
       expect(articles[0].title, isNotEmpty);
     });

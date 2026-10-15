@@ -1,3 +1,4 @@
+import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 
@@ -12,7 +13,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/rss/rss_notifier.dart';
 import '../widgets/custom_group_dialog.dart';
 import '../theme/import_status_colors.dart' show AppColorsExt;
@@ -158,7 +158,9 @@ class _RssSourceImportConfirmScreenState
         toImport.add(raw);
       }
 
-      await ref.read(bookApiProvider).importRssSources(jsonEncode(toImport));
+      await ref
+          .read(rssSourceRepositoryProvider)
+          .importRssSources(jsonEncode(toImport));
       await ref.read(rssNotifierProvider.notifier).loadSources();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

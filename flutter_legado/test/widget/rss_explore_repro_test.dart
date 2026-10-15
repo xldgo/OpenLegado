@@ -28,13 +28,14 @@ void main() {
   testWidgets('订阅页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer(
+    when(() => mockApi.rssSourceRepository.getRssSources()).thenAnswer(
       (_) async => const [
         RssSource(sourceUrl: 'u1', sourceName: '源一'),
         RssSource(sourceUrl: 'u2', sourceName: '源二', sourceGroup: '分组A'),
       ],
     );
-    when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
+    when(() => mockApi.rssSourceRepository.importRssSources(any()))
+        .thenAnswer((_) async => 0);
     await tester.pumpWidget(wrap(const RssScreen(), mockApi));
     await tester.pumpAndSettle();
 

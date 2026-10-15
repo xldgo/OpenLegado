@@ -1,43 +1,10 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiDiscoveryCache mixin：RSS 收藏 / 分组 / 搜索历史 / 缓存 / 章节购买 / WebBook / 发现页。
+// 本文件承载 RustApiDiscoveryCache mixin：分组 / 搜索历史 / 缓存 / 章节购买 / WebBook / 发现页。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
 
 mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
-  // ========== RSS 收藏操作 ==========
-
-  /// 获取所有 RSS 收藏
-  @override
-  Future<List<RssStar>> getRssStars() async {
-    final json = await bridge.rssStarList();
-    final list = _decodeList(json, 'bookApi');
-    return list
-        .map((e) => RssStar.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// 添加 RSS 收藏
-  @override
-  Future<RssStar> addRssStar(RssStar star) async {
-    await bridge.rssStarAdd(
-      sourceUrl: star.origin,
-      title: star.title,
-      link: star.link,
-    );
-    return star;
-  }
-
-  /// 删除 RSS 收藏
-  @override
-  Future<void> deleteRssStar(String link) async {
-    await bridge.rssStarDelete(link: link);
-  }
-
-  /// 判断是否已收藏
-  @override
-  Future<bool> isStarred(String link) => bridge.rssStarIsStarred(link: link);
-
   // ========== 缓存管理 ==========
 
   /// 获取缓存大小

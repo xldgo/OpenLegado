@@ -1,8 +1,8 @@
+import '../rss_repository_provider.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
-import '../../models/models.dart';
-import '../providers.dart';
 import 'rss_history_state.dart';
 
 export 'rss_history_state.dart';
@@ -10,9 +10,9 @@ export 'rss_history_state.dart';
 /// RSS 历史页 Riverpod Notifier
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
-/// - 已读记录列表经 `BookApi.rssListReadRecords` 委托 Rust（按阅读时间降序），
-///   返回项经 [RssReadRecordRow.fromJson] 解析（snake_case 字段）。
-/// - 清空经 `BookApi.rssClearReadRecords` 委托 Rust，成功后重新拉取列表。
+/// - 已读记录列表经 `RssReadRecordRepository.rssListReadRecords` 委托 Rust（按阅读时间降序），
+///   数据层将snake_case载荷解析为已有记录模型。
+/// - 清空经 `RssReadRecordRepository.rssClearReadRecords` 委托 Rust，成功后重新拉取列表。
 class RssHistoryNotifier extends Notifier<RssHistoryState> {
   @override
   RssHistoryState build() => const RssHistoryState();
@@ -21,14 +21,13 @@ class RssHistoryNotifier extends Notifier<RssHistoryState> {
   Future<void> load({int? limit, String? origin}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
-      final raw = origin != null
-          ? await api.rssListReadRecordsByOrigin(origin, limit)
-          : await api.rssListReadRecords(limit);
-      final records = raw
-          .whereType<Map<String, dynamic>>()
-          .map(RssReadRecordRow.fromJson)
-          .toList();
+      final records = origin != null
+          ? await ref
+                .read(rssReadRecordRepositoryProvider)
+                .rssListReadRecordsByOrigin(origin, limit)
+          : await ref
+                .read(rssReadRecordRepositoryProvider)
+                .rssListReadRecords(limit);
       state = state.copyWith(records: records, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoading: false);
@@ -39,7 +38,7 @@ class RssHistoryNotifier extends Notifier<RssHistoryState> {
   Future<void> clear() async {
     state = state.copyWith(isClearing: true, error: null);
     try {
-      await ref.read(bookApiProvider).rssClearReadRecords();
+      await ref.read(rssReadRecordRepositoryProvider).rssClearReadRecords();
       state = state.copyWith(isClearing: false);
       await load();
     } catch (e) {

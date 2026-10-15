@@ -58,12 +58,21 @@ void main() {
     });
 
     test('load 解析已读记录（透传 limit）', () async {
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
-        (_) async => [
-          {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
-          {'origin': 'https://b.com', 'title': '文章2', 'read_time': 200},
-        ],
-      );
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenAnswer(
+            (_) async => [
+              RssReadRecordRow(
+                origin: 'https://a.com',
+                title: '文章1',
+                readTime: 100,
+              ),
+              RssReadRecordRow(
+                origin: 'https://b.com',
+                title: '文章2',
+                readTime: 200,
+              ),
+            ],
+          );
 
       await readNotifier().load(limit: 50);
 
@@ -72,11 +81,13 @@ void main() {
       expect(state.records.length, equals(2));
       expect(state.records.first.title, equals('文章1'));
       expect(state.records[1].readTime, equals(200));
-      verify(() => mockApi.rssListReadRecords(50)).called(1);
+      verify(() => mockApi.rssReadRecordRepository.rssListReadRecords(50))
+          .called(1);
     });
 
     test('load 异常时兜底并记录 error', () async {
-      when(() => mockApi.rssListReadRecords(any())).thenThrow(Exception('ffi'));
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().load();
 
@@ -87,34 +98,45 @@ void main() {
     });
 
     test('clear 清空后重新拉取列表', () async {
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer(
-        (_) async => [
-          {'origin': 'https://a.com', 'title': '文章1', 'read_time': 100},
-        ],
-      );
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenAnswer(
+            (_) async => [
+              RssReadRecordRow(
+                origin: 'https://a.com',
+                title: '文章1',
+                readTime: 100,
+              ),
+            ],
+          );
       await readNotifier().load();
       expect(readState().records.length, equals(1));
 
-      when(() => mockApi.rssClearReadRecords()).thenAnswer((_) async {});
-      when(() => mockApi.rssListReadRecords(any())).thenAnswer((_) async => []);
+      when(() => mockApi.rssReadRecordRepository.rssClearReadRecords())
+          .thenAnswer((_) async {});
+      when(() => mockApi.rssReadRecordRepository.rssListReadRecords(any()))
+          .thenAnswer((_) async => []);
 
       await readNotifier().clear();
 
       final state = readState();
       expect(state.isClearing, isFalse);
       expect(state.records, isEmpty);
-      verify(() => mockApi.rssClearReadRecords()).called(1);
+      verify(() => mockApi.rssReadRecordRepository.rssClearReadRecords())
+          .called(1);
     });
 
     test('clear 异常时兜底并记录 error', () async {
-      when(() => mockApi.rssClearReadRecords()).thenThrow(Exception('ffi'));
+      when(() => mockApi.rssReadRecordRepository.rssClearReadRecords())
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().clear();
 
       final state = readState();
       expect(state.isClearing, isFalse);
       expect(state.error, isNotNull);
-      verifyNever(() => mockApi.rssListReadRecords(any()));
+      verifyNever(
+        () => mockApi.rssReadRecordRepository.rssListReadRecords(any()),
+      );
     });
   });
 }

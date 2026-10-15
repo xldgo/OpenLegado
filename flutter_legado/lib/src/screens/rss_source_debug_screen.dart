@@ -1,3 +1,4 @@
+import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -8,14 +9,12 @@ import '../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
-
 /// RSS 源调试页面
 ///
 /// 对标安卓原版 RssSourceDebugActivity：输入 RSS 源 URL，经 BookApi
 /// 逐步执行「查源 → 抓取文章」链路，实时输出调试日志
 ///（REFACTORING_REMAINING_PLAN §4.3 P2-2⑤）。
-/// 架构合规（§0.2 铁律）：全部经 BookApi（getRssSources/getRssArticles），
+/// 架构合规（§0.2 铁律）：全部经RSS源和文章仓储，
 /// 不直调 bridge。
 class RssSourceDebugScreen extends ConsumerStatefulWidget {
   /// 可选：外部传入 RSS 源 URL 预填
@@ -87,11 +86,11 @@ class _RssSourceDebugScreenState extends ConsumerState<RssSourceDebugScreen> {
     _appendLog(l10n.debugSourceAddress(sourceUrl));
 
     try {
-      final api = ref.read(bookApiProvider);
-
       // 1. 查询已注册的 RSS 源
       _appendLog(l10n.debugRssQuery);
-      final sources = await api.getRssSources();
+      final sources = await ref
+          .read(rssSourceRepositoryProvider)
+          .getRssSources();
       final source = sources.where((s) => s.sourceUrl == sourceUrl).firstOrNull;
       if (source == null) {
         _appendLog(l10n.debugRssUnregistered, level: _DebugLogLevel.warn);
@@ -104,7 +103,9 @@ class _RssSourceDebugScreenState extends ConsumerState<RssSourceDebugScreen> {
 
       // 2. 抓取文章列表
       _appendLog(l10n.debugRssFetch);
-      final articles = await api.getRssArticles(sourceUrl);
+      final articles = await ref
+          .read(rssArticleRepositoryProvider)
+          .getRssArticles(sourceUrl);
       if (articles.isEmpty) {
         _appendLog(l10n.debugRssNoArticles, level: _DebugLogLevel.warn);
       } else {

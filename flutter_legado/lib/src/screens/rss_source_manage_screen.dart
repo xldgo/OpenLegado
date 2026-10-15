@@ -1,3 +1,4 @@
+import '../providers/rss_repository_provider.dart';
 import '../widgets/dynamic_search_app_bar.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
@@ -92,8 +93,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       _error = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      final sources = await api.getRssSources();
+      final sources = await ref
+          .read(rssSourceRepositoryProvider)
+          .getRssSources();
       // 对标原版默认 customOrder 升序
       sources.sort((a, b) => a.customOrder.compareTo(b.customOrder));
       if (!mounted) return;
@@ -544,11 +546,14 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _toggleSource(RssSource source) async {
     final l10n = context.l10n;
     try {
-      final api = ref.read(bookApiProvider);
       if (source.enabled) {
-        await api.disableRssSource(source.sourceUrl);
+        await ref
+            .read(rssSourceRepositoryProvider)
+            .disableRssSource(source.sourceUrl);
       } else {
-        await api.enableRssSource(source.sourceUrl);
+        await ref
+            .read(rssSourceRepositoryProvider)
+            .enableRssSource(source.sourceUrl);
       }
       await _load();
     } catch (e) {
@@ -612,7 +617,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         );
         if (confirmed && mounted) {
           try {
-            await ref.read(bookApiProvider).deleteRssSource(source.sourceUrl);
+            await ref
+                .read(rssSourceRepositoryProvider)
+                .deleteRssSource(source.sourceUrl);
             await _load();
           } catch (e) {
             _toast(l10n.deleteFailed(e.toString()));
@@ -680,9 +687,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       _loading = true;
     });
     try {
-      final api = ref.read(bookApiProvider);
       for (final s in changed) {
-        await api.updateRssSource(s);
+        await ref.read(rssSourceRepositoryProvider).updateRssSource(s);
       }
       if (mounted) setState(() => _loading = false);
     } catch (e) {
@@ -743,7 +749,6 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       _toast(l10n.selectRssSourcesFirst);
       return;
     }
-    final api = ref.read(bookApiProvider);
     final selectedSources = _sources
         .where((s) => _selected.contains(s.sourceUrl))
         .toList();
@@ -755,9 +760,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
           for (final s in selectedSources) {
             if (s.enabled != enable) {
               if (enable) {
-                await api.enableRssSource(s.sourceUrl);
+                await ref
+                    .read(rssSourceRepositoryProvider)
+                    .enableRssSource(s.sourceUrl);
               } else {
-                await api.disableRssSource(s.sourceUrl);
+                await ref
+                    .read(rssSourceRepositoryProvider)
+                    .disableRssSource(s.sourceUrl);
               }
             }
           }
@@ -795,7 +804,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         if (!confirmed || !mounted) return;
         try {
           for (final s in selectedSources) {
-            await api.deleteRssSource(s.sourceUrl);
+            await ref
+                .read(rssSourceRepositoryProvider)
+                .deleteRssSource(s.sourceUrl);
           }
           _exitBatch();
           await _load();
@@ -825,9 +836,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     }
     setState(() => _sources = list);
     try {
-      final api = ref.read(bookApiProvider);
       for (final s in changed) {
-        await api.updateRssSource(s);
+        await ref.read(rssSourceRepositoryProvider).updateRssSource(s);
       }
       _toast(
         toTop ? l10n.selectedRssSourcesPinned : l10n.selectedRssSourcesBottom,
@@ -853,12 +863,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     if (group == null || group.trim().isEmpty || !mounted) return;
     final name = group.trim();
     try {
-      final api = ref.read(bookApiProvider);
       for (final s in _sources.where((s) => _selected.contains(s.sourceUrl))) {
         final groups = _splitGroups(s.sourceGroup);
         if (groups.contains(name)) continue;
         final merged = [...groups, name].join(',');
-        await api.updateRssSource(s.copyWith(sourceGroup: merged));
+        await ref
+            .read(rssSourceRepositoryProvider)
+            .updateRssSource(s.copyWith(sourceGroup: merged));
       }
       await _load();
       _toast(l10n.addedSourceGroup(name));
@@ -893,12 +904,13 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
     );
     if (group == null || !mounted) return;
     try {
-      final api = ref.read(bookApiProvider);
       for (final s in _sources.where((s) => _selected.contains(s.sourceUrl))) {
         final groups = _splitGroups(s.sourceGroup)..remove(group);
-        await api.updateRssSource(
-          s.copyWith(sourceGroup: groups.isEmpty ? null : groups.join(',')),
-        );
+        await ref
+            .read(rssSourceRepositoryProvider)
+            .updateRssSource(
+              s.copyWith(sourceGroup: groups.isEmpty ? null : groups.join(',')),
+            );
       }
       await _load();
       _toast(l10n.removedSourceGroup(group));
@@ -1115,7 +1127,9 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _importDefault() async {
     final l10n = context.l10n;
     try {
-      final n = await syncDefaultRssSources(ref.read(bookApiProvider));
+      final n = await syncDefaultRssSources(
+        ref.read(rssSourceRepositoryProvider),
+      );
       await _load();
       if (!mounted) return;
       _toast(

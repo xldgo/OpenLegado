@@ -25,7 +25,7 @@ void main() {
           const BookSource(bookSourceUrl: 'b', bookSourceName: '乙源'),
         ],
       );
-      when(() => api.getRssSources()).thenAnswer(
+      when(() => api.rssSourceRepository.getRssSources()).thenAnswer(
         (_) async => [
           const RssSource(sourceUrl: 'a', sourceName: '甲源'),
           const RssSource(sourceUrl: 'b', sourceName: '乙源'),

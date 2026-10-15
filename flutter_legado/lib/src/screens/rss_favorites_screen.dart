@@ -1,3 +1,5 @@
+import '../providers/rss_repository_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -9,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_indicator.dart';
@@ -43,9 +44,10 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
       _error = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      final stars = await api.getRssStars();
-      final sources = await api.getRssSources();
+      final stars = await ref.read(rssStarRepositoryProvider).getRssStars();
+      final sources = await ref
+          .read(rssSourceRepositoryProvider)
+          .getRssSources();
       if (!mounted) return;
       setState(() {
         _stars = stars;
@@ -80,7 +82,7 @@ class _RssFavoritesScreenState extends ConsumerState<RssFavoritesScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
     try {
-      await ref.read(bookApiProvider).deleteRssStar(star.link);
+      await ref.read(rssStarRepositoryProvider).deleteRssStar(star.link);
       messenger.showSnackBar(
         SnackBar(
           content: Text(l10n.unfavorited),
