@@ -16,6 +16,27 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final chapterCacheNames = _extractMethods(
+    _read('lib/src/domain/contracts/chapter_cache_repository.dart'),
+    'ChapterCacheRepository',
+  );
+  final cacheDownloadNames = _extractMethods(
+    _read('lib/src/domain/contracts/cache_download_service.dart'),
+    'CacheDownloadService',
+  );
+  const retiredDownloadNames = {
+    'downloadAddTask',
+    'downloadGetStats',
+    'downloadListByBook',
+    'downloadPauseAll',
+    'downloadResumeAll',
+    'downloadRemoveTask',
+    'downloadUpdateProgress',
+  };
+  final readingNames = _extractMethods(
+    _read('lib/src/domain/contracts/reading_repository.dart'),
+    'ReadingRepository',
+  );
   final bNames = _extractMethods(
     _read('lib/src/services/book_api.dart'),
     'BookApi',
@@ -256,6 +277,86 @@ void main() {
       }
     });
 
+    test('章节缓存五项与真实下载六项迁走，旧下载Dart包装不再暴露', () {
+      for (final (contract, rust, mock, expected) in [
+        (
+          'chapter_cache_repository',
+          'RustChapterCacheRepository',
+          'MockChapterCacheRepository',
+          chapterCacheNames,
+        ),
+        (
+          'cache_download_service',
+          'RustCacheDownloadService',
+          'MockCacheDownloadService',
+          cacheDownloadNames,
+        ),
+      ]) {
+        final directory = contract.endsWith('repository')
+            ? 'repositories'
+            : 'services';
+        for (final (file, name) in [
+          ('rust_$contract', rust),
+          ('mock_$contract', mock),
+        ]) {
+          expect(
+            _extractMethods(
+              _read('lib/src/data/$directory/$file.dart'),
+              name,
+            ).where((method) => !method.startsWith('_')).toSet(),
+            expected,
+          );
+        }
+      }
+      for (final names in [bNames, rNames, mNames]) {
+        expect(
+          names.toSet().intersection({
+            ...chapterCacheNames,
+            ...cacheDownloadNames,
+            ...retiredDownloadNames,
+          }),
+          isEmpty,
+        );
+      }
+      expect(chapterCacheNames.length, 5);
+      expect(cacheDownloadNames.length, 6);
+    });
+
+    test('阅读八项从根接口迁走，正式与Mock共享同一契约', () {
+      const expected = {
+        'getChapters',
+        'getChapterContent',
+        'getChapterContentRaw',
+        'getChapterContentFull',
+        'fetchChapterContent',
+        'saveChapterContent',
+        'updateReadingProgress',
+        'refreshToc',
+      };
+      for (final (path, name) in [
+        ('domain/contracts/reading_repository.dart', 'ReadingRepository'),
+        (
+          'data/repositories/rust_reading_repository.dart',
+          'RustReadingRepository',
+        ),
+        (
+          'data/repositories/mock_reading_repository.dart',
+          'MockReadingRepository',
+        ),
+      ]) {
+        expect(
+          _extractMethods(
+            _read('lib/src/$path'),
+            name,
+          ).where((method) => !method.startsWith('_')).toSet(),
+          expected,
+        );
+      }
+      for (final names in [bNames, rNames, mNames]) {
+        expect(names.toSet().intersection(expected), isEmpty);
+      }
+    });
+
     test('契约文档结构前置（§1.7 与附录合计行存在）', () {
       expect(hasSec17, isTrue, reason: 'API_CONTRACT.md 缺少 §1.7 命名等价表');
       expect(hasAppTotal, isTrue, reason: 'API_CONTRACT.md 缺少附录合计行');
@@ -418,6 +519,10 @@ void main() {
             privacyNames.length +
             webDavNames.length +
             backupNames.length +
+            readingNames.length +
+            chapterCacheNames.length +
+            cacheDownloadNames.length +
+            retiredDownloadNames.length +
             6 +
             1 +
             1,

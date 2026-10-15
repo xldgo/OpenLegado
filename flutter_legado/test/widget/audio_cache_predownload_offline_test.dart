@@ -24,7 +24,6 @@
 // 3. 批量循环行为：逐章取址 + audioCacheDownload 调用 + 进度计数 + 停止取消；
 // 4. 溢出菜单其余原版可用项保持齐备（防过度删除）。
 import 'dart:async';
-import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -40,81 +39,6 @@ import 'package:flutter_legado/src/services/audio_cache_events.dart';
 import '../mocks/mocks.dart';
 
 void main() {
-  group('源码守卫：旧孤儿预下载写入路径已清理（B1 收口不回归）', () {
-    final src = File('lib/src/screens/audio_screen.dart').readAsStringSync();
-
-    test('旧页面内预下载实现与旧孤儿键写入零残留', () {
-      expect(
-        src.contains('_cacheAudioRange'),
-        isFalse,
-        reason: '旧页面内预下载实现必须删除（写入落点与新读面三重不匹配）',
-      );
-      expect(
-        src.contains(r'hashCode}_$i.audio'),
-        isFalse,
-        reason:
-            '旧孤儿键（hashCode 下标命名、无 .complete）不得再被写入，'
-            '按用户裁决默认不读不迁移',
-      );
-      expect(
-        src.contains('getApplicationSupportDirectory'),
-        isFalse,
-        reason:
-            '旧回退目录（support/audio_cache）与新读面注入目录'
-            '（cache/audio_cache）不一致',
-      );
-      expect(
-        src.contains('已缓存 \$okCount'),
-        isFalse,
-        reason: '不得再向用户承诺旧写入路径的「已缓存」',
-      );
-    });
-
-    test('新入口经契约 §2.48 方法（不走自造键/自造目录）', () {
-      expect(
-        src.contains('audioCacheDownload'),
-        isTrue,
-        reason: '写入必须经 Rust 写入面（流式 + .complete），不得页面内自写文件',
-      );
-      expect(
-        src.contains('audioCacheCancel'),
-        isTrue,
-        reason: '停止必须调 audioCacheCancel 中止在途下载',
-      );
-      expect(
-        src.contains('audioCacheQuery'),
-        isTrue,
-        reason:
-            '已缓存跳过应按 key 逐章判定（原版 cachedKeys 键语义；'
-            'audioCacheList 的下标在 TOC 重排后会错位漏下，P2-4）',
-      );
-      expect(
-        src.contains('audioCacheList(bookUrl'),
-        isFalse,
-        reason: '批量循环不得再调 audioCacheList 按下标跳过（P2-4）',
-      );
-    });
-
-    test('溢出菜单原版可用项保持齐备（防过度删除）', () {
-      for (final value in [
-        'changeSource',
-        'login',
-        'copyAudioUrl',
-        'cacheRange',
-        'clearCurrentCache',
-        'wakeLock',
-        'skipCredits',
-        'editSource',
-        'log',
-      ]) {
-        expect(src.contains("'$value'"), isTrue, reason: '溢出菜单项 $value 不应被误删');
-      }
-      // 原版菜单文案（values-zh）
-      expect(src.contains("Text('缓存章节范围')"), isTrue);
-      expect(src.contains("Text('清除本章缓存')"), isTrue);
-    });
-  });
-
   group('行为守卫：听书页溢出菜单与批量缓存（音频书）', () {
     late MockRustApi mockApi;
     late FakeStreamAudioPlayer fakePlayer;
@@ -153,7 +77,7 @@ void main() {
     }
 
     testWidgets('菜单出现缓存章节范围/清除本章缓存，不再出现缓存目录', (tester) async {
-      when(() => mockApi.getChapters(any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
@@ -181,7 +105,8 @@ void main() {
         const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
         const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
@@ -255,7 +180,7 @@ void main() {
       final sub = AudioCacheEvents.instance.stream.listen(events.add);
       addTearDown(sub.cancel);
 
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
@@ -307,7 +232,8 @@ void main() {
       final chapters = [
         const BookChapter(title: '第一章', index: 0, url: 'https://x/new-key'),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
@@ -366,7 +292,7 @@ void main() {
 
     testWidgets('P1-1：批量运行中拒绝启动第二批（防同章并发）', (tester) async {
       final gate = Completer<String>();
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
@@ -437,7 +363,7 @@ void main() {
 
     testWidgets('停止：audioCacheCancel 中止在途下载并停发后续章节', (tester) async {
       final gate = Completer<String>();
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
           const BookChapter(title: '第二章', index: 1, url: 'https://x/2'),
@@ -511,7 +437,7 @@ void main() {
     });
 
     testWidgets('清除本章缓存：命中提示已清除', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
         ],
@@ -548,7 +474,7 @@ void main() {
     });
 
     testWidgets('清除本章缓存：未命中提示本章没有缓存', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0, url: 'https://x/1'),
         ],

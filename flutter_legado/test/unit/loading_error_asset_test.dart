@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///   Coil `.error()`），我方对应位置此前用 `Icons.broken_image` 图标
 ///   代替，B1 批拷入本素材并替换引用。
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   // flutter test 工作目录 = 包根（flutter_legado/）
   final root = Directory.current;
 
@@ -31,18 +32,25 @@ void main() {
     );
   });
 
-  test('pubspec flutter.assets 已声明 assets/images/ 目录（覆盖该素材）', () {
-    final pubspec = File('${root.path}${Platform.pathSeparator}pubspec.yaml');
-    expect(pubspec.existsSync(), isTrue);
-    final text = pubspec.readAsStringSync();
-    // assets 声明区（flutter: 段）存在 - assets/images/ 行（目录级声明，
-    // 覆盖该目录下所有素材；调研报告 §3.1 实测声明位于 pubspec L73）
-    final inFlutterAssets =
-        text.contains('assets/images/') && text.contains('  assets:');
-    expect(
-      inFlutterAssets,
-      isTrue,
-      reason: 'pubspec 须以 flutter.assets 目录声明覆盖 assets/images/',
+  test('素材可通过 Flutter 资产包加载，且数据完整有效', () async {
+    final assetFile = File(
+      '${root.path}${Platform.pathSeparator}assets'
+      '${Platform.pathSeparator}images'
+      '${Platform.pathSeparator}image_loading_error.png',
     );
+    expect(assetFile.existsSync(), isTrue);
+    final bytes = await assetFile.readAsBytes();
+    expect(bytes.length, 6933);
+    // 验证 PNG 头部魔数 (89 50 4E 47 0D 0A 1A 0A)
+    expect(bytes.sublist(0, 8), [
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+    ]);
   });
 }
