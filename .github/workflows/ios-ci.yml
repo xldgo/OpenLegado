@@ -127,5 +127,5 @@ jobs:
             flutter_legado/ios_launcher_icon_test.log
             flutter_legado/ios_search_read_test.log
             flutter_legado/build/ios/iphonesimulator/Runner.app/
-          retention-days: 7
+          retention-days: 2
           if-no-files-found: warn

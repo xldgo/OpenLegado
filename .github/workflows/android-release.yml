@@ -90,7 +90,7 @@ jobs:
           name: android-apk-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-apk/*-release.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 2
       - name: 清理临时发行密钥
         if: always()
         run: python3 .github/scripts/android_signing.py --clean
