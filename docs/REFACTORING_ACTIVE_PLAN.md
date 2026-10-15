@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-READ-RECORD-SELECTION-TITLE-20261015：选择态双行标题与文字过渡（P2）
+
+- 授权与范围：用户要求阅读记录长按选择后，标题显示已选X项，次标题显示点按项目选择、返回退出，并增加正常态与选择态文字过渡；home-overview / d7dde50e2，沿用分支和应用版本，不自动提交、合并、推送或安装。
+- 实现：标题和模式次标题使用共用AppAnimatedTextLine，旧文字向上退出、新文字从下方进入，按完整行高滚动，不附加淡入淡出；始终保留两行结构，数量变更与退出同样过渡。退场文字排除无障碍语义，遵循系统减少动态效果设置；退出按钮补齐提示。中文文案为“已选{count}项”“点按项目选择，返回退出”，同步英文及生成资源，不改记录选择/删除逻辑。
+- 验证与状态：代码验证通过，设备视觉待验收。相关两文件Flutter分析及最终dart analyze通过，git diff --check通过。初轮新增测试将正常态误写为“汇总”，修正为实际“汇总视图”；此前重跑因自动审批超时及SDK锁文件写权限未完成。用户随后授权MuMu安装，环境权限更新后，阅读记录14项定向测试全部通过，覆盖双行文字、进入退出过渡中间帧、数量变更、系统返回、快速反向、减少动态效果及原三视图。证据位于忽略目录flutter_legado/build/read-record-selection-{analysis,analysis-final,l10n,tests-final}.log。
+- MuMu构建安装（2026-10-15）：用户明确授权编译安装，保留数据及2.0.373+374。基线更新使旧x86_64库契约失配，按现有Python入口重建Debug QuickJS库（59秒）并校验；Gradle Debug APK构建成功（1分39秒），包内Rust库与Cargo源库经NDK strip正规化校验通过。实时探测MuMu Android15 / 127.0.0.1:16384后覆盖安装，沿用Launcher4启动；六项冒烟通过，进程继续存活，未检出崩溃或Flutter未处理异常。APK包含已提交的小时分布、徽标修复和本批选择态动画；实际视觉待用户验收。日志位于忽略目录flutter_legado/build/read-record-selection-mumu-{ffi,apk,apk-verification,install,runtime}.log；未提交、合并、推送或触发CI。
+- 共用动画调整（2026-10-15）：用户确认参照上游封装共用组件。读取本地参考仓库070ca1a9b的AnimatedText.kt，沿用其整行向上切换语义；Flutter使用官方AnimationController、SpringSimulation与FractionalTranslation实现临界阻尼弹簧，不宣称两框架逐帧相同。中断保留位移和速度，禁用动画立即清理退场项，单行省略及裁剪限制在本行。组件4项与阅读记录14项测试全部通过，相关4文件dart analyze无问题，git diff --check通过；日志位于忽略目录flutter_legado/build/animated-text-line-{tests,analysis}.log。上述MuMu安装为调整前版本，本次未重新构建安装、提交或推送。
+- 后续交付：新版已覆盖安装MuMu，版本保持2.0.373+374，包内Rust库来源校验及六项启动冒烟通过；实际长按已显示双行选择文案。Kotlin插件增量缓存错误经Gradle本次关闭增量编译后构建成功，无配置变更。用户自行验收动画，随后明确授权提交本批，再开始封面白闪修复；不推送或合并。构建及安装日志位于忽略目录flutter_legado/build/animated-text-line-mumu-*.log。
+
+编写者：Codex｜2026-10-15
+
 ### UI-READ-RECORD-HOURLY-20261015：日总览按小时显示阅读分布（P2）
 
 - 授权与基线：用户要求rebase到主目录最新基线，并将阅读总览日页分布改为小时分片。home-overview已更新至e5be74eb7；原徽标修复和测试完整保留，恢复时仅进度文档冲突，双方记录均保留。不创建分支、不更新版本、不自动提交、推送或安装。

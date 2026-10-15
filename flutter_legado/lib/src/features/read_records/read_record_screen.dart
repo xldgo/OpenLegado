@@ -1,5 +1,6 @@
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_search_transition.dart';
+import '../../widgets/app_animated_text_line.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -55,6 +56,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     ReadRecordDisplayMode.timeline => context.l10n.readRecordViewTimeline,
     ReadRecordDisplayMode.latest => context.l10n.readRecordViewLatest,
   };
+
   Future<void> _refresh() async {
     ref.invalidate(readRecordDatasetProvider);
     ref.invalidate(readRecordSessionsProvider);
@@ -192,6 +194,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           showBack: true,
           leading: selection
               ? IconButton(
+                  tooltip: context.l10n.exitSelection,
                   icon: const Icon(Symbols.close_rounded),
                   onPressed: () => setState(_selected.clear),
                 )
@@ -200,17 +203,17 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                selection ? '${_selected.length}' : context.l10n.readingRecords,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              AppAnimatedTextLine(
+                selection
+                    ? context.l10n.readRecordSelectionCount(_selected.length)
+                    : context.l10n.readingRecords,
               ),
-              if (!selection)
-                Text(
-                  _modeLabel(controls.displayMode),
-                  style: Theme.of(context).textTheme.labelMedium,
-                  maxLines: 1,
-                ),
+              AppAnimatedTextLine(
+                selection
+                    ? context.l10n.readRecordSelectionHint
+                    : _modeLabel(controls.displayMode),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
             ],
           ),
           actions: selection

@@ -1245,6 +1245,8 @@
       }
     }
   },
+  "readRecordSelectionCount": "{count} selected",
+  "readRecordSelectionHint": "Tap items to select, go back to exit",
   "readRecordDayDuration": "Read {duration}",
   "@readRecordDayDuration": {
     "placeholders": {

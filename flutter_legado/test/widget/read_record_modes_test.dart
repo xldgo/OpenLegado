@@ -9,6 +9,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
+import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
+import 'package:flutter_legado/src/widgets/app_animated_text_line.dart';
 
 import '../mocks/mocks.dart';
 
@@ -42,6 +44,7 @@ void main() {
     WidgetTester tester, {
     double width = 360,
     double textScale = 1,
+    bool disableAnimations = false,
   }) async {
     tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
@@ -55,8 +58,10 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(textScale)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+              disableAnimations: disableAnimations,
+            ),
             child: child!,
           ),
           routes: {
@@ -69,6 +74,110 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  Finder titleText(String text) =>
+      find.descendant(of: find.byType(LegadoAppBar), matching: find.text(text));
+
+  testWidgets('选择态双行文案过渡、数量变化及系统返回先退出选择', (tester) async {
+    final end = DateTime(2026, 10, 13, 12).millisecondsSinceEpoch;
+    await repo.putReadRecord(
+      ReadRecord(
+        bookName: '第二本小说',
+        author: '作者',
+        readTime: 60000,
+        lastRead: end,
+      ),
+    );
+    await pump(tester);
+    expect(titleText('阅读记录'), findsOneWidget);
+    expect(titleText('汇总视图'), findsOneWidget);
+    final titleRect = tester.getRect(find.byType(LegadoAppBar));
+    await tester.longPress(find.text('测试小说'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(titleText('阅读记录'), findsOneWidget);
+    expect(titleText('已选 1 项'), findsOneWidget);
+    expect(titleText('点按项目选择，返回退出'), findsOneWidget);
+    final incoming = tester.widget<FractionalTranslation>(
+      find
+          .ancestor(
+            of: titleText('已选 1 项'),
+            matching: find.byType(FractionalTranslation),
+          )
+          .first,
+    );
+    final outgoing = tester.widget<FractionalTranslation>(
+      find
+          .ancestor(
+            of: titleText('阅读记录'),
+            matching: find.byType(FractionalTranslation),
+          )
+          .first,
+    );
+    expect(incoming.translation.dy, inExclusiveRange(0.0, 1.0));
+    expect(outgoing.translation.dy, inExclusiveRange(-1.0, 0.0));
+    expect(tester.getRect(find.byType(LegadoAppBar)), titleRect);
+    await tester.pumpAndSettle();
+    expect(titleText('阅读记录'), findsNothing);
+    expect(titleText('汇总视图'), findsNothing);
+    await tester.tap(find.text('第二本小说'));
+    await tester.pumpAndSettle();
+    expect(titleText('已选 2 项'), findsOneWidget);
+    await tester.tap(find.text('测试小说'));
+    await tester.pumpAndSettle();
+    expect(titleText('已选 1 项'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(titleText('已选 1 项'), findsOneWidget);
+    final normalIncoming = tester.widget<FractionalTranslation>(
+      find
+          .ancestor(
+            of: titleText('阅读记录'),
+            matching: find.byType(FractionalTranslation),
+          )
+          .first,
+    );
+    expect(normalIncoming.translation.dy, inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReadRecordScreen), findsOneWidget);
+    expect(titleText('阅读记录'), findsOneWidget);
+    expect(titleText('汇总视图'), findsOneWidget);
+    expect(titleText('点按项目选择，返回退出'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('快速退出选择不残留旧标题，减少动态效果时直接切换', (tester) async {
+    await pump(tester);
+    await tester.longPress(find.text('测试小说'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tap(find.byTooltip('退出选择'));
+    await tester.pumpAndSettle();
+    expect(titleText('阅读记录'), findsOneWidget);
+    expect(titleText('已选 1 项'), findsNothing);
+    await pump(tester, disableAnimations: true);
+    await tester.longPress(find.text('测试小说'));
+    await tester.pumpAndSettle();
+    expect(titleText('已选 1 项'), findsOneWidget);
+    final titleLines = find.descendant(
+      of: find.byType(LegadoAppBar),
+      matching: find.byType(AppAnimatedTextLine),
+    );
+    expect(titleLines, findsNWidgets(2));
+    final translations = tester.widgetList<FractionalTranslation>(
+      find.descendant(
+        of: titleLines,
+        matching: find.byType(FractionalTranslation),
+      ),
+    );
+    expect(translations.every((t) => t.translation == Offset.zero), isTrue);
+    await tester.tap(find.text('测试小说'));
+    await tester.pumpAndSettle();
+    expect(titleText('阅读记录'), findsOneWidget);
+    expect(titleText('汇总视图'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('汇总一天一个卡片，内部书籍共享日期和当日总时长', (tester) async {
     await repo.clearReadRecords();

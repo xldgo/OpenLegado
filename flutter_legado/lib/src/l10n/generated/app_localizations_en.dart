@@ -4045,6 +4045,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String readRecordSelectionCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get readRecordSelectionHint => 'Tap items to select, go back to exit';
+
+  @override
   String readRecordDayDuration(String duration) {
     return 'Read $duration';
   }

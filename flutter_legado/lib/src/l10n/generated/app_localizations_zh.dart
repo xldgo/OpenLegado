@@ -3822,6 +3822,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String readRecordSelectionCount(int count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String get readRecordSelectionHint => '点按项目选择，返回退出';
+
+  @override
   String readRecordDayDuration(String duration) {
     return '已读 $duration';
   }
