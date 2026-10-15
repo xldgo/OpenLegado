@@ -105,16 +105,15 @@ class PlaybackForegroundService : Service() {
                 )
             }
             bridge.currentMetadata()?.let { meta ->
-                // [听书定时第2项] 原版通知形态（BaseReadAloudService.kt:780-805 /
-                // AudioPlayService.kt:872-895）：标题 = 「正在播放/朗读[(剩余
-                // N 章|分钟)]: 书名」（Dart 侧组合后写入 METADATA_KEY_ARTIST），
-                // 文本 = 章节标题（METADATA_KEY_TITLE）；锁屏标题语义不变。
+                // 通知与锁屏统一：书名为主标题、章节为次标题。— Codex + Bridge
                 val (contentTitle, contentText) = resolvePlaybackNotificationTexts(
-                    chapterTitle = meta.getString(MediaMetadataCompat.METADATA_KEY_TITLE),
-                    playbackLabel = meta.getString(MediaMetadataCompat.METADATA_KEY_ARTIST),
+                    bookTitle = meta.getString(MediaMetadataCompat.METADATA_KEY_TITLE),
+                    chapterTitle = meta.getString(MediaMetadataCompat.METADATA_KEY_ARTIST),
                 )
                 if (contentTitle.isNotEmpty()) builder.setContentTitle(contentTitle)
                 if (contentText.isNotEmpty()) builder.setContentText(contentText)
+                builder.setSubText(meta.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION))
+                meta.getBitmap(MediaMetadataCompat.METADATA_KEY_ART)?.let { builder.setLargeIcon(it) }
             }
             bridge.contentIntent()?.let { pi ->
                 builder.setContentIntent(pi)
@@ -134,24 +133,12 @@ class PlaybackForegroundService : Service() {
     }
 }
 
-/**
- * [听书定时第2项 | 2026-10-03] 通知标题/文本映射（纯函数，JVM 单测覆盖）。
- *
- * 复刻原版通知形态（BaseReadAloudService.kt:780-805 /
- * AudioPlayService.kt:872-895）：
- * - 通知标题 = 「正在播放/朗读[(剩余 N 章|分钟)]: 书名」（Dart 侧组合后写入
- *   MediaMetadataCompat.METADATA_KEY_ARTIST，对齐原版 TTS upMediaMetadata
- *   的 ARTIST 语义，BaseReadAloudService.kt:715）；
- * - 通知文本 = 章节标题（METADATA_KEY_TITLE）。
- *
- * [playbackLabel] 为空（未绑定书名）时回退标题为章节标题，文本留空，
- * 与既有降级行为一致。
- */
+/** 书名缺失时以章节作为标题，不重复显示同一章节。 */
 internal fun resolvePlaybackNotificationTexts(
+    bookTitle: String?,
     chapterTitle: String?,
-    playbackLabel: String?,
 ): Pair<String, String> {
+    val book = bookTitle.orEmpty()
     val chapter = chapterTitle.orEmpty()
-    val label = playbackLabel.orEmpty()
-    return if (label.isNotEmpty()) label to chapter else chapter to ""
+    return if (book.isNotEmpty()) book to chapter else chapter to ""
 }

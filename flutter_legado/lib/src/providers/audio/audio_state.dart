@@ -83,7 +83,7 @@ class AudioChapter {
 /// - [bookUrl] / [bookName]：当前听书的书籍标识
 /// - [isMediaSessionReady]：媒体会话是否已就绪（用于 UI 显示后台播放状态）
 /// - [isStreamMode] / [mediaUrl] / [positionMs] / [durationMs] / [lyric]：
-///   音频书流媒体路径（对齐 P0-2 getAudioChapterMedia + video_player）
+///   音频书流媒体路径（对齐 P0-2 getAudioChapterMedia + just_audio）
 @freezed
 abstract class AudioState with _$AudioState {
   const factory AudioState({

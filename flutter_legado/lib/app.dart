@@ -17,6 +17,8 @@ import 'src/routes.dart';
 import 'src/screens/video_screen.dart';
 import 'src/services/auto_task_scheduler.dart';
 import 'src/services/deep_link_service.dart';
+import 'src/providers/audio/audio_notifier.dart';
+import 'src/features/read_aloud/media_playback_navigation.dart';
 import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
 import 'src/theme/app_theme_resolver.dart';
@@ -212,10 +214,32 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   ///   确认闪屏 /welcome 已被替换出栈顶后才压入 /video。
   final TopRouteWatcher _topRouteWatcher = TopRouteWatcher();
   final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
+  late final MediaPlaybackNavigation _mediaPlaybackNavigation;
 
   @override
   void initState() {
     super.initState();
+    _mediaPlaybackNavigation = MediaPlaybackNavigation(
+      resolve: (request) {
+        if (!mounted) return null;
+        final notifier = ref.read(audioNotifierProvider.notifier);
+        if (!notifier.ownsMediaTarget(request, matchChapter: false)) {
+          return null;
+        }
+        final audio = ref.read(audioNotifierProvider);
+        return MediaPlaybackDestination(
+          audio.isStreamMode ? AppRoutes.audio : AppRoutes.readAloudPlayer,
+          book:
+              notifier.currentBook ??
+              Book(
+                bookUrl: audio.bookUrl,
+                name: audio.bookName,
+                bookType: audio.isStreamMode ? BookType.audio : BookType.text,
+              ),
+        );
+      },
+    );
+    _mediaPlaybackNavigation.attach(ref.read(audioServiceProvider));
     WidgetsBinding.instance.addObserver(this);
     // 系统栏样式由 [SystemBarBinder] 按偏好与主题统一驱动
     // 首帧渲染后检查上次崩溃日志并弹窗提示
@@ -267,6 +291,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    _mediaPlaybackNavigation.dispose();
     _readAloudCapsuleObserver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -356,6 +381,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             systemBarRouteObserver,
             _topRouteWatcher,
             _readAloudCapsuleObserver,
+            _mediaPlaybackNavigation,
           ],
           debugShowCheckedModeBanner: false,
           localizationsDelegates: const [

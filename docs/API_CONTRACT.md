@@ -1,5 +1,28 @@
 # API 契约文档（BookApi 接口基准）
 
+## 媒体进度与通知导航增量（2026-10-15，实施前冻结）
+
+用户授权正文/音频书系统进度、锁屏拖动、通知返回播放页面和前后按钮切段/切章；不增加旧系统通知兼容分支，不改变Rust/FRB或数据库。
+
+- 现有`legado/media_session`增加`updateProgress{mediaId,sessionToken,chapterIndex,state,position,duration,speed,canSeek,hasPrevious,hasNext,isStream}`。时间单位为毫秒；音频书使用真实位置、时长与播放倍率，正文使用上游4字/秒乘语速的章节时间轴，向系统发布的正文时间轴播放倍率为1。无有效时长不声明seek；原生只接受当前元数据身份，文字/封面更新不得丢失时间轴。
+- 原生`onSeekTo{mediaId,sessionToken,chapterIndex,position}`经强类型事件交由当前AudioNotifier处理；拒绝旧书/旧章/旧会话，暂停定位保持暂停，正文复用原文UTF-16/字形簇安全定位，音频书复用现有播放器seek。停止/释放撤销身份与能力。
+- `onOpenPlayback{mediaId,sessionToken,chapterIndex}`及`takePendingOpen`交由应用导航层处理；原生通知使用当前启用图标对应Activity的PendingIntent，热启动走onNewIntent，启动期间保留待取事件。导航等待欢迎页退出，当前会话校验后复用已有播放页，不启动第二份播放。失效通知只打开应用，不恢复已结束朗读。
+- `ReadAloudSettings.mediaButtonPerNext`（持久化键同名）默认true保持现有切章；false时正文媒体前后按钮切换当前划分单元，音频书始终切章。普通设置沿用唯一Repository，保存失败不发布新值。
+- 本批不增加通知定时/独立停止按钮或媒体兼容模式设置；iOS接通真实时间轴与changePlaybackPositionCommand，实际锁屏验证仍需要Apple平台。
+
+编写者：Codex + Bridge｜2026-10-15
+
+## 媒体通知本地通道（2026-10-15，实施前冻结）
+
+用户授权通知封面及标题调整，沿用 `legado/media_session`，不改变 Rust/FRB 方法或计数。
+
+- `updateMetadata{mediaId: String, sessionToken: int, title: String, artist: String, album: String, timerText: String}`：title 为书名，artist 为章节名，album 为书名；不含“正在朗读/播放”前缀。timerText 为独立定时剩余说明，不拼入书名/章节。Android 通知主副标题及系统媒体标题语义一致，定时放 subText；iOS 定时保留独立 comment，是否显示由系统决定。
+- `updateArtwork{mediaId: String, sessionToken: int, artworkBytes: Uint8List?}`：PNG 缩略图最长边384px、大小不超过1MiB；null 明确清除。同媒体标识与token的文字更新保留封面，身份变化先清除旧图。只有与当前元数据身份完全一致才接受图片；停止/释放清空身份，拒绝迟到图片，不创建通知或恢复播放。
+- Flutter 先推文字，后台加载封面；使用已有封面缓存/复合URL与书源解密，不由原生重新请求。切书、停播、销毁和隐私遮蔽使旧加载失效；无图/失败使用默认封面。文字和图片分别去重，切章及倒计时不重复发送图片。
+- mediaId仅用于现有通道内部归属检查，不将书籍URL额外发布为系统媒体标识。
+
+编写者：Codex + Bridge｜2026-10-15
+
 ## 隐私访问增量契约（2026-10-14，实施前冻结）
 
 平台增量：`legado/privacy` 提供 `capabilities`（biometric: available/notEnrolled/noHardware/unavailable，enrolled: bool）、`enrollBiometric`、`authenticateBiometric`、`clearBiometric`、`permissions`、`openNotificationSettings`、Android 专属 `openBatterySettings`。Android 使用认证绑定的 Keystore Cipher，iOS 使用 biometryCurrentSet Keychain 项；成功须完成实际加密/解密或受保护项读取。取消返回 false，不授予权限。改密/清密撤销快捷凭据；平台不支持如实返回，不允许设备 PIN 替代应用密码。隐私设置增加 `biometricEnabled`，开关只在系统认证及保存均成功后开启。

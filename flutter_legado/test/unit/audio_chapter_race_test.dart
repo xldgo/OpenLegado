@@ -255,4 +255,40 @@ void main() {
 
     readNotifier().stop();
   });
+  testWidgets('当前章异步播放错误暂停并显示原因，旧章错误不能干扰新章', (tester) async {
+    stubTwoChapters();
+    await startStream();
+    final oldTag = fakePlayer.currentTag;
+    final error = StateError('音频解码失败');
+    fakePlayer.onError!(error, oldTag);
+    await tester.pump();
+    expect(readState().state, PlayerState.error);
+    expect(readState().errorMessage, contains('音频解码失败'));
+    expect(readState().currentIndex, 0);
+    expect(fakePlayer.pauseCount, 1);
+    await readNotifier().next();
+    await tester.pump();
+    expect(readState().currentIndex, 1);
+    fakePlayer.onError!(error, oldTag);
+    expect(readState().state, PlayerState.playing);
+    readNotifier().stop();
+  });
+
+  testWidgets('旧播放入口迟到失败不能覆盖已经播放的新章状态', (tester) async {
+    stubTwoChapters();
+    final old = Completer<Map<String, dynamic>>();
+    when(() => mockApi.getAudioChapterMedia(any(), 0))
+        .thenAnswer((_) => old.future);
+    final first = startStream();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+    await readNotifier().next();
+    expect(readState().currentIndex, 1);
+    old.completeError(StateError('已被新章替换'));
+    await first;
+    expect(readState().state, PlayerState.playing);
+    expect(readState().errorMessage, isNull);
+    readNotifier().stop();
+  });
 }

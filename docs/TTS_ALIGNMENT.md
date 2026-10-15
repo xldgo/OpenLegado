@@ -2,6 +2,42 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 系统媒体时间轴与控制（2026-10-15）
+
+本批对照[上游BaseReadAloudService](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt)及同版本AudioPlayService：
+正文每秒4个UTF-16字符乘语速估算章节时长，单调时钟补齐稀疏进度，暂停冻结；音频书使用真实音轨时长与播放倍率。
+正文估算不等于云端实际音频时长；显示和定位均按同一原文坐标换算，最终用现有字形簇安全定位修正。
+主动定位、切段、换章和变速重置时间轴，旧书/旧章/旧会话事件不定位当前播放器。
+系统拖动串行提交，连续拖动保留最新位置；暂停中定位保持暂停。未知音轨时长时不开放拖动。
+
+前后按钮共用持久化mediaButtonPerNext：正文可以选择切章或切当前朗读划分单元，音频书始终切章。
+Android原生会话公开实际已接通的操作，系统从会话时长、进度和能力生成媒体面板；不增加旧系统专用兼容布局。
+通知PendingIntent使用当前启用的桌面入口，Dart导航等待欢迎页退出并复用已有播放页，不重新创建音频会话。
+停止会话后的通知不得恢复旧播放。iOS接通NowPlaying时长及changePlaybackPositionCommand；
+iOS系统媒体卡片的应用入口由系统处理，本批不把任意回前台事件冒充通知点击，不承诺强制跳转指定页面。
+
+本地规则与路由由单元/Widget测试保护；integration_test/media_controls_test.dart仅供隔离Android设备，
+宿主实际拖动系统进度条、点击前后按钮和两次通知卡片，核对原生dumpsys及导航去重。
+运行前备份并显式--no-uninstall，测试期间需要按pump推进Flutter帧。真实iOS锁屏/中断仍需Apple平台验收。
+
+编写者：Codex UI / Bridge｜2026-10-15
+
+## 媒体通知封面与标题（2026-10-15）
+
+本批依据用户明确授权调整通知和锁屏展示：书名为主标题、章节为次标题，去掉播放/朗读前缀，
+定时通过独立辅助字段传输。沿用现有媒体会话，不新增播放器或后台服务。
+封面由MediaArtworkLoader复用已有网络图片缓存及CoverDecodeLoader的解密/复合请求头路径，
+兼容本地和自定义封面，生成最长边384px、最大1MiB的PNG，失败使用默认封面。
+文字先发布，图片异步补入；书籍、封面或隐私遮蔽改变更新身份，切章与倒计时不重复加载图片。
+停止与释放清空身份，Flutter与原生双方拒绝过期图片；隐私锁定时不向系统暴露真实标题或封面。
+协议见API_CONTRACT.md的媒体通知本地通道。Android使用媒体ART/ALBUM_ART与通知largeIcon，
+iOS使用MPMediaItemArtwork；Android定时放subText，iOS写独立comment，实际是否展示由系统决定。
+隔离设备验证使用integration_test/media_notification_test.dart，显式--no-uninstall，事前备份，
+阶段标记用于宿主核对dumpsys和截图；不能仅凭通道调用成功宣称原生展示通过。
+iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能代替。
+
+编写者：Codex UI｜2026-10-15
+
 ## 基线与边界
 
 - 工作目录：`reimplement_tts_t2a_task`，沿用同名分支。
@@ -18,7 +54,7 @@
 | 配置与选择 | T1 全字段持久化；书级优先、稳定 ID；登录入口与源级高级字段编辑 | 选择流程中的 URL 解析与旧调用形式可后续整理 |
 | HTTP 请求 | 按 ID 查库；源变量/登录、动态 Header、GET/POST/JS、响应脚本与重发、限流、取消、连接/超时重试 | 实际第三方源与移动设备验证，尚未支持的 JS 宿主能力按具体用例补齐 |
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
-| HTTP 播放 | 本地文件、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
+| HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
 | 云端引擎 | OpenAI/MiMo/百炼 Provider、独立元数据/设备凭据、配置试听和播放接线 | 其他四家 Provider、云端预合成及真实账号/平台验收 |
 
@@ -210,5 +246,73 @@ HTTP 失败时原有提示与估算推进保留，不自动切换系统引擎。
   续播依赖实际运行能力，不能由Widget测试证明；本轮按用户要求跳过设备验收。
 
 参考：[上游定时面板](https://github.com/HapeLee/legado-with-MD3/blob/dd97afe4f1184ac6b9840dc8faf821b40e162583/app/src/main/java/io/legado/app/ui/book/readaloud/ReadAloudTimerSheet.kt)。
+
+编写者：Codex｜2026-10-15
+
+
+## 段落与分片播放衔接（2026-10-15）
+
+本批重新固定上游 main 为 `4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5`，
+只对照 [HttpReadAloudService 的播放器队列](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/service/HttpReadAloudService.kt)：
+零段间隔时复用 ExoPlayer，首项 setMediaItem/prepare，后续 addMediaItem；原生换项驱动正文归属。
+有段间隔时独立调度。此前各节固定的请求、缓存和管理界面基线不因此替换。
+
+- Flutter 使用 [just_audio 0.10.6](https://pub.dev/packages/just_audio/versions/0.10.6) 的原生播放列表，
+  Windows 配套 [just_audio_windows 0.2.3](https://pub.dev/packages/just_audio_windows/versions/0.2.3)。
+  `ReadAloudAudioPlayer` 最初只接管正文 TTS 本地队列；后续按2026-10-15纯音频统一批次
+  接管音频书URL与独立试听，视频仍保留原实现。
+  关闭插件自行管理焦点、中断和音频会话，由既有 MediaSessionBridge 处理；不新增第二个后台服务。
+- `AudioNotifier` 生成当前章的 cue：逻辑段落、UTF-16 原文起点和不可变合成请求。
+  零停顿排当前章剩余正文，有停顿只排同段长度分片；不提前排下一章，章末定时和循环仍归协调层。
+- `FileReadAloudPlaylist` 只管理本地文件入队与租约，最多当前项加两个后续项。
+  合成仍走既有前台优先队列和 Rust 缓存；文件退出原生列表之后才释放租约。
+  追加失败可能已有原生引用，文件保护持续到停止；取消后的迟到合成只释放，不加入新会话。
+- 原生追加/裁去旧项期间，来源列表先更新、原生索引稍后更新，属于插件中间态；
+  不将其当作真实换项。MuMu 初次对照曾出现 0/1/2/1/2 的重复段落通知，屏蔽编辑中间态后
+  按 0..7 顺序通过，单元用例保留此时序，防止 Fake 的原子更新掩盖问题。
+- Windows 的 WinRT 删除前项后不回传校正索引，适配层保留当前文件位置并显式同步；
+  逐项 completed 不能当成队列结束，须检查末项、有效时长和实际片尾。
+  验收还要求总耗时覆盖媒体时长，防止只有顺序回调正确却提前结束。
+  Windows 插件单独使用 C++20 标准协程、UTF-8 编码及旧成员限定名兼容模式；
+  不修改 Pub 缓存或其他插件编译设置。
+- 暂停保留位置和已排文件，续播替换段落会话；暂停确认前已发生的换项在续播时补齐原文归属。
+  修改段间停顿从当前原文锚点重新准备，不让已排下一段绕过新设置。
+  队尾等待未完成音频不当作章末；后续合成失败到可播放文件结束后暂停并定位未读项，不自动跳过。
+  首项 HTTP 合成失败仍保留既有可见提示及估算推进规则，未在本批扩大改动该策略。
+- MuMu Debug 对照使用无网络 WAV 夹具（24kHz/16bit/mono，8×400ms，总媒体时长3200ms）：
+  逐文件装载总耗时4052ms、创建8个播放器；原生队列3429ms、创建1个播放器。
+  新方案开始回调时间为173/643/1040/1441/1837/2237/2640/3040ms。
+  同一夹具的 Windows 原生队列耗时3326ms，创建1个播放器；原 video_player 无 Windows
+  后端，此平台只验证新路径，不伪造前后对照。
+  数据包含装载及 Dart 回调，只是单次调试模式对照，不是声学间隙测量或发布性能结论；
+  不承诺消除服务端音频自带静音、网络等待或不同编码产生的间隙。
+
+本节仅记录方法、依据和测量口径；验证状态与未测边界见 Active 的 TTS-PLAYLIST-20261015。
+
+编写者：Codex｜2026-10-15
+
+
+### 原生测试的设备数据保护
+
+设备集成测试命令必须明确 `flutter test --no-uninstall ... -d <隔离测试设备号>`，
+执行前备份，测试后覆盖安装正常入口应用。Flutter 3.47.7 默认在测试结束后卸载应用；
+测试本身不调用数据库不代表宿主应用数据不会受影响。不得在用户验收实例直接运行此类测试。
+本批 MuMu 数据事故及恢复状态记录于 Active，不能以重新安装成功代替数据恢复。
+
+
+## 纯音频后端统一（2026-10-15）
+
+用户收敛范围为正文TTS、音频书和音色试听统一just_audio，暂时保留所有视频功能。
+`StreamAudioPlayer` 只定义音频调用与带tag的回调；`ReadAloudAudioPlayer` 实现网络URL、
+本地文件、原位续播、实时倍速及原生队列，不再持有视频控制器或super旧后端回退。
+正文与音频书共用实例，试听使用同实现的独立实例。异步解码错误由原会话处理，
+过期错误不能修改新章或新试听，装载失败先清理原生引用再交由引擎释放音频租约。
+主实例随Provider释放，试听继续随预览对象释放。
+
+原生夹具现只验收当前统一后端，不继续依赖video_player运行“旧路径”，前批对照日志
+保持历史测量。Windows夹具覆盖真实WAV队列和本机HTTP音频播放/暂停/定位/换绑/完成，
+HTTP服务器提供HEAD与Range及查询串检查。此结果不代表真实移动后台、中断、锁屏或
+所有第三方音频书源均已验证。视频依赖、代码、原生服务及Rust接口本批不删除。
+具体边界见 [纯音频统一方案](AUDIO_PLAYER_UNIFICATION.md)，状态只见Active。
 
 编写者：Codex｜2026-10-15

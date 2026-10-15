@@ -15,6 +15,7 @@ import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 
 import '../mocks/mocks.dart';
+import '../fixtures/media_artwork_loader.dart';
 
 class FakeSystemTts extends Fake implements SystemTts {
   @override
@@ -100,6 +101,9 @@ void main() {
         title: any(named: 'title'),
         artist: any(named: 'artist'),
         album: any(named: 'album'),
+        mediaId: any(named: 'mediaId'),
+        sessionToken: any(named: 'sessionToken'),
+        timerText: any(named: 'timerText'),
       ),
     ).thenAnswer((_) async {});
     when(() => audio.notifyPlaying(position: any(named: 'position')))
@@ -141,6 +145,7 @@ void main() {
         systemTtsServiceProvider.overrideWithValue(system),
         streamAudioPlayerProvider.overrideWithValue(player),
         audioServiceProvider.overrideWithValue(audio),
+        mediaArtworkLoaderProvider.overrideWithValue(FakeMediaArtworkLoader()),
       ],
     );
     addTearDown(() async {

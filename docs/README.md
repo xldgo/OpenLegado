@@ -51,6 +51,7 @@
 | 文档 | 说明 |
 | --- | --- |
 | [REFACTORING_ACTIVE_PLAN.md](REFACTORING_ACTIVE_PLAN.md) | 当前唯一后续重构执行计划与开放项台账 |
+| [AUDIO_PLAYER_UNIFICATION.md](AUDIO_PLAYER_UNIFICATION.md) | 正文朗读、音频书和试听统一just_audio的边界与验收；视频暂保留，状态见Active |
 | [SETTINGS_ARCHITECTURE.md](SETTINGS_ARCHITECTURE.md) | 设置业务分类、存储与状态边界、逐项清单规范及后续迁移顺序；进度只维护于 Active |
 | [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md) | Agent 派发、实施、验证与关闭的统一流程 |
 | [AGP9_MIGRATION_PLAN_20261010.md](AGP9_MIGRATION_PLAN_20261010.md) | Android AGP 9 / Gradle / Kotlin 迁移方案、插件核查与验收条件；状态只维护于 Active 计划 |

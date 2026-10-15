@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import 'media_session_models.dart';
+
 /// 音频焦点事件类型
 enum AudioFocusEvent {
   /// 获得焦点
@@ -37,7 +39,7 @@ enum MediaButtonEvent {
 
 /// 音频服务 — 后台媒体按钮 + 焦点管理
 ///
-/// 通过 Platform Channel 与 Android MediaSession 通信，
+/// 通过 Platform Channel 与 Android MediaSession / iOS Now Playing 通信，
 /// 复刻原版 BaseReadAloudService 中的媒体会话和焦点管理逻辑。
 ///
 /// 功能：
@@ -64,6 +66,8 @@ class AudioService {
   /// 媒体按钮事件流控制器
   final StreamController<MediaButtonEvent> _mediaButtonController =
       StreamController<MediaButtonEvent>.broadcast();
+  final _seekController = StreamController<MediaSeekRequest>.broadcast();
+  final _openController = StreamController<MediaPlaybackTarget>.broadcast();
 
   /// 是否已初始化
   bool _initialized = false;
@@ -92,6 +96,37 @@ class AudioService {
   Stream<MediaButtonEvent> get mediaButtonStream =>
       _mediaButtonController.stream;
 
+  Stream<MediaSeekRequest> get seekStream => _seekController.stream;
+  Stream<MediaPlaybackTarget> get openPlaybackStream {
+    _registerHandler();
+    return _openController.stream;
+  }
+
+  /// 只取待处理导航，不创建媒体会话；应用等待欢迎页退出后消费。
+  Future<MediaPlaybackTarget?> takePendingOpen() async {
+    _registerHandler();
+    try {
+      return MediaPlaybackTarget.parse(
+        await _channel.invokeMethod<Object?>('takePendingOpen'),
+      );
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> updateProgress(MediaPlaybackProgress progress) async {
+    if (!_initialized) return;
+    try {
+      await _channel.invokeMethod<void>('updateProgress', progress.toMap());
+    } on PlatformException {
+      // 系统媒体展示不改变真实播放器状态。
+    } on MissingPluginException {
+      // 未提供系统媒体实现的平台保持本地播放。
+    }
+  }
+
   /// 是否已初始化
   bool get isInitialized => _initialized;
 
@@ -117,7 +152,7 @@ class AudioService {
       await _channel.invokeMethod<bool>('init');
       _initialized = true;
     } on PlatformException {
-      // 非 Android 平台或初始化失败，静默处理
+      // 平台未实现或初始化失败，静默处理。
       _initialized = false;
     } on MissingPluginException {
       // 插件未注册（如测试环境），静默处理
@@ -127,7 +162,7 @@ class AudioService {
 
   /// 释放资源
   ///
-  /// 在听书页面 dispose 时调用，释放 MediaSession 和音频焦点。
+  /// 在播放会话销毁时调用，释放 MediaSession 和音频焦点。
   Future<void> dispose() async {
     if (!_initialized) return;
 
@@ -203,14 +238,15 @@ class AudioService {
 
   /// 更新媒体元数据
   ///
-  /// 复刻原版 upMediaMetadata()。
-  /// [title] 章节标题
-  /// [artist] 显示为"正在朗读: 书名"
-  /// [album] 作者
+  /// [title] 书名，[artist] 章节，[timerText] 独立定时说明。
+  /// 身份变化清除旧封面，切章和定时刷新保留当前封面。— Codex + Bridge
   Future<void> updateMetadata({
     required String title,
     String artist = '',
     String album = '',
+    String mediaId = '',
+    int sessionToken = 0,
+    String timerText = '',
   }) async {
     if (!_initialized) return;
 
@@ -219,11 +255,34 @@ class AudioService {
         'title': title,
         'artist': artist,
         'album': album,
+        'mediaId': mediaId,
+        'sessionToken': sessionToken,
+        'timerText': timerText,
       });
     } on PlatformException {
       // 静默处理
     } on MissingPluginException {
       // 静默处理
+    }
+  }
+
+  /// null 明确清除图片；原生仅接收仍属于当前媒体会话的缩略图。
+  Future<void> updateArtwork({
+    required String mediaId,
+    required int sessionToken,
+    required Uint8List? artworkBytes,
+  }) async {
+    if (!_initialized) return;
+    try {
+      await _channel.invokeMethod<void>('updateArtwork', {
+        'mediaId': mediaId,
+        'sessionToken': sessionToken,
+        'artworkBytes': artworkBytes,
+      });
+    } on PlatformException {
+      // 图片失败不影响音频播放。
+    } on MissingPluginException {
+      // 桌面及测试环境可无系统媒体实现。
     }
   }
 
@@ -293,6 +352,12 @@ class AudioService {
 
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
+        case 'onSeekTo':
+          final request = MediaSeekRequest.parse(call.arguments);
+          if (request != null) _seekController.add(request);
+        case 'onOpenPlayback':
+          final target = MediaPlaybackTarget.parse(call.arguments);
+          if (target != null) _openController.add(target);
         case 'onPlay':
           _mediaButtonController.add(MediaButtonEvent.play);
         case 'onPause':

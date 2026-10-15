@@ -7,6 +7,7 @@ final class ReadAloudSettings {
     this.splitSymbols = defaultReadAloudSplitSymbols,
     this.followSystem = true,
     this.detachReminder = true,
+    this.mediaButtonPerNext = true,
     this.manualSpeed = 1,
     this.paragraphIntervalMs = 0,
     this.audioPreDownloadNum = 10,
@@ -19,6 +20,7 @@ final class ReadAloudSettings {
   final String splitSymbols;
   final bool followSystem;
   final bool detachReminder;
+  final bool mediaButtonPerNext;
   final double manualSpeed;
   final int paragraphIntervalMs;
   final int audioPreDownloadNum;
@@ -34,6 +36,7 @@ final class ReadAloudSettings {
     String? splitSymbols,
     bool? followSystem,
     bool? detachReminder,
+    bool? mediaButtonPerNext,
     double? manualSpeed,
     int? paragraphIntervalMs,
     int? audioPreDownloadNum,
@@ -45,6 +48,7 @@ final class ReadAloudSettings {
     splitSymbols: splitSymbols ?? this.splitSymbols,
     followSystem: followSystem ?? this.followSystem,
     detachReminder: detachReminder ?? this.detachReminder,
+    mediaButtonPerNext: mediaButtonPerNext ?? this.mediaButtonPerNext,
     manualSpeed: manualSpeed ?? this.manualSpeed,
     paragraphIntervalMs: paragraphIntervalMs ?? this.paragraphIntervalMs,
     audioPreDownloadNum: audioPreDownloadNum ?? this.audioPreDownloadNum,
@@ -61,6 +65,7 @@ final class ReadAloudSettings {
       splitSymbols == other.splitSymbols &&
       followSystem == other.followSystem &&
       detachReminder == other.detachReminder &&
+      mediaButtonPerNext == other.mediaButtonPerNext &&
       manualSpeed == other.manualSpeed &&
       paragraphIntervalMs == other.paragraphIntervalMs &&
       audioPreDownloadNum == other.audioPreDownloadNum &&
@@ -74,6 +79,7 @@ final class ReadAloudSettings {
     splitSymbols,
     followSystem,
     detachReminder,
+    mediaButtonPerNext,
     manualSpeed,
     paragraphIntervalMs,
     audioPreDownloadNum,

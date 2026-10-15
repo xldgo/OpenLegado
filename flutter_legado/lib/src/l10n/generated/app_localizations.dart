@@ -7496,6 +7496,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前章'**
   String get readAloudCurrentChapter;
+
+  /// No description provided for @readAloudMediaButtons.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知和耳机前后按钮'**
+  String get readAloudMediaButtons;
+
+  /// No description provided for @readAloudMediaByChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换章节'**
+  String get readAloudMediaByChapter;
+
+  /// No description provided for @readAloudMediaByParagraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换朗读段落'**
+  String get readAloudMediaByParagraph;
 }
 
 class _AppLocalizationsDelegate
