@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -92,12 +93,16 @@ void main() {
     expect(titleText('阅读记录'), findsOneWidget);
     expect(titleText('汇总视图'), findsOneWidget);
     final titleRect = tester.getRect(find.byType(LegadoAppBar));
+    final cover = tester.element(find.byType(BookCover).first);
     await tester.longPress(find.text('测试小说'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(titleText('阅读记录'), findsOneWidget);
     expect(titleText('已选 1 项'), findsOneWidget);
     expect(titleText('点按项目选择，返回退出'), findsOneWidget);
+    expect(cover.mounted, isTrue);
+    expect(tester.element(find.byType(BookCover).first), same(cover));
+
     final incoming = tester.widget<FractionalTranslation>(
       find
           .ancestor(
@@ -144,6 +149,9 @@ void main() {
     expect(titleText('阅读记录'), findsOneWidget);
     expect(titleText('汇总视图'), findsOneWidget);
     expect(titleText('点按项目选择，返回退出'), findsNothing);
+    expect(cover.mounted, isTrue);
+    expect(tester.element(find.byType(BookCover).first), same(cover));
+
     expect(tester.takeException(), isNull);
   });
 
@@ -387,6 +395,32 @@ void main() {
     expect(find.text('作者'), findsOneWidget);
     expect(find.text('1分钟 • 2026-10-13 12:00'), findsOneWidget);
     expect(find.byTooltip('筛选阅读日期'), findsNothing);
+    final coverFinder = find.descendant(
+      of: find.ancestor(of: title, matching: find.byType(InkWell)).first,
+      matching: find.byType(BookCover),
+    );
+    final cover = tester.element(coverFinder);
+    final row = find.ancestor(of: title, matching: find.byType(InkWell)).first;
+    final rowRect = tester.getRect(row);
+    expect(rowRect.left, 0);
+    expect(rowRect.right, 360);
+    expect(tester.getTopLeft(coverFinder).dx, 16);
+    final normalTitleX = tester.getTopLeft(title).dx;
+    await tester.longPress(title);
+    await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue);
+    expect(tester.element(coverFinder), same(cover));
+    expect(tester.getTopLeft(title).dx, normalTitleX + 20);
+    final material = tester.widget<Material>(
+      find.ancestor(of: title, matching: find.byType(Material)).first,
+    );
+    expect(material.color, AppTheme.light.colorScheme.secondaryContainer);
+    expect(tester.getRect(row), rowRect);
+    // 左侧原留白也属于本行，点按取消后仍处于同一封面元素树。
+    await tester.tapAt(Offset(4, rowRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(title).dx, normalTitleX);
+    expect(cover.mounted, isTrue);
     await tester.longPress(title);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('删除'));

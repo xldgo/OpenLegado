@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -55,9 +56,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('示例书籍 01'), findsOneWidget, reason: '网格视图书名可见');
 
+    final cover = tester.element(find.byType(BookCover).first);
+
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
     await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '进入选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
 
     // [P0 根因] 网格分支选择模式同样须渲染书卡 + 勾选
     expect(
@@ -71,5 +76,9 @@ void main() {
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
     expect(find.text('已选 1 本'), findsOneWidget);
+    container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
+    await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '退出选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
   });
 }

@@ -473,10 +473,12 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               _buildHeaderSliver(context, ref, state),
               // [UI-fix 2.0.258] 批量模式摘要卡位于头部之后（对齐参考版：
               // 标题/Tab →「已选N本 · 共M本」胶囊 → 书列表）
-              if (state.isBatchMode)
-                SliverToBoxAdapter(
-                  child: _buildBatchSummaryCard(context, ref, state),
-                ),
+              // 保留摘要所在的 sliver，避免选择态插入节点时重挂后面的书卡。
+              SliverToBoxAdapter(
+                child: state.isBatchMode
+                    ? _buildBatchSummaryCard(context, ref, state)
+                    : const SizedBox.shrink(),
+              ),
               // 分组模式：渲染分组头 + 分组内容
               if (state.groupMode != GroupMode.none)
                 ..._buildGroupedSlivers(context, ref, state, viewportWidth)
@@ -578,70 +580,68 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             .read(bookshelfNotifierProvider.notifier)
             .reorderBook(oldIndex, newIndex);
       },
-      itemBuilder: (context, index) {
-        final book = shelfBooks[index];
-        // [UI_SYNC_REFACTOR T3] 批量模式点击 = 切换选中
-        final batch = ref.watch(
-          bookshelfNotifierProvider.select((s) => s.isBatchMode),
-        );
-        if (batch) {
-          // [UI-fix 2.0.258] 列表勾选态：选中高亮 + 尾部对勾，点按切换
-          final selected = ref.watch(
-            bookshelfNotifierProvider.select(
-              (s) => s.selectedUrls.contains(book.bookUrl),
-            ),
-          );
-          return PrivacyMaskedContent(
-            key: ValueKey(book.bookUrl),
-            book: book,
-            child: _buildBatchListItem(context, ref, book, selected),
-          );
-        }
-        return BookListItem(
-          key: ValueKey(book.bookUrl),
-          book: book,
-          onTap: () => _openBook(context, ref, book),
-          // 安卓原版：长按直接打开书籍信息页
-          onLongPress: () => _openBookInfo(context, book),
-        );
-      },
+      itemBuilder: (context, index) =>
+          _buildListItem(context, ref, shelfBooks[index]),
+    );
+  }
+
+  /// 选择态复用普通条目，封面、隐私包装与 Hero 都保持挂载。— Codex + UI
+  Widget _buildListItem(BuildContext context, WidgetRef ref, Book book) {
+    final batch = ref.watch(
+      bookshelfNotifierProvider.select((s) => s.isBatchMode),
+    );
+    final selected = ref.watch(
+      bookshelfNotifierProvider.select(
+        (s) => s.selectedUrls.contains(book.bookUrl),
+      ),
+    );
+    return BookListItem(
+      key: ValueKey(book.bookUrl),
+      book: book,
+      selectionMode: batch,
+      selected: selected,
+      onTap: () => batch
+          ? ref
+                .read(bookshelfNotifierProvider.notifier)
+                .toggleSelect(book.bookUrl)
+          : _openBook(context, ref, book),
+      onLongPress: batch ? null : () => _openBookInfo(context, book),
     );
   }
 
   Widget _buildGridItem(BuildContext context, WidgetRef ref, Book book) {
-    // [UI_SYNC_REFACTOR T3] 批量模式点击 = 切换选中
     final batch = ref.watch(
       bookshelfNotifierProvider.select((s) => s.isBatchMode),
     );
-    if (batch) {
-      return PrivacyMaskedContent(
-        book: book,
-        child: _buildBatchGridItem(context, ref, book),
-      );
-    }
-    // 稳定 ValueKey（bookUrl）避免数据变化时整网格重建；RepaintBoundary 隔离重绘区域
-    // [骨架对齐 2.0.260 | 台账 1-3] 卡片=封面+居中书名（对齐参考 03b）：
-    // 未读徽标/阅读进度不再呈现（参考卡片无此两要素）；未读/阅读进度能力
-    // 仍可从封面长按 → 书籍信息页「在读」行可达（book_info 页保留）
-    final item = BookGridItem(
-      key: ValueKey(book.bookUrl),
-      title: book.name,
-      coverUrl: book.customCoverUrl ?? book.coverUrl,
-      sourceOrigin: book.origin,
-      // Hero 封面过渡（书架↔详情，key=book url）
-      // [LAYOUT_MOTION_AUDIT M1] tag 统一 book-cover:（HapeLee 同义键）
-      heroTag: 'book-cover:${book.bookUrl}',
-      onTap: () => _openBook(context, ref, book),
-      // 封面长按：打开书籍信息页（对齐安卓原版；未读/进度可达入口）
-      onCoverLongPress: () => _openBookInfo(context, book),
-      // 书名区长按：与封面一致直达书籍信息（对齐原版 U1）
-      onInfoLongPress: () => _openBookInfo(context, book),
+    final selected = ref.watch(
+      bookshelfNotifierProvider.select(
+        (s) => s.selectedUrls.contains(book.bookUrl),
+      ),
     );
+    void onTap() {
+      if (batch) {
+        ref.read(bookshelfNotifierProvider.notifier).toggleSelect(book.bookUrl);
+      } else {
+        _openBook(context, ref, book);
+      }
+    }
+
     return RepaintBoundary(
+      key: ValueKey(book.bookUrl),
       child: PrivacyMaskedContent(
         book: book,
-        onTap: () => _openBook(context, ref, book),
-        child: item,
+        onTap: onTap,
+        child: BookGridItem(
+          title: book.name,
+          coverUrl: book.customCoverUrl ?? book.coverUrl,
+          sourceOrigin: book.origin,
+          heroTag: 'book-cover:${book.bookUrl}',
+          selectionMode: batch,
+          selected: selected,
+          onTap: onTap,
+          onCoverLongPress: batch ? null : () => _openBookInfo(context, book),
+          onInfoLongPress: batch ? null : () => _openBookInfo(context, book),
+        ),
       ),
     );
   }
@@ -932,30 +932,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   ) {
     return SliverList.builder(
       itemCount: books.length,
-      itemBuilder: (context, index) {
-        final book = books[index];
-        // [UI-fix 2.0.258] 选择模式下分组列表同样走勾选态（与主列表一致）
-        final batch = ref.watch(
-          bookshelfNotifierProvider.select((s) => s.isBatchMode),
-        );
-        if (batch) {
-          final selected = ref.watch(
-            bookshelfNotifierProvider.select(
-              (s) => s.selectedUrls.contains(book.bookUrl),
-            ),
-          );
-          return PrivacyMaskedContent(
-            book: book,
-            child: _buildBatchListItem(context, ref, book, selected),
-          );
-        }
-        return BookListItem(
-          key: ValueKey(book.bookUrl),
-          book: book,
-          onTap: () => _openBook(context, ref, book),
-          onLongPress: () => _openBookInfo(context, book),
-        );
-      },
+      itemBuilder: (context, index) =>
+          _buildListItem(context, ref, books[index]),
     );
   }
 
@@ -1443,105 +1421,6 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     messenger.showSnackBar(
       SnackBar(
         content: Text(context.l10n.bookListImportFinished(ok, skip, fail)),
-      ),
-    );
-  }
-
-  /// [UI_SYNC_REFACTOR T3] 批量模式网格瓦片（选中高亮 + 勾选角标）
-  Widget _buildBatchGridItem(BuildContext context, WidgetRef ref, Book book) {
-    final selected = ref.watch(
-      bookshelfNotifierProvider.select(
-        (s) => s.selectedUrls.contains(book.bookUrl),
-      ),
-    );
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => ref
-          .read(bookshelfNotifierProvider.notifier)
-          .toggleSelect(book.bookUrl),
-      child: Container(
-        decoration: selected
-            ? BoxDecoration(
-                color: cs.secondaryContainer.withValues(alpha: 0.3),
-                // [骨架对齐 2.0.260] 与 2 列大封面卡片同圆角 12
-                borderRadius: BorderRadius.circular(12),
-              )
-            : null,
-        child: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.zero,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: BookGridItem(
-                  key: ValueKey(book.bookUrl),
-                  title: book.name,
-                  coverUrl: book.customCoverUrl ?? book.coverUrl,
-                  unreadNum: 0,
-                  sourceOrigin: book.origin,
-                ),
-              ),
-            ),
-            if (selected)
-              Positioned(
-                right: 4,
-                top: 4,
-                child: Icon(
-                  Symbols.check_circle_rounded,
-                  size: 22,
-                  color: cs.primary,
-                  fill: 1,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// [UI-fix 2.0.258] 选择模式列表行（勾选态）：选中高亮 + 尾部对勾，
-  /// 点按切换选中；文案对齐参考版「已选N本 · 共M本」胶囊口径
-  ///
-  /// [UI-fix 2.0.258 修正] 根因：`SliverReorderableList` 的惰性 `itemBuilder`
-  /// 要求返回的每个 item 必须携带 `Key`（reorderable_list.dart 断言
-  /// `child.key != null`，否则该 item 构建期抛异常、整行不渲染）。正常态
-  /// 分支返回 `BookListItem(key: ValueKey(bookUrl))` 天然满足；而批量态此前
-  /// 返回无 key 的 `Material`，导致选择模式下书卡列表整块空白（台账 1-5 P0
-  /// 复审缺陷）。现给外层 `Material` 补上稳定 `ValueKey(bookUrl)` 修复。
-  Widget _buildBatchListItem(
-    BuildContext context,
-    WidgetRef ref,
-    Book book,
-    bool selected,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      key: ValueKey(book.bookUrl),
-      color: selected
-          ? cs.secondaryContainer.withValues(alpha: 0.3)
-          : cs.surface,
-      child: Row(
-        children: [
-          Expanded(
-            child: BookListItem(
-              key: ValueKey(book.bookUrl),
-              book: book,
-              onTap: () => ref
-                  .read(bookshelfNotifierProvider.notifier)
-                  .toggleSelect(book.bookUrl),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              size: 22,
-              color: selected ? cs.primary : cs.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }

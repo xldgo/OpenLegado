@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -18,7 +17,7 @@ import '../utils/comic_image_utils.dart';
 /// 对标原版 res/drawable/image_cover_default.jpg）。
 ///
 /// 对齐原版 `CoverImageView` + Glide 列表行为：
-/// - 无 `coverDecodeJs`：`CachedNetworkImage` 直连（缩略 memCacheWidth）
+/// - 无 `coverDecodeJs`：`CachedNetworkImageProvider` 直连（限制解码宽度）
 /// - 有 `coverDecodeJs`：经 [CoverDecodeLoader] 限流/缓存/取消后走 FFI
 ///
 /// [UI-FIX v2.0.32 | 2026-08-11] 搜索列表封面解密卡顿 — Reasonix + UI
@@ -243,12 +242,12 @@ class _CoverImage extends ConsumerStatefulWidget {
   ConsumerState<_CoverImage> createState() => _CoverImageState();
 }
 
+/// 图片来源先同步选路，再交给同一个 Image 消费 Flutter 的图片缓存。— Codex + UI
 class _CoverImageState extends ConsumerState<_CoverImage> {
-  Uint8List? _decodedBytes;
-  bool _loadingDecode = false;
-  bool _useDirect = false;
-  bool _decodeFailed = false;
+  ImageProvider? _provider;
+  bool _hasFrame = false;
   int _loadGen = 0;
+  int _sourceRevision = 0;
   CoverDecodeTicket? _ticket;
 
   @override
@@ -261,7 +260,6 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
   void dispose() {
     _loadGen++;
     _ticket?.cancel();
-    _ticket = null;
     super.dispose();
   }
 
@@ -270,143 +268,114 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.coverUrl != widget.coverUrl ||
         oldWidget.sourceOrigin != widget.sourceOrigin ||
-        oldWidget.sourceJson != widget.sourceJson) {
+        oldWidget.sourceJson != widget.sourceJson ||
+        _sourceRevision != CoverDecodeLoader.sourceRevision) {
       _ticket?.cancel();
       _ticket = null;
-      _decodedBytes = null;
-      _decodeFailed = false;
-      _useDirect = false;
       unawaited(_startLoad());
     }
   }
 
-  Future<void> _startLoad() async {
-    final gen = ++_loadGen;
+  ImageProvider? _cachedOrDirectProvider(String patched) {
     final origin = widget.sourceOrigin?.trim() ?? '';
     final url = widget.coverUrl;
-
-    // 1) 内存缓存命中：立即显示，不占并发槽
-    final cached = CoverDecodeLoader.getCached(origin, url);
-    if (cached != null) {
-      if (!mounted || gen != _loadGen) return;
-      setState(() {
-        _decodedBytes = cached;
-        _loadingDecode = false;
-        _useDirect = false;
-        _decodeFailed = false;
-      });
-      return;
+    final cached = CoverDecodeLoader.getCached(
+      origin,
+      url,
+      patchedSourceJson: patched,
+    );
+    if (cached != null) return MemoryImage(cached);
+    if (CoverDecodeLoader.needsFfiDecode(
+      coverUrl: url,
+      patchedSourceJson: patched,
+    )) {
+      return null;
     }
+    return CachedNetworkImageProvider(
+      stripCompositeImageUrl(url),
+      cacheKey: CoverDecodeLoader.cacheKey(
+        origin,
+        url,
+        patchedSourceJson: patched,
+      ),
+    );
+  }
 
-    if (!mounted || gen != _loadGen) return;
-    setState(() {
-      _loadingDecode = true;
-      _decodeFailed = false;
-    });
+  Future<void> _startLoad() async {
+    final gen = ++_loadGen;
+    _sourceRevision = CoverDecodeLoader.sourceRevision;
+    _provider = null;
+    _hasFrame = false;
+    var patched = CoverDecodeLoader.peekPatchedSourceJson(
+      sourceJson: widget.sourceJson,
+      sourceOrigin: widget.sourceOrigin,
+    );
+    if (patched != null) {
+      _provider = _cachedOrDirectProvider(patched);
+      if (_provider != null) return;
+    }
 
     try {
       final api = ref.read(bookApiProvider);
-      final patched = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
-        sourceJson: widget.sourceJson,
-        sourceOrigin: widget.sourceOrigin,
-      );
+      patched ??=
+          await CoverDecodeLoader.resolvePatchedSourceJson(
+            api: api,
+            sourceJson: widget.sourceJson,
+            sourceOrigin: widget.sourceOrigin,
+          ) ??
+          '';
       if (!mounted || gen != _loadGen) return;
-
-      if (patched == null) {
-        // 书源解析失败：尝试直连兜底
-        setState(() {
-          _loadingDecode = false;
-          _useDirect = true;
-        });
-        return;
+      var provider = _cachedOrDirectProvider(patched);
+      if (provider == null) {
+        final bytes = await CoverDecodeLoader.load(
+          api: api,
+          coverUrl: widget.coverUrl,
+          patchedSourceJson: patched,
+          originOrEmpty: widget.sourceOrigin?.trim() ?? '',
+          isCancelled: () => gen != _loadGen || !mounted,
+          onTicket: (ticket) {
+            if (!mounted || gen != _loadGen) {
+              ticket?.cancel();
+            } else {
+              _ticket = ticket;
+            }
+          },
+        );
+        if (!mounted || gen != _loadGen) return;
+        if (bytes != null) provider = MemoryImage(bytes);
       }
-
-      final needFfi = CoverDecodeLoader.needsFfiDecode(
-        coverUrl: url,
-        patchedSourceJson: patched,
-      );
-      if (!needFfi) {
-        setState(() {
-          _loadingDecode = false;
-          _useDirect = true;
-        });
-        return;
-      }
-
-      final bytes = await CoverDecodeLoader.load(
-        api: api,
-        coverUrl: url,
-        patchedSourceJson: patched,
-        originOrEmpty: origin,
-        isCancelled: () => gen != _loadGen || !mounted,
-        onTicket: (t) {
-          if (gen != _loadGen) {
-            t?.cancel();
-            return;
-          }
-          _ticket = t;
-        },
-      );
-      if (!mounted || gen != _loadGen) return;
-      if (bytes != null) {
-        setState(() {
-          _decodedBytes = bytes;
-          _loadingDecode = false;
-          _decodeFailed = false;
-        });
-      } else {
-        setState(() {
-          _loadingDecode = false;
-          _decodeFailed = true;
-        });
-      }
+      setState(() => _provider = provider);
     } catch (e) {
       debugPrint('封面加载失败: $e');
       if (!mounted || gen != _loadGen) return;
-      setState(() {
-        _loadingDecode = false;
-        _decodeFailed = true;
-      });
+      setState(() => _provider = null);
     }
-  }
-
-  int _thumbWidth(BuildContext context) {
-    final pixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
-    return (widget.width * pixelRatio).round().clamp(1, 512);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_decodedBytes != null) {
-      final thumb = _thumbWidth(context);
-      return Image.memory(
-        _decodedBytes!,
-        fit: BoxFit.cover,
-        width: widget.width,
-        cacheWidth: thumb,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) => widget.placeholder,
-      );
-    }
-    if (_loadingDecode) {
-      return widget.placeholder;
-    }
-    if (_decodeFailed) {
-      return widget.placeholder;
-    }
-    if (!_useDirect) {
-      return widget.placeholder;
-    }
-    final url = stripCompositeImageUrl(widget.coverUrl);
-    return CachedNetworkImage(
-      imageUrl: url,
+    final provider = _provider;
+    if (provider == null) return widget.placeholder;
+    final pixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
+    final thumb = (widget.width * pixelRatio).round().clamp(1, 512);
+    return Image(
+      // 只在真实来源变化时重置帧，宽度或选择态变化沿用现有图片。
+      key: ValueKey((
+        widget.coverUrl,
+        widget.sourceOrigin,
+        widget.sourceJson,
+        _sourceRevision,
+      )),
+      image: ResizeImage.resizeIfNeeded(thumb, null, provider),
       fit: BoxFit.cover,
-      memCacheWidth: _thumbWidth(context),
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: Duration.zero,
-      placeholder: (_, _) => widget.placeholder,
-      errorWidget: (_, _, _) => widget.placeholder,
+      width: widget.width,
+      gaplessPlayback: true,
+      frameBuilder: (_, child, frame, synchronous) {
+        // 同一来源只改变缩略尺寸时，gaplessPlayback 仍持有上一帧。
+        _hasFrame = _hasFrame || synchronous || frame != null;
+        return _hasFrame ? child : widget.placeholder;
+      },
+      errorBuilder: (_, _, _) => widget.placeholder,
     );
   }
 }

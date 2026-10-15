@@ -19,12 +19,16 @@ class BookListItem extends StatelessWidget {
   final Book book;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final bool selectionMode;
+  final bool selected;
 
   const BookListItem({
     super.key,
     required this.book,
     this.onTap,
     this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
   });
 
   @override
@@ -40,117 +44,139 @@ class BookListItem extends StatelessWidget {
     return PrivacyMaskedContent(
       book: book,
       onTap: onTap,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          // [UI_SYNC_REFACTOR B1] 列表行 vertical12（全局标尺，对齐参考仓
-          // 行密度；原 top/bottom 4 偏挤）
-          padding: const EdgeInsets.only(
-            left: 8,
-            right: 16,
-            top: 12,
-            bottom: 12,
-          ),
-          child: Row(
-            children: [
-              BookCover(
-                coverUrl: book.customCoverUrl ?? book.coverUrl,
-                width: 66,
-                height: 90,
-                borderRadius: 4,
-                sourceOrigin: book.origin,
-                // Hero 封面过渡（书架↔详情，key=book url）
-                // [LAYOUT_MOTION_AUDIT M1] tag 统一 book-cover:（HapeLee 同义键）
-                heroTag: 'book-cover:${book.bookUrl}',
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 书名行 + 右上未读角标（对标 tv_name + bv_unread）
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 4, left: 2),
-                            child: Text(
-                              book.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.onSurface,
+      // 两种模式共用同一封面子树，只更新底色和尾部选择标记。— Codex + UI
+      child: Material(
+        color: selectionMode && selected
+            ? colorScheme.secondaryContainer.withValues(alpha: 0.3)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            // [UI_SYNC_REFACTOR B1] 列表行 vertical12（全局标尺，对齐参考仓
+            // 行密度；原 top/bottom 4 偏挤）
+            padding: const EdgeInsets.only(
+              left: 8,
+              right: 16,
+              top: 12,
+              bottom: 12,
+            ),
+            child: Row(
+              children: [
+                BookCover(
+                  coverUrl: book.customCoverUrl ?? book.coverUrl,
+                  width: 66,
+                  height: 90,
+                  borderRadius: 4,
+                  sourceOrigin: book.origin,
+                  // Hero 封面过渡（书架↔详情，key=book url）
+                  // [LAYOUT_MOTION_AUDIT M1] tag 统一 book-cover:（HapeLee 同义键）
+                  heroTag: 'book-cover:${book.bookUrl}',
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 书名行 + 右上未读角标（对标 tv_name + bv_unread）
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: 4,
+                                left: 2,
+                              ),
+                              child: Text(
+                                book.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (unread > 0)
-                          Padding(
-                            padding: const EdgeInsets.all(5),
-                            child: Badge.count(count: unread, maxCount: 99),
-                          ),
-                      ],
-                    ),
-                    // 作者 + 更新时间行（对标 iv_author + tv_author + tv_last_update_time）
-                    _SummaryRow(
-                      icon: Symbols.person_rounded,
-                      text: book.author,
-                      style: summaryStyle,
-                      trailing: book.latestChapterTime > 0
-                          ? Text(
-                              timeAgo(book.latestChapterTime),
-                              maxLines: 1,
-                              style: summaryStyle,
-                            )
-                          : null,
-                    ),
-                    // 阅读进度行（对标 iv_read + tv_read：显示当前阅读章节）
-                    if ((book.durChapterTitle ?? '').isNotEmpty)
-                      _SummaryRow(
-                        icon: Symbols.history_rounded,
-                        text: book.durChapterTitle!,
-                        style: summaryStyle,
+                          if (unread > 0)
+                            Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: Badge.count(count: unread, maxCount: 99),
+                            ),
+                        ],
                       ),
-                    // 最新章节行 + 百分比（对标 iv_last + tv_last + tv_read_percent）
-                    if ((book.latestChapterTitle ?? '').isNotEmpty)
+                      // 作者 + 更新时间行（对标 iv_author + tv_author + tv_last_update_time）
                       _SummaryRow(
-                        icon: Symbols.last_page_rounded,
-                        text: book.latestChapterTitle!,
+                        icon: Symbols.person_rounded,
+                        text: book.author,
                         style: summaryStyle,
-                        trailing: progress != null
+                        trailing: book.latestChapterTime > 0
                             ? Text(
-                                '${(progress * 100).round()}%',
+                                timeAgo(book.latestChapterTime),
                                 maxLines: 1,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                                style: summaryStyle,
                               )
                             : null,
                       ),
-                    // 底部阅读进度条（对标 pb_read_progress，2dp，accent 色）
-                    if (progress != null) ...[
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(1),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 2,
-                          backgroundColor: colorScheme.primary.withValues(
-                            alpha: 0.2,
-                          ),
-                          valueColor: AlwaysStoppedAnimation(
-                            colorScheme.primary,
+                      // 阅读进度行（对标 iv_read + tv_read：显示当前阅读章节）
+                      if ((book.durChapterTitle ?? '').isNotEmpty)
+                        _SummaryRow(
+                          icon: Symbols.history_rounded,
+                          text: book.durChapterTitle!,
+                          style: summaryStyle,
+                        ),
+                      // 最新章节行 + 百分比（对标 iv_last + tv_last + tv_read_percent）
+                      if ((book.latestChapterTitle ?? '').isNotEmpty)
+                        _SummaryRow(
+                          icon: Symbols.last_page_rounded,
+                          text: book.latestChapterTitle!,
+                          style: summaryStyle,
+                          trailing: progress != null
+                              ? Text(
+                                  '${(progress * 100).round()}%',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      // 底部阅读进度条（对标 pb_read_progress，2dp，accent 色）
+                      if (progress != null) ...[
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(1),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 2,
+                            backgroundColor: colorScheme.primary.withValues(
+                              alpha: 0.2,
+                            ),
+                            valueColor: AlwaysStoppedAnimation(
+                              colorScheme.primary,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                if (selectionMode) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    selected
+                        ? Symbols.check_circle_rounded
+                        : Symbols.radio_button_unchecked_rounded,
+                    size: 22,
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                    fill: selected ? 1 : 0,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

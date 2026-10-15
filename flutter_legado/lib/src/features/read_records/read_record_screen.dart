@@ -352,16 +352,15 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                           ),
                         if (controls.displayMode ==
                             ReadRecordDisplayMode.latest)
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            sliver: SliverList.builder(
-                              itemCount: entries.length,
-                              itemBuilder: (_, index) => Consumer(
-                                builder: (_, tileRef, _) => _tile(
-                                  entries[index],
-                                  controls.displayMode,
-                                  tileRef,
-                                ),
+                          // 留白归于行内，点击水波纹和选中底色覆盖整行。— Codex + UI
+                          SliverList.builder(
+                            itemCount: entries.length,
+                            itemBuilder: (_, index) => Consumer(
+                              key: ValueKey(entries[index].key),
+                              builder: (_, tileRef, _) => _tile(
+                                entries[index],
+                                controls.displayMode,
+                                tileRef,
                               ),
                             ),
                           )
@@ -590,9 +589,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   SizedBox(
                     width: 44,
                     height: 62,
-                    child: selected
-                        ? const Icon(Symbols.check_circle_rounded)
-                        : BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
+                    child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -633,6 +630,15 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       ],
                     ),
                   ),
+                  if (_selected.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Icon(
+                      selected
+                          ? Symbols.check_circle_rounded
+                          : Symbols.radio_button_unchecked_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -737,7 +743,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   : _selected.add(entry.key),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   SizedBox(
@@ -745,17 +751,31 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                     height: 62,
                     child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
                   ),
-                  if (_selected.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      selected
-                          ? Symbols.check_circle_rounded
-                          : Symbols.radio_button_unchecked_rounded,
-                      size: 20,
+                  // 固定保留封面，只让勾选槽位展开或收起。— Codex + UI
+                  AnimatedSize(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    curve: Curves.easeInOutCubic,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SizedBox(
+                      width: _selected.isNotEmpty ? 36 : 16,
+                      height: 20,
+                      child: _selected.isNotEmpty
+                          ? Icon(
+                              selected
+                                  ? Symbols.check_circle_rounded
+                                  : Symbols.radio_button_unchecked_rounded,
+                              size: 20,
+                              color: selected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                            )
+                          : null,
                     ),
-                    const SizedBox(width: 8),
-                  ] else
-                    const SizedBox(width: 16),
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,25 +827,16 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ),
             ),
           );
-    final tile = PrivacyMaskedContent(
-      bookName: entry.bookName,
-      author: entry.author,
-      onTap: () => _open(entry),
-      child: Material(
-        color: selected
-            ? Theme.of(context).colorScheme.secondaryContainer
-            : Colors.transparent,
-        child: content,
-      ),
-    );
-    if (_selected.isNotEmpty) return tile;
     return PrivacyMaskedContent(
       bookName: entry.bookName,
       author: entry.author,
       onTap: () => _open(entry),
       child: Dismissible(
         key: ValueKey(entry.key),
-        direction: DismissDirection.endToStart,
+        // 选择态只禁用滑动，保留封面所在的元素树。— Codex + UI
+        direction: _selected.isEmpty
+            ? DismissDirection.endToStart
+            : DismissDirection.none,
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.all(16),
@@ -835,7 +846,12 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           await _delete([entry]);
           return false;
         },
-        child: tile,
+        child: Material(
+          color: selected
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : Colors.transparent,
+          child: content,
+        ),
       ),
     );
   }
