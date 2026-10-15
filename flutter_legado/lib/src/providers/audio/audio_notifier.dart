@@ -20,6 +20,7 @@ import '../../models/book.dart';
 import '../../services/audio_service.dart';
 import '../../services/book_api.dart';
 import '../../services/stream_audio_player.dart';
+import '../../services/read_aloud_audio_player.dart';
 import '../../platform/tts/system_tts.dart';
 import '../../features/read_aloud/tts_providers.dart';
 import '../../features/read_aloud/playback/read_aloud_engine.dart';
@@ -239,12 +240,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       },
       onCompleted: () => unawaited(_onParagraphFinished()),
       onError: (error) {
-        if (isCloudTts(engineUrl)) {
+        if (engineUrl != systemTtsEngineUrl) {
+          final currentUnit = _paragraphUnits[_paragraphIndex];
           _paragraphStartOffset =
-              ((readAloudPosition.value?.offset ?? base) - unit.start).clamp(
-                0,
-                unit.text.length,
-              );
+              ((readAloudPosition.value?.offset ?? base) - currentUnit.start)
+                  .clamp(0, currentUnit.text.length);
         }
         pause();
         state = state.copyWith(errorMessage: '朗读不可用：$error');
@@ -432,6 +432,20 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       }
       _httpEngine.handleCompleted(tag);
       _cloudEngine.handleCompleted(tag);
+    };
+    _streamPlayer.onError = (error, tag) {
+      if (_disposed) return;
+      if (state.isStreamMode) {
+        if (!_isCurrentStreamChapter(tag)) return;
+        pause();
+        state = state.copyWith(
+          state: PlayerState.error,
+          errorMessage: '音频播放失败：$error',
+        );
+        return;
+      }
+      _httpEngine.handleError(error, tag);
+      _cloudEngine.handleError(error, tag);
     };
     _streamPlayer.onProgress = (pos, dur, tag) {
       if (_disposed) return;
@@ -1048,6 +1062,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         return;
       }
     } catch (e) {
+      if (token != _playToken || _disposed) return;
       state = state.copyWith(
         errorMessage: e.toString(),
         state: PlayerState.error,
@@ -1225,7 +1240,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 合成并播放当前段落（A1 批主路径）
   ///
-  /// 链路：HTTP 合成（Rust 合成 MD5 缓存落盘）→ StreamAudioPlayer.playLocalFile
+  /// 链路：HTTP 合成（Rust 缓存落盘）→ 统一纯音频后端播放
   /// → 播放完成回调（onCompleted）驱动 [_onParagraphFinished] 推进下一段。
   /// 估算时长 Timer 仅在合成/播放失败降级时使用，且失败经
   /// [AudioState.errorMessage] 给用户可见提示（不静默）。
@@ -1337,7 +1352,33 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           text: text,
         ),
       );
-      final result = await engine.speak(request, session);
+      final playlist = switch (engine) {
+        ReadAloudPlaylistEngine candidate => candidate,
+        _ => null,
+      };
+      final result =
+          playlist?.supportsPlaylist == true &&
+              _api.ttsCacheRepository.supportsAudioFiles
+          ? await playlist!.speakPlaylist(
+              _filePlaybackCues(request, cloud),
+              session,
+              onCueStarted: (cue) {
+                // 暂停续播替换段落会话，队列自身检查新会话；此处只核对书章身份。
+                if (_disposed ||
+                    !state.isPlaying ||
+                    state.bookUrl != request.cacheContext!.bookUrl ||
+                    state.currentIndex != request.cacheContext!.chapterIndex ||
+                    resolveTtsEngineUrl() != request.engineUrl) {
+                  return;
+                }
+                _paragraphIndex = cue.paragraphIndex;
+                _paragraphStartOffset =
+                    cue.sourceOffset - _paragraphUnits[_paragraphIndex].start;
+                _publishReadAloudPosition(offset: cue.sourceOffset);
+                notifyListeners();
+              },
+            )
+          : await engine.speak(request, session);
       if (_isSpeakStale(token, gen) || result == ReadAloudStart.cancelled) {
         return;
       }
@@ -1377,6 +1418,48 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     // （无引擎配置时已在上面的空判定提前返回，保持既有静默估算行为）
     state = state.copyWith(errorMessage: '朗读音频不可用，本段按估算时长继续：$failure');
     _scheduleEstimateAdvance(text, config.speed, token, gen);
+  }
+
+  /// 原生队列只预先起播当前章；段间停顿不作用于同段内部的长度分片。
+  List<ReadAloudPlaylistCue> _filePlaybackCues(
+    ReadAloudRequest request,
+    CloudTtsEngine? cloud,
+  ) {
+    final end = ref.read(readAloudPreferencesProvider).paragraphIntervalMs > 0
+        ? _paragraphIndex + 1
+        : _paragraphUnits.length;
+    final cues = <ReadAloudPlaylistCue>[];
+    for (var index = _paragraphIndex; index < end; index++) {
+      final unit = _paragraphUnits[index];
+      final offset = index == _paragraphIndex ? _paragraphStartOffset : 0;
+      final text = unit.text.substring(offset);
+      final List<ReadAloudUnit> parts = cloud == null
+          ? [(text: text, start: 0)]
+          : splitSpeechRequests(
+              text,
+              limit: cloudTtsProfile(cloud.provider).textLimit,
+            ).map((part) => (text: part.text, start: part.start)).toList();
+      for (final part in parts) {
+        cues.add(
+          ReadAloudPlaylistCue(
+            request: request.copyWith(
+              text: part.text,
+              cacheContext: TtsCacheContext(
+                bookUrl: state.bookUrl,
+                bookName: state.bookName,
+                chapterIndex: state.currentIndex,
+                chapterTitle: state.currentChapter?.title ?? '',
+                paragraphIndex: index,
+                text: part.text,
+              ),
+            ),
+            sourceOffset: unit.start + offset + part.start,
+            paragraphIndex: index,
+          ),
+        );
+      }
+    }
+    return cues;
   }
 
   final _pageRanges =
@@ -1828,6 +1911,24 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       speed: ref.read(readAloudPreferencesProvider).effectiveSpeed,
       persistBookSpeed: false,
     );
+  }
+
+  /// 停顿策略变化后从当前原文锚点重建队列，避免已经入队的下一段绕过新停顿。
+  Future<void> setReadAloudParagraphInterval(int milliseconds) async {
+    final token = _playToken, generation = _speakGeneration;
+    final playing = state.isPlaying;
+    final anchor = readAloudPosition.value?.offset;
+    await ref
+        .read(readAloudPreferencesProvider.notifier)
+        .setParagraphInterval(milliseconds);
+    if (_isSpeakStale(token, generation) ||
+        state.isStreamMode ||
+        anchor == null ||
+        resolveTtsEngineUrl() == systemTtsEngineUrl) {
+      return;
+    }
+    _pendingChapterPos = anchor;
+    await _playTtsParagraphs(startPlaying: playing);
   }
 
   Future<void> setReadAloudSpeed(
@@ -2761,6 +2862,8 @@ final audioServiceProvider = Provider<AudioService>(
 
 /// StreamAudioPlayer 注入点（单元测试 override 为 Fake/Mock；
 /// 生产环境单实例，TTS 与音频书路径共用）
-final streamAudioPlayerProvider = Provider<StreamAudioPlayer>(
-  (ref) => StreamAudioPlayer(),
-);
+final streamAudioPlayerProvider = Provider<StreamAudioPlayer>((ref) {
+  final player = ReadAloudAudioPlayer();
+  ref.onDispose(() => unawaited(player.dispose()));
+  return player;
+});

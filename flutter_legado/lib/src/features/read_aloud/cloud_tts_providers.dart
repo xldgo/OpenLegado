@@ -1,4 +1,5 @@
 import '../../services/stream_audio_player.dart';
+import '../../services/read_aloud_audio_player.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,5 +49,5 @@ class _MockSynthesizer implements CloudTtsSynthesizer {
 
 /// 试听有独立播放器，不能接管正文的完成标签。
 final cloudTtsPreviewPlayerProvider = Provider.autoDispose<StreamAudioPlayer>(
-  (ref) => StreamAudioPlayer(),
+  (ref) => ReadAloudAudioPlayer(),
 );

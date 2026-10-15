@@ -1,9 +1,11 @@
 import '../../../domain/contracts/http_tts_synthesizer.dart';
 import '../../../services/stream_audio_player.dart';
+import '../../../services/audio_playlist_player.dart';
+import 'file_read_aloud_playlist.dart';
 import 'read_aloud_engine.dart';
 
 /// 合成与文件播放适配，不维护正文队列或另存缓存。— Codex + UI
-class FileReadAloudEngine implements ReadAloudEngine {
+class FileReadAloudEngine implements ReadAloudEngine, ReadAloudPlaylistEngine {
   FileReadAloudEngine({required this.synthesize, required this.player});
   final Future<HttpTtsSynthesisResult> Function(
     ReadAloudRequest,
@@ -11,6 +13,22 @@ class FileReadAloudEngine implements ReadAloudEngine {
   )
   synthesize;
   final StreamAudioPlayer player;
+  late final FileReadAloudPlaylist? _playlist = player is AudioPlaylistPlayer
+      ? FileReadAloudPlaylist(player: player, synthesize: synthesize)
+      : null;
+  @override
+  bool get supportsPlaylist => _playlist != null;
+  @override
+  Future<ReadAloudStart> speakPlaylist(
+    List<ReadAloudPlaylistCue> cues,
+    ReadAloudSession session, {
+    required void Function(ReadAloudPlaylistCue) onCueStarted,
+  }) async {
+    if (_playlist!.active) await _playlist.stop();
+    if (!session.isCurrent) return ReadAloudStart.cancelled;
+    return _playlist.speak(cues, session, onCueStarted: onCueStarted);
+  }
+
   HttpTtsAudio? _audio;
   ReadAloudSession? _session;
   HttpTtsCancellation? _pending;
@@ -20,12 +38,13 @@ class FileReadAloudEngine implements ReadAloudEngine {
   Future<void> _pauseBarrier = Future.value();
 
   @override
-  bool get canResume =>
-      _paused &&
-      _loaded &&
-      _session != null &&
-      player.isInitialized &&
-      identical(player.currentTag, _session);
+  bool get canResume => _playlist?.active == true
+      ? _playlist!.canResume
+      : _paused &&
+            _loaded &&
+            _session != null &&
+            player.isInitialized &&
+            identical(player.currentTag, _session);
 
   @override
   Future<ReadAloudStart> speak(
@@ -79,6 +98,12 @@ class FileReadAloudEngine implements ReadAloudEngine {
     if (identical(tag, _session)) _session?.complete();
   }
 
+  void handleError(Object error, Object? tag) {
+    if (!identical(tag, _session)) return;
+    _loaded = false;
+    _session?.fail(error);
+  }
+
   void handleProgress(Duration position, Duration duration, Object? tag) {
     if (!identical(tag, _session) || duration.inMilliseconds <= 0) return;
     final offset =
@@ -90,6 +115,7 @@ class FileReadAloudEngine implements ReadAloudEngine {
 
   @override
   Future<void> pause() {
+    if (_playlist?.active == true) return _playlist!.pause();
     final session = _session;
     final ready =
         _loaded &&
@@ -109,6 +135,9 @@ class FileReadAloudEngine implements ReadAloudEngine {
 
   @override
   Future<void> stop({Future<void>? playbackStopped}) {
+    if (_playlist?.active == true) {
+      return _playlist!.stop(playbackStopped: playbackStopped);
+    }
     _pauseBarrier = Future.value();
     _loaded = false;
     _paused = false;
@@ -125,6 +154,7 @@ class FileReadAloudEngine implements ReadAloudEngine {
 
   @override
   Future<ReadAloudStart> resume(ReadAloudSession session) async {
+    if (_playlist?.active == true) return _playlist!.resume(session);
     final previous = _session;
     await _pauseBarrier;
     if (!session.isCurrent ||

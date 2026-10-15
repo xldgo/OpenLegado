@@ -1,5 +1,34 @@
 # Legado 后续重构执行计划（Active）
 
+### MEDIA-CONSOLIDATION-20261015：纯音频统一（P1）
+
+- 最新授权：用户于2026-10-15明确仅执行正文TTS、音频书和音色试听统一just_audio，取消旧音频后端回退；暂不删除视频相关代码。沿用reimplement_tts_t2a_task / 1168a4726及前批未提交播放器成果，不新建分支，不自动提交/推送/CI，版本2.0.373+374保持。
+- 执行范围：原方案A0/A1及其测试/文档收口。StreamAudioPlayer改为纯音频契约，ReadAloudAudioPlayer直接实现本地文件、网络URL和原生队列，试听独立实例同后端；保留原位恢复、tag归属、倍速、取消及媒体会话唯一焦点所有者，并接入异步解码错误。
+- 明确保留：视频页面、弹幕、视频分组、视频悬浮窗及Android服务、Rust视频接口、local_media_source工具和video_player依赖；不改FFI、数据库或CI。原方案A2～A5的视频删除部分后置，不能据旧计划继续执行。
+- 验收：正文队列、音频书进度/章末/倍速/中断、试听取消/租约/异步错误定向回归；实际native验证与平台未测分别记录。原生设备测试仅隔离实例，事前备份且显式--no-uninstall；前批MuMu原数据恢复仍独立未完成。
+- 方法：[AUDIO_PLAYER_UNIFICATION.md](AUDIO_PLAYER_UNIFICATION.md)，以本条最新范围为准；历史视频取舍记录只作追溯。
+- 验证：5份播放器/协调层/试听测试46项通过，17份相关音频与界面回归182项通过；Windows真实WAV队列与loopback HTTP音频书2项通过，覆盖暂停/seek/换绑/自然完成。Android Debug APK构建与包内原生库校验通过，复用严格校验的当前Rust产物；未向MuMu安装。日志在忽略目录flutter_legado/build/audio-unification-{new-tests,regression,windows-runtime,android-build,analyze}.log。完整flutter analyze --no-pub无问题，git diff --check通过。
+- 提交前复核：出队确认前固定已播边界，避免确认期间连续换片提前释放仍被原生引用的租约；对应竞态及播放器、协调层、试听五份测试39项通过。用户于2026-10-15授权提交当前批次；不推送、不触发CI，后续通知封面另批实施。
+- MuMu安装：按用户后续授权覆盖安装正常入口APK并启动。安装前完整备份，安装前后UID与Launcher4不变，34张数据库表逻辑内容及schema一致，启动日志无崩溃；证据在忽略目录flutter_legado/build/audio-unification-mumu-install/。前述“未向MuMu安装”是初次验证时状态，以本条后续安装为准；未在MuMu重复执行集成测试。
+- 状态：本批纯音频实现及上述定向验证通过，准备本地提交。Android新后端运行时焦点/后台、iOS后台/锁屏仍未实测；视频相关产品代码、原生服务和Rust接口未修改，视频依赖保持。前批MuMu原数据恢复不在本批销账。
+
+编写者：Codex｜2026-10-15
+
+### TTS-PLAYLIST-20261015：HTTP与云端朗读原生播放队列（P1）
+
+- 授权：用户要求对照上游优化段落/分片衔接。当前reimplement_tts_t2a_task / 1168a4726，工作区干净；不创建分支、不使用子代理、不自动提交/推送/CI，版本2.0.373+374不变。
+- 参考：固定HapeLee/legado-with-MD3的4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5，HttpReadAloudService在零间隔时向复用ExoPlayer追加MediaItem；有段间停顿时独立调度。保留现有合成、缓存与媒体会话；系统直接speak及视频不迁移。
+- 方案：引入just_audio及Windows实现，纯音频队列使用原生播放列表与有限前瞻，单元携带原文范围及逻辑段落身份；AudioNotifier仍拥有章节、定时和手动操作。零段间隔只排当前章连续单元，有停顿时只连续排同一段内的云端分片；不跨章预先起播，不以失败静音或自动跳过掩盖错误。
+- 验收：同播放器内自动换项、前瞻有界且租约覆盖排队/播放、暂停原位恢复、停止/切章/定位/换引擎使旧结果失效；合成/装载失败不抢先跳过正文，云端分片完成不误消费章末。测量原生队列切换/缓冲，不承诺音频自带静音为零。iOS真机验证按既有要求后置。
+- 实现：新增AudioPlaylistPlayer/ReadAloudAudioPlayer薄适配及FileReadAloudPlaylist，文件引擎按可选能力接入；AudioNotifier仍负责原文、章节和定时。只保留当前加两份后续文件，先从原生出队再释放租约；暂停、迟到追加、首项/后项失败、快速取消及原生中间态都有定向用例。Windows在删除前项后显式同步索引，避免WinRT事件不全导致跳片；结束判定区分逐项和队尾。Windows插件局部使用C++20/UTF-8/MSVC兼容模式，不修改Pub缓存。
+- 验证：3份新增单元/协调层测试24项通过，原有10份朗读/界面回归147项通过；MuMu和Windows真实WAV队列测试各1项通过。MuMu相同8×400ms文件总耗时4052→3429ms，创建播放器8→1；Windows新队列3326ms，原video_player无Windows后端，不作伪对照。均为Debug单次调度测量，包含加载及回调，非声学无缝或发布性能结论。指标、测试和构建日志位于忽略目录flutter_legado/build/tts-playlist-*；方法及上游链接见TTS_ALIGNMENT.md。本批使用Flutter分层、Dart单元测试与静态分析技能，单代理执行。
+- 边界：未修改Rust/FRB契约、签名、工作流或版本。首项HTTP合成失败保留旧提示/估算策略，后项失败不静音跳过。iOS真实后台/锁屏、真实云服务不同格式衔接按既有约定未验收，不能用WAV夹具代替；本批未提交、未推送、未触发CI。
+- MuMu复装：最终Debug正常入口APK构建与包内原生库校验通过，覆盖安装2.0.373+374，恢复Launcher4，六项启动冒烟通过；完整静态分析及git diff --check通过。不得据此宣称旧应用数据保留。
+- 验证事故与恢复：本轮flutter test设备集成测试未指定--no-uninstall；本地Flutter 3.47.7的TestCommand默认uninstall=true，IntegrationTestTestDevice.kill在测试后卸载包，造成MuMu原应用数据清除。安装后UID更换，旧截图有书籍而当前书架为空。已向用户说明并致歉；当前仓库与模拟器共享目录未找到可用备份，等待用户提供备份/快照位置，禁止凭截图伪造恢复。后续原生测试必须使用隔离测试设备、执行前备份，并明确--no-uninstall；不再在MuMu验收实例继续运行集成测试。
+- 状态：播放器代码及定向验证通过，未提交；MuMu原数据恢复尚未完成，不能将本批交付表述为无副作用完成。
+
+编写者：Codex｜2026-10-15
+
 ### TTS-PLAYER-INTEGRATION-20261015：播放器与共用Sheet提交集成（P1）
 
 - 授权：用户要求提交当前worktree并合并到主目录。包含TTS-PLAYER-UI、TTS-BACKGROUND、TTS-SOURCE-PROGRESS、TTS-TIMER-SPEED及TTS-SHEET-DESIGN五批已验证成果；保留2.0.373+374，不推送、不触发CI。

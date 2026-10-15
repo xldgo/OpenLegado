@@ -125,6 +125,8 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
   @override
   void Function(Object? tag)? onCompleted;
   @override
+  void Function(Object error, Object? tag)? onError;
+  @override
   void Function(Duration position, Duration duration, Object? tag)? onProgress;
 
   /// 当前装载绑定的归属标识（模拟真实播放器闭包捕获的 tag，stop 后清空）
@@ -226,7 +228,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
     isInitialized = false;
   }
 
-  /// 模拟当前音频自然播完（video_player 完成事件 → onCompleted 回调，
+  /// 模拟当前音频自然播完（纯音频后端完成事件 → onCompleted 回调，
   /// 携带本次装载的归属标识）
   void completePlayback() {
     isPlaying = false;
@@ -239,7 +241,7 @@ class FakeStreamAudioPlayer implements StreamAudioPlayer {
     onCompleted?.call(tag);
   }
 
-  /// 模拟播放器上报进度（video_player 位置回调 → onProgress，
+  /// 模拟播放器上报进度（纯音频后端位置回调 → onProgress，
   /// 携带本次装载的归属标识）
   void emitProgress(Duration position, Duration duration) {
     this.position = position;

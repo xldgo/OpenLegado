@@ -2,8 +2,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
 // D1 回归护栏：音频焦点唯一所有者语义不变。
 //
-// 修复方案是「底层 media3 播放器不再请求焦点（StreamAudioPlayer
-// .playbackOptions / stream_audio_player_focus_test.dart），
+// 纯音频后端使用 just_audio，关闭自动焦点/中断及音频会话激活，
 // MediaSessionBridge 继续作为唯一焦点所有者」。
 // 本文件从 Dart 侧钉住焦点事件处理：外部抢占（loss/lossTransient）
 // 仍然暂停真实播放（流模式 pause、TTS 停止当前段），gain 恢复，

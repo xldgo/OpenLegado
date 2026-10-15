@@ -57,6 +57,13 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# 音频插件使用 WinRT 协程；新 MSVC 需要标准协程及明确的 UTF-8 源码编码。
+# 该插件仍使用旧成员限定名语法，仅在此目标保留 MSVC 兼容模式。
+if(TARGET just_audio_windows_plugin)
+  target_compile_features(just_audio_windows_plugin PRIVATE cxx_std_20)
+  target_compile_options(just_audio_windows_plugin PRIVATE /utf-8 /permissive)
+endif()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

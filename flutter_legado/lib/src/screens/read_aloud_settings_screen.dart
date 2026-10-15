@@ -210,9 +210,9 @@ class _ReadAloudSettingsScreenState
                 unit: strings.readAloudSecondsUnit,
                 onChanged: enabled
                     ? (value) => _save(
-                        () => ref
-                            .read(readAloudPreferencesProvider.notifier)
-                            .setParagraphInterval((value * 1000).round()),
+                        () => notifier.setReadAloudParagraphInterval(
+                          (value * 1000).round(),
+                        ),
                       )
                     : null,
               ),

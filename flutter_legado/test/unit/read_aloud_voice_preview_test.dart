@@ -166,4 +166,19 @@ void main() {
     await preview.speak(voice('nova'), '不会播放');
     expect(player.playedLocalFiles, isEmpty);
   });
+  test('试听异步解码失败结束会话，旧音色错误不会终止新试听', () async {
+    await preview.speak(voice('alloy'), '测试', draft: true);
+    final oldTag = player.currentTag;
+    player.onError!(StateError('试听解码失败'), oldTag);
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(errors, hasLength(1));
+    expect(errors.single.toString(), contains('试听解码失败'));
+    expect(changes.last, isNull);
+    await preview.speak(voice('nova'), '新试听', draft: true);
+    player.onError!(StateError('旧错误'), oldTag);
+    expect(errors, hasLength(1));
+    expect(changes.last, voice('nova').id);
+  });
 }

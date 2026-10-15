@@ -108,3 +108,24 @@ final class ReadAloudSession {
 
   void cancel() => _ended = true;
 }
+
+/// 播放文件的原文映射；一个逻辑段落可包含多个云端长度分片。— Codex + UI
+final class ReadAloudPlaylistCue {
+  const ReadAloudPlaylistCue({
+    required this.request,
+    required this.sourceOffset,
+    required this.paragraphIndex,
+  });
+  final ReadAloudRequest request;
+  final int sourceOffset, paragraphIndex;
+}
+
+/// 文件引擎的可选能力，系统直接朗读不实现此接口。
+abstract interface class ReadAloudPlaylistEngine {
+  bool get supportsPlaylist;
+  Future<ReadAloudStart> speakPlaylist(
+    List<ReadAloudPlaylistCue> cues,
+    ReadAloudSession session, {
+    required void Function(ReadAloudPlaylistCue cue) onCueStarted,
+  });
+}

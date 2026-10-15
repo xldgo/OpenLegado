@@ -35,6 +35,10 @@ final class ReadAloudVoicePreview {
       _cloud.handleCompleted(tag);
       _http.handleCompleted(tag);
     };
+    player.onError = (error, tag) {
+      _cloud.handleError(error, tag);
+      _http.handleError(error, tag);
+    };
     player.onProgress = (p, d, tag) {
       _cloud.handleProgress(p, d, tag);
       _http.handleProgress(p, d, tag);

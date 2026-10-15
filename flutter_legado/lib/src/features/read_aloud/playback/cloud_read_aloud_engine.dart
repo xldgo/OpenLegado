@@ -13,7 +13,8 @@ import 'read_aloud_engine.dart';
 import 'read_aloud_synthesis_queue.dart';
 
 /// 分片只属于当前段落，章节队列/通知/定时仍由 AudioNotifier 拥有。— Codex + UI
-final class CloudReadAloudEngine implements ReadAloudEngine {
+final class CloudReadAloudEngine
+    implements ReadAloudEngine, ReadAloudPlaylistEngine {
   CloudReadAloudEngine({
     required CloudTtsSynthesizer Function() synthesizer,
     required StreamAudioPlayer player,
@@ -45,6 +46,28 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
   final FileReadAloudEngine _file;
   ReadAloudRequest? get currentRequest => _request;
   final CloudTtsRepository Function()? repository;
+  bool _playlistActive = false;
+  @override
+  bool get supportsPlaylist => _file.supportsPlaylist;
+  @override
+  Future<ReadAloudStart> speakPlaylist(
+    List<ReadAloudPlaylistCue> cues,
+    ReadAloudSession session, {
+    required void Function(ReadAloudPlaylistCue) onCueStarted,
+  }) {
+    _playlistActive = true;
+    _parent = session;
+    _request = cues.first.request;
+    return _file.speakPlaylist(
+      cues,
+      session,
+      onCueStarted: (cue) {
+        _request = cue.request;
+        onCueStarted(cue);
+      },
+    );
+  }
+
   ReadAloudSession? _parent;
   ReadAloudRequest? _request;
   List<String> _parts = [];
@@ -138,6 +161,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
   }
 
   void handleCompleted(Object? tag) => _file.handleCompleted(tag);
+  void handleError(Object error, Object? tag) => _file.handleError(error, tag);
   void handleProgress(Duration position, Duration duration, Object? tag) =>
       _file.handleProgress(position, duration, tag);
   @override
@@ -150,6 +174,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
   Future<void> stop({Future<void>? playbackStopped}) {
     _parent?.cancel();
     _parent = null;
+    _playlistActive = false;
     _request = null;
     _parts = [];
     _index = 0;
@@ -162,7 +187,7 @@ final class CloudReadAloudEngine implements ReadAloudEngine {
       return Future.value(ReadAloudStart.cancelled);
     }
     _parent = session;
-    return _file.resume(_child(session));
+    return _file.resume(_playlistActive ? session : _child(session));
   }
 }
 
