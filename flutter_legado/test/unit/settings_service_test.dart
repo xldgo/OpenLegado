@@ -13,63 +13,6 @@ void main() {
     service = SettingsService();
   });
 
-  group('SettingsService 亮度', () {
-    test('默认亮度为 -1.0（跟随系统）', () async {
-      expect(await service.getBrightness(), equals(-1.0));
-    });
-
-    test('设置并读取亮度', () async {
-      await service.setBrightness(0.8);
-      expect(await service.getBrightness(), equals(0.8));
-    });
-  });
-
-  // [红线清理 2.0.260 | 台账 1-3] 书架统计/最近阅读开关测试随 SettingsService
-  // 对应方法一并移除（功能已清理，原版该开关默认关闭）
-
-  group('SettingsService 语言设置', () {
-    test('默认语言为 system', () async {
-      expect(await service.getLocale(), equals('system'));
-    });
-
-    test('设置并读取语言', () async {
-      await service.setLocale('zh_CN');
-      expect(await service.getLocale(), equals('zh_CN'));
-    });
-  });
-
-  group('SettingsService 网络设置', () {
-    test('代理默认为 none', () async {
-      expect(await service.getProxyType(), 'none');
-      expect(await service.getProxyHost(), '');
-      expect(await service.getProxyPort(), 0);
-    });
-
-    test('代理配置读写一致', () async {
-      await service.setProxyType('http');
-      await service.setProxyHost('127.0.0.1');
-      await service.setProxyPort(7890);
-      expect(await service.getProxyType(), 'http');
-      expect(await service.getProxyHost(), '127.0.0.1');
-      expect(await service.getProxyPort(), 7890);
-    });
-
-    test('SOCKS5 代理读写一致', () async {
-      await service.setProxyType('socks5');
-      await service.setProxyHost('192.168.1.10');
-      await service.setProxyPort(1080);
-      expect(await service.getProxyType(), 'socks5');
-      expect(await service.getProxyHost(), '192.168.1.10');
-      expect(await service.getProxyPort(), 1080);
-    });
-
-    test('请求超时默认 30 秒且读写一致', () async {
-      expect(await service.getRequestTimeout(), 30);
-      await service.setRequestTimeout(15);
-      expect(await service.getRequestTimeout(), 15);
-    });
-  });
-
   group('SettingsService WebDAV 云同步配置', () {
     test('默认 WebDAV URL 为空', () async {
       expect(await service.getWebDavUrl(), equals(''));

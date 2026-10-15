@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### SETTINGS-SERVICE-CLEANUP-20261015：清理失效与重复设置入口（P1）
+
+- 授权与基线：用户要求开始B4清理，当前feature/ui-reader-selection / 1168a4726；保留现有Android发行签名全部未提交改动与活动记录。不使用子代理、不新建分支、不自动提交/推送或触发CI，不编译安装，版本2.0.373+374不变。
+- 状态：实现与本地验证完成，用户已授权本地提交，再继续WebDAV连接与远程书库两批迁移。进入本批时SettingsService有56个公开异步方法，核对消费者后删除30个失效或已迁移方法，保留26个仍使用的连接、远程列表、同步元数据、恢复忽略和通用读取/主题预设写入接口。
+- 清理范围：亮度2、书架Tab/布局4、语言2、旧代理/超时8、进度同步2、删除提醒2、阅读记录4、无调用通用写入/删除与颜色助手6。SystemBrightness、AppLocaleNotifier与SyncNotifier的同名方法均为其他对象，不作为旧服务消费者，不修改其代码。
+- 验收：重新扫描所有调用与方法引用；26个保留方法实施前后逐一比对；保留WebDAV现有测试，删除8项仅测试旧亮度、语言、代理/超时读写的专属用例；使用现有领域仓储、连接、恢复和相关设置界面回归及完整静态分析。本批不新增测试框架、兼容层或仓储，不改变存储位置、实际功能、凭据、Rust/FFI及Android签名改动。
+
+- 实现与复核：SettingsService只删除已无消费者的方法和专用私有常量，26个保留方法按原实现提取，格式检查后再次逐方法SHA-256对比一致。保留服务的默认值、连接/JSON格式、恢复忽略常量及主题预设写入失败传播；没有清理Preferences原值。全仓Dart引用扫描后，剩余同名调用均属于SystemBrightness、AppStrings/AppLocaleNotifier或SyncNotifier，不新增旧方法转发。
+- 验证：16份现有相关回归156项全部通过，完整flutter analyze --no-pub无问题；两份Dart格式无差异，git diff --check通过。覆盖WebDAV服务与界面、远程书库、恢复忽略、主题预设、语言、书架、阅读记录、阅读设置、平台亮度和备份开关；未新增专门镜像删除操作的测试。
+- 文档收口：SETTINGS_ARCHITECTURE第23节列明30项删除和26项保留边界；第3/7/11节不再把ReaderAdvancedConfig与loadAdvanced/saveAdvanced描述为现行入口，第6节保留B1历史盘点。没有修改API_CONTRACT或Rust/FFI，因为本批不涉及跨轨契约。
+- 证据与边界：忽略目录flutter_legado/build/settings-service-cleanup-qa/{method-baseline.json,remaining-name-references.txt,regression-files.txt,regression.log,analysis.log,format.log}保存引用核对与结果。运行期间另一会话提交Android发行签名a986d73d4，当前仍同一分支；本批只修改旧服务、旧测试与两份架构/活动文档，保留签名成果及其记录。未构建安装、执行设备/iOS或远程CI，未由本会话提交或推送，版本2.0.373+374不变；Codex直接实施复核，不用子代理、不宣称独立审查。
+- 提交授权：用户明确要求提交现有清理，再完成WebDAV连接和远程服务器两批迁移；本次仅提交已验证清理，不推送或触发CI，后续改动完成后留待审核。提交正文只描述代码职责与行为，不添加本地日志或验证过程。原实现阶段未使用子代理；提交前settings_review已只读独立核对删除方法引用与26个保留方法，结论可提交、无代码阻塞。
+
+
+编写者：Codex｜2026-10-15
+
 ### ANDROID-RELEASE-SIGNING-20261015：Android发行签名接入（P1）
 
 - 授权与基线：用户要求完善Android CI发行签名，指定本地release.jks并填写已忽略的android/key.properties；当前feature/ui-reader-selection / 1168a4726，工作区起始干净。沿用当前分支，不用子代理、不自动提交/推送或触发CI，不上传Secrets，不变更应用版本。

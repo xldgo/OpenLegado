@@ -3,189 +3,8 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 阅读设置持久化服务
+/// 尚存连接、恢复配置与未迁移读取的底层适配；普通偏好由领域仓储管理。— Codex + UI
 class SettingsService {
-  static const _keyBrightness = 'reader_brightness';
-  static const _keyLocale = 'app_locale';
-  static const _keyBookshelfTabPosition = 'bookshelf_tab_position';
-  static const _keyBookshelfLayout = 'bookshelf_layout'; // true=网格 false=列表
-  // [UI-fix v2.0.3 | 2026-08-08] 删除提醒开关（对齐原版
-  // LocalConfig.deleteBookAlert） — Qoder
-  static const _keyDeleteBookAlert = 'delete_book_alert';
-  // 对齐原版 PreferKey.enableReadRecord / LocalConfig readRecordSort
-  static const _keyEnableReadRecord = 'enableReadRecord';
-  static const _keyReadRecordSort = 'readRecordSort';
-
-  // ===== 亮度 =====
-
-  Future<double> getBrightness() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getDouble(_keyBrightness) ?? -1.0; // -1 表示跟随系统
-    } catch (e) {
-      debugPrint('SettingsService.getBrightness 异常: $e');
-      return -1.0;
-    }
-  }
-
-  Future<void> setBrightness(double brightness) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_keyBrightness, brightness);
-    } catch (e) {
-      debugPrint('SettingsService.setBrightness 异常: $e');
-    }
-  }
-
-  // ===== 书架分组 Tab 位置（对标原版 AppConfig.saveTabPosition）=====
-
-  Future<int> getBookshelfTabPosition() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyBookshelfTabPosition) ?? 0;
-    } catch (e) {
-      debugPrint('SettingsService.getBookshelfTabPosition 异常: $e');
-      return 0;
-    }
-  }
-
-  Future<void> setBookshelfTabPosition(int index) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyBookshelfTabPosition, index);
-    } catch (e) {
-      debugPrint('SettingsService.setBookshelfTabPosition 异常: $e');
-    }
-  }
-
-  // ===== 书架布局（网格/列表，对标原版 AppConfig.bookshelfLayout）=====
-
-  Future<bool> getBookshelfLayout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyBookshelfLayout) ??
-          false; // 默认列表（对齐 AppConfig.bookshelfLayout=0）
-    } catch (e) {
-      debugPrint('SettingsService.getBookshelfLayout 异常: $e');
-      return true;
-    }
-  }
-
-  Future<void> setBookshelfLayout(bool isGridView) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyBookshelfLayout, isGridView);
-    } catch (e) {
-      debugPrint('SettingsService.setBookshelfLayout 异常: $e');
-    }
-  }
-
-  // ===== 语言设置 =====
-
-  Future<String> getLocale() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_keyLocale) ?? 'system';
-    } catch (e) {
-      debugPrint('SettingsService.getLocale 异常: $e');
-      return 'system';
-    }
-  }
-
-  Future<void> setLocale(String locale) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyLocale, locale);
-    } catch (e) {
-      debugPrint('SettingsService.setLocale 异常: $e');
-    }
-  }
-
-  // ===== 网络设置：代理 =====
-
-  static const _keyProxyType = 'net_proxy_type'; // none / http / socks5
-  static const _keyProxyHost = 'net_proxy_host';
-  static const _keyProxyPort = 'net_proxy_port';
-  static const _keyRequestTimeout = 'net_request_timeout';
-
-  Future<String> getProxyType() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_keyProxyType) ?? 'none';
-    } catch (e) {
-      debugPrint('SettingsService.getProxyType 异常: $e');
-      return 'none';
-    }
-  }
-
-  Future<void> setProxyType(String type) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyProxyType, type);
-    } catch (e) {
-      debugPrint('SettingsService.setProxyType 异常: $e');
-    }
-  }
-
-  Future<String> getProxyHost() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_keyProxyHost) ?? '';
-    } catch (e) {
-      debugPrint('SettingsService.getProxyHost 异常: $e');
-      return '';
-    }
-  }
-
-  Future<void> setProxyHost(String host) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyProxyHost, host);
-    } catch (e) {
-      debugPrint('SettingsService.setProxyHost 异常: $e');
-    }
-  }
-
-  Future<int> getProxyPort() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyProxyPort) ?? 0;
-    } catch (e) {
-      debugPrint('SettingsService.getProxyPort 异常: $e');
-      return 0;
-    }
-  }
-
-  Future<void> setProxyPort(int port) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyProxyPort, port);
-    } catch (e) {
-      debugPrint('SettingsService.setProxyPort 异常: $e');
-    }
-  }
-
-  // ===== 网络设置：请求超时（秒） =====
-
-  Future<int> getRequestTimeout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyRequestTimeout) ?? 30;
-    } catch (e) {
-      debugPrint('SettingsService.getRequestTimeout 异常: $e');
-      return 30;
-    }
-  }
-
-  Future<void> setRequestTimeout(int seconds) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyRequestTimeout, seconds);
-    } catch (e) {
-      debugPrint('SettingsService.setRequestTimeout 异常: $e');
-    }
-  }
-
   // ===== WebDAV 云同步配置 =====
 
   static const _keyWebDavUrl = 'sync_webdav_url';
@@ -193,7 +12,6 @@ class SettingsService {
   static const _keyWebDavPassword = 'sync_webdav_password';
   static const _keyWebDavRemoteDir = 'sync_webdav_remote_dir';
   static const _keyWebDavDeviceName = 'sync_webdav_device_name';
-  static const _keySyncBookProgress = 'sync_book_progress';
   static const _keySyncBookProgressPlus = 'sync_book_progress_plus';
   static const _keyAutoSync = 'sync_auto';
   static const _keyLastSyncTime = 'sync_last_time';
@@ -299,7 +117,7 @@ class SettingsService {
     }
   }
 
-  /// 远程书库自定义服务器列表 JSON（`[{id,name,url,username,password}]`）
+  /// 远程书库自定义服务器列表JSON，保留现有连接格式。
   Future<String> getRemoteServersJson() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -319,7 +137,6 @@ class SettingsService {
     }
   }
 
-  /// 当前选用的远程服务器 id（-1 = 默认 WebDAV）
   Future<int> getRemoteServerId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -336,25 +153,6 @@ class SettingsService {
       await prefs.setInt(_keyRemoteServerId, id);
     } catch (e) {
       debugPrint('SettingsService.setRemoteServerId 异常: $e');
-    }
-  }
-
-  Future<bool> getSyncBookProgress() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keySyncBookProgress) ?? true;
-    } catch (e) {
-      debugPrint('SettingsService.getSyncBookProgress 异常: $e');
-      return true;
-    }
-  }
-
-  Future<void> setSyncBookProgress(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keySyncBookProgress, value);
-    } catch (e) {
-      debugPrint('SettingsService.setSyncBookProgress 异常: $e');
     }
   }
 
@@ -418,33 +216,9 @@ class SettingsService {
     }
   }
 
-  // ===== 删除提醒（对齐原版 LocalConfig.deleteBookAlert，默认开启） =====
-  // [UI-fix v2.0.3 | 2026-08-08] 删除书籍时是否弹确认框 — Qoder
+  // ===== 未接线选项读取与主题预设存储 =====
 
-  Future<bool> getDeleteBookAlert() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyDeleteBookAlert) ?? true;
-    } catch (e) {
-      debugPrint('SettingsService.getDeleteBookAlert 异常: $e');
-      return true;
-    }
-  }
-
-  Future<void> setDeleteBookAlert(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyDeleteBookAlert, value);
-    } catch (e) {
-      debugPrint('SettingsService.setDeleteBookAlert 异常: $e');
-    }
-  }
-
-  // ===== 通用偏好读写助手 =====
-  // [UI-fix v2.0.5 | 2026-08-08] 主题/其他设置页对齐原版新增大量键，
-  // 提供按键名直接读写的通用助手，键名统一收敛在 PrefKeys 常量类 — Qoder
-
-  /// 读取布尔偏好（键不存在时返回 [defaultValue]）
+  /// 读取尚未接线选项的原值；已迁移偏好由所属仓储管理。
   Future<bool> getBoolPref(String key, {required bool defaultValue}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -455,17 +229,7 @@ class SettingsService {
     }
   }
 
-  /// 写入布尔偏好
-  Future<void> setBoolPref(String key, bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(key, value);
-    } catch (e) {
-      debugPrint('SettingsService.setBoolPref($key) 异常: $e');
-    }
-  }
-
-  /// 读取整数偏好（键不存在时返回 [defaultValue]）
+  /// 读取整数偏好，缺失时返回指定默认值。
   Future<int> getIntPref(String key, {required int defaultValue}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -476,28 +240,7 @@ class SettingsService {
     }
   }
 
-  /// 写入整数偏好
-  Future<void> setIntPref(String key, int value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(key, value);
-    } catch (e) {
-      debugPrint('SettingsService.setIntPref($key) 异常: $e');
-    }
-  }
-
-  /// 读取可空整数偏好（键不存在时返回 null，用于"未设置"语义，如自定义主题色）
-  Future<int?> getIntPrefOrNull(String key) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(key);
-    } catch (e) {
-      debugPrint('SettingsService.getIntPrefOrNull($key) 异常: $e');
-      return null;
-    }
-  }
-
-  /// 读取字符串偏好（键不存在时返回 [defaultValue]）
+  /// 读取字符串偏好，缺失时返回指定默认值。
   Future<String> getStringPref(String key, {String defaultValue = ''}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -505,48 +248,6 @@ class SettingsService {
     } catch (e) {
       debugPrint('SettingsService.getStringPref($key) 异常: $e');
       return defaultValue;
-    }
-  }
-
-  // ===== 阅读记录（对齐 ReadRecordActivity） =====
-
-  /// 是否启用阅读时长记录（默认 true）
-  Future<bool> getEnableReadRecord() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyEnableReadRecord) ?? true;
-    } catch (e) {
-      debugPrint('SettingsService.getEnableReadRecord 异常: $e');
-      return true;
-    }
-  }
-
-  Future<void> setEnableReadRecord(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyEnableReadRecord, value);
-    } catch (e) {
-      debugPrint('SettingsService.setEnableReadRecord 异常: $e');
-    }
-  }
-
-  /// 阅读记录排序：0=书名 1=时长 2=最后阅读（对齐 LocalConfig readRecordSort）
-  Future<int> getReadRecordSort() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_keyReadRecordSort) ?? 0;
-    } catch (e) {
-      debugPrint('SettingsService.getReadRecordSort 异常: $e');
-      return 0;
-    }
-  }
-
-  Future<void> setReadRecordSort(int value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyReadRecordSort, value);
-    } catch (e) {
-      debugPrint('SettingsService.setReadRecordSort 异常: $e');
     }
   }
 
@@ -581,7 +282,7 @@ class SettingsService {
   /// 恢复忽略配置持久化键（供备份始终排除，避免恢复时覆盖本地忽略策略）
   static const restoreIgnoreStorageKey = _keyRestoreIgnore;
 
-  /// 读取恢复忽略配置（缺省全 false）
+  /// 读取恢复忽略配置，缺省全部为false。
   Future<Map<String, bool>> getRestoreIgnoreConfig() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -600,7 +301,7 @@ class SettingsService {
     }
   }
 
-  /// 持久化恢复忽略配置（对齐 BackupConfig.saveIgnoreConfig）
+  /// 按既有忽略键集合保存恢复配置。
   Future<void> saveRestoreIgnoreConfig(Map<String, bool> config) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -613,43 +314,11 @@ class SettingsService {
     }
   }
 
-  /// 写入字符串偏好
-  Future<void> setStringPref(String key, String value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(key, value);
-    } catch (e) {
-      debugPrint('SettingsService.setStringPref($key) 异常: $e');
-    }
-  }
-
-  /// 保存需要向调用方反馈失败的字符串偏好，不改变其他入口的容错行为。
+  /// 结构化主题预设使用检查写入结果的入口，失败交给调用方。
   Future<void> setStringPrefChecked(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     if (!await prefs.setString(key, value)) {
       throw StateError('偏好保存失败：$key');
-    }
-  }
-
-  /// 批量保存主题颜色；错误由调用方处理，不吞掉部分写入失败。
-  Future<void> setColorPrefs(Map<String, int?> colors) async {
-    final prefs = await SharedPreferences.getInstance();
-    for (final entry in colors.entries) {
-      final value = entry.value;
-      final saved = value == null
-          ? await prefs.remove(entry.key)
-          : await prefs.setInt(entry.key, value);
-      if (!saved) throw StateError('主题颜色保存失败：${entry.key}');
-    }
-  }
-
-  /// 移除偏好（恢复默认，对齐原版 removePref）
-  Future<void> removePref(String key) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(key);
-    } catch (e) {
-      debugPrint('SettingsService.removePref($key) 异常: $e');
     }
   }
 }

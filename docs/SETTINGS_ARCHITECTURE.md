@@ -3,8 +3,8 @@
 本方案以 `feature/ui-reader-selection` 的 `423921865` 为本地基线，参考
 HapeLee/legado-with-MD3 的 `60a7cca34dd3e0be456e0f05c10c036c64b70e35`。
 本文保存职责划分、字段归属、迁移方法与验收标准；实施授权、当前任务与验证结果
-只维护在 [活动计划](REFACTORING_ACTIVE_PLAN.md)。第 6 节保留基线盘点，第 10～14 节
-说明普通偏好、翻页和阅读配色接线边界；其余阅读设置继续按第 7 节推进。
+只维护在 [活动计划](REFACTORING_ACTIVE_PLAN.md)。第6节保留历史基线盘点，
+第10～23节说明普通偏好、阅读分组与旧服务清理边界；后续按第7节的领域顺序推进。
 
 ## 1. 设计目标
 
@@ -39,7 +39,7 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 | 应用入口与语言 | HomeSettingsRepository、LocaleSettingsRepository、WelcomeSettingsRepository | 保留已迁移接口；默认首页、显隐、语言及欢迎配置不重复分配 |
 | 外观与界面 | AppearanceSettingsRepository、ThemeColorsSettingsRepository、UiSettingsRepository、SystemBarSettingsRepository、EyeProtectionSettingsRepository | 保留现有拆分；按配色、界面几何、系统栏和护眼各自订阅，不合并成全局大对象 |
 | 书架与阅读记录 | BookshelfSettingsRepository、ReadRecordSettingsRepository | 保留列表、分组、记录偏好的唯一来源；书籍和记录实体仍用各自业务 Repository |
-| 阅读设置 | ReaderSettingsRepository | 从原 ReaderConfigRepository 收拢命名，翻页接入共享服务，其余基础字段继续迁移，不另建同职责入口 |
+| 阅读设置 | ReaderSettingsRepository | 统一普通阅读偏好和不可变分组；样式与字体目录保留专用仓储，不保留旧高级配置副本 |
 | 朗读与媒体 | ReadAloudSettingsRepository | 现有七项保持，新增内容划分方式及符号集合；耳机控制、退出控制和音频焦点拟归此域，功能接线状态独立核验 |
 | 搜索与书源校验 | SearchSettingsRepository、现有校验配置入口 | 已迁移搜索参数保留；校验规则及校验会话保持原独立边界 |
 | 下载、缓存与请求 | 拟新增 DownloadCacheSettingsRepository | 管理图片缓存、正文预下载、相关并发和 UserAgent 等普通偏好 |
@@ -53,15 +53,13 @@ Rust/FRB、设置页布局或已可用的阅读、朗读功能。
 已定位字段均未接线，先保留值并禁用相应行，随功能落地再建立有效访问入口，
 不为了分类表完整而先创建没有实际消费者的仓储。
 
-阅读入口使用 ReaderSettingsRepository，与其他领域设置接口保持一致。
-接口、数据实现、Provider、文件名、消费者和测试一起收拢命名，使用
-AppReaderSettingsRepository 与 readerSettingsRepositoryProvider；旧
-ReaderConfigRepository 名称及转发接口不保留。ReaderSettings 表达已接入共享服务
-的普通偏好，包含翻页模式、字号、行距、正文/标题字体、目录字数显示和章节打开方式，
-并通过textLayout持有ReaderTextLayoutSettings正文排版分组、pageLayout持有
-ReaderPageLayoutSettings页面分组；
-ReaderAdvancedConfig 继续表达其余高级参数，通过 loadAdvanced/saveAdvanced 保持原格式，
-不重复保存已迁走的基础字段。其他阅读偏好继续按实际消费者迁入，仓储改名不代表全域迁移完成。
+阅读入口使用ReaderSettingsRepository，与其他领域设置接口保持一致。接口、数据实现、
+Provider、文件名、消费者和测试统一使用AppReaderSettingsRepository与
+readerSettingsRepositoryProvider；ReaderConfigRepository旧名称及转发接口不保留。
+ReaderSettings表达同源普通偏好，按正文排版、页面几何、屏幕状态、操作、自动翻页、
+菜单配色及亮度控件组织不可变分组；样式与字体文件目录各用专用仓储。
+ReaderAdvancedConfig及loadAdvanced/saveAdvanced、独立Provider和整份保存路径均已
+删除，当前分组和规范键见第11～22节，不把历史B1清单当作仍在运行的旧入口。
 
 GeneralSettings 是有范围的应用偏好集合，并不对应“其他设置”页面的全部内容。
 耳机控制、缓存、备份、语言和主题等有明确归属的字段不能放入这个集合。默认
@@ -393,7 +391,8 @@ B1审计时的高级存储包含下列解码/迁移键，仅作历史输入记�
 | 阅读位置及书级阅读配置 | 原业务 Repository / ReaderPositionStore；不是全局普通偏好，章节原文偏移与书籍实体存储不动 |
 | 隐私密码/授权 | 原 PrivacyCredentialRepository 与进程会话；本批不合并本地密码、WebDAV 密码或令牌 |
 
-SettingsService 69 个公开异步方法按以下互不重叠的组归档。无调用方判定排除
+B1基线的SettingsService曾有69个公开异步方法，按以下互不重叠的组归档；
+以下表格仅保留审计来源，当前保留接口见第23节。无调用方判定排除
 定义、生成代码、测试和其他对象的同名方法；例如 AppLocaleNotifier.setLocale
 不是 SettingsService.setLocale 的消费者。
 
@@ -438,17 +437,17 @@ ReaderNotifier/ReaderConfigRepository 及 SettingsService 的剩余公开方法�
 
 ### B3：统一阅读设置访问
 
-收拢 ReaderNotifier 中字号、行距、背景、翻页参数的直接读写，将现有
-ReaderConfigRepository 重命名并扩展为 ReaderSettingsRepository，保持高级配置、
-点击动作和已有保存格式。读取外观域的
-AMOLED 等开关时使用其公共设置入口，不让阅读领域成为同一键的第二个所有者。
+收拢ReaderNotifier中字号、行距、背景、翻页参数的直接读写，以ReaderSettingsRepository
+统一普通偏好入口；按第11～22节分组迁移点击、页面、屏幕与菜单设置，移除旧高级
+配置模型和整份读写。外观域AMOLED等开关使用其公共设置入口，不让阅读领域成为
+同一键的第二个所有者。未发布阶段直接采用目标模型与规范键，不为旧数据保留兼容副本。
 同步修改 Rust 配置快照的读取入口，保留字段值与注入顺序；分页、文字测量、选区、
 翻页动画、位置坐标与缓存策略不在本批改动范围。
 
 ### B4：清理重复入口，再落地待实现功能
 
-全仓确认迁移字段不存在旧读写消费者后，删除对应 SettingsService 专用方法及
-重复适配，不长期保留只为旧测试存在的入口。实体列表、凭据与原生服务的独有
+全仓确认迁移字段不存在旧读写消费者后，删除对应SettingsService专用方法及
+重复适配；已无消费者的通用写入/删除和助手也一并清理，不长期保留只为旧测试存在的入口。实体列表、凭据与原生服务的独有
 能力分别保留。禁用项按功能成组落地，核对上游语义和平台限制，实际验证通过
 后移除“待实现”提示并启用；不借设置归类一次性实现所有未接线功能。
 
@@ -522,9 +521,10 @@ CrashLogService 初始化时注入使用相同 AppSettingsService 的 BackupSett
 ## 11. 阅读翻页的唯一来源
 
 [ReaderSettingsRepository](../flutter_legado/lib/src/domain/contracts/reader_settings_repository.dart)
-同时提供普通偏好的 current/watch/load/update/reload，以及现有高级配置的
-loadAdvanced/saveAdvanced。翻页迁移时其余 74 个高级字段沿用原 Preferences 格式和
-串行读改写；后续正文文字色归入第 12 节样式，剩余 73 个高级字段暂不混入标量快照。
+提供普通偏好的current/watch/load/update/reload；字号、字体及各阅读分组使用同源快照，
+背景样式由ReaderStyleRepository管理。第11节最初迁移时保留过的74项高级字段已按
+后续各节拆出，第22节删除loadAdvanced/saveAdvanced及ReaderAdvancedConfig；
+不保留独立高级配置缓存或可写副本。
 
 [PageTurnMode](../flutter_legado/lib/src/domain/models/page_turn_mode.dart) 是唯一翻页
 枚举，独立于页面和 Flutter 绘制；ReaderState、快捷菜单、高级面板和正文均使用
@@ -960,5 +960,46 @@ ReaderScreen不再保留高级配置副本；原onOpenAdvancedConfig在菜单内
 序列化落盘和失败回退测试继续覆盖现行实现。新回归验证三项真实Preferences恢复、
 不可变快照、范围、失败重试、外部重读及自动换源的实际触发和切换结果。
 本轮不改分页、翻页、选区、Rust/FRB、JS快照、数据库或实际亮度执行流程。
+
+编写者：Codex｜2026-10-15
+
+
+## 23. 旧SettingsService失效入口清理
+
+本节规定B4的保留边界；第6节的方法数量与消费者属于B1历史审计，不作为当前接口表。
+进入本批时SettingsService还有56个公开异步方法，逐项核对生产调用和方法引用后
+删除30个，只保留26个。SystemBrightness、AppLocaleNotifier、SyncNotifier的同名
+方法分别承担原生亮度、语言及同步编排，不能误算成旧SettingsService的消费者。
+
+| 删除组 | 方法数 | 判定依据 |
+|---|---:|---|
+| 旧亮度存储 | 2 | 阅读和漫画操作SystemBrightness，旧Preferences亮度读写无调用方 |
+| 书架Tab/布局 | 4 | 由BookshelfSettingsRepository管理，旧方法无调用方 |
+| 语言 | 2 | LocaleSettingsRepository及AppLocaleNotifier已是有效入口 |
+| 旧代理和超时 | 8 | net_proxy_*与net_request_timeout旧方法无生产消费者，不迁成新权威配置 |
+| 书籍进度同步 | 2 | BackupSettingsRepository为唯一普通偏好来源；SyncNotifier同名方法只是编排 |
+| 删除书籍提醒 | 2 | BookshelfSettingsRepository为有效来源 |
+| 阅读记录开关/排序 | 4 | ReadRecordSettingsRepository为有效来源 |
+| 通用写入/删除及助手 | 6 | setBoolPref、setIntPref、setStringPref、removePref、getIntPrefOrNull、setColorPrefs无消费者 |
+
+| 保留组 | 方法数 | 现有消费者 |
+|---|---:|---|
+| WebDAV连接 | 10 | SyncNotifier；原五字段、缺省、凭据及容错语义保持 |
+| 远程服务器集合/选中项 | 4 | RemoteBookNotifier；JSON格式与默认服务器常量保持 |
+| 同步扩展、自动同步、上次同步时间 | 6 | SyncNotifier；本批不改变功能接线或同步元数据边界 |
+| 恢复忽略配置 | 2 | WebDavSettingsScreen；结构化配置及相关公开常量保持 |
+| 通用读取与主题预设写入 | 4 | getBoolPref/getIntPref/getStringPref保留未接线选项原值和主题预设读取；setStringPrefChecked供主题预设写入并报告失败 |
+
+删除方法专用的私有键常量，但不遍历或清空用户Preferences，不迁移原值，不新增
+兼容层和替代服务。26个保留方法的实现逐一保持，主题预设检查写入结果的能力不变；
+当前连接/恢复适配中已有的错误处理也不借本轮清理调整。
+
+SettingsService不再描述为阅读设置服务，只作为尚存连接、结构化恢复及未迁移
+读取的底层适配。后续先迁移这些实际消费者，再删除其剩余入口；不整类先删，
+不为分类完整而建立没有有效消费者的仓储。未实现选项保持原说明、待实现提示和禁用状态。
+
+删除仅验证旧亮度、语言及代理/超时读写的8项专属测试，保留已有WebDAV测试，
+不新增只反映方法删除的测试框架。现有领域仓储、同步/远程书库、恢复及设置界面
+回归继续验证实际行为；执行结果与平台边界仅登记在活动计划。
 
 编写者：Codex｜2026-10-15
