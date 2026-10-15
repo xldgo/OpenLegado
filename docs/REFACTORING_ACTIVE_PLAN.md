@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### ANDROID-RELEASE-SIGNING-20261015：Android发行签名接入（P1）
+
+- 授权与基线：用户要求完善Android CI发行签名，指定本地release.jks并填写已忽略的android/key.properties；当前feature/ui-reader-selection / 1168a4726，工作区起始干净。沿用当前分支，不用子代理、不自动提交/推送或触发CI，不上传Secrets，不变更应用版本。
+- 状态：精简及本地验证完成，待真实工作流复验。保留Gradle发行签名、本地Properties/CI环境配置、工作流恢复与清理密钥，以及现有APK收集流程中的签名与证书检查；Tag发布、手动只构建、产物ID传递和权限保持不变。
+- 精简范围：移除Java预检、独立签名工具模块、额外签名CLI与Gradle调用Python的签名预检；撤销本轮全部新增测试用例，只适配已有断言。CI恢复/清理移到单个.github/scripts/android_signing.py，workflow只调用脚本；APK检查并入android_app.py，配置说明并入[CI编排说明](CI_ORCHESTRATION_20261010.md#android-发行签名)，不扩展通用工具命令。
+- 凭据边界：本地JKS和key.properties不入库、不打印。CI使用四项Secrets及公开证书SHA-256变量，密钥仅恢复到RUNNER_TEMP/legado-release.jks，结束时清理这一文件。Gradle仅检查Release必填项与文件存在，实际密码由Android签名工具验证；Debug不要求发行配置。
+- 验收范围：相关Python测试、CI恢复与清理代码、实际Gradle配置门禁、APK签名检查、actionlint及差异检查。真实Android Release工作流待用户授权提交、上传Secrets及触发；不编译新APK、不运行应用全量CI或安装设备。
+- 本地结果：撤销全部新增用例，仅调整已有命令断言及过时Xcode版本断言，8项已有编排检查通过。独立CI脚本用临时夹具验证恢复/清理通过，actionlint与差异检查通过。当前Gradle签名配置已验证Release有密钥成功、无密钥失败、Debug独立；现有APK的有效签名、错误证书及篡改拒绝检查通过，未编译新APK。本轮已获用户本地提交授权，不推送或触发CI。
+
+编写者：Codex｜2026-10-15
+
 ### TTS-PLAYER-INTEGRATION-20261015：播放器与共用Sheet提交集成（P1）
 
 - 授权：用户要求提交当前worktree并合并到主目录。包含TTS-PLAYER-UI、TTS-BACKGROUND、TTS-SOURCE-PROGRESS、TTS-TIMER-SPEED及TTS-SHEET-DESIGN五批已验证成果；保留2.0.373+374，不推送、不触发CI。

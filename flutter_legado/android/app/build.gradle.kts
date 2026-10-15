@@ -6,12 +6,24 @@ plugins {
 }
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 apply(from = "../ffi-verification.gradle.kts")
 
 @Suppress("UNCHECKED_CAST")
 val ffiAbisByProfile = extra["legadoFfiAbisByProfile"] as Map<String, List<String>>
 val splitPerAbi = providers.gradleProperty("split-per-abi").orNull == "true"
+
+// CI通过环境注入，本地读取已忽略的配置；Debug不依赖发行密钥。
+val releaseProperties = Properties().apply {
+    val propertiesFile = rootProject.file("key.properties")
+    if (propertiesFile.isFile) {
+        propertiesFile.reader(Charsets.UTF_8).use { load(it) }
+    }
+}
+fun releaseSigningValue(environment: String, property: String): String? =
+    (providers.environmentVariable(environment).orNull
+        ?: releaseProperties.getProperty(property))?.takeIf { it.isNotEmpty() }
 
 android {
     namespace = "io.legado.flutter"
@@ -40,6 +52,15 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = releaseSigningValue("ANDROID_KEYSTORE_PATH", "storeFile")?.let { file(it) }
+            storePassword = releaseSigningValue("ANDROID_KEYSTORE_PASSWORD", "storePassword")
+            keyAlias = releaseSigningValue("ANDROID_KEY_ALIAS", "keyAlias")
+            keyPassword = releaseSigningValue("ANDROID_KEY_PASSWORD", "keyPassword")
+        }
+    }
+
     buildTypes {
         debug {
             // 与校验请求保持一致，避免将其他模式的 armv7 库装入 Debug 包。
@@ -52,14 +73,26 @@ android {
             if (!splitPerAbi) {
                 ndk { abiFilters += ffiAbisByProfile.getValue("release") }
             }
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // 发行构建使用固定证书，不回退到Debug证书。
+            signingConfig = signingConfigs.getByName("release")
         }
         getByName("profile") {
             if (!splitPerAbi) {
                 ndk { abiFilters += ffiAbisByProfile.getValue("release") }
             }
+        }
+    }
+}
+
+// AGP会把不完整配置视作无签名构建，只在Release入口检查必填项。
+val releaseSigningConfigured = android.signingConfigs.getByName("release").let {
+    it.storeFile?.isFile == true && !it.storePassword.isNullOrEmpty() &&
+        !it.keyAlias.isNullOrEmpty() && !it.keyPassword.isNullOrEmpty()
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(releaseSigningConfigured) {
+            "Release缺少签名配置或密钥文件，请填写android/key.properties或对应ANDROID_KEY*环境变量。"
         }
     }
 }

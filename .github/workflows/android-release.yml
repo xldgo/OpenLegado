@@ -22,6 +22,7 @@ jobs:
       artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     env:
       FLUTTER_VERSION: '3.47.7'
+      ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
 
     steps:
       - name: 检出源码
@@ -42,6 +43,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: 恢复发行签名密钥
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: python3 .github/scripts/android_signing.py
       - name: 设置 Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -65,9 +73,16 @@ jobs:
         run: flutter pub get
       - name: 构建与本次 Rust 动态库对应的 release APK
         working-directory: flutter_legado
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
-      - name: 核对 APK 内的 Rust 动态库并收集产物
-        run: python3 scripts/dev.py collect apk android --profile release --abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target
+      - name: 核对 APK 发行签名和 Rust 动态库并收集产物
+        run: >-
+          python3 scripts/dev.py collect apk android --profile release
+          --abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target
+          --signing-cert-sha256 "$ANDROID_SIGNING_CERT_SHA256"
       - name: 上传 APK 构建产物
         id: upload-apk
         uses: actions/upload-artifact@v7
@@ -76,6 +91,9 @@ jobs:
           path: release-apk/*-release.apk
           if-no-files-found: error
           retention-days: 14
+      - name: 清理临时发行密钥
+        if: always()
+        run: python3 .github/scripts/android_signing.py --clean
 
   publish:
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}

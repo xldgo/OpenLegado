@@ -60,8 +60,9 @@ class MatrixTests(unittest.TestCase):
 
     def test_android_release_uses_shared_apk_collection_and_keeps_publish_contract(self):
         text = (ROOT / ".github" / "workflows" / "android-release.yml").read_text(encoding="utf-8-sig")
-        self.assertIn("run: python3 scripts/dev.py collect apk android --profile release "
-                      "--abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target", text)
+        self.assertIn("python3 scripts/dev.py collect apk android --profile release "
+                      "--abis arm64-v8a,armeabi-v7a,x86_64 --output-dir release-apk --cargo-target-dir rust/target "
+                      '--signing-cert-sha256 "$ANDROID_SIGNING_CERT_SHA256"', " ".join(text.split()))
         self.assertNotIn("canonical_sha256", text)
         self.assertNotIn("NDK_TOOLCHAIN", text)
         self.assertIn("artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}", text)
@@ -81,7 +82,7 @@ class MatrixTests(unittest.TestCase):
                               f"--app flutter_legado/build/ios/{directory}/Runner.app --cargo-target-dir rust/target", text)
                 self.assertIn(flutter_build, text)
                 self.assertIn("pod install --repo-update", text)
-                self.assertIn("DEVELOPER_DIR: /Applications/Xcode_26.1.1.app/Contents/Developer", text)
+                self.assertIn("DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer", text)
                 self.assertNotIn("cargo rustc", text)
                 self.assertNotIn("XCFramework", text)
 

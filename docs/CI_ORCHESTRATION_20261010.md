@@ -36,6 +36,28 @@ Tooling/Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳
 本批不修改保护或 Ruleset。选择失败、必要任务失败/取消/意外跳过，汇总均失败；
 只有明确判定不需要的 job 才允许 skipped。
 
+## Android 发行签名
+
+本地使用已忽略的 `flutter_legado/android/key.properties`，填写 `storeFile=release.jks`、
+`storePassword`、`keyAlias`、`keyPassword`；密钥位于 `android/app/release.jks`。
+`storeFile` 相对 `android/app/` 解析；Properties 中的反斜杠需要转义。
+Gradle Release 检查必填项与文件是否存在，实际密码由 Android 签名工具检查；Debug 不要求发行配置。
+
+GitHub Actions 需设置四项 Repository Secrets：`ANDROID_KEYSTORE_BASE64`（整份 JKS 的 Base64）、
+`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。后三项填写实际值，
+不包含 Properties 转义。另设置公开 Variable `ANDROID_SIGNING_CERT_SHA256` 为发行证书指纹，
+当前指定证书为 `9395c57290fb1f62b40fd59e166f8d6c791ac282318842a3a868df4a37f701b5`。
+
+工作流调用 `.github/scripts/android_signing.py` 将密钥恢复至 `RUNNER_TEMP/legado-release.jks`，
+通过 `ANDROID_KEYSTORE_PATH` 传入 Gradle，结束时用同一脚本的 `--clean` 删除这一临时文件。
+密码与别名在 Flutter 构建步骤通过环境注入，不写入日志或产物。
+现有 `collect apk android` 使用 `--signing-cert-sha256` 检查三个 APK 的签名有效性和证书指纹，
+原有 Rust 库校验继续执行，全部通过才收集上传。不新增签名 CLI 或独立预检工具。
+
+Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地检查不代表远程发行包已构建；
+当前验证状态见 Active 计划。签名接入依据：[Flutter 签名配置](https://docs.flutter.dev/deployment/android#configure-signing-in-gradle)、
+[Android apksigner](https://developer.android.com/tools/apksigner)。
+
 ## 改动分类
 
 权威实现为 [.github/scripts/ci_changes.py](../.github/scripts/ci_changes.py)，
