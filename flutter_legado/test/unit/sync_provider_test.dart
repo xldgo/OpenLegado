@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
+import 'package:flutter_legado/src/domain/contracts/sync_metadata_repository.dart';
+import 'package:flutter_legado/src/providers/sync_metadata_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +34,26 @@ class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
     await gate?.future;
     if (fail) throw StateError('模拟保存失败');
     return saved = connection.normalized;
+  }
+}
+
+class _MetadataRepository implements SyncMetadataRepository {
+  DateTime? saved = DateTime.fromMillisecondsSinceEpoch(1234);
+  bool failSave = true;
+  bool failLoad = false;
+  int saveCalls = 0;
+
+  @override
+  Future<DateTime?> load() async {
+    if (failLoad) throw StateError('模拟时间读取失败');
+    return saved;
+  }
+
+  @override
+  Future<void> save(DateTime time) async {
+    saveCalls++;
+    if (failSave) throw StateError('模拟时间写入失败');
+    saved = time;
   }
 }
 
@@ -258,25 +280,64 @@ void main() {
       expect(notified, isFalse);
     });
 
-    test('toggleAutoSync 开启/关闭自动同步', () async {
-      await readNotifier().toggleAutoSync(true);
-      expect(readState().autoSync, isTrue);
-      await readNotifier().toggleAutoSync(false);
-      expect(readState().autoSync, isFalse);
-    });
-
     test('setSyncBookProgress 持久化开关', () async {
       await readNotifier().setSyncBookProgress(false);
       expect(readState().syncBookProgress, isFalse);
     });
-
-    test('setSyncBookProgressPlus 持久化开关', () async {
-      await readNotifier().setSyncBookProgressPlus(true);
-      expect(readState().syncBookProgressPlus, isTrue);
-    });
   });
 
   group('SyncNotifier 真实同步操作', () {
+    for (final restore in [false, true]) {
+      test('云端${restore ? '恢复' : '备份'}完成但时间记录失败保留旧时间和成功，不重做云端', () async {
+        final metadata = _MetadataRepository();
+        container = ProviderContainer(
+          overrides: [
+            bookApiProvider.overrideWithValue(mockApi),
+            syncMetadataRepositoryProvider.overrideWithValue(metadata),
+          ],
+        );
+        addTearDown(container.dispose);
+        stubSyncApis();
+        await readNotifier().saveConfig(
+          'https://dav.example',
+          'u',
+          'p',
+          '/dir/',
+        );
+        await readNotifier().loadConfig();
+        if (restore) {
+          expect(await readNotifier().restoreFromWebDav(), '恢复完成，回写 0 条书源');
+        } else {
+          await readNotifier().backupToWebDav();
+        }
+        expect(readState().status, SyncStatus.success);
+        expect(readState().lastSyncTime?.millisecondsSinceEpoch, 1234);
+        expect(readState().error, '云端同步已完成，但本地同步时间未保存');
+        expect(metadata.saveCalls, 1);
+        verify(() => mockApi.webdavFullSync(any(), any(), any())).called(1);
+        metadata.failSave = false;
+        await readNotifier().backupToWebDav();
+        expect(readState().status, SyncStatus.success);
+        expect(readState().lastSyncTime, metadata.saved);
+        expect(readState().error, isNull);
+        verify(() => mockApi.webdavFullSync(any(), any(), any())).called(1);
+      });
+    }
+
+    test('时间读取失败向调用方报告，不沿用连接进行云端操作', () async {
+      final metadata = _MetadataRepository()..failLoad = true;
+      container = ProviderContainer(
+        overrides: [
+          bookApiProvider.overrideWithValue(mockApi),
+          syncMetadataRepositoryProvider.overrideWithValue(metadata),
+        ],
+      );
+      addTearDown(container.dispose);
+      await expectLater(readNotifier().loadConfig(), throwsStateError);
+      expect(readState().status, SyncStatus.idle);
+      verifyNever(() => mockApi.webdavFullSync(any(), any(), any()));
+    });
+
     test('backupToWebDav 未配置时设置错误', () async {
       await readNotifier().backupToWebDav();
       expect(readState().status, equals(SyncStatus.error));

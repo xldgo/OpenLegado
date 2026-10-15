@@ -1,9 +1,26 @@
 # Legado 后续重构执行计划（Active）
 
+### SYNC-PRESET-BOUNDARIES-20261015：收拢同步策略、结果元数据与主题预设（P1）
+
+- 授权与基线：用户要求执行三项整理并先提交既有成果；前批三项仓储已提交ee612001d，当前feature/ui-reader-selection，仅保留其他会话Android Gradle五行未提交修改。本轮沿用分支，不推送、不触发CI、不改版本或构建安装；新改动完成后待审，不自动提交。
+- 状态：三项实现、独立审查和本地验证完成，按用户本次明确授权提交。此前由connection_migration编码，主代理维护方案、复核与验收，settings_review独立只读审查。
+- 同步策略：现有BackupSettingsRepository读取sync_auto与sync_book_progress_plus原值，默认false，同步订阅和恢复重读；不新增调度、启用未实现行或扩展无消费者的写接口。删除SyncNotifier只在测试调用的两个旧setter，保留原备份目录及有效进度同步写入行为。
+- 同步结果：SyncMetadataRepository独立管理sync_last_time整数毫秒及缺省null，通过Provider注入；Prefs写入拒绝/异常恢复当前键并报告。云端成功与本地时间保存分开，后者失败保持云端成功并展示明确警告，不误报云端失败或重做同步；正常成功清除警告，不改变同步合并算法或FFI JSON。
+- 主题预设：已有PreferencesThemePresetRepository直接使用可注入Preferences加载器，保留themeConfigList单JSON列表、顺序、未知字段、日夜应用及损坏JSON原回退规则。实际读取失败不伪装为空，写失败回退原列表并支持后续操作，现有页面捕获必要错误；不改导入导出、配色或无关UI。
+- 验收：策略默认/真实恢复/订阅与禁用状态，日期毫秒恢复/拒绝异常回退/云端成功但记录失败可见且只调用一次云端，预设现格式/扩展字段/连续增删/读取失败及写失败重试。运行相关组合、完整分析一次、本批格式及差异检查；SettingsService最终仅保留三项尚有消费者的通用读取。
+- 边界：不动Rust/FRB、数据库、连接和恢复忽略规则、TTS、Android签名或其他会话成果；保留应用版本2.0.373+374。不以本地Mock/控件回归宣称真实云端、设备或iOS验证完成。
+- 实现：BackupSettings新增两个原键的只读值，load/reload/watch及SyncNotifier投影同源，update不增加未实现项写参数；SyncNotifier不再依赖SettingsService。同步日期由独立Preferences仓储保存，拒绝/异常回退当前键；云端成功但记录失败保持旧日期与success状态，页面持续显示警告，后续成功清除。预设仓储直接读写原列表并保留扩展字段，读取失败不覆盖，失败回退原缓存；列表操作失败用上层错误对话框保留列表和重试。旧服务仅剩三个原样读取方法，原时间专属测试迁入仓储及同步回归，不保留空测试文件。
+- 验证：10份相关回归86项全部通过，完整flutter analyze --no-pub无问题，18份本轮Dart格式无差异，git diff --check通过；移除接口及旧夹具全仓Dart零引用。包含策略默认/真实恢复/订阅、元数据毫秒恢复/失败回退/云端只调用一次、持久警告与后续清除、预设扩展字段/日夜隔离/连续操作/真实页面读增删失败和重试。第3项及警告专门复验3份25项通过，settings_review核阅相关代码和断言后结论无阻塞。
+- 验证收口：策略红测先复现旧实现缺少同源投影；同步控件首轮50过1失败，原本地备份成功SnackBar临时覆盖页脚。生产改为持续警告后，用例等成功提示自然退场再核对可命中与持续显示，不增底部空白或额外事件队列。预设与同步操作均复用现有夹具，不新增模拟器或native构建路径。
+- 证据与范围：忽略目录flutter_legado/build/sync-preset-qa/保存policy-red.log、sync-tests.log、preset-tests.log与final-{tests,analysis,format,diff-check,references}.log。主代理核阅最终日志及差异，本轮以ee612001d为提交基线，提交号以Git记录为准；其他会话Android Gradle五行完整保留并排除在本次提交外。未执行真实WebDAV、文件选择/设备或iOS验证，未推送、触发CI或构建安装，版本2.0.373+374保持。
+- 后续执行约定：用户明确要求后续任务不使用子代理，由Codex直接执行；本次授权仅本地提交，后续提交及推送继续等待用户明确指示。提交信息只描述代码职责与行为，不添加本地日志或验证过程。
+
+编写者：Codex｜2026-10-15
+
 ### RESTORE-IGNORE-REPOSITORY-20261015：拆分恢复忽略配置（P1）
 
 - 授权与基线：用户要求继续下一步架构迁移；当前feature/ui-reader-selection / 41ffd18f0，前两批连接仓储成果及其他会话Android Gradle五行均未提交并保留。本轮只迁移实际生效的恢复忽略配置，不自动提交/推送、触发CI、新建分支、改版本或编译安装。
-- 状态：本批实现、独立审查及本地回归完成，已获用户授权与连接两批一并本地提交。connection_migration编码，主代理维护方案及复核，settings_review独立只读审查。修改前保存本批既有文件快照供区分前两批改动；进度仅维护本条。
+- 状态：本批实现、独立审查及本地回归完成，已按用户授权与连接两批一并提交ee612001d。connection_migration编码，主代理维护方案及复核，settings_review独立只读审查。修改前保存本批既有文件快照供区分前两批改动；进度仅维护本条。
 - 目标：以RestoreIgnoreRepository及Preferences实现接管restoreIgnore单个JSON字符串，建立不可变RestoreIgnoreConfig；八项的键、顺序、标题、默认false与现有过滤行为不变，不迁成八个普通偏好键，不加入AppSettingsStore或旧数据迁移层。
 - 接线：WebDavSettingsScreen通过Provider读取和保存，RestoreIgnoreDialog只编辑本地草稿；SettingsService删除两个专用方法和相关常量，RestoreIgnorePrefs按统一键继续始终排除忽略策略自身。保存检查写入结果，失败恢复原值并反馈，取消不写入；读取异常不伪装成全false继续操作。
 - 验收：默认/原JSON恢复、未知项与损坏JSON原规则、写入拒绝/异常后的缓存和存储回退、重试/串行保存；控件八项显示与取消、成功/失败提示及再次打开、读取失败。复用现有过滤和WebDAV回归，再做相关组合、完整分析、格式及差异检查；不扩展备份恢复算法、云端同步、Rust/FFI或数据库。
@@ -18,7 +35,7 @@
 ### CONNECTION-REPOSITORIES-20261015：拆分WebDAV与远程书库配置（P1）
 
 - 授权与基线：用户要求先提交旧服务清理，再完成WebDAV连接与远程服务器两个批次；清理已提交ca2cac0c7，当前feature/ui-reader-selection，开始时工作区干净。沿用分支，不推送、不触发CI、不编译安装，应用版本2.0.373+374保持；新改动完成后留待审核，不自动提交。
-- 状态：两个批次的实现、独立审查与本地回归完成，已获用户授权与恢复忽略配置一并本地提交。connection_migration实现，主代理维护计划、复核及验收；按本轮最新提供的AGENTS.md派发实现和独立审查，最多两个子代理并行。
+- 状态：两个批次的实现、独立审查与本地回归完成，已按用户授权与恢复忽略配置一并提交ee612001d。connection_migration实现，主代理维护计划、复核及验收；按本轮最新提供的AGENTS.md派发实现和独立审查，最多两个子代理并行。
 - 批1：建立WebDavConnection不可变模型、WebDavConnectionRepository与Preferences实现，通过Provider供SyncNotifier注入；五字段沿用sync_webdav_*原键，密码保持原样，目录缺省/legado/，地址、账号、目录和设备名保持原规范化。成功保存后更新投影，写入失败传播并提示重试；界面不把未保存草稿显示为成功。移除旧服务连接方法及专属测试，保留同步扩展、自动同步及上次同步时间原行为。
 - 批2：建立RemoteServerRepository，迁出页面状态中的服务器配置模型，接管remote_servers列表JSON、remote_server_id选中项与串行增删改；默认服务器标识仍-1。RemoteBookNotifier使用仓储结果呈现服务器配置，默认连接直接来自同一WebDAV仓储；目录浏览、下载与导入算法不改，失败不更新为已保存状态。
 - 验收：真实Preferences默认/恢复、密码原样、写入拒绝/异常、保存失败重试、连续列表变更、删除当前服务器回默认；Notifier成功/失败状态与既有FFI JSON一致，设置页错误可见且可重新编辑。运行相关单元/控件回归、改动格式检查和完整Flutter分析，并安排独立只读审查。

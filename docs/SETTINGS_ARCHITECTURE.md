@@ -4,7 +4,7 @@
 HapeLee/legado-with-MD3 的 `60a7cca34dd3e0be456e0f05c10c036c64b70e35`。
 本文保存职责划分、字段归属、迁移方法与验收标准；实施授权、当前任务与验证结果
 只维护在 [活动计划](REFACTORING_ACTIVE_PLAN.md)。第6节保留历史基线盘点，
-第10～25节说明普通偏好、阅读分组、旧服务清理、连接仓储及恢复忽略配置边界；后续按第7节的领域顺序推进。
+第10～26节说明普通偏好、阅读分组、旧服务清理、连接及恢复策略、同步元数据和预设边界；后续按第7节的领域顺序推进。
 
 ## 1. 设计目标
 
@@ -392,7 +392,7 @@ B1审计时的高级存储包含下列解码/迁移键，仅作历史输入记�
 | 隐私密码/授权 | 原 PrivacyCredentialRepository 与进程会话；本批不合并本地密码、WebDAV 密码或令牌 |
 
 B1基线的SettingsService曾有69个公开异步方法，按以下互不重叠的组归档；
-以下表格仅保留审计来源，清理边界见第23节，连接迁出后的职责见第24节。无调用方判定排除
+以下表格仅保留审计来源，清理与后续职责迁移边界见第23～26节。无调用方判定排除
 定义、生成代码、测试和其他对象的同名方法；例如 AppLocaleNotifier.setLocale
 不是 SettingsService.setLocale 的消费者。
 
@@ -1072,5 +1072,38 @@ WebDavSettingsScreen注入仓储，RestoreIgnoreDialog只维护当前编辑草�
 
 迁出后SettingsService只保留同步元数据及原有通用读取/主题预设检查写入十个方法。
 自动同步和同步增强尚未实现的功能保持原状态，不借本轮启用或调整调度。
+
+编写者：Codex｜2026-10-15
+
+## 26. 同步策略、同步结果与主题预设的收口
+
+| 数据 | 权威入口 | 读写边界 |
+|---|---|---|
+| 备份路径、有效进度同步开关 | BackupSettingsRepository | 原读写及恢复重读保持 |
+| 自动同步、同步增强原值 | BackupSettingsRepository | sync_auto和sync_book_progress_plus只读投影，默认false；功能未落地前不开放写入或新增调度 |
+| 上次同步时间 | SyncMetadataRepository | 独立Preferences实现读取/保存sync_last_time整数毫秒，缺省null |
+| 命名主题列表 | PreferencesThemePresetRepository | 直接读写themeConfigList单JSON列表，保留原ThemePresetRepository接口及未知字段 |
+
+SyncNotifier通过仓储Provider读取配置、订阅策略并记录结果，不直接构造SettingsService。
+原toggleAutoSync与setSyncBookProgressPlus只被测试调用，删除这些无效写入口；
+SyncState保留读取投影，未实现设置仍禁用，不因重构开启功能。BackupSettings的
+相等比较包含两个新增只读字段，恢复后同一订阅能够反映新值，不另建独立偏好缓存。
+
+同步时间是操作结果元数据，不加入AppSettingsStore或用户可编辑策略。读取和保存
+复用现有写队列，保留原日期语义；保存拒绝或异常恢复失败当前键的缓存与存储。
+云端完成后，只有本地时间保存成功才更新lastSyncTime；记录失败保持旧时间，
+SyncStatus仍为success，并通过现有error字段说明“云端同步已完成，但本地同步时间未保存”。
+警告在页面时间区域持续显示，避免在进度对话框后等待消耗；下次正常成功清除。
+不能把记录时间的失败重新报告为云端失败，也不自动重复已完成的云端请求。
+
+主题预设仓储独立完成最新列表的串行读改写，使用可注入的Preferences加载器；
+实际读取异常向调用方传播，只有损坏JSON沿用空列表回退，避免读取失败后以空值覆盖
+已有预设。保存和删除检查写入结果，失败回退当前键，列表只在成功后更新。
+列表对话框内的失败反馈须可见，不能只依赖被弹层遮挡的页面提示；日夜应用、
+导入导出、原JSON顺序和扩展字段保持。仓储不再通过通用SettingsService转发存储。
+
+移除旧服务的六个同步方法及主题预设专用检查写入方法，仅保留仍有禁用设置展示
+消费者的getBoolPref、getIntPref与getStringPref。后续随对应功能落地迁移，
+不为完整分类预先创建无实际消费者的设置仓储。
 
 编写者：Codex｜2026-10-15

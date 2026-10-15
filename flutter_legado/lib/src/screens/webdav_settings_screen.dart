@@ -775,6 +775,9 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
             ),
             if (syncState.lastSyncTimeLabel.isNotEmpty)
               SettingsSectionFooter('上次同步：${syncState.lastSyncTimeLabel}'),
+            if (syncState.status == SyncStatus.success &&
+                syncState.error != null)
+              SettingsSectionFooter(syncState.error!),
           ],
         ),
       ),

@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../domain/models/webdav_connection.dart';
 import '../../models/book.dart';
 import '../../models/misc.dart';
-import '../../services/settings_service.dart';
 import '../providers.dart';
 import '../backup_settings_provider.dart';
+import '../sync_metadata_provider.dart';
 import '../webdav_connection_provider.dart';
 import 'sync_state.dart';
 
@@ -21,19 +21,25 @@ export 'sync_state.dart';
 /// 对齐 Android 原版 BackupConfigFragment 的 WebDAV 设置组
 /// （服务器地址/账号/密码/子目录/设备名/同步书籍进度）。
 class SyncNotifier extends Notifier<SyncState> {
-  final SettingsService _settings = SettingsService();
-
   @override
   SyncState build() {
     // 原 SyncProvider 构造不自动加载，配置由页面 initState 触发 loadConfig()
     final repository = ref.watch(backupSettingsRepositoryProvider);
     final subscription = repository.watch().listen((settings) {
       if (ref.mounted) {
-        state = state.copyWith(syncBookProgress: settings.syncBookProgress);
+        state = state.copyWith(
+          syncBookProgress: settings.syncBookProgress,
+          autoSync: settings.autoSync,
+          syncBookProgressPlus: settings.syncBookProgressPlus,
+        );
       }
     });
     ref.onDispose(() => unawaited(subscription.cancel()));
-    return SyncState(syncBookProgress: repository.current.syncBookProgress);
+    return SyncState(
+      syncBookProgress: repository.current.syncBookProgress,
+      autoSync: repository.current.autoSync,
+      syncBookProgressPlus: repository.current.syncBookProgressPlus,
+    );
   }
 
   /// 远端子目录（保证以 '/' 结尾；Rust WebDavClient 拼接
@@ -92,6 +98,7 @@ class SyncNotifier extends Notifier<SyncState> {
     final connection = await ref
         .read(webDavConnectionRepositoryProvider)
         .load();
+    final lastSyncTime = await ref.read(syncMetadataRepositoryProvider).load();
     state = state.copyWith(
       webDavUrl: connection.url,
       webDavUsername: connection.username,
@@ -99,16 +106,10 @@ class SyncNotifier extends Notifier<SyncState> {
       remoteDir: connection.remoteDir,
       deviceName: connection.deviceName,
       syncBookProgress: backup.syncBookProgress,
-      syncBookProgressPlus: await _settings.getSyncBookProgressPlus(),
-      autoSync: await _settings.getAutoSync(),
-      lastSyncTime: await _settings.getLastSyncTime(),
+      syncBookProgressPlus: backup.syncBookProgressPlus,
+      autoSync: backup.autoSync,
+      lastSyncTime: lastSyncTime,
     );
-  }
-
-  /// 切换自动同步
-  Future<void> toggleAutoSync(bool enabled) async {
-    state = state.copyWith(autoSync: enabled);
-    await _settings.setAutoSync(enabled);
   }
 
   /// 设置「同步书籍进度」开关
@@ -127,12 +128,6 @@ class SyncNotifier extends Notifier<SyncState> {
         );
       }
     }
-  }
-
-  /// 设置「同步书籍进度增强」开关
-  Future<void> setSyncBookProgressPlus(bool enabled) async {
-    state = state.copyWith(syncBookProgressPlus: enabled);
-    await _settings.setSyncBookProgressPlus(enabled);
   }
 
   // ===== 单书进度拉取 / 覆盖（对齐 AppWebDav.getBookProgress / uploadBookProgress）=====
@@ -312,12 +307,23 @@ class SyncNotifier extends Notifier<SyncState> {
 
   Future<void> _markSyncSuccess() async {
     final now = DateTime.now();
-    state = state.copyWith(
-      lastSyncTime: now,
-      status: SyncStatus.success,
-      error: null,
-    );
-    await _settings.setLastSyncTime(now);
+    try {
+      await ref.read(syncMetadataRepositoryProvider).save(now);
+      if (ref.mounted) {
+        state = state.copyWith(
+          lastSyncTime: now,
+          status: SyncStatus.success,
+          error: null,
+        );
+      }
+    } catch (_) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          status: SyncStatus.success,
+          error: '云端同步已完成，但本地同步时间未保存',
+        );
+      }
+    }
   }
 
   void _setStatus(SyncStatus status) {

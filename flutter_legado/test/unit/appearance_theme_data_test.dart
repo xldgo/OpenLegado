@@ -14,26 +14,37 @@ import 'package:flutter_legado/src/models/theme_preset.dart';
 import 'package:flutter_legado/src/platform/files/theme_file_service.dart';
 import 'package:flutter_legado/src/providers/theme/theme_colors_notifier.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/services/settings_service.dart';
 
-class ControlledPresetSettings extends SettingsService {
-  String value = '';
+class ControlledPresetPreferences extends Fake implements SharedPreferences {
+  ControlledPresetPreferences(this.delegate);
+  final SharedPreferences delegate;
   Completer<void>? gate;
   bool failNext = false;
+  bool throwsOnFailure = true;
+  bool failRead = false;
+  int writes = 0;
 
   @override
-  Future<String> getStringPref(String key, {String defaultValue = ''}) async =>
-      value;
+  String? getString(String key) {
+    if (failRead) throw StateError('模拟读取失败');
+    return delegate.getString(key);
+  }
 
   @override
-  Future<void> setStringPrefChecked(String key, String value) async {
+  Future<bool> setString(String key, String value) async {
+    writes++;
+    final saved = await delegate.setString(key, value);
     await gate?.future;
     if (failNext) {
       failNext = false;
-      throw StateError('模拟保存失败');
+      if (throwsOnFailure) throw StateError('模拟保存失败');
+      return false;
     }
-    this.value = value;
+    return saved;
   }
+
+  @override
+  Future<bool> remove(String key) => delegate.remove(key);
 }
 
 class ControlledThemeFiles extends ThemeFileService {
@@ -117,7 +128,7 @@ void main() {
         {'name': '旧夜间', 'isNight': true, 'accent': 22},
       ]),
     });
-    final repository = PreferencesThemePresetRepository(SettingsService());
+    final repository = PreferencesThemePresetRepository();
     expect((await repository.readAll()).map((item) => item.name), [
       '旧白天',
       '旧夜间',
@@ -133,18 +144,25 @@ void main() {
 
   test('损坏预设沿用空列表回退，不改写存储', () async {
     for (final raw in ['{', '{}', '[1]']) {
-      final settings = ControlledPresetSettings()..value = raw;
+      SharedPreferences.setMockInitialValues({'themeConfigList': raw});
+      final prefs = await SharedPreferences.getInstance();
       expect(
-        await PreferencesThemePresetRepository(settings).readAll(),
+        await PreferencesThemePresetRepository(
+          loadPreferences: () async => prefs,
+        ).readAll(),
         isEmpty,
       );
-      expect(settings.value, raw);
+      expect(prefs.getString('themeConfigList'), raw);
     }
   });
 
   test('并发保存与随后读取按顺序执行，失败不阻塞下一项', () async {
-    final settings = ControlledPresetSettings()..gate = Completer<void>();
-    final repository = PreferencesThemePresetRepository(settings);
+    final settings = ControlledPresetPreferences(
+      await SharedPreferences.getInstance(),
+    )..gate = Completer<void>();
+    final repository = PreferencesThemePresetRepository(
+      loadPreferences: () async => settings,
+    );
     final first = repository.add(ThemePreset(name: '第一项', isNight: false));
     final second = repository.add(ThemePreset(name: '第二项', isNight: true));
     final read = repository.readAll();
@@ -160,6 +178,83 @@ void main() {
     await repository.add(ThemePreset(name: '失败后重试', isNight: false));
     expect((await repository.readAll()).length, 3);
   });
+
+  test('平台读取失败不伪装空列表覆盖原预设，恢复后可重试', () async {
+    const raw = '[{"name":"原主题","extra":"保留"}]';
+    SharedPreferences.setMockInitialValues({'themeConfigList': raw});
+    final prefs = await SharedPreferences.getInstance();
+    final controlled = ControlledPresetPreferences(prefs)..failRead = true;
+    final repository = PreferencesThemePresetRepository(
+      loadPreferences: () async => controlled,
+    );
+    await expectLater(repository.readAll(), throwsStateError);
+    await expectLater(
+      repository.add(ThemePreset(name: '新项', isNight: true)),
+      throwsStateError,
+    );
+    expect(prefs.getString('themeConfigList'), raw);
+    expect(controlled.writes, 0);
+    controlled.failRead = false;
+    await repository.add(ThemePreset(name: '新项', isNight: true));
+    expect((await repository.readAll()).map((item) => item.name), [
+      '原主题',
+      '新项',
+    ]);
+  });
+
+  for (final throwsOnFailure in [false, true]) {
+    for (final remove in [false, true]) {
+      test(
+        '预设${remove ? '删除' : '新增'}写入${throwsOnFailure ? '异常' : 'false'}恢复列表和缓存，可重试',
+        () async {
+          const raw = '[{"name":"原主题","isNight":true,"extra":"保留"}]';
+          SharedPreferences.setMockInitialValues({'themeConfigList': raw});
+          final prefs = await SharedPreferences.getInstance();
+          final controlled = ControlledPresetPreferences(prefs)
+            ..failNext = true
+            ..throwsOnFailure = throwsOnFailure;
+          final repository = PreferencesThemePresetRepository(
+            loadPreferences: () async => controlled,
+          );
+          final changed = ThemePreset(name: '新主题', isNight: false);
+          await expectLater(
+            remove ? repository.removeAt(0) : repository.add(changed),
+            throwsStateError,
+          );
+          expect(prefs.getString('themeConfigList'), raw);
+          expect((await repository.readAll()).single.name, '原主题');
+          await prefs.reload();
+          expect(prefs.getString('themeConfigList'), raw);
+          if (remove) {
+            expect(await repository.removeAt(0), isEmpty);
+          } else {
+            await repository.add(changed);
+            expect((await repository.readAll()).map((item) => item.name), [
+              '原主题',
+              '新主题',
+            ]);
+          }
+        },
+      );
+    }
+
+    test('首份预设写入${throwsOnFailure ? '异常' : 'false'}恢复缺键并可重试', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final controlled = ControlledPresetPreferences(prefs)
+        ..failNext = true
+        ..throwsOnFailure = throwsOnFailure;
+      final repository = PreferencesThemePresetRepository(
+        loadPreferences: () async => controlled,
+      );
+      final first = ThemePreset(name: '首份主题', isNight: false);
+      await expectLater(repository.add(first), throwsStateError);
+      expect(prefs.containsKey('themeConfigList'), isFalse);
+      await prefs.reload();
+      expect(prefs.containsKey('themeConfigList'), isFalse);
+      await repository.add(first);
+      expect((await repository.readAll()).single.name, '首份主题');
+    });
+  }
 
   Future<ProviderContainer> initializedContainer({
     ControlledThemeFiles? files,

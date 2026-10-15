@@ -16,6 +16,10 @@ import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
+import 'package:flutter_legado/src/domain/contracts/sync_metadata_repository.dart';
+import 'package:flutter_legado/src/providers/sync_metadata_provider.dart';
+import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -38,6 +42,18 @@ class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
   }
 }
 
+class _MetadataRepository implements SyncMetadataRepository {
+  bool failSave = true;
+  DateTime? saved = DateTime.fromMillisecondsSinceEpoch(1234);
+  @override
+  Future<DateTime?> load() async => saved;
+  @override
+  Future<void> save(DateTime time) async {
+    if (failSave) throw StateError('模拟时间保存失败');
+    saved = time;
+  }
+}
+
 void main() {
   late MockRustApi mockApi;
 
@@ -56,6 +72,7 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     WebDavConnectionRepository? repository,
+    SyncMetadataRepository? metadata,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -63,12 +80,65 @@ void main() {
           bookApiProvider.overrideWithValue(mockApi),
           if (repository != null)
             webDavConnectionRepositoryProvider.overrideWithValue(repository),
+          if (metadata != null)
+            syncMetadataRepositoryProvider.overrideWithValue(metadata),
         ],
         child: const MaterialApp(home: WebDavSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('云端成功但时间记录失败显示持久警告，未接线策略保持禁用', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sync_webdav_url': 'https://dav.example',
+      'sync_webdav_username': 'u',
+      'sync_webdav_password': 'p',
+      'sync_auto': true,
+      'sync_book_progress_plus': true,
+      'app_backup_path': 'E:/备份',
+    });
+    when(() => mockApi.webdavFullSync(any(), any(), any()))
+        .thenAnswer((_) async => '{}');
+    when(() => mockApi.backup(any()))
+        .thenAnswer((_) async => 'E:/备份/backup.zip');
+    final metadata = _MetadataRepository();
+    await pumpScreen(tester, metadata: metadata);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WebDavSettingsScreen)),
+    );
+    await tester.scrollUntilVisible(find.text('同步书籍进度增强'), 120);
+    final enhanced = tester
+        .widgetList<SettingSwitchRow>(find.byType(SettingSwitchRow))
+        .singleWhere((row) => row.title == '同步书籍进度增强');
+    expect(enhanced.onChanged, isNull);
+    expect(enhanced.value, isTrue);
+    expect(find.text('自动同步'), findsNothing);
+    await tester.scrollUntilVisible(find.text('备份'), 120);
+    await tester.tap(find.text('备份'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    // 等待本地备份成功的短提示离场，再核对不会随提示计时消失的记录警告。
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    const warning = '云端同步已完成，但本地同步时间未保存';
+    await tester.scrollUntilVisible(find.text(warning), 150);
+    await tester.pumpAndSettle();
+    expect(find.text(warning).hitTestable(), findsOneWidget);
+    expect(container.read(syncNotifierProvider).status, SyncStatus.success);
+    expect(
+      container.read(syncNotifierProvider).lastSyncTime?.millisecondsSinceEpoch,
+      1234,
+    );
+    await tester.pump(const Duration(seconds: 6));
+    expect(find.text(warning).hitTestable(), findsOneWidget);
+    metadata.failSave = false;
+    await tester.scrollUntilVisible(find.text('备份'), -120);
+    await tester.tap(find.text('备份'));
+    await tester.pumpAndSettle();
+    expect(find.text(warning), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('连接保存失败提示并保持已保存展示，再编辑成功可重试', (tester) async {
     final repository = _ConnectionRepository();

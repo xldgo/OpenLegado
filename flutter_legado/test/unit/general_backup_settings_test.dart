@@ -37,7 +37,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('五项默认值按原键读取，不补写存储或扫描凭据', () async {
+  test('七项默认值按原键读取，不补写存储或扫描凭据', () async {
     storage.values['sync_webdav_password'] = '保留的凭据';
     expect(await general.load(), const GeneralSettings());
     expect(await backup.load(), const BackupSettings());
@@ -47,6 +47,8 @@ void main() {
       'webPort',
       'app_backup_path',
       'sync_book_progress',
+      'sync_auto',
+      'sync_book_progress_plus',
     });
     await general.update();
     await backup.update();
@@ -168,5 +170,57 @@ void main() {
     await container.read(backupSettingsRepositoryProvider).reload();
     await Future<void>.delayed(Duration.zero);
     expect(container.read(syncNotifierProvider).syncBookProgress, isTrue);
+  });
+
+  test('同步策略从共享仓储加载并在恢复重读后订阅更新', () async {
+    storage.values.addAll({'sync_auto': true, 'sync_book_progress_plus': true});
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsServiceProvider.overrideWithValue(service),
+        bookApiProvider.overrideWithValue(MockBookApi()),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(syncNotifierProvider.notifier).loadConfig();
+    expect(container.read(syncNotifierProvider).autoSync, isTrue);
+    expect(container.read(syncNotifierProvider).syncBookProgressPlus, isTrue);
+    storage.values['sync_auto'] = false;
+    storage.values['sync_book_progress_plus'] = false;
+    await container.read(backupSettingsRepositoryProvider).reload();
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(syncNotifierProvider).autoSync, isFalse);
+    expect(container.read(syncNotifierProvider).syncBookProgressPlus, isFalse);
+    expect(storage.writes, isEmpty);
+  });
+
+  test('两项策略按真实Preferences读取并随reload订阅，不增加写入口', () async {
+    SharedPreferences.setMockInitialValues({
+      'sync_auto': true,
+      'sync_book_progress_plus': true,
+    });
+    final actual = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(actual.dispose);
+    final repository = AppBackupSettingsRepository(actual);
+    final values = <BackupSettings>[];
+    final subscription = repository.watch().listen(values.add);
+    addTearDown(subscription.cancel);
+    expect(
+      await repository.load(),
+      const BackupSettings(autoSync: true, syncBookProgressPlus: true),
+    );
+    await repository.update(backupPath: 'E:/新路径');
+    expect(repository.current.autoSync, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sync_auto', false);
+    await prefs.setBool('sync_book_progress_plus', false);
+    await repository.reload();
+    await Future<void>.delayed(Duration.zero);
+    expect(values.last.autoSync, isFalse);
+    expect(values.last.syncBookProgressPlus, isFalse);
+    expect(repository.current.backupPath, 'E:/新路径');
   });
 }

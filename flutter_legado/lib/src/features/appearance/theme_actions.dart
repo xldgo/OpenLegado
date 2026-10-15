@@ -7,12 +7,11 @@ import '../../domain/contracts/theme_preset_repository.dart';
 import '../../models/theme_document.dart';
 import '../../models/theme_preset.dart';
 import '../../platform/files/theme_file_service.dart';
-import '../../providers/providers.dart';
 import '../../providers/theme/theme_colors_notifier.dart';
 import '../../providers/theme/theme_notifier.dart';
 
 final themePresetRepositoryProvider = Provider<ThemePresetRepository>(
-  (ref) => PreferencesThemePresetRepository(ref.watch(settingsProvider)),
+  (ref) => PreferencesThemePresetRepository(),
 );
 final themeFileServiceProvider = Provider<ThemeFileService>(
   (ref) => ThemeFileService(),

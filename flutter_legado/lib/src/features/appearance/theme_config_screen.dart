@@ -1243,13 +1243,27 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
             await actions.applyPreset(preset);
             _toast('已应用主题「${preset.name}」');
           },
-          onError: (error) => _toast('主题操作失败：$error'),
+          onError: (_) => _showThemePresetError(),
         ),
       );
     } catch (error) {
       _toast('主题操作失败：$error');
     }
   }
+
+  Future<void> _showThemePresetError() => showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('操作失败'),
+      content: const Text('主题操作失败，请重试'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(ctx.l10n.confirm),
+        ),
+      ],
+    ),
+  );
 
   Future<void> _saveTheme({required bool isNight}) async {
     final name = await showDialog<String>(

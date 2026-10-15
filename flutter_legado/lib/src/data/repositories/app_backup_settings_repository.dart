@@ -18,13 +18,25 @@ final class AppBackupSettingsRepository implements BackupSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'sync_book_progress',
   );
-  static const _addresses = {_path, _progress};
+  static const _autoSync = (
+    storage: SettingsStorageKind.preferences,
+    key: 'sync_auto',
+  );
+  static const _progressPlus = (
+    storage: SettingsStorageKind.preferences,
+    key: 'sync_book_progress_plus',
+  );
+  static const _addresses = {_path, _progress, _autoSync, _progressPlus};
 
   BackupSettings _decode(AppSettingsSnapshot snapshot) => BackupSettings(
     backupPath: snapshot[_path] is String ? snapshot[_path] as String : '',
     syncBookProgress: snapshot[_progress] is bool
         ? snapshot[_progress] as bool
         : true,
+    autoSync: snapshot[_autoSync] is bool ? snapshot[_autoSync] as bool : false,
+    syncBookProgressPlus: snapshot[_progressPlus] is bool
+        ? snapshot[_progressPlus] as bool
+        : false,
   );
 
   @override

@@ -1,6 +1,6 @@
 import '../models/backup_settings.dart';
 
-/// 备份路径和有效同步开关的同源访问，空路径删除原键。— Codex + UI
+/// 备份路径与同步策略同源读取；只写现有有效项，空路径删除原键。— Codex + UI
 abstract interface class BackupSettingsRepository {
   BackupSettings get current;
   Stream<BackupSettings> watch();
