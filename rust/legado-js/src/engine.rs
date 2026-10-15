@@ -4,6 +4,10 @@
 
 use legado_core::LegadoResult;
 
+/// 接收字符串并返回字符串或错误的宿主回调。
+#[cfg(feature = "quickjs")]
+pub type StringCallback = std::sync::Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>;
+
 /// JS 值类型 —— 用于宿主语言与 JS 之间传递参数
 #[derive(Debug, Clone)]
 pub enum JsValue {
@@ -457,7 +461,7 @@ mod quickjs_engine {
         pub fn register_string_callback(
             &self,
             name: &str,
-            callback: std::sync::Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>,
+            callback: super::StringCallback,
         ) -> LegadoResult<()> {
             self.context.with(|ctx| {
                 let function = rquickjs::Function::new(
