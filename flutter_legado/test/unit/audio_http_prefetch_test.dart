@@ -128,20 +128,21 @@ void main() {
     );
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapters(any())).thenAnswer(
+    when(() => api.readingRepository.getChapters(any())).thenAnswer(
       (_) async => const [
         BookChapter(title: '第一章', index: 0),
         BookChapter(title: '第二章', index: 1),
         BookChapter(title: '第三章', index: 2),
       ],
     );
-    when(() => api.getChapterContentFull(any(), any())).thenAnswer(
-      (call) async => [
-        '当前段。\n后续段一。\n后续段二。',
-        '下一章段一。\n下一章段二。',
-        '窗口外。',
-      ][call.positionalArguments[1] as int],
-    );
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
+        .thenAnswer(
+          (call) async => [
+            '当前段。\n后续段一。\n后续段二。',
+            '下一章段一。\n下一章段二。',
+            '窗口外。',
+          ][call.positionalArguments[1] as int],
+        );
     when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => const [
         HttpTts(id: 1, name: '源', url: 'https://tts', synthesisThreadCount: 2),
@@ -175,7 +176,7 @@ void main() {
       1,
       1,
     ]);
-    verifyNever(() => api.getChapterContentFull('book', 2));
+    verifyNever(() => api.readingRepository.getChapterContentFull('book', 2));
     player.completePlayback();
     await flush();
     expect(notifier().currentParagraphIndex, 1);
@@ -192,7 +193,7 @@ void main() {
     expect(synthesis.active, 0);
     expect(synthesis.cancellations.skip(1).every((c) => c.isCancelled), isTrue);
     expect(player.playedLocalFiles, hasLength(1));
-    verifyNever(() => api.getChapterContentFull('book', 1));
+    verifyNever(() => api.readingRepository.getChapterContentFull('book', 1));
     expect(api.ttsCacheRepository.clears.last.book, 'book');
     expect(api.ttsCacheRepository.clears.last.chapter, 0);
     expect(api.ttsCacheRepository.clears.last.before, isNotNull);
@@ -218,7 +219,7 @@ void main() {
     await flush();
     expect(synthesis.active, 0);
     expect(synthesis.cancellations.skip(1).every((c) => c.isCancelled), isTrue);
-    verifyNever(() => api.getChapterContentFull('book', 1));
+    verifyNever(() => api.readingRepository.getChapterContentFull('book', 1));
   });
   test('音色及情感恢复后进入当前与预合成请求，禁用后不改选其他音色', () async {
     api.voices.importHttp(1, {

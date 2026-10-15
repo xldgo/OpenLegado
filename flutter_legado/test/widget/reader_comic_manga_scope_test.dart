@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -68,6 +69,15 @@ Book _buildBook({
 /// [漫画设置作用域] Mock：可注入书籍（含 readConfig）/全局配置，
 /// 记录 setConfig 与 updateBook 调用（区分全局键写入与书级回写）
 class _ScopeMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -110,8 +120,7 @@ class _ScopeMockApi extends MockBookApi {
     _book = book;
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async =>
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
       List<BookChapter>.generate(
         1,
         (i) => BookChapter(
@@ -121,8 +130,7 @@ class _ScopeMockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -147,8 +155,7 @@ class _ScopeMockApi extends MockBookApi {
     configWrites.add([key, value]);
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,

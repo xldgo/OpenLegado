@@ -10,6 +10,9 @@ import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +20,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mocks/mocks.dart';
+import '../fixtures/home_settings_storage.dart';
 
 class _Shelf extends Mock implements BookshelfRepository {}
 
@@ -69,11 +73,11 @@ void main() {
     final api = _Api();
     final shelf = api.bookshelfRepository;
     final sample = (await shelf.getBooks()).first;
-    expect(await api.getChapters(sample.bookUrl), isNotEmpty);
+    expect(await api.readingRepository.getChapters(sample.bookUrl), isNotEmpty);
     await shelf.addBook(_book);
     (await shelf.getBooks()).clear();
     expect(await shelf.getBook(_book.bookUrl), _book);
-    await api.updateReadingProgress(
+    await api.readingRepository.updateReadingProgress(
       bookUrl: _book.bookUrl,
       chapterIndex: 3,
       chapterPos: 201,
@@ -227,6 +231,15 @@ void main() {
           bookApiProvider.overrideWith(
             (_) => throw StateError('CRUD 不应创建 BookApi'),
           ),
+          appSettingsServiceProvider.overrideWith((ref) {
+            final service = AppSettingsService(
+              storages: {
+                SettingsStorageKind.preferences: HomeSettingsStorage(),
+              },
+            );
+            ref.onDispose(() => service.dispose());
+            return service;
+          }),
           bookshelfRepositoryProvider.overrideWithValue(shelf),
           bookGroupRepositoryProvider.overrideWithValue(groups),
         ],

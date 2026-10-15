@@ -225,7 +225,7 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
   ) async {
     final book = await bookshelfRepository.getBook(bookUrl);
     final bookName = book?.name ?? 'export';
-    final chapters = await getChapters(bookUrl);
+    final chapters = await readingRepository.getChapters(bookUrl);
     final dir = Directory(outDir);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
@@ -239,7 +239,10 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
         buffer.writeln(chapter.title);
         buffer.writeln();
         try {
-          final content = await getChapterContent(bookUrl, chapter.index);
+          final content = await readingRepository.getChapterContent(
+            bookUrl,
+            chapter.index,
+          );
           buffer.writeln(content);
         } catch (_) {
           buffer.writeln('[内容获取失败]');

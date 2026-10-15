@@ -308,7 +308,10 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     }
     _snack(context, '正在更新目录…');
     try {
-      await ref.read(bookApiProvider).refreshToc(book.bookUrl, book.origin);
+      await ref
+          .read(bookApiProvider)
+          .readingRepository
+          .refreshToc(book.bookUrl, book.origin);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
               book.bookUrl) {
@@ -341,6 +344,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     try {
       final ok = await ref
           .read(bookApiProvider)
+          .readingRepository
           .saveChapterContent(
             bookUrl: book.bookUrl,
             chapterIndex: chapterIndex,
@@ -365,6 +369,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     try {
       final content = await ref
           .read(bookApiProvider)
+          .readingRepository
           .getChapterContentFull(book.bookUrl, chapterIndex);
       if (content.isEmpty) {
         if (context.mounted) _snack(context, '暂无正文可反转');
@@ -374,6 +379,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       final reversed = String.fromCharCodes(content.runes.toList().reversed);
       final ok = await ref
           .read(bookApiProvider)
+          .readingRepository
           .saveChapterContent(
             bookUrl: book.bookUrl,
             chapterIndex: chapterIndex,
@@ -694,7 +700,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (next && chapterTitle.isNotEmpty) {
       try {
         final raw = await ref
-            .read(bookApiProvider)
+            .read(chapterCacheRepositoryProvider)
             .getCachedChapter(book.bookUrl, chapterIndex);
         final canRemove = await ref
             .read(bookApiProvider)

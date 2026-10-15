@@ -23,7 +23,7 @@ void main() {
     when(() => api.bookshelfRepository.getBooks()).thenAnswer((_) async => []);
     when(() => api.bookGroupRepository.getBookGroups())
         .thenAnswer((_) async => []);
-    when(() => api.getChapters(any()))
+    when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(index: 2, title: '第三章')]);
     final end = DateTime(2026, 10, 13, 12).millisecondsSinceEpoch;
     await repo.putReadRecord(

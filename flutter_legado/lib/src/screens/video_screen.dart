@@ -469,9 +469,12 @@ class _VideoScreenState extends State<VideoScreen> {
           }
         } catch (_) {}
       }
-      _chapters = await api.getChapters(book.bookUrl);
+      _chapters = await api.readingRepository.getChapters(book.bookUrl);
       if (_chapters.isEmpty && book.origin.isNotEmpty) {
-        _chapters = await api.refreshToc(book.bookUrl, book.origin);
+        _chapters = await api.readingRepository.refreshToc(
+          book.bookUrl,
+          book.origin,
+        );
       }
       if (_chapters.isEmpty) {
         setState(() {
@@ -582,12 +585,12 @@ class _VideoScreenState extends State<VideoScreen> {
     try {
       final api = ProviderScope.containerOf(context).read(bookApiProvider);
       final content = book.origin.isNotEmpty
-          ? await api.fetchChapterContent(
+          ? await api.readingRepository.fetchChapterContent(
               book.bookUrl,
               chapter.url,
               book.origin,
             )
-          : await api.getChapterContent(book.bookUrl, index);
+          : await api.readingRepository.getChapterContent(book.bookUrl, index);
       // [V-B2] 弹幕与正文同链加载：§2.49 原文 → §2.50 Rust 解析
       await _loadDanmakuForChapter(api, index);
       final target = resolveVideoPlayTarget(
@@ -876,7 +879,7 @@ class _VideoScreenState extends State<VideoScreen> {
           pos = 0;
         }
       }
-      await api.updateReadingProgress(
+      await api.readingRepository.updateReadingProgress(
         bookUrl: book.bookUrl,
         chapterIndex: _chapterIndex,
         chapterPos: pos,

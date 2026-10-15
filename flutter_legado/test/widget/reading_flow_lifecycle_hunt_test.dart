@@ -52,10 +52,12 @@ void main() {
 
   /// 记录每次 updateReadingProgress 的 (chapterIndex, chapterPos) 写库调用
   void stubApi(MockRustApi api, List<List<int>> writes) {
-    when(() => api.getChapters(any())).thenAnswer((_) async => _chapters);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => _chapters);
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
-    when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
+    when(() => api.readingRepository.getChapterContent(any(), any()))
+        .thenAnswer((_) async => '');
     when(() => api.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
     when(() => api.getConfig(any())).thenAnswer((_) async => '');
@@ -64,7 +66,7 @@ void main() {
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => _book);
     when(
-      () => api.updateReadingProgress(
+      () => api.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),

@@ -1,5 +1,8 @@
+import '../providers/chapter_cache_provider.dart';
+import '../domain/models/cache_download_task.dart';
+import '../widgets/error_view.dart';
+
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -9,13 +12,12 @@ import '../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
 import '../widgets/custom_refresh_indicator.dart';
 import '../widgets/loading_indicator.dart';
 
 /// 缓存下载队列页（对齐原版 CacheActivity 进度列表）
 ///
-/// 轮询 [BookApi.cacheDownloadList] 展示批量缓存下载任务：
+/// 轮询下载服务 展示批量缓存下载任务：
 /// 任务状态（下载中/已完成/已取消/失败）、已完成/总数进度条、取消按钮。
 /// [UI-fix v2.0.16 | 2026-08-10] 此前无下载队列页，且阅读页缓存按钮仅登记
 /// 内存任务不执行下载 — Reasonix
@@ -27,48 +29,10 @@ class CacheDownloadScreen extends ConsumerStatefulWidget {
       _CacheDownloadScreenState();
 }
 
-/// 单个缓存下载任务（camelCase 对齐 Rust CacheDownloadTask 快照）
-class _DownloadTask {
-  final int taskId;
-  final String bookUrl;
-  final String status;
-  final int total;
-  final int completed;
-  final int failed;
-
-  const _DownloadTask({
-    required this.taskId,
-    required this.bookUrl,
-    required this.status,
-    required this.total,
-    required this.completed,
-    required this.failed,
-  });
-
-  factory _DownloadTask.fromJson(Map<String, dynamic> json) => _DownloadTask(
-    taskId: (json['taskId'] as num?)?.toInt() ?? 0,
-    bookUrl: json['bookUrl'] as String? ?? '',
-    status: json['status'] as String? ?? 'unknown',
-    total: (json['total'] as num?)?.toInt() ?? 0,
-    completed: (json['completed'] as num?)?.toInt() ?? 0,
-    failed: (json['failed'] as num?)?.toInt() ?? 0,
-  );
-
-  bool get isRunning => status == 'running';
-
-  String get statusLabel => switch (status) {
-    'running' => '下载中',
-    'completed' => '已完成',
-    'cancelled' => '已取消',
-    'failed' => '失败',
-    'notFound' => '已失效',
-    _ => status,
-  };
-}
-
 class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
-  List<_DownloadTask> _tasks = [];
+  List<CacheDownloadTask> _tasks = [];
   bool _loading = true;
+  String? _error;
   Timer? _timer;
 
   @override
@@ -88,33 +52,29 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
 
   Future<void> _refresh() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final json = await api.cacheDownloadList();
-      final decoded = jsonDecode(json);
-      final tasks = <_DownloadTask>[];
-      if (decoded is List) {
-        for (final item in decoded) {
-          if (item is Map<String, dynamic>) {
-            tasks.add(_DownloadTask.fromJson(item));
-          }
-        }
-      }
+      final tasks = await ref
+          .read(cacheDownloadServiceProvider)
+          .cacheDownloadList();
       if (!mounted) return;
       setState(() {
         _tasks = tasks;
+        _error = null;
         _loading = false;
       });
     } catch (_) {
-      // 轮询失败（如任务表未初始化）静默保留旧列表
+      // 查询失败保留最近一次成功结果，首次失败提供重试。
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _error = '缓存下载队列加载失败';
+      });
     }
   }
 
   Future<void> _cancel(int taskId) async {
     try {
-      final api = ref.read(bookApiProvider);
-      await api.cacheDownloadCancel(taskId);
+      final downloads = ref.read(cacheDownloadServiceProvider);
+      await downloads.cacheDownloadCancel(taskId);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -139,6 +99,8 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
       ),
       body: _loading
           ? const LoadingIndicator()
+          : _error != null && _tasks.isEmpty
+          ? ErrorView(message: _error!, onRetry: _refresh)
           : _tasks.isEmpty
           ? _buildEmpty(cs)
           // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
@@ -180,7 +142,16 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
     );
   }
 
-  Widget _buildTaskTile(_DownloadTask task) {
+  String _statusLabel(String status) => switch (status) {
+    'running' => '下载中',
+    'completed' => '已完成',
+    'cancelled' => '已取消',
+    'failed' => '失败',
+    'notFound' => '已失效',
+    _ => status,
+  };
+
+  Widget _buildTaskTile(CacheDownloadTask task) {
     final cs = Theme.of(context).colorScheme;
     final progress = task.total > 0 ? task.completed / task.total : 0.0;
     final color = switch (task.status) {
@@ -216,7 +187,7 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${task.statusLabel} · ${task.completed}/${task.total}'
+            '${_statusLabel(task.status)} · ${task.completed}/${task.total}'
             '${task.failed > 0 ? ' · 失败 ${task.failed}' : ''}',
             // [LAYOUT_PLAN P1] 元信息字级走 labelSmall
             style: Theme.of(context).textTheme.labelSmall

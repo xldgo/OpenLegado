@@ -29,15 +29,15 @@ void main() {
     SharedPreferences.setMockInitialValues({'enableReadRecord': true});
     api = MockRustApi();
     records = _Records();
-    when(() => api.getChapters(book.bookUrl)).thenAnswer(
+    when(() => api.readingRepository.getChapters(book.bookUrl)).thenAnswer(
       (_) async => [
         const BookChapter(url: 'fixture://chapter', title: '正文', index: 0),
       ],
     );
-    when(() => api.getChapterContentFull(book.bookUrl, 0))
+    when(() => api.readingRepository.getChapterContentFull(book.bookUrl, 0))
         .thenAnswer((_) async => '测试正文。');
     when(
-      () => api.updateReadingProgress(
+      () => api.readingRepository.updateReadingProgress(
         bookUrl: book.bookUrl,
         chapterIndex: 0,
         chapterPos: any(named: 'chapterPos'),
@@ -163,7 +163,7 @@ void main() {
       ),
     ).called(1);
     verify(
-      () => api.updateReadingProgress(
+      () => api.readingRepository.updateReadingProgress(
         bookUrl: book.bookUrl,
         chapterIndex: 0,
         chapterPos: any(named: 'chapterPos'),

@@ -1,3 +1,4 @@
+import '../../providers/chapter_cache_provider.dart';
 import '../../widgets/app_menu.dart';
 
 import 'dart:async';
@@ -206,7 +207,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
         .catchError((_) {});
 
     try {
-      final chapters = await api.getChapters(widget.effectiveBookUrl);
+      final chapters = await api.readingRepository.getChapters(
+        widget.effectiveBookUrl,
+      );
       if (gen != _generation || !mounted) return;
       setState(() => _totalChapters = chapters.length);
 
@@ -232,9 +235,11 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
       Set<String>? cachedUrls;
       if (scope == _SearchContentOptions.scopeCached) {
         try {
-          cachedUrls = (await api.listCachedChapterUrls(
-            widget.effectiveBookUrl,
-          )).toSet();
+          cachedUrls =
+              (await ref
+                      .read(chapterCacheRepositoryProvider)
+                      .listCachedChapterUrls(widget.effectiveBookUrl))
+                  .toSet();
         } catch (_) {
           cachedUrls = <String>{};
         }
@@ -259,11 +264,11 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
           // ContentProcessor.getContent(useReplace = replaceEnabled)）：
           // 默认关闭替换规则，避免被替换/删除的词搜不到
           final content = _SearchContentOptions.useReplace
-              ? await api.getChapterContent(
+              ? await api.readingRepository.getChapterContent(
                   widget.effectiveBookUrl,
                   chapter.index,
                 )
-              : await api.getChapterContentRaw(
+              : await api.readingRepository.getChapterContentRaw(
                   widget.effectiveBookUrl,
                   chapter.index,
                 );

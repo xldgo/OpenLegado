@@ -1,5 +1,9 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/chapter_cache_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/cache_download_service.dart';
+import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
+
 import 'package:flutter_legado/src/domain/contracts/backup_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
@@ -66,7 +70,21 @@ class BackupRepositoryMock extends Mock implements BackupRepository {}
 
 class WebDavServiceMock extends Mock implements WebDavService {}
 
+class ReadingRepositoryMock extends Mock implements ReadingRepository {}
+
+class ChapterCacheRepositoryMock extends Mock
+    implements ChapterCacheRepository {}
+
+class CacheDownloadServiceMock extends Mock implements CacheDownloadService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final ChapterCacheRepository chapterCacheRepository =
+      ChapterCacheRepositoryMock();
+  @override
+  final CacheDownloadService cacheDownloadService = CacheDownloadServiceMock();
+  @override
+  final ReadingRepository readingRepository = ReadingRepositoryMock();
   @override
   final BackupRepository backupRepository = BackupRepositoryMock();
   @override

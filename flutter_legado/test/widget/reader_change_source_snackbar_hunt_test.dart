@@ -67,16 +67,16 @@ const _newToc = [
 
 /// 打开书籍的最小 stub（对标 reader_force_refresh_test 的 stubOpenBook）
 void stubOpenBook(MockRustApi api) {
-  when(() => api.getChapters(any())).thenAnswer(
+  when(() => api.readingRepository.getChapters(any())).thenAnswer(
     (_) async => const [
       BookChapter(url: 'https://book.com/1/c1', title: '第一章', index: 0),
       BookChapter(url: 'https://book.com/1/c2', title: '第二章', index: 1),
     ],
   );
-  when(() => api.getChapterContentFull(any(), any()))
+  when(() => api.readingRepository.getChapterContentFull(any(), any()))
       .thenAnswer((_) async => '旧正文（缓存）');
   when(
-    () => api.updateReadingProgress(
+    () => api.readingRepository.updateReadingProgress(
       bookUrl: any(named: 'bookUrl'),
       chapterIndex: any(named: 'chapterIndex'),
       chapterPos: any(named: 'chapterPos'),
@@ -258,13 +258,16 @@ void main() {
           () => _newBookRecord,
         );
       });
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(() => mockApi.clearChapterCache(any(), any()))
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
           .thenAnswer((_) async => 0);
-      when(() => mockApi.fetchChapterContent(any(), any(), any()))
-          .thenAnswer((_) async => '新源新正文');
+      when(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -329,13 +332,16 @@ void main() {
           () => _newBookRecord,
         ),
       );
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(() => mockApi.clearChapterCache(any(), any()))
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
           .thenAnswer((_) async => 0);
-      when(() => mockApi.fetchChapterContent(any(), any(), any()))
-          .thenAnswer((_) async => '新源新正文');
+      when(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -469,13 +475,16 @@ void main() {
       stubOpenBook(mockApi);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => _newBookRecord);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => _newToc);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => _newToc);
       // [STAGE3-C2B] 换源重载末尾的强制刷新改单章失效（Rust 换源事务
       // 已清整书缓存，本章行已不存在，删除数 0）
-      when(() => mockApi.clearChapterCache(any(), any()))
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
           .thenAnswer((_) async => 0);
-      when(() => mockApi.fetchChapterContent(any(), any(), any()))
-          .thenAnswer((_) async => '新源新正文');
+      when(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenAnswer((_) async => '新源新正文');
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);

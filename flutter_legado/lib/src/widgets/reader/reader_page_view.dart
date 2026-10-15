@@ -1,3 +1,4 @@
+import '../../providers/reading_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 
 import '../../providers/reader/reader_settings_provider.dart';
@@ -11,7 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../providers/audio/read_aloud_preferences.dart';
@@ -1675,7 +1675,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       // 与阅读器章节加载同链路）——getChapterContent 仅读本地缓存不取网，
       // 预载会挂住（真机探针实证：PRELOAD start 后无任何返回）— Qoder
       final content = await ref
-          .read(bookApiProvider)
+          .read(readingRepositoryProvider)
           .getChapterContentFull(book.bookUrl, target);
       if (!mounted) return;
       // 发起后章节已切换或已换源（bookUrl 变）则作废

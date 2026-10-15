@@ -1,3 +1,6 @@
+import '../domain/contracts/chapter_cache_repository.dart';
+import '../domain/contracts/cache_download_service.dart';
+import '../domain/contracts/reading_repository.dart';
 import '../domain/contracts/backup_repository.dart';
 import '../domain/contracts/webdav_service.dart';
 import '../domain/contracts/search_service.dart';
@@ -63,6 +66,9 @@ class RustApi
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required ChapterCacheRepository chapterCacheRepository,
+    required CacheDownloadService cacheDownloadService,
+    required ReadingRepository readingRepository,
     required Future<void> Function() initialize,
     required ReadingConfigSync readingConfigSync,
     required BookmarkRepository bookmarkRepository,
@@ -79,6 +85,9 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    chapterCacheRepository,
+    cacheDownloadService,
+    readingRepository,
     initialize,
     readingConfigSync,
     bookmarkRepository,
@@ -97,6 +106,9 @@ class RustApi
   );
 
   RustApi._(
+    this.chapterCacheRepository,
+    this.cacheDownloadService,
+    this.readingRepository,
     this._initialize,
     this._readingConfigSync,
     this.bookmarkRepository,
@@ -118,6 +130,13 @@ class RustApi
   final BackupRepository backupRepository;
   @override
   final WebDavService webDavService;
+
+  @override
+  final ReadingRepository readingRepository;
+  @override
+  final ChapterCacheRepository chapterCacheRepository;
+  @override
+  final CacheDownloadService cacheDownloadService;
 
   final Future<void> Function() _initialize;
   final ReadingConfigSync _readingConfigSync;

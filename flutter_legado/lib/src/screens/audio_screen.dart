@@ -863,7 +863,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     if (bookUrl.isEmpty) return;
     List<BookChapter> chapters;
     try {
-      chapters = await api.getChapters(bookUrl);
+      chapters = await api.readingRepository.getChapters(bookUrl);
     } catch (e) {
       // 原版 ensureChapterList 失败 → 静默中止整段范围（AudioCacheService.kt:199,236-257）
       debugPrint('[audio-cache] 获取章节列表失败（中止缓存范围）：$e');
@@ -1082,7 +1082,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     if (bookUrl.isEmpty) return;
     BookChapter? chapter;
     try {
-      final chapters = await api.getChapters(bookUrl);
+      final chapters = await api.readingRepository.getChapters(bookUrl);
       chapter = chapters.where((c) => c.index == currentIndex).firstOrNull;
     } catch (e) {
       debugPrint('[audio-cache] 清除本章缓存前获取章节失败：$e');

@@ -1194,13 +1194,16 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // 须自动 refreshToc，否则漫画阅读器永远「暂无章节」无法进正文/图片。
       // 设备实测：51漫画 book.type=notShelf|image、chapters=0，Rust 侧
       // refresh_toc 可出 1 章+正文图，缺此回退则整链断裂。— Reasonix + UI
-      _chapters = await api.getChapters(_activeBookUrl);
+      _chapters = await api.readingRepository.getChapters(_activeBookUrl);
       if (_chapters.isEmpty &&
           _book != null &&
           _book!.origin.isNotEmpty &&
           !_book!.origin.startsWith(BookType.localTag) &&
           !_book!.origin.startsWith(BookType.webDavTag)) {
-        _chapters = await api.refreshToc(_activeBookUrl, _book!.origin);
+        _chapters = await api.readingRepository.refreshToc(
+          _activeBookUrl,
+          _book!.origin,
+        );
       }
       if (_chapters.isEmpty) {
         setState(() {
@@ -1273,14 +1276,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       String content;
       if (chapter.url.isNotEmpty && _book != null) {
         // 在线章节：通过 fetchChapterContent 获取（[P4-3 M3 修2] 活跃 bookUrl）
-        content = await api.fetchChapterContent(
+        content = await api.readingRepository.fetchChapterContent(
           _activeBookUrl,
           chapter.url,
           _book!.origin,
         );
       } else {
         // 本地章节：通过 getChapterContent 获取
-        content = await api.getChapterContent(
+        content = await api.readingRepository.getChapterContent(
           _activeBookUrl,
           _currentChapterIndex,
         );
@@ -1501,7 +1504,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     ];
     for (final index in candidates) {
       try {
-        await api.getChapterContentFull(_activeBookUrl, index);
+        await api.readingRepository.getChapterContentFull(
+          _activeBookUrl,
+          index,
+        );
       } catch (_) {
         // 预载失败静默：不显示错误、不阻断阅读（下次进入该章再试）
       }
@@ -1721,7 +1727,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final api = ref.read(bookApiProvider);
       final maxPage = _imageUrls.isEmpty ? 0 : _imageUrls.length - 1;
       final pos = _visiblePageIndex.clamp(0, maxPage);
-      await api.updateReadingProgress(
+      await api.readingRepository.updateReadingProgress(
         bookUrl: _activeBookUrl,
         chapterIndex: _currentChapterIndex,
         chapterPos: pos,

@@ -5,9 +5,9 @@
 /// 经真实 FRB wire 验证：
 ///
 /// - `cacheDownloadFailedChapters` 返回 JSON 整型数组形态（无失败 = `[]`，
-///   可经 jsonDecode 解析为 List，对应 `RustApi.listFailedChapters` 的
+///   可经 jsonDecode 解析为 List，对应 `CacheDownloadService.listFailedChapters` 的
 ///   `List<int>` 解析口径）
-/// - `RustApi.listFailedChapters`（契约 §2.43.8 Dart 封装）端到端可达
+/// - `CacheDownloadService.listFailedChapters`（契约 §2.43.8 Dart 封装）端到端可达
 /// - 查询零写入：重复调用结果恒定
 ///
 /// 失败记入/成功移除/持久化/恢复回读的完整数据链由 Rust 单测覆盖
@@ -83,31 +83,22 @@ void main() {
       expect(decoded, isEmpty);
     });
 
-    test('列表形态：整型元素可解析为 List<int>（对齐 RustApi 解析口径）', () {
-      // 解析口径与 rust_api_discovery_cache.part.dart 的 listFailedChapters
-      // 实现一致：List 内 int 直接收录、字符串数字 tryParse 收录
-      final decoded = jsonDecode('[3, 1, 7]') as List<dynamic>;
-      final list = <int>[];
-      for (final e in decoded) {
-        if (e is int) {
-          list.add(e);
-        } else {
-          final v = int.tryParse(e.toString());
-          if (v != null) {
-            list.add(v);
-          }
-        }
-      }
-      expect(list, const [3, 1, 7]);
-    });
-
-    test('Dart 封装可达且零写入：RustApi.listFailedChapters 重复调用恒定空', () async {
-      expect(await api.listFailedChapters(noTaskBook), isEmpty);
-      expect(await api.listFailedChapters(noTaskBook), isEmpty);
-      final json = await bridge.cacheDownloadFailedChapters(
-        bookUrl: noTaskBook,
-      );
-      expect(json, '[]', reason: '查询为纯读，重复调用不得改写任务快照');
-    });
+    test(
+      'Dart 封装可达且零写入：CacheDownloadService.listFailedChapters 重复调用恒定空',
+      () async {
+        expect(
+          await api.cacheDownloadService.listFailedChapters(noTaskBook),
+          isEmpty,
+        );
+        expect(
+          await api.cacheDownloadService.listFailedChapters(noTaskBook),
+          isEmpty,
+        );
+        final json = await bridge.cacheDownloadFailedChapters(
+          bookUrl: noTaskBook,
+        );
+        expect(json, '[]', reason: '查询为纯读，重复调用不得改写任务快照');
+      },
+    );
   });
 }

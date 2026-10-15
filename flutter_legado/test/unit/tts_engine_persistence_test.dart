@@ -79,9 +79,9 @@ void main() {
     when(() => audioService.abandonAudioFocus()).thenAnswer((_) async {});
     when(() => audioService.dispose()).thenAnswer((_) async {});
 
-    when(() => api.getChapters(any()))
+    when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段正文内容。');
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);

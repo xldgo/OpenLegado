@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/read_record_session.dart';
 import '../../domain/contracts/read_record_changes.dart';
-import '../../providers/providers.dart' show bookApiProvider;
+import '../../providers/reading_provider.dart';
 import 'read_record_dataset.dart';
 import 'read_record_repository_provider.dart';
 import 'read_record_notifier.dart';
@@ -54,7 +54,7 @@ final readRecordListProvider =
 
 final _readRecordChaptersProvider = FutureProvider.autoDispose
     .family<List<BookChapter>, String>(
-      (ref, url) => ref.watch(bookApiProvider).getChapters(url),
+      (ref, url) => ref.watch(readingRepositoryProvider).getChapters(url),
     );
 
 final readRecordChapterTitleProvider = FutureProvider.autoDispose

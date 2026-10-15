@@ -118,19 +118,21 @@ void main() {
   }) {
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(bookUrl)).thenAnswer((_) async => chapters);
-    when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer((_) async {
-      cachedUrlsCalls++;
-      return cachedUrls;
-    });
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
+        .thenAnswer((_) async => chapters);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
+        .thenAnswer((_) async {
+          cachedUrlsCalls++;
+          return cachedUrls;
+        });
     // 轮询首个查询（契约 §2.43.6 字数映射链），恒空——不 stub 会因
     // MissingStubError 被轮询外层 catch 吞掉而截断后续音频查询
-    when(() => mockApi.listCachedChapters(bookUrl))
+    when(() => mockApi.chapterCacheRepository.listCachedChapters(bookUrl))
         .thenAnswer((_) async => const <String, String>{});
-    when(() => mockApi.listDownloadingChapters(bookUrl))
+    when(() => mockApi.cacheDownloadService.listDownloadingChapters(bookUrl))
         .thenAnswer((_) async => const <int>[]);
     // [P2-29c 后续] 失败章集合（契约 §2.43.8）：轮询链新增查询，恒空 stub
-    when(() => mockApi.listFailedChapters(bookUrl))
+    when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
         .thenAnswer((_) async => const <int>[]);
     // 恒 stub（即便预期零调用），确保 verify/计数断言不会因 MissingStub
     // 抛错吞掉而失真

@@ -256,18 +256,21 @@ void main() {
 
   group('阅读器操作', () {
     test('getChapters 返回 10 章', () async {
-      final chapters = await api.getChapters('mock://book/1');
+      final chapters = await api.readingRepository.getChapters('mock://book/1');
       expect(chapters.length, 10);
     });
 
     test('getChapterContent 返回正文', () async {
-      final content = await api.getChapterContent('mock://book/1', 0);
+      final content = await api.readingRepository.getChapterContent(
+        'mock://book/1',
+        0,
+      );
       expect(content, contains('示例书籍 01'));
       expect(content.length, greaterThan(100));
     });
 
     test('updateReadingProgress 更新进度', () async {
-      await api.updateReadingProgress(
+      await api.readingRepository.updateReadingProgress(
         bookUrl: 'mock://book/1',
         chapterIndex: 3,
         chapterPos: 100,
@@ -278,7 +281,10 @@ void main() {
     });
 
     test('refreshToc 返回章节列表', () async {
-      final chapters = await api.refreshToc('mock://book/1', 'mock://source/1');
+      final chapters = await api.readingRepository.refreshToc(
+        'mock://book/1',
+        'mock://source/1',
+      );
       expect(chapters.length, 10);
     });
   });
@@ -453,23 +459,6 @@ void main() {
       expect(list[0].contentType, 'audio/wav');
       expect(list[1].name, '2.阿里云语音');
       expect(list[1].contentType, 'audio/mpeg');
-    });
-  });
-
-  group('下载管理器', () {
-    test('downloadAddTask 返回任务 ID', () async {
-      final id = await api.downloadAddTask(
-        bookUrl: 'mock://book/1',
-        chapterUrl: 'mock://ch/1',
-        chapterTitle: '第1章',
-        chapterIndex: 0,
-      );
-      expect(id, isNotEmpty);
-    });
-
-    test('downloadGetStats 返回 JSON', () async {
-      final stats = await api.downloadGetStats();
-      expect(stats, contains('total'));
     });
   });
 

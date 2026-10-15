@@ -1622,7 +1622,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         // 未入库：仅内存拉目录，不落库（对齐原版 loadChapter !inBookshelf）
         chapters = await _fetchWebChaptersOnline(api, book);
       } else {
-        chapters = await api.refreshToc(book.bookUrl, book.origin);
+        chapters = await api.readingRepository.refreshToc(
+          book.bookUrl,
+          book.origin,
+        );
       }
       if (!mounted) return;
       setState(() => _chapters = chapters);
@@ -1871,7 +1874,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         bookUrl: book.bookUrl,
         bookType: book.bookType,
       );
-      final deleted = await api.clearBookCache(book.bookUrl);
+      final deleted = await ref
+          .read(chapterCacheRepositoryProvider)
+          .clearBookCache(book.bookUrl);
       await CacheService.clearSameTitleRemovedFlags();
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -1937,9 +1942,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         if (!BookOpenUtils.needsReaderNotifier(
           BookOpenUtils.routeForTypeBits(typeBits),
         )) {
-          final existingChapters = await api.getChapters(book.bookUrl);
+          final existingChapters = await api.readingRepository.getChapters(
+            book.bookUrl,
+          );
           if (existingChapters.isEmpty && book.origin.isNotEmpty) {
-            await api.refreshToc(book.bookUrl, book.origin);
+            await api.readingRepository.refreshToc(book.bookUrl, book.origin);
           }
         }
       }

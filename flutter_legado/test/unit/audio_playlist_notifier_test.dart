@@ -93,13 +93,13 @@ void main() {
     });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapters(any())).thenAnswer(
+    when(() => api.readingRepository.getChapters(any())).thenAnswer(
       (_) async => const [
         BookChapter(title: '一', index: 0),
         BookChapter(title: '二', index: 1),
       ],
     );
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
     when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => const [

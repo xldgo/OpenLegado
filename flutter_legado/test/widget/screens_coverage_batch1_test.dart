@@ -8,10 +8,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/audio_screen.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 
 import '../mocks/mocks.dart';
@@ -178,7 +176,8 @@ void main() {
     testWidgets('渲染书名/作者/简介（getBook 兜底 widget.book）', (tester) async {
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
       await tester.pumpAndSettle();
@@ -193,7 +192,7 @@ void main() {
     testWidgets('目录入口仅「查看目录」卡（独立目录行已移除，不内嵌章节列表）', (tester) async {
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => book);
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => const [
           BookChapter(
             bookUrl: 'https://src.com/book/1',
@@ -236,7 +235,8 @@ void main() {
     testWidgets('目录为空时点击「查看目录」提示目录为空', (tester) async {
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => book);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => []);
       when(() => mockApi.bookGroupRepository.getBookGroups())
           .thenAnswer((_) async => const []);
       when(() => mockApi.bookshelfRepository.getBooks())
@@ -286,7 +286,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => bookWithIntro);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => const []);
 
       await tester.pumpWidget(wrap(const BookInfoScreen(book: bookWithIntro)));
       await tester.pumpAndSettle();
@@ -342,7 +343,7 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => orderBook);
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => const [
           BookChapter(
             bookUrl: 'https://src.com/book/order',
@@ -411,7 +412,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => tagBook);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => const []);
       when(() => mockApi.bookGroupRepository.getBookGroups())
           .thenAnswer((_) async => const []);
       when(() => mockApi.bookSourceRepository.getBookSources())
@@ -464,7 +466,7 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => e5Book);
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => List.generate(
           51,
           (i) => BookChapter(
@@ -500,14 +502,17 @@ void main() {
       Widget wrapWithRoutes(Widget child) {
         pushed.clear();
         final observer = _PushedRouteObserver(pushed);
-        // 分流断言只关心路由名；reader/video 用桩页规避测试环境
-        // Theme.of / video_player 副作用（真实页由专项测试覆盖）
+        // 分流只验证路由；四种目标页统一使用桩页，真实页面与隐私门禁另有专项回归。
         final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
           ..remove('/');
         routes[AppRoutes.reader] = (_) =>
             const Scaffold(key: Key('reader-stub'), body: Text('文本阅读页'));
         routes[AppRoutes.video] = (_) =>
             const Scaffold(key: Key('video-stub'), body: Text('视频播放页'));
+        routes[AppRoutes.audio] = (_) =>
+            const Scaffold(key: Key('audio-stub'), body: Text('音频播放页'));
+        routes[AppRoutes.readerComic] = (_) =>
+            const Scaffold(key: Key('comic-stub'), body: Text('漫画阅读页'));
         return UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
@@ -521,16 +526,21 @@ void main() {
       void stubCommon(Book book) {
         when(() => mockApi.bookshelfRepository.getBook(any()))
             .thenAnswer((_) async => book);
-        when(() => mockApi.getChapters(any())).thenAnswer(
+        when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
           (_) async => const [
             BookChapter(bookUrl: 'u1', index: 0, title: '第一章', url: 'c1'),
           ],
         );
         when(() => mockApi.bookSourceRepository.getBookSources())
             .thenAnswer((_) async => []);
-        when(() => mockApi.fetchChapterContent(any(), any(), any()))
-            .thenAnswer((_) async => '正文内容');
-        when(() => mockApi.getChapterContent(any(), any()))
+        when(
+          () => mockApi.readingRepository.fetchChapterContent(
+            any(),
+            any(),
+            any(),
+          ),
+        ).thenAnswer((_) async => '正文内容');
+        when(() => mockApi.readingRepository.getChapterContent(any(), any()))
             .thenAnswer((_) async => '正文内容');
         when(() => mockApi.bookshelfRepository.addBook(any()))
             .thenAnswer((inv) async {
@@ -538,7 +548,7 @@ void main() {
             });
         when(() => mockApi.bookshelfRepository.updateBook(any()))
             .thenAnswer((_) async {});
-        when(() => mockApi.refreshToc(any(), any()))
+        when(() => mockApi.readingRepository.refreshToc(any(), any()))
             .thenAnswer((_) async => []);
       }
 
@@ -560,7 +570,7 @@ void main() {
 
         expect(pushed, contains(AppRoutes.audio));
         // 返回详情页，避免媒体会话副作用
-        Navigator.of(tester.element(find.byType(AudioScreen))).pop();
+        Navigator.of(tester.element(find.byKey(const Key('audio-stub')))).pop();
         await tester.pumpAndSettle();
       });
 
@@ -581,7 +591,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(pushed, contains(AppRoutes.readerComic));
-        Navigator.of(tester.element(find.byType(ReaderComicScreen))).pop();
+        Navigator.of(tester.element(find.byKey(const Key('comic-stub')))).pop();
         await tester.pumpAndSettle();
       });
 
@@ -662,7 +672,7 @@ void main() {
 
         // 类型位补全（64）→ 图片源分流到漫画页
         expect(pushed, contains(AppRoutes.readerComic));
-        Navigator.of(tester.element(find.byType(ReaderComicScreen))).pop();
+        Navigator.of(tester.element(find.byKey(const Key('comic-stub')))).pop();
         await tester.pumpAndSettle();
       });
     });
@@ -693,15 +703,20 @@ void main() {
       void stubAutoStart(Book book, List<BookChapter> chapters) {
         when(() => mockApi.bookshelfRepository.getBook(any()))
             .thenAnswer((_) async => book);
-        when(() => mockApi.getChapters(any()))
+        when(() => mockApi.readingRepository.getChapters(any()))
             .thenAnswer((_) async => chapters);
         when(() => mockApi.bookSourceRepository.getBookSources())
             .thenAnswer((_) async => []);
         when(() => mockApi.bookGroupRepository.getBookGroups())
             .thenAnswer((_) async => const []);
-        when(() => mockApi.fetchChapterContent(any(), any(), any()))
-            .thenAnswer((_) async => '正文内容');
-        when(() => mockApi.getChapterContent(any(), any()))
+        when(
+          () => mockApi.readingRepository.fetchChapterContent(
+            any(),
+            any(),
+            any(),
+          ),
+        ).thenAnswer((_) async => '正文内容');
+        when(() => mockApi.readingRepository.getChapterContent(any(), any()))
             .thenAnswer((_) async => '正文内容');
         when(() => mockApi.bookshelfRepository.addBook(any()))
             .thenAnswer((inv) async {
@@ -709,7 +724,7 @@ void main() {
             });
         when(() => mockApi.bookshelfRepository.updateBook(any()))
             .thenAnswer((_) async {});
-        when(() => mockApi.refreshToc(any(), any()))
+        when(() => mockApi.readingRepository.refreshToc(any(), any()))
             .thenAnswer((_) async => const []);
       }
 

@@ -67,7 +67,8 @@ void main() {
     final mockApi = MockRustApi();
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => chapters);
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [book]);
     when(() => mockApi.bookGroupRepository.getBookGroups())
@@ -75,7 +76,7 @@ void main() {
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getChapterContent(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContent(any(), any()))
         .thenAnswer((_) async => '内容');
     await tester.pumpWidget(
       ProviderScope(

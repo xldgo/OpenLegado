@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -38,6 +39,14 @@ BookSource _buildComicSource() {
 /// 测试专用 MockBookApi：注入漫画书 + 含 img 的章节正文 + 解码返回；
 /// 网络下载链路计数用于断言「磁盘命中不再走网络」。
 class _ComicCacheMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -70,8 +79,7 @@ class _ComicCacheMockApi extends MockBookApi {
     totalChapterNum: 1,
   );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => [
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async => [
     BookChapter(
       index: 0,
       url: 'https://manga.example.com/comic/1/ch1.html',
@@ -79,8 +87,7 @@ class _ComicCacheMockApi extends MockBookApi {
     ),
   ];
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,

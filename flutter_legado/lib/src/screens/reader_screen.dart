@@ -488,13 +488,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       final next = index + offset;
       if (next < chapters.length) {
         unawaited(
-          api.getChapterContentFull(book.bookUrl, next).catchError((_) => ''),
+          api.readingRepository
+              .getChapterContentFull(book.bookUrl, next)
+              .catchError((_) => ''),
         );
       }
       final prev = index - offset;
       if (prev >= 0) {
         unawaited(
-          api.getChapterContentFull(book.bookUrl, prev).catchError((_) => ''),
+          api.readingRepository
+              .getChapterContentFull(book.bookUrl, prev)
+              .catchError((_) => ''),
         );
       }
     }

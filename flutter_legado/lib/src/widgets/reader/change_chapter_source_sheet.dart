@@ -140,7 +140,10 @@ class _ChangeChapterSourceSheetState
       _toc = const [];
     });
     try {
-      final toc = await _api.refreshToc(match.bookUrl, match.sourceUrl);
+      final toc = await _api.readingRepository.refreshToc(
+        match.bookUrl,
+        match.sourceUrl,
+      );
       if (!mounted) return;
       setState(() {
         _toc = toc;
@@ -181,16 +184,19 @@ class _ChangeChapterSourceSheetState
     if (match == null || _applying) return;
     setState(() => _applying = true);
     try {
-      await _api.fetchChapterContent(
+      await _api.readingRepository.fetchChapterContent(
         match.bookUrl,
         chapter.url,
         match.sourceUrl,
       );
       // 取候选章原始缓存（fetch 写入 raw），再落到当前书当前章
-      var raw = await _api.getCachedChapter(match.bookUrl, chapter.index);
+      var raw = await _api.chapterCacheRepository.getCachedChapter(
+        match.bookUrl,
+        chapter.index,
+      );
       if (raw.trim().isEmpty) {
         // 兜底：用已净化正文（仍优于无法换章）
-        raw = await _api.fetchChapterContent(
+        raw = await _api.readingRepository.fetchChapterContent(
           match.bookUrl,
           chapter.url,
           match.sourceUrl,
@@ -199,7 +205,7 @@ class _ChangeChapterSourceSheetState
       if (raw.trim().isEmpty) {
         throw StateError('未获取到章节正文');
       }
-      await _api.saveChapterContent(
+      await _api.readingRepository.saveChapterContent(
         bookUrl: widget.bookUrl,
         chapterIndex: widget.chapterIndex,
         title: widget.chapterTitle,

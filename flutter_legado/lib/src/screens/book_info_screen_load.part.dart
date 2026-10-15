@@ -59,7 +59,9 @@ extension _BookInfoLoad on _BookInfoScreenState {
       if (!inShelf && book != null && dbBook != null) {
         book = BookOpenUtils.mergeDbBook(book, dbBook);
       }
-      var chapters = url.isEmpty ? <BookChapter>[] : await api.getChapters(url);
+      var chapters = url.isEmpty
+          ? <BookChapter>[]
+          : await api.readingRepository.getChapters(url);
       // 书源查询一次即复用：既供菜单条件项判定，也供下方联网补全传参
       BookSource? source;
       if (book != null && _isOnlineBook(book)) {
@@ -160,7 +162,10 @@ extension _BookInfoLoad on _BookInfoScreenState {
               }
               final tToc = Stopwatch()..start();
               if (inShelf) {
-                chapters = await api.refreshToc(b.bookUrl, b.origin);
+                chapters = await api.readingRepository.refreshToc(
+                  b.bookUrl,
+                  b.origin,
+                );
               } else {
                 chapters = await _fetchWebChaptersOnline(
                   api,

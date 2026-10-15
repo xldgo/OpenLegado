@@ -1,8 +1,10 @@
+import '../providers/chapter_cache_provider.dart';
+import '../domain/models/cache_download_task.dart';
+import '../widgets/error_view.dart';
 import '../domain/models/webdav_connection.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -42,33 +44,6 @@ class OfflineCacheScreen extends ConsumerStatefulWidget {
   ConsumerState<OfflineCacheScreen> createState() => _OfflineCacheScreenState();
 }
 
-/// 缓存下载任务快照（camelCase 对齐 Rust CacheDownloadTask）
-class _DownloadTask {
-  final int taskId;
-  final String bookUrl;
-  final String status;
-  final int total;
-  final int completed;
-
-  const _DownloadTask({
-    required this.taskId,
-    required this.bookUrl,
-    required this.status,
-    required this.total,
-    required this.completed,
-  });
-
-  factory _DownloadTask.fromJson(Map<String, dynamic> json) => _DownloadTask(
-    taskId: (json['taskId'] as num?)?.toInt() ?? 0,
-    bookUrl: json['bookUrl'] as String? ?? '',
-    status: json['status'] as String? ?? 'unknown',
-    total: (json['total'] as num?)?.toInt() ?? 0,
-    completed: (json['completed'] as num?)?.toInt() ?? 0,
-  );
-
-  bool get isRunning => status == 'running';
-}
-
 /// 书架书籍 + 缓存状态（对齐原版 CacheAdapter 的 cacheChapters 映射）
 class _BookEntry {
   final Book book;
@@ -77,7 +52,7 @@ class _BookEntry {
   int cachedCount;
 
   /// 该书进行中的下载任务（无则 null）
-  _DownloadTask? task;
+  CacheDownloadTask? task;
 
   _BookEntry(this.book, this.cachedCount, this.task);
 }
@@ -88,6 +63,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   bool _searchExpanded = false;
   List<_BookEntry> _entries = [];
   bool _loading = true;
+  String? _error;
   Timer? _timer;
 
   @override
@@ -96,7 +72,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
     _refresh();
     // 2s 轮询（与队列页一致；原版经 EventBus 实时刷新）
     _timer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted) _refresh(silent: true);
+      if (mounted) _refresh();
     });
   }
 
@@ -108,7 +84,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   }
 
   /// 加载书架书籍 + 每本缓存章节数 + 进行中任务
-  Future<void> _refresh({bool silent = false}) async {
+  Future<void> _refresh() async {
     try {
       final api = ref.read(bookApiProvider);
       final books = await api.bookshelfRepository.getBooks();
@@ -118,39 +94,33 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
           .toList();
 
       // 任务快照：bookUrl → 进行中任务（对齐原版 CacheBook.cacheBookMap）
-      final tasks = <String, _DownloadTask>{};
-      try {
-        final decoded = jsonDecode(await api.cacheDownloadList());
-        if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map<String, dynamic>) {
-              final task = _DownloadTask.fromJson(item);
-              if (task.isRunning) tasks[task.bookUrl] = task;
-            }
-          }
-        }
-      } catch (_) {
-        // 任务表未初始化等场景静默降级（仅影响下载按钮状态）
+      final tasks = <String, CacheDownloadTask>{};
+      for (final task
+          in await ref.read(cacheDownloadServiceProvider).cacheDownloadList()) {
+        if (task.isRunning) tasks[task.bookUrl] = task;
       }
 
       final entries = <_BookEntry>[];
       for (final book in visible) {
-        var cached = 0;
-        try {
-          cached = (await api.listCachedChapterUrls(book.bookUrl)).length;
-        } catch (_) {
-          // 单书缓存查询失败记 0，不阻断整页
-        }
+        final cached =
+            (await ref
+                    .read(chapterCacheRepositoryProvider)
+                    .listCachedChapterUrls(book.bookUrl))
+                .length;
         entries.add(_BookEntry(book, cached, tasks[book.bookUrl]));
       }
       if (!mounted) return;
       setState(() {
         _entries = entries;
+        _error = null;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
-      if (!silent) setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _error = '离线缓存加载失败';
+      });
     }
   }
 
@@ -180,10 +150,10 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       return;
     }
     try {
-      final api = ref.read(bookApiProvider);
-      await api.cacheDownloadStart(book.bookUrl, start, end);
+      final downloads = ref.read(cacheDownloadServiceProvider);
+      await downloads.cacheDownloadStart(book.bookUrl, start, end);
       _snack('《${book.name}》已加入缓存队列');
-      _refresh(silent: true);
+      _refresh();
     } catch (e) {
       _snack('缓存启动失败：$e');
     }
@@ -194,9 +164,11 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
     final task = entry.task;
     if (task == null) return;
     try {
-      await ref.read(bookApiProvider).cacheDownloadCancel(task.taskId);
+      await ref
+          .read(cacheDownloadServiceProvider)
+          .cacheDownloadCancel(task.taskId);
       _snack('已停止《${entry.book.name}》下载');
-      _refresh(silent: true);
+      _refresh();
     } catch (e) {
       _snack('停止失败：$e');
     }
@@ -231,20 +203,20 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
     );
     if (ok != true || !mounted) return;
     var started = 0;
-    final api = ref.read(bookApiProvider);
+    final downloads = ref.read(cacheDownloadServiceProvider);
     for (final e in targets) {
       final total = e.book.totalChapterNum;
       final start = afterCurrent ? e.book.durChapterIndex : 0;
       if (start > total - 1) continue;
       try {
-        await api.cacheDownloadStart(e.book.bookUrl, start, total - 1);
+        await downloads.cacheDownloadStart(e.book.bookUrl, start, total - 1);
         started++;
       } catch (_) {
         // 单本失败不阻断整体（原版 CacheBook.start 亦逐本尝试）
       }
     }
     _snack(started > 0 ? '已加入缓存队列：$started 本书' : '缓存启动失败');
-    _refresh(silent: true);
+    _refresh();
   }
 
   /// 停止全部正在下载的任务
@@ -255,17 +227,17 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       return;
     }
     var stopped = 0;
-    final api = ref.read(bookApiProvider);
+    final downloads = ref.read(cacheDownloadServiceProvider);
     for (final e in running) {
       try {
-        await api.cacheDownloadCancel(e.task!.taskId);
+        await downloads.cacheDownloadCancel(e.task!.taskId);
         stopped++;
       } catch (_) {
         // 单任务停止失败继续下一个
       }
     }
     _snack('已停止 $stopped 个下载任务');
-    _refresh(silent: true);
+    _refresh();
   }
 
   // ===== 打开书籍（对齐原版 startActivityForBook：未读进书详，已读按类型分流） =====
@@ -363,6 +335,8 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       ),
       body: _loading
           ? const LoadingIndicator()
+          : _error != null && _entries.isEmpty
+          ? ErrorView(message: _error!, onRetry: () => _refresh())
           : visibleEntries.isEmpty
           ? _buildEmpty(cs)
           : ListView.separated(

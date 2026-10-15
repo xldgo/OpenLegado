@@ -438,7 +438,10 @@ void main() {
     // 硬断言②b：FFI 直取正文复核（独立于 UI 状态的数据链验证）
     String ch1Full = '';
     await tester.runAsync(
-      () async => ch1Full = await api.getChapterContentFull(target.bookUrl, 0),
+      () async => ch1Full = await api.readingRepository.getChapterContentFull(
+        target.bookUrl,
+        0,
+      ),
     );
     expect(
       ch1Full,
@@ -538,7 +541,10 @@ void main() {
     // 硬断言③b：FFI 直取第 2 章正文复核
     String ch2Full = '';
     await tester.runAsync(
-      () async => ch2Full = await api.getChapterContentFull(target.bookUrl, 1),
+      () async => ch2Full = await api.readingRepository.getChapterContentFull(
+        target.bookUrl,
+        1,
+      ),
     );
     expect(
       ch2Full,

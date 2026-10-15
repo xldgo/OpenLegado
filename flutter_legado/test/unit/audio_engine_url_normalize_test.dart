@@ -93,11 +93,11 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      when(() => mockApi.getChapters(any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(

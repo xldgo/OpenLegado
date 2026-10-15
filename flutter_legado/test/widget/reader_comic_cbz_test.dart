@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -34,6 +35,14 @@ const _kEntry1 = 'cbz://02.png';
 
 /// 测试专用 MockBookApi：本地 cbz 书 + `cbz://` 正文章节 + 读页计数/失败注入
 class _CbzMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    getChapterContent: _readingGetChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -98,14 +107,14 @@ class _CbzMockApi extends MockBookApi {
     );
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => [
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async => [
     const BookChapter(index: 0, url: '', title: '本地漫画'),
   ];
 
-  @override
-  Future<String> getChapterContent(String bookUrl, int chapterIndex) async =>
-      '$_kEntry0\n$_kEntry1';
+  Future<String> _readingGetChapterContent(
+    String bookUrl,
+    int chapterIndex,
+  ) async => '$_kEntry0\n$_kEntry1';
 
   @override
   Future<String> cbzReadPage({

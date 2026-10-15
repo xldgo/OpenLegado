@@ -52,7 +52,7 @@ void main() {
     addTearDown(container.dispose);
 
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.getChapters(any())).thenAnswer(
+    when(() => api.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: '第一章', index: 0),
         const BookChapter(title: '第二章', index: 1),

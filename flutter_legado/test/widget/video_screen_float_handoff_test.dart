@@ -1,3 +1,5 @@
+import '../mocks/reading_fixture.dart';
+
 // [V-B3 审查收口 W1/W2/W4] 视频页悬浮窗移交行为回归：
 // - W1：移交原生前确定性暂停 Flutter 播放器（消除双播放器并行发声窗口）；
 // - W2：非 Android 隐藏悬浮窗按钮（桌面降级全屏页）；
@@ -116,6 +118,14 @@ class _FakeFloatBridge extends VideoFloatWindowBridge {
 }
 
 class _FakeBookApi implements BookApi {
+  late final _fixtureReading = TestReadingRepository(
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   /// config/caches 键值（直链 progress 走 video_pos_ 逻辑键）
   final Map<String, String> configs = {};
 
@@ -135,8 +145,7 @@ class _FakeBookApi implements BookApi {
     configs.remove(key);
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => [
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async => [
     BookChapter(
       url: 'https://cdn.example/ch1',
       title: '第1集',
@@ -145,8 +154,7 @@ class _FakeBookApi implements BookApi {
     ),
   ];
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -158,8 +166,7 @@ class _FakeBookApi implements BookApi {
     required int chapterIndex,
   }) async => null;
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,

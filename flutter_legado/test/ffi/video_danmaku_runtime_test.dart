@@ -161,12 +161,15 @@ void main() {
           bookType: 4,
         ),
       );
-      final chapters = await api.refreshToc(bookUrl, base);
+      final chapters = await api.readingRepository.refreshToc(bookUrl, base);
       expect(chapters, isNotEmpty, reason: '目录应解析出 1 集');
       expect(chapters.first.title, '第1集');
 
       // 3. 正文抓取：媒体分支副内容不得拼进正文，但须被捕获落库
-      final content = await api.getChapterContentFull(bookUrl, 0);
+      final content = await api.readingRepository.getChapterContentFull(
+        bookUrl,
+        0,
+      );
       expect(
         content.contains('cdn.example/v.mp4'),
         isTrue,

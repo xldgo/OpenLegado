@@ -1,3 +1,9 @@
+import '../domain/contracts/chapter_cache_repository.dart';
+import '../domain/contracts/cache_download_service.dart';
+import '../data/repositories/mock_chapter_cache_repository.dart';
+import '../data/services/mock_cache_download_service.dart';
+import '../domain/contracts/reading_repository.dart';
+import '../data/repositories/mock_reading_repository.dart';
 import '../domain/contracts/backup_repository.dart';
 import '../domain/contracts/webdav_service.dart';
 import '../data/repositories/mock_backup_repository.dart';
@@ -93,7 +99,17 @@ class MockBookApi
   final BackupRepository backupRepository = const MockBackupRepository();
   @override
   final WebDavService webDavService = const MockWebDavService();
+  @override
+  late final ReadingRepository readingRepository;
+  @override
+  late final ChapterCacheRepository chapterCacheRepository;
+  @override
+  late final CacheDownloadService cacheDownloadService;
+
   MockBookApi({
+    ChapterCacheRepository? chapterCacheRepository,
+    CacheDownloadService? cacheDownloadService,
+    ReadingRepository? readingRepository,
     BookmarkRepository? bookmarkRepository,
     ReadRecordRepository? readRecordRepository,
     HttpTtsRepository? httpTtsRepository,
@@ -103,8 +119,19 @@ class MockBookApi
     SearchService? searchService,
     SearchHistoryRepository? searchHistoryRepository,
   }) {
+    this.chapterCacheRepository =
+        chapterCacheRepository ?? const MockChapterCacheRepository();
+    this.cacheDownloadService =
+        cacheDownloadService ?? const MockCacheDownloadService();
     _bookshelfStore = MockBookshelfStore(load: _loadBookshelfSample);
     bookshelfRepository = MockBookshelfRepository(store: _bookshelfStore);
+    this.readingRepository =
+        readingRepository ??
+        MockReadingRepository(
+          books: _bookshelfStore,
+          chapters: _chaptersCache,
+          contents: _contentCache,
+        );
     bookGroupRepository = MockBookGroupRepository(
       nextId: () => _nextId++,
       withDefaultGroups: true,

@@ -53,7 +53,7 @@ void main() {
 
   /// 流媒体 stub + 起播（[chapterCount] 章）
   Future<void> startStream({int chapterCount = 3}) async {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => List.generate(
         chapterCount,
         (i) => BookChapter(title: 'ch${i + 1}', index: i),
@@ -81,7 +81,7 @@ void main() {
 
   group('a) 按章停止（章末边界，对齐原版 ChapterStopTimer）', () {
     testWidgets('TTS 到点不在段末停止，播完最后一段才在章末停止', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => const [
           BookChapter(title: '第一章', index: 0),
           BookChapter(title: '第二章', index: 1),
@@ -89,7 +89,7 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段。\n第二段。');
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(
@@ -277,7 +277,7 @@ void main() {
     });
 
     testWidgets('TTS：末段播完到章末停止（不切章、不写流媒体进度键）', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
           const BookChapter(title: '第二章', index: 1),
@@ -285,7 +285,7 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(
@@ -321,7 +321,7 @@ void main() {
 
   group('b) 计时下沉：退出听书页后倒计时继续', () {
     testWidgets('页面 widget 销毁后分钟倒计时仍走完并停止播放', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
           const BookChapter(title: '第二章', index: 1),

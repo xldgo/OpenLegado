@@ -1,3 +1,7 @@
+import '../../data/repositories/rust_chapter_cache_repository.dart';
+import '../../data/services/rust_cache_download_service.dart';
+import '../../data/repositories/rust_reading_repository.dart';
+import '../../services/platform_bridge_service.dart';
 import '../../data/repositories/rust_backup_repository.dart';
 import '../../data/services/rust_webdav_service.dart';
 import '../../data/services/rust_search_service.dart';
@@ -37,6 +41,11 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    chapterCacheRepository: const RustChapterCacheRepository(),
+    cacheDownloadService: const RustCacheDownloadService(),
+    readingRepository: RustReadingRepository(
+      interceptResult: PlatformBridgeService.instance.interceptResult,
+    ),
     backupRepository: const RustBackupRepository(),
     webDavService: const RustWebDavService(),
     initialize: startup.initialize,

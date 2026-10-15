@@ -1,3 +1,5 @@
+import '../../domain/contracts/reading_repository.dart';
+import '../reading_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 import '../../domain/contracts/cloud_tts_provider.dart';
 
@@ -197,6 +199,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   BookApi? _apiCache;
+  late ReadingRepository _reading;
 
   // Riverpod 3 销毁回调不能再访问 Ref/state；只供退出保存使用。
   AudioState? _stateForDispose;
@@ -410,6 +413,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   @override
   AudioState build() {
     _apiCache = ref.read(bookApiProvider);
+    _reading = ref.read(readingRepositoryProvider);
     final initialState = AudioState(config: TtsConfig());
     _stateForDispose = initialState;
     listenSelf((previous, next) {
@@ -634,7 +638,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final token = _playToken;
 
     try {
-      var chapterList = await _api.getChapters(bookUrl);
+      var chapterList = await _reading.getChapters(bookUrl);
       if (_disposed || token != _playToken) return;
       final book = await _api.bookshelfRepository.getBook(bookUrl);
       if (_disposed || token != _playToken) return;
@@ -642,7 +646,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (chapterList.isEmpty) {
         final origin = book?.origin ?? '';
         if (origin.isNotEmpty) {
-          chapterList = await _api.refreshToc(bookUrl, origin);
+          chapterList = await _reading.refreshToc(bookUrl, origin);
           if (_disposed || token != _playToken) return;
         }
       }
@@ -1264,9 +1268,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 按书籍类型选正文链路（本地书保持原链路，在线书走 full 取纯正文）
   Future<String> _fetchChapterContent(String bookUrl, int chapterIndex) {
     if (isLocalBookUrl(bookUrl)) {
-      return _api.getChapterContent(bookUrl, chapterIndex);
+      return _reading.getChapterContent(bookUrl, chapterIndex);
     }
-    return _api.getChapterContentFull(bookUrl, chapterIndex);
+    return _reading.getChapterContentFull(bookUrl, chapterIndex);
   }
 
   /// 抓取结果写回章节缓存
@@ -1589,7 +1593,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final chapters = List<AudioChapter>.of(state.chapters);
     final units = List<String>.of(_paragraphs);
     final remaining = _cloudEngine.remainingRequests;
-    final api = _api;
+    final reading = _reading;
     final key = jsonEncode([
       bookUrl,
       index,
@@ -1632,8 +1636,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         final text = chapters[i].text.isNotEmpty
             ? chapters[i].text
             : await (isLocalBookUrl(bookUrl)
-                  ? api.getChapterContent(bookUrl, i)
-                  : api.getChapterContentFull(bookUrl, i));
+                  ? reading.getChapterContent(bookUrl, i)
+                  : reading.getChapterContentFull(bookUrl, i));
         if (!_synthesisQueue.isWindowCurrent(key)) return;
         final nextUnits = splitReadAloudContent(
           text,
@@ -1666,7 +1670,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final chapters = List<AudioChapter>.of(state.chapters);
     final paragraphs = List<String>.of(_paragraphs);
     final paragraphIndex = _paragraphIndex;
-    final api = _api;
+    final reading = _reading;
     final key = jsonEncode([
       bookUrl,
       index,
@@ -1716,8 +1720,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         final text = chapter.text.isNotEmpty
             ? chapter.text
             : await (isLocalBookUrl(bookUrl)
-                  ? api.getChapterContent(bookUrl, i)
-                  : api.getChapterContentFull(bookUrl, i));
+                  ? reading.getChapterContent(bookUrl, i)
+                  : reading.getChapterContentFull(bookUrl, i));
         if (!_synthesisQueue.isWindowCurrent(key)) return;
         final units = _contentUnits(text, i);
         yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];

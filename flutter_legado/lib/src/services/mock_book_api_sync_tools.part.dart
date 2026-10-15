@@ -1,40 +1,10 @@
 // mock_book_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 MockBookApiSyncTools mixin：WebDAV / 下载管理 / 段评 / 书籍导出 / 自动任务。
+// 本文件承载 MockBookApiSyncTools mixin：WebDAV / 段评 / 书籍导出 / 自动任务。
 // MockBookApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 内存存储字段来自 MockBookApiStore（on 约束），同一 library 内私有成员可直接访问。
 part of 'mock_book_api.dart';
 
 mixin MockBookApiSyncTools on MockBookApiStore implements BookApi {
-  // ========== 下载管理器 ==========
-
-  @override
-  Future<String> downloadAddTask({
-    required String bookUrl,
-    required String chapterUrl,
-    required String chapterTitle,
-    required int chapterIndex,
-    int priority = 0,
-  }) async => 'mock-task-${_nextId++}';
-
-  @override
-  Future<String> downloadGetStats() async =>
-      jsonEncode({'total': 0, 'completed': 0, 'failed': 0, 'pending': 0});
-
-  @override
-  Future<String> downloadListByBook(String bookUrl) async => jsonEncode([]);
-
-  @override
-  Future<void> downloadPauseAll() async {}
-
-  @override
-  Future<void> downloadResumeAll() async {}
-
-  @override
-  Future<void> downloadRemoveTask(String taskId) async {}
-
-  @override
-  Future<void> downloadUpdateProgress(String taskId, double progress) async {}
-
   // ========== 段评（书源 ruleReview）==========
 
   @override
@@ -142,7 +112,7 @@ mixin MockBookApiSyncTools on MockBookApiStore implements BookApi {
     if (book == null) {
       return {'success': false, 'error': '书籍不存在: $bookUrl'};
     }
-    final chapters = await getChapters(bookUrl);
+    final chapters = await readingRepository.getChapters(bookUrl);
     return {
       'success': true,
       'file_name': '${book.name}.$format',

@@ -1,5 +1,5 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiDiscoveryCache mixin：RSS 收藏 / 分组 / 搜索历史 / 缓存 / 批量缓存 / 章节购买 / WebBook / 发现页。
+// 本文件承载 RustApiDiscoveryCache mixin：RSS 收藏 / 分组 / 搜索历史 / 缓存 / 章节购买 / WebBook / 发现页。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
@@ -53,23 +53,6 @@ mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
     await bridge.cacheClear();
   }
 
-  /// 清除指定书籍章节缓存
-  @override
-  Future<int> clearBookCache(String bookUrl) async {
-    final deleted = await bridge.cacheClearBook(bookUrl: bookUrl);
-    return deleted.toInt();
-  }
-
-  /// 清除指定书籍单章的章节缓存（对齐上游原版 BookHelp.delContent 章级语义）
-  @override
-  Future<int> clearChapterCache(String bookUrl, int chapterIndex) async {
-    final deleted = await bridge.cacheClearChapter(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-    );
-    return deleted.toInt();
-  }
-
   /// 获取缓存书籍数量
   @override
   Future<int> getCacheBookCount() async {
@@ -96,139 +79,6 @@ mixin RustApiDiscoveryCache on RustApiDecode implements BookApi {
   Future<int> shrinkDatabase() async {
     final freed = await bridge.cacheShrinkDatabase();
     return freed.toInt();
-  }
-
-  /// 获取章节缓存正文（未缓存返回空串，供缓存导出拼装 TXT）
-  ///
-  /// [UI-fix v2.0.2 | 2026-08-06] 接通 cacheGetChapter FFI（书架菜单缓存导出） — Qoder
-  @override
-  Future<String> getCachedChapter(String bookUrl, int chapterIndex) =>
-      bridge.cacheGetChapter(bookUrl: bookUrl, chapterIndex: chapterIndex);
-
-  /// 列出某本书已缓存章节的 chapter_url 集合（目录页云图标缓存态）
-  ///
-  /// [UI-fix v2.0.6 | 2026-08-08] Task #22：接通 cacheListCachedChapterUrls FFI，
-  /// 解析 Rust 返回的 JSON 字符串数组为 String 列表（非数组降级空列表）。 — Qoder
-  @override
-  Future<List<String>> listCachedChapterUrls(String bookUrl) async {
-    final json = await bridge.cacheListCachedChapterUrls(bookUrl: bookUrl);
-    final decoded = jsonDecode(json);
-    if (decoded is List) {
-      return decoded.map((e) => e.toString()).toList();
-    }
-    return const <String>[];
-  }
-
-  /// 列出某本书已缓存章节的 (chapter_url, wordCount) 映射（目录页实时字数刷新）
-  ///
-  /// [P2-28c | 2026-09-28] 接通 cacheListCachedChapters FFI（契约 §2.43.6）：
-  /// 解析 Rust 返回的 JSON 对象数组 `[{"url":...,"wordCount":...}]` 为
-  /// url → wordCount Map（空 wordCount 不收录；非数组/非对象条目跳过）。
-  @override
-  Future<Map<String, String>> listCachedChapters(String bookUrl) async {
-    final json = await bridge.cacheListCachedChapters(bookUrl: bookUrl);
-    final decoded = jsonDecode(json);
-    final map = <String, String>{};
-    if (decoded is List) {
-      for (final e in decoded) {
-        if (e is Map) {
-          final url = e['url']?.toString() ?? '';
-          final wc = e['wordCount']?.toString() ?? '';
-          if (url.isNotEmpty && wc.isNotEmpty) {
-            map[url] = wc;
-          }
-        }
-      }
-    }
-    return map;
-  }
-
-  // ========== 批量缓存下载（对齐原版 CacheActivity，契约 §2.43.3） ==========
-
-  /// [UI-fix v2.0.16 | 2026-08-10] 接通 cacheDownloadStart FFI（真实下载写缓存）— Reasonix
-  @override
-  Future<int> cacheDownloadStart(
-    String bookUrl,
-    int startChapter,
-    int endChapter,
-  ) async {
-    final json = await bridge.cacheDownloadStart(
-      bookUrl: bookUrl,
-      startChapter: startChapter,
-      endChapter: endChapter,
-    );
-    final taskId = int.tryParse(json.trim());
-    if (taskId == null) {
-      throw Exception('缓存任务启动失败: $json');
-    }
-    return taskId;
-  }
-
-  @override
-  Future<String> cacheDownloadProgress(int taskId) async {
-    // PlatformInt64 即 int 的 typedef，直接传值
-    return bridge.cacheDownloadProgress(taskId: taskId);
-  }
-
-  @override
-  Future<bool> cacheDownloadCancel(int taskId) async {
-    return bridge.cacheDownloadCancel(taskId: taskId);
-  }
-
-  @override
-  Future<String> cacheDownloadList() async {
-    return bridge.cacheDownloadList();
-  }
-
-  /// 查询某本书当前在途下载章节 index 集合（目录页 DOWNLOADING 态动画）
-  ///
-  /// [P2-29 | 2026-09-29] 接通 cacheDownloadRunningChapters FFI（契约 §2.43.7）：
-  /// 解析 Rust 返回的 JSON 整型数组（0-based 升序；无活跃任务为空数组）为
-  /// `List<int>`（非数组/非整型条目跳过，降级空集合）。
-  @override
-  Future<List<int>> listDownloadingChapters(String bookUrl) async {
-    final json = await bridge.cacheDownloadRunningChapters(bookUrl: bookUrl);
-    final decoded = jsonDecode(json);
-    final list = <int>[];
-    if (decoded is List) {
-      for (final e in decoded) {
-        if (e is int) {
-          list.add(e);
-        } else {
-          final v = int.tryParse(e.toString());
-          if (v != null) {
-            list.add(v);
-          }
-        }
-      }
-    }
-    return list;
-  }
-
-  /// 查询某本书批量下载已失败章节 index 集合（目录页 ERROR 态红色重试图标）
-  ///
-  /// [P2-29c 后续 | 2026-10-05] 接通 cacheDownloadFailedChapters FFI
-  /// （契约 §2.43.8）：解析 Rust 返回的 JSON 整型数组（0-based 升序；
-  /// 无失败为空数组）为 `List<int>`（非数组/非整型条目跳过，降级空集合，
-  /// 与 listDownloadingChapters 同款解析口径）。
-  @override
-  Future<List<int>> listFailedChapters(String bookUrl) async {
-    final json = await bridge.cacheDownloadFailedChapters(bookUrl: bookUrl);
-    final decoded = jsonDecode(json);
-    final list = <int>[];
-    if (decoded is List) {
-      for (final e in decoded) {
-        if (e is int) {
-          list.add(e);
-        } else {
-          final v = int.tryParse(e.toString());
-          if (v != null) {
-            list.add(v);
-          }
-        }
-      }
-    }
-    return list;
   }
 
   // ========== 图片磁盘缓存（对齐原版 BookHelp.saveImage/getImage，契约 §2.46） ==========

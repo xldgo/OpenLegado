@@ -138,7 +138,7 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBook('book://b'))
         .thenAnswer((_) async => bookReadUpdated);
     // 文本阅读器 openBook 会加载目录/正文（ReaderNotifier 后台任务）
-    when(() => mockApi.getChapters('book://b')).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters('book://b')).thenAnswer(
       (_) async => [
         for (var i = 0; i < 10; i++)
           BookChapter(
@@ -149,7 +149,7 @@ void main() {
           ),
       ],
     );
-    when(() => mockApi.getChapterContentFull('book://b', 5))
+    when(() => mockApi.readingRepository.getChapterContentFull('book://b', 5))
         .thenAnswer((_) async => '正文内容');
 
     container = await pumpShelf(tester);

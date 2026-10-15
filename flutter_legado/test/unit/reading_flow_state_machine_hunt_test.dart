@@ -66,10 +66,10 @@ void main() {
 
   /// 基础桩：目录 + 进度写入（正文按用例单独 stub）
   void stubBase() {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => testChapters);
     when(
-      () => mockApi.updateReadingProgress(
+      () => mockApi.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
@@ -82,7 +82,7 @@ void main() {
     Duration Function(int index)? delay,
     bool Function(int index)? fail,
   }) {
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((invocation) async {
           final idx = invocation.positionalArguments[1] as int;
           if (delay != null) {
@@ -261,7 +261,7 @@ void main() {
       stubContent();
       final savedPositions = <int>[];
       when(
-        () => mockApi.updateReadingProgress(
+        () => mockApi.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
           chapterPos: any(named: 'chapterPos'),

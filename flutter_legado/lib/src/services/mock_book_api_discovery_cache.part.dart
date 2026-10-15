@@ -34,13 +34,6 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
   Future<void> clearCache() async {}
 
   @override
-  Future<int> clearBookCache(String bookUrl) async => 0;
-
-  /// Mock 无缓存存储：no-op 返回 0（对齐 clearBookCache 的 Mock 语义）
-  @override
-  Future<int> clearChapterCache(String bookUrl, int chapterIndex) async => 0;
-
-  @override
   Future<int> getCacheBookCount() async => 3;
 
   @override
@@ -57,47 +50,6 @@ mixin MockBookApiDiscoveryCache on MockBookApiStore implements BookApi {
     await Future.delayed(const Duration(milliseconds: 300));
     return 10 * 1024 * 1024;
   }
-
-  @override
-  Future<String> getCachedChapter(String bookUrl, int chapterIndex) async =>
-      '（mock 缓存正文：$bookUrl 第 $chapterIndex 章）';
-
-  // [UI-fix v2.0.6 | 2026-08-08] Task #22：mock 返回空集（目录页云图标均未缓存态） — Qoder
-  @override
-  Future<List<String>> listCachedChapterUrls(String bookUrl) async =>
-      const <String>[];
-
-  // [P2-28c | 2026-09-28] mock 返回空映射（无实时字数刷新数据）
-  @override
-  Future<Map<String, String>> listCachedChapters(String bookUrl) async =>
-      const <String, String>{};
-
-  @override
-  Future<int> cacheDownloadStart(
-    String bookUrl,
-    int startChapter,
-    int endChapter,
-  ) async => 1;
-
-  @override
-  Future<String> cacheDownloadProgress(int taskId) async =>
-      '{"taskId":$taskId,"status":"completed","total":0,"completed":0,"failed":0}';
-
-  @override
-  Future<bool> cacheDownloadCancel(int taskId) async => true;
-
-  @override
-  Future<String> cacheDownloadList() async => '[]';
-
-  // [P2-29 | 2026-09-29] mock 无活跃批量下载任务（在途章集合恒空）
-  @override
-  Future<List<int>> listDownloadingChapters(String bookUrl) async =>
-      const <int>[];
-
-  // [P2-29c 后续 | 2026-10-05] mock 无批量下载失败记录（失败章集合恒空，
-  // 契约 §2.43.8 cacheDownloadFailedChapters）
-  @override
-  Future<List<int>> listFailedChapters(String bookUrl) async => const <int>[];
 
   // ========== 图片磁盘缓存（契约 §2.46，Mock 以内存 Map 模拟落盘） ==========
 

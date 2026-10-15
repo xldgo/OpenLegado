@@ -52,7 +52,7 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubTwoChapters() {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: 'ch1', index: 0),
         const BookChapter(title: 'ch2', index: 1),

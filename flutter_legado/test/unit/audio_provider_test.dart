@@ -197,7 +197,8 @@ void main() {
         const BookChapter(title: '第二章', index: 1),
         const BookChapter(title: '第三章', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('https://book.com/1');
 
@@ -215,7 +216,8 @@ void main() {
         const BookChapter(title: '序章', index: 0),
         const BookChapter(title: '终章', index: 1),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('https://book.com/2');
 
@@ -226,7 +228,8 @@ void main() {
     });
 
     test('loadChapters 失败时设置错误状态', () async {
-      when(() => mockApi.getChapters(any())).thenThrow(Exception('加载失败'));
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenThrow(Exception('加载失败'));
 
       await readNotifier().loadChapters('https://book.com/bad');
 
@@ -235,7 +238,8 @@ void main() {
     });
 
     test('loadChapters 触发通知', () async {
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => []);
       var notifyCount = 0;
       container.listen(audioNotifierProvider, (_, _) => notifyCount++);
 
@@ -250,7 +254,8 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
         const BookChapter(title: 'ch3', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
 
@@ -260,7 +265,8 @@ void main() {
 
     test('loadChapters 后 currentChapter 正确', () async {
       final chapters = [const BookChapter(title: '第一章', index: 0)];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
       expect(readState().currentChapter?.title, equals('第一章'));
@@ -273,7 +279,8 @@ void main() {
         const BookChapter(title: 'ch3', index: 2),
         const BookChapter(title: 'ch4', index: 3),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
       // (0+1)/4 = 0.25
@@ -288,10 +295,11 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
         const BookChapter(title: 'ch3', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '章节正文内容');
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(
@@ -338,11 +346,12 @@ void main() {
       await readNotifier().play();
 
       // 验证 getChapterContent 被调用
-      verify(() => mockApi.getChapterContentFull('url', 0)).called(1);
+      verify(() => mockApi.readingRepository.getChapterContentFull('url', 0))
+          .called(1);
     });
 
     test('play 失败时进入 error 状态', () async {
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenThrow(Exception('内容加载失败'));
 
       await readNotifier().loadChapters('url');

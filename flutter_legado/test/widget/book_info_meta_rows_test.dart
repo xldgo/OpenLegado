@@ -78,7 +78,8 @@ void main() {
   void stubBook(Book book, [List<BookChapter> chapters = const []]) {
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => chapters);
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
     when(

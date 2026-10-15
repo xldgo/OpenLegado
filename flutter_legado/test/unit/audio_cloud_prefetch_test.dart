@@ -123,14 +123,16 @@ void main() {
     });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapters(any())).thenAnswer(
+    when(() => api.readingRepository.getChapters(any())).thenAnswer(
       (_) async => const [
         BookChapter(title: '第一章', index: 0),
         BookChapter(title: '第二章', index: 1),
         BookChapter(title: '第三章', index: 2),
       ],
     );
-    when(() => api.getChapterContentFull(any(), any())).thenAnswer(
+    when(
+      () => api.readingRepository.getChapterContentFull(any(), any()),
+    ).thenAnswer(
       (c) async =>
           ['${'甲' * 601}\n后续。', '预读。', '窗口外。'][c.positionalArguments[1] as int],
     );
@@ -219,7 +221,7 @@ void main() {
     expect(synth.remote, hasLength(1));
   });
   test('符号设置立即按原文重建，页面缺失明确报错，有范围后能按页朗读', () async {
-    when(() => api.getChapterContentFull(any(), 0))
+    when(() => api.readingRepository.getChapterContentFull(any(), 0))
         .thenAnswer((_) async => '甲。乙！丙');
     await notifier().setContentSplit(ReadAloudSplitMode.symbols, '。！');
     await notifier().play();

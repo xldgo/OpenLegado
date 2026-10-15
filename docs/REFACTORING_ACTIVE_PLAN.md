@@ -1,5 +1,45 @@
 # Legado 后续重构执行计划（Active）
 
+### CHAPTER-CACHE-DOWNLOAD-20261015：拆分章节缓存与批量下载（P1）
+
+- 授权与基线：用户要求继续下一批；feature/ui-reader-selection / bb41c70b8，保留上一批ReadingRepository的101条未提交路径，不另建分支、不提交或推送、不触发CI、不构建安装。Codex直接执行，不使用子代理，版本仍2.0.373+374。
+- 状态：本批实现与本地验证完成；用户于2026-10-16授权与ReadingRepository批次一并本地提交，提交以Git记录为准，不推送或触发CI。真实FRB和设备复验后置，Rust导出与生成绑定不变。
+- 范围：ChapterCacheRepository接管单书/单章清理、缓存正文、已缓存URL与字数五项；CacheDownloadService接管启动、取消、任务列表/进度、在途/失败章节六项。共享不可变CacheDownloadTask，响应解码放数据层，不在页面重复解析。
+- 行为：保留0-based闭区间下载和Rust任务状态；查询失败与合法空列表明确区分，首次加载报错可重试，后续轮询失败保留最近成功结果。仅移除经全仓核对无生产消费者的旧download管理器七项Dart包装，不删Rust公开入口。BookApi已从205减至187，不保留转发壳。
+- 消费者：阅读器强制刷新与缓存导出、目录缓存标记/重试、详情清缓存、换章源、阅读下载弹窗、离线缓存和下载队列。全局缓存清理/统计/VACUUM及音频/TTS/图片缓存不在本批范围。
+- 验收：严格JSON正反例、直接FRB参数与异常、Mock装配和窄Provider替换；目录状态、强制刷新、下载范围/取消和两页加载失败重试。执行相关测试、完整静态分析、格式与差异检查；不以Mock测试宣称真实下载或平台验证，不重复运行全量CI。
+- 回滚边界：按本批差异回退，不覆盖上一批未提交成果；忽略目录build/chapter-cache-download-qa/baseline保存开始时工作区快照。
+
+- 实现：新增两类契约、各自Rust/Mock实现、不可变CacheDownloadTask及共享Provider，应用装配注入同一实例。缓存列表/字数和任务列表/进度/章节索引均在数据边界严格解码，保留合法空值及Rust异常；删除根五项缓存、六项真实下载和七项无生产消费者旧下载包装及重复part实现。
+- 消费迁移：阅读强制刷新、详情清缓存、换章源、缓存内搜索、重复标题试算、目录徽标/轮询/重试、阅读下载范围弹窗和两份缓存页面均切换。两页删除重复任务模型和JSON解析；任务/缓存查询失败不回填空列表或0，首次失败显示重试，后续轮询保留最近成功结果。全局清缓存、VACUUM与媒体缓存原样保留。
+- 实际行为回归：15份相关测试212项全部通过（flutter test --no-pub，42秒），包含新FRB Mock参数/异常/坏响应、Mock装配、Provider替换/独立注入和两页首次失败重试/轮询保留，以及既有刷新、换源、目录状态和下载范围。源码检查不计作功能验收；其他会话将既有api_contract_test迁为tool/check_api_contract.dart，本批保留该迁移，不恢复旧测试。
+- 失败记录：首轮新测试两处断言错误，一个未包住Mock同步抛异常的调用，一个下载中却断言静态缓存文案；分别修正异常断言与下载进度文案后通过。期间一次迁移助手以错误相对路径读取失败，未改动文件；保留原失败日志，不将失败轮次累加为通过数量。
+- 检查与限制：完整flutter analyze --no-pub无问题；本批现存44份Dart格式无差异，git diff --check通过。Codex单代理复核差异，不宣称独立审查、真实下载、Windows DLL或设备验收。未修改SDK、依赖、FRB生成物、数据库和应用版本，没有本批提交、推送、CI、编译或安装。
+- 证据：忽略目录flutter_legado/build/chapter-cache-download-{core-initial,regression-initial,regression-final,behavior-final,analysis-initial,analysis-second,analysis-final}.log保存运行输出；根build/chapter-cache-download-qa/保存初始工作区快照、本批Dart清单、增量差异、格式及差异检查。保留其他会话新增的规范、测试清理及暂存变更，不改变其归属。
+
+编写者：Codex｜2026-10-15
+
+
+### READING-REPOSITORY-20261015：拆分目录、正文与阅读进度访问（P1）
+
+- 授权与基线：用户同意下一步分析中的第一批并要求开始任务。当前feature/ui-reader-selection / bb41c70b8，开始时工作区干净，其他会话的Android构建修改已自行提交；保留这些提交，不另建分支、不提交或推送、不触发CI、不构建安装，应用版本保持2.0.373+374。沿用用户要求由Codex直接执行，不使用子代理。
+- 状态：本批实现与本地验证完成；用户于2026-10-16授权与后续章节缓存下载批次一并本地提交，提交以Git记录为准，不推送或触发CI。RSS后续批次未启动；Dart契约已冻结，Rust/FRB导出、生成绑定、数据库和原文锚点格式不变，原生运行及设备验证继续后置。
+- 范围：新增ReadingRepository、直接FRB实现RustReadingRepository和共用现有Mock书籍/章节/正文数据的实现；迁移getChapters、getChapterContent、getChapterContentRaw、getChapterContentFull、fetchChapterContent、saveChapterContent、updateReadingProgress、refreshToc八项。根BookApi只共享仓储实例，迁移实际生产和测试消费者后删除旧八项方法，不保留转发壳。
+- 行为：保留本地/在线正文分流、净化与raw路径、平台桥接载荷拦截、编辑正文写缓存和目录刷新语义。目录解码接受现有chapters对象或列表；缺字段、未知结构及坏条目明确报错，不能伪装成空目录；合法空列表仍成功。
+- 状态归属：阅读器保留当前章、翻页、选区及原文锚点；朗读保留播放队列和会话控制。本批只替换数据依赖，不重写Notifier。进度chapterPos沿用调用方既有语义，正文原文锚点和音视频毫秒不得机械合并。
+- 顺序：先冻结契约并补目录解码失败及Mock共享状态回归；实现与装配仓储；迁移目录、阅读、朗读、详情、搜索、漫画和视频的现有八项调用及测试夹具；删除旧实现，复核引用和契约计数，再运行相关测试与完整静态分析。
+- 验收：有效/无效目录响应、平台拦截结果、Mock编辑后重读及进度在书架可见、替换根实例后Provider跟随；既有开书/切章/强制刷新/正文编辑/原文定位、朗读在线与本地分流及媒体进度回归。只执行受影响测试，不运行全量CI或模拟器；Windows原生DLL验证继续后置，不绕过hash门禁。
+- 交付：记录实际文件、命令和未测限制，单代理复核不宣称独立审查。新增功能、UI改版、旧数据迁移与未实现设置不在本批范围。提交和推送等待后续明确授权。
+- 实现：ReadingRepository八项及Rust/Mock实现、共享Provider和根装配已建立；Rust实现只依赖现有FRB和注入的平台载荷回调，不导入UI服务。目录对象/列表统一严格解码，正文与目录刷新保持原拦截点。Mock直接共用MockBookshelfStore、章节和正文缓存，保存后其他读取立即可见，进度仍更新同一书籍对象。根八项签名和part实现全部移除，内部导出/音频媒体消费者同步迁移。
+- 消费与测试：阅读器、朗读、阅读记录章节名及相邻章预载通过独立Provider访问；详情、目录、搜索、漫画、视频和导出使用根装配的同一窄仓储。原测试的调用/断言及十八份自定义夹具同步迁移，新增共享TestReadingRepository仅覆盖场景必要操作，不恢复旧BookApi转发。新增目录正反例、共享正文/进度、根实例替换、FRB参数/失败/平台载荷和ReaderNotifier独立注入回归，已纳入最终组合验证。
+- 已执行检查：SDK自带Dart直接运行格式化，99份本批手写Dart文件格式完成；仓储目录dart analyze --fatal-infos通过，旧根八项声明扫描为零，git diff --check通过。全工程Dart分析首轮42项，修正本轮内部调用及格式/导入后复验27项，剩余均在既有just_audio相关生产/集成/测试文件，本地package_config尚未恢复合入提交的just_audio 0.10.6；未改pubspec或锁文件，不以局部通过宣称全量分析通过。
+- 权限阻塞历史：Flutter常规启动因沙箱无法写SDK bin/cache/lockfile，首次无输出进程已结束；申请定向测试的两次自动审批均超时，均未创建测试进程。直接使用现有Flutter工具快照再次得到同一lockfile访问错误，未关闭锁或修改SDK权限。用户随后解除沙箱并要求继续，已使用正常Flutter入口完成后续验证，不再受此阻塞。
+- 最终验证：flutter pub get --offline --enforce-lockfile成功，恢复前后pubspec.lock的SHA-256一致，未升级依赖。三份核心44项通过；首次契约总数断言漏计已迁出的八项，补上ReadingRepository计数后闭合。68份相关组合最终834项全部通过（44秒，包含核心用例，不重复累计）；完整flutter analyze --no-pub无问题（19.5秒）。格式与差异检查按99份本批Dart清单执行，旧八项根声明为零。
+- 回归夹具修正：首次68份组合829过5失败。两项书架CRUD用例遗漏后续独立设置服务，补同一可控存储注入，仍禁止创建根BookApi；三个路由用例只验证分流却实例化真实音频/漫画页面，受既有PrivacyBookGate影响找不到目标页，改与原文本/视频用例一样使用桩页和固定键回退。两份单独30项通过，再复验完整相关组合；生产行为未为这些失败改变。
+- 证据与范围：忽略目录flutter_legado/build/reading-repository-qa/保存pub-get.log、core-{initial,final}.log、fixtures-retry.log、regression-{initial,final}.log和flutter-analysis-final.log，根build/reading-repository-qa/保存清单、格式/差异检查及一次性迁移助手，失败日志保留。Codex单代理核对实现与差异，不宣称独立审查或真实FRB/设备验收；没有版本变更、原生编译安装、Windows DLL验证、提交、推送或CI，应用仍2.0.373+374。
+
+编写者：Codex｜2026-10-15
+
 ### BACKUP-WEBDAV-FLOW-20261015：修正备份恢复方向并收拢业务边界（P1）
 
 - 授权与基线：用户要求将下一步分析形成计划，本次只修改本文，不实施代码、不提交或推送。当前分支feature/ui-reader-selection，基线4a44a2a59，登记前工作区干净；上一批同步配置与主题预设已提交。后续由Codex直接执行，不使用子代理、不另建分支，应用版本保持2.0.373+374。

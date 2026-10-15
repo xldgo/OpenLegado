@@ -61,9 +61,9 @@ void main() {
     });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapters(any()))
+    when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => const [BookChapter(title: '章节', index: 0)]);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段。\n第二段。');
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();
@@ -114,9 +114,9 @@ void main() {
     });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapters(any()))
+    when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => const [BookChapter(title: '章节', index: 0)]);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段。\n第二段。');
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();

@@ -1,3 +1,4 @@
+import '../providers/chapter_cache_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
 import '../features/bookmarks/bookmarks.dart';
@@ -44,9 +45,9 @@ import '../utils/book_open_utils.dart';
 ///   （[UI-fix v2.0.6] Task #22 接通的只读 FFI，契约 §2.43.5）
 /// - [P2-29] 章节行状态机对齐参考版五态（用户验收「下载中缺少过渡动画」）：
 ///   当前章→定位图标 location_on（替代 check_circle）/ 下载中→16px 加载
-///   指示（数据经 BookApi.listDownloadingChapters，契约 §2.43.7，1s 轮询
+///   指示（数据经 CacheDownloadService.listDownloadingChapters，契约 §2.43.7，1s 轮询
 ///   同周期刷新）/ 失败→红色重试图标（点击单章重下，复用
-///   cacheDownloadStart(idx, idx)；数据经 BookApi.listFailedChapters，
+///   cacheDownloadStart(idx, idx)；数据经 CacheDownloadService.listFailedChapters，
 ///   契约 §2.43.8，与下载中同周期 1s 轮询）/
 ///   未缓存→⬇ / 已缓存→无图标（本地书恒视为已缓存，无图标）
 /// - [P2-29b] 状态元素互斥分支与着色修正（用户指正：参考版当前章没有
@@ -63,14 +64,14 @@ import '../utils/book_open_utils.dart';
 ///   :879-881 `canDownload = downloadState == NONE || ERROR` + :958-965
 ///   状态图标 Box 挂 onDownloadClick + :808 onDownloadClick →
 ///   TocViewModel.kt downloadChapter :863-869 按章索引单章下载）——复用
-///   [BookApi.cacheDownloadStart]（契约 §2.43.3 闭区间 start==end 单章，
+///   `CacheDownloadService.cacheDownloadStart`（契约 §2.43.3 闭区间 start==end 单章，
 ///   与 ERROR 重试同路径）；② ERROR 分支优先级提到已缓存之前 + showCount
 ///   排除 ERROR（对齐参考版 TocViewModel.kt rawDataFlow :510-514
 ///   running > error > cached 判定序；StatusIcon :1146-1157 字数胶囊仅
 ///   LOCAL/SUCCESS 态命中）；③ 两态图标按钮统一 shrinkWrap 触控尺寸，
 ///   保持 16px 图标几何不变（沿用 P2-28/29 行高适配口径）；④ 失败态数据源
 ///   于 P2-29c 后续批接通：Rust 任务表/持久化快照新增失败章索引集合，
-///   只读 FFI cacheDownloadFailedChapters（契约 §2.43.8）→ BookApi.listFailedChapters，
+///   只读 FFI cacheDownloadFailedChapters（契约 §2.43.8）→ CacheDownloadService.listFailedChapters，
 ///   本页 1s 轮询同周期拉取（见 [_failedIndices]），注入缝已移除
 /// - [P2-28b] 页面打开期间每秒轮询缓存状态（对齐原版 ChapterListFragment
 ///   订阅 EventBus.SAVE_CONTENT 的行刷新语义）：批量离线缓存下载中，每章正文
@@ -154,7 +155,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// SAVE_CONTENT 同帧刷行语义，P2-28b 轮询升级）
   final Map<String, String> _polledWordCounts = {};
 
-  /// [P2-29] 本书当前在途下载章节 index 集合（经 BookApi.listDownloadingChapters，
+  /// [P2-29] 本书当前在途下载章节 index 集合（经 CacheDownloadService.listDownloadingChapters，
   /// 契约 §2.43.7 cacheDownloadRunningChapters；对齐参考版 TocViewModel
   /// runningIndices——源自 `CacheBook.downloadStateFlow` 全局状态流）：
   /// 初始加载 + 1s 轮询（P2-28b/c）同周期刷新，驱动下载中行 16px 加载指示
@@ -177,7 +178,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
 
   /// [P2-29c 后续] 本书批量下载已失败章节 index 集合（ERROR 态，对齐参考版
   /// failedIndices——源自 `CacheBook.downloadStateFlow`）。数据源经
-  /// [BookApi.listFailedChapters]（契约 §2.43.8 cacheDownloadFailedChapters）：
+  /// [CacheDownloadService.listFailedChapters]（契约 §2.43.8 cacheDownloadFailedChapters）：
   /// 初始加载 + 1s 轮询（与 [_downloadingIndices] 同周期）刷新；失败记录随
   /// 任务终态保留（供展示与重试），任务重新取到该章开始下载时清除（对齐
   /// 参考版 CacheDownloadStateStore.markFailed/markSuccess 语义）。
@@ -272,14 +273,16 @@ class _TocScreenState extends ConsumerState<TocScreen>
   }
 
   /// [P2-28b→P2-28c] 轮询缓存态（升级为字数刷新数据链）：单次调用
-  /// [BookApi.listCachedChapters]（契约 §2.43.6）同时完成 URL 集合 diff
+  /// `ChapterCacheRepository.listCachedChapters`（契约 §2.43.6）同时完成 URL 集合 diff
   /// （翻转「未缓存」⬇ 图标）与字数映射刷新（新缓存章字数胶囊同帧出现，
   /// 对齐参考版 ChapterListFragment 订阅 SAVE_CONTENT 同帧刷行语义）；
   /// 两者均无变化时跳过 setState（避免每秒无谓整行重建）；查询失败保留旧态。
   Future<void> _pollCachedUrls() async {
     try {
       final api = ref.read(bookApiProvider);
-      final entries = await api.listCachedChapters(_book.bookUrl);
+      final entries = await ref
+          .read(chapterCacheRepositoryProvider)
+          .listCachedChapters(_book.bookUrl);
       final urls = entries.keys.toSet();
       final urlsChanged =
           urls.difference(_cachedUrls).isNotEmpty ||
@@ -291,7 +294,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // 驱动下载中行 16px 加载指示动画；单项查询失败保留旧态
       List<int> downloading;
       try {
-        downloading = await api.listDownloadingChapters(_book.bookUrl);
+        downloading = await ref
+            .read(cacheDownloadServiceProvider)
+            .listDownloadingChapters(_book.bookUrl);
       } catch (_) {
         downloading = _downloadingIndices.toList();
       }
@@ -303,7 +308,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // 驱动失败行红色重试图标（ERROR 态）；单项查询失败保留旧态
       Set<int> failed;
       try {
-        failed = (await api.listFailedChapters(_book.bookUrl)).toSet();
+        failed =
+            (await ref
+                    .read(cacheDownloadServiceProvider)
+                    .listFailedChapters(_book.bookUrl))
+                .toSet();
       } catch (_) {
         failed = _failedIndices;
       }
@@ -382,7 +391,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // [P2-28] 刷新缓存 URL 集（本地书恒视为已缓存，对齐原版 isLocalBook，不查询）
       if (!_isLocal) {
         try {
-          final urls = (await api.listCachedChapterUrls(_book.bookUrl)).toSet();
+          final urls =
+              (await ref
+                      .read(chapterCacheRepositoryProvider)
+                      .listCachedChapterUrls(_book.bookUrl))
+                  .toSet();
           if (!mounted) return;
           setState(() => _cachedUrls = urls);
         } catch (_) {
@@ -415,7 +428,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     });
     try {
       final api = ref.read(bookApiProvider);
-      var chapters = await api.getChapters(_book.bookUrl);
+      var chapters = await api.readingRepository.getChapters(_book.bookUrl);
       // [Task #21 | 2026-08-08] 自愈：本地库无目录的在线书籍（含换源后旧章节
       // 已清、或历史遗留未拉取过目录的书），自动经书源规则从网络刷新目录。
       // 与 reader_notifier.openBook 的回退保持一致，使打开目录页时也能触发
@@ -423,7 +436,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // tocUrl 为抓取地址（换源后指向当前书源），tocUrl 空时回退 bookUrl。
       if (chapters.isEmpty && _book.origin.isNotEmpty) {
         if (_inBookshelf) {
-          chapters = await api.refreshToc(_book.bookUrl, _book.origin);
+          chapters = await api.readingRepository.refreshToc(
+            _book.bookUrl,
+            _book.origin,
+          );
         } else {
           // 未入库：仅网络取目录展示，不落库（对齐 BookInfoScreen / 原版 !inBookshelf）
           chapters = await _fetchWebChaptersOnline(api);
@@ -446,7 +462,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
       Set<int> audioCached = const {};
       if (!_isLocal) {
         try {
-          cachedUrls = (await api.listCachedChapterUrls(_book.bookUrl)).toSet();
+          cachedUrls =
+              (await ref
+                      .read(chapterCacheRepositoryProvider)
+                      .listCachedChapterUrls(_book.bookUrl))
+                  .toSet();
         } catch (_) {
           // 查询失败降级为全未缓存态，不阻断目录展示
         }
@@ -454,12 +474,16 @@ class _TocScreenState extends ConsumerState<TocScreen>
         // 下载中行 16px 加载指示（对齐参考版打开目录即见 LOADING 态）；
         // 查询失败降级为空集（后续 1s 轮询自愈）
         try {
-          downloading = await api.listDownloadingChapters(_book.bookUrl);
+          downloading = await ref
+              .read(cacheDownloadServiceProvider)
+              .listDownloadingChapters(_book.bookUrl);
         } catch (_) {}
         // [P2-29c 后续] 初始加载失败章节集合（契约 §2.43.8）：使首帧即可
         // 渲染 ERROR 态红色重试图标；查询失败降级为空集（后续 1s 轮询自愈）
         try {
-          failed = await api.listFailedChapters(_book.bookUrl);
+          failed = await ref
+              .read(cacheDownloadServiceProvider)
+              .listFailedChapters(_book.bookUrl);
         } catch (_) {}
         if (_isAudioBook) {
           try {
@@ -1012,7 +1036,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
     try {
       await ref
-          .read(bookApiProvider)
+          .read(cacheDownloadServiceProvider)
           .cacheDownloadStart(_book.bookUrl, start, total - 1);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -1028,7 +1052,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 重试图标点击）。对齐参考版 canDownload = NONE || ERROR 时点击状态图标
   /// （TocScreen.kt :879-881 + :958-965）→ TocIntent.DownloadChapter →
   /// TocViewModel.downloadChapter :863-869 按章索引单章下载；
-  /// 复用 [BookApi.cacheDownloadStart]（契约 §2.43.3 闭区间语义 start==end
+  /// 复用 `CacheDownloadService.cacheDownloadStart`（契约 §2.43.3 闭区间语义 start==end
   /// 即单章；同书在途任务复用语义不变）启动下载；启动成功后 1s 轮询
   /// （P2-28b/c）自动把该行翻为下载中 16px 加载指示，完成后翻为对勾/
   /// 字数胶囊，失败翻为红色重试图标（失败集合经契约 §2.43.8
@@ -1037,7 +1061,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   Future<void> _downloadChapter(int chapterIndex, {required bool retry}) async {
     try {
       await ref
-          .read(bookApiProvider)
+          .read(cacheDownloadServiceProvider)
           .cacheDownloadStart(_book.bookUrl, chapterIndex, chapterIndex);
       if (!mounted) return;
       var title = '';
@@ -1146,7 +1170,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   ///   Icons.location_on；[P2-29b] 着色统一 secondary，对齐参考版
   ///   ReaderSheetStatusIcon :1100-1111 tint=colorScheme.secondary，16px）
   /// - ③ 下载中（index ∈ _downloadingIndices，数据经
-  ///   BookApi.listDownloadingChapters 契约 §2.43.7，对齐参考版 LOADING 态
+  ///   CacheDownloadService.listDownloadingChapters 契约 §2.43.7，对齐参考版 LOADING 态
   ///   `AppContainedLoadingIndicator` 16dp 形态）→ 16px 加载指示
   ///   （SizedBox 16 + CircularProgressIndicator strokeWidth 2，着色 primary）
   /// - ④ 失败（index ∈ _failedIndices，对齐参考版 ERROR 态）→ 红色重试图标

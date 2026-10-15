@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/cache_download_task.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -50,8 +51,9 @@ void main() {
 
   /// 预置空任务列表与空缓存（多数用例公共 stub）
   void stubEmptyCache() {
-    when(() => mockApi.cacheDownloadList()).thenAnswer((_) async => '[]');
-    when(() => mockApi.listCachedChapterUrls(any()))
+    when(() => mockApi.cacheDownloadService.cacheDownloadList())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(any()))
         .thenAnswer((_) async => const <String>[]);
   }
 
@@ -81,7 +83,7 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
-    when(() => mockApi.listCachedChapterUrls('u1'))
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls('u1'))
         .thenAnswer((_) async => ['c1', 'c2', 'c3']);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
@@ -145,8 +147,10 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [b1]);
     stubEmptyCache();
-    when(() => mockApi.cacheDownloadStart(any(), any(), any()))
-        .thenAnswer((_) async => 1);
+    when(
+      () =>
+          mockApi.cacheDownloadService.cacheDownloadStart(any(), any(), any()),
+    ).thenAnswer((_) async => 1);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
@@ -155,7 +159,8 @@ void main() {
     await tester.tap(find.byIcon(Symbols.play_circle_rounded));
     await tester.pump();
 
-    verify(() => mockApi.cacheDownloadStart('u1', 0, 9)).called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart('u1', 0, 9))
+        .called(1);
     // 启动后提示加入队列
     expect(find.text('《书一》已加入缓存队列'), findsOneWidget);
   });
@@ -166,8 +171,10 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [b1, b2]);
     stubEmptyCache();
-    when(() => mockApi.cacheDownloadStart(any(), any(), any()))
-        .thenAnswer((_) async => 1);
+    when(
+      () =>
+          mockApi.cacheDownloadService.cacheDownloadStart(any(), any(), any()),
+    ).thenAnswer((_) async => 1);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
@@ -189,8 +196,10 @@ void main() {
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
-    verify(() => mockApi.cacheDownloadStart('u1', 0, 9)).called(1);
-    verify(() => mockApi.cacheDownloadStart('u2', 0, 19)).called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart('u1', 0, 9))
+        .called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart('u2', 0, 19))
+        .called(1);
   });
 
   testWidgets('离线缓存 菜单「缓存当前章节之后」按当前章起点批量启动', (tester) async {
@@ -205,8 +214,10 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [b1]);
     stubEmptyCache();
-    when(() => mockApi.cacheDownloadStart(any(), any(), any()))
-        .thenAnswer((_) async => 1);
+    when(
+      () =>
+          mockApi.cacheDownloadService.cacheDownloadStart(any(), any(), any()),
+    ).thenAnswer((_) async => 1);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
     await tester.pump();
@@ -222,17 +233,27 @@ void main() {
     await tester.pumpAndSettle();
 
     // download_after：起点 = durChapterIndex（含当前章），终点 = 末章
-    verify(() => mockApi.cacheDownloadStart('u1', 2, 9)).called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart('u1', 2, 9))
+        .called(1);
   });
 
   testWidgets('离线缓存 进行中任务显示下载进度与停止按钮', (tester) async {
     final b1 = makeBook('u1', '书一', total: 10);
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [b1]);
-    when(() => mockApi.cacheDownloadList()).thenAnswer(
-      (_) async => '[{"taskId":7,"bookUrl":"u1","status":"running","total":10,"completed":4,"failed":0}]',
+    when(() => mockApi.cacheDownloadService.cacheDownloadList()).thenAnswer(
+      (_) async => const [
+        CacheDownloadTask(
+          taskId: 7,
+          bookUrl: 'u1',
+          status: 'running',
+          total: 10,
+          completed: 4,
+          failed: 0,
+        ),
+      ],
     );
-    when(() => mockApi.listCachedChapterUrls('u1'))
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls('u1'))
         .thenAnswer((_) async => const <String>[]);
 
     await tester.pumpWidget(wrap(const OfflineCacheScreen()));
@@ -242,11 +263,66 @@ void main() {
     expect(find.text('下载中 4/10'), findsOneWidget);
     expect(find.byIcon(Symbols.stop_circle_rounded), findsOneWidget);
 
-    when(() => mockApi.cacheDownloadCancel(7)).thenAnswer((_) async => true);
+    when(() => mockApi.cacheDownloadService.cacheDownloadCancel(7))
+        .thenAnswer((_) async => true);
     await tester.tap(find.byIcon(Symbols.stop_circle_rounded));
     await tester.pump();
 
-    verify(() => mockApi.cacheDownloadCancel(7)).called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadCancel(7)).called(1);
     expect(find.text('已停止《书一》下载'), findsOneWidget);
+  });
+  testWidgets('任务或缓存查询失败显示重试，不能当作空缓存', (tester) async {
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [makeBook('u1', '书一')]);
+    stubEmptyCache();
+    when(() => mockApi.cacheDownloadService.cacheDownloadList())
+        .thenThrow(const FormatException('任务列表损坏'));
+    await tester.pumpWidget(wrap(const OfflineCacheScreen()));
+    await tester.pump();
+    expect(find.text('离线缓存加载失败'), findsOneWidget);
+    expect(find.text('书架暂无书籍'), findsNothing);
+    when(() => mockApi.cacheDownloadService.cacheDownloadList())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls('u1'))
+        .thenThrow(StateError('缓存查询失败'));
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    expect(find.text('离线缓存加载失败'), findsOneWidget);
+    expect(find.text('已缓存 0/10'), findsNothing);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls('u1'))
+        .thenAnswer((_) async => ['c1']);
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    expect(find.text('书一'), findsOneWidget);
+    expect(find.text('已缓存 1/10'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('轮询失败保留最近成功的下载进度与停止按钮', (tester) async {
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [makeBook('u1', '书一')]);
+    when(() => mockApi.cacheDownloadService.cacheDownloadList()).thenAnswer(
+      (_) async => const [
+        CacheDownloadTask(
+          taskId: 7,
+          bookUrl: 'u1',
+          status: 'running',
+          total: 10,
+          completed: 3,
+          failed: 0,
+        ),
+      ],
+    );
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls('u1'))
+        .thenAnswer((_) async => ['c1', 'c2', 'c3']);
+    await tester.pumpWidget(wrap(const OfflineCacheScreen()));
+    await tester.pump();
+    when(() => mockApi.cacheDownloadService.cacheDownloadList())
+        .thenThrow(StateError('任务查询失败'));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('下载中 3/10'), findsOneWidget);
+    expect(find.byIcon(Symbols.stop_circle_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.play_circle_rounded), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

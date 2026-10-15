@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../mocks/reading_fixture.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -67,6 +69,21 @@ class _FakeBridge extends VideoFloatWindowBridge {
 
 /// 假 BookApi：只承接协调器用到的读章节/落库/进度配置方法
 class _FakeBookApi implements BookApi {
+  @override
+  late final readingRepository = TestReadingRepository(
+    fetchChapterContent: (bookUrl, chapterUrl, sourceUrl) =>
+        fetchGate?.future ?? Future.value(chapterContents[chapterUrl] ?? ''),
+    getChapterContent: (bookUrl, index) async =>
+        chapterContents['#$index'] ?? '',
+    updateReadingProgress:
+        ({required bookUrl, required chapterIndex, required chapterPos}) async {
+          progressCalls.add({
+            #bookUrl: bookUrl,
+            #chapterIndex: chapterIndex,
+            #chapterPos: chapterPos,
+          });
+        },
+  );
   final Map<String, String> chapterContents = {};
   final List<Map<Symbol, dynamic>> progressCalls = [];
   final List<Map<Symbol, dynamic>> configWrites = [];
@@ -77,20 +94,6 @@ class _FakeBookApi implements BookApi {
   @override
   dynamic noSuchMethod(Invocation invocation) {
     final name = invocation.memberName.toString();
-    if (name == 'Symbol("fetchChapterContent")') {
-      final gate = fetchGate;
-      if (gate != null) return gate.future;
-      final url = invocation.positionalArguments[1].toString();
-      return Future<String>.value(chapterContents[url] ?? '');
-    }
-    if (name == 'Symbol("getChapterContent")') {
-      final index = invocation.positionalArguments[1] as int;
-      return Future<String>.value(chapterContents['#$index'] ?? '');
-    }
-    if (name == 'Symbol("updateReadingProgress")') {
-      progressCalls.add(Map<Symbol, dynamic>.from(invocation.namedArguments));
-      return Future<void>.value();
-    }
     if (name == 'Symbol("setConfig")') {
       // setConfig(key, value) 为位置参数（BookApi:633）
       configWrites.add({

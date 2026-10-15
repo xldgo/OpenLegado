@@ -65,7 +65,7 @@ void main() {
     );
     final added = await shelf.addBook(book);
     expect(added.bookUrl, book.bookUrl);
-    await api.updateReadingProgress(
+    await api.readingRepository.updateReadingProgress(
       bookUrl: book.bookUrl,
       chapterIndex: 2,
       chapterPos: 201,

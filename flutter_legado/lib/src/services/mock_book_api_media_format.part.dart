@@ -198,7 +198,7 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
     String bookUrl,
     int chapterIndex,
   ) async {
-    final chapters = await getChapters(bookUrl);
+    final chapters = await readingRepository.getChapters(bookUrl);
     if (chapterIndex < 0 || chapterIndex >= chapters.length) {
       return {'error': 'Invalid chapter index'};
     }

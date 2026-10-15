@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -75,6 +76,15 @@ Book _e4Book({int chapterIndex = 0}) {
 /// - 记录 getBook / getChapters / fetchChapterContent 调用计数，用于甄别
 ///   「章级重试」（只重拉章节正文）与「书级重试」（重拉书籍信息 + 目录）。
 class _ChapterErrorMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    getChapterContentFull: _readingGetChapterContentFull,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -135,14 +145,12 @@ class _ChapterErrorMockApi extends MockBookApi {
     return book;
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async {
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async {
     getChaptersCalls++;
     return chapters;
   }
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -165,8 +173,10 @@ class _ChapterErrorMockApi extends MockBookApi {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
-  @override
-  Future<String> getChapterContentFull(String bookUrl, int chapterIndex) async {
+  Future<String> _readingGetChapterContentFull(
+    String bookUrl,
+    int chapterIndex,
+  ) async {
     return '预载内容 章节 $chapterIndex';
   }
 }

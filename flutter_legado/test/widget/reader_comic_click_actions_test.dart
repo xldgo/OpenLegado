@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
@@ -110,6 +111,15 @@ BookSource _buildComicSource() {
 /// [P4-3 M4 批2] 新增 [isVolume] 注入（0 图卷章分隔页用例）+
 /// [setConfigCalls] 记录（面板持久化接线断言）
 class _ClickActionsMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -169,8 +179,7 @@ class _ClickActionsMockApi extends MockBookApi {
     durChapterPos: durChapterPos,
   );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async =>
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
       List<BookChapter>.generate(
         chapterCount,
         (i) => BookChapter(
@@ -181,8 +190,7 @@ class _ClickActionsMockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -209,8 +217,7 @@ class _ClickActionsMockApi extends MockBookApi {
     setConfigCalls.add((key: key, value: value));
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,

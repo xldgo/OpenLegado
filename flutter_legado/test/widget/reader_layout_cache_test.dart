@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -21,9 +22,17 @@ final sources = List.generate(
 );
 
 class _Api extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapterContentFull: _readingGetChapterContentFull,
+  );
   @override
-  Future<String> getChapterContentFull(String bookUrl, int index) async =>
-      sources[index];
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  Future<String> _readingGetChapterContentFull(
+    String bookUrl,
+    int index,
+  ) async => sources[index];
 }
 
 class _Reader extends ReaderNotifier {

@@ -57,7 +57,7 @@ void main() {
         );
         when(() => mockApi.bookshelfRepository.getBook(any()))
             .thenAnswer((_) async => book);
-        when(() => mockApi.getChapters(any()))
+        when(() => mockApi.readingRepository.getChapters(any()))
             .thenAnswer((_) async => const [BookChapter(title: '第一章')]);
         when(() => mockApi.bookshelfRepository.getBooks())
             .thenAnswer((_) async => [book]);
@@ -66,7 +66,7 @@ void main() {
         when(() => mockApi.bookSourceRepository.getBookSources())
             .thenAnswer((_) async => const []);
         when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-        when(() => mockApi.getChapterContent(any(), any()))
+        when(() => mockApi.readingRepository.getChapterContent(any(), any()))
             .thenAnswer((_) async => '内容');
         await tester.pumpWidget(
           ProviderScope(
@@ -93,8 +93,9 @@ void main() {
       addTearDown(tester.view.reset);
       final mockApi = MockRustApi();
       const chapters = [BookChapter(title: '第一章')];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.getChapterContent(any(), any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapterContent(any(), any()))
           .thenAnswer((_) async => '正文内容');
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => const []);

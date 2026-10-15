@@ -161,7 +161,7 @@ void main() {
     String bookName = '测试书',
     int chapterCount = 3,
   }) async {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => List.generate(
         chapterCount,
         (i) => BookChapter(title: 'ch${i + 1}', index: i),
@@ -190,11 +190,11 @@ void main() {
 
   /// 进入「TTS 朗读播放中」
   Future<void> startTtsPlayback({String bookName = '测试书'}) async {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段文本内容。');
     when(
       () => mockApi.httpTtsSynthesizer.synthesize(
@@ -573,7 +573,7 @@ void main() {
 
   testPlayback('媒体前后按钮遵循切段设置，音频书仍按章切换', (tester) async {
     await startTtsPlayback();
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段。\n第二段。');
     await readNotifier().seekToChapterPosition(0, 0);
     // 已加载章节使用真实缓存，切段用独立的重新加载会话。

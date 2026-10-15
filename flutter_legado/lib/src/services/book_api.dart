@@ -1,3 +1,6 @@
+import '../domain/contracts/chapter_cache_repository.dart';
+import '../domain/contracts/cache_download_service.dart';
+import '../domain/contracts/reading_repository.dart';
 import '../domain/contracts/backup_repository.dart';
 import '../domain/contracts/webdav_service.dart';
 import '../domain/contracts/search_service.dart';
@@ -23,6 +26,9 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  ChapterCacheRepository get chapterCacheRepository;
+  CacheDownloadService get cacheDownloadService;
+  ReadingRepository get readingRepository;
   BackupRepository get backupRepository;
   WebDavService get webDavService;
 
@@ -400,51 +406,6 @@ abstract class BookApi {
 
   // ========== 阅读器操作 ==========
 
-  /// 获取书籍的章节列表
-  Future<List<BookChapter>> getChapters(String bookUrl);
-
-  /// 获取章节正文内容
-  Future<String> getChapterContent(String bookUrl, int chapterIndex);
-
-  /// 获取章节正文内容（不应用替换规则，用于内容搜索）
-  ///
-  /// 与 Android 书内搜索默认行为（replaceEnabled=false）对齐。
-  Future<String> getChapterContentRaw(String bookUrl, int chapterIndex);
-
-  /// 一次调用获取章节正文（合并 getChapterContent + fetchChapterContent）
-  ///
-  /// 本地书籍直接解析返回；在线书籍自动从网络抓取并返回净化后的正文。
-  /// 始终返回纯正文字符串，不返回 JSON 元数据。
-  Future<String> getChapterContentFull(String bookUrl, int chapterIndex);
-
-  /// 从网络获取章节正文
-  Future<String> fetchChapterContent(
-    String bookUrl,
-    String chapterUrl,
-    String sourceUrl,
-  );
-
-  /// 写入/覆盖单章缓存正文（契约 §2.43.1，saveChapterContent FFI）
-  ///
-  /// 对标原版 BookHelp.saveText 写回链路（编辑内容/反转内容持久化）；
-  /// [title] 为空串时由实现侧从 DB 章节表回填。返回是否写入成功。
-  Future<bool> saveChapterContent({
-    required String bookUrl,
-    required int chapterIndex,
-    required String title,
-    required String content,
-  });
-
-  /// 更新阅读进度
-  Future<void> updateReadingProgress({
-    required String bookUrl,
-    required int chapterIndex,
-    required int chapterPos,
-  });
-
-  /// 从网络刷新书籍目录
-  Future<List<BookChapter>> refreshToc(String bookUrl, String sourceUrl);
-
   /// 设置阅读器繁简转换类型并持久化
   ///
   /// 语义对齐 Android `AppConfig.chineseConverterType`：
@@ -559,17 +520,6 @@ abstract class BookApi {
   /// 清除全部缓存
   Future<void> clearCache();
 
-  /// 清除指定书籍章节缓存，返回删除行数
-  Future<int> clearBookCache(String bookUrl);
-
-  /// 清除指定书籍**单章**的章节缓存，返回删除行数
-  ///
-  /// 对齐上游原版 `BookHelp.delContent` 章级语义（STAGE3-C2B，契约 §2.16）：
-  /// 仅删该章缓存行（bookUrl + chapterIndex 定位），**不触碰**
-  /// `sameTitleRemoved` 等章级开关键，不触发整书清理；
-  /// 行不存在为 no-op 成功（返回 0）；空 bookUrl 返回参数错误。
-  Future<int> clearChapterCache(String bookUrl, int chapterIndex);
-
   /// 获取缓存书籍数量
   Future<int> getCacheBookCount();
 
@@ -585,57 +535,6 @@ abstract class BookApi {
   /// VACUUM 失败（数据库锁/文件损坏）或数据库未初始化时降级返回 0，
   /// 不抛异常阻断业务。
   Future<int> shrinkDatabase();
-
-  /// 获取章节缓存正文（未缓存返回空串，供缓存导出拼装 TXT）
-  Future<String> getCachedChapter(String bookUrl, int chapterIndex);
-
-  /// 列出某本书已缓存章节的 chapter_url 集合（目录页云图标缓存态）
-  /// [UI-fix v2.0.6 | 2026-08-08] Task #22 — Qoder
-  Future<List<String>> listCachedChapterUrls(String bookUrl);
-
-  /// 列出某本书已缓存章节的 (chapter_url, wordCount) 映射（目录页实时字数刷新）
-  /// [P2-28c | 2026-09-28] 加法式新增（契约 §2.43.6 cacheListCachedChapters）：
-  /// 返回 url → wordCount（wordCount 取 Rust `chapters` 表当前值，空值不收录），
-  /// 供目录页 1s 轮询一次调用同时翻转 ⬇ 图标与刷新字数胶囊（同帧）。
-  Future<Map<String, String>> listCachedChapters(String bookUrl);
-
-  // ========== 批量缓存下载（对齐原版 CacheActivity，契约 §2.43.3） ==========
-
-  /// 启动批量缓存下载任务（真实抓取并写入 cached_chapters；
-  /// start/end 为 0-based 章节索引含端点），返回 taskId
-  /// [UI-fix v2.0.16 | 2026-08-10] 此前 UI 仅走 downloadAddTask（只登记
-  /// 内存任务不执行下载，cached_chapters 永不写入→目录页图标不更新）— Reasonix
-  Future<int> cacheDownloadStart(
-    String bookUrl,
-    int startChapter,
-    int endChapter,
-  );
-
-  /// 查询批量下载任务进度（返回任务 JSON：taskId/status/total/completed/failed）
-  Future<String> cacheDownloadProgress(int taskId);
-
-  /// 取消批量下载任务（未知任务返回 false）
-  Future<bool> cacheDownloadCancel(int taskId);
-
-  /// 列出全部批量下载任务（JSON 数组）
-  Future<String> cacheDownloadList();
-
-  /// 查询某本书当前在途下载章节 index 集合（目录页 DOWNLOADING 态动画）
-  /// [P2-29 | 2026-09-29] 加法式新增（契约 §2.43.7 cacheDownloadRunningChapters）：
-  /// 只读（纯任务表读 + 落库恢复回读，零写入），返回该书批量下载
-  /// （§2.43.3）当前正在抓取的章节 index（0-based 升序；无活跃任务为空集合），
-  /// 供目录页 1s 轮询（P2-28b/c）驱动下载中行 16px 加载指示动画。
-  Future<List<int>> listDownloadingChapters(String bookUrl);
-
-  /// 查询某本书批量下载**已失败**章节 index 集合（目录页 ERROR 态红色重试图标）
-  /// [P2-29c 后续 | 2026-10-05] 加法式新增（契约 §2.43.8
-  /// cacheDownloadFailedChapters）：只读（纯任务表读 + `ensure_restored`
-  /// 落库恢复回读，零写入），返回该书批量下载（§2.43.3）已失败章节 index
-  /// （0-based 升序；无失败为空集合）；失败记录随任务终态保留（供展示与
-  /// 重试），任务重新取到该章开始下载时清除（对齐参考版
-  /// CacheDownloadStateStore.markFailed/markSuccess 语义）。供目录页 1s 轮询
-  /// （P2-28b/c）驱动 ERROR 态红色重试图标（点击单章重下）。
-  Future<List<int>> listFailedChapters(String bookUrl);
 
   // ========== 图片磁盘缓存（对齐原版 BookHelp.saveImage/getImage，契约 §2.46） ==========
 
@@ -985,35 +884,6 @@ abstract class BookApi {
   /// type7 保留 JSON 属性原文（V-B2 不渲染，登记边界）；解析失败/非 XML/空
   /// → `null`（对齐原版 SAX 失败→null 静默无弹幕）。Dart 侧仅 JSON 解码。
   Future<List<VideoDanmakuItem>?> parseVideoDanmaku({required String raw});
-
-  // ========== 下载管理器 ==========
-
-  /// 添加下载任务
-  Future<String> downloadAddTask({
-    required String bookUrl,
-    required String chapterUrl,
-    required String chapterTitle,
-    required int chapterIndex,
-    int priority = 0,
-  });
-
-  /// 获取下载统计信息
-  Future<String> downloadGetStats();
-
-  /// 获取指定书籍的下载任务
-  Future<String> downloadListByBook(String bookUrl);
-
-  /// 暂停所有下载
-  Future<void> downloadPauseAll();
-
-  /// 恢复所有下载
-  Future<void> downloadResumeAll();
-
-  /// 移除下载任务
-  Future<void> downloadRemoveTask(String taskId);
-
-  /// 更新下载进度
-  Future<void> downloadUpdateProgress(String taskId, double progress);
 
   // ========== 段评（书源 ruleReview，对齐原版）==========
 

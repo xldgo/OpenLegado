@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 import '../helpers/reader_layout_host.dart';
@@ -67,6 +68,14 @@ Finder _assetFinder() {
 /// `_buildImageErrorPlaceholder` 展示重试形态；解码异常文案本身不驻留，
 /// 落定态为固定文案「图片加载失败」+ 重试）。
 class _FailingDecodeMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -103,11 +112,10 @@ class _FailingDecodeMockApi extends MockBookApi {
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      chapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -126,6 +134,14 @@ class _FailingDecodeMockApi extends MockBookApi {
 ///   `_buildImageErrorPlaceholder`；
 /// - [book.origin] 为空 → 走 CachedNetworkImage 直连（加载占位 = 骨架块）。
 class _NoSourceMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -150,11 +166,10 @@ class _NoSourceMockApi extends MockBookApi {
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      chapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,

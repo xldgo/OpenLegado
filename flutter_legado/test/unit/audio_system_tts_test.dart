@@ -113,7 +113,7 @@ void main() {
     when(() => audio.notifyStopped()).thenAnswer((_) async {});
     when(() => audio.abandonAudioFocus()).thenAnswer((_) async {});
     when(() => audio.dispose()).thenAnswer((_) async {});
-    when(() => api.getChapters(any())).thenAnswer(
+    when(() => api.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: '第一章', index: 0),
         const BookChapter(title: '第二章', index: 1),
@@ -121,10 +121,11 @@ void main() {
     );
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getChapterContentFull(any(), any())).thenAnswer(
-      (call) async =>
-          call.positionalArguments[1] == 0 ? '第一段。\n\n第二段。' : '下一章。',
-    );
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
+        .thenAnswer(
+          (call) async =>
+              call.positionalArguments[1] == 0 ? '第一段。\n\n第二段。' : '下一章。',
+        );
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
     when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
     when(
@@ -207,7 +208,7 @@ void main() {
   for (final paused in [true, false]) {
     test('原文拖动定位保留组合字符，播放态不变：暂停=$paused', () async {
       const content = '  甲e\u0301👨‍👩‍👧‍👦乙。\r\n\n 末段。';
-      when(() => api.getChapterContentFull(any(), any()))
+      when(() => api.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => content);
       await start();
       if (paused) {
@@ -298,7 +299,7 @@ void main() {
       throwsUnsupportedError,
     );
     final chapter = Completer<String>();
-    when(() => api.getChapterContentFull('book', 1))
+    when(() => api.readingRepository.getChapterContentFull('book', 1))
         .thenAnswer((_) => chapter.future);
     final pending = notifier().next();
     await flush();
@@ -316,7 +317,7 @@ void main() {
       restartPlayback: false,
     );
     const content = '  第一段。\r\n\n  第二段内容。';
-    when(() => api.getChapterContentFull('book', 0))
+    when(() => api.readingRepository.getChapterContentFull('book', 0))
         .thenAnswer((_) async => content);
     await notifier().startReadAloud(
       bookUrl: 'book',
@@ -332,7 +333,7 @@ void main() {
 
   test('HTTP 合成同样使用选区段内起点，重复段不误定位', () async {
     const content = '相同正文。\r\n  相同正文。';
-    when(() => api.getChapterContentFull('book', 0))
+    when(() => api.readingRepository.getChapterContentFull('book', 0))
         .thenAnswer((_) async => content);
     notifier().updateConfig(
       engineUrl: 'https://tts/{{text}}',
@@ -382,7 +383,7 @@ void main() {
 
   test('正文还在加载时停止，迟到结果不能重新起播', () async {
     final content = Completer<String>();
-    when(() => api.getChapterContentFull('book', 0))
+    when(() => api.readingRepository.getChapterContentFull('book', 0))
         .thenAnswer((_) => content.future);
     notifier().updateConfig(
       engineUrl: systemTtsEngineUrl,

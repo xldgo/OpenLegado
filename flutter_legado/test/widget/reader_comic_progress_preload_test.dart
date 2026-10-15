@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -70,6 +71,16 @@ BookSource _comicSource() {
 
 /// 测试 Mock：注入三章漫画书，记录进度保存 / 相邻章预载 / 解码调用
 class _ProgressMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    getChapterContentFull: _readingGetChapterContentFull,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -103,11 +114,10 @@ class _ProgressMockApi extends MockBookApi {
 
   Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => _kChapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      _kChapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -126,8 +136,10 @@ class _ProgressMockApi extends MockBookApi {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
-  @override
-  Future<String> getChapterContentFull(String bookUrl, int chapterIndex) async {
+  Future<String> _readingGetChapterContentFull(
+    String bookUrl,
+    int chapterIndex,
+  ) async {
     fullCalls.add(chapterIndex);
     if (failPreloadFor.contains(chapterIndex)) {
       throw StateError('预载失败模拟：章节 $chapterIndex');
@@ -135,8 +147,7 @@ class _ProgressMockApi extends MockBookApi {
     return '预载内容 章节 $chapterIndex';
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,

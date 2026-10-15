@@ -204,9 +204,12 @@ void main() {
       expect(loaded.length, 10);
       expect(loaded.first.name, '示例书籍 01');
       expect(loaded.last.name, '示例书籍 10');
-      final chapters = await api.getChapters('mock://book/1');
+      final chapters = await api.readingRepository.getChapters('mock://book/1');
       expect(chapters.length, 10);
-      final content = await api.getChapterContent('mock://book/1', 0);
+      final content = await api.readingRepository.getChapterContent(
+        'mock://book/1',
+        0,
+      );
       expect(content, contains('示例书籍 01'));
     });
   });

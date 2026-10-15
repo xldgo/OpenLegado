@@ -54,11 +54,12 @@ const _toc = [
 
 /// 打开书籍的最小 stub（对标 reader_notifier_test 的 stubOpenBook）
 void stubOpenBook(MockRustApi api) {
-  when(() => api.getChapters(any())).thenAnswer((_) async => _toc);
-  when(() => api.getChapterContentFull(any(), any()))
+  when(() => api.readingRepository.getChapters(any()))
+      .thenAnswer((_) async => _toc);
+  when(() => api.readingRepository.getChapterContentFull(any(), any()))
       .thenAnswer((_) async => '正文');
   when(
-    () => api.updateReadingProgress(
+    () => api.readingRepository.updateReadingProgress(
       bookUrl: any(named: 'bookUrl'),
       chapterIndex: any(named: 'chapterIndex'),
       chapterPos: any(named: 'chapterPos'),
@@ -111,7 +112,7 @@ Widget wrapTopBar(ProviderContainer container) {
 
 /// 预置缓存批量任务 stub（返回任务数 0，不校验参数）
 void stubCacheDownload(MockRustApi api) {
-  when(() => api.cacheDownloadStart(any(), any(), any()))
+  when(() => api.cacheDownloadService.cacheDownloadStart(any(), any(), any()))
       .thenAnswer((_) async => 0);
 }
 
@@ -147,14 +148,26 @@ void main() {
       expect(find.text('开始缓存'), findsOneWidget);
       expect(find.text('取消'), findsOneWidget);
       // 自创「直接缓存当前章」行为已移除：点击时不发起任何下载
-      verifyNever(() => mockApi.cacheDownloadStart(any(), any(), any()));
+      verifyNever(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          any(),
+          any(),
+          any(),
+        ),
+      );
       expect(find.text('当前章已加入缓存队列'), findsNothing);
 
       // 取消关闭且不发起下载
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
       expect(find.text('离线缓存'), findsNothing);
-      verifyNever(() => mockApi.cacheDownloadStart(any(), any(), any()));
+      verifyNever(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          any(),
+          any(),
+          any(),
+        ),
+      );
     });
 
     testWidgets('默认值 = 当前章（1-based）/ 总章数', (tester) async {
@@ -204,8 +217,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // 默认 起始2/结束2 → 0-based (1, 1)
-      verify(() => mockApi.cacheDownloadStart('https://book.com/1', 1, 1))
-          .called(1);
+      verify(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          'https://book.com/1',
+          1,
+          1,
+        ),
+      ).called(1);
       expect(find.text('已加入缓存队列：1 章（可在书籍菜单「缓存管理」查看进度）'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
@@ -233,8 +251,13 @@ void main() {
       await tester.tap(find.text('开始缓存'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.cacheDownloadStart('https://book.com/1', 0, 1))
-          .called(1);
+      verify(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          'https://book.com/1',
+          0,
+          1,
+        ),
+      ).called(1);
       expect(find.text('已加入缓存队列：2 章（可在书籍菜单「缓存管理」查看进度）'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
@@ -263,7 +286,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('章节范围无效'), findsOneWidget);
-      verifyNever(() => mockApi.cacheDownloadStart(any(), any(), any()));
+      verifyNever(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          any(),
+          any(),
+          any(),
+        ),
+      );
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
     });
@@ -291,8 +320,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // 空输入：起始 → 1、结束 → 总章数 2 → 0-based (0, 1)
-      verify(() => mockApi.cacheDownloadStart('https://book.com/1', 0, 1))
-          .called(1);
+      verify(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          'https://book.com/1',
+          0,
+          1,
+        ),
+      ).called(1);
       expect(find.text('已加入缓存队列：2 章（可在书籍菜单「缓存管理」查看进度）'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
@@ -346,8 +380,13 @@ void main() {
       await tester.tap(find.text('开始缓存'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.cacheDownloadStart('https://book.com/1', 1, 1))
-          .called(1);
+      verify(
+        () => mockApi.cacheDownloadService.cacheDownloadStart(
+          'https://book.com/1',
+          1,
+          1,
+        ),
+      ).called(1);
       expect(find.text('已加入缓存队列：1 章（可在书籍菜单「缓存管理」查看进度）'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();

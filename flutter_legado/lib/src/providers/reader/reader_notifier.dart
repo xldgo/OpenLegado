@@ -1,3 +1,5 @@
+import '../chapter_cache_provider.dart';
+
 import 'dart:async';
 import 'dart:ui' show Color;
 
@@ -15,6 +17,7 @@ import '../read_record_settings_provider.dart';
 import '../../services/reader_position_store.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import '../providers.dart';
+import '../reading_provider.dart';
 import '../theme/theme_notifier.dart';
 import '../ui_settings/ui_settings_notifier.dart';
 import 'reader_state.dart';
@@ -25,7 +28,7 @@ export 'reader_state.dart';
 /// 阅读器 Riverpod Notifier
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §3.2 铁律）：
-/// - 调用 BookApi 加载章节、保存进度 → 更新 immutable State
+/// - 调用 ReadingRepository 加载章节、保存进度 → 更新 immutable State
 /// - 管理 UI 状态（loading/error/data 三态、工具栏显隐）
 /// - 管理阅读设置（字号/行距/背景/翻页模式）并持久化
 /// - 禁止包含业务计算（文本解析/净化/替换由 Rust 完成）
@@ -331,13 +334,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await _beginReadRecordSession(book);
 
     try {
-      final api = ref.read(bookApiProvider);
-      var chapters = await api.getChapters(book.bookUrl);
+      var chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(book.bookUrl);
       if (openSeq != _openSeq) return; // [C1b-hunt] 已被更新的 openBook 取代，丢弃旧结果
       // 对齐原版：本地无目录的网络书籍（如刚从搜索结果加入书架，
       // 尚未拉取过目录），自动经书源规则从网络获取目录
       if (chapters.isEmpty && book.origin.isNotEmpty) {
-        chapters = await api.refreshToc(book.bookUrl, book.origin);
+        chapters = await ref
+            .read(readingRepositoryProvider)
+            .refreshToc(book.bookUrl, book.origin);
         if (openSeq != _openSeq) return; // [C1b-hunt]
       }
       var chapterIndex = book.durChapterIndex;
@@ -686,18 +692,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (_refreshing) return '正文刷新进行中'; // [C5-hunt] 重入守卫
     _refreshing = true;
     final chapter = state.chapters[idx];
-    final api = ref.read(bookApiProvider);
     state = state.copyWith(isLoading: true, error: null);
     try {
       // [STAGE3-C2B] 1) 先失效当前章缓存（≡ 上游 delContent：只删本章
       // 行，同书他章缓存不受影响）
-      await api.clearChapterCache(book.bookUrl, idx);
+      await ref
+          .read(chapterCacheRepositoryProvider)
+          .clearChapterCache(book.bookUrl, idx);
       // 2) 联网抓取（缓存已失效，缓存优先不再拦截，必取站点新内容）
-      final content = await api.fetchChapterContent(
-        book.bookUrl,
-        chapter.url,
-        book.origin,
-      );
+      final content = await ref
+          .read(readingRepositoryProvider)
+          .fetchChapterContent(book.bookUrl, chapter.url, book.origin);
       if (content.trim().isEmpty) {
         // 空正文视为抓取失败：保留旧正文（当前章缓存行已失效，
         // 他章不受影响，无整书清理）
@@ -765,9 +770,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
       // 2) 同步书籍对象（bookUrl 稳定，源相关字段为新值）
       state = state.copyWith(currentBook: newBook);
       // 3) 重载目录（对齐 openBook：本地库优先，空则联网）
-      var chapters = await api.getChapters(bookUrl);
+      var chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(bookUrl);
       if (chapters.isEmpty && newBook.origin.isNotEmpty) {
-        chapters = await api.refreshToc(bookUrl, newBook.origin);
+        chapters = await ref
+            .read(readingRepositoryProvider)
+            .refreshToc(bookUrl, newBook.origin);
       }
       if (chapters.isEmpty) {
         throw StateError('目录加载失败（新源无目录）');
@@ -836,18 +845,19 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final book = state.currentBook;
     if (book == null) return;
     try {
-      final api = ref.read(bookApiProvider);
       // [F1-hunt F6 | 2026-09-24] 哨兵归一：prevChapter 的 -1（跳末页
       // 哨兵）只存在于 state.currentChapterPos 供视图消费，落库前归 0，
       // -1 不得持久化（修复前 -1 随 updateReadingProgress 写入
       // durChapterPos，下次 openBook 按非法位置定位）
       final pos = state.currentChapterPos < 0 ? 0 : state.currentChapterPos;
       final anchor = currentSourceOffset == null ? null : _sourceAnchor;
-      await api.updateReadingProgress(
-        bookUrl: book.bookUrl,
-        chapterIndex: state.currentChapterIndex,
-        chapterPos: pos,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .updateReadingProgress(
+            bookUrl: book.bookUrl,
+            chapterIndex: state.currentChapterIndex,
+            chapterPos: pos,
+          );
       if (anchor != null &&
           _anchorBookUrl == book.bookUrl &&
           anchor.chapterIndex == book.durChapterIndex) {
@@ -983,8 +993,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // 完成后因代际过期被丢弃，不会误取/误写新章
     final index = state.currentChapterIndex;
     try {
-      final api = ref.read(bookApiProvider);
-      final content = await api.getChapterContentFull(book.bookUrl, index);
+      final content = await ref
+          .read(readingRepositoryProvider)
+          .getChapterContentFull(book.bookUrl, index);
       if (seq != _loadSeq) return false; // 已被更新的加载取代，丢弃旧结果
       state = state.copyWith(chapterContent: content, error: null);
       return true;

@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -41,6 +42,15 @@ const _kPngBase64 =
 
 /// M5 测试 Mock：3 章 × 3 图；记录配置写入
 class _M5MockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -91,18 +101,17 @@ class _M5MockApi extends MockBookApi {
     durChapterPos: 0,
   );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => List.generate(
-    chapterCount,
-    (i) => BookChapter(
-      index: i,
-      url: 'https://manga.example.com/comic/1/ch${i + 1}.html',
-      title: '第${i + 1}章',
-    ),
-  );
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      List.generate(
+        chapterCount,
+        (i) => BookChapter(
+          index: i,
+          url: 'https://manga.example.com/comic/1/ch${i + 1}.html',
+          title: '第${i + 1}章',
+        ),
+      );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -126,8 +135,7 @@ class _M5MockApi extends MockBookApi {
     configWrites.add([key, value]);
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,

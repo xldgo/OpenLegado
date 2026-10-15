@@ -1,3 +1,4 @@
+import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
@@ -18,6 +19,15 @@ const _kPngBase64 =
 
 /// 模拟设备实测：DB 无章节（getChapters=[]），须 refreshToc 自愈后才能出图
 class _EmptyTocThenRefreshApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    refreshToc: _readingRefreshToc,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
   late final _fixtureSources = TestBookSourceRepository(
     delegate: super.bookSourceRepository,
     getBookSources: _fixtureGetBookSources,
@@ -56,11 +66,13 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
     bookType: BookType.image | BookType.notShelf,
   );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => const [];
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      const [];
 
-  @override
-  Future<List<BookChapter>> refreshToc(String bookUrl, String sourceUrl) async {
+  Future<List<BookChapter>> _readingRefreshToc(
+    String bookUrl,
+    String sourceUrl,
+  ) async {
     refreshCalls.add('$bookUrl|$sourceUrl');
     return [
       BookChapter(
@@ -71,8 +83,7 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
     ];
   }
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,

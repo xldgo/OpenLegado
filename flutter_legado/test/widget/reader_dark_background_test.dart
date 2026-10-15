@@ -46,8 +46,9 @@ void main() {
   /// 阅读器最小 mock 链（对齐 one_to_one_matrix_test 模板）
   void stubReader(MockRustApi mockApi) {
     const chapters = [BookChapter(title: '第一章')];
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.getChapterContent(any(), any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => chapters);
+    when(() => mockApi.readingRepository.getChapterContent(any(), any()))
         .thenAnswer((_) async => '正文内容');
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);

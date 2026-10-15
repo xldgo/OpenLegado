@@ -1,55 +1,10 @@
 // rust_api.dart 的分域 part 文件（体检 §三.16 超长文件拆分，方法原样搬移）。
-// 本文件承载 RustApiSyncTools mixin：WebDAV / 下载管理 / 段评 / 书籍导出 / 自动任务。
+// 本文件承载 RustApiSyncTools mixin：WebDAV / 段评 / 书籍导出 / 自动任务。
 // RustApi 经 with 组合各 mixin（成员合集实现 BookApi）；
 // 解码辅助来自 RustApiDecode（on 约束），同一 library 内私有成员可直接访问。
 part of 'rust_api.dart';
 
 mixin RustApiSyncTools on RustApiDecode implements BookApi {
-  // ========== 下载管理器 ==========
-
-  /// 添加下载任务
-  @override
-  Future<String> downloadAddTask({
-    required String bookUrl,
-    required String chapterUrl,
-    required String chapterTitle,
-    required int chapterIndex,
-    int priority = 0,
-  }) => bridge.downloadAddTask(
-    bookUrl: bookUrl,
-    chapterUrl: chapterUrl,
-    chapterTitle: chapterTitle,
-    chapterIndex: chapterIndex,
-    priority: priority,
-  );
-
-  /// 获取下载统计信息
-  @override
-  Future<String> downloadGetStats() => bridge.downloadGetStats();
-
-  /// 获取指定书籍的下载任务
-  @override
-  Future<String> downloadListByBook(String bookUrl) =>
-      bridge.downloadListByBook(bookUrl: bookUrl);
-
-  /// 暂停所有下载
-  @override
-  Future<void> downloadPauseAll() => bridge.downloadPauseAll();
-
-  /// 恢复所有下载
-  @override
-  Future<void> downloadResumeAll() => bridge.downloadResumeAll();
-
-  /// 移除下载任务
-  @override
-  Future<void> downloadRemoveTask(String taskId) =>
-      bridge.downloadRemoveTask(taskId: taskId);
-
-  /// 更新下载进度
-  @override
-  Future<void> downloadUpdateProgress(String taskId, double progress) =>
-      bridge.downloadUpdateProgress(taskId: taskId, progress: progress);
-
   // ========== 段评（书源 ruleReview）==========
 
   /// 段评摘要（P2-9）

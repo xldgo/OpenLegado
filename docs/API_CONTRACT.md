@@ -43,6 +43,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-15 | **章节缓存与下载边界冻结**：五项章节缓存迁入ChapterCacheRepository，六项真实批量下载迁入CacheDownloadService；列表/进度返回共享CacheDownloadTask，严格解码失败不得伪装空任务。仅删除无生产消费者的旧download管理器七项Dart包装，Rust公开签名保留；BookApi 205→187，见§2.43的Dart接线。 |
+| 2026-10-15 | **阅读访问边界冻结**：目录、正文、抓取、正文保存及进度八项迁入ReadingRepository，正式实现直接调用既有FRB；平台载荷处理从应用装配注入，Mock复用同一书架/目录/正文数据。旧根接口移除八项，BookApi 213→205；目录错误响应明确报错，不按空目录处理。Rust签名、生成绑定、原文锚点及音视频进度语义不变，详见§2.9。 |
 | 2026-10-15 | **WebDAV恢复调用方向冻结**：恢复通过既有webdavDownload读取bookshelf.json和sources.json，两份载荷结构校验完成后，经现有BookshelfRepository.importBooks和BookSourceRepository.importBookSources回写；恢复禁止调用上传或webdavFullSync。空列表不清空本地，下载/解码失败不以空列表代替；导入失败如实报告已完成阶段，不更新完整成功时间。备份仍保留现有目录准备与上传路径，Rust导出、FRB签名和方法数量不变。 |
 | 2026-10-13 | **阅读记录上游三视图/会话契约冻结**：新增真实会话查询、每日单书删除和原始会话集合删除三项；累计写入带副本URL及章节序号。新增时段与累计/每日数据原子提交，重复快照不计时，删除按作者/设备隔离并同步四表，跨午夜每日删除裁剪原会话。不补造旧会话。领域方法7→10，附录296→299。 |
 | 2026-10-13 | **阅读记录明细契约冻结（加法式，+2 方法；契约先行）**：补齐阅读记录单书每日明细（readRecordDetail）数据链与写入跨午夜原子事务语义。书籍身份由 `(bookName, author)` 标识，阅读器保存时透传真实 author；`putReadRecord` 写入事务计算有效增量 `delta = 新 readTime − 旧 readTime`，`delta <= 0` 幂等忽略；以 `[startTime, endTime]` 判断是否跨本地午夜，跨午夜时原子拆分毫秒至对应日期，单事务原子更新 `readRecord`、`readRecordDetail` 及 `readRecordDaily`，失败全量回滚；`deleteReadRecord` 级联删除指定书籍在 `readRecordDetail` 的所有明细；`clearReadRecords` 同时清空三表。新增 `getReadRecordDetails(int year)` 与 `getAllReadRecordDetails()`（均返回毫秒单位 `List<ReadRecordDetail>`）。§2.12 方法数 5→**7**，附录合计 294→**296**，ReadRecordRepository 口径 5→**7**（契约先行，实现批封装后程序化计数转齐）。 |
@@ -370,8 +372,8 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 ## 2. 方法清单
 
-> 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `test/unit/api_contract_test.dart` 自动校验。
-> BookApi 接口当前共 **213 个方法**（2026-08-15 起以 Dart 测试程序化计数为唯一基准，取代人工统计；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213）。
+> 共 **47 个方法模块**（§2.1–§2.50，编号跳过 2.24/2.27）+ §2.44 数据层实现备注；计数由 `tool/check_api_contract.dart` 自动校验。
+> BookApi 接口当前共 **187 个方法**（按当前Dart接口声明计数；2026-10-04 B1 将音频缓存 4 方法封装进 BookApi：284→288；2026-10-03 B2 冻结音频预下载写入面 2 方法，契约先行、待实现批封装进 BookApi：288→290；2026-10-05 P2-29c 后续批冻结失败章查询 1 方法，契约先行、待实现批封装进 BookApi：290→291；2026-10-05 V-B1 冻结视频弹幕查询 1 方法，契约先行、待实现批封装进 BookApi：291→292；2026-10-05 V-B2 冻结弹幕解析 1 方法，契约先行、待实现批封装进 BookApi：292→293；2026-10-13 书签七项旧方法迁走：293→286；阅读记录六项旧方法迁走：286→280；HTTP 引擎配置八项旧方法迁走：280→272；HTTP 合成及无调用方包装三项迁走：272→269；书架与分组十五项迁走：269→254；书源十一项迁走：254→243；书源校验三项迁走：243→240；登录凭据四项迁走：240→236；备份四项与WebDAV七项迁走：224→213；阅读目录、正文及进度八项迁走：213→205；章节缓存与批量下载十一项迁走、无消费者旧下载包装七项移除：205→187）。
 > 附录 §2.x 行合计 **299** = BookApi 236 + BookmarkRepository 6 + ReadRecordRepository 10 + HttpTtsRepository 7 + HttpTtsSynthesizer 1 + BookshelfRepository 10 + BookGroupRepository 5 + BookSourceRepository 11 + SourceChecker 3 + SourceLoginRepository 4 + 纯 FFI 4 + Runtime 缓存设置 1 + 缓存查询重复登记 1；纯 FFI 为 `bookmarkGetAll`、`chapterPayAction`、`rssUpdateSource`、`ttsSpeak`，缓存查询在 §2.16 / §2.41 登记同一能力。既有 Rust/FRB 签名不变；删除无调用方的 Dart 阅读记录和 HTTP 列表别名，各减少一行登记。
 
 ### 2.1 初始化/版本（2 个方法）
@@ -568,6 +570,15 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 | `previewReplaceRule(String ruleJson, String sampleContent)` | ruleJson: 单条 `ReplaceRule` 模型 JSON（camelCase 字段，Dart 侧 `ReplaceRule.toJson()` 产物）；sampleContent: 预览输入文本 | `Future<String>` | **2026-09-13 加法式新增（替换规则编辑器预览，`@js:` 补齐）**：对单条规则在示例文本上执行真实替换管线（正则编译 regex 优先 / fancy-regex 回退、`@js:` 走 QuickJS 执行器、逐规则超时保护）；成功=返回替换后文本；规则级错误（非法正则 / `@js:` JS 异常 / 执行超时）=返回 `⚠️ ` 前缀错误文本（可直接展示于预览区，不上抛异常）；非法输入（JSON 解析失败）MAY Err。编辑器预览改由本方法单一语义源承接（原 Dart 侧纯 Dart 近似分支删除，`@js:` 不再降级为「不可用」提示） |
 
 ### 2.9 阅读器操作（12 个方法）
+
+**Dart访问边界（2026-10-15冻结）**：本节目录、正文、抓取及进度七项，与§2.43.1的
+`saveChapterContent`共八项迁入`ReadingRepository`，由`RustReadingRepository`直接使用既有FRB，
+Mock实现复用原书架、章节和正文数据。根BookApi只共享仓储实例，不保留旧八项方法；
+阅读器、朗读、目录、详情、搜索及媒体调用迁移到同一仓储。
+目录返回继续接受`ChapterListResponse.chapters`或列表，合法空列表成功；缺少chapters、
+非数组及坏条目报格式错误，不按空目录处理。正文与刷新保留平台桥接载荷拦截。
+进度参数沿用既有语义，正文原文锚点、页面状态与音视频毫秒不在本次合并；
+Rust签名、数据库格式和生成绑定不变，缓存清理及下载任务仍属原能力边界。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -1134,6 +1145,8 @@ Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺
 百炼会话采用不超过 600 UTF-16 的字形簇安全分片（保守满足官方 600 字符限制），原文进度累计与段落完成语义不变。SSE output.audio.data 按序拼接 PCM 并封装 24kHz 单声道 WAV；无 PCM 时使用 output.audio.url 下载完整 WAV。仅在 finish_reason=stop 或 [DONE] 后接受完整结果，错误、坏 JSON/Base64、截断、空音频不缓存。音频下载接受无用户凭据/片段的 HTTP(S) 地址（允许 OSS 签名查询），不携带合成请求凭据、不跟随重定向，沿用取消、120 秒超时及文本报错拒绝。UI/Mock/DB 共用新增服务商的默认值、格式和只读 Provider 规则。不调用真实云账号，不新增云端预合成或边合成边播放。
 
 ### 2.43 缓存写/购买/批量下载/导出扩展（Task #136 R5+R6+R7+R8，11 个方法）
+
+> **Dart接线冻结（CHAPTER-CACHE-DOWNLOAD-20261015）**：ChapterCacheRepository提供clearBookCache、clearChapterCache、getCachedChapter、listCachedChapterUrls、listCachedChapters五项，参数和返回类型沿用原接口；空字数不收录，坏结构与非字符串条目抛FormatException。CacheDownloadService提供cacheDownloadStart、cacheDownloadCancel、cacheDownloadList、cacheDownloadProgress、listDownloadingChapters、listFailedChapters六项；仅列表/进度由JSON字符串提升为List<CacheDownloadTask>/CacheDownloadTask，其余签名不变。CacheDownloadTask包含taskId、bookUrl、status、total、completed、failed，字段必需且按Rust类型解码；未知状态字符串原样保留，notFound允许空bookUrl。正式实现直接调用既有FRB，不创建第二份任务状态；Mock保留原占位语义。旧downloadAddTask/downloadGetStats/downloadListByBook/downloadPauseAll/downloadResumeAll/downloadRemoveTask/downloadUpdateProgress仅移除Dart包装，本文对应Rust契约仍有效。全局缓存、媒体缓存及数据库结构不变。
 
 > Task #136 合并批次，均为**加法式**新增（不改既有签名/行为）。仅走 frb 主链路（`ffi.rs`），
 > 旧式 C ABI（`bridge.rs`）已在 RUST-EDITION-20261012 移除；本节能力统一通过 FRB 入口提供。

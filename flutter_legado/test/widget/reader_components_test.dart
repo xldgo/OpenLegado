@@ -58,12 +58,12 @@ void main() {
 
   /// 配置 openBook 所需的完整 mock 链
   void stubOpenBook({String content = '章节内容'}) {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => testChapters);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
     when(
-      () => mockApi.updateReadingProgress(
+      () => mockApi.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),

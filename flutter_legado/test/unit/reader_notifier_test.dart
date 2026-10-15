@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/providers/reading_provider.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
@@ -60,18 +61,55 @@ void main() {
 
   /// 配置 openBook 所需的完整 mock 链
   void stubOpenBook({List<BookChapter>? chapters, String content = '章节内容'}) {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => chapters ?? testChapters);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
     when(
-      () => mockApi.updateReadingProgress(
+      () => mockApi.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
       ),
     ).thenAnswer((_) async {});
   }
+
+  test('目录、正文及进度只使用注入的阅读仓储', () async {
+    final reading = ReadingRepositoryMock();
+    when(() => reading.getChapters(testBook.bookUrl))
+        .thenAnswer((_) async => testChapters);
+    when(() => reading.getChapterContentFull(testBook.bookUrl, any()))
+        .thenAnswer((_) async => '独立阅读正文');
+    when(
+      () => reading.updateReadingProgress(
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+        chapterPos: any(named: 'chapterPos'),
+      ),
+    ).thenAnswer((_) async {});
+    final isolated = ProviderContainer(
+      overrides: [
+        bookApiProvider.overrideWithValue(mockApi),
+        readingRepositoryProvider.overrideWithValue(reading),
+      ],
+    );
+    addTearDown(isolated.dispose);
+    final reader = isolated.read(readerNotifierProvider.notifier);
+    await reader.openBook(testBook);
+    expect(isolated.read(readerNotifierProvider).chapterContent, '独立阅读正文');
+    await reader.goToChapter(1);
+    await reader.saveProgress();
+    expect(isolated.read(readerNotifierProvider).currentChapterIndex, 1);
+    verify(() => reading.getChapterContentFull(testBook.bookUrl, 1)).called(1);
+    verify(
+      () => reading.updateReadingProgress(
+        bookUrl: testBook.bookUrl,
+        chapterIndex: 1,
+        chapterPos: 0,
+      ),
+    ).called(greaterThanOrEqualTo(1));
+    verifyZeroInteractions(mockApi.readingRepository);
+  });
 
   test('保存并重新开书恢复原文锚点，历史页码和目录跳转不冒充锚点', () async {
     stubOpenBook(content: '章节正文' * 100);
@@ -378,7 +416,7 @@ void main() {
     });
 
     test('失败时设置 BridgeError 错误', () async {
-      when(() => mockApi.getChapters(any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
           .thenThrow(const BridgeError(message: '书籍不存在'));
       container.read(readerNotifierProvider);
       await pumpInit();
@@ -390,7 +428,8 @@ void main() {
     });
 
     test('失败时设置普通异常错误', () async {
-      when(() => mockApi.getChapters(any())).thenThrow(Exception('网络错误'));
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenThrow(Exception('网络错误'));
       container.read(readerNotifierProvider);
       await pumpInit();
 
@@ -553,7 +592,7 @@ void main() {
       await pumpInit();
       await readNotifier().saveProgress();
       verifyNever(
-        () => mockApi.updateReadingProgress(
+        () => mockApi.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
           chapterPos: any(named: 'chapterPos'),
@@ -571,7 +610,7 @@ void main() {
       await readNotifier().saveProgress();
 
       verify(
-        () => mockApi.updateReadingProgress(
+        () => mockApi.readingRepository.updateReadingProgress(
           bookUrl: 'https://b.com/1',
           chapterIndex: 0,
           chapterPos: 0,

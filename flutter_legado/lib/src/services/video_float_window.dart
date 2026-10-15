@@ -420,7 +420,7 @@ class VideoFloatWindowCoordinator {
     if (state.positionMs <= 0) return;
     try {
       if (state.bookUrl != null && state.bookUrl!.isNotEmpty) {
-        await api.updateReadingProgress(
+        await api.readingRepository.updateReadingProgress(
           bookUrl: state.bookUrl!,
           chapterIndex: state.chapterIndex < 0 ? 0 : state.chapterIndex,
           chapterPos: state.positionMs,
@@ -509,12 +509,12 @@ class VideoFloatWindowCoordinator {
     try {
       final chapter = _chapters[next];
       final content = book.origin.isNotEmpty
-          ? await api.fetchChapterContent(
+          ? await api.readingRepository.fetchChapterContent(
               book.bookUrl,
               chapter.url,
               book.origin,
             )
-          : await api.getChapterContent(book.bookUrl, next);
+          : await api.readingRepository.getChapterContent(book.bookUrl, next);
       final target = resolveVideoPlayTarget(
         content: content,
         chapterUrl: chapter.url,

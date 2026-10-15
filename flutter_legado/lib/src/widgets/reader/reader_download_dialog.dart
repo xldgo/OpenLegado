@@ -1,8 +1,9 @@
+import '../../providers/chapter_cache_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 
 /// 阅读器「离线缓存」章节范围选择对话框（两个阅读顶栏共享实现）
@@ -79,7 +80,7 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
             try {
               // 0-based 索引（含端点）；Rust 侧超界自动截断
               await ref
-                  .read(bookApiProvider)
+                  .read(cacheDownloadServiceProvider)
                   .cacheDownloadStart(book.bookUrl, start - 1, end - 1);
               if (context.mounted) {
                 messenger.showSnackBar(

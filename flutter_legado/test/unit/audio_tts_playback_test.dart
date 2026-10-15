@@ -65,11 +65,11 @@ void main() {
 
   /// 单章 + 指定正文
   void stubChapter({String content = '第一段文本内容。\n\n第二段文本内容。'}) {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
   }
 
@@ -493,7 +493,7 @@ void main() {
 
   group('网络流（音频书）路径回归', () {
     testWidgets('playUrl 播放 + 完成回调驱动下一章', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: 'ch1', index: 0),
           const BookChapter(title: 'ch2', index: 1),

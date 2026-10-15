@@ -356,11 +356,11 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      when(() => api.getChapters(any()))
+      when(() => api.readingRepository.getChapters(any()))
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => api.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => api.getChapterContentFull(any(), any()))
+      when(() => api.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '正文内容。');
       when(
         () => api.httpTtsSynthesizer.synthesize(

@@ -1162,7 +1162,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       final book = targets[i];
       progress.value = l10n.updatingBook(i + 1, targets.length, book.name);
       try {
-        await api.refreshToc(book.bookUrl, book.origin);
+        await api.readingRepository.refreshToc(book.bookUrl, book.origin);
         ok++;
       } catch (e) {
         debugPrint('更新目录失败《${book.name}》: $e');

@@ -61,7 +61,7 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubChapters() {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: '第一章', index: 0),
         const BookChapter(title: '第二章', index: 1),
@@ -96,7 +96,7 @@ void main() {
     testWidgets('在线书：送合成的是纯正文，不读 URL JSON、不触发旧链路', (tester) async {
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段正文内容。\n\n第二段正文内容。');
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -111,8 +111,12 @@ void main() {
       }
       // 章节缓存写回的是纯正文
       expect(readState().chapters[0].text, '第一段正文内容。\n\n第二段正文内容。');
-      verify(() => mockApi.getChapterContentFull(onlineBookUrl, 0)).called(1);
-      verifyNever(() => mockApi.getChapterContent(any(), any()));
+      verify(
+        () => mockApi.readingRepository.getChapterContentFull(onlineBookUrl, 0),
+      ).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContent(any(), any()),
+      );
 
       readNotifier().stop();
     });
@@ -120,7 +124,7 @@ void main() {
     testWidgets('本地书：维持 getChapterContent 链路（行为不变）', (tester) async {
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContent(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContent(any(), any()))
           .thenAnswer((_) async => '本地正文甲。\n\n本地正文乙。');
 
       await readNotifier().loadChapters('books/demo.epub');
@@ -128,15 +132,19 @@ void main() {
       await readNotifier().play();
 
       expect(speakTexts, ['本地正文甲。']);
-      verify(() => mockApi.getChapterContent('books/demo.epub', 0)).called(1);
-      verifyNever(() => mockApi.getChapterContentFull(any(), any()));
+      verify(
+        () => mockApi.readingRepository.getChapterContent('books/demo.epub', 0),
+      ).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+      );
 
       readNotifier().stop();
     });
 
     testWidgets('在线抓取失败：error 态 + 用户可见提示（不静默）', (tester) async {
       stubChapters();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenThrow(Exception('网络连接超时'));
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -155,7 +163,7 @@ void main() {
       stubChapters();
       stubAudioSpeak();
       final gate = Completer<String>();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) => gate.future);
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -168,7 +176,9 @@ void main() {
       await first;
       await second;
 
-      verify(() => mockApi.getChapterContentFull(onlineBookUrl, 0)).called(1);
+      verify(
+        () => mockApi.readingRepository.getChapterContentFull(onlineBookUrl, 0),
+      ).called(1);
       expect(speakTexts, ['并发去重正文。']);
 
       readNotifier().stop();
@@ -178,9 +188,9 @@ void main() {
       stubChapters();
       stubAudioSpeak();
       final ch0Gate = Completer<String>();
-      when(() => mockApi.getChapterContentFull(any(), 0))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), 0))
           .thenAnswer((_) => ch0Gate.future);
-      when(() => mockApi.getChapterContentFull(any(), 1))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), 1))
           .thenAnswer((_) async => '新章正文。');
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -229,7 +239,7 @@ void main() {
 
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段正文内容。\n\n第二段正文内容。');
 
       final notifier = localContainer.read(audioNotifierProvider.notifier);

@@ -104,7 +104,7 @@ void main() {
 
   /// 进入「音频书流模式播放中」
   Future<void> startStreamPlayback() async {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: 'ch1', index: 0),
         const BookChapter(title: 'ch2', index: 1),
@@ -134,11 +134,11 @@ void main() {
 
   /// 进入「TTS 朗读播放中」
   Future<void> startTtsPlayback() async {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => '第一段文本内容。\n\n第二段文本内容。');
     when(
       () => mockApi.httpTtsSynthesizer.synthesize(

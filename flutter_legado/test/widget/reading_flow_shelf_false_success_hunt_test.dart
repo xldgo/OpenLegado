@@ -52,7 +52,8 @@ void main() {
     final mockApi = MockRustApi();
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => const []);
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => const []);
     when(() => mockApi.bookGroupRepository.getBookGroups())

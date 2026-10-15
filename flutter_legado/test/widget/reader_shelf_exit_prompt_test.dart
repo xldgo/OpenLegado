@@ -71,15 +71,17 @@ void main() {
   /// 阅读主链路桩（目录/正文/源/配置/进度落库）
   MockRustApi stubReaderApi() {
     final api = MockRustApi();
-    when(() => api.getChapters(any())).thenAnswer((_) async => _chapters);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => _chapters);
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
-    when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
+    when(() => api.readingRepository.getChapterContent(any(), any()))
+        .thenAnswer((_) async => '');
     when(() => api.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
     when(() => api.getConfig(any())).thenAnswer((_) async => '');
     when(
-      () => api.updateReadingProgress(
+      () => api.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
@@ -219,7 +221,7 @@ void main() {
       expect(added.bookUrl, _sessionBook.bookUrl);
       // 进度落库（退出前 saveProgress 落当前章内位置 5，区别于开读的 0）
       final posWrites = verify(
-        () => api.updateReadingProgress(
+        () => api.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
           chapterPos: captureAny(named: 'chapterPos'),
@@ -317,7 +319,7 @@ void main() {
       verifyNever(() => api.bookshelfRepository.deleteBook(any()));
       // 进度仍落库（退出写当前章内位置 5，区别于开读的 0）
       final posWrites = verify(
-        () => api.updateReadingProgress(
+        () => api.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
           chapterPos: captureAny(named: 'chapterPos'),
