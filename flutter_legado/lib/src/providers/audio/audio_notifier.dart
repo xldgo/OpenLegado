@@ -1,3 +1,5 @@
+import '../../features/audio/playback/media_session_coordinator.dart';
+import '../../features/audio/playback/media_session_host.dart';
 import '../../features/read_aloud/playback/read_aloud_controller.dart';
 import '../../features/read_aloud/playback/read_aloud_host.dart';
 import '../../features/read_aloud/read_aloud_settings_provider.dart';
@@ -23,7 +25,6 @@ import '../../features/read_aloud/cloud_tts_providers.dart';
 import '../../features/read_aloud/http_tts_voice_selection.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +33,6 @@ import '../../models/book.dart';
 import '../../services/audio_service.dart';
 import '../../services/media_artwork_loader.dart';
 import '../../services/media_session_models.dart';
-import '../../domain/models/read_aloud_media_timeline.dart';
 import '../../features/privacy/privacy_controller.dart';
 import '../../services/stream_audio_player.dart';
 import '../../services/read_aloud_audio_player.dart';
@@ -137,23 +137,9 @@ typedef StreamChapterTag = ({String bookUrl, int chapterIndex});
 ///
 /// — Auto + UI｜2026-08-12（P0-2 流媒体接线；A1 批 TTS 真实播放 2026-10-03）
 class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
-  late final AudioService _audioService;
+  late final MediaSessionCoordinator _media;
   late final StreamAudioPlayer _streamPlayer;
   List<String> get prefetchDiagnostics => _readAloud.prefetchDiagnostics;
-  bool _resumeAfterInterruption = false;
-
-  StreamSubscription<MediaButtonEvent>? _mediaButtonSub;
-  StreamSubscription<AudioFocusEvent>? _audioFocusSub;
-  StreamSubscription<MediaSeekRequest>? _mediaSeekSub;
-  Timer? _mediaProgressTicker;
-  ReadAloudMediaClock _ttsMediaClock = ReadAloudMediaClock();
-  String _mediaClockKey = '', _lastProgressSignature = '';
-  int _mediaTimelineRevision = 0,
-      _mediaSeekGeneration = 0,
-      _lastMediaProgressAt = -1000;
-  (String, int)? _publishedMediaChapter;
-  Future<void> _mediaSeekBarrier = Future.value();
-
   late AudioPlaybackSettingsRepository _playbackSettings;
   late ReadAloudSelectionRepository _selections;
 
@@ -185,12 +171,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Book? _book;
   bool _disposed = false;
   int _lastProgressEmitMs = 0;
-
-  /// [第2项] 最近一次推送到通知/锁屏的媒体元数据签名（去重节流，见
-  /// [_pushMediaSessionMetadata]）
-  String _lastMediaMetadataSignature = '';
-  String? _mediaArtworkIdentity;
-  int _mediaArtworkGeneration = 0;
 
   /// A3：流媒体进度写库节流状态（bookUrl:chapterIndex → 最近写入位置）
   String _lastProgressSaveKey = '';
@@ -294,28 +274,46 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _reading = ref.read(readingRepositoryProvider);
     final initialState = AudioState(config: TtsConfig());
     _stateForDispose = initialState;
+    _streamPlayer = ref.read(streamAudioPlayerProvider);
+    _media = MediaSessionCoordinator(
+      host: MediaSessionHost(
+        readState: () => state,
+        writeState: (value) => state = value,
+        currentToken: () => _playToken,
+        isDisposed: () => _disposed,
+        currentBook: () => currentBook,
+        isBookHidden: (book) {
+          final privacy = ref.read(privacyControllerProvider);
+          return privacy.locked(privacy.find(book.bookUrl) ?? book);
+        },
+        timerLabel: () => sleepTimerRemainingLabel,
+        readPosition: () => _readAloud.readAloudPosition.value,
+        hasReadAloudUnits: () => _readAloud.hasUnits,
+        paragraphIndex: () => _readAloud.currentParagraphIndex,
+        paragraphCount: () => _readAloud.unitCount,
+        loadPreferences: () =>
+            ref.read(readAloudPreferencesProvider.notifier).load(),
+        mediaButtonPerChapter: () =>
+            ref.read(readAloudPreferencesProvider).mediaButtonPerNext,
+        resumeOrPlay: resumeOrPlay,
+        pause: pause,
+        stop: stop,
+        nextChapter: next,
+        previousChapter: previous,
+        nextParagraph: nextParagraph,
+        previousParagraph: prevParagraph,
+        seekReadAloud: seekToChapterPosition,
+        persistStreamPosition: _persistStreamPosition,
+      ),
+      audioService: ref.read(audioServiceProvider),
+      player: _streamPlayer,
+      artwork: ref.read(mediaArtworkLoaderProvider),
+      clock: ref.read(mediaMonotonicClockProvider),
+    );
     listenSelf((previous, next) {
       _stateForDispose = next;
-      if (!next.isMediaSessionReady || next.state == PlayerState.idle) {
-        _mediaProgressTicker?.cancel();
-        _mediaProgressTicker = null;
-      } else {
-        _mediaProgressTicker ??= Timer.periodic(const Duration(seconds: 1), (
-          _,
-        ) {
-          unawaited(_publishMediaProgress());
-        });
-        scheduleMicrotask(() {
-          if (!_disposed) {
-            unawaited(
-              _publishMediaProgress(force: previous?.state != next.state),
-            );
-          }
-        });
-      }
+      _media.stateChanged(previous, next);
     });
-    _audioService = ref.read(audioServiceProvider);
-    _streamPlayer = ref.read(streamAudioPlayerProvider);
     _readAloud = ReadAloudController(
       host: ReadAloudHost(
         readState: () => state,
@@ -326,15 +324,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         resolveEngineUrl: resolveTtsEngineUrl,
         resolveEngineId: resolveTtsEngineId,
         changed: notifyListeners,
-        activateMedia: _syncMediaSession,
-        publishProgress: _publishMediaProgress,
-        reviseTimeline: () => _mediaTimelineRevision++,
+        activateMedia: _media.activate,
+        publishProgress: _media.publishProgress,
+        reviseTimeline: _media.reviseTimeline,
         consumeChapterStop: _consumeChapterStopAtBoundary,
         nextChapter: next,
         previousChapter: previous,
         pause: pause,
         stop: stop,
-        notifyPaused: _audioService.notifyPaused,
+        notifyPaused: _media.notifyPaused,
       ),
       content: ref.read(chapterContentServiceProvider),
       settings: ref.read(readAloudSettingsRepositoryProvider),
@@ -406,85 +404,28 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (book != null &&
           previous?.locked(previous.find(book.bookUrl) ?? book) !=
               next.locked(next.find(book.bookUrl) ?? book)) {
-        unawaited(_pushMediaSessionMetadata());
+        unawaited(_media.updateMetadata());
       }
     });
     ref.onDispose(() {
       // [A3] 容器销毁（退出听书/应用生命周期结束）尽力写一次当前进度
       _saveStreamProgressOnDispose();
       _speedPersistTimer?.cancel();
-      _mediaProgressTicker?.cancel();
-      _mediaSeekSub?.cancel();
       // [A4] 定时停止 ticker 随容器销毁清理
       _sleepTicker?.cancel();
       _disposed = true;
-      _invalidateMediaArtwork();
-      _mediaButtonSub?.cancel();
-      _audioFocusSub?.cancel();
       _readAloud.dispose(snapshot: _stateForDispose);
-      _audioService.dispose();
+      _media.dispose();
     });
     return initialState;
   }
 
   Future<void> initMediaSession({String bookName = ''}) async {
     if (bookName.isNotEmpty) state = state.copyWith(bookName: bookName);
-    if (state.isMediaSessionReady) return;
-
-    await _audioService.init();
-
-    _mediaButtonSub = _audioService.mediaButtonStream.listen((event) {
-      switch (event) {
-        case MediaButtonEvent.play:
-          unawaited(resumeOrPlay());
-        case MediaButtonEvent.pause:
-          pause();
-        case MediaButtonEvent.skipToNext:
-          unawaited(_skipFromMedia(forward: true));
-        case MediaButtonEvent.skipToPrevious:
-          unawaited(_skipFromMedia(forward: false));
-        case MediaButtonEvent.stop:
-          stop();
-      }
-    });
-    _mediaSeekSub = _audioService.seekStream.listen((request) {
-      unawaited(seekFromMediaSession(request));
-    });
-
-    _audioFocusSub = _audioService.audioFocusStream.listen((event) {
-      switch (event) {
-        case AudioFocusEvent.gain:
-          final resume = _resumeAfterInterruption;
-          _resumeAfterInterruption = false;
-          if (resume && state.state == PlayerState.paused) {
-            unawaited(resumeOrPlay());
-          }
-        case AudioFocusEvent.loss:
-          _resumeAfterInterruption = false;
-          pause();
-        case AudioFocusEvent.lossTransient:
-          pause(dueToInterruption: true);
-        case AudioFocusEvent.lossTransientCanDuck:
-          break;
-      }
-    });
-
-    state = state.copyWith(isMediaSessionReady: _audioService.isInitialized);
+    await _media.init();
   }
 
-  Future<void> releaseMediaSession() async {
-    _invalidateMediaArtwork();
-    _mediaSeekSub?.cancel();
-    _mediaSeekSub = null;
-    _mediaButtonSub?.cancel();
-    _mediaButtonSub = null;
-    _audioFocusSub?.cancel();
-    _audioFocusSub = null;
-    await _audioService.dispose();
-    // 会话释放后原生元数据清空：[第2项] 重置签名，避免下次初始化误跳过推送
-    _lastMediaMetadataSignature = '';
-    state = state.copyWith(isMediaSessionReady: false);
-  }
+  Future<void> releaseMediaSession() => _media.release();
 
   Future<void> loadChapters(String bookUrl) async {
     _readAloud.prepareBookLoad();
@@ -922,7 +863,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           tag: (bookUrl: state.bookUrl, chapterIndex: index),
         );
         if (token != _playToken || _disposed) return;
-        await _syncMediaSession();
+        await _media.activate();
         _introSkipEvaluated = false;
         _skipWindow = null;
         // 恢复进度；从头播放时再套用片头跳过
@@ -1131,281 +1072,23 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<void> nextParagraph() => _readAloud.nextParagraph();
   Future<void> prevParagraph() => _readAloud.prevParagraph();
 
-  Future<void> _syncMediaSession() async {
-    if (!state.isMediaSessionReady) return;
-    await _audioService.requestAudioFocus();
-    await _pushMediaSessionMetadata();
-    await _audioService.notifyPlaying();
-    await _publishMediaProgress(force: true);
-  }
-
   bool ownsMediaTarget(
     MediaPlaybackTarget target, {
     bool matchChapter = true,
-  }) =>
-      !_disposed &&
-      state.isMediaSessionReady &&
-      state.state != PlayerState.idle &&
-      _mediaArtworkIdentity != null &&
-      target.mediaId == state.bookUrl &&
-      target.sessionToken == _mediaArtworkGeneration &&
-      (!matchChapter || target.chapterIndex == state.currentIndex);
+  }) => _media.ownsTarget(target, matchChapter: matchChapter);
 
-  Future<void> _skipFromMedia({required bool forward}) async {
-    final bookUrl = state.bookUrl;
-    final session = _mediaArtworkGeneration;
-    try {
-      await ref.read(readAloudPreferencesProvider.notifier).load();
-      if (_disposed ||
-          state.state == PlayerState.idle ||
-          state.bookUrl != bookUrl ||
-          session != _mediaArtworkGeneration) {
-        return;
-      }
-      final byChapter =
-          state.isStreamMode ||
-          ref.read(readAloudPreferencesProvider).mediaButtonPerNext;
-      if (byChapter) {
-        await (forward ? next() : previous());
-      } else {
-        await (forward ? nextParagraph() : prevParagraph());
-      }
-      await _publishMediaProgress(force: true);
-    } catch (error) {
-      if (!_disposed) state = state.copyWith(errorMessage: '媒体切换失败：$error');
-    }
-  }
-
-  /// 串行提交系统拖动，等待期间只保留最新请求，旧章/旧会话不执行。
-  Future<void> seekFromMediaSession(MediaSeekRequest request) {
-    if (!ownsMediaTarget(request.target)) return Future.value();
-    final generation = ++_mediaSeekGeneration;
-    final next = _mediaSeekBarrier.then((_) async {
-      if (generation != _mediaSeekGeneration ||
-          !ownsMediaTarget(request.target)) {
-        return;
-      }
-      try {
-        if (state.isStreamMode) {
-          final duration = state.durationMs;
-          if (duration <= 0 || !_streamPlayer.isInitialized) return;
-          final position = request.position.clamp(0, duration);
-          final token = _playToken;
-          await _streamPlayer.seek(Duration(milliseconds: position));
-          if (generation != _mediaSeekGeneration ||
-              !ownsMediaTarget(request.target) ||
-              token != _playToken) {
-            return;
-          }
-          state = state.copyWith(positionMs: position);
-          unawaited(_persistStreamPosition(force: true, positionMs: position));
-        } else {
-          final content = state.currentChapter?.text ?? '';
-          if (content.isEmpty || !_readAloud.hasUnits) return;
-          final offset = readAloudMediaOffset(
-            request.position,
-            content.length,
-            state.config.speed,
-          );
-          await seekToChapterPosition(state.currentIndex, offset);
-        }
-        if (generation == _mediaSeekGeneration &&
-            ownsMediaTarget(request.target)) {
-          await _publishMediaProgress(force: true);
-        }
-      } catch (error) {
-        if (generation == _mediaSeekGeneration &&
-            ownsMediaTarget(request.target)) {
-          state = state.copyWith(errorMessage: '媒体定位失败：$error');
-        }
-      }
-    });
-    _mediaSeekBarrier = next.catchError((Object _) {});
-    return next;
-  }
-
-  Future<void> _publishMediaProgress({bool force = false}) async {
-    if (_disposed ||
-        !state.isMediaSessionReady ||
-        state.state == PlayerState.idle ||
-        _publishedMediaChapter != (state.bookUrl, state.currentIndex)) {
-      return;
-    }
-    final now = ref.read(mediaMonotonicClockProvider)();
-    if (!force && now - _lastMediaProgressAt < 900) return;
-    _lastMediaProgressAt = now;
-    final isStream = state.isStreamMode;
-    final content = state.currentChapter?.text ?? '';
-    final duration = isStream
-        ? state.durationMs
-        : readAloudMediaTime(content.length, state.config.speed);
-    var position = state.positionMs;
-    if (!isStream) {
-      final key = jsonEncode([
-        state.bookUrl,
-        state.currentIndex,
-        state.config.speed,
-        _mediaTimelineRevision,
-      ]);
-      if (key != _mediaClockKey) {
-        _mediaClockKey = key;
-        _ttsMediaClock = ReadAloudMediaClock();
-      }
-      final source = readAloudPosition.value;
-      final offset =
-          source?.bookUrl == state.bookUrl &&
-              source?.chapterIndex == state.currentIndex
-          ? source!.offset
-          : 0;
-      position = _ttsMediaClock.update(
-        estimate: readAloudMediaTime(offset, state.config.speed),
-        duration: duration,
-        playing: state.isPlaying,
-        now: now,
-      );
-    }
-    final byChapter =
-        isStream || ref.read(readAloudPreferencesProvider).mediaButtonPerNext;
-    final progress = MediaPlaybackProgress(
-      mediaId: state.bookUrl,
-      sessionToken: _mediaArtworkGeneration,
-      chapterIndex: state.currentIndex,
-      state: switch (state.state) {
-        PlayerState.playing => 'playing',
-        PlayerState.loading => 'buffering',
-        _ => 'paused',
-      },
-      position: position.clamp(0, duration > 0 ? duration : 0),
-      duration: duration > 0 ? duration : 0,
-      speed: isStream ? state.config.speed : 1,
-      canSeek:
-          duration > 0 &&
-          !state.isLoading &&
-          (isStream ? _streamPlayer.isInitialized : _readAloud.hasUnits),
-      hasPrevious:
-          state.hasPrevious ||
-          (!byChapter && _readAloud.currentParagraphIndex > 0),
-      hasNext:
-          state.hasNext ||
-          (!byChapter &&
-              _readAloud.currentParagraphIndex + 1 < _readAloud.unitCount),
-      isStream: isStream,
-    );
-    final signature = jsonEncode(progress.toMap());
-    if (signature == _lastProgressSignature) return;
-    _lastProgressSignature = signature;
-    try {
-      await _audioService.updateProgress(progress);
-    } catch (_) {
-      // 媒体展示失败不改变真实播放；后续时钟或状态更新可重试。
-      _lastProgressSignature = '';
-    }
-  }
-
-  /// 书名、章节和定时分开传递；异步封面不阻塞媒体会话起播。— Codex + UI
-  Future<void> _pushMediaSessionMetadata() async {
-    if (_disposed ||
-        !state.isMediaSessionReady ||
-        state.state == PlayerState.idle) {
-      return;
-    }
-    final book = currentBook;
-    final privacy = ref.read(privacyControllerProvider);
-    final hidden =
-        book != null && privacy.locked(privacy.find(book.bookUrl) ?? book);
-    final title = hidden ? '私密书籍' : state.bookName;
-    final artist = hidden ? '' : state.currentChapter?.title ?? '';
-    final album = title;
-    final timerText = sleepTimerRemainingLabel;
-    final mediaId = state.bookUrl;
-    final identity = jsonEncode([
-      mediaId,
-      book?.origin,
-      MediaArtworkLoader.coverUrl(book),
-      hidden,
-    ]);
-    final changedArtwork = identity != _mediaArtworkIdentity;
-    if (changedArtwork) {
-      _mediaArtworkIdentity = identity;
-      _mediaArtworkGeneration++;
-    }
-    final generation = _mediaArtworkGeneration;
-    final signature = jsonEncode([
-      mediaId,
-      state.currentIndex,
-      generation,
-      title,
-      artist,
-      album,
-      timerText,
-    ]);
-    if (signature == _lastMediaMetadataSignature) return;
-    _lastMediaMetadataSignature = signature;
-    final chapter = state.currentIndex;
-    await _audioService.updateMetadata(
-      title: title,
-      artist: artist,
-      album: album,
-      mediaId: mediaId,
-      sessionToken: generation,
-      timerText: timerText,
-    );
-    if (!_disposed &&
-        generation == _mediaArtworkGeneration &&
-        signature == _lastMediaMetadataSignature) {
-      _publishedMediaChapter = (mediaId, chapter);
-    }
-    if (changedArtwork && !_disposed && generation == _mediaArtworkGeneration) {
-      unawaited(_loadMediaArtwork(book, hidden, mediaId, generation));
-    }
-  }
-
-  Future<void> _loadMediaArtwork(
-    Book? book,
-    bool hidden,
-    String mediaId,
-    int generation,
-  ) async {
-    try {
-      final bytes = await ref
-          .read(mediaArtworkLoaderProvider)
-          .load(book, hidden: hidden);
-      if (_disposed ||
-          generation != _mediaArtworkGeneration ||
-          state.bookUrl != mediaId ||
-          !state.isMediaSessionReady ||
-          state.state == PlayerState.idle) {
-        return;
-      }
-      await _audioService.updateArtwork(
-        mediaId: mediaId,
-        sessionToken: generation,
-        artworkBytes: bytes,
-      );
-    } catch (_) {
-      // 封面不影响音频状态，原生已在身份变化时清空旧图。
-    }
-  }
-
-  void _invalidateMediaArtwork() {
-    _mediaSeekGeneration++;
-    _publishedMediaChapter = null;
-    _lastProgressSignature = '';
-    _mediaClockKey = '';
-    _mediaArtworkIdentity = null;
-    _mediaArtworkGeneration++;
-    _lastMediaMetadataSignature = '';
-  }
+  Future<void> seekFromMediaSession(MediaSeekRequest request) =>
+      _media.seek(request);
 
   /// 绑定当前书籍（片头/片尾读 readConfig）
   void bindBook(Book? book) {
     _book = book;
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
   }
 
   /// 听书唤醒锁（对齐 audioPlayWakeLock）
   Future<void> setWakeLockEnabled(bool enabled) async {
-    await _audioService.setWakeLock(enabled);
+    await _media.setWakeLock(enabled);
     try {
       await _playbackSettings.update((s) => s.copyWith(wakeLock: enabled));
     } catch (_) {}
@@ -1493,7 +1176,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
     notifyListeners();
     // [第2项] 定时启用/关闭立即反映到通知标题（签名去重）
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
   }
 
   /// 修改当前时间模式的到点策略，不重置剩余秒数；等待章末时关闭即停止。
@@ -1505,7 +1188,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       return;
     }
     notifyListeners();
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
   }
 
   /// 启动按章停止：自然播完 [chapters] 章后在章末停止（不再进入下一章）
@@ -1521,7 +1204,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
     notifyListeners();
     // [第2项] 剩余章数立即反映到通知标题（签名去重）
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
   }
 
   /// 取消定时停止（分钟倒计时与按章停止同时清空）
@@ -1530,7 +1213,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _clearSleepTimerState();
     notifyListeners();
     // [第2项] 取消后标题恢复原形态并刷新通知
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
   }
 
   void _clearSleepTimerState() {
@@ -1556,7 +1239,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           _sleepTicker = null;
           _waitingForTimerChapterEnd = true;
           notifyListeners();
-          unawaited(_pushMediaSessionMetadata());
+          unawaited(_media.updateMetadata());
           return;
         }
         _clearSleepTimerState();
@@ -1567,7 +1250,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       notifyListeners();
       // [第2项] 每秒 tick 均尝试刷新，内部按签名去重——
       // 仅剩余分钟整数变化时才真正重推通知（节流）
-      unawaited(_pushMediaSessionMetadata());
+      unawaited(_media.updateMetadata());
     });
   }
 
@@ -1584,13 +1267,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     notifyListeners();
     // [第2项] 剩余章数在章末即时上通知（停止路径 stop() 再推一次，
     // 签名去重不会重复触发）
-    unawaited(_pushMediaSessionMetadata());
+    unawaited(_media.updateMetadata());
     return shouldStop;
   }
 
   void pause({bool dueToInterruption = false}) {
     _readAloud.cancelBackground();
-    _resumeAfterInterruption = dueToInterruption && state.isPlaying;
+    _media.preparePause(dueToInterruption: dueToInterruption);
     if (state.state == PlayerState.playing ||
         state.state == PlayerState.loading) {
       _readAloud.cancelPendingAdvance();
@@ -1601,12 +1284,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _readAloud.pause();
       }
       state = state.copyWith(state: PlayerState.paused);
-      _audioService.notifyPaused();
+      _media.notifyPaused();
     }
   }
 
   Future<void> resumeOrPlay() async {
-    _resumeAfterInterruption = false;
+    _media.prepareResume();
     if (state.state == PlayerState.paused &&
         !state.isStreamMode &&
         await _readAloud.resume()) {
@@ -1617,7 +1300,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _streamPlayer.isInitialized) {
       await _streamPlayer.resume();
       state = state.copyWith(state: PlayerState.playing);
-      await _syncMediaSession();
+      await _media.activate();
       return;
     }
     await play();
@@ -1626,9 +1309,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   void stop() {
     final snapshot = state;
     _clearSleepTimerState();
-    _invalidateMediaArtwork();
+    _media.invalidate();
     unawaited(_persistStreamPosition(force: true));
-    _resumeAfterInterruption = false;
+    _media.prepareResume();
     _playToken++;
     _readAloud.stop(snapshot);
     state = state.copyWith(
@@ -1638,8 +1321,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       durationMs: 0,
       lyric: null,
     );
-    _audioService.notifyStopped();
-    _audioService.abandonAudioFocus();
+    _media.notifyStopped();
   }
 
   Future<void> next() async {
@@ -1969,10 +1651,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _saveStreamProgressOnDispose();
     _speedPersistTimer?.cancel();
     _sleepTicker?.cancel();
-    _mediaProgressTicker?.cancel();
-    _mediaSeekSub?.cancel();
     _disposed = true;
     _readAloud.dispose(snapshot: _stateForDispose);
+    _media.dispose();
     super.dispose();
   }
 }

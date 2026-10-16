@@ -1,12 +1,26 @@
 # API 契约文档
 
+## 系统媒体会话Dart边界（2026-10-16，实施前冻结）
+
+MediaSessionCoordinator拥有媒体订阅、焦点恢复意图、系统展示时钟/节流、元数据签名、
+封面身份及串行系统定位；通过明确宿主端口读取同一AudioState并执行播放/定位操作，
+不持有Riverpod Ref或AudioNotifier，不复制书章和播放事实，不另建播放器或原生会话。
+AudioNotifier保留全局播放标识、定时停止及原公开API，媒体操作委托同一协调器；
+ReadAloudController继续拥有朗读单元和原文位置，系统进度从该位置派生。
+AudioService保留原平台通信，复用MediaArtworkLoader、StreamAudioPlayer及单调时钟。
+隐私变化、定时文字、暂停/恢复/停止与释放使用同一媒体协调路径，保留原按钮粒度、
+串行定位与过期过滤。Rust/FRB、原生通道协议、数据库、设置、依赖及版本不变。
+
+编写者：Codex + UI｜2026-10-16
+
 ## 朗读会话Dart边界（2026-10-16，实施前冻结）
 
 ReadAloudController拥有段落单元、UTF-16原文偏移、分段/定位、段落完成和暂停恢复、
 系统/HTTP/云端引擎及预合成衔接；仅通过明确的播放宿主端口读取当前AudioState、
 共用播放标识，并发布播放状态和媒体/章级动作，不持有Riverpod Ref或AudioNotifier。
-AudioNotifier保留书籍、模式、音频书、媒体会话、定时停止及现有对外API；展示值
-从控制器派生，不镜像其段落索引、位置或引擎运行状态。原ReadAloudSession继续作为
+AudioNotifier保留书籍、模式、音频书、定时停止及现有对外API，系统媒体会话委托
+MediaSessionCoordinator；展示值从朗读控制器派生，不镜像其段落索引、位置或引擎
+运行状态。原ReadAloudSession继续作为
 单次请求回调归属，控制器不重建引擎、队列或额外的全局会话计数。
 复用ChapterContentService、原仓储/设置、原错误与降级策略；Rust/FRB与存储格式不变。
 
