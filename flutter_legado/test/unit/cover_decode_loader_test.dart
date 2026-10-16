@@ -275,6 +275,50 @@ void main() {
       expect(CoverDecodeLoader.debugCacheSize, 1);
     });
 
+    test('同一地址不同解密规则不共享缓存或在途请求', () async {
+      final api = _SlowDecodeApi(delay: const Duration(milliseconds: 10));
+      Future<Uint8List?> load(String rule) => CoverDecodeLoader.load(
+        images: api.bookImageRepository,
+        coverUrl: 'https://cdn/shared.jpg',
+        originOrEmpty: 'source',
+        patchedSourceJson: rule,
+        isCancelled: () => false,
+      );
+      final results = await Future.wait([load('rule-a'), load('rule-b')]);
+      expect(results, everyElement(isNotNull));
+      expect(api.fetchCount, 2);
+      await load('rule-a');
+      expect(api.fetchCount, 2);
+    });
+
+    test('书源失效后旧请求不回填缓存，已知来源支持同步选路', () async {
+      expect(CoverDecodeLoader.peekPatchedSourceJson(), '');
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        isNull,
+      );
+      CoverDecodeLoader.seedPatchedSource('source', 'rule-a');
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        'rule-a',
+      );
+      final api = _SlowDecodeApi(delay: const Duration(milliseconds: 10));
+      final request = CoverDecodeLoader.load(
+        images: api.bookImageRepository,
+        coverUrl: 'https://cdn/shared.jpg',
+        originOrEmpty: 'source',
+        patchedSourceJson: 'rule-a',
+        isCancelled: () => false,
+      );
+      CoverDecodeLoader.invalidateSourceRegistry();
+      await request;
+      expect(CoverDecodeLoader.debugCacheSize, 0);
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        isNull,
+      );
+    });
+
     test('并发上限不超过 maxConcurrent', () async {
       final api = _SlowDecodeApi(delay: const Duration(milliseconds: 60));
       final futures = <Future<Uint8List?>>[];

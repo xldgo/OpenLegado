@@ -322,6 +322,33 @@ void main() {
   });
 
   group('ReadingTimeBarChartCard', () {
+    testWidgets('日模式24个小时柱，窄屏标签稀疏显示且提示含小时区间', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        buildTestHost(
+          width: 320,
+          child: ReadingTimeBarChartCard(
+            period: ReadPeriod.day,
+            data: List.generate(
+              24,
+              (i) =>
+                  (date: DateTime(2026, 5, 20, i), seconds: i == 9 ? 900 : 0),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('6'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('18'), findsOneWidget);
+      expect(find.text('23'), findsOneWidget);
+      expect(find.byTooltip('5月20日 09:00–10:00 · 15分钟'), findsOneWidget);
+      expect(find.byTooltip('5月20日 23:00–24:00 · 0秒'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('渲染柱状图、Y轴与X轴标签，360dp 窄屏无溢出', (tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1.0;

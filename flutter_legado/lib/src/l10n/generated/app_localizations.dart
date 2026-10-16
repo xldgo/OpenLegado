@@ -7215,6 +7215,18 @@ abstract class AppLocalizations {
   /// **'{days}天前'**
   String readRecordDaysAgo(int days);
 
+  /// 阅读记录多选顶栏标题
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 项'**
+  String readRecordSelectionCount(int count);
+
+  /// No description provided for @readRecordSelectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点按项目选择，返回退出'**
+  String get readRecordSelectionHint;
+
   /// No description provided for @readRecordDayDuration.
   ///
   /// In zh, this message translates to:

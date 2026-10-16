@@ -30,7 +30,11 @@ class MediaArtworkLoader {
 
   Future<Uint8List?> load(Book? book, {bool hidden = false}) {
     final url = hidden ? '' : coverUrl(book);
-    final key = jsonEncode([url, hidden ? '' : book?.origin ?? '']);
+    final key = jsonEncode([
+      url,
+      hidden ? '' : book?.origin ?? '',
+      CoverDecodeLoader.sourceRevision,
+    ]);
     final hit = _cache.remove(key);
     if (hit != null) {
       _cache[key] = hit;
@@ -71,12 +75,16 @@ class MediaArtworkLoader {
       return FileImage(File(url));
     }
     final origin = book?.origin ?? '';
-    final cached = CoverDecodeLoader.getCached(origin, url);
-    if (cached != null) return MemoryImage(cached);
     final patched = await CoverDecodeLoader.resolvePatchedSourceJson(
       sources: sources,
       sourceOrigin: origin,
     );
+    final cached = CoverDecodeLoader.getCached(
+      origin,
+      url,
+      patchedSourceJson: patched ?? '',
+    );
+    if (cached != null) return MemoryImage(cached);
     if (CoverDecodeLoader.needsFfiDecode(
       coverUrl: url,
       patchedSourceJson: patched,
@@ -91,7 +99,14 @@ class MediaArtworkLoader {
       if (bytes == null) throw StateError('媒体封面解密失败');
       return MemoryImage(bytes);
     }
-    return CachedNetworkImageProvider(url);
+    return CachedNetworkImageProvider(
+      url,
+      cacheKey: CoverDecodeLoader.cacheKey(
+        origin,
+        url,
+        patchedSourceJson: patched ?? '',
+      ),
+    );
   }
 
   /// 在解码阶段限制尺寸，保持比例，不将原始大图传入平台通道。

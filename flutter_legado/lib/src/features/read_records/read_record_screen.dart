@@ -1,5 +1,6 @@
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_search_transition.dart';
+import '../../widgets/app_animated_text_line.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -55,6 +56,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     ReadRecordDisplayMode.timeline => context.l10n.readRecordViewTimeline,
     ReadRecordDisplayMode.latest => context.l10n.readRecordViewLatest,
   };
+
   Future<void> _refresh() async {
     ref.invalidate(readRecordDatasetProvider);
     ref.invalidate(readRecordSessionsProvider);
@@ -192,6 +194,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           showBack: true,
           leading: selection
               ? IconButton(
+                  tooltip: context.l10n.exitSelection,
                   icon: const Icon(Symbols.close_rounded),
                   onPressed: () => setState(_selected.clear),
                 )
@@ -200,17 +203,17 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                selection ? '${_selected.length}' : context.l10n.readingRecords,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              AppAnimatedTextLine(
+                selection
+                    ? context.l10n.readRecordSelectionCount(_selected.length)
+                    : context.l10n.readingRecords,
               ),
-              if (!selection)
-                Text(
-                  _modeLabel(controls.displayMode),
-                  style: Theme.of(context).textTheme.labelMedium,
-                  maxLines: 1,
-                ),
+              AppAnimatedTextLine(
+                selection
+                    ? context.l10n.readRecordSelectionHint
+                    : _modeLabel(controls.displayMode),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
             ],
           ),
           actions: selection
@@ -349,16 +352,15 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                           ),
                         if (controls.displayMode ==
                             ReadRecordDisplayMode.latest)
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            sliver: SliverList.builder(
-                              itemCount: entries.length,
-                              itemBuilder: (_, index) => Consumer(
-                                builder: (_, tileRef, _) => _tile(
-                                  entries[index],
-                                  controls.displayMode,
-                                  tileRef,
-                                ),
+                          // 留白归于行内，点击水波纹和选中底色覆盖整行。— Codex + UI
+                          SliverList.builder(
+                            itemCount: entries.length,
+                            itemBuilder: (_, index) => Consumer(
+                              key: ValueKey(entries[index].key),
+                              builder: (_, tileRef, _) => _tile(
+                                entries[index],
+                                controls.displayMode,
+                                tileRef,
                               ),
                             ),
                           )
@@ -423,20 +425,23 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       if (mode == ReadRecordDisplayMode.aggregate) ...[
                         const SizedBox(width: 12),
                         Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              context.l10n.readRecordDayDuration(
-                                formatDuring(group.durationMs),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                              style: Theme.of(context).textTheme.labelSmall,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.readRecordDayDuration(
+                                  formatDuring(group.durationMs),
+                                ),
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
                             ),
                           ),
                         ),
@@ -584,9 +589,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   SizedBox(
                     width: 44,
                     height: 62,
-                    child: selected
-                        ? const Icon(Symbols.check_circle_rounded)
-                        : BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
+                    child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -627,6 +630,15 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                       ],
                     ),
                   ),
+                  if (_selected.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Icon(
+                      selected
+                          ? Symbols.check_circle_rounded
+                          : Symbols.radio_button_unchecked_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -731,7 +743,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   : _selected.add(entry.key),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   SizedBox(
@@ -739,17 +751,31 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                     height: 62,
                     child: BookCover(coverUrl: book?.coverUrl, borderRadius: 6),
                   ),
-                  if (_selected.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      selected
-                          ? Symbols.check_circle_rounded
-                          : Symbols.radio_button_unchecked_rounded,
-                      size: 20,
+                  // 固定保留封面，只让勾选槽位展开或收起。— Codex + UI
+                  AnimatedSize(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    curve: Curves.easeInOutCubic,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SizedBox(
+                      width: _selected.isNotEmpty ? 36 : 16,
+                      height: 20,
+                      child: _selected.isNotEmpty
+                          ? Icon(
+                              selected
+                                  ? Symbols.check_circle_rounded
+                                  : Symbols.radio_button_unchecked_rounded,
+                              size: 20,
+                              color: selected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                            )
+                          : null,
                     ),
-                    const SizedBox(width: 8),
-                  ] else
-                    const SizedBox(width: 16),
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,25 +827,16 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
               ),
             ),
           );
-    final tile = PrivacyMaskedContent(
-      bookName: entry.bookName,
-      author: entry.author,
-      onTap: () => _open(entry),
-      child: Material(
-        color: selected
-            ? Theme.of(context).colorScheme.secondaryContainer
-            : Colors.transparent,
-        child: content,
-      ),
-    );
-    if (_selected.isNotEmpty) return tile;
     return PrivacyMaskedContent(
       bookName: entry.bookName,
       author: entry.author,
       onTap: () => _open(entry),
       child: Dismissible(
         key: ValueKey(entry.key),
-        direction: DismissDirection.endToStart,
+        // 选择态只禁用滑动，保留封面所在的元素树。— Codex + UI
+        direction: _selected.isEmpty
+            ? DismissDirection.endToStart
+            : DismissDirection.none,
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.all(16),
@@ -829,7 +846,12 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
           await _delete([entry]);
           return false;
         },
-        child: tile,
+        child: Material(
+          color: selected
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : Colors.transparent,
+          child: content,
+        ),
       ),
     );
   }

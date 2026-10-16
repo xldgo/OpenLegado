@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-HOME-OVERVIEW-MERGE-20261016：首页总览分支合入阅读主工作区（P1）
+
+- 授权与范围：用户要求将工作树feature/ui-home-overview合入主目录feature/ui-reader-selection，并明确不使用子代理；目标基线c88b47ddd，来源5602a2c01，双方开始工作区均干净。本次仅本地合并，版本保持2.0.373+374。
+- 处理：合入来源分支三项提交，保留主分支全部既有提交；七份冲突文件保留双方进度记录、主分支窄仓储接口与测试装配，接入来源分支小时分布、选择态文字过渡、封面缓存及列表布局改动，不恢复已删除的BookApi入口。
+- 验证：完整flutter analyze --no-pub无问题；相关19份现有单元与Widget测试共124项通过，覆盖封面规则缓存隔离/失效、媒体封面、书架选择态、阅读记录与小时分布。证据为忽略目录flutter_legado/build/home-overview-merge-analysis.log与home-overview-merge-tests.log；格式及git diff --check通过。
+- 状态与边界：本地合并验证通过，合并提交以Git记录为准；Codex直接处理与自查，无子代理或独立审查结论。来源工作树保持原分支与干净状态；未推送、触发CI或构建安装，设备视觉验收仍沿用各来源条目的待验收边界。
+
+编写者：Codex｜2026-10-16
+
 ### CHAPTER-CONTENT-FLOW-20261016：阅读与朗读正文加载编排（P1）
 
 - 授权与基线：用户要求先提交详情批次再继续正文加载统一；详情已提交9e0df1869，随后工作区包含其他会话已完成的工作流重命名与文档归档提交，当前基线feature/ui-reader-selection / f707f6493，开始工作区干净。Codex直接执行，不使用子代理、不新建分支、不追加提交/推送/触发CI/构建安装应用，版本保持2.0.373+374。
@@ -360,6 +369,52 @@
 - 证据与范围：忽略目录flutter_legado/build/reading-repository-qa/保存pub-get.log、core-{initial,final}.log、fixtures-retry.log、regression-{initial,final}.log和flutter-analysis-final.log，根build/reading-repository-qa/保存清单、格式/差异检查及一次性迁移助手，失败日志保留。Codex单代理核对实现与差异，不宣称独立审查或真实FRB/设备验收；没有版本变更、原生编译安装、Windows DLL验证、提交、推送或CI，应用仍2.0.373+374。
 
 编写者：Codex｜2026-10-15
+
+### UI-READ-RECORD-LATEST-INK-20261016：最后阅读整行交互与勾选槽位（P2）
+
+- 授权与范围：用户确认保留最后阅读平铺列表，不改卡片列表。基于feature/ui-home-overview / 7239c51b6及当前未提交的封面修复继续；沿用版本，实施时不自动提交、推送或安装，不覆盖既有改动；用户随后授权将本项与封面修复一起提交到本地。
+- 根因与目标：原列表外层水平16dp使选中矩形紧贴封面，水波纹只覆盖内容列。参照本地上游070ca1a9b的LatestReadItem，把水平16dp移入行内，整行保留相同点击、长按和滑动删除边界；封面44×62dp及上下8dp不变。勾选槽位使用标准AnimatedSize在16/36dp间过渡，遵循减少动态效果；封面和Dismissible继续挂载，普通条目增加稳定身份键。不改累计成就卡、汇总、时间线及记录数据。
+- 验证与状态：代码与轻量回归完成。相关两文件dart analyze无问题，read_record_modes_test.dart的14项测试通过；最后阅读用例确认行宽覆盖360dp、封面距左16dp、选中底色正确、勾选槽位使文字平移20dp、左侧留白可以取消选中且封面元素保持挂载，删除逻辑继续通过。git diff --check通过。日志位于忽略目录flutter_legado/build/read-record-latest-ink-{analysis,tests}.log。最后阅读布局调整未重新编译安装或进行设备视觉验收；本轮按用户授权本地提交，未推送。
+
+编写者：Codex UI｜2026-10-16
+
+### UI-COVER-STATE-20261015：选择切换保留封面与统一加载路径（P1）
+
+- 授权与基线：用户批准先提交选择标题成果，再实施已讨论的封面修复；feature/ui-home-overview / 7239c51b6。沿用应用版本，不新建分支、不推送或合并。用户明确省略复杂测试验收，本批只做静态分析和现有轻量回归，不做设备逐帧取证。
+- 根因与范围：阅读记录选择态移除Dismissible，书架批量态切换组件类型；共用封面在异步书源判断前退回占位。保持阅读记录/书架条目结构与Hero身份稳定，选择标记独立于封面；共用图片绘制使用ImageProvider，已知直连和缓存结果同步接入。解密缓存按书源、URL及实际规则区分，保留限流、去重和取消。
+- 参考与边界：本地上游070ca1a9b的ReadRecordScreen、BookItem、CoverImageRequest与CoverMemoryKey。借鉴封面与勾选分离、统一缓存身份；不照搬其选择态条件包装。不改Rust/FFI、数据库、依赖、默认封面设计及隐私规则，不建立额外全局像素缓存。
+- 实现：阅读记录始终保留Dismissible，仅在选择时禁用滑动；汇总行保留封面并独立显示勾选。书架列表、分组列表和网格共用普通/批量条目，保留隐私外层、Hero标签与摘要sliver位置。直连与解密都通过ImageProvider进入同一个Image，已知来源同步选路，缩略尺寸变化沿用已有帧，真实来源变化重置。解密LRU和在途去重按书源、URL及实际规则区分；书源失效会丢弃旧注册表回写及旧请求缓存回填，媒体封面同步使用相同来源键。
+- 轻量验证（2026-10-16）：相关11个文件dart analyze无问题；6个现有定向测试文件共40项通过，包含阅读记录汇总、书架列表/网格进入退出选择时封面Element保持挂载、规则变化隔离缓存/在途请求、失效后旧请求不回填、限流取消、媒体封面和原交互回归。git diff --check通过。输出位于忽略目录flutter_legado/build/cover-state-{analysis,tests}.log。
+- 状态：代码与轻量回归已完成；按用户要求省略复杂设备和逐帧验收，实际视觉由用户手动确认。本批与最后阅读布局调整按用户后续授权一并本地提交，未推送、合并或触发CI。
+- MuMu安装（2026-10-16）：用户授权后实时探测127.0.0.1:16384，x86_64 Debug原生库校验通过，重新打包当前封面修复。首轮Flutter入口遇到android_file_picker的Kotlin增量缓存关闭失败，改用单次Gradle参数-Pkotlin.incremental=false构建成功，未修改项目配置。APK包内Rust库正规化来源校验通过，保留2.0.373+374及应用数据覆盖安装，沿用Launcher4启动；六项基本冒烟通过，进程存活且无FATAL/E/flutter。未进行视觉自动验收；日志位于忽略目录flutter_legado/build/cover-state-mumu-*.log。
+
+编写者：Codex｜2026-10-16
+
+### UI-READ-RECORD-SELECTION-TITLE-20261015：选择态双行标题与文字过渡（P2）
+
+- 授权与范围：用户要求阅读记录长按选择后，标题显示已选X项，次标题显示点按项目选择、返回退出，并增加正常态与选择态文字过渡；home-overview / d7dde50e2，沿用分支和应用版本，不自动提交、合并、推送或安装。
+- 实现：标题和模式次标题使用共用AppAnimatedTextLine，旧文字向上退出、新文字从下方进入，按完整行高滚动，不附加淡入淡出；始终保留两行结构，数量变更与退出同样过渡。退场文字排除无障碍语义，遵循系统减少动态效果设置；退出按钮补齐提示。中文文案为“已选{count}项”“点按项目选择，返回退出”，同步英文及生成资源，不改记录选择/删除逻辑。
+- 验证与状态：代码验证通过，设备视觉待验收。相关两文件Flutter分析及最终dart analyze通过，git diff --check通过。初轮新增测试将正常态误写为“汇总”，修正为实际“汇总视图”；此前重跑因自动审批超时及SDK锁文件写权限未完成。用户随后授权MuMu安装，环境权限更新后，阅读记录14项定向测试全部通过，覆盖双行文字、进入退出过渡中间帧、数量变更、系统返回、快速反向、减少动态效果及原三视图。证据位于忽略目录flutter_legado/build/read-record-selection-{analysis,analysis-final,l10n,tests-final}.log。
+- MuMu构建安装（2026-10-15）：用户明确授权编译安装，保留数据及2.0.373+374。基线更新使旧x86_64库契约失配，按现有Python入口重建Debug QuickJS库（59秒）并校验；Gradle Debug APK构建成功（1分39秒），包内Rust库与Cargo源库经NDK strip正规化校验通过。实时探测MuMu Android15 / 127.0.0.1:16384后覆盖安装，沿用Launcher4启动；六项冒烟通过，进程继续存活，未检出崩溃或Flutter未处理异常。APK包含已提交的小时分布、徽标修复和本批选择态动画；实际视觉待用户验收。日志位于忽略目录flutter_legado/build/read-record-selection-mumu-{ffi,apk,apk-verification,install,runtime}.log；未提交、合并、推送或触发CI。
+- 共用动画调整（2026-10-15）：用户确认参照上游封装共用组件。读取本地参考仓库070ca1a9b的AnimatedText.kt，沿用其整行向上切换语义；Flutter使用官方AnimationController、SpringSimulation与FractionalTranslation实现临界阻尼弹簧，不宣称两框架逐帧相同。中断保留位移和速度，禁用动画立即清理退场项，单行省略及裁剪限制在本行。组件4项与阅读记录14项测试全部通过，相关4文件dart analyze无问题，git diff --check通过；日志位于忽略目录flutter_legado/build/animated-text-line-{tests,analysis}.log。上述MuMu安装为调整前版本，本次未重新构建安装、提交或推送。
+- 后续交付：新版已覆盖安装MuMu，版本保持2.0.373+374，包内Rust库来源校验及六项启动冒烟通过；实际长按已显示双行选择文案。Kotlin插件增量缓存错误经Gradle本次关闭增量编译后构建成功，无配置变更。用户自行验收动画，随后明确授权提交本批，再开始封面白闪修复；不推送或合并。构建及安装日志位于忽略目录flutter_legado/build/animated-text-line-mumu-*.log。
+
+编写者：Codex｜2026-10-15
+
+### UI-READ-RECORD-HOURLY-20261015：日总览按小时显示阅读分布（P2）
+
+- 授权与基线：用户要求rebase到主目录最新基线，并将阅读总览日页分布改为小时分片。home-overview已更新至e5be74eb7；原徽标修复和测试完整保留，恢复时仅进度文档冲突，双方记录均保留。不创建分支、不更新版本、不自动提交、推送或安装。
+- 实现：复用现有Repository阅读会话与变更通知，将会话Provider归入共用数据层；总览订阅会话，刷新同时重读日明细与会话。日图表固定24个本地小时区间，对会话起止时间求交集；跨小时、跨午夜拆分，倒序和空会话忽略，同小时先累加毫秒后转秒。不用每日累计量或最后阅读时间估算缺失会话；日总计及排行仍用原有日明细，周/月/年逻辑不变。小时轴间隔显示0/6/12/18/23，点击提示完整小时区间和时长。
+- 验证与边界：五份定向测试57项通过，覆盖小时区间、零值、跨午夜、毫秒累计、保存/删除通知、刷新与日期切换、320dp小时图表及原有三视图徽标；相关模块与测试静态分析、git diff --check通过。基线新增just_audio依赖按现有pub.dev锁文件恢复，无依赖升级或FFI/数据库修改；首次测试因本地包配置未恢复而编译失败，恢复后复验通过。日志位于忽略目录flutter_legado/build/read-record-hourly-{tests,analysis,deps}.log。设备视觉待验收，未执行构建安装或CI。
+- 提交授权（2026-10-15）：用户要求提交当前成果，包含日分布与前一批徽标定位修复；提交至feature/ui-home-overview，提交号以Git记录为准。版本保持2.0.373+374，不合并主目录或推送远程。
+
+编写者：Codex｜2026-10-15
+
+### UI-READ-RECORD-BADGE-20261015：汇总卡片已读徽标靠右（P2）
+
+- 授权与范围：用户确认调整汇总视图的已读徽标定位；home-overview基线4a44a2a59，保持版本，不提交、推送或编译安装。
+- 根因与修复：日期Expanded与徽标Flexible共享可用宽度，徽标在弹性区域起点而非卡片右侧落位；增加方向感知的末端对齐，保留徽标样式、日期省略和12dp外侧内边距，长时长在约束内换行。时间线及最后阅读布局不变。
+- 验证与边界：新增360dp常规文字、320dp双倍文字及长时长的几何断言，原实现常规宽度用例失败，修复后阅读记录三视图12项全部通过；相关两文件分析及git diff --check通过。更新基线后的本地依赖按当前pub.dev锁文件恢复，无依赖版本变更。证据位于忽略目录flutter_legado/build/read-record-badge-{before,tests,analysis,deps}.log。代码验证通过，未进行设备视觉验收。
 
 ### BACKUP-WEBDAV-FLOW-20261015：修正备份恢复方向并收拢业务边界（P1）
 

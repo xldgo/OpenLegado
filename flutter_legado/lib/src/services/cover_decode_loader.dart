@@ -74,8 +74,32 @@ class CoverDecodeLoader {
   @visibleForTesting
   static int get debugCacheSize => _bytesCache.length;
 
-  static String cacheKey(String originOrEmpty, String url) =>
-      '$originOrEmpty\u0000$url';
+  /// 书源失效代际只用于丢弃旧请求，不额外缓存图片帧。— Codex + UI
+  static int get sourceRevision => _registryGeneration;
+
+  static String cacheKey(
+    String originOrEmpty,
+    String url, {
+    String? patchedSourceJson,
+  }) => jsonEncode([
+    originOrEmpty,
+    url,
+    patchedSourceJson ?? _sourceRegistry?[originOrEmpty] ?? '',
+  ]);
+
+  /// 已知来源同步选路，命中 Flutter 图片缓存时无需先等一个 Future。
+  /// null 表示仍需异步查源，或显式 JSON 无法解析。
+  static String? peekPatchedSourceJson({
+    String? sourceJson,
+    String? sourceOrigin,
+  }) {
+    if (sourceJson != null && sourceJson.isNotEmpty) {
+      return patchSourceJsonForCoverDecode(sourceJson);
+    }
+    final origin = sourceOrigin?.trim() ?? '';
+    if (origin.isEmpty) return '';
+    return _sourceRegistry == null ? null : _sourceRegistry![origin] ?? '';
+  }
 
   /// 将 coverDecodeJs 映射为 ruleContent.imageDecode（复用既有 FFI）
   ///
@@ -109,15 +133,18 @@ class CoverDecodeLoader {
   }) async {
     final origin = sourceOrigin?.trim() ?? '';
     if (sourceJson != null && sourceJson.isNotEmpty) {
-      final patched = patchSourceJsonForCoverDecode(sourceJson);
-      if (patched != null && origin.isNotEmpty) {
-        _sourceRegistry?[origin] = patched;
-      }
-      return patched;
+      return patchSourceJsonForCoverDecode(sourceJson);
     }
     if (origin.isEmpty) return '';
     try {
+      final revision = _registryGeneration;
       final reg = await _ensureSourceRegistry(sources);
+      if (revision != _registryGeneration) {
+        return await resolvePatchedSourceJson(
+          sources: sources,
+          sourceOrigin: origin,
+        );
+      }
       return reg[origin] ?? '';
     } catch (e) {
       debugPrint('封面书源解析失败: $e');
@@ -133,7 +160,7 @@ class CoverDecodeLoader {
     if (loaded != null) return Future.value(loaded);
     final loading = _registryLoading;
     if (loading != null) return loading;
-    final gen = ++_registryGeneration;
+    final gen = _registryGeneration;
     final fut = () async {
       try {
         final sources = await repository.getBookSources();
@@ -142,7 +169,7 @@ class CoverDecodeLoader {
           reg[s.bookSourceUrl] =
               patchSourceJsonForCoverDecode(jsonEncode(s.toJson())) ?? '';
         }
-        _sourceRegistry = reg;
+        if (gen == _registryGeneration) _sourceRegistry = reg;
         return reg;
       } finally {
         // 仅当仍是最新一次加载时清在途标记（成功则后续经 _sourceRegistry
@@ -161,7 +188,10 @@ class CoverDecodeLoader {
   /// 由应用装配到书源 Repository 的成功写入通知统一触发；对齐原版 BookSourceRepository
   /// 「内存列表随 DB 变更即时刷新」的语义。
   static void invalidateSourceRegistry() {
+    ++_registryGeneration;
     _sourceRegistry = null;
+    _registryLoading = null;
+    _bytesCache.clear();
   }
 
   /// 是否需要走 FFI（coverDecodeJs 或复合 URL）
@@ -173,17 +203,34 @@ class CoverDecodeLoader {
     return patchedSourceJson != null && patchedSourceJson.isNotEmpty;
   }
 
-  static Uint8List? getCached(String originOrEmpty, String url) {
-    final key = cacheKey(originOrEmpty, url);
+  static Uint8List? getCached(
+    String originOrEmpty,
+    String url, {
+    String? patchedSourceJson,
+  }) {
+    final key = cacheKey(
+      originOrEmpty,
+      url,
+      patchedSourceJson: patchedSourceJson,
+    );
     final hit = _bytesCache.remove(key);
     if (hit == null) return null;
     _bytesCache[key] = hit;
     return hit;
   }
 
-  static void putCached(String originOrEmpty, String url, Uint8List bytes) {
+  static void putCached(
+    String originOrEmpty,
+    String url,
+    Uint8List bytes, {
+    String? patchedSourceJson,
+  }) {
     if (!looksLikeImageBytes(bytes)) return;
-    final key = cacheKey(originOrEmpty, url);
+    final key = cacheKey(
+      originOrEmpty,
+      url,
+      patchedSourceJson: patchedSourceJson,
+    );
     _bytesCache.remove(key);
     _bytesCache[key] = bytes;
     while (_bytesCache.length > maxCacheEntries) {
@@ -204,13 +251,21 @@ class CoverDecodeLoader {
     void Function(CoverDecodeTicket? ticket)? onTicket,
   }) async {
     final notify = onTicket ?? (_) {};
-    final hit = getCached(originOrEmpty, coverUrl);
+    final hit = getCached(
+      originOrEmpty,
+      coverUrl,
+      patchedSourceJson: patchedSourceJson,
+    );
     if (hit != null) {
       notify(null);
       return hit;
     }
 
-    final key = cacheKey(originOrEmpty, coverUrl);
+    final key = cacheKey(
+      originOrEmpty,
+      coverUrl,
+      patchedSourceJson: patchedSourceJson,
+    );
     final existing = _inflight[key];
     if (existing != null) {
       notify(null);
@@ -243,7 +298,11 @@ class CoverDecodeLoader {
     required void Function(CoverDecodeTicket? ticket) onTicket,
   }) {
     // 再次检查：排队期间可能已有同 URL 进入 FFI
-    final key = cacheKey(originOrEmpty, coverUrl);
+    final key = cacheKey(
+      originOrEmpty,
+      coverUrl,
+      patchedSourceJson: patchedSourceJson,
+    );
     final existing = _inflight[key];
     if (existing != null) {
       onTicket(null);
@@ -281,7 +340,11 @@ class CoverDecodeLoader {
         return null;
       }
       // 出队后再查缓存 / in-flight
-      final cached = getCached(originOrEmpty, coverUrl);
+      final cached = getCached(
+        originOrEmpty,
+        coverUrl,
+        patchedSourceJson: patchedSourceJson,
+      );
       if (cached != null) {
         _pumpQueue();
         return cached;
@@ -343,7 +406,11 @@ class CoverDecodeLoader {
       return null;
     }
 
-    final key = cacheKey(originOrEmpty, coverUrl);
+    final key = cacheKey(
+      originOrEmpty,
+      coverUrl,
+      patchedSourceJson: patchedSourceJson,
+    );
     final existing = _inflight[key];
     if (existing != null) {
       releaseSlot();
@@ -352,15 +419,25 @@ class CoverDecodeLoader {
       return bytes;
     }
 
+    final revision = _registryGeneration;
     final completer = Completer<Uint8List?>();
     _inflight[key] = completer.future;
     try {
       final sourceForFfi = patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
       final raw = await images.fetchImageWithDecode(coverUrl, sourceForFfi);
       Uint8List? bytes;
-      if (raw.isNotEmpty && looksLikeImageBytes(raw)) {
-        putCached(originOrEmpty, coverUrl, raw);
-        bytes = raw;
+      if (raw.isNotEmpty) {
+        if (looksLikeImageBytes(raw)) {
+          if (revision == _registryGeneration) {
+            putCached(
+              originOrEmpty,
+              coverUrl,
+              raw,
+              patchedSourceJson: patchedSourceJson,
+            );
+          }
+          bytes = raw;
+        }
       }
       if (!completer.isCompleted) completer.complete(bytes);
       if (isCancelled()) return null;

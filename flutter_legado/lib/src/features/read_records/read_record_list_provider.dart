@@ -1,29 +1,14 @@
+export 'read_record_dataset.dart' show readRecordSessionsProvider;
+
 import '../../models/book_chapter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/read_record_session.dart';
-import '../../domain/contracts/read_record_changes.dart';
 import '../../providers/reading_provider.dart';
 import 'read_record_dataset.dart';
-import 'read_record_repository_provider.dart';
 import 'read_record_notifier.dart';
 import 'read_record_state.dart';
 import 'read_record_list_calculator.dart';
-
-final readRecordSessionsProvider =
-    FutureProvider.autoDispose<List<ReadRecordSession>>((ref) {
-      final repo = ref.watch(readRecordRepositoryProvider);
-      if (repo is ReadRecordChangeSource) {
-        final subscription = (repo as ReadRecordChangeSource).changes.listen((
-          _,
-        ) {
-          if (ref.mounted) ref.invalidateSelf();
-        });
-        ref.onDispose(subscription.cancel);
-      }
-      return repo.getReadRecordSessions();
-    });
 
 final readRecordListProvider =
     Provider.autoDispose<AsyncValue<List<ReadRecordListEntry>>>((ref) {

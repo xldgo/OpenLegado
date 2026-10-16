@@ -1,5 +1,6 @@
 import '../fixtures/app_test_api.dart';
 
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -47,9 +48,13 @@ void main() {
     // 正常模式：书名在列表行可见
     expect(find.text('示例书籍 01'), findsOneWidget, reason: '正常模式书卡行应渲染书名');
 
+    final cover = tester.element(find.byType(BookCover).first);
+
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
     await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '进入选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
 
     // [P0 根因] 选择模式下书卡列表仍必须完整渲染（书名出现于书卡行，
     // 而非仅「最近阅读」行）——这是此前被拒修复的缺陷点。
@@ -77,5 +82,9 @@ void main() {
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
     expect(find.text('已选 0 本'), findsOneWidget, reason: '再点按后计数应回到 0');
+    container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
+    await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '退出选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
   });
 }
