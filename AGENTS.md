@@ -1,18 +1,16 @@
-# AGENTS.md — Legado 项目 Agent 工作入口
+# AGENTS.md
 
 本文件为编码 agent 提供进入 Legado 代码库的统一入口：模块地图、验证命令与规范路由。
 项目概览详见 [README.md](README.md)。
 
 ## 项目概览
 
-Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado）保持双轨对齐的阅读应用。
+Legado：Rust + Flutter 跨平台阅读器，参考上游(HapeLee/legado-with-MD3)实现的阅读应用。
 
 ## 模块地图
 
 | 路径 | 内容 |
 |---|---|
-| `app/`（另备原版工程） | Kotlin Android 原版参考模块；本仓库不分发，语义对照时另备完整原版工程 |
-| `modules/book/`、`modules/rhino/`、`modules/web/`（另备原版工程） | Android 原版参考子模块（书源、Rhino JS 引擎、Web 辅助）；本仓库不分发 |
 | `flutter_legado/` | Flutter UI（Windows 构建主模块），`lib/` 为 Dart 源码 |
 | `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-fetcher / legado-ffi / legado-js / legado-net / legado-parser / legado-server） |
 | `docs/` | 项目文档（计划、报告、规范、API 契约） |
@@ -64,7 +62,7 @@ Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
 - **提交信息必须遵循约定式提交（Conventional Commits）**：`<类型>[作用域]: <中文描述>`，类型用 `fix`/`feat`/`docs`/`refactor`/`test`/`chore` 等英文小写，作用域用 `ui`/`rust`/`tool`（替代旧式 `[UI]`/`[Rust]`/`[Tool]` 前缀，如 `fix(ui): ...`、`fix(rust): ...`）；`fix` 必须在正文说明根因、脚注关联 `Fixes #编号`；描述 ≤72 字符、正文行 ≤100 字符、不得混用类型、不得用模糊描述；详细规则见项目开发规范文件「Git 提交规范」章节
 - 分支策略：`feature/rust-*` 与 `feature/ui-*` 独立开发，集成使用 `integration/*` 分支；仅从当前 HEAD 创建规范分支，不得改动已提交历史
 - 署名规范：UI 层代码署名「— 子代理名称 + UI」，Bridge 层代码署名「— 子代理名称 + Bridge」，文档末尾附编写者署名与日期
-- 批次修复按 pubspec 版本 patch 递增（如 2.0.0+2 → 2.0.1+3），每批同步更新 CHANGELOG 与应用内更新日志 `flutter_legado/assets/updateLog.md`（关于页展示，仅记录用户可见变化，按日期条目格式），记录版本号与贡献者；版本号记录于 CHANGELOG 与提交正文，commit subject 不带版本号
+- 批次修复按 pubspec 版本 patch 递增（如 2.0.0+2 → 2.0.1+3），每批同步更新 CHANGELOG 与应用内更新日志 `flutter_legado/assets/updateLog.md`（关于页展示，仅记录用户可见变化，按日期条目格式），记录版本号与贡献者；版本号记录于 CHANGELOG，commit subject 不带版本号
 - 进度文档（docs/ 下）须与 git 提交记录保持同步，任务编号不得重叠
 
 ## 验证与交付流程
@@ -79,7 +77,7 @@ Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
   - **设备号探测与能力**：每次执行前必须先用 `adb devices -l` 探测在线实例，认准 `model:sdk_gphone64_x86_64`（`device:emu64xa`）对应的 `<serial>`（如 `emulator-5554` 或 `emulator-5556`），所有 `adb` 命令显式加 `-s <serial>`。原生支持 `adb -s <serial> root`、标准单屏 `exec-out screencap -p`、`uiautomator dump`、剪贴板与输入法；我方应用语义文本在 **`content-desc`**（Flutter 语义树），不在 `text` 属性；模拟器内访问宿主机 `127.0.0.1` 用 **`10.0.2.2`**（SLIRP 网络不支持 ICMP `ping`，联网检查请用 TCP/HTTP）。
   - **冒烟脚本**（构建+安装+启动+崩溃检查）：`.\scripts\emulator_smoke_test.ps1 -Device <serial>`（可加 `-CheckUI` 做书架主界面元素检查；复用 APK 加 `-SkipBuild`）；退出码 0=通过 1=失败。
   - **端点时效性（每次派单前必读）**：本节及历史文档所载设备号/端口均随实例运行状态变化；每次设备任务前必须以 `adb devices -l` 与 `android.exe emulator list` 实时探测为准，**不得假设固定端口恒可用**。历史模拟器归档见 `docs/过期文档/MUMU_EMULATOR_NOTES_ARCHIVE_20261013.md`。
-- **完成定义（DoD，2026-09-17 新增）**：判定「完成」的依据是**证据**，不是执行步骤：
+- **完成定义（DoD）**：判定「完成」的依据是**证据**，不是执行步骤：
   1. 代码改动须附「多代理协作规则」路由表中对应的证据，并在提交正文写明来源（CI 运行链接 / QA 报告路径 / 审查结论 / 截图路径）；
   2. **CI 能覆盖的验证不重复派角色**（`flutter analyze && flutter test`、`cargo test` 以 CI 结果为准），角色只用于 CI 覆盖不到的场景（实机冒烟、UI 交互、跨模块手动复现）；Android 原版 Gradle 测试仅在另备的完整原版工程内运行，不属本仓库 CI 覆盖；
   3. **高风险改动**（跨模块 / FFI 契约 / 公共 API / 大范围重构）必须在提交前取得 `code-reviewer` 结论；一般小修不强制派审查；
@@ -91,8 +89,9 @@ Skills 只维护 `.agents/skills/` 的上游原文；其他工具入口通过
 
 ## 多代理协作规则
 
+- 无明确要求不使用子代理，如果明确要求使用，按照以下要求
 - 主 Agent 职责：① 拆解并分发任务至子代理；② 推进任务，子代理卡住时主动跟进协助解困；③ 验收任务
-- **（2026-09-11 用户明确）子代理执行原则**：
+- **子代理执行原则**：
   - **主代理只做任务分解与审核**（拆解、派发、读 diff 复核、验收判定、文档与提交），**具体执行操作全部交给子代理**（编码、取证、构建、实机验证等），主代理不自行兜底实现
   - **禁止主代理兜底子代理**：子代理失败/超时/卡住时，须先向用户说明情况并**申请同意**后方可改由主代理接手；未获同意不得自行兜底
   - **子代理并行上限 = 2**：任意时刻最多两个子代理并行（原「可大规模并行」口径按此收敛）
