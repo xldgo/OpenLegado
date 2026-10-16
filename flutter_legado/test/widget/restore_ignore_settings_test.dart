@@ -1,8 +1,9 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/constants/pref_keys.dart';
 import 'package:flutter_legado/src/data/repositories/preferences_restore_ignore_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/restore_ignore_repository.dart';
 import 'package:flutter_legado/src/domain/models/restore_ignore_config.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/restore_ignore_provider.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/restore_ignore_dialog.dart';
@@ -52,10 +53,10 @@ void main() {
   Future<void> openScreen(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           restoreIgnoreRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: const MaterialApp(home: WebDavSettingsScreen()),
       ),
     );

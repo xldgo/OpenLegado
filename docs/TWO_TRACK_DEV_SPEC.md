@@ -1,7 +1,7 @@
 # 双轨协作开发规范（UI 轨与 Rust 轨）
 
-**日期**: 2026-09-27
-**版本**: v1.1
+**日期**: 2026-10-16
+**版本**: v1.2
 **维护人**: Legado 开发团队
 
 > 本文只规定 Rust/Flutter 双轨边界、Mock 与 FFI/codegen/native 构建专项步骤。通用任务优先级、Agent 派发、当前分支策略、常规验证、证据和关闭流程统一见 [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md)、根目录 [AGENTS.md](../AGENTS.md) 与[通用开发规范](DEVELOPMENT_CONVENTIONS.md)；视觉目标见 [SCREEN_1TO1_PARITY_SPEC_20260914.md](SCREEN_1TO1_PARITY_SPEC_20260914.md)。
@@ -24,7 +24,7 @@ Legado Flutter 重构采用 **Rust 核心引擎 + Flutter 跨平台 UI** 架构�
 |------|------|
 | 解耦迭代节奏 | UI 轨无需等待 Rust 编译即可全速开发 |
 | 明确文件归属 | 消除双轨同时修改同一文件导致的冲突 |
-| 契约驱动协作 | 通过 BookApi 抽象接口 + Mock 机制实现松耦合 |
+| 契约驱动协作 | 通过领域 Repository/Service 接口与 Mock 实现解耦 |
 | 规避已知坑 | codegen 产物一致性、DLL 前置重编译等铁律固化 |
 
 ---
@@ -35,12 +35,12 @@ Legado Flutter 重构采用 **Rust 核心引擎 + Flutter 跨平台 UI** 架构�
 
 | 轨道 | 允许修改 | 禁止修改 |
 |------|----------|----------|
-| **UI 轨** | `flutter_legado/lib/src/{screens,widgets,providers,theme,utils,l10n}`、`flutter_legado/test/` | `rust/`、`rust_api.dart` 方法签名、`bridge/`、`frb_generated*`、`pubspec.yaml` 原生依赖段 |
-| **Rust 轨** | `rust/`、`rust_api.dart`（新增方法）、`bridge/`、codegen 产物（`frb_generated.dart` / `frb_generated.rs`） | `flutter_legado/lib/src/{screens,widgets,theme}`（UI 层） |
+| **UI 轨** | `flutter_legado/lib/src/{app,features,screens,widgets,providers,theme,utils,l10n}`、`flutter_legado/test/` | `rust/`、未经确认的领域契约变更、`bridge/`、`frb_generated*`、`pubspec.yaml` 原生依赖段 |
+| **Rust 轨** | `rust/`、经确认的 `domain/contracts/` 契约和 `data/` 适配器、`bridge/`、codegen 产物（`frb_generated.dart` / `frb_generated.rs`） | `flutter_legado/lib/src/{screens,widgets,theme}`（UI 层） |
 
 ### 2.2 灰色地带约定
 
-- **providers 属 UI 轨**，但 provider 调用的 `BookApi` 方法若需新增，走第 4 节"契约变更流程"。
+- **providers 属 UI 轨**，但调用的领域接口若需新增或变更，走第 4 节"契约变更流程"。
 - **pubspec.yaml**：纯 Dart 依赖（如 UI 库）由 UI 轨自行添加；涉及原生插件或 `flutter_rust_bridge` 版本变更由 Rust 轨负责。
 - **公共配置文件**（`Cargo.toml`、`settings.gradle`、`build.gradle`）：修改前必须通知对方，沿用既有协作规范。
 
@@ -135,28 +135,36 @@ frb（flutter_rust_bridge）的调用桥按 **funcId 序号**把 Dart 调用分�
 
 ## 4. 契约变更流程
 
-项目通过 `BookApi` 抽象接口实现 UI 与 Rust 的解耦：
+项目通过 `domain/contracts/` 中的窄 Repository/Service 接口解耦 UI 与 Rust：
 
 ```
-BookApi（抽象接口）
-  ├── RustApi（真实 FFI 实现）
-  └── MockBookApi（假数据实现）
+页面 / Notifier / 辅助服务
+  → 领域 Provider 或显式构造参数
+  → Repository / Service 契约
+      ├── data/ 下的 Rust 实现 → FRB
+      └── data/ 下的 Mock 实现 → 共享 Mock 数据
 ```
 
 切换机制：`--dart-define=USE_MOCK=true` 启用 Mock，否则走真实 FFI。
 
+`app/bootstrap/application_dependencies.dart` 注册领域能力；
+`application_bootstrap.dart` 创建应用容器并显式初始化 `AppRuntime`。
+启动和界面共用同一容器，`ApplicationScope` 在卸载时释放它。
+`BookApi`、`RustApi` 和 `bookApiProvider` 已从生产链路移除；
+`test/fixtures/` 的组合夹具只服务现有测试，应用代码不得引用。
+
 ### 4.1 新增 API
 
 - Rust 轨可自由添加新方法，但必须**同步完成三件事**：
-  1. `BookApi` 接口新增抽象方法
-  2. `RustApi` 提供真实实现
-  3. `MockBookApi` 补对应假数据实现
+  1. 在对应领域契约新增方法，不创建全能根接口
+  2. 数据层提供真实 FRB 适配实现并接入应用装配
+  3. 对应 Mock 实现提供行为明确的假数据能力
 - 更新 `API_CONTRACT.md` 登记新方法签名与返回结构。
 
 ### 4.2 修改 / 删除已有 API（破坏性变更）
 
 - 必须**双轨评审确认**后才能修改。
-- 同步修改：接口定义 → RustApi → MockBookApi → 全部 UI 调用点。
+- 同步修改：领域契约 → Rust 适配器 → Mock 实现 → 装配及全部调用点。
 - 在 PR 描述中明确标注"破坏性变更"及影响范围。
 
 ### 4.3 UI 轨需要新数据时
@@ -164,8 +172,8 @@ BookApi（抽象接口）
 流程如下：
 
 1. **登记需求**：在 `API_CONTRACT.md` 的"需求区"登记（方法名 + 入参 + 返回 JSON 结构示例）。
-2. **Mock 先行**：UI 轨自行在 `MockBookApi` 添加假实现，继续 UI 开发。
-3. **Rust 交付**：Rust 轨按契约实现真实方法，更新 `RustApi`。
+2. **Mock 先行**：UI 轨在对应领域 Mock 实现中提供假数据能力，继续 UI 开发。
+3. **Rust 交付**：Rust 轨按契约实现真实方法，并接入对应数据适配器。
 4. **验证切换**：UI 轨去掉 `USE_MOCK=true`，验证真实数据流通。
 
 ---
@@ -273,10 +281,12 @@ flutter run -d windows --dart-define=USE_MOCK=true
 | UI 轨 | 负责 Flutter UI 层开发的轨道 |
 | Rust 轨 | 负责 Rust 引擎 + FFI 边界的轨道 |
 | codegen | `flutter_rust_bridge_codegen generate`，生成 FFI 桥接代码 |
-| 契约 | `BookApi` 抽象接口定义的方法签名与数据结构约定 |
+| 契约 | 领域接口与 FFI 定义的方法签名及数据结构约定 |
 | Mock 模式 | `--dart-define=USE_MOCK=true` 启用假数据实现 |
 
 ---
 
-**最后更新**: 2026-09-27
+**最后更新**: 2026-10-16
 **维护者**: Legado 开发团队
+
+本次边界更新：Codex + Bridge｜2026-10-16

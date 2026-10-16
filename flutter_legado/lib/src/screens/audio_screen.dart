@@ -1,3 +1,5 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
+import '../providers/reading_provider.dart';
 import '../providers/config_settings_provider.dart';
 import '../providers/media_provider.dart';
 import '../widgets/reader/read_aloud_timer_sheet.dart';
@@ -17,7 +19,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/audio/audio_notifier.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../l10n/app_localization.dart';
 import '../services/audio_cache_events.dart';
@@ -765,8 +766,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     BookSource? source;
     try {
       final sources = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getBookSources();
       source = sources.where((s) => s.bookSourceUrl == _origin).firstOrNull;
     } catch (_) {}
@@ -857,12 +857,11 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   /// 「缓存章节范围」入口（对标原版 menu_audio_cache_range →
   /// AudioPlayActivity.showAudioCacheRange:281-316）
   Future<void> _showAudioCacheRange() async {
-    final api = ref.read(bookApiProvider);
     final bookUrl = widget.effectiveBookUrl;
     if (bookUrl.isEmpty) return;
     List<BookChapter> chapters;
     try {
-      chapters = await api.readingRepository.getChapters(bookUrl);
+      chapters = await ref.read(readingRepositoryProvider).getChapters(bookUrl);
     } catch (e) {
       // 原版 ensureChapterList 失败 → 静默中止整段范围（AudioCacheService.kt:199,236-257）
       debugPrint('[audio-cache] 获取章节列表失败（中止缓存范围）：$e');
@@ -1077,13 +1076,14 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   /// AudioPlayActivity.clearCurrentAudioCache:318-349；toast 文案逐字对齐
   /// audio_cache_current_chapter_cleared / _not_found）
   Future<void> _clearCurrentAudioCache() async {
-    final api = ref.read(bookApiProvider);
     final bookUrl = widget.effectiveBookUrl;
     final currentIndex = ref.read(audioNotifierProvider).currentIndex;
     if (bookUrl.isEmpty) return;
     BookChapter? chapter;
     try {
-      final chapters = await api.readingRepository.getChapters(bookUrl);
+      final chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(bookUrl);
       chapter = chapters.where((c) => c.index == currentIndex).firstOrNull;
     } catch (e) {
       debugPrint('[audio-cache] 清除本章缓存前获取章节失败：$e');
@@ -1107,7 +1107,6 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   }
 
   Future<void> _showSkipCreditsSheet() async {
-    final api = ref.read(bookApiProvider);
     final book = widget.book;
     final settings = ref.read(audioPlaybackSettingsRepositoryProvider);
     final initial = await settings.load();
@@ -1187,25 +1186,29 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                         );
                         if (book != null) {
                           final cfg = book.readConfig ?? const ReadConfig();
-                          await api.bookshelfRepository.updateBook(
-                            book.copyWith(
-                              readConfig: cfg.copyWith(
-                                openCredits: 0,
-                                closeCredits: 0,
-                              ),
-                            ),
-                          );
+                          await ref
+                              .read(bookshelfRepositoryProvider)
+                              .updateBook(
+                                book.copyWith(
+                                  readConfig: cfg.copyWith(
+                                    openCredits: 0,
+                                    closeCredits: 0,
+                                  ),
+                                ),
+                              );
                         }
                       } else if (book != null) {
                         final cfg = book.readConfig ?? const ReadConfig();
-                        await api.bookshelfRepository.updateBook(
-                          book.copyWith(
-                            readConfig: cfg.copyWith(
-                              openCredits: open,
-                              closeCredits: close,
-                            ),
-                          ),
-                        );
+                        await ref
+                            .read(bookshelfRepositoryProvider)
+                            .updateBook(
+                              book.copyWith(
+                                readConfig: cfg.copyWith(
+                                  openCredits: open,
+                                  closeCredits: close,
+                                ),
+                              ),
+                            );
                       }
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (mounted) {

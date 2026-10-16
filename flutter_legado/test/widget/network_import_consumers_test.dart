@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +12,6 @@ import 'package:flutter_legado/src/domain/models/http_response.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/network_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
 
 import '../mocks/mocks.dart';
@@ -31,10 +34,10 @@ void main() {
   Future<void> import(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           networkServiceProvider.overrideWithValue(network),
-        ],
+        ]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );

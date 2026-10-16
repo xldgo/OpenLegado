@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../mocks/book_image_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
@@ -10,9 +11,7 @@ import '../helpers/reader_layout_host.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'comic_test_helpers.dart';
@@ -207,7 +206,7 @@ void main() {
       'https://cdn.example.com/p43unify/err/ch1/0.jpg',
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -251,7 +250,7 @@ void main() {
       'https://cdn.example.com/p43unify/nosrc/ch1/0.jpg',
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -282,7 +281,7 @@ void main() {
       'http://127.0.0.1:${server.port}/p43unify/nosrc2/ch1/0.jpg',
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 

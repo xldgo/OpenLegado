@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreShowScreen 页码控件 widget 测试
 import 'dart:convert';
 
@@ -8,7 +10,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/explore_show_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -53,7 +54,7 @@ void main() {
   testWidgets('顶栏展示第 1 页并可打开页码选择器', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
@@ -75,7 +76,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
@@ -104,7 +105,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );

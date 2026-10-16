@@ -1,18 +1,28 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
+class _VisiblePrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
+
 /// BookListItem 结构与角标验证（对标 item_bookshelf_list.xml）
 void main() {
   Widget wrap(Book book, {VoidCallback? onTap, VoidCallback? onLongPress}) {
-    return MaterialApp(
-      home: Scaffold(
-        body: ListView(
-          children: [
-            BookListItem(book: book, onTap: onTap, onLongPress: onLongPress),
-          ],
+    return ProviderScope(
+      overrides: [privacyControllerProvider.overrideWith(_VisiblePrivacy.new)],
+      child: MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              BookListItem(book: book, onTap: onTap, onLongPress: onLongPress),
+            ],
+          ),
         ),
       ),
     );
@@ -31,6 +41,7 @@ void main() {
       latestChapterTime: DateTime.now().millisecondsSinceEpoch - 3600 * 1000,
     );
     await tester.pumpWidget(wrap(book));
+    await tester.pumpAndSettle();
 
     // 书名 / 作者 / 阅读章节 / 最新章节
     expect(find.text('斗破苍穹'), findsOneWidget);
@@ -57,6 +68,7 @@ void main() {
       latestChapterTime: DateTime.now().millisecondsSinceEpoch - 86400 * 1000,
     );
     await tester.pumpWidget(wrap(book));
+    await tester.pumpAndSettle();
 
     expect(find.text('未读书籍'), findsOneWidget);
     expect(find.text('第十章 终章'), findsOneWidget);
@@ -77,6 +89,7 @@ void main() {
       durChapterPos: 0,
     );
     await tester.pumpWidget(wrap(book));
+    await tester.pumpAndSettle();
 
     expect(find.text('无章节信息'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
@@ -96,6 +109,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     await tester.tap(find.text('交互测试'));
     expect(tapped, isTrue);
 

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
@@ -10,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 
@@ -143,13 +144,13 @@ void main() {
       ),
     ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts.mp3'));
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         systemTtsServiceProvider.overrideWithValue(system),
         streamAudioPlayerProvider.overrideWithValue(player),
         audioServiceProvider.overrideWithValue(audio),
         mediaArtworkLoaderProvider.overrideWithValue(FakeMediaArtworkLoader()),
-      ],
+      ]),
     );
     addTearDown(() async {
       container.dispose();

@@ -881,8 +881,7 @@ extension _SearchBuilders on _SearchScreenState {
     List<BookSource> sources;
     try {
       sources = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getEnabledBookSources();
     } catch (e) {
       if (mounted) {

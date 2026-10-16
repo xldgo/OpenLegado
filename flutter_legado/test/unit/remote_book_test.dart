@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
 
 import 'dart:convert';
@@ -11,7 +13,6 @@ import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/domain/contracts/remote_server_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/remote_book/remote_book_notifier.dart';
 import 'package:flutter_legado/src/providers/remote_book/remote_server_provider.dart';
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
@@ -86,7 +87,7 @@ void main() {
       });
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });
@@ -185,10 +186,10 @@ void main() {
           .thenThrow(StateError('模拟选择失败'));
       when(() => repository.delete(1)).thenThrow(StateError('模拟删除失败'));
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           remoteServerRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       await readNotifier().init();
@@ -230,10 +231,10 @@ void main() {
       final repository = _MockServerRepository();
       when(() => repository.load()).thenThrow(StateError('模拟读取失败'));
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           remoteServerRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       final previous = readState();
@@ -253,10 +254,10 @@ void main() {
         ),
       );
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           webDavConnectionRepositoryProvider.overrideWithValue(connection),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       when(() => mockApi.webDavService.webdavListDir(any(), any())).thenAnswer(
@@ -319,10 +320,10 @@ void main() {
         ),
       );
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           webDavConnectionRepositoryProvider.overrideWithValue(connection),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       when(() => mockApi.webDavService.webdavListDir(any(), any()))

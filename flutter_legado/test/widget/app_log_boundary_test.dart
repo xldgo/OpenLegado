@@ -1,8 +1,8 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_legado/src/data/repositories/mock_app_log_repository.dart';
 import 'package:flutter_legado/src/domain/models/app_log_entry.dart';
 import 'package:flutter_legado/src/providers/app_log_repository_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/app_log_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -18,10 +18,7 @@ void main() {
     await repository.appLogPush(level: 'http', message: 'HTTP消息');
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          appLogRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [appLogRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: AppLogScreen()),
       ),
     );
@@ -73,10 +70,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          appLogRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [appLogRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: AppLogScreen()),
       ),
     );
@@ -101,10 +95,7 @@ void main() {
     when(() => repository.appLogClearAll()).thenThrow(StateError('缓冲不可用'));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          appLogRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [appLogRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: AppLogScreen()),
       ),
     );

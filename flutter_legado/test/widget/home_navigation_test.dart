@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -8,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/main_prefs_notifier.dart';
 import 'package:flutter_legado/src/providers/rss/rss_notifier.dart'
     show kRssSourceVersion, kRssSourceVersionKey;
@@ -65,11 +66,11 @@ void main() {
         .thenReturn(MockReadRecordRepository());
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           if (mainPreferences != null)
             homeSettingsRepositoryProvider.overrideWithValue(mainPreferences),
-        ],
+        ]),
         child: const MaterialApp(home: HomeScreen()),
       ),
     );

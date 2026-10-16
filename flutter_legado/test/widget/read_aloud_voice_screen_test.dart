@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 
@@ -12,7 +14,6 @@ import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_panel.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -52,11 +53,11 @@ void main() {
         });
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           systemTtsServiceProvider.overrideWithValue(_System()),
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
-        ],
+        ]),
         child: const MaterialApp(home: Scaffold(body: ReadAloudVoicePanel())),
       ),
     );

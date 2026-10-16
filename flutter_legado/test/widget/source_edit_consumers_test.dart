@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,11 +9,8 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/domain/models/source_syntax_result.dart';
 import 'package:flutter_legado/src/domain/models/login_v2.dart';
-import 'package:flutter_legado/src/features/book_sources/book_source_repository_provider.dart';
 import 'package:flutter_legado/src/features/book_sources/js_source_edit_screen.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/source_interaction_provider.dart';
 import 'package:flutter_legado/src/screens/curl_analyze_url_sheet.dart';
 import 'package:flutter_legado/src/utils/source_login_entry.dart';
 
@@ -26,10 +27,7 @@ void main() {
     String? inserted;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookSourceEditServiceProvider.overrideWithValue(service),
-          bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
-        ],
+        overrides: [bookSourceEditServiceProvider.overrideWithValue(service)],
         child: MaterialApp(
           home: Builder(
             builder: (context) => Scaffold(
@@ -83,7 +81,6 @@ void main() {
         overrides: [
           bookSourceEditServiceProvider.overrideWithValue(editor),
           bookSourceRepositoryProvider.overrideWithValue(repository),
-          bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
         ],
         child: MaterialApp(
           home: Builder(
@@ -148,10 +145,10 @@ void main() {
     bool? loggedIn;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
+        overrides: mergeTestOverrides([
+          ...MockRustApi().overrides,
           sourceLoginV2ServiceProvider.overrideWithValue(service),
-          bookApiProvider.overrideWithValue(MockRustApi()),
-        ],
+        ]),
         child: MaterialApp(
           home: Consumer(
             builder: (context, ref, _) => Scaffold(

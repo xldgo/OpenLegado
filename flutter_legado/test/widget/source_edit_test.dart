@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 书源编辑页 widget 测试
 //
 // 验证 Phase 5.1 书源编辑表单（对标 Android BookSourceEditActivity）：
@@ -11,7 +13,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
@@ -29,7 +30,7 @@ void main() {
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

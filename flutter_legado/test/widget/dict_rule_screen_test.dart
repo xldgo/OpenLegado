@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/models/misc.dart' show DictRule;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -6,7 +8,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart' show AppRoutes;
 import 'package:flutter_legado/src/screens/dict_rule_screen.dart';
 
@@ -27,7 +28,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

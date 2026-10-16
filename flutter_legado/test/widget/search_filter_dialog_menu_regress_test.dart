@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [D1 缺陷回归 | full-stack-engineer + UI + QA]
 //
 // 缺陷 D1（P1，设备验收批，复现 2/2）：
@@ -20,7 +22,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
@@ -51,7 +52,7 @@ void main() {
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

@@ -1,11 +1,12 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_chapter_cache_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_chapter_cache_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_cache_download_service.dart';
 import 'package:flutter_legado/src/data/services/rust_cache_download_service.dart';
 import 'package:flutter_legado/src/providers/chapter_cache_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,7 +14,7 @@ import '../mocks/mocks.dart';
 
 void main() {
   test('应用装配直接选择Rust实现，不依赖运行时初始化', () {
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     expect(api.chapterCacheRepository, isA<RustChapterCacheRepository>());
     expect(api.cacheDownloadService, isA<RustCacheDownloadService>());
     expect(
@@ -45,11 +46,18 @@ void main() {
     expect(await downloads.listFailedChapters('书'), isEmpty);
   });
 
-  test('窄Provider跟随根装配替换且可以独立注入', () {
+  test('窄Provider跟随窄依赖替换且可以独立注入', () {
     final first = MockBookApi();
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        chapterCacheRepositoryProvider.overrideWithValue(
+          first.chapterCacheRepository,
+        ),
+        cacheDownloadServiceProvider.overrideWithValue(
+          first.cacheDownloadService,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     expect(
@@ -60,7 +68,16 @@ void main() {
       container.read(cacheDownloadServiceProvider),
       same(first.cacheDownloadService),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        chapterCacheRepositoryProvider.overrideWithValue(
+          second.chapterCacheRepository,
+        ),
+        cacheDownloadServiceProvider.overrideWithValue(
+          second.cacheDownloadService,
+        ),
+      ]),
+    );
     expect(
       container.read(chapterCacheRepositoryProvider),
       same(second.chapterCacheRepository),
@@ -74,7 +91,6 @@ void main() {
     final downloads = CacheDownloadServiceMock();
     final independent = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((ref) => throw StateError('不得访问根API')),
         chapterCacheRepositoryProvider.overrideWithValue(cache),
         cacheDownloadServiceProvider.overrideWithValue(downloads),
       ],

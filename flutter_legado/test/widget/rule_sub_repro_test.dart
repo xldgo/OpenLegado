@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/models/rule_sub.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -5,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/rule_sub_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -23,7 +24,7 @@ void main() {
         .thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: RuleSubScreen()),
       ),
     );
@@ -48,7 +49,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: RuleSubScreen()),
       ),
     );

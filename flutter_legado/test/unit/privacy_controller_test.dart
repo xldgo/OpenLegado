@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -11,7 +13,6 @@ import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_settings.dart';
 import 'package:flutter_legado/src/platform/privacy/privacy_platform.dart';
-import 'package:flutter_legado/src/features/bookshelf/bookshelf_repositories.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 class TestCredentials implements PrivacyCredentialRepository {

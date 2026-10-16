@@ -1,3 +1,5 @@
+library;
+
 /// P2-29c 后续 失败章查询 Dart↔Rust 真实数据链运行时验证（契约 §2.43.8）
 ///
 /// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
@@ -15,15 +17,14 @@
 /// 前置条件：先在 rust/ 下构建 DLL
 /// （cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
-library;
-
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -54,7 +55,7 @@ void main() {
   }
 
   const noTaskBook = 'http://p2438-no-task.example.com/book';
-  late RustApi api;
+  late NativeTestApi api;
 
   setUpAll(() async {
     final lib = ExternalLibrary.open(_resolveDll());
@@ -69,7 +70,7 @@ void main() {
       dbFile.deleteSync();
     }
     await bridge.dbOpen(path: dbFile.path);
-    api = createBookApi(useMock: false) as RustApi;
+    api = createTestApplication(useMock: false) as NativeTestApi;
   });
 
   group('失败章查询真实 DLL 运行时验证（契约 §2.43.8）', () {

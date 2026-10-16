@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
 
 import 'dart:async';
@@ -8,7 +10,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -33,7 +34,7 @@ void main() {
               call.positionalArguments[1] as String;
         });
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -47,7 +48,7 @@ void main() {
     await notifier().setTtsPreSynthesisConcurrency(8);
     await notifier().setAudioCacheCleanTime(0);
     final restored = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
@@ -63,7 +64,7 @@ void main() {
     await notifier().setDetachReminder(false);
     expect(saved['readAloudDetachReminderEnabled'], 'false');
     final restored = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
@@ -76,7 +77,7 @@ void main() {
     await notifier().setMediaButtonPerNext(false);
     expect(saved['mediaButtonPerNext'], 'false');
     final restored = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
@@ -105,7 +106,7 @@ void main() {
     await notifier().setFollowSystem(false);
     expect(state().effectiveSpeed, 1.8);
     final restored = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
@@ -142,7 +143,7 @@ void main() {
     expect(state().hasStoredManualSpeed, true);
 
     final restored = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(restored.dispose);
     await restored.read(readAloudPreferencesProvider.notifier).load();
@@ -249,7 +250,7 @@ void main() {
     await notifier().setContentSplit(ReadAloudSplitMode.page, '。？！');
     container.dispose();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     await notifier().load();
     expect(state().splitMode, ReadAloudSplitMode.page);

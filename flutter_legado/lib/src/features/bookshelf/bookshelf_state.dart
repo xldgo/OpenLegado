@@ -1,8 +1,10 @@
+import '../../domain/models/bookshelf_settings.dart' show GroupMode;
+export '../../domain/models/bookshelf_settings.dart' show GroupMode;
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../models/models.dart';
 import '../../domain/models/bookshelf_settings.dart';
-export '../../domain/models/bookshelf_settings.dart' show GroupMode;
 
 part 'bookshelf_state.freezed.dart';
 

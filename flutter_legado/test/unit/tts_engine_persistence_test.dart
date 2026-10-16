@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 朗读引擎书级/全局双持久化测试（2026-10-04，对齐原版 SpeakEngineDialog）
 //
@@ -21,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -59,11 +60,11 @@ void main() {
     savedBooks.clear();
     configStore.clear();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(audioService),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
 

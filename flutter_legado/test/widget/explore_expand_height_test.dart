@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 发现页展开区「实机路径等价」回归测试
 //
 // [P1 缺陷修复 | full-stack-engineer + UI + QA]
@@ -6,7 +8,7 @@
 // 只断言 chip 宽度/顶边对齐、从不断言高度，故全绿却与真机不一致。
 //
 // 本测试走真实装配路径：真实 exploreNotifierProvider（Riverpod Notifier）+
-// bookApiProvider 覆写为 mock（mock 网络，不经 Rust FFI）；源数据为 2 个
+// bookshelfRepositoryProvider 覆写为 mock（mock 网络，不经 Rust FFI）；源数据为 2 个
 // 无 style 的 url 分类（对齐 kaixin7days 真机数据 玄幻/都市）。
 // 断言展开区「实际渲染高度非零」——即 chips 真的占空间，而非仅存在于 widget 树。
 import 'package:material_ui/material_ui.dart';
@@ -16,7 +18,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 
@@ -45,7 +46,7 @@ void main() {
     // 显式 ProviderContainer：既驱动 UI（UncontrolledProviderScope），
     // 又可在测试体读取 exploreNotifierProvider 状态断言空 type 归一化。
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
     when(() => mockApi.bookSourceRepository.getBookSources())
@@ -82,7 +83,7 @@ void main() {
   });
 
   /// 真实装配：真实 exploreNotifierProvider（由 ExploreScreen 内 ref.watch 驱动）
-  /// + bookApiProvider 覆写 mock（经显式 container）。不走 final-state 注入。
+  /// + bookshelfRepositoryProvider 覆写 mock（经显式 container）。不走 final-state 注入。
   Widget buildApp() {
     return UncontrolledProviderScope(
       container: container,

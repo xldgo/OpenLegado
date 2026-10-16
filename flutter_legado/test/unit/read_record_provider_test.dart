@@ -1,7 +1,8 @@
+library;
+
 /// ReadRecordNotifier 单元测试
 ///
 /// 覆盖：加载/搜索/排序/删除/总时长（对齐原版 ReadRecordActivity）
-library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';

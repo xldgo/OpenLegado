@@ -1,9 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../domain/contracts/bookmark_repository.dart';
-import '../../providers/providers.dart';
-
-/// 共享根实例装配的 Repository；不识别具体实现或另建存储。— Codex + UI
-final bookmarkRepositoryProvider = Provider<BookmarkRepository>(
-  (ref) => ref.watch(bookApiProvider).bookmarkRepository,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../../app/bootstrap/application_dependencies.dart'
+    show bookmarkRepositoryProvider;

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -6,7 +8,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/txt_toc_rules/txt_toc_rules_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -41,7 +42,7 @@ void main() {
             configStore[key] = value;
           });
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });

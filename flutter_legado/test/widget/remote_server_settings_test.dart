@@ -1,6 +1,7 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/remote_server_repository.dart';
 import 'package:flutter_legado/src/domain/models/remote_server_config.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/remote_book/remote_server_provider.dart';
 import 'package:flutter_legado/src/screens/remote_book_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -42,10 +43,10 @@ void main() {
   Future<void> open(WidgetTester tester, {bool sheet = true}) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           remoteServerRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: const MaterialApp(home: RemoteBookScreen()),
       ),
     );

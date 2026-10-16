@@ -1,13 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/services/source_import_service.dart';
 import '../../platform/source_import_file_reader.dart';
-import '../../services/book_api.dart';
+import 'application_dependencies.dart';
 
-/// 为一次导入绑定同一根实例，不触发初始化或额外缓存。— Codex + UI
-SourceImportService createSourceImportService(BookApi api) {
-  return SourceImportService(
-    repository: api.bookSourceRepository,
-    fetchText: api.networkService.httpGet,
+/// 每次操作使用同一份已装配的领域依赖。— Codex + UI
+final sourceImportServiceProvider = Provider<SourceImportService>(
+  (ref) => SourceImportService(
+    repository: ref.watch(bookSourceRepositoryProvider),
+    fetchText: ref.watch(networkServiceProvider).httpGet,
     readFile: readSourceImportFile,
-    applyReplaceRules: api.replaceRuleService.applyReplaceRulesToSource,
-  );
-}
+    applyReplaceRules: ref
+        .watch(replaceRuleServiceProvider)
+        .applyReplaceRulesToSource,
+  ),
+);

@@ -8,7 +8,7 @@ import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 /// 目标：应用首帧构建 + 布局 + 绘制耗时 < 3000ms（冷启动基准）。
 ///
 /// 说明：
-/// - 完整的 LegadoApp 依赖 RustApi FFI 初始化，无法在纯 widget 测试环境运行，
+/// - 完整的 LegadoApp 依赖 NativeTestApi FFI 初始化，无法在纯 widget 测试环境运行，
 ///   因此这里用"代表性应用壳"（MaterialApp + Scaffold + 书架式网格）作为代理，
 ///   覆盖真实冷启动路径中的核心开销：Material 主题构建、Scaffold 布局、
 ///   书架网格（BookGridItem）的首帧 build/layout。

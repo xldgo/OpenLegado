@@ -1,7 +1,7 @@
-/// 真实 Windows FFI 与本机 HTTP fixture，不依赖外部 TTS 网站。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 真实 Windows FFI 与本机 HTTP fixture，不依赖外部 TTS 网站。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:async';
 import 'dart:convert';
 

@@ -1,12 +1,11 @@
+import '../fixtures/app_test_api.dart';
 import '../mocks/reading_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -73,18 +72,13 @@ void main() {
     repository = _Bookmarks();
   });
 
-  testWidgets('书签页只注入窄接口即可加载与删除，不创建 BookApi', (tester) async {
+  testWidgets('书签页只注入窄接口即可加载与删除，不创建 TestApi', (tester) async {
     when(() => repository.getAllBookmarks())
         .thenAnswer((_) async => [_bookmark]);
     when(() => repository.deleteBookmark(42)).thenAnswer((_) async {});
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookmarkRepositoryProvider.overrideWithValue(repository),
-          bookApiProvider.overrideWith(
-            (ref) => throw StateError('书签页不应创建 BookApi'),
-          ),
-        ],
+        overrides: [bookmarkRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: BookmarkScreen()),
       ),
     );
@@ -107,10 +101,10 @@ void main() {
         .thenAnswer((_) async => [_bookmark]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(_TocApi()),
+        overrides: mergeTestOverrides([
+          ..._TocApi().overrides,
           bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: const MaterialApp(home: TocScreen(book: _book)),
       ),
     );
@@ -139,10 +133,10 @@ void main() {
     when(() => repository.deleteBookmark(42)).thenAnswer((_) async {});
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(_TocApi()),
+        overrides: mergeTestOverrides([
+          ..._TocApi().overrides,
           bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: const MaterialApp(home: TocScreen(book: _book)),
       ),
     );
@@ -174,10 +168,10 @@ void main() {
       when(() => repository.updateBookmark(any())).thenAnswer((_) async {});
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            bookApiProvider.overrideWithValue(_TocApi()),
+          overrides: mergeTestOverrides([
+            ..._TocApi().overrides,
             bookmarkRepositoryProvider.overrideWithValue(repository),
-          ],
+          ]),
           child: MaterialApp(
             home: fromToc
                 ? const TocScreen(book: _book)
@@ -222,10 +216,10 @@ void main() {
         .thenAnswer((_) async => ++queries == 1 ? [_bookmark] : []);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(_TocApi()),
+        overrides: mergeTestOverrides([
+          ..._TocApi().overrides,
           bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: const MaterialApp(home: TocScreen(book: _book)),
       ),
     );

@@ -1,14 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../domain/contracts/highlight_repository.dart';
-import '../domain/contracts/highlight_rule_repository.dart';
-import 'providers.dart';
-
-/// 复用应用装配的仓储，消费者可分别注入。— Codex + UI
-final highlightRepositoryProvider = Provider<HighlightRepository>(
-  (ref) => ref.watch(bookApiProvider).highlightRepository,
-);
-
-final highlightRuleRepositoryProvider = Provider<HighlightRuleRepository>(
-  (ref) => ref.watch(bookApiProvider).highlightRuleRepository,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../app/bootstrap/application_dependencies.dart'
+    show highlightRepositoryProvider, highlightRuleRepositoryProvider;

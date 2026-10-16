@@ -1,11 +1,13 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_dictionary_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
 import 'package:flutter_legado/src/providers/dict/dict_notifier.dart';
 import 'package:flutter_legado/src/providers/dictionary_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -13,7 +15,7 @@ import 'package:mocktail/mocktail.dart';
 import '../mocks/mocks.dart';
 
 void main() {
-  test('根装配Provider共用实例，替换根后不混读配置', () async {
+  test('根装配Provider共用实例，替换依赖后不混读配置', () async {
     final repository = MockDictRuleRepository();
     const service = MockDictionaryService();
     final first = MockBookApi(
@@ -22,7 +24,10 @@ void main() {
     );
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        dictionaryServiceProvider.overrideWithValue(first.dictionaryService),
+        dictRuleRepositoryProvider.overrideWithValue(first.dictRuleRepository),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(dictRuleRepositoryProvider), same(repository));
@@ -34,7 +39,12 @@ void main() {
       ),
       isTrue,
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        dictionaryServiceProvider.overrideWithValue(second.dictionaryService),
+        dictRuleRepositoryProvider.overrideWithValue(second.dictRuleRepository),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(dictRuleRepositoryProvider),
@@ -91,10 +101,7 @@ void main() {
   test('关联导入与查询列表、管理仓储共用同一配置且同名保留ID', () async {
     final repository = MockDictRuleRepository();
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应读取根配置')),
-        dictRuleRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [dictRuleRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
     final existing = (await repository.dictRuleList()).first;
@@ -137,10 +144,7 @@ void main() {
       repository = DictRuleRepositoryMock();
       when(() => repository.dictRuleList()).thenAnswer((_) async => [rule]);
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应读根配置')),
-          dictRuleRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [dictRuleRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
       notifier = container.read(dictNotifierProvider.notifier);

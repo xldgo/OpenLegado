@@ -1,10 +1,12 @@
+import '../fixtures/app_test_api.dart';
+
 // RssNotifier 单元测试
 //
 // 覆盖：初始状态/loadSources/selectSource/refreshArticles/addSource/
 // removeSource/状态管理（clear*）/分组筛选（对齐安卓 RssFragment）
 //
 // 迁移自原 RssProvider（ChangeNotifier）测试，改为 Riverpod 范式：
-// 使用 ProviderContainer + bookApiProvider.overrideWithValue(mockApi)。
+// 使用 ProviderContainer + ...mockApi.overrides。
 // 原「触发通知」测试点改为通过 container.listen 断言状态变更会触发监听。
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/rss/rss_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -31,7 +32,7 @@ void main() {
     SharedPreferences.setMockInitialValues({kRssSourceVersionKey: 6});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

@@ -1,4 +1,4 @@
-/// RustApi 调用异常
+/// Rust 桥接调用异常
 class RustApiException implements Exception {
   final String message;
   final String? operation;

@@ -72,7 +72,7 @@ import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
 /// 单元测试 Mock 定义
 ///
-/// 使用 mocktail 生成 RustApi / AudioService / http.Client 的 mock 实例，
+/// 使用 mocktail 生成 NativeTestApi / AudioService / http.Client 的 mock 实例，
 /// 供 Providers / Services 层测试使用。
 
 import 'package:flutter_legado/src/domain/contracts/search_service.dart';
@@ -97,14 +97,15 @@ import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/services/media_session_models.dart';
 
-import 'package:flutter_legado/src/services/rust_api.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 import 'package:flutter_legado/src/services/stream_audio_player.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
-/// RustApi 的 mock 实现
+/// NativeTestApi 的 mock 实现
 class MockHttpTtsRepository extends Mock implements HttpTtsRepository {
   MockHttpTtsRepository() {
     when(() => getHttpTts()).thenAnswer((_) async => const []);
@@ -234,7 +235,7 @@ class ConfigRepositoryMock extends Mock implements ConfigRepository {}
 
 class AppRuntimeMock extends Mock implements AppRuntime {}
 
-class MockRustApi extends Mock implements RustApi {
+class MockRustApi extends Mock implements TestApi {
   @override
   final ConfigRepository configRepository = ConfigRepositoryMock();
   @override

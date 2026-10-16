@@ -33,8 +33,9 @@ extension _SourceEditLoad on _SourceEditScreenState {
       // 兜底从 API 直接拉取，避免空表单（「编辑页没有任何书源信息」根因）
       if (source == null) {
         try {
-          final api = ref.read(bookApiProvider);
-          final sources = await api.bookSourceRepository.getBookSources();
+          final sources = await ref
+              .read(bookSourceRepositoryProvider)
+              .getBookSources();
           for (final s in sources) {
             if (s.bookSourceUrl == widget.sourceUrl) {
               source = s;

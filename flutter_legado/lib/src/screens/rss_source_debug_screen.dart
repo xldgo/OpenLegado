@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 /// RSS 源调试页面
 ///
-/// 对标安卓原版 RssSourceDebugActivity：输入 RSS 源 URL，经 BookApi
+/// 对标安卓原版 RssSourceDebugActivity：输入 RSS 源 URL，经 RuleExecutionService
 /// 逐步执行「查源 → 抓取文章」链路，实时输出调试日志
 ///（REFACTORING_REMAINING_PLAN §4.3 P2-2⑤）。
 /// 架构合规（§0.2 铁律）：全部经RSS源和文章仓储，

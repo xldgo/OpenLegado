@@ -452,8 +452,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       );
       if (input == null || !mounted) return;
       await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       setState(() => _preservedVariable = input);

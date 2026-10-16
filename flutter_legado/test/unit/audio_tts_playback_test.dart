@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
@@ -21,7 +25,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
 import '../mocks/mocks.dart';
@@ -52,10 +55,10 @@ void main() {
     speakSpeeds.clear();
     pathFor = (call) => '/tmp/tts/para_$call.mp3';
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -450,11 +453,11 @@ void main() {
             : const HttpTtsNoAudio(HttpTtsNoAudioReason.synthesisFailed),
       );
       final isolated = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
           httpTtsSynthesizerProvider.overrideWithValue(synthesis),
-        ],
+        ]),
       );
       addTearDown(isolated.dispose);
       final notifier = isolated.read(audioNotifierProvider.notifier);

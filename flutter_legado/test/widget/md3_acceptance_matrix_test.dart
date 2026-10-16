@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // MD3 验收矩阵（UI_MD3_PLAN.md 第十三节）自动化
 //
 // 覆盖三项：
@@ -15,7 +17,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_screen.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
@@ -129,7 +130,7 @@ void main() {
       when(() => mockApi.bookSourceRepository.getEnabledBookSources())
           .thenAnswer((_) async => []);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
       tester.view.physicalSize = const Size(1080, 2260);

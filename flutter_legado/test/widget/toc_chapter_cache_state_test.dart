@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2，2026-09 升级后）新编译的
@@ -7,7 +9,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,7 +79,7 @@ void main() {
     mockBookmarks = _MockBookmarks();
     when(() => mockApi.bookmarkRepository).thenReturn(mockBookmarks);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -224,10 +225,10 @@ void main() {
       );
       addTearDown(() => unawaited(service.dispose()));
       final settingsContainer = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           appSettingsServiceProvider.overrideWithValue(service),
-        ],
+        ]),
       );
       addTearDown(settingsContainer.dispose);
       stubCommon(makeChapters(), const ['u0', 'u3']);

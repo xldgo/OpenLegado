@@ -551,7 +551,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   ///
   /// 先通过 FFI 确认文件是压缩包格式，然后弹出 ArchiveImportDialog。
   Future<void> _openArchiveImport(String path) async {
-    // 经 BookApi（Riverpod 注入层）确认是否为压缩包
+    // 经 BookArchiveService（Riverpod 注入层）确认是否为压缩包
     try {
       final isArchive = await ref
           .read(bookArchiveServiceProvider)

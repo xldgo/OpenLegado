@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,9 +15,7 @@ import 'package:flutter_legado/src/domain/models/general_settings.dart';
 import 'package:flutter_legado/src/domain/models/backup_settings.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/backup_settings_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../fixtures/home_settings_storage.dart';
 
@@ -149,10 +149,10 @@ void main() {
 
   test('同步消费者与备份仓储同源，失败回退且外部恢复后刷新', () async {
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(syncNotifierProvider.notifier);
@@ -175,10 +175,10 @@ void main() {
   test('同步策略从共享仓储加载并在恢复重读后订阅更新', () async {
     storage.values.addAll({'sync_auto': true, 'sync_book_progress_plus': true});
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     await container.read(syncNotifierProvider.notifier).loadConfig();

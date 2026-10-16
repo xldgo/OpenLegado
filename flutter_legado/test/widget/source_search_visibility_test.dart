@@ -1,9 +1,10 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
@@ -33,7 +34,7 @@ void main() {
       );
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(api)],
+          overrides: mergeTestOverrides([...api.overrides]),
           child: MaterialApp(
             home: rss ? const RssSourceManageScreen() : const SourceScreen(),
           ),

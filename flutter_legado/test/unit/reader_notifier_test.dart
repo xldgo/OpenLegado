@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
@@ -26,9 +29,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    // 创建容器并覆盖 bookApiProvider 注入 mock
+    // 创建容器并覆盖 bookshelfRepositoryProvider 注入 mock
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -88,10 +91,10 @@ void main() {
       ),
     ).thenAnswer((_) async {});
     final isolated = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         readingRepositoryProvider.overrideWithValue(reading),
-      ],
+      ]),
     );
     addTearDown(isolated.dispose);
     final reader = isolated.read(readerNotifierProvider.notifier);

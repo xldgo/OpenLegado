@@ -1,3 +1,5 @@
+library;
+
 /// BookmarkNotifier 单元测试
 ///
 /// 覆盖：初始状态/loadAll/loadByBook/addBookmark/deleteBookmark/search
@@ -6,7 +8,6 @@
 /// 注意：Riverpod 仅在 state 实际变化时通知监听者（不同于 ChangeNotifier
 /// 每次 notifyListeners 必发），故「触发通知」用例改用 container.listen
 /// 并先制造真实状态变化再断言。
-library;
 
 import 'dart:async';
 
@@ -19,7 +20,7 @@ import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 
-/// 单独模拟书签接口，不依赖原生库或巨大 BookApi。— Codex + UI
+/// 单独模拟书签接口，不依赖原生库或巨大 TestApi。— Codex + UI
 class _MockBookmarkRepository extends Mock implements BookmarkRepository {}
 
 void main() {

@@ -1,14 +1,16 @@
-/// 搜索访问接口的真实 Windows FFI 回归；使用隔离数据库。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 搜索访问接口的真实 Windows FFI 回归；使用隔离数据库。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -39,7 +41,7 @@ void main() {
       await request.response.close();
     });
     final sourceUrl = 'http://127.0.0.1:${server.port}';
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: NativeRustRuntime(
@@ -53,7 +55,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     final history = api.searchHistoryRepository;
     expect(await history.getSearchHistory(), isEmpty);
     await history.addSearchKeyword('边界甲', '书名甲');

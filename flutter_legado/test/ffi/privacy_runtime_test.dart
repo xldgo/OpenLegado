@@ -1,7 +1,7 @@
-/// 真实 Windows FRB 与临时数据库验证，不使用用户数据库。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 真实 Windows FRB 与临时数据库验证，不使用用户数据库。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

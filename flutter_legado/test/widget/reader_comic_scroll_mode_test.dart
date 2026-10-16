@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -35,9 +36,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 1x1 透明 PNG（解码结果 base64，同 reader_comic_decode_test）
 const _kPngBase64 =
@@ -224,7 +223,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -243,7 +242,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -271,7 +270,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -299,7 +298,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -322,7 +321,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -346,7 +345,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -360,7 +359,7 @@ void main() {
       // 条漫默认模式 4 + 记录页 2
       final api = buildApi(durChapterPos: 2, progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -398,7 +397,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -431,7 +430,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -466,7 +465,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -501,7 +500,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -564,7 +563,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -607,7 +606,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);

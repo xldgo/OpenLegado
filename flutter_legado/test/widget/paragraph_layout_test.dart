@@ -1,7 +1,8 @@
+library;
+
 /// 段落布局引擎单元测试
 ///
 /// 本文件验证样式配置与布局结果模型；断行、分页规则由原始 Kotlin 对照测试覆盖。
-library;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';

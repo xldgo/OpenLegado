@@ -1,3 +1,5 @@
+import '../providers/reading_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/change_source/source_switch_dependencies.dart';
 import '../providers/book_content_provider.dart';
 import '../providers/reader/reader_settings_provider.dart';
@@ -20,7 +22,6 @@ import '../models/source_match.dart';
 import '../providers/audio/audio_notifier.dart';
 import '../features/bookmarks/bookmarks.dart';
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/providers.dart';
 import '../providers/general_settings_provider.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../providers/theme/system_bar_controller.dart';
@@ -355,8 +356,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     try {
-      final api = ref.read(bookApiProvider);
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       BookSource? matched;
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {
@@ -470,7 +472,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final chapters = state.chapters;
     if (book == null || chapters.isEmpty) return;
 
-    final api = ref.read(bookApiProvider);
     final index = state.currentChapterIndex;
 
     // 前后各预加载 2 章（按距离由近及远，越靠近当前章越优先）
@@ -478,7 +479,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       final next = index + offset;
       if (next < chapters.length) {
         unawaited(
-          api.readingRepository
+          ref
+              .read(readingRepositoryProvider)
               .getChapterContentFull(book.bookUrl, next)
               .catchError((_) => ''),
         );
@@ -486,7 +488,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       final prev = index - offset;
       if (prev >= 0) {
         unawaited(
-          api.readingRepository
+          ref
+              .read(readingRepositoryProvider)
               .getChapterContentFull(book.bookUrl, prev)
               .catchError((_) => ''),
         );
@@ -524,8 +527,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       var inShelf = false;
       try {
         final dbBook = await ref
-            .read(bookApiProvider)
-            .bookshelfRepository
+            .read(bookshelfRepositoryProvider)
             .getBook(book.bookUrl);
         inShelf = BookOpenUtils.isInBookshelf(dbBook);
       } catch (_) {
@@ -593,10 +595,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 仅删除本次会话以 notShelf 临时入库的书；已入架书不会进入本方法）
   Future<void> _removeNotShelfBook(Book book) async {
     try {
-      await ref
-          .read(bookApiProvider)
-          .bookshelfRepository
-          .deleteBook(book.bookUrl);
+      await ref.read(bookshelfRepositoryProvider).deleteBook(book.bookUrl);
     } catch (_) {
       // 清理失败不阻断退出（极端残留仅影响占位行，不污染书架列表）
     }
@@ -1211,8 +1210,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     BookSource? source;
     try {
       final sources = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {

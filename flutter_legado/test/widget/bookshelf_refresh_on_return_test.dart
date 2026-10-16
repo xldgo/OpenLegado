@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -7,7 +8,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
@@ -75,7 +75,7 @@ void main() {
   Future<ProviderContainer> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           builder: readerLayoutTestBuilder,
           home: const BookshelfScreen(),

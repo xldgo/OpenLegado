@@ -1,3 +1,7 @@
+library;
+
+import '../features/book_sources/book_source_repository_provider.dart';
+
 /// 书源探索页面（ExploreScreen）
 ///
 /// 参考 Android 原版 ExploreFragment.kt 实现
@@ -9,7 +13,6 @@
 /// 5. 点击分类进入发现书籍列表（对标 ExploreShowActivity）
 ///
 /// 视觉：参考版单列列表行（图标 + 源名 + 右箭头）+ 顶栏嵌入式搜索 — Composer + UI
-library;
 
 import '../l10n/app_localization.dart';
 
@@ -27,7 +30,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/explore/explore_notifier.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../screens/explore_show_screen.dart';
 import '../utils/responsive.dart';
@@ -335,14 +337,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   /// customOrder = 当前最小 order - 1，置顶到最前）— 发现页修复 R2
   Future<void> _onTopSource(BookSource source) async {
     try {
-      final api = ref.read(bookApiProvider);
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       var minOrder = 0;
       for (final s in sources) {
         if (s.customOrder < minOrder) minOrder = s.customOrder;
       }
       final updated = source.copyWith(customOrder: minOrder - 1);
-      await api.bookSourceRepository.updateBookSource(updated);
+      await ref.read(bookSourceRepositoryProvider).updateBookSource(updated);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -1,7 +1,7 @@
 // Flutter↔Rust end-to-end FFI smoke tests.
 //
 // Covers:
-//   1. RustApi.initialize() — Rust runtime + DB open
+//   1. NativeTestApi.initialize() — Rust runtime + DB open
 //   2. getVersion() — FFI round-trip version string
 //   3. getBookSources() — real DB query round-trip (no network)
 //
@@ -20,17 +20,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../test/fixtures/native_test_api.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Flutter-Rust FFI smoke', () {
-    late RustApi api;
+    late NativeTestApi api;
 
     setUpAll(() async {
-      api = createBookApi(useMock: false) as RustApi;
+      api = createTestApplication(useMock: false) as NativeTestApi;
     });
 
     testWidgets('initialize() does not throw', (tester) async {

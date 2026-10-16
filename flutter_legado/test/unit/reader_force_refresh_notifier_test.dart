@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P2-9 | 2026-09-24] ReaderNotifier 强制刷新 / 换源后重载（状态级）
 //
 // 覆盖 refreshChapterContent（Fix A 强制路径）与
@@ -22,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -70,7 +70,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
 import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
 
@@ -17,7 +19,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/widgets/skeleton.dart';
 
@@ -49,7 +50,7 @@ void main() {
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -61,7 +62,7 @@ void main() {
     );
   }
 
-  /// 构造流式搜索批次（字段契约同 BookApi.searchMultiStream）
+  /// 构造流式搜索批次（字段契约同 TestApi.searchMultiStream）
   SearchBatch makeBatch(
     List<Map<String, dynamic>> books, {
     bool isLast = false,

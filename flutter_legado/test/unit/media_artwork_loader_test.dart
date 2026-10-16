@@ -13,7 +13,8 @@ import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/services/media_artwork_loader.dart';
 import 'package:flutter_legado/src/services/cover_decode_loader.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 class _CoverApi extends MockBookApi {
   late final _fixtureImages = TestBookImageRepository(
@@ -76,7 +77,10 @@ void main() {
           coverUrl: '/does-not-exist.jpg',
           customCoverUrl: file.uri.toString(),
         );
-        final loader = MediaArtworkLoader(api: MockBookApi());
+        final loader = MediaArtworkLoader(
+          images: MockBookApi().bookImageRepository,
+          sources: MockBookApi().bookSourceRepository,
+        );
         final first = await loader.load(book);
         expect(first, isNotNull);
         expect(identical(await loader.load(book), first), isTrue);
@@ -95,7 +99,10 @@ void main() {
         'https://example.invalid/a.jpg',
         bytes,
       );
-      final loader = MediaArtworkLoader(api: MockBookApi());
+      final loader = MediaArtworkLoader(
+        images: MockBookApi().bookImageRepository,
+        sources: MockBookApi().bookSourceRepository,
+      );
       final result = await loader.load(
         const Book(origin: 'source', coverUrl: 'https://example.invalid/a.jpg'),
       );
@@ -111,7 +118,10 @@ void main() {
 
   testWidgets('损坏或缺失封面回退默认，同一请求并发只生成一份缩略图', (tester) async {
     await tester.runAsync(() async {
-      final loader = MediaArtworkLoader(api: MockBookApi());
+      final loader = MediaArtworkLoader(
+        images: MockBookApi().bookImageRepository,
+        sources: MockBookApi().bookSourceRepository,
+      );
       const book = Book(coverUrl: '/does-not-exist.png');
       final results = await Future.wait([loader.load(book), loader.load(book)]);
       expect(results.first, isNotNull);
@@ -132,7 +142,10 @@ void main() {
       );
       CoverDecodeLoader.invalidateSourceRegistry();
       try {
-        final loader = MediaArtworkLoader(api: api);
+        final loader = MediaArtworkLoader(
+          images: api.bookImageRepository,
+          sources: api.bookSourceRepository,
+        );
         const composite =
             'https://example.invalid/header.jpg,{"headers":{"Referer":"fixture"}}';
         expect(await loader.load(const Book(coverUrl: composite)), isNotNull);

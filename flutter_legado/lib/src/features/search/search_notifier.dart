@@ -1,3 +1,5 @@
+export 'search_state.dart';
+import '../book_sources/book_source_repository_provider.dart';
 import '../../providers/app_log_repository_provider.dart';
 import '../../domain/services/search_result_aggregator.dart';
 import '../../domain/services/search_session.dart';
@@ -9,11 +11,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
-import '../../providers/providers.dart';
 import 'search_state.dart';
 import 'search_settings_provider.dart';
-
-export 'search_state.dart';
 
 /// 书源分组拆分正则（对标原版 AppPattern.splitGroupRegex：[,;，；]）
 final _splitGroupRegex = RegExp(r'[,;，；]');
@@ -496,8 +495,7 @@ class SearchNotifier extends Notifier<SearchState> {
     if (groups.isNotEmpty) {
       try {
         final allSources = await ref
-            .read(bookApiProvider)
-            .bookSourceRepository
+            .read(bookSourceRepositoryProvider)
             .getEnabledBookSources();
         for (final source in allSources) {
           final group = source.bookSourceGroup;

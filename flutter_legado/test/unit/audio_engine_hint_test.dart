@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // A4 无可用朗读引擎一次性提示测试（音频轨道 A4 批）
 //
 // 覆盖：
@@ -13,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -32,10 +33,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -119,11 +120,11 @@ void main() {
       when(() => audioService.abandonAudioFocus()).thenAnswer((_) async {});
       when(() => audioService.dispose()).thenAnswer((_) async {});
       final localContainer = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
           audioServiceProvider.overrideWithValue(audioService),
-        ],
+        ]),
       );
       addTearDown(localContainer.dispose);
 

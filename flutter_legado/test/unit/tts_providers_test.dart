@@ -1,12 +1,11 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/services/mock_http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/data/services/rust_http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts_service.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -16,10 +15,10 @@ class _System extends Mock implements SystemTts {}
 void main() {
   test('根装配选择正式或 Mock 合成，不初始化原生或系统插件', () async {
     expect(
-      createBookApi(useMock: false).httpTtsSynthesizer,
+      createTestApplication(useMock: false).httpTtsSynthesizer,
       isA<RustHttpTtsSynthesizer>(),
     );
-    final api = createBookApi(useMock: true);
+    final api = createTestApplication(useMock: true);
     expect(api.httpTtsSynthesizer, isA<MockHttpTtsSynthesizer>());
     final result = await api.httpTtsSynthesizer.synthesize(
       engineId: 1,
@@ -28,7 +27,7 @@ void main() {
     ) as HttpTtsNoAudio;
     expect(result.reason, HttpTtsNoAudioReason.mock);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     expect(
@@ -38,9 +37,13 @@ void main() {
     expect(container.read(systemTtsServiceProvider), isA<SystemTtsService>());
   });
 
-  test('根替换后 HTTP 跟随新装配，系统接口保持同一实例', () {
+  test('依赖替换后 HTTP 跟随新装配，系统接口保持同一实例', () {
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+      overrides: [
+        httpTtsSynthesizerProvider.overrideWithValue(
+          MockBookApi().httpTtsSynthesizer,
+        ),
+      ],
     );
     addTearDown(container.dispose);
     final subscription = container.listen(
@@ -53,7 +56,11 @@ void main() {
     final second = MockBookApi(
       httpTtsSynthesizer: const RustHttpTtsSynthesizer(),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        httpTtsSynthesizerProvider.overrideWithValue(second.httpTtsSynthesizer),
+      ]),
+    );
     expect(
       container.read(httpTtsSynthesizerProvider),
       same(second.httpTtsSynthesizer),

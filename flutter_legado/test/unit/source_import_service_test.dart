@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
+
 // SourceImportService 单元测试
 //
 // 覆盖：importFromJson/validateSource/parseSourcesText/ImportResult
@@ -11,7 +13,6 @@ import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/models/import_result.dart';
 import 'package:flutter_legado/src/domain/services/source_import_parser.dart';
-import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
 
 class _RepositoryMock extends Mock implements BookSourceRepository {}
 

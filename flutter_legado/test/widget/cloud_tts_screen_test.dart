@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/features/read_aloud/http_tts_seed.dart';
 
@@ -9,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_config_screen.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -48,14 +49,14 @@ void main() {
     final credentials = MemoryCloudTtsCredentialStore();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           cloudTtsCredentialStoreProvider.overrideWithValue(credentials),
           cloudTtsPreviewPlayerProvider.overrideWithValue(
             FakeStreamAudioPlayer(),
           ),
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
-        ],
+        ]),
         child: MaterialApp(
           theme: AppTheme.light,
           home: const ReadAloudConfigScreen(initialTab: 1),
@@ -127,14 +128,14 @@ void main() {
     final credentials = MemoryCloudTtsCredentialStore();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           cloudTtsCredentialStoreProvider.overrideWithValue(credentials),
           cloudTtsPreviewPlayerProvider.overrideWithValue(
             FakeStreamAudioPlayer(),
           ),
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
-        ],
+        ]),
         child: MaterialApp(
           theme: AppTheme.light,
           home: const ReadAloudConfigScreen(initialTab: 1),
@@ -226,14 +227,14 @@ void main() {
     final credentials = MemoryCloudTtsCredentialStore();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           cloudTtsCredentialStoreProvider.overrideWithValue(credentials),
           cloudTtsPreviewPlayerProvider.overrideWithValue(
             FakeStreamAudioPlayer(),
           ),
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
-        ],
+        ]),
         child: MaterialApp(
           theme: AppTheme.light,
           home: const ReadAloudConfigScreen(initialTab: 1),

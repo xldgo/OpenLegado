@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### DEPENDENCY-COMPOSITION-20261016：消费者与应用依赖装配收尾（P1）
+
+- 授权与基线：用户要求提交前批后执行已确认两批任务；feature/ui-reader-selection / 835110c70，开始工作区干净。Codex直接实现与自查，不使用子代理、不新建分支、不追加提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：两批实现与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；正式原生启动、设备播放与后台行为后置。
+- 范围：页面、Notifier、封面/图片/登录/导入和媒体辅助服务直接依赖窄Provider或明确构造参数；移除生产代码对BookApi/bookApiProvider的依赖。正式实现、Mock共享数据与运行时在Bootstrap用Riverpod装配，删除失去用途的BookApi/RustApi外壳，不创建新的全能服务集合替代它。
+- 约束：保持同一播放/登录/请求会话实例、Mock书架/书源/缓存/配置共享、原初始化顺序及失败策略；不重构播放/排版/翻页算法，不变更Rust/FRB、数据库、依赖、原生平台、版本或UI布局。测试可使用组合夹具，但生产消费者不访问夹具或根服务定位器。
+- 验收：窄依赖独立注入、正式与Mock装配、共享与隔离、替换与生命周期、启动顺序/错误；回归朗读、漫画/视频、导入、登录、封面、书籍详情及阅读入口。相关本地测试、完整静态分析、格式与差异检查；真实native和设备行为后置。
+- 第一批结果：页面、Notifier、封面解码、媒体封面、漫画图片、视频悬浮窗、导入与登录全部改用窄Provider或显式构造参数。音频和视频操作持有实际使用的领域实例，取消与迟到结果仍沿用原会话规则；备份和媒体封面装配观察各自依赖，不再观察根对象。
+- 第二批结果：application_dependencies.dart注册62项领域能力，mock_dependencies.dart按需创建Mock实现；MockAppData只拥有共享数据与样例载入，不定位服务。application_bootstrap.dart创建唯一应用容器，启动与主题/阅读配置刷新共享RustBootstrap，ApplicationScope拥有容器释放。删除生产BookApi/RustApi/MockBookApi、旧根Provider及根启动工厂；现有测试的组合夹具仅留在test/fixtures，样例载入复用生产MockAppData，没有第二份存储算法。
+- 验证结果：flutter test --no-pub test/unit test/widget共3833项通过（4分08秒）；test/widget_test.dart另2项应用入口冒烟通过。新增装配与根作用域9项覆盖正式构造不初始化、共享启动/配置同步、Mock下载与读取/清理、HTTP引擎与音色目录、跨领域配置/书架/章节共享及容器隔离、独立注入、启动错误、容器释放；全部包含在最终组合中，不重复累计。完整flutter analyze --no-pub无问题（14.9秒），最终格式和git diff --check通过。
+- 失败与修正：首轮组合因旧测试根替换及注入顺序、同步替身误继承、测试替身未执行build而出现依赖未初始化，已改为窄能力替换/懒注入并复验。修正既有书架条目测试的隐私作用域与就绪状态，以及主题失败测试未关闭错误弹层就重试的问题；未改变这些产品交互。保留原行为断言，未删除失败测试或降低验收标准。
+- 文档与证据：README、API_CONTRACT及TWO_TRACK_DEV_SPEC同步当前入口；历史批次仅作追溯。最终测试、静态分析和清单位于忽略目录flutter_legado/build/dependency-{regression-final.log,app-smoke.log,analysis-final.log}及build/dependency-composition-qa/。Codex直接实现与自查，无子代理或独立审查结论；本批按用户授权本地提交，未推送、触发CI或构建安装，Rust/FRB生成物、数据库、依赖、原生平台与版本未变，不以Mock或Widget结果宣称真机验收。
+
+编写者：Codex｜2026-10-16
+
 ### CONFIG-RUNTIME-BOUNDARY-20261016：配置访问与运行时入口收尾（P1）
 
 - 授权与基线：用户确认开始配置与启动收尾两批；feature/ui-reader-selection / b8971c34b，保护前两批78条未提交路径，快照位于忽略目录build/config-runtime-boundary-qa/。Codex直接执行，不使用子代理，不新建分支，不提交/推送/触发CI/构建安装，版本保持2.0.373+374。

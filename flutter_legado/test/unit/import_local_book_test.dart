@@ -1,14 +1,16 @@
+library;
+
 /// importLocalBook 解析逻辑单元测试
 ///
 /// 验证 Rust FFI 返回的 ImportResult{success, book, error} JSON
 /// 能被正确解析为 Book 实体，且错误情况正确处理。
-library;
 
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
+
+import '../fixtures/native_test_api.dart';
 
 void main() {
   group('importLocalBook ImportResult 解析', () {

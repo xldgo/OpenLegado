@@ -1,8 +1,9 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/cache_download_task.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/offline_cache_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -23,7 +24,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

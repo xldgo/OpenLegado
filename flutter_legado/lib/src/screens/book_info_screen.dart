@@ -1,3 +1,6 @@
+import '../providers/backup_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
+import '../providers/reading_provider.dart';
 import '../providers/source_action_provider.dart';
 import '../providers/explore/explore_dependencies.dart';
 import '../providers/chapter_cache_provider.dart';
@@ -20,7 +23,6 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/auto_task/auto_task_notifier.dart';
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../providers/sync/sync_notifier.dart';
 import '../routes.dart';
@@ -28,7 +30,6 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 import '../widgets/legado_app_bar.dart';
 import '../widgets/top_bar_button.dart';
 import '../services/cover_palette_service.dart';
-import '../services/book_api.dart';
 import '../services/cache_service.dart';
 import '../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
 import '../services/platform_bridge_service.dart';

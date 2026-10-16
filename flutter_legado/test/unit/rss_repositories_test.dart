@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/data/repositories/mock_rss_article_repository.dart';
@@ -5,11 +9,9 @@ import 'package:flutter_legado/src/data/repositories/mock_rss_read_record_reposi
 import 'package:flutter_legado/src/data/repositories/mock_rss_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rss_star_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/rss/rss_notifier.dart';
 import 'package:flutter_legado/src/providers/rss_history/rss_history_notifier.dart';
 import 'package:flutter_legado/src/providers/rss_repository_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,11 +91,22 @@ void main() {
     expect(await stars.isStarred('one'), isFalse);
   });
 
-  test('各Provider使用根装配实例并跟随根实例替换', () async {
+  test('各Provider使用根装配实例并跟随窄依赖替换', () async {
     final first = MockBookApi();
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        rssSourceRepositoryProvider.overrideWithValue(
+          first.rssSourceRepository,
+        ),
+        rssArticleRepositoryProvider.overrideWithValue(
+          first.rssArticleRepository,
+        ),
+        rssReadRecordRepositoryProvider.overrideWithValue(
+          first.rssReadRecordRepository,
+        ),
+        rssStarRepositoryProvider.overrideWithValue(first.rssStarRepository),
+      ]),
     );
     addTearDown(container.dispose);
     expect(
@@ -112,7 +125,20 @@ void main() {
       container.read(rssStarRepositoryProvider),
       same(first.rssStarRepository),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        rssSourceRepositoryProvider.overrideWithValue(
+          second.rssSourceRepository,
+        ),
+        rssArticleRepositoryProvider.overrideWithValue(
+          second.rssArticleRepository,
+        ),
+        rssReadRecordRepositoryProvider.overrideWithValue(
+          second.rssReadRecordRepository,
+        ),
+        rssStarRepositoryProvider.overrideWithValue(second.rssStarRepository),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(rssSourceRepositoryProvider),
@@ -141,7 +167,6 @@ void main() {
     await records.rssMarkRead('mine', '已读', 'one');
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
         rssSourceRepositoryProvider.overrideWithValue(sources),
         rssArticleRepositoryProvider.overrideWithValue(
           const MockRssArticleRepository(),

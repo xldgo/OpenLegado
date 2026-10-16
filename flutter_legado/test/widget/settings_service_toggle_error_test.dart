@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// 「我的」页服务开关失败态错误文案 widget 测试
 ///
 /// [2026-10-06 iOS 实测修复] 用户实测：点击 MCP 服务开关 → SnackBar
@@ -7,7 +11,6 @@
 /// - BridgeError 无 message → 兜底文案（不留空）
 /// - Web 开关失败 → 同规则（该展示点同批修复，先例 S28「数据库未初始化」）
 /// - MCP 卡片在未配置访问令牌时副题给出前置条件提示（Rust 启动守卫要求）
-library;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -16,7 +19,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
@@ -33,7 +35,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
     WebKeepAliveService.instance.debugReset();

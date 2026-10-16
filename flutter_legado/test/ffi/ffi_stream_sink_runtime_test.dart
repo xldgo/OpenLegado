@@ -1,3 +1,5 @@
+library;
+
 /// FRB StreamSink 生成链路真实 DLL 运行时验证（P1-1）
 ///
 /// 绕过 Mock 层直接加载 rust/target/debug/legado_ffi.dll，验证
@@ -18,8 +20,6 @@
 ///
 /// 前置条件：先在 rust/ 下构建 DLL（cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
-library;
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

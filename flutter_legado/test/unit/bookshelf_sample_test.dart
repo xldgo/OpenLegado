@@ -4,7 +4,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 /// 书架合成脱敏样例（assets/mock_data/bookshelf_sample.json）校验
 ///

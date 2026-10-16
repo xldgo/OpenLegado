@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../mocks/book_image_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
@@ -12,9 +13,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 1x1 透明 PNG（作为解码结果 base64，验证 Image.memory 渲染路径）
 const _kPngBase64 =
@@ -128,7 +127,7 @@ void main() {
       decodeCalls: decodeCalls,
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -154,7 +153,7 @@ void main() {
       decodeCalls: decodeCalls,
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 

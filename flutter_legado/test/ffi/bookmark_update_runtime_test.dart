@@ -1,13 +1,15 @@
-/// 使用真实 FRB 绑定与 Windows DLL，验证书签更新不会删除后新增。
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 使用真实 FRB 绑定与 Windows DLL，验证书签更新不会删除后新增。
+@Timeout(Duration(minutes: 3))
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
@@ -30,7 +32,7 @@ void main() {
       '.dart_tool/bookmark-update-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
     await bridge.dbOpen(path: '${directory.absolute.path}/bookmarks.db');
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     repository = api.bookmarkRepository;
     expect(repository, isA<RustBookmarkRepository>());
     expect(api.bookmarkRepository, same(repository));

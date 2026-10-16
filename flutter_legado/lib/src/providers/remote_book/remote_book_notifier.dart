@@ -1,3 +1,6 @@
+export 'remote_book_state.dart';
+import '../../features/bookshelf/bookshelf_repositories.dart';
+import '../backup_provider.dart';
 import '../../providers/book_content_provider.dart';
 import '../../domain/models/webdav_connection.dart';
 
@@ -7,12 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/book.dart';
-import '../providers.dart';
 import '../webdav_connection_provider.dart';
 import 'remote_book_state.dart';
 import 'remote_server_provider.dart';
-
-export 'remote_book_state.dart';
 
 /// 远程书库 Riverpod Notifier
 ///
@@ -119,12 +119,11 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
         );
         return;
       }
-      final api = ref.read(bookApiProvider);
-      final decoded = await api.webDavService.webdavListDir(
-        config,
-        state.listPath,
-      );
-      final shelf = await api.bookshelfRepository.getBooks();
+
+      final decoded = await ref
+          .read(webDavServiceProvider)
+          .webdavListDir(config, state.listPath);
+      final shelf = await ref.read(bookshelfRepositoryProvider).getBooks();
       final onShelf = <String>{};
       for (final b in shelf) {
         if (b.origin.startsWith(BookType.webDavTag)) {
@@ -288,7 +287,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       clearError: true,
       clearImported: true,
     );
-    final api = ref.read(bookApiProvider);
+
     final dir = Directory('${Directory.systemTemp.path}/legado_remote_books');
     if (!await dir.exists()) {
       await dir.create(recursive: true);
@@ -298,11 +297,9 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     for (final item in selected) {
       try {
         final localPath = '${dir.path}/${item.filename}';
-        await api.webDavService.webdavDownloadFile(
-          config,
-          item.relativePath,
-          localPath,
-        );
+        await ref
+            .read(webDavServiceProvider)
+            .webdavDownloadFile(config, item.relativePath, localPath);
         final book = await ref
             .read(localBookServiceProvider)
             .importLocalBook(localPath);
@@ -315,12 +312,14 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
           remoteUrl =
               '${connection.url}${connection.directoryPrefix}${item.relativePath}';
         }
-        await api.bookshelfRepository.updateBook(
-          book.copyWith(
-            origin: BookType.webDavTag + remoteUrl,
-            originName: item.filename,
-          ),
-        );
+        await ref
+            .read(bookshelfRepositoryProvider)
+            .updateBook(
+              book.copyWith(
+                origin: BookType.webDavTag + remoteUrl,
+                originName: item.filename,
+              ),
+            );
         ok++;
       } catch (e) {
         lastErr = _mapError(e);

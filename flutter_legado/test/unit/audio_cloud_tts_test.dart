@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -6,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
@@ -69,11 +70,11 @@ void main() {
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         cloudTtsSynthesizerProvider.overrideWithValue(synth),
         streamAudioPlayerProvider.overrideWithValue(player),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(audioNotifierProvider.notifier);
@@ -123,11 +124,11 @@ void main() {
     final synth = _Synth();
     final player = FakeStreamAudioPlayer();
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         cloudTtsSynthesizerProvider.overrideWithValue(synth),
         streamAudioPlayerProvider.overrideWithValue(player),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(audioNotifierProvider.notifier);

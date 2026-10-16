@@ -1,21 +1,20 @@
+import '../../app/bootstrap/application_dependencies.dart'
+    show cloudTtsRepositoryProvider;
+export '../../app/bootstrap/application_dependencies.dart'
+    show cloudTtsRepositoryProvider;
 import '../../services/stream_audio_player.dart';
 import '../../services/read_aloud_audio_player.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../domain/contracts/cloud_tts_credential_store.dart';
 import '../../domain/contracts/cloud_tts_synthesizer.dart';
 import '../../domain/contracts/http_tts_synthesizer.dart';
 import '../../data/services/rust_cloud_tts_synthesizer.dart';
 import '../../data/repositories/mock_cloud_tts_repository.dart';
 import '../../platform/tts/cloud_tts_credential_store.dart';
-import '../../providers/providers.dart';
 import 'cloud_tts_settings.dart';
 
-final cloudTtsRepositoryProvider = Provider<CloudTtsRepository>(
-  (ref) => ref.watch(bookApiProvider).cloudTtsRepository,
-);
 final cloudTtsCredentialStoreProvider = Provider<CloudTtsCredentialStore>(
   (ref) => ref.watch(cloudTtsRepositoryProvider) is MockCloudTtsRepository
       ? MemoryCloudTtsCredentialStore()

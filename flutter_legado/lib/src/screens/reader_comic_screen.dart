@@ -1,3 +1,8 @@
+import '../domain/contracts/local_book_service.dart';
+import '../features/bookshelf/bookshelf_repositories.dart';
+import '../providers/reading_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
+import '../providers/book_content_provider.dart';
 import '../providers/config_settings_provider.dart';
 import '../domain/models/manga_settings.dart';
 
@@ -19,9 +24,7 @@ import '../providers/network_provider.dart';
 import '../domain/contracts/network_service.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
-import '../services/book_api.dart';
 import '../domain/contracts/book_image_repository.dart';
 import '../providers/media_provider.dart';
 import '../services/platform_bridge_service.dart';
@@ -46,7 +49,7 @@ import '../models/manga_scroll_mode.dart';
 /// 漫画阅读页面
 ///
 /// 支持纵向连续滚动、双指缩放、前后图片预加载。
-/// 通过 [bookUrl] 参数接收书籍标识，从 BookApi 获取章节与图片列表。
+/// 通过 [bookUrl] 参数接收书籍标识，经 ReadingRepository 获取章节与图片列表。
 class ReaderComicScreen extends ConsumerStatefulWidget {
   /// 书籍 URL 标识
   final String bookUrl;
@@ -553,14 +556,15 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 成员、章节与进度字段，避免整书陈旧快照覆盖）：
   /// 1. 先重取当前书（`_activeBookUrl`）拿最新快照；
   /// 2. 仅在 readConfig JSON 上增/删目标键（null = 删键清除书级覆盖）；
-  /// 3. 经现有 [BookApi.updateBook] + [Book.copyWith] 落库，并同步屏内
+  /// 3. 经现有 [BookshelfRepository.updateBook] + [Book.copyWith] 落库，并同步屏内
   ///    [_book] 缓存供后续写入使用。
   ///
   /// 返回是否写入成功（失败不改变屏内书级覆盖态）。
   Future<bool> _updateBookReadConfigField(String key, int? value) async {
     try {
-      final api = ref.read(bookApiProvider);
-      final fresh = await api.bookshelfRepository.getBook(_activeBookUrl);
+      final fresh = await ref
+          .read(bookshelfRepositoryProvider)
+          .getBook(_activeBookUrl);
       if (fresh == null) return false;
       final map = Map<String, dynamic>.from(
         fresh.readConfig?.toJson() ?? const <String, dynamic>{},
@@ -573,7 +577,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final updated = fresh.copyWith(
         readConfig: map.isEmpty ? null : ReadConfig.fromJson(map),
       );
-      await api.bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
       _book = updated;
       return true;
     } catch (_) {
@@ -1126,9 +1130,10 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
 
     try {
-      final api = ref.read(bookApiProvider);
       // 获取书籍信息（[P4-3 M3 修2] 走活跃 bookUrl，换源后按新源重载）
-      _book = await api.bookshelfRepository.getBook(_activeBookUrl);
+      _book = await ref
+          .read(bookshelfRepositoryProvider)
+          .getBook(_activeBookUrl);
       if (_book == null) {
         setState(() {
           _error = '未找到书籍信息';
@@ -1155,16 +1160,17 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       // 须自动 refreshToc，否则漫画阅读器永远「暂无章节」无法进正文/图片。
       // 设备实测：51漫画 book.type=notShelf|image、chapters=0，Rust 侧
       // refresh_toc 可出 1 章+正文图，缺此回退则整链断裂。— Reasonix + UI
-      _chapters = await api.readingRepository.getChapters(_activeBookUrl);
+      _chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(_activeBookUrl);
       if (_chapters.isEmpty &&
           _book != null &&
           _book!.origin.isNotEmpty &&
           !_book!.origin.startsWith(BookType.localTag) &&
           !_book!.origin.startsWith(BookType.webDavTag)) {
-        _chapters = await api.readingRepository.refreshToc(
-          _activeBookUrl,
-          _book!.origin,
-        );
+        _chapters = await ref
+            .read(readingRepositoryProvider)
+            .refreshToc(_activeBookUrl, _book!.origin);
       }
       if (_chapters.isEmpty) {
         setState(() {
@@ -1213,7 +1219,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
 
     try {
-      final api = ref.read(bookApiProvider);
       final chapter = _chapters[_currentChapterIndex];
 
       // 书源防盗链 header（仅取一次；对齐原版 OkHttpStreamFetcher 带书源
@@ -1221,7 +1226,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       if ((_imageHeaders.isEmpty || _bookSource == null) &&
           _book != null &&
           _book!.origin.isNotEmpty) {
-        final sources = await api.bookSourceRepository.getBookSources();
+        final sources = await ref
+            .read(bookSourceRepositoryProvider)
+            .getBookSources();
         for (final s in sources) {
           if (s.bookSourceUrl == _book!.origin) {
             _bookSource = s;
@@ -1237,17 +1244,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       String content;
       if (chapter.url.isNotEmpty && _book != null) {
         // 在线章节：通过 fetchChapterContent 获取（[P4-3 M3 修2] 活跃 bookUrl）
-        content = await api.readingRepository.fetchChapterContent(
-          _activeBookUrl,
-          chapter.url,
-          _book!.origin,
-        );
+        content = await ref
+            .read(readingRepositoryProvider)
+            .fetchChapterContent(_activeBookUrl, chapter.url, _book!.origin);
       } else {
         // 本地章节：通过 getChapterContent 获取
-        content = await api.readingRepository.getChapterContent(
-          _activeBookUrl,
-          _currentChapterIndex,
-        );
+        content = await ref
+            .read(readingRepositoryProvider)
+            .getChapterContent(_activeBookUrl, _currentChapterIndex);
       }
 
       if (!mounted) return;
@@ -1450,14 +1454,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   /// [P4-1 C3] 当前章加载完成后后台预载相邻章（下一章优先、上一章次之）
   ///
-  /// 复用 [BookApi.getChapterContentFull]（缓存+网络合并，零契约变更）：
+  /// 复用 [ReadingRepository.getChapterContentFull]（缓存+网络合并，零契约变更）：
   /// 缓存命中直接返回、未命中联网抓取并回写 Rust 侧章节缓存，
   /// 使相邻章翻页无等待。静默失败语义对齐文本阅读器
   /// reader_screen._preloadAdjacentChapters（catch 不显示错误、不阻断
   /// 当前阅读）；换书/重载后经 [_loadSeq] 代数守卫中止剩余预载。
   Future<void> _preloadAdjacentChapters() async {
     final seq = _loadSeq;
-    final api = ref.read(bookApiProvider);
+
     final candidates = <int>[
       if (_currentChapterIndex + 1 < _chapters.length)
         _currentChapterIndex + 1, // 下一章优先（翻页方向）
@@ -1465,10 +1469,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     ];
     for (final index in candidates) {
       try {
-        await api.readingRepository.getChapterContentFull(
-          _activeBookUrl,
-          index,
-        );
+        await ref
+            .read(readingRepositoryProvider)
+            .getChapterContentFull(_activeBookUrl, index);
       } catch (_) {
         // 预载失败静默：不显示错误、不阻断阅读（下次进入该章再试）
       }
@@ -1604,7 +1607,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (book == null || !mounted) return;
     try {
       await ComicImageDecodeCache.preloadCbz(
-        api: ref.read(bookApiProvider),
+        localBooks: ref.read(localBookServiceProvider),
         path: book.bookUrl,
         cacheKey: _activeBookUrl,
         entry: url,
@@ -1685,14 +1688,15 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// （与章级 durChapterIndex 一并落库，互不覆写）。
   Future<void> _saveProgress() async {
     try {
-      final api = ref.read(bookApiProvider);
       final maxPage = _imageUrls.isEmpty ? 0 : _imageUrls.length - 1;
       final pos = _visiblePageIndex.clamp(0, maxPage);
-      await api.readingRepository.updateReadingProgress(
-        bookUrl: _activeBookUrl,
-        chapterIndex: _currentChapterIndex,
-        chapterPos: pos,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .updateReadingProgress(
+            bookUrl: _activeBookUrl,
+            chapterIndex: _currentChapterIndex,
+            chapterPos: pos,
+          );
     } catch (_) {
       // 保存失败不阻断阅读流程
     }
@@ -1905,7 +1909,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final url = _imageUrls[index];
     final isCbz = url.startsWith('cbz://');
     return resolveMangaPageImageBytes(
-      api: ref.read(bookApiProvider),
+      images: ref.read(bookImageRepositoryProvider),
+      localBooks: ref.read(localBookServiceProvider),
       bookUrl: _activeBookUrl,
       url: url,
       // 有书源才走 FFI 解码链路（对齐 _DecodedComicImage 的分发条件）
@@ -2762,16 +2767,13 @@ class ComicImageDecodeCache {
   /// 正式渲染共用同一缓存键（[cacheKey] = 活跃 bookUrl + 条目名）。
   /// — 全栈工程师 + UI
   static Future<void> preloadCbz({
-    required BookApi api,
+    required LocalBookService localBooks,
     required String path,
     required String cacheKey,
     required String entry,
   }) async {
     if (_cache.containsKey(keyOf(cacheKey, entry))) return;
-    final bytes = await api.localBookService.cbzReadPage(
-      path: path,
-      entry: entry,
-    );
+    final bytes = await localBooks.cbzReadPage(path: path, entry: entry);
     if (bytes.isEmpty) return;
     if (!looksLikeImageBytes(bytes)) return;
     put(cacheKey, entry, bytes);
@@ -3204,7 +3206,6 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
       _error = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
       // 内存缓存（预载/其它实例已解码）命中 → 直接渲染，零重复 FFI 调用
       final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
       if (hit != null) {
@@ -3216,10 +3217,9 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
         await _applyEpaperIfNeeded(hit);
         return;
       }
-      final bytes = await api.localBookService.cbzReadPage(
-        path: widget.path,
-        entry: widget.entry,
-      );
+      final bytes = await ref
+          .read(localBookServiceProvider)
+          .cbzReadPage(path: widget.path, entry: widget.entry);
       if (bytes.isEmpty) {
         throw Exception('CBZ 页数据为空');
       }

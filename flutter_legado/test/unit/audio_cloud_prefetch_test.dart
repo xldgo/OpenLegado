@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +12,6 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
 import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
@@ -147,11 +148,11 @@ void main() {
       ),
     );
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         cloudTtsSynthesizerProvider.overrideWithValue(synth),
         streamAudioPlayerProvider.overrideWithValue(player),
-      ],
+      ]),
     );
     await notifier().loadChapters('book');
     await notifier().setGlobalTtsEngine('cloud://ali');

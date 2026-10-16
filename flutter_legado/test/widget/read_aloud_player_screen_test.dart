@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -10,7 +12,6 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/providers/audio/read_aloud_position.dart';
 import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/read_aloud_player_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
@@ -116,8 +117,8 @@ void main() {
     final audio = _Audio();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(MockRustApi()),
+        overrides: mergeTestOverrides([
+          ...MockRustApi().overrides,
           audioNotifierProvider.overrideWith(() => audio),
           readAloudPreferencesProvider.overrideWith(_Preferences.new),
           readAloudPlayerInfoProvider.overrideWith(
@@ -126,7 +127,7 @@ void main() {
               voiceName: '中文音色',
             ),
           ),
-        ],
+        ]),
         child: MaterialApp(
           theme: dark ? AppTheme.dark : AppTheme.light,
           builder: (context, child) => MediaQuery(

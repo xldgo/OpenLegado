@@ -1,7 +1,8 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_tab_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,10 +55,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           readRecordRepositoryProvider.overrideWithValue(records),
-        ],
+        ]),
         child: MaterialApp(home: page),
       ),
     );

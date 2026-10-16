@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/domain/models/reader_status_strip_settings.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
@@ -11,7 +13,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
@@ -52,7 +53,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

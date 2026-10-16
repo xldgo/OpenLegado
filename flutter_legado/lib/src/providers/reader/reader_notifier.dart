@@ -1,3 +1,5 @@
+export 'reader_state.dart';
+import '../../features/bookshelf/bookshelf_repositories.dart';
 import '../chapter_cache_provider.dart';
 
 import 'dart:async';
@@ -22,8 +24,6 @@ import '../theme/theme_notifier.dart';
 import '../ui_settings/ui_settings_notifier.dart';
 import 'reader_state.dart';
 import 'reader_settings_provider.dart';
-
-export 'reader_state.dart';
 
 /// 阅读器 Riverpod Notifier
 ///
@@ -650,7 +650,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   // [UI-fix v2.0.2 | 2026-08-06] 同步已持久化的书对象到 State
-  // （readConfig 变更经 BookApi.updateBook 落库后回写 UI 状态） — Qoder
+  // （readConfig 变更经 BookshelfRepository.updateBook 落库后回写 UI 状态） — Qoder
   void updateCurrentBook(Book book) {
     state = state.copyWith(currentBook: book);
   }
@@ -759,11 +759,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final oldTitle = (oldChapter?.title ?? book.durChapterTitle ?? '').trim();
     final oldPos = state.currentChapterPos;
 
-    final api = ref.read(bookApiProvider);
     state = state.copyWith(isLoading: true, error: null);
     try {
       // 1) 重读书籍记录（换源事务后的新记录）
-      final newBook = await api.bookshelfRepository.getBook(bookUrl);
+      final newBook = await ref
+          .read(bookshelfRepositoryProvider)
+          .getBook(bookUrl);
       if (newBook == null) {
         throw StateError('读取书籍记录失败');
       }

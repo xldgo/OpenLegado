@@ -1,8 +1,10 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
 // P0 缺陷回归：在线书 TTS 朗读合成文本为章节 URL JSON 元数据（2026-10-03）
 //
-// 根因：在线书走 BookApi.getChapterContent（Rust get_chapter_content 在线分支）
+// 根因：在线书走 TestApi.getChapterContent（Rust get_chapter_content 在线分支）
 // 只返回 {chapter_url, base_url, title, need_fetch:true} 占位 JSON，AudioNotifier
 // 把它当正文段落送进 audioSpeak——合成的是 JSON 而非正文。修复：朗读消费端
 // 对在线书改走 getChapterContentFull（DB 缓存 → 联网抓取 → 净化，始终纯正文，
@@ -26,7 +28,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -48,10 +49,10 @@ void main() {
     fakePlayer = FakeStreamAudioPlayer();
     speakTexts.clear();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -229,11 +230,11 @@ void main() {
       when(() => audioService.abandonAudioFocus()).thenAnswer((_) async {});
       when(() => audioService.dispose()).thenAnswer((_) async {});
       final localContainer = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
           audioServiceProvider.overrideWithValue(audioService),
-        ],
+        ]),
       );
       addTearDown(localContainer.dispose);
 

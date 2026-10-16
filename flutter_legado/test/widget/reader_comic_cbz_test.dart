@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 
 import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
@@ -13,9 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 import 'package:flutter_legado/src/services/platform_channel.dart';
 
@@ -23,9 +22,9 @@ import 'package:flutter_legado/src/services/platform_channel.dart';
 ///
 /// 链路：Book（LOCAL|image=0x1040，origin=loc_book）→ getChapters 懒解析
 /// 1 章（url 空）→ getChapterContent 返回 `cbz://<条目名>` 行列表 →
-/// BookApi.cbzReadPage（FFI `cbz_read_page`）取图 → Image.memory 渲染。
-/// mock 形态与既有一族漫画 widget 测试（mock BookApi + 覆盖
-/// bookApiProvider）一致。
+/// TestApi.cbzReadPage（FFI `cbz_read_page`）取图 → Image.memory 渲染。
+/// mock 形态与既有一族漫画 widget 测试（mock TestApi + 覆盖
+/// bookshelfRepositoryProvider）一致。
 
 /// 1x1 透明 PNG（与 reader_comic_decode/image_cache 测试同款）
 const _kPngBase64 =
@@ -177,7 +176,7 @@ void main() {
   ) async {
     final api = _CbzMockApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -187,7 +186,7 @@ void main() {
     expect(
       api.readCalls,
       isNotEmpty,
-      reason: '本地 cbz 页须经 BookApi.cbzReadPage 取图',
+      reason: '本地 cbz 页须经 TestApi.cbzReadPage 取图',
     );
     expect(
       api.readCalls.any((c) => c.contains(_kEntry0)),
@@ -207,7 +206,7 @@ void main() {
   ) async {
     final api = _CbzMockApi(failRead: true);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -236,7 +235,7 @@ void main() {
 
     // 预载：与屏幕 _preloadIndicesInRange → _preloadCbzPage 同一入口与缓存键
     await ComicImageDecodeCache.preloadCbz(
-      api: api,
+      localBooks: api.localBookService,
       path: _kCbzBookUrl,
       cacheKey: _kCbzBookUrl,
       entry: _kEntry0,
@@ -248,7 +247,7 @@ void main() {
     );
 
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -270,7 +269,7 @@ void main() {
   testWidgets('单页式加载即预载 cbz 页：预载与渲染共用缓存，每页仅一次 FFI', (tester) async {
     final api = _CbzMockApi(pagedMode: true);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -316,7 +315,7 @@ void main() {
     // mangaLongClickSaveImage=false → 长按弹页操作菜单
     final api = _CbzMockApi(longClickSaveImage: false);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 

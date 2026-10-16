@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreKindLayout widget 测试：style 驱动的 wide/cell 布局
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +9,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/explore_kind_layout.dart';
 
 import '../mocks/mocks.dart';
@@ -41,7 +42,7 @@ void main() {
   });
 
   Widget wrap(Widget child) => ProviderScope(
-    overrides: [bookApiProvider.overrideWithValue(mockApi)],
+    overrides: mergeTestOverrides([...mockApi.overrides]),
     child: MaterialApp(home: Scaffold(body: child)),
   );
 

@@ -1,11 +1,12 @@
-/// 真实 Windows FFI 复核直接书架与分组适配，共用独立数据库。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 真实 Windows FFI 复核直接书架与分组适配，共用独立数据库。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -25,7 +26,7 @@ void main() {
     final root = Directory(
       '.dart_tool/bookshelf-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: const NativeRustRuntime(),
@@ -33,7 +34,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     final shelf = api.bookshelfRepository;
     final groups = api.bookGroupRepository;
     expect(await shelf.getBook('不存在'), isNull);

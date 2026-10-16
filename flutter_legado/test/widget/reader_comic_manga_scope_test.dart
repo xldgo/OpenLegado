@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -13,7 +14,7 @@ import '../mocks/bookshelf_fixture.dart';
 // - 有效值优先级：书级 readConfig.mangaScrollMode / webtoonSidePaddingDp
 //   非 null 优先，否则全局 MangaConfigKeys.scrollMode / sidePadding
 //   （MangaReaderViewModel.kt L1332-1334 `book?.scrollMode ?: settings.scrollMode`）；
-// - 书级写入经现有 BookApi.updateBook + Book.copyWith(readConfig: ...)，
+// - 书级写入经现有 TestApi.updateBook + Book.copyWith(readConfig: ...)，
 //   保留其他 readConfig 成员与进度/章节字段；
 // - 切「跟随全局」= 清除对应 readConfig 键并立即回退全局值；
 // - mangaLongClickSaveImage / mangaAutoReadSpeed / mangaClickActions
@@ -24,9 +25,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
 
 /// 1x1 透明 PNG（RGBA，合法编码，同 reader_comic_scroll_mode_test）
@@ -225,7 +224,7 @@ void main() {
         book: _buildBook(),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -247,7 +246,7 @@ void main() {
         book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 3)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -267,7 +266,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -294,7 +293,7 @@ void main() {
         book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 99)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -324,7 +323,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -368,7 +367,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -405,7 +404,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -442,7 +441,7 @@ void main() {
         book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 4)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -471,7 +470,7 @@ void main() {
         book: _buildBook(readConfig: const ReadConfig(reverseToc: true)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);

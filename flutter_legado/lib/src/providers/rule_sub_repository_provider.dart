@@ -1,14 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../domain/contracts/rule_sub_repository.dart';
-import '../domain/contracts/rule_sub_service.dart';
-import 'providers.dart';
-
-/// 配置访问与执行能力分别注入，复用同一应用装配。— Codex + UI
-final ruleSubRepositoryProvider = Provider<RuleSubRepository>(
-  (ref) => ref.watch(bookApiProvider).ruleSubRepository,
-);
-
-final ruleSubServiceProvider = Provider<RuleSubService>(
-  (ref) => ref.watch(bookApiProvider).ruleSubService,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../app/bootstrap/application_dependencies.dart'
+    show ruleSubRepositoryProvider, ruleSubServiceProvider;

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -6,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -24,9 +25,9 @@ void main() {
     // 书架初始化会加载分组（顶栏 Tab 数据源），默认返回空列表
     when(() => mockApi.bookGroupRepository.getBookGroups())
         .thenAnswer((_) async => []);
-    // 创建容器并覆盖 bookApiProvider 注入 mock
+    // 创建容器并覆盖 bookshelfRepositoryProvider 注入 mock
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -240,7 +241,7 @@ void main() {
       );
       container.dispose();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       container.read(bookshelfNotifierProvider);
       await pumpInit();
@@ -431,7 +432,7 @@ void main() {
       // 重新创建容器
       container.dispose();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       container.read(bookshelfNotifierProvider);
       await pumpInit();
@@ -477,7 +478,7 @@ void main() {
       // setUp 外层已 stub getBookGroups 返回空；重建容器重新加载
       container.dispose();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       container.read(bookshelfNotifierProvider);
       await pumpInit();
@@ -493,7 +494,7 @@ void main() {
       // 重建容器以重新加载分组
       container.dispose();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       container.read(bookshelfNotifierProvider);
       await pumpInit();

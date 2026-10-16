@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
@@ -44,11 +45,11 @@ void main() {
     bool unreadOpensBookInfo = true,
   }) {
     return ProviderScope(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         if (readerNotifier != null)
           readerNotifierProvider.overrideWith(() => readerNotifier),
-      ],
+      ]),
       child: MaterialApp(
         navigatorKey: useGlobalNavigator
             ? PlatformBridgeService.navigatorKey

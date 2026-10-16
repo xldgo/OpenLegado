@@ -1,7 +1,8 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,10 +38,10 @@ void main() {
 
   Widget buildTestWidget({NavigatorObserver? observer}) {
     return ProviderScope(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         readRecordRepositoryProvider.overrideWithValue(mockRepo),
-      ],
+      ]),
       child: MaterialApp(
         navigatorObservers: observer != null ? [observer] : [],
         routes: {

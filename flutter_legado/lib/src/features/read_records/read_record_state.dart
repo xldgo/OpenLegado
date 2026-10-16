@@ -1,7 +1,9 @@
-import '../../models/models.dart';
-import '../../domain/models/read_record_settings.dart';
+import '../../domain/models/read_record_settings.dart'
+    show ReadRecordDisplayMode, ReadRecordSortMode;
 export '../../domain/models/read_record_settings.dart'
     show ReadRecordDisplayMode, ReadRecordSortMode;
+import '../../models/models.dart';
+import '../../domain/models/read_record_settings.dart';
 
 /// 阅读记录页状态（对齐原版 ReadRecordActivity）
 class ReadRecordState {

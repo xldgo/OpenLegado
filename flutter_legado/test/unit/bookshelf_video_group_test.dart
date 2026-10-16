@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P4-2b V4] 书架视频分组（对齐原版 IdVideo 聚合语义）
 //
 // 原版依据：
@@ -19,7 +20,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -51,7 +51,7 @@ void main() {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [textBook]);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

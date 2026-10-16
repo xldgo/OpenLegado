@@ -1,3 +1,5 @@
+import '../../providers/reading_provider.dart';
+import 'search_access_providers.dart';
 import '../../providers/chapter_cache_provider.dart';
 import '../../widgets/app_menu.dart';
 
@@ -14,7 +16,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/empty_state.dart';
@@ -173,10 +174,9 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
 
   Future<void> _loadHistory() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final list = await api.searchHistoryRepository.getSearchHistory(
-        limit: 20,
-      );
+      final list = await ref
+          .read(searchHistoryRepositoryProvider)
+          .getSearchHistory(limit: 20);
       if (!mounted) return;
       setState(() => _history = list.map((e) => e.word).toList());
     } catch (_) {
@@ -188,7 +188,6 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     final query = raw.trim();
     if (query.isEmpty) return;
 
-    final api = ref.read(bookApiProvider);
     final gen = ++_generation;
 
     setState(() {
@@ -202,14 +201,15 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     FocusScope.of(context).unfocus();
 
     // 记录搜索历史
-    api.searchHistoryRepository
+    ref
+        .read(searchHistoryRepositoryProvider)
         .addSearchKeyword(query, widget.effectiveBookName)
         .catchError((_) {});
 
     try {
-      final chapters = await api.readingRepository.getChapters(
-        widget.effectiveBookUrl,
-      );
+      final chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(widget.effectiveBookUrl);
       if (gen != _generation || !mounted) return;
       setState(() => _totalChapters = chapters.length);
 
@@ -264,14 +264,15 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
           // ContentProcessor.getContent(useReplace = replaceEnabled)）：
           // 默认关闭替换规则，避免被替换/删除的词搜不到
           final content = _SearchContentOptions.useReplace
-              ? await api.readingRepository.getChapterContent(
-                  widget.effectiveBookUrl,
-                  chapter.index,
-                )
-              : await api.readingRepository.getChapterContentRaw(
-                  widget.effectiveBookUrl,
-                  chapter.index,
-                );
+              ? await ref
+                    .read(readingRepositoryProvider)
+                    .getChapterContent(widget.effectiveBookUrl, chapter.index)
+              : await ref
+                    .read(readingRepositoryProvider)
+                    .getChapterContentRaw(
+                      widget.effectiveBookUrl,
+                      chapter.index,
+                    );
           if (gen != _generation) return;
 
           final hits = findContentHits(
@@ -735,8 +736,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
 
   Future<void> _clearHistory() async {
     try {
-      final api = ref.read(bookApiProvider);
-      await api.searchHistoryRepository.clearSearchHistory();
+      await ref.read(searchHistoryRepositoryProvider).clearSearchHistory();
       if (mounted) setState(() => _history = []);
     } catch (_) {
       // 忽略

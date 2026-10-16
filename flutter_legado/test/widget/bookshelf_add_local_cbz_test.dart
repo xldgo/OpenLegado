@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [cbz P1-1 回归 | 2026-10-03] 书架「添加本地」入口白名单测试
 ///
 /// 背景（QA 真机证据 .tmp/cbz_qa/step10_picker_control.xml）：
@@ -11,7 +15,6 @@
 /// 断言 allowedExtensions 与 import_screen._supportedFormats 同序同集合
 /// （含 cbz；且不含走压缩包解压链路的 zip/rar/7z）。
 /// 修复前（['epub','txt','mobi','pdf','umd']）本用例必红。
-library;
 
 import 'dart:typed_data';
 
@@ -25,7 +28,6 @@ import 'package:share_plus/share_plus.dart' show XFile;
 
 import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
@@ -103,7 +105,7 @@ void main() {
   Future<void> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );

@@ -6,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/services/export_service.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/widgets/export_dialog.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
@@ -23,8 +25,8 @@ class FakeExportService extends ExportService {
 
   FakeExportService()
     : super(
-        exporter: createBookApi(useMock: true).bookExportService,
-        webDav: createBookApi(useMock: true).webDavService,
+        exporter: createTestApplication(useMock: true).bookExportService,
+        webDav: createTestApplication(useMock: true).webDavService,
       );
 
   @override

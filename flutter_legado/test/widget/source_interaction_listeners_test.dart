@@ -7,7 +7,6 @@ import 'package:flutter_legado/src/domain/contracts/verification_service.dart';
 import 'package:flutter_legado/src/domain/contracts/webview_bridge_service.dart';
 import 'package:flutter_legado/src/domain/models/verification_request.dart';
 import 'package:flutter_legado/src/domain/models/webview_request.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/source_interaction_provider.dart';
 import 'package:flutter_legado/src/widgets/verification_code_listener.dart';
 import 'package:flutter_legado/src/widgets/webview_bridge_listener.dart';
@@ -87,10 +86,7 @@ void main() {
     final key = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          verificationServiceProvider.overrideWithValue(service),
-          bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
-        ],
+        overrides: [verificationServiceProvider.overrideWithValue(service)],
         child: MaterialApp(
           navigatorKey: key,
           builder: (context, child) =>
@@ -164,7 +160,6 @@ void main() {
         overrides: [
           webViewBridgeServiceProvider.overrideWithValue(web),
           webViewRequestExecutorProvider.overrideWithValue(executor),
-          bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
         ],
         child: const MaterialApp(
           home: WebViewBridgeListener(child: Scaffold()),

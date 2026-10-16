@@ -1,11 +1,12 @@
-/// 直接书源适配的真实 Windows FFI 与通知时序回归。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 直接书源适配的真实 Windows FFI 与通知时序回归。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -26,7 +27,7 @@ void main() {
     final root = Directory(
       '.dart_tool/book-source-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: const NativeRustRuntime(),
@@ -34,7 +35,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     final shared = api.bookSourceRepository;
     int notifications = 0;
     final repository = RustBookSourceRepository(

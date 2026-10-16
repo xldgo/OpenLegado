@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
@@ -39,7 +40,7 @@ void prepare(MockRustApi api) {
 }
 
 void main() {
-  test('根替换后暂停、恢复和停止仍控制启动实例', () async {
+  test('依赖替换后暂停、恢复和停止仍控制启动实例', () async {
     final first = MockRustApi();
     final second = MockRustApi();
     prepare(first);
@@ -53,13 +54,21 @@ void main() {
       ),
     ).thenAnswer((_) => events.stream);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        ...first.overrides,
+        searchServiceProvider.overrideWithValue(first.searchService),
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
     await pump();
     await notifier.search('甲');
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        ...second.overrides,
+        searchServiceProvider.overrideWithValue(second.searchService),
+      ]),
+    );
     await notifier.pauseSearch();
     expect(container.read(searchNotifierProvider).isPaused, isTrue);
     await notifier.resumeSearch();
@@ -89,7 +98,7 @@ void main() {
               .stream,
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -126,7 +135,7 @@ void main() {
       return c.stream;
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -161,7 +170,7 @@ void main() {
       ),
     ).thenAnswer((_) => events.stream);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     final notifier = container.read(searchNotifierProvider.notifier);
     await pump();
@@ -200,7 +209,7 @@ void main() {
       return key == '原查询' ? old.stream : newest.stream;
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -232,7 +241,7 @@ void main() {
     when(() => api.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) => history.future);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -262,14 +271,28 @@ void main() {
     when(() => first.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) => history.future);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        ...first.overrides,
+        searchServiceProvider.overrideWithValue(first.searchService),
+        searchHistoryRepositoryProvider.overrideWithValue(
+          first.searchHistoryRepository,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
     await pump();
     final start = notifier.search('甲');
     await pump();
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        ...second.overrides,
+        searchServiceProvider.overrideWithValue(second.searchService),
+        searchHistoryRepositoryProvider.overrideWithValue(
+          second.searchHistoryRepository,
+        ),
+      ]),
+    );
     history.complete();
     await start;
     await pump();
@@ -303,14 +326,22 @@ void main() {
       return Stream.value(SearchBatch(hasMore: true));
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        ...first.overrides,
+        searchServiceProvider.overrideWithValue(first.searchService),
+      ]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
     await pump();
     await notifier.search('甲');
     await pump();
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        ...second.overrides,
+        searchServiceProvider.overrideWithValue(second.searchService),
+      ]),
+    );
     await notifier.loadNextPage();
     await pump();
     expect(pages, [1, 2]);
@@ -336,7 +367,7 @@ void main() {
       ),
     ).thenAnswer((_) => events.stream);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -375,7 +406,7 @@ void main() {
       ),
     ).thenAnswer((_) => events.stream);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -417,7 +448,7 @@ void main() {
         ),
       ).thenAnswer((_) => events.stream);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       final notifier = container.read(searchNotifierProvider.notifier);
@@ -467,7 +498,7 @@ void main() {
       return events.stream;
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -506,7 +537,7 @@ void main() {
       (_) => starts++ == 0 ? events.stream : const Stream<SearchBatch>.empty(),
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -549,7 +580,7 @@ void main() {
       return const Stream<SearchBatch>.empty();
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -579,7 +610,7 @@ void main() {
       return page == 1 ? first.stream : const Stream<SearchBatch>.empty();
     });
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);
@@ -609,7 +640,7 @@ void main() {
     when(() => api.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) => history.future);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     final notifier = container.read(searchNotifierProvider.notifier);
     await pump();
@@ -636,7 +667,7 @@ void main() {
       () => api.searchHistoryRepository.addSearchKeyword(any(), any()),
     ).thenAnswer((_) => writes++ == 0 ? history.future : Future<void>.value());
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     var notifier = container.read(searchNotifierProvider.notifier);
@@ -673,7 +704,7 @@ void main() {
         ),
       ).thenAnswer((_) => events.stream);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       final notifier = container.read(searchNotifierProvider.notifier);

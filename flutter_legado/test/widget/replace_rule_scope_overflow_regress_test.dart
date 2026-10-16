@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [D2 缺陷回归 | full-stack-engineer + UI + QA]
 //
 // 缺陷 D2（轻微，设备验收批）：替换规则编辑页「作用范围」三勾选行
@@ -21,7 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -50,7 +51,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: mergeTestOverrides([...mockApi.overrides]),
           child: MaterialApp(
             home: Builder(
               builder: (context) => Scaffold(

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // WebDAV / 备份与恢复页 widget 测试
 //
 // 对齐 BackupConfigFragment + pref_config_backup：AppBar「备份与恢复」
@@ -7,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
@@ -21,7 +22,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

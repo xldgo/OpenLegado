@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreShowNotifier 单元测试
 //
 // 覆盖：args 初始状态/title/fetchBooks 分页/去重/空列表 hasMore/
@@ -13,7 +15,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/explore/explore_show_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -41,7 +42,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -6,7 +10,6 @@ import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_cache_screen.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_cache_provider.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -63,11 +66,11 @@ void main() {
     final cache = _Cache();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(MockRustApi()),
+        overrides: mergeTestOverrides([
+          ...MockRustApi().overrides,
           streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
           ttsCacheRepositoryProvider.overrideWithValue(cache),
-        ],
+        ]),
         child: const MaterialApp(home: TtsCacheScreen()),
       ),
     );

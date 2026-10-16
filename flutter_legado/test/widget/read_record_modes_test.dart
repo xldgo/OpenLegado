@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -6,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
@@ -44,10 +45,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           readRecordRepositoryProvider.overrideWithValue(repo),
-        ],
+        ]),
         child: MaterialApp(
           theme: AppTheme.light,
           routes: {

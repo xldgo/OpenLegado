@@ -214,7 +214,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       readConfig: transform(book.readConfig ?? const ReadConfig()),
     );
     try {
-      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
       final notifier = ref.read(readerNotifierProvider.notifier);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
@@ -311,8 +311,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     _snack(context, '正在更新目录…');
     try {
       await ref
-          .read(bookApiProvider)
-          .readingRepository
+          .read(readingRepositoryProvider)
           .refreshToc(book.bookUrl, book.origin);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
@@ -345,8 +344,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (content == null || !context.mounted) return;
     try {
       final ok = await ref
-          .read(bookApiProvider)
-          .readingRepository
+          .read(readingRepositoryProvider)
           .saveChapterContent(
             bookUrl: book.bookUrl,
             chapterIndex: chapterIndex,
@@ -370,8 +368,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final chapterIndex = state.currentChapterIndex;
     try {
       final content = await ref
-          .read(bookApiProvider)
-          .readingRepository
+          .read(readingRepositoryProvider)
           .getChapterContentFull(book.bookUrl, chapterIndex);
       if (content.isEmpty) {
         if (context.mounted) _snack(context, '暂无正文可反转');
@@ -380,8 +377,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       // 码点级倒序（runes 反转保证 emoji 等补充平面字符安全）
       final reversed = String.fromCharCodes(content.runes.toList().reversed);
       final ok = await ref
-          .read(bookApiProvider)
-          .readingRepository
+          .read(readingRepositoryProvider)
           .saveChapterContent(
             bookUrl: book.bookUrl,
             chapterIndex: chapterIndex,
@@ -478,7 +474,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     if (book == null) return;
     final updated = book.copyWith(charset: charset);
     try {
-      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
       final notifier = ref.read(readerNotifierProvider.notifier);
       if (!mounted ||
           ref.read(readerNotifierProvider).currentBook?.bookUrl !=
@@ -498,12 +494,13 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
   }
 
   Future<void> _showSourceMenu(BuildContext context, Book book) async {
-    final api = ref.read(bookApiProvider);
     final sourceUrl = book.origin;
     // 查找当前书籍对应书源（失败时仍提供编辑/禁用入口）
     BookSource? source;
     try {
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == sourceUrl) {
           source = s;
@@ -548,7 +545,6 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     Book book,
     String action,
   ) async {
-    final api = ref.read(bookApiProvider);
     final sourceUrl = book.origin;
     final sourceName = (_sourceMenuSource?.bookSourceName ?? book.originName)
         .trim();
@@ -578,7 +574,9 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         );
       case 'disableSource':
         try {
-          await api.bookSourceRepository.disableBookSource(sourceUrl);
+          await ref
+              .read(bookSourceRepositoryProvider)
+              .disableBookSource(sourceUrl);
           if (!mounted) return;
           await ref.read(sourceNotifierProvider.notifier).loadSources();
           if (context.mounted) {
@@ -624,7 +622,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
           !_isCurrentChapter(book.bookUrl, chapterIndex)) {
         return;
       }
-      final api = ref.read(bookApiProvider);
+
       final result = await ref
           .read(sourceActionServiceProvider)
           .chapterPayAction(bookUrl: book.bookUrl, chapterIndex: chapterIndex);
@@ -637,7 +635,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => WebViewLoginScreen(
-                repository: api.sourceLoginRepository,
+                repository: ref.read(sourceLoginRepositoryProvider),
                 sourceUrl: source.bookSourceUrl,
                 sourceName: source.bookSourceName,
                 loginUrl: result.value,

@@ -1,16 +1,18 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// 规则语法帮助弹层测试
 ///
 /// 覆盖差异清单 C9：JS 书源编辑页顶栏帮助入口可点，
 /// 弹层包含三块静态帮助（源规则说明 / @规则语法 / jsLib 与内置变量）。
 /// — full-stack-engineer + UI | 2026-09-09
-library;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
@@ -23,7 +25,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: JsSourceEditScreen()),
       ),
     );

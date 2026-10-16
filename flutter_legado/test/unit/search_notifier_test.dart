@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/services/search_result_aggregator.dart';
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
 import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
@@ -15,7 +17,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/features/search/search_settings_provider.dart';
 
@@ -66,7 +67,7 @@ void main() {
               call.positionalArguments[1] as String;
         });
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -84,7 +85,7 @@ void main() {
     }
   }
 
-  /// 构造 Rust searchMultiStream 批次（字段契约见 BookApi.searchMultiStream）
+  /// 构造 Rust searchMultiStream 批次（字段契约见 TestApi.searchMultiStream）
   SearchBatch makeBatch({
     List<Map<String, dynamic>> books = const [],
     String? error,
@@ -235,7 +236,7 @@ void main() {
       expect(readState().searchHistory, isEmpty);
     });
 
-    test('loadHistory 从 BookApi 加载（取 SearchKeyword.word）', () async {
+    test('loadHistory 从 TestApi 加载（取 SearchKeyword.word）', () async {
       when(
         () => mockApi.searchHistoryRepository.getSearchHistory(
           limit: any(named: 'limit'),
@@ -252,7 +253,7 @@ void main() {
       expect(readState().searchHistory, equals(['历史1', '历史2']));
     });
 
-    test('addToHistory 经 BookApi.addSearchKeyword 持久化', () async {
+    test('addToHistory 经 TestApi.addSearchKeyword 持久化', () async {
       container.read(searchNotifierProvider);
       await pumpInit();
 
@@ -262,7 +263,7 @@ void main() {
       ).called(1);
     });
 
-    test('clearHistory 经 BookApi.clearSearchHistory 清后端', () async {
+    test('clearHistory 经 TestApi.clearSearchHistory 清后端', () async {
       container.read(searchNotifierProvider);
       await pumpInit();
 

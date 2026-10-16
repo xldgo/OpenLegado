@@ -1,7 +1,8 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_tab_screen.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,10 +43,10 @@ void main() {
   }) {
     final state = overviewState ?? sampleOverviewState;
     return ProviderScope(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         homeReadRecordOverviewProvider.overrideWithValue(state),
-      ],
+      ]),
       child: MaterialApp(
         routes: {
           AppRoutes.readRecordOverview: (_) =>

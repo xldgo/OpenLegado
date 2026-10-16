@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // SourceLoginScreen widget 测试
 //
 // 回归：全局 TabBarTheme.tabAlignment=start 对非 scrollable TabBar 断言失败
@@ -8,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/source_login_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -31,7 +32,7 @@ void main() {
   testWidgets('登录页 TabBar 渲染无断言红屏（tabAlignment.fill）', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(
           home: SourceLoginScreen(
             sourceUrl: 'https://a.com',

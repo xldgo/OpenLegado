@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// 标题字体贯通测试（差异清单 C3 收尾：对齐原版 #1072 ReadBookConfig.titleFont）
 ///
 /// 覆盖：① 共享阅读仓储中的标题字体选择，规范存储键reader_title_font_family；② effectiveTitleFontFamily 单源取值（空=跟随正文）；
@@ -7,7 +11,6 @@
 /// 断言 chrome.titleFont 传参与 layoutKey 变化）；⑤ Tt 面板标题字体行
 /// 显示「跟随正文」/字体名，点按跳转 FontScreen(target: 'title')。
 /// — full-stack-engineer + UI
-library;
 
 import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
@@ -17,10 +20,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
@@ -151,7 +152,7 @@ void main() {
       String? capturedArgs;
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+          overrides: mergeTestOverrides([...MockBookApi().overrides]),
           child: MaterialApp(
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.fonts) {
@@ -188,7 +189,7 @@ void main() {
       });
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+          overrides: mergeTestOverrides([...MockBookApi().overrides]),
           child: MaterialApp(home: ReaderFontPanel(titleOnly: true)),
         ),
       );

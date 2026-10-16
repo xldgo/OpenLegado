@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 替换规则页 widget 测试
 //
 // [A3 形态对齐 | full-stack-engineer + UI] 编辑器由弹窗表单升级为整页
@@ -13,7 +15,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/replace_rules_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -49,7 +50,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: ReplaceRulesScreen()),
       ),
     );
@@ -124,7 +125,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: mergeTestOverrides([...mockApi.overrides]),
           child: const MaterialApp(
             home: ReplaceRulesScreen(initialPattern: '选中词'),
           ),

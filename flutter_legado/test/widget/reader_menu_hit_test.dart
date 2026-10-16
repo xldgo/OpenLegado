@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/source_switch_service.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
@@ -28,11 +30,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/reader_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
@@ -222,16 +222,16 @@ Future<(_Reader, _Hits)> _pumpMenu(
   SharedPreferences.setMockInitialValues({});
   final hits = _Hits();
   final container = ProviderContainer(
-    overrides: [
+    overrides: mergeTestOverrides([
+      ...(api ?? MockBookApi()).overrides,
       readerNotifierProvider.overrideWith(() => _Reader(initialState)),
-      bookApiProvider.overrideWithValue(api ?? MockBookApi()),
       if (connectionRepository != null)
         webDavConnectionRepositoryProvider.overrideWithValue(
           connectionRepository,
         ),
       if (settingsService != null)
         appSettingsServiceProvider.overrideWithValue(settingsService),
-    ],
+    ]),
   );
   addTearDown(container.dispose);
   await tester.pumpWidget(
@@ -312,12 +312,12 @@ Future<ProviderContainer> _pumpReader(
 }) async {
   SharedPreferences.setMockInitialValues({});
   final container = ProviderContainer(
-    overrides: [
+    overrides: mergeTestOverrides([
+      ...(api ?? MockBookApi()).overrides,
       readerNotifierProvider.overrideWith(() => reader ?? _ScreenReader(mode)),
-      bookApiProvider.overrideWithValue(api ?? MockBookApi()),
       if (settingsService != null)
         appSettingsServiceProvider.overrideWithValue(settingsService),
-    ],
+    ]),
   );
   addTearDown(container.dispose);
   await tester.pumpWidget(
@@ -804,12 +804,12 @@ void main() {
       ),
     );
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
         systemBarControllerProvider.overrideWithValue(controller),
         readerNotifierProvider.overrideWith(_ScreenReader.new),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(() {
       container.dispose();
@@ -1233,10 +1233,10 @@ void main() {
     testWidgets('真实阅读器菜单外 x=$x 点击不翻页，关闭后恢复右侧翻页', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final container = ProviderContainer(
-        overrides: [
+        overrides: mergeTestOverrides([
+          ...MockBookApi().overrides,
           readerNotifierProvider.overrideWith(_ScreenReader.new),
-          bookApiProvider.overrideWithValue(MockBookApi()),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(

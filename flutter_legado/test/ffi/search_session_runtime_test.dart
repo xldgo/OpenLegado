@@ -1,14 +1,16 @@
-/// 搜索会话的真实 Windows FFI 回归；使用隔离数据库。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 搜索会话的真实 Windows FFI 回归；使用隔离数据库。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -19,7 +21,6 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 
 void main() {
@@ -58,7 +59,7 @@ void main() {
       }
     });
     final sourceUrl = 'http://127.0.0.1:${server.port}';
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: NativeRustRuntime(
@@ -72,7 +73,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     await api.bookSourceRepository.importBookSources(
       jsonEncode([
         {
@@ -90,7 +91,7 @@ void main() {
       ]),
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final notifier = container.read(searchNotifierProvider.notifier);

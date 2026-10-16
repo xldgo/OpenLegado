@@ -1,3 +1,4 @@
+import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/config_settings_provider.dart';
 import '../features/search/search_settings_provider.dart';
 import '../domain/models/change_source_settings.dart';
@@ -17,7 +18,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../models/models.dart';
 import '../bridge/ffi.dart' show BridgeError;
 import '../providers/change_source/change_source_notifier.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
 import '../widgets/error_view.dart';
@@ -25,12 +25,12 @@ import '../widgets/loading_indicator.dart';
 
 /// 换源页面 — 搜索替代书源并切换
 ///
-/// 通过 [ChangeSourceNotifier] 经 BookApi 调用 Rust 后端的换源匹配器
+/// 通过 [ChangeSourceNotifier] 经 SourceSwitchService 调用 Rust 后端的换源匹配器
 /// （`searchSource` / `switchSource`），在所有启用的书源中搜索同名书籍，
 /// 按匹配度评分排序（Rust 侧完成），用户选择后切换书籍来源。
 ///
 /// 架构说明（对齐 UI_RESTRUCTURE_PLAN.md §0.2）：本页面不直接调用 bridge/FFI，
-/// 全部经 [ChangeSourceNotifier] → BookApi 委托 Rust。
+/// 全部经 [ChangeSourceNotifier] → SourceSwitchService 委托 Rust。
 class ChangeSourceScreen extends ConsumerStatefulWidget {
   /// 书籍对象（路由参数规范化：优先使用 Book 对象）
   final Book? book;
@@ -132,7 +132,6 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
 
   /// 恢复高级开关持久化状态与源分组列表
   Future<void> _loadAdvancedOptions() async {
-    final api = ref.read(bookApiProvider);
     try {
       final settings = await ref
           .read(changeSourceSettingsRepositoryProvider)
@@ -154,7 +153,9 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       // 源分组从启用书源的 bookSourceGroup 字段聚合（对标原版
       // flowEnabledGroups）；[审计 D1] 分组分隔符全集 ,;，；，对齐原版
       // splitGroupRegex（仅英文逗号会漏分号分组的组名）
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       final groups = <String>{};
       for (final s in sources) {
         if (!s.enabled) continue;

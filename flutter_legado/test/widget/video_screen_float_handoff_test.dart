@@ -15,9 +15,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/video_screen.dart';
-import 'package:flutter_legado/src/services/book_api.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/services/mock_video_danmaku_service.dart';
 import 'package:flutter_legado/src/services/video_float_window.dart';
 import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
@@ -119,7 +120,7 @@ class _FakeFloatBridge extends VideoFloatWindowBridge {
   }
 }
 
-class _FakeBookApi implements BookApi {
+class _FakeBookApi implements TestApi {
   @override
   final videoDanmakuService = const MockVideoDanmakuService();
 
@@ -207,7 +208,7 @@ void main() {
   Future<void> pumpScreen(WidgetTester tester, Widget screen) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: MaterialApp(
           navigatorKey: navKey,
           home: const Scaffold(body: SizedBox.shrink()),

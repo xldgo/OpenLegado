@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 // P0 缺陷回归：朗读条引擎选择器（2026-10-03）
@@ -18,7 +22,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
@@ -43,12 +46,12 @@ void main() {
     audioService = MockAudioService();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(audioService),
         cloudTtsRepositoryProvider.overrideWithValue(api.cloudTtsRepository),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
 
@@ -231,12 +234,14 @@ void main() {
   testWidgets('云端列表失败不阻断 HTTP 引擎选择', (tester) async {
     final repository = _CloudRepository();
     when(repository.list).thenThrow(StateError('fixture 云端读取失败'));
-    container.updateOverrides([
-      bookApiProvider.overrideWithValue(api),
-      streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      audioServiceProvider.overrideWithValue(audioService),
-      cloudTtsRepositoryProvider.overrideWithValue(repository),
-    ]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        ...api.overrides,
+        streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+        audioServiceProvider.overrideWithValue(audioService),
+        cloudTtsRepositoryProvider.overrideWithValue(repository),
+      ]),
+    );
     await pumpBar(tester);
     await openEngineDialog(tester);
     expect(find.text(engineName), findsOneWidget);

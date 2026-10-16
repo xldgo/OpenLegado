@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../helpers/reader_layout_host.dart';
 // [P2-30 | 未入架书退出阅读缺「放入书架」提示] 退出判定 widget 测试
 //
@@ -23,7 +24,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/screens/reader_screen.dart';
@@ -99,11 +99,11 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           if (systemBars != null)
             systemBarControllerProvider.overrideWithValue(systemBars),
-        ],
+        ]),
         child: MaterialApp(
           navigatorObservers: [systemBarRouteObserver],
           builder: readerLayoutTestBuilder,

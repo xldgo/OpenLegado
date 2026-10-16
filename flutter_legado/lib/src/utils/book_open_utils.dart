@@ -1,8 +1,9 @@
+import '../features/book_sources/book_source_repository_provider.dart';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
 import '../services/platform_bridge_service.dart';
@@ -291,8 +292,7 @@ class BookOpenUtils {
     if (isOnlineBook(book)) {
       try {
         final sources = await ref
-            .read(bookApiProvider)
-            .bookSourceRepository
+            .read(bookSourceRepositoryProvider)
             .getBookSources();
         String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
         final o = norm(book.origin);

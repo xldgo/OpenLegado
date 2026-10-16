@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 朗读引擎双持久化 UI 测试（2026-10-04，对齐原版 SpeakEngineDialog）
 //
 // 覆盖两个入口：
@@ -17,7 +19,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
 import '../mocks/mocks.dart';
@@ -56,11 +57,11 @@ void main() {
     savedBooks = [];
     configStore = {};
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(audioService),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
 

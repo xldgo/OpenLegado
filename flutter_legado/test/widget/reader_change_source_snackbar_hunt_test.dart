@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [SB-HUNT | 2026-09-25] 换源后「第二条/残留 SnackBar」回归
 //
 // 真机证据（docs/parity_shots/verify_ui_20260922/）：换源后「正在更换书源…」
@@ -17,7 +18,7 @@
 //    （③a：页面成功条后阅读器侧应无条且无残留；③b：失败恰好一条阅读器
 //    侧「更换书源后重载失败」条、无成功条、无残留）
 //
-// 本文件引用的 mock 方法均属既有 RustApi 契约（未新增 FFI）；新行为以
+// 本文件引用的 mock 方法均属既有 NativeTestApi 契约（未新增 FFI）；新行为以
 // 「无残留/去重/单触发」表达，改造前文件可编译可运行，红 = 断言失败
 //（非编译错误）。
 
@@ -29,7 +30,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
@@ -86,7 +86,7 @@ void stubOpenBook(MockRustApi api) {
 
 ProviderContainer makeContainer(MockRustApi mockApi) {
   return ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(mockApi)],
+    overrides: mergeTestOverrides([...mockApi.overrides]),
   );
 }
 

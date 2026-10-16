@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../helpers/reader_layout_host.dart';
 // 视角 C：阅读主流程「失败与边界 —— 进程生命周期」缺陷猎捕 —— 红态复现用例
 //
@@ -23,7 +24,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/screens/reader_screen.dart';
 
@@ -87,7 +87,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: MaterialApp(
           builder: readerLayoutTestBuilder,
           home: Builder(

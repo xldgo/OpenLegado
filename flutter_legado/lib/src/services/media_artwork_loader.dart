@@ -8,13 +8,15 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 
 import '../models/book.dart';
-import 'book_api.dart';
+import '../domain/contracts/book_source_repository.dart';
+import '../domain/contracts/book_image_repository.dart';
 import 'cover_decode_loader.dart';
 
 /// 系统媒体封面复用现有图片来源，只缓存有界缩略图。— Codex + UI
 class MediaArtworkLoader {
-  MediaArtworkLoader({required this.api});
-  final BookApi api;
+  MediaArtworkLoader({required this.sources, required this.images});
+  final BookSourceRepository sources;
+  final BookImageRepository images;
   static const maxDimension = 384;
   static const maxBytes = 1024 * 1024;
   static const defaultAsset = 'assets/images/default_book_cover.jpg';
@@ -72,7 +74,7 @@ class MediaArtworkLoader {
     final cached = CoverDecodeLoader.getCached(origin, url);
     if (cached != null) return MemoryImage(cached);
     final patched = await CoverDecodeLoader.resolvePatchedSourceJson(
-      api: api,
+      sources: sources,
       sourceOrigin: origin,
     );
     if (CoverDecodeLoader.needsFfiDecode(
@@ -80,7 +82,7 @@ class MediaArtworkLoader {
       patchedSourceJson: patched,
     )) {
       final bytes = await CoverDecodeLoader.load(
-        api: api,
+        images: images,
         coverUrl: url,
         patchedSourceJson: patched ?? '',
         originOrEmpty: origin,

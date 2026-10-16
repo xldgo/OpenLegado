@@ -1,11 +1,10 @@
-import '../providers/source_interaction_provider.dart';
+import '../app/bootstrap/application_dependencies.dart';
 import '../app/bootstrap/login_v2_session_factory.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../screens/webview_login_screen.dart';
 import '../widgets/classic_login_dialog.dart';
 import '../widgets/login_v2_dialog.dart';
@@ -30,7 +29,6 @@ Future<bool> showSourceLogin(
   WidgetRef ref,
   BookSource source,
 ) async {
-  final api = ref.read(bookApiProvider);
   final service = ref.read(sourceLoginV2ServiceProvider);
 
   // 1) V2 动态状态协议
@@ -57,8 +55,8 @@ Future<bool> showSourceLogin(
       context: context,
       barrierDismissible: false,
       builder: (_) => ClassicLoginDialog(
-        repository: api.sourceLoginRepository,
-        evaluateAction: api.exploreService.evaluateAction,
+        repository: ref.read(sourceLoginRepositoryProvider),
+        evaluateAction: ref.read(exploreServiceProvider).evaluateAction,
         source: source,
       ),
     );
@@ -72,7 +70,7 @@ Future<bool> showSourceLogin(
   final saved = await Navigator.of(context).push<bool>(
     MaterialPageRoute(
       builder: (_) => WebViewLoginScreen(
-        repository: api.sourceLoginRepository,
+        repository: ref.read(sourceLoginRepositoryProvider),
         sourceUrl: source.bookSourceUrl,
         sourceName: source.bookSourceName,
         loginUrl: source.loginUrl ?? '',

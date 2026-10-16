@@ -1,19 +1,18 @@
+export 'explore_state.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../domain/contracts/explore_state_repository.dart';
 import 'explore_dependencies.dart';
-import '../providers.dart';
 import '../../features/book_sources/book_sources.dart';
 import 'explore_state.dart';
-
-export 'explore_state.dart';
 
 /// 发现页 Riverpod Notifier
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §3.2 铁律 与 ExploreFragment.kt）：
-/// - 调用 BookApi → 接收纯数据 → 更新 immutable State
+/// - 调用领域服务 → 接收纯数据 → 更新 immutable State
 /// - 管理 UI 状态（loading/error/data 三态）
 /// - 管理展示层过滤（实时搜索关键词、分组筛选）
 /// - 分类解析缓存（调用 Rust exploreParseUrl）
@@ -28,7 +27,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
     // [发现页刷新修复 | Qoder UI] 书源库变化（导入/删除/启停等任意
     // SourceState 变更）时自动重载发现书源列表——修复「书源管理导入后
     // 发现页不刷新、需重启应用才显示」的问题。_loadBookSources 只读
-    // bookApiProvider，不触碰 sourceNotifierProvider，无循环触发。
+    // 独立的领域Provider，不触碰 sourceNotifierProvider，无循环触发。
     ref.listen(sourceNotifierProvider, (_, _) {
       Future.microtask(_loadBookSources);
     });
@@ -42,8 +41,9 @@ class ExploreNotifier extends Notifier<ExploreState> {
     if (!ref.mounted) return;
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       if (!ref.mounted) return;
       final exploreSources = sources
           .where(
@@ -183,8 +183,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
   /// 注意：where 过滤是「UI 状态同步」而非「业务逻辑」
   Future<bool> uninstallSource(String sourceUrl) async {
     try {
-      final api = ref.read(bookApiProvider);
-      await api.bookSourceRepository.deleteBookSource(sourceUrl);
+      await ref.read(bookSourceRepositoryProvider).deleteBookSource(sourceUrl);
       state = state.copyWith(
         bookSources: state.bookSources
             .where((s) => s.bookSourceUrl != sourceUrl)

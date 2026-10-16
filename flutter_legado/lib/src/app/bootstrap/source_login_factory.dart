@@ -1,9 +1,14 @@
-import '../../data/services/source_login_service.dart';
-import '../../services/book_api.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 原配置键的兼容装配；一次操作固定同一根与凭据存储。— Codex + UI
-SourceLoginService createSourceLoginService(BookApi api) => SourceLoginService(
-  repository: api.sourceLoginRepository,
-  readLegacy: (url) => api.configRepository.getConfig('source_login_$url'),
-  clearLegacy: (url) => api.configRepository.setConfig('source_login_$url', ''),
-);
+import '../../data/services/source_login_service.dart';
+import 'application_dependencies.dart';
+
+/// 当前登录操作固定同一凭据与配置仓储。— Codex + UI
+final sourceLoginServiceProvider = Provider<SourceLoginService>((ref) {
+  final config = ref.watch(configRepositoryProvider);
+  return SourceLoginService(
+    repository: ref.watch(sourceLoginRepositoryProvider),
+    readLegacy: (url) => config.getConfig('source_login_$url'),
+    clearLegacy: (url) => config.setConfig('source_login_$url', ''),
+  );
+});

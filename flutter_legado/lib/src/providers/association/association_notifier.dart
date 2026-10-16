@@ -1,3 +1,5 @@
+export 'association_state.dart';
+import '../../features/book_sources/book_source_repository_provider.dart';
 import '../domain_config_provider.dart';
 import '../dictionary_provider.dart';
 import '../replace_rule_repository_provider.dart';
@@ -14,17 +16,13 @@ import '../../bridge/ffi.dart';
 import '../../models/book_source.dart';
 import '../../models/misc.dart';
 import '../../models/rss_source.dart';
-import '../../services/book_api.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../network_provider.dart';
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
-import '../providers.dart';
 import '../reader/reader_settings_provider.dart';
 import 'association_state.dart';
-
-export 'association_state.dart';
 
 /// 关联导入 Riverpod Notifier
 ///
@@ -36,10 +34,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
   @override
   AssociationState build() => const AssociationState();
 
-  BookApi get _api => ref.read(bookApiProvider);
-
   /// 书源导入服务（逐条校验 + FFI 批量导入）
-  SourceImportService get importService => createSourceImportService(_api);
+  SourceImportService get importService =>
+      ref.read(sourceImportServiceProvider);
 
   // ===== 加载阶段（对应原版各 ImportXxxViewModel.importSource）=====
 
@@ -202,7 +199,10 @@ class AssociationNotifier extends Notifier<AssociationState> {
       switch (type) {
         case ImportType.bookSource:
           final map = <String, BookSource>{};
-          for (final s in await _api.bookSourceRepository.getBookSources()) {
+          for (final s
+              in await ref
+                  .read(bookSourceRepositoryProvider)
+                  .getBookSources()) {
             map[s.bookSourceUrl] = s;
           }
           return map;

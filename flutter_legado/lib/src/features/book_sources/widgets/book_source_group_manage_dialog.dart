@@ -1,10 +1,11 @@
+import '../book_source_repository_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
 
 import '../../../models/models.dart';
-import '../../../providers/providers.dart';
 import '../../../widgets/group_manage_dialog.dart';
 
 /// 书源分组管理弹窗（对标原版 `ui/book/source/manage/GroupManageDialog`）
@@ -26,8 +27,7 @@ class BookSourceGroupManageDialog extends ConsumerWidget {
       items: sources,
       groupOf: (s) => s.bookSourceGroup,
       copyWithGroup: (s, g) => s.copyWith(bookSourceGroup: g),
-      update: (s) =>
-          ref.read(bookApiProvider).bookSourceRepository.updateBookSource(s),
+      update: (s) => ref.read(bookSourceRepositoryProvider).updateBookSource(s),
     );
   }
 }

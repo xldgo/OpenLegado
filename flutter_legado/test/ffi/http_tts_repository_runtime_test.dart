@@ -1,11 +1,12 @@
-/// 使用已有 Windows DLL 复核配置 CRUD，不访问真实 TTS 网络。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 使用已有 Windows DLL 复核配置 CRUD，不访问真实 TTS 网络。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -25,7 +26,7 @@ void main() {
     final root = Directory(
       '.dart_tool/http-tts-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: const NativeRustRuntime(),
@@ -33,7 +34,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     final repository = api.httpTtsRepository;
     expect(await repository.getHttpTts(), isEmpty);
     const input = HttpTts(

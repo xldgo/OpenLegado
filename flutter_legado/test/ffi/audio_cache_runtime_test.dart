@@ -1,3 +1,5 @@
+library;
+
 /// B1/B2 音频章节文件缓存 Dart↔Rust 真实数据链运行时验证（契约 §2.47/§2.48）
 ///
 /// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
@@ -22,14 +24,13 @@
 /// 写入面全链路（本地回环服务器 + DB 夹具）由 Rust 单测覆盖（不联网）。
 /// 前置条件：先在 rust/ 下构建 DLL（cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
-library;
-
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -69,7 +70,7 @@ void main() {
   }
 
   late Directory root;
-  late RustApi api;
+  late NativeTestApi api;
 
   setUpAll(() async {
     await RustLib.init(externalLibrary: ExternalLibrary.open(_resolveDll()));
@@ -78,7 +79,7 @@ void main() {
   setUp(() async {
     root = await Directory.systemTemp.createTemp('legado-audio-cache-rt-');
     await bridge.setAudioCacheDir(dir: root.path);
-    api = createBookApi(useMock: false) as RustApi;
+    api = createTestApplication(useMock: false) as NativeTestApi;
   });
 
   tearDown(() async {

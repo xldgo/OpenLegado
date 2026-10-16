@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +19,6 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/read_aloud_settings_screen.dart';
 import 'package:flutter_legado/src/routes.dart';
 
@@ -105,15 +106,15 @@ void main() {
       books.add(c.positionalArguments[0] as Book);
     });
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         systemTtsServiceProvider.overrideWithValue(system),
         cloudTtsCredentialStoreProvider.overrideWithValue(credentials),
         streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
         cloudTtsPreviewPlayerProvider.overrideWithValue(
           FakeStreamAudioPlayer(),
         ),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

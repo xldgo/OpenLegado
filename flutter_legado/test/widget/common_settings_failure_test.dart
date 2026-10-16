@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,12 +16,10 @@ import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
 import 'package:flutter_legado/src/providers/bookshelf_settings_provider.dart';
 import 'package:flutter_legado/src/providers/ui_settings/eye_protection_notifier.dart';
 import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
 import 'package:flutter_legado/src/screens/welcome_config_screen.dart';
 import 'package:flutter_legado/src/screens/welcome_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter_legado/src/widgets/eye_protection_settings.dart';
 
@@ -41,10 +41,10 @@ void main() {
       storages: {SettingsStorageKind.preferences: storage},
     );
     container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(() {
       container.dispose();

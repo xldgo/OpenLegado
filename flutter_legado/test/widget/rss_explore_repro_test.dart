@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 import 'package:flutter_legado/src/screens/rss_screen.dart';
 
@@ -20,7 +21,7 @@ void main() {
 
   Widget wrap(Widget child, MockRustApi mockApi) {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: MaterialApp(home: child),
     );
   }

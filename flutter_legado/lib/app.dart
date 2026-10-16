@@ -1,3 +1,4 @@
+import 'src/providers/auto_task/auto_task_dependencies.dart';
 import 'src/providers/config_settings_provider.dart';
 
 import 'dart:async';
@@ -11,7 +12,6 @@ import 'src/models/models.dart';
 import 'src/l10n/app_strings.dart';
 import 'src/l10n/app_localization.dart';
 import 'src/providers/app_locale_notifier.dart';
-import 'src/providers/providers.dart';
 import 'src/providers/theme/app_theme_preferences_provider.dart';
 import 'src/providers/theme/theme_colors_notifier.dart';
 import 'src/providers/theme/theme_notifier.dart';
@@ -264,12 +264,12 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     }
     // [UI-fix v2.0.3 | 2026-08-08] 定时任务应用内调度器启动装配
     //（Task #146，对齐原版 App.kt 启动时 AutoTaskScheduler.refresh；
-    // 引擎已在 main.dart 先行初始化，此处可直接注入 BookApi） — QoderCN
-    final taskApi = ref.read(bookApiProvider);
+    // 引擎已在 main.dart 先行初始化，此处可直接读取领域Provider） — QoderCN
+
     final taskSettings = ref.read(serviceSettingsRepositoryProvider);
     AutoTaskScheduler.instance.attach(
-      repository: taskApi.autoTaskRepository,
-      service: taskApi.autoTaskService,
+      repository: ref.read(autoTaskRepositoryProvider),
+      service: ref.read(autoTaskServiceProvider),
       readEnabled: () async => (await taskSettings.load()).autoTaskEnabled,
     );
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association

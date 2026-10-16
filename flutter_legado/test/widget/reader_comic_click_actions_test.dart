@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -67,14 +68,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/manga_click_actions.dart';
 import 'package:flutter_legado/src/screens/reader_comic/manga_page_image_resolver.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
 import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
 
 // [P4-3 M4 批2] 面板接线用例需断言面板类型（MangaConfigSheet）
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 // [D2 修复] 存图 MediaStore 通道与平台分派（通道 mock + 分派覆写）
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
@@ -538,7 +537,8 @@ void main() {
     test('内存缓存命中：直接返回，不触碰磁盘/FFI API', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
         memoryCached: pngBytes,
@@ -553,7 +553,8 @@ void main() {
       final disk = <int>[0xFF, 0xD8, 0xFF, 0xE0, 0x01];
       final a = api(diskBytes: disk);
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
       );
@@ -566,7 +567,8 @@ void main() {
     test('双未命中 + 提供 sourceJson → FFI 解码回退（base64 → PNG）', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
         sourceJson: '"{}"',
@@ -579,7 +581,8 @@ void main() {
     test('缓存全空且无 sourceJson → null（不旁路直连）', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
       );
@@ -601,7 +604,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -624,7 +627,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -665,7 +668,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls, chapterCount: 2);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -723,7 +726,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -742,7 +745,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -770,7 +773,7 @@ void main() {
         configs: const {'mangaLongClickSaveImage': 'false'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -822,7 +825,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -848,7 +851,7 @@ void main() {
     testWidgets('disableMangaScale 默认 true：缩放层不渲染', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -865,7 +868,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -878,7 +881,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -900,7 +903,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -928,7 +931,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -946,7 +949,7 @@ void main() {
     testWidgets('hideMangaTitle 默认 false：条漫导航区标题显示', (tester) async {
       final api = _buildApi(chapterCount: 2, progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -966,7 +969,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -987,7 +990,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -999,7 +1002,7 @@ void main() {
     testWidgets('mangaLongClickSaveImage 默认 true：长按直接存图（不弹菜单）', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1025,7 +1028,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1039,7 +1042,7 @@ void main() {
     testWidgets('disableMangaCrossFade 默认 false：图片加载淡入包裹渲染', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1057,7 +1060,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1068,7 +1071,7 @@ void main() {
     testWidgets('mangaBgColor 默认黑：Scaffold 背景 0xFF000000', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1087,7 +1090,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1101,7 +1104,7 @@ void main() {
     testWidgets('面板接线：行为开关 + 色板点选 → setConfig 持久化', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1177,7 +1180,7 @@ void main() {
     testWidgets('点「滤镜」入口 → 色彩滤镜区顶边对齐面板视口顶边', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1230,7 +1233,7 @@ void main() {
       _useFakeFilePicker(fake);
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1255,7 +1258,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1306,7 +1309,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1379,7 +1382,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1453,7 +1456,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1502,7 +1505,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);

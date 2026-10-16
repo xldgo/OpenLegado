@@ -8,15 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_book_source_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_source_checker.dart';
 import 'package:flutter_legado/src/data/services/rust_source_checker.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/source_check/check_source_notifier.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -118,20 +117,26 @@ void main() {
       final first = _Api();
       final second = _Api();
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(first)],
+        overrides: mergeTestOverrides([
+          sourceCheckerProvider.overrideWithValue(first.sourceChecker),
+        ]),
       );
       addTearDown(container.dispose);
       expect(container.read(sourceCheckerProvider), same(first.sourceChecker));
-      container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+      container.updateOverrides(
+        mergeTestOverrides([
+          sourceCheckerProvider.overrideWithValue(second.sourceChecker),
+        ]),
+      );
       expect(container.read(sourceCheckerProvider), same(second.sourceChecker));
       expect(first.initializationCount, 0);
       expect(second.initializationCount, 0);
       expect(
-        createBookApi(useMock: true).sourceChecker,
+        createTestApplication(useMock: true).sourceChecker,
         isA<MockSourceChecker>(),
       );
       expect(
-        createBookApi(useMock: false).sourceChecker,
+        createTestApplication(useMock: false).sourceChecker,
         isA<RustSourceChecker>(),
       );
     });
@@ -227,7 +232,6 @@ void main() {
       when(checker.cancelCheckSources).thenAnswer((_) async {});
       container = ProviderContainer(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根实例')),
           sourceCheckerProvider.overrideWithValue(checker),
           checkSourceNotifierProvider.overrideWith(_PreparingNotifier.new),
           sourceNotifierProvider.overrideWith(_GroupingNotifier.new),
@@ -497,10 +501,11 @@ void main() {
       when(first.sourceChecker.cancelCheckSources).thenAnswer((_) async {});
       when(second.sourceChecker.cancelCheckSources).thenAnswer((_) async {});
       final roots = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(first),
+        overrides: mergeTestOverrides([
+          ...first.overrides,
+          sourceCheckerProvider.overrideWithValue(first.sourceChecker),
           checkSourceNotifierProvider.overrideWith(_PreparingNotifier.new),
-        ],
+        ]),
       );
       addTearDown(roots.dispose);
       final prepared = roots.read(
@@ -509,10 +514,13 @@ void main() {
       final gate = Completer<Map<String, dynamic>>();
       prepared.preparation = gate.future;
       final task = prepared.start(sourceUrls: ['fixture://a']);
-      roots.updateOverrides([
-        bookApiProvider.overrideWithValue(second),
-        checkSourceNotifierProvider.overrideWith(_PreparingNotifier.new),
-      ]);
+      roots.updateOverrides(
+        mergeTestOverrides([
+          ...second.overrides,
+          sourceCheckerProvider.overrideWithValue(second.sourceChecker),
+          checkSourceNotifierProvider.overrideWith(_PreparingNotifier.new),
+        ]),
+      );
       gate.complete({});
       await task;
       await prepared.cancel();

@@ -5,7 +5,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../utils/comic_image_utils.dart';
-import 'book_api.dart';
+import '../domain/contracts/book_source_repository.dart';
+import '../domain/contracts/book_image_repository.dart';
 
 /// 封面解密排队票：列表项 dispose 时 [cancel] 释放槽位（未进入 FFI 的请求直接丢弃）
 ///
@@ -102,7 +103,7 @@ class CoverDecodeLoader {
 
   /// 解析书源并缓存 origin → patched JSON
   static Future<String?> resolvePatchedSourceJson({
-    required BookApi api,
+    required BookSourceRepository sources,
     String? sourceJson,
     String? sourceOrigin,
   }) async {
@@ -116,7 +117,7 @@ class CoverDecodeLoader {
     }
     if (origin.isEmpty) return '';
     try {
-      final reg = await _ensureSourceRegistry(api);
+      final reg = await _ensureSourceRegistry(sources);
       return reg[origin] ?? '';
     } catch (e) {
       debugPrint('封面书源解析失败: $e');
@@ -125,7 +126,9 @@ class CoverDecodeLoader {
   }
 
   /// 确保注册表已加载：已加载直接返回；并发首请共享同一次 FFI。
-  static Future<Map<String, String>> _ensureSourceRegistry(BookApi api) {
+  static Future<Map<String, String>> _ensureSourceRegistry(
+    BookSourceRepository repository,
+  ) {
     final loaded = _sourceRegistry;
     if (loaded != null) return Future.value(loaded);
     final loading = _registryLoading;
@@ -133,7 +136,7 @@ class CoverDecodeLoader {
     final gen = ++_registryGeneration;
     final fut = () async {
       try {
-        final sources = await api.bookSourceRepository.getBookSources();
+        final sources = await repository.getBookSources();
         final reg = <String, String>{};
         for (final s in sources) {
           reg[s.bookSourceUrl] =
@@ -193,7 +196,7 @@ class CoverDecodeLoader {
   /// [onTicket]：排队时下发票证，dispose 时 cancel；进入 FFI / 命中缓存时传 null。
   /// 取消后返回 null；失败返回 null（不抛到 UI）。
   static Future<Uint8List?> load({
-    required BookApi api,
+    required BookImageRepository images,
     required String coverUrl,
     required String patchedSourceJson,
     String originOrEmpty = '',
@@ -222,7 +225,7 @@ class CoverDecodeLoader {
     }
 
     return _enqueue(
-      api: api,
+      images: images,
       coverUrl: coverUrl,
       patchedSourceJson: patchedSourceJson,
       originOrEmpty: originOrEmpty,
@@ -232,7 +235,7 @@ class CoverDecodeLoader {
   }
 
   static Future<Uint8List?> _enqueue({
-    required BookApi api,
+    required BookImageRepository images,
     required String coverUrl,
     required String patchedSourceJson,
     required String originOrEmpty,
@@ -253,7 +256,7 @@ class CoverDecodeLoader {
     if (_tryClaimSlot()) {
       onTicket(null);
       return _runFetch(
-        api: api,
+        images: images,
         coverUrl: coverUrl,
         patchedSourceJson: patchedSourceJson,
         originOrEmpty: originOrEmpty,
@@ -294,7 +297,7 @@ class CoverDecodeLoader {
       if (!_tryClaimSlot()) {
         // 极端竞争：重新排队
         return _enqueue(
-          api: api,
+          images: images,
           coverUrl: coverUrl,
           patchedSourceJson: patchedSourceJson,
           originOrEmpty: originOrEmpty,
@@ -303,7 +306,7 @@ class CoverDecodeLoader {
         );
       }
       return _runFetch(
-        api: api,
+        images: images,
         coverUrl: coverUrl,
         patchedSourceJson: patchedSourceJson,
         originOrEmpty: originOrEmpty,
@@ -321,7 +324,7 @@ class CoverDecodeLoader {
   }
 
   static Future<Uint8List?> _runFetch({
-    required BookApi api,
+    required BookImageRepository images,
     required String coverUrl,
     required String patchedSourceJson,
     required String originOrEmpty,
@@ -353,10 +356,7 @@ class CoverDecodeLoader {
     _inflight[key] = completer.future;
     try {
       final sourceForFfi = patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
-      final raw = await api.bookImageRepository.fetchImageWithDecode(
-        coverUrl,
-        sourceForFfi,
-      );
+      final raw = await images.fetchImageWithDecode(coverUrl, sourceForFfi);
       Uint8List? bytes;
       if (raw.isNotEmpty && looksLikeImageBytes(raw)) {
         putCached(originOrEmpty, coverUrl, raw);

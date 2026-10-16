@@ -1,14 +1,15 @@
-/// 使用真实 Windows DLL 复核拆分后的启动与 JS 配置注入。
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 使用真实 Windows DLL 复核拆分后的启动与 JS 配置注入。
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -36,8 +37,8 @@ void main() {
       environment: _IsolatedEnvironment(root.absolute.path),
       configurationSource: source,
     );
-    final api = createBookApi(useMock: false, bootstrap: startup);
-    expect(await initializeBookApi(api: api), same(api));
+    final api = createTestApplication(useMock: false, bootstrap: startup);
+    expect(await initializeTestApplication(api: api), same(api));
     expect(await api.runtime.getVersion(), isNotEmpty);
     expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
     expect(

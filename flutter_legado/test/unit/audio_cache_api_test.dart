@@ -2,10 +2,10 @@ import 'package:flutter_legado/src/domain/models/audio_media.dart';
 // B1/B2 音频章节文件缓存数据链定向测试（契约 §2.47 读面 + §2.48 写入面）
 //
 // 覆盖 Dart 侧可验证面：
-// 1. BookApi 签名面（编译期形状 + Mock 走接口调用，含 §2.48 两方法）
+// 1. TestApi 签名面（编译期形状 + Mock 走接口调用，含 §2.48 两方法）
 // 2. MockBookApi 内存态语义（空态查询 false / 列举空 / 清理 0，幂等；
 //    download 后查询 true / 列举含下标 / 重复 download 为 already_cached）
-// 3. RustApi FFI 未初始化（库不可用）时读面四方法降级不抛异常；
+// 3. NativeTestApi FFI 未初始化（库不可用）时读面四方法降级不抛异常；
 //    写入面两方法**上抛不降级**（契约 §2.48 有意区别）
 //
 // 键规则向量 / 命中三条件（.complete + size>0 + key 匹配）/ 五段式正则解析 /
@@ -18,10 +18,7 @@ import 'package:flutter_legado/src/domain/models/audio_media.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/services/book_api.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
 
 void main() {
   // MockBookApi 构造经 _initMockData 惰性读取样例资产（rootBundle）
@@ -142,9 +139,9 @@ void main() {
     });
   });
 
-  group('BookApi 接口面（编译期签名形状 + 走接口调用）', () {
-    test('Mock 实现可经 BookApi 接口调用全部方法且类型正确', () async {
-      final BookApi api = MockBookApi();
+  group('TestApi 接口面（编译期签名形状 + 走接口调用）', () {
+    test('Mock 实现可经 TestApi 接口调用全部方法且类型正确', () async {
+      final TestApi api = MockBookApi();
       final bool hit = await api.audioCacheRepository.audioCacheQuery(
         bookUrl: bookUrl,
         chapterIndex: 0,
@@ -183,9 +180,9 @@ void main() {
     });
   });
 
-  group('RustApi FFI 不可用（读面降级 / 写入面上抛，契约 §2.47/§2.48）', () {
-    late RustApi api;
-    setUp(() => api = createBookApi(useMock: false) as RustApi);
+  group('NativeTestApi FFI 不可用（读面降级 / 写入面上抛，契约 §2.47/§2.48）', () {
+    late NativeTestApi api;
+    setUp(() => api = createTestApplication(useMock: false) as NativeTestApi);
 
     test('读面四方法降级为 false/空/0，不抛 FFI 异常', () async {
       expect(

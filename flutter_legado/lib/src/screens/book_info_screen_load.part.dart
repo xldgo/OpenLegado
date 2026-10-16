@@ -38,13 +38,13 @@ extension _BookInfoLoad on _BookInfoScreenState {
 
   Future<void> _loadData() async {
     final sw = Stopwatch()..start();
-    final api = ref.read(bookApiProvider);
+
     final url = widget.effectiveBookUrl;
     try {
       // 优先从数据库取最新记录（换源/刷新后元数据才会更新），传入对象仅兜底
       final dbBook = url.isEmpty
           ? null
-          : await api.bookshelfRepository.getBook(url);
+          : await ref.read(bookshelfRepositoryProvider).getBook(url);
       // DB 有记录且未打 notShelf 位才视为已入书架（对标原版 inBookshelf；
       // 搜索/发现打开的在线书会以 notShelf 临时落库，不算在书架内）
       final inShelf = BookOpenUtils.resolveInBookshelf(dbBook, widget.book);
@@ -61,11 +61,11 @@ extension _BookInfoLoad on _BookInfoScreenState {
       }
       var chapters = url.isEmpty
           ? <BookChapter>[]
-          : await api.readingRepository.getChapters(url);
+          : await ref.read(readingRepositoryProvider).getChapters(url);
       // 书源查询一次即复用：既供菜单条件项判定，也供下方联网补全传参
       BookSource? source;
       if (book != null && _isOnlineBook(book)) {
-        source = await _findSourceByOrigin(api, book.origin);
+        source = await _findSourceByOrigin(book.origin);
       }
 
       _bookSource = source;
@@ -111,7 +111,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           try {
             if (hasTocUrl && !needInfo) {
               // 对齐原版 upBook：已有 tocUrl 且元数据齐全 → 直接 loadChapter
-              chapters = await _fetchWebChaptersOnline(api, b, source: source);
+              chapters = await _fetchWebChaptersOnline(b, source: source);
             } else if (hasTocUrl && needInfo) {
               // 详情与目录并行（tocUrl 已知，目录不必等 info）
               final tParallel = Stopwatch()..start();
@@ -167,16 +167,11 @@ extension _BookInfoLoad on _BookInfoScreenState {
               }
               final tToc = Stopwatch()..start();
               if (inShelf) {
-                chapters = await api.readingRepository.refreshToc(
-                  b.bookUrl,
-                  b.origin,
-                );
+                chapters = await ref
+                    .read(readingRepositoryProvider)
+                    .refreshToc(b.bookUrl, b.origin);
               } else {
-                chapters = await _fetchWebChaptersOnline(
-                  api,
-                  b,
-                  source: source,
-                );
+                chapters = await _fetchWebChaptersOnline(b, source: source);
               }
               debugPrint(
                 '[BookInfo] toc ${tToc.elapsedMilliseconds}ms '
@@ -195,7 +190,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           // 已入库书：把补全的元数据写回 DB（对标原版 inBookshelf 时 update）
           if (inShelf) {
             try {
-              await api.bookshelfRepository.updateBook(b);
+              await ref.read(bookshelfRepositoryProvider).updateBook(b);
             } catch (e) {
               debugPrint('更新书籍元数据失败: $e');
             }
@@ -238,7 +233,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
           // update）；未入库仅展示不落库（对齐原版 loadChapter !inBookshelf）
           if (inShelf) {
             try {
-              await api.bookshelfRepository.updateBook(b);
+              await ref.read(bookshelfRepositoryProvider).updateBook(b);
             } catch (e) {
               debugPrint('U7 刷新落库失败: $e');
             }
@@ -329,13 +324,15 @@ extension _BookInfoLoad on _BookInfoScreenState {
       book.tocUrl.isEmpty;
 
   /// 按 origin（书源 URL）查找对应书源（供 webbookInfo/webbookChapters 传参）
-  Future<BookSource?> _findSourceByOrigin(BookApi api, String origin) async {
+  Future<BookSource?> _findSourceByOrigin(String origin) async {
     final key = origin.trim().replaceAll(RegExp(r'/+$'), '');
     if (_BookInfoScreenState._sourceByOriginCache.containsKey(key)) {
       return _BookInfoScreenState._sourceByOriginCache[key];
     }
     try {
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       for (final s in sources) {
         final u = s.bookSourceUrl.trim().replaceAll(RegExp(r'/+$'), '');
         if (u == key || s.bookSourceUrl == origin) {
@@ -357,11 +354,10 @@ extension _BookInfoLoad on _BookInfoScreenState {
 
   /// 未入库在线书：仅网络取目录用于展示，不写 DB（对齐原版 loadChapter !inBookshelf）
   Future<List<BookChapter>> _fetchWebChaptersOnline(
-    BookApi api,
     Book book, {
     BookSource? source,
   }) async {
-    final resolved = source ?? await _findSourceByOrigin(api, book.origin);
+    final resolved = source ?? await _findSourceByOrigin(book.origin);
     if (resolved == null) return const [];
     return ref
         .read(bookSourceQueryServiceProvider)

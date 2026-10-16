@@ -1,22 +1,23 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('工厂装配正式实现，Mock 会话分别拥有独立存储', () async {
     expect(
-      createBookApi(useMock: false).readRecordRepository,
+      createTestApplication(useMock: false).readRecordRepository,
       isA<RustReadRecordRepository>(),
     );
-    final first = createBookApi(useMock: true);
-    final second = createBookApi(useMock: true);
+    final first = createTestApplication(useMock: true);
+    final second = createTestApplication(useMock: true);
     await first.readRecordRepository.putReadRecord(
       const ReadRecord(bookName: '独立', readTime: 123),
     );
@@ -64,10 +65,14 @@ void main() {
     expect(await repository.getAllReadRecordDetails(), hasLength(1));
   });
 
-  test('多个消费者共享根 Repository，根替换后跟随且不重新初始化', () async {
+  test('多个消费者共享根 Repository，依赖替换后跟随且不重新初始化', () async {
     final first = _Api();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        readRecordRepositoryProvider.overrideWithValue(
+          first.readRecordRepository,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     final consumer = Provider((ref) => ref.watch(readRecordRepositoryProvider));
@@ -78,7 +83,13 @@ void main() {
       const ReadRecord(bookName: '旧会话', readTime: 42),
     );
     final second = _Api();
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        readRecordRepositoryProvider.overrideWithValue(
+          second.readRecordRepository,
+        ),
+      ]),
+    );
     expect(container.read(consumer), same(second.readRecordRepository));
     expect(await container.read(consumer).getReadRecords(), isEmpty);
     expect((await repository.getReadRecords()).single.bookName, '旧会话');

@@ -1,9 +1,10 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/data/repositories/mock_replace_rule_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/replace_rule_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/replace_rule_repository_provider.dart';
 import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,7 +38,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           replaceRuleRepositoryProvider.overrideWithValue(repository),
           replaceRuleServiceProvider.overrideWithValue(service),
         ],

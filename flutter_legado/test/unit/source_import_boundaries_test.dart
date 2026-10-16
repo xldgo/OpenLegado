@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/providers/network_provider.dart';
+import 'package:flutter_legado/src/providers/replace_rule_repository_provider.dart';
+import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -6,16 +10,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/domain/models/http_response.dart';
 import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/services/source_import_parser.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
-import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -318,11 +319,17 @@ void main() {
     expect(await readSourceImportFile('${file.path}.missing'), isNull);
   });
 
-  test('装配与两个 Notifier 跟随同一根替换，不初始化或新建数据存储', () async {
+  test('两个 Notifier 跟随窄依赖替换，在途导入仍使用捕获的实例', () async {
     final first = MockRustApi();
     final second = MockRustApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: [
+        bookSourceRepositoryProvider.overrideWithValue(
+          first.bookSourceRepository,
+        ),
+        networkServiceProvider.overrideWithValue(first.networkService),
+        replaceRuleServiceProvider.overrideWithValue(first.replaceRuleService),
+      ],
     );
     addTearDown(container.dispose);
     for (final api in [first, second]) {
@@ -339,11 +346,22 @@ void main() {
       when(() => api.bookSourceRepository.importBookSources(any()))
           .thenAnswer((_) async => 1);
     }
-    final inFlight = createSourceImportService(first);
+    final inFlight = SourceImportService(
+      repository: first.bookSourceRepository,
+      fetchText: first.networkService.httpGet,
+      readFile: readSourceImportFile,
+      applyReplaceRules: first.replaceRuleService.applyReplaceRulesToSource,
+    );
     final source = container.read(sourceNotifierProvider.notifier);
     final association = container.read(associationNotifierProvider.notifier);
     await source.importService.importFromUrl('https://first.test');
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides([
+      bookSourceRepositoryProvider.overrideWithValue(
+        second.bookSourceRepository,
+      ),
+      networkServiceProvider.overrideWithValue(second.networkService),
+      replaceRuleServiceProvider.overrideWithValue(second.replaceRuleService),
+    ]);
     await source.importService.importFromUrl('https://second.test');
     await association.importService.importFromJson(_source);
     await inFlight.importFromJson(_source);

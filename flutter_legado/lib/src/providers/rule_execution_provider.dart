@@ -1,9 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../domain/contracts/rule_execution_service.dart';
-import 'providers.dart';
-
-/// 脚本执行使用装配好的同一平台拦截链。— Codex + UI
-final ruleExecutionServiceProvider = Provider<RuleExecutionService>(
-  (ref) => ref.watch(bookApiProvider).ruleExecutionService,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../app/bootstrap/application_dependencies.dart'
+    show ruleExecutionServiceProvider;

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 搜索页顶栏溢出回归测试（差异清单 A1 缺陷：A1 三钮加入后，
 // M3 SearchBar 默认 minWidth 360 在 360dp 屏 + 多顶栏钮下撑爆 AppBar，
 // 胶囊输入条被压到无法输入）。修复 = SearchBar constraints.minWidth 0。
@@ -9,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
@@ -40,7 +41,7 @@ void main() {
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

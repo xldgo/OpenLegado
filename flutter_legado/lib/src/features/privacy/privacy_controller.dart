@@ -1,3 +1,8 @@
+import '../../app/bootstrap/application_dependencies.dart'
+    show privacyCredentialProvider;
+export '../../app/bootstrap/application_dependencies.dart'
+    show privacyCredentialProvider;
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -5,21 +10,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../data/repositories/rust_privacy_credential_repository.dart';
-import '../../data/repositories/mock_privacy_credential_repository.dart';
-import '../../services/mock_book_api.dart';
-import '../../providers/providers.dart';
 import '../../domain/contracts/privacy_credential_repository.dart';
 import '../../models/models.dart';
 import '../bookshelf/bookshelf_repositories.dart';
 import 'privacy_settings.dart';
 import '../../platform/privacy/privacy_platform.dart';
 
-final privacyCredentialProvider = Provider<PrivacyCredentialRepository>(
-  (ref) => ref.watch(bookApiProvider) is MockBookApi
-      ? MockPrivacyCredentialRepository()
-      : const RustPrivacyCredentialRepository(),
-);
 final privacyClockProvider = Provider<DateTime Function()>(
   (ref) => DateTime.now,
 );

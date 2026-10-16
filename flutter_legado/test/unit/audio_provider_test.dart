@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
@@ -7,7 +9,7 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 初始状态 / TtsConfig / AudioChapter / loadChapters / 播放控制 /
 // 播放模式 / updateConfig / PlayerState / AudioPlayMode 枚举。
 //
-// 迁移范式：ProviderContainer + bookApiProvider.overrideWithValue(mockApi)。
+// 迁移范式：ProviderContainer + ...mockApi.overrides。
 // AudioService 依赖走 audioServiceProvider，默认单例在测试环境未初始化，
 // 其所有平台通道调用均为静默 no-op（与原测试使用真实单例的行为一致），
 // 故此处无需 override audioServiceProvider。
@@ -17,7 +19,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -34,7 +35,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

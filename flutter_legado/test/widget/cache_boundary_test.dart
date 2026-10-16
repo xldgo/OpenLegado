@@ -1,13 +1,15 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/cache_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/cache_settings_screen.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -36,10 +38,7 @@ void main() {
   Future<void> openCache(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          cacheRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [cacheRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: CacheSettingsScreen()),
       ),
     );
@@ -140,12 +139,12 @@ void main() {
       storages: {SettingsStorageKind.preferences: HomeSettingsStorage()},
     );
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(settings),
-        bookApiProvider.overrideWithValue(MockBookApi()),
         cacheRepositoryProvider.overrideWithValue(repository),
         databaseMaintenanceServiceProvider.overrideWithValue(maintenance),
-      ],
+      ]),
     );
     addTearDown(() {
       container.dispose();

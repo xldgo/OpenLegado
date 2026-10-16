@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +13,6 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/home_settings_provider.dart';
 import 'package:flutter_legado/src/providers/main_prefs_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/other_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
@@ -34,12 +35,12 @@ void main() {
     when(() => api.configRepository.getConfig(any()))
         .thenAnswer((_) async => null);
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         homeSettingsRepositoryProvider.overrideWithValue(
           AppHomeSettingsRepository(service),
         ),
-      ],
+      ]),
     );
     addTearDown(() {
       container.dispose();

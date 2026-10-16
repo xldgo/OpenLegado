@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/providers/bottom_bar_skin_notifier.dart';
 import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
@@ -59,7 +60,7 @@ void main() {
                 return null;
               });
           final container = ProviderContainer(
-            overrides: [bookApiProvider.overrideWithValue(api)],
+            overrides: mergeTestOverrides([...api.overrides]),
           );
           initializer.value(container);
           if (started) await Future<void>.delayed(Duration.zero);

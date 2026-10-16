@@ -10,7 +10,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/services/cover_decode_loader.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 /// 最小 JPEG（1×1）供缓存/魔数校验
 Uint8List _tinyJpeg() => Uint8List.fromList([
@@ -253,7 +254,7 @@ void main() {
     test('LRU 命中不重复打 FFI', () async {
       final api = _SlowDecodeApi(delay: Duration.zero);
       final bytes = await CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/1.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -263,7 +264,7 @@ void main() {
       expect(api.fetchCount, 1);
 
       final hit = await CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/1.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -280,7 +281,7 @@ void main() {
       for (var i = 0; i < 10; i++) {
         futures.add(
           CoverDecodeLoader.load(
-            api: api,
+            images: api.bookImageRepository,
             coverUrl: 'https://cdn/$i.jpg',
             patchedSourceJson: '{"x":1}',
             originOrEmpty: 'https://src',
@@ -311,7 +312,7 @@ void main() {
       for (var i = 0; i < CoverDecodeLoader.maxConcurrent; i++) {
         blockers.add(
           CoverDecodeLoader.load(
-            api: api,
+            images: api.bookImageRepository,
             coverUrl: 'https://cdn/block$i.jpg',
             patchedSourceJson: '{"x":1}',
             originOrEmpty: 'https://src',
@@ -323,7 +324,7 @@ void main() {
 
       CoverDecodeTicket? ticket;
       final cancelled = CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/cancel-me.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -345,14 +346,14 @@ void main() {
     test('origin 书源解析缓存：第二次不调 getBookSources', () async {
       final api = _CountingSourcesApi();
       final a = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
+        sources: api.bookSourceRepository,
         sourceOrigin: 'https://missing-origin',
       );
       expect(a, '');
       expect(api.getSourcesCount, 1);
 
       final b = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
+        sources: api.bookSourceRepository,
         sourceOrigin: 'https://missing-origin',
       );
       expect(b, '');

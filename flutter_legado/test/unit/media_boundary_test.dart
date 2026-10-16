@@ -1,10 +1,11 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/models/book_chapter.dart';
 import 'package:flutter_legado/src/providers/media_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,7 +23,6 @@ void main() {
     final video = VideoDanmakuServiceMock();
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
         bookImageRepositoryProvider.overrideWithValue(image),
         audioCacheRepositoryProvider.overrideWithValue(cache),
         audioCacheDownloadServiceProvider.overrideWithValue(downloads),
@@ -39,7 +39,7 @@ void main() {
   });
 
   test('正式装配重复读取返回同一媒体实例且不启动原生运行时', () {
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     expect(api.bookImageRepository, same(api.bookImageRepository));
     expect(api.audioCacheRepository, same(api.audioCacheRepository));
     expect(api.audioCacheDownloadService, same(api.audioCacheDownloadService));
@@ -50,7 +50,7 @@ void main() {
   test('Provider下载与清理读取同一Mock缓存，书籍之间隔离', () async {
     final api = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final downloads = container.read(audioCacheDownloadServiceProvider);

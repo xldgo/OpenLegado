@@ -2,7 +2,6 @@ import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -30,9 +29,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith(
-            (_) => throw StateError('分组 CRUD 不应读取 BookApi'),
-          ),
           bookshelfRepositoryProvider.overrideWithValue(shelf),
           bookGroupRepositoryProvider.overrideWithValue(groups),
         ],

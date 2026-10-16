@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // A4 批：定时停止（分钟倒计时 + 按章停止）计时下沉 AudioNotifier 测试
@@ -22,7 +24,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/audio_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -40,10 +41,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

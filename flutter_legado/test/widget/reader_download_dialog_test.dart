@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P2-27 | 2026-09-28] 阅读器「离线缓存」范围对话框 UI 回归
 //
 // 针对缺陷 P2-27（用户裁决：原版语义为准）：阅读器顶栏下载入口必须
@@ -31,7 +32,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
 
@@ -69,7 +69,7 @@ void stubOpenBook(MockRustApi api) {
 
 ProviderContainer makeContainer(MockRustApi mockApi) {
   return ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(mockApi)],
+    overrides: mergeTestOverrides([...mockApi.overrides]),
   );
 }
 

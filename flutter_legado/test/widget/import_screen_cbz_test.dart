@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [cbz 批 C | 2026-10-03] 导入页 cbz 识别与「整本导入不走解压」回归测试
 ///
 /// 覆盖：
@@ -7,8 +11,7 @@
 /// 3. 对照：.zip 仍走 ArchiveImportDialog 解压路径（钉住格式判定不漂移）。
 ///
 /// path_provider 经 PathProviderPlatform 平台桩注入临时文档目录；
-/// BookApi 经 MockRustApi 注入（importLocalBook 捕获实参）。
-library;
+/// TestApi 经 MockRustApi 注入（importLocalBook 捕获实参）。
 
 import 'dart:io';
 
@@ -24,7 +27,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/archive_import_dialog.dart';
 import 'package:flutter_legado/src/screens/import_screen.dart';
 
@@ -101,7 +103,7 @@ void main() {
   });
 
   Widget harness() => ProviderScope(
-    overrides: [bookApiProvider.overrideWithValue(api)],
+    overrides: mergeTestOverrides([...api.overrides]),
     child: const MaterialApp(home: ImportScreen()),
   );
 

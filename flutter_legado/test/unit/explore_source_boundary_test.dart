@@ -1,9 +1,10 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/explore/explore_dependencies.dart';
 
 import '../mocks/mocks.dart';
@@ -13,7 +14,7 @@ void main() {
   test('发现状态同实例共享、按源隔离、默认值不覆盖选择，快照不泄露内存', () async {
     final api = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final state = container.read(exploreStateRepositoryProvider);
@@ -35,7 +36,6 @@ void main() {
     final debug = BookSourceDebugServiceMock();
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不读取根接口')),
         exploreServiceProvider.overrideWithValue(explore),
         exploreStateRepositoryProvider.overrideWithValue(state),
         bookSourceQueryServiceProvider.overrideWithValue(query),
@@ -50,9 +50,9 @@ void main() {
   });
 
   test('正式装配不加载原生库，四项能力保持同一实例', () {
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     expect(container.read(exploreServiceProvider), same(api.exploreService));

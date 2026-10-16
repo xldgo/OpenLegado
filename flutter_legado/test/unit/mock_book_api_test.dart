@@ -2,7 +2,8 @@ import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import '../fixtures/mock_book_api.dart';
+
 import 'package:flutter_legado/src/models/models.dart';
 
 /// MockBookApi 全方法可调用性验证

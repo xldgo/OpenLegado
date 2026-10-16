@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreNotifier 单元测试
 //
 // 覆盖：初始状态/loadBookSources 过滤/分组收集/搜索过滤/分组过滤/
@@ -8,7 +10,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -23,7 +24,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

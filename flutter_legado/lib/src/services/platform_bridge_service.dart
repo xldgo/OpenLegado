@@ -152,7 +152,7 @@ class PlatformBridgeService {
 
   /// FFI 结果管线拦截点：载荷则执行并回传真实结果，否则原样返回
   ///
-  /// 供 [RustApi] 解析类方法包装返回值使用；内部异常全捕获，
+  /// 供 Rust 数据适配器解析类方法包装返回值使用；内部异常全捕获，
   /// 任何失败均不抛出、退化为返回原文（保证既有链路不因桥接中断）。
   Future<String> interceptResult(String raw) async {
     final payload = parsePayload(raw);
@@ -227,7 +227,7 @@ class PlatformBridgeService {
         }
         return '';
       case 'clearTtsCache':
-        // TTS 缓存目录由 RustApi 初始化；此处仅提示（对齐 toast 成功）
+        // TTS 缓存目录由 RustBootstrap 初始化；此处仅提示（对齐 toast 成功）
         _showSnackBar('已清除朗读缓存');
         return '';
       case 'toast':

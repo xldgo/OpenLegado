@@ -1,7 +1,7 @@
-/// 当前 DLL、本机 SSE 与安全存储替身；不调用真实 MiMo 账号。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 当前 DLL、本机 SSE 与安全存储替身；不调用真实 MiMo 账号。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 

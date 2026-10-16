@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
+
+import '../fixtures/app_test_api.dart';
+
 // [书源作用域 | 2026-09-13] scopeSource 全链路 Dart 侧测试
 //
 // 覆盖三层（对应任务要求「模型序列化 / 服务透传 / 导入挂钩单测」）：
@@ -18,11 +22,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
 import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -152,7 +153,12 @@ void main() {
 
     setUp(() {
       mockApi = MockRustApi();
-      service = createSourceImportService(mockApi);
+      service = SourceImportService(
+        repository: mockApi.bookSourceRepository,
+        fetchText: mockApi.networkService.httpGet,
+        readFile: readSourceImportFile,
+        applyReplaceRules: mockApi.replaceRuleService.applyReplaceRulesToSource,
+      );
     });
 
     test('有命中：交 importBookSources 的 JSON 已被替换', () async {
@@ -280,7 +286,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
       when(() => mockApi.bookSourceRepository.getBookSources())

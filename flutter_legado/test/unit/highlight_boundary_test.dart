@@ -1,11 +1,13 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_highlight_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_highlight_rule_repository.dart';
 import 'package:flutter_legado/src/domain/models/book_highlight.dart';
 import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/providers/highlight_repository_provider.dart';
 import 'package:flutter_legado/src/providers/highlight_rules/highlight_rules_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -138,7 +140,7 @@ void main() {
     expect(await repository.highlightRuleDelete(id: id), isFalse);
   });
 
-  test('两个Provider支持注入并跟随根装配替换', () async {
+  test('两个Provider支持注入并跟随窄依赖替换', () async {
     var nextId = 40;
     final highlights = MockHighlightRepository();
     final rules = MockHighlightRuleRepository(nextId: () => nextId++);
@@ -148,7 +150,14 @@ void main() {
     );
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        highlightRepositoryProvider.overrideWithValue(
+          first.highlightRepository,
+        ),
+        highlightRuleRepositoryProvider.overrideWithValue(
+          first.highlightRuleRepository,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(highlightRepositoryProvider), same(highlights));
@@ -159,7 +168,16 @@ void main() {
           .highlightRuleSave(const HighlightRule()),
       40,
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        highlightRepositoryProvider.overrideWithValue(
+          second.highlightRepository,
+        ),
+        highlightRuleRepositoryProvider.overrideWithValue(
+          second.highlightRuleRepository,
+        ),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(highlightRepositoryProvider),
@@ -195,7 +213,6 @@ void main() {
           .thenAnswer((_) async => [rule]);
       container = ProviderContainer(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           highlightRuleRepositoryProvider.overrideWithValue(repository),
         ],
       );

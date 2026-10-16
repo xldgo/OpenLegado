@@ -1,10 +1,13 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/explore/explore_dependencies.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
@@ -68,10 +71,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           bookSourceQueryServiceProvider.overrideWithValue(query),
-        ],
+        ]),
         child: MaterialApp(home: child),
       ),
     );

@@ -1,3 +1,8 @@
+library;
+
+export '../providers/explore/explore_show_notifier.dart' show ExploreShowArgs;
+import '../features/bookshelf/bookshelf_repositories.dart';
+
 /// 发现分类书籍浏览页面（ExploreShowScreen）
 ///
 /// 参考 Android 原版 ExploreShowActivity.kt 实现：
@@ -7,7 +12,6 @@
 /// 4. 点击书籍跳转书籍详情页
 ///
 /// 列表渲染与分页逻辑抽取至 [ExploreBookList]，供平板双栏右栏复用。
-library;
 
 import '../l10n/app_localization.dart';
 
@@ -19,7 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/explore/explore_show_notifier.dart';
-import '../providers/providers.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/explore_book_list.dart';
@@ -27,7 +30,6 @@ import '../widgets/explore_page_control.dart';
 import '../widgets/legado_app_bar.dart';
 
 /// 路由参数类型转发（routes.dart / explore_screen.dart 依赖）— 保留原导出
-export '../providers/explore/explore_show_notifier.dart' show ExploreShowArgs;
 
 /// 发现分类书籍浏览页
 class ExploreShowScreen extends ConsumerStatefulWidget {
@@ -50,7 +52,7 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
 
   /// 将已加载书籍批量加入书架（对齐原版 addLoadedBooksToShelf）— 发现页修复 R5
   ///
-  /// 经 BookApi.importBooks 批量导入（Rust RoomImporter 判重），
+  /// 经 LocalBookService.importBooks 批量导入（Rust RoomImporter 判重），
   /// 返回成功数量后提示；无已加载书籍时提示。
   Future<void> _addLoadedBooksToShelf(
     BuildContext context,
@@ -83,8 +85,7 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
           ).toJson(),
       ]);
       final added = await ref
-          .read(bookApiProvider)
-          .bookshelfRepository
+          .read(bookshelfRepositoryProvider)
           .importBooks(jsonArray);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

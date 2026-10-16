@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 // 经典 loginUi 表单登录对话框 widget 测试
 //
 // 对齐 Kotlin SourceLoginDialog（书山聚合等经典 JSON 行协议书源）：
@@ -13,7 +17,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/classic_login_dialog.dart';
 
 import '../mocks/mocks.dart';
@@ -43,7 +46,7 @@ void main() {
       ),
     ).thenAnswer((_) async => ExploreActionResult());
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -84,12 +87,9 @@ void main() {
                   onPressed: () => showDialog<bool>(
                     context: context,
                     builder: (_) => ClassicLoginDialog(
-                      repository: container
-                          .read(bookApiProvider)
-                          .sourceLoginRepository,
+                      repository: container.read(sourceLoginRepositoryProvider),
                       evaluateAction: container
-                          .read(bookApiProvider)
-                          .exploreService
+                          .read(exploreServiceProvider)
                           .evaluateAction,
                       source: source,
                     ),

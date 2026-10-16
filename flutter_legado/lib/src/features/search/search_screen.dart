@@ -1,3 +1,4 @@
+import '../book_sources/book_source_repository_provider.dart';
 import '../../widgets/app_menu.dart';
 
 import 'dart:async';
@@ -14,7 +15,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
 import '../../domain/models/search_settings.dart';
-import '../../providers/providers.dart';
 import '../bookshelf/bookshelf.dart';
 import 'search_notifier.dart';
 import 'search_settings_provider.dart';

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 发现书单页顶栏动作回归测试（差异清单 A1 对齐项：
 // 筛选漏斗 = 本地关键字筛选；☰ 列表切换 = 书卡密度 舒适/紧凑）
 //
@@ -9,8 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/screens/explore_show_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 void main() {
@@ -25,7 +25,7 @@ void main() {
   Future<void> pumpScreen(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           home: ExploreShowScreen(
             args: ExploreShowArgs(

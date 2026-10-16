@@ -1,7 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rule_sub_repository.dart';
 import 'package:flutter_legado/src/domain/models/rule_sub_update_result.dart';
 import 'package:flutter_legado/src/models/rule_sub.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/rule_sub_repository_provider.dart';
 import 'package:flutter_legado/src/screens/rule_sub_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -22,7 +22,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           ruleSubRepositoryProvider.overrideWithValue(repository),
           ruleSubServiceProvider.overrideWithValue(service),
         ],

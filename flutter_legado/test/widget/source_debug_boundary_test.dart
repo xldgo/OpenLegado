@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/book_source_debug_event.dart';
 import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/providers/explore/explore_dependencies.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/source_debug_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -31,10 +32,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不访问根接口')),
-          bookSourceDebugServiceProvider.overrideWithValue(service),
-        ],
+        overrides: [bookSourceDebugServiceProvider.overrideWithValue(service)],
         child: const MaterialApp(home: SourceDebugScreen(sourceUrl: 'source')),
       ),
     );

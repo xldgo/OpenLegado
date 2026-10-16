@@ -1,3 +1,5 @@
+export 'sync_state.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,18 +9,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../domain/models/webdav_connection.dart';
 import '../../models/book.dart';
 import '../../models/misc.dart';
-import '../providers.dart';
 import '../backup_settings_provider.dart';
 import '../sync_metadata_provider.dart';
 import '../backup_provider.dart';
 import '../webdav_connection_provider.dart';
 import 'sync_state.dart';
 
-export 'sync_state.dart';
-
 /// WebDAV 云同步 Riverpod Notifier
 ///
-/// 对接真实的 BookApi WebDAV 契约（webdavFullSync / importBookSources），
+/// 对接WebDavService 与 BookSourceRepository 契约，
 /// 对齐 Android 原版 BackupConfigFragment 的 WebDAV 设置组
 /// （服务器地址/账号/密码/子目录/设备名/同步书籍进度）。
 class SyncNotifier extends Notifier<SyncState> {
@@ -144,23 +143,26 @@ class SyncNotifier extends Notifier<SyncState> {
       durChapterTime: book.durChapterTime,
       durChapterTitle: book.durChapterTitle,
     );
-    final api = ref.read(bookApiProvider);
-    await api.webDavService.webdavUpload(
-      connection,
-      bookProgressRemotePath(book.name, book.author),
-      jsonEncode(progress.toJson()),
-    );
+
+    await ref
+        .read(webDavServiceProvider)
+        .webdavUpload(
+          connection,
+          bookProgressRemotePath(book.name, book.author),
+          jsonEncode(progress.toJson()),
+        );
   }
 
   /// 拉取远程进度；无文件 / 解析失败返回 null
   Future<BookProgress?> fetchBookProgress(Book book) async {
     if (!state.isConfigured) return null;
     try {
-      final api = ref.read(bookApiProvider);
-      final jsonStr = await api.webDavService.webdavDownload(
-        connection,
-        bookProgressRemotePath(book.name, book.author),
-      );
+      final jsonStr = await ref
+          .read(webDavServiceProvider)
+          .webdavDownload(
+            connection,
+            bookProgressRemotePath(book.name, book.author),
+          );
       if (jsonStr.trim().isEmpty) return null;
       final map = jsonDecode(jsonStr);
       if (map is! Map<String, dynamic>) return null;
@@ -229,7 +231,7 @@ class SyncNotifier extends Notifier<SyncState> {
     return '${buf.toString()}.json';
   }
 
-  // ===== 同步操作（真实 BookApi 调用） =====
+  // ===== 同步操作（领域服务调用） =====
 
   /// 备份到 WebDAV（上传本地书架 + 书源）
   ///

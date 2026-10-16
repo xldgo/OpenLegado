@@ -19,8 +19,8 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:flutter_legado/app.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../test/fixtures/native_test_api.dart';
 
 /// 目标书源（goal 指定）：yckceo 7631「新御书屋(千夜)」
 const _sourceUrl = 'https://www.yckceo.com/yuedu/shuyuan/json/id/7631.json';
@@ -30,7 +30,7 @@ void main() {
 
   testWidgets('E2E: 导入书源→搜索→加书架→打开书籍', (tester) async {
     // 1. 初始化 Rust 引擎（全局一次性：FFI 初始化 + 打开 legado.db）
-    final api = createBookApi(useMock: false) as RustApi;
+    final api = createTestApplication(useMock: false) as NativeTestApi;
     await tester.runAsync(() => api.runtime.initialize());
 
     // 2. 自包含前置：在线下载并导入 yckceo 7631 书源

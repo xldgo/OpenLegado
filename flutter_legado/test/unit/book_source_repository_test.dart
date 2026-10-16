@@ -2,13 +2,12 @@ import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
 
 import 'dart:convert';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_book_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -39,10 +38,7 @@ void main() {
   test('只覆盖窄接口可以加载书源，失败和空返回不清空已有列表', () async {
     final repository = _Repository();
     final container = ProviderContainer(
-      overrides: [
-        bookSourceRepositoryProvider.overrideWithValue(repository),
-        bookApiProvider.overrideWith((ref) => throw StateError('不应创建根实例')),
-      ],
+      overrides: [bookSourceRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
     final notifier = container.read(sourceNotifierProvider.notifier);
@@ -59,11 +55,15 @@ void main() {
     expect(container.read(sourceNotifierProvider).loading, isFalse);
   });
 
-  test('Provider 分享根引用，替换根后跟随替换且不初始化', () {
+  test('Provider 分享根引用，替换依赖后跟随替换且不初始化', () {
     final first = _Api();
     final second = _Api();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        bookSourceRepositoryProvider.overrideWithValue(
+          first.bookSourceRepository,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     final subscription = container.listen(
@@ -75,7 +75,13 @@ void main() {
       container.read(bookSourceRepositoryProvider),
       same(first.bookSourceRepository),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        bookSourceRepositoryProvider.overrideWithValue(
+          second.bookSourceRepository,
+        ),
+      ]),
+    );
     expect(
       container.read(bookSourceRepositoryProvider),
       same(second.bookSourceRepository),
@@ -123,7 +129,7 @@ void main() {
       'false',
     );
     expect(
-      createBookApi(useMock: true).bookSourceRepository,
+      createTestApplication(useMock: true).bookSourceRepository,
       isA<MockBookSourceRepository>(),
     );
   });

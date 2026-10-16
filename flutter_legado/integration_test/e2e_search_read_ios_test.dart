@@ -20,7 +20,7 @@
 //   1. 搜索结果：本来源恰好 2 条，且书名为「E2E测试书1 / E2E测试书2」；
 //      结果 bookUrl 必须是绝对 URL（验证 resolve_url 行为）；
 //   2. 进入第 1 章后：阅读器状态正文含 E2E-MARKER-CH1 且不含 E2E-MARKER-CH2；
-//      另经 RustApi.getChapterContentFull 直接取正文复核同一标记；
+//      另经 NativeTestApi.getChapterContentFull 直接取正文复核同一标记；
 //   3. 右缘点击翻章后：currentChapterIndex==1，正文含 E2E-MARKER-CH2 且
 //      不含 E2E-MARKER-CH1；FFI 直取第 2 章正文复核。
 //
@@ -49,8 +49,9 @@ import 'package:flutter_legado/app.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../test/fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 
 /// 固定书名字面量（与假站点 HTML 一一对应，硬断言基准）
@@ -270,7 +271,7 @@ void main() {
     debugPrint('[E2E] 本地假书源服务已启动: $base');
 
     // ── 2. 初始化 Rust 引擎 + 导入本地书源 ──
-    final api = createBookApi(useMock: false) as RustApi;
+    final api = createTestApplication(useMock: false) as NativeTestApi;
     await tester.runAsync(() => api.runtime.initialize());
     int imported = 0;
     await tester.runAsync(() async {

@@ -1,11 +1,12 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_reading_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_reading_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -118,24 +119,30 @@ void main() {
     final first = MockBookApi();
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        readingRepositoryProvider.overrideWithValue(first.readingRepository),
+      ]),
     );
     addTearDown(container.dispose);
     expect(
       container.read(readingRepositoryProvider),
       same(first.readingRepository),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        readingRepositoryProvider.overrideWithValue(second.readingRepository),
+      ]),
+    );
     expect(
       container.read(readingRepositoryProvider),
       same(second.readingRepository),
     );
     expect(
-      createBookApi(useMock: true).readingRepository,
+      createTestApplication(useMock: true).readingRepository,
       isA<ReadingRepository>(),
     );
     expect(
-      createBookApi(useMock: false).readingRepository,
+      createTestApplication(useMock: false).readingRepository,
       isA<RustReadingRepository>(),
     );
   });

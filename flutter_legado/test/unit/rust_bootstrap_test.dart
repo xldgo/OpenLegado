@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,12 +7,12 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/data/bridge/runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/app/bootstrap/app_settings_factory.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
@@ -59,8 +61,8 @@ void main() {
         appearance: AppAppearanceSettingsRepository(settings),
       ),
     );
-    final api = createBookApi(useMock: false, bootstrap: bootstrap);
-    await initializeBookApi(api: api);
+    final api = createTestApplication(useMock: false, bootstrap: bootstrap);
+    await initializeTestApplication(api: api);
     expect(fixture.runtime.values['mode'], '2');
     final container = ProviderContainer(
       overrides: [
@@ -212,13 +214,19 @@ void main() {
 
   test('工厂和 Provider 共用生命周期与配置刷新，设置刷新不重新打开数据库', () async {
     final fixture = _Fixture();
-    final api = createBookApi(useMock: false, bootstrap: fixture.bootstrap);
-    final ready = await initializeBookApi(api: api);
+    final api = createTestApplication(
+      useMock: false,
+      bootstrap: fixture.bootstrap,
+    );
+    final ready = await initializeTestApplication(api: api);
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(ready)],
+      overrides: mergeTestOverrides([...ready.overrides]),
     );
     addTearDown(container.dispose);
-    expect(container.read(bookApiProvider), same(api));
+    expect(
+      container.read(bookshelfRepositoryProvider),
+      same(api.bookshelfRepository),
+    );
     final sync = container.read(readingConfigSyncProvider);
     expect(sync, same(api));
     final start = fixture.calls.length;
@@ -230,9 +238,12 @@ void main() {
 
   test('Mock 使用空操作，不访问提供的原生或配置依赖', () async {
     final fixture = _Fixture();
-    final api = createBookApi(useMock: true, bootstrap: fixture.bootstrap);
+    final api = createTestApplication(
+      useMock: true,
+      bootstrap: fixture.bootstrap,
+    );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final sync = container.read(readingConfigSyncProvider);
@@ -241,14 +252,14 @@ void main() {
     expect(fixture.calls, isEmpty);
   });
 
-  test('阅读 Notifier 通过可替换配置接口刷新，无需真实 RustApi', () async {
+  test('阅读 Notifier 通过可替换配置接口刷新，无需真实 NativeTestApi', () async {
     SharedPreferences.setMockInitialValues({});
     final sync = _CountingSync();
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(createBookApi(useMock: true)),
+      overrides: mergeTestOverrides([
+        ...createTestApplication(useMock: true).overrides,
         readingConfigSyncProvider.overrideWithValue(sync),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     final reader = container.read(readerNotifierProvider.notifier);
@@ -263,10 +274,10 @@ void main() {
   test('替换的配置接口异步失败时，阅读设置仍生效且不产生未捕获异常', () async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(createBookApi(useMock: true)),
+      overrides: mergeTestOverrides([
+        ...createTestApplication(useMock: true).overrides,
         readingConfigSyncProvider.overrideWithValue(_FailingSync()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     final reader = container.read(readerNotifierProvider.notifier);

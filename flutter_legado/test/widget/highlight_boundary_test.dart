@@ -1,13 +1,15 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_highlight_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_highlight_rule_repository.dart';
 import 'package:flutter_legado/src/domain/models/book_highlight.dart';
 import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/highlight_repository_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -36,7 +38,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           highlightRuleRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(home: HighlightRulesScreen()),
@@ -74,7 +75,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           highlightRuleRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(home: HighlightRulesScreen()),
@@ -116,10 +116,10 @@ void main() {
     int? result;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(MockBookApi()),
+        overrides: mergeTestOverrides([
+          ...MockBookApi().overrides,
           highlightRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
         child: MaterialApp(
           home: Builder(
             builder: (context) => Scaffold(

@@ -1,5 +1,8 @@
-/// 既有阅读设置入口用例，适配快捷面板进入完整分组页面的导航。
 library;
+
+import '../fixtures/app_test_api.dart';
+
+/// 既有阅读设置入口用例，适配快捷面板进入完整分组页面的导航。
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 void main() {
   testWidgets('阅读快捷面板进入完整设置，再进入翻页与操作', (tester) async {
@@ -28,7 +29,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+        overrides: mergeTestOverrides([...MockBookApi().overrides]),
         child: MaterialApp(
           home: Scaffold(
             body: Builder(

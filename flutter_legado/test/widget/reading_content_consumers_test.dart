@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +9,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/reading_content_provider.dart';
@@ -44,13 +47,13 @@ void main() {
       ),
     ).thenAnswer((_) async {});
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         readingContentServiceProvider.overrideWithValue(content),
         readerSettingsRepositoryProvider.overrideWithValue(
           createTestReaderSettingsRepository(),
         ),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

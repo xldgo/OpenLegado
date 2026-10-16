@@ -1,7 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/dictionary_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/dict_rule_screen.dart';
 import 'package:flutter_legado/src/screens/dict_screen.dart';
@@ -23,7 +23,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           dictRuleRepositoryProvider.overrideWithValue(repository),
           dictionaryServiceProvider.overrideWithValue(service),
         ],
@@ -62,7 +61,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           dictRuleRepositoryProvider.overrideWithValue(repository),
           dictionaryServiceProvider.overrideWithValue(service),
         ],
@@ -88,10 +86,7 @@ void main() {
         .thenAnswer((_) async => false);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          dictRuleRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [dictRuleRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(home: DictRuleScreen()),
       ),
     );
@@ -110,7 +105,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           dictRuleRepositoryProvider.overrideWithValue(
             MockDictRuleRepository(),
           ),

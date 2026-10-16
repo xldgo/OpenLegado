@@ -1,10 +1,11 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/source_login/source_login_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -19,7 +20,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       container.listen(sourceLoginNotifierProvider('https://a.com'), (_, _) {});
       addTearDown(container.dispose);

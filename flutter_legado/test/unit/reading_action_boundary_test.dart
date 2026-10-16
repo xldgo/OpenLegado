@@ -1,10 +1,10 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
-import 'package:flutter_legado/src/providers/reading_content_provider.dart';
-import 'package:flutter_legado/src/providers/source_action_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -54,7 +54,7 @@ void main() {
   test('窄Provider可独立替换，根与Mock构造器保持实例共享', () {
     final api = MockBookApi();
     final root = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(root.dispose);
     expect(
@@ -69,7 +69,6 @@ void main() {
     final actions = SourceActionServiceMock();
     final isolated = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((ref) => throw StateError('不应访问根实例')),
         readingContentServiceProvider.overrideWithValue(content),
         sourceActionServiceProvider.overrideWithValue(actions),
       ],

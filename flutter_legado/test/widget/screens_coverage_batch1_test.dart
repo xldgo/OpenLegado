@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
@@ -46,10 +47,10 @@ void main() {
     when(() => mockAudio.audioFocusStream)
         .thenAnswer((_) => const Stream<AudioFocusEvent>.empty());
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         audioServiceProvider.overrideWithValue(mockAudio),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

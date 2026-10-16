@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 书源管理导入/导出 + 扫码页 widget 测试
 //
 // 验证书源导入/导出（对标 Android BookSourceActivity）：
@@ -10,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/qrcode_screen.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
@@ -58,7 +59,7 @@ void main() {
 
   Widget wrapSourceScreen() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: const MaterialApp(home: SourceScreen()),
     );
   }

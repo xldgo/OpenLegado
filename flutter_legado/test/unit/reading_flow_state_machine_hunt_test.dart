@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // 视角 A：阅读主流程「状态机 / 生命周期」缺陷猎捕 —— 红态复现用例
 //
 // 本文件**故意断言「本应成立的不变量」**：当前实现不满足 → 用例红。
@@ -22,7 +23,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -55,7 +55,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'enableReadRecord': false});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

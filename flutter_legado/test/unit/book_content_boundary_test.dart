@@ -1,9 +1,10 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/book_content_result.dart';
 import 'package:flutter_legado/src/providers/book_content_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/services/export_service.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -51,7 +52,6 @@ void main() {
     final review = ReviewServiceMock();
     final c = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
         localBookServiceProvider.overrideWithValue(local),
         bookArchiveServiceProvider.overrideWithValue(archive),
         bookExportServiceProvider.overrideWithValue(exporter),
@@ -66,7 +66,7 @@ void main() {
   });
 
   test('正式工厂读取内容能力不初始化第二份运行时', () {
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     expect(api.localBookService, same(api.localBookService));
     expect(api.bookArchiveService, same(api.bookArchiveService));
     expect(api.bookExportService, same(api.bookExportService));

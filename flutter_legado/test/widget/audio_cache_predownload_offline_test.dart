@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 
 // B1/B2 音频预下载守卫：旧孤儿键写入清理 + 契约 §2.48 新入口行为。
@@ -34,7 +36,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/audio_screen.dart';
 import 'package:flutter_legado/src/services/audio_cache_events.dart';
 
@@ -52,10 +53,10 @@ void main() {
       mockApi = MockRustApi();
       fakePlayer = FakeStreamAudioPlayer();
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
     });

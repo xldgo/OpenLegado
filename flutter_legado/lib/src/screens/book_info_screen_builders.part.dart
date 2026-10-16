@@ -212,7 +212,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
 
   /// 溢出菜单处理（对标原版 BookInfoActivity.onOptionsItemSelected）
   Future<void> _handleMenu(String value) async {
-    final api = ref.read(bookApiProvider);
     final book = _loadedBook;
     switch (value) {
       case 'customBtn':
@@ -272,7 +271,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         );
         setState(() => _loadedBook = toggledCanUpdate);
         if (_inBookshelf) {
-          await api.bookshelfRepository.updateBook(toggledCanUpdate);
+          await ref
+              .read(bookshelfRepositoryProvider)
+              .updateBook(toggledCanUpdate);
           if (mounted) _reload();
         }
         break;
@@ -285,7 +286,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           readConfig: cfg.copyWith(splitLongChapter: !cfg.splitLongChapter),
         );
         if (_inBookshelf) {
-          await api.bookshelfRepository.updateBook(toggledSplit);
+          await ref.read(bookshelfRepositoryProvider).updateBook(toggledSplit);
         } else {
           setState(() => _loadedBook = toggledSplit);
         }
@@ -401,7 +402,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// - 输入框预填当前书源 variable；确认后 setSourceVariable（空串=清除）
   ///   单列 UPDATE 写库，成功后 Toast + 刷新本地书源状态
   Future<void> _setSourceVariable() async {
-    final api = ref.read(bookApiProvider);
     final source = _bookSource;
     if (source == null) {
       _snack('书源不存在');
@@ -432,10 +432,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       // 单列 UPDATE 语义（契约 §2.3）：仅改 variable 列，空串=清除；
       // 规避 updateBookSource 全行更新覆盖其它字段的风险
-      await api.bookSourceRepository.setSourceVariable(
-        source.bookSourceUrl,
-        input,
-      );
+      await ref
+          .read(bookSourceRepositoryProvider)
+          .setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       // 刷新本地书源状态（重载页面数据，书源查询自然带出新 variable；
       // 评审 C1：variable 非空串语义，空串即已清除，不再传 null）
@@ -458,7 +457,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// - WebDav PUT 本地书籍文件到远程 books 目录（rootBookUrl + originName）
   /// - 成功后 book.origin = webDavTag + 远程地址，并刷新 lastCheckTime
   Future<void> _uploadToRemote() async {
-    final api = ref.read(bookApiProvider);
     final book = _loadedBook;
     if (book == null) return;
     // 防御：仅本地书支持上传（在线书无本地文件，按原版语义不支持）
@@ -514,11 +512,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // [Task #55 F9 | 2026-08-10] 上传与 origin 回写分两段 try/catch：
     // 回写失败时提示「上传成功但保存记录失败」而非误报「上传失败」 — Qoder
     try {
-      await api.webDavService.webdavUploadFile(
-        syncNotifier.connection,
-        remotePath,
-        localPath,
-      );
+      await ref
+          .read(webDavServiceProvider)
+          .webdavUploadFile(syncNotifier.connection, remotePath, localPath);
     } catch (e) {
       debugPrint('上传至远程失败: $e');
       if (mounted) _snack('上传失败: ${_errMsg(e)}');
@@ -528,16 +524,20 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     try {
       // 回写 book.origin（webDav 标记 + 远程完整地址）；从库中读回完整 Book
       // 再 copyWith，防全行覆盖（与 _setBookVariable 同模式）
-      final full = await api.bookshelfRepository.getBook(book.bookUrl) ?? book;
+      final full =
+          await ref.read(bookshelfRepositoryProvider).getBook(book.bookUrl) ??
+          book;
       final remoteUrl =
           '${sync.webDavUrl}${syncNotifier.normalizedRemoteDir}$remotePath';
-      await api.bookshelfRepository.updateBook(
-        full.copyWith(
-          origin: BookType.webDavTag + remoteUrl,
-          // 对齐原版：刷新最后检查时间，使之比远程书籍的时间新
-          lastCheckTime: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
+      await ref
+          .read(bookshelfRepositoryProvider)
+          .updateBook(
+            full.copyWith(
+              origin: BookType.webDavTag + remoteUrl,
+              // 对齐原版：刷新最后检查时间，使之比远程书籍的时间新
+              lastCheckTime: DateTime.now().millisecondsSinceEpoch,
+            ),
+          );
       if (!mounted) return;
       _reload();
       _snack('上传至远程成功');
@@ -593,7 +593,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// Book 对象（含 readConfig 等字段）仅修改 variable 后回写，
   /// 禁止用页面缓存的不完整对象覆盖。
   Future<void> _setBookVariable() async {
-    final api = ref.read(bookApiProvider);
     final book = _loadedBook;
     final source = _bookSource;
     if (book == null || source == null) {
@@ -626,7 +625,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     try {
       // 从库中读回完整 Book（含 readConfig 等）仅改 variable 后回写
-      final full = await api.bookshelfRepository.getBook(book.bookUrl) ?? book;
+      final full =
+          await ref.read(bookshelfRepositoryProvider).getBook(book.bookUrl) ??
+          book;
       // putCustomVariable 语义：其余键原样保留，仅回写 custom 键
       final varMap = _parseVariableMap(full.variable);
       if (input.isEmpty) {
@@ -634,9 +635,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       } else {
         varMap['custom'] = input;
       }
-      await api.bookshelfRepository.updateBook(
-        full.copyWith(variable: jsonEncode(varMap)),
-      );
+      await ref
+          .read(bookshelfRepositoryProvider)
+          .updateBook(full.copyWith(variable: jsonEncode(varMap)));
       if (!mounted) return;
       _reload();
       _snack('书籍变量已保存');
@@ -1528,10 +1529,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// 编辑书源（对齐原版 tvOrigin → BookSourceEditActivity）
   Future<void> _openSourceEdit(Book book) async {
     if (!_isOnlineBook(book)) return;
-    final api = ref.read(bookApiProvider);
+
     BookSource? source = _bookSource;
     if (source == null || source.bookSourceUrl != book.origin) {
-      source = await _findSourceByOrigin(api, book.origin);
+      source = await _findSourceByOrigin(book.origin);
     }
     if (source == null) {
       _snack('书源不存在');
@@ -1554,7 +1555,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     setState(() => _loadedBook = updated);
     if (_inBookshelf) {
       try {
-        await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
+        await ref.read(bookshelfRepositoryProvider).updateBook(updated);
       } catch (e) {
         debugPrint('保存封面失败: $e');
       }
@@ -1609,16 +1610,14 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (book == null || _isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final api = ref.read(bookApiProvider);
       final List<BookChapter> chapters;
       if (!_inBookshelf) {
         // 未入库：仅内存拉目录，不落库（对齐原版 loadChapter !inBookshelf）
-        chapters = await _fetchWebChaptersOnline(api, book);
+        chapters = await _fetchWebChaptersOnline(book);
       } else {
-        chapters = await api.readingRepository.refreshToc(
-          book.bookUrl,
-          book.origin,
-        );
+        chapters = await ref
+            .read(readingRepositoryProvider)
+            .refreshToc(book.bookUrl, book.origin);
       }
       if (!mounted) return;
       setState(() => _chapters = chapters);
@@ -1633,8 +1632,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       BookSource? source;
       try {
         final sources = await ref
-            .read(bookApiProvider)
-            .bookSourceRepository
+            .read(bookSourceRepositoryProvider)
             .getBookSources();
         for (final s in sources) {
           if (s.bookSourceUrl == book.origin) {
@@ -1666,10 +1664,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     }
     if (!_inBookshelf) {
       try {
-        final api = ref.read(bookApiProvider);
-        await api.bookshelfRepository.addBook(
-          book.copyWith(bookType: book.bookType | BookType.notShelf),
-        );
+        await ref
+            .read(bookshelfRepositoryProvider)
+            .addBook(
+              book.copyWith(bookType: book.bookType | BookType.notShelf),
+            );
       } catch (e) {
         debugPrint('打开目录前保存书籍失败: $e');
       }
@@ -1776,7 +1775,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final updated = book.copyWith(group: selected);
     // 对齐原版 upGroup：在架 saveBook；未在架且 groupId>0 则 addToBookshelf — Cursor UI
     if (_inBookshelf) {
-      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
     } else if (selected > 0) {
       // [F1-hunt F3 | 2026-09-24] 同 _toggleShelf：写库失败不得把本地
       // 状态翻成在架（假成功），改弹失败提示
@@ -1812,10 +1811,12 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           .showSnackBar(const SnackBar(content: Text('本地书籍不支持书源登录')));
       return;
     }
-    final api = ref.read(bookApiProvider);
+
     BookSource? source;
     try {
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == book.origin) {
           source = s;
@@ -1843,7 +1844,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final book = _loadedBook;
     if (book == null) return;
     try {
-      await ref.read(bookApiProvider).bookshelfRepository.topBook(book.bookUrl);
+      await ref.read(bookshelfRepositoryProvider).topBook(book.bookUrl);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('已置顶')));
@@ -1895,7 +1896,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // [UI-fix v2.0.3 | 2026-08-06] 对齐原版 readBook：未入库在线书阅读前先落库 — Qoder
     // 带正确 origin 落库，使阅读器 DB 依赖成立（get_chapter_content_full 按
     // book.origin 找书源取正文），规避「章节不存在 / 未配置书源」；已入库则幂等跳过。
-    final api = ref.read(bookApiProvider);
+
     // [UI-fix v2.0.12 | 2026-08-10] 解析书籍类型位（对齐原版 BookType 位标记）：
     // 搜索输出不带 type（bookType=0）或旧库只有 notShelf 位时，按书源类型
     // （bookSourceType：1=音频/2=图片/3=文件/4=视频）映射补全，保证分流与
@@ -1906,29 +1907,33 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     var typeBits = BookOpenUtils.typeBitsOf(book);
     BookSource? matchedSource;
     if (_isOnlineBook(book)) {
-      matchedSource = await _findSourceByOrigin(api, book.origin);
+      matchedSource = await _findSourceByOrigin(book.origin);
       // 书源媒体类型 / 视频启发式优先于抽图提升（非凡 type=0 MacCMS 等）
       // — Reasonix + UI
       typeBits = BookOpenUtils.resolveTypeBits(typeBits, matchedSource);
     }
     try {
       if (_isOnlineBook(book)) {
-        final existing = await api.bookshelfRepository.getBook(book.bookUrl);
+        final existing = await ref
+            .read(bookshelfRepositoryProvider)
+            .getBook(book.bookUrl);
         if (existing == null) {
           // 以正确类型位 + notShelf 位标记临时落库：阅读器 DB 依赖成立
           // （按 origin 取正文），但不进书架列表；用户显式「加入书架」时再
           // 清标记转正（见 _toggleShelf）。
-          await api.bookshelfRepository.addBook(
-            book.copyWith(bookType: typeBits | BookType.notShelf),
-          );
+          await ref
+              .read(bookshelfRepositoryProvider)
+              .addBook(book.copyWith(bookType: typeBits | BookType.notShelf));
         } else if (typeBits != 0 &&
             (existing.bookType & typeMask) != typeBits) {
           // 缺类型位，或文本→图片提升（必应漫画）→ 回填媒体位
-          await api.bookshelfRepository.updateBook(
-            existing.copyWith(
-              bookType: (existing.bookType & ~typeMask) | typeBits,
-            ),
-          );
+          await ref
+              .read(bookshelfRepositoryProvider)
+              .updateBook(
+                existing.copyWith(
+                  bookType: (existing.bookType & ~typeMask) | typeBits,
+                ),
+              );
         }
         // 漫画/视频等非文本阅读器只收 bookUrl，不会走 ReaderNotifier 的
         // 空目录自愈；详情页「未入库」路径又不落库章节 → 必须在开读前
@@ -1937,11 +1942,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         if (!BookOpenUtils.needsReaderNotifier(
           BookOpenUtils.routeForTypeBits(typeBits),
         )) {
-          final existingChapters = await api.readingRepository.getChapters(
-            book.bookUrl,
-          );
+          final existingChapters = await ref
+              .read(readingRepositoryProvider)
+              .getChapters(book.bookUrl);
           if (existingChapters.isEmpty && book.origin.isNotEmpty) {
-            await api.readingRepository.refreshToc(book.bookUrl, book.origin);
+            await ref
+                .read(readingRepositoryProvider)
+                .refreshToc(book.bookUrl, book.origin);
           }
         }
       }

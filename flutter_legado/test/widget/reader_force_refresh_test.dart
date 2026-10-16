@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P2-9 | 2026-09-24] 阅读器「强制刷新正文 + 换书源后重载」UI 级回归
 //
 // 针对缺陷：换源后正文不刷新 + 刷新按钮无反馈/不生效。
@@ -28,7 +29,7 @@
 // clearChapterCache（≡ 上游 BookHelp.delContent，章级语义）：刷新编排
 // 改为「先失效当前章 → 联网抓取」，不再整书 clearBookCache（失败仅丢
 // 当前章缓存行，同书他章保留）。除该新增外，本文件引用的 mock 方法
-// 均属既有 RustApi 契约；新行为以「UI 入口触发强制路径」表达，改造前
+// 均属既有 NativeTestApi 契约；新行为以「UI 入口触发强制路径」表达，改造前
 // 文件可编译可运行，红 = 断言失败（非编译错误）。
 
 import 'package:material_ui/material_ui.dart';
@@ -39,7 +40,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
@@ -112,7 +112,7 @@ void stubOpenBook(MockRustApi api, {String content = '旧正文（缓存）'}) {
 
 ProviderContainer makeContainer(MockRustApi mockApi) {
   return ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(mockApi)],
+    overrides: mergeTestOverrides([...mockApi.overrides]),
   );
 }
 

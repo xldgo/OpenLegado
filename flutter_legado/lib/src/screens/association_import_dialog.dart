@@ -1,3 +1,4 @@
+import '../features/book_sources/book_source_repository_provider.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -11,7 +12,6 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
 import '../providers/association/association_notifier.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../domain/models/import_result.dart';
 import '../widgets/custom_group_dialog.dart';
@@ -300,8 +300,7 @@ class _AssociationImportDialogState
     if (_localBookSources != null) return;
     try {
       final list = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getBookSources();
       _localBookSources = {for (final s in list) s.bookSourceUrl: s};
     } catch (_) {

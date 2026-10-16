@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../mocks/book_image_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
@@ -12,9 +13,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/loading_indicator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -241,7 +240,7 @@ Future<void> _assertRingThemeSlots(
     tag,
   );
   final container = ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(api)],
+    overrides: mergeTestOverrides([...api.overrides]),
   );
   addTearDown(container.dispose);
 
@@ -325,7 +324,7 @@ void main() {
       'http://127.0.0.1:${server.port}/p43unify/skel/ch1/0.jpg',
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 

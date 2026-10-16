@@ -1,9 +1,11 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_app_log_repository.dart';
 import 'package:flutter_legado/src/domain/models/app_log_entry.dart';
 import 'package:flutter_legado/src/providers/app_log/app_log_notifier.dart';
 import 'package:flutter_legado/src/providers/app_log_repository_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -55,17 +57,23 @@ void main() {
     expect(entry.timeText, '12:34:56.007');
   });
 
-  test('仓储支持注入并跟随根装配替换', () async {
+  test('仓储支持注入并跟随窄依赖替换', () async {
     final repository = MockAppLogRepository();
     final first = MockBookApi(appLogRepository: repository);
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        appLogRepositoryProvider.overrideWithValue(first.appLogRepository),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(appLogRepositoryProvider), same(repository));
     await repository.appLogPush(level: 'message', message: '独立数据');
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        appLogRepositoryProvider.overrideWithValue(second.appLogRepository),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(appLogRepositoryProvider),
@@ -90,10 +98,7 @@ void main() {
       when(() => repository.appLogList(level: 'message'))
           .thenAnswer((_) async => [entry]);
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          appLogRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [appLogRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
       notifier = container.read(appLogNotifierProvider.notifier);

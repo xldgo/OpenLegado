@@ -1,3 +1,5 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -7,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../constants/pref_keys.dart';
 import '../models/book.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../domain/models/welcome_settings.dart';
 import '../providers/welcome_settings_provider.dart';
@@ -89,10 +90,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
         .defaultToRead;
     if (defaultToRead) {
       try {
-        final books = await ref
-            .read(bookApiProvider)
-            .bookshelfRepository
-            .getBooks();
+        final books = await ref.read(bookshelfRepositoryProvider).getBooks();
         if (books.isNotEmpty) {
           lastRead = books.reduce(
             (a, b) => a.durChapterTime >= b.durChapterTime ? a : b,

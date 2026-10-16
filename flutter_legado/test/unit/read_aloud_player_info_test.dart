@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,13 +11,11 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
-import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_player_info.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -74,13 +76,13 @@ void main() {
       ],
     );
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         audioNotifierProvider.overrideWith(() => audio),
         readAloudVoiceRepositoryProvider.overrideWithValue(voices),
         cloudTtsRepositoryProvider.overrideWithValue(_Cloud()),
         systemTtsServiceProvider.overrideWithValue(_System()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

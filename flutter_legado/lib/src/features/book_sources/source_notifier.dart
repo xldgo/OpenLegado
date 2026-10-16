@@ -1,3 +1,5 @@
+export 'source_state.dart';
+import '../../providers/replace_rule_repository_provider.dart';
 import '../../domain/contracts/replace_rule_service.dart';
 import 'book_source_repository_provider.dart';
 
@@ -12,10 +14,7 @@ import '../../data/services/book_source_export_service.dart';
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
-import '../../providers/providers.dart';
 import 'source_state.dart';
-
-export 'source_state.dart';
 
 /// 书源管理 Riverpod Notifier
 ///
@@ -35,7 +34,7 @@ class SourceNotifier extends Notifier<SourceState> {
 
   /// 获取导入服务实例
   SourceImportService get importService =>
-      createSourceImportService(ref.read(bookApiProvider));
+      ref.read(sourceImportServiceProvider);
 
   /// 获取书源导出服务实例
   BookSourceExportService get exportService =>
@@ -138,17 +137,18 @@ class SourceNotifier extends Notifier<SourceState> {
   Future<void> importSources(String jsonContent) async {
     state = state.copyWith(loading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
       // [书源作用域 | 2026-09-13] 该入口为原始 JSON 直传（绕过 SourceImportService），
       // 同样须在交 importBookSources 前对每项应用「书源作用域」替换规则；
       // 解析/替换失败保持原文，绝不中断导入
       final payload = await _applySourceReplaceRules(
-        api.replaceRuleService,
+        ref.read(replaceRuleServiceProvider),
         jsonContent,
       );
-      await api.bookSourceRepository.importBookSources(payload);
+      await ref.read(bookSourceRepositoryProvider).importBookSources(payload);
       // 重新加载书源列表
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       state = state.copyWith(sources: sources, loading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), loading: false);

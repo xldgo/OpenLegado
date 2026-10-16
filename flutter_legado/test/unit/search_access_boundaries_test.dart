@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +10,7 @@ import 'package:flutter_legado/src/data/repositories/mock_search_history_reposit
 import 'package:flutter_legado/src/data/services/mock_search_service.dart';
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -161,7 +161,12 @@ void main() {
       final first = MockRustApi();
       final second = MockRustApi();
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(first)],
+        overrides: mergeTestOverrides([
+          searchServiceProvider.overrideWithValue(first.searchService),
+          searchHistoryRepositoryProvider.overrideWithValue(
+            first.searchHistoryRepository,
+          ),
+        ]),
       );
       addTearDown(container.dispose);
       expect(container.read(searchServiceProvider), same(first.searchService));
@@ -169,7 +174,14 @@ void main() {
         container.read(searchHistoryRepositoryProvider),
         same(first.searchHistoryRepository),
       );
-      container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+      container.updateOverrides(
+        mergeTestOverrides([
+          searchServiceProvider.overrideWithValue(second.searchService),
+          searchHistoryRepositoryProvider.overrideWithValue(
+            second.searchHistoryRepository,
+          ),
+        ]),
+      );
       expect(container.read(searchServiceProvider), same(second.searchService));
       expect(
         container.read(searchHistoryRepositoryProvider),
@@ -208,11 +220,11 @@ void main() {
       when(() => api.configRepository.getConfig(any()))
           .thenAnswer((_) async => null);
       final container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           searchServiceProvider.overrideWithValue(service),
           searchHistoryRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       final notifier = container.read(searchNotifierProvider.notifier);

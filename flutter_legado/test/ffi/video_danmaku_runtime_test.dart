@@ -1,3 +1,5 @@
+library;
+
 /// V-B1 视频弹幕数据链 Dart↔Rust 真实数据链运行时验证（契约 §2.49）
 ///
 /// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
@@ -11,7 +13,7 @@
 ///    反查路径）
 /// 3. getChapterContentFull：正文抓取（媒体分支副内容不得拼进正文），
 ///    抓取链捕获 subContent → 落库章节 variable `danmaku` 键
-/// 4. getVideoDanmaku（RustApi + bridge 双通道）：读回副内容原文；
+/// 4. getVideoDanmaku（NativeTestApi + bridge 双通道）：读回副内容原文；
 ///    幂等重复读一致；无记录书 → null 降级
 ///
 /// 大数据文件分流（≥10000 UTF-16）/阈值口径 / 读失败降级由 Rust 单测覆盖
@@ -19,16 +21,15 @@
 /// 前置条件：先在 rust/ 下构建 DLL
 /// （cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
-library;
-
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -87,7 +88,7 @@ void main() {
     return;
   }
 
-  late RustApi api;
+  late NativeTestApi api;
   late Directory dbDir;
 
   setUpAll(() async {
@@ -107,7 +108,7 @@ void main() {
       ruleDir.deleteSync(recursive: true);
     }
     await bridge.dbOpen(path: dbFile.path);
-    api = createBookApi(useMock: false) as RustApi;
+    api = createTestApplication(useMock: false) as NativeTestApi;
   });
 
   tearDownAll(() {
@@ -189,7 +190,7 @@ void main() {
       expect(danmaku, isNotNull, reason: '抓取链捕获后应能读回弹幕');
       expect(danmaku, contains('测试弹幕'));
 
-      // RustApi 与 bridge 双通道一致 + 幂等（重复查询读同一落库值）
+      // NativeTestApi 与 bridge 双通道一致 + 幂等（重复查询读同一落库值）
       expect(
         await bridge.getVideoDanmaku(bookUrl: bookUrl, chapterIndex: 0),
         danmaku,
@@ -225,7 +226,7 @@ void main() {
           '<d p="1,2,25,0">类型2丢弃</d>'
           '</i>';
 
-      // RustApi 通道：JSON → 模型列表（升序、类型过滤、字段口径）
+      // NativeTestApi 通道：JSON → 模型列表（升序、类型过滤、字段口径）
       final items = await api.videoDanmakuService.parseVideoDanmaku(raw: xml);
       expect(items, isNotNull, reason: '真实 DLL 应返回解析结果');
       expect(items!.length, 2, reason: 'type2 应静默丢弃');
@@ -238,7 +239,7 @@ void main() {
       expect(items.last.type, 5);
       expect(items.last.timeMs, 2000);
 
-      // bridge 直通道与 RustApi 结果一致（同一纯函数）
+      // bridge 直通道与 NativeTestApi 结果一致（同一纯函数）
       final json = await bridge.parseVideoDanmaku(raw: xml);
       expect(json, isNotNull);
       final decoded = (jsonDecode(json!) as List).cast<Map<String, dynamic>>();

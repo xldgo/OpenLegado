@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -5,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
@@ -34,10 +33,10 @@ void main() {
     }) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
+          overrides: mergeTestOverrides([
+            ...MockBookApi().overrides,
             readerNotifierProvider.overrideWith(_Reader.new),
-            bookApiProvider.overrideWithValue(MockBookApi()),
-          ],
+          ]),
           child: MaterialApp(
             builder: readerLayoutTestBuilder,
             home: Scaffold(

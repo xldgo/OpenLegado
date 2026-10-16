@@ -21,7 +21,7 @@ void main() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            startsWith('bookApi（RustApi 列表解码）: 期望 JSON 数组'),
+            startsWith('bookApi（Rust JSON 列表解码）: 期望 JSON 数组'),
           ),
         ),
       );

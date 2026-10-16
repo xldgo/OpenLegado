@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // P0 缺陷回归：朗读引擎 URL 归一（2026-10-03）
 //
@@ -16,7 +18,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -86,10 +87,10 @@ void main() {
       fakePlayer = FakeStreamAudioPlayer();
       receivedEngineUrls.clear();
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
 

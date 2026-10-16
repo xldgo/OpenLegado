@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -5,7 +6,6 @@ import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/domain/models/auto_task_execution_result.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_dependencies.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -32,7 +32,6 @@ void main() {
     service = AutoTaskServiceMock();
     container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应访问根接口')),
         autoTaskRepositoryProvider.overrideWithValue(repository),
         autoTaskServiceProvider.overrideWithValue(service),
       ],

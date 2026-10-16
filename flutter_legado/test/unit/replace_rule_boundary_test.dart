@@ -1,10 +1,12 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_replace_rule_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_replace_rule_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/providers/replace_rule_repository_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -61,7 +63,12 @@ void main() {
     );
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        replaceRuleRepositoryProvider.overrideWithValue(
+          first.replaceRuleRepository,
+        ),
+        replaceRuleServiceProvider.overrideWithValue(first.replaceRuleService),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(replaceRuleRepositoryProvider), same(repository));
@@ -71,7 +78,14 @@ void main() {
         .addReplaceRule(const ReplaceRule(name: '独立数据'));
     expect(rule.id, 10);
     expect(await first.replaceRuleRepository.getReplaceRules(), [rule]);
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        replaceRuleRepositoryProvider.overrideWithValue(
+          second.replaceRuleRepository,
+        ),
+        replaceRuleServiceProvider.overrideWithValue(second.replaceRuleService),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(replaceRuleRepositoryProvider),
@@ -91,10 +105,7 @@ void main() {
     var nextId = 1;
     final repository = MockReplaceRuleRepository(nextId: () => nextId++);
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-        replaceRuleRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [replaceRuleRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
     final notifier = container.read(replaceRuleNotifierProvider.notifier);

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/data/repositories/mock_config_repository.dart';
@@ -11,8 +12,8 @@ import 'package:flutter_legado/src/providers/config_provider.dart';
 import 'package:flutter_legado/src/providers/config_settings_provider.dart';
 import 'package:flutter_legado/src/providers/media_provider.dart';
 import 'package:flutter_legado/src/providers/domain_config_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -89,10 +90,7 @@ void main() {
   test('只注入配置仓储即可装配领域入口，不访问根API或原生库', () async {
     final config = MockConfigRepository();
     final container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWith((ref) => throw StateError('不访问根')),
-        configRepositoryProvider.overrideWithValue(config),
-      ],
+      overrides: [configRepositoryProvider.overrideWithValue(config)],
     );
     addTearDown(container.dispose);
     await container

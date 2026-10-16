@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -6,11 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
@@ -34,12 +34,12 @@ Future<void> _showToolbar(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         readerNotifierProvider.overrideWith(_Reader.new),
-        bookApiProvider.overrideWithValue(api),
         if (bookmarks != null)
           bookmarkRepositoryProvider.overrideWithValue(bookmarks),
-      ],
+      ]),
       child: MaterialApp(
         builder: (_, child) => Overlay.wrap(child: child!),
         home: Scaffold(

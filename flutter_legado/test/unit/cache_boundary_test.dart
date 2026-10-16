@@ -1,10 +1,9 @@
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_cache_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cache_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_database_maintenance_service.dart';
 import 'package:flutter_legado/src/providers/cache_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -13,13 +12,13 @@ import '../mocks/mocks.dart';
 
 void main() {
   test('正式与Mock工厂装配对应窄接口，读取复用同一实例', () async {
-    final real = createBookApi(useMock: false);
+    final real = createTestApplication(useMock: false);
     expect(real.cacheRepository, isA<RustCacheRepository>());
     expect(
       real.databaseMaintenanceService,
       isA<RustDatabaseMaintenanceService>(),
     );
-    final api = createBookApi(useMock: true);
+    final api = createTestApplication(useMock: true);
     expect(api.cacheRepository, isA<MockCacheRepository>());
     final repository = api.cacheRepository;
     expect(api.cacheRepository, same(repository));
@@ -46,7 +45,12 @@ void main() {
       databaseMaintenanceService: DatabaseMaintenanceServiceMock(),
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        cacheRepositoryProvider.overrideWithValue(first.cacheRepository),
+        databaseMaintenanceServiceProvider.overrideWithValue(
+          first.databaseMaintenanceService,
+        ),
+      ]),
     );
     addTearDown(container.dispose);
     expect(
@@ -57,7 +61,14 @@ void main() {
       container.read(databaseMaintenanceServiceProvider),
       same(first.databaseMaintenanceService),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        cacheRepositoryProvider.overrideWithValue(second.cacheRepository),
+        databaseMaintenanceServiceProvider.overrideWithValue(
+          second.databaseMaintenanceService,
+        ),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(cacheRepositoryProvider),
@@ -78,7 +89,6 @@ void main() {
     when(() => maintenance.shrinkDatabase()).thenAnswer((_) async => 0);
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
         cacheRepositoryProvider.overrideWithValue(repository),
         databaseMaintenanceServiceProvider.overrideWithValue(maintenance),
       ],

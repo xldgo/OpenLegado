@@ -1,11 +1,13 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'dart:io';
 
 import 'package:flutter_legado/src/domain/models/review.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/providers/book_content_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/archive_import_dialog.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/review_detail_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,10 +114,7 @@ void main() {
         .thenThrow(StateError('压缩包损坏'));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          bookArchiveServiceProvider.overrideWithValue(archive),
-        ],
+        overrides: [bookArchiveServiceProvider.overrideWithValue(archive)],
         child: MaterialApp(
           home: Scaffold(
             body: Builder(
@@ -185,11 +184,11 @@ void main() {
     });
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(MockBookApi()),
+        overrides: mergeTestOverrides([
+          ...MockBookApi().overrides,
           bookArchiveServiceProvider.overrideWithValue(archive),
           localBookServiceProvider.overrideWithValue(local),
-        ],
+        ]),
         child: MaterialApp(
           home: Scaffold(
             body: Builder(

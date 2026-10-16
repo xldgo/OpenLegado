@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../helpers/reader_layout_host.dart';
 
 // 一比一复刻 S7 验收：渲染矩阵补页（详情/阅读，UI_ONE_TO_ONE_CLONE_PLAN_
@@ -10,7 +11,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/screens/reader_screen.dart';
@@ -71,7 +71,7 @@ void main() {
             .thenAnswer((_) async => '内容');
         await tester.pumpWidget(
           ProviderScope(
-            overrides: [bookApiProvider.overrideWithValue(mockApi)],
+            overrides: mergeTestOverrides([...mockApi.overrides]),
             child: themeWrap(
               BookInfoScreen(book: book),
               brightness: brightness,
@@ -105,7 +105,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: mergeTestOverrides([...mockApi.overrides]),
           child: themeWrap(const ReaderScreen()),
         ),
       );

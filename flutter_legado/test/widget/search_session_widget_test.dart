@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -6,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/models/search_batch.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
@@ -44,7 +45,7 @@ void main() {
     when(() => api.searchService.pauseSearch()).thenAnswer((_) async {});
     when(() => api.searchService.resumeSearch()).thenAnswer((_) async {});
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
   });

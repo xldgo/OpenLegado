@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 回归守卫：debug 模式 RenderFlex 右溢（台账 P2-13 ②，设备 crash_log 右溢 12px）。
 // 约定：360dp 画布（1080x1920 @ 3.0），MockBookApi + MockAudioService 覆写，
 // 逐屏 pump 后断言无布局溢出异常（takeException == null）。
@@ -19,9 +21,7 @@ import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/models/rss_article.dart';
 import 'package:flutter_legado/src/models/rss_source.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/screens/about_screen.dart';
 import 'package:flutter_legado/src/screens/app_log_screen.dart';
 import 'package:flutter_legado/src/screens/audio_screen.dart';
@@ -96,10 +96,10 @@ void main() {
     when(() => mockAudio.audioFocusStream)
         .thenAnswer((_) => const Stream<AudioFocusEvent>.empty());
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         audioServiceProvider.overrideWithValue(mockAudio),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

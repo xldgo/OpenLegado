@@ -1,3 +1,5 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -7,15 +9,13 @@ import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
-import '../services/book_api.dart';
 import '../widgets/app_progress_indicator.dart';
 import '../widgets/book_cover.dart';
 
 /// 书籍信息编辑页面
 ///
 /// 对齐 Android 原版 BookInfoEditActivity：可编辑书名、作者、封面地址与简介。
-/// 保存时调用 [BookApi.updateBook]，成功后返回 `true` 以便上一页刷新。
+/// 保存时调用 [BookshelfRepository.updateBook]，成功后返回 `true` 以便上一页刷新。
 class EditBookInfoScreen extends ConsumerStatefulWidget {
   /// 待编辑的书籍对象
   final Book book;
@@ -209,8 +209,7 @@ class _EditBookInfoScreenState extends ConsumerState<EditBookInfoScreen> {
         customIntro: customIntro,
       );
 
-      final api = ref.read(bookApiProvider);
-      await api.bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)

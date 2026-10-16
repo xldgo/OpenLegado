@@ -1,3 +1,6 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
+import '../providers/reading_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/explore/explore_dependencies.dart';
 import '../providers/media_provider.dart';
 import '../domain/models/book_highlight.dart';
@@ -20,12 +23,10 @@ import '../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/general_settings_provider.dart';
 import '../providers/reader/reader_settings_provider.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';
-import '../services/book_api.dart';
 import '../services/bookmark_export.dart';
 import '../utils/app_route_observer.dart';
 import '../utils/book_open_utils.dart';
@@ -44,7 +45,7 @@ import '../utils/book_open_utils.dart';
 /// - 返回值：选中章节 index（int），供调用方走现有阅读跳转链路
 /// - [P2-28b] 章节行缓存状态三态（未缓存=离线下载图标⬇ / 已缓存=无图标 /
 ///   当前章=对勾圈），图标对齐参考版 TocScreen.StatusIcon，
-///   数据经 BookApi.listCachedChapterUrls
+///   数据经 ChapterCacheRepository.listCachedChapterUrls
 ///   （[UI-fix v2.0.6] Task #22 接通的只读 FFI，契约 §2.43.5）
 /// - [P2-29] 章节行状态机对齐参考版五态（用户验收「下载中缺少过渡动画」）：
 ///   当前章→定位图标 location_on（替代 check_circle）/ 下载中→16px 加载
@@ -80,7 +81,7 @@ import '../utils/book_open_utils.dart';
 ///   订阅 EventBus.SAVE_CONTENT 的行刷新语义）：批量离线缓存下载中，每章正文
 ///   保存后对应行 ⬇ 图标实时变为字数胶囊/无图标，无需退出重进
 /// - [B1-TOC] 音频书章节「已缓存」徽标接线（2026-10-04）：音频书的已缓存
-///   判定改取 BookApi.audioCacheList（契约 §2.47，返回已缓存章节下标集合），
+///   判定改取 AudioCacheRepository.audioCacheList（契约 §2.47，返回已缓存章节下标集合），
 ///   对齐原版 ChapterListFragment.kt:154-184（仅 `if (book.isAudio)` 经
 ///   AudioCacheManager.listCachedChapterKeys 取缓存键集合）+
 ///   ChapterListAdapter.kt:192-198（音频书 `audioCacheKeys.contains(
@@ -138,12 +139,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
   bool _chaptersLoading = true;
   String? _chaptersError;
 
-  /// [P2-28] 本书已缓存章节 URL 集合（经 BookApi.listCachedChapterUrls，
+  /// [P2-28] 本书已缓存章节 URL 集合（经 ChapterCacheRepository.listCachedChapterUrls，
   /// 契约 §2.43.5；对齐原版 cacheFileNames.contains(chapter.getFileName()) 判定。
   /// 本地书恒视为已缓存（对齐原版 isLocalBook），不发起查询）
   Set<String> _cachedUrls = const {};
 
-  /// [B1-TOC] 本书已缓存音频章节下标集合（经 BookApi.audioCacheList，
+  /// [B1-TOC] 本书已缓存音频章节下标集合（经 AudioCacheRepository.audioCacheList，
   /// 契约 §2.47，返回 `List<int>` 已缓存章节下标）。**仅非本地音频书**使用：
   /// 对齐原版 ChapterListFragment.kt:154-184 的 `if (book.isAudio)` 分支
   /// （只有音频书经 AudioCacheManager.listCachedChapterKeys 取键，
@@ -224,8 +225,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
   Future<void> _initBookshelfState() async {
     try {
       final dbBook = await ref
-          .read(bookApiProvider)
-          .bookshelfRepository
+          .read(bookshelfRepositoryProvider)
           .getBook(_book.bookUrl);
       if (!mounted) return;
       setState(() {
@@ -389,8 +389,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
 
   Future<void> _refreshOnReshow() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final fresh = await api.bookshelfRepository.getBook(_book.bookUrl);
+      final fresh = await ref
+          .read(bookshelfRepositoryProvider)
+          .getBook(_book.bookUrl);
       if (!mounted) return;
       if (fresh != null) setState(() => _book = fresh);
       // [P2-28] 刷新缓存 URL 集（本地书恒视为已缓存，对齐原版 isLocalBook，不查询）
@@ -425,15 +426,16 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
   }
 
-  /// 加载章节列表（经 BookApi），完成后自动滚动定位当前章节
+  /// 加载章节列表（经 ReadingRepository），完成后自动滚动定位当前章节
   Future<void> _loadChapters() async {
     setState(() {
       _chaptersLoading = true;
       _chaptersError = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      var chapters = await api.readingRepository.getChapters(_book.bookUrl);
+      var chapters = await ref
+          .read(readingRepositoryProvider)
+          .getChapters(_book.bookUrl);
       // [Task #21 | 2026-08-08] 自愈：本地库无目录的在线书籍（含换源后旧章节
       // 已清、或历史遗留未拉取过目录的书），自动经书源规则从网络刷新目录。
       // 与 reader_notifier.openBook 的回退保持一致，使打开目录页时也能触发
@@ -441,13 +443,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // tocUrl 为抓取地址（换源后指向当前书源），tocUrl 空时回退 bookUrl。
       if (chapters.isEmpty && _book.origin.isNotEmpty) {
         if (_inBookshelf) {
-          chapters = await api.readingRepository.refreshToc(
-            _book.bookUrl,
-            _book.origin,
-          );
+          chapters = await ref
+              .read(readingRepositoryProvider)
+              .refreshToc(_book.bookUrl, _book.origin);
         } else {
           // 未入库：仅网络取目录展示，不落库（对齐 BookInfoScreen / 原版 !inBookshelf）
-          chapters = await _fetchWebChaptersOnline(api);
+          chapters = await _fetchWebChaptersOnline();
         }
       }
       if (!mounted) return;
@@ -549,10 +550,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
   }
 
   /// 未入库在线书：webbookChapters 仅展示，不写 DB
-  Future<List<BookChapter>> _fetchWebChaptersOnline(BookApi api) async {
+  Future<List<BookChapter>> _fetchWebChaptersOnline() async {
     BookSource? source;
     try {
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       final o = _book.origin.trim().replaceAll(RegExp(r'/+$'), '');
       for (final s in sources) {
         final u = s.bookSourceUrl.trim().replaceAll(RegExp(r'/+$'), '');
@@ -741,7 +744,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
         setState(() => _reverseToc = !_reverseToc);
         break;
       case 'useReplace':
-        // 接 ReadConfig.useReplaceRule 字段经 BookApi 更新（对齐原版 menu_use_replace）
+        // 接 ReadConfig.useReplaceRule 字段经 BookshelfRepository 更新（对齐原版 menu_use_replace）
         final rc = _book.readConfig ?? const ReadConfig();
         await _updateBook(
           _book.copyWith(
@@ -825,10 +828,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
   }
 
-  /// 经 BookApi 更新书籍并同步本页状态
+  /// 经 BookshelfRepository 更新书籍并同步本页状态
   Future<void> _updateBook(Book updated) async {
     try {
-      await ref.read(bookApiProvider).bookshelfRepository.updateBook(updated);
+      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
       if (mounted) setState(() => _book = updated);
     } catch (e) {
       if (mounted) {

@@ -1,10 +1,11 @@
+library;
+
 /// errorMessage 统一错误文案提取器单元测试
 ///
 /// [2026-10-06 iOS 实测修复] Rust FFI 以 BridgeError 抛错，裸插值 `$e` 只会
 /// 得到 "Instance of 'BridgeError'"（iOS 实测：「MCP 服务切换失败: Instance of
 /// BridgeError」）。本测锁定：提取 message、空 message 兜底、非 BridgeError
 /// 保持 toString 三条语义。
-library;
 
 import 'package:flutter_test/flutter_test.dart';
 

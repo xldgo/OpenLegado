@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +12,6 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/screens/file_manage_screen.dart';
 import 'package:flutter_legado/src/screens/replace_rules_screen.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';
@@ -35,7 +36,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: const MaterialApp(home: ReplaceRulesScreen()),
       ),
     );

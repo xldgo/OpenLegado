@@ -1,9 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../domain/contracts/read_record_repository.dart';
-import '../../providers/providers.dart';
-
-/// 页面、首页与阅读器共享根实例的记录存储。— Codex + UI
-final readRecordRepositoryProvider = Provider<ReadRecordRepository>(
-  (ref) => ref.watch(bookApiProvider).readRecordRepository,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../../app/bootstrap/application_dependencies.dart'
+    show readRecordRepositoryProvider;

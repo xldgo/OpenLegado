@@ -1,17 +1,18 @@
-/// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
 library;
+
+import '../fixtures/app_test_api.dart';
+
+/// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 
 import '../fixtures/reader_settings_repository.dart';
@@ -55,10 +56,10 @@ void main() {
       final repository = createTestReaderSettingsRepository();
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            bookApiProvider.overrideWithValue(mockApi),
+          overrides: mergeTestOverrides([
+            ...mockApi.overrides,
             readerSettingsRepositoryProvider.overrideWithValue(repository),
-          ],
+          ]),
           child: MaterialApp(
             // 「字体」跳转 AppRoutes.fonts：以桩路由承接，验证链路不丢失
             onGenerateRoute: (settings) {
@@ -120,10 +121,10 @@ void main() {
       // 简繁转换移到内容分组，通过正文处理服务持久化。
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            bookApiProvider.overrideWithValue(mockApi),
+          overrides: mergeTestOverrides([
+            ...mockApi.overrides,
             readerSettingsRepositoryProvider.overrideWithValue(repository),
-          ],
+          ]),
           child: MaterialApp(
             key: UniqueKey(),
             home: Scaffold(

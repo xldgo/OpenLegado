@@ -1,3 +1,5 @@
+import '../providers/reading_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/media_provider.dart';
 
 import 'dart:async';
@@ -14,8 +16,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
-import '../services/book_api.dart';
 import '../services/video_float_window.dart';
 import '../utils/video_play_utils.dart';
 import '../domain/contracts/video_progress_repository.dart';
@@ -360,7 +360,10 @@ class _VideoScreenState extends State<VideoScreen> {
     final taken = await VideoFloatWindowCoordinator.instance.probeAndTakeOver(
       bookUrl: widget.book?.bookUrl,
       videoUrl: widget.book == null ? widget.videoUrl : null,
-      api: _readApi(),
+      reading: ProviderScope.containerOf(context)
+          .read(readingRepositoryProvider),
+      progress: ProviderScope.containerOf(context)
+          .read(videoProgressRepositoryProvider),
     );
     if (taken != null && mounted) _applyFloatState(taken);
   }
@@ -378,9 +381,6 @@ class _VideoScreenState extends State<VideoScreen> {
       mpdFilePath: state.mpdTempPath,
     );
   }
-
-  BookApi _readApi() =>
-      ProviderScope.containerOf(context).read(bookApiProvider);
 
   /// 直链起播：读 20 天内进度 → 解析播放（对齐 VideoPlay.kt:143 seekOnStart）
   Future<void> _startDirectPlayback() async {
@@ -457,10 +457,12 @@ class _VideoScreenState extends State<VideoScreen> {
     final book = widget.book!;
     setState(() => _loadingChapter = true);
     try {
-      final api = ProviderScope.containerOf(context).read(bookApiProvider);
+      final container = ProviderScope.containerOf(context);
       if (_sourceHeaders.isEmpty && book.origin.isNotEmpty) {
         try {
-          final sources = await api.bookSourceRepository.getBookSources();
+          final sources = await container
+              .read(bookSourceRepositoryProvider)
+              .getBookSources();
           for (final s in sources) {
             if (s.bookSourceUrl == book.origin &&
                 s.header != null &&
@@ -471,12 +473,13 @@ class _VideoScreenState extends State<VideoScreen> {
           }
         } catch (_) {}
       }
-      _chapters = await api.readingRepository.getChapters(book.bookUrl);
+      _chapters = await container
+          .read(readingRepositoryProvider)
+          .getChapters(book.bookUrl);
       if (_chapters.isEmpty && book.origin.isNotEmpty) {
-        _chapters = await api.readingRepository.refreshToc(
-          book.bookUrl,
-          book.origin,
-        );
+        _chapters = await container
+            .read(readingRepositoryProvider)
+            .refreshToc(book.bookUrl, book.origin);
       }
       if (_chapters.isEmpty) {
         setState(() {
@@ -586,14 +589,14 @@ class _VideoScreenState extends State<VideoScreen> {
       _chapterError = null;
     });
     try {
-      final api = ProviderScope.containerOf(context).read(bookApiProvider);
+      final container = ProviderScope.containerOf(context);
       final content = book.origin.isNotEmpty
-          ? await api.readingRepository.fetchChapterContent(
-              book.bookUrl,
-              chapter.url,
-              book.origin,
-            )
-          : await api.readingRepository.getChapterContent(book.bookUrl, index);
+          ? await container
+                .read(readingRepositoryProvider)
+                .fetchChapterContent(book.bookUrl, chapter.url, book.origin)
+          : await container
+                .read(readingRepositoryProvider)
+                .getChapterContent(book.bookUrl, index);
       // [V-B2] 弹幕与正文同链加载：§2.49 原文 → §2.50 Rust 解析
       await _loadDanmakuForChapter(index);
       final target = resolveVideoPlayTarget(
@@ -698,6 +701,9 @@ class _VideoScreenState extends State<VideoScreen> {
     // [W2] 非 Android 无全局悬浮窗概念：静默降级全屏播放页
     //（对齐 JS 入口 `!kIsWeb && Platform.isAndroid` 的既有降级语义）
     if (!VideoFloatWindowCoordinator.instance.isSupported) return false;
+    final dependencies = ProviderScope.containerOf(context);
+    final reading = dependencies.read(readingRepositoryProvider);
+    final progress = dependencies.read(videoProgressRepositoryProvider);
     final book = widget.book;
     var mpdPath = target.mpdFilePath;
     if (target.isMpd && (mpdPath == null || mpdPath.isEmpty)) {
@@ -782,7 +788,8 @@ class _VideoScreenState extends State<VideoScreen> {
       book: book,
       chapters: book != null ? _chapters : null,
       sourceHeaders: _sourceHeaders,
-      api: _readApi(),
+      reading: reading,
+      progress: progress,
     );
     if (!ok) {
       // [W2/W4] 失败提示按原因分流：权限缺失 → 引导授权；FGS 后台启动受限
@@ -869,7 +876,7 @@ class _VideoScreenState extends State<VideoScreen> {
     final book = widget.book;
     if (book == null) return;
     try {
-      final api = ProviderScope.containerOf(context).read(bookApiProvider);
+      final container = ProviderScope.containerOf(context);
       var pos = chapterPos;
       if (pos == null) {
         // 加载中退出页面（PopScope 落盘）时控制器可能尚未创建
@@ -882,11 +889,13 @@ class _VideoScreenState extends State<VideoScreen> {
           pos = 0;
         }
       }
-      await api.readingRepository.updateReadingProgress(
-        bookUrl: book.bookUrl,
-        chapterIndex: _chapterIndex,
-        chapterPos: pos,
-      );
+      await container
+          .read(readingRepositoryProvider)
+          .updateReadingProgress(
+            bookUrl: book.bookUrl,
+            chapterIndex: _chapterIndex,
+            chapterPos: pos,
+          );
     } catch (_) {}
   }
 

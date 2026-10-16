@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../mocks/reading_fixture.dart';
 import '../helpers/reader_layout_host.dart';
 
@@ -5,10 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
@@ -71,10 +70,10 @@ void main() {
     final key = GlobalKey<ReaderPageViewState>();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
+        overrides: mergeTestOverrides([
+          ..._Api().overrides,
           readerNotifierProvider.overrideWith(_ReaderWithPageRequest.new),
-          bookApiProvider.overrideWithValue(_Api()),
-        ],
+        ]),
         child: MaterialApp(
           builder: readerLayoutTestBuilder,
           home: Scaffold(
@@ -103,10 +102,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ..._Api().overrides,
         readerNotifierProvider.overrideWith(_Reader.new),
-        bookApiProvider.overrideWithValue(_Api()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     Future<void> pump(double width) async {

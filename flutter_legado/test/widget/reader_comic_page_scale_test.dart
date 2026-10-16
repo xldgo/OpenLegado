@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -29,9 +30,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码）
 const _kPngBase64 =
@@ -170,7 +169,7 @@ void main() {
         configs: {'mangaScrollMode': '1'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
@@ -208,7 +207,7 @@ void main() {
     testWidgets('条漫模式（默认）：不渲染「页面适配」项', (tester) async {
       final api = _ScaleMockApi(configWrites: <List<String>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
@@ -236,7 +235,7 @@ void main() {
         configs: {'mangaScrollMode': '1', 'mangaPageScaleType': '3'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
 
 // SyncNotifier 单元测试
@@ -19,7 +21,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';
@@ -72,7 +73,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -80,7 +81,7 @@ void main() {
   SyncState readState() => container.read(syncNotifierProvider);
   SyncNotifier readNotifier() => container.read(syncNotifierProvider.notifier);
 
-  /// 桩入真实同步所需的 BookApi 调用
+  /// 桩入真实同步所需的 TestApi 调用
   void stubSyncApis({String remoteBooks = '[]', String remoteSources = '[]'}) {
     when(() => mockApi.bookshelfRepository.getBooks())
         .thenAnswer((_) async => [const Book(bookUrl: 'b1', name: '书1')]);
@@ -146,10 +147,10 @@ void main() {
       final repository = _ConnectionRepository()
         ..saved = const WebDavConnection(url: 'https://old.example');
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           webDavConnectionRepositoryProvider.overrideWithValue(repository),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       await readNotifier().loadConfig();
@@ -528,10 +529,10 @@ void main() {
       test('云端${restore ? '恢复' : '备份'}完成但时间记录失败保留旧时间和成功，不重做云端', () async {
         final metadata = _MetadataRepository();
         container = ProviderContainer(
-          overrides: [
-            bookApiProvider.overrideWithValue(mockApi),
+          overrides: mergeTestOverrides([
+            ...mockApi.overrides,
             syncMetadataRepositoryProvider.overrideWithValue(metadata),
-          ],
+          ]),
         );
         addTearDown(container.dispose);
         stubSyncApis();
@@ -582,10 +583,10 @@ void main() {
     test('时间读取失败向调用方报告，不沿用连接进行云端操作', () async {
       final metadata = _MetadataRepository()..failLoad = true;
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           syncMetadataRepositoryProvider.overrideWithValue(metadata),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
       await expectLater(readNotifier().loadConfig(), throwsStateError);

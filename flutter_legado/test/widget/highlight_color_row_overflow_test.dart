@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 「新增高亮规则」弹窗颜色行窄屏溢出回归测试
 //
 // 缺陷证据：MuMu 实机截图 .tmp/b3_ours_hl_dialog.png —— 360dp 逻辑宽设备上
@@ -12,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -55,7 +56,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: HighlightRulesScreen()),
       ),
     );

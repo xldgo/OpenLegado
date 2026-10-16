@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [C3 B1 | 台账 1-3] 分组 tab 左对齐回归（对齐参考 03b：tab 行左起）
 //
 // 2.0.260 实机截图（ours_2.0.260/03_bookshelf.png）中单组「全部」tab
@@ -20,7 +22,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
@@ -44,7 +45,7 @@ void main() {
         .thenAnswer((_) async => groups);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -8,9 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/screens/reader_config_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
@@ -28,10 +28,10 @@ void main() {
       storages: {SettingsStorageKind.preferences: storage},
     );
     container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(() {
       container.dispose();

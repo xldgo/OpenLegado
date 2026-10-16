@@ -1,14 +1,15 @@
-/// 使用已有 Windows DLL 验证校验三项直接适配，不访问真实站点。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 library;
 
+/// 使用已有 Windows DLL 验证校验三项直接适配，不访问真实站点。— Codex + Bridge
+@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
@@ -28,7 +29,7 @@ void main() {
     final root = Directory(
       '.dart_tool/source-checker-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    final api = createBookApi(
+    final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
         runtime: const NativeRustRuntime(),
@@ -36,7 +37,7 @@ void main() {
         configurationSource: SettingsRuntimeConfiguration(),
       ),
     );
-    await initializeBookApi(api: api);
+    await initializeTestApplication(api: api);
     final checker = api.sourceChecker;
     const source = BookSource(
       bookSourceUrl: 'fixture://offline-check',

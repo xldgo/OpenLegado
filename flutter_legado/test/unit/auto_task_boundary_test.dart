@@ -1,13 +1,14 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/auto_task.dart';
 import 'package:flutter_legado/src/domain/models/auto_task_execution_result.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_dependencies.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/auto_task_scheduler.dart';
 
 import '../mocks/mocks.dart';
@@ -27,7 +28,7 @@ void main() {
   test('仓储、Provider和调用者共享完整Mock规则，按ID替换、排序与清理', () async {
     final api = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
     final repository = container.read(autoTaskRepositoryProvider);
@@ -55,7 +56,6 @@ void main() {
     final repository = AutoTaskRepositoryMock();
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不访问根接口')),
         autoTaskRepositoryProvider.overrideWithValue(repository),
         autoTaskServiceProvider.overrideWithValue(service),
       ],
@@ -63,7 +63,7 @@ void main() {
     addTearDown(container.dispose);
     expect(container.read(autoTaskRepositoryProvider), same(repository));
     expect(container.read(autoTaskServiceProvider), same(service));
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     expect(api.autoTaskRepository, same(api.autoTaskRepository));
     expect(api.autoTaskService, same(api.autoTaskService));
   });

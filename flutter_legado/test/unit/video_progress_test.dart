@@ -7,12 +7,13 @@
 // - :500 写 CacheManager.put(VIDEO_POS_NAME + videoUrl, durPos, 20 天)
 // - CacheManager.get/Repository.get：过期项读取即删除（deadline > now 才算有效）
 //
-// 我方存储通道：既有 BookApi.getConfig/setConfig（caches 表，物理键带
+// 我方存储通道：既有 TestApi.getConfig/setConfig（caches 表，物理键带
 // `config:` 前缀、TTL=0），逻辑键对齐 video_pos_ 前缀；20 天 TTL 由值内
 // savedAt 时间戳在 Dart 侧执行（无新增 FFI）。
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import '../fixtures/mock_book_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
 
 void main() {

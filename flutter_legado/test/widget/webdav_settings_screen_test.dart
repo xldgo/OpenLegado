@@ -1,10 +1,13 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// WebDAV 设置页「测试配置」行（差异清单 C7）
 ///
 /// 覆盖「地址为空」提示分支：未填写服务器地址时点击「测试配置」
 /// 应弹出 SnackBar「请先填写服务器地址」，且行尾状态保持「未测试」。
 ///
 /// — full-stack-engineer + UI ｜ 2026-09-10
-library;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -14,7 +17,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 import 'package:flutter_legado/src/domain/contracts/sync_metadata_repository.dart';
 import 'package:flutter_legado/src/providers/sync_metadata_provider.dart';
@@ -84,8 +86,8 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           if (repository != null)
             webDavConnectionRepositoryProvider.overrideWithValue(repository),
           if (metadata != null)
@@ -93,7 +95,7 @@ void main() {
           if (backup != null) backupServiceProvider.overrideWithValue(backup),
           if (refresher != null)
             restoredSettingsRefresherProvider.overrideWithValue(refresher),
-        ],
+        ]),
         child: const MaterialApp(home: WebDavSettingsScreen()),
       ),
     );

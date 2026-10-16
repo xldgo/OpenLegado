@@ -52,7 +52,7 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   /// 保留现有FRB可接受的字段；scope与sortOrder尚不能经此入口更新。
   /// 调用方约定传「完整对象」（读自 API 后 copyWith），故 group/
   /// excludeScope 为 null 即表示「该规则无此字段」，统一以空串透传
-  /// → Rust 侧按「清除该字段」处理（与 MockBookApi 整对象替换语义一致；
+  /// → Rust 侧按「清除该字段」处理（与 Mock 仓储整对象替换语义一致；
   /// Rust 侧 None=保留既有值，当前装配显式传入清空值）。
   ///
   /// [书源作用域 | 2026-09-13] 新增 scopeSource 全字段透传；

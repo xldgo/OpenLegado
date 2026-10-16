@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/http_response.dart';
 
 import 'dart:convert';
@@ -10,7 +14,6 @@ import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/domain/models/auto_task.dart';
 import 'package:flutter_legado/src/domain/models/auto_task_execution_result.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_dependencies.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/auto_task_screen.dart';
 import 'package:flutter_legado/src/widgets/auto_task_debug_dialog.dart';
 
@@ -48,11 +51,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           autoTaskRepositoryProvider.overrideWithValue(repository),
           autoTaskServiceProvider.overrideWithValue(service),
-        ],
+        ]),
         child: MaterialApp(home: child),
       ),
     );

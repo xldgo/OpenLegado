@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// 规则订阅 + 书源校验 + 失效分组回写 单元测试
 ///
 /// 覆盖：
@@ -8,14 +12,12 @@
 /// - CheckSourceNotifier：初始状态 / 关键词持久化 / 空列表守卫 / clearMessages
 /// - SourceNotifier.addGroupToUrls：校验失效分组回写（指定 URL、
 ///   已有分组跳过、不退出批量模式）
-library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/providers/source_check/check_source_notifier.dart';
 import 'package:flutter_legado/src/providers/rule_sub/rule_sub_notifier.dart';
@@ -112,7 +114,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });
@@ -236,7 +238,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });
@@ -321,7 +323,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });

@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,10 +9,8 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../fixtures/home_settings_storage.dart';
 
@@ -29,10 +29,10 @@ void main() {
       storages: {SettingsStorageKind.preferences: storage},
     );
     container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     source = SettingsRuntimeConfiguration(
       appSettings: service,

@@ -6,16 +6,16 @@ import 'package:flutter_legado/src/data/repositories/mock_book_group_repository.
 import 'package:flutter_legado/src/data/repositories/mock_bookshelf_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_group_repository.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -63,7 +63,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('工厂只装配共享正式或 Mock 引用，不初始化运行时', () {
-    final native = createBookApi(useMock: false);
+    final native = createTestApplication(useMock: false);
     final mock = _Api();
     expect(native.bookshelfRepository, isA<RustBookshelfRepository>());
     expect(native.bookGroupRepository, isA<RustBookGroupRepository>());
@@ -191,11 +191,14 @@ void main() {
     expect(await shelf.getBook('不存在'), isNull);
   });
 
-  test('根替换后两个 Provider 跟随新存储，旧引用只访问旧实例', () async {
+  test('依赖替换后两个 Provider 跟随新存储，旧引用只访问旧实例', () async {
     final old = _Api();
     final next = _Api();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(old)],
+      overrides: mergeTestOverrides([
+        bookshelfRepositoryProvider.overrideWithValue(old.bookshelfRepository),
+        bookGroupRepositoryProvider.overrideWithValue(old.bookGroupRepository),
+      ]),
     );
     addTearDown(container.dispose);
     final shelf = container.read(bookshelfRepositoryProvider);
@@ -203,7 +206,12 @@ void main() {
     await shelf.addBook(_book);
     expect(shelf, same(old.bookshelfRepository));
     expect(groups, same(old.bookGroupRepository));
-    container.updateOverrides([bookApiProvider.overrideWithValue(next)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        bookshelfRepositoryProvider.overrideWithValue(next.bookshelfRepository),
+        bookGroupRepositoryProvider.overrideWithValue(next.bookGroupRepository),
+      ]),
+    );
     expect(
       container.read(bookshelfRepositoryProvider),
       same(next.bookshelfRepository),
@@ -235,9 +243,6 @@ void main() {
       );
       container = ProviderContainer(
         overrides: [
-          bookApiProvider.overrideWith(
-            (_) => throw StateError('CRUD 不应创建 BookApi'),
-          ),
           appSettingsServiceProvider.overrideWith((ref) {
             final service = AppSettingsService(
               storages: {

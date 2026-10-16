@@ -5,14 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_source_login_repository.dart';
 import 'package:flutter_legado/src/data/services/source_login_service.dart';
 import 'package:flutter_legado/src/domain/models/source_login_credentials.dart';
 import 'package:flutter_legado/src/domain/services/source_login_codec.dart';
 import 'package:flutter_legado/src/features/book_sources/source_login_providers.dart';
 import 'package:flutter_legado/src/models/misc.dart' show LoginKeyValue;
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/source_login/source_login_notifier.dart';
 
 import '../mocks/mocks.dart';
@@ -72,14 +72,24 @@ void main() {
       final first = MockRustApi();
       final second = MockRustApi();
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(first)],
+        overrides: mergeTestOverrides([
+          sourceLoginRepositoryProvider.overrideWithValue(
+            first.sourceLoginRepository,
+          ),
+        ]),
       );
       addTearDown(container.dispose);
       expect(
         container.read(sourceLoginRepositoryProvider),
         same(first.sourceLoginRepository),
       );
-      container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+      container.updateOverrides(
+        mergeTestOverrides([
+          sourceLoginRepositoryProvider.overrideWithValue(
+            second.sourceLoginRepository,
+          ),
+        ]),
+      );
       expect(
         container.read(sourceLoginRepositoryProvider),
         same(second.sourceLoginRepository),
@@ -87,7 +97,7 @@ void main() {
       verifyNever(first.runtime.initialize);
       verifyNever(second.runtime.initialize);
       expect(
-        createBookApi(useMock: true).sourceLoginRepository,
+        createTestApplication(useMock: true).sourceLoginRepository,
         isA<MockSourceLoginRepository>(),
       );
     });
@@ -206,10 +216,7 @@ void main() {
         clearLegacy: (_) async {},
       );
       container = ProviderContainer(
-        overrides: [
-          sourceLoginServiceProvider.overrideWithValue(service),
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根')),
-        ],
+        overrides: [sourceLoginServiceProvider.overrideWithValue(service)],
       );
       for (final url in ['A', 'B']) {
         container.listen(sourceLoginNotifierProvider(url), (_, _) {});

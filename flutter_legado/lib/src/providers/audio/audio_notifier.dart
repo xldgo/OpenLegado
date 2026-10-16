@@ -1,20 +1,23 @@
+import '../../domain/contracts/bookshelf_repository.dart';
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../domain/contracts/http_tts_repository.dart';
+import '../../domain/contracts/http_tts_synthesizer.dart';
+import '../../domain/contracts/tts_cache_repository.dart';
+import '../../domain/contracts/read_aloud_voice_repository.dart';
+import '../../app/bootstrap/application_dependencies.dart';
+export 'audio_state.dart';
 import '../../providers/config_settings_provider.dart';
 import '../../providers/domain_config_provider.dart';
 import '../../domain/contracts/audio_playback_settings_repository.dart';
 import '../../domain/contracts/read_aloud_selection_repository.dart';
 import '../../domain/contracts/audio_book_service.dart';
-import '../media_provider.dart';
 import '../../domain/contracts/reading_repository.dart';
-import '../reading_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 import '../../domain/contracts/cloud_tts_provider.dart';
 
-import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../features/read_aloud/cloud_tts_providers.dart';
 import '../../features/read_aloud/playback/cloud_read_aloud_engine.dart';
 import '../../features/read_aloud/http_tts_voice_selection.dart';
-import '../../domain/contracts/read_aloud_voice_repository.dart';
-import '../../domain/contracts/tts_cache_repository.dart';
 import '../../features/read_aloud/playback/read_aloud_synthesis_queue.dart';
 import '../../features/read_aloud/playback/read_aloud_synthesis_adapter.dart';
 
@@ -30,7 +33,6 @@ import '../../services/media_artwork_loader.dart';
 import '../../services/media_session_models.dart';
 import '../../domain/models/read_aloud_media_timeline.dart';
 import '../../features/privacy/privacy_controller.dart';
-import '../../services/book_api.dart';
 import '../../services/stream_audio_player.dart';
 import '../../services/read_aloud_audio_player.dart';
 import '../../platform/tts/system_tts.dart';
@@ -40,14 +42,10 @@ import '../../features/read_aloud/playback/http_read_aloud_engine.dart';
 import '../../features/read_aloud/playback/system_read_aloud_engine.dart';
 import '../../utils/audio_skip_policy.dart';
 import '../../utils/read_aloud_text.dart';
-import '../providers.dart';
 import 'audio_state.dart';
 import '../../features/read_aloud/http_tts_seed.dart';
-import '../../features/read_aloud/http_tts_repository_provider.dart';
 import 'read_aloud_preferences.dart';
 import 'read_aloud_position.dart';
-
-export 'audio_state.dart';
 
 /// 无可用朗读引擎时的一次性温和提示
 ///
@@ -113,7 +111,7 @@ const int kMaxChapterStopCount = 99;
 /// → `AppConfig.ttsEngine`，app/.../help/config/AppConfig.kt:506-509）：原版
 /// 「全局」按钮把所选引擎写入该键，「书」按钮只写书级 `readConfig.ttsEngine`。
 /// 本项目全局值经既有 config 存储（ConfigRepository）持久化，书级值经
-/// `Book.copyWith(readConfig:)` + [BookApi.updateBook] 落 `books.readConfig` 列。
+/// `Book.copyWith(readConfig:)` + [BookshelfRepository.updateBook] 落 `books.readConfig` 列。
 /// [引擎双持久化 | 2026-10-04]
 const String kTtsEngineConfigKey = 'appTtsEngine';
 
@@ -146,11 +144,11 @@ typedef StreamChapterTag = ({String bookUrl, int chapterIndex});
 /// 镜像 Rust `reader::is_local_book`（rust/legado-ffi/src/api/reader.rs）：
 /// 该函数正是 Rust 侧选择「本地解析」还是「在线返回章节 URL JSON 元数据」
 /// 的判据。朗读取正文据此选链路：
-/// - 本地书：维持 [BookApi.getChapterContent]（本地解析 + 净化，行为不变；
+/// - 本地书：维持 [ReadingRepository.getChapterContent]（本地解析 + 净化，行为不变；
 ///   `getChapterContentFull` 的本地分支不做「相对可迁移标识 → 真实路径」
 ///   还原，见 Rust `get_chapter_content_inner` 与 `get_chapter_content_full`
 ///   本地分支差异，故不切换）；
-/// - 在线书：[BookApi.getChapterContentFull]（DB 缓存 → 联网抓取 → 净化，
+/// - 在线书：[ReadingRepository.getChapterContentFull]（DB 缓存 → 联网抓取 → 净化，
 ///   始终返回纯正文；`getChapterContent` 在线分支只返回含 chapter_url /
 ///   need_fetch 的 URL JSON 占位元数据，送进 TTS 就是读 JSON）。
 bool isLocalBookUrl(String bookUrl) {
@@ -196,19 +194,24 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   (String, int)? _publishedMediaChapter;
   Future<void> _mediaSeekBarrier = Future.value();
 
-  BookApi get _api {
-    final cached = _apiCache;
-    if (cached != null) return cached;
-    final api = ref.read(bookApiProvider);
-    _apiCache = api;
-    return api;
-  }
-
-  BookApi? _apiCache;
   late AudioPlaybackSettingsRepository _playbackSettings;
   late ReadAloudSelectionRepository _selections;
 
+  late final BookshelfRepository _bookshelf = ref.read(
+    bookshelfRepositoryProvider,
+  );
+  late final CloudTtsRepository _cloudTts = ref.read(
+    cloudTtsRepositoryProvider,
+  );
+  late final HttpTtsRepository _httpTts = ref.read(httpTtsRepositoryProvider);
+  late final HttpTtsSynthesizer _httpSynthesizer = ref.read(
+    httpTtsSynthesizerProvider,
+  );
+  late final ReadAloudVoiceRepository _voices = ref.read(
+    readAloudVoiceRepositoryProvider,
+  );
   late ReadingRepository _reading;
+  late TtsCacheRepository _ttsCache;
   late AudioBookService _audioBook;
 
   // Riverpod 3 销毁回调不能再访问 Ref/state；只供退出保存使用。
@@ -422,7 +425,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   @override
   AudioState build() {
-    _apiCache = ref.read(bookApiProvider);
+    _ttsCache = ref.read(ttsCacheRepositoryProvider);
     _playbackSettings = ref.read(audioPlaybackSettingsRepositoryProvider);
     _selections = ref.read(readAloudSelectionRepositoryProvider);
     _audioBook = ref.read(audioBookServiceProvider);
@@ -456,22 +459,22 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       synthesize: (request, cancel) => synthesizeReadAloudRequest(
         request,
         cancel,
-        http: ref.read(httpTtsSynthesizerProvider),
+        http: _httpSynthesizer,
         cloud: ref.read(cloudTtsSynthesizerProvider),
       ),
-      cache: () => _api.ttsCacheRepository,
+      cache: () => _ttsCache,
     );
     _httpEngine = HttpReadAloudEngine(
       queue: _synthesisQueue,
-      synthesizer: () => ref.read(httpTtsSynthesizerProvider),
+      synthesizer: () => _httpSynthesizer,
       player: _streamPlayer,
     );
     _cloudEngine = CloudReadAloudEngine(
       queue: _synthesisQueue,
-      repository: () => ref.read(cloudTtsRepositoryProvider),
+      repository: () => _cloudTts,
       synthesizer: () => ref.read(cloudTtsSynthesizerProvider),
       player: _streamPlayer,
-      cache: () => _api.ttsCacheRepository,
+      cache: () => _ttsCache,
     );
     // 完成回调按当前模式分发：音频书 → 下一章；TTS → 下一段
     _streamPlayer.onCompleted = (tag) {
@@ -653,7 +656,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     try {
       var chapterList = await _reading.getChapters(bookUrl);
       if (_disposed || token != _playToken) return;
-      final book = await _api.bookshelfRepository.getBook(bookUrl);
+      final book = await _bookshelf.getBook(bookUrl);
       if (_disposed || token != _playToken) return;
       if (book != null) _book = book;
       if (chapterList.isEmpty) {
@@ -794,7 +797,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     try {
       // [D3 | 2026-10-03] 首启/升级导入原版 httpTTS 种子（版本门控；
       // 失败不阻塞，仍按无引擎降级估算）。
-      final engines = ref.read(httpTtsRepositoryProvider);
+      final engines = _httpTts;
       await ensureDefaultHttpTts(engines);
       final list = await engines.getHttpTts();
       if (_disposed || token != _playToken) return;
@@ -848,7 +851,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final parsedId = int.tryParse(engineUrl);
     if (parsedId != null && parsedId != 0) {
       try {
-        final repo = ref.read(httpTtsRepositoryProvider);
+        final repo = _httpTts;
         final list = await repo.getHttpTts();
         if (list.any((item) => item.id == parsedId)) {
           return parsedId;
@@ -869,7 +872,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
     // 3. 从 HTTP TTS 仓库匹配 URL 获取 ID
     try {
-      final repo = ref.read(httpTtsRepositoryProvider);
+      final repo = _httpTts;
       final list = await repo.getHttpTts();
       final normalized = normalizeTtsEngineUrl(engineUrl);
       for (final item in list) {
@@ -892,7 +895,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 书级引擎写入（对齐原版「书」按钮，SpeakEngineDialog.kt:164-170）
   ///
   /// 只写当前书的 `readConfig.ttsEngine`，不改全局值；写库复用既有
-  /// `Book.copyWith(readConfig:)` + [BookApi.updateBook] 链路（同
+  /// `Book.copyWith(readConfig:)` + [BookshelfRepository.updateBook] 链路（同
   /// [_persistPlayMode]/[_persistSpeed] 先例），Rust 侧 `update_book` 全行
   /// 回写 readConfig 列（rust/legado-ffi/src/api/bookshelf.rs:68，
   /// rust/legado-db/.../book_repository.rs update）。无当前书返回 false
@@ -911,7 +914,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         readConfig: cfg.copyWith(ttsEngine: selection),
       );
       _book = updated;
-      await _api.bookshelfRepository.updateBook(updated);
+      await _bookshelf.updateBook(updated);
       await restartCurrentTts();
       return true;
     } catch (e) {
@@ -931,7 +934,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final cfg = book.readConfig ?? const ReadConfig();
       final updated = book.copyWith(readConfig: cfg.copyWith(ttsEngine: null));
       _book = updated;
-      await _api.bookshelfRepository.updateBook(updated);
+      await _bookshelf.updateBook(updated);
     } catch (e) {
       debugPrint('清除书级朗读引擎失败: $e');
     }
@@ -987,7 +990,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _book = null;
     final token = _playToken;
     try {
-      final book = await _api.bookshelfRepository.getBook(bookUrl);
+      final book = await _bookshelf.getBook(bookUrl);
       if (!_disposed && token == _playToken) _book = book;
     } catch (e) {
       debugPrint('读取书级朗读引擎配置失败: $e');
@@ -1001,7 +1004,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final parsedId = await _selections.getHttpEngineId();
       if (parsedId != null && parsedId != 0) {
         try {
-          final repo = ref.read(httpTtsRepositoryProvider);
+          final repo = _httpTts;
           final list = await repo.getHttpTts();
           final matched = list.where((e) => e.id == parsedId).firstOrNull;
           if (matched != null) {
@@ -1189,7 +1192,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     // 切章/重播入口先停掉上一段残留音频：新段合成期间保持静默而非叠音
     if (!await _stopTtsPaths(token)) return;
     try {
-      if (!_cachePrepared && _api.ttsCacheRepository.supportsAudioFiles) {
+      if (!_cachePrepared && _ttsCache.supportsAudioFiles) {
         await ref.read(readAloudPreferencesProvider.notifier).load();
         if (token != _playToken || _disposed) return;
         _cacheRetentionMinutes = ref
@@ -1198,7 +1201,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         if (_cacheRetentionMinutes <= 0) {
           await _synthesisQueue.whenIdle();
           if (token != _playToken || _disposed) return;
-          await _api.ttsCacheRepository.clear();
+          await _ttsCache.clear();
         }
         _cachePrepared = true;
       }
@@ -1347,9 +1350,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final source =
           engineUrl == systemTtsEngineUrl ||
               isCloudTts(engineUrl) ||
-              !_api.ttsCacheRepository.supportsAudioFiles
+              !_ttsCache.supportsAudioFiles
           ? null
-          : (await ref.read(httpTtsRepositoryProvider).getHttpTts())
+          : (await _httpTts.getHttpTts())
                 .where((e) => e.id == engineId)
                 .firstOrNull;
       if (_isSpeakStale(token, gen)) return;
@@ -1370,12 +1373,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       CloudTtsEngine? cloud;
       String? cloudVersion;
       if (isCloudTts(engineUrl)) {
-        cloud = (await _api.cloudTtsRepository.list())
+        cloud = (await _cloudTts.list())
             .where((e) => e.id == cloudTtsId(engineUrl))
             .firstOrNull;
         if (_isSpeakStale(token, gen)) return;
         if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
-        final voices = await _api.readAloudVoiceRepository.list();
+        final voices = await _voices.list();
         if (_isSpeakStale(token, gen)) return;
         cloudVersion = jsonEncode([
           cloud.toJson(),
@@ -1425,8 +1428,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         _ => null,
       };
       final result =
-          playlist?.supportsPlaylist == true &&
-              _api.ttsCacheRepository.supportsAudioFiles
+          playlist?.supportsPlaylist == true && _ttsCache.supportsAudioFiles
           ? await playlist!.speakPlaylist(
               _filePlaybackCues(request, cloud),
               session,
@@ -1461,7 +1463,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         if (voice.warning != null) {
           state = state.copyWith(errorMessage: voice.warning);
         }
-        if (cloud != null && _api.ttsCacheRepository.supportsAudioFiles) {
+        if (cloud != null && _ttsCache.supportsAudioFiles) {
           _startCloudPrefetch(request, cloud);
         }
         if (source != null) {
@@ -1754,15 +1756,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (isCloudTts(resolveTtsEngineUrl()) &&
         state.isPlaying &&
         !state.isStreamMode) {
-      final clouds = await _api.cloudTtsRepository.list();
+      final clouds = await _cloudTts.list();
       if (_isSpeakStale(token, gen)) return;
       final cloud = clouds
           .where((e) => e.id == cloudTtsId(resolveTtsEngineUrl()))
           .firstOrNull;
       final request = _cloudEngine.currentRequest;
-      if (cloud != null &&
-          request != null &&
-          _api.ttsCacheRepository.supportsAudioFiles) {
+      if (cloud != null && request != null && _ttsCache.supportsAudioFiles) {
         _synthesisQueue.cancelBackground();
         _startCloudPrefetch(request, cloud);
       }
@@ -1778,7 +1778,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         resolveTtsEngineUrl() != systemTtsEngineUrl) {
       final id = await resolveTtsEngineId();
       if (_isSpeakStale(token, gen) || !state.isPlaying || id == null) return;
-      final sources = await ref.read(httpTtsRepositoryProvider).getHttpTts();
+      final sources = await _httpTts.getHttpTts();
       final source = sources.where((s) => s.id == id).firstOrNull;
       if (_isSpeakStale(token, gen) || !state.isPlaying || source == null) {
         return;
@@ -1810,12 +1810,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     int minutes, {
     int? token,
   }) async {
-    final api = _apiCache;
-    if (api == null || !api.ttsCacheRepository.supportsAudioFiles) return;
+    if (!_ttsCache.supportsAudioFiles) return;
     try {
       await _synthesisQueue.whenIdle();
       if (token != null && token != _playToken) return;
-      await api.ttsCacheRepository.clear(
+      await _ttsCache.clear(
         beforeTimestampMs: minutes <= 0
             ? null
             : DateTime.now().millisecondsSinceEpoch - minutes * 60000,
@@ -1828,16 +1827,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<HttpTtsVoiceResolution> _httpVoice(int id) async {
-    if (!_api.readAloudVoiceRepository.supportsCatalog) {
+    if (!_voices.supportsCatalog) {
       return const HttpTtsVoiceResolution();
     }
     final selection = await _selections.getHttpVoice(id);
     if (selection == null) return const HttpTtsVoiceResolution();
-    return resolveHttpTtsVoice(
-      id,
-      await _api.readAloudVoiceRepository.list(),
-      selection,
-    );
+    return resolveHttpTtsVoice(id, await _voices.list(), selection);
   }
 
   Future<void> setCloudTtsVoice(String engineId, ReadAloudVoice? voice) async {
@@ -2896,7 +2891,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   /// 读回并应用书级听书偏好（播放模式 / 语速）
   ///
   /// 打开听书页初始化、切换书籍时调用；书对象未携带 readConfig 时经
-  /// [BookApi.getBook] 补读（对齐原版 AudioPlay.resetData 的 getPlayMode /
+  /// [BookshelfRepository.getBook] 补读（对齐原版 AudioPlay.resetData 的 getPlayMode /
   /// getPlaySpeed 读回语义）。[A2 | 2026-10-03]
   Future<void> applyBookPreferences(
     Book? book, {
@@ -2913,7 +2908,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (target == null || target.readConfig == null) {
       // 缓存书可能缺 readConfig：始终向库补读一次，失败沿用传入对象
       try {
-        target = await _api.bookshelfRepository.getBook(url) ?? target;
+        target = await _bookshelf.getBook(url) ?? target;
       } catch (e) {
         debugPrint('读取书级听书配置失败: $e');
       }
@@ -2974,7 +2969,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       );
       final updated = book.copyWith(readConfig: merged);
       _book = updated;
-      await _api.bookshelfRepository.updateBook(updated);
+      await _bookshelf.updateBook(updated);
     } catch (e) {
       debugPrint('保存书级播放模式失败: $e');
     }
@@ -3010,7 +3005,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final cfg = book.readConfig ?? const ReadConfig();
       final updated = book.copyWith(readConfig: cfg.copyWith(playSpeed: speed));
       _book = updated;
-      await _api.bookshelfRepository.updateBook(updated);
+      await _bookshelf.updateBook(updated);
       _lastSpeedPersistKey = bookUrl;
       _lastSpeedPersistValue = speed;
     } catch (e) {
@@ -3023,7 +3018,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final cached = _book;
     if (cached != null && cached.bookUrl == bookUrl) return cached;
     try {
-      final fetched = await _api.bookshelfRepository.getBook(bookUrl);
+      final fetched = await _bookshelf.getBook(bookUrl);
       if (fetched != null) _book = fetched;
       return fetched;
     } catch (e) {
@@ -3101,8 +3096,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (key == _lastProgressSaveKey && position == _lastProgressSavedPosMs) {
         return;
       }
-      final api = _apiCache;
-      if (api == null) return;
       unawaited(
         _audioBook
             .saveAudioProgress(s.bookUrl, s.currentIndex, position)
@@ -3148,7 +3141,10 @@ final audioServiceProvider = Provider<AudioService>(
 
 /// 独立加载服务可在测试中替换，不让图片请求参与音频起播等待。
 final mediaArtworkLoaderProvider = Provider<MediaArtworkLoader>(
-  (ref) => MediaArtworkLoader(api: ref.read(bookApiProvider)),
+  (ref) => MediaArtworkLoader(
+    images: ref.watch(bookImageRepositoryProvider),
+    sources: ref.watch(bookSourceRepositoryProvider),
+  ),
 );
 
 final mediaMonotonicClockProvider = Provider<int Function()>((ref) {

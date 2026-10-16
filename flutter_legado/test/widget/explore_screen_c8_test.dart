@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 发现页 A4/C8 形态对齐 widget 测试
 //
 // [A4 形态对齐 | full-stack-engineer + UI]
@@ -15,7 +17,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 
@@ -91,7 +92,7 @@ void main() {
 
   Widget buildApp() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: MaterialApp(
         onGenerateRoute: AppRoutes.generateRoute,
         home: const ExploreScreen(),

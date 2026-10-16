@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
 // D3 缺陷回归：Flutter 轨 httpTTS 种子导入与可用性如实登记。
@@ -26,7 +28,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -349,10 +350,10 @@ void main() {
       api = MockRustApi();
       fakePlayer = FakeStreamAudioPlayer();
       container = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(api),
+        overrides: mergeTestOverrides([
+          ...api.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-        ],
+        ]),
       );
       addTearDown(container.dispose);
 

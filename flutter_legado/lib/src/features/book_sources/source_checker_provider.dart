@@ -1,9 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../domain/contracts/source_checker.dart';
-import '../../providers/providers.dart';
-
-/// 根替换后提供新的校验能力；正在执行的会话自行持有发起实例。— Codex + UI
-final sourceCheckerProvider = Provider<SourceChecker>(
-  (ref) => ref.watch(bookApiProvider).sourceChecker,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../../app/bootstrap/application_dependencies.dart'
+    show sourceCheckerProvider;

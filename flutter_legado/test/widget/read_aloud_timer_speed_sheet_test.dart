@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -6,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
 import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_timer_sheet.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_speed_sheet.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -39,10 +40,10 @@ void main() {
               call.positionalArguments[1] as String;
         });
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

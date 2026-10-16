@@ -1,3 +1,4 @@
+import '../../app/bootstrap/application_dependencies.dart';
 import '../../app/bootstrap/login_v2_session_factory.dart';
 
 import 'dart:convert';
@@ -7,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/services/rust_http_tts_login_session.dart';
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../widgets/classic_login_dialog.dart';
 import '../../widgets/login_v2_dialog.dart';
 import '../../screens/webview_login_screen.dart';
@@ -19,7 +19,7 @@ Future<void> showHttpTtsLogin(
   HttpTts engine,
 ) async {
   final session = RustHttpTtsLoginSession(engine);
-  final api = ref.read(bookApiProvider);
+
   if (session.isV2) {
     await showDialog<bool>(
       context: context,
@@ -46,7 +46,7 @@ Future<void> showHttpTtsLogin(
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => WebViewLoginScreen(
-          repository: api.sourceLoginRepository,
+          repository: ref.read(sourceLoginRepositoryProvider),
           sourceUrl: url,
           sourceName: engine.name,
           loginUrl: url,

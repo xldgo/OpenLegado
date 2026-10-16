@@ -1,14 +1,12 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/services/mock_network_service.dart';
 import 'package:flutter_legado/src/data/services/mock_local_server_service.dart';
 import 'package:flutter_legado/src/data/services/mock_rule_execution_service.dart';
-import 'package:flutter_legado/src/providers/network_provider.dart';
-import 'package:flutter_legado/src/providers/local_server_provider.dart';
-import 'package:flutter_legado/src/providers/rule_execution_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/http_response.dart';
 import 'package:flutter_legado/src/providers/association/association_notifier.dart';
@@ -83,7 +81,7 @@ void main() {
   test('根装配共享实例，三个窄Provider均可独立替换', () {
     final api = MockBookApi();
     final root = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(root.dispose);
     expect(root.read(networkServiceProvider), same(api.networkService));
@@ -100,7 +98,6 @@ void main() {
         networkServiceProvider.overrideWithValue(network),
         localServerServiceProvider.overrideWithValue(server),
         ruleExecutionServiceProvider.overrideWithValue(rules),
-        bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
       ],
     );
     addTearDown(isolated.dispose);
@@ -115,7 +112,7 @@ void main() {
     expect(injected.networkService, same(network));
     expect(injected.localServerService, same(server));
     expect(injected.ruleExecutionService, same(rules));
-    expect(createBookApi(useMock: true), isA<MockBookApi>());
+    expect(createTestApplication(useMock: true), isA<MockBookApi>());
   });
 
   test('关联导入使用独立网络Provider，HTTP错误不解析正文或写入', () async {
@@ -124,10 +121,7 @@ void main() {
       (_) async => const HttpTextResponse(statusCode: 503, body: '{}'),
     );
     final container = ProviderContainer(
-      overrides: [
-        networkServiceProvider.overrideWithValue(network),
-        bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
-      ],
+      overrides: [networkServiceProvider.overrideWithValue(network)],
     );
     addTearDown(container.dispose);
     await container

@@ -1,3 +1,6 @@
+import '../../providers/reading_provider.dart';
+import '../book_sources/book_source_repository_provider.dart';
+import '../search/search_access_providers.dart';
 import '../../providers/network_provider.dart';
 import '../../providers/explore/explore_dependencies.dart';
 import '../privacy/privacy_gate.dart';
@@ -20,7 +23,6 @@ import '../../bridge/ffi.dart' show BridgeError;
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
-import '../../providers/providers.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../routes.dart';
 import '../../services/local_book_store.dart';
@@ -675,8 +677,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // 书源媒体类型 / 视频启发式优先于抽图提升 — Reasonix + UI
     if (BookOpenUtils.isOnlineBook(book)) {
       try {
-        final api = ref.read(bookApiProvider);
-        final sources = await api.bookSourceRepository.getBookSources();
+        final sources = await ref
+            .read(bookSourceRepositoryProvider)
+            .getBookSources();
         // 去掉尾斜杠，避免 `https://ukuzy.com/` 与 origin 失配 — Reasonix + UI
         String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
         final o = norm(book.origin);
@@ -1121,7 +1124,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 更新全部书籍目录（对标 Kotlin updateAllBooks：仅刷新允许更新的非本地书）
   Future<void> _updateAllBooks() async {
     final l10n = context.l10n;
-    final api = ref.read(bookApiProvider);
+
     final books = ref.read(bookshelfNotifierProvider).books;
     final targets = books
         .where(
@@ -1164,7 +1167,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       final book = targets[i];
       progress.value = l10n.updatingBook(i + 1, targets.length, book.name);
       try {
-        await api.readingRepository.refreshToc(book.bookUrl, book.origin);
+        await ref
+            .read(readingRepositoryProvider)
+            .refreshToc(book.bookUrl, book.origin);
         ok++;
       } catch (e) {
         debugPrint('更新目录失败《${book.name}》: $e');
@@ -1236,7 +1241,6 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 按 URL 逐本添加（对标 Kotlin BookshelfViewModel.addBookByUrl：
   /// bookUrlPattern 正则/域名匹配书源 → webbookInfo 取详情入库）
   Future<void> _addBooksByUrl(List<String> urls, String fallbackName) async {
-    final api = ref.read(bookApiProvider);
     final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final existingUrls = ref
@@ -1246,7 +1250,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         .toSet();
     List<BookSource> sources;
     try {
-      sources = await api.bookSourceRepository.getEnabledBookSources();
+      sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getEnabledBookSources();
     } catch (_) {
       sources = const [];
     }
@@ -1324,7 +1330,6 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 导入书单（对标 Kotlin importBookshelf：url → httpGet 拉取，
   /// JSON 数组 → 逐本搜索入库；已在架跳过）
   Future<void> _importBookshelf(String input) async {
-    final api = ref.read(bookApiProvider);
     final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     var content = input;
@@ -1366,9 +1371,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     final existing = shelf.map((b) => '${b.name}|${b.author}').toSet();
     List<String> enabledUrls;
     try {
-      enabledUrls = (await api.bookSourceRepository.getEnabledBookSources())
-          .map((s) => s.bookSourceUrl)
-          .toList();
+      enabledUrls =
+          (await ref.read(bookSourceRepositoryProvider).getEnabledBookSources())
+              .map((s) => s.bookSourceUrl)
+              .toList();
     } catch (_) {
       enabledUrls = const [];
     }
@@ -1386,11 +1392,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       }
       try {
         // 对标 Kotlin WebBook.preciseSearchAwait（FFI preciseSearch）
-        final hit = await api.searchService.preciseSearch(
-          name,
-          author,
-          sourceUrls: enabledUrls.isEmpty ? null : enabledUrls,
-        );
+        final hit = await ref
+            .read(searchServiceProvider)
+            .preciseSearch(
+              name,
+              author,
+              sourceUrls: enabledUrls.isEmpty ? null : enabledUrls,
+            );
         final best = SearchResult.fromSearchBook(hit).book;
         await shelfRepository.addBook(best);
         existing.add('$name|$author');

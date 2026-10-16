@@ -32,8 +32,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/models.dart';
 import '../utils/video_play_utils.dart';
-import '../data/repositories/config_video_progress_repository.dart';
-import 'book_api.dart';
+import '../domain/contracts/reading_repository.dart';
+import '../domain/contracts/video_progress_repository.dart';
 
 /// 悬浮窗播放状态（Dart → 原生；原生 → Dart 回全屏/接管共用）
 @immutable
@@ -342,7 +342,8 @@ class VideoFloatWindowCoordinator {
   Book? _book;
   List<BookChapter> _chapters = const [];
   Map<String, String> _sourceHeaders = const {};
-  BookApi? _api;
+  ReadingRepository? _reading;
+  VideoProgressRepository? _progress;
   int _chapterIndex = -1;
   double _speed = 1.0;
   bool _active = false;
@@ -361,7 +362,8 @@ class VideoFloatWindowCoordinator {
     Book? book,
     List<BookChapter>? chapters,
     Map<String, String>? sourceHeaders,
-    BookApi? api,
+    ReadingRepository? reading,
+    VideoProgressRepository? progress,
   }) async {
     lastEnterError = null;
     final ok = await bridge.show(state);
@@ -369,7 +371,8 @@ class VideoFloatWindowCoordinator {
       _book = book;
       _chapters = chapters ?? const [];
       _sourceHeaders = sourceHeaders ?? const {};
-      _api = api;
+      _reading = reading;
+      _progress = progress;
       _chapterIndex = state.chapterIndex;
       _speed = state.speed;
       _active = true;
@@ -388,7 +391,8 @@ class VideoFloatWindowCoordinator {
   Future<VideoFloatWindowState?> probeAndTakeOver({
     String? bookUrl,
     String? videoUrl,
-    BookApi? api,
+    ReadingRepository? reading,
+    VideoProgressRepository? progress,
   }) async {
     final probe = await bridge.getState();
     if (probe == null) return null;
@@ -406,7 +410,7 @@ class VideoFloatWindowCoordinator {
       _clearCapture();
       return taken;
     }
-    if (api != null) await writeProgressForState(api, probe);
+    await writeProgressForState(probe, reading: reading, progress: progress);
     await bridge.dismiss();
     _clearCapture();
     return null;
@@ -414,20 +418,23 @@ class VideoFloatWindowCoordinator {
 
   /// 进度落库（书籍 → updateReadingProgress；直链 → video_pos_，对齐原版 saveRead）
   Future<void> writeProgressForState(
-    BookApi api,
-    VideoFloatWindowState state,
-  ) async {
+    VideoFloatWindowState state, {
+    ReadingRepository? reading,
+    VideoProgressRepository? progress,
+  }) async {
     if (state.positionMs <= 0) return;
     try {
       if (state.bookUrl != null && state.bookUrl!.isNotEmpty) {
-        await api.readingRepository.updateReadingProgress(
+        await (reading ?? _reading)?.updateReadingProgress(
           bookUrl: state.bookUrl!,
           chapterIndex: state.chapterIndex < 0 ? 0 : state.chapterIndex,
           chapterPos: state.positionMs,
         );
       } else if (state.directUrl != null && state.directUrl!.isNotEmpty) {
-        await ConfigVideoProgressRepository(api.configRepository)
-            .write(state.directUrl!, state.positionMs);
+        await (progress ?? _progress)?.write(
+          state.directUrl!,
+          state.positionMs,
+        );
       }
     } catch (_) {}
   }
@@ -469,18 +476,20 @@ class VideoFloatWindowCoordinator {
   Future<void> handleReturnState(Object? raw) async {
     final state = VideoFloatWindowState.fromMap(raw);
     if (state == null) return;
-    final api = _api;
+    final reading = _reading;
+    final progress = _progress;
     final book = _book;
-    if (api != null) await writeProgressForState(api, state);
+    await writeProgressForState(state, reading: reading, progress: progress);
     _clearCapture();
     openFullscreen?.call(state, book);
   }
 
   Future<void> _onClosed(Object? raw) async {
     final state = VideoFloatWindowState.fromMap(raw);
-    final api = _api;
-    if (state != null && api != null) {
-      await writeProgressForState(api, state);
+    final reading = _reading;
+    final progress = _progress;
+    if (state != null) {
+      await writeProgressForState(state, reading: reading, progress: progress);
     }
     _clearCapture();
   }
@@ -491,9 +500,10 @@ class VideoFloatWindowCoordinator {
     if (!_active) return;
     final session = _sessionId;
     final fallback = VideoFloatWindowState.fromMap(fallbackRaw);
-    final api = _api;
+    final reading = _reading;
+    final progress = _progress;
     final book = _book;
-    if (api == null || book == null || _chapters.isEmpty) {
+    if (reading == null || book == null || _chapters.isEmpty) {
       await _finish(fallback);
       return;
     }
@@ -510,12 +520,12 @@ class VideoFloatWindowCoordinator {
     try {
       final chapter = _chapters[next];
       final content = book.origin.isNotEmpty
-          ? await api.readingRepository.fetchChapterContent(
+          ? await reading.fetchChapterContent(
               book.bookUrl,
               chapter.url,
               book.origin,
             )
-          : await api.readingRepository.getChapterContent(book.bookUrl, next);
+          : await reading.getChapterContent(book.bookUrl, next);
       final target = resolveVideoPlayTarget(
         content: content,
         chapterUrl: chapter.url,
@@ -528,7 +538,13 @@ class VideoFloatWindowCoordinator {
       }
       final materialized = await _materializeTarget(target);
       // 切换前落库旧集进度（对齐原版 saveRead 的「离集即存」语义）
-      if (fallback != null) await writeProgressForState(api, fallback);
+      if (fallback != null) {
+        await writeProgressForState(
+          fallback,
+          reading: reading,
+          progress: progress,
+        );
+      }
       if (!_active || session != _sessionId) {
         // [W3] 慢源解析/落库期间会话可能已清除（原生 10s 完播退出）或
         // 已被新会话取代（页面接管后再次移交）：静默丢弃本次推进，不产生
@@ -600,9 +616,14 @@ class VideoFloatWindowCoordinator {
   }
 
   Future<void> _finish(VideoFloatWindowState? fallback) async {
-    final api = _api;
-    if (fallback != null && api != null) {
-      await writeProgressForState(api, fallback);
+    final reading = _reading;
+    final progress = _progress;
+    if (fallback != null) {
+      await writeProgressForState(
+        fallback,
+        reading: reading,
+        progress: progress,
+      );
     }
     _clearCapture();
     await bridge.dismiss();
@@ -612,7 +633,8 @@ class VideoFloatWindowCoordinator {
     _book = null;
     _chapters = const [];
     _sourceHeaders = const {};
-    _api = null;
+    _reading = null;
+    _progress = null;
     _chapterIndex = -1;
     _speed = 1.0;
     _active = false;

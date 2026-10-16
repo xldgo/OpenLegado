@@ -133,6 +133,10 @@ void main() {
     expect(container.read(themeColorsProvider).primary, 11);
     expect(find.textContaining('主题操作失败'), findsOneWidget);
     expect(find.text('已应用主题「测试主题」'), findsNothing);
+    // 错误提示覆盖在仍保留的预设列表之上，关闭提示后才能重试。
+    expect(find.byType(AlertDialog), findsNWidgets(2));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     await tester.tap(find.text('测试主题'));
     await tester.pumpAndSettle();

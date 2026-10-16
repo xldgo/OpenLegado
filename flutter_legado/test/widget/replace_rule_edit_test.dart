@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 替换规则整页编辑器 widget 测试
 //
 // [A3 形态对齐 | full-stack-engineer + UI] 验证整页编辑器（对标原版
@@ -20,7 +22,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
 
@@ -58,7 +59,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           home: Builder(
             builder: (context) => Scaffold(

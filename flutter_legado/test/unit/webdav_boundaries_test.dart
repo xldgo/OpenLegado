@@ -1,14 +1,15 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:convert';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_backup_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_backup_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_webdav_service.dart';
 import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:flutter_legado/src/providers/backup_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,7 +42,7 @@ void main() {
     );
   });
   test('正式与Mock根只装配共享能力，Provider跟随根替换', () {
-    final production = createBookApi(useMock: false);
+    final production = createTestApplication(useMock: false);
     expect(production.webDavService, isA<RustWebDavService>());
     expect(production.backupRepository, isA<RustBackupRepository>());
     expect(
@@ -53,7 +54,10 @@ void main() {
     expect(first.webDavService, isA<MockWebDavService>());
     expect(first.backupRepository, isA<MockBackupRepository>());
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        webDavServiceProvider.overrideWithValue(first.webDavService),
+        backupRepositoryProvider.overrideWithValue(first.backupRepository),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(webDavServiceProvider), same(first.webDavService));
@@ -61,7 +65,12 @@ void main() {
       container.read(backupRepositoryProvider),
       same(first.backupRepository),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        webDavServiceProvider.overrideWithValue(second.webDavService),
+        backupRepositoryProvider.overrideWithValue(second.backupRepository),
+      ]),
+    );
     expect(container.read(webDavServiceProvider), same(second.webDavService));
     expect(
       container.read(backupRepositoryProvider),

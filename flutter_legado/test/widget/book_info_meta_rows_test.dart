@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [08 元信息区对齐 | 台账 0922 修订] 书籍详情页元信息区元素集回归守卫：
 // 对标参考 io.legato.kazusa 08 屏（docs/parity_shots/ref_20260914/08_book_info.png
 // + ref_dark_20260920/08_book_info.xml + 参考源 BookInfoScreen.kt/HighlightTagRow.kt）：
@@ -23,7 +25,6 @@ import 'package:share_plus_platform_interface/method_channel/method_channel_shar
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 
@@ -56,7 +57,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

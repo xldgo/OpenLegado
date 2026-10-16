@@ -1,3 +1,4 @@
+import '../book_sources/book_source_repository_provider.dart';
 import 'bookshelf_repositories.dart';
 import '../../widgets/app_menu.dart';
 
@@ -19,7 +20,6 @@ import '../../providers/bookshelf_settings_provider.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
 import 'bookshelf_manage_notifier.dart';
-import '../../providers/providers.dart';
 import '../../routes.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/empty_state.dart';
@@ -169,8 +169,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
     List<BookSource> sources;
     try {
       sources = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getEnabledBookSources();
     } catch (e) {
       if (mounted) {
@@ -397,7 +396,6 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
   Future<void> _exportAllUsedBookSources() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final api = ref.read(bookApiProvider);
       final books = await ref.read(bookshelfRepositoryProvider).getBooks();
       final origins = books
           .map((b) => b.origin)
@@ -409,7 +407,9 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
         );
         return;
       }
-      final sources = await api.bookSourceRepository.getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       final used = sources
           .where((s) => origins.contains(s.bookSourceUrl))
           .map((s) => s.toJson())

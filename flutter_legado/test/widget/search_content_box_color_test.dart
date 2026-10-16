@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [PARITY A6 | ⑦b 已裁决 2026-09-21] 正文搜索输入盒配色回归测试
 //
 // 裁决依据：docs/parity_shots/ref_dark_20260921/RECAPTURE_20260921.md §3
@@ -19,9 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -33,7 +33,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+      overrides: mergeTestOverrides([...MockBookApi().overrides]),
     );
     addTearDown(container.dispose);
   });

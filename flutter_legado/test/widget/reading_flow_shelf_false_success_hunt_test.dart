@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // 视角 A：阅读主流程「状态机 / 生命周期」缺陷猎捕 —— 红态复现用例（widget 层）
 //
 // F3 「加入书架」静默失败 → 详情页无条件成功提示：
@@ -19,7 +20,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
@@ -68,7 +68,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           theme: AppTheme.palette(
             brightness: Brightness.light,

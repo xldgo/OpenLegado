@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreScreen 平板双栏响应式 widget 测试
 //
 // 验证 UI_RESTRUCTURE_PLAN.md §6.2 发现页响应式策略：
@@ -9,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -37,7 +38,7 @@ void main() {
 
   Widget buildApp() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: const MaterialApp(home: ExploreScreen()),
     );
   }

@@ -1,9 +1,12 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 import 'package:flutter_legado/src/features/read_records/read_record_repository_provider.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/read_record_settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,10 +47,10 @@ void main() {
       ),
     ).thenAnswer((_) async {});
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         readRecordRepositoryProvider.overrideWithValue(records),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

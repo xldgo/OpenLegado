@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/explore_screen.dart';
 import 'package:flutter_legado/src/screens/rss_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -76,7 +77,7 @@ void main() {
         .thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(theme: AppTheme.light, home: const RssScreen()),
       ),
     );
@@ -107,7 +108,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(theme: AppTheme.light, home: const ExploreScreen()),
       ),
     );
@@ -126,7 +127,7 @@ void main() {
         .thenAnswer((_) async => 0);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(theme: AppTheme.dark, home: const RssScreen()),
       ),
     );
@@ -151,7 +152,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(theme: AppTheme.dark, home: const ExploreScreen()),
       ),
     );

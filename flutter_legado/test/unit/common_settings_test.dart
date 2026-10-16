@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,9 +20,7 @@ import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/eye_protection_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../fixtures/home_settings_storage.dart';
 
@@ -276,10 +276,10 @@ void main() {
 
   test('各域恢复重读同一共享快照，已有状态消费者同步', () async {
     final container = ProviderContainer(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(service),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
     container.read(bookshelfNotifierProvider);

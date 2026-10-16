@@ -1,9 +1,10 @@
+import '../fixtures/app_test_api.dart';
+
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2）对无扩展名包导入解析失败，
 // 显式 .dart 扩展名为当前可编译形态（同 toc_chapter_cache_state_test.dart）。
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/toc_screen.dart';
 import 'package:flutter_legado/src/services/audio_cache_events.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +28,7 @@ class _MockBookmarks extends Mock implements BookmarkRepository {}
 ///   （`isVolume`）不参与（L272 `if (!isVolume)` 才更新缓存图标）。
 /// - `AudioCacheService.kt:211-225`：每章缓存成功后 post
 ///   `EventBus.AUDIO_CACHE_CHANGED`，Fragment 订阅逐行增量刷新
-///   （L196-208）——我方以 1s 轮询 `BookApi.audioCacheList`（契约 §2.47）
+///   （L196-208）——我方以 1s 轮询 `TestApi.audioCacheList`（契约 §2.47）
 ///   实现等价「下载中逐章实时出现」。
 /// - `AudioCacheManager.kt:115`：分卷章节拒缓存（`chapter.isVolume →
 ///   throw "分卷章节不支持缓存"`），故分卷行不应出现徽标。
@@ -62,7 +63,7 @@ void main() {
     audioListCalls = 0;
     cachedUrlsCalls = 0;
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

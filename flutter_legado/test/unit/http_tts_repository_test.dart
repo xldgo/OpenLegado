@@ -1,25 +1,25 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
 
 import 'dart:convert';
 
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_http_tts_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_http_tts_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('工厂选择正式实现，Mock 默认样例与会话隔离保持原样', () async {
     expect(
-      createBookApi(useMock: false).httpTtsRepository,
+      createTestApplication(useMock: false).httpTtsRepository,
       isA<RustHttpTtsRepository>(),
     );
-    final first = createBookApi(useMock: true).httpTtsRepository;
-    final second = createBookApi(useMock: true).httpTtsRepository;
+    final first = createTestApplication(useMock: true).httpTtsRepository;
+    final second = createTestApplication(useMock: true).httpTtsRepository;
     final seeds = await first.getHttpTts();
     expect(seeds.map((e) => e.id), [-100, -29]);
     expect(seeds.map((e) => e.name), ['1.百度', '2.阿里云语音']);
@@ -166,10 +166,12 @@ void main() {
     expect([first.id, bookmark.id, second.id], [1, 2, 3]);
   });
 
-  test('根实例共享及替换不会创建第二份列表或重新初始化', () async {
+  test('仓储实例共享及替换不会创建第二份列表或重新初始化', () async {
     final first = _Api();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        httpTtsRepositoryProvider.overrideWithValue(first.httpTtsRepository),
+      ]),
     );
     addTearDown(container.dispose);
     final consumer = Provider((ref) => ref.watch(httpTtsRepositoryProvider));
@@ -178,7 +180,11 @@ void main() {
     expect(container.read(httpTtsRepositoryProvider), same(repository));
     await repository.addHttpTts(const HttpTts(name: '旧会话'));
     final second = _Api();
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        httpTtsRepositoryProvider.overrideWithValue(second.httpTtsRepository),
+      ]),
+    );
     expect(container.read(consumer), same(second.httpTtsRepository));
     expect(
       (await container.read(consumer).getHttpTts()).map((e) => e.name),

@@ -1,3 +1,5 @@
+import '../bookshelf/bookshelf_repositories.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -6,7 +8,6 @@ import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../domain/contracts/read_record_settings_repository.dart';
 import '../../providers/read_record_settings_provider.dart';
-import '../../providers/providers.dart';
 import 'read_record_repository_provider.dart';
 import 'read_record_state.dart';
 
@@ -137,10 +138,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
 
   /// 按书名在书架查找（对齐 bookDao.findByName(...).firstOrNull）
   Future<Book?> findBookByName(String bookName) async {
-    final books = await ref
-        .read(bookApiProvider)
-        .bookshelfRepository
-        .getBooks();
+    final books = await ref.read(bookshelfRepositoryProvider).getBooks();
     for (final b in books) {
       if (b.name == bookName) return b;
     }

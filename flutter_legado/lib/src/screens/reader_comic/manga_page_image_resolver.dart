@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import '../../services/book_api.dart';
+import '../../domain/contracts/local_book_service.dart';
+import '../../domain/contracts/book_image_repository.dart';
 import '../../utils/comic_image_utils.dart';
 
 /// [P4-3 E5] 一页漫画图片的可操作字节 + 文件名后缀推断
@@ -29,7 +30,8 @@ class MangaPageImageBytes {
 ///
 /// 全部未命中 / 解码无效时返回 null（调用方负责降级提示）。
 Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
-  required BookApi api,
+  required BookImageRepository images,
+  required LocalBookService localBooks,
   required String bookUrl,
   required String url,
   String? sourceJson,
@@ -43,10 +45,7 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   // 1b. 本地 cbz 页：cbzReadPage 读条目（与渲染链 _LocalCbzImage 同字节源）
   if (cbzPath != null && url.startsWith('cbz://')) {
     try {
-      final bytes = await api.localBookService.cbzReadPage(
-        path: cbzPath,
-        entry: url,
-      );
+      final bytes = await localBooks.cbzReadPage(path: cbzPath, entry: url);
       if (bytes.isEmpty) return null;
       if (!looksLikeImageBytes(bytes)) return null;
       return MangaPageImageBytes(
@@ -59,7 +58,7 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   }
   // 2. 磁盘缓存命中（对齐 _DecodedComicImage 的本地优先语义）
   try {
-    final disk = await api.bookImageRepository.getImageCache(bookUrl, url);
+    final disk = await images.getImageCache(bookUrl, url);
     if (disk != null && disk.isNotEmpty && looksLikeImageBytes(disk)) {
       final bytes = disk is Uint8List ? disk : Uint8List.fromList(disk);
       return MangaPageImageBytes(bytes, _imageSuffixOf(bytes));
@@ -70,10 +69,7 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   // 3. FFI 解码回退（无 sourceJson 时不旁路直连，直接放弃）
   if (sourceJson == null) return null;
   try {
-    final bytes = await api.bookImageRepository.fetchImageWithDecode(
-      url,
-      sourceJson,
-    );
+    final bytes = await images.fetchImageWithDecode(url, sourceJson);
     if (bytes.isEmpty) return null;
     if (!looksLikeImageBytes(bytes)) return null;
     return MangaPageImageBytes(

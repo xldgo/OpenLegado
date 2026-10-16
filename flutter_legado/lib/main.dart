@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'src/routes.dart';
-import 'src/providers/providers.dart';
-import 'src/services/book_api.dart';
-import 'src/app/bootstrap/book_api_bootstrap.dart';
+import 'src/app/bootstrap/application_dependencies.dart';
+import 'src/app/bootstrap/application_scope.dart';
+import 'src/app/bootstrap/application_bootstrap.dart';
+import 'src/app/bootstrap/rust_bootstrap.dart';
+import 'src/data/bridge/rust_runtime.dart';
+import 'src/platform/app_environment.dart';
 import 'src/app/bootstrap/app_settings_factory.dart';
 import 'src/app/bootstrap/settings_runtime_configuration.dart';
 import 'src/app/session/reader_theme_session.dart';
@@ -17,7 +20,6 @@ import 'src/providers/reader/reader_settings_provider.dart';
 import 'src/data/repositories/app_appearance_settings_repository.dart';
 import 'src/data/repositories/app_backup_settings_repository.dart';
 import 'src/providers/app_settings_provider.dart';
-import 'src/features/appearance/appearance_settings_provider.dart';
 import 'src/services/crash_log_service.dart';
 
 void main() {
@@ -28,9 +30,9 @@ void main() {
       WidgetsFlutterBinding.ensureInitialized();
 
       // 只装配共享设置服务；目录读取仍由日志服务需要备份时触发。
-      late final BookApi bookApi;
+      late final ProviderContainer container;
       final appSettings = createAppSettingsService(
-        configRepository: () => bookApi.configRepository,
+        configRepository: () => container.read(configRepositoryProvider),
       );
 
       // 1. 崩溃日志服务（最先初始化，确保后续异常可被捕获）
@@ -54,23 +56,40 @@ void main() {
       final lastCrash = await CrashLogService.instance.getLastCrashLog();
 
       // 4. 并行初始化：SharedPreferences 与 Rust FFI 无依赖，可并行
-      // SharedPreferences 预热供 SettingsService；初始化的 BookApi 原实例注入 Provider。
+      // SharedPreferences 预热供 SettingsService；启动和界面使用同一Provider容器。
       sw = Stopwatch()..start();
-      try {
-        bookApi = createBookApi(
-          configurationSource: SettingsRuntimeConfiguration(
-            appSettings: appSettings,
-            readingSession: readerThemeSession,
-            appearance: AppAppearanceSettingsRepository(appSettings),
+      container = createApplicationContainer(
+        overrides: [
+          appSettingsServiceProvider.overrideWith((ref) {
+            ref.onDispose(() => unawaited(appSettings.dispose()));
+            return appSettings;
+          }),
+          readerThemeSessionProvider.overrideWith((ref) {
+            ref.onDispose(() => unawaited(readerThemeSession.dispose()));
+            return readerThemeSession;
+          }),
+          rustBootstrapProvider.overrideWith(
+            (ref) => RustBootstrap(
+              runtime: const NativeRustRuntime(),
+              environment: const NativeAppEnvironment(),
+              configurationSource: SettingsRuntimeConfiguration(
+                appSettings: appSettings,
+                readingSession: readerThemeSession,
+                appearance: AppAppearanceSettingsRepository(appSettings),
+              ),
+            ),
           ),
-        );
-        final apiInitialization = initializeBookApi(api: bookApi);
-        await Future.wait<Object>([
+        ],
+      );
+      try {
+        final apiInitialization = initializeApplication(container);
+        await Future.wait<Object?>([
           SharedPreferences.getInstance(),
           apiInitialization,
         ]);
       } catch (e, stack) {
         CrashLogService.instance.logError(e, stack);
+        container.dispose();
         await appSettings.dispose();
         await readerThemeSession.dispose();
         debugPrint('[Legado] 初始化失败：$e');
@@ -88,23 +107,8 @@ void main() {
       // ProviderScope 为 Riverpod 全局作用域：全部状态管理已迁移至 Riverpod Notifier
       // （主题/书架/书源/RSS/阅读统计/同步/书签/替换规则/定时任务/阅读器/搜索/发现等）
       runApp(
-        ProviderScope(
-          overrides: [
-            bookApiProvider.overrideWithValue(bookApi),
-            readerThemeSessionProvider.overrideWith((ref) {
-              ref.onDispose(() => unawaited(readerThemeSession.dispose()));
-              return readerThemeSession;
-            }),
-            themeConfigSyncProvider.overrideWithValue(
-              themeConfigSyncFor(bookApi),
-            ),
-            appSettingsServiceProvider.overrideWith((ref) {
-              ref.onDispose(() => unawaited(appSettings.dispose()));
-              return appSettings;
-            }),
-          ],
-          // 保留原有手动重试行为，避免 Riverpod 3 自动重试引入额外请求。
-          retry: (retryCount, error) => null,
+        ApplicationScope(
+          container: container,
           child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),
         ),
       );

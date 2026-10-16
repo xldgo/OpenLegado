@@ -1,3 +1,4 @@
+import 'book_source_repository_provider.dart';
 import '../../providers/network_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
@@ -21,7 +22,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/models.dart';
 import '../../providers/explore/explore_notifier.dart';
-import '../../providers/providers.dart';
 import '../search/search.dart';
 import 'source_notifier.dart';
 import '../../routes.dart';

@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -44,11 +45,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/screens/reader_comic/manga_menu.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码；同 auto_read/page_scale 先例）
 const _kPngBase64 =
@@ -275,7 +274,7 @@ void main() {
         fetchCalls: fetchCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -381,7 +380,7 @@ void main() {
         fetchCalls: <String>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -470,7 +469,7 @@ void main() {
         fetchCalls: <String>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -535,7 +534,7 @@ void main() {
         chapterCount: 3,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -608,7 +607,7 @@ void main() {
         configs: {'mangaScrollMode': '1'}, // 单页式（L2R）
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -646,7 +645,7 @@ void main() {
       );
       final darkTheme = ThemeData(brightness: Brightness.dark);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container, theme: darkTheme);
@@ -710,7 +709,7 @@ void main() {
         bookLoads: bookLoads,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);

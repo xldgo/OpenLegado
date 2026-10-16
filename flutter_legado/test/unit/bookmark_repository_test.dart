@@ -1,16 +1,17 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/mock_bookmark_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 检查直接适配、共享实例及失败完整性，不依赖旧 BookApi 书签方法。— Codex + UI
+/// 检查直接适配、共享实例及失败完整性，不依赖旧 TestApi 书签方法。— Codex + UI
 void main() {
   late _Api api;
   late BookmarkRepository repository;
@@ -21,8 +22,8 @@ void main() {
   });
 
   test('工厂只装配正式或 Mock Repository，不访问或初始化原生库', () {
-    final native = createBookApi(useMock: false);
-    final mock = createBookApi(useMock: true);
+    final native = createTestApplication(useMock: false);
+    final mock = createTestApplication(useMock: true);
     expect(native.bookmarkRepository, isA<RustBookmarkRepository>());
     expect(mock.bookmarkRepository, isA<MockBookmarkRepository>());
     expect(native.bookmarkRepository, same(native.bookmarkRepository));
@@ -122,9 +123,11 @@ void main() {
     expect(api.initializeCalls, 0);
   });
 
-  test('多个消费者共享根实例，替换 BookApi 后适配器跟随替换', () async {
+  test('多个消费者共享根实例，替换 TestApi 后适配器跟随替换', () async {
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([
+        bookmarkRepositoryProvider.overrideWithValue(api.bookmarkRepository),
+      ]),
     );
     addTearDown(container.dispose);
     final firstConsumer = Provider(
@@ -143,7 +146,13 @@ void main() {
     final next = await replacement.bookmarkRepository.addBookmark(
       const Bookmark(content: '新存储'),
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(replacement)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        bookmarkRepositoryProvider.overrideWithValue(
+          replacement.bookmarkRepository,
+        ),
+      ]),
+    );
     final refreshed = container.read(firstConsumer);
     expect(refreshed, isNot(same(first)));
     expect(container.read(secondConsumer), same(refreshed));

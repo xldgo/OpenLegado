@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [P2-21] 08 详情页三行块（在读/最新/共N章+状态）回归测试：
 // - 在读行 off-by-one：durChapterIndex 为 0 基，dci=1 + 3 章目录必须取
 //   chapters[1].title（原实现按 1 基取 chapters[durIdx-1]，偏一章）
@@ -16,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 import 'package:flutter_legado/src/screens/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -81,13 +82,13 @@ void main() {
         .thenAnswer((_) async => '内容');
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           if (connectionRepository != null)
             webDavConnectionRepositoryProvider.overrideWithValue(
               connectionRepository,
             ),
-        ],
+        ]),
         child: themeWrap(BookInfoScreen(book: book)),
       ),
     );

@@ -1,20 +1,19 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
+import '../fixtures/native_test_api.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
   test('工厂保留 Mock 与真实实现的选择', () {
-    expect(createBookApi(useMock: true), isA<MockBookApi>());
-    expect(createBookApi(useMock: false), isA<RustApi>());
+    expect(createTestApplication(useMock: true), isA<MockBookApi>());
+    expect(createTestApplication(useMock: false), isA<NativeTestApi>());
   });
 
   test('等待初始化完成后注入同一实例，多个消费者共享它', () async {
@@ -22,7 +21,7 @@ void main() {
     final gate = Completer<void>();
     when(() => api.runtime.initialize()).thenAnswer((_) => gate.future);
     var ready = false;
-    final initialization = initializeBookApi(api: api).then((value) {
+    final initialization = initializeTestApplication(api: api).then((value) {
       ready = true;
       return value;
     });
@@ -32,13 +31,16 @@ void main() {
     gate.complete();
     final initialized = await initialization;
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(initialized)],
+      overrides: mergeTestOverrides([...initialized.overrides]),
     );
     addTearDown(container.dispose);
-    final consumer = Provider((ref) => ref.watch(bookApiProvider));
+    final consumer = Provider((ref) => ref.watch(bookshelfRepositoryProvider));
     expect(initialized, same(api));
-    expect(container.read(bookApiProvider), same(api));
-    expect(container.read(consumer), same(api));
+    expect(
+      container.read(bookshelfRepositoryProvider),
+      same(api.bookshelfRepository),
+    );
+    expect(container.read(consumer), same(api.bookshelfRepository));
     verify(() => api.runtime.initialize()).called(1);
   });
 
@@ -46,7 +48,10 @@ void main() {
     final api = MockRustApi();
     final failure = StateError('数据库初始化失败');
     when(() => api.runtime.initialize()).thenAnswer((_) async => throw failure);
-    await expectLater(initializeBookApi(api: api), throwsA(same(failure)));
+    await expectLater(
+      initializeTestApplication(api: api),
+      throwsA(same(failure)),
+    );
     verify(() => api.runtime.initialize()).called(1);
   });
 }

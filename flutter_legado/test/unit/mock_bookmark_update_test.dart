@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 void main() {
   test('Mock 连续更新同一书签，保留 id 与创建时间', () async {

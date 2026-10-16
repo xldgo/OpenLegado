@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [骨架对齐 2.0.260 | 台账 1-3] 书架网格固定 3 列（对齐参考 03b 有书态，
 // [parity fix 2.0.264] 列数 2→3 修正：参考 03b 实为 3 列固定卡宽
 // （卡宽≈屏宽 27%/列间距 20/左右边距 22），此前误读为 2 列）：
@@ -13,7 +15,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
@@ -35,7 +36,7 @@ void main() {
         .thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );

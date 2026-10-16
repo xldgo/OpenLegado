@@ -1,3 +1,5 @@
+import '../features/bookshelf/bookshelf_repositories.dart';
+import '../providers/backup_provider.dart';
 import '../domain/models/book_content_result.dart';
 import '../providers/book_content_provider.dart';
 import '../providers/chapter_cache_provider.dart';
@@ -17,7 +19,6 @@ import '../widgets/dynamic_search_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/sync/sync_notifier.dart';
 import '../routes.dart';
 import '../services/export_service.dart';
@@ -88,8 +89,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   /// 加载书架书籍 + 每本缓存章节数 + 进行中任务
   Future<void> _refresh() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final books = await api.bookshelfRepository.getBooks();
+      final books = await ref.read(bookshelfRepositoryProvider).getBooks();
       // 原版 initBookData 过滤音频书（音频书缓存走听书链路）
       final visible = books
           .where((b) => (b.bookType & BookType.audio) == 0)
@@ -265,7 +265,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
         book: book,
         exportService: ExportService(
           exporter: ref.read(bookExportServiceProvider),
-          webDav: ref.read(bookApiProvider).webDavService,
+          webDav: ref.read(webDavServiceProvider),
         ),
         webDavConfig: webDavConfig,
       ),

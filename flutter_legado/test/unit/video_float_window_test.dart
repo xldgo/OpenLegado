@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
+
+import '../fixtures/config_repository.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -6,7 +10,9 @@ import '../mocks/reading_fixture.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/book_api.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/services/video_float_window.dart';
 
 /// [V-B3] 视频悬浮窗 Dart 侧单测：
@@ -67,8 +73,15 @@ class _FakeBridge extends VideoFloatWindowBridge {
   }
 }
 
-/// 假 BookApi：只承接协调器用到的读章节/落库/进度配置方法
-class _FakeBookApi implements BookApi {
+/// 假 TestApi：只承接协调器用到的读章节/落库/进度配置方法
+class _FakeBookApi implements TestApi {
+  @override
+  late final configRepository = TestConfigRepository(
+    read: (_) async => null,
+    write: (key, value) async {
+      configWrites.add({#key: key, #value: value});
+    },
+  );
   @override
   late final readingRepository = TestReadingRepository(
     fetchChapterContent: (bookUrl, chapterUrl, sourceUrl) =>
@@ -95,7 +108,7 @@ class _FakeBookApi implements BookApi {
   dynamic noSuchMethod(Invocation invocation) {
     final name = invocation.memberName.toString();
     if (name == 'Symbol("setConfig")') {
-      // setConfig(key, value) 为位置参数（BookApi:633）
+      // setConfig(key, value) 为位置参数（TestApi:633）
       configWrites.add({
         #key: invocation.positionalArguments.isNotEmpty
             ? invocation.positionalArguments[0]
@@ -240,7 +253,7 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(ok, isTrue);
       expect(coord.isCapturing, isTrue);
@@ -250,7 +263,10 @@ void main() {
     test('enterWindow 失败（无权限）不捕获', () async {
       final bridge = _FakeBridge()..showResult = false;
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
-      final ok = await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      final ok = await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(ok, isFalse);
       expect(coord.isCapturing, isFalse);
     });
@@ -269,7 +285,8 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0, positionMs: 1000),
         book: book,
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       await coord.handleNativeEvent(
@@ -306,7 +323,8 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       await coord.handleNativeEvent(
@@ -340,7 +358,8 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0),
         book: book,
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       await coord.handleNativeEvent(const MethodCall('onSkipNext', null));
@@ -355,7 +374,8 @@ void main() {
       final api = _FakeBookApi();
       await coord.enterWindow(
         state: _state(directUrl: 'https://cdn.example/direct'),
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       await coord.handleNativeEvent(
@@ -381,7 +401,8 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: book,
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       VideoFloatWindowState? captured;
       Book? capturedBook;
@@ -417,7 +438,8 @@ void main() {
           state: _state(bookUrl: 'book://1'),
           book: book,
           chapters: [BookChapter(url: 'c1', title: '第1集')],
-          api: api,
+          reading: api.readingRepository,
+          progress: ConfigVideoProgressRepository(api.configRepository),
         );
         VideoFloatWindowState? captured;
         Book? capturedBook;
@@ -453,7 +475,11 @@ void main() {
       final api = _FakeBookApi();
 
       bridge.probeState = _state(bookUrl: 'book://1', positionMs: 9000);
-      final taken = await coord.probeAndTakeOver(bookUrl: 'book://1', api: api);
+      final taken = await coord.probeAndTakeOver(
+        bookUrl: 'book://1',
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
+      );
       expect(taken, isNotNull);
       expect(taken!.positionMs, 9000);
       expect(bridge.calls, contains('takeOver'));
@@ -464,7 +490,8 @@ void main() {
       );
       final notTaken = await coord.probeAndTakeOver(
         videoUrl: 'https://cdn.example/new',
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       expect(notTaken, isNull);
       expect(bridge.calls, contains('dismiss'));
@@ -480,7 +507,10 @@ void main() {
         ..showErrorCode = 'background_start_rejected';
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       expect(
-        await coord.enterWindow(state: _state(), api: _FakeBookApi()),
+        await coord.enterWindow(
+          state: _state(),
+          reading: _FakeBookApi().readingRepository,
+        ),
         isFalse,
       );
       expect(coord.lastEnterError, 'background_start_rejected');
@@ -492,10 +522,16 @@ void main() {
         ..showResult = false
         ..showErrorCode = 'no_overlay_permission';
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
-      await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(coord.lastEnterError, 'no_overlay_permission');
       bridge.showResult = true;
-      await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(coord.lastEnterError, isNull);
     });
 
@@ -510,7 +546,8 @@ void main() {
           BookChapter(url: 'c1', title: '第1集'),
           BookChapter(url: 'c2', title: '第2集'),
         ],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       final advance = coord.handleNativeEvent(
@@ -549,7 +586,8 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       final advance = coord.handleNativeEvent(
         const MethodCall('onSkipNext', null),
@@ -560,7 +598,7 @@ void main() {
         state: _state(url: 'https://cdn.example/new.m3u8', bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: chapters,
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       api.fetchGate!.complete('https://cdn.example/2.m3u8');
       await advance;
@@ -586,7 +624,7 @@ void main() {
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       final taken = await coord.probeAndTakeOver(
         bookUrl: 'book://1',
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(taken, isNull);
       expect(bridge.calls, contains('takeOver'));
@@ -600,7 +638,7 @@ void main() {
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       final taken = await coord.probeAndTakeOver(
         bookUrl: 'book://1',
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(taken, isNotNull);
       expect(taken!.positionMs, 9000);
@@ -637,7 +675,8 @@ void main() {
           BookChapter(url: 'c1', title: '第1集'),
           BookChapter(url: 'c2', title: '第2集'),
         ],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       // 连播的 replace 提交失败（模拟无权限 / 服务启动被拒）
       bridge.showResult = false;

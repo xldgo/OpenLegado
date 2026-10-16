@@ -1,3 +1,5 @@
+library;
+
 /// 排版引擎分页集成测试
 ///
 /// 验证 ParagraphLayoutEngine.paginateChapter 的核心分页逻辑：
@@ -5,7 +7,6 @@
 /// - 长内容多页
 /// - 超长段落跨页拆分
 /// - 设置变化导致重新分页
-library;
 
 import '../helpers/reader_layout_host.dart';
 

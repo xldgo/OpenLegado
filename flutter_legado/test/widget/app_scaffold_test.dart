@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // AppScaffold 页壳测试（GLOBALCOMP B4）
 //
 // 覆盖四层证据：
@@ -16,7 +18,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
 
@@ -179,7 +180,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: HomeScreen()),
       ),
     );

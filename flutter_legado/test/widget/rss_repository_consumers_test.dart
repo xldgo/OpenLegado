@@ -1,7 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rss_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rss_star_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/rss_repository_provider.dart';
 import 'package:flutter_legado/src/screens/rss_favorites_screen.dart';
 import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
@@ -21,10 +21,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
-          rssSourceRepositoryProvider.overrideWithValue(sources),
-        ],
+        overrides: [rssSourceRepositoryProvider.overrideWithValue(sources)],
         child: const MaterialApp(home: RssSourceManageScreen()),
       ),
     );
@@ -53,7 +50,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           rssSourceRepositoryProvider.overrideWithValue(sources),
           rssStarRepositoryProvider.overrideWithValue(stars),
         ],

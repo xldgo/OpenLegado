@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
@@ -34,10 +35,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/manga_click_actions.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码；同 auto_read/page_scale 先例）
@@ -166,7 +165,7 @@ class _M5MockApi extends MockBookApi {
 /// 配置经 [_M5MockApi] 构造注入）
 Future<void> _pumpReader(WidgetTester tester, _M5MockApi api) async {
   final container = ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(api)],
+    overrides: mergeTestOverrides([...api.overrides]),
   );
   addTearDown(container.dispose);
   await tester.pumpWidget(

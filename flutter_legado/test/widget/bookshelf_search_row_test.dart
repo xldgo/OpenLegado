@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [骨架对齐 2.0.260 | 台账 1-3] 书架搜索入口守护：页内全宽搜索行已移除，
 // 搜索入口收敛为顶栏 🔍 图标（路由 AppRoutes.search 不变）——
 // 无分组 / 分组两种头部形态下顶栏搜索图标必须可见。
@@ -8,7 +10,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
@@ -25,7 +26,7 @@ void main() {
         .thenAnswer((_) async => []);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );
@@ -47,7 +48,7 @@ void main() {
     ).thenAnswer((_) async => const [BookGroup(groupName: '默认分组', groupId: 1)]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );

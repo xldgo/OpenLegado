@@ -1,3 +1,6 @@
+import '../providers/media_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -8,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter/rendering.dart'
     show RenderClipRRect, RenderImage, RenderObject;
 
-import '../providers/providers.dart';
 import '../services/cover_decode_loader.dart';
 import '../utils/comic_image_utils.dart';
 
@@ -305,9 +307,10 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
     });
 
     try {
-      final api = ref.read(bookApiProvider);
+      final sources = ref.read(bookSourceRepositoryProvider);
+      final images = ref.read(bookImageRepositoryProvider);
       final patched = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
+        sources: sources,
         sourceJson: widget.sourceJson,
         sourceOrigin: widget.sourceOrigin,
       );
@@ -335,7 +338,7 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
       }
 
       final bytes = await CoverDecodeLoader.load(
-        api: api,
+        images: images,
         coverUrl: url,
         patchedSourceJson: patched,
         originOrEmpty: origin,

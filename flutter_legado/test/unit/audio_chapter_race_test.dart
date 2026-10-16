@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 
 // P1 竞态修复测试（真机验收缺陷：章末切章时旧 position 写入新章进度键）
@@ -24,7 +26,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -41,10 +42,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });

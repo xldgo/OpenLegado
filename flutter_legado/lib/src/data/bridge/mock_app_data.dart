@@ -1,8 +1,25 @@
-// mock_book_api.dart 的 part 文件（体检 §三.16 超长文件拆分）：内存数据存储。
-// 各分域 mixin 以 on MockBookApiStore 获得存储字段访问。
-part of 'mock_book_api.dart';
+import 'dart:convert';
 
-mixin MockBookApiStore {
+import 'package:flutter/services.dart' show rootBundle;
+
+import '../../models/models.dart';
+import '../repositories/mock_bookshelf_repository.dart';
+import '../repositories/mock_book_source_repository.dart';
+
+/// Mock应用共享的内存数据与样例载入器，不负责定位服务。— Codex + Bridge
+class MockAppData {
+  MockAppData() {
+    _bookshelfStore = MockBookshelfStore(load: _loadBookshelfSample);
+    _bookSourceStore = MockBookSourceStore();
+    _initMockData();
+  }
+  MockBookshelfStore get bookshelf => _bookshelfStore;
+  MockBookSourceStore get sources => _bookSourceStore;
+  Map<String, String> get configs => _configs;
+  Map<String, List<BookChapter>> get chapters => _chaptersCache;
+  Map<String, Map<int, String>> get contents => _contentCache;
+  int allocateId() => _nextId++;
+  Future<void> initialize() => _ensureBooksLoaded();
   // ========== 内存数据存储 ==========
 
   late final MockBookshelfStore _bookshelfStore;
@@ -12,16 +29,14 @@ mixin MockBookApiStore {
   final Map<String, String> _configs = {};
   final Map<String, List<BookChapter>> _chaptersCache = {};
   final Map<String, Map<int, String>> _contentCache = {};
-  // 登录凭据内存态（sourceLogin 手动登录/登录缓存，USE_MOCK 开发模式用）
 
   int _nextId = 1;
 
   /// 初始化 Mock 数据
   ///
-  /// 数据来源见文件头注释。书源/RSS/TTS 取自
-  /// Android 原端 app/src/main/assets/defaultData/ 下真实 JSON（内置字面量）；
+  /// 书源取自 Android 原端 app/src/main/assets/defaultData/ 下的 JSON（内置字面量）；
   /// 书架书籍为合成脱敏样例，经资产 assets/mock_data/bookshelf_sample.json
-  /// 惰性加载（MockBookApi 构造器保持同步，资产读取为异步，
+  /// 惰性加载（MockAppData 构造器保持同步，资产读取为异步，
   /// 各书架相关方法先 await [_ensureBooksLoaded]）。
   void _initMockData() {
     // ── 书源（来源：app/src/main/assets/defaultData/bookSources.json）──

@@ -1,11 +1,11 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 /// 选择模式（批量）书卡列表渲染回归测试
 ///
@@ -26,7 +26,7 @@ void main() {
   Future<ProviderContainer> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+        overrides: mergeTestOverrides([...MockBookApi().overrides]),
         child: MaterialApp(home: BookshelfScreen()),
       ),
     );

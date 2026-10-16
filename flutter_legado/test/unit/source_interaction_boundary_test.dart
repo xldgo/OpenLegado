@@ -1,10 +1,11 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/models/book_source.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/source_interaction_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -13,7 +14,7 @@ void main() {
   test('根装配共享四项能力，窄Provider可独立替换', () {
     final api = MockBookApi();
     final root = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(root.dispose);
     expect(
@@ -38,7 +39,6 @@ void main() {
     final web = WebViewBridgeServiceMock();
     final isolated = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((ref) => throw StateError('不应读取根实例')),
         bookSourceEditServiceProvider.overrideWithValue(editor),
         sourceLoginV2ServiceProvider.overrideWithValue(login),
         verificationServiceProvider.overrideWithValue(verification),
@@ -60,7 +60,7 @@ void main() {
     expect(injected.sourceLoginV2Service, same(login));
     expect(injected.verificationService, same(verification));
     expect(injected.webViewBridgeService, same(web));
-    expect(createBookApi(useMock: true), isA<MockBookApi>());
+    expect(createTestApplication(useMock: true), isA<MockBookApi>());
   });
   test('Mock保留空流、未命中与不执行真实JS的语义', () async {
     final api = MockBookApi();

@@ -1,16 +1,16 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
+
+import '../fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/cover_rule.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/change_source/change_source_notifier.dart';
-import 'package:flutter_legado/src/providers/change_source/source_switch_dependencies.dart';
-import 'package:flutter_legado/src/providers/cover_provider.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 import '../mocks/mocks.dart';
 
@@ -22,7 +22,6 @@ void main() {
     final rules = CoverRuleRepositoryMock();
     final container = ProviderContainer(
       overrides: [
-        bookApiProvider.overrideWith((_) => throw StateError('不读取根接口')),
         sourceSwitchServiceProvider.overrideWithValue(service),
         coverSearchServiceProvider.overrideWithValue(covers),
         coverRuleRepositoryProvider.overrideWithValue(rules),
@@ -32,7 +31,7 @@ void main() {
     expect(container.read(sourceSwitchServiceProvider), same(service));
     expect(container.read(coverSearchServiceProvider), same(covers));
     expect(container.read(coverRuleRepositoryProvider), same(rules));
-    final api = createBookApi(useMock: false);
+    final api = createTestApplication(useMock: false);
     expect(api.sourceSwitchService, same(api.sourceSwitchService));
     expect(api.coverSearchService, same(api.coverSearchService));
     expect(api.coverRuleRepository, same(api.coverRuleRepository));

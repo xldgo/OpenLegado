@@ -1,13 +1,15 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// ReplaceRuleNotifier 单元测试
 ///
 /// 覆盖：load/addRule/updateRule/deleteRule/setEnabled/moveUp/moveDown
-library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
@@ -25,7 +27,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

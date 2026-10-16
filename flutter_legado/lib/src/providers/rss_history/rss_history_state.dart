@@ -6,7 +6,7 @@ part 'rss_history_state.freezed.dart';
 
 /// RSS 历史页状态
 ///
-/// 由 [RssHistoryNotifier] 管理：已读记录经 `BookApi.rssListReadRecords`
+/// 由 [RssHistoryNotifier] 管理：已读记录经 `RssReadRecordRepository.rssListReadRecords`
 /// 委托 Rust（按阅读时间降序，契约见 API_CONTRACT.md §2.35）。
 @freezed
 abstract class RssHistoryState with _$RssHistoryState {

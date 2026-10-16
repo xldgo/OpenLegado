@@ -1,3 +1,5 @@
+import '../../features/book_sources/book_source_repository_provider.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -6,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../providers/media_provider.dart';
 import '../../screens/reader_comic_screen.dart' show ComicImageDecodeCache;
 import '../../utils/comic_image_utils.dart';
@@ -80,8 +81,7 @@ class _ReaderImageDominantBodyState
     if (origin.isEmpty) return;
     try {
       final sources = await ref
-          .read(bookApiProvider)
-          .bookSourceRepository
+          .read(bookSourceRepositoryProvider)
           .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == origin) {

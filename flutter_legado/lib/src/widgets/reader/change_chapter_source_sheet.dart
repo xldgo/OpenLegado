@@ -1,12 +1,13 @@
+import '../../providers/reading_provider.dart';
+import '../../providers/chapter_cache_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';
-import '../../providers/providers.dart';
 import '../../providers/change_source/source_switch_dependencies.dart';
 import '../../providers/reader/reader_notifier.dart';
-import '../../services/book_api.dart';
 import '../../utils/error_message.dart';
 import '../app_progress_indicator.dart';
 import '../app_search_field.dart';
@@ -79,8 +80,6 @@ class _ChangeChapterSourceSheetState
   String? _tocError;
   bool _applying = false;
 
-  BookApi get _api => ref.read(bookApiProvider);
-
   @override
   void initState() {
     super.initState();
@@ -142,10 +141,9 @@ class _ChangeChapterSourceSheetState
       _toc = const [];
     });
     try {
-      final toc = await _api.readingRepository.refreshToc(
-        match.bookUrl,
-        match.sourceUrl,
-      );
+      final toc = await ref
+          .read(readingRepositoryProvider)
+          .refreshToc(match.bookUrl, match.sourceUrl);
       if (!mounted) return;
       setState(() {
         _toc = toc;
@@ -186,33 +184,30 @@ class _ChangeChapterSourceSheetState
     if (match == null || _applying) return;
     setState(() => _applying = true);
     try {
-      await _api.readingRepository.fetchChapterContent(
-        match.bookUrl,
-        chapter.url,
-        match.sourceUrl,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .fetchChapterContent(match.bookUrl, chapter.url, match.sourceUrl);
       // 取候选章原始缓存（fetch 写入 raw），再落到当前书当前章
-      var raw = await _api.chapterCacheRepository.getCachedChapter(
-        match.bookUrl,
-        chapter.index,
-      );
+      var raw = await ref
+          .read(chapterCacheRepositoryProvider)
+          .getCachedChapter(match.bookUrl, chapter.index);
       if (raw.trim().isEmpty) {
         // 兜底：用已净化正文（仍优于无法换章）
-        raw = await _api.readingRepository.fetchChapterContent(
-          match.bookUrl,
-          chapter.url,
-          match.sourceUrl,
-        );
+        raw = await ref
+            .read(readingRepositoryProvider)
+            .fetchChapterContent(match.bookUrl, chapter.url, match.sourceUrl);
       }
       if (raw.trim().isEmpty) {
         throw StateError('未获取到章节正文');
       }
-      await _api.readingRepository.saveChapterContent(
-        bookUrl: widget.bookUrl,
-        chapterIndex: widget.chapterIndex,
-        title: widget.chapterTitle,
-        content: raw,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .saveChapterContent(
+            bookUrl: widget.bookUrl,
+            chapterIndex: widget.chapterIndex,
+            title: widget.chapterTitle,
+            content: raw,
+          );
       if (!mounted) return;
       await ref.read(readerNotifierProvider.notifier).reloadChapterContent();
       if (!mounted) return;

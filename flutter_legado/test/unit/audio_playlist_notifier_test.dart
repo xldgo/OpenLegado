@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
@@ -10,7 +14,6 @@ import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 import '../fixtures/playlist_audio_player.dart';
@@ -113,12 +116,12 @@ void main() {
       ],
     );
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(player),
         httpTtsSynthesizerProvider.overrideWithValue(_Http()),
         cloudTtsSynthesizerProvider.overrideWithValue(_Cloud()),
-      ],
+      ]),
     );
     addTearDown(() async {
       notifier().stop();

@@ -1,9 +1,10 @@
+import '../../book_sources/book_source_repository_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
-import '../../../providers/providers.dart';
 import '../search_notifier.dart';
 import '../../../utils/error_message.dart';
 import '../../../widgets/app_progress_indicator.dart';
@@ -59,8 +60,9 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
 
   Future<void> _loadSources() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final sources = await api.bookSourceRepository.getEnabledBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getEnabledBookSources();
       if (mounted) {
         setState(() {
           _sources = sources;

@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// SourceNotifier 单元测试
 ///
 /// 覆盖：
@@ -6,14 +10,12 @@
 /// - 批量操作：enterBatchMode/exitBatchMode/selectAll/batchEnable/batchDisable/batchDelete
 /// - 分组筛选：setGroup
 /// - 导入：importSources/importFromJson/importFromUrl/importFromFile
-library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
 
@@ -30,7 +32,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

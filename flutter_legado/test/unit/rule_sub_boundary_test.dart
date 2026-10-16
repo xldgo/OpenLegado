@@ -1,10 +1,12 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/data/repositories/mock_rule_sub_repository.dart';
 import 'package:flutter_legado/src/domain/models/rule_sub_update_result.dart';
 import 'package:flutter_legado/src/models/rule_sub.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/rule_sub/rule_sub_notifier.dart';
 import 'package:flutter_legado/src/providers/rule_sub_repository_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -57,12 +59,15 @@ void main() {
     expect(await repository.ruleSubDelete(id: original.id), isFalse);
   });
 
-  test('仓储可独立注入，Provider跟随根装配替换且默认服务共享注入仓储', () async {
+  test('仓储可独立注入，Provider跟随窄依赖替换且默认服务共享注入仓储', () async {
     final repository = MockRuleSubRepository();
     final first = MockBookApi(ruleSubRepository: repository);
     final second = MockBookApi();
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(first)],
+      overrides: mergeTestOverrides([
+        ruleSubRepositoryProvider.overrideWithValue(first.ruleSubRepository),
+        ruleSubServiceProvider.overrideWithValue(first.ruleSubService),
+      ]),
     );
     addTearDown(container.dispose);
     expect(container.read(ruleSubRepositoryProvider), same(repository));
@@ -73,7 +78,12 @@ void main() {
           .name,
       '共享配置',
     );
-    container.updateOverrides([bookApiProvider.overrideWithValue(second)]);
+    container.updateOverrides(
+      mergeTestOverrides([
+        ruleSubRepositoryProvider.overrideWithValue(second.ruleSubRepository),
+        ruleSubServiceProvider.overrideWithValue(second.ruleSubService),
+      ]),
+    );
     await container.pump();
     expect(
       container.read(ruleSubRepositoryProvider),
@@ -107,7 +117,6 @@ void main() {
           .thenAnswer((_) async => [sub, second]);
       container = ProviderContainer(
         overrides: [
-          bookApiProvider.overrideWith((_) => throw StateError('不应创建根接口')),
           ruleSubRepositoryProvider.overrideWithValue(repository),
           ruleSubServiceProvider.overrideWithValue(service),
         ],

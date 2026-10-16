@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/domain/models/source_switch_batch.dart';
 
 import 'dart:async';
@@ -8,7 +10,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/change_source/change_source_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
@@ -85,7 +86,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });
@@ -594,7 +595,7 @@ void main() {
       expect(state.progressLastSourceName, isNull);
     });
 
-    test('updateBookScore 经 BookApi 持久化并更新本地 bookScore', () async {
+    test('updateBookScore 经 TestApi 持久化并更新本地 bookScore', () async {
       when(
         () => mockApi.sourceSwitchService.updateSearchBookScore(any(), any()),
       ).thenAnswer((_) async {});

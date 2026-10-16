@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 高亮规则页 widget 测试
 //
 // 验证补齐的原版 HighlightRuleActivity 对等实现：
@@ -14,7 +16,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -55,7 +56,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: HighlightRulesScreen()),
       ),
     );

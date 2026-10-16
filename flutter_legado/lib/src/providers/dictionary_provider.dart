@@ -1,14 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../domain/contracts/dict_rule_repository.dart';
-import '../domain/contracts/dictionary_service.dart';
-import 'providers.dart';
-
-/// 查询与配置分别注入，消费者共享应用装配实例。— Codex + UI
-final dictionaryServiceProvider = Provider<DictionaryService>(
-  (ref) => ref.watch(bookApiProvider).dictionaryService,
-);
-
-final dictRuleRepositoryProvider = Provider<DictRuleRepository>(
-  (ref) => ref.watch(bookApiProvider).dictRuleRepository,
-);
+// 领域能力由应用装配提供，读取仓储不隐式初始化原生库。— Codex + UI
+export '../app/bootstrap/application_dependencies.dart'
+    show dictionaryServiceProvider, dictRuleRepositoryProvider;

@@ -1,8 +1,5 @@
-import '../../providers/reading_content_provider.dart';
-import '../../providers/source_action_provider.dart';
+import '../../app/bootstrap/application_dependencies.dart';
 import '../../domain/models/source_action_result.dart';
-import '../../providers/replace_rule_repository_provider.dart';
-import '../../providers/chapter_cache_provider.dart';
 import '../../providers/reader/reader_settings_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../app_menu.dart';
@@ -17,7 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter/services.dart';
 
 import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../../features/book_sources/book_sources.dart';
 import '../../providers/sync/sync_notifier.dart';
 import '../../utils/source_login_entry.dart';

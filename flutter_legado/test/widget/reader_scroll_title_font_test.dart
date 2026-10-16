@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [A4 滚动模式标题字体 | full-stack-engineer + UI] 滚动模式标题块
 /// 接 C3 标题字体（effectiveTitleFontFamily 单源）
 ///
@@ -11,7 +15,6 @@
 /// ② titleFont 空 = 跟随正文字体（_fontFamily 经 SharedPreferences
 /// reader_font_family 注入）。
 /// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
-library;
 
 import '../helpers/reader_layout_host.dart';
 
@@ -21,10 +24,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/book_chapter.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 
@@ -54,10 +55,10 @@ void main() {
 
   Widget wrap(ReaderState state, ReaderPageChromeConfig chrome) {
     return ProviderScope(
-      overrides: [
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
         readerNotifierProvider.overrideWith(() => _FixedReaderNotifier(state)),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      ]),
       child: MaterialApp(
         builder: readerLayoutTestBuilder,
         home: ReaderPageView(

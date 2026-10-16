@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // 复现回归：网络导入书源 _dependents.isEmpty 断言
 //
 // 根因：URL 导入对话框在关闭回调中提前 dispose TextEditingController，
@@ -12,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/domain/models/source_preview.dart';
@@ -38,7 +39,7 @@ void main() {
 
   Widget wrapSourceScreen() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: const MaterialApp(home: SourceScreen()),
     );
   }
@@ -78,7 +79,7 @@ void main() {
     ]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           home: const SourceScreen(),
           onGenerateRoute: (settings) {
@@ -135,7 +136,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           home: SourceImportConfirmScreen(
             sources: [SourcePreview.fromRaw(raw)],
