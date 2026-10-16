@@ -235,7 +235,7 @@ rust/
 ### 已完成（原“远期优化”列表，已全部实现）
 - ✅ 端到端流程跑通（书源导入→搜索→阅读→书签→替换规则全链路可用）
 - ✅ 阅读器深度实现（仿真翻页动画 + 段评弹窗 + 漫画模式）
-- ✅ Android 自动发布（[android-release.yml](../.github/workflows/android-release.yml)，推送 `v*` tag 触发；手动运行仅生成 APK 工件）
+- ✅ 自动发布（[release.yml](../.github/workflows/release.yml)，推送 `v*` tag 触发；手动运行生成发布工件）
 - ✅ 视频播放（video_player + 播放控制 + 全屏 + 手势，Task #145）
 - ✅ 漫画阅读（纵向滚动 + 双指缩放 + 图片预加载 + 进度保存，Task #146）
 - ✅ QUIC 接入主网络链路（可选 QUIC + fallback HTTP/2，Task #43）

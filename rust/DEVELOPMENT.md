@@ -696,7 +696,7 @@ git commit -m "perf: 优化引擎池化内存占用"
    git push origin v4.0.0-beta
 ```
 
-推送前须审核发布提交；以上 tag 为示例，应替换为本次版本。Android 发布入口为 [android-release.yml](../.github/workflows/android-release.yml)，手动运行仅生成 APK 工件。
+推送前须审核发布提交；以上 tag 为示例，应替换为本次版本。发布入口为 [release.yml](../.github/workflows/release.yml)，手动运行仅生成发布工件。
 
 ### CHANGELOG 维护规则
 

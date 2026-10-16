@@ -308,7 +308,7 @@ git commit -m "perf: 优化引擎池化内存占用"
 2. 更新 `CHANGELOG.md`
 3. 递增版本号（Cargo.toml + pubspec.yaml）
 4. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-5. 先推送已审核的发布提交（`git push origin HEAD`），再只推送本次 tag（`git push origin vX.Y.Z`）；Android 发布入口为 [android-release.yml](../.github/workflows/android-release.yml)。
+5. 先推送已审核的发布提交（`git push origin HEAD`），再只推送本次 tag（`git push origin vX.Y.Z`）；发布入口为 [release.yml](../.github/workflows/release.yml)。
 
 ---
 

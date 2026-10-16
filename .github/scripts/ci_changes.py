@@ -87,7 +87,7 @@ def classify_paths(paths):
             select("rust")
         elif path == ".github/workflows/integration-smoke.yml":
             select("android_ffi", "windows_ffi")
-        elif path == ".github/workflows/android-release.yml":
+        elif path == ".github/workflows/release.yml":
             select("android_ffi")
         elif path == ".github/workflows/ios-build.yml":
             select("ios_build")

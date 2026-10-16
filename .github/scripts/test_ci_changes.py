@@ -63,7 +63,7 @@ class RoutingTests(unittest.TestCase):
             ".github/workflows/flutter-ci.yml": {"tooling", "flutter"},
             ".github/workflows/rust-ci.yml": {"tooling", "rust"},
             ".github/workflows/integration-smoke.yml": {"tooling", "android_ffi", "windows_ffi"},
-            ".github/workflows/android-release.yml": {"tooling", "android_ffi"},
+            ".github/workflows/release.yml": {"tooling", "android_ffi"},
             ".github/workflows/ios-build.yml": {"tooling", "ios_build"},
             ".github/workflows/tooling-ci.yml": {"tooling"},
         }

@@ -157,7 +157,7 @@ flutter build apk --release --split-per-abi --target-platform android-arm,androi
 最终产物至少核对：三 ABI 的 Rust 库、FRB 契约/源码指纹、NDK strip 正规化摘要、
 插件 native 资产、清单权限、包名、签名和版本。保留既有 16 KB 链接参数，
 APK ZIP 对齐、ELF 段对齐与 16 KB 设备实际运行分别记录，不能互相代替。
-现有入口：[Android Release](../.github/workflows/android-release.yml)、
+现有入口：[Release](../.github/workflows/release.yml)、
 [本地构建](../flutter_legado/scripts/build-apk.ps1)、
 [原生校验](../rust/scripts/verify-ffi-android.ps1)。
 
