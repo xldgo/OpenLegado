@@ -14,27 +14,19 @@
       "commit": "0ef3972f93e2baa4156ba1cbb1e515cd53079c68",
       "skills": {
         "dart-add-unit-test": "skills/dart-add-unit-test",
-        "dart-build-cli-app": "skills/dart-build-cli-app",
         "dart-collect-coverage": "skills/dart-collect-coverage",
         "dart-fix-runtime-errors": "skills/dart-fix-runtime-errors",
-        "dart-generate-test-mocks": "skills/dart-generate-test-mocks",
-        "dart-migrate-to-checks-package": "skills/dart-migrate-to-checks-package",
         "dart-resolve-package-conflicts": "skills/dart-resolve-package-conflicts",
         "dart-run-static-analysis": "skills/dart-run-static-analysis",
-        "dart-setup-ffi-assets": "skills/dart-setup-ffi-assets",
-        "dart-use-ffigen": "skills/dart-use-ffigen",
         "dart-use-pattern-matching": "skills/dart-use-pattern-matching",
         "dart-use-primary-constructors": "skills/dart-use-primary-constructors",
         "flutter-add-integration-test": "skills/flutter-add-integration-test",
-        "flutter-add-widget-preview": "skills/flutter-add-widget-preview",
         "flutter-add-widget-test": "skills/flutter-add-widget-test",
         "flutter-apply-architecture-best-practices": "skills/flutter-apply-architecture-best-practices",
         "flutter-build-responsive-layout": "skills/flutter-build-responsive-layout",
         "flutter-fix-layout-issues": "skills/flutter-fix-layout-issues",
         "flutter-implement-json-serialization": "skills/flutter-implement-json-serialization",
-        "flutter-setup-declarative-routing": "skills/flutter-setup-declarative-routing",
-        "flutter-setup-localization": "skills/flutter-setup-localization",
-        "flutter-use-http-package": "skills/flutter-use-http-package"
+        "flutter-setup-localization": "skills/flutter-setup-localization"
       }
     },
     {
@@ -47,13 +39,8 @@
         "flutter-mcp-toolkit-control": "plugin/skills/flutter-mcp-toolkit-control",
         "flutter-mcp-toolkit-custom-tools": "plugin/skills/flutter-mcp-toolkit-custom-tools",
         "flutter-mcp-toolkit-debug": "plugin/skills/flutter-mcp-toolkit-debug",
-        "flutter-mcp-toolkit-dogfood-iterations": "plugin/skills/flutter-mcp-toolkit-dogfood-iterations",
         "flutter-mcp-toolkit-guide": "plugin/skills/flutter-mcp-toolkit-guide",
         "flutter-mcp-toolkit-inspect": "plugin/skills/flutter-mcp-toolkit-inspect",
-        "flutter-mcp-toolkit-intentcall-migration": "plugin/skills/flutter-mcp-toolkit-intentcall-migration",
-        "flutter-mcp-toolkit-maintain-macos": "plugin/skills/flutter-mcp-toolkit-maintain-macos",
-        "flutter-mcp-toolkit-maintain-web": "plugin/skills/flutter-mcp-toolkit-maintain-web",
-        "flutter-mcp-toolkit-repo-maintainer": "plugin/skills/flutter-mcp-toolkit-repo-maintainer",
         "flutter-mcp-toolkit-setup": "plugin/skills/flutter-mcp-toolkit-setup"
       }
     },
@@ -73,16 +60,10 @@
       "repository": "arenukvern/skill_steward",
       "commit": "016f1524387af23a6be6e9ad6e2c7767581a5630",
       "skills": {
-        "harness-engineering-lifecycle": "skills/harness-engineering-lifecycle",
-        "mcp-harness-repo-maintainer": "skills/mcp-harness-repo-maintainer",
         "mixture-of-experts": "skills/mixture-of-experts",
         "multi-agent-handoff": "skills/multi-agent-handoff",
-        "plugin-marketplace-setup": "skills/plugin-marketplace-setup",
         "release-changelog-harness": "skills/release-changelog-harness",
-        "repository-governance-lifecycle": "skills/repository-governance-lifecycle",
-        "skill-authoring-lifecycle": "skills/skill-authoring-lifecycle",
-        "skill-eval-improve": "skills/skill-eval-improve",
-        "skill-source-citations": "skills/skill-source-citations"
+        "repository-governance-lifecycle": "skills/repository-governance-lifecycle"
       }
     }
   ]
