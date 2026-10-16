@@ -34,9 +34,11 @@ pub type MediaSubContentSink = Arc<dyn Fn(Option<&str>, &str, &str, &str, &str) 
 
 /// 宿主注入载体
 ///
-/// - `client`：HTTP 客户端（ffi 传进程共享单例 `http_state::shared_client()`，
-///   与 JS 宿主 cookie 池同源；测试传独立默认客户端）；
-/// - `rate_limiter`：书源 `concurrentRate` 限流注册表（进程级共享，按书源 URL
+/// - `client`：所属引擎的 HTTP 客户端（ffi 由 `http_state::shared_client()`
+///   委托根实例取得；测试可传独立客户端）；
+/// - `web_book`：HTML、书籍元信息、章节关系及目录刷新代数，同引擎连续调用共享；
+/// - `js`：规则与 mainJs 的显式执行资源，缓存 VM 不跨引擎共享；
+/// - `rate_limiter`：书源 `concurrentRate` 限流注册表（同引擎共享，按书源 URL
 ///   缓存窗口状态）；
 /// - `login_header`：按书源 URL 取登录头 JSON（ffi=`source_login_cache`）；
 /// - `book_variable`：按书籍取址点读用户书籍变量 JSON（ffi=`books.variable`
@@ -49,6 +51,12 @@ pub type MediaSubContentSink = Arc<dyn Fn(Option<&str>, &str, &str, &str, &str) 
 pub struct FetcherDeps {
     /// HTTP 客户端
     pub client: LegadoClient,
+    /// 本次操作的仅数据寿命凭据；不得存入 VM/常驻资源，避免反向依赖宿主。
+    pub execution_lease: Option<Arc<dyn Send + Sync>>,
+    /// 引擎拥有的 HTML、书籍元信息与章节映射缓存。
+    pub web_book: Arc<crate::web_book_state::WebBookState>,
+    /// 所属引擎的 JS 执行资源，无 quickjs 时不包含 VM。
+    pub js: Arc<legado_js::JsResources>,
     /// 书源限流注册表
     pub rate_limiter: Arc<RateLimiterRegistry>,
     /// 登录头查询（source_url → loginHeader JSON）
@@ -62,10 +70,46 @@ pub struct FetcherDeps {
 }
 
 impl FetcherDeps {
+    pub fn with_execution_lease(mut self, lease: Arc<dyn Send + Sync>) -> Self {
+        self.execution_lease = Some(lease);
+        self
+    }
+
+    /// 正文请求与 WebView 从本次注入的客户端读取 Cookie，不查询 JS 进程镜像。
+    pub(crate) fn cookies_for_url(&self, url: &str) -> String {
+        if url.trim().is_empty() {
+            return String::new();
+        }
+        self.client
+            .cookie_store()
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .cookies_for_key(url)
+    }
+
+    pub(crate) fn merge_cookies(
+        &self,
+        headers: &mut std::collections::HashMap<String, String>,
+        url: &str,
+    ) {
+        legado_js::host_api::cookie_store::merge_cookie_string(headers, &self.cookies_for_url(url));
+    }
+
     /// 仅注入客户端（其余能力为 None：登录头/书籍变量/书源 setup/副内容捕获全关闭）
     pub fn new(client: LegadoClient) -> Self {
+        let js = legado_js::JsResources::default();
+        #[cfg(feature = "quickjs")]
+        let js = js.with_http_resources(Arc::new(
+            legado_js::http_resources::HttpResources::with_memory_cookie_store(
+                client.cookie_store().clone(),
+            )
+            .with_custom_hosts(client.custom_hosts()),
+        ));
         Self {
             client,
+            execution_lease: None,
+            web_book: Arc::new(crate::web_book_state::WebBookState::default()),
+            js: Arc::new(js),
             rate_limiter: Arc::new(RateLimiterRegistry::new()),
             login_header: None,
             book_variable: None,
@@ -77,6 +121,61 @@ impl FetcherDeps {
     /// [`Self::new`] 别名（可读性：以客户端为最小注入面）
     pub fn with_client(client: LegadoClient) -> Self {
         Self::new(client)
+    }
+
+    /// 同一引擎的宿主和连续抓取调用共享缓存；默认构造保持实例隔离。
+    pub fn with_web_book_state(mut self, state: Arc<crate::web_book_state::WebBookState>) -> Self {
+        self.web_book = state;
+        self
+    }
+
+    /// 规则与 mainJs 执行沿用同一引擎资源。
+    pub fn with_js_resources(mut self, resources: Arc<legado_js::JsResources>) -> Self {
+        self.js = resources;
+        self
+    }
+
+    /// 同来源/同书籍阶段共享句柄，不借用宿主的“当前流程”。
+    pub fn for_book(&self, source: &str, book: &str) -> Self {
+        self.clone()
+            .with_js_resources(self.js.for_book(source, book))
+    }
+
+    /// 已绑定书籍的调用允许变更实际取址点，不能因此改写逻辑书籍身份。
+    pub fn for_book_request(&self, source: &str, fallback_book: &str) -> Self {
+        if self
+            .js
+            .variable_scope()
+            .and_then(|scope| scope.book_source())
+            == Some(source)
+        {
+            self.clone()
+        } else {
+            self.for_book(source, fallback_book)
+        }
+    }
+
+    pub fn for_source(&self, purpose: &str, source: &str, key: &str) -> Self {
+        self.clone()
+            .with_js_resources(self.js.for_source(purpose, source, key))
+    }
+
+    /// 页面缓存按来源和本次请求头分区；键只在内存中使用，不记录凭据。
+    pub(crate) fn page_cache_key(
+        &self,
+        url: &str,
+        headers: Option<&std::collections::HashMap<String, String>>,
+    ) -> String {
+        let headers: std::collections::BTreeMap<_, _> =
+            headers.into_iter().flat_map(|map| map.iter()).collect();
+        serde_json::to_string(&(
+            self.js
+                .variable_scope()
+                .and_then(|scope| scope.source_identity()),
+            url,
+            headers,
+        ))
+        .expect("字符串缓存身份可序列化")
     }
 
     /// 注入限流注册表
@@ -166,6 +265,60 @@ impl FetcherDeps {
 mod tests {
     use super::*;
     use std::sync::Mutex;
+
+    #[test]
+    fn web_requests_and_webview_read_only_the_injected_client_cookie_jar() {
+        let one = FetcherDeps::new(test_client());
+        let two = FetcherDeps::new(test_client());
+        one.client
+            .cookie_store()
+            .write()
+            .unwrap()
+            .set_cookies_from_string("book.test", "one=value; same=jar");
+        two.client
+            .cookie_store()
+            .write()
+            .unwrap()
+            .set_cookies_from_string("book.test", "two=value");
+        let url = "https://sub.book.test/page";
+        let mut headers =
+            std::collections::HashMap::from([("cOoKiE".into(), "same=explicit".into())]);
+        one.merge_cookies(&mut headers, url);
+        let values = legado_net::CookieStore::cookie_string_to_map(&headers["cOoKiE"]);
+        assert_eq!(values.get("same").unwrap(), "explicit");
+        assert_eq!(values.get("one").unwrap(), "value");
+        assert!(!values.contains_key("two"));
+        assert_eq!(two.cookies_for_url(url), "two=value");
+        assert_eq!(one.cookies_for_url("https://foreign.test"), "");
+        assert_eq!(one.cookies_for_url(""), "");
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn minimal_host_js_uses_the_injected_client_jar_in_both_directions() {
+        use legado_js::JsEngine;
+        let deps = FetcherDeps::new(test_client());
+        let vm = deps
+            .js
+            .create_engine(legado_js::SandboxConfig::default())
+            .unwrap();
+        vm.eval("java.setCookie('https://minimal.test','fromJs=one')")
+            .unwrap();
+        assert_eq!(
+            deps.cookies_for_url("https://minimal.test/chapter"),
+            "fromJs=one"
+        );
+        deps.client
+            .cookie_store()
+            .write()
+            .unwrap()
+            .set_cookies_from_string("minimal.test", "fromHttp=two");
+        assert_eq!(
+            vm.eval("java.getCookie('https://minimal.test','fromHttp')")
+                .unwrap(),
+            "two"
+        );
+    }
 
     /// 捕获调用记录：(bookUrl, sourceUrl, chapterUrl, key, value)
     type CapturedCalls = Arc<Mutex<Vec<(String, String, String, String, String)>>>;

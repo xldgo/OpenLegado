@@ -5,15 +5,18 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
 use legado_core::cache_book::CachedChapter;
 use legado_core::content_processor::{ContentProcessor, ProcessorConfig, ReplaceRuleEntry};
 use legado_core::models::{BookChapter, ReplaceRule};
 use legado_core::web_book::{BookSourceFetcher, WebBookEngine, WebChapter};
 use legado_core::{LegadoError, LegadoResult};
+#[cfg(test)]
+use legado_db::CacheBookRepository;
 use legado_db::repository::Repository;
 use legado_db::{
-    BookChapterRepository, BookRepository, BookSourceRepository, CacheBookRepository,
-    CacheRepository, ReplaceRuleRepository,
+    BookChapterRepository, BookRepository, BookSourceRepository, CacheRepository,
+    ReplaceRuleRepository,
 };
 
 use crate::db_state::{resolve_local_book_path, with_database};
@@ -400,7 +403,6 @@ pub fn refresh_toc(book_url: &str, source_url: &str) -> LegadoResult<ChapterList
     // P1-2 入口收口：本入口执行 preUpdate JS + ruleBookInfo/ruleToc（变量桥
     // 读写）→ 先切 flow scope（键 = book_url，与 webbook_info/chapters 同键），
     // 防上一流程的残留 scope 串读/误清
-    crate::api::web_book::begin_book_flow(book_url);
     // 生产入口：构建真实 engine 后委托核心逻辑（fetcher 泛型化便于单测注入脚本化 fetcher）
     let engine = super::web_book::build_engine()?;
     refresh_toc_with_fetcher(book_url, source_url, &engine)
@@ -744,96 +746,33 @@ fn fetch_chapter_content_inner(
     chapter_variable: Option<&str>,
     known_chapter: bool,
 ) -> LegadoResult<String> {
-    // 1. 检查 DB 缓存
-    // Task #16 P0：按 (book_url, chapter_url) 复合键查找，避免不同书籍共用
-    // 相同 chapter_url 时命中他书缓存（正文张冠李戴）。
-    let cached = with_database(|db| {
-        let repo = CacheBookRepository::new(db.connection());
-        repo.get_by_book_and_chapter_url(book_url, chapter_url)
-    })?;
-
-    // [B-1] 空正文缓存行按 miss 处理（对齐上游 BookHelp.kt:271「内容为空
-    // 直接返回」/ :557-559「空内容不入缓存」）：历史遗留的空行若按命中
-    // 返回，该章节将永久空白、永不重抓
-    let cached = cached.filter(|c| !c.content.trim().is_empty());
-
-    if let Some(cached_chapter) = cached {
-        // [P2-28b] 存量惰性自愈：缓存命中但该章 wordCount 为空（旧版本
-        // 写入的缓存，早于回填链引入）时，按缓存正文长度补算回填**一次**
-        // （回填成功后 wordCount 非空，后续命中不再写）。失败仅告警，
-        // 不影响正文返回（对齐原版 writeText 的 best-effort 语义）
-        let wc_missing = with_database(|db| {
-            BookChapterRepository::new(db.connection()).word_count_missing(book_url, chapter_url)
-        })
-        .unwrap_or(false);
-        if wc_missing
-            && let Err(e) =
-                backfill_chapter_word_count(book_url, chapter_url, &cached_chapter.content)
-        {
-            log::warn!("章节字数自愈回填失败（已忽略，不影响阅读）: {e}");
-        }
-        // 缓存存储原始正文，返回前应用净化（避免规则变更后缓存陈旧）
-        let processed = apply_content_processing_chapter(
-            book_url,
-            &cached_chapter.content,
-            &cached_chapter.chapter_title,
-            chapter_index,
-        );
-        return Ok(processed);
-    }
-
-    // 2. 缓存未命中，从网络获取
-    let source = with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.find_by_url(source_url)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("书源不存在: {source_url}")))?;
-
-    // [T4 | RuleDataInterface] 内容链变量注入：book.variable ⊕ chapter.variable
-    //（章节同名键优先，对齐原版 getVariable chapter → book 级联）。合并结果随
-    // WebChapter 进入 get_content 的 AnalyzeUrl 变量表与解析上下文种子——
-    // 此前内容链仅携带章节变量（R3），token/host 类书级变量在正文链全丢。
-    let book_variable: Option<String> = with_database(|db| {
-        Ok(BookRepository::new(db.connection())
-            .find_by_url(book_url)?
-            .and_then(|b| b.variable))
-    })?;
-    let merged_variable =
-        super::web_book::merge_variables_json(book_variable.as_deref(), chapter_variable);
-
-    let web_chapter = WebChapter {
-        index: chapter_index,
-        title: chapter_title.to_string(),
-        url: chapter_url.to_string(),
-        is_vip: false,
-        is_volume: false,
-        variable: merged_variable,
-        word_count: None,
+    let (access, task) = {
+        let engine = crate::engine_holder::current()?;
+        let task = engine
+            .tasks()
+            .begin()
+            .map_err(|error| LegadoError::Ffi(error.to_string()))?;
+        (
+            super::chapter_content::ChapterContent::from_engine(&engine),
+            task,
+        )
     };
-
-    let engine = super::web_book::build_engine()?;
-    let content = runtime::block_on(async { engine.get_content(&source, &web_chapter).await })?;
-
-    // 3. 抓取成功后写入 DB 缓存（对齐原版 BookContent.analyzeContent
-    //    L207-209 `needSave → BookHelp.saveContent` 的「获取成功即写」时机）。
-    //    写失败仅告警不传播——缓存写入失败不得导致阅读获取失败。
-    // [B-12] 未知章节 URL（不在当前目录）不写缓存：上游按目录定位章节，
-    // 回退 (0, "") 写出的 index=0 缓存行会污染目录云图标与后续读取
-    if known_chapter {
-        save_chapter_cache(
+    let raw = access.read(
+        super::chapter_content::ChapterRequest {
             book_url,
+            chapter_url,
+            source_url,
             chapter_index,
             chapter_title,
-            chapter_url,
-            &content,
-        );
-    }
-
-    // 缓存写入原始正文，返回净化后的正文（透传真实章节标题，使去重复标题生效）
+            chapter_variable,
+            known_chapter,
+        },
+        Some(&task),
+    )?;
     Ok(apply_content_processing_chapter(
         book_url,
-        &content,
-        chapter_title,
+        &raw.content,
+        &raw.title,
         chapter_index,
     ))
 }
@@ -895,25 +834,6 @@ pub fn word_count_format(words: usize) -> String {
 /// 故 Rust 侧**无条件**回填，显示由目录页「加载字数」开关控制。
 ///
 /// 返回受影响行数（0 = 该章不在目录中，无需回填，非错误）。
-fn backfill_chapter_word_count(
-    book_url: &str,
-    chapter_url: &str,
-    content: &str,
-) -> LegadoResult<u64> {
-    // 原版字数 = Kotlin `String.length`（UTF-16 码元数）
-    let word_count = word_count_format(content.encode_utf16().count());
-    if word_count.is_empty() {
-        return Ok(0);
-    }
-    with_database(|db| {
-        BookChapterRepository::new(db.connection()).up_word_count(
-            book_url,
-            chapter_url,
-            &word_count,
-        )
-    })
-}
-
 /// 阅读获取（非缓存命中）成功后把正文写入 cached_chapters
 ///
 /// 对齐 Android 原版「阅读即缓存」语义：正文成功解析后按
@@ -923,6 +843,7 @@ fn backfill_chapter_word_count(
 ///
 /// [P2-28b] 写入成功后按原版 `writeText` 语义回填 `chapters.wordCount`
 /// （best-effort，失败仅告警）。返回缓存写入是否成功。
+#[cfg(test)]
 fn save_chapter_cache(
     book_url: &str,
     chapter_index: i32,
@@ -930,39 +851,16 @@ fn save_chapter_cache(
     chapter_url: &str,
     content: &str,
 ) -> bool {
-    // [B-1] 空内容不入缓存（对齐上游 BookHelp.kt:557-559）：杜绝空行入库后
-    // 被读侧按命中返回、章节永久空白的缺陷链
-    if content.trim().is_empty() {
-        return false;
-    }
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
-    let cached_chapter = CachedChapter {
-        id: 0,
-        book_url: book_url.to_string(),
-        chapter_index,
-        chapter_title: chapter_title.to_string(),
-        chapter_url: chapter_url.to_string(),
-        content: content.to_string(),
-        cached_at: now_ms,
-        size_bytes: content.len() as i64,
-    };
-    let result = with_database(|db| {
-        let repo = CacheBookRepository::new(db.connection());
-        repo.insert(&cached_chapter)?;
-        Ok(())
-    });
-    if let Err(e) = result {
-        log::warn!("阅读缓存写入失败（已忽略，不影响阅读）: {e}");
-        return false;
-    }
-    // 回填失败仅告警（对齐原版 writeText：回填属 best-effort，不得影响阅读）
-    if let Err(e) = backfill_chapter_word_count(book_url, chapter_url, content) {
-        log::warn!("章节字数回填失败（已忽略，不影响阅读）: {e}");
-    }
-    true
+    crate::engine_holder::current().is_ok_and(|engine| {
+        super::chapter_content::save_chapter_cache(
+            engine.storage(),
+            book_url,
+            chapter_index,
+            chapter_title,
+            chapter_url,
+            content,
+        )
+    })
 }
 
 /// 一次调用获取章节正文（合并 get_chapter_content + fetch_chapter_content）
@@ -1341,49 +1239,37 @@ mod tests {
 
     // ─── [iOS 视角F C1] 本地书「相对可迁移标识」读写回环 ─────────────────────
 
-    /// [iOS 视角F C1] 相对标识回环：写入以「当前容器 Documents 基目录」解析。
-    ///
-    /// 构造临时基目录 `base`（模拟 Documents），其下 `books/sample.txt` 为本地书；
-    /// 通过 `record_db_path(base/legado.db)` 让 resolver 以 `base` 为基。导入时传入
-    /// 相对标识 `books/sample.txt`，断言 `book_url` 原样存标识（非绝对路径），且
-    /// `get_chapters`/`get_chapter_content` 能经 resolver 还原真实路径读到内容。
-    /// 收尾删除该书与章节行，避免污染共享内存库（不削弱既有测试）。
+    /// 相对标识使用实际数据库所在目录还原路径，不另改全局路径。
     #[test]
     fn local_book_relative_identifier_roundtrip() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        static CTR: AtomicUsize = AtomicUsize::new(0);
-        let n = CTR.fetch_add(1, Ordering::SeqCst);
-        let base =
-            std::env::temp_dir().join(format!("legado_c1_base_{}_{}", std::process::id(), n));
-        let books = base.join("books");
-        std::fs::create_dir_all(&books).unwrap();
-        let file = books.join("sample.txt");
+        let _db_guard = crate::db_state::ensure_test_db();
+        let db_path = crate::db_state::current_db_path().unwrap();
+        let base = std::path::Path::new(&db_path).parent().unwrap();
+        let relative = format!("books/relative_roundtrip_{}/sample.txt", std::process::id());
+        let file = base.join(&relative);
+        let books = file.parent().unwrap();
+        std::fs::create_dir_all(books).unwrap();
         std::fs::write(&file, "第一章\n正文一\n\n第二章\n正文二\n").unwrap();
 
-        let _db_guard = crate::db_state::ensure_test_db();
-        // resolver 以 DB 路径的父目录为 Documents 基：记录 base/legado.db
-        crate::db_state::record_db_path(base.join("legado.db").to_str().unwrap());
-
-        // 写侧：导入存「相对可迁移标识」，而非绝对路径
-        let res = crate::api::book_import::import_local_book("books/sample.txt").unwrap();
+        let res = crate::api::book_import::import_local_book(&relative).unwrap();
         assert!(res.success, "导入失败: {:?}", res.error);
-        let url = res.book.as_ref().unwrap().book_url.clone();
-        assert_eq!(url, "books/sample.txt", "book_url 应存相对可迁移标识");
-
-        // 读侧：章节列表 + 正文均经 resolver 还原真实路径
-        let chapters = get_chapters("books/sample.txt").unwrap();
+        assert_eq!(res.book.as_ref().unwrap().book_url, relative);
+        let chapters = get_chapters(&relative).unwrap();
         assert!(chapters.total >= 1, "相对标识应能解析出章节");
-        let content = get_chapter_content("books/sample.txt", 0).unwrap();
+        let content = get_chapter_content(&relative, 0).unwrap();
         assert!(!content.trim().is_empty(), "应能读到正文");
+        assert_eq!(
+            crate::db_state::current_db_path().as_deref(),
+            Some(db_path.as_str())
+        );
 
-        // 收尾清理：删除该书的章节行与书行，恢复共享内存库状态
         with_database(|db| {
-            BookChapterRepository::new(db.connection()).delete_by_book_url("books/sample.txt")?;
-            BookRepository::new(db.connection()).delete_by_url("books/sample.txt")?;
+            BookChapterRepository::new(db.connection()).delete_by_book_url(&relative)?;
+            BookRepository::new(db.connection()).delete_by_url(&relative)?;
             Ok(())
         })
         .unwrap();
-        let _ = std::fs::remove_dir_all(&base);
+        let _ = std::fs::remove_dir_all(books);
     }
 
     // ─── refresh_toc 测试 ───────────────────────────────────────────────────
@@ -1412,7 +1298,6 @@ mod tests {
         let _db_guard = setup_db_and_source("https://other.example.com");
         let err = refresh_toc("https://x.com/book", "https://nonexistent.example.com").unwrap_err();
         assert!(err.to_string().contains("书源不存在"));
-        legado_js::host_api::variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// refresh_toc 占位落库须打 NOT_SHELF，书架 list 不可见（Task#125）

@@ -2118,6 +2118,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "legado-engine"
+version = "0.2.0"
+dependencies = [
+ "legado-core",
+ "legado-db",
+ "legado-fetcher",
+ "legado-js",
+ "legado-net",
+ "log",
+ "r2d2",
+ "r2d2_sqlite",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "legado-fetcher"
 version = "0.2.0"
 dependencies = [
@@ -2149,6 +2167,7 @@ dependencies = [
  "legado-book",
  "legado-core",
  "legado-db",
+ "legado-engine",
  "legado-fetcher",
  "legado-js",
  "legado-layout",
@@ -2159,8 +2178,6 @@ dependencies = [
  "log",
  "md5",
  "quick-xml",
- "r2d2",
- "r2d2_sqlite",
  "regex",
  "rusqlite",
  "serde",
@@ -2182,7 +2199,6 @@ dependencies = [
  "hmac 0.12.1",
  "jsonpath-rust",
  "legado-core",
- "legado-js",
  "legado-net",
  "legado-parser",
  "lru",
@@ -2272,6 +2288,7 @@ dependencies = [
  "legado-book",
  "legado-core",
  "legado-db",
+ "legado-engine",
  "legado-fetcher",
  "legado-js",
  "legado-net",

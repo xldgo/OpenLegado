@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use legado_core::tts_speak::{SpeakCache, ext_from_content_type, is_error_content_type};
 use legado_core::{LegadoError, LegadoResult};
 use legado_net::LegadoClient;
-#[cfg(all(test,feature="quickjs"))]
+#[cfg(all(test, feature = "quickjs"))]
 use legado_net::LegadoRawResponse;
 use legado_parser::AnalyzeUrl;
 
@@ -285,7 +285,9 @@ async fn fetch_tts_audio_inner(
     let executor: &dyn JsExecutor = custom_executor.unwrap_or(&tts_executor);
     let mut headers = source_headers(config, executor, store.as_ref())?;
     #[cfg(feature = "quickjs")]
-    legado_js::host_api::global_headers::put_headers(&config.source_key(), headers.clone());
+    store
+        .http_resources()
+        .put_headers(&config.source_key(), headers.clone());
     let analyze_url = if cfg!(feature = "quickjs") || custom_executor.is_some() {
         AnalyzeUrl::parse_with_js(&config.url, &vars, 1, executor)?
     } else {
@@ -343,14 +345,16 @@ async fn fetch_tts_audio_inner(
                 let headers = headers_opt.clone().unwrap_or_default();
                 let cancellation = cancellation.clone();
                 let script = check.to_string();
+                let variables = tts_executor.variables();
                 resp=tokio::task::spawn_blocking(move || {
                     let request_headers=headers.clone();
                     let load_store=store.clone();
                     let load_config=config.clone();
+                    let load_variables=variables.clone();
                     let loader=Arc::new(move |payload:&str| -> Result<String,String> {
                         let input:serde_json::Value=serde_json::from_str(payload).map_err(|e|e.to_string())?;
                         load_store.apply(&load_config.source_key(),serde_json::from_value(input["changes"].clone()).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
-                        let executor=TtsJsExecutor::new(&load_config,load_store.clone());
+                        let executor=TtsJsExecutor::new(&load_config,load_store.clone()).with_variables(load_variables.clone());
                         let mut next_headers:HashMap<String,String>=serde_json::from_value(input["headers"].clone()).map_err(|e|e.to_string())?;
                         let url=if input["reinit"].as_bool()==Some(true) {
                             AnalyzeUrl::parse_with_js(&load_config.url,&vars,1,&executor).map_err(|e|e.to_string())?
@@ -362,7 +366,7 @@ async fn fetch_tts_audio_inner(
                         ).map_err(|e|e.to_string())?;
                         Ok(serde_json::json!({"status":response.status,"headers":response.headers,"body":response.body,"url":response.url}).to_string())
                     });
-                    let executor=TtsJsExecutor::new(&config,store).with_response_loader(loader);
+                    let executor=TtsJsExecutor::new(&config,store).with_variables(variables).with_response_loader(loader);
                     evaluate_tts_response_with_headers(&executor,&script,resp,&request_headers)
                 }).await.map_err(|e|LegadoError::JsEngine(format!("TTS 响应脚本任务失败：{e}")))??;
             }
@@ -429,7 +433,14 @@ async fn fetch_tts_audio_inner(
     let ext = ext_from_content_type(&raw_content_type);
     cancellation.check()?;
     let final_key = runtime_cache_key(config, context, store.as_ref())?;
-    let audio_path = cache.put(&final_key, ext, &resp.body)?;
+    let mut audio_path = None;
+    store.publish(&mut || {
+        cancellation.check()?;
+        audio_path = Some(cache.put(&final_key, ext, &resp.body)?);
+        Ok(())
+    })?;
+    let audio_path =
+        audio_path.ok_or_else(|| LegadoError::Internal("TTS 缓存发布未产生文件".into()))?;
     let clean_ct = raw_content_type
         .split(';')
         .next()
@@ -1214,6 +1225,56 @@ mod tests {
         );
         assert!(result.unwrap_err().to_string().contains("TTS_CANCELLED"));
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_tts_explicit_flow_survives_response_reload_but_not_next_synthesis() {
+        let (addr, records) = spawn_test_tts_server(|req| {
+            if req.uri.contains("phase=retry") {
+                (200, "audio/mpeg", b"FLOW-AUDIO".to_vec())
+            } else {
+                (200, "application/json", br#"{"retry":true}"#.to_vec())
+            }
+        })
+        .await;
+        let config = HttpTtsConfig {
+            id: 721,
+            url: format!("@js:if(java.__lgStoreGet('flowToken')!=='original')throw new Error('URL 丢失会话'); 'http://{addr}/audio?phase='+(java.__lgStoreGet('phase')||'first')"),
+            header: Some("@js:if(java.__lgStoreGet('phase'))throw new Error('上次合成残留');java.__lgStorePut('flowToken','original');cache.put('cached','kept');JSON.stringify({'X-Flow':'configured'})".into()),
+            login_check_js: Some("if(java.__lgStoreGet('flowToken')!=='original')throw new Error('响应校验丢失会话');java.__lgStorePut('phase','retry');java.initUrl();var refreshed=java.getResponse();if(cache.get('cached')!=='kept')throw new Error('重新请求丢失缓存');refreshed".into()),
+            ..Default::default()
+        };
+        let client = LegadoClient::new(legado_net::LegadoClientConfig::default()).unwrap();
+        let dir = temp_test_cache_dir("explicit_flow_reload");
+        let store = Arc::new(crate::tts_source::MemoryTtsSourceStore::default());
+        for text in ["第一段", "第二段"] {
+            let result = fetch_tts_audio_controlled(
+                &client,
+                &config,
+                &TtsSpeakContext::new(text, 10, None, None, None),
+                &dir,
+                None,
+                store.clone(),
+                Arc::new(RateLimiterRegistry::new()),
+                &TtsCancellation::default(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(std::fs::read(result.audio_path).unwrap(), b"FLOW-AUDIO");
+        }
+        let requests = records.lock().await;
+        assert_eq!(requests.len(), 4);
+        for pair in requests.as_chunks::<2>().0 {
+            assert!(pair[0].uri.contains("phase=first"));
+            assert!(pair[1].uri.contains("phase=retry"));
+            assert_eq!(
+                pair[1].headers.get("x-flow").map(String::as_str),
+                Some("configured")
+            );
+        }
+        drop(requests);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

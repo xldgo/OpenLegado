@@ -104,7 +104,20 @@ pub fn parse_summary_with(
     base_url: &str,
     executor: Option<Arc<dyn JsExecutor>>,
 ) -> Option<ReviewSummaryResult> {
-    if body.trim().is_empty() {
+    let analyzer = match executor {
+        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
+        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
+    };
+    parse_summary_with_analyzer(rule, &analyzer)
+}
+
+/// 使用宿主已配置的解析器，保留变量能力与 JS 特性门控。
+pub fn parse_summary_with_analyzer(
+    rule: &ReviewRule,
+    analyzer: &AnalyzeRule,
+) -> Option<ReviewSummaryResult> {
+    let base_url = analyzer.base_url();
+    if analyzer.content().trim().is_empty() {
         return None;
     }
     let list_rule = rule.summary_list_rule.as_deref().unwrap_or("").trim();
@@ -117,11 +130,7 @@ pub fn parse_summary_with(
         return None;
     }
 
-    let analyzer = match executor {
-        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
-        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
-    };
-    let items = get_element_list(&analyzer, list_rule).unwrap_or_default();
+    let items = get_element_list(analyzer, list_rule).unwrap_or_default();
     if items.is_empty() {
         return Some(ReviewSummaryResult::default());
     }
@@ -137,6 +146,9 @@ pub fn parse_summary_with(
 
     for (i, item) in items.iter().enumerate() {
         let mut item_analyzer = AnalyzeRule::new(item.to_string(), base_url.to_string());
+        if let Some(reader) = analyzer.variable_reader() {
+            item_analyzer = item_analyzer.with_variable_reader(reader);
+        }
         if let Some(exec) = analyzer.js_executor() {
             item_analyzer.set_js_executor(exec);
         }
@@ -186,20 +198,30 @@ pub fn parse_detail_page_with(
     base_url: &str,
     executor: Option<Arc<dyn JsExecutor>>,
 ) -> ReviewDetailPage {
+    let analyzer = match executor {
+        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
+        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
+    };
+    parse_detail_page_with_analyzer(rule, next_page_rule, &analyzer)
+}
+
+/// 使用宿主已配置的解析器，保留变量能力与 JS 特性门控。
+pub fn parse_detail_page_with_analyzer(
+    rule: &ReviewRule,
+    next_page_rule: Option<&str>,
+    analyzer: &AnalyzeRule,
+) -> ReviewDetailPage {
+    let base_url = analyzer.base_url();
     let list_rule = rule.detail_list_rule.as_deref().unwrap_or("").trim();
     if list_rule.is_empty() {
         return ReviewDetailPage::default();
     }
 
-    let analyzer = match executor {
-        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
-        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
-    };
-    let items = get_element_list(&analyzer, list_rule).unwrap_or_default();
+    let items = get_element_list(analyzer, list_rule).unwrap_or_default();
     let next_page_url = next_page_rule
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .and_then(|r| safe_rule_string(&analyzer, Some(r)))
+        .and_then(|r| safe_rule_string(analyzer, Some(r)))
         .map(|v| {
             let trimmed = v.trim().to_string();
             // 含 AnalyzeUrl 参数模式时保持原样，否则相对路径补全
@@ -213,7 +235,7 @@ pub fn parse_detail_page_with(
 
     let parsed_items = items
         .iter()
-        .filter_map(|item| parse_detail_item(&analyzer, item, rule, base_url, false))
+        .filter_map(|item| parse_detail_item(analyzer, item, rule, base_url, false))
         .collect();
 
     ReviewDetailPage {
@@ -247,7 +269,20 @@ pub fn parse_reply_page_with(
     base_url: &str,
     executor: Option<Arc<dyn JsExecutor>>,
 ) -> LegadoResult<Vec<ReviewDetailItem>> {
-    if body.trim().is_empty() {
+    let analyzer = match executor {
+        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
+        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
+    };
+    parse_reply_page_with_analyzer(rule, &analyzer)
+}
+
+/// 使用宿主已配置的解析器，保留变量能力与 JS 特性门控。
+pub fn parse_reply_page_with_analyzer(
+    rule: &ReviewRule,
+    analyzer: &AnalyzeRule,
+) -> LegadoResult<Vec<ReviewDetailItem>> {
+    let base_url = analyzer.base_url();
+    if analyzer.content().trim().is_empty() {
         return Err(LegadoError::ContentEmpty("段评回复内容为空".into()));
     }
     let list_rule = rule.reply_list_rule.as_deref().unwrap_or("").trim();
@@ -255,15 +290,10 @@ pub fn parse_reply_page_with(
         return Ok(Vec::new());
     }
 
-    let analyzer = match executor {
-        Some(exec) => AnalyzeRule::with_js_executor(body.to_string(), base_url.to_string(), exec),
-        None => AnalyzeRule::new(body.to_string(), base_url.to_string()),
-    };
-
-    let items = get_element_list(&analyzer, list_rule)?;
+    let items = get_element_list(analyzer, list_rule)?;
     let mut replies = Vec::new();
     for item in &items {
-        if let Some(parsed) = parse_detail_item(&analyzer, item, rule, base_url, true) {
+        if let Some(parsed) = parse_detail_item(analyzer, item, rule, base_url, true) {
             replies.push(parsed);
         }
     }
@@ -316,6 +346,9 @@ fn parse_detail_item(
     is_reply: bool,
 ) -> Option<ReviewDetailItem> {
     let mut item_analyzer = AnalyzeRule::new(item.to_string(), base_url.to_string());
+    if let Some(reader) = analyzer.variable_reader() {
+        item_analyzer = item_analyzer.with_variable_reader(reader);
+    }
     if let Some(exec) = analyzer.js_executor() {
         item_analyzer.set_js_executor(exec);
     }
@@ -591,6 +624,61 @@ mod tests {
             reply_content_rule: Some(content.into()),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn configured_reader_reaches_summary_detail_and_reply_items_without_js() {
+        let rule = ReviewRule {
+            summary_list_rule: Some("$.items".into()),
+            summary_paragraph_index_rule: Some("$.idx".into()),
+            summary_count_rule: Some("@get:{count}".into()),
+            detail_list_rule: Some("$.items".into()),
+            detail_id_rule: Some("$.id".into()),
+            detail_content_rule: Some("@get:{text}".into()),
+            reply_list_rule: Some("$.items".into()),
+            reply_id_rule: Some("$.id".into()),
+            reply_content_rule: Some("@get:{text}".into()),
+            ..Default::default()
+        };
+        let body = r#"{"items":[{"idx":1,"id":"r1"}]}"#;
+        let make = |text: &'static str| {
+            AnalyzeRule::new(body.into(), "https://review.test/".into()).with_variable_reader(
+                Arc::new(move |key| match key {
+                    "count" => Some("12".into()),
+                    "text" => Some(text.into()),
+                    "next" => Some("/page/2".into()),
+                    _ => None,
+                }),
+            )
+        };
+        let one = make("one");
+        let two = make("two");
+        assert!(one.js_executor().is_none(), "仅传递读者，不启用 JS");
+        assert_eq!(
+            parse_summary_with_analyzer(&rule, &one)
+                .unwrap()
+                .counts
+                .get(&1),
+            Some(&12)
+        );
+        let detail = parse_detail_page_with_analyzer(&rule, Some("@get:{next}"), &one);
+        assert_eq!(detail.items[0].content.as_deref(), Some("one"));
+        assert_eq!(
+            detail.next_page_url.as_deref(),
+            Some("https://review.test/page/2")
+        );
+        assert_eq!(
+            parse_reply_page_with_analyzer(&rule, &two).unwrap()[0]
+                .content
+                .as_deref(),
+            Some("two")
+        );
+        assert_eq!(
+            parse_detail_page_with_analyzer(&rule, None, &one).items[0]
+                .content
+                .as_deref(),
+            Some("one")
+        );
     }
 
     #[test]

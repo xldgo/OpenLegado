@@ -141,21 +141,43 @@ pub fn explore_fetch_books(source_json: &str, url: &str, page: i32) -> LegadoRes
         return Err(LegadoError::Internal("发现分类 URL 为空".into()));
     }
 
+    let deps = crate::api::web_book::ffi_deps()?;
+    let info = explore_info_map::snapshot(&source.book_source_url).unwrap_or_default();
+    explore_fetch_books_with_deps(source_json, url, page, deps, info, None)
+}
+
+/// 调试等长任务传入固定依赖；各分支不再读取宿主根槽位。
+pub(crate) fn explore_fetch_books_with_deps(
+    source_json: &str,
+    url: &str,
+    page: i32,
+    deps: legado_fetcher::deps::FetcherDeps,
+    info_map: HashMap<String, String>,
+    task: Option<legado_engine::TaskHandle>,
+) -> LegadoResult<String> {
+    let source: BookSource = serde_json::from_str(source_json)?;
+    if url.is_empty() {
+        return Err(LegadoError::Internal("发现分类 URL 为空".into()));
+    }
     // P1-2 入口收口：发现页执行 ruleExplore（JS 书源 orchestrator / 规则
     // 书源 fresh_engine，变量桥读写）→ 先切 flow scope（键 =
     // explore:{书源 URL}，与 webbook_search 的 search:{书源 URL} 同族），
     // 防上一流程残留 scope 串读/误清。单源单流程调用（无并发各源），
     // 逐源键安全
-    crate::api::web_book::begin_book_flow(&format!("explore:{}", source.book_source_url));
 
     // JS 书源分派：spawn_blocking 避免嵌套 runtime 死锁（R1）
     if source.is_js_source() {
         let source_clone = source.clone();
         let url_clone = url.to_string();
+        let js = deps.js.clone();
         let values = runtime::block_on(async {
             tokio::task::spawn_blocking(move || {
-                let mut orchestrator = crate::api::web_book::build_js_orchestrator(&source_clone)?
-                    .ok_or_else(|| LegadoError::Internal("JS 书源缺少 mainJs".into()))?;
+                let _task = task;
+                let mut orchestrator = legado_fetcher::web_book::build_js_orchestrator(
+                    &js.for_source("explore", &source_clone.book_source_url, &url_clone),
+                    &source_clone,
+                )?
+                .ok_or_else(|| LegadoError::Internal("JS 书源缺少 mainJs".into()))?;
                 orchestrator.explore(&source_clone, &url_clone, page)
             })
             .await
@@ -167,8 +189,9 @@ pub fn explore_fetch_books(source_json: &str, url: &str, page: i32) -> LegadoRes
     }
 
     // 规则书源路径
-    let results: Vec<WebSearchResult> =
-        runtime::block_on(async { explore_books_async(&source, url, page).await })?;
+    let results: Vec<WebSearchResult> = runtime::block_on(async {
+        explore_books_async(&source, url, page, &deps, &info_map).await
+    })?;
 
     serde_json::to_string(&results).map_err(LegadoError::Serialization)
 }
@@ -280,7 +303,6 @@ fn eval_explore_js(js_code: &str, source: &BookSource) -> LegadoResult<String> {
             .eval(&wrapped)
             .map_err(|e| LegadoError::JsEngine(format!("exploreUrl JS 执行失败: {e}")))?;
 
-        sync_login_cache_from_js(&tag);
         sync_info_map_from_js(&guard, &tag)?;
 
         Ok(result.trim().to_string())
@@ -325,13 +347,6 @@ fn bootstrap_explore_js_context(
     Ok(())
 }
 
-/// explore JS 执行后把 variable_store 中的登录缓存写回 DB
-/// （公共实现见 [`crate::api::source_login_cache::sync_login_cache_from_js`]）
-#[cfg(feature = "quickjs")]
-fn sync_login_cache_from_js(source_url: &str) {
-    crate::api::source_login_cache::sync_login_cache_from_js(source_url);
-}
-
 /// action 执行后将 JS infoMap 写回 Rust 存储
 #[cfg(feature = "quickjs")]
 fn sync_info_map_from_js(guard: &legado_js::QuickJsEngine, source_url: &str) -> LegadoResult<()> {
@@ -372,40 +387,37 @@ fn eval_explore_action_js(
     use legado_js::host_api::current_source::with_current_source_tag;
     use legado_js::host_api::ui_action_queue;
 
+    let task = crate::engine_holder::task_group()
+        .begin()
+        .map_err(|e| LegadoError::Ffi(e.to_string()))?;
+    let _guard = task.guard();
+
     let tag = source.book_source_url.clone();
     let engine = crate::js_executor::fresh_engine(&tag)?;
     let guard = engine
         .lock()
         .map_err(|e| LegadoError::JsEngine(format!("JS 引擎加锁失败: {e}")))?;
 
-    ui_action_queue::begin_collect();
-    let result = with_current_source_tag(&tag, || {
-        bootstrap_explore_js_context(&guard, source)?;
-
-        let raw = guard
-            .eval(action_js)
-            .map_err(|e| LegadoError::JsEngine(format!("explore action JS 执行失败: {e}")))?;
-
-        sync_info_map_from_js(&guard, &tag)?;
-        sync_login_cache_from_js(&tag);
-
-        let refresh_explore = ui_action_queue::take_refresh_explore_requested();
-        let actions = ui_action_queue::end_collect();
-        Ok(ExploreEvalActionResult {
-            raw,
-            actions,
-            refresh_explore,
+    let collected = ui_action_queue::collect_actions(|| {
+        with_current_source_tag(&tag, || {
+            bootstrap_explore_js_context(&guard, source)?;
+            let raw = guard
+                .eval(action_js)
+                .map_err(|e| LegadoError::JsEngine(format!("explore action JS 执行失败: {e}")))?;
+            task.with_active(|| sync_info_map_from_js(&guard, &tag))
+                .unwrap_or_else(|| Err(LegadoError::Ffi("发现页动作已取消".into())))?;
+            Ok::<_, LegadoError>(raw)
         })
     });
-
-    match result {
-        Ok(v) => Ok(v),
-        Err(e) => {
-            ui_action_queue::discard_collect();
-            ui_action_queue::take_refresh_explore_requested();
-            Err(e)
-        }
-    }
+    let raw = collected.result?;
+    task.with_active(|| {
+        Ok(ExploreEvalActionResult {
+            raw,
+            actions: collected.actions,
+            refresh_explore: collected.refresh_explore,
+        })
+    })
+    .unwrap_or_else(|| Err(LegadoError::Ffi("发现页动作已取消".into())))
 }
 
 #[cfg(feature = "quickjs")]
@@ -443,7 +455,10 @@ async fn explore_books_async(
     source: &BookSource,
     url: &str,
     page: i32,
+    deps: &legado_fetcher::deps::FetcherDeps,
+    info_map: &HashMap<String, String>,
 ) -> LegadoResult<Vec<WebSearchResult>> {
+    let resources = deps.js.for_source("explore", &source.book_source_url, url);
     // 解析书源 header（对齐原版 getHeaderMap(hasLoginHeader=true)：
     // 静态 header + loginHeader 覆盖；JS setCookie cookie 改按**请求 URL 属域**
     // 在下方合并请求头时兜底注入，见 2026-09-23 上游同步）— DeepSeek Harness + Bridge
@@ -452,8 +467,10 @@ async fn explore_books_async(
         .as_ref()
         .and_then(|h| serde_json::from_str(h).ok())
         .unwrap_or_default();
-    if let Some(login_header_json) =
-        crate::api::source_login_cache::get_login_header(&source.book_source_url)
+    if let Some(login_header_json) = deps
+        .login_header
+        .as_ref()
+        .and_then(|lookup| lookup(&source.book_source_url))
         && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json)
     {
         source_headers.extend(map);
@@ -465,24 +482,25 @@ async fn explore_books_async(
     };
 
     // 规则书源路径
-    let info_map = explore_info_map::snapshot(&source.book_source_url).unwrap_or_default();
-    let analyze_url = crate::js_executor::build_explore_url(url, page, source, &info_map)
-        // 分类 URL 脚本执行失败上抛真实错误（懒人听书未配置会话时
-        // lrtsResolveSession 抛「请先登录…」；此前静默回退字面量 URL
-        // 导致 HTTP 404 误导用户）。提取最内层 JS 错误，去掉
-        // Internal/URL 模板 等包装前缀与堆栈行，文案对齐原版提示。
-        .map_err(|e| {
-            let msg = e.to_string();
-            let core = msg.rsplit("JS engine error: ").next().unwrap_or(&msg);
-            // 取首行并去掉 JS 堆栈 `(at ...` 尾部，文案对齐原版提示
-            let first_line = core.lines().next().unwrap_or(core).trim();
-            let clean = first_line
-                .split(" (at ")
-                .next()
-                .unwrap_or(first_line)
-                .trim();
-            LegadoError::Internal(format!("分类加载失败：{clean}"))
-        })?;
+    let analyze_url = crate::js_executor::build_explore_url_with_resources(
+        &resources, url, page, source, info_map,
+    )
+    // 分类 URL 脚本执行失败上抛真实错误（懒人听书未配置会话时
+    // lrtsResolveSession 抛「请先登录…」；此前静默回退字面量 URL
+    // 导致 HTTP 404 误导用户）。提取最内层 JS 错误，去掉
+    // Internal/URL 模板 等包装前缀与堆栈行，文案对齐原版提示。
+    .map_err(|e| {
+        let msg = e.to_string();
+        let core = msg.rsplit("JS engine error: ").next().unwrap_or(&msg);
+        // 取首行并去掉 JS 堆栈 `(at ...` 尾部，文案对齐原版提示
+        let first_line = core.lines().next().unwrap_or(core).trim();
+        let clean = first_line
+            .split(" (at ")
+            .next()
+            .unwrap_or(first_line)
+            .trim();
+        LegadoError::Internal(format!("分类加载失败：{clean}"))
+    })?;
 
     let final_url = analyze_url.url().to_string();
     if final_url.is_empty() {
@@ -504,7 +522,7 @@ async fn explore_books_async(
             }
             None => {
                 // 发起 HTTP 请求（复用进程共享客户端单例）
-                let client = crate::http_state::shared_client()?;
+                let client = deps.client.clone();
 
                 // 合并请求头：书源全局 header + AnalyzeUrl 解析出的 header
                 let mut headers = source_headers.clone().unwrap_or_default();
@@ -516,7 +534,12 @@ async fn explore_books_async(
                 // （单一真源 `legado_net::cookie_store::cookie_domain_key`）。**按键合并**
                 // 进已有 Cookie 头（已有同名键胜、非冲突键追加；键查找大小写不敏感）
                 // ——对齐上游 AnalyzeUrl.setCookie → CookieManager.mergeCookies 语义。
-                legado_js::host_api::cookie_store::merge_js_cookies(&mut headers, &final_url);
+                let cookie = client
+                    .cookie_store()
+                    .read()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .cookies_for_key(&final_url);
+                legado_js::host_api::cookie_store::merge_cookie_string(&mut headers, &cookie);
 
                 // 写侧 CookieJar 门控（批 2）：开启源补内部标记头（只补不覆盖；
                 // 发送前由 legado-net 剥离、绝不出网）；读侧 cookie 注入不受影响。
@@ -556,6 +579,7 @@ async fn explore_books_async(
     // — DeepSeek Harness + Bridge（2026-08-14 发现页修复 R3）
     // — full-stack-engineer + Bridge（STAGE4-P36 语义对齐 F1 三叉点）
     let login_outcome = crate::api::web_book::RealBookSourceFetcher::execute_login_check(
+        &resources,
         source,
         &response_body,
         &response_url,
@@ -606,14 +630,15 @@ async fn explore_books_async(
         .js_lib
         .as_deref()
         .map(crate::api::source_js_bindings::sanitize_js_lib_for_quickjs);
-    let explore_setup = crate::api::source_js_bindings::book_source_js_setup_script(source).ok();
+    let explore_setup = deps.source_context.as_ref().and_then(|build| build(source));
     // P2-11 ①：src = 发现响应体（explore 顶层分析器；单参 java.* 回退重解析
     // 原始 body——对齐搜索路径 bind_orig_src 约定（web_book.rs L1269-1279）与
     // 上游 AnalyzeRule.kt L904 `bindings["src"] = content`（this.content 不被
     // 规则链更新，多步链子步单参 java.* 仍重解析顶层原始响应体；此前 explore
     // 链式 JS 的 src 为中间产物，P2-11 §194 残差）
     let body_src_json = serde_json::to_string(&body).unwrap_or_default();
-    let analyzer = crate::js_executor::construct_analyzer_with_source_context(
+    let analyzer = legado_fetcher::js_adapter::construct_analyzer_with_source_context(
+        &resources,
         body,
         base_url.clone(),
         &source.book_source_url,
@@ -686,7 +711,8 @@ async fn explore_books_async(
             .unwrap_or("")
     };
 
-    let mut elem_analyzer = crate::js_executor::construct_analyzer_with_source_context(
+    let mut elem_analyzer = legado_fetcher::js_adapter::construct_analyzer_with_source_context(
+        &resources,
         String::new(),
         base_url.clone(),
         &source.book_source_url,
@@ -1036,6 +1062,7 @@ mod login_check_tests {
     fn test_explore_login_check_bare_false_whole_source_fail() {
         let source = source_with_login_check("false;");
         let r = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "<html>登录页</html>",
             "https://a.com/explore",
@@ -1051,6 +1078,7 @@ mod login_check_tests {
     fn test_explore_login_check_bare_true_whole_source_fail() {
         let source = source_with_login_check("true;");
         let r = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "<html>正常页</html>",
             "https://a.com/explore",
@@ -1073,6 +1101,7 @@ mod login_check_tests {
         let js = r#"result.code() === 500 ? {code: 200, body: "auto-login-ok"} : "false""#;
         let source = source_with_login_check(js);
         let r = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "<html>登录页</html>",
             "https://a.com/explore",
@@ -1094,6 +1123,7 @@ mod login_check_tests {
         let js = r#"({code: 200, body: "modified-body", url: "https://a.com/new"})"#;
         let source = source_with_login_check(js);
         let r = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "<html>正常页</html>",
             "https://a.com/explore",
@@ -1114,6 +1144,7 @@ mod login_check_tests {
     fn test_explore_login_check_no_config_skips() {
         let source = BookSource::default();
         let r = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "<html>x</html>",
             "https://a.com",
@@ -1426,7 +1457,9 @@ function getServerHost() { return 'https://a.test'; }
         let _ = analyzer.get_string("{{1+1}}");
 
         // setup 执行后，书山 tag 的全局请求头应含固定 X-Novel-Token
-        let headers = legado_js::host_api::global_headers::headers_for(&source.book_source_url);
+        let headers = crate::engine_holder::js_resources()
+            .http_resources()
+            .headers_for(&source.book_source_url);
         assert_eq!(
             headers.get("X-Novel-Token").map(|s| s.as_str()),
             Some("SHUSAN_READ_2025"),
@@ -1983,7 +2016,6 @@ JSON.stringify(qtsj.concat([{title: base_url + '榜', url: '/rank'}]));
                 panic!("网络/解析失败（非占位符问题）: {msg}");
             }
         }
-        legado_js::host_api::variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// 猫眼看书形态回归（15 号实机缺陷）：空 mime data URI
@@ -2019,7 +2051,6 @@ JSON.stringify(qtsj.concat([{title: base_url + '榜', url: '/rank'}]));
                 panic!("空 mime data URI 不得进 reqwest（builder error 回归，实机 15 号形态）: {e}")
             }
         }
-        legado_js::host_api::variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// 带 `,{"type":...}` 选项的空 mime data URI（猫眼分类 URL 精确形态）：
@@ -2051,6 +2082,5 @@ JSON.stringify(qtsj.concat([{title: base_url + '榜', url: '/rank'}]));
             ),
             Err(e) => panic!("带 type 选项的空 mime data URI 不得进 reqwest: {e}"),
         }
-        legado_js::host_api::variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 }

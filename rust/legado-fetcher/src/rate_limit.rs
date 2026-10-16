@@ -2,8 +2,8 @@
 //!
 //! 原 `legado-ffi/src/api/source_rate_limit.rs` 的全局 `OnceLock` 限速表
 //! 下沉为可注入的 [`RateLimiterRegistry`]：每源限流器按 `book_source_url`
-//! 缓存，跨请求保持窗口状态。宿主（ffi）以进程级 OnceLock 持有单一注册表
-//! 实例，语义与下沉前一致。
+//! 缓存，跨请求保持窗口状态。宿主注入所属引擎的注册表句柄，
+//! 同一引擎共享窗口，独立引擎使用独立实例。
 //!
 //! 配置单写者（对齐上游 `ConcurrentRateLimiter` 的职责切分）：
 //! - [`RateLimiterRegistry::refresh`]（宿主书源保存路径统一入口，对应上游

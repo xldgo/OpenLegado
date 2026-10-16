@@ -2,26 +2,21 @@
 //! 启动真实 HTTP 服务 → 发送请求 → 验证响应
 
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use serde_json::json;
-use tokio::sync::Mutex;
 use tower::ServiceExt;
 
-use legado_core::download_manager::DownloadManager;
 use legado_server::routes::create_router;
 use legado_server::state::AppState;
 
 /// 测试辅助：构建共享状态（内存数据库）
 fn make_test_state() -> Arc<AppState> {
     let db = legado_db::init_in_memory_database().unwrap();
-    Arc::new(AppState {
-        db: Mutex::new(db),
-        search_cancelled: Arc::new(AtomicBool::new(false)),
-        download_manager: Mutex::new(DownloadManager::new(3)),
-    })
+    Arc::new(AppState::new(Arc::new(
+        legado_engine::EngineContext::from_database(db),
+    )))
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +206,7 @@ async fn test_search_endpoint() {
 
     // 先插入测试数据
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = legado_db::repository::book_repository::BookRepository::new(db.connection());
         use legado_core::models::Book;
         use legado_db::repository::Repository;

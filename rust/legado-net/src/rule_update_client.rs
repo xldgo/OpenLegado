@@ -53,6 +53,13 @@ pub struct MergeResult {
 /// 执行 HTTP GET 获取 JSON 文本。支持 `#requestWithoutUA` 后缀
 /// （去除 User-Agent 头，与 Kotlin 端行为一致）。
 pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String> {
+    fetch_subscription_with_hosts(sub, crate::custom_hosts::default_hosts()).await
+}
+
+pub async fn fetch_subscription_with_hosts(
+    sub: &RuleSubscription,
+    hosts: std::sync::Arc<crate::custom_hosts::CustomHosts>,
+) -> Result<String, String> {
     let (url, without_ua) = if sub.url.ends_with("#requestWithoutUA") {
         (
             sub.url.trim_end_matches("#requestWithoutUA").to_string(),
@@ -65,7 +72,7 @@ pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String
     let client = crate::tls::client_builder()
         .timeout(std::time::Duration::from_secs(30))
         .tls_danger_accept_invalid_certs(true)
-        .dns_resolver(crate::custom_hosts::resolver())
+        .dns_resolver(hosts.resolver())
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
 

@@ -199,6 +199,16 @@ impl Database {
         &self.conn
     }
 
+    /// 在读改写前取得 SQLite 写事务，替代宿主单连接互斥所提供的串行保护。
+    /// 事务和所有仓储操作须使用当前连接；失败时由 Transaction 自动回滚。
+    pub fn immediate_transaction(&self) -> LegadoResult<rusqlite::Transaction<'_>> {
+        rusqlite::Transaction::new_unchecked(
+            self.connection(),
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|error| LegadoError::Database(format!("开启写事务失败: {error}")))
+    }
+
     /// 设置常用 PRAGMA 优化参数（用于临时连接的一次性初始化）
     ///
     /// 池连接的 PRAGMA 由 `PragmaCustomizer` 自动设置，此方法仅用于迁移前的临时连接。

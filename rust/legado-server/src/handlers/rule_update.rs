@@ -69,29 +69,32 @@ pub struct ApplyUpdateResult {
 
 /// GET /api/rule-update/subs — 获取订阅列表
 pub async fn list_subs(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let subs = {
-        let db = state.db.lock().await;
-        let repo = RuleSubRepository::new(db.connection());
-        repo.find_all()?
-    };
+    state
+        .with_database(move |db| {
+            let subs = {
+                let repo = RuleSubRepository::new(db.connection());
+                repo.find_all()?
+            };
 
-    let items: Vec<SubInfo> = subs
-        .iter()
-        .map(|s| SubInfo {
-            id: s.id,
-            url: s.url.clone(),
-            name: s.name.clone(),
-            sub_type: s.sub_type.clone(),
-            last_update: s.last_update,
-            version: s.version.clone(),
-            is_enabled: s.is_enabled,
+            let items: Vec<SubInfo> = subs
+                .iter()
+                .map(|s| SubInfo {
+                    id: s.id,
+                    url: s.url.clone(),
+                    name: s.name.clone(),
+                    sub_type: s.sub_type.clone(),
+                    last_update: s.last_update,
+                    version: s.version.clone(),
+                    is_enabled: s.is_enabled,
+                })
+                .collect();
+
+            Ok(Json(json!({
+                "subs": items,
+                "total": items.len(),
+            })))
         })
-        .collect();
-
-    Ok(Json(json!({
-        "subs": items,
-        "total": items.len(),
-    })))
+        .await?
 }
 
 /// POST /api/rule-update/check — 检查更新
@@ -101,21 +104,20 @@ pub async fn check_update(
     State(state): State<Arc<AppState>>,
     Json(body): Json<CheckUpdateRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let subs = {
-        let db = state.db.lock().await;
-        let repo = RuleSubRepository::new(db.connection());
-        match &body.url {
-            Some(url) => match repo.find_by_url(url)? {
-                Some(s) => vec![s],
-                None => {
-                    return Ok(Json(json!({
-                        "results": [],
-                        "error": format!("未找到订阅: {url}"),
-                    })));
-                }
-            },
-            None => repo.get_enabled_subs()?,
-        }
+    let target = body.url.clone();
+    let subs = state
+        .with_database(move |db| {
+            let repo = RuleSubRepository::new(db.connection());
+            match target {
+                Some(url) => Ok::<_, ApiError>(repo.find_by_url(&url)?.map(|sub| vec![sub])),
+                None => Ok(Some(repo.get_enabled_subs()?)),
+            }
+        })
+        .await??;
+    let Some(subs) = subs else {
+        return Ok(Json(
+            json!({ "results": [], "error": format!("未找到订阅: {}", body.url.unwrap_or_default()) }),
+        ));
     };
 
     let mut results: Vec<CheckUpdateResult> = Vec::new();
@@ -127,7 +129,12 @@ pub async fn check_update(
             sub_type: sub.sub_type.clone(),
         };
 
-        match legado_net::fetch_subscription(&subscription).await {
+        match legado_net::rule_update_client::fetch_subscription_with_hosts(
+            &subscription,
+            state.engine.network().custom_hosts().clone(),
+        )
+        .await
+        {
             Ok(remote_json) => {
                 // 尝试从远程 JSON 中提取版本信息
                 let remote_version = extract_version(&remote_json);
@@ -166,11 +173,10 @@ pub async fn apply_update(
     State(state): State<Arc<AppState>>,
     Json(body): Json<ApplyUpdateRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let sub = {
-        let db = state.db.lock().await;
-        let repo = RuleSubRepository::new(db.connection());
-        repo.find_by_url(&body.url)?
-    };
+    let target = body.url.clone();
+    let sub = state
+        .with_database(move |db| RuleSubRepository::new(db.connection()).find_by_url(&target))
+        .await??;
 
     let sub = match sub {
         Some(s) => s,
@@ -188,7 +194,12 @@ pub async fn apply_update(
         sub_type: sub.sub_type.clone(),
     };
 
-    let remote_json = match legado_net::fetch_subscription(&subscription).await {
+    let remote_json = match legado_net::rule_update_client::fetch_subscription_with_hosts(
+        &subscription,
+        state.engine.network().custom_hosts().clone(),
+    )
+    .await
+    {
         Ok(content) => content,
         Err(e) => {
             return Ok(Json(json!({
@@ -211,9 +222,18 @@ pub async fn apply_update(
 
             let new_version = extract_version(&remote_json).unwrap_or_default();
             {
-                let db = state.db.lock().await;
-                let repo = RuleSubRepository::new(db.connection());
-                let _ = repo.update_version(sub.id, &new_version, now);
+                if let Err(error) = state
+                    .with_database(move |db| {
+                        let _ = RuleSubRepository::new(db.connection()).update_version(
+                            sub.id,
+                            &new_version,
+                            now,
+                        );
+                    })
+                    .await
+                {
+                    tracing::warn!("更新订阅版本失败（已忽略）: {error}");
+                }
             }
 
             ApplyUpdateResult {
@@ -263,13 +283,9 @@ mod tests {
 
     fn make_test_state() -> Arc<AppState> {
         let db = Database::open_in_memory().unwrap();
-        Arc::new(AppState {
-            db: tokio::sync::Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     fn make_router(state: Arc<AppState>) -> Router {
@@ -309,7 +325,7 @@ mod tests {
 
         // 插入测试数据
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = RuleSubRepository::new(db.connection());
             repo.insert(&RuleSubRecord {
                 url: "https://example.com/sub.json".to_string(),

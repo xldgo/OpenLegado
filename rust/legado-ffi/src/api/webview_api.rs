@@ -60,17 +60,12 @@ pub fn submit_webview_result(key: &str, result: &str) -> bool {
 /// **执行顺序（数据依赖）**：
 /// 1. 解析 `cookies_json`（JSON 对象：域键或 http(s) URL →
 ///    `k1=v1; k2=v2` cookie 串），域键一律 ETLD+1 归一
-///    （`cookie_store::normalized_cookie_key` 口径；P2-19：不相关域名的
+///    （`legado_net::cookie_store::normalize_cookie_key` 口径；P2-19：不相关域名的
 ///    cookie 绝不落行）；
 /// 2. 逐域键 [`crate::http_state::persist_cookie_row_merged`] merged
 ///    upsert（与既有两个写方同键集并集、同名键新值胜语义；DB 失败仅记
 ///    日志，不阻塞唤醒）；
-/// 3. 有非空条目落库时（quickjs 档）：
-///    [`legado_js::host_api::network::reset_shared_client_pools`] 同步 JS
-///    桥共享客户端池内存 CookieStore——复用项 A 的 reset/槽位语义（池由
-///    下次 JS 请求惰性重建，构建含持久化后端 DB `load_all` 在槽位写锁
-///    **之外**完成，临界区内无 DB/sink 调用；槽位锁临界区仅置 None）；
-///    空 / 全空条目跳过 reset（避免无谓拆除热池）；
+/// 3. 共享 jar 已同步更新，无需重建 JS 连接池；
 /// 4. 最后 [`webview_channel::submit_webview_result`] 唤醒等待方
 ///    （先持久化后唤醒——等待方恢复执行后 DB 行已就位，后续 JS 请求
 ///    即携带合并后 cookie）。
@@ -78,7 +73,6 @@ pub fn submit_webview_result(key: &str, result: &str) -> bool {
 /// 旧 [`submit_webview_result`] 冻结不动（旧端忽略未知字段 / 不做 cookie
 /// 回流，本方法纯加法式）。返回是否命中进行中的请求（同旧方法语义）。
 pub fn submit_webview_result_with_cookies(key: &str, result: &str, cookies_json: &str) -> bool {
-    let mut persisted_any = false;
     let trimmed = cookies_json.trim();
     if !trimmed.is_empty() && trimmed != "{}" {
         match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(trimmed) {
@@ -90,30 +84,16 @@ pub fn submit_webview_result_with_cookies(key: &str, result: &str, cookies_json:
                     };
                     // P2-19：域键一律 ETLD+1 归一（quickjs 档 http(s) URL →
                     // 域名键；默认档 → trim 原串，与 JS 侧写侧口径恒等）
-                    let domain_key =
-                        legado_js::host_api::cookie_store::normalized_cookie_key(&raw_key);
+                    let domain_key = legado_net::cookie_store::normalize_cookie_key(&raw_key);
                     if domain_key.is_empty() {
                         continue;
                     }
                     crate::http_state::persist_cookie_row_merged(&domain_key, &cookie_str);
-                    persisted_any = true;
                 }
             }
             Err(e) => {
                 log::warn!("WebView cookie 回流：cookies_json 解析失败（跳过持久化）: {e}");
             }
-        }
-    }
-    // 同步 JS 桥共享客户端池内存 CookieStore（仅 quickjs 档有 JS 池；
-    // 默认档条件恒读、块体 cfg 排除——避免 `persisted_any` 写而不读告警）
-    if persisted_any {
-        // 锁序不变式（项 A / http_state.rs:300-304 照抄）：池重建由下次 JS
-        // 请求惰性触发，构建（含持久化后端 DB `load_all`）在持有客户端槽位
-        // 写锁**之前**完成——槽位锁临界区内不做 DB/sink 调用；reset 本身
-        // 仅在槽位写锁下把四个池槽位置 None。
-        #[cfg(feature = "quickjs")]
-        {
-            legado_js::host_api::network::reset_shared_client_pools();
         }
     }
     webview_channel::submit_webview_result(key, result)
@@ -162,12 +142,12 @@ mod tests {
         let _gs = crate::test_support::lock_global_store();
         let _p = crate::test_support::lock_pool_tests();
         let _db_guard = crate::db_state::ensure_test_db();
-        use legado_js::host_api::cookie_store;
 
         const URL: &str = "https://a.wv-b1-merge.test/";
-        let dk = cookie_store::normalized_cookie_key(URL);
+        let dk = legado_net::cookie_store::normalize_cookie_key(URL);
         // 幂等清理残留行（DB 守卫已持有，失败即环境异常）
-        crate::http_state::delete_cookie_rows(&[dk.as_str()])
+        crate::engine_holder::network()
+            .clear_cookie_keys(&[dk.as_str()])
             .expect("清理残留行必须成功（DB 已初始化）");
         // 预置行（模拟 jar / JS 侧已落库键 a=1）
         crate::http_state::persist_cookie_row_merged(&dk, "a=1");
@@ -214,7 +194,8 @@ mod tests {
             "merged upsert 必须为键集并集 + 同名新值胜: {row}"
         );
         // 收尾清理
-        crate::http_state::delete_cookie_rows(&[dk.as_str()])
+        crate::engine_holder::network()
+            .clear_cookie_keys(&[dk.as_str()])
             .expect("收尾清理必须成功（DB 已初始化）");
     }
 
@@ -225,17 +206,18 @@ mod tests {
         let _gs = crate::test_support::lock_global_store();
         let _p = crate::test_support::lock_pool_tests();
         let _db_guard = crate::db_state::ensure_test_db();
-        use legado_js::host_api::cookie_store;
 
         // 两域 ETLD+1 必须不同（keep → wv-b1.test；other → wv-b2.test），
         // 且 other 为子域形态（验证归一后不落子域原始行）
         const KEEP_URL: &str = "https://keep.wv-b1.test/";
         const OTHER_URL: &str = "https://sub.unrelated.wv-b2.test/";
-        let keep_dk = cookie_store::normalized_cookie_key(KEEP_URL);
-        let other_dk = cookie_store::normalized_cookie_key(OTHER_URL);
+        let keep_dk = legado_net::cookie_store::normalize_cookie_key(KEEP_URL);
+        let other_dk = legado_net::cookie_store::normalize_cookie_key(OTHER_URL);
         assert_ne!(keep_dk, other_dk, "两个域键必须不同");
         let tags: Vec<&str> = vec![keep_dk.as_str(), other_dk.as_str()];
-        crate::http_state::delete_cookie_rows(&tags).expect("清理残留行必须成功（DB 已初始化）");
+        crate::engine_holder::network()
+            .clear_cookie_keys(&tags)
+            .expect("清理残留行必须成功（DB 已初始化）");
 
         // 无关域已有行
         crate::http_state::persist_cookie_row_merged(&keep_dk, "keep=1");
@@ -271,7 +253,9 @@ mod tests {
         }
         // 收尾清理
         let tags: Vec<&str> = vec![keep_dk.as_str(), other_dk.as_str()];
-        crate::http_state::delete_cookie_rows(&tags).expect("收尾清理必须成功（DB 已初始化）");
+        crate::engine_holder::network()
+            .clear_cookie_keys(&tags)
+            .expect("收尾清理必须成功（DB 已初始化）");
     }
 
     /// 空 / 非法 cookiesJson：不 panic、不落库、唤醒语义与旧方法一致

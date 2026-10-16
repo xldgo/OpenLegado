@@ -225,7 +225,8 @@ fn search_one_cover_rule(rule: &CoverRule, key: &str) -> Result<Option<String>, 
     })?;
 
     // 4. coverRule 提取（getString 语义，复用 AnalyzeRule 自动路由）
-    let analyzer = AnalyzeRule::new(body, analyze_url.url().to_string());
+    let analyzer = AnalyzeRule::new(body, analyze_url.url().to_string())
+        .with_variable_reader(crate::engine_holder::js_resources().variable_reader());
     let raw = analyzer
         .get_string(cover_rule)
         .map_err(|e| format!("coverRule 提取失败: {e}"))?;

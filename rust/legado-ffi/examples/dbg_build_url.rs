@@ -12,7 +12,6 @@ fn main() {
     let query = args[2].clone();
     let name_filter = args[3].clone();
 
-    legado_ffi::db_state::record_db_path(&db_path);
     let db = match legado_ffi::legado_db::init_database(&db_path) {
         Ok(d) => d,
         Err(e) => {

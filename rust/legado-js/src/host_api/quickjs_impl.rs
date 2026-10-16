@@ -31,10 +31,9 @@ use crate::host_api::coerce::{
 use legado_core::LegadoError;
 
 use crate::host_api::{
-    archive_utils, asymmetric_crypto, cache_store, capability_ledger, chinese_utils,
-    concurrency_api, config_api, cookie_store, crypto_api, encoding, file_utils, font_api,
-    html_format, html_parse, json_utils, message_digest, misc_api, network, platform, regex_utils,
-    register::mount_dual, string_utils, symmetric_crypto, time_utils, variable_store,
+    archive_utils, asymmetric_crypto, capability_ledger, chinese_utils, cookie_store, crypto_api,
+    encoding, file_utils, html_format, html_parse, json_utils, message_digest, misc_api, network,
+    platform, regex_utils, register::mount_dual, string_utils, symmetric_crypto, time_utils,
 };
 use crate::sandbox::SandboxConfig;
 use rquickjs::function::Opt;
@@ -164,6 +163,35 @@ pub fn register_all_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     config: &SandboxConfig,
 ) -> Result<(), LegadoError> {
+    register_apis_with_binding(
+        ctx,
+        config,
+        crate::host_api::variable_bindings::BoundVariables::new(
+            std::sync::Arc::new(crate::variables::VariableStore::default()).unscoped(),
+        ),
+        Default::default(),
+        Default::default(),
+    )
+}
+
+/// 引擎只注册一次宿主回调，实际 flow 随每次受锁保护的求值切换。
+pub(crate) fn register_all_apis_with_binding<'js>(
+    ctx: &rquickjs::Ctx<'js>,
+    config: &SandboxConfig,
+    variables: crate::host_api::variable_bindings::BoundVariables,
+    http: std::sync::Arc<crate::http_resources::HttpResources>,
+    host: std::sync::Arc<crate::host_resources::JsHostResources>,
+) -> Result<(), LegadoError> {
+    register_apis_with_binding(ctx, config, variables, http, host)
+}
+
+fn register_apis_with_binding<'js>(
+    ctx: &rquickjs::Ctx<'js>,
+    config: &SandboxConfig,
+    variables: crate::host_api::variable_bindings::BoundVariables,
+    http: std::sync::Arc<crate::http_resources::HttpResources>,
+    host: std::sync::Arc<crate::host_resources::JsHostResources>,
+) -> Result<(), LegadoError> {
     let globals = ctx.globals();
 
     // 创建 java 命名空间对象
@@ -177,15 +205,15 @@ pub fn register_all_apis<'js>(
     register_time_apis(ctx, &java, &globals)?;
     // 文件 API 仅在 allow_file_access = true 时注册（安全门控）
     if config.allow_file_access {
-        register_file_apis(ctx, &java, &globals)?;
+        register_file_apis(ctx, &java, &globals, &http)?;
     }
-    register_variable_apis(ctx, &java, &globals)?;
+    register_variable_apis(ctx, &java, &globals, &variables)?;
     // P2-11 ①：book 绑定写路径桥（java-only；FFI web_book IIFE 经
     // `java.__lgBook*` 探测后落 variable_store 裸键持久层）
-    register_book_binding_bridges(ctx, &java)?;
+    register_book_binding_bridges(ctx, &java, &variables)?;
     register_utility_apis(ctx, &java, &globals)?;
-    register_network_apis(ctx, &java, &globals)?;
-    register_cookie_apis(ctx, &java, &globals)?;
+    register_network_apis(ctx, &java, &globals, &http)?;
+    register_cookie_apis(ctx, &java, &globals, &http)?;
     register_crypto_apis(ctx, &java, &globals)?;
     // java.security.MessageDigest（纯 Rust md-5/sha1/sha2）：Packages 模拟层
     // 的 security.MessageDigest.getInstance 依赖 messageDigestValidate/Digest
@@ -195,13 +223,13 @@ pub fn register_all_apis<'js>(
     register_html_apis(ctx, &java, &globals)?;
     register_html_parse_apis(ctx, &java, &globals)?;
     register_chinese_apis(ctx, &java, &globals)?;
-    register_config_apis(ctx, &java, &globals)?;
-    register_concurrency_apis(ctx, &java, &globals)?;
-    register_misc_apis(ctx, &java, &globals)?;
-    register_archive_apis(ctx, &java, &globals)?;
-    register_font_apis(ctx, &java, &globals)?;
+    register_config_apis(ctx, &java, &globals, &host.config)?;
+    register_concurrency_apis(ctx, &java, &globals, &host.concurrency)?;
+    register_misc_apis(ctx, &java, &globals, &http)?;
+    register_archive_apis(ctx, &java, &globals, &http)?;
+    register_font_apis(ctx, &java, &globals, &http)?;
     // 全局 cache 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存，对齐 WebCacheManager）
-    register_cache_apis(ctx, &java, &globals)?;
+    register_cache_apis(ctx, &java, &globals, &host.cache)?;
 
     // 队列④ 能力受限台账：Packages 模拟层遇到未覆盖的 Java 类/成员时登记符号
     // （capability_ledger），供"下一批补什么"诊断查询。必须先于
@@ -2018,6 +2046,7 @@ fn register_file_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    http: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     mount_dual(
         java,
@@ -2080,23 +2109,29 @@ fn register_file_apis<'js>(
         java,
         globals,
         "downloadFile",
-        rquickjs::Function::new(ctx.clone(), |arg1: RhinoStr, arg2: RhinoOptStr| -> String {
-            match arg2.0.as_deref() {
-                None => file_utils::download_file(&arg1, None)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-                Some(second)
-                    if second.starts_with("http://")
-                        || second.starts_with("https://")
-                        || second.contains(",{") =>
-                {
-                    // 废弃重载：content(hex) + url
-                    file_utils::download_file_from_hex(&arg1, second)
-                        .unwrap_or_else(|e| format!("[ERROR] {}", e))
-                }
-                Some(file_name) => file_utils::download_file(&arg1, Some(file_name))
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-            }
-        })
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |arg1: RhinoStr, arg2: RhinoOptStr| -> String {
+                    match arg2.0.as_deref() {
+                        None => file_utils::download_file(&http, &arg1, None)
+                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
+                        Some(second)
+                            if second.starts_with("http://")
+                                || second.starts_with("https://")
+                                || second.contains(",{") =>
+                        {
+                            // 废弃重载：content(hex) + url
+                            file_utils::download_file_from_hex(&arg1, second)
+                                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                        }
+                        Some(file_name) => file_utils::download_file(&http, &arg1, Some(file_name))
+                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
+                    }
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2153,9 +2188,12 @@ fn register_file_apis<'js>(
         java,
         globals,
         "cacheFile",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr| -> String {
-            file_utils::cache_file(&url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        {
+            let http = http.clone();
+            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
+                file_utils::cache_file(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2164,9 +2202,12 @@ fn register_file_apis<'js>(
         java,
         globals,
         "importScript",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr| -> String {
-            file_utils::import_script(&url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        {
+            let http = http.clone();
+            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
+                file_utils::import_script(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2189,16 +2230,21 @@ fn register_variable_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    variables: &crate::host_api::variable_bindings::BoundVariables,
 ) -> Result<(), LegadoError> {
     mount_dual(
         java,
         globals,
         "getVariable",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> String {
-            variable_store::get_variable(&key)
-                .ok()
-                .flatten()
-                .unwrap_or_default()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr| -> String {
+                variables
+                    .get_variable(&key)
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default()
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2207,8 +2253,11 @@ fn register_variable_apis<'js>(
         java,
         globals,
         "setVariable",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr, value: RhinoStr| -> bool {
-            variable_store::set_variable(&key, &value).is_ok()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr, value: RhinoStr| -> bool {
+                variables.set_variable(&key, &value).is_ok()
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2217,11 +2266,11 @@ fn register_variable_apis<'js>(
         java,
         globals,
         "removeVariable",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> bool {
-            variable_store::remove_variable(&key)
-                .ok()
-                .flatten()
-                .is_some()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr| -> bool {
+                variables.remove_variable(&key).ok().flatten().is_some()
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2230,20 +2279,24 @@ fn register_variable_apis<'js>(
         java,
         globals,
         "clearVariables",
-        rquickjs::Function::new(ctx.clone(), || -> bool {
-            variable_store::clear_variables().is_ok()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move || -> bool { variables.clear_variables().is_ok() }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // 对齐 AnalyzeRule.put / get / setLocal（与 getVariable 共用全局表作 JS 会话变量）
+    // 裸 put/get/setLocal 与 getVariable 使用同一宿主存储，保留来源/cache 裸键语义。
     mount_dual(
         java,
         globals,
         "put",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr, value: RhinoStr| -> String {
-            let _ = variable_store::set_variable(&key, &value);
-            value.0
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr, value: RhinoStr| -> String {
+                let _ = variables.set_variable(&key, &value);
+                value.0
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2252,11 +2305,15 @@ fn register_variable_apis<'js>(
         java,
         globals,
         "get",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> String {
-            variable_store::get_variable(&key)
-                .ok()
-                .flatten()
-                .unwrap_or_default()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr| -> String {
+                variables
+                    .get_variable(&key)
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default()
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2265,36 +2322,31 @@ fn register_variable_apis<'js>(
         java,
         globals,
         "setLocal",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr, value: RhinoStr| -> bool {
-            variable_store::set_variable(&key, &value).is_ok()
+        rquickjs::Function::new(ctx.clone(), {
+            let variables = variables.clone();
+            move |key: RhinoStr, value: RhinoStr| -> bool {
+                variables.set_variable(&key, &value).is_ok()
+            }
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // P2-9 ③：进程级全局变量表桥接。解析器 JS 前导（AnalyzeRule::execute_js_rule）
-    // 会把 java.put/java.get 覆盖为 eval 内 __lgVars 本地快照（注入的会话变量
-    // 优先）；引擎注册这两个桥接函数后，前导的 java.put 同步写全局表、java.get
-    // 本地未命中兜底读全局表（本地优先）——恢复原版「java.put → @get 跨规则
-    // 可见」的会话变量语义（手机小说 init `java.put("url",…)` 须被 tocUrl
-    // `@get:{url}` 读到，否则目录页回退 book_url）。仅挂 java 命名空间
-    //（前导统一经 `java.__lgStore*` 引用），不上全局裸名。
-    //
-    // P1-1/P1-2（P2-9 ③ 审查修复）：桥读写改走 **flow scope** 会话层
-    //（`lgflow::{scope}{key}` 命名空间，scope 由 FFI 各书籍流程入口
-    // `begin_book_flow` 设置）：换书只清旧 scope 前缀（持久裸键
-    // `v_*`/`sourceVariable_*`/登录缓存/`cache.*` 不受影响，P1-1），
-    // 跨书源/跨书会话键互不可见（P1-2）。未设 scope 的直用引擎/残留
-    // 入口回落裸键（与 P2-9 ③ 引入前一致）。裸 `put`/`get`/`setVariable`
-    // 等源上下文挂载（source.put/cache.put 等持久键写入者）保持不变。
-    let store_put = rquickjs::Function::new(ctx.clone(), |key: RhinoStr, value: RhinoStr| {
-        let _ = variable_store::put_flow_variable(&key, &value);
+    // AnalyzeRule 前导经 __lgStorePut/Get 读写本次 flow，本地变量仍优先。
+    // 已迁移入口捕获明确句柄；旧书源入口在成组迁移前仍走既有 flow 单槽。
+    // 裸 put/get/setVariable 等持久层不改为 flow 键，避免 cache 跨调用失效。
+    let store_put = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |key: RhinoStr, value: RhinoStr| {
+            let _ = variables.put_flow_variable(&key, &value);
+        }
     })
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgStorePut", store_put)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    let store_get = rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> String {
-        variable_store::get_flow_variable(&key).unwrap_or_default()
+    let store_get = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |key: RhinoStr| -> String { variables.get_flow_variable(&key).unwrap_or_default() }
     })
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgStoreGet", store_get)
@@ -2304,64 +2356,32 @@ fn register_variable_apis<'js>(
 }
 
 /// P2-11 ①：`book` 绑定写路径宿主桥（java-only，不上裸全局）
-/// P2-15：追加读桥 `__lgBookVarGet`（同阶段跨规则可见性的读路径）
-///
-/// FFI 侧 `web_book.rs` 的 `book` 绑定 IIFE 中，`book.putVariable` /
-/// `book.type=` / `book.setReverseToc` 等写操作经本模块的桥落到
-/// [`variable_store`] 的**裸键持久层**（键格式由
-/// [`variable_store::book_var_key`] / [`variable_store::book_type_key`] /
-/// [`variable_store::book_reverse_toc_key`] 构造，两侧共用防漂移）：
-///
-/// - `__lgBookVarSet(bookUrl, key, value)` / `__lgBookVarDel(bookUrl, key)`
-///   → `bookVar::{bookUrl}::{key}`（`putVariable(k,null)` 走删除路径）
-/// - `__lgBookSetType(bookUrl, typeStr)` → `bookType::{bookUrl}`
-///   （语料 `book.type=8/32/64` 切小说/音频/漫画模式的落点）
-/// - `__lgBookSetReverseToc(bookUrl, flagStr)` → `bookReverseToc::{bookUrl}`
-/// - 【P2-15】`__lgBookVarGet(bookUrl, key)` → 读 `bookVar::{bookUrl}::{key}`，
-///   未命中返回 `""`。供 IIFE `book.getVariable` 在本地字面量（构造期
-///   快照）未命中时兜底，闭合**同阶段跨规则**读路径：同阶段规则 B 的
-///   新 IIFE 实例字面量是构造时点快照（不含规则 A 在构造后的写入），
-///   经本桥回读 store 才可见（对齐上游同书 `Book.variable` 活对象语义）。
-///   bookUrl 由 IIFE 以 `b.bookUrl`（本书）传入，跨书不串读。
-///
-/// **生命周期**：进程级（`GLOBAL_VARIABLES`，进程重启即失——降级项，
-/// 未做 DB 持久化）。**可见性**（P2-15 修正，此前「同书后续规则/请求
-/// 均能看到」表述不准确——同阶段**同字面量**只含构造时点值）：
-/// 1. **绑定构造期**：同 `bookUrl` 的详情 → 目录 → 正文 / 二次详情 /
-///    换源各阶段**新构造**的绑定，经 `web_book::book_write_overlays`
-///    读回本层并合并进字面量 → 后续阶段的绑定初值含前面阶段的写入；
-/// 2. **同阶段跨规则**（P2-15）：同阶段规则 B 的新 IIFE 实例经
-///    `__lgBookVarGet` 兜底读 store，对规则 A 在构造后的写入可见；
-/// 3. **`java.get`/`@get`**（P2-15）：经 `variable_store::get_flow_variable`
-///    链尾 bookVar 兜底（flow scope = 本书 bookUrl 时），同书同流程内
-///    可见（就去看网 `book.putVariable` → `java.get` 闭环）。
-///
-/// 跨书以 `bookUrl` 隔离，不串读。
-/// **降级说明**：引擎未注入这些桥（非 QuickJS 引擎 / 旧引擎实例）时
-/// IIFE 内的探测函数 `hb` 返回 null，写操作静默退化为仅改本地副本
-/// （等价改造前行为，不抛错）；读桥缺失时 `getVariable` 回退改造前
-/// 的纯本地字面量行为；桥写入失败（store 锁异常等）同样 `let _ =`
-/// 吞掉——写路径永不阻断规则求值。
+/// 读写都委托当前 VM 绑定的变量能力。显式书籍流程以来源＋bookUrl 定位，
+/// 普通直接执行仍使用所属存储的裸键；未迁移入口继续走既有进程表。
+/// `__lgBookVarGet` 为同阶段后续规则的实时读取桥，构造期字面量不反向更新。
+/// type/reverseToc 在显式书籍能力中归属流程，其他流程启动不清除在途值。
+/// 回调只捕获能力槽，不捕获 VM、JsResources 或 EngineContext。
 #[cfg(feature = "quickjs")]
 fn register_book_binding_bridges<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
+    variables: &crate::host_api::variable_bindings::BoundVariables,
 ) -> Result<(), LegadoError> {
-    let var_set = rquickjs::Function::new(
-        ctx.clone(),
-        |book_url: RhinoStr, key: RhinoStr, value: RhinoStr| {
-            let _ = variable_store::set_variable(
-                &variable_store::book_var_key(&book_url, &key),
-                &value,
-            );
-        },
-    )
+    let var_set = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |book_url: RhinoStr, key: RhinoStr, value: RhinoStr| {
+            let _ = variables.set_book_variable(&book_url, &key, &value);
+        }
+    })
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgBookVarSet", var_set)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    let var_del = rquickjs::Function::new(ctx.clone(), |book_url: RhinoStr, key: RhinoStr| {
-        let _ = variable_store::remove_variable(&variable_store::book_var_key(&book_url, &key));
+    let var_del = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |book_url: RhinoStr, key: RhinoStr| {
+            let _ = variables.remove_book_variable(&book_url, &key);
+        }
     })
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgBookVarDel", var_del)
@@ -2369,32 +2389,37 @@ fn register_book_binding_bridges<'js>(
 
     // P2-15：读桥——IIFE `book.getVariable` 本地字面量未命中时回读本层
     // （同阶段跨规则可见性；未命中/锁失败返回空串，不抛错）
-    let var_get =
-        rquickjs::Function::new(ctx.clone(), |book_url: RhinoStr, key: RhinoStr| -> String {
-            variable_store::get_variable(&variable_store::book_var_key(&book_url, &key))
+    let var_get = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |book_url: RhinoStr, key: RhinoStr| -> String {
+            variables
+                .get_book_variable(&book_url, &key)
                 .ok()
                 .flatten()
                 .unwrap_or_default()
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+        }
+    })
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgBookVarGet", var_get)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    let set_type = rquickjs::Function::new(ctx.clone(), |book_url: RhinoStr, value: RhinoStr| {
-        let _ = variable_store::set_variable(&variable_store::book_type_key(&book_url), &value);
+    let set_type = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |book_url: RhinoStr, value: RhinoStr| {
+            let _ = variables.set_book_type(&book_url, &value);
+        }
     })
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgBookSetType", set_type)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    let set_reverse_toc =
-        rquickjs::Function::new(ctx.clone(), |book_url: RhinoStr, flag: RhinoStr| {
-            let _ = variable_store::set_variable(
-                &variable_store::book_reverse_toc_key(&book_url),
-                &flag,
-            );
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+    let set_reverse_toc = rquickjs::Function::new(ctx.clone(), {
+        let variables = variables.clone();
+        move |book_url: RhinoStr, flag: RhinoStr| {
+            let _ = variables.set_book_reverse_toc(&book_url, &flag);
+        }
+    })
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("__lgBookSetReverseToc", set_reverse_toc)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
@@ -2585,16 +2610,18 @@ fn register_network_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    resources: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     // httpGet(url, headers?) -> String
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "httpGet",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_get(&url, headers.0.as_deref())
+            move |url: RhinoStr, headers: RhinoOptStr| -> String {
+                network::http_get(&http.request(), &url, headers.0.as_deref())
                     .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
@@ -2602,14 +2629,15 @@ fn register_network_apis<'js>(
     )?;
 
     // httpPost(url, body, headers?) -> String
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "httpPost",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_post(&url, &body, headers.0.as_deref())
+            move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
+                network::http_post(&http.request(), &url, &body, headers.0.as_deref())
                     .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
@@ -2617,12 +2645,13 @@ fn register_network_apis<'js>(
     )?;
 
     // httpHead(url) -> String（响应头 JSON）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "httpHead",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr| -> String {
-            network::http_head(&url).unwrap_or_else(|e| format!("[ERROR] {}", e))
+        rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
+            network::http_head(&http.request(), &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2637,16 +2666,19 @@ fn register_network_apis<'js>(
     // 数值表）显示装箱数值严格转换（字符串数字抛「方法不存在」），与
     // connect 的 `Opt<i64>`（同为上游 `callTimeout: Long?`）同款；缺参/显式
     // null → None（arity 由 FromParam::optional 保留，单参形态不回归）。
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "ajax",
         rquickjs::Function::new(
             ctx.clone(),
-            |options: AjaxUrlStr, call_timeout: RhinoOptLong| -> String {
+            move |options: AjaxUrlStr, call_timeout: RhinoOptLong| -> String {
                 match network::call_timeout_to_request_timeout(call_timeout.0) {
-                    Ok(timeout_ms) => network::ajax_with_timeout(&options.0, timeout_ms)
-                        .unwrap_or_else(|e| format!("[ERROR] {}", e)),
+                    Ok(timeout_ms) => {
+                        network::ajax_with_timeout(&http.request(), &options.0, timeout_ms)
+                            .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                    }
                     Err(e) => format!("[ERROR] {}", e),
                 }
             },
@@ -2657,16 +2689,17 @@ fn register_network_apis<'js>(
     // putGlobalHeaders(headers_json) -> bool
     // 书源 header @js 规则执行结果写入全局请求头（按当前书源 tag 隔离），
     // java.ajax 自动携带（对齐 AnalyzeUrl.getHeaderMap；书山固定 X-Novel-Token）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "putGlobalHeaders",
-        rquickjs::Function::new(ctx.clone(), |headers_json: RhinoStr| -> bool {
+        rquickjs::Function::new(ctx.clone(), move |headers_json: RhinoStr| -> bool {
             match serde_json::from_str::<std::collections::HashMap<String, String>>(&headers_json) {
                 Ok(map) => {
                     let tag =
                         crate::host_api::current_source::current_source_tag().unwrap_or_default();
-                    crate::host_api::global_headers::put_headers(&tag, map);
+                    http.put_headers(&tag, map);
                     true
                 }
                 Err(_) => false,
@@ -2712,12 +2745,13 @@ fn register_network_apis<'js>(
     // 对应 Kotlin: ajaxAll(urlList: Array<String>): Array<StrResponse>
     // 入参经 LooseStrList 宽松收敛：JS 数组（晋江文学 bookList `java.ajaxAll(urls)`）
     // → 元素级 ToString 后的 JSON 数组文本；null/undefined → 空串（空列表）。
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "ajaxAll",
-        rquickjs::Function::new(ctx.clone(), |urls: LooseStrList| -> String {
-            network::ajax_all(&urls.0).unwrap_or_else(|e| format!("[ERROR] {}", e))
+        rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
+            network::ajax_all(&http.request(), &urls.0).unwrap_or_else(|e| format!("[ERROR] {}", e))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2728,19 +2762,21 @@ fn register_network_apis<'js>(
     // timeout_ms 上游为可空 Long?（JsExtensions.kt:214 `callTimeout: Long?`；
     // jsHelp.md:212 的 `Int?` 系过时文档）：装箱数值 + Rhino 探针实测严格
     // （字符串数字报「方法不存在」），故**保持** `Opt<i64>` 严格转换（W4 边界）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "connect",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr,
-             method: RhinoOptStr,
-             headers: RhinoOptStr,
-             body: RhinoOptStr,
-             timeout_ms: Opt<i64>|
-             -> String {
+            move |url: RhinoStr,
+                  method: RhinoOptStr,
+                  headers: RhinoOptStr,
+                  body: RhinoOptStr,
+                  timeout_ms: Opt<i64>|
+                  -> String {
                 network::connect_full(
+                    &http.request(),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
@@ -2755,18 +2791,20 @@ fn register_network_apis<'js>(
 
     // connectNR(url, method?, headers?, body?) -> String（完整响应 JSON，不跟随重定向）
     // 对齐原版 jsoup followRedirects(false)：java.get/post/head 拦截重定向需读 Location 头
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "connectNR",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr,
-             method: RhinoOptStr,
-             headers: RhinoOptStr,
-             body: RhinoOptStr|
-             -> String {
+            move |url: RhinoStr,
+                  method: RhinoOptStr,
+                  headers: RhinoOptStr,
+                  body: RhinoOptStr|
+                  -> String {
                 network::connect_no_redirect(
+                    &http.request(),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
@@ -2780,14 +2818,15 @@ fn register_network_apis<'js>(
 
     // head(url, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: head(urlStr, headers): Connection.Response
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "head",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::head_full(&url, headers.0.as_deref())
+            move |url: RhinoStr, headers: RhinoOptStr| -> String {
+                network::head_full(&http.request(), &url, headers.0.as_deref())
                     .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
@@ -2796,14 +2835,15 @@ fn register_network_apis<'js>(
 
     // post(url, body, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: post(urlStr, body, headers): Connection.Response
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "post",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::post_full(&url, &body, headers.0.as_deref())
+            move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
+                network::post_full(&http.request(), &url, &body, headers.0.as_deref())
                     .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
@@ -2820,22 +2860,31 @@ fn register_cookie_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    resources: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     // getCookie(url, key?) -> String
     // 参数名为历史遗留（曾按书源 tag 口径命名）：上游同步后（2026-09-23 用户裁决）
     // 该参数语义为**请求/写入 URL**（或 URL 形态原始串键），归一与取用下沉在
     // cookie_store 内部（写侧 `getSubDomain(url)` 等价域名键，读侧按 URL 属域 +
     // 原始串兼容键，详见 [`cookie_store`] 模块文档）。
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "getCookie",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr, key: RhinoOptStr| -> String {
-            match key.0 {
-                Some(k) => cookie_store::get_cookie_by_key(&url, &k),
-                None => cookie_store::get_cookie(&url),
-            }
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            move |url: RhinoStr, key: RhinoOptStr| -> String {
+                match key.0 {
+                    Some(k) => cookie_store::cookie_str_to_map(&http.cookies().get(&url))
+                        .into_iter()
+                        .find(|(key, _)| key == &k)
+                        .map(|(_, value)| value)
+                        .unwrap_or_default(),
+                    None => http.cookies().get(&url),
+                }
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2845,26 +2894,31 @@ fn register_cookie_apis<'js>(
     // 保留原键（镜像上游回退）。
     // cookieStr 格式: "key=value" 或 "key=value; key2=value2"——解析口径
     // （`;` 拆段、首个 `=` 分界、无 `=` 段 / 空键跳过、各 trim 一次）下沉在
-    // `cookie_store::set_cookie_str`：多段串一次锁内更新 + 至多一次持久化
+    // HttpResources.set_cookie：多段串一次锁内更新 + 至多一次持久化
     // upsert（逐段 `set_cookie` 则每段一次锁 + 一次 upsert——高频写放大）。
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "setCookie",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr, cookie_str: RhinoStr| -> bool {
-            cookie_store::set_cookie_str(&url, &cookie_str);
-            true
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            move |url: RhinoStr, cookie_str: RhinoStr| -> bool {
+                http.set_cookie(&url, &cookie_str);
+                true
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     // clearCookies(url) -> bool（清该 URL 归一域名键 + 原始串键的全部 cookie）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "clearCookies",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr| -> bool {
-            cookie_store::clear_cookies(&url);
+        rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> bool {
+            http.cookies().clear(&url);
             true
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2875,12 +2929,13 @@ fn register_cookie_apis<'js>(
     // @js: URL 模板 {{url=source.getKey();cookie.removeCookie(url)}} 内联
     // 成 /true/search/ → 404（企鹅小说实测）。删除该域全部 cookie。
     // — 2026-08-17
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "removeCookie",
-        rquickjs::Function::new(ctx.clone(), |url: RhinoStr| -> String {
-            cookie_store::clear_cookies(&url);
+        rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
+            http.cookies().clear(&url);
             String::new()
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2891,14 +2946,15 @@ fn register_cookie_apis<'js>(
     // cookie ∪ 新串按键合并（新值覆盖、旧键保留）后写回；空参 no-op。
     // 返回空串（上游返回 Unit → Rhino null → evalJS 兜底空串；沿用
     // removeCookie 同款口径，防 URL 模板内联 true）。— 3b-3
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "replaceCookie",
         rquickjs::Function::new(
             ctx.clone(),
-            |url: RhinoStr, cookie_str: RhinoStr| -> String {
-                cookie_store::replace_cookie_str(&url, &cookie_str);
+            move |url: RhinoStr, cookie_str: RhinoStr| -> String {
+                http.replace_cookie(&url, &cookie_str);
                 String::new()
             },
         )
@@ -3637,6 +3693,7 @@ fn register_cache_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    cache_state: &std::sync::Arc<crate::host_api::cache_store::CacheStore>,
 ) -> Result<(), LegadoError> {
     let cache =
         rquickjs::Object::new(ctx.clone()).map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3650,17 +3707,20 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "put",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>,
-                 key: RhinoStr,
-                 value: rquickjs::Value<'js>,
-                 save_time: RhinoOptInt|
-                 -> bool {
-                    let v = stringify_cache_value(&ctx, &value);
-                    cache_store::put(&key, &v, save_time.0.map(|s| s as i64).unwrap_or(0))
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr,
+                          value: rquickjs::Value<'js>,
+                          save_time: RhinoOptInt|
+                          -> bool {
+                        let v = stringify_cache_value(&ctx, &value);
+                        cache_store.put(&key, &v, save_time.0.map(|s| s as i64).unwrap_or(0))
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3669,12 +3729,18 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "putMemory",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>, key: RhinoStr, value: rquickjs::Value<'js>| -> () {
-                    cache_store::put_memory(&key, &stringify_cache_value(&ctx, &value));
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr,
+                          value: rquickjs::Value<'js>|
+                          -> () {
+                        cache_store.put_memory(&key, &stringify_cache_value(&ctx, &value));
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3683,14 +3749,17 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "getFromMemory",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>,
-                 key: RhinoStr|
-                 -> rquickjs::Result<rquickjs::Value<'js>> {
-                    cache_value_or_null(&ctx, cache_store::get_from_memory(&key))
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr|
+                          -> rquickjs::Result<rquickjs::Value<'js>> {
+                        cache_value_or_null(&ctx, cache_store.get_from_memory(&key))
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3699,12 +3768,15 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "deleteMemory",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |_ctx: rquickjs::Ctx<'js>, key: RhinoStr| -> () {
-                    cache_store::delete_memory(&key);
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |_ctx: rquickjs::Ctx<'js>, key: RhinoStr| -> () {
+                        cache_store.delete_memory(&key);
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3719,12 +3791,15 @@ fn register_cache_apis<'js>(
         java,
         globals,
         "cachePutMemory",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>, key: RhinoStr, value: rquickjs::Value<'js>| -> () {
-                cache_store::put_memory(&key, &stringify_cache_value(&ctx, &value));
-            },
-        )
+        {
+            let cache_store = cache_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>, key: RhinoStr, value: rquickjs::Value<'js>| -> () {
+                    cache_store.put_memory(&key, &stringify_cache_value(&ctx, &value));
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3733,12 +3808,17 @@ fn register_cache_apis<'js>(
         java,
         globals,
         "cacheGetFromMemory",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>, key: RhinoStr| -> rquickjs::Result<rquickjs::Value<'js>> {
-                cache_value_or_null(&ctx, cache_store::get_from_memory(&key))
-            },
-        )
+        {
+            let cache_store = cache_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>,
+                      key: RhinoStr|
+                      -> rquickjs::Result<rquickjs::Value<'js>> {
+                    cache_value_or_null(&ctx, cache_store.get_from_memory(&key))
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3746,9 +3826,12 @@ fn register_cache_apis<'js>(
         java,
         globals,
         "cacheDeleteMemory",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> () {
-            cache_store::delete_memory(&key);
-        })
+        {
+            let cache_store = cache_state.clone();
+            rquickjs::Function::new(ctx.clone(), move |key: RhinoStr| -> () {
+                cache_store.delete_memory(&key);
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3758,15 +3841,21 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "get",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>,
-                 key: RhinoStr,
-                 only_disk: Opt<bool>|
-                 -> rquickjs::Result<rquickjs::Value<'js>> {
-                    cache_value_or_null(&ctx, cache_store::get(&key, only_disk.0.unwrap_or(false)))
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr,
+                          only_disk: Opt<bool>|
+                          -> rquickjs::Result<rquickjs::Value<'js>> {
+                        cache_value_or_null(
+                            &ctx,
+                            cache_store.get(&key, only_disk.0.unwrap_or(false)),
+                        )
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3775,12 +3864,18 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "putFile",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>, key: RhinoStr, value: rquickjs::Value<'js>| -> bool {
-                    cache_store::put_file(&key, &stringify_cache_value(&ctx, &value))
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr,
+                          value: rquickjs::Value<'js>|
+                          -> bool {
+                        cache_store.put_file(&key, &stringify_cache_value(&ctx, &value))
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3789,14 +3884,17 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "getFile",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |ctx: rquickjs::Ctx<'js>,
-                 key: RhinoStr|
-                 -> rquickjs::Result<rquickjs::Value<'js>> {
-                    cache_value_or_null(&ctx, cache_store::get_file(&key))
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |ctx: rquickjs::Ctx<'js>,
+                          key: RhinoStr|
+                          -> rquickjs::Result<rquickjs::Value<'js>> {
+                        cache_value_or_null(&ctx, cache_store.get_file(&key))
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3805,12 +3903,15 @@ fn register_cache_apis<'js>(
     cache
         .set(
             "delete",
-            rquickjs::Function::new(
-                ctx.clone(),
-                |_ctx: rquickjs::Ctx<'js>, key: RhinoStr| -> () {
-                    cache_store::delete(&key);
-                },
-            )
+            {
+                let cache_store = cache_state.clone();
+                rquickjs::Function::new(
+                    ctx.clone(),
+                    move |_ctx: rquickjs::Ctx<'js>, key: RhinoStr| -> () {
+                        cache_store.delete(&key);
+                    },
+                )
+            }
             .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -3911,15 +4012,19 @@ fn register_config_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    config_state: &std::sync::Arc<crate::host_api::config_api::HostConfiguration>,
 ) -> Result<(), LegadoError> {
     // getReadBookConfig() -> String
     mount_dual(
         java,
         globals,
         "getReadBookConfig",
-        rquickjs::Function::new(ctx.clone(), || -> String {
-            config_api::get_read_book_config()
-        })
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(ctx.clone(), move || -> String {
+                configuration.get_read_book_config()
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3928,8 +4033,13 @@ fn register_config_apis<'js>(
         java,
         globals,
         "getThemeConfig",
-        rquickjs::Function::new(ctx.clone(), || -> String { config_api::get_theme_config() })
-            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(ctx.clone(), move || -> String {
+                configuration.get_theme_config()
+            })
+        }
+        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     // getReadBookConfigMap() -> Object（对齐 JsExtensions.getReadBookConfigMap）
@@ -3937,12 +4047,15 @@ fn register_config_apis<'js>(
         java,
         globals,
         "getReadBookConfigMap",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>| -> rquickjs::Result<rquickjs::Object<'js>> {
-                json_string_to_object(&ctx, &config_api::get_read_book_config())
-            },
-        )
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>| -> rquickjs::Result<rquickjs::Object<'js>> {
+                    json_string_to_object(&ctx, &configuration.get_read_book_config())
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3951,12 +4064,15 @@ fn register_config_apis<'js>(
         java,
         globals,
         "getThemeConfigMap",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>| -> rquickjs::Result<rquickjs::Object<'js>> {
-                json_string_to_object(&ctx, &config_api::get_theme_config())
-            },
-        )
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>| -> rquickjs::Result<rquickjs::Object<'js>> {
+                    json_string_to_object(&ctx, &configuration.get_theme_config())
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -3965,8 +4081,13 @@ fn register_config_apis<'js>(
         java,
         globals,
         "getThemeMode",
-        rquickjs::Function::new(ctx.clone(), || -> String { config_api::get_theme_mode() })
-            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(ctx.clone(), move || -> String {
+                configuration.get_theme_mode()
+            })
+        }
+        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     // getWebViewUA() -> String
@@ -3974,8 +4095,13 @@ fn register_config_apis<'js>(
         java,
         globals,
         "getWebViewUA",
-        rquickjs::Function::new(ctx.clone(), || -> String { config_api::get_web_view_ua() })
-            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(ctx.clone(), move || -> String {
+                configuration.get_web_view_ua()
+            })
+        }
+        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     // androidId() -> String
@@ -3983,8 +4109,13 @@ fn register_config_apis<'js>(
         java,
         globals,
         "androidId",
-        rquickjs::Function::new(ctx.clone(), || -> String { config_api::get_android_id() })
-            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        {
+            let configuration = config_state.clone();
+            rquickjs::Function::new(ctx.clone(), move || -> String {
+                configuration.get_android_id()
+            })
+        }
+        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     Ok(())
@@ -3997,6 +4128,7 @@ fn register_concurrency_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    concurrency_state: &std::sync::Arc<crate::host_api::concurrency_api::ConcurrencyState>,
 ) -> Result<(), LegadoError> {
     // singleFlight(key, waitMs, fJs) -> String
     // waitMs 上游为非空 Long（:1250）：Rhino 原始 long 宽松（W4 探针）
@@ -4004,12 +4136,15 @@ fn register_concurrency_apis<'js>(
         java,
         globals,
         "singleFlight",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |key: RhinoStr, wait_ms: RhinoLong, f_js: RhinoStr| -> String {
-                concurrency_api::single_flight(key.0, wait_ms.0, f_js.0)
-            },
-        )
+        {
+            let concurrency_api = concurrency_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |key: RhinoStr, wait_ms: RhinoLong, f_js: RhinoStr| -> String {
+                    concurrency_api.single_flight(key.0, wait_ms.0, f_js.0)
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4019,9 +4154,15 @@ fn register_concurrency_apis<'js>(
         java,
         globals,
         "lock",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr, wait_ms: RhinoLong| -> bool {
-            concurrency_api::lock(key.0, wait_ms.0)
-        })
+        {
+            let concurrency_api = concurrency_state.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |key: RhinoStr, wait_ms: RhinoLong| -> bool {
+                    concurrency_api.lock(key.0, wait_ms.0)
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4030,9 +4171,12 @@ fn register_concurrency_apis<'js>(
         java,
         globals,
         "tick",
-        rquickjs::Function::new(ctx.clone(), |key: RhinoStr| -> i64 {
-            concurrency_api::tick(key.0)
-        })
+        {
+            let concurrency_api = concurrency_state.clone();
+            rquickjs::Function::new(ctx.clone(), move |key: RhinoStr| -> i64 {
+                concurrency_api.tick(key.0)
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4048,6 +4192,7 @@ fn register_misc_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    resources: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     // getSource(sourceUrl) -> String
     mount_dual(
@@ -4077,9 +4222,12 @@ fn register_misc_apis<'js>(
         java,
         globals,
         "ajaxTestAll",
-        rquickjs::Function::new(ctx.clone(), |urls: LooseStrList| -> String {
-            misc_api::ajax_test_all(&urls.0)
-        })
+        {
+            let http = resources.clone();
+            rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
+                misc_api::ajax_test_all(&http, &urls.0)
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4201,14 +4349,16 @@ fn register_misc_apis<'js>(
     // Kotlin String? 可空参合法）报「Error converting from js 'null' into
     // type 'string'」。改用 NullStr/NullBool 入参（null/undefined → None），
     // 配 JS 垫片恒定 4 参调用（undefined 补 null），见 RESPONSE_BRIDGE_JS。
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "webView",
         rquickjs::Function::new(
             ctx.clone(),
-            |html: NullStr, url: NullStr, js: NullStr, cache_first: NullBool| -> String {
+            move |html: NullStr, url: NullStr, js: NullStr, cache_first: NullBool| -> String {
                 platform::web_view_ex(
+                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
@@ -4223,20 +4373,22 @@ fn register_misc_apis<'js>(
     // webViewGetSource(html?, url?, js?, sourceRegex?, cacheFirst?, delayTime?)
     // cacheFirst 上游为非空 Boolean（严格，W4 探针）；delayTime 上游为非空
     // Long（:271/:277 重载，Rhino 原始 long 宽松 — W4 探针）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "webViewGetSource",
         rquickjs::Function::new(
             ctx.clone(),
-            |html: RhinoOptStr,
-             url: RhinoOptStr,
-             js: RhinoOptStr,
-             source_regex: RhinoOptStr,
-             cache_first: Opt<bool>,
-             delay_time: RhinoOptLong|
-             -> String {
+            move |html: RhinoOptStr,
+                  url: RhinoOptStr,
+                  js: RhinoOptStr,
+                  source_regex: RhinoOptStr,
+                  cache_first: Opt<bool>,
+                  delay_time: RhinoOptLong|
+                  -> String {
                 platform::web_view_get_source_ex(
+                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
@@ -4254,20 +4406,22 @@ fn register_misc_apis<'js>(
     // 对应 Kotlin: webViewGetOverrideUrl(html, url, js, overrideUrlRegex, cacheFirst, delayTime)
     // Rust 无头运行时返回桥接载荷，由 Flutter 侧用真实 WebView 拦截跳转 URL
     // cacheFirst 严格 / delayTime 宽松，同 webViewGetSource（W4 探针）
+    let http = resources.clone();
     mount_dual(
         java,
         globals,
         "webViewGetOverrideUrl",
         rquickjs::Function::new(
             ctx.clone(),
-            |html: RhinoOptStr,
-             url: RhinoOptStr,
-             js: RhinoOptStr,
-             override_url_regex: RhinoStr,
-             cache_first: Opt<bool>,
-             delay_time: RhinoOptLong|
-             -> String {
+            move |html: RhinoOptStr,
+                  url: RhinoOptStr,
+                  js: RhinoOptStr,
+                  override_url_regex: RhinoStr,
+                  cache_first: Opt<bool>,
+                  delay_time: RhinoOptLong|
+                  -> String {
                 platform::web_view_get_override_url(
+                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
@@ -4449,6 +4603,7 @@ fn register_archive_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    http: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     // unzipFile / unArchiveFile(zipPath) -> String（解压目标目录）
     // 对应 Kotlin: unzipFile → unArchiveFile；空路径返回空串
@@ -4477,12 +4632,15 @@ fn register_archive_apis<'js>(
         java,
         globals,
         "getZipStringContent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                get_zip_string_content_js(&url, &entry, charset.0.as_deref())
-            },
-        )
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
+                    get_zip_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4525,12 +4683,15 @@ fn register_archive_apis<'js>(
         java,
         globals,
         "get7zStringContent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                get_7z_string_content_js(&url, &entry, charset.0.as_deref())
-            },
-        )
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
+                    get_7z_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4541,12 +4702,15 @@ fn register_archive_apis<'js>(
         java,
         globals,
         "getRarStringContent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                get_rar_string_content_js(&url, &entry, charset.0.as_deref())
-            },
-        )
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
+                    get_rar_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4560,8 +4724,13 @@ fn register_archive_apis<'js>(
 /// - 本地存在的文件路径 → 直接读取
 /// - 其余按十六进制字符串解码
 ///   失败时记录日志并返回空串（对齐 Kotlin `log("getZipContent 未发现内容")` + `return ""`）
-fn get_zip_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> String {
-    let bytes = match resolve_zip_bytes(url) {
+fn get_zip_string_content_js(
+    http: &crate::http_resources::HttpResources,
+    url: &str,
+    entry: &str,
+    charset: Option<&str>,
+) -> String {
+    let bytes = match resolve_zip_bytes(http, url) {
         Ok(b) => b,
         Err(e) => {
             eprintln!("[getZipStringContent] ZIP 来源解析失败: {e}");
@@ -4578,16 +4747,24 @@ fn get_zip_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> S
 }
 
 /// 解析 getZipStringContent 的 ZIP 来源为字节数据
-fn resolve_zip_bytes(source: &str) -> Result<Vec<u8>, String> {
-    resolve_archive_bytes(source, "ZIP")
+fn resolve_zip_bytes(
+    http: &crate::http_resources::HttpResources,
+    source: &str,
+) -> Result<Vec<u8>, String> {
+    resolve_archive_bytes(http, source, "ZIP")
 }
 
 /// get7zStringContent 的 JS 入口实现：解析 7z 来源并读取指定条目的字符串内容
 ///
 /// 对应 Kotlin `get7zByteArrayContent` + `get7zStringContent`；
 /// 失败时记录日志并返回空串（对齐 Kotlin `?: return ""`）
-fn get_7z_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> String {
-    let bytes = match resolve_archive_bytes(url, "7z") {
+fn get_7z_string_content_js(
+    http: &crate::http_resources::HttpResources,
+    url: &str,
+    entry: &str,
+    charset: Option<&str>,
+) -> String {
+    let bytes = match resolve_archive_bytes(http, url, "7z") {
         Ok(b) => b,
         Err(e) => {
             eprintln!("[get7zStringContent] 7z 来源解析失败: {e}");
@@ -4607,8 +4784,13 @@ fn get_7z_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> St
 ///
 /// 对应 Kotlin `getRarByteArrayContent` + `getRarStringContent`；
 /// 失败时记录日志并返回空串（对齐 Kotlin `?: return ""`）
-fn get_rar_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> String {
-    let bytes = match resolve_archive_bytes(url, "RAR") {
+fn get_rar_string_content_js(
+    http: &crate::http_resources::HttpResources,
+    url: &str,
+    entry: &str,
+    charset: Option<&str>,
+) -> String {
+    let bytes = match resolve_archive_bytes(http, url, "RAR") {
         Ok(b) => b,
         Err(e) => {
             eprintln!("[getRarStringContent] RAR 来源解析失败: {e}");
@@ -4625,18 +4807,23 @@ fn get_rar_string_content_js(url: &str, entry: &str, charset: Option<&str>) -> S
 }
 
 /// 解析压缩档案来源为字节数据（ZIP / 7z / RAR 共用）
-fn resolve_archive_bytes(source: &str, kind: &str) -> Result<Vec<u8>, String> {
-    // 网络 URL：经 legado-net 二进制通道下载（尽力支持；
-    // legado-net 响应体当前经 String 中转，纯二进制压缩包可能受影响）
+fn resolve_archive_bytes(
+    http: &crate::http_resources::HttpResources,
+    source: &str,
+    kind: &str,
+) -> Result<Vec<u8>, String> {
+    // 网络 URL 使用本资源的二进制响应，不经字符串转换。
     if source.starts_with("http://") || source.starts_with("https://") {
         use crate::host_api::runtime_bridge::block_on;
         return block_on(async {
-            // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-            let client = crate::host_api::network::shared_client_for_url(source)
+            // 同一资源复用连接池，保持回环直连策略。
+            let client = http
+                .client_for_url(source, false)
                 .map_err(|e| format!("网络客户端初始化失败: {e}"))?;
             client
-                .get_bytes(source, None)
+                .get_raw(source, None)
                 .await
+                .map(|response| response.body)
                 .map_err(|e| format!("{kind} 下载失败: {e}"))
         });
     }
@@ -4676,6 +4863,7 @@ fn register_font_apis<'js>(
     ctx: &rquickjs::Ctx<'js>,
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
+    http: &std::sync::Arc<crate::http_resources::HttpResources>,
 ) -> Result<(), LegadoError> {
     // queryTTF(data, useCache?) -> String（字体句柄 JSON）
     // 对应 Kotlin: queryTTF(data: Any?, useCache: Boolean): QueryTTF?
@@ -4684,12 +4872,19 @@ fn register_font_apis<'js>(
         java,
         globals,
         "queryTTF",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, use_cache: Opt<bool>| -> String {
-                font_api::query_ttf(&data, use_cache.0.unwrap_or(true))
-            },
-        )
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |data: RhinoStr, use_cache: Opt<bool>| -> String {
+                    http.fonts().query_ttf(
+                        &|url| http.download_font(url),
+                        &data,
+                        use_cache.0.unwrap_or(true),
+                    )
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4699,9 +4894,13 @@ fn register_font_apis<'js>(
         java,
         globals,
         "queryBase64TTF",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr| -> String {
-            font_api::query_base64_ttf(&data)
-        })
+        {
+            let http = http.clone();
+            rquickjs::Function::new(ctx.clone(), move |data: RhinoStr| -> String {
+                http.fonts()
+                    .query_base64_ttf(&|url| http.download_font(url), &data)
+            })
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4712,20 +4911,203 @@ fn register_font_apis<'js>(
         java,
         globals,
         "replaceFont",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |text: RhinoStr,
-             error_font: RhinoStr,
-             correct_font: RhinoStr,
-             filter: Opt<bool>|
-             -> String {
-                font_api::replace_font(&text, &error_font, &correct_font, filter.0.unwrap_or(false))
-            },
-        )
+        {
+            let http = http.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |text: RhinoStr,
+                      error_font: RhinoStr,
+                      correct_font: RhinoStr,
+                      filter: Opt<bool>|
+                      -> String {
+                    http.fonts().replace_font(
+                        &|url| http.download_font(url),
+                        &text,
+                        &error_font,
+                        &correct_font,
+                        filter.0.unwrap_or(false),
+                    )
+                },
+            )
+        }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod resource_network_tests {
+    use crate::host_api::font_api::tests::{Segment, build_minimal_ttf};
+    use crate::{JsEngine, QuickJsEngine, SandboxConfig};
+    use std::io::{Read, Write};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn downloads_fonts_archives_and_automatic_files_use_their_owner_and_release_cache() {
+        use base64::Engine;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(20);
+            for _ in 0..10 {
+                let (mut socket, _) = loop {
+                    match listener.accept() {
+                        Ok(pair) => break pair,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < deadline, "间接下载未使用本实例网络资源");
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("下载夹具接收失败: {error}"),
+                    }
+                };
+                socket.set_nonblocking(false).unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut chunk = [0; 1024];
+                while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
+                    let count = socket.read(&mut chunk).unwrap();
+                    assert_ne!(count, 0);
+                    request.extend_from_slice(&chunk[..count]);
+                }
+                let request = String::from_utf8(request).unwrap();
+                let cookie = request
+                    .lines()
+                    .filter_map(|line| line.split_once(':'))
+                    .find(|(name, _)| name.eq_ignore_ascii_case("cookie"))
+                    .map(|(_, value)| value.trim())
+                    .unwrap_or_default();
+                let owner = if cookie.contains("owner=one") {
+                    "one"
+                } else if cookie.contains("owner=two") {
+                    "two"
+                } else {
+                    panic!("请求缺少所属引擎 Cookie: {request}")
+                };
+                let path = request
+                    .lines()
+                    .next()
+                    .unwrap()
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap();
+                let body = match path {
+                    "/font.ttf" => build_minimal_ttf(
+                        &[Segment {
+                            start: 0xE001,
+                            end: 0xE001,
+                            id_delta: if owner == "one" { 0x2000 } else { 0x2001 },
+                        }],
+                        false,
+                    ),
+                    "/archive.zip" => {
+                        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+                        writer
+                            .start_file("owner.txt", zip::write::SimpleFileOptions::default())
+                            .unwrap();
+                        writer.write_all(owner.as_bytes()).unwrap();
+                        writer.finish().unwrap().into_inner()
+                    }
+                    "/file.bin" => [vec![0xff, 0x00, 0x80], owner.as_bytes().to_vec()].concat(),
+                    _ => owner.as_bytes().to_vec(),
+                };
+                write!(
+                    socket,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                socket.write_all(&body).unwrap();
+            }
+        });
+        let correct = base64::engine::general_purpose::STANDARD.encode(build_minimal_ttf(
+            &[Segment {
+                start: 0x41,
+                end: 0x43,
+                id_delta: -0x40,
+            }],
+            false,
+        ));
+        let mut held = Vec::new();
+        for (owner, expected) in [("one", "A"), ("two", "B")] {
+            let vm = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+            let quote = |text: &str| serde_json::to_string(text).unwrap();
+            vm.eval(&format!(
+                "java.setCookie({}, {})",
+                quote(&base),
+                quote(&format!("owner={owner}"))
+            ))
+            .unwrap();
+            let url = quote(&format!("{base}/auto.js"));
+            let cached = vm.eval(&format!("java.cacheFile({url})")).unwrap();
+            assert_eq!(
+                vm.eval(&format!("java.readFile({})", quote(&cached)))
+                    .unwrap(),
+                owner
+            );
+            assert_eq!(
+                vm.eval(&format!("java.importScript({url})")).unwrap(),
+                owner
+            );
+            assert_eq!(vm.eval(&format!("java.cacheFile({url})")).unwrap(), cached);
+            let file_name = format!("resource_download_{}_{}.bin", std::process::id(), owner);
+            let downloaded = vm
+                .eval(&format!(
+                    "java.downloadFile({}, {})",
+                    quote(&format!("{base}/file.bin")),
+                    quote(&file_name)
+                ))
+                .unwrap();
+            assert_eq!(
+                std::fs::read(&downloaded).unwrap(),
+                [vec![0xff, 0x00, 0x80], owner.as_bytes().to_vec()].concat()
+            );
+            std::fs::remove_file(downloaded).unwrap();
+            assert_eq!(
+                vm.eval(&format!(
+                    "java.getZipStringContent({}, 'owner.txt')",
+                    quote(&format!("{base}/archive.zip"))
+                ))
+                .unwrap(),
+                owner
+            );
+            let script = format!(
+                "var error = java.queryTTF({}); var correct = java.queryBase64TTF({}); java.replaceFont('\\uE001', error, correct)",
+                quote(&format!("{base}/font.ttf")),
+                quote(&correct)
+            );
+            assert_eq!(vm.eval(&script).unwrap(), expected);
+            // 相同 URL 的字体缓存必须属于当前实例，命中后不增加请求数。
+            assert_eq!(vm.eval(&script).unwrap(), expected);
+            let result: serde_json::Value = serde_json::from_str(
+                &vm.eval(&format!(
+                    "java.ajaxTestAll([{}])",
+                    quote(&format!("{base}/probe"))
+                ))
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(result[0]["statusCode"], 200);
+            let files_dir = std::path::PathBuf::from(cached)
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            held.push((vm, files_dir));
+        }
+        server.join().unwrap();
+        assert_ne!(held[0].1, held[1].1);
+        // 释放一个 VM 不影响另一个仍在使用的自动文件目录。
+        let (one, first) = held.remove(0);
+        drop(one);
+        assert!(!first.exists());
+        assert!(held[0].1.exists());
+        let (two, second) = held.remove(0);
+        drop(two);
+        assert!(!second.exists());
+    }
 }
 
 #[cfg(test)]
@@ -4767,94 +5149,42 @@ mod tests {
     /// - **裸键相**（无 flow scope）：裸 `java.put` 挂载写裸键 + 裸读者
     ///   （P2-9 ③ 原始路径，直用引擎/无流程入口上下文）；
     /// - **scope 相**（P1-1/P1-2）：`set_flow_scope` 后 `java.__lgStorePut`
-    ///   写 `lgflow::{scope}{key}`，FFI 实际注册的 `get_flow_variable`
+    ///   写 `lgflow::{scope}{key}`，调用方显式注入的 `get_flow_variable`
     ///   读者（scoped 层 → 裸层）对 `AnalyzeRule::get` 可见；换 scope 只
     ///   清旧前缀、持久裸键不受影响（P1-1 验收同构）。
     ///
-    /// P2-2：串行锁统一用 `variable_store::lock_variables()`（与 StoreGuard
-    /// 同一把；原本测试私有的 P29_LOCK 与 StoreGuard 互不互斥，已删除）。
+    /// 每个测试使用独立变量能力，解析器和VM显式共享同一份数据。
     #[test]
     fn test_java_put_visible_to_analyze_rule_get() {
-        use std::sync::Arc;
-
-        use crate::host_api::variable_store;
-        use legado_parser::{AnalyzeRule, set_global_variable_reader};
-
-        // 全局状态（读取器 + 全局变量表 + flow scope）与所有其他触碰方串行
-        let _lock = variable_store::lock_variables();
-        let _guard = variable_store::StoreGuard::new();
-        struct ResetReader;
-        impl Drop for ResetReader {
-            fn drop(&mut self) {
-                set_global_variable_reader(None);
-            }
-        }
-        variable_store::clear_variables().expect("清全局变量表");
-
-        // ── 相一：裸键（无 scope）──
-        set_global_variable_reader(Some(Arc::new(|key: &str| -> Option<String> {
-            variable_store::get_variable(key).ok().flatten()
-        })));
-        let _reset = ResetReader;
-
-        // 真实 QuickJS 引擎执行真实 `java.put` 宿主方法
-        let engine = make_engine();
+        let resources = crate::JsResources::default();
+        let a = resources.for_source("search", "source", "one");
+        let b = resources.for_source("search", "source", "two");
+        let engine = a.create_engine(SandboxConfig::permissive()).unwrap();
         engine
-            .eval(r#"java.put('p29_js_k', 'p29_js_v')"#)
-            .expect("java.put 应执行成功");
-
-        // AnalyzeRule::get：本地未命中 → 兜底全局读取器 → 命中
-        let analyzer = AnalyzeRule::new(String::new(), String::new());
+            .eval("put('persistent','value');java.__lgStorePut('temporary','one')")
+            .unwrap();
+        let parser = legado_parser::AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(a.variable_reader());
+        assert_eq!(parser.get("temporary"), "one");
+        parser.put("temporary", "local");
+        assert_eq!(parser.get("temporary"), "local");
+        let other = legado_parser::AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(b.variable_reader());
+        assert_eq!(other.get("temporary"), "");
+        assert_eq!(other.get("persistent"), "value");
         assert_eq!(
-            analyzer.get("p29_js_k"),
-            "p29_js_v",
-            "java.put 写入应经全局 store 桥对规则 @get 可见"
+            a.variable_scope()
+                .unwrap()
+                .get_flow_variable("temporary")
+                .as_deref(),
+            Some("one")
         );
-        assert_eq!(
-            analyzer.get("p29_never_exists"),
-            "",
-            "未写入的键兜底后仍应空"
-        );
-
-        // 本地非空值优先于全局 store（既有优先级不变）
-        analyzer.put("p29_js_k", "local_v");
-        assert_eq!(analyzer.get("p29_js_k"), "local_v");
-
-        // ── 相二：flow scope（P1-1/P1-2 会话层）──
-        variable_store::set_flow_scope("p29_scope_a").expect("设 scope A");
-        set_global_variable_reader(Some(Arc::new(|key: &str| -> Option<String> {
-            variable_store::get_flow_variable(key)
-        })));
-        // 引擎内 __lgStorePut（解析器前导 java.put 的桥目标）
-        engine
-            .eval(r#"java.__lgStorePut('p29_sc_k', 'p29_sc_v')"#)
-            .expect("__lgStorePut 应执行成功");
-        // 持久裸键（模拟 source.put 搜索期写入）
-        variable_store::set_variable("v_src_k", "persistent").expect("写持久键");
-
-        assert_eq!(
-            analyzer.get("p29_sc_k"),
-            "p29_sc_v",
-            "scoped 会话键应经 get_flow_variable 兜底对规则 @get 可见"
-        );
-        // 换 scope：旧 scope 会话键清、持久裸键存活（P1-1 验收同构）
-        variable_store::set_flow_scope("p29_scope_b").expect("换 scope B");
-        assert_eq!(analyzer.get("p29_sc_k"), "", "换 scope 后会话键不可见");
-        assert_eq!(
-            analyzer.get("v_src_k"),
-            "persistent",
-            "换 scope 不触碰持久裸键（P1-1）"
-        );
-        variable_store::clear_flow_scope().expect("清 scope");
     }
 
     /// P2-15：`__lgBookVarGet` 读桥闭环——`__lgBookVarSet` 写入后同
     /// bookUrl 读回、跨 bookUrl 不串读、未写键返回空串。
     #[test]
     fn test_p215_book_var_get_bridge_roundtrip() {
-        use crate::host_api::variable_store;
-        let _lock = variable_store::lock_variables();
-        let _guard = variable_store::StoreGuard::new();
         let engine = make_engine();
         let url_a = "https://p215-bridge.example.com/b/bridge-a";
         let url_b = "https://p215-bridge.example.com/b/bridge-b";
@@ -4902,35 +5232,20 @@ mod tests {
     /// 桥层等价测试（跨规则端到端闭环见 web_book 测试）。
     #[test]
     fn test_p215_store_get_falls_back_to_bookvar_in_flow() {
-        use crate::host_api::variable_store;
-        let _lock = variable_store::lock_variables();
-        let _guard = variable_store::StoreGuard::new();
-        let engine = make_engine();
-        let book_url = "https://p215-cloop.example.com/b/loop";
-        variable_store::set_flow_scope(book_url).expect("设 flow scope = bookUrl");
-        // 模拟规则 A：book.putVariable 的宿主桥写入（IIFE 内触发路径）
+        let book_url = "https://book-flow.test/book";
+        let resources = crate::JsResources::default().for_book("source", book_url);
+        let engine = resources
+            .create_engine(SandboxConfig::permissive())
+            .unwrap();
         engine
-            .eval(&format!(
-                r#"java.__lgBookVarSet("{book_url}", 'seq', '7'); 'ok'"#
-            ))
-            .expect("__lgBookVarSet 应执行成功");
-        // 模拟规则 B：java.get 的前导覆盖经 __lgStoreGet 读（同流程新 eval）
+            .eval(&format!("java.__lgBookVarSet('{book_url}','seq','7')"))
+            .unwrap();
+        assert_eq!(engine.eval("java.__lgStoreGet('seq')").unwrap(), "7");
+        engine.eval("java.__lgStorePut('seq','session-v')").unwrap();
         assert_eq!(
-            engine.eval(r#"java.__lgStoreGet('seq')"#).unwrap(),
-            "7",
-            "scope 内 __lgStoreGet 应经 bookVar 兜底读回"
-        );
-        // 优先级不回归：会话层（__lgStorePut 写入的 scoped 键）仍优先于 bookVar
-        engine
-            .eval(r#"java.__lgStorePut('seq', 'session-v'); 'ok'"#)
-            .expect("__lgStorePut 应执行成功");
-        assert_eq!(
-            engine.eval(r#"java.__lgStoreGet('seq')"#).unwrap(),
+            engine.eval("java.__lgStoreGet('seq')").unwrap(),
             "session-v"
         );
-        variable_store::remove_variable(&variable_store::book_var_key(book_url, "seq"))
-            .expect("收尾清 bookVar 键");
-        variable_store::clear_flow_scope().expect("清 scope");
     }
 
     #[test]

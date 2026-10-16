@@ -38,12 +38,24 @@ impl CloudTtsHttpTransport {
         Self::with_proxy_discovery(true)
     }
     pub fn with_proxy_discovery(discover: bool) -> LegadoResult<Self> {
+        Self::build(discover, None)
+    }
+    pub fn with_custom_hosts(
+        hosts: Arc<legado_net::custom_hosts::CustomHosts>,
+    ) -> LegadoResult<Self> {
+        Self::build(true, Some(hosts))
+    }
+    fn build(
+        discover: bool,
+        hosts: Option<Arc<legado_net::custom_hosts::CustomHosts>>,
+    ) -> LegadoResult<Self> {
         Ok(Self {
             client: legado_net::LegadoClient::new(legado_net::LegadoClientConfig {
                 accept_invalid_certs: false,
                 follow_redirects: false,
                 read_timeout: Duration::from_secs(120),
                 no_proxy: !discover,
+                custom_hosts: hosts,
                 ..Default::default()
             })?,
         })
@@ -193,6 +205,28 @@ pub async fn synthesize_cloud_tts(
     directory: &Path,
     cancellation: &TtsCancellation,
 ) -> LegadoResult<CloudTtsSynthesisResult> {
+    synthesize_cloud_tts_with_publish(
+        provider,
+        transport,
+        engine,
+        request,
+        directory,
+        cancellation,
+        |cache, key, extension, bytes| cache.put(key, extension, bytes),
+    )
+    .await
+}
+
+/// 宿主提供最终文件提交门控，不把引擎或运行时反向传入共享抓取层。
+pub async fn synthesize_cloud_tts_with_publish(
+    provider: &dyn CloudTtsProvider,
+    transport: &dyn CloudTtsTransport,
+    engine: &CloudTtsEngine,
+    request: &CloudTtsSynthesisRequest,
+    directory: &Path,
+    cancellation: &TtsCancellation,
+    publish: impl FnOnce(&SpeakCache, &str, &str, &[u8]) -> LegadoResult<PathBuf>,
+) -> LegadoResult<CloudTtsSynthesisResult> {
     cancellation.check()?;
     // 验证必须早于缓存命中，禁用或缺凭据不能沿用旧缓存继续播放。
     let prepared = provider.prepare(engine, request)?;
@@ -236,7 +270,7 @@ pub async fn synthesize_cloud_tts(
         }
     };
     cancellation.check()?;
-    let path = cache.put(&key, audio.extension, &audio.bytes)?;
+    let path = publish(&cache, &key, audio.extension, &audio.bytes)?;
     // 发布后再次检查取消；不把已取消请求交给播放层，完整缓存可供以后复用。
     cancellation.check()?;
     result(path, false, audio.content_type.into(), &activity_cache)

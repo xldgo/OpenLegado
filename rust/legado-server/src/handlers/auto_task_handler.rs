@@ -10,23 +10,20 @@
 //! - GET    /api/auto-tasks/export   — 导出
 
 use axum::Json;
-use axum::extract::Path;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use serde_json::{Value, json};
-use std::sync::LazyLock;
-use tokio::sync::Mutex;
+use std::sync::Arc;
 
 use legado_core::auto_task::{AutoTaskExporter, AutoTaskRunner, TaskProtocol};
 use legado_core::models::AutoTaskRule;
 
 use crate::error::ApiError;
-
-/// 内存存储（简化实现，生产环境应使用 legado-db）
-static TASK_STORE: LazyLock<Mutex<Vec<AutoTaskRule>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+use crate::state::AppState;
 
 /// GET /api/auto-tasks — 获取所有自动任务
-pub async fn list_tasks() -> Result<Json<Value>, ApiError> {
-    let store = TASK_STORE.lock().await;
+pub async fn list_tasks(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
+    let store = state.services.auto_tasks.lock().await;
     let tasks: Vec<Value> = store
         .iter()
         .map(|t| serde_json::to_value(t).unwrap_or_default())
@@ -35,8 +32,11 @@ pub async fn list_tasks() -> Result<Json<Value>, ApiError> {
 }
 
 /// POST /api/auto-tasks — 创建自动任务
-pub async fn create_task(Json(body): Json<Value>) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let mut store = TASK_STORE.lock().await;
+pub async fn create_task(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let mut store = state.services.auto_tasks.lock().await;
 
     let mut rule: AutoTaskRule = serde_json::from_value(body.clone()).map_err(|e| {
         ApiError(legado_core::LegadoError::Parser(format!(
@@ -68,10 +68,11 @@ pub async fn create_task(Json(body): Json<Value>) -> Result<(StatusCode, Json<Va
 
 /// PUT /api/auto-tasks/:id — 更新自动任务
 pub async fn update_task(
+    State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let mut store = TASK_STORE.lock().await;
+    let mut store = state.services.auto_tasks.lock().await;
 
     let existing = store.iter_mut().find(|t| t.id == id);
     match existing {
@@ -102,8 +103,11 @@ pub async fn update_task(
 }
 
 /// DELETE /api/auto-tasks/:id — 删除自动任务
-pub async fn delete_task(Path(id): Path<String>) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let mut store = TASK_STORE.lock().await;
+pub async fn delete_task(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let mut store = state.services.auto_tasks.lock().await;
     let len_before = store.len();
     store.retain(|t| t.id != id);
 
@@ -118,8 +122,11 @@ pub async fn delete_task(Path(id): Path<String>) -> Result<(StatusCode, Json<Val
 }
 
 /// POST /api/auto-tasks/:id/run — 立即执行任务
-pub async fn run_task(Path(id): Path<String>) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let mut store = TASK_STORE.lock().await;
+pub async fn run_task(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let mut store = state.services.auto_tasks.lock().await;
 
     let task = store.iter_mut().find(|t| t.id == id);
     match task {
@@ -166,7 +173,10 @@ pub async fn run_task(Path(id): Path<String>) -> Result<(StatusCode, Json<Value>
 }
 
 /// POST /api/auto-tasks/import — 导入任务
-pub async fn import_tasks(Json(body): Json<Value>) -> Result<(StatusCode, Json<Value>), ApiError> {
+pub async fn import_tasks(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
     let json_str = if let Some(s) = body.as_str() {
         s.to_string()
     } else {
@@ -175,7 +185,7 @@ pub async fn import_tasks(Json(body): Json<Value>) -> Result<(StatusCode, Json<V
 
     match AutoTaskExporter::import_json(&json_str) {
         Ok(imported) => {
-            let mut store = TASK_STORE.lock().await;
+            let mut store = state.services.auto_tasks.lock().await;
             let mut count = 0;
             for val in &imported {
                 if let Ok(mut rule) = serde_json::from_value::<AutoTaskRule>(val.clone()) {
@@ -195,8 +205,8 @@ pub async fn import_tasks(Json(body): Json<Value>) -> Result<(StatusCode, Json<V
 }
 
 /// GET /api/auto-tasks/export — 导出任务
-pub async fn export_tasks() -> Result<Json<Value>, ApiError> {
-    let store = TASK_STORE.lock().await;
+pub async fn export_tasks(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
+    let store = state.services.auto_tasks.lock().await;
     let tasks: Vec<Value> = store
         .iter()
         .map(|t| serde_json::to_value(t).unwrap_or_default())
@@ -215,10 +225,6 @@ mod tests {
     use axum::routing::{get, post, put};
     use tower::ServiceExt;
 
-    /// 序列化测试避免全局状态竞争
-    static TEST_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
-        std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
-
     fn test_router() -> Router {
         Router::new()
             .route("/api/auto-tasks", get(list_tasks).post(create_task))
@@ -226,11 +232,9 @@ mod tests {
             .route("/api/auto-tasks/{id}/run", post(run_task))
             .route("/api/auto-tasks/import", post(import_tasks))
             .route("/api/auto-tasks/export", get(export_tasks))
-    }
-
-    async fn clear_store() {
-        let mut store = TASK_STORE.lock().await;
-        store.clear();
+            .with_state(Arc::new(AppState::new(Arc::new(
+                legado_engine::EngineContext::in_memory().unwrap(),
+            ))))
     }
 
     async fn body_json(resp: axum::response::Response) -> Value {
@@ -244,8 +248,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_tasks_empty() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         let resp = app
@@ -265,8 +267,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_and_list() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         // 创建
@@ -311,8 +311,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_task() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         // 先创建
@@ -356,8 +354,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_task() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         // 创建
@@ -413,8 +409,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_task() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         // 创建
@@ -465,8 +459,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_task_not_found() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         let resp = app
@@ -485,8 +477,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_and_export() {
-        let _guard = TEST_LOCK.lock().await;
-        clear_store().await;
         let app = test_router();
 
         // 导入

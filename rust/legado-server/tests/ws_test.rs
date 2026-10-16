@@ -4,22 +4,18 @@
 
 use std::sync::Arc;
 
-use legado_core::download_manager::DownloadManager;
 use legado_server::routes::create_router;
 use legado_server::state::AppState;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
 /// 启动测试服务器，返回监听地址
 async fn start_test_server() -> String {
     let db = legado_db::init_in_memory_database().unwrap();
-    let state = Arc::new(AppState {
-        db: Mutex::new(db),
-        search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-        download_manager: Mutex::new(DownloadManager::new(3)),
-    });
+    let state = Arc::new(AppState::new(Arc::new(
+        legado_engine::EngineContext::from_database(db),
+    )));
 
     let app = create_router(state);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

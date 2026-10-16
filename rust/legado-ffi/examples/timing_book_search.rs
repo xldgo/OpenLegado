@@ -43,7 +43,6 @@ fn main() {
     }
 
     // 初始化数据库（与 App 启动一致）
-    legado_ffi::db_state::record_db_path(&db_path);
     let db = match legado_ffi::legado_db::init_database(&db_path) {
         Ok(d) => d,
         Err(e) => {

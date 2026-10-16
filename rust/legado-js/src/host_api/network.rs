@@ -2,18 +2,16 @@
 //!
 //! 书源规则中常用的网络请求方法，对应 Kotlin JsExtensions 中的 ajax/connect/get/post/head 等。
 //! 使用 `legado-net::LegadoClient` 异步网络栈，通过 `runtime_bridge::block_on` 提供同步接口。
+//! 请求 API 显式消费 RequestResources；池和 Cookie 能力由所属 HttpResources 提供。
 
 #![cfg(feature = "quickjs")]
 
+use crate::http_resources::RequestResources;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::host_api::runtime_bridge::block_on;
-use legado_net::{
-    COOKIE_JAR_HEADER, CookiePersistence, CookieStore, LegadoClient, LegadoClientConfig,
-    LegadoRequest, Method,
-};
+use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
 
 /// 默认请求超时（毫秒），与 Kotlin 端一致
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
@@ -89,7 +87,7 @@ fn sanitize_request_url(url: &str) -> String {
 /// 供 `connect_no_redirect` 决定 `no_proxy`：reqwest 默认客户端在
 /// HTTP_PROXY/HTTPS_PROXY 存在时连回环地址也走代理，会把本地测试流量
 /// 劫持到死代理；回环豁免对齐 legado-net 约定（cda70a0c54）。
-fn is_loopback_url(url: &str) -> bool {
+pub(crate) fn is_loopback_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
     for scheme in ["http://", "https://"] {
         let Some(rest) = lower.strip_prefix(scheme) else {
@@ -125,208 +123,12 @@ fn ensure_form_content_type(headers: &mut HashMap<String, String>, has_body: boo
     }
 }
 
-/// 进程级共享客户端池（性能专项 2026-09-24）
-///
-/// 此前每次 JS 网络调用（ajax/get/post/head/connect/ajaxAll/connectNR/
-/// downloadFile/字体下载…）都 `LegadoClient::new` 新建客户端——即新建
-/// reqwest 连接池，每调用重复 TCP+TLS 握手（真实站点实测每页多 ~38ms；
-/// 本地 HTTPS mock 实测新建 10/50 页分别多 10/50 次 TLS 握手）。
-/// 现收敛为进程级单例池：`LegadoClient` 是 `Clone`（内部全 `Arc`），
-/// clone 廉价且**共享同一连接池**（keep-alive 复用）。语义逐池保持等价：
-///
-/// - 默认池：默认配置（系统/环境变量代理、跟随重定向、60s 读超时）
-/// - 回环池：`no_proxy` 直连（P2-17 约定 cda70a0c54：HTTP_PROXY 存在时
-///   reqwest 连 127.0.0.1 也走代理，死代理环境下本地流量会被劫持）
-/// - 不跟随重定向池：`follow_redirects=false`（connectNR 拦截 302 取
-///   Location 头），回环/非回环分池（代理语义同前两条）
-///
-/// 读超时：各池统一用 `LegadoClientConfig::default()`（60s）；所有
-/// `send(LegadoRequest)` 调用点均带**逐请求** `timeout`（reqwest 逐请求
-/// 超时覆盖客户端级），有效超时与修复前逐客户端配置一致。
-///
-/// Cookie：共享池的内存 CookieStore 跨调用累积（按域 upsert），与 FFI
-/// 主链路共享客户端、上游 OkHttp 单客户端 + cookieJar 语义一致（改进
-/// 不回退）；JS 层 `merge_js_cookies` 按域合并注入不受影响。
-///
-/// **Cookie 持久化（设计项 A，2026-09-26）**：池支持注入
-/// [`CookiePersistence`] 后端（[`set_client_cookie_persistence`]，
-/// first-wins，由 `legado-ffi::ffi::db_open` 注入 DB 实现）——客户端
-/// 构建/重建时从后端预载已持久化 cookie 进内存 jar，响应 Set-Cookie
-/// 同步写回（按域 upsert，含无 Expires 的会话 cookie）。修复 x81zws
-/// WAF 状态机跨进程断链（根因：JS 桥池客户端仅内存 jar，冷启动即失
-/// Set-Cookie 种下的状态；见 `.tmp/engine_forensic_d/report_d.md` §2 /
-/// `design_upstream_aligned.md` §3 项 A）。未注册后端时（CLI/测试路
-/// 径）行为等价 `LegadoClient::new`（纯内存 jar，语义不变）。
-///
-/// **共享内存 Cookie store（脑裂修复，x81zws 根因，2026-09-26）**：
-/// 此前四池各建独立内存罐，与 FFI 主链路（搜索 POST 走的
-/// `legado-ffi::http_state::shared_client`）互不通气——主链路 403
-/// Set-Cookie 重种只落 FFI 罐 + DB，`java.ajax` 侧罐内仍是启动时
-/// `load_all` 的旧值 → App 内确定性失败（上游单客户端单 CookieStore
-/// 无此问题）。修复：`legado-ffi::db_open` 经
-/// [`set_client_cookie_store`] 注入 FFI 侧进程级共享 store 实例
-/// （first-wins），四池构建/重建时复用同一 `Arc<RwLock<CookieStore>>`
-/// ——任一侧 403 重种同轮对另一侧可见（上游同款闭环）；池 reset 重建
-/// 客户端不丢 store 内容（合并预载，内存值同名冲突时胜出）。未注册
-/// 共享 store 时（CLI/测试路径）各池保持独立内存罐（原语义不变）。
-///
-/// **锁序不变式**（仿 `legado-ffi::http_state::shared_client`）：客户端
-/// 构建（含持久化后端 `load_all` 的 DB I/O）在持有池槽位**写锁之前**
-/// 完成——槽位锁临界区不做 DB/sink 调用；并发首建时各线程自建，槽位
-/// 内先装者胜（败者构建直接丢弃——其 jar 是后端全新加载、无在途写
-/// 入，丢弃无数据损失）。
-///
-/// 池槽位注册表：`OnceLock` 惰性创建 4 槽数组，每槽
-/// `RwLock<Option<LegadoClient>>`（`Option` 供
-/// [`reset_shared_client_pools`] 置空后下次访问按当前配置重建）
-static POOL_SLOTS: OnceLock<[RwLock<Option<LegadoClient>>; 4]> = OnceLock::new();
-
-/// 池标识（loopback/no_redirect 两配置轴的 4 种组合，语义逐池保持）
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PoolKind {
-    /// 默认池：默认配置（系统/环境变量代理、跟随重定向、60s 读超时）
-    Default,
-    /// 回环池：`no_proxy` 直连（P2-17 约定 cda70a0c54）
-    Loopback,
-    /// 不跟随重定向池：`follow_redirects=false`（connectNR 拦截 302 取
-    /// Location 头）
-    NoRedirect,
-    /// 不跟随重定向回环池：`no_proxy` + `follow_redirects=false`
-    NoRedirectLoopback,
-}
-
-impl PoolKind {
-    /// 全部池（reset 遍历顺序）
-    const ALL: [PoolKind; 4] = [
-        PoolKind::Default,
-        PoolKind::Loopback,
-        PoolKind::NoRedirect,
-        PoolKind::NoRedirectLoopback,
-    ];
-
-    /// 标志 → 池标识
-    fn from_flags(loopback: bool, no_redirect: bool) -> Self {
-        match (loopback, no_redirect) {
-            (false, false) => PoolKind::Default,
-            (true, false) => PoolKind::Loopback,
-            (false, true) => PoolKind::NoRedirect,
-            (true, true) => PoolKind::NoRedirectLoopback,
-        }
-    }
-
-    /// 池配置（与改造前四池配置逐项一致）
-    fn config(&self) -> LegadoClientConfig {
-        match self {
-            PoolKind::Default => LegadoClientConfig::default(),
-            PoolKind::Loopback => LegadoClientConfig {
-                no_proxy: true,
-                ..Default::default()
-            },
-            PoolKind::NoRedirect => LegadoClientConfig {
-                follow_redirects: false,
-                ..Default::default()
-            },
-            PoolKind::NoRedirectLoopback => LegadoClientConfig {
-                follow_redirects: false,
-                no_proxy: true,
-                ..Default::default()
-            },
-        }
-    }
-}
-
-/// 取池槽位引用
-fn pool_slot(kind: PoolKind) -> &'static RwLock<Option<LegadoClient>> {
-    let slots = POOL_SLOTS.get_or_init(|| {
-        [
-            RwLock::new(None),
-            RwLock::new(None),
-            RwLock::new(None),
-            RwLock::new(None),
-        ]
-    });
-    &slots[kind as usize]
-}
-
-/// Cookie 持久化后端钩子（设计项 A）
-///
-/// 由 `legado-ffi::ffi::db_open` 在 DB 初始化后、一切 JS 执行前注入
-/// （具体类型 `legado-ffi::http_state::DbCookiePersistence`：DB 未就
-/// 绪时 `load_all` 降级为空、`save` 仅记日志，不影响网络请求）。
-static CLIENT_COOKIE_PERSISTENCE: OnceLock<Arc<dyn CookiePersistence>> = OnceLock::new();
-
-/// 注册 Cookie 持久化后端（first-wins，仿
-/// `legado-js::host_api::cookie_store::set_cookie_sink`）
-///
-/// 返回本次注册是否生效：重复注册忽略并返回 `false`（不覆盖首个实例）。
-pub fn set_client_cookie_persistence(p: Arc<dyn CookiePersistence>) -> bool {
-    CLIENT_COOKIE_PERSISTENCE.set(p).is_ok()
-}
-
-/// 共享内存 Cookie store 钩子（脑裂修复，2026-09-26）
-///
-/// 由 `legado-ffi::ffi::db_open` 注入 FFI 侧进程级共享 store 实例
-/// （`legado-ffi::http_state::shared_cookie_store()`，与 FFI 主链路
-/// `shared_client()` 同一罐）——四池构建/重建复用该实例，任一侧 403
-/// Set-Cookie 重种同轮对另一侧可见（上游单客户端单 CookieStore 语义，
-/// x81zws 根因）。
-static CLIENT_COOKIE_STORE: OnceLock<Arc<RwLock<CookieStore>>> = OnceLock::new();
-
-/// 注册共享内存 Cookie store（first-wins，同 [`set_client_cookie_persistence`]）
-///
-/// 返回本次注册是否生效：重复注册忽略并返回 `false`（不覆盖首个实例）。
-pub fn set_client_cookie_store(store: Arc<RwLock<CookieStore>>) -> bool {
-    CLIENT_COOKIE_STORE.set(store).is_ok()
-}
-
-/// 书源 `enabledCookieJar` 查询钩子（批 2 写侧门控）
-///
-/// JS 桥（`java.ajax` / `java.connect(NR)` / `java.get/post/head` / `ajaxAll`
-/// / `httpGet`/`httpPost`/`httpHead`）在发送前按**当前书源开关**决定是否给
-/// 请求头补 [`COOKIE_JAR_HEADER`] 标记：
-/// - 开启（`Some(true)`）→ 宿主写侧（legado-net）把响应 `Set-Cookie` 写回
-///   内存 jar 并按域持久化；
-/// - 关闭 / 未绑定书源 / 查不到 → 不写回；**读侧**按请求 URL 属域的 cookie
-///   注入（`merge_js_cookies` / `cookies_for_url`）**无条件**，不受本开关影响。
-///
-/// 对齐上游 `JsExtensions.kt:532-534/559-561/586-588`：`java.get/post/head`
-/// 仅 `getSource()?.enabledCookieJar == true` 才放 `cookieJarHeader`；
-/// `java.ajax`/`connect` 与主链路同（读无条件、写门控）。
-///
-/// tag（book_source_url）→ 开关的解析由宿主注入（first-wins，仿
-/// [`set_client_cookie_persistence`]）：`legado-ffi::ffi::Bridge::db_open`
-/// 注册基于 `BookSourceRepository` 的 DB 查询（legado-js 自身不依赖 DB）。
-/// 未注册（CLI/测试路径）或查不到 → None = 按关（对齐上游
-/// `source?.enabledCookieJar == true` 的 null→false）。
-/// 书源开关查询闭包类型（tag → `enabledCookieJar`）
-pub type SourceCookieJarLookup = Arc<dyn Fn(&str) -> Option<bool> + Send + Sync>;
-
-static SOURCE_COOKIE_JAR_LOOKUP: OnceLock<SourceCookieJarLookup> = OnceLock::new();
-
-/// 注册书源开关查询（first-wins）
-///
-/// 返回本次注册是否生效：重复注册忽略并返回 `false`（不覆盖首个实例）。
-pub fn set_source_cookie_jar_lookup(f: SourceCookieJarLookup) -> bool {
-    SOURCE_COOKIE_JAR_LOOKUP.set(f).is_ok()
-}
-
-/// 当前线程书源是否开启 CookieJar 写侧门控（无绑定/未注册/查不到 → false）
-///
-/// 由 [`apply_source_cookie_jar_gate`] 在各 JS 网络入口统一消费；
-/// `legado-ffi` 侧同名语义入口见 `web_book::apply_cookie_jar_marker`。
-pub(crate) fn current_source_cookie_jar_enabled() -> bool {
-    let Some(tag) = crate::host_api::current_source::current_source_tag() else {
-        return false;
-    };
-    SOURCE_COOKIE_JAR_LOOKUP
-        .get()
-        .and_then(|lookup| lookup(&tag))
-        == Some(true)
-}
-
 /// 按当前书源开关向请求头补写侧标记（只补不覆盖：显式同名键保持原值）
-fn apply_source_cookie_jar_gate(headers: &mut HashMap<String, String>) {
-    if !current_source_cookie_jar_enabled() {
+fn apply_source_cookie_jar_gate(
+    request_resources: &RequestResources<'_>,
+    headers: &mut HashMap<String, String>,
+) {
+    if !request_resources.cookie_jar_enabled {
         return;
     }
     if headers
@@ -338,104 +140,29 @@ fn apply_source_cookie_jar_gate(headers: &mut HashMap<String, String>) {
     headers.insert(COOKIE_JAR_HEADER.to_string(), "1".to_string());
 }
 
-/// 重置全部 4 个池槽位（仿 `legado-ffi::http_state::reset_shared_client`）
-///
-/// 置空后下次 [`shared_client`] 调用按当前配置重建（构建时读取此刻已
-/// 注册的持久化后端）。供 `db_open` 在注入钩子后兜底重建：正常时序
-/// db_open 先于一切 JS 执行、池尚未构建（reset 为空操作）；若某路径
-/// 已先行构建池，reset 保证重建后的客户端携带持久化后端。
-pub fn reset_shared_client_pools() {
-    for kind in PoolKind::ALL {
-        *pool_slot(kind)
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
-    }
-}
-
-/// 以显式持久化后端 + 共享 store 构建池客户端（测试入口：不触碰全局
-/// 钩子，确定性覆盖已注册/未注册分支组合）
-fn build_pool_client_with(
-    kind: PoolKind,
-    persistence: Option<Arc<dyn CookiePersistence>>,
-    store: Option<Arc<RwLock<CookieStore>>>,
+fn request_client(
+    resources: &RequestResources<'_>,
+    no_redirect: bool,
+    url: &str,
 ) -> Result<LegadoClient, String> {
-    let config = kind.config();
-    match (store, persistence) {
-        // 共享 store 已注册（脑裂修复）：复用同一实例；携带持久化后端
-        // 时合并预载（内存值同名冲突时胜出，重建不丢内容；DB I/O 在
-        // 槽位写锁之前完成，见模块头锁序不变式）
-        (Some(s), p) => LegadoClient::with_cookie_store(config, s, p),
-        // 未注册共享 store：等价改造前行为（纯内存 jar，独立实例）
-        (None, Some(p)) => LegadoClient::with_cookie_persistence(config, p),
-        (None, None) => LegadoClient::new(config),
-    }
-    .map_err(|e| format!("build client error: {e}"))
-}
-
-/// 以当前已注册的持久化后端 + 共享 store 构建池客户端（未注册时为
-/// `None`）
-fn build_pool_client(kind: PoolKind) -> Result<LegadoClient, String> {
-    build_pool_client_with(
-        kind,
-        CLIENT_COOKIE_PERSISTENCE.get().cloned(),
-        CLIENT_COOKIE_STORE.get().cloned(),
-    )
-}
-
-/// 取进程级共享客户端（池由 `loopback`/`no_redirect` 选择）
-///
-/// 首次调用构建并安装（已注册持久化后端时构建即预载；未注册时等价
-/// `LegadoClient::new`）；并发竞争时复用先装入者（同配置，无副作用）。
-/// 锁序不变式：构建不持槽位写锁（见模块头说明）。
-fn shared_client(loopback: bool, no_redirect: bool) -> Result<LegadoClient, String> {
-    let kind = PoolKind::from_flags(loopback, no_redirect);
-    // 快路径：已初始化则直接 clone 返回
-    {
-        let guard = pool_slot(kind)
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(client) = guard.as_ref() {
-            return Ok(client.clone());
-        }
-    }
-    // 慢路径：先构建（含持久化后端 load_all，不持槽位锁），再短暂持
-    // 写锁装入
-    let client = build_pool_client(kind)?;
-    let mut guard = pool_slot(kind)
-        .write()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    // 并发首次构建时再次检查：他线程已装入则返回其结果（自身构建丢弃）
-    if let Some(existing) = guard.as_ref() {
-        return Ok(existing.clone());
-    }
-    *guard = Some(client.clone());
-    Ok(client)
-}
-
-/// 按 URL 取共享客户端：回环 URL（127.0.0.1/::1/localhost）用 `no_proxy`
-/// 直连池（P2-17 约定 cda70a0c54），真实主机用默认池（系统/环境变量
-/// 代理配置不变，生产行为不受影响）。
-pub(crate) fn shared_client_for_url(url: &str) -> Result<LegadoClient, String> {
-    shared_client(is_loopback_url(url), false)
-}
-
-/// 取不跟随重定向的共享客户端（connectNR 语义：拦截 302 取 Location 头），
-/// 回环/非回环分池（代理语义同 `shared_client_for_url`）。
-fn shared_client_no_redirect(url: &str) -> Result<LegadoClient, String> {
-    shared_client(is_loopback_url(url), true)
+    resources.http.client(is_loopback_url(url), no_redirect)
 }
 
 /// httpGet(url, headers?) → 同步 HTTP GET，返回响应体文本
 ///
 /// 对应 Kotlin 端 `ajax(url)` / `get(url, headers)` 的简化版本。
-pub fn http_get(url: &str, headers: Option<&str>) -> Result<String, String> {
+pub fn http_get(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    headers: Option<&str>,
+) -> Result<String, String> {
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-        let client = shared_client_for_url(url)?;
+        // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
+        let client = request_client(request_resources, false, url)?;
         // 写侧门控（批 2）：按当前书源开关补标记（读侧不受影响）
         let mut header_map = parse_headers(headers).unwrap_or_default();
-        apply_source_cookie_jar_gate(&mut header_map);
+        apply_source_cookie_jar_gate(request_resources, &mut header_map);
         let header_map = if header_map.is_empty() {
             None
         } else {
@@ -452,14 +179,19 @@ pub fn http_get(url: &str, headers: Option<&str>) -> Result<String, String> {
 /// httpPost(url, body, headers?) → 同步 HTTP POST，返回响应体文本
 ///
 /// 对应 Kotlin 端 `post(url, body, headers)` 的简化版本。
-pub fn http_post(url: &str, body: &str, headers: Option<&str>) -> Result<String, String> {
+pub fn http_post(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    body: &str,
+    headers: Option<&str>,
+) -> Result<String, String> {
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-        let client = shared_client_for_url(url)?;
+        // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
+        let client = request_client(request_resources, false, url)?;
         // 写侧门控（批 2）：按当前书源开关补标记
         let mut header_map = parse_headers(headers).unwrap_or_default();
-        apply_source_cookie_jar_gate(&mut header_map);
+        apply_source_cookie_jar_gate(request_resources, &mut header_map);
         let header_map = if header_map.is_empty() {
             None
         } else {
@@ -476,14 +208,14 @@ pub fn http_post(url: &str, body: &str, headers: Option<&str>) -> Result<String,
 /// httpHead(url) → HEAD 请求，返回响应头 JSON 字符串
 ///
 /// 对应 Kotlin 端 `head(urlStr, headers)` 的简化版本。
-pub fn http_head(url: &str) -> Result<String, String> {
+pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<String, String> {
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-        let client = shared_client_for_url(url)?;
+        // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
+        let client = request_client(request_resources, false, url)?;
         // 写侧门控（批 2）：按当前书源开关补标记（上游 head 同门控）
         let mut header_map = HashMap::new();
-        apply_source_cookie_jar_gate(&mut header_map);
+        apply_source_cookie_jar_gate(request_resources, &mut header_map);
         let header_map = if header_map.is_empty() {
             None
         } else {
@@ -542,15 +274,19 @@ fn apply_call_timeout(opts: &mut HttpOptions, call_timeout_ms: Option<u64>) {
 /// 2. 原版「url,{json}」格式（七猫四合一等书源）：
 ///    `https://api?... ,{"method":"GET","headers":{...}}` → 返回**纯响应体文本**
 ///    （原版 ajax 返回 StrResponse.body；七猫 qmParse 直接 JSON.parse 响应体）
-pub fn ajax(input: &str) -> Result<String, String> {
-    ajax_with_timeout(input, None)
+pub fn ajax(request_resources: &RequestResources<'_>, input: &str) -> Result<String, String> {
+    ajax_with_timeout(request_resources, input, None)
 }
 
 /// 带调用方显式超时的 ajax 入口（`java.ajax` 第二参透传路径）。
 ///
 /// 逐请求超时语义与边界见 [`call_timeout_to_request_timeout`]；
 /// `call_timeout_ms = None` 时与 [`ajax`] 完全等价。
-pub fn ajax_with_timeout(input: &str, call_timeout_ms: Option<u64>) -> Result<String, String> {
+pub fn ajax_with_timeout(
+    request_resources: &RequestResources<'_>,
+    input: &str,
+    call_timeout_ms: Option<u64>,
+) -> Result<String, String> {
     let input = input.trim();
     // 原版「url,{json}」格式：不以 `{` 开头且含 `,{`，逗号前为 URL、逗号后为 option JSON
     if !input.starts_with('{')
@@ -567,13 +303,13 @@ pub fn ajax_with_timeout(input: &str, call_timeout_ms: Option<u64>) -> Result<St
             );
             if let Ok(mut opts) = serde_json::from_value::<HttpOptions>(v) {
                 apply_call_timeout(&mut opts, call_timeout_ms);
-                return ajax_request_body(&opts);
+                return ajax_request_body(request_resources, &opts);
             }
         }
     }
-    // 普通 URL 输入（对齐原版 ajax(url) 语义）：不含 ",{" 的裸 URL
+    // 普通 URL 输入（对齐原版 ajax(request_resources, url) 语义）：不含 ",{" 的裸 URL
     // 直接 GET 并返回纯响应体文本（新落秋/笔趣阁zdzn 等源 @js: 块
-    // java.ajax(source.key+"/user/search.html?q="+key) 依赖）
+    // java.ajax(request_resources, source.key+"/user/search.html?q="+key) 依赖）
     // — 2026-08-17
     if !input.starts_with('{') {
         let mut opts = HttpOptions {
@@ -581,7 +317,7 @@ pub fn ajax_with_timeout(input: &str, call_timeout_ms: Option<u64>) -> Result<St
             ..Default::default()
         };
         apply_call_timeout(&mut opts, call_timeout_ms);
-        return ajax_request_body(&opts);
+        return ajax_request_body(request_resources, &opts);
     }
     // 标准 JSON 输入
     let mut opts: HttpOptions =
@@ -608,15 +344,19 @@ pub fn ajax_with_timeout(input: &str, call_timeout_ms: Option<u64>) -> Result<St
 
     block_on(async {
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = shared_client_for_url(&url)?;
+        let client = request_client(request_resources, false, &url)?;
 
         // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
         let mut headers = ensure_json_content_type(
-            merge_global_cookie(opts.headers.clone().unwrap_or_default(), &url),
+            merge_global_cookie(
+                request_resources,
+                opts.headers.clone().unwrap_or_default(),
+                &url,
+            ),
             &opts.body,
         );
         // 写侧门控（批 2）：按当前书源开关补标记（读侧不受影响）
-        apply_source_cookie_jar_gate(&mut headers);
+        apply_source_cookie_jar_gate(request_resources, &mut headers);
         let request = LegadoRequest {
             url,
             method,
@@ -687,12 +427,12 @@ mod http_options_tests {
 
 /// 合并书源请求头与会话 Cookie（对齐 Android AnalyzeUrl(source).getHeaderMap）
 ///
-/// - 全局请求头（GLOBAL_HEADERS）：setup 阶段执行书源 header @js 规则后经
+/// - 来源请求头（请求快照）：setup 阶段执行书源 header @js 规则后经
 ///   java.putGlobalHeaders 写入（书山聚合固定 X-Novel-Token 等），按当前书源
 ///   tag 隔离；JS 显式传入的 headers 优先。
-/// - 会话 Cookie（GLOBAL_COOKIES）：书山登录/`java.setCookie` 写入的
+/// - 会话 Cookie（所属实例权威罐）：书山登录/`java.setCookie` 写入的
 ///   X-Novel-Token 等。**上游同步（2026-09-23 用户裁决）：按请求 URL 的属域
-///   取**（`cookie_store::cookies_for_url`，写读两侧均归一为
+///   取**（`CookieAccess::get`，写读两侧均归一为
 ///   `getSubDomain(url)` 等价域名键，单一真源
 ///   [`legado_net::cookie_store::cookie_domain_key`]），去掉书源 tag 维度——
 ///   cookie 属于域名而非书源，同域 cookie 跨书源共享（对齐上游
@@ -701,14 +441,16 @@ mod http_options_tests {
 ///   键查找大小写不敏感）——对齐上游 `AnalyzeUrl.setCookie` →
 ///   `CookieManager.mergeCookies` 语义。
 ///   不变式保留：**不相关域名的 cookie 绝不携带**（P2-19 核心修复，不得回退）。
-fn merge_global_cookie(mut headers: HashMap<String, String>, url: &str) -> HashMap<String, String> {
-    let tag = crate::host_api::current_source::current_source_tag();
-    if let Some(t) = tag.as_deref() {
-        for (k, v) in crate::host_api::global_headers::headers_for(t) {
-            headers.entry(k).or_insert(v);
-        }
+fn merge_global_cookie(
+    request_resources: &RequestResources<'_>,
+    mut headers: HashMap<String, String>,
+    url: &str,
+) -> HashMap<String, String> {
+    for (key, value) in &request_resources.headers {
+        headers.entry(key.clone()).or_insert_with(|| value.clone());
     }
-    crate::host_api::cookie_store::merge_js_cookies(&mut headers, url);
+    let cookies = request_resources.http.cookies().get(url);
+    crate::host_api::cookie_store::merge_cookie_string(&mut headers, &cookies);
     headers
 }
 
@@ -750,7 +492,10 @@ fn ensure_json_content_type(
 
 /// 「url,{json}」格式请求，返回**纯响应体文本**（对齐原版 JsExtensions.ajax 返回
 /// StrResponse.body；七猫 qmParse 等直接 JSON.parse 响应体）
-fn ajax_request_body(opts: &HttpOptions) -> Result<String, String> {
+fn ajax_request_body(
+    request_resources: &RequestResources<'_>,
+    opts: &HttpOptions,
+) -> Result<String, String> {
     if opts.url.is_empty() {
         return Err("ajax: url is required".to_string());
     }
@@ -766,14 +511,18 @@ fn ajax_request_body(opts: &HttpOptions) -> Result<String, String> {
     };
     block_on(async {
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = shared_client_for_url(&url)?;
+        let client = request_client(request_resources, false, &url)?;
         // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
         let mut headers = ensure_json_content_type(
-            merge_global_cookie(opts.headers.clone().unwrap_or_default(), &url),
+            merge_global_cookie(
+                request_resources,
+                opts.headers.clone().unwrap_or_default(),
+                &url,
+            ),
             &opts.body,
         );
         // 写侧门控（批 2）：按当前书源开关补标记
-        apply_source_cookie_jar_gate(&mut headers);
+        apply_source_cookie_jar_gate(request_resources, &mut headers);
         let request = LegadoRequest {
             url,
             method,
@@ -793,7 +542,10 @@ fn ajax_request_body(opts: &HttpOptions) -> Result<String, String> {
 ///
 /// 输入为 JSON 数组（URL 列表），返回 JSON 数组（每个 URL 的响应体，失败为空字符串）。
 /// 使用 `futures::stream::buffer_unordered` 实现有界并发（默认 4）。
-pub fn ajax_all(urls_json: &str) -> Result<String, String> {
+pub fn ajax_all(
+    request_resources: &RequestResources<'_>,
+    urls_json: &str,
+) -> Result<String, String> {
     // 空输入 = 空列表（宿主入参宽松收敛：JS null/undefined → 空串，见
     // quickjs_impl::LooseStrList；空数组 `[]` 同样命中），不视为 parse 错误
     if urls_json.trim().is_empty() {
@@ -803,14 +555,14 @@ pub fn ajax_all(urls_json: &str) -> Result<String, String> {
         let urls: Vec<String> =
             serde_json::from_str(urls_json).map_err(|e| format!("ajaxAll parse error: {}", e))?;
 
-        let client = shared_client(false, false)?;
+        let client = request_resources.http.client(false, false)?;
         // 回环 URL（本地书源/本地测试服务）须 no_proxy 直连（P2-17 约定
         // cda70a0c54：HTTP_PROXY 存在时 reqwest 连 127.0.0.1 也走代理）；
         // 真实主机 URL 沿用默认池（代理配置不变）
         let loopback_client = urls
             .iter()
             .any(|url| is_loopback_url(url))
-            .then(|| shared_client(true, false))
+            .then(|| request_resources.http.client(true, false))
             .transpose()?;
 
         use futures::stream::{self, StreamExt};
@@ -828,7 +580,7 @@ pub fn ajax_all(urls_json: &str) -> Result<String, String> {
                 async move {
                     // 写侧门控（批 2）：每个 URL 按当前书源开关补标记
                     let mut headers = HashMap::new();
-                    apply_source_cookie_jar_gate(&mut headers);
+                    apply_source_cookie_jar_gate(request_resources, &mut headers);
                     let headers = if headers.is_empty() {
                         None
                     } else {
@@ -855,6 +607,7 @@ pub fn ajax_all(urls_json: &str) -> Result<String, String> {
 ///
 /// 返回 JSON：`{"statusCode":200,"body":"...","headers":{...}}`
 pub fn connect_full(
+    request_resources: &RequestResources<'_>,
     url: &str,
     method: Option<&str>,
     headers_json: Option<&str>,
@@ -872,12 +625,12 @@ pub fn connect_full(
         .unwrap_or_default();
     // 写侧门控（批 2，UrlOption 前置）：按当前书源开关补标记
     let mut headers = headers;
-    apply_source_cookie_jar_gate(&mut headers);
+    apply_source_cookie_jar_gate(request_resources, &mut headers);
 
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = shared_client_for_url(url)?;
+        let client = request_client(request_resources, false, url)?;
         let request = LegadoRequest {
             url: url.to_string(),
             method,
@@ -906,6 +659,7 @@ pub fn connect_full(
 /// 302 响应的 Location 头；跟随重定向后头信息丢失 → header 返回 null。
 /// — 2026-08-17
 pub fn connect_no_redirect(
+    request_resources: &RequestResources<'_>,
     url: &str,
     method: Option<&str>,
     headers_json: Option<&str>,
@@ -927,7 +681,7 @@ pub fn connect_no_redirect(
     );
     // 写侧门控（批 2）：java.get/post/head 走 connectNR；按当前书源开关补标记
     //（对齐上游 JsExtensions.kt:532-534/559-561/586-588 的 getSource 门控）
-    apply_source_cookie_jar_gate(&mut headers);
+    apply_source_cookie_jar_gate(request_resources, &mut headers);
     block_on(async {
         // 不跟随重定向共享池（回环/非回环分池）：
         // - `follow_redirects=false`：拦截 302 取 Location 头（jsoup 语义）
@@ -935,7 +689,7 @@ pub fn connect_no_redirect(
         //   reqwest 默认客户端在 HTTP_PROXY 存在时连 127.0.0.1 也走代理，
         //   死代理环境下回环用例会被劫持（cda70a0c54 约定）。仅回环 URL
         //   豁免代理；真实主机仍走用户代理配置，不改变生产行为。
-        let client = shared_client_no_redirect(&url)
+        let client = request_client(request_resources, true, &url)
             .map_err(|e| format!("connectNR client error: {}", e))?;
         let request = LegadoRequest {
             url,
@@ -962,17 +716,21 @@ pub fn connect_no_redirect(
 ///
 /// 对应 Kotlin: `head(urlStr, headers): Connection.Response`
 /// 返回包含 statusCode / body / headers 的完整响应 JSON。
-pub fn head_full(url: &str, headers_json: Option<&str>) -> Result<String, String> {
+pub fn head_full(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    headers_json: Option<&str>,
+) -> Result<String, String> {
     let mut headers: HashMap<String, String> = headers_json
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_default();
     // 写侧门控（批 2）：按当前书源开关补标记（上游 head 同门控）
-    apply_source_cookie_jar_gate(&mut headers);
+    apply_source_cookie_jar_gate(request_resources, &mut headers);
 
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-        let client = shared_client_for_url(url)?;
+        // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
+        let client = request_client(request_resources, false, url)?;
         let request = LegadoRequest {
             url: url.to_string(),
             method: Method::Head,
@@ -998,17 +756,22 @@ pub fn head_full(url: &str, headers_json: Option<&str>) -> Result<String, String
 ///
 /// 对应 Kotlin: `post(urlStr, body, headers): Connection.Response`
 /// 返回包含 statusCode / body / headers 的完整响应 JSON。
-pub fn post_full(url: &str, body: &str, headers_json: Option<&str>) -> Result<String, String> {
+pub fn post_full(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    body: &str,
+    headers_json: Option<&str>,
+) -> Result<String, String> {
     let mut headers: HashMap<String, String> = headers_json
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_default();
     // 写侧门控（批 2）：按当前书源开关补标记（上游 post 同门控）
-    apply_source_cookie_jar_gate(&mut headers);
+    apply_source_cookie_jar_gate(request_resources, &mut headers);
 
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建连接池）
-        let client = shared_client_for_url(url)?;
+        // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
+        let client = request_client(request_resources, false, url)?;
         let request = LegadoRequest {
             url: url.to_string(),
             method: Method::Post,
@@ -1035,6 +798,63 @@ mod tests {
     use std::io::{Read, Write};
 
     use super::*;
+
+    use crate::http_resources::{CookieAccess, HttpResources};
+    use legado_net::{CookiePersistence, CookieStore, LegadoClientConfig};
+    use std::sync::{Arc, RwLock};
+
+    /// 每个协议用例拥有自己的 Cookie、后端、来源开关和四池，不注册进程槽。
+    struct Fixture {
+        http: HttpResources,
+        persistence: Arc<RecordingPersistence>,
+        store: Arc<RwLock<CookieStore>>,
+        gates: Arc<std::sync::Mutex<HashMap<String, bool>>>,
+    }
+
+    struct FixtureCookies(Arc<RwLock<CookieStore>>);
+    impl CookieAccess for FixtureCookies {
+        fn get(&self, url: &str) -> String {
+            let key = legado_net::cookie_store::normalize_cookie_key(url);
+            self.0.read().unwrap().domain_cookie_string(&key)
+        }
+        fn set(&self, url: &str, value: &str) {
+            let key = legado_net::cookie_store::normalize_cookie_key(url);
+            self.0.write().unwrap().set_cookies_from_string(&key, value);
+        }
+        fn clear(&self, url: &str) {
+            let key = legado_net::cookie_store::normalize_cookie_key(url);
+            self.0.write().unwrap().remove_domain(&key);
+        }
+        fn clear_all(&self) {
+            self.0.write().unwrap().clear();
+        }
+    }
+
+    impl Default for Fixture {
+        fn default() -> Self {
+            Self::with_persistence(Default::default())
+        }
+    }
+
+    impl Fixture {
+        fn with_persistence(persistence: Arc<RecordingPersistence>) -> Self {
+            let store = Arc::new(RwLock::new(CookieStore::new()));
+            let gates: Arc<std::sync::Mutex<HashMap<String, bool>>> = Default::default();
+            let lookup = gates.clone();
+            let http = HttpResources::new(
+                store.clone(),
+                Some(persistence.clone()),
+                Arc::new(FixtureCookies(store.clone())),
+                Arc::new(move |tag| lookup.lock().unwrap().get(tag).copied()),
+            );
+            Self {
+                http,
+                persistence,
+                store,
+                gates,
+            }
+        }
+    }
 
     /// 判断响应体是否为有效 JSON 对象（httpbin 风格回显；区分 404/错误页）
     fn is_valid_response(body: &str) -> bool {
@@ -1134,7 +954,7 @@ mod tests {
     /// std `TcpListener` + 单线程模式（与 `spawn_search_loopback_server` /
     /// `spawn_cookie_echo_server` 同款；legado-js 的 quickjs tokio feature 无 net）；
     /// 回环流量经 `no_proxy` 豁免系统/环境变量代理（P2-17 约定，见
-    /// 回环共享池 `PoolKind::Loopback` / `PoolKind::NoRedirectLoopback`）。
+    /// 回环共享池 `HttpResources::client(true, false)` / `HttpResources::client(true, true)`）。
     fn spawn_httpbin_mock(max_conns: usize) -> std::net::SocketAddr {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind 127.0.0.1:0");
         let addr = listener.local_addr().expect("local_addr");
@@ -1192,9 +1012,10 @@ mod tests {
     /// 测试 http_get 基本请求（本地回环 mock：`/get` 回显 url/args/headers）
     #[test]
     fn test_http_get_basic() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
-        let body =
-            http_get(&format!("http://{addr}/get"), None).expect("http_get 到本地回环 mock 应成功");
+        let body = http_get(&fixture.http.request(), &format!("http://{addr}/get"), None)
+            .expect("http_get 到本地回环 mock 应成功");
         assert!(is_valid_response(&body), "响应应为 JSON 对象: {body}");
         assert!(body.contains("/get"), "回显 URL 应含请求路径: {body}");
         assert!(
@@ -1210,10 +1031,15 @@ mod tests {
     /// 原 httpbin 用例的客户端保留原始大小写，此处按 HTTP 头语义等价放宽。
     #[test]
     fn test_http_get_with_headers() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let headers = r#"{"X-Custom-Header": "test-value"}"#;
-        let body = http_get(&format!("http://{addr}/headers"), Some(headers))
-            .expect("http_get 到本地回环 mock 应成功");
+        let body = http_get(
+            &fixture.http.request(),
+            &format!("http://{addr}/headers"),
+            Some(headers),
+        )
+        .expect("http_get 到本地回环 mock 应成功");
         assert!(is_valid_response(&body), "响应应为 JSON 对象: {body}");
         let lower = body.to_ascii_lowercase();
         assert!(
@@ -1229,8 +1055,10 @@ mod tests {
     /// 测试 http_post 基本请求（本地回环 mock：`/post` 回显 data/json）
     #[test]
     fn test_http_post_basic() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let body = http_post(
+            &fixture.http.request(),
             &format!("http://{addr}/post"),
             r#"{"key": "value"}"#,
             Some(r#"{"Content-Type": "application/json"}"#),
@@ -1245,9 +1073,10 @@ mod tests {
     /// 测试 http_head 返回 headers JSON（本地回环 mock：HEAD `/get`）
     #[test]
     fn test_http_head() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
-        let headers_json =
-            http_head(&format!("http://{addr}/get")).expect("http_head 到本地回环 mock 应成功");
+        let headers_json = http_head(&fixture.http.request(), &format!("http://{addr}/get"))
+            .expect("http_head 到本地回环 mock 应成功");
         let parsed: HashMap<String, String> =
             serde_json::from_str(&headers_json).expect("httpHead 应返回有效 JSON");
         assert!(!parsed.is_empty(), "HEAD 响应应含响应头: {parsed:?}");
@@ -1262,13 +1091,15 @@ mod tests {
     /// 测试 ajax 通用接口（GET，本地回环 mock：`/get` 回显）
     #[test]
     fn test_ajax_get() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let opts = serde_json::json!({
             "method": "GET",
             "url": format!("http://{addr}/get"),
             "headers": {"Accept": "application/json"}
         });
-        let resp_json = ajax(&opts.to_string()).expect("ajax GET 到本地回环 mock 应成功");
+        let resp_json = ajax(&fixture.http.request(), &opts.to_string())
+            .expect("ajax GET 到本地回环 mock 应成功");
         let resp: HttpResponse = serde_json::from_str(&resp_json).expect("ajax 响应应可解析");
         assert_eq!(
             resp.status_code, 200,
@@ -1293,9 +1124,10 @@ mod tests {
     #[test]
     #[ignore = "依赖 httpbin.org，外部 503/验证页会改变响应体格式"]
     fn test_ajax_url_option_format_returns_body() {
+        let fixture = Fixture::default();
         let input =
             r#"https://httpbin.org/get,{"method":"GET","headers":{"Accept":"application/json"}}"#;
-        let result = ajax(input);
+        let result = ajax(&fixture.http.request(), input);
         if let Ok(body) = result {
             let head: String = body.chars().take(80).collect();
             assert!(
@@ -1309,6 +1141,7 @@ mod tests {
     /// 测试 ajax 通用接口（POST，本地回环 mock：`/post` 回显 data/json）
     #[test]
     fn test_ajax_post() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let opts = serde_json::json!({
             "method": "POST",
@@ -1317,7 +1150,8 @@ mod tests {
             "headers": {"Content-Type": "application/json"},
             "timeout_ms": 10000
         });
-        let resp_json = ajax(&opts.to_string()).expect("ajax POST 到本地回环 mock 应成功");
+        let resp_json = ajax(&fixture.http.request(), &opts.to_string())
+            .expect("ajax POST 到本地回环 mock 应成功");
         let resp: HttpResponse = serde_json::from_str(&resp_json).expect("ajax 响应应可解析");
         assert_eq!(
             resp.status_code, 200,
@@ -1339,8 +1173,9 @@ mod tests {
     /// 测试 ajax 空 URL 应报错
     #[test]
     fn test_ajax_empty_url() {
+        let fixture = Fixture::default();
         let opts = r#"{"method": "GET", "url": ""}"#;
-        let result = ajax(opts);
+        let result = ajax(&fixture.http.request(), opts);
         assert!(result.is_err(), "空 URL 应返回错误");
         assert!(result.unwrap_err().contains("url is required"));
     }
@@ -1348,8 +1183,9 @@ mod tests {
     /// 测试 ajax 不支持的 HTTP 方法
     #[test]
     fn test_ajax_unsupported_method() {
+        let fixture = Fixture::default();
         let opts = r#"{"method": "PATCH", "url": "https://httpbin.org/patch"}"#;
-        let result = ajax(opts);
+        let result = ajax(&fixture.http.request(), opts);
         assert!(result.is_err(), "PATCH 方法应返回错误");
         assert!(result.unwrap_err().contains("unsupported method"));
     }
@@ -1357,13 +1193,15 @@ mod tests {
     /// 测试 ajaxAll 批量并发请求（本地回环 mock：3 个并发 `/get` 回显）
     #[test]
     fn test_ajax_all() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(8);
         let urls = serde_json::json!([
             format!("http://{addr}/get"),
             format!("http://{addr}/get"),
             format!("http://{addr}/get")
         ]);
-        let results_json = ajax_all(&urls.to_string()).expect("ajaxAll 到本地回环 mock 应成功");
+        let results_json = ajax_all(&fixture.http.request(), &urls.to_string())
+            .expect("ajaxAll 到本地回环 mock 应成功");
         let results: Vec<String> = serde_json::from_str(&results_json).expect("结果应可解析");
         assert_eq!(results.len(), 3, "应返回 3 个结果");
         for body in &results {
@@ -1381,7 +1219,8 @@ mod tests {
     /// 测试 ajaxAll 无效 JSON 输入
     #[test]
     fn test_ajax_all_invalid_json() {
-        let result = ajax_all("not a json array");
+        let fixture = Fixture::default();
+        let result = ajax_all(&fixture.http.request(), "not a json array");
         assert!(result.is_err(), "无效 JSON 应返回错误");
         assert!(result.unwrap_err().contains("parse error"));
     }
@@ -1412,20 +1251,18 @@ mod tests {
     /// 全部可重建且 store 内容不丢（设计项 A + 脑裂修复）
     #[test]
     fn test_shared_client_pools() {
-        let _lock = lock_pool_test();
-        register_test_persistence();
-        register_test_store();
-        reset_shared_client_pools();
+        let fixture = Fixture::default();
+        fixture.http.reset_clients();
         for (loopback, no_redirect) in [(false, false), (true, false), (false, true), (true, true)]
         {
             assert!(
-                shared_client(loopback, no_redirect).is_ok(),
+                fixture.http.client(loopback, no_redirect).is_ok(),
                 "共享池 (loopback={loopback}, no_redirect={no_redirect}) 应构建成功"
             );
         }
         // 幂等：两次取回共享同一实例（cookie_store 内部分配指针一致）
-        let a = shared_client(false, false).expect("默认池");
-        let b = shared_client(false, false).expect("默认池");
+        let a = fixture.http.client(false, false).expect("默认池");
+        let b = fixture.http.client(false, false).expect("默认池");
         assert!(
             std::ptr::eq(
                 std::sync::Arc::as_ptr(a.cookie_store()),
@@ -1435,7 +1272,7 @@ mod tests {
         );
         // 脑裂修复：注册共享 store 后不同池共用同一 CookieStore
         // （FFI 主链路与 JS 桥池同罐，上游单客户端单 CookieStore 语义）
-        let c = shared_client(true, false).expect("回环池");
+        let c = fixture.http.client(true, false).expect("回环池");
         assert!(
             std::ptr::eq(
                 std::sync::Arc::as_ptr(a.cookie_store()),
@@ -1445,17 +1282,26 @@ mod tests {
         );
         // reset 后四池全部可重建（重建走当前持久化钩子 + 共享 store；
         // store 指针不变、客户端实例必变）
-        let before_reset = shared_client(true, false).expect("回环池（reset 前）");
-        reset_shared_client_pools();
+        let before_reset = fixture
+            .http
+            .client(true, false)
+            .expect("回环池（reset 前）");
+        fixture.http.reset_clients();
         for (loopback, no_redirect) in [(false, false), (true, false), (false, true), (true, true)]
         {
-            let rebuilt = shared_client(loopback, no_redirect).expect("reset 后共享池应重建成功");
+            let rebuilt = fixture
+                .http
+                .client(loopback, no_redirect)
+                .expect("reset 后共享池应重建成功");
             assert!(
                 std::sync::Arc::ptr_eq(before_reset.cookie_store(), rebuilt.cookie_store()),
                 "reset 后共享池应复用同一 CookieStore（内容不丢）"
             );
         }
-        let after_reset = shared_client(true, false).expect("回环池（reset 后）");
+        let after_reset = fixture
+            .http
+            .client(true, false)
+            .expect("回环池（reset 后）");
         assert_ne!(
             before_reset.client_id(),
             after_reset.client_id(),
@@ -1498,14 +1344,13 @@ mod tests {
     /// - 断言口径不变：①恰 1 次 accept；②恰 N 次新增 accept（1+N 总数）。
     #[test]
     fn test_shared_pool_reuses_keep_alive() {
-        let _lock = lock_pool_test();
-        register_test_persistence();
+        let fixture = Fixture::default();
         const N: usize = 5;
         let (addr, accepts) = spawn_counting_keep_alive_server(N + N + 2);
         let base = format!("http://{addr}/");
 
         // ① 共享客户端（回环池）连发 N 次：应仅 1 次 accept
-        let client = shared_client_for_url(&base).expect("共享池");
+        let client = fixture.http.client_for_url(&base, false).expect("共享池");
         block_on(async {
             for i in 0..N {
                 if i > 0 {
@@ -1593,26 +1438,7 @@ mod tests {
         (addr, accepts)
     }
 
-    // ── Cookie 持久化 + 共享 store 共享池（设计项 A + 脑裂修复，2026-09-26）
-    //
-    // 根因（`.tmp/engine_forensic_d/report_d.md` §2）：JS 桥池客户端此前
-    // 仅内存 jar，冷启动即失 Set-Cookie 种下的 WAF 状态机 cookie，状态机
-    // 跨进程断链（x81zws.com）；且四池与 FFI 主链路各持独立内存罐，主
-    // 链路 403 重种 JS 侧不可见（脑裂，App 内确定性失败）。修复：池构建
-    // 路径注入 CookiePersistence 后端 + 共享 CookieStore 实例（均
-    // first-wins），构建/重建时合并预载 + 写回。以下用例触碰进程级全局
-    // 状态（池槽位 + 持久化钩子 + 共享 store 钩子），统一持
-    // POOL_TEST_LOCK 串行。
-
-    /// 池用例串行锁（池槽位 + 持久化钩子为进程级共享）：串行化
-    /// 「注册 → 请求 → 断言 → 重置」段，避免并行用例互相清掉对方的槽/行
-    static POOL_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-    fn lock_pool_test() -> std::sync::MutexGuard<'static, ()> {
-        POOL_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
+    // 以下协议用例分别持有自己的四池、后端和 jar，可并行运行。
 
     /// 内存版 CookiePersistence 测试替身（模拟 `legado-ffi::http_state::DbCookiePersistence`
     /// 的 DB 写回，不涉真实数据库）
@@ -1663,24 +1489,6 @@ mod tests {
         }
     }
 
-    /// 进程级共享测试持久化实例：`set_client_cookie_persistence` 为
-    /// first-wins，所有触碰池的用例必须共享同一实例（首注册胜者恒为该
-    /// 共享实例，而非某用例的临时实例）
-    static TEST_PERSISTENCE: OnceLock<Arc<RecordingPersistence>> = OnceLock::new();
-
-    fn test_persistence() -> Arc<RecordingPersistence> {
-        Arc::clone(TEST_PERSISTENCE.get_or_init(|| Arc::new(RecordingPersistence::default())))
-    }
-
-    /// 把共享测试实例注册进全局钩子（幂等；first-wins 返回值忽略）
-    ///
-    /// 传入的是 `test_persistence()` 克隆出的新 `Arc`（不独占 `OnceLock`
-    /// 内实例的所有权），由参数位完成到 `Arc<dyn CookiePersistence>`
-    /// 的 unsized 收敛。
-    fn register_test_persistence() {
-        let _ = set_client_cookie_persistence(test_persistence());
-    }
-
     /// 写侧门控标记头（批 2）：客户端级用例显式模拟生产注入口
     ///
     /// 生产环境标记由主链路（fetch_page/search）或 JS 桥（按当前书源开关）
@@ -1690,42 +1498,6 @@ mod tests {
         let mut headers = HashMap::new();
         headers.insert(COOKIE_JAR_HEADER.to_string(), "1".to_string());
         Some(headers)
-    }
-
-    /// 测试用书源开关注册表（tag → enabledCookieJar）
-    ///
-    /// `set_source_cookie_jar_lookup` 为 first-wins 全局钩子：全 crate 测试
-    /// 共享同一实例（仿 `TEST_PERSISTENCE`），各用例用唯一 tag 避免串扰。
-    static TEST_SOURCE_GATES: OnceLock<std::sync::Mutex<std::collections::HashMap<String, bool>>> =
-        OnceLock::new();
-
-    fn test_source_gates() -> &'static std::sync::Mutex<std::collections::HashMap<String, bool>> {
-        TEST_SOURCE_GATES.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
-    }
-
-    /// 注册测试用书源开关查询（幂等；first-wins 返回值忽略）
-    fn register_test_source_cookie_jar_lookup() {
-        let _ = set_source_cookie_jar_lookup(Arc::new(|tag: &str| {
-            test_source_gates()
-                .lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .get(tag)
-                .copied()
-        }));
-    }
-
-    /// 进程级共享测试 store 实例（脑裂修复用例的共享罐；仿
-    /// `TEST_PERSISTENCE`——first-wins 钩子下所有触碰池的用例必须
-    /// 共享同一实例）
-    static TEST_STORE: OnceLock<Arc<RwLock<CookieStore>>> = OnceLock::new();
-
-    fn test_store() -> Arc<RwLock<CookieStore>> {
-        Arc::clone(TEST_STORE.get_or_init(|| Arc::new(RwLock::new(CookieStore::new()))))
-    }
-
-    /// 把共享测试 store 注册进全局钩子（幂等；first-wins 返回值忽略）
-    fn register_test_store() {
-        let _ = set_client_cookie_store(test_store());
     }
 
     /// 最小 WAF 403 状态机 mock（设计项 A：模拟 x81zws 的 403+Set-Cookie
@@ -1789,44 +1561,23 @@ mod tests {
         addr
     }
 
-    /// 设计项 A 钩子 first-wins 语义：二次注册返回 false 且不覆盖首实例；
-    /// reset 重建后装入的客户端仍指向首注册实例（共享 store 内容不丢，
-    /// 脑裂修复：store 指针不变、客户端实例必变）
     #[test]
-    fn test_set_client_cookie_persistence_first_wins() {
-        let _lock = lock_pool_test();
-        register_test_persistence();
-        register_test_store();
-        // 二次注册（临时实例）必须被忽略
-        assert!(
-            !set_client_cookie_persistence(Arc::new(RecordingPersistence::default())),
-            "二次注册应返回 false（first-wins，不覆盖）"
-        );
-        // 先 reset 再取「首次构建」：排空前序用例在 store 注册前预填的
-        // 池槽位（那些客户端走无共享 store 路径，store 指针与重建
-        // 后的必然不等，flaky 根因）
-        reset_shared_client_pools();
-        // reset 重建：装入的客户端仍指向首注册实例
-        let before = shared_client(true, false).expect("回环池（首次构建）");
-        reset_shared_client_pools();
-        let after = shared_client(true, false).expect("回环池（reset 后重建）");
-        assert!(
-            std::sync::Arc::ptr_eq(before.cookie_store(), after.cookie_store()),
-            "reset 后池应复用同一 CookieStore（内容不丢，脑裂修复）"
-        );
-        assert_ne!(
-            before.client_id(),
-            after.client_id(),
-            "reset 后池应重建新客户端实例"
-        );
-        let bound = after
-            .cookie_persistence()
-            .expect("注册持久化后，池客户端必须携带持久化后端");
-        let shared: Arc<dyn CookiePersistence> = test_persistence();
-        assert!(
-            Arc::ptr_eq(bound, &shared),
-            "客户端应指向首注册实例（未被二次注册覆盖）"
-        );
+    fn test_independent_resources_keep_distinct_clients_and_backends() {
+        let one = Fixture::default();
+        let two = Fixture::default();
+        for (loopback, no_redirect) in [(false, false), (true, false), (false, true), (true, true)]
+        {
+            let a = one.http.client(loopback, no_redirect).unwrap();
+            let b = two.http.client(loopback, no_redirect).unwrap();
+            assert!(!Arc::ptr_eq(a.cookie_store(), b.cookie_store()));
+            let persistence: Arc<dyn CookiePersistence> = one.persistence.clone();
+            assert!(Arc::ptr_eq(a.cookie_persistence().unwrap(), &persistence));
+        }
+        one.http.reset_clients();
+        assert!(Arc::ptr_eq(
+            two.http.client(true, false).unwrap().cookie_store(),
+            &two.store
+        ));
     }
 
     /// 设计项 A 冷启动恢复：403+Set-Cookie 种下状态机 cookie → 写回持久化
@@ -1835,11 +1586,10 @@ mod tests {
     /// 请求头绝不携带
     #[test]
     fn test_persistence_cold_start_same_domain_carried_foreign_never() {
-        let _lock = lock_pool_test();
-        let fake = test_persistence();
-        register_test_persistence();
+        let fixture = Fixture::default();
+        let fake = fixture.persistence.clone();
         fake.clear();
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
 
         let addr = spawn_waf_403_echo_server(4);
         let url = format!("http://{addr}/waf");
@@ -1847,7 +1597,10 @@ mod tests {
         // ① 初始态（无 cookie）：WAF 挑战 403 + Set-Cookie 种状态机
         //（批 2 写侧门控：本用例直接驱动客户端机制，显式携带标记头模拟生产
         //  注入；无标记 = 不写回为现行不变式，由 net/fetcher 套件钉死）
-        let client1 = shared_client(true, false).expect("回环池（首次构建）");
+        let client1 = fixture
+            .http
+            .client(true, false)
+            .expect("回环池（首次构建）");
         let resp1 = block_on(async { client1.get(&url, cookie_jar_marker_headers()).await })
             .expect("首请求应成功（403 非错误）");
         assert_eq!(
@@ -1866,8 +1619,12 @@ mod tests {
         );
 
         // ② 冷启动模拟：重置池 → 重建（新客户端 jar 从持久化后端预载）
-        reset_shared_client_pools();
-        let client2 = shared_client(true, false).expect("回环池（冷启动重建）");
+        fixture.http.reset_clients();
+        let restarted = Fixture::with_persistence(fake.clone());
+        let client2 = restarted
+            .http
+            .client(true, false)
+            .expect("回环池（冷启动重建）");
 
         // 同域（127.0.0.1）请求必须携带重载的 cookie → 状态机通过 200
         let resp2 =
@@ -1915,7 +1672,7 @@ mod tests {
 
         // 收尾：清共享实例并重置池（不留残留给后续用例）
         fake.clear();
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
     }
 
     /// 脑裂回归（x81zws 根因，2026-09-26）：两客户端（回环池 ≙ FFI 主
@@ -1940,18 +1697,18 @@ mod tests {
     /// 绿态：池复用同一 `Arc<RwLock<CookieStore>>`，重种同轮跨池可见。
     #[test]
     fn test_split_brain_shared_store_cross_pool_same_round() {
-        let _lock = lock_pool_test();
-        let fake = test_persistence();
-        register_test_persistence();
-        register_test_store();
+        let fixture = Fixture::default();
+        let fake = fixture.persistence.clone();
         fake.clear();
         // 清共享 store 残留 WAF 键（防跨用例污染，保证以下断言可
         // 归因于本用例的 403 重种）
-        test_store()
+        fixture
+            .store
+            .clone()
             .write()
             .unwrap_or_else(|p| p.into_inner())
             .remove_domain("127.0.0.1");
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
 
         let addr = spawn_waf_403_echo_server(4);
         let url = format!("http://{addr}/waf");
@@ -1959,10 +1716,14 @@ mod tests {
         // 双客户端预建（模拟 App 内搜索主链路与 JS 桥同时存活），
         // 且必须同罐（脑裂修复前提）；均为 no_proxy 直连回环池
         // （P2-17：回环 URL 不经过系统/环境变量代理）
-        let client1 =
-            shared_client(true, false).expect("回环池（client1，FFI 主链路对回环请求的等价）");
-        let client2 =
-            shared_client(true, true).expect("不跟随重定向回环池（client2，JS 桥 connectNR 等价）");
+        let client1 = fixture
+            .http
+            .client(true, false)
+            .expect("回环池（client1，FFI 主链路对回环请求的等价）");
+        let client2 = fixture
+            .http
+            .client(true, true)
+            .expect("不跟随重定向回环池（client2，JS 桥 connectNR 等价）");
         assert!(
             std::sync::Arc::ptr_eq(client1.cookie_store(), client2.cookie_store()),
             "两池必须共享同一 CookieStore（脑裂修复前提）"
@@ -1980,7 +1741,7 @@ mod tests {
         // 重种证据：共享 store 域键已含 WAF 键（用真实 `url` 解析域键；
         // 勿写字面量模板——`assert!` 无参时不做字符串插值）
         {
-            let shared = test_store();
+            let shared = fixture.store.clone();
             let store = shared.read().unwrap_or_else(|p| p.into_inner());
             assert!(
                 store
@@ -2007,7 +1768,9 @@ mod tests {
 
         // ③ clear_cookie 的 J 层清除（清共享 store 域）→ 403 重种 →
         //    同轮另一客户端可见（清与重种同一 store，上游同款闭环）
-        test_store()
+        fixture
+            .store
+            .clone()
             .write()
             .unwrap_or_else(|p| p.into_inner())
             .remove_domain("127.0.0.1");
@@ -2029,11 +1792,13 @@ mod tests {
 
         // 收尾：清共享实例并重置池（不留残留给后续用例）
         fake.clear();
-        test_store()
+        fixture
+            .store
+            .clone()
             .write()
             .unwrap_or_else(|p| p.into_inner())
             .remove_domain("127.0.0.1");
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
     }
 
     /// 批 2 门控用例服务器：记录每个请求头全文，响应 200 +
@@ -2106,21 +1871,17 @@ mod tests {
     /// - 未绑定 tag → 查不到 → 不落库。
     #[test]
     fn test_ajax_cookie_jar_gate_by_current_source() {
+        let fixture = Fixture::default();
         use crate::host_api::current_source;
 
-        let _lock = lock_pool_test();
-        register_test_persistence();
-        register_test_source_cookie_jar_lookup();
-        let fake = test_persistence();
+        let fake = fixture.persistence.clone();
         fake.clear();
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
 
         const TAG_ON: &str = "https://jsgate-on.example.com/";
         const TAG_OFF: &str = "https://jsgate-off.example.com/";
         {
-            let mut gates = test_source_gates()
-                .lock()
-                .unwrap_or_else(|p| p.into_inner());
+            let mut gates = fixture.gates.lock().unwrap_or_else(|p| p.into_inner());
             gates.insert(TAG_ON.to_string(), true);
             gates.insert(TAG_OFF.to_string(), false);
         }
@@ -2128,7 +1889,11 @@ mod tests {
         // ① 开：响应 Set-Cookie 落库 + 标记头剥离
         let (addr_on, seen_on) = spawn_gate_recording_server(2);
         current_source::with_current_source_tag(TAG_ON, || {
-            ajax(&format!(r#"{{"url":"http://{addr_on}/echo"}}"#)).expect("开态 ajax 应成功")
+            ajax(
+                &fixture.http.request(),
+                &format!(r#"{{"url":"http://{addr_on}/echo"}}"#),
+            )
+            .expect("开态 ajax 应成功")
         });
         let saved_on = fake.get("127.0.0.1").unwrap_or_default();
         assert!(
@@ -2149,7 +1914,11 @@ mod tests {
         fake.clear();
         let (addr_off, _seen_off) = spawn_gate_recording_server(2);
         current_source::with_current_source_tag(TAG_OFF, || {
-            ajax(&format!(r#"{{"url":"http://{addr_off}/echo"}}"#)).expect("关态 ajax 应成功")
+            ajax(
+                &fixture.http.request(),
+                &format!(r#"{{"url":"http://{addr_off}/echo"}}"#),
+            )
+            .expect("关态 ajax 应成功")
         });
         assert_eq!(
             fake.get("127.0.0.1"),
@@ -2161,7 +1930,11 @@ mod tests {
         fake.clear();
         let (addr_unbound, _seen_unbound) = spawn_gate_recording_server(2);
         current_source::clear_current_source_tag();
-        ajax(&format!(r#"{{"url":"http://{addr_unbound}/echo"}}"#)).expect("未绑定 ajax 应成功");
+        ajax(
+            &fixture.http.request(),
+            &format!(r#"{{"url":"http://{addr_unbound}/echo"}}"#),
+        )
+        .expect("未绑定 ajax 应成功");
         assert_eq!(
             fake.get("127.0.0.1"),
             None,
@@ -2170,7 +1943,7 @@ mod tests {
 
         // 收尾：清共享实例并重置池（不留残留给后续用例）
         fake.clear();
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
     }
 
     /// 批 2 收尾：JS 桥其余 9 个网络入口的表驱动写侧门控三态用例
@@ -2187,57 +1960,62 @@ mod tests {
     /// 本用例只钉「接线存在性 + 门控行为」，不做入口各自的深度行为断言。
     #[test]
     fn test_js_network_entrypoints_cookie_jar_gate_three_states_table() {
+        let fixture = Fixture::default();
         use crate::host_api::current_source;
 
-        let _lock = lock_pool_test();
-        register_test_persistence();
-        register_test_source_cookie_jar_lookup();
-        let fake = test_persistence();
+        let fake = fixture.persistence.clone();
 
         const TAG_ON: &str = "https://jsgate-table-on.example.com/";
         const TAG_OFF: &str = "https://jsgate-table-off.example.com/";
         {
-            let mut gates = test_source_gates()
-                .lock()
-                .unwrap_or_else(|p| p.into_inner());
+            let mut gates = fixture.gates.lock().unwrap_or_else(|p| p.into_inner());
             gates.insert(TAG_ON.to_string(), true);
             gates.insert(TAG_OFF.to_string(), false);
         }
 
         /// 入口调用表：名称 +（url → Result）；闭包内只做一行调用，
         /// 钉各入口到 `apply_source_cookie_jar_gate` 的接线存在性。
-        type EntryCall = fn(&str) -> Result<String, String>;
+        type EntryCall = fn(&HttpResources, &str) -> Result<String, String>;
         let entries: &[(&str, EntryCall)] = &[
-            ("http_get", |url| http_get(url, None)),
-            ("http_post", |url| http_post(url, "a=1", None)),
-            ("http_head", |url| http_head(url)),
-            ("ajax_request_body", |url| {
-                ajax_request_body(&HttpOptions {
-                    url: url.to_string(),
-                    ..Default::default()
-                })
+            ("http_get", |http, url| http_get(&http.request(), url, None)),
+            ("http_post", |http, url| {
+                http_post(&http.request(), url, "a=1", None)
             }),
-            ("ajax_all", |url| {
-                ajax_all(&serde_json::json!([url]).to_string())
+            ("http_head", |http, url| http_head(&http.request(), url)),
+            ("ajax_request_body", |http, url| {
+                ajax_request_body(
+                    &http.request(),
+                    &HttpOptions {
+                        url: url.to_string(),
+                        ..Default::default()
+                    },
+                )
             }),
-            ("connect_full", |url| {
-                connect_full(url, Some("GET"), None, None, Some(10_000))
+            ("ajax_all", |http, url| {
+                ajax_all(&http.request(), &serde_json::json!([url]).to_string())
             }),
-            ("connect_no_redirect", |url| {
-                connect_no_redirect(url, Some("GET"), None, None)
+            ("connect_full", |http, url| {
+                connect_full(&http.request(), url, Some("GET"), None, None, Some(10_000))
             }),
-            ("head_full", |url| head_full(url, None)),
-            ("post_full", |url| post_full(url, "a=1", None)),
+            ("connect_no_redirect", |http, url| {
+                connect_no_redirect(&http.request(), url, Some("GET"), None, None)
+            }),
+            ("head_full", |http, url| {
+                head_full(&http.request(), url, None)
+            }),
+            ("post_full", |http, url| {
+                post_full(&http.request(), url, "a=1", None)
+            }),
         ];
 
         for (name, call) in entries {
             // ① 开（enabledCookieJar=true）：Set-Cookie 落库 + 标记不出网
             fake.clear();
-            reset_shared_client_pools();
+            fixture.http.reset_clients();
             let (addr_on, seen_on) = spawn_gate_recording_server(2);
             let url_on = format!("http://{addr_on}/echo");
             current_source::with_current_source_tag(TAG_ON, || {
-                call(&url_on).unwrap_or_else(|e| panic!("{name} 开态调用失败: {e}"));
+                call(&fixture.http, &url_on).unwrap_or_else(|e| panic!("{name} 开态调用失败: {e}"));
             });
             assert!(
                 fake.get("127.0.0.1")
@@ -2257,11 +2035,12 @@ mod tests {
 
             // ② 关（false）：不落库
             fake.clear();
-            reset_shared_client_pools();
+            fixture.http.reset_clients();
             let (addr_off, _seen_off) = spawn_gate_recording_server(2);
             let url_off = format!("http://{addr_off}/echo");
             current_source::with_current_source_tag(TAG_OFF, || {
-                call(&url_off).unwrap_or_else(|e| panic!("{name} 关态调用失败: {e}"));
+                call(&fixture.http, &url_off)
+                    .unwrap_or_else(|e| panic!("{name} 关态调用失败: {e}"));
             });
             assert_eq!(
                 fake.get("127.0.0.1"),
@@ -2271,11 +2050,12 @@ mod tests {
 
             // ③ 未绑定 tag：不落库
             fake.clear();
-            reset_shared_client_pools();
+            fixture.http.reset_clients();
             let (addr_unbound, _seen_unbound) = spawn_gate_recording_server(2);
             let url_unbound = format!("http://{addr_unbound}/echo");
             current_source::clear_current_source_tag();
-            call(&url_unbound).unwrap_or_else(|e| panic!("{name} 未绑定态调用失败: {e}"));
+            call(&fixture.http, &url_unbound)
+                .unwrap_or_else(|e| panic!("{name} 未绑定态调用失败: {e}"));
             assert_eq!(
                 fake.get("127.0.0.1"),
                 None,
@@ -2285,103 +2065,50 @@ mod tests {
 
         // 收尾：清共享实例并重置池（不留残留给后续用例）
         fake.clear();
-        reset_shared_client_pools();
+        fixture.http.reset_clients();
     }
 
-    /// 未注册路径回归：不触碰全局钩子时，显式 `None` 构建（无共享
-    /// store、无持久化后端）等价改造前 `LegadoClient::new`（jar 为空）；
-    /// 注册路径则预载后端行
     #[test]
-    fn test_pool_build_without_persistence_is_plain_new() {
-        let client =
-            build_pool_client_with(PoolKind::Default, None, None).expect("未注册路径构建应成功");
+    fn test_explicit_backend_preloads_without_overwriting_live_cookie() {
+        let plain = HttpResources::default();
         assert!(
-            client.cookie_persistence().is_none(),
-            "未注册路径不得携带持久化后端（等价改造前 LegadoClient::new）"
+            plain
+                .client(true, false)
+                .unwrap()
+                .cookie_persistence()
+                .is_none()
         );
-        let store = client
-            .cookie_store()
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
+        assert_eq!(plain.cookies_for_url("http://127.0.0.1:1/"), "");
+        let fixture = Fixture::default();
+        fixture.persistence.seed("127.0.0.1", "loaded=old");
+        let first = fixture.http.client(true, false).unwrap();
         assert_eq!(
-            store.get_cookie_string("http://127.0.0.1:1/"),
-            "",
-            "未注册路径 jar 应为空"
+            fixture.http.cookies_for_url("http://127.0.0.1:1/"),
+            "loaded=old"
         );
-        drop(store);
-
-        let fake = RecordingPersistence::default();
-        fake.seed("127.0.0.1", "legacy_check=OK-1");
-        let persistence: Arc<dyn CookiePersistence> = Arc::new(fake);
-        let client2 = build_pool_client_with(PoolKind::Loopback, Some(persistence.clone()), None)
-            .expect("注册路径构建应成功");
-        assert!(
-            client2.cookie_persistence().is_some(),
-            "注册路径必须携带持久化后端"
-        );
-        let store = client2
-            .cookie_store()
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
-        assert!(
-            store
-                .get_cookie_string("http://127.0.0.1:1/")
-                .contains("legacy_check=OK-1"),
-            "注册路径构建必须预载持久化 cookie 进 jar"
-        );
-
-        // 共享 store 路径：复用既有 store 实例（指针一致）+ 持久化后端
-        // 合并预载（空 store 全量预载；已含域内存值同名冲突时胜出）
-        let shared = Arc::new(RwLock::new(CookieStore::new()));
-        let client3 = build_pool_client_with(
-            PoolKind::Loopback,
-            Some(persistence.clone()),
-            Some(shared.clone()),
-        )
-        .expect("共享 store 路径构建应成功");
-        assert!(
-            std::sync::Arc::ptr_eq(client3.cookie_store(), &shared),
-            "共享 store 路径必须复用传入的 store 实例（脑裂修复）"
-        );
-        let store = client3
-            .cookie_store()
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
-        assert!(
-            store
-                .get_cookie_string("http://127.0.0.1:1/")
-                .contains("legacy_check=OK-1"),
-            "共享 store 路径构建必须预载持久化 cookie 进复用 jar"
-        );
-        // 内存值同名冲突时胜出：jar 已有值不得被后端旧值覆盖
-        drop(store);
-        client3
-            .cookie_store()
-            .write()
-            .unwrap_or_else(|p| p.into_inner())
-            .set_cookies_from_string("127.0.0.1", "legacy_check=MEM-WINS");
-        let client4 = build_pool_client_with(
-            PoolKind::Loopback,
-            Some(persistence.clone()),
-            Some(shared.clone()),
-        )
-        .expect("共享 store 路径构建应成功");
-        let store = client4
-            .cookie_store()
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
-        assert!(
-            store
-                .get_cookie_string("http://127.0.0.1:1/")
-                .contains("legacy_check=MEM-WINS"),
-            "合并预载同名键内存值必须胜出（不丢在途状态）"
+        fixture.http.set_cookie("127.0.0.1", "loaded=new");
+        fixture.http.reset_clients();
+        let rebuilt = fixture.http.client(true, false).unwrap();
+        assert_ne!(first.client_id(), rebuilt.client_id());
+        assert!(Arc::ptr_eq(first.cookie_store(), rebuilt.cookie_store()));
+        assert_eq!(
+            fixture.http.cookies_for_url("http://127.0.0.1:1/"),
+            "loaded=new"
         );
     }
 
     /// 测试 connect_full 不支持的 HTTP 方法
     #[test]
     fn test_connect_full_unsupported_method() {
-        let result = connect_full("https://httpbin.org/get", Some("PATCH"), None, None, None);
+        let fixture = Fixture::default();
+        let result = connect_full(
+            &fixture.http.request(),
+            "https://httpbin.org/get",
+            Some("PATCH"),
+            None,
+            None,
+            None,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unsupported method"));
     }
@@ -2389,8 +2116,10 @@ mod tests {
     /// 测试 connect_full GET 请求（返回完整响应 JSON，本地回环 mock：`/get` 回显）
     #[test]
     fn test_connect_full_get() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let resp_json = connect_full(
+            &fixture.http.request(),
             &format!("http://{addr}/get"),
             Some("GET"),
             None,
@@ -2415,8 +2144,9 @@ mod tests {
     /// 测试 head_full 返回完整响应 JSON（本地回环 mock：HEAD `/get`）
     #[test]
     fn test_head_full() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
-        let resp_json = head_full(&format!("http://{addr}/get"), None)
+        let resp_json = head_full(&fixture.http.request(), &format!("http://{addr}/get"), None)
             .expect("head_full 到本地回环 mock 应成功");
         let resp: HttpResponse = serde_json::from_str(&resp_json).expect("响应应可解析");
         assert_eq!(
@@ -2431,8 +2161,10 @@ mod tests {
     /// 断言空转——P2-19 审查发现）；本地 mock 同样只对 `/post` 回显。
     #[test]
     fn test_post_full() {
+        let fixture = Fixture::default();
         let addr = spawn_httpbin_mock(4);
         let resp_json = post_full(
+            &fixture.http.request(),
             &format!("http://{addr}/post"),
             r#"{"key":"value"}"#,
             Some(r#"{"Content-Type":"application/json"}"#),
@@ -2519,14 +2251,6 @@ mod tests {
         addr
     }
 
-    /// 回环回显用例共享的串行锁（跨测试模块——回环域名键 `127.0.0.1` 同时被
-    /// source_engine.rs 等模块的回环用例共用）：cookie 全局存储为进程级共享，
-    /// 锁串行化「写 → 请求 → 断言 → 清理」段，避免并行用例互相清掉对方的键
-    ///（中毒恢复语义同 `legado-ffi::test_support::GLOBAL_STORE_TEST_LOCK`）。
-    fn lock_cookie_echo_test() -> std::sync::MutexGuard<'static, ()> {
-        crate::host_api::cookie_store::lock_cookie_store_test()
-    }
-
     /// P2-19「跨源不泄漏」用例**改写为上游语义**（2026-09-23 用户裁决：同步上游
     /// 「cookie 属于域名，不属于书源」）：
     /// - 同域共享：向回环域（IP 字面量自键 `127.0.0.1`）写一次 cookie，
@@ -2540,7 +2264,8 @@ mod tests {
     /// book.com.cn 域 cookie 本就不属回环域，故改写为「异域不携带」+「同域共享」。
     #[test]
     fn test_p219_ajax_cookie_same_domain_shared_foreign_never_carried() {
-        use crate::host_api::{cookie_store, current_source};
+        let fixture = Fixture::default();
+        use crate::host_api::current_source;
 
         const TAG_A: &str = "https://www.a.book.com.cn/";
         const TAG_B: &str = "https://www.b.book.com.cn/";
@@ -2549,29 +2274,37 @@ mod tests {
 
         let addr = spawn_cookie_echo_server(4);
         let loopback_key = format!("http://{addr}/"); // 归一后域名键 = "127.0.0.1"
-        let _lock = lock_cookie_echo_test();
-        cookie_store::clear_cookies(&loopback_key);
-        cookie_store::clear_cookies(FOREIGN_URL);
-        cookie_store::clear_cookies(FOREIGN_KEY);
-        cookie_store::set_cookie(&loopback_key, "p219_sync", "SYNC-VAL-1f8a");
+        fixture.http.cookies().clear(&loopback_key);
+        fixture.http.cookies().clear(FOREIGN_URL);
+        fixture.http.cookies().clear(FOREIGN_KEY);
+        fixture
+            .http
+            .set_cookie(&loopback_key, "p219_sync=SYNC-VAL-1f8a");
         // 异域 cookie：绝不泄漏进回环请求（P2-19 不变式）
-        cookie_store::set_cookie(FOREIGN_URL, "p219_foreign", "F-VAL-6c2e");
+        fixture
+            .http
+            .set_cookie(FOREIGN_URL, "p219_foreign=F-VAL-6c2e");
 
         // 书源 A 上下文
         let resp_a = current_source::with_current_source_tag(TAG_A, || {
-            ajax(&format!(r#"{{"url":"http://{addr}/echo"}}"#))
-                .expect("ajax to loopback cookie-echo server (tag A)")
+            ajax(
+                &fixture.http.request(),
+                &format!(r#"{{"url":"http://{addr}/echo"}}"#),
+            )
+            .expect("ajax to loopback cookie-echo server (tag A)")
         });
         // 书源 B 上下文：同一请求 URL → 同域 cookie 跨书源共享
         let resp_b = current_source::with_current_source_tag(TAG_B, || {
-            ajax(&format!(r#"{{"url":"http://{addr}/echo"}}"#))
-                .expect("ajax to loopback cookie-echo server (tag B)")
+            ajax(
+                &fixture.http.request(),
+                &format!(r#"{{"url":"http://{addr}/echo"}}"#),
+            )
+            .expect("ajax to loopback cookie-echo server (tag B)")
         });
 
-        cookie_store::clear_cookies(&loopback_key);
-        cookie_store::clear_cookies(FOREIGN_URL);
-        cookie_store::clear_cookies(FOREIGN_KEY);
-        drop(_lock);
+        fixture.http.cookies().clear(&loopback_key);
+        fixture.http.cookies().clear(FOREIGN_URL);
+        fixture.http.cookies().clear(FOREIGN_KEY);
 
         for (ctx, resp_json) in [("A", resp_a), ("B", resp_b)] {
             let resp: HttpResponse = serde_json::from_str(&resp_json).expect("ajax 响应 JSON");
@@ -2601,7 +2334,8 @@ mod tests {
     /// 异域（x/y.book.com.cn）cookie 依旧绝不携带（P2-19 不变式保留）。
     #[test]
     fn test_p219_ajax_cookie_unowned_carries_request_domain_cookie() {
-        use crate::host_api::{cookie_store, current_source};
+        let fixture = Fixture::default();
+        use crate::host_api::current_source;
 
         const TAG_X: &str = "https://www.x.book.com.cn/";
         const TAG_Y: &str = "https://www.y.book.com.cn/";
@@ -2610,27 +2344,30 @@ mod tests {
 
         let addr = spawn_cookie_echo_server(2);
         let loopback_key = format!("http://{addr}/"); // 归一后域名键 = "127.0.0.1"
-        let _lock = lock_cookie_echo_test();
-        cookie_store::clear_cookies(&loopback_key);
-        cookie_store::clear_cookies(TAG_X);
-        cookie_store::clear_cookies(TAG_Y);
-        cookie_store::clear_cookies(DK_X);
-        cookie_store::clear_cookies(DK_Y);
-        cookie_store::set_cookie(&loopback_key, "p219_unowned", "UN-VAL-3d9e");
+        fixture.http.cookies().clear(&loopback_key);
+        fixture.http.cookies().clear(TAG_X);
+        fixture.http.cookies().clear(TAG_Y);
+        fixture.http.cookies().clear(DK_X);
+        fixture.http.cookies().clear(DK_Y);
+        fixture
+            .http
+            .set_cookie(&loopback_key, "p219_unowned=UN-VAL-3d9e");
         // 异域 cookie：未归属请求异域时依旧绝不携带
-        cookie_store::set_cookie(TAG_X, "p219_tokenX", "X-VAL-5e2b");
-        cookie_store::set_cookie(TAG_Y, "p219_tokenY", "Y-VAL-c44a");
+        fixture.http.set_cookie(TAG_X, "p219_tokenX=X-VAL-5e2b");
+        fixture.http.set_cookie(TAG_Y, "p219_tokenY=Y-VAL-c44a");
 
         current_source::clear_current_source_tag(); // 确保未归属
-        let resp_json = ajax(&format!(r#"{{"url":"http://{addr}/echo"}}"#))
-            .expect("ajax to loopback cookie-echo server");
+        let resp_json = ajax(
+            &fixture.http.request(),
+            &format!(r#"{{"url":"http://{addr}/echo"}}"#),
+        )
+        .expect("ajax to loopback cookie-echo server");
 
-        cookie_store::clear_cookies(&loopback_key);
-        cookie_store::clear_cookies(TAG_X);
-        cookie_store::clear_cookies(TAG_Y);
-        cookie_store::clear_cookies(DK_X);
-        cookie_store::clear_cookies(DK_Y);
-        drop(_lock);
+        fixture.http.cookies().clear(&loopback_key);
+        fixture.http.cookies().clear(TAG_X);
+        fixture.http.cookies().clear(TAG_Y);
+        fixture.http.cookies().clear(DK_X);
+        fixture.http.cookies().clear(DK_Y);
 
         let resp: HttpResponse = serde_json::from_str(&resp_json).expect("ajax 响应 JSON");
         assert_eq!(resp.status_code, 200, "回显服务器应返回 200: {}", resp.body);
@@ -2655,9 +2392,8 @@ mod tests {
     /// 不相关域名的 cookie 绝不注入（P2-19 不变式）。不走真实网络，确定性快。
     #[test]
     fn test_merge_global_cookie_keyed_by_request_url() {
-        use crate::host_api::{cookie_store, current_source};
-
-        let _lock = cookie_store::lock_cookie_store_test();
+        let fixture = Fixture::default();
+        use crate::host_api::current_source;
 
         // book.com.cn（com.cn 多段 TLD → 末三段）与 other-site.com（.com 末两段）
         const REQ_URL: &str = "https://unit-a.book.com.cn/page";
@@ -2665,21 +2401,21 @@ mod tests {
         const DK_A: &str = "book.com.cn";
         const DK_B: &str = "other-site.com";
 
-        cookie_store::clear_cookies(REQ_URL);
-        cookie_store::clear_cookies(OTHER_URL);
-        cookie_store::clear_cookies(DK_A);
-        cookie_store::clear_cookies(DK_B);
-        cookie_store::set_cookie(REQ_URL, "p219_uA", "uA-val");
-        cookie_store::set_cookie(OTHER_URL, "p219_uB", "uB-val");
+        fixture.http.cookies().clear(REQ_URL);
+        fixture.http.cookies().clear(OTHER_URL);
+        fixture.http.cookies().clear(DK_A);
+        fixture.http.cookies().clear(DK_B);
+        fixture.http.set_cookie(REQ_URL, "p219_uA=uA-val");
+        fixture.http.set_cookie(OTHER_URL, "p219_uB=uB-val");
 
         current_source::clear_current_source_tag();
-        let headers_a = merge_global_cookie(HashMap::new(), REQ_URL);
-        let headers_b = merge_global_cookie(HashMap::new(), OTHER_URL);
+        let headers_a = merge_global_cookie(&fixture.http.request(), HashMap::new(), REQ_URL);
+        let headers_b = merge_global_cookie(&fixture.http.request(), HashMap::new(), OTHER_URL);
 
-        cookie_store::clear_cookies(REQ_URL);
-        cookie_store::clear_cookies(OTHER_URL);
-        cookie_store::clear_cookies(DK_A);
-        cookie_store::clear_cookies(DK_B);
+        fixture.http.cookies().clear(REQ_URL);
+        fixture.http.cookies().clear(OTHER_URL);
+        fixture.http.cookies().clear(DK_A);
+        fixture.http.cookies().clear(DK_B);
 
         let cookie_a = headers_a.get("Cookie").cloned().unwrap_or_default();
         assert!(
@@ -2706,9 +2442,8 @@ mod tests {
     /// 绝不注入，P2-19 不变式）。用例域为独有域名，避免与并行用例共享键。
     #[test]
     fn test_merge_global_cookie_unowned_no_cookie_for_unwritten_domain() {
-        use crate::host_api::{cookie_store, current_source};
-
-        let _lock = cookie_store::lock_cookie_store_test();
+        let fixture = Fixture::default();
+        use crate::host_api::current_source;
 
         // 独有域名（本用例专用，不与其它并行用例共享键）
         const WRITE_URL: &str = "https://unitz.unitzeta.com/"; // → 域名键 unitzeta.com
@@ -2716,16 +2451,16 @@ mod tests {
         const DK_WRITE: &str = "unitzeta.com";
         const DK_REQ: &str = "uniteta.com";
 
-        cookie_store::clear_cookies(WRITE_URL);
-        cookie_store::clear_cookies(DK_WRITE);
-        cookie_store::clear_cookies(DK_REQ);
-        cookie_store::set_cookie(WRITE_URL, "p219_uZ", "uZ-val");
+        fixture.http.cookies().clear(WRITE_URL);
+        fixture.http.cookies().clear(DK_WRITE);
+        fixture.http.cookies().clear(DK_REQ);
+        fixture.http.set_cookie(WRITE_URL, "p219_uZ=uZ-val");
 
         current_source::clear_current_source_tag(); // 确保未归属
-        let headers = merge_global_cookie(HashMap::new(), REQ_URL);
-        cookie_store::clear_cookies(WRITE_URL);
-        cookie_store::clear_cookies(DK_WRITE);
-        cookie_store::clear_cookies(DK_REQ);
+        let headers = merge_global_cookie(&fixture.http.request(), HashMap::new(), REQ_URL);
+        fixture.http.cookies().clear(WRITE_URL);
+        fixture.http.cookies().clear(DK_WRITE);
+        fixture.http.cookies().clear(DK_REQ);
 
         assert!(
             !headers.contains_key("Cookie"),

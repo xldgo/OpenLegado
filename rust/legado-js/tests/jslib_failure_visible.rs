@@ -19,17 +19,8 @@
 
 #![cfg(feature = "quickjs")]
 
-use legado_js::engine_cache;
 use legado_js::executor::QuickJsExecutor;
 use legado_parser::JsExecutor;
-
-/// 缓存锁守卫：测试失败不应把锁毒化（同 capability_ledger 的恢复口径），
-/// 否则并行测试会以 PoisonError 掩盖真实断言失败
-fn cache_guard() -> std::sync::MutexGuard<'static, ()> {
-    engine_cache::TEST_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-}
 
 /// 合法语法 + 运行时 ReferenceError（对齐实机 jsLib 求值失败形态：
 /// 语法检查能过，故不会走 Rhino 宽容归一化兜底）
@@ -40,8 +31,6 @@ fn bad_lib() -> String {
 /// ① 缓存路径（非词法脚本）：`get_or_create` 构造期 jsLib 失败 → 上抛
 #[test]
 fn jslib_runtime_failure_surfaces_with_reason_cached_path() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let exec = QuickJsExecutor::new("p0b-cached").with_js_lib(Some(bad_lib()));
     let err = exec
         .execute_js("1 + 1")
@@ -59,8 +48,6 @@ fn jslib_runtime_failure_surfaces_with_reason_cached_path() {
 /// ② fresh 路径（顶层 const 触发词法回退）：`run_fresh` 内 jsLib 失败同样上抛
 #[test]
 fn jslib_runtime_failure_surfaces_with_reason_fresh_path() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     // 先用同源码 + 正常 jsLib 走两遍（首遍重声明触发回退并标记为词法脚本）
     let code = "const p0b_fresh_probe = 41; p0b_fresh_probe + 1";
     let good = QuickJsExecutor::new("p0b-fresh-mark")
@@ -82,8 +69,6 @@ fn jslib_runtime_failure_surfaces_with_reason_fresh_path() {
 /// （原版 `evaluateJsLib` 失败直接抛，与书源是否使用库函数无关）
 #[test]
 fn jslib_failure_surfaces_even_when_script_does_not_use_library() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let exec = QuickJsExecutor::new("p0b-unused-lib").with_js_lib(Some(bad_lib()));
     // 脚本与 jsLib 完全无关（纯算术）
     let err = exec
@@ -95,8 +80,6 @@ fn jslib_failure_surfaces_even_when_script_does_not_use_library() {
 /// ④ 正常 jsLib 不受上抛改动影响（含跨实例缓存复用）
 #[test]
 fn valid_jslib_still_loads_and_runs() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let first = QuickJsExecutor::new("p0b-ok")
         .with_js_lib(Some("function marker(){ return 'ok'; }".to_string()));
     assert_eq!(first.execute_js("marker()").unwrap(), "ok");
@@ -111,8 +94,6 @@ fn valid_jslib_still_loads_and_runs() {
 /// 本用例用非 URL 值（原样内联 JS）避免网络，锁定映射条目可用性。
 #[test]
 fn url_map_jslib_routes_to_fresh_path() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let lib = r#"{"inline":"function urlMapLib(){ return 'from-map'; }"}"#;
     let exec = QuickJsExecutor::new("p0b-urlmap").with_js_lib(Some(lib.to_string()));
     assert_eq!(
@@ -128,8 +109,6 @@ fn url_map_jslib_routes_to_fresh_path() {
 /// 现与主链同口径带原因上抛。
 #[test]
 fn js_source_engine_construction_surfaces_jslib_failure() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let config = legado_js::JsSourceConfig::new(
         "p0b-js-source".to_string(),
         "function search() { return 'x'; }".to_string(),
@@ -153,8 +132,6 @@ fn js_source_engine_construction_surfaces_jslib_failure() {
 /// ⑥b 对照组（同一修复面）：JS 源 jsLib 正常时构造不受上抛改动影响
 #[test]
 fn js_source_engine_valid_jslib_still_constructs() {
-    let _guard = cache_guard();
-    engine_cache::clear_for_tests();
     let config = legado_js::JsSourceConfig::new(
         "p0b-js-source-ok".to_string(),
         "function search() { return libMarker(); }".to_string(),

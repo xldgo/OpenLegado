@@ -51,7 +51,7 @@ pub const LYRIC_KEY: &str = "lyric";
 /// 规则数据根目录环境变量（测试隔离用；优先级最高）
 pub const RULE_DATA_DIR_ENV: &str = "LEGADO_RULE_DATA_DIR";
 /// 规则数据子目录名（对齐原版 `RuleBigDataHelp.ruleDataDir` 名）
-const RULE_DATA_DIR_NAME: &str = "ruleData";
+pub(crate) const RULE_DATA_DIR_NAME: &str = "ruleData";
 /// 大数据分流阈值（对齐 Kotlin `RuleDataInterface.putVariable` 的 10000）
 const LARGE_VALUE_THRESHOLD: usize = 10000;
 
@@ -76,21 +76,13 @@ pub(crate) fn replace_test_rule_data_dir(dir: Option<PathBuf>) -> Option<PathBuf
 /// 优先级：env [`RULE_DATA_DIR_ENV`] > DB 文件父目录（App Documents）
 /// /ruleData > 系统 temp 目录（一次性告警；宿主未 `db_open` 时的测试/异常路径）。
 pub fn rule_data_dir() -> PathBuf {
-    #[cfg(test)]
-    if let Some(dir) = TEST_RULE_DATA_DIR.with(|slot| slot.borrow().clone()) {
-        return dir;
+    if let Some(directory) = rule_data_dir_override() {
+        return directory;
     }
-    if let Ok(dir) = std::env::var(RULE_DATA_DIR_ENV) {
-        let dir = dir.trim();
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
-        }
-    }
-    if let Some(db_path) = crate::db_state::current_db_path()
-        && let Some(parent) = Path::new(&db_path).parent()
-        && !parent.as_os_str().is_empty()
+    if let Ok(engine) = crate::engine_holder::current()
+        && let Ok(path) = engine.storage().data_directory(RULE_DATA_DIR_NAME)
     {
-        return parent.join(RULE_DATA_DIR_NAME);
+        return path;
     }
     if !TEMP_FALLBACK_WARNED.swap(true, Ordering::Relaxed) {
         log::warn!(
@@ -100,6 +92,18 @@ pub fn rule_data_dir() -> PathBuf {
         );
     }
     std::env::temp_dir().join("legado-rule-data")
+}
+
+/// 宿主覆盖在装配时取快照，后台执行不读取其他线程/后续变更的配置。
+pub(crate) fn rule_data_dir_override() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(path) = TEST_RULE_DATA_DIR.with(|slot| slot.borrow().clone()) {
+        return Some(path);
+    }
+    std::env::var(RULE_DATA_DIR_ENV)
+        .ok()
+        .filter(|path| !path.trim().is_empty())
+        .map(|path| PathBuf::from(path.trim()))
 }
 
 /// 按当前根目录构造大数据管理器（目录不存在时由管理器创建）
@@ -435,19 +439,42 @@ pub fn put_media_sub_content_from_capture(
     key: &str,
     value: &str,
 ) {
+    if let Ok(engine) = crate::engine_holder::current() {
+        put_media_sub_content_from_capture_with_storage(
+            engine.storage(),
+            &rule_data_dir(),
+            book_url,
+            source_url,
+            chapter_url,
+            key,
+            value,
+        );
+    }
+}
+
+/// 后台任务固定数据能力与目录，不在稍后的抓取回调里查询根引擎。
+pub(crate) fn put_media_sub_content_from_capture_with_storage(
+    storage: &legado_engine::StorageContext,
+    directory: &Path,
+    book_url: Option<&str>,
+    source_url: &str,
+    chapter_url: &str,
+    key: &str,
+    value: &str,
+) {
     let direct = book_url
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     if let Some(candidate) = direct
-        && chapter_exists(&candidate, chapter_url)
+        && chapter_exists(storage, &candidate, chapter_url)
     {
-        put_media_sub_content(&candidate, chapter_url, key, value);
+        put_media_sub_content_at(storage, directory, &candidate, chapter_url, key, value);
         return;
     }
     // meta 的 bookUrl 未命中 DB（如 refreshToc 透传的目录页 URL）→ 兜底
-    if let Some(resolved) = resolve_book_url_by_source_chapter(source_url, chapter_url) {
-        put_media_sub_content(&resolved, chapter_url, key, value);
+    if let Some(resolved) = resolve_book_url_by_source_chapter(storage, source_url, chapter_url) {
+        put_media_sub_content_at(storage, directory, &resolved, chapter_url, key, value);
         return;
     }
     log::warn!(
@@ -457,21 +484,30 @@ pub fn put_media_sub_content_from_capture(
 }
 
 /// 该 (bookUrl, chapterUrl) 章节是否在 DB（落库前校验，防 meta 脏值串书）
-fn chapter_exists(book_url: &str, chapter_url: &str) -> bool {
-    with_database(|db| {
-        BookChapterRepository::new(db.connection())
-            .find_by_book_url_and_chapter_url(book_url, chapter_url)
-            .map(|found| found.is_some())
-    })
-    .unwrap_or(false)
+fn chapter_exists(
+    storage: &legado_engine::StorageContext,
+    book_url: &str,
+    chapter_url: &str,
+) -> bool {
+    storage
+        .with_database(|db| {
+            BookChapterRepository::new(db.connection())
+                .find_by_book_url_and_chapter_url(book_url, chapter_url)
+                .map(|found| found.is_some())
+        })
+        .unwrap_or(false)
 }
 
 /// 按 (书源 URL, 章节 URL) 从 DB 反查书籍取址点（唯一命中才返回）
-fn resolve_book_url_by_source_chapter(source_url: &str, chapter_url: &str) -> Option<String> {
+fn resolve_book_url_by_source_chapter(
+    storage: &legado_engine::StorageContext,
+    source_url: &str,
+    chapter_url: &str,
+) -> Option<String> {
     if source_url.trim().is_empty() || chapter_url.trim().is_empty() {
         return None;
     }
-    match with_database(|db| {
+    match storage.with_database(|db| {
         BookChapterRepository::new(db.connection())
             .find_book_url_by_source_and_chapter_url(source_url, chapter_url)
     }) {
@@ -490,6 +526,26 @@ fn resolve_book_url_by_source_chapter(source_url: &str, chapter_url: &str) -> Op
 /// - `≥10000` 字符 → 写大数据文件并从 variable JSON 移除同名键；
 /// - **任何失败仅记日志**（写入属抓取链内部增强行为，不得阻断正文返回）。
 pub fn put_media_sub_content(book_url: &str, chapter_url: &str, key: &str, value: &str) {
+    if let Ok(engine) = crate::engine_holder::current() {
+        put_media_sub_content_at(
+            engine.storage(),
+            &rule_data_dir(),
+            book_url,
+            chapter_url,
+            key,
+            value,
+        );
+    }
+}
+
+fn put_media_sub_content_at(
+    storage: &legado_engine::StorageContext,
+    directory: &Path,
+    book_url: &str,
+    chapter_url: &str,
+    key: &str,
+    value: &str,
+) {
     if book_url.trim().is_empty() || chapter_url.trim().is_empty() || key.trim().is_empty() {
         log::warn!("[video_danmaku] 副内容落库参数不完整，已忽略（key={key}）");
         return;
@@ -497,7 +553,9 @@ pub fn put_media_sub_content(book_url: &str, chapter_url: &str, key: &str, value
     if value.is_empty() {
         return;
     }
-    if let Err(e) = put_media_sub_content_inner(book_url, chapter_url, key, value) {
+    if let Err(e) =
+        put_media_sub_content_inner(storage, directory, book_url, chapter_url, key, value)
+    {
         log::warn!(
             "[video_danmaku] 副内容落库失败（已忽略，不影响正文）: \
              book={book_url} chapter={chapter_url} key={key}: {e}"
@@ -517,6 +575,8 @@ pub fn put_media_sub_content(book_url: &str, chapter_url: &str, key: &str, value
 /// 大数据文件同步在事务提交后执行（文件系统不参与 DB 事务，与原版
 /// `putVariable` 的「先更新列、后写/删文件」顺序一致）。
 fn put_media_sub_content_inner(
+    storage: &legado_engine::StorageContext,
+    directory: &Path,
     book_url: &str,
     chapter_url: &str,
     key: &str,
@@ -524,50 +584,75 @@ fn put_media_sub_content_inner(
 ) -> Result<(), String> {
     let is_small = kotlin_str_len(value) < LARGE_VALUE_THRESHOLD;
 
-    with_database(|db| {
-        let conn = db.connection();
-        let tx =
-            rusqlite::Transaction::new_unchecked(conn, rusqlite::TransactionBehavior::Immediate)
-                .map_err(|e| {
-                    LegadoError::Database(format!("副内容写事务开启失败（BEGIN IMMEDIATE）: {e}"))
+    storage
+        .with_database(|db| {
+            let conn = db.connection();
+            let tx = rusqlite::Transaction::new_unchecked(
+                conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| {
+                LegadoError::Database(format!("副内容写事务开启失败（BEGIN IMMEDIATE）: {e}"))
+            })?;
+
+            let chapter = BookChapterRepository::new(conn)
+                .find_by_book_url_and_chapter_url(book_url, chapter_url)?
+                .ok_or_else(|| {
+                    LegadoError::Database("章节不在 DB（无法落库副内容）".to_string())
                 })?;
 
-        let chapter = BookChapterRepository::new(conn)
-            .find_by_book_url_and_chapter_url(book_url, chapter_url)?
-            .ok_or_else(|| LegadoError::Database("章节不在 DB（无法落库副内容）".to_string()))?;
+            let mut map: serde_json::Map<String, serde_json::Value> =
+                match chapter.variable.as_deref() {
+                    Some(raw) if !raw.trim().is_empty() => {
+                        serde_json::from_str(raw).unwrap_or_default()
+                    }
+                    _ => serde_json::Map::new(),
+                };
 
-        let mut map: serde_json::Map<String, serde_json::Value> = match chapter.variable.as_deref()
-        {
-            Some(raw) if !raw.trim().is_empty() => serde_json::from_str(raw).unwrap_or_default(),
-            _ => serde_json::Map::new(),
-        };
+            if is_small {
+                // 小数据分支（对齐 putVariable：value.length < 10000）
+                // variableMap[key] = value；putBigVariable(key, null) 删除文件
+                map.insert(
+                    key.to_string(),
+                    serde_json::Value::String(value.to_string()),
+                );
+                let serialized = serde_json::Value::Object(map).to_string();
+                BookChapterRepository::new(conn).update_variable(
+                    book_url,
+                    chapter_url,
+                    &serialized,
+                )?;
+            } else if map.remove(key).is_some() {
+                // 大数据分支（对齐 putVariable：else 分支，仅键存在时重写列）
+                let serialized = serde_json::Value::Object(map).to_string();
+                BookChapterRepository::new(conn).update_variable(
+                    book_url,
+                    chapter_url,
+                    &serialized,
+                )?;
+            }
 
-        if is_small {
-            // 小数据分支（对齐 putVariable：value.length < 10000）
-            // variableMap[key] = value；putBigVariable(key, null) 删除文件
-            map.insert(
-                key.to_string(),
-                serde_json::Value::String(value.to_string()),
-            );
-            let serialized = serde_json::Value::Object(map).to_string();
-            BookChapterRepository::new(conn).update_variable(book_url, chapter_url, &serialized)?;
-        } else if map.remove(key).is_some() {
-            // 大数据分支（对齐 putVariable：else 分支，仅键存在时重写列）
-            let serialized = serde_json::Value::Object(map).to_string();
-            BookChapterRepository::new(conn).update_variable(book_url, chapter_url, &serialized)?;
-        }
-
-        tx.commit()
-            .map_err(|e| LegadoError::Database(format!("副内容写事务提交失败: {e}")))?;
-        Ok(())
-    })
-    .map_err(|e| e.to_string())?;
+            tx.commit()
+                .map_err(|e| LegadoError::Database(format!("副内容写事务提交失败: {e}")))?;
+            Ok(())
+        })
+        .map_err(|e| e.to_string())?;
 
     // 事务提交后再同步大数据文件（与原版「先更新列、后写/删文件」顺序一致）
     if is_small {
-        big_data_manager().put_chapter_variable(book_url, chapter_url, key, None)?;
+        RuleBigDataManager::new(directory).put_chapter_variable(
+            book_url,
+            chapter_url,
+            key,
+            None,
+        )?;
     } else {
-        big_data_manager().put_chapter_variable(book_url, chapter_url, key, Some(value))?;
+        RuleBigDataManager::new(directory).put_chapter_variable(
+            book_url,
+            chapter_url,
+            key,
+            Some(value),
+        )?;
     }
     Ok(())
 }

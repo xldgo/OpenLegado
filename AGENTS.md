@@ -12,7 +12,7 @@ Legado：Rust + Flutter 跨平台阅读器，参考上游(HapeLee/legado-with-MD
 | 路径 | 内容 |
 |---|---|
 | `flutter_legado/` | Flutter UI（Windows 构建主模块），`lib/` 为 Dart 源码 |
-| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-fetcher / legado-ffi / legado-js / legado-net / legado-parser / legado-server） |
+| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-engine / legado-fetcher / legado-ffi / legado-js / legado-layout / legado-net / legado-parser / legado-server） |
 | `docs/` | 项目文档（计划、报告、规范、API 契约） |
 
 ## 验证命令

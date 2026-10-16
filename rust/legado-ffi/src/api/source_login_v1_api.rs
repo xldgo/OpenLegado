@@ -7,10 +7,9 @@
 //! `java.ajax(/login)` 取 api_key 并 `source.putLoginHeader` 落库。
 //!
 //! 本层复用 [`crate::js_executor::construct_analyzer_with_source_context`]
-//! 注入 sanitize 后 jsLib + setup（含 header 规则 → GLOBAL_COOKIES/全局请求头），
-//! eval 登录脚本后经 `sync_login_cache_from_js` 把 JS 写入的
-//! `loginHeader_<url>`/`userInfo_<url>` 同步到 source_login_cache，
-//! 后续 java.ajax 请求自动携带书山 X-Api-Key（base64(api_key)）。
+//! 注入 sanitize 后 jsLib + setup（含 header 规则 → 实例 Cookie 罐/来源请求头），
+//! JS 登录键直接访问本实例登录服务，不再经全局变量表事后复制。
+//! 后续请求消费同一登录缓存。
 
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
@@ -37,7 +36,7 @@ fn get_login_js(source: &BookSource) -> Option<String> {
 /// - `source_json` — BookSource JSON
 /// - `action` — 按钮动作（默认 `login`；书山 loginUi 按钮 action 为 `login()`）
 ///
-/// 执行后同步 JS 侧写入的登录缓存；返回执行结果（JSON 字符串或空）。
+/// 执行时直接保存 JS 侧写入的登录缓存；返回执行结果（JSON 字符串或空）。
 pub fn eval_login_v1(source_json: &str, action: &str) -> LegadoResult<String> {
     let source: BookSource = serde_json::from_str(source_json)?;
     let login_js = get_login_js(&source)
@@ -73,9 +72,6 @@ pub fn eval_login_v1(source_json: &str, action: &str) -> LegadoResult<String> {
         crate::api::source_js_bindings::book_source_js_setup_script(&source).ok(),
     );
     let _ = analyzer.get_string(&format!("@js:{script}"));
-
-    // 同步 JS variable_store → source_login_cache（loginHeader/userInfo）
-    crate::api::source_login_cache::sync_login_cache_from_js(&source.book_source_url);
 
     // 返回登录头状态（便于 UI 判定登录结果）
     let header = crate::api::source_login_cache::get_login_header(&source.book_source_url)

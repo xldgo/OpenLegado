@@ -235,6 +235,28 @@ pub fn save_chapter_content(
     content: &str,
     chapter_url: &str,
 ) -> LegadoResult<bool> {
+    if content.trim().is_empty() {
+        return Ok(false);
+    }
+    let engine = crate::engine_holder::current()?;
+    save_chapter_content_with_storage(
+        engine.storage(),
+        book_url,
+        chapter_index,
+        title,
+        content,
+        chapter_url,
+    )
+}
+
+pub(crate) fn save_chapter_content_with_storage(
+    storage: &legado_engine::StorageContext,
+    book_url: &str,
+    chapter_index: i32,
+    title: &str,
+    content: &str,
+    chapter_url: &str,
+) -> LegadoResult<bool> {
     // [B-1] 空内容不入缓存（对齐上游 BookHelp.kt:557-559）：空行入库会被
     // 读侧按命中返回，使该章节永久空白、永不重抓；返回 false 表示未写入
     if content.trim().is_empty() {
@@ -242,11 +264,14 @@ pub fn save_chapter_content(
     }
     // 缺省字段回填：对齐 Kotlin cached_chapters 主键（book_url + chapter_url）
     let (chapter_title, chapter_url) = if title.is_empty() || chapter_url.is_empty() {
-        let ch = with_database(|db| {
-            let repo = BookChapterRepository::new(db.connection());
-            repo.find_by_book_url_and_index(book_url, chapter_index)
-        })?
-        .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在: {book_url}")))?;
+        let ch = storage
+            .with_database(|db| {
+                let repo = BookChapterRepository::new(db.connection());
+                repo.find_by_book_url_and_index(book_url, chapter_index)
+            })?
+            .ok_or_else(|| {
+                LegadoError::Database(format!("章节 {chapter_index} 不存在: {book_url}"))
+            })?;
         (
             if title.is_empty() {
                 ch.title
@@ -279,7 +304,7 @@ pub fn save_chapter_content(
         size_bytes: content.len() as i64,
     };
 
-    with_database(|db| {
+    storage.with_database(|db| {
         let repo = CacheBookRepository::new(db.connection());
         repo.insert(&chapter)?;
         Ok(true)

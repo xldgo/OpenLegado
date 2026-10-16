@@ -68,9 +68,18 @@ impl DebugLogMessage {
 /// 客户端发送书源 URL/规则，服务端流式返回调试日志。
 pub async fn ws_debug_book_source(
     ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(handle_debug_ws)
+    ws.on_upgrade(move |socket| async move {
+        let Ok(task) = state.task() else {
+            return;
+        };
+        tokio::select! {
+            biased;
+            _ = task.cancelled() => {},
+            _ = handle_debug_ws(socket) => {},
+        }
+    })
 }
 
 /// WebSocket RSS 源调试端点
@@ -79,9 +88,18 @@ pub async fn ws_debug_book_source(
 /// 客户端发送 RSS 源信息，服务端流式返回调试日志。
 pub async fn ws_debug_rss_source(
     ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(handle_debug_ws)
+    ws.on_upgrade(move |socket| async move {
+        let Ok(task) = state.task() else {
+            return;
+        };
+        tokio::select! {
+            biased;
+            _ = task.cancelled() => {},
+            _ = handle_debug_ws(socket) => {},
+        }
+    })
 }
 
 async fn handle_debug_ws(mut socket: WebSocket) {

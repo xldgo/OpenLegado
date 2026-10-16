@@ -26,8 +26,19 @@ pub fn speak(
     cancellation: &legado_fetcher::tts_control::TtsCancellation,
 ) -> LegadoResult<legado_fetcher::cloud_tts::CloudTtsSynthesisResult> {
     cancellation.check()?;
+    let context = crate::engine_holder::current()?;
+    let task = context
+        .tasks()
+        .begin()
+        .map_err(|e| legado_core::LegadoError::Ffi(e.to_string()))?;
+    let _guard = task.guard();
+    let storage = context.storage().clone();
+    let media = context.media().clone();
+    let hosts = context.network().custom_hosts().clone();
+    let directory = media.tts_directory();
+    drop(context);
     let mut metadata =
-        crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).get(id))?;
+        storage.with_database(|db| CloudTtsRepository::new(db.connection()).get(id))?;
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct Input {
@@ -50,7 +61,7 @@ pub fn speak(
         ));
     }
     if let Some(id) = input.voice_id {
-        let voice = crate::db_state::with_database(|db| {
+        let voice = storage.with_database(|db| {
             legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(
                 db.connection(),
             )
@@ -75,17 +86,21 @@ pub fn speak(
     }
     let request = metadata.request(input.text)?;
     let engine = metadata.engine(api_key);
-    static TRANSPORT: std::sync::OnceLock<legado_fetcher::cloud_tts::CloudTtsHttpTransport> =
-        std::sync::OnceLock::new();
-    if TRANSPORT.get().is_none() {
-        let _ = TRANSPORT.set(legado_fetcher::cloud_tts::CloudTtsHttpTransport::new()?);
-    }
-    crate::runtime::block_on(legado_fetcher::cloud_tts::synthesize_cloud_tts(
-        cloud_tts_provider(metadata.provider),
-        TRANSPORT.get().unwrap(),
-        &engine,
-        &request,
-        &super::tts_speak_api::tts_cache_dir(),
-        cancellation,
-    ))
+    let transport = media.cloud_transport(hosts)?;
+    let result = crate::runtime::block_on(async {
+        tokio::select! {
+            biased;
+            _ = task.cancelled() => Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())),
+            result = legado_fetcher::cloud_tts::synthesize_cloud_tts_with_publish(
+                cloud_tts_provider(metadata.provider), transport.as_ref(), &engine, &request,
+                &directory, cancellation, |cache, key, extension, bytes| {
+                    task.with_active(|| { cancellation.check()?; cache.put(key, extension, bytes) })
+                        .unwrap_or_else(|| Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())))
+                },
+            ) => result,
+        }
+    })?;
+    cancellation.check()?;
+    task.with_active(|| Ok(result))
+        .unwrap_or_else(|| Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())))
 }

@@ -65,7 +65,10 @@ pub struct SyncOptions {
 pub fn webdav_list_dir(config_json: &str, path: &str) -> LegadoResult<String> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     let files = rt.block_on(client.list_dir(path))?;
@@ -82,7 +85,10 @@ pub fn webdav_list_dir(config_json: &str, path: &str) -> LegadoResult<String> {
 pub fn webdav_upload(config_json: &str, path: &str, data: &str) -> LegadoResult<()> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     rt.block_on(client.put(path, data.as_bytes()))
@@ -118,7 +124,10 @@ pub fn webdav_upload_file(
         ))
     })?;
 
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
     let rt = webdav_runtime_handle()?;
     // 所有权直传，避免 put(&bytes) 内部的 to_vec 二次拷贝（Task #55 F3）
     rt.block_on(client.put_owned(path, bytes))
@@ -131,7 +140,10 @@ pub fn webdav_upload_file(
 pub fn webdav_download(config_json: &str, path: &str) -> LegadoResult<String> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     let bytes = rt.block_on(client.get(path))?;
@@ -149,7 +161,10 @@ pub fn webdav_download_file(
 ) -> LegadoResult<()> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     let bytes = rt.block_on(client.get(path))?;
@@ -177,7 +192,10 @@ pub fn webdav_download_file(
 pub fn webdav_delete(config_json: &str, path: &str) -> LegadoResult<()> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     rt.block_on(client.delete(path))
@@ -187,7 +205,10 @@ pub fn webdav_delete(config_json: &str, path: &str) -> LegadoResult<()> {
 pub fn webdav_mkdir(config_json: &str, path: &str) -> LegadoResult<()> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
 
     let rt = webdav_runtime_handle()?;
     rt.block_on(client.mkdir(path))
@@ -209,7 +230,10 @@ pub fn webdav_full_sync(
 ) -> LegadoResult<String> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
     let manager = BookSyncManager::new(client);
 
     let rt = webdav_runtime_handle()?;
@@ -240,7 +264,10 @@ pub fn webdav_incremental_sync(
 ) -> LegadoResult<String> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败：{e}")))?;
-    let client = WebDavClient::new(config);
+    let client = WebDavClient::with_custom_hosts(
+        config,
+        crate::engine_holder::network().custom_hosts().clone(),
+    );
     let manager = BookSyncManager::new(client);
 
     let rt = webdav_runtime_handle()?;

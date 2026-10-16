@@ -177,7 +177,11 @@ mod impl_file_utils {
     ///
     /// 对应 Kotlin: `downloadFile(url, fileName)`
     /// 返回沙箱内文件路径
-    pub fn download_file(url: &str, file_name: Option<&str>) -> Result<String, String> {
+    pub fn download_file(
+        http: &crate::http_resources::HttpResources,
+        url: &str,
+        file_name: Option<&str>,
+    ) -> Result<String, String> {
         let name = match file_name {
             Some(n) if !n.is_empty() => n.to_string(),
             _ => {
@@ -195,14 +199,15 @@ mod impl_file_utils {
             fs::create_dir_all(parent).map_err(|e| format!("Cannot create dir: {}", e))?;
         }
 
-        // 异步下载（通过 block_on 桥接）：进程级共享池（2026-09-24 性能专项：
-        // 不再每下载新建客户端/连接池；回环 URL 经 no_proxy 直连池）
+        // 下载使用所属资源连接池；显式文件名仍按原沙箱规则解析。
         let bytes = crate::host_api::runtime_bridge::block_on(async {
-            let client = crate::host_api::network::shared_client_for_url(url)
+            let client = http
+                .client_for_url(url, false)
                 .map_err(|e| format!("Download client error: {}", e))?;
             client
-                .get_bytes(url, None)
+                .get_raw(url, None)
                 .await
+                .map(|response| response.body)
                 .map_err(|e| format!("Download error: {}", e))
         })?;
 
@@ -250,7 +255,10 @@ mod impl_file_utils {
     ///
     /// 对应 Kotlin: `cacheFile(url)`
     /// 如果缓存已存在则直接返回路径，否则下载后缓存
-    pub fn cache_file(url: &str) -> Result<String, String> {
+    pub fn cache_file(
+        http: &crate::http_resources::HttpResources,
+        url: &str,
+    ) -> Result<String, String> {
         use md5::{Digest, Md5};
 
         // 计算 URL 的 MD5 作为缓存文件名
@@ -266,24 +274,39 @@ mod impl_file_utils {
             .unwrap_or("cache");
         let cache_name = format!("{}.{}", hash_hex, ext);
 
-        let cache_path = resolve_safe_path(&cache_name)?;
+        http.with_file_cache(url, || {
+            let cache_path = http.file_cache_dir()?.join(&cache_name);
 
-        // 缓存命中
-        if cache_path.exists() {
-            return Ok(cache_path.to_string_lossy().into_owned());
-        }
+            // 缓存命中
+            if cache_path.exists() {
+                return Ok(cache_path.to_string_lossy().into_owned());
+            }
 
-        // 下载并写入缓存
-        download_file(url, Some(&cache_name))
+            // 下载并写入缓存
+            {
+                let bytes = crate::host_api::runtime_bridge::block_on(async {
+                    http.client_for_url(url, false)?
+                        .get_raw(url, None)
+                        .await
+                        .map(|response| response.body)
+                        .map_err(|e| format!("Download error: {e}"))
+                })?;
+                let path = http.publish_file_cache(&cache_name, &bytes)?;
+                Ok(path.to_string_lossy().into_owned())
+            }
+        })
     }
 
     /// importScript(url) — 下载并读取 JS 脚本内容
     ///
     /// 对应 Kotlin: `importScript(url)`
     /// 先检查沙箱缓存，若不存在则下载后读取
-    pub fn import_script(url: &str) -> Result<String, String> {
+    pub fn import_script(
+        http: &crate::http_resources::HttpResources,
+        url: &str,
+    ) -> Result<String, String> {
         // 先尝试缓存
-        let cached_path = cache_file(url)?;
+        let cached_path = cache_file(http, url)?;
         // 读取缓存文件内容
         let content = fs::read_to_string(&cached_path)
             .map_err(|e| format!("importScript read error: {}", e))?;

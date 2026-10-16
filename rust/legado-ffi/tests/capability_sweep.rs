@@ -1229,6 +1229,7 @@ fn run_source_dry(idx: usize, src: &BookSource) -> SourceDryRun {
             {
                 let offline_fetch = |_: &str| Ok(String::new());
                 let script = legado_js::host_api::jslib_loader::resolve_js_lib_url_map(
+                    engine.http_resources(),
                     js_lib,
                     &tag,
                     &offline_fetch,

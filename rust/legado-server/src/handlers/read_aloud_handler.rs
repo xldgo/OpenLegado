@@ -281,13 +281,9 @@ async fn seek_inner(ra_state: &SharedReadAloudState, req: SeekRequest) -> Action
 
 /// 从 AppState 扩展中获取朗读状态
 ///
-/// 当前使用 lazy 初始化方式：首次访问时创建默认状态。
-/// 后续可将 SharedReadAloudState 直接嵌入 AppState。
-async fn get_read_aloud_state(_state: &AppState) -> SharedReadAloudState {
-    // 简化实现：使用全局 OnceLock 保持单一实例
-    use std::sync::OnceLock;
-    static READ_ALOUD: OnceLock<SharedReadAloudState> = OnceLock::new();
-    READ_ALOUD.get_or_init(create_read_aloud_state).clone()
+/// 控制状态归属同一 Web/MCP 宿主，不与其他引擎实例共用。
+async fn get_read_aloud_state(state: &AppState) -> SharedReadAloudState {
+    state.services.read_aloud.clone()
 }
 
 #[cfg(test)]

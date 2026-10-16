@@ -3,20 +3,45 @@ use super::tts_fetcher::HttpTtsConfig;
 use legado_core::{LegadoError, LegadoResult};
 use legado_parser::JsExecutor;
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 pub trait TtsSourceStore: Send + Sync {
+    fn host_resources(&self) -> Arc<legado_js::host_resources::JsHostResources>;
+    /// 宿主拥有的变量能力；cache 裸键跨调用存活，临时 flow 每次合成独立。
+    fn variables(&self) -> Arc<legado_js::variables::VariableStore>;
+    #[cfg(feature = "quickjs")]
+    fn http_resources(&self) -> Arc<legado_js::http_resources::HttpResources>;
     fn load(&self, key: &str) -> LegadoResult<BTreeMap<String, String>>;
     fn apply(&self, key: &str, changes: BTreeMap<String, Option<String>>) -> LegadoResult<()>;
+    /// 宿主可把最终文件发布纳入任务门控；默认内存宿主直接执行。
+    fn publish(&self, commit: &mut dyn FnMut() -> LegadoResult<()>) -> LegadoResult<()> {
+        commit()
+    }
 }
 
 #[derive(Default)]
-pub struct MemoryTtsSourceStore(Mutex<BTreeMap<String, BTreeMap<String, String>>>);
+pub struct MemoryTtsSourceStore {
+    values: Mutex<BTreeMap<String, BTreeMap<String, String>>>,
+    variables: Arc<legado_js::variables::VariableStore>,
+    host: Arc<legado_js::host_resources::JsHostResources>,
+    #[cfg(feature = "quickjs")]
+    http: Arc<legado_js::http_resources::HttpResources>,
+}
 
 impl TtsSourceStore for MemoryTtsSourceStore {
+    fn host_resources(&self) -> Arc<legado_js::host_resources::JsHostResources> {
+        self.host.clone()
+    }
+    #[cfg(feature = "quickjs")]
+    fn http_resources(&self) -> Arc<legado_js::http_resources::HttpResources> {
+        self.http.clone()
+    }
+    fn variables(&self) -> Arc<legado_js::variables::VariableStore> {
+        self.variables.clone()
+    }
     fn load(&self, key: &str) -> LegadoResult<BTreeMap<String, String>> {
         Ok(self
-            .0
+            .values
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .get(key)
@@ -24,7 +49,7 @@ impl TtsSourceStore for MemoryTtsSourceStore {
             .unwrap_or_default())
     }
     fn apply(&self, key: &str, changes: BTreeMap<String, Option<String>>) -> LegadoResult<()> {
-        let mut guard = self.0.lock().unwrap_or_else(|p| p.into_inner());
+        let mut guard = self.values.lock().unwrap_or_else(|p| p.into_inner());
         let data = guard.entry(key.to_string()).or_default();
         for (key, value) in changes {
             if let Some(value) = value {
@@ -38,10 +63,8 @@ impl TtsSourceStore for MemoryTtsSourceStore {
 }
 
 pub fn default_store() -> Arc<dyn TtsSourceStore> {
-    static STORE: OnceLock<Arc<MemoryTtsSourceStore>> = OnceLock::new();
-    STORE
-        .get_or_init(|| Arc::new(MemoryTtsSourceStore::default()))
-        .clone()
+    // 便捷入口按调用创建，需跨调用状态的宿主显式注入同一存储。
+    Arc::new(MemoryTtsSourceStore::default())
 }
 
 pub type TtsResponseLoader = Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>;
@@ -50,25 +73,43 @@ pub struct TtsJsExecutor {
     config: HttpTtsConfig,
     store: Arc<dyn TtsSourceStore>,
     response_loader: Option<TtsResponseLoader>,
+    /// 临时 flow 属于本次合成；裸键/cache 由宿主存储跨调用复用。
+    variables: legado_js::variables::VariableScope,
 }
 
 impl TtsJsExecutor {
     pub fn new(config: &HttpTtsConfig, store: Arc<dyn TtsSourceStore>) -> Self {
+        let variables = store.variables().fresh_flow(&config.source_key());
         Self {
             config: config.clone(),
             store,
             response_loader: None,
+            variables,
         }
     }
 }
 
 impl JsExecutor for TtsJsExecutor {
+    fn read_variable(&self, key: &str) -> Option<String> {
+        self.variables.get_flow_variable(key)
+    }
+
     fn execute_js(&self, code: &str) -> Result<String, String> {
         self.eval(code).map_err(|error| error.to_string())
     }
 }
 
 impl TtsJsExecutor {
+    /// 同一合成的响应校验、重试与 URL 重算沿用原句柄。
+    pub fn with_variables(mut self, variables: legado_js::variables::VariableScope) -> Self {
+        self.variables = variables;
+        self
+    }
+
+    pub fn variables(&self) -> legado_js::variables::VariableScope {
+        self.variables.clone()
+    }
+
     pub fn with_response_loader(mut self, callback: TtsResponseLoader) -> Self {
         self.response_loader = Some(callback);
         self
@@ -76,15 +117,19 @@ impl TtsJsExecutor {
 
     #[cfg(feature = "quickjs")]
     fn eval(&self, code: &str) -> LegadoResult<String> {
-        use legado_js::{JsEngine, QuickJsEngine};
+        use legado_js::JsEngine;
         let key = self.config.source_key();
         let values = self.store.load(&key)?;
-        let engine = QuickJsEngine::new(
-            legado_js::sandbox::SandboxConfig::default()
-                .with_allow_script_run(true)
-                .with_memory_limit(64 * 1024 * 1024),
-        )?;
-        let result = legado_js::host_api::current_source::with_current_source_tag(
+        let engine = legado_js::JsResources::default()
+            .with_host_resources(self.store.host_resources())
+            .with_http_resources(self.store.http_resources())
+            .with_variable_scope(self.variables.clone())
+            .create_engine(
+                legado_js::sandbox::SandboxConfig::default()
+                    .with_allow_script_run(true)
+                    .with_memory_limit(64 * 1024 * 1024),
+            )?;
+        legado_js::host_api::current_source::with_current_source_tag(
             &key,
             || -> LegadoResult<String> {
                 // 上下文先于 jsLib 安装；库顶层也可以调用 source/getLoginInfo。
@@ -102,9 +147,15 @@ impl TtsJsExecutor {
                         legado_js::host_api::jslib_loader::parse_js_lib_url_map(lib).is_some();
                     let resolved = if is_map {
                         legado_js::host_api::jslib_loader::resolve_js_lib_url_map(
+                            engine.http_resources(),
                             lib,
                             &key,
-                            &legado_js::host_api::jslib_loader::default_js_lib_fetcher,
+                            &|url| {
+                                legado_js::host_api::jslib_loader::default_js_lib_fetcher(
+                                    engine.http_resources(),
+                                    url,
+                                )
+                            },
                         )
                         .ok_or_else(|| LegadoError::JsEngine("TTS jsLib 下载失败".into()))?
                     } else {
@@ -122,8 +173,7 @@ impl TtsJsExecutor {
                 execution?;
                 engine.eval("typeof __ttsCompletion === 'string' ? __ttsCompletion : (__ttsCompletion === undefined ? 'undefined' : JSON.stringify(__ttsCompletion))")
             },
-        );
-        result
+        )
     }
 
     #[cfg(not(feature = "quickjs"))]
@@ -272,4 +322,59 @@ pub fn source_headers(
         }
     }
     Ok(headers)
+}
+
+#[cfg(all(test, feature = "quickjs"))]
+mod variable_isolation_tests {
+    use super::*;
+
+    #[test]
+    fn cache_survives_calls_but_temporary_flow_is_request_scoped() {
+        let config = HttpTtsConfig::default();
+        let store: Arc<dyn TtsSourceStore> = Arc::new(MemoryTtsSourceStore::default());
+        let one = TtsJsExecutor::new(&config, store.clone());
+        one.execute_js("cache.put('cached','cache-one'); java.__lgStorePut('key','request-one')")
+            .unwrap();
+        let next = TtsJsExecutor::new(&config, store);
+        assert_eq!(next.execute_js("cache.get('cached')").unwrap(), "cache-one");
+        assert_eq!(next.execute_js("java.__lgStoreGet('key')").unwrap(), "");
+        let retry = TtsJsExecutor::new(&config, Arc::new(MemoryTtsSourceStore::default()))
+            .with_variables(one.variables());
+        assert_eq!(
+            retry.execute_js("java.__lgStoreGet('key')").unwrap(),
+            "request-one"
+        );
+        assert_eq!(one.read_variable("key").as_deref(), Some("request-one"));
+        let other = TtsJsExecutor::new(&config, Arc::new(MemoryTtsSourceStore::default()));
+        assert_eq!(other.execute_js("cache.get('cached')").unwrap(), "null");
+    }
+
+    #[test]
+    fn same_tts_source_concurrent_synthesis_keeps_its_own_flow() {
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let store: Arc<dyn TtsSourceStore> = Arc::new(MemoryTtsSourceStore::default());
+        let handles: Vec<_> = ["one", "two"]
+            .into_iter()
+            .map(|value| {
+                let barrier = barrier.clone();
+                let store = store.clone();
+                std::thread::spawn(move || {
+                    let executor = TtsJsExecutor::new(&HttpTtsConfig::default(), store);
+                    executor
+                        .execute_js(&format!("java.__lgStorePut('same-key','{value}')"))
+                        .unwrap();
+                    barrier.wait();
+                    assert_eq!(
+                        executor
+                            .execute_js("java.__lgStoreGet('same-key')")
+                            .unwrap(),
+                        value
+                    );
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
 }

@@ -54,6 +54,10 @@ pub fn source_call_back_btn(
     result: Option<&str>,
     _book_type: i32,
 ) -> LegadoResult<SourceCallBackBtnResult> {
+    let task = crate::engine_holder::task_group()
+        .begin()
+        .map_err(|e| LegadoError::Ffi(e.to_string()))?;
+    let _guard = task.guard();
     let book = with_database(|db| BookRepository::new(db.connection()).find_by_url(book_url))?
         .ok_or_else(|| LegadoError::Database(format!("书籍不存在: {book_url}")))?;
 
@@ -101,24 +105,18 @@ pub fn source_call_back_btn(
         None => None,
     };
 
-    let raw = eval_call_back_js(&source, &book, chapter.as_ref(), event, result, js_str)?;
-    let actions = {
-        #[cfg(feature = "quickjs")]
-        {
-            legado_js::host_api::ui_action_queue::end_collect()
-        }
-        #[cfg(not(feature = "quickjs"))]
-        {
-            Vec::new()
-        }
-    };
+    let (raw, actions) =
+        eval_call_back_js(&source, &book, chapter.as_ref(), event, result, js_str)?;
 
-    Ok(SourceCallBackBtnResult {
-        invoked: true,
-        js_true: is_js_true(&raw),
-        raw,
-        actions,
+    task.with_active(|| {
+        Ok(SourceCallBackBtnResult {
+            invoked: true,
+            js_true: is_js_true(&raw),
+            raw,
+            actions,
+        })
     })
+    .unwrap_or_else(|| Err(LegadoError::Ffi("书源回调已取消".into())))
 }
 
 #[cfg(feature = "quickjs")]
@@ -129,48 +127,42 @@ fn eval_call_back_js(
     event: &str,
     result: Option<&str>,
     js_str: &str,
-) -> LegadoResult<String> {
+) -> LegadoResult<(String, Vec<serde_json::Value>)> {
     use legado_js::{JsEngine, JsValue};
 
-    legado_js::host_api::ui_action_queue::begin_collect();
-    let engine = crate::js_executor::fresh_engine(&source.book_source_url).inspect_err(|_e| {
-        legado_js::host_api::ui_action_queue::discard_collect();
-    })?;
-    let guard = engine.lock().map_err(|e| {
-        legado_js::host_api::ui_action_queue::discard_collect();
-        LegadoError::JsEngine(format!("JS 引擎加锁失败: {e}"))
-    })?;
+    let collected =
+        legado_js::host_api::ui_action_queue::collect_actions(|| -> LegadoResult<String> {
+            let engine = crate::js_executor::fresh_engine(&source.book_source_url)?;
+            let guard = engine
+                .lock()
+                .map_err(|e| LegadoError::JsEngine(format!("JS 引擎加锁失败: {e}")))?;
 
-    let book_value: serde_json::Value = serde_json::to_value(book)?;
-    let chapter_value = match chapter {
-        Some(ch) => serde_json::to_value(ch)?,
-        None => serde_json::Value::Null,
-    };
-    let result_value = match result {
-        Some(r) => JsValue::String(r.to_string()),
-        None => JsValue::Null,
-    };
+            let book_value: serde_json::Value = serde_json::to_value(book)?;
+            let chapter_value = match chapter {
+                Some(ch) => serde_json::to_value(ch)?,
+                None => serde_json::Value::Null,
+            };
+            let result_value = match result {
+                Some(r) => JsValue::String(r.to_string()),
+                None => JsValue::Null,
+            };
 
-    let bindings: Vec<(&str, JsValue)> = vec![
-        ("event", JsValue::String(event.to_string())),
-        ("book", json_to_js_value(book_value)),
-        ("chapter", json_to_js_value(chapter_value)),
-        ("result", result_value),
-    ];
+            let bindings: Vec<(&str, JsValue)> = vec![
+                ("event", JsValue::String(event.to_string())),
+                ("book", json_to_js_value(book_value)),
+                ("chapter", json_to_js_value(chapter_value)),
+                ("result", result_value),
+            ];
 
-    // P2-19：绑定当前书源 tag（对齐 explore_api / js_executor 主路径）：
-    // callBackJs 调用 java.ajax 时 Cookie/全局头按本源 book_source_url 过滤
-    // （而非未归属不带、更非全量合并泄漏）。
-    match legado_js::host_api::current_source::with_current_source_tag(
-        &source.book_source_url,
-        || guard.eval_with_bindings(js_str, &bindings),
-    ) {
-        Ok(raw) => Ok(raw),
-        Err(e) => {
-            legado_js::host_api::ui_action_queue::discard_collect();
-            Err(e)
-        }
-    }
+            // P2-19：绑定当前书源 tag（对齐 explore_api / js_executor 主路径）：
+            // callBackJs 调用 java.ajax 时 Cookie/全局头按本源 book_source_url 过滤
+            // （而非未归属不带、更非全量合并泄漏）。
+            legado_js::host_api::current_source::with_current_source_tag(
+                &source.book_source_url,
+                || guard.eval_with_bindings(js_str, &bindings),
+            )
+        });
+    collected.result.map(|raw| (raw, collected.actions))
 }
 
 #[cfg(feature = "quickjs")]
@@ -203,7 +195,7 @@ fn eval_call_back_js(
     _event: &str,
     _result: Option<&str>,
     _js_str: &str,
-) -> LegadoResult<String> {
+) -> LegadoResult<(String, Vec<serde_json::Value>)> {
     Err(LegadoError::JsEngine(
         "QuickJS engine not enabled. Build with --features quickjs".into(),
     ))
@@ -222,6 +214,59 @@ mod tests {
         assert!(is_js_true("true"));
         assert!(is_js_true("yes"));
         assert!(is_js_true("1"));
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn blocked_callback_and_other_source_keep_their_own_real_js_actions() {
+        use super::super::source_task_fixture::Fixture;
+        let mut fixture = Fixture::new(1, true, |_| "继续".into());
+        let first = legado_core::models::BookSource {
+            book_source_url: format!("{}/first", fixture.url),
+            ..Default::default()
+        };
+        let second = legado_core::models::BookSource {
+            book_source_url: format!("{}/second", fixture.url),
+            ..Default::default()
+        };
+        let script = format!(
+            "java.copyText('甲');java.ajax('{}/blocked');true",
+            fixture.url
+        );
+        let blocked = std::thread::spawn(move || {
+            eval_call_back_js(
+                &first,
+                &Default::default(),
+                None,
+                "clickCustomButton",
+                None,
+                &script,
+            )
+        });
+        assert!(crate::runtime::block_on(fixture.request()).starts_with("GET /blocked "));
+        let (raw, actions) = eval_call_back_js(
+            &second,
+            &Default::default(),
+            None,
+            "clickCustomButton",
+            None,
+            "java.copyText('乙');true",
+        )
+        .unwrap();
+        assert!(is_js_true(&raw));
+        assert_eq!(
+            actions,
+            vec![serde_json::json!({"action":"copyText","text":"乙"})]
+        );
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+        let (raw, actions) = blocked.join().unwrap().unwrap();
+        assert!(is_js_true(&raw));
+        assert_eq!(
+            actions,
+            vec![serde_json::json!({"action":"copyText","text":"甲"})]
+        );
+        assert!(!legado_js::host_api::ui_action_queue::is_collecting());
     }
 
     /// F3：无书时 callBackBtn 应报错（副作用队列不泄漏）

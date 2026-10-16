@@ -8,6 +8,7 @@ members = [
     "legado-js",
     "legado-book",
     "legado-db",
+    "legado-engine",
     "legado-fetcher",
     "legado-ffi",
     "legado-server",

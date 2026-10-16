@@ -35,8 +35,15 @@ pub struct WebDavClient {
 
 impl WebDavClient {
     pub fn new(config: WebDavConfig) -> Self {
+        Self::with_custom_hosts(config, crate::custom_hosts::default_hosts())
+    }
+
+    pub fn with_custom_hosts(
+        config: WebDavConfig,
+        hosts: std::sync::Arc<crate::custom_hosts::CustomHosts>,
+    ) -> Self {
         let client = crate::tls::client_builder()
-            .dns_resolver(crate::custom_hosts::resolver())
+            .dns_resolver(hosts.resolver())
             .build()
             .unwrap_or_else(|_| crate::tls::client());
         Self { config, client }

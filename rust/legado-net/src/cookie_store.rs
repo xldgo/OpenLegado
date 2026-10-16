@@ -4,7 +4,7 @@
 //! 提供基于内存的 Cookie 存储、查询、合并与过期清理功能。
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
+use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
 /// 单个 Cookie 条目
@@ -32,7 +32,7 @@ impl Cookie {
 /// Cookie 持久化后端抽象（注入模式）
 ///
 /// legado-net 不能依赖 legado-db（避免循环依赖），因此网络层仅定义 trait：
-/// - 启动时由上层（legado-ffi）注入 DB 实现，将持久化 Cookie 载入内存 [`CookieStore`]
+/// - 启动时由引擎资源层注入 DB 实现，将持久化 Cookie 载入内存 [`CookieStore`]
 /// - Cookie 变更时 [`LegadoClient`](crate::client::LegadoClient) 同步回调写回后端
 ///
 /// 方法均为同步接口：DB 实现（r2d2 连接池）本身是同步的，避免引入异步开销。
@@ -42,163 +42,43 @@ pub trait CookiePersistence: Send + Sync {
     fn load_all(&self) -> Vec<(String, String)>;
     /// 插入/更新单个域名的 Cookie 字符串
     fn save(&self, tag: &str, cookie: &str);
-}
 
-// ─── 按域 Cookie 写通道（per-domain 串行锁） ─────────────────────────────────
-
-/// 按域写通道注册表
-///
-/// 目的：让**同一域**的「jar 更新 + 捕获全量串 + 持久化落库」原子化。
-/// HTTP 写回路径（[`save_cookies_from_response`](crate::client::LegadoClient::save_cookies_from_response)）
-/// 与 JS 宿主写路径（`legado-js` `with_store_update`，quickjs 档委托本注册表）
-/// 都**先**取该域串行锁再取 jar/内存存储锁，使「本次捕获的视图」不会被并发的
-/// 同域写入者覆盖——否则「捕获全量串 → 落库」之间被插入的并发写会让落库行
-/// 回退为过期视图（内存=NEW，重启回填=OLD）。
-///
-/// **锁序（唯一固定顺序，无环）**：
-/// ```text
-/// D（本按域串行锁，最外层；其下允许 DB/sink I/O，
-///   但持 J/G 时绝不做 DB I/O）
-///   → J（jar RwLock：短临界区，仅更新/捕获/删除，不回调 D、不做 DB I/O）
-///   → G（JS 内存存储 Mutex：短临界区，不回调 D、不做 sink 调用）
-///   → C（FFI COOKIE_PERSIST_RW_LOCK：DB 行读-改-写串行化）
-///   → P（DB 连接池：取连接等待有界）
-/// ```
-/// 无环论证：J 持有者（jar 路径）必先持 D 再取 J，临界区内不等待 D/C/P；
-/// `JsCookieDbSink::remove/remove_all`（FFI 侧）持 C/P 后**短暂 scoped** 取 J
-///（且从不持 D），P 连接在取 J 前已归还；C/P 持有者不回调 D/J/G。
-/// 因此等待图 D→J→C→P 是链状，任何「持内锁等外锁」的回边均不存在。
-/// 中毒策略：各 `Mutex` 中毒后经 `into_inner` 恢复（与项目内其它锁的恢复
-/// 语义一致——持有者 panic 不应让写通道永久不可用）。
-static DOMAIN_WRITE_LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-/// 域锁注册表条目数告警阈值（资源保护，不改变正确性语义）
-///
-/// 注册表条目 = 出现过的域键（正常应用：书源域数十至数千个）；无界增长
-/// 只能来自病态输入（规则脚本以拼接/随机串反复调用 cookie 接口 → 每个新
-/// 串登记一条域锁）。超阈值时一次性告警（带当前条目数）——纯诊断信号：
-/// **不做逐出/拒绝**（逐出会破坏「裸指针 `'static` 有效」不变式，正确性
-/// 语义不可变；条目数量本身不影响任何互斥语义）。
-const DOMAIN_REGISTRY_WARN_CAP: usize = 4096;
-
-/// 一次性告警标记（每进程至多告警一次，避免病态输入刷屏）
-static DOMAIN_REGISTRY_CAP_WARNED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// 注册表条目数超阈值时一次性告警（仅诊断，不参与锁语义）
-fn maybe_warn_domain_registry_growth(count: usize) {
-    if count > DOMAIN_REGISTRY_WARN_CAP
-        && !DOMAIN_REGISTRY_CAP_WARNED.swap(true, std::sync::atomic::Ordering::Relaxed)
-    {
-        eprintln!(
-            "[legado-net] cookie 域锁注册表条目数 {count} 超过阈值 {DOMAIN_REGISTRY_WARN_CAP}（病态输入持续生成新域键；一次性告警，不影响正确性）"
-        );
+    /// 构造客户端时合并预载，内存同名值优先。宿主可覆盖以协调回填与清除。
+    /// 实现不得在调用此方法前持有 store 锁；数据库读取不持有 store 锁。
+    fn preload(&self, store: &Arc<RwLock<CookieStore>>) {
+        write_coordinator(store).with_all(|| {
+            let entries = self.load_all();
+            let mut guard = store.write().unwrap_or_else(|p| p.into_inner());
+            for (domain, loaded) in entries {
+                let existing = guard.domain_cookie_string(&domain);
+                if let Some(merged) = CookieStore::merge_cookies_str(&loaded, &existing) {
+                    guard.set_cookies_from_string(&domain, &merged);
+                }
+            }
+        });
     }
 }
 
-/// 从静态注册表取得某域写通道锁对象的 `'static` 原始指针
-///
-/// 若该域尚未注册，先向 [`DOMAIN_WRITE_LOCKS`] 登记 `Arc<Mutex<()>>`，再对
-/// 登记后的 `Arc` 克隆一次经 `Arc::into_raw` 交出裸指针（克隆保证注册表
-/// 仍持有原对象）。域锁（`Mutex<()>`）一经注册即由静态注册表永久持有
-/// （注册表条目永不删除），故其裸指针可安全地以 `'static` 解引用。
-fn domain_lock_raw(
-    registry: &mut HashMap<String, Arc<Mutex<()>>>,
-    domain: &str,
-) -> *const Mutex<()> {
-    let is_new = !registry.contains_key(domain);
-    let arc = registry
-        .entry(domain.to_string())
-        .or_insert_with(|| Arc::new(Mutex::new(())))
-        .clone();
-    if is_new {
-        maybe_warn_domain_registry_growth(registry.len());
+/// 先借出所属协调器再进入写通道；不得持 jar 锁调用返回的协调器。
+pub fn write_coordinator(
+    store: &Arc<RwLock<CookieStore>>,
+) -> Arc<crate::cookie_writes::CookieWriteCoordinator> {
+    store
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .writes
+        .clone()
+}
+
+/// JS 的 URL/裸键规则；网络、抓取和宿主使用同一个归一算法。
+pub fn normalize_cookie_key(input: &str) -> String {
+    let input = input.trim();
+    let lower = input.to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
+        cookie_domain_key(input).unwrap_or_else(|| input.to_owned())
+    } else {
+        input.to_owned()
     }
-    // 不变式断言（debug 构建）：注册表此刻仍持有交出裸指针的那个 Arc。
-    // 该不变式是 [`lock_domain_ptr`] unsafe 合法性的前提——条目一旦可被
-    // 删除/替换，已交出的裸指针即悬垂。
-    debug_assert!(
-        registry
-            .get(domain)
-            .is_some_and(|held| Arc::ptr_eq(held, &arc)),
-        "cookie 域锁注册表不变式被破坏：条目被删除/替换，裸指针 'static 有效性失效"
-    );
-    Arc::into_raw(arc)
-}
-
-/// 由 `'static` 裸指针取域锁（本文件唯一的 unsafe 解引用点）
-///
-/// # Safety
-/// 指针必须来自 [`domain_lock_raw`]（或同一注册表存活条目的
-/// `Arc::as_ptr`）——`Arc<Mutex<()>>` 一经注册即由静态注册表永久持有
-///（**注册表条目永不删除**——本文件 unsafe 的不变式：任何未来引入
-/// 注册表清理/条目删除的改动都会立即制造悬垂指针，必须同步重构本指针
-/// 方案，例如改为经注册表守卫加锁）。对象存活期 `'static`；此处仅加锁
-/// 并返回守卫，守卫 drop 只解锁、不触碰对象所有权，故不构成双重 free
-/// 或悬垂。
-fn lock_domain_ptr(ptr: *const Mutex<()>) -> MutexGuard<'static, ()> {
-    unsafe { (&*ptr).lock().unwrap_or_else(|p| p.into_inner()) }
-}
-
-/// 取某域的写通道串行锁（最外层 D 锁）
-///
-/// 返回守卫，drop 时该域写通道放行。`domain` 为域键：
-/// - net 层 jar 路径用 [`cookie_domain_key`]（ETLD+1，解析失败回退原 URL）；
-/// - JS 宿主路径用 `normalized_cookie_key`（quickjs 档委托本函数）。
-///
-/// 两侧必须经**同一来源**的域键规则，保证同域互斥。
-pub fn domain_write_lock(domain: &str) -> MutexGuard<'static, ()> {
-    let ptr = {
-        let mut registry = DOMAIN_WRITE_LOCKS.lock().unwrap_or_else(|p| p.into_inner());
-        domain_lock_raw(&mut registry, domain)
-    };
-    lock_domain_ptr(ptr)
-}
-
-/// 持有全部按域写通道（注册表锁 + 全部域锁，按域键排序取锁防环）
-///
-/// 供「整体清空」类操作（`clear_all_cookies`）与逐域写方互斥：
-/// - 持**注册表锁**期间新域的 `domain_write_lock` 无法注册，临界区内不存在
-///   「快照后新建域」的旁路；
-/// - 域锁按**排序键序**获取（固定顺序 → 无环）。
-///
-/// 注册表锁与各域锁在其它持有者（`domain_write_lock`）处从不嵌套持有
-/// （注册表守卫在取域锁前已释放），故本函数持「注册表 + 域锁」亦无环。
-pub struct AllDomainWriteGuards {
-    /// 注册表锁（阻塞新域注册）
-    _registry: MutexGuard<'static, HashMap<String, Arc<Mutex<()>>>>,
-    /// 全部既有域锁（按域键排序）
-    _domains: Vec<MutexGuard<'static, ()>>,
-}
-
-impl AllDomainWriteGuards {
-    /// 取全部按域写通道（见 [`lock_all_domain_writes`]）
-    pub(crate) fn new(
-        registry: MutexGuard<'static, HashMap<String, Arc<Mutex<()>>>>,
-        domains: Vec<MutexGuard<'static, ()>>,
-    ) -> Self {
-        Self {
-            _registry: registry,
-            _domains: domains,
-        }
-    }
-}
-
-/// 取全部按域写通道（注册表锁 + 全部域锁），供整体清空操作使用
-pub fn lock_all_domain_writes() -> AllDomainWriteGuards {
-    let registry = DOMAIN_WRITE_LOCKS.lock().unwrap_or_else(|p| p.into_inner());
-    let mut keys: Vec<String> = registry.keys().cloned().collect();
-    keys.sort();
-    let mut domains = Vec::with_capacity(keys.len());
-    for key in &keys {
-        // 注册表守卫在持期间条目不可被删/换，[`lock_domain_ptr`] 的 SAFETY
-        // 前提在此平凡成立（与 [`domain_write_lock`] 不同，此处连克隆 Arc
-        // 都不需要）。
-        let ptr = Arc::as_ptr(registry.get(key).expect("键来自同一注册表快照，必然存在"));
-        domains.push(lock_domain_ptr(ptr));
-    }
-    AllDomainWriteGuards::new(registry, domains)
 }
 
 /// 基于内存的 Cookie 存储
@@ -208,16 +88,43 @@ pub fn lock_all_domain_writes() -> AllDomainWriteGuards {
 /// - 设置/替换单个 Cookie
 /// - 清理过期 Cookie
 /// - 生成 HTTP Cookie 头字符串
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct CookieStore {
     cookies: HashMap<String, Vec<Cookie>>,
+    writes: Arc<crate::cookie_writes::CookieWriteCoordinator>,
+}
+
+/// 深拷贝内容得到独立罐；共享同罐应克隆外层 Arc，不能共享拷贝罐的写通道。
+impl Clone for CookieStore {
+    fn clone(&self) -> Self {
+        Self {
+            cookies: self.cookies.clone(),
+            writes: Default::default(),
+        }
+    }
 }
 
 impl CookieStore {
     /// 创建空的 CookieStore
     pub fn new() -> Self {
-        Self {
-            cookies: HashMap::new(),
+        Self::default()
+    }
+
+    /// 全清保持同一保护域，不能替换 CookieStore 后令在途写方失去互斥。
+    pub fn clear(&mut self) {
+        self.cookies.clear();
+    }
+
+    /// 原生/JS 读者均按域键与原始键合并，原始键的同名值优先。
+    pub fn cookies_for_key(&self, input: &str) -> String {
+        let raw = input.trim();
+        let domain = normalize_cookie_key(raw);
+        let normalized = self.domain_cookie_string(&domain);
+        if domain == raw {
+            normalized
+        } else {
+            Self::merge_cookies_str(&normalized, &self.domain_cookie_string(raw))
+                .unwrap_or_default()
         }
     }
 
@@ -309,6 +216,17 @@ impl CookieStore {
             .map(|c| format!("{}={}", c.name, c.value))
             .collect::<Vec<_>>()
             .join("; ")
+    }
+
+    /// 导出未过期域快照；调用方在释放 jar 锁后再进行持久化。
+    pub fn to_persisted(&self) -> Vec<(String, String)> {
+        self.cookies
+            .keys()
+            .filter_map(|domain| {
+                let value = self.domain_cookie_string(domain);
+                (!value.is_empty()).then(|| (domain.clone(), value))
+            })
+            .collect()
     }
 
     /// 批量加载持久化 Cookie 条目：`(域名 tag, "name=value; ...")`

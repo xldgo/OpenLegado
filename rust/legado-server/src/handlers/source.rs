@@ -69,10 +69,13 @@ fn normalize_concurrent_rate(rate: Option<String>) -> Option<String> {
 
 /// GET /api/sources — 获取全部书源
 pub async fn list_sources(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookSourceRepository::new(db.connection());
-    let sources = repo.find_all()?;
-    Ok(Json(json!({ "sources": sources, "total": sources.len() })))
+    state
+        .with_database(move |db| {
+            let repo = BookSourceRepository::new(db.connection());
+            let sources = repo.find_all()?;
+            Ok(Json(json!({ "sources": sources, "total": sources.len() })))
+        })
+        .await?
 }
 
 /// POST /api/sources — 创建书源
@@ -80,30 +83,34 @@ pub async fn create_source(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateSourceRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let source = BookSource {
-        book_source_url: req.book_source_url,
-        book_source_name: req.book_source_name,
-        book_source_group: req.book_source_group,
-        book_source_type: req.book_source_type.unwrap_or(0),
-        enabled: req.enabled.unwrap_or(true),
-        search_url: req.search_url,
-        concurrent_rate: normalize_concurrent_rate(req.concurrent_rate),
-        ..BookSource::default()
-    };
+    let engine = state.engine.clone();
+    state
+        .with_database(move |db| {
+            let source = BookSource {
+                book_source_url: req.book_source_url,
+                book_source_name: req.book_source_name,
+                book_source_group: req.book_source_group,
+                book_source_type: req.book_source_type.unwrap_or(0),
+                enabled: req.enabled.unwrap_or(true),
+                search_url: req.search_url,
+                concurrent_rate: normalize_concurrent_rate(req.concurrent_rate),
+                ..BookSource::default()
+            };
 
-    {
-        let db = state.db.lock().await;
-        let repo = BookSourceRepository::new(db.connection());
-        repo.insert(&source)?;
-    }
-    // 写库成功后才刷新进程级限速注册表（写库失败经 `?` 提前返回，不触发刷新）：
-    // 空值 → 移除既有 limiter（空=不限流），合法值 → 原位刷新。
-    crate::handlers::web_book::refresh_source_rate_limit(
-        &source.book_source_url,
-        source.concurrent_rate.as_deref().unwrap_or(""),
-    );
+            {
+                let repo = BookSourceRepository::new(db.connection());
+                repo.insert(&source)?;
+            }
+            // 写库成功后才刷新进程级限速注册表（写库失败经 `?` 提前返回，不触发刷新）：
+            // 空值 → 移除既有 limiter（空=不限流），合法值 → 原位刷新。
+            engine.rate_limiter().refresh(
+                &source.book_source_url,
+                source.concurrent_rate.as_deref().unwrap_or(""),
+            );
 
-    Ok((StatusCode::CREATED, Json(json!(source))))
+            Ok((StatusCode::CREATED, Json(json!(source))))
+        })
+        .await?
 }
 
 /// PUT /api/sources/:id — 更新书源
@@ -112,60 +119,66 @@ pub async fn update_source(
     Path(source_url): Path<String>,
     Json(req): Json<UpdateSourceRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    // concurrentRate 三态：缺键保留 / 显式 null 或空串清除 / 有值更新
-    enum RateChange {
-        Keep,
-        Clear,
-        Set(String),
-    }
-    let rate_change = match req.concurrent_rate {
-        None => RateChange::Keep,
-        Some(None) => RateChange::Clear,
-        Some(Some(raw)) => {
-            if raw.trim().is_empty() {
-                RateChange::Clear
-            } else {
-                RateChange::Set(raw)
+    let engine = state.engine.clone();
+    state
+        .with_database(move |db| {
+            let transaction = db.immediate_transaction()?;
+            // concurrentRate 三态：缺键保留 / 显式 null 或空串清除 / 有值更新
+            enum RateChange {
+                Keep,
+                Clear,
+                Set(String),
             }
-        }
-    };
+            let rate_change = match req.concurrent_rate {
+                None => RateChange::Keep,
+                Some(None) => RateChange::Clear,
+                Some(Some(raw)) => {
+                    if raw.trim().is_empty() {
+                        RateChange::Clear
+                    } else {
+                        RateChange::Set(raw)
+                    }
+                }
+            };
 
-    let source = {
-        let db = state.db.lock().await;
-        let repo = BookSourceRepository::new(db.connection());
-        // 先按 path 取完整实体做字段级 mutate：DTO 未暴露的字段（规则/header/
-        // jsLib/variable 等）保持库内原值，不再用 `BookSource::default()` 构造
-        // （全列 upsert 会清掉这些字段）。path 不存在时维持原有 INSERT OR
-        // REPLACE 语义（以默认实体补齐），不改为 404；URL 冲突时保持现有
-        // 「按 path 查找、写 body URL」行为（以 body URL 为准替换该行）。
-        let mut source = repo.find_by_url(&source_url)?.unwrap_or_default();
-        source.book_source_url = req.book_source_url;
-        source.book_source_name = req.book_source_name;
-        source.book_source_group = req.book_source_group;
-        source.book_source_type = req.book_source_type.unwrap_or(0);
-        source.enabled = req.enabled.unwrap_or(true);
-        source.search_url = req.search_url;
-        match &rate_change {
-            RateChange::Keep => {}
-            RateChange::Clear => source.concurrent_rate = None,
-            RateChange::Set(value) => source.concurrent_rate = Some(value.clone()),
-        }
-        repo.update(&source)?;
-        source
-    };
+            let source = {
+                let repo = BookSourceRepository::new(db.connection());
+                // 先按 path 取完整实体做字段级 mutate：DTO 未暴露的字段（规则/header/
+                // jsLib/variable 等）保持库内原值，不再用 `BookSource::default()` 构造
+                // （全列 upsert 会清掉这些字段）。path 不存在时维持原有 INSERT OR
+                // REPLACE 语义（以默认实体补齐），不改为 404；URL 冲突时保持现有
+                // 「按 path 查找、写 body URL」行为（以 body URL 为准替换该行）。
+                let mut source = repo.find_by_url(&source_url)?.unwrap_or_default();
+                source.book_source_url = req.book_source_url;
+                source.book_source_name = req.book_source_name;
+                source.book_source_group = req.book_source_group;
+                source.book_source_type = req.book_source_type.unwrap_or(0);
+                source.enabled = req.enabled.unwrap_or(true);
+                source.search_url = req.search_url;
+                match &rate_change {
+                    RateChange::Keep => {}
+                    RateChange::Clear => source.concurrent_rate = None,
+                    RateChange::Set(value) => source.concurrent_rate = Some(value.clone()),
+                }
+                repo.update(&source)?;
+                source
+            };
 
-    // 写库成功后才刷新限速注册表：缺键不刷新；清除 → 移除 limiter；有值 → 刷新
-    match &rate_change {
-        RateChange::Keep => {}
-        RateChange::Clear => {
-            crate::handlers::web_book::refresh_source_rate_limit(&source.book_source_url, "")
-        }
-        RateChange::Set(value) => {
-            crate::handlers::web_book::refresh_source_rate_limit(&source.book_source_url, value)
-        }
-    }
+            transaction.commit().map_err(|error| {
+                legado_core::LegadoError::Database(format!("提交书源更新失败: {error}"))
+            })?;
+            // 写库成功后才刷新限速注册表：缺键不刷新；清除 → 移除 limiter；有值 → 刷新
+            match &rate_change {
+                RateChange::Keep => {}
+                RateChange::Clear => engine.rate_limiter().refresh(&source.book_source_url, ""),
+                RateChange::Set(value) => engine
+                    .rate_limiter()
+                    .refresh(&source.book_source_url, value),
+            }
 
-    Ok(Json(json!(source)))
+            Ok(Json(json!(source)))
+        })
+        .await?
 }
 
 /// DELETE /api/sources/:id — 删除书源
@@ -173,10 +186,13 @@ pub async fn delete_source(
     State(state): State<Arc<AppState>>,
     Path(source_url): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookSourceRepository::new(db.connection());
-    repo.delete(&source_url)?;
-    Ok(Json(json!({ "deleted": true, "source_url": source_url })))
+    state
+        .with_database(move |db| {
+            let repo = BookSourceRepository::new(db.connection());
+            repo.delete(&source_url)?;
+            Ok(Json(json!({ "deleted": true, "source_url": source_url })))
+        })
+        .await?
 }
 
 #[cfg(test)]
@@ -191,17 +207,12 @@ mod tests {
     use crate::state::AppState;
     use legado_core::models::rule::{ContentRule, SearchRule};
     use legado_fetcher::rate_limit::RateLimiterRegistry;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     /// 构造 JSON 请求（Content-Type: application/json）
@@ -224,14 +235,14 @@ mod tests {
 
     /// 读库内书源
     async fn find_source(state: &Arc<AppState>, url: &str) -> Option<BookSource> {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = BookSourceRepository::new(db.connection());
         repo.find_by_url(url).unwrap()
     }
 
     /// 进程级限速注册表（测试用唯一 key，避免并行互扰）
-    fn rate_registry() -> Arc<RateLimiterRegistry> {
-        crate::handlers::web_book::rate_limiter()
+    fn rate_registry(state: &AppState) -> Arc<RateLimiterRegistry> {
+        state.engine.rate_limiter()
     }
 
     /// 构造限速快照（acquire 用）
@@ -245,7 +256,7 @@ mod tests {
 
     /// 向库内播种完整书源（含 DTO 未暴露字段）
     async fn seed_source(state: &Arc<AppState>, source: BookSource) {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = BookSourceRepository::new(db.connection());
         repo.insert(&source).unwrap();
     }
@@ -253,7 +264,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_sources_empty() {
         let state = make_test_state();
-        let app = create_router(state);
+        let app = create_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -271,7 +282,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_source() {
         let state = make_test_state();
-        let app = create_router(state);
+        let app = create_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "book_source_url": "https://source.example.com",
@@ -301,7 +312,7 @@ mod tests {
 
         // 先插入一个书源
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = BookSourceRepository::new(db.connection());
             let src = BookSource {
                 book_source_url: "src1".to_string(),
@@ -311,7 +322,7 @@ mod tests {
             repo.insert(&src).unwrap();
         }
 
-        let app = create_router(state);
+        let app = create_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -335,7 +346,7 @@ mod tests {
     async fn test_create_source_with_concurrent_rate_stores_and_refreshes() {
         let state = make_test_state();
         let url = "https://rest-rate-create-value.example";
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(url, "1/10000")).await; // 旧率窗口已用 1 次
 
         let app = create_router(Arc::clone(&state));
@@ -379,7 +390,7 @@ mod tests {
     async fn test_create_source_without_concurrent_rate_clears_limiter() {
         let state = make_test_state();
         let url = "https://rest-rate-create-none.example";
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(url, "1/10000")).await; // 旧窗口已用 1 次
 
         let app = create_router(Arc::clone(&state));
@@ -470,7 +481,7 @@ mod tests {
             },
         )
         .await;
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(key, "1/10000")).await; // 窗口已用 1 次
 
         let app = create_router(Arc::clone(&state));
@@ -535,7 +546,7 @@ mod tests {
             },
         )
         .await;
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(key, "2/10000")).await;
         registry.acquire(&rate_snapshot(key, "2/10000")).await; // 窗口已用满
 
@@ -585,7 +596,7 @@ mod tests {
             },
         )
         .await;
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(key, "2/10000")).await;
         registry.acquire(&rate_snapshot(key, "2/10000")).await; // 窗口已用满
 
@@ -639,7 +650,7 @@ mod tests {
             },
         )
         .await;
-        let registry = rate_registry();
+        let registry = rate_registry(&state);
         registry.acquire(&rate_snapshot(key, "1/10000")).await; // 窗口已用 1 次
 
         let app = create_router(Arc::clone(&state));

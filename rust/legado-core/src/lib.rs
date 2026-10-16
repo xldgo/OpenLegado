@@ -81,3 +81,6 @@ pub use search_engine::{
     MultiSourceSearcher, NoopSourceSearcher, SearchConfig, SearchResult, SourceSearcher,
 };
 pub use source_matcher::{SourceMatch, SourceMatcher};
+
+/// 按键写入与全量操作的同步协调能力。
+pub mod write_coordinator;

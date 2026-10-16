@@ -15,7 +15,6 @@ use tokio::task;
 use crate::error::ApiError;
 use crate::state::AppState;
 use legado_core::models::BookSource;
-use legado_net::client::{LegadoClient, LegadoClientConfig};
 use legado_net::source_checker::{CheckResult, CheckerConfig, SourceChecker};
 
 /// 单个书源检查请求
@@ -48,8 +47,11 @@ pub struct CheckBatchResponse {
 }
 
 /// 创建 SourceChecker 实例
-fn create_checker(keyword: Option<&str>) -> Result<SourceChecker, ApiError> {
-    let client = LegadoClient::new(LegadoClientConfig::default())?;
+async fn create_checker(
+    state: &AppState,
+    keyword: Option<&str>,
+) -> Result<SourceChecker, ApiError> {
+    let client = state.network_client().await?;
     let config = CheckerConfig {
         keyword: keyword.unwrap_or("我的").to_string(),
         ..CheckerConfig::default()
@@ -59,17 +61,17 @@ fn create_checker(keyword: Option<&str>) -> Result<SourceChecker, ApiError> {
 
 /// POST /api/sources/check — 检查单个书源有效性
 pub async fn check_source(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<CheckSourceRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let checker = create_checker(req.keyword.as_deref())?;
+    let checker = create_checker(&state, req.keyword.as_deref()).await?;
     let result = checker.check_full(&req.source).await;
     Ok(Json(json!(result)))
 }
 
 /// POST /api/sources/check-batch — 批量检查书源（并行）
 pub async fn check_batch(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<CheckBatchRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let keyword = req.keyword.clone();
@@ -82,9 +84,12 @@ pub async fn check_batch(
     for source in req.sources {
         let sem = Arc::clone(&semaphore);
         let kw = keyword.clone();
+        let state = state.clone();
+        let task = state.task()?;
         let handle = task::spawn(async move {
+            let _task = task;
             let _permit = sem.acquire().await;
-            let checker = match create_checker(kw.as_deref()) {
+            let checker = match create_checker(&state, kw.as_deref()).await {
                 Ok(c) => c,
                 Err(_) => {
                     return CheckResult {
@@ -150,17 +155,12 @@ mod tests {
 
     use crate::routes::create_router;
     use crate::state::AppState;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
@@ -229,15 +229,15 @@ mod tests {
         assert!(resp.status() == StatusCode::OK || resp.status() == StatusCode::BAD_GATEWAY);
     }
 
-    #[test]
-    fn test_create_checker_default() {
-        let checker = create_checker(None);
+    #[tokio::test]
+    async fn test_create_checker_default() {
+        let checker = create_checker(&make_test_state(), None).await;
         assert!(checker.is_ok());
     }
 
-    #[test]
-    fn test_create_checker_custom_keyword() {
-        let checker = create_checker(Some("自定义"));
+    #[tokio::test]
+    async fn test_create_checker_custom_keyword() {
+        let checker = create_checker(&make_test_state(), Some("自定义")).await;
         assert!(checker.is_ok());
     }
 }

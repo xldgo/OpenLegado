@@ -35,7 +35,7 @@
 //! - [`audio_cache_download`]：单章下载安装（幂等；流式落盘，字节零穿越 FFI）；
 //!   原版服务编排（ArrayDeque 队列/前台通知/START_NOT_STICKY）不上 FFI，由
 //!   Dart 循环逐章调用自持进度（`AudioCacheService.kt:275-301` 计数等价）
-//! - [`audio_cache_cancel`]：进程级取消代数单槽（对齐原版服务单 worker + stop，
+//! - [`audio_cache_cancel`]：宿主实例取消状态（对齐原版服务单 worker + stop，
 //!   `AudioCacheService.kt:145-185,259-266`）；在途下载于每个流式块边界检查
 //!   代数（对齐 `copyCancellable:397-412` 的 ensureActive），变更即中止并清理
 //! - [`chapter_lock`]：同 `(bookUrl, key16)` 分片互斥（对齐原版
@@ -49,7 +49,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -58,6 +58,7 @@ use legado_db::{BookChapterRepository, BookRepository, BookSourceRepository};
 use legado_net::{LegadoClient, LegadoRequest, Method};
 use legado_parser::{AnalyzeUrl, TemplateContext};
 
+#[cfg(test)]
 use crate::db_state::with_database;
 
 /// 音频缓存磁盘目录环境变量名（测试隔离用，非空即覆盖）
@@ -88,21 +89,8 @@ const STALE_PARTIAL_AGE_MILLIS: u64 = 60 * 60 * 1000;
 const TMP_PREFIX: &str = "tmp_";
 const PART_SUFFIX: &str = ".part";
 
-/// 进程级取消代数（B2，契约 §2.48）：[`audio_cache_cancel`] 递增，
-/// 在途下载在每个流式块边界比对开局快照，不等即中止并清理部分文件
-/// （对齐原版服务 stop → Job.cancel → copyCancellable ensureActive 路径）
-static CANCEL_GEN: AtomicU64 = AtomicU64::new(0);
-
-/// 进程级在途下载计数（B2）：>0 时 [`audio_cache_cancel`] 返回 true。
-/// 与 [`CANCEL_GEN`] 无关联于既有 `_speakGeneration` 等 Dart 侧机制
-/// （本取消为 Rust 进程级单槽，对齐原版「单 worker 至多一个在途下载」）
-static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
-
 /// 随机十六进制串计数器（rev8 / tmp 文件名 token；非密码学随机，仅防并发同名）
 static RANDOM_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-/// 宿主注入的音频缓存根目录（B1，FFI `set_audio_cache_dir` 目标）
-static INJECTED_DIR: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
 /// `cfg(test)` 显式测试覆盖槽（整体旁路 env 分支：并行测试不得操作
 /// 进程级环境变量——对齐 image_cache_api 先例）
@@ -120,9 +108,7 @@ static SCAN_FAIL_WARNED: AtomicBool = AtomicBool::new(false);
 /// 目录解析优先级见模块文档：env [`CACHE_DIR_ENV`] > 注入目录 > 缺省 temp 目录。
 /// 后续全部查询/列举/清理以此根目录为准。
 pub fn set_cache_dir(path: &str) {
-    if let Ok(mut guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-        *guard = Some(PathBuf::from(path));
-    }
+    crate::engine_holder::media().set_audio_directory(Some(PathBuf::from(path)));
 }
 
 /// 音频缓存根目录（env 覆盖 > 宿主注入 > 缺省 `<temp_dir>/legado-audio-cache`）
@@ -143,9 +129,7 @@ fn cache_root() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock()
-        && let Some(dir) = guard.clone()
-    {
+    if let Some(dir) = crate::engine_holder::media().audio_directory() {
         return dir;
     }
     let root = std::env::temp_dir().join(DEFAULT_ROOT);
@@ -720,25 +704,39 @@ fn remove_cache_files(dir: &Path, key16: &str, except_name: Option<&str>) -> i32
     count
 }
 
-/// 在途下载 RAII 计数（进程级；drop 时递减，保证任何提前返回都复位）
-struct InFlightGuard;
-
-impl InFlightGuard {
-    fn new() -> Self {
-        IN_FLIGHT.fetch_add(1, Ordering::SeqCst);
-        Self
-    }
+/// 一次下载捕获原存储、目录、抓取资源和任务凭据，途中不重新发现宿主。
+struct AudioDownloadContext {
+    storage: legado_engine::StorageContext,
+    media: std::sync::Arc<legado_engine::MediaState>,
+    directory: PathBuf,
+    factory: super::web_book::CapturedFetcherFactory,
+    task: legado_engine::TaskHandle,
 }
-
-impl Drop for InFlightGuard {
-    fn drop(&mut self) {
-        IN_FLIGHT.fetch_sub(1, Ordering::SeqCst);
+impl AudioDownloadContext {
+    fn for_engine(engine: &legado_engine::EngineContext, directory: PathBuf) -> LegadoResult<Self> {
+        Ok(Self {
+            storage: engine.storage().clone(),
+            media: engine.media().clone(),
+            directory,
+            factory: super::web_book::deps_for_engine(engine),
+            task: engine
+                .tasks()
+                .begin()
+                .map_err(|e| LegadoError::Ffi(e.to_string()))?,
+        })
     }
-}
-
-/// 取消代数是否已变更（在途下载中止判据）
-fn cancel_generation_changed(snapshot: u64) -> bool {
-    CANCEL_GEN.load(Ordering::SeqCst) != snapshot
+    fn wait<T>(
+        &self,
+        future: impl std::future::Future<Output = LegadoResult<T>>,
+    ) -> LegadoResult<T> {
+        crate::runtime::block_on(async {
+            tokio::select! {
+                biased;
+                _ = self.task.cancelled() => Err(LegadoError::Ffi("音频缓存下载已取消".into())),
+                result = future => result,
+            }
+        })
+    }
 }
 
 /// 章节锁分片数（对齐原版 `AudioCacheManager.chapterLocks:44`：`Array(16)`）
@@ -793,11 +791,7 @@ fn chapter_lock(book_url: &str, key16: &str) -> &'static Mutex<()> {
 /// 返回 `true` = 置位时快照到在途下载（尽力提示，不作同步保证）；`false` =
 /// 当前无在途。同步立即返回。
 pub fn audio_cache_cancel() -> LegadoResult<bool> {
-    if IN_FLIGHT.load(Ordering::SeqCst) == 0 {
-        return Ok(false);
-    }
-    CANCEL_GEN.fetch_add(1, Ordering::SeqCst);
-    Ok(true)
+    Ok(crate::engine_holder::media().cancel_audio())
 }
 
 /// 单章下载安装（契约 §2.48 `audioCacheDownload`，同步阻塞实现，FFI 侧经
@@ -845,27 +839,62 @@ fn audio_cache_download_with_client(
     chapter_title: &str,
     play_url: &str,
 ) -> LegadoResult<String> {
+    if kotlin_is_blank(book_url) {
+        return Err(LegadoError::Ffi("书籍 URL 为空".into()));
+    }
+    let engine = crate::engine_holder::current()?;
+    let context = AudioDownloadContext::for_engine(&engine, cache_root())?;
+    drop(engine);
+    audio_cache_download_in(
+        &context,
+        client,
+        book_url,
+        chapter_index,
+        chapter_url,
+        chapter_title,
+        play_url,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn audio_cache_download_in(
+    context: &AudioDownloadContext,
+    client: &LegadoClient,
+    book_url: &str,
+    chapter_index: i32,
+    chapter_url: &str,
+    chapter_title: &str,
+    play_url: &str,
+) -> LegadoResult<String> {
+    let _guard = context.task.guard();
     // ① 前置校验
     if kotlin_is_blank(book_url) {
         return Err(LegadoError::Ffi("书籍 URL 为空".into()));
     }
-    let book = with_database(|db| BookRepository::new(db.connection()).find_by_url(book_url))?
+    let book = context
+        .storage
+        .with_database(|db| BookRepository::new(db.connection()).find_by_url(book_url))?
         .ok_or_else(|| LegadoError::Database(format!("书籍不存在: {book_url}")))?;
-    let chapter = with_database(|db| {
-        BookChapterRepository::new(db.connection())
-            .find_by_book_url_and_index(book_url, chapter_index)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
+    let chapter = context
+        .storage
+        .with_database(|db| {
+            BookChapterRepository::new(db.connection())
+                .find_by_book_url_and_index(book_url, chapter_index)
+        })?
+        .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
     if chapter.is_volume {
         return Err(LegadoError::Ffi("分卷章节不支持缓存".into()));
     }
-    let source =
-        with_database(|db| BookSourceRepository::new(db.connection()).find_by_url(&book.origin))?
-            .ok_or_else(|| LegadoError::Database(format!("书源不存在: {}", book.origin)))?;
+    let source = context
+        .storage
+        .with_database(|db| BookSourceRepository::new(db.connection()).find_by_url(&book.origin))?
+        .ok_or_else(|| LegadoError::Database(format!("书源不存在: {}", book.origin)))?;
     require_cacheable_play_url(play_url)?;
 
     let key16 = cache_key16(chapter_url, chapter_title);
-    let dir = book_dir(book_url);
+    let dir = context
+        .directory
+        .join(format!("book_{}", md5_mid16(book_url)));
 
     // ②–⑧ 临界区：同 (bookUrl, key16) 分片锁串行（对齐原版 `chapterLock`
     // `AudioCacheManager.kt:44,117,414-416` 的 `withLock` 范围）。无锁时两条
@@ -898,8 +927,7 @@ fn audio_cache_download_with_client(
     cleanup_uncommitted_files(&dir, &key16);
 
     // 取消代数快照 + 在途登记（覆盖从发起到清理的全部路径）
-    let cancel_snapshot = CANCEL_GEN.load(Ordering::SeqCst);
-    let _inflight = InFlightGuard::new();
+    let transfer = context.media.begin_audio();
 
     // ④ AnalyzeUrl 解析 + 书源请求头/Cookie 语义（对齐原版构造
     // `AnalyzeUrl(playUrl, source=bookSource, ruleData=book, chapter=chapter)`：
@@ -912,18 +940,25 @@ fn audio_cache_download_with_client(
         chapter.variable.as_deref(),
     );
     let variables = crate::api::web_book::chapter_url_variables(merged_variable.as_deref());
-    let context = TemplateContext {
+    let template_context = TemplateContext {
         book_name: Some(book.name.clone()),
         title: Some(chapter.title.clone()),
         author: Some(book.author.clone()),
         extra: HashMap::new(),
     };
-    let analyze_url = AnalyzeUrl::parse_with_context(play_url, &variables, &context, 1)?;
+    let analyze_url = AnalyzeUrl::parse_with_context(play_url, &variables, &template_context, 1)?;
 
-    let fetcher = crate::api::web_book::real_fetcher()?;
+    let mut deps = (context.factory)()?;
+    deps.client = client.clone();
+    let fetcher = legado_fetcher::web_book::RealBookSourceFetcher::with_deps(deps);
     let mut headers = fetcher.parse_source_headers(&source).unwrap_or_default();
     headers.extend(analyze_url.headers().clone());
-    legado_js::host_api::cookie_store::merge_js_cookies(&mut headers, analyze_url.url());
+    let cookie = client
+        .cookie_store()
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .cookies_for_key(analyze_url.url());
+    legado_js::host_api::cookie_store::merge_cookie_string(&mut headers, &cookie);
 
     let body = analyze_url.request_body();
     let request = LegadoRequest {
@@ -951,7 +986,7 @@ fn audio_cache_download_with_client(
     };
     let mut retries_remaining = analyze_url.retry();
     let mut response = loop {
-        let resp = crate::runtime::block_on(effective.send_stream(&request))?;
+        let resp = context.wait(effective.send_stream(&request))?;
         if (200..400).contains(&resp.status()) || retries_remaining == 0 {
             break resp;
         }
@@ -992,35 +1027,45 @@ fn audio_cache_download_with_client(
             let file = fs::File::create(&staged_path)?;
             let mut writer = io::BufWriter::new(file);
             loop {
-                if cancel_generation_changed(cancel_snapshot) {
+                if transfer.is_cancelled() || context.task.is_cancelled() {
                     return Err(LegadoError::Ffi("音频缓存下载已取消".into()));
                 }
-                match crate::runtime::block_on(response.next_chunk())? {
+                match context.wait(response.next_chunk())? {
                     None => break,
                     Some(chunk) => writer.write_all(&chunk)?,
                 }
             }
             writer.flush()?;
-            if cancel_generation_changed(cancel_snapshot) {
+            if transfer.is_cancelled() || context.task.is_cancelled() {
                 return Err(LegadoError::Ffi("音频缓存下载已取消".into()));
             }
         }
 
-        // ⑤ size 校验 + 安装（优先 rename，失败退整文件复制后复验）
-        let staged_len = fs::metadata(&staged_path)?.len();
-        require_complete_size(staged_len, expected_size)?;
-        let installed_len = install_staged_file(&staged_path, &final_path, expected_size)?;
+        context
+            .task
+            .with_active(|| {
+                transfer
+                    .with_active(|| {
+                        // ⑤ size 校验 + 安装（优先 rename，失败退整文件复制后复验）
+                        let staged_len = fs::metadata(&staged_path)?.len();
+                        require_complete_size(staged_len, expected_size)?;
+                        let installed_len =
+                            install_staged_file(&staged_path, &final_path, expected_size)?;
 
-        // ⑥ 写 `.complete` 并回读校验（校验失败删标记报错）
-        if cancel_generation_changed(cancel_snapshot) {
-            return Err(LegadoError::Ffi("音频缓存下载已取消".into()));
-        }
-        write_complete_marker(&marker_path, play_url)?;
+                        // ⑥ 写 `.complete` 并回读校验（校验失败删标记报错）
+                        if transfer.is_cancelled() || context.task.is_cancelled() {
+                            return Err(LegadoError::Ffi("音频缓存下载已取消".into()));
+                        }
+                        write_complete_marker(&marker_path, play_url)?;
 
-        // ⑦ 清理同 key 其他文件与标记（保留新安装文件；计数不参与返回值）
-        let _ = remove_cache_files(&dir, &key16, Some(&final_name));
+                        // ⑦ 清理同 key 其他文件与标记（保留新安装文件；计数不参与返回值）
+                        let _ = remove_cache_files(&dir, &key16, Some(&final_name));
 
-        Ok(installed_len)
+                        Ok(installed_len)
+                    })
+                    .unwrap_or_else(|| Err(LegadoError::Ffi("音频缓存下载已取消".into())))
+            })
+            .unwrap_or_else(|| Err(LegadoError::Ffi("音频缓存下载已取消".into())))
     })();
 
     let installed_size = match result {
@@ -1118,7 +1163,116 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::time::Duration;
 
-    /// 测试串行锁：`INJECTED_DIR`/`TEST_DIR_OVERRIDE` 为进程级状态，
+    fn isolated_audio_engine() -> std::sync::Arc<legado_engine::EngineContext> {
+        let engine = std::sync::Arc::new(legado_engine::EngineContext::in_memory().unwrap());
+        engine
+            .storage()
+            .with_database(|db| {
+                BookRepository::new(db.connection()).insert(&legado_core::models::Book {
+                    book_url: "same-book".into(),
+                    name: "独立音频书".into(),
+                    origin: "same-source".into(),
+                    ..Default::default()
+                })?;
+                BookSourceRepository::new(db.connection()).insert(
+                    &legado_core::models::BookSource {
+                        book_source_url: "same-source".into(),
+                        book_source_name: "测试".into(),
+                        ..Default::default()
+                    },
+                )?;
+                BookChapterRepository::new(db.connection()).insert(
+                    &legado_core::models::BookChapter {
+                        book_url: "same-book".into(),
+                        url: "same-chapter".into(),
+                        title: "第一章".into(),
+                        index: 0,
+                        ..Default::default()
+                    },
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        engine
+    }
+
+    #[test]
+    fn isolated_real_audio_downloads_use_original_storage_and_directory() {
+        use super::super::source_task_fixture::Fixture;
+        let fixture = Fixture::with_content_type(2, false, "audio/mpeg", |_| "ID3-audio".into());
+        let first = isolated_audio_engine();
+        let second = isolated_audio_engine();
+        let client = test_client();
+        let mut paths = Vec::new();
+        for engine in [&first, &second] {
+            let directory = engine.storage().data_directory("audio").unwrap();
+            let context = AudioDownloadContext::for_engine(engine, directory.clone()).unwrap();
+            let output = audio_cache_download_in(
+                &context,
+                &client,
+                "same-book",
+                0,
+                "same-chapter",
+                "第一章",
+                &format!("{}/audio.mp3", fixture.url),
+            )
+            .unwrap();
+            let result: serde_json::Value = serde_json::from_str(&output).unwrap();
+            let path = PathBuf::from(result["path"].as_str().unwrap());
+            assert!(path.starts_with(&directory));
+            assert_eq!(std::fs::read(&path).unwrap(), b"ID3-audio");
+            assert!(PathBuf::from(format!("{}.complete", path.display())).exists());
+            paths.push(path);
+        }
+        assert_ne!(paths[0], paths[1]);
+        fixture.worker.join().unwrap();
+        assert_eq!(first.tasks().active_count(), 0);
+        assert_eq!(second.tasks().active_count(), 0);
+    }
+
+    #[test]
+    fn isolated_root_cancel_during_real_audio_request_leaves_no_installed_files() {
+        use super::super::source_task_fixture::Fixture;
+        let mut fixture = Fixture::with_content_type(1, true, "audio/mpeg", |_| "ID3-audio".into());
+        let engine = isolated_audio_engine();
+        let storage = engine.storage().clone();
+        let directory = storage.data_directory("audio").unwrap();
+        let context = AudioDownloadContext::for_engine(&engine, directory.clone()).unwrap();
+        let tasks = engine.tasks().clone();
+        let weak = std::sync::Arc::downgrade(&engine);
+        let url = format!("{}/audio.mp3", fixture.url);
+        let worker = std::thread::spawn(move || {
+            audio_cache_download_in(
+                &context,
+                &test_client(),
+                "same-book",
+                0,
+                "same-chapter",
+                "第一章",
+                &url,
+            )
+        });
+        assert!(crate::runtime::block_on(fixture.request()).starts_with("GET /audio.mp3 "));
+        drop(engine);
+        assert!(weak.upgrade().is_none());
+        assert!(
+            worker
+                .join()
+                .unwrap()
+                .unwrap_err()
+                .to_string()
+                .contains("已取消")
+        );
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+        assert!(crate::runtime::block_on(
+            tasks.shutdown(Duration::from_secs(3))
+        ));
+        let book_directory = directory.join(format!("book_{}", md5_mid16("same-book")));
+        assert!(read_dir_entries(&book_directory).is_empty());
+    }
+
+    /// 测试串行锁：宿主目录/`TEST_DIR_OVERRIDE` 为进程级状态，
     /// 并行测试互踩 → 触碰进程级目录状态的测试先持锁（对齐 image_cache 先例）
     static TEST_LOCK: Mutex<()> = Mutex::new(());
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -1464,9 +1618,7 @@ mod tests {
         // 删除数 = 数据文件（不含 .complete 标记）
         assert_eq!(audio_cache_clear_book("https://a.com/book/5"), 1);
         // 复位注入槽为 None（不污染其他测试）
-        if let Ok(mut guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-            *guard = None;
-        }
+        crate::engine_holder::media().set_audio_directory(None);
         clear_test_root();
         let _ = fs::remove_dir_all(&root);
     }
@@ -2210,11 +2362,15 @@ mod tests {
 
         // 等待在途登记（下载线程在发起网络前即 +1）
         let mut waited_ms = 0u32;
-        while IN_FLIGHT.load(Ordering::SeqCst) == 0 && waited_ms < 3000 {
+        while crate::engine_holder::media().active_audio() == 0 && waited_ms < 3000 {
             std::thread::sleep(Duration::from_millis(10));
             waited_ms += 10;
         }
-        assert_eq!(IN_FLIGHT.load(Ordering::SeqCst), 1, "在途计数应为 1");
+        assert_eq!(
+            crate::engine_holder::media().active_audio(),
+            1,
+            "在途计数应为 1"
+        );
         std::thread::sleep(Duration::from_millis(120));
 
         assert!(audio_cache_cancel().unwrap(), "置位时应快照到在途下载");
@@ -2227,7 +2383,11 @@ mod tests {
             .map(|(n, _)| n)
             .collect();
         assert!(names.is_empty(), "取消后不得残留部分文件: {names:?}");
-        assert_eq!(IN_FLIGHT.load(Ordering::SeqCst), 0, "在途计数应复位");
+        assert_eq!(
+            crate::engine_holder::media().active_audio(),
+            0,
+            "在途计数应复位"
+        );
 
         clear_test_root();
         let _ = fs::remove_dir_all(&root);
@@ -2427,11 +2587,15 @@ mod tests {
 
         // 等待在途登记：下载在锁内、发起网络前 +1 → 此刻锁已被下载持有
         let mut waited_ms = 0u32;
-        while IN_FLIGHT.load(Ordering::SeqCst) == 0 && waited_ms < 3000 {
+        while crate::engine_holder::media().active_audio() == 0 && waited_ms < 3000 {
             std::thread::sleep(Duration::from_millis(10));
             waited_ms += 10;
         }
-        assert_eq!(IN_FLIGHT.load(Ordering::SeqCst), 1, "下载应在途持锁");
+        assert_eq!(
+            crate::engine_holder::media().active_audio(),
+            1,
+            "下载应在途持锁"
+        );
         std::thread::sleep(Duration::from_millis(100));
 
         // 清理在分片锁上等待下载完成，随后删除其安装产物（返回数据文件数 1）

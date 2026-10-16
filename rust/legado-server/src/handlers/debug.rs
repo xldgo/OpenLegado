@@ -15,15 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::state::AppState;
-use legado_core::debug_session::{DebugStep, DebugStepStatus, DebugStepType, Debugger};
-
-/// 全局调试器实例（通过 OnceLock 延迟初始化）
-static DEBUGGER: std::sync::OnceLock<Debugger> = std::sync::OnceLock::new();
-
-/// 获取全局调试器引用
-pub fn get_debugger() -> &'static Debugger {
-    DEBUGGER.get_or_init(Debugger::new)
-}
+use legado_core::debug_session::{DebugStep, DebugStepStatus, DebugStepType};
 
 /// 启动调试请求
 #[derive(Debug, Deserialize)]
@@ -61,10 +53,10 @@ pub struct CompleteSessionRequest {
 
 /// POST /api/debug/start — 启动调试会话
 pub async fn start_debug(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<StartDebugRequest>,
 ) -> Json<Value> {
-    let debugger = get_debugger();
+    let debugger = &state.services.debugger;
     let session_id = debugger.create_session(&req.source_url, &req.source_name, &req.search_key);
     Json(json!({
         "session_id": session_id,
@@ -77,10 +69,10 @@ pub async fn start_debug(
 
 /// GET /api/debug/log/:session_id — 获取调试日志
 pub async fn get_debug_log(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
 ) -> Json<Value> {
-    let debugger = get_debugger();
+    let debugger = &state.services.debugger;
     let log = debugger.get_log(&session_id);
     let session = debugger.get_session(&session_id);
 
@@ -101,8 +93,8 @@ pub async fn get_debug_log(
 }
 
 /// GET /api/debug/sessions — 列出所有调试会话
-pub async fn list_sessions(State(_state): State<Arc<AppState>>) -> Json<Value> {
-    let debugger = get_debugger();
+pub async fn list_sessions(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let debugger = &state.services.debugger;
     let sessions = debugger.list_sessions();
     let sessions_json: Vec<Value> = sessions
         .iter()
@@ -128,10 +120,10 @@ pub async fn list_sessions(State(_state): State<Arc<AppState>>) -> Json<Value> {
 
 /// POST /api/debug/step — 向会话添加调试步骤
 pub async fn add_step(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AddStepRequest>,
 ) -> Json<Value> {
-    let debugger = get_debugger();
+    let debugger = &state.services.debugger;
 
     let step_type = match req.step_type.as_str() {
         "search" => DebugStepType::Search,
@@ -169,10 +161,10 @@ pub async fn add_step(
 
 /// POST /api/debug/complete — 完成调试会话
 pub async fn complete_session(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<CompleteSessionRequest>,
 ) -> Json<Value> {
-    let debugger = get_debugger();
+    let debugger = &state.services.debugger;
     debugger.complete_session(&req.session_id, &req.status);
 
     Json(json!({
@@ -191,16 +183,12 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::state::AppState;
-    use legado_core::download_manager::DownloadManager;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: Mutex::new(DownloadManager::new(3)),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     /// 创建测试路由（包含 debug 端点）
@@ -217,7 +205,7 @@ mod tests {
     #[tokio::test]
     async fn test_start_debug_endpoint() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "source_url": "https://example.com",
@@ -250,7 +238,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_sessions_endpoint() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -275,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_debug_log_not_found() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -299,10 +287,13 @@ mod tests {
     #[tokio::test]
     async fn test_add_step_endpoint() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
         // First create a session
-        let session_id = get_debugger().create_session("https://t.com", "T", "k");
+        let session_id = state
+            .services
+            .debugger
+            .create_session("https://t.com", "T", "k");
 
         let body = serde_json::to_string(&json!({
             "session_id": session_id,
@@ -337,7 +328,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_step_invalid_type() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "session_id": "some_id",
@@ -374,9 +365,12 @@ mod tests {
     #[tokio::test]
     async fn test_complete_session_endpoint() {
         let state = make_test_state();
-        let app = debug_test_router(state);
+        let app = debug_test_router(state.clone());
 
-        let session_id = get_debugger().create_session("https://c.com", "C", "kw");
+        let session_id = state
+            .services
+            .debugger
+            .create_session("https://c.com", "C", "kw");
 
         let body = serde_json::to_string(&json!({
             "session_id": session_id,
@@ -404,7 +398,7 @@ mod tests {
         assert_eq!(result["status"], "completed");
 
         // Verify session is actually completed
-        let session = get_debugger().get_session(&session_id).unwrap();
+        let session = state.services.debugger.get_session(&session_id).unwrap();
         assert_eq!(session.status, "completed");
     }
 

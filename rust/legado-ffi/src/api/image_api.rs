@@ -89,7 +89,7 @@ pub fn decode_image_bytes(source: &BookSource, img_url: &str, bytes: &[u8]) -> V
             &source.book_source_url,
             || {
                 // 每次新建引擎：同源多图连续 decode 时顶层 const/let 不会 redeclaration
-                let engine = match legado_js::QuickJsEngine::new(
+                let engine = match crate::engine_holder::js_resources().create_engine(
                     legado_js::sandbox::SandboxConfig::default().with_allow_script_run(true),
                 ) {
                     Ok(e) => e,
@@ -538,7 +538,9 @@ decryptImage(result);"#;
         use std::io::{Read, Write};
         use std::sync::{Arc, Mutex};
 
-        use legado_js::host_api::cookie_store;
+        let http = crate::engine_holder::js_resources()
+            .http_resources()
+            .clone();
 
         // 回环域名键（127.0.0.1）为进程级共享键，与 js_executor P2-19 用例串行
         let _lock = crate::test_support::GLOBAL_STORE_TEST_LOCK
@@ -589,10 +591,10 @@ decryptImage(result);"#;
         const OTHER_TAG: &str = "https://p219-img-other.other-site.com/";
         let url = format!("http://{addr}/echo");
         // 上游同步：携带的 cookie 键 = 请求 URL 归一域名键（127.0.0.1，IP 自键）
-        cookie_store::clear_cookies(&url);
-        cookie_store::clear_cookies(OTHER_TAG);
-        cookie_store::set_cookie(&url, "p219_img_token", "img-val-7c3e");
-        cookie_store::set_cookie(OTHER_TAG, "p219_img_other", "other-val-2d8a");
+        http.cookies().clear(&url);
+        http.cookies().clear(OTHER_TAG);
+        http.set_cookie(&url, "p219_img_token=img-val-7c3e");
+        http.set_cookie(OTHER_TAG, "p219_img_other=other-val-2d8a");
         let src: BookSource = serde_json::from_value(serde_json::json!({
             "bookSourceUrl": TAG,
             "bookSourceName": "t",
@@ -630,8 +632,8 @@ decryptImage(result);"#;
             "不相关域名的 cookie 绝不携带（P2-19 不变式），实际 Cookie 头: {got:?}"
         );
 
-        cookie_store::clear_cookies(&url);
-        cookie_store::clear_cookies(OTHER_TAG);
+        http.cookies().clear(&url);
+        http.cookies().clear(OTHER_TAG);
     }
 
     /// 真实站点链路：favcomic 图片下载 → jsLib decode → JPEG 头（需网络）

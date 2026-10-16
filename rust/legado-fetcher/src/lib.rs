@@ -15,8 +15,8 @@
 //! 全部退化为无执行器（与既有非 quickjs 构建行为一致）。
 
 pub mod analyze_request;
-pub mod cloud_tts;
 pub mod book_type;
+pub mod cloud_tts;
 pub mod deps;
 pub mod js_adapter;
 pub mod rate_limit;
@@ -27,6 +27,7 @@ mod tts_response;
 pub mod tts_source;
 mod tts_transport;
 pub mod web_book;
+pub mod web_book_state;
 
 pub use tts_fetcher::{
     HttpTtsConfig, TtsFetchResult, TtsSpeakContext, fetch_tts_audio, fetch_tts_audio_with_executor,

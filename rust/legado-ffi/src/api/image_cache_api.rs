@@ -27,6 +27,7 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(test)]
 use std::sync::{Mutex, OnceLock};
 
 /// 图片缓存磁盘目录环境变量名（测试隔离用，非空即覆盖）
@@ -40,9 +41,6 @@ const IMAGES_DIR: &str = "images";
 
 /// 书目录名最大字符数（截断后追加 md5_8 防碰撞）
 const BOOK_DIR_MAX_CHARS: usize = 64;
-
-/// 宿主注入的图片缓存根目录（P4-2a，FFI `set_image_cache_dir` 目标）
-static INJECTED_DIR: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
 /// `cfg(test)` 显式测试覆盖槽（整体旁路 env 分支：并行测试不得操作
 /// 进程级环境变量——对齐 cache_store 的 [`crate`] 先例）
@@ -64,9 +62,7 @@ static DEFAULT_DIR_WARNED: AtomicBool = AtomicBool::new(false);
 /// 目录解析优先级见模块文档：env [`CACHE_DIR_ENV`] > 注入目录 > 缺省 temp 目录。
 /// 后续全部 `save_image_cache`/`get_image_cache` 读写生效。
 pub fn set_cache_dir(path: &str) {
-    if let Ok(mut guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-        *guard = Some(PathBuf::from(path));
-    }
+    crate::engine_holder::media().set_image_directory(Some(PathBuf::from(path)));
 }
 
 /// 图片缓存根目录（env 覆盖 > 宿主注入 > 缺省 `<temp_dir>/legado-image-cache`）
@@ -87,9 +83,7 @@ fn cache_root() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    if let Ok(guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock()
-        && let Some(dir) = guard.clone()
-    {
+    if let Some(dir) = crate::engine_holder::media().image_directory() {
         return dir;
     }
     let root = std::env::temp_dir().join(DEFAULT_ROOT);
@@ -405,9 +399,7 @@ mod tests {
             "文件应落在注入根目录下的书级目录：{book_dir:?}"
         );
         // 复位注入槽为 None（不污染其他测试）
-        if let Ok(mut guard) = INJECTED_DIR.get_or_init(|| Mutex::new(None)).lock() {
-            *guard = None;
-        }
+        crate::engine_holder::media().set_image_directory(None);
         clear_test_root();
         let _ = fs::remove_dir_all(&root);
     }

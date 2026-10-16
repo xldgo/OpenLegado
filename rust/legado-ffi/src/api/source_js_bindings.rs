@@ -103,15 +103,21 @@ pub fn load_js_lib_for_explore(
         return;
     };
 
-    // 0) cap 3（URL 映射 jsLib）：经加载器解析（共享客户端拉取 + 进程缓存 +
+    // 0) cap 3（URL 映射 jsLib）：经加载器解析（共享客户端拉取 + 实例缓存 +
     //    逐条降级台账登记）→ eval 拼接脚本；非 URL 映射形态走下列原始级联
     let is_url_map = legado_js::host_api::jslib_loader::parse_js_lib_url_map(lib).is_some();
     if is_url_map {
         let ledger_tag = format!("explore:{}", source_tag);
         match legado_js::host_api::jslib_loader::resolve_js_lib_url_map(
+            guard.http_resources(),
             lib,
             &ledger_tag,
-            &legado_js::host_api::jslib_loader::default_js_lib_fetcher,
+            &|url| {
+                legado_js::host_api::jslib_loader::default_js_lib_fetcher(
+                    guard.http_resources(),
+                    url,
+                )
+            },
         ) {
             Some(script) => {
                 if guard.eval(&script).is_ok() {
@@ -172,12 +178,25 @@ pub fn load_js_lib_for_explore(
 /// [P5 尾项] 脚本生成实现已平移 `legado_fetcher::source_setup`（共享 crate
 /// 单一实现）；本层保留宿主数据装配（explore infoMap 快照 + 登录缓存）与
 /// 同名签名，ffi 调用方零改动。
-#[cfg(feature = "quickjs")]
 pub fn book_source_js_setup_script(source: &BookSource) -> LegadoResult<String> {
+    book_source_js_setup_script_with_login_cache(
+        source,
+        &crate::engine_holder::source_login_cache(),
+        &crate::engine_holder::source_info_map(),
+    )
+}
+
+/// 抓取依赖捕获本次服务，不在稍后的 setup 回调中重新寻找全局根实例。
+#[cfg(feature = "quickjs")]
+pub(crate) fn book_source_js_setup_script_with_login_cache(
+    source: &BookSource,
+    login_cache: &legado_engine::SourceLoginCache,
+    info_maps: &legado_engine::SourceInfoMap,
+) -> LegadoResult<String> {
     let tag = source.book_source_url.clone();
-    let info_map = crate::api::explore_info_map::snapshot(&tag).unwrap_or_default();
-    let login_header = crate::api::source_login_cache::get_login_header(&tag);
-    let login_info = crate::api::source_login_cache::get_login_info(&tag);
+    let info_map = info_maps.snapshot(&tag);
+    let login_header = login_cache.get_login_header(&tag);
+    let login_info = login_cache.get_login_info(&tag);
     legado_fetcher::source_setup::book_source_js_setup_script(
         source,
         &info_map,
@@ -187,13 +206,42 @@ pub fn book_source_js_setup_script(source: &BookSource) -> LegadoResult<String> 
 }
 
 #[cfg(not(feature = "quickjs"))]
-pub fn book_source_js_setup_script(_source: &BookSource) -> LegadoResult<String> {
+pub(crate) fn book_source_js_setup_script_with_login_cache(
+    _source: &BookSource,
+    _login_cache: &legado_engine::SourceLoginCache,
+    _info_maps: &legado_engine::SourceInfoMap,
+) -> LegadoResult<String> {
     Ok(String::new())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn login_setup_uses_the_captured_service_instead_of_the_root_cache() {
+        use legado_js::{JsEngine, JsResources, sandbox::SandboxConfig};
+        let source = BookSource {
+            book_source_url: "https://captured-login-setup.test".into(),
+            ..Default::default()
+        };
+        for user in ["first-user", "second-user"] {
+            let cache = std::sync::Arc::new(legado_engine::SourceLoginCache::default());
+            cache.put_login_info(&source.book_source_url, user);
+            let info_maps = legado_engine::SourceInfoMap::default();
+            info_maps.put(&source.book_source_url, "用户", user);
+            let setup =
+                book_source_js_setup_script_with_login_cache(&source, &cache, &info_maps).unwrap();
+            let engine = JsResources::default()
+                .with_source_login_store(cache.clone())
+                .create_engine(SandboxConfig::default().with_allow_script_run(true))
+                .unwrap();
+            engine.eval(&setup).unwrap();
+            assert_eq!(engine.eval("source.getLoginInfo()").unwrap(), user);
+            assert_eq!(engine.eval("infoMap['用户']").unwrap(), user);
+        }
+    }
 
     #[test]
     fn test_extract_js_lib_host_decl() {
