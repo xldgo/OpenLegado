@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 // [P2-8 | 台账] 换源后详情刷新取址与详情合并回归单测
 //
 // 根因：换源事务只更新 origin/originName/tocUrl，bookUrl（稳定主键）保留
@@ -5,12 +6,11 @@
 // 为空/退化值，写回把 tocUrl 写坏。
 // 修复：Book 新增 originBookUrl（换源事务写入，Rust 侧 legacy-db v109 迁移；
 // 空值回退 bookUrl，存量库行为不变），「抓取书籍页」取址统一走
-// BookOpenUtils.bookFetchUrl；mergeWebInfo 的「刷新守卫」降级为纵深防御。
+// BookMetadataPolicy.bookFetchUrl；mergeWebInfo 的「刷新守卫」降级为纵深防御。
 //
 // 编写：全栈工程师子代理 ｜ 2026-09-17
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/utils/book_open_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -64,25 +64,25 @@ void main() {
     );
   }
 
-  group('BookOpenUtils.bookFetchUrl（书籍页取址）', () {
+  group('BookMetadataPolicy.bookFetchUrl（书籍页取址）', () {
     test('originBookUrl 非空 → 优先当前书源详情页（换源后刷新取址正确）', () {
       final book = buildBook(originBookUrl: 'https://new.example.com/book/9');
       expect(
-        BookOpenUtils.bookFetchUrl(book),
+        BookMetadataPolicy.bookFetchUrl(book),
         'https://new.example.com/book/9',
       );
     });
 
     test('originBookUrl 为空 → 回退 bookUrl（未换源书籍/存量库行为不变）', () {
       final book = buildBook(); // originBookUrl 默认 ''
-      expect(BookOpenUtils.bookFetchUrl(book), book.bookUrl);
+      expect(BookMetadataPolicy.bookFetchUrl(book), book.bookUrl);
     });
 
     // [P3-1 | trim 对齐 2026-09-18] 空值判定按 trim 后（对齐 Rust
     // Book::book_page_fetch_url），但返回值取字段原值（不 trim）
     test('originBookUrl 纯空白（视同空值）→ 回退 bookUrl', () {
       final book = buildBook(originBookUrl: '   \t\n');
-      expect(BookOpenUtils.bookFetchUrl(book), book.bookUrl);
+      expect(BookMetadataPolicy.bookFetchUrl(book), book.bookUrl);
     });
 
     test('带首尾空格的非空值 → 原样返回不 trim（对齐 Rust 原值返回）', () {
@@ -90,20 +90,24 @@ void main() {
         originBookUrl: '  https://new.example.com/book/9  ',
       );
       expect(
-        BookOpenUtils.bookFetchUrl(book),
+        BookMetadataPolicy.bookFetchUrl(book),
         '  https://new.example.com/book/9  ',
       );
     });
   });
 
-  group('BookOpenUtils.mergeWebInfo refresh=true（U7 进入刷新）', () {
+  group('BookMetadataPolicy.mergeWebInfo refresh=true（U7 进入刷新）', () {
     test('刷新解析出书名 → 覆盖式合并照常执行（守卫不误伤）', () {
       final book = buildBook(
         originBookUrl: 'https://new.example.com/book/9',
         tocUrl: 'https://old.example.com/book/1/toc', // 旧值（换源前残留）
         intro: '旧简介',
       );
-      final merged = BookOpenUtils.mergeWebInfo(book, webInfo(), refresh: true);
+      final merged = BookMetadataPolicy.mergeWebInfo(
+        book,
+        webInfo(),
+        refresh: true,
+      );
       // 覆盖式合并：新值覆盖全部字段，含把换源前残留的 tocUrl 刷正
       expect(merged.name, '新书名');
       expect(merged.author, '新作者');
@@ -123,7 +127,7 @@ void main() {
         tocUrl: 'https://new.example.com/book/9/chapters',
         intro: '新简介',
       );
-      final merged = BookOpenUtils.mergeWebInfo(
+      final merged = BookMetadataPolicy.mergeWebInfo(
         book,
         webInfo(name: null), // 错页/未解析到书籍页
         refresh: true,
@@ -138,7 +142,7 @@ void main() {
     });
   });
 
-  group('BookOpenUtils.mergeWebInfo refresh=false（首屏补全）', () {
+  group('BookMetadataPolicy.mergeWebInfo refresh=false（首屏补全）', () {
     test('仅补全当前缺失字段（非空字段不被新值覆盖）', () {
       final book = buildBook(
         coverUrl: 'https://old.example.com/cover/1.png',
@@ -146,7 +150,7 @@ void main() {
         // tocUrl 用详情解析出的权威值优先（2026-08-15 既有语义）
         tocUrl: 'https://old.example.com/chapter-list',
       );
-      final merged = BookOpenUtils.mergeWebInfo(
+      final merged = BookMetadataPolicy.mergeWebInfo(
         book,
         webInfo(coverUrl: null, intro: null, kind: null),
       );
@@ -159,7 +163,7 @@ void main() {
 
     test('缺失字段被新值补全', () {
       final book = buildBook();
-      final merged = BookOpenUtils.mergeWebInfo(book, webInfo());
+      final merged = BookMetadataPolicy.mergeWebInfo(book, webInfo());
       expect(merged.name, '旧书名');
       expect(merged.author, '旧作者'); // 非空保留
       expect(merged.coverUrl, 'https://new.example.com/cover/9.png');
@@ -171,7 +175,7 @@ void main() {
     });
   });
 
-  group('BookOpenUtils.mergeDbBook（未在架 DB 补全合并）', () {
+  group('BookMetadataPolicy.mergeDbBook（未在架 DB 补全合并）', () {
     // [P2-4 | 2026-09-18] originBookUrl 唯一例外走 DB 优先：换源事务是该
     // 字段的权威写者，路由瘦壳可能携带换源前的陈旧值，路由优先会把换源
     // 事务写入的「当前书源详情页地址」覆盖掉，后续详情刷新取址错误。
@@ -188,7 +192,7 @@ void main() {
         latestChapterTitle: 'DB最新章节',
         kind: 'DB分类',
       );
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       // DB 优先：换源事务写入的当前书源详情页地址不得被路由陈旧值覆盖
       expect(merged.originBookUrl, 'https://new.example.com/book/9');
       // 其余字段保持「路由非空优先保留、DB 仅填空」
@@ -205,7 +209,7 @@ void main() {
         originBookUrl: 'https://route.example.com/book/1',
       );
       final db = buildBook(); // originBookUrl 默认 ''
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       expect(merged.originBookUrl, 'https://route.example.com/book/1');
     });
   });
@@ -220,7 +224,7 @@ void main() {
       });
       expect(legacy.originBookUrl, '');
       // 回退语义：缺字段书籍取址即 bookUrl
-      expect(BookOpenUtils.bookFetchUrl(legacy), legacy.bookUrl);
+      expect(BookMetadataPolicy.bookFetchUrl(legacy), legacy.bookUrl);
     });
   });
 }

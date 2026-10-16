@@ -1,5 +1,18 @@
 # API 契约文档
 
+## 详情与目录加载Dart边界（2026-10-16，实施前冻结）
+
+BookDetailService仅通过BookshelfRepository、ReadingRepository、BookSourceRepository和
+BookSourceQueryService编排数据；页面不再组合本地/网络结果或决定查询写回路径。
+BookDetailData保存当前书籍、目录、书源和在架事实；BookDetailNotifier负责加载/刷新状态，
+同一页面展示和菜单读取同一份状态。BookMetadataPolicy及BookTypePolicy为不依赖Flutter的
+纯规则，保留原BookOpenUtils中的取址、字段合并、类型判断；BookOpenUtils仅保留导航职责。
+本地首屏与网络补全分开，已有目录地址允许并行；未入架在线查询不落库，已入架按原条件写回。
+单项网络失败保留另一项成功结果与既有数据；刷新、离页后的过期结果不回写当前详情状态。
+Rust/FRB函数、数据格式、存储、版本及现有界面保持不变，不引入旧数据迁移。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 应用依赖装配边界（2026-10-16，实施前冻结）
 
 正式与Mock实现通过Bootstrap中的Riverpod装配注册，每个消费者获取实际需要的窄能力。

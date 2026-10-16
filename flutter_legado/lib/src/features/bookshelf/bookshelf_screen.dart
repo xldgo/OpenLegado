@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
+import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
+
 import '../../providers/reading_provider.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../search/search_access_providers.dart';
@@ -673,9 +676,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       await _refreshBookOnReturn(context, ref, book);
       return;
     }
-    var typeBits = BookOpenUtils.typeBitsOf(book);
+    var typeBits = BookTypePolicy.typeBitsOf(book);
     // 书源媒体类型 / 视频启发式优先于抽图提升 — Reasonix + UI
-    if (BookOpenUtils.isOnlineBook(book)) {
+    if (BookMetadataPolicy.isOnlineBook(book)) {
       try {
         final sources = await ref
             .read(bookSourceRepositoryProvider)
@@ -685,7 +688,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         final o = norm(book.origin);
         for (final s in sources) {
           if (norm(s.bookSourceUrl) == o || s.bookSourceUrl == book.origin) {
-            typeBits = BookOpenUtils.resolveTypeBits(typeBits, s);
+            typeBits = BookTypePolicy.resolveTypeBits(typeBits, s);
             break;
           }
         }

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
+
 import '../providers/reading_provider.dart';
 import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/change_source/source_switch_dependencies.dart';
@@ -28,7 +30,6 @@ import '../providers/theme/system_bar_controller.dart';
 import '../routes.dart';
 import '../services/system_brightness.dart';
 import '../services/system_bar_service.dart';
-import '../utils/book_open_utils.dart';
 import '../utils/app_route_observer.dart';
 import '../widgets/reader/read_aloud_bar.dart';
 import '../providers/audio/read_aloud_capsule.dart';
@@ -508,7 +509,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   //    确认 → 清 notShelf 位入架（复用 bookshelf addBook upsert）→ 落库进度 → 退出；
   //    取消/ dismiss → 清理未入架临时记录并退出（书不残留）。
   //
-  // 在架判定以 DB 记录的 notShelf 位为准（BookOpenUtils.isInBookshelf）：
+  // 在架判定以 DB 记录的 notShelf 位为准（BookMetadataPolicy.isInBookshelf）：
   // 路由带入的内存 Book 是瘦壳（openBook 只回写媒体类型位，不带 notShelf 位），
   // 不可作为在架依据——与 book_info_screen 的判定数据源一致。
 
@@ -529,7 +530,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         final dbBook = await ref
             .read(bookshelfRepositoryProvider)
             .getBook(book.bookUrl);
-        inShelf = BookOpenUtils.isInBookshelf(dbBook);
+        inShelf = BookMetadataPolicy.isInBookshelf(dbBook);
       } catch (_) {
         inShelf = false;
       }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -168,6 +170,38 @@ void main() {
     await pump(tester, BookInfoScreen(book: withToc));
     expect(find.text('共 1 章'), findsOneWidget);
     expect(find.text('列表书'), findsWidgets);
+    verifyNever(() => api.bookshelfRepository.updateBook(any()));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('等待网络时路由信息保持可读，补全完成后由同一状态更新', (tester) async {
+    final pending = Completer<Book>();
+    when(() => query.getBookInfo(source, book.originBookUrl))
+        .thenAnswer((_) => pending.future);
+    when(
+      () => query.getChapters(
+        source,
+        book.originBookUrl,
+        bookUrl: book.bookUrl,
+        tocUrl: 'current-toc',
+        bookName: book.name,
+      ),
+    ).thenAnswer((_) async => [chapter]);
+    await pump(tester, const BookInfoScreen(book: book));
+    expect(find.text('列表书'), findsWidgets);
+    expect(find.widgetWithText(FloatingActionButton, '阅读'), findsOneWidget);
+    verifyNever(() => api.bookshelfRepository.updateBook(any()));
+    pending.complete(
+      const Book(
+        name: '详情书',
+        author: '补全作者',
+        intro: '补全简介',
+        tocUrl: 'current-toc',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('补全作者'), findsOneWidget);
+    expect(find.text('共 1 章'), findsOneWidget);
     verifyNever(() => api.bookshelfRepository.updateBook(any()));
     expect(tester.takeException(), isNull);
   });

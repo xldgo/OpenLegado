@@ -806,6 +806,38 @@ void main() {
         expect(pushed.where((r) => r == AppRoutes.reader).length, 1);
         expect(find.byKey(const Key('reader-stub')), findsNothing);
       });
+
+      testWidgets('首轮空目录已消费机会，后续刷新有目录也不自动导航', (tester) async {
+        const book = Book(
+          bookUrl: 'auto-empty-then-refresh',
+          name: '先空后有目录',
+          bookType: 8,
+          origin: 'https://src.com',
+        );
+        stubAutoStart(book, const []);
+        await tester.pumpWidget(
+          wrapWithRoutes(
+            const BookInfoScreen(book: book, openReaderImmediately: true),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(pushed, isNot(contains(AppRoutes.reader)));
+        stubAutoStart(book, const [
+          BookChapter(
+            bookUrl: 'auto-empty-then-refresh',
+            index: 0,
+            title: '刷新第一章',
+            url: 'c1',
+          ),
+        ]);
+        await tester.tap(find.byTooltip('更多').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('刷新').last);
+        await tester.pumpAndSettle();
+        expect(pushed, isNot(contains(AppRoutes.reader)));
+        expect(find.text('共 1 章'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
     });
   });
 }

@@ -1,8 +1,13 @@
+import '../features/book_detail/book_detail_notifier.dart';
+import '../features/book_detail/book_detail_state.dart';
+
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
+import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
+
 import '../providers/backup_provider.dart';
 import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/reading_provider.dart';
 import '../providers/source_action_provider.dart';
-import '../providers/explore/explore_dependencies.dart';
 import '../providers/chapter_cache_provider.dart';
 import '../features/privacy/privacy_controller.dart';
 import '../widgets/app_menu.dart';
@@ -100,22 +105,21 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   Color? _coverSeed;
   bool _isLoading = false;
 
-  /// 整页首屏：仅在连 Book 壳都没有时显示（对齐原版先 post bookData）
-  bool _pageLoading = true;
+  late final _detailProvider = bookDetailProvider((
+    bookUrl: widget.effectiveBookUrl,
+    book: widget.book,
+  ));
+  BookDetailState get _detail => ref.read(_detailProvider);
+  BookDetailNotifier get _detailNotifier => ref.read(_detailProvider.notifier);
+  Book? get _loadedBook => _detail.data.book;
+  List<BookChapter> get _chapters => _detail.data.chapters;
+  BookSource? get _bookSource => _detail.data.source;
+  bool get _inBookshelf => _detail.data.inBookshelf;
+  bool get _pageLoading => _detail.pageLoading;
+  bool get _tocLoading => _detail.tocLoading;
+  bool get _networkLoading => _detail.networkLoading;
+  String? get _loadError => _detail.error;
 
-  /// 目录联网补全中（信息区已可交互）
-  bool _tocLoading = false;
-
-  /// 顶栏网络加载（对标原版 refreshProgressBar.isAutoLoading）
-  bool _networkLoading = false;
-  String? _loadError;
-  // 当前书籍（供 AppBar 溢出菜单读取勾选态）
-  Book? _loadedBook;
-  List<BookChapter> _chapters = const [];
-  // 当前书源（供溢出菜单条件项：设置变量/允许更新/登录/创建更新任务判定）
-  BookSource? _bookSource;
-  // 书架状态（对标原版 tv_shelf 加入书架/移出书架切换）
-  bool _inBookshelf = false;
   // [A4 对齐 B | 2026-09-21 裁决；2026-09-22 review 硬化] 自动开读机会
   // 是否已消费：首轮全量加载完成时无条件置位（机会只属于首入——目录非空
   // 才真正自动开读，目录为空则停留详情页）；此后 _reload / 桥接刷新 /
@@ -123,8 +127,6 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   // postFrame 回调内另有 ModalRoute 栈顶校验，防用户抢先导航后二次压栈。
   bool _autoStartScheduled = false;
   // [UI-FIX v2.0.3 | 2026-08-08] 删除提醒开关（对齐原版 LocalConfig.deleteBookAlert，本地持久化） — Qoder
-  // 书源按 origin 缓存，避免每次详情页全量扫描书源列表
-  static final Map<String, BookSource?> _sourceByOriginCache = {};
   bool get _deleteBookAlert =>
       ref.read(bookshelfSettingsRepositoryProvider).current.deleteBookAlert;
 
@@ -132,9 +134,8 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
   void initState() {
     super.initState();
     // 发现/搜索带入的 Book 立刻上屏（对齐原版 bookData.postValue 先于网络）
-    _loadedBook = widget.book;
-    _pageLoading = widget.book == null && widget.effectiveBookUrl.isEmpty;
-    _loadData();
+    ref.listenManual(_detailProvider, _onDetailChanged);
+    Future.microtask(_loadData);
     _loadDeleteBookAlert();
     PlatformBridgeService.refreshSignal.addListener(_onBridgeRefresh);
     // [UI_SYNC_REFACTOR B4] 封面区滚动 → 顶栏折叠进度（对齐参考仓
@@ -351,6 +352,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(_detailProvider);
     ref.watch(bookshelfSettingsProvider);
     final baseTheme = Theme.of(context);
     ref.listen(

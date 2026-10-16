@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -214,7 +216,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 本地书不做书源匹配；媒体位 image 直接路由漫画阅读器并传 bookUrl
-    expect(BookOpenUtils.typeBitsOf(book), BookType.image);
+    expect(BookTypePolicy.typeBitsOf(book), BookType.image);
     expect(observer.lastName, AppRoutes.readerComic);
     expect(observer.lastArguments, book.bookUrl);
     // 不走文本阅读器装载（needsReaderNotifier=false）

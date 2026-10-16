@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
+
 import '../features/bookshelf/bookshelf_repositories.dart';
 import '../providers/reading_provider.dart';
 import '../features/book_sources/book_source_repository_provider.dart';
@@ -29,7 +31,6 @@ import '../routes.dart';
 import '../services/audio_cache_events.dart';
 import '../services/bookmark_export.dart';
 import '../utils/app_route_observer.dart';
-import '../utils/book_open_utils.dart';
 
 /// 独立目录页（对齐原版 TocActivity + ChapterListFragment/BookmarkFragment/HighlightFragment）
 ///
@@ -229,7 +230,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
           .getBook(_book.bookUrl);
       if (!mounted) return;
       setState(() {
-        _inBookshelf = BookOpenUtils.resolveInBookshelf(dbBook, widget.book);
+        _inBookshelf = BookMetadataPolicy.resolveInBookshelf(
+          dbBook,
+          widget.book,
+        );
       });
     } catch (_) {
       // 查询失败视为未在架，避免误 refreshToc 落库
@@ -575,7 +579,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
           .read(bookSourceQueryServiceProvider)
           .getChapters(
             source,
-            BookOpenUtils.bookFetchUrl(_book),
+            BookMetadataPolicy.bookFetchUrl(_book),
             bookUrl: _book.bookUrl,
             tocUrl: _book.tocUrl,
             bookName: _book.name,

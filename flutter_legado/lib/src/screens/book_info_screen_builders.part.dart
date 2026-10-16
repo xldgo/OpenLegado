@@ -269,7 +269,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           book,
           inBookshelf: _inBookshelf,
         );
-        setState(() => _loadedBook = toggledCanUpdate);
+        _detailNotifier.updateBook(toggledCanUpdate);
         if (_inBookshelf) {
           await ref
               .read(bookshelfRepositoryProvider)
@@ -288,7 +288,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         if (_inBookshelf) {
           await ref.read(bookshelfRepositoryProvider).updateBook(toggledSplit);
         } else {
-          setState(() => _loadedBook = toggledSplit);
+          _detailNotifier.updateBook(toggledSplit);
         }
         if (mounted) {
           if (!_inBookshelf) {
@@ -362,9 +362,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
               .read(privacyControllerProvider.notifier)
               .setBookPrivate(book, !book.isPrivate);
           if (!mounted) return;
-          setState(
-            () => _loadedBook = book.copyWith(isPrivate: !book.isPrivate),
-          );
+          _detailNotifier.updateBook(book.copyWith(isPrivate: !book.isPrivate));
           await ref.read(bookshelfNotifierProvider.notifier).refresh();
         } catch (_) {
           if (mounted) {
@@ -438,9 +436,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       if (!mounted) return;
       // 刷新本地书源状态（重载页面数据，书源查询自然带出新 variable；
       // 评审 C1：variable 非空串语义，空串即已清除，不再传 null）
-      setState(() {
-        _bookSource = source.copyWith(variable: input);
-      });
+      _detailNotifier.updateSource(source.copyWith(variable: input));
       _reload();
       _snack(input.isEmpty ? '源变量已清除' : '源变量已保存');
     } catch (e) {
@@ -1552,7 +1548,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     );
     if (result is! String || result.isEmpty || !mounted) return;
     final updated = book.copyWith(customCoverUrl: result);
-    setState(() => _loadedBook = updated);
+    _detailNotifier.updateBook(updated);
     if (_inBookshelf) {
       try {
         await ref.read(bookshelfRepositoryProvider).updateBook(updated);
@@ -1610,17 +1606,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (book == null || _isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final List<BookChapter> chapters;
-      if (!_inBookshelf) {
-        // 未入库：仅内存拉目录，不落库（对齐原版 loadChapter !inBookshelf）
-        chapters = await _fetchWebChaptersOnline(book);
-      } else {
-        chapters = await ref
-            .read(readingRepositoryProvider)
-            .refreshToc(book.bookUrl, book.origin);
-      }
+      final chapters = await _detailNotifier.refreshChapters();
       if (!mounted) return;
-      setState(() => _chapters = chapters);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('目录已更新，共 ${chapters.length} 章')));
@@ -1721,7 +1708,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         _snack(err != null ? '移出书架失败：$err' : '移出书架失败');
         return;
       }
-      setState(() => _inBookshelf = false);
+      _detailNotifier.updateShelfMembership(false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('《${book.name}》已移出书架')));
     } else {
@@ -1738,7 +1725,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         _snack(err != null ? '加入书架失败：$err' : '加入书架失败');
         return;
       }
-      setState(() => _inBookshelf = true);
+      _detailNotifier.updateShelfMembership(true);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('《${book.name}》已加入书架')));
     }
@@ -1786,13 +1773,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           );
       if (!mounted) return;
       if (ok) {
-        setState(() => _inBookshelf = true);
+        _detailNotifier.updateShelfMembership(true);
       } else {
         final err = ref.read(bookshelfNotifierProvider).error;
         _snack(err != null ? '加入书架失败：$err' : '加入书架失败');
       }
     } else if (mounted) {
-      setState(() => _loadedBook = updated);
+      _detailNotifier.updateBook(updated);
     }
     if (mounted) _reload();
   }
@@ -1903,14 +1890,14 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // 落库类型正确（修复图片/音频/视频源「打不开」——类型位丢失致分流落回
     // 文本阅读器）— Reasonix
     // 分流逻辑抽至 BookOpenUtils，与书架 startActivityForBook 对齐 — Reasonix + UI
-    const typeMask = BookOpenUtils.typeMask;
-    var typeBits = BookOpenUtils.typeBitsOf(book);
+    const typeMask = BookTypePolicy.typeMask;
+    var typeBits = BookTypePolicy.typeBitsOf(book);
     BookSource? matchedSource;
     if (_isOnlineBook(book)) {
       matchedSource = await _findSourceByOrigin(book.origin);
       // 书源媒体类型 / 视频启发式优先于抽图提升（非凡 type=0 MacCMS 等）
       // — Reasonix + UI
-      typeBits = BookOpenUtils.resolveTypeBits(typeBits, matchedSource);
+      typeBits = BookTypePolicy.resolveTypeBits(typeBits, matchedSource);
     }
     try {
       if (_isOnlineBook(book)) {
@@ -1966,7 +1953,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       '[BookOpen] name=${book.name} origin=${book.origin} '
       'typeBits=$typeBits route=$route '
       'srcType=${matchedSource?.bookSourceType} '
-      'videoLike=${BookOpenUtils.looksLikeVideoSource(matchedSource)}',
+      'videoLike=${BookTypePolicy.looksLikeVideoSource(matchedSource)}',
     );
     if (BookOpenUtils.needsReaderNotifier(route)) {
       container.read(readerNotifierProvider.notifier).openBook(bookToRead);

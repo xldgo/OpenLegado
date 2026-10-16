@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
+import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/routes.dart';
@@ -7,14 +9,14 @@ import 'package:flutter_legado/src/utils/comic_image_utils.dart';
 void main() {
   group('BookOpenUtils 类型分流（对齐 startActivityForBook）', () {
     test('typeBitsForSource 映射书源类型', () {
-      expect(BookOpenUtils.typeBitsForSource(0), BookType.text);
-      expect(BookOpenUtils.typeBitsForSource(1), BookType.audio);
-      expect(BookOpenUtils.typeBitsForSource(2), BookType.image);
+      expect(BookTypePolicy.typeBitsForSource(0), BookType.text);
+      expect(BookTypePolicy.typeBitsForSource(1), BookType.audio);
+      expect(BookTypePolicy.typeBitsForSource(2), BookType.image);
       expect(
-        BookOpenUtils.typeBitsForSource(3),
+        BookTypePolicy.typeBitsForSource(3),
         BookType.text | BookType.webFile,
       );
-      expect(BookOpenUtils.typeBitsForSource(4), BookType.video);
+      expect(BookTypePolicy.typeBitsForSource(4), BookType.video);
     });
 
     test('routeForTypeBits 按位标记选路由', () {
@@ -36,12 +38,12 @@ void main() {
         ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
       );
       expect(
-        BookOpenUtils.looksLikeImageHtmlContentRule('.img@img@html'),
+        BookTypePolicy.looksLikeImageHtmlContentRule('.img@img@html'),
         isTrue,
       );
-      expect(BookOpenUtils.isImageHtmlContentSource(source), isTrue);
-      final bits = BookOpenUtils.promoteImageContentSource(
-        BookOpenUtils.typeBitsForSource(0),
+      expect(BookTypePolicy.isImageHtmlContentSource(source), isTrue);
+      final bits = BookTypePolicy.promoteImageContentSource(
+        BookTypePolicy.typeBitsForSource(0),
         source,
       );
       expect(bits, BookType.image);
@@ -50,7 +52,7 @@ void main() {
 
     test('长 JS 小说正文规则不误提升为漫画', () {
       final longJs = 'a' * 200 + '@html img';
-      expect(BookOpenUtils.looksLikeImageHtmlContentRule(longJs), isFalse);
+      expect(BookTypePolicy.looksLikeImageHtmlContentRule(longJs), isFalse);
       const novel = BookSource(
         bookSourceUrl: 'https://example.com',
         bookSourceName: '小说',
@@ -60,7 +62,7 @@ void main() {
           imageStyle: 'FULL',
         ),
       );
-      expect(BookOpenUtils.isImageHtmlContentSource(novel), isFalse);
+      expect(BookTypePolicy.isImageHtmlContentSource(novel), isFalse);
     });
 
     test('非凡等 type=0 MacCMS 影视频源 → video，不被抽图启发式升漫画', () {
@@ -79,19 +81,19 @@ void main() {
           content: r'''@js:java.startBrowser(baseUrl, book.name);result = baseUrl;''',
         ),
       );
-      expect(BookOpenUtils.looksLikeVideoSource(ffzy), isTrue);
-      expect(BookOpenUtils.isImageHtmlContentSource(ffzy), isFalse);
+      expect(BookTypePolicy.looksLikeVideoSource(ffzy), isTrue);
+      expect(BookTypePolicy.isImageHtmlContentSource(ffzy), isFalse);
       // 旧库误标 image / text 也应被纠正为 video
       expect(
-        BookOpenUtils.resolveTypeBits(BookType.image, ffzy),
+        BookTypePolicy.resolveTypeBits(BookType.image, ffzy),
         BookType.video,
       );
       expect(
-        BookOpenUtils.resolveTypeBits(BookType.text, ffzy),
+        BookTypePolicy.resolveTypeBits(BookType.text, ffzy),
         BookType.video,
       );
       expect(
-        BookOpenUtils.routeForTypeBits(BookOpenUtils.resolveTypeBits(0, ffzy)),
+        BookOpenUtils.routeForTypeBits(BookTypePolicy.resolveTypeBits(0, ffzy)),
         AppRoutes.video,
       );
     });
@@ -121,16 +123,16 @@ url
 </js>''',
         ),
       );
-      expect(BookOpenUtils.looksLikeVideoSource(hongniu), isTrue);
-      expect(BookOpenUtils.isImageHtmlContentSource(hongniu), isFalse);
+      expect(BookTypePolicy.looksLikeVideoSource(hongniu), isTrue);
+      expect(BookTypePolicy.isImageHtmlContentSource(hongniu), isFalse);
       // 关键：不得因 type=2 直接走 typeBitsForSource → image/comic
       expect(
-        BookOpenUtils.resolveTypeBits(BookType.image, hongniu),
+        BookTypePolicy.resolveTypeBits(BookType.image, hongniu),
         BookType.video,
       );
       expect(
         BookOpenUtils.routeForTypeBits(
-          BookOpenUtils.resolveTypeBits(BookType.image, hongniu),
+          BookTypePolicy.resolveTypeBits(BookType.image, hongniu),
         ),
         AppRoutes.video,
       );
@@ -146,7 +148,7 @@ url
           content: r'@js:result=/.*\.m3u8.*/.test(baseUrl)?baseUrl:"";',
         ),
       );
-      expect(BookOpenUtils.resolveTypeBits(0, uku), BookType.video);
+      expect(BookTypePolicy.resolveTypeBits(0, uku), BookType.video);
     });
 
     test('显式 bookSourceType=4 优先于书籍旧 image 位', () {
@@ -160,7 +162,7 @@ url
         ),
       );
       expect(
-        BookOpenUtils.resolveTypeBits(BookType.image | BookType.text, qmao),
+        BookTypePolicy.resolveTypeBits(BookType.image | BookType.text, qmao),
         BookType.video,
       );
     });
@@ -172,7 +174,7 @@ url
         bookSourceType: 0,
         ruleContent: ContentRule(content: '.img@img@html', imageStyle: 'FULL'),
       );
-      expect(BookOpenUtils.resolveTypeBits(0, source), BookType.image);
+      expect(BookTypePolicy.resolveTypeBits(0, source), BookType.image);
     });
 
     test('argumentsForRoute 漫画传 bookUrl，音视频传 Book', () {
@@ -197,28 +199,28 @@ url
     test('非零新值覆盖媒体位，非媒体标记位保留', () {
       final existing = BookType.text | BookType.local; // 8 + 4096
       expect(
-        BookOpenUtils.mergeBookType(existing, BookType.image),
+        BookTypePolicy.mergeBookType(existing, BookType.image),
         BookType.image | BookType.local,
       );
     });
 
     test('新值 video 覆盖既有 image 媒体位', () {
       expect(
-        BookOpenUtils.mergeBookType(BookType.image, BookType.video),
+        BookTypePolicy.mergeBookType(BookType.image, BookType.video),
         BookType.video,
       );
     });
 
     test('零值/缺键（Rust 侧零值省略）保留现有值', () {
       final existing = BookType.image | BookType.notShelf;
-      expect(BookOpenUtils.mergeBookType(existing, 0), existing);
-      expect(BookOpenUtils.mergeBookType(0, 0), 0);
+      expect(BookTypePolicy.mergeBookType(existing, 0), existing);
+      expect(BookTypePolicy.mergeBookType(0, 0), 0);
     });
 
     test('新值仅含 mask 外标记位（notShelf）时不动媒体位', () {
       final existing = BookType.audio;
       expect(
-        BookOpenUtils.mergeBookType(existing, BookType.notShelf),
+        BookTypePolicy.mergeBookType(existing, BookType.notShelf),
         existing,
       );
     });
@@ -229,11 +231,11 @@ url
         name: '二合一书',
         bookType: BookType.text,
       );
-      final merged = BookOpenUtils.mergeWebInfo(
+      final merged = BookMetadataPolicy.mergeWebInfo(
         book,
         const Book(name: '二合一书', bookType: 64),
       );
-      expect(merged.bookType & BookOpenUtils.typeMask, BookType.image);
+      expect(merged.bookType & BookTypePolicy.typeMask, BookType.image);
       const source = BookSource(
         bookSourceUrl: 'https://ex.com',
         bookSourceName: '二合一书源',
@@ -241,7 +243,7 @@ url
       );
       expect(
         BookOpenUtils.routeForTypeBits(
-          BookOpenUtils.resolveTypeBits(merged.bookType, source),
+          BookTypePolicy.resolveTypeBits(merged.bookType, source),
         ),
         AppRoutes.readerComic,
       );
@@ -253,7 +255,10 @@ url
         name: '漫画书',
         bookType: BookType.image,
       );
-      final merged = BookOpenUtils.mergeWebInfo(book, const Book(name: '漫画书'));
+      final merged = BookMetadataPolicy.mergeWebInfo(
+        book,
+        const Book(name: '漫画书'),
+      );
       expect(merged.bookType, BookType.image);
     });
   });
@@ -270,7 +275,7 @@ url
         name: '书',
         originBookUrl: '   \n\t  ',
       );
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       expect(merged.originBookUrl, 'https://current-source.com/page');
     });
 
@@ -285,7 +290,7 @@ url
         name: '书',
         originBookUrl: 'https://db.com/page',
       );
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       expect(merged.originBookUrl, 'https://db.com/page');
     });
 
@@ -300,7 +305,7 @@ url
         name: '书',
         originBookUrl: '  https://db.com/page  ',
       );
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       expect(merged.originBookUrl, '  https://db.com/page  ');
     });
 
@@ -311,7 +316,7 @@ url
         name: '书',
         originBookUrl: '  ',
       );
-      final merged = BookOpenUtils.mergeDbBook(route, db);
+      final merged = BookMetadataPolicy.mergeDbBook(route, db);
       expect(merged.originBookUrl, '');
     });
   });
