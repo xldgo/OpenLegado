@@ -12,7 +12,7 @@ import 'file_read_aloud_engine.dart';
 import 'read_aloud_engine.dart';
 import 'read_aloud_synthesis_queue.dart';
 
-/// 分片只属于当前段落，章节队列/通知/定时仍由 AudioNotifier 拥有。— Codex + UI
+/// 分片只属于当前段落，章节衔接由控制器协调，通知/定时仍由宿主拥有。— Codex + UI
 final class CloudReadAloudEngine
     implements ReadAloudEngine, ReadAloudPlaylistEngine {
   CloudReadAloudEngine({

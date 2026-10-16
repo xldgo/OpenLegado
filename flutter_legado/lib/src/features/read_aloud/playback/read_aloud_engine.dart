@@ -58,7 +58,7 @@ final class ReadAloudRequest {
 /// 起播结果与自然完成分开；无音频由原播放协调层决定如何提示和推进。
 enum ReadAloudStart { started, noAudio, cancelled }
 
-/// 引擎只负责一段的播放与控制；段落队列和媒体会话由 AudioNotifier 协调。
+/// 引擎只负责一段的播放与控制；段落由ReadAloudController协调，媒体会话由宿主拥有。
 abstract interface class ReadAloudEngine {
   bool get canResume;
   Future<ReadAloudStart> speak(

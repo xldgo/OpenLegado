@@ -27,6 +27,15 @@ class _Preferences extends ReadAloudPreferencesNotifier {
 
 /// 用确定的播放快照验证展示；合成与媒体会话另由现有引擎测试保护。
 class _Audio extends AudioNotifier {
+  @override
+  final readAloudPosition = ValueNotifier<ReadAloudPosition?>(null);
+  @override
+  final followReadAloud = ValueNotifier(true);
+  @override
+  void restoreReadAloudFollow() => followReadAloud.value = true;
+  @override
+  void detachReadAloudFollow() => followReadAloud.value = false;
+
   final paragraphs = List.generate(30, (i) => '第$i段：小说正文，继续阅读这段文字。');
   int index = 0;
   int pauses = 0, resumes = 0, loads = 0, seeks = 0;
@@ -34,6 +43,10 @@ class _Audio extends AudioNotifier {
 
   @override
   AudioState build() {
+    ref.onDispose(() {
+      readAloudPosition.dispose();
+      followReadAloud.dispose();
+    });
     publishOffset(0);
     return AudioState(
       bookUrl: 'book',

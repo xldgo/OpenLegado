@@ -1,5 +1,17 @@
 # API 契约文档
 
+## 朗读会话Dart边界（2026-10-16，实施前冻结）
+
+ReadAloudController拥有段落单元、UTF-16原文偏移、分段/定位、段落完成和暂停恢复、
+系统/HTTP/云端引擎及预合成衔接；仅通过明确的播放宿主端口读取当前AudioState、
+共用播放标识，并发布播放状态和媒体/章级动作，不持有Riverpod Ref或AudioNotifier。
+AudioNotifier保留书籍、模式、音频书、媒体会话、定时停止及现有对外API；展示值
+从控制器派生，不镜像其段落索引、位置或引擎运行状态。原ReadAloudSession继续作为
+单次请求回调归属，控制器不重建引擎、队列或额外的全局会话计数。
+复用ChapterContentService、原仓储/设置、原错误与降级策略；Rust/FRB与存储格式不变。
+
+编写者：Codex + UI｜2026-10-16
+
 ## 纯正文加载Dart边界（2026-10-16，实施前冻结）
 
 ChapterContentService仅依赖ReadingRepository与ChapterCacheRepository，read(bookUrl,

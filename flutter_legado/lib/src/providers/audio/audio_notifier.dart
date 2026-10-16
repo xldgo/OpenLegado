@@ -1,8 +1,12 @@
+import '../../features/read_aloud/playback/read_aloud_controller.dart';
+import '../../features/read_aloud/playback/read_aloud_host.dart';
+import '../../features/read_aloud/read_aloud_settings_provider.dart';
+export '../../features/read_aloud/playback/read_aloud_controller.dart'
+    show kNoUsableEngineHint;
 import '../../domain/contracts/bookshelf_repository.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../domain/contracts/http_tts_repository.dart';
 import '../../domain/contracts/http_tts_synthesizer.dart';
-import '../../domain/contracts/tts_cache_repository.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../app/bootstrap/application_dependencies.dart';
 export 'audio_state.dart';
@@ -12,16 +16,11 @@ import '../../domain/contracts/audio_playback_settings_repository.dart';
 import '../../domain/contracts/read_aloud_selection_repository.dart';
 import '../../domain/contracts/audio_book_service.dart';
 import '../../domain/contracts/reading_repository.dart';
-import '../../data/services/chapter_content_service.dart';
 import '../chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
-import '../../domain/contracts/cloud_tts_provider.dart';
 
 import '../../features/read_aloud/cloud_tts_providers.dart';
-import '../../features/read_aloud/playback/cloud_read_aloud_engine.dart';
 import '../../features/read_aloud/http_tts_voice_selection.dart';
-import '../../features/read_aloud/playback/read_aloud_synthesis_queue.dart';
-import '../../features/read_aloud/playback/read_aloud_synthesis_adapter.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -39,22 +38,11 @@ import '../../services/stream_audio_player.dart';
 import '../../services/read_aloud_audio_player.dart';
 import '../../platform/tts/system_tts.dart';
 import '../../features/read_aloud/tts_providers.dart';
-import '../../features/read_aloud/playback/read_aloud_engine.dart';
-import '../../features/read_aloud/playback/http_read_aloud_engine.dart';
-import '../../features/read_aloud/playback/system_read_aloud_engine.dart';
 import '../../utils/audio_skip_policy.dart';
-import '../../utils/read_aloud_text.dart';
 import 'audio_state.dart';
 import '../../features/read_aloud/http_tts_seed.dart';
 import 'read_aloud_preferences.dart';
 import 'read_aloud_position.dart';
-
-/// 无可用朗读引擎时的一次性温和提示
-///
-/// 展示面复用 [AudioState.errorMessage]（阅读器朗读条警示条 / 听书页错误行），
-/// 不新造 UI；同一朗读会话内只提示一次，用户配置引擎后自动清除。
-/// [A4 | 2026-10-03]
-const String kNoUsableEngineHint = '未配置可用朗读引擎，将按估算节奏朗读';
 
 /// 朗读引擎 URL 归一：把历史「名称,URL」复合形态还原为裸 URL 模板
 ///
@@ -151,13 +139,7 @@ typedef StreamChapterTag = ({String bookUrl, int chapterIndex});
 class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   late final AudioService _audioService;
   late final StreamAudioPlayer _streamPlayer;
-  late final SystemReadAloudEngine _systemEngine;
-  late final HttpReadAloudEngine _httpEngine;
-  late final CloudReadAloudEngine _cloudEngine;
-  late final ReadAloudSynthesisQueue _synthesisQueue;
-  int _cacheRetentionMinutes = 10;
-  bool _cachePrepared = false;
-  List<String> get prefetchDiagnostics => _synthesisQueue.diagnostics;
+  List<String> get prefetchDiagnostics => _readAloud.prefetchDiagnostics;
   bool _resumeAfterInterruption = false;
 
   StreamSubscription<MediaButtonEvent>? _mediaButtonSub;
@@ -189,113 +171,20 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     readAloudVoiceRepositoryProvider,
   );
   late ReadingRepository _reading;
-  late ChapterContentService _chapterContent;
-  late TtsCacheRepository _ttsCache;
   late AudioBookService _audioBook;
 
   // Riverpod 3 销毁回调不能再访问 Ref/state；只供退出保存使用。
   AudioState? _stateForDispose;
 
-  static const double _kCharsPerSecond = 5.0;
-  static const Duration _kMinParagraphDuration = Duration(milliseconds: 800);
-  static const Duration _kMaxParagraphDuration = Duration(seconds: 90);
   static const int _kProgressThrottleMs = 400;
 
-  List<String> _paragraphs = [];
-  List<ReadAloudParagraph> _paragraphUnits = [];
-  final readAloudPosition = ValueNotifier<ReadAloudPosition?>(null);
-  final followReadAloud = ValueNotifier(true);
-  int _readAloudSession = 0;
-
-  void restoreReadAloudFollow() => followReadAloud.value = true;
-  void detachReadAloudFollow() => followReadAloud.value = false;
-
-  void _publishReadAloudPosition({int? offset}) {
-    if (_disposed ||
-        state.isStreamMode ||
-        state.state == PlayerState.idle ||
-        _paragraphChapter !=
-            (bookUrl: state.bookUrl, chapterIndex: state.currentIndex) ||
-        _paragraphIndex >= _paragraphUnits.length) {
-      return;
-    }
-    final unit = _paragraphUnits[_paragraphIndex];
-    readAloudPosition.value = ReadAloudPosition(
-      bookUrl: state.bookUrl,
-      chapterIndex: state.currentIndex,
-      paragraphIndex: _paragraphIndex,
-      paragraphStart: unit.start,
-      paragraphEnd: unit.start + unit.text.length,
-      offset: offset ?? unit.start + _paragraphStartOffset,
-      session: _readAloudSession,
-    );
-    unawaited(_publishMediaProgress());
-  }
-
-  ReadAloudSession _createReadAloudSession(
-    int token,
-    int gen,
-    String engineUrl,
-  ) {
-    final unit = _paragraphUnits[_paragraphIndex];
-    final base = unit.start + _paragraphStartOffset;
-    return ReadAloudSession(
-      isCurrent: () =>
-          !_isSpeakStale(token, gen) &&
-          !state.isStreamMode &&
-          resolveTtsEngineUrl() == engineUrl,
-      onProgress: (offset) {
-        if (state.isPlaying) _publishReadAloudPosition(offset: base + offset);
-      },
-      onCompleted: () => unawaited(_onParagraphFinished()),
-      onError: (error) {
-        if (engineUrl != systemTtsEngineUrl) {
-          final currentUnit = _paragraphUnits[_paragraphIndex];
-          _paragraphStartOffset =
-              ((readAloudPosition.value?.offset ?? base) - currentUnit.start)
-                  .clamp(0, currentUnit.text.length);
-        }
-        pause();
-        state = state.copyWith(errorMessage: '朗读不可用：$error');
-      },
-    );
-  }
-
-  ReadAloudEngine _engineForUrl(String engineUrl) =>
-      engineUrl == systemTtsEngineUrl
-      ? _systemEngine
-      : isCloudTts(engineUrl)
-      ? _cloudEngine
-      : _httpEngine;
-
-  int _paragraphIndex = 0;
-  int _paragraphStartOffset = 0;
-  Timer? _paragraphTimer;
   int _playToken = 0;
 
-  /// 在途章节正文抓取（key: 'bookUrl\u0001chapterIndex'）
-  ///
-  /// 在线书取正文需联网：快速切章/连点会对同一章并发调用
-  /// [_ensureChapterContent]，此处复用同一 Future，避免重复抓取；
-  /// 结果只写入其所属 (bookUrl, 章号) 缓存位置（[_cacheFetchedChapterContent]
-  /// 校验归属），播放侧另有 [_playToken] 失效校验。[P0 | 2026-10-03]
-  final Map<String, Future<String>> _inFlightChapterContent = {};
-
-  /// 段落级合成/播放代数：手动切段时使旧的在途合成失效，避免旧段覆盖新段
-  int _speakGeneration = 0;
-  // 快速暂停/恢复也必须等待平台暂停确认，不重新合成已加载段落。
-  Future<void> _ttsPauseBarrier = Future.value();
-  int? _pendingParagraphIndex;
-  int? _pendingChapterPos;
-  bool _waitingForParagraph = false;
   bool _introSkipEvaluated = false;
   AudioSkipWindow? _skipWindow;
   Book? _book;
   bool _disposed = false;
   int _lastProgressEmitMs = 0;
-
-  /// A4：无可用引擎提示是否已在本朗读会话展示（一次性语义）
-  bool _noEngineHintShown = false;
 
   /// [第2项] 最近一次推送到通知/锁屏的媒体元数据签名（去重节流，见
   /// [_pushMediaSessionMetadata]）
@@ -367,21 +256,18 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
   }
 
-  int get currentParagraphIndex => _paragraphIndex;
-  int get paragraphCount => _paragraphs.length;
-  ({String bookUrl, int chapterIndex})? _paragraphChapter;
-
-  /// 只提供当前章节的正文快照，切章加载期间不展示上一章。
-  List<String> get currentParagraphs =>
-      _paragraphChapter ==
-          (bookUrl: state.bookUrl, chapterIndex: state.currentIndex)
-      ? _paragraphs
-      : const [];
-
+  late final ReadAloudController _readAloud;
+  ValueNotifier<ReadAloudPosition?> get readAloudPosition =>
+      _readAloud.readAloudPosition;
+  ValueNotifier<bool> get followReadAloud => _readAloud.followReadAloud;
+  void restoreReadAloudFollow() => _readAloud.restoreReadAloudFollow();
+  void detachReadAloudFollow() => _readAloud.detachReadAloudFollow();
+  int get currentParagraphIndex => _readAloud.currentParagraphIndex;
+  int get paragraphCount => _readAloud.paragraphCount;
+  List<String> get currentParagraphs => _readAloud.currentParagraphs;
   Book? get currentBook => _book?.bookUrl == state.bookUrl ? _book : null;
-  bool get hasPrevParagraph => _paragraphs.isNotEmpty && _paragraphIndex > 0;
-  bool get hasNextParagraph =>
-      _paragraphs.isNotEmpty && _paragraphIndex < _paragraphs.length - 1;
+  bool get hasPrevParagraph => _readAloud.hasPrevParagraph;
+  bool get hasNextParagraph => _readAloud.hasNextParagraph;
   bool get isAudioBookMode => state.isStreamMode;
   String? get currentMediaUrl => state.mediaUrl.isEmpty ? null : state.mediaUrl;
   int get streamPositionMs => state.positionMs;
@@ -390,9 +276,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   void setAudioBookMode(bool isAudioBook) {
     if (state.isStreamMode == isAudioBook) return;
     _playToken++;
-    _speakGeneration++;
-    _paragraphTimer?.cancel();
-    _observeReadAloudControl(_systemEngine.stop());
+    _readAloud.interrupt();
     state = state.copyWith(
       isStreamMode: isAudioBook,
       mediaUrl: isAudioBook ? state.mediaUrl : '',
@@ -404,12 +288,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   @override
   AudioState build() {
-    _ttsCache = ref.read(ttsCacheRepositoryProvider);
     _playbackSettings = ref.read(audioPlaybackSettingsRepositoryProvider);
     _selections = ref.read(readAloudSelectionRepositoryProvider);
     _audioBook = ref.read(audioBookServiceProvider);
     _reading = ref.read(readingRepositoryProvider);
-    _chapterContent = ref.read(chapterContentServiceProvider);
     final initialState = AudioState(config: TtsConfig());
     _stateForDispose = initialState;
     listenSelf((previous, next) {
@@ -434,27 +316,37 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     });
     _audioService = ref.read(audioServiceProvider);
     _streamPlayer = ref.read(streamAudioPlayerProvider);
-    _systemEngine = SystemReadAloudEngine(ref.read(systemTtsServiceProvider));
-    _synthesisQueue = ReadAloudSynthesisQueue(
-      synthesize: (request, cancel) => synthesizeReadAloudRequest(
-        request,
-        cancel,
-        http: _httpSynthesizer,
-        cloud: ref.read(cloudTtsSynthesizerProvider),
+    _readAloud = ReadAloudController(
+      host: ReadAloudHost(
+        readState: () => state,
+        writeState: (value) => state = value,
+        currentToken: () => _playToken,
+        advanceToken: () => ++_playToken,
+        isDisposed: () => _disposed,
+        resolveEngineUrl: resolveTtsEngineUrl,
+        resolveEngineId: resolveTtsEngineId,
+        changed: notifyListeners,
+        activateMedia: _syncMediaSession,
+        publishProgress: _publishMediaProgress,
+        reviseTimeline: () => _mediaTimelineRevision++,
+        consumeChapterStop: _consumeChapterStopAtBoundary,
+        nextChapter: next,
+        previousChapter: previous,
+        pause: pause,
+        stop: stop,
+        notifyPaused: _audioService.notifyPaused,
       ),
-      cache: () => _ttsCache,
-    );
-    _httpEngine = HttpReadAloudEngine(
-      queue: _synthesisQueue,
-      synthesizer: () => _httpSynthesizer,
+      content: ref.read(chapterContentServiceProvider),
+      settings: ref.read(readAloudSettingsRepositoryProvider),
+      httpTts: _httpTts,
+      cloudTts: _cloudTts,
+      voices: _voices,
+      selections: _selections,
+      httpSynthesizer: _httpSynthesizer,
+      cloudSynthesizer: ref.read(cloudTtsSynthesizerProvider),
+      cache: ref.read(ttsCacheRepositoryProvider),
       player: _streamPlayer,
-    );
-    _cloudEngine = CloudReadAloudEngine(
-      queue: _synthesisQueue,
-      repository: () => _cloudTts,
-      synthesizer: () => ref.read(cloudTtsSynthesizerProvider),
-      player: _streamPlayer,
-      cache: () => _ttsCache,
+      systemTts: ref.read(systemTtsServiceProvider),
     );
     // 完成回调按当前模式分发：音频书 → 下一章；TTS → 下一段
     _streamPlayer.onCompleted = (tag) {
@@ -465,8 +357,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         unawaited(_onStreamCompleted());
         return;
       }
-      _httpEngine.handleCompleted(tag);
-      _cloudEngine.handleCompleted(tag);
+      _readAloud.handleCompleted(tag);
     };
     _streamPlayer.onError = (error, tag) {
       if (_disposed) return;
@@ -479,15 +370,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         );
         return;
       }
-      _httpEngine.handleError(error, tag);
-      _cloudEngine.handleError(error, tag);
+      _readAloud.handleError(error, tag);
     };
     _streamPlayer.onProgress = (pos, dur, tag) {
       if (_disposed) return;
       if (!state.isStreamMode) {
         if (state.isPlaying) {
-          _httpEngine.handleProgress(pos, dur, tag);
-          _cloudEngine.handleProgress(pos, dur, tag);
+          _readAloud.handleProgress(pos, dur, tag);
         }
         return;
       }
@@ -530,21 +419,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       _sleepTicker?.cancel();
       _disposed = true;
       _invalidateMediaArtwork();
-      readAloudPosition.dispose();
-      followReadAloud.dispose();
       _mediaButtonSub?.cancel();
       _audioFocusSub?.cancel();
-      _paragraphTimer?.cancel();
-      _observeReadAloudControl(_systemEngine.dispose());
-      _synthesisQueue.cancelAll();
-      final snapshot = _stateForDispose;
-      unawaited(
-        _stopFileTts().then((_) async {
-          if (snapshot != null) {
-            await _cleanTtsCache(snapshot, _cacheRetentionMinutes);
-          }
-        }),
-      );
+      _readAloud.dispose(snapshot: _stateForDispose);
       _audioService.dispose();
     });
     return initialState;
@@ -610,21 +487,16 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> loadChapters(String bookUrl) async {
-    _synthesisQueue.cancelAll();
-    _cachePrepared = false;
+    _readAloud.prepareBookLoad();
     if (state.bookUrl != bookUrl) {
       _playToken++;
-      _speakGeneration++;
-      _paragraphTimer?.cancel();
+      _readAloud.invalidateSpeech();
       if (state.bookUrl.isNotEmpty) {
         final token = _playToken;
-        await _systemEngine.stop();
-        if (_disposed || token != _playToken) return;
-        await _stopFileTts();
-        if (_disposed || token != _playToken) return;
+        if (!await _readAloud.stopForChapterChange(token)) return;
       }
       // A4：切换书籍视为新朗读会话，重置无引擎提示的一次性标记
-      _noEngineHintShown = false;
+      _readAloud.clearNoEngineHint();
     }
     state = state.copyWith(
       bookUrl: bookUrl,
@@ -679,21 +551,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     int? startChapterPos,
     String? startParagraphText,
   }) async {
-    _synthesisQueue.cancelAll();
-    _cachePrepared = false;
-    _readAloudSession++;
-    restoreReadAloudFollow();
-    readAloudPosition.value = null;
-    // A4：新的朗读会话，允许无可用引擎提示再次出现
-    _noEngineHintShown = false;
+    _readAloud.beginSession();
     setAudioBookMode(false);
     final token = ++_playToken;
-    _speakGeneration++;
-    _paragraphTimer?.cancel();
-    await _systemEngine.stop();
-    if (_disposed || token != _playToken) return;
-    await _stopFileTts();
-    if (_disposed || token != _playToken) return;
+    _readAloud.invalidateSpeech();
+    if (!await _readAloud.stopForChapterChange(token)) return;
     final needReload = state.chapters.isEmpty || state.bookUrl != bookUrl;
     state = state.copyWith(
       bookUrl: bookUrl,
@@ -740,36 +602,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (target != state.currentIndex) {
       state = state.copyWith(currentIndex: target);
     }
-    _pendingParagraphIndex = null;
-    _pendingChapterPos = startChapterPos;
-    _paragraphIndex = 0;
-    _paragraphStartOffset = 0;
-    // [P0 | 2026-10-03] 在线书首次取正文可能联网（getChapterContentFull）：
-    // 复用既有 loading 状态提前给出「加载中」反馈（不新增 UI；原版朗读读的是
-    // 阅读器已加载的 curTextChapter，无此等待，故原版无对应 loading 可对齐）
-    state = state.copyWith(state: PlayerState.loading, errorMessage: null);
-    try {
-      final content = await _ensureChapterContent(state.currentIndex);
-      if (_disposed || token != _playToken) return;
-      final paraText = startParagraphText?.trim();
-      if (_pendingChapterPos == null &&
-          paraText != null &&
-          paraText.isNotEmpty) {
-        _pendingChapterPos = _mapTextToPosition(content, paraText);
-      }
-    } catch (e) {
-      if (_disposed || token != _playToken) return;
-      debugPrint('朗读起点定位失败（回退章首）: $e');
-    }
+    await _readAloud.locateStart(
+      sourceOffset: startChapterPos,
+      text: startParagraphText,
+    );
+    if (_disposed || token != _playToken) return;
     await play();
-  }
-
-  static int? _mapTextToPosition(String content, String text) {
-    final paragraphs = splitReadAloudParagraphs(content);
-    for (var i = 0; i < paragraphs.length; i++) {
-      if (paragraphs[i].text == text) return paragraphs[i].start;
-    }
-    return null;
   }
 
   Future<void> _ensureDefaultEngine() async {
@@ -1035,14 +873,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       await _restorePersistedGlobalEngine();
     }
     if (_disposed || token != _playToken) return;
-    await _playTtsParagraphs(paragraphIndex: paragraphIndex);
+    await _readAloud.play(paragraphIndex: paragraphIndex);
   }
 
   Future<void> _playAudioBookStream() async {
     state = state.copyWith(state: PlayerState.loading, errorMessage: null);
     final token = ++_playToken;
     try {
-      await _systemEngine.stop();
+      await _readAloud.stopSystem();
       if (token != _playToken || _disposed) return;
       var index = state.currentIndex;
       while (index < state.chapters.length) {
@@ -1162,647 +1000,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     stop();
   }
 
-  Future<void> _playTtsParagraphs({
-    int? paragraphIndex,
-    bool startPlaying = true,
-  }) async {
-    state = state.copyWith(state: PlayerState.loading);
-    final token = ++_playToken;
-    _synthesisQueue.cancelAll();
-    // 切章/重播入口先停掉上一段残留音频：新段合成期间保持静默而非叠音
-    if (!await _stopTtsPaths(token)) return;
-    try {
-      if (!_cachePrepared && _ttsCache.supportsAudioFiles) {
-        await ref.read(readAloudPreferencesProvider.notifier).load();
-        if (token != _playToken || _disposed) return;
-        _cacheRetentionMinutes = ref
-            .read(readAloudPreferencesProvider)
-            .audioCacheCleanTime;
-        if (_cacheRetentionMinutes <= 0) {
-          await _synthesisQueue.whenIdle();
-          if (token != _playToken || _disposed) return;
-          await _ttsCache.clear();
-        }
-        _cachePrepared = true;
-      }
-      await ref.read(readAloudPreferencesProvider.notifier).load();
-      if (token != _playToken || _disposed) return;
-      final content = await _ensureChapterContent(state.currentIndex);
-      if (token != _playToken || _disposed) return;
-      final units = _contentUnits(content, state.currentIndex);
-      final paragraphs = units.map((p) => p.text).toList();
-      if (paragraphs.isEmpty && content.trim().isNotEmpty) {
-        paragraphs.add(content.trim());
-      }
-      _paragraphs = List.unmodifiable(paragraphs);
-      _paragraphUnits = List.unmodifiable(units);
-      _paragraphChapter = (
-        bookUrl: state.bookUrl,
-        chapterIndex: state.currentIndex,
-      );
-      final pending = _pendingParagraphIndex;
-      _pendingParagraphIndex = null;
-      final chapterPos = _pendingChapterPos;
-      _pendingChapterPos = null;
-      final start = chapterPos == null
-          ? null
-          : readAloudStartAt(units, chapterPos);
-      final target =
-          paragraphIndex ??
-          start?.paragraph ??
-          pending ??
-          (_paragraphs.isNotEmpty
-              ? _paragraphIndex.clamp(0, _paragraphs.length - 1)
-              : 0);
-      _paragraphIndex = _paragraphs.isEmpty
-          ? 0
-          : target.clamp(0, _paragraphs.length - 1);
-      if (start != null) _paragraphStartOffset = start.offset;
-      if (paragraphIndex != null) _paragraphStartOffset = 0;
-      notifyListeners();
-      state = state.copyWith(
-        state: startPlaying ? PlayerState.playing : PlayerState.paused,
-      );
-      _publishReadAloudPosition();
-      if (startPlaying) {
-        await _syncMediaSession();
-        if (token != _playToken || _disposed) return;
-        await _speakCurrentParagraph(token);
-      }
-    } catch (e) {
-      if (token != _playToken || _disposed) return;
-      // [P0 | 2026-10-03] 在线书正文抓取失败（网络/书源失效等）必须有用户
-      // 可见提示：errorMessage 由朗读条警示条/听书页错误行展示（不静默）
-      state = state.copyWith(
-        errorMessage: '章节正文获取失败，无法朗读：$e',
-        state: PlayerState.error,
-      );
-    }
-  }
-
-  Future<String> _ensureChapterContent(int chapterIndex) async {
-    final chapter = state.chapters[chapterIndex];
-    if (chapter.text.isNotEmpty) return chapter.text;
-    final bookUrl = state.bookUrl;
-    final key = '$bookUrl\u0001$chapterIndex';
-    final inFlight = _inFlightChapterContent[key];
-    if (inFlight != null) return inFlight;
-    final future = _chapterContent.read(bookUrl, chapterIndex).then((content) {
-      _cacheFetchedChapterContent(bookUrl, chapterIndex, content);
-      return content;
-    });
-    _inFlightChapterContent[key] = future;
-    try {
-      return await future;
-    } finally {
-      _inFlightChapterContent.remove(key);
-    }
-  }
-
-  /// 抓取结果写回章节缓存
-  ///
-  /// 仅当书籍未切换且章号仍在范围内时写入：旧书/旧章的迟到结果不得污染
-  /// 新书章节列表（在线抓取耗时更长，该窗口更宽）。
-  void _cacheFetchedChapterContent(
-    String bookUrl,
-    int chapterIndex,
-    String content,
-  ) {
-    if (_disposed || state.bookUrl != bookUrl) return;
-    if (chapterIndex < 0 || chapterIndex >= state.chapters.length) return;
-    final chapters = [...state.chapters];
-    final chapter = chapters[chapterIndex];
-    if (chapter.text.isNotEmpty) return; // 已有缓存不覆盖
-    chapters[chapterIndex] = AudioChapter(
-      index: chapter.index,
-      title: chapter.title,
-      text: content,
-    );
-    state = state.copyWith(chapters: chapters);
-  }
-
-  /// 合成并播放当前段落（A1 批主路径）
-  ///
-  /// 链路：HTTP 合成（Rust 缓存落盘）→ 统一纯音频后端播放
-  /// → 播放完成回调（onCompleted）驱动 [_onParagraphFinished] 推进下一段。
-  /// 估算时长 Timer 仅在合成/播放失败降级时使用，且失败经
-  /// [AudioState.errorMessage] 给用户可见提示（不静默）。
-  ///
-  /// HTTP/云端共用有界预合成；实际播放按单元顺序进行，完成后才推进。
-  Future<void> _speakCurrentParagraph(int token) async {
-    _paragraphTimer?.cancel();
-    _waitingForParagraph = false;
-    if (_paragraphs.isEmpty) return;
-    final gen = ++_speakGeneration;
-    // 先停掉上一段残留音频（手动切段/切章时避免叠音）
-    if (!await _stopTtsPaths(token, generation: gen)) return;
-
-    final paragraph = _paragraphs[_paragraphIndex];
-    final text = paragraph.substring(
-      _paragraphStartOffset.clamp(0, paragraph.length),
-    );
-    _publishReadAloudPosition();
-    final config = state.config;
-    // [引擎双持久化 | 2026-10-04] 消费端单点解析：书级优先、空则全局回退
-    // （对齐原版 ReadAloud.kt:41）；归一仍在此完成，历史「名称,URL」复合形态
-    // 不会破坏解析（见 normalizeTtsEngineUrl）。
-    final engineUrl = resolveTtsEngineUrl();
-    if (engineUrl.isEmpty) {
-      // [A4] 无可用引擎：温和一次性提示（复用 errorMessage 展示面）后按
-      // 估算节奏朗读；不视为失败，无正文时前面的空段落判定已提前返回。
-      _showNoEngineHintOnce();
-      _scheduleEstimateAdvance(text, config.speed, token, gen);
-      return;
-    }
-    final engine = _engineForUrl(engineUrl);
-    final session = _createReadAloudSession(token, gen, engineUrl);
-    Object? failure;
-    try {
-      final engineId = await resolveTtsEngineId() ?? 0;
-      final source =
-          engineUrl == systemTtsEngineUrl ||
-              isCloudTts(engineUrl) ||
-              !_ttsCache.supportsAudioFiles
-          ? null
-          : (await _httpTts.getHttpTts())
-                .where((e) => e.id == engineId)
-                .firstOrNull;
-      if (_isSpeakStale(token, gen)) return;
-      if (source != null) {
-        await ref.read(readAloudPreferencesProvider.notifier).load();
-        if (_isSpeakStale(token, gen)) return;
-        _synthesisQueue.configure(
-          source.synthesisThreadCount <
-                  ref
-                      .read(readAloudPreferencesProvider)
-                      .ttsPreSynthesisConcurrency
-              ? source.synthesisThreadCount
-              : ref
-                    .read(readAloudPreferencesProvider)
-                    .ttsPreSynthesisConcurrency,
-        );
-      }
-      CloudTtsEngine? cloud;
-      String? cloudVersion;
-      if (isCloudTts(engineUrl)) {
-        cloud = (await _cloudTts.list())
-            .where((e) => e.id == cloudTtsId(engineUrl))
-            .firstOrNull;
-        if (_isSpeakStale(token, gen)) return;
-        if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
-        final voices = await _voices.list();
-        if (_isSpeakStale(token, gen)) return;
-        cloudVersion = jsonEncode([
-          cloud.toJson(),
-          for (final v in voices.where(
-            (v) => v.engineType == 'cloud_tts' && v.engineId == cloud!.id,
-          ))
-            v.toJson(),
-        ]);
-        _synthesisQueue.configure(
-          ref.read(readAloudPreferencesProvider).ttsPreSynthesisConcurrency,
-        );
-      }
-      final voice = engineUrl == systemTtsEngineUrl || isCloudTts(engineUrl)
-          ? const HttpTtsVoiceResolution()
-          : await _httpVoice(engineId);
-      if (_isSpeakStale(token, gen)) return;
-      final cloudVoice = isCloudTts(engineUrl)
-          ? await _selections.getCloudVoice(cloudTtsId(engineUrl))
-          : null;
-      if (_isSpeakStale(token, gen)) return;
-      final request = ReadAloudRequest(
-        voicePresetId: cloudVoice?.isEmpty == true ? null : cloudVoice,
-        toneId: voice.voice?.speakerId,
-        speakerName: voice.voice?.displayName,
-        emotionTag: voice.emotionTag,
-        text: text,
-        engineId: engineId,
-        engineUrl: engineUrl,
-        speed: config.speed,
-        pitch: config.pitch,
-        volume: config.volume,
-        voiceName: config.voiceName,
-        sourceVersion:
-            cloudVersion ??
-            (source == null ? null : jsonEncode(source.toJson())),
-        cacheContext: TtsCacheContext(
-          bookUrl: state.bookUrl,
-          bookName: state.bookName,
-          chapterIndex: state.currentIndex,
-          chapterTitle: state.currentChapter?.title ?? '',
-          paragraphIndex: _paragraphIndex,
-          text: text,
-        ),
-      );
-      final playlist = switch (engine) {
-        ReadAloudPlaylistEngine candidate => candidate,
-        _ => null,
-      };
-      final result =
-          playlist?.supportsPlaylist == true && _ttsCache.supportsAudioFiles
-          ? await playlist!.speakPlaylist(
-              _filePlaybackCues(request, cloud),
-              session,
-              onCueStarted: (cue) {
-                // 暂停续播替换段落会话，队列自身检查新会话；此处只核对书章身份。
-                if (_disposed ||
-                    !state.isPlaying ||
-                    state.bookUrl != request.cacheContext!.bookUrl ||
-                    state.currentIndex != request.cacheContext!.chapterIndex ||
-                    resolveTtsEngineUrl() != request.engineUrl) {
-                  return;
-                }
-                _paragraphIndex = cue.paragraphIndex;
-                _paragraphStartOffset =
-                    cue.sourceOffset - _paragraphUnits[_paragraphIndex].start;
-                _publishReadAloudPosition(offset: cue.sourceOffset);
-                notifyListeners();
-              },
-            )
-          : await engine.speak(request, session);
-      if (_isSpeakStale(token, gen) || result == ReadAloudStart.cancelled) {
-        return;
-      }
-      if (engineUrl == systemTtsEngineUrl) return;
-      if (result == ReadAloudStart.started) {
-        // [A4] 真实播放恢复：允许后续再次提示（如引擎后续被移除）
-        _noEngineHintShown = false;
-        if (state.errorMessage != null) {
-          // 上一段降级/无引擎提示在恢复真实播放后清除
-          state = state.copyWith(errorMessage: null);
-        }
-        if (voice.warning != null) {
-          state = state.copyWith(errorMessage: voice.warning);
-        }
-        if (cloud != null && _ttsCache.supportsAudioFiles) {
-          _startCloudPrefetch(request, cloud);
-        }
-        if (source != null) {
-          _startHttpPrefetch(request, source.synthesisThreadCount);
-        }
-        // 正常路径到此为止：推进由统一段落会话完成回调触发。
-        return;
-      }
-      failure = StateError('TTS 合成未返回音频文件（引擎或缓存异常）');
-    } catch (e) {
-      failure = e;
-    }
-    if (_isSpeakStale(token, gen)) return;
-    session.cancel();
-    if (engineUrl == systemTtsEngineUrl || isCloudTts(engineUrl)) {
-      pause();
-      state = state.copyWith(errorMessage: '朗读不可用：$failure');
-      return;
-    }
-
-    // 降级：合成/播放失败 → 估算时长推进 + 用户可见提示
-    // （无引擎配置时已在上面的空判定提前返回，保持既有静默估算行为）
-    state = state.copyWith(errorMessage: '朗读音频不可用，本段按估算时长继续：$failure');
-    _scheduleEstimateAdvance(text, config.speed, token, gen);
-  }
-
-  /// 原生队列只预先起播当前章；段间停顿不作用于同段内部的长度分片。
-  List<ReadAloudPlaylistCue> _filePlaybackCues(
-    ReadAloudRequest request,
-    CloudTtsEngine? cloud,
-  ) {
-    final end = ref.read(readAloudPreferencesProvider).paragraphIntervalMs > 0
-        ? _paragraphIndex + 1
-        : _paragraphUnits.length;
-    final cues = <ReadAloudPlaylistCue>[];
-    for (var index = _paragraphIndex; index < end; index++) {
-      final unit = _paragraphUnits[index];
-      final offset = index == _paragraphIndex ? _paragraphStartOffset : 0;
-      final text = unit.text.substring(offset);
-      final List<ReadAloudUnit> parts = cloud == null
-          ? [(text: text, start: 0)]
-          : splitSpeechRequests(
-              text,
-              limit: cloudTtsProfile(cloud.provider).textLimit,
-            ).map((part) => (text: part.text, start: part.start)).toList();
-      for (final part in parts) {
-        cues.add(
-          ReadAloudPlaylistCue(
-            request: request.copyWith(
-              text: part.text,
-              cacheContext: TtsCacheContext(
-                bookUrl: state.bookUrl,
-                bookName: state.bookName,
-                chapterIndex: state.currentIndex,
-                chapterTitle: state.currentChapter?.title ?? '',
-                paragraphIndex: index,
-                text: part.text,
-              ),
-            ),
-            sourceOffset: unit.start + offset + part.start,
-            paragraphIndex: index,
-          ),
-        );
-      }
-    }
-    return cues;
-  }
-
-  final _pageRanges =
-      <(String, int), ({String content, List<ReadAloudPageRange> ranges})>{};
-
-  void registerReadAloudPages(
-    String bookUrl,
-    int chapter,
-    String content,
-    List<ReadAloudPageRange> ranges,
-  ) {
-    final key = (bookUrl, chapter);
-    final old = _pageRanges[key];
-    final unchanged =
-        old != null && old.content == content && listEquals(old.ranges, ranges);
-    if (unchanged) return;
-    splitReadAloudContent(
-      content,
-      mode: ReadAloudSplitMode.page,
-      pages: ranges,
-    );
-    _pageRanges[key] = (content: content, ranges: List.unmodifiable(ranges));
-    if (_pageRanges.length > 6) _pageRanges.remove(_pageRanges.keys.first);
-    if (old != null &&
-        !_disposed &&
-        state.bookUrl == bookUrl &&
-        state.currentIndex == chapter &&
-        !state.isStreamMode &&
-        state.state != PlayerState.idle &&
-        ref.read(readAloudPreferencesProvider).splitMode ==
-            ReadAloudSplitMode.page) {
-      final playing = state.isPlaying;
-      _pendingChapterPos = readAloudPosition.value?.offset ?? 0;
-      unawaited(_playTtsParagraphs(startPlaying: playing));
-    }
-  }
-
-  List<ReadAloudUnit> _contentUnits(String text, int chapter) {
-    final prefs = ref.read(readAloudPreferencesProvider);
-    final pages = _pageRanges[(state.bookUrl, chapter)];
-    return splitReadAloudContent(
-      text,
-      mode: prefs.splitMode,
-      symbols: prefs.splitSymbols,
-      pages: pages?.content == text ? pages?.ranges : null,
-    );
-  }
-
-  Future<void> setContentSplit(ReadAloudSplitMode mode, String symbols) async {
-    final anchor = readAloudPosition.value?.offset;
-    final token = _playToken, generation = _speakGeneration;
-    final playing = state.isPlaying;
-    await ref
-        .read(readAloudPreferencesProvider.notifier)
-        .setContentSplit(mode, symbols);
-    if (_isSpeakStale(token, generation)) return;
-    _synthesisQueue.cancelBackground();
-    if (_disposed || state.isStreamMode || state.state == PlayerState.idle) {
-      return;
-    }
-    _pendingChapterPos = anchor;
-    await _playTtsParagraphs(startPlaying: playing);
-  }
-
-  void _startCloudPrefetch(ReadAloudRequest request, CloudTtsEngine cloud) {
-    final prefs = ref.read(readAloudPreferencesProvider);
-    _cacheRetentionMinutes = prefs.audioCacheCleanTime;
-    if (prefs.audioPreDownloadNum <= 0) {
-      _synthesisQueue.cancelBackground();
-      return;
-    }
-    final bookUrl = state.bookUrl, bookName = state.bookName;
-    final index = state.currentIndex, paragraph = _paragraphIndex;
-    final chapters = List<AudioChapter>.of(state.chapters);
-    final units = List<String>.of(_paragraphs);
-    final remaining = _cloudEngine.remainingRequests;
-    final contentService = _chapterContent;
-    final key = jsonEncode([
-      bookUrl,
-      index,
-      request.engineUrl,
-      request.sourceVersion,
-      request.voicePresetId,
-      prefs.splitMode.name,
-      prefs.splitSymbols,
-    ]);
-    List<ReadAloudRequest> cues(String text, int chapter, int unit) => [
-      for (final part in splitSpeechRequests(
-        text,
-        limit: cloudTtsProfile(cloud.provider).textLimit,
-      ))
-        request.copyWith(
-          text: part.text,
-          cacheContext: TtsCacheContext(
-            bookUrl: bookUrl,
-            bookName: bookName,
-            chapterIndex: chapter,
-            chapterTitle: chapters[chapter].title,
-            paragraphIndex: unit,
-            text: part.text,
-          ),
-        ),
-    ];
-    Stream<List<ReadAloudRequest>> window() async* {
-      yield [
-        ...remaining,
-        for (var p = paragraph + 1; p < units.length; p++)
-          ...cues(units[p], index, p),
-      ];
-      if (prefs.splitMode == ReadAloudSplitMode.page) return;
-      for (
-        var i = index + 1;
-        i < chapters.length && i <= index + prefs.audioPreDownloadNum;
-        i++
-      ) {
-        if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final text = chapters[i].text.isNotEmpty
-            ? chapters[i].text
-            : await contentService.read(bookUrl, i);
-        if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final nextUnits = splitReadAloudContent(
-          text,
-          mode: prefs.splitMode,
-          symbols: prefs.splitSymbols,
-        );
-        yield [
-          for (var p = 0; p < nextUnits.length; p++)
-            ...cues(nextUnits[p].text, i, p),
-        ];
-      }
-    }
-
-    _synthesisQueue.startWindow(
-      key: key,
-      concurrency: prefs.ttsPreSynthesisConcurrency,
-      chapters: window(),
-    );
-  }
-
-  void _startHttpPrefetch(ReadAloudRequest request, int sourceConcurrency) {
-    final preferences = ref.read(readAloudPreferencesProvider);
-    _cacheRetentionMinutes = preferences.audioCacheCleanTime;
-    if (preferences.audioPreDownloadNum <= 0) {
-      _synthesisQueue.cancelBackground();
-      return;
-    }
-    final bookUrl = state.bookUrl, bookName = state.bookName;
-    final index = state.currentIndex;
-    final chapters = List<AudioChapter>.of(state.chapters);
-    final paragraphs = List<String>.of(_paragraphs);
-    final paragraphIndex = _paragraphIndex;
-    final contentService = _chapterContent;
-    final key = jsonEncode([
-      bookUrl,
-      index,
-      request.sourceVersion,
-      request.voiceName,
-      request.toneId,
-      request.speakerName,
-      request.emotionTag,
-      request.pitch,
-      request.volume,
-    ]);
-    ReadAloudRequest cue(String text, int chapter, int paragraph) =>
-        ReadAloudRequest(
-          text: text,
-          engineId: request.engineId,
-          engineUrl: request.engineUrl,
-          sourceVersion: request.sourceVersion,
-          speed: request.speed,
-          pitch: request.pitch,
-          volume: request.volume,
-          voiceName: request.voiceName,
-          toneId: request.toneId,
-          speakerName: request.speakerName,
-          emotionTag: request.emotionTag,
-          cacheContext: TtsCacheContext(
-            bookUrl: bookUrl,
-            bookName: bookName,
-            chapterIndex: chapter,
-            chapterTitle: chapters[chapter].title,
-            paragraphIndex: paragraph,
-            text: text,
-          ),
-        );
-    Stream<List<ReadAloudRequest>> window() async* {
-      yield [
-        for (var p = paragraphIndex + 1; p < paragraphs.length; p++)
-          cue(paragraphs[p], index, p),
-      ];
-      if (preferences.splitMode == ReadAloudSplitMode.page) return;
-      for (
-        var i = index + 1;
-        i < chapters.length && i <= index + preferences.audioPreDownloadNum;
-        i++
-      ) {
-        if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final chapter = chapters[i];
-        final text = chapter.text.isNotEmpty
-            ? chapter.text
-            : await contentService.read(bookUrl, i);
-        if (!_synthesisQueue.isWindowCurrent(key)) return;
-        final units = _contentUnits(text, i);
-        yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];
-      }
-    }
-
-    _synthesisQueue.startWindow(
-      key: key,
-      concurrency: sourceConcurrency < preferences.ttsPreSynthesisConcurrency
-          ? sourceConcurrency
-          : preferences.ttsPreSynthesisConcurrency,
-      chapters: window(),
-    );
-  }
-
-  Future<void> refreshHttpPrefetchSettings() async {
-    if (_disposed) return;
-    final token = _playToken, gen = _speakGeneration;
-    if (isCloudTts(resolveTtsEngineUrl()) &&
-        state.isPlaying &&
-        !state.isStreamMode) {
-      final clouds = await _cloudTts.list();
-      if (_isSpeakStale(token, gen)) return;
-      final cloud = clouds
-          .where((e) => e.id == cloudTtsId(resolveTtsEngineUrl()))
-          .firstOrNull;
-      final request = _cloudEngine.currentRequest;
-      if (cloud != null && request != null && _ttsCache.supportsAudioFiles) {
-        _synthesisQueue.cancelBackground();
-        _startCloudPrefetch(request, cloud);
-      }
-      return;
-    }
-    _cacheRetentionMinutes = ref
-        .read(readAloudPreferencesProvider)
-        .audioCacheCleanTime;
-    _synthesisQueue.cancelBackground();
-    if (!_disposed &&
-        state.isPlaying &&
-        !state.isStreamMode &&
-        resolveTtsEngineUrl() != systemTtsEngineUrl) {
-      final id = await resolveTtsEngineId();
-      if (_isSpeakStale(token, gen) || !state.isPlaying || id == null) return;
-      final sources = await _httpTts.getHttpTts();
-      final source = sources.where((s) => s.id == id).firstOrNull;
-      if (_isSpeakStale(token, gen) || !state.isPlaying || source == null) {
-        return;
-      }
-      final voice = await _httpVoice(id);
-      if (_isSpeakStale(token, gen) || !state.isPlaying) return;
-      final config = state.config;
-      _startHttpPrefetch(
-        ReadAloudRequest(
-          text: '',
-          toneId: voice.voice?.speakerId,
-          speakerName: voice.voice?.displayName,
-          emotionTag: voice.emotionTag,
-          engineId: id,
-          engineUrl: source.url,
-          sourceVersion: jsonEncode(source.toJson()),
-          speed: config.speed,
-          pitch: config.pitch,
-          volume: config.volume,
-          voiceName: config.voiceName,
-        ),
-        source.synthesisThreadCount,
-      );
-    }
-  }
-
-  Future<void> _cleanTtsCache(
-    AudioState snapshot,
-    int minutes, {
-    int? token,
-  }) async {
-    if (!_ttsCache.supportsAudioFiles) return;
-    try {
-      await _synthesisQueue.whenIdle();
-      if (token != null && token != _playToken) return;
-      await _ttsCache.clear(
-        beforeTimestampMs: minutes <= 0
-            ? null
-            : DateTime.now().millisecondsSinceEpoch - minutes * 60000,
-        keepBookUrl: minutes <= 0 ? null : snapshot.bookUrl,
-        keepChapterIndex: minutes <= 0 ? null : snapshot.currentIndex,
-      );
-    } catch (error) {
-      debugPrint('朗读缓存清理失败：$error');
-    }
-  }
-
-  Future<HttpTtsVoiceResolution> _httpVoice(int id) async {
-    if (!_voices.supportsCatalog) {
-      return const HttpTtsVoiceResolution();
-    }
-    final selection = await _selections.getHttpVoice(id);
-    if (selection == null) return const HttpTtsVoiceResolution();
-    return resolveHttpTtsVoice(id, await _voices.list(), selection);
-  }
-
   Future<void> setCloudTtsVoice(String engineId, ReadAloudVoice? voice) async {
     if (voice != null &&
         (voice.engineType != 'cloud_tts' ||
@@ -1850,64 +1047,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
   }
 
-  Future<void> _stopFileTts() {
-    final stopped = _streamPlayer.stop();
-    return Future.wait([
-      _httpEngine.stop(playbackStopped: stopped),
-      _cloudEngine.stop(playbackStopped: stopped),
-    ]).then((_) {});
-  }
-
-  Future<bool> _stopTtsPaths(int token, {int? generation}) async {
-    // 旧会话的暂停屏障不能阻塞切章、换引擎后的新会话。
-    _ttsPauseBarrier = Future.value();
-    bool stale() =>
-        token != _playToken ||
-        _disposed ||
-        (generation != null && generation != _speakGeneration);
-    try {
-      // 同时失效两条路径，不能等待系统停止后才让旧 HTTP 续播失效。
-      await Future.wait([_systemEngine.stop(), _stopFileTts()]);
-    } catch (error) {
-      if (stale()) return false;
-      pause();
-      state = state.copyWith(errorMessage: '朗读控制失败，已暂停：$error');
-      return false;
-    }
-    return !stale();
-  }
-
-  void _observeReadAloudControl(
-    Future<void> operation, {
-    String errorPrefix = '系统朗读控制失败',
-  }) {
-    final token = _playToken;
-    final gen = _speakGeneration;
-    unawaited(
-      operation.catchError((Object error, StackTrace stack) {
-        debugPrint('$errorPrefix：$error');
-        if (_isSpeakStale(token, gen)) return;
-        _playToken++;
-        _speakGeneration++;
-        _paragraphTimer?.cancel();
-        state = state.copyWith(
-          state: state.state == PlayerState.idle
-              ? PlayerState.idle
-              : PlayerState.paused,
-          errorMessage: '$errorPrefix：$error',
-        );
-        unawaited(_audioService.notifyPaused());
-      }),
-    );
-  }
-
-  /// 系统语音设置只影响系统路径，避免重启正在播放的 HTTP 音频。
-  Future<void> refreshSystemTtsSettings() async {
-    if (resolveTtsEngineUrl() == systemTtsEngineUrl) {
-      await restartCurrentTts();
-    }
-  }
-
   /// 起播时读取一次偏好；打开或重建控制条不写播放配置。
   Future<void> prepareReadAloudSettings() async {
     final token = _playToken;
@@ -1945,20 +1084,19 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   /// 停顿策略变化后从当前原文锚点重建队列，避免已经入队的下一段绕过新停顿。
   Future<void> setReadAloudParagraphInterval(int milliseconds) async {
-    final token = _playToken, generation = _speakGeneration;
+    final token = _playToken, generation = _readAloud.generation;
     final playing = state.isPlaying;
     final anchor = readAloudPosition.value?.offset;
     await ref
         .read(readAloudPreferencesProvider.notifier)
         .setParagraphInterval(milliseconds);
-    if (_isSpeakStale(token, generation) ||
+    if (_readAloud.isStale(token, generation) ||
         state.isStreamMode ||
         anchor == null ||
         resolveTtsEngineUrl() == systemTtsEngineUrl) {
       return;
     }
-    _pendingChapterPos = anchor;
-    await _playTtsParagraphs(startPlaying: playing);
+    await _readAloud.rebuildAtPosition(anchor, playing: playing);
   }
 
   Future<void> setReadAloudSpeed(
@@ -1975,185 +1113,23 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     );
   }
 
-  /// 用户更改引擎或语音时失效旧请求，并按当前段重启；暂停时保持暂停。
-  Future<void> restartCurrentTts() async {
-    _synthesisQueue.cancelBackground();
-    if (_disposed || state.isStreamMode) return;
-    final playing = state.isPlaying || state.state == PlayerState.loading;
-    final token = ++_playToken;
-    _speakGeneration++;
-    _paragraphTimer?.cancel();
-    if (!await _stopTtsPaths(token)) return;
-    if (playing &&
-        token == _playToken &&
-        !_disposed &&
-        (state.isPlaying || state.state == PlayerState.loading)) {
-      await _playTtsParagraphs();
-    }
-  }
-
-  /// 段落级失效判定：播放会话 token 或合成代数任一变化即视为过期
-  bool _isSpeakStale(int token, int gen) =>
-      token != _playToken || gen != _speakGeneration || _disposed;
-
-  /// 降级推进：按字符数估算当前段时长，到点后推进下一段
-  void _scheduleEstimateAdvance(String text, double speed, int token, int gen) {
-    final s = speed <= 0 ? 1.0 : speed;
-    final seconds = text.length / (_kCharsPerSecond * s);
-    var duration = Duration(milliseconds: (seconds * 1000).round());
-    if (duration < _kMinParagraphDuration) {
-      duration = _kMinParagraphDuration;
-    } else if (duration > _kMaxParagraphDuration) {
-      duration = _kMaxParagraphDuration;
-    }
-    _paragraphTimer = Timer(duration, () {
-      if (_isSpeakStale(token, gen)) return;
-      unawaited(_onParagraphFinished());
-    });
-  }
-
-  Future<void> _onParagraphFinished() async {
-    if (state.state != PlayerState.playing) return;
-    if (_paragraphIndex < _paragraphs.length - 1) {
-      _paragraphIndex++;
-      _paragraphStartOffset = 0;
-      notifyListeners();
-      final token = _playToken;
-      final interval = ref
-          .read(readAloudPreferencesProvider)
-          .paragraphIntervalMs;
-      if (interval == 0) {
-        await _speakCurrentParagraph(token);
-      } else {
-        _waitingForParagraph = true;
-        _paragraphTimer = Timer(Duration(milliseconds: interval), () {
-          if (!_disposed && token == _playToken && state.isPlaying) {
-            unawaited(_speakCurrentParagraph(token));
-          }
-        });
-      }
-      return;
-    }
-    // [A4] 章末（末段播完）：按章停止计数，归零则在章末停止而不切章
-    if (_consumeChapterStopAtBoundary()) {
-      stop();
-      return;
-    }
-    if (state.mode == AudioPlayMode.singleLoop) {
-      _paragraphIndex = 0;
-      _paragraphStartOffset = 0;
-      notifyListeners();
-      await _speakCurrentParagraph(_playToken);
-      return;
-    }
-    if (state.hasNext) {
-      await next();
-      return;
-    }
-    stop();
-  }
-
-  /// 手动页面跟读共用既有会话；暂停时只定位，不重新起播。
-  Future<void> seekToChapterPosition(int chapterIndex, int offset) async {
-    _synthesisQueue.cancelBackground();
-    if (state.isStreamMode ||
-        state.state == PlayerState.idle ||
-        chapterIndex < 0 ||
-        chapterIndex >= state.chapters.length) {
-      return;
-    }
-    final playing = state.isPlaying;
-    final token = ++_playToken;
-    _speakGeneration++;
-    _paragraphTimer?.cancel();
-    _waitingForParagraph = false;
-    if (!await _stopTtsPaths(token)) return;
-    _paragraphStartOffset = 0;
-    _pendingChapterPos = offset;
-    _pendingParagraphIndex = null;
-    state = state.copyWith(currentIndex: chapterIndex);
-    await _playTtsParagraphs(startPlaying: playing);
-    // 等原文锚点落定再重置时钟，避免暂停时冻结在定位前的位置。
-    _mediaTimelineRevision++;
-    await _publishMediaProgress(force: true);
-  }
-
-  /// 播放器拖动进度与点击正文共用此入口；暂停中移动后仍保持暂停。
-  Future<void> seekToParagraph(int index) async {
-    _mediaTimelineRevision++;
-    _synthesisQueue.cancelBackground();
-    if (state.isStreamMode ||
-        state.isLoading ||
-        index < 0 ||
-        index >= currentParagraphs.length) {
-      return;
-    }
-    final wasPlaying = state.isPlaying;
-    final token = ++_playToken;
-    _speakGeneration++;
-    _paragraphTimer?.cancel();
-    _waitingForParagraph = false;
-    if (!await _stopTtsPaths(token)) return;
-    _paragraphIndex = index;
-    _paragraphStartOffset = 0;
-    _publishReadAloudPosition();
-    notifyListeners();
-    if (wasPlaying) await _speakCurrentParagraph(token);
-  }
-
-  Future<void> nextParagraph() async {
-    _mediaTimelineRevision++;
-    _synthesisQueue.cancelBackground();
-    if (state.isStreamMode) return;
-    if (_paragraphs.isEmpty || state.state == PlayerState.idle) return;
-    if (_paragraphIndex < _paragraphs.length - 1) {
-      _paragraphIndex++;
-      _paragraphStartOffset = 0;
-      _publishReadAloudPosition();
-      notifyListeners();
-      if (state.state == PlayerState.paused) {
-        _ttsPauseBarrier = Future.value();
-        _playToken++;
-        _speakGeneration++;
-        _observeReadAloudControl(_systemEngine.stop());
-        _observeReadAloudControl(_stopFileTts(), errorPrefix: '音频播放控制失败');
-      }
-      final token = _playToken;
-      if (state.isPlaying) await _speakCurrentParagraph(token);
-      return;
-    }
-    if (state.hasNext) {
-      _paragraphIndex = 0;
-      await next();
-    }
-  }
-
-  Future<void> prevParagraph() async {
-    _mediaTimelineRevision++;
-    _synthesisQueue.cancelBackground();
-    if (state.isStreamMode) return;
-    if (_paragraphs.isEmpty || state.state == PlayerState.idle) return;
-    if (_paragraphIndex > 0) {
-      _paragraphIndex--;
-      _paragraphStartOffset = 0;
-      _publishReadAloudPosition();
-      notifyListeners();
-      if (state.state == PlayerState.paused) {
-        _ttsPauseBarrier = Future.value();
-        _playToken++;
-        _speakGeneration++;
-        _observeReadAloudControl(_systemEngine.stop());
-        _observeReadAloudControl(_stopFileTts(), errorPrefix: '音频播放控制失败');
-      }
-      final token = _playToken;
-      if (state.isPlaying) await _speakCurrentParagraph(token);
-      return;
-    }
-    if (state.hasPrevious) {
-      _paragraphIndex = 0;
-      await previous();
-    }
-  }
+  void registerReadAloudPages(
+    String bookUrl,
+    int chapter,
+    String content,
+    List<ReadAloudPageRange> ranges,
+  ) => _readAloud.registerPages(bookUrl, chapter, content, ranges);
+  Future<void> setContentSplit(ReadAloudSplitMode mode, String symbols) =>
+      _readAloud.setContentSplit(mode, symbols);
+  Future<void> refreshHttpPrefetchSettings() =>
+      _readAloud.refreshPrefetchSettings();
+  Future<void> refreshSystemTtsSettings() => _readAloud.refreshSystemSettings();
+  Future<void> restartCurrentTts() => _readAloud.restart();
+  Future<void> seekToChapterPosition(int chapterIndex, int offset) =>
+      _readAloud.seekToChapterPosition(chapterIndex, offset);
+  Future<void> seekToParagraph(int index) => _readAloud.seekToParagraph(index);
+  Future<void> nextParagraph() => _readAloud.nextParagraph();
+  Future<void> prevParagraph() => _readAloud.prevParagraph();
 
   Future<void> _syncMediaSession() async {
     if (!state.isMediaSessionReady) return;
@@ -2225,7 +1201,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           unawaited(_persistStreamPosition(force: true, positionMs: position));
         } else {
           final content = state.currentChapter?.text ?? '';
-          if (content.isEmpty || _paragraphUnits.isEmpty) return;
+          if (content.isEmpty || !_readAloud.hasUnits) return;
           final offset = readAloudMediaOffset(
             request.position,
             content.length,
@@ -2305,11 +1281,14 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       canSeek:
           duration > 0 &&
           !state.isLoading &&
-          (isStream ? _streamPlayer.isInitialized : _paragraphUnits.isNotEmpty),
-      hasPrevious: state.hasPrevious || (!byChapter && _paragraphIndex > 0),
+          (isStream ? _streamPlayer.isInitialized : _readAloud.hasUnits),
+      hasPrevious:
+          state.hasPrevious ||
+          (!byChapter && _readAloud.currentParagraphIndex > 0),
       hasNext:
           state.hasNext ||
-          (!byChapter && _paragraphIndex + 1 < _paragraphUnits.length),
+          (!byChapter &&
+              _readAloud.currentParagraphIndex + 1 < _readAloud.unitCount),
       isStream: isStream,
     );
     final signature = jsonEncode(progress.toMap());
@@ -2610,30 +1589,16 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   void pause({bool dueToInterruption = false}) {
-    _synthesisQueue.cancelBackground();
+    _readAloud.cancelBackground();
     _resumeAfterInterruption = dueToInterruption && state.isPlaying;
     if (state.state == PlayerState.playing ||
         state.state == PlayerState.loading) {
-      _paragraphTimer?.cancel();
+      _readAloud.cancelPendingAdvance();
       if (state.isStreamMode) {
         unawaited(_streamPlayer.pause());
-        // [A3] 暂停即写（force），派发前读取播放器实际位置
         unawaited(_persistStreamPosition(force: true));
       } else {
-        _playToken++;
-        _speakGeneration++;
-        // 段间等待已经指向下一段，不保存上一段的原生暂停会话。
-        final waiting = _waitingForParagraph;
-        _ttsPauseBarrier = Future.wait([
-          waiting ? _systemEngine.stop() : _systemEngine.pause(),
-          waiting
-              ? _stopFileTts()
-              : (isCloudTts(resolveTtsEngineUrl())
-                    ? _cloudEngine.pause()
-                    : _httpEngine.pause()),
-        ]).then<void>((_) {});
-        _observeReadAloudControl(_ttsPauseBarrier, errorPrefix: '朗读暂停失败');
-        _waitingForParagraph = false;
+        _readAloud.pause();
       }
       state = state.copyWith(state: PlayerState.paused);
       _audioService.notifyPaused();
@@ -2642,38 +1607,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   Future<void> resumeOrPlay() async {
     _resumeAfterInterruption = false;
-    if (state.state == PlayerState.paused && !state.isStreamMode) {
-      final pausedToken = _playToken;
-      final pausedGeneration = _speakGeneration;
-      try {
-        await _ttsPauseBarrier;
-      } catch (_) {
-        // 暂停错误由控制观察器显示，不冒充成功续播。
-        return;
-      }
-      if (_isSpeakStale(pausedToken, pausedGeneration) ||
-          state.state != PlayerState.paused) {
-        return;
-      }
-      final engineUrl = resolveTtsEngineUrl();
-      final engine = _engineForUrl(engineUrl);
-      if (engine.canResume) {
-        final token = ++_playToken;
-        final gen = ++_speakGeneration;
-        state = state.copyWith(state: PlayerState.playing, errorMessage: null);
-        await _syncMediaSession();
-        if (_isSpeakStale(token, gen)) return;
-        final session = _createReadAloudSession(token, gen, engineUrl);
-        try {
-          await engine.resume(session);
-          if (!_isSpeakStale(token, gen) && engineUrl != systemTtsEngineUrl) {
-            unawaited(refreshHttpPrefetchSettings());
-          }
-        } catch (error) {
-          session.fail(error);
-        }
-        return;
-      }
+    if (state.state == PlayerState.paused &&
+        !state.isStreamMode &&
+        await _readAloud.resume()) {
+      return;
     }
     if (state.state == PlayerState.paused &&
         state.isStreamMode &&
@@ -2687,45 +1624,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   void stop() {
-    _synthesisQueue.cancelAll();
-    final cacheSnapshot = state;
-    final retentionMinutes = ref
-        .read(readAloudPreferencesProvider)
-        .audioCacheCleanTime;
-    _cacheRetentionMinutes = retentionMinutes;
-    _cachePrepared = false;
-    _ttsPauseBarrier = Future.value();
-    _paragraphTimer?.cancel();
-    // [A4] 停止即结束本次定时（对齐原版 TTS 服务 onDestroy 清空
-    // timeMinute/chapterStopTimer，BaseReadAloudService.kt:309-313）
+    final snapshot = state;
     _clearSleepTimerState();
     _invalidateMediaArtwork();
-    // [A3] 停止前写一次当前进度（必须在重置 state 之前发起）
     unawaited(_persistStreamPosition(force: true));
-    // A4：停止视为朗读会话结束，下次朗读允许再次提示无引擎
-    _noEngineHintShown = false;
     _resumeAfterInterruption = false;
     _playToken++;
-    _speakGeneration++;
-    final stopToken = _playToken;
-    _observeReadAloudControl(_systemEngine.stop());
-    _paragraphs = [];
-    _paragraphUnits = [];
-    readAloudPosition.value = null;
-    restoreReadAloudFollow();
-    _paragraphIndex = 0;
-    _paragraphStartOffset = 0;
-    _pendingChapterPos = null;
-    _pendingParagraphIndex = null;
-    _waitingForParagraph = false;
-    _observeReadAloudControl(
-      _stopFileTts().then(
-        (_) =>
-            _cleanTtsCache(cacheSnapshot, retentionMinutes, token: stopToken),
-      ),
-      errorPrefix: '音频播放控制失败',
-    );
-    notifyListeners();
+    _readAloud.stop(snapshot);
     state = state.copyWith(
       state: PlayerState.idle,
       mediaUrl: '',
@@ -2738,18 +1643,15 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> next() async {
-    _synthesisQueue.cancelBackground();
+    _readAloud.cancelBackground();
     if (!state.hasNext && state.mode != AudioPlayMode.singleLoop) return;
     if (!state.isStreamMode) {
       _playToken++;
-      _speakGeneration++;
-      _paragraphTimer?.cancel();
-      _observeReadAloudControl(_systemEngine.stop());
+      _readAloud.interrupt();
     }
     // [A3] 切章前写当前章进度（TTS 模式内部直接返回）
     await _persistStreamPosition(force: true);
-    _paragraphTimer?.cancel();
-    _paragraphIndex = 0;
+    _readAloud.resetParagraphForChapter();
     if (state.mode == AudioPlayMode.singleLoop) {
       await play(paragraphIndex: 0);
       return;
@@ -2759,35 +1661,29 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   Future<void> previous() async {
-    _synthesisQueue.cancelBackground();
+    _readAloud.cancelBackground();
     if (!state.hasPrevious) return;
     if (!state.isStreamMode) {
       _playToken++;
-      _speakGeneration++;
-      _paragraphTimer?.cancel();
-      _observeReadAloudControl(_systemEngine.stop());
+      _readAloud.interrupt();
     }
     // [A3] 切章前写当前章进度
     await _persistStreamPosition(force: true);
-    _paragraphTimer?.cancel();
-    _paragraphIndex = 0;
+    _readAloud.resetParagraphForChapter();
     state = state.copyWith(currentIndex: state.currentIndex - 1);
     await play(paragraphIndex: 0);
   }
 
   Future<void> jumpTo(int index) async {
-    _synthesisQueue.cancelBackground();
+    _readAloud.cancelBackground();
     if (index < 0 || index >= state.chapters.length) return;
     if (!state.isStreamMode) {
       _playToken++;
-      _speakGeneration++;
-      _paragraphTimer?.cancel();
-      _observeReadAloudControl(_systemEngine.stop());
+      _readAloud.interrupt();
     }
     // [A3] 切章前写当前章进度
     await _persistStreamPosition(force: true);
-    _paragraphTimer?.cancel();
-    _paragraphIndex = 0;
+    _readAloud.resetParagraphForChapter();
     state = state.copyWith(currentIndex: index);
     await play(paragraphIndex: 0);
   }
@@ -2837,11 +1733,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
             config.volume != updated.volume ||
             (resolveTtsEngineUrl() == systemTtsEngineUrl &&
                 config.speed != updated.speed))) {
-      _observeReadAloudControl(restartCurrentTts());
+      _readAloud.observeControl(restartCurrentTts());
     }
     if (engineUrl != null && updated.engineUrl.trim().isNotEmpty) {
       // [A4] 用户配置了引擎：清除无引擎提示（可用性由后续合成结果验证）
-      _noEngineHintShown = false;
+      _readAloud.clearNoEngineHint();
       if (state.errorMessage == kNoUsableEngineHint) {
         state = state.copyWith(errorMessage: null);
       }
@@ -2908,14 +1804,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       return AudioPlayMode.sequential;
     }
     return AudioPlayMode.values[index];
-  }
-
-  /// 无可用引擎提示：同一朗读会话只出现一次
-  void _showNoEngineHintOnce() {
-    if (_noEngineHintShown) return;
-    _noEngineHintShown = true;
-    if (state.errorMessage == kNoUsableEngineHint) return;
-    state = state.copyWith(errorMessage: kNoUsableEngineHint);
   }
 
   /// 播放模式落库：audioWithPlayMode FFI 合并 readConfig JSON → updateBook
@@ -3084,17 +1972,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _mediaProgressTicker?.cancel();
     _mediaSeekSub?.cancel();
     _disposed = true;
-    _paragraphTimer?.cancel();
-    _observeReadAloudControl(_systemEngine.dispose());
-    _synthesisQueue.cancelAll();
-    final snapshot = _stateForDispose;
-    unawaited(
-      _stopFileTts().then((_) async {
-        if (snapshot != null) {
-          await _cleanTtsCache(snapshot, _cacheRetentionMinutes);
-        }
-      }),
-    );
+    _readAloud.dispose(snapshot: _stateForDispose);
     super.dispose();
   }
 }
