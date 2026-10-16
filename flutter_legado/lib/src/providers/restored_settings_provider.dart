@@ -15,6 +15,9 @@ import 'theme/theme_colors_notifier.dart';
 import 'theme/theme_notifier.dart';
 import 'ui_settings/ui_settings_notifier.dart';
 import 'welcome_settings_provider.dart';
+import 'config_settings_provider.dart';
+import '../features/search/search_settings_provider.dart';
+import '../features/read_aloud/read_aloud_settings_provider.dart';
 
 /// 由应用Provider持有，页面关闭不截断已经开始的刷新。— Codex + UI
 final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
@@ -34,6 +37,12 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('欢迎页', () => ref.read(welcomeSettingsRepositoryProvider).reload()),
     ('应用行为', () => ref.read(generalSettingsRepositoryProvider).reload()),
     ('备份', () => ref.read(backupSettingsRepositoryProvider).reload()),
+    ('漫画设置', () => ref.read(mangaSettingsRepositoryProvider).reload()),
+    ('换源设置', () => ref.read(changeSourceSettingsRepositoryProvider).reload()),
+    ('播放设置', () => ref.read(audioPlaybackSettingsRepositoryProvider).reload()),
+    ('服务设置', () => ref.read(serviceSettingsRepositoryProvider).reload()),
+    ('搜索设置', () => ref.read(searchSettingsRepositoryProvider).reload()),
+    ('朗读设置', () => ref.read(readAloudSettingsRepositoryProvider).reload()),
     (
       '书架数据',
       () async {

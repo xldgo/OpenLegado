@@ -103,7 +103,7 @@ void main() {
     await shelf.deleteBook(book.bookUrl);
     await shelf.deleteBook('fixture://b');
     expect(await shelf.getBook(book.bookUrl), isNull);
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.bookshelfRepository, same(shelf));
     expect(api.bookGroupRepository, same(groups));
   });

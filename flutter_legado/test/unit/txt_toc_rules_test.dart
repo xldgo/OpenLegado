@@ -29,15 +29,17 @@ void main() {
       });
       mockApi = MockRustApi();
       configStore = {};
-      when(() => mockApi.getConfig(any())).thenAnswer((inv) async {
-        final key = inv.positionalArguments[0] as String;
-        return configStore[key];
-      });
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((inv) async {
-        final key = inv.positionalArguments[0] as String;
-        final value = inv.positionalArguments[1] as String;
-        configStore[key] = value;
-      });
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((inv) async {
+            final key = inv.positionalArguments[0] as String;
+            return configStore[key];
+          });
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((inv) async {
+            final key = inv.positionalArguments[0] as String;
+            final value = inv.positionalArguments[1] as String;
+            configStore[key] = value;
+          });
       container = ProviderContainer(
         overrides: [bookApiProvider.overrideWithValue(mockApi)],
       );
@@ -73,7 +75,7 @@ void main() {
       expect(state.error, isNull);
       expect(state.rules, isNotEmpty);
       expect(state.rules.first.id, lessThan(0)); // 原版默认 id 为负数
-      verify(() => mockApi.setConfig('txt_toc_rules', any()))
+      verify(() => mockApi.configRepository.setConfig('txt_toc_rules', any()))
           .called(greaterThan(0));
     });
 
@@ -88,7 +90,7 @@ void main() {
       final state = readState();
       expect(state.rules.single.id, equals(9));
       expect(state.rules.single.name, equals('自定义'));
-      verifyNever(() => mockApi.setConfig(any(), any()));
+      verifyNever(() => mockApi.configRepository.setConfig(any(), any()));
     });
 
     test('addRule 自动生成 id 与 serialNumber 并持久化', () async {
@@ -126,7 +128,8 @@ void main() {
       final added = state.rules.last;
       expect(added.id, equals(4));
       expect(added.serialNumber, equals(3));
-      verify(() => mockApi.setConfig('txt_toc_rules', any())).called(1);
+      verify(() => mockApi.configRepository.setConfig('txt_toc_rules', any()))
+          .called(1);
     });
 
     test('updateRule 更新指定规则', () async {
@@ -180,7 +183,8 @@ void main() {
     });
 
     test('load 异常时记录 error', () async {
-      when(() => mockApi.getConfig(any())).thenThrow(Exception('读取失败'));
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenThrow(Exception('读取失败'));
 
       await readNotifier().load();
 

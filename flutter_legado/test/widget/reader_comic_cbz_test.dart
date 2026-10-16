@@ -1,3 +1,5 @@
+import '../fixtures/config_repository.dart';
+
 import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
 
 import '../mocks/reading_fixture.dart';
@@ -103,12 +105,15 @@ class _CbzMockApi extends MockBookApi {
       const <BookSource>[];
 
   @override
-  Future<String?> getConfig(String key) async {
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(read: _fixturegetConfig);
+
+  Future<String?> _fixturegetConfig(String key) async {
     if (pagedMode && key == MangaConfigKeys.scrollMode) return '1';
     if (!longClickSaveImage && key == MangaConfigKeys.mangaLongClickSaveImage) {
       return 'false';
     }
-    return super.getConfig(key);
+    return null;
   }
 
   Future<Book?> _fixtureGetBook(String bookUrl) async {

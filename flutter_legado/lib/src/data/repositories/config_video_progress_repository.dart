@@ -8,12 +8,13 @@
 // - CacheManager.get（help/CacheManager.kt:100-112）：deadline > now 才算有效，
 //   过期读返回 null；CacheRepository 移植版读取过期项时即删除。
 //
-// 存储通道：复用既有 BookApi.getConfig/setConfig（caches 表，物理键带
+// 存储通道：复用既有 ConfigRepository（caches 表，物理键带
 // `config:` 前缀、TTL 固定为 0），逻辑键对齐 video_pos_ 前缀；20 天 TTL 由
 // 值内 savedAt 时间戳在 Dart 侧判定（无新增 FFI、无契约变更）。— V-B4
 import 'dart:convert';
 
-import '../services/book_api.dart';
+import '../../domain/contracts/config_repository.dart';
+import '../../domain/contracts/video_progress_repository.dart';
 
 /// 直链进度逻辑键前缀（对齐原版 VideoPlay.kt:56）
 const String kVideoPosKeyPrefix = 'video_pos_';
@@ -49,45 +50,48 @@ int? decodeVideoPos(String? raw, {required DateTime now}) {
 }
 
 /// 直链播放进度存取（持久化层为既有 config/caches 通道）
-class VideoPosStore {
-  VideoPosStore(this._api, {DateTime Function()? clock})
+class ConfigVideoProgressRepository implements VideoProgressRepository {
+  ConfigVideoProgressRepository(this._config, {DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
-  final BookApi _api;
+  final ConfigRepository _config;
   final DateTime Function() _clock;
 
   /// 读进度（毫秒）；无记录/过期/读失败一律 0（降级不抛）。
   /// 过期/损坏项读取即清理（对齐原版 CacheRepository.get 的过期即删）。
+  @override
   Future<int> read(String url) async {
     if (url.isEmpty) return 0;
     final key = videoPosKey(url);
     String? raw;
     try {
-      raw = await _api.getConfig(key);
+      raw = await _config.getConfig(key);
     } catch (_) {
       return 0;
     }
     final pos = decodeVideoPos(raw, now: _clock());
     if (pos == null && raw != null && raw.isNotEmpty) {
       try {
-        await _api.deleteConfig(key);
+        await _config.deleteConfig(key);
       } catch (_) {}
     }
     return pos ?? 0;
   }
 
   /// 写进度（毫秒）；url 为空或 pos <= 0 时跳过（避免用 0 覆盖有效进度）
+  @override
   Future<void> write(String url, int posMs) async {
     if (url.isEmpty || posMs <= 0) return;
-    await _api.setConfig(
+    await _config.setConfig(
       videoPosKey(url),
       encodeVideoPos(posMs, savedAt: _clock()),
     );
   }
 
   /// 清除进度（对齐 CacheManager.delete）
+  @override
   Future<void> clear(String url) async {
     if (url.isEmpty) return;
-    await _api.deleteConfig(videoPosKey(url));
+    await _config.deleteConfig(videoPosKey(url));
   }
 }

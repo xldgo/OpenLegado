@@ -75,7 +75,8 @@ void main() {
         .thenAnswer((_) async => const []);
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     when(() => mockApi.readingRepository.getChapterContent(any(), any()))
         .thenAnswer((_) async => '内容');
     await tester.pumpWidget(

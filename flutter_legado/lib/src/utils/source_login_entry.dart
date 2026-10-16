@@ -1,4 +1,5 @@
-import 'dart:convert';
+import '../providers/source_interaction_provider.dart';
+import '../app/bootstrap/login_v2_session_factory.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,12 +31,12 @@ Future<bool> showSourceLogin(
   BookSource source,
 ) async {
   final api = ref.read(bookApiProvider);
-  final sourceJson = jsonEncode(source.toJson());
+  final service = ref.read(sourceLoginV2ServiceProvider);
 
   // 1) V2 动态状态协议
   var isV2 = false;
   try {
-    isV2 = await api.isLoginUiV2(sourceJson);
+    isV2 = await service.isLoginUiV2(source);
   } catch (e) {
     debugPrint('loginUiV2 判定失败: $e');
   }
@@ -43,11 +44,8 @@ Future<bool> showSourceLogin(
   if (isV2) {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => LoginV2Dialog(
-        api: api,
-        sourceJson: sourceJson,
-        sourceName: source.bookSourceName,
-      ),
+      builder: (_) =>
+          LoginV2Dialog(session: createSourceLoginV2Session(service, source)),
     );
     return ok == true;
   }

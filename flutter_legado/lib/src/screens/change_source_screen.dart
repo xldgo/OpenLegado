@@ -1,3 +1,6 @@
+import '../providers/config_settings_provider.dart';
+import '../features/search/search_settings_provider.dart';
+import '../domain/models/change_source_settings.dart';
 import '../widgets/app_search_transition.dart';
 import '../widgets/app_menu.dart';
 
@@ -131,20 +134,19 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
   Future<void> _loadAdvancedOptions() async {
     final api = ref.read(bookApiProvider);
     try {
-      final results = await Future.wait([
-        api.getConfig('changeSourceCheckAuthor'),
-        api.getConfig('changeSourceLoadWordCount'),
-        api.getConfig('changeSourceLoadInfo'),
-        api.getConfig('changeSourceLoadToc'),
-        api.getConfig('searchGroup'),
-      ]);
+      final settings = await ref
+          .read(changeSourceSettingsRepositoryProvider)
+          .load();
+      final searchRepository = ref.read(searchSettingsRepositoryProvider);
+      await searchRepository.loadRuntime();
+      final search = searchRepository.current;
       if (mounted) {
         setState(() {
-          _checkAuthor = results[0] == 'true';
-          _loadWordCount = results[1] == 'true';
-          _loadInfo = results[2] == 'true';
-          _loadToc = results[3] == 'true';
-          _searchGroup = results[4] ?? '';
+          _checkAuthor = settings.checkAuthor;
+          _loadWordCount = settings.loadWordCount;
+          _loadInfo = settings.loadInfo;
+          _loadToc = settings.loadToc;
+          _searchGroup = search.searchGroup;
         });
       }
     } catch (_) {}
@@ -170,9 +172,11 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
   }
 
   /// 开关项持久化（键名对齐原版 AppConfig）
-  Future<void> _persistBool(String key, bool value) async {
+  Future<void> _persistBool(ChangeSourceOption option, bool value) async {
     try {
-      await ref.read(bookApiProvider).setConfig(key, value ? 'true' : 'false');
+      await ref
+          .read(changeSourceSettingsRepositoryProvider)
+          .update((s) => s.withOption(option, value));
     } catch (_) {}
   }
 
@@ -294,7 +298,9 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     if (confirmed != true || !mounted) return;
     setState(() => _searchGroup = '');
     try {
-      await ref.read(bookApiProvider).setConfig('searchGroup', '');
+      await ref
+          .read(searchSettingsRepositoryProvider)
+          .update((s) => s.copyWith(searchGroup: ''));
     } catch (_) {}
     if (mounted && !_stopped) await _search();
   }
@@ -641,21 +647,21 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       case 'checkAuthor':
         // 对标 menu_check_author（AppConfig.changeSourceCheckAuthor）
         setState(() => _checkAuthor = !_checkAuthor);
-        _persistBool('changeSourceCheckAuthor', _checkAuthor);
+        _persistBool(ChangeSourceOption.checkAuthor, _checkAuthor);
       case 'loadWordCount':
         // 对标 menu_load_word_count（AppConfig.changeSourceLoadWordCount）
         setState(() => _loadWordCount = !_loadWordCount);
-        await _persistBool('changeSourceLoadWordCount', _loadWordCount);
+        await _persistBool(ChangeSourceOption.loadWordCount, _loadWordCount);
         if (_loadWordCount && !_stopped) await _search(forceRefresh: true);
       case 'loadInfo':
         // 对标 menu_load_info（AppConfig.changeSourceLoadInfo）
         setState(() => _loadInfo = !_loadInfo);
-        await _persistBool('changeSourceLoadInfo', _loadInfo);
+        await _persistBool(ChangeSourceOption.loadInfo, _loadInfo);
         if (_loadInfo && !_stopped) await _search(forceRefresh: true);
       case 'loadToc':
         // 对标 menu_load_toc（AppConfig.changeSourceLoadToc）
         setState(() => _loadToc = !_loadToc);
-        await _persistBool('changeSourceLoadToc', _loadToc);
+        await _persistBool(ChangeSourceOption.loadToc, _loadToc);
         if (_loadToc && !_stopped) await _search(forceRefresh: true);
       case 'group':
         await _showGroupPicker();
@@ -681,7 +687,9 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     if (selected == null || !mounted) return;
     setState(() => _searchGroup = selected);
     try {
-      await ref.read(bookApiProvider).setConfig('searchGroup', selected);
+      await ref
+          .read(searchSettingsRepositoryProvider)
+          .update((s) => s.copyWith(searchGroup: selected));
     } catch (_) {}
     if (!_stopped) await _search(forceRefresh: true);
   }

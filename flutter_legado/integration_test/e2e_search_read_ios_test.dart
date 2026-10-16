@@ -271,7 +271,7 @@ void main() {
 
     // ── 2. 初始化 Rust 引擎 + 导入本地书源 ──
     final api = createBookApi(useMock: false) as RustApi;
-    await tester.runAsync(() => api.initialize());
+    await tester.runAsync(() => api.runtime.initialize());
     int imported = 0;
     await tester.runAsync(() async {
       imported = await api.bookSourceRepository.importBookSources(

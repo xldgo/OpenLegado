@@ -1,5 +1,62 @@
 # API 契约文档（BookApi 接口基准）
 
+## 配置与运行时Dart边界（2026-10-16，实施前冻结）
+
+ConfigRepository承接getConfig/setConfig/deleteConfig/getAllConfigs；正式实现继续使用configGet/
+configSet/configGetAll，空字符串读为null，删除仍写空字符串，枚举保留当前字段字符串化语义。
+JSON只在数据层解释，异常向上传递；configSet返回false视为写入失败，不能发布保存成功。
+Mock复用原配置Map，其他Mock服务继续共享同一存储。
+ConfigSettingsStorage改为依赖该仓储；普通设置只经AppSettingsService投影的类型化领域仓储
+访问，不由页面直接拼键。朗读引擎与音色选择、TXT目录规则、源变量、视频进度分别归属领域，
+复用原键、格式和TTL；令牌/凭据独立访问。存储介质不变，不引入历史兼容或数据库迁移。
+运行时边界负责原初始化委托与引擎版本查询，复用现有RustBootstrap/RustRuntime及完整启动
+顺序、失败策略和Mock资产预热。根BookApi移除六项方法及空配置part，只保留装配引用。
+不修改Rust/FRB签名、生成物、数据库、依赖、原生平台、应用版本或UI布局。
+
+编写者：Codex + Bridge｜2026-10-16
+
+## 阅读处理与书源动作Dart边界（2026-10-16，实施前冻结）
+
+ReadingContentService承接繁简转换读写及章级重复标题切换/读取/试算五项，直接复用当前FRB。
+繁简转换保留Rust现有配置键与运行时生效方式，不添加Preferences副本；设置成功后按原路径
+重新读取正文。重复标题开关仍按稳定bookUrl与章节索引持久化，试算及默认开启语义不变。
+SourceActionService承接章节购买及书源回调两项。购买返回ChapterPurchaseResult，kind只允许
+url/success/none，保留value，非法协议上抛，不伪造无需购买；购买成功仍由Rust失效缓存，UI重读。
+回调返回SourceCallbackResult，保留invoked/jsTrue/raw/actions及handled=invoked&&jsTrue；
+数据适配器注入既有dispatchActions，在返回之前回放一次平台动作，UI不重复回放。依照原有
+FFI契约，只有未接管才执行默认分享/复制/清缓存/搜索；修正旧复制和清缓存忽略接管结果的路径，
+并补齐分享/复制/清缓存遗漏的动作回放。注入的回放器异常上抛；既有平台回放器逐动作捕获错误
+并继续队列的行为保留，各消费者保留原错误提示/回退策略。
+正式/Mock共用应用装配和独立Provider；Mock繁简设置与根配置共享同一Map，章级状态隔离，
+不在Mock执行真实转换/缓存失效/付费或JS动作。根七项移除，13→6；两个空discovery_cache
+part删除，reader_data仅保留配置CRUD。不修改Rust、生成物、数据库、依赖、平台原生代码、
+排版/翻页算法或应用版本。真实native/书源购买与平台动作验证后置。
+
+编写者：Codex + Bridge｜2026-10-16
+
+## 书源编辑与交互通道Dart边界（2026-10-16，实施前冻结）
+
+BookSourceEditService承接cURL识别/双向转换、JS书源提取与语法检查五项；提取返回BookSource，
+语法检查返回SourceSyntaxResult，传输JSON仅在数据层处理。无生产调用的时间戳写回Dart壳删除，
+底层Rust/FRB保留。清除Cookie并入NetworkService，保留原域名归一和共享Cookie存储语义。
+SourceLoginV2Service承接V2判定、动态表单和动作；已有SourceLoginService继续负责手动凭据会话。
+输入使用BookSource与状态/表单对象，返回
+LoginUiDescription/LoginActionResult。平台interceptResult在解码之前调用；保留close/login、
+error、state的处理优先级。LoginV2Dialog仅依赖LoginV2Session；HTTP TTS既有SourceLoginSession
+经适配器复用同一控件，不改其Rust操作、凭据存储或经典登录行为。
+VerificationService接管验证码流/提交/取消三项，WebViewBridgeService接管WebView流/普通提交/
+Cookie回流提交/取消四项。请求使用类型化模型；保留请求key、源身份、Cookie、执行参数与时间。
+监听器固定订阅时服务实例，取消和回传都使用该实例；验证码按key去重/FIFO，WebView保留五个
+并行槽位/FIFO。平台WebView执行通过独立执行器注入，字段映射在平台适配器，错误仍回传ERROR。
+卸载后释放订阅并取消尚未处理请求，不再启动队列后续执行；不新增Rust句柄或重连协议。
+验证码监听在应用builder外层使用显式Navigator挂载点并在首帧后弹窗；提交异常允许重试，
+提交false不当作成功。JS提取/语法坏响应及缺少请求key的事件作为错误传播，不伪造成功结果。
+正式/Mock通过独立Provider装配；Mock空流/未命中/无真实引擎的既有语义保持。
+根十六活动方法及一项无调用壳移除，30→13；删除两个空sources part，不改Rust、生成物、
+数据库、依赖、原生平台代码或应用版本。真实WebView/Cookie/验证码及网络验证后置。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 网络、规则执行与本地服务Dart边界（2026-10-16，实施前冻结）
 
 NetworkService承接文本GET/POST、二进制GET与自定义hosts应用；请求继续使用Rust共享客户端，

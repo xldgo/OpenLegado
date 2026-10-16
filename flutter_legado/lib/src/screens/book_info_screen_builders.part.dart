@@ -187,20 +187,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   Future<void> _onCustomButton() async {
     final book = _loadedBook;
     if (book == null) return;
-    final api = ref.read(bookApiProvider);
     try {
-      final r = await api.sourceCallBackBtn(
-        event: 'clickCustomButton',
-        bookUrl: book.bookUrl,
-        bookType: book.bookType,
-      );
-      final actions = r['actions'];
-      if (actions is List) {
-        await PlatformBridgeService.instance.dispatchActions(actions);
-      }
-      final invoked = r['invoked'] == true;
-      final jsTrue = r['jsTrue'] == true;
-      if (!invoked || !jsTrue) {
+      final r = await ref
+          .read(sourceActionServiceProvider)
+          .sourceCallBackBtn(
+            event: 'clickCustomButton',
+            bookUrl: book.bookUrl,
+            bookType: book.bookType,
+          );
+      if (!r.handled) {
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(const SnackBar(content: Text('未配置回调或回调未接管')));
@@ -233,14 +228,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'copyBookUrl':
         if (book != null) {
-          await ref
-              .read(bookApiProvider)
+          final callback = await ref
+              .read(sourceActionServiceProvider)
               .sourceCallBackBtn(
                 event: 'clickCopyBookUrl',
                 bookUrl: book.bookUrl,
                 bookType: book.bookType,
                 result: book.bookUrl,
               );
+          if (callback.handled) break;
           await Clipboard.setData(ClipboardData(text: book.bookUrl));
           if (mounted) {
             ScaffoldMessenger.of(context)
@@ -250,14 +246,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'copyTocUrl':
         if (book != null) {
-          await ref
-              .read(bookApiProvider)
+          final callback = await ref
+              .read(sourceActionServiceProvider)
               .sourceCallBackBtn(
                 event: 'clickCopyTocUrl',
                 bookUrl: book.bookUrl,
                 bookType: book.bookType,
                 result: book.tocUrl,
               );
+          if (callback.handled) break;
           await Clipboard.setData(ClipboardData(text: book.tocUrl));
           if (mounted) {
             ScaffoldMessenger.of(context)
@@ -1510,18 +1507,14 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (book == null || result.trim().isEmpty) return false;
     try {
       final r = await ref
-          .read(bookApiProvider)
+          .read(sourceActionServiceProvider)
           .sourceCallBackBtn(
             event: event,
             bookUrl: book.bookUrl,
             bookType: book.bookType,
             result: result,
           );
-      final actions = r['actions'];
-      if (actions is List && mounted) {
-        await PlatformBridgeService.instance.dispatchActions(actions);
-      }
-      return r['invoked'] == true && r['jsTrue'] == true;
+      return r.handled;
     } catch (e) {
       debugPrint('SourceCallBack $event 失败: $e');
       return false;
@@ -1868,12 +1861,14 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final book = _loadedBook;
     if (book == null) return;
     try {
-      final api = ref.read(bookApiProvider);
-      await api.sourceCallBackBtn(
-        event: 'clickClearCache',
-        bookUrl: book.bookUrl,
-        bookType: book.bookType,
-      );
+      final callback = await ref
+          .read(sourceActionServiceProvider)
+          .sourceCallBackBtn(
+            event: 'clickClearCache',
+            bookUrl: book.bookUrl,
+            bookType: book.bookType,
+          );
+      if (callback.handled) return;
       final deleted = await ref
           .read(chapterCacheRepositoryProvider)
           .clearBookCache(book.bookUrl);

@@ -1,3 +1,5 @@
+import '../../providers/domain_config_provider.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -5,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
-import '../../providers/providers.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import 'http_tts_repository_provider.dart';
@@ -267,14 +268,16 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       if (!mounted || generation != _refreshGeneration) return;
       final voices = await ref.read(readAloudVoicesProvider.future);
       if (!mounted || generation != _refreshGeneration) return;
-      final api = ref.read(bookApiProvider);
+      final selectionsRepository = ref.read(
+        readAloudSelectionRepositoryProvider,
+      );
       final cloudSelections = <String, String>{};
       for (final engine
           in voices
               .where((v) => v.engineType == 'cloud_tts')
               .map((v) => v.engineId)
               .toSet()) {
-        final id = await api.getConfig('cloudTtsVoice:$engine');
+        final id = await selectionsRepository.getCloudVoice(engine);
         if (id != null && id.isNotEmpty) cloudSelections[engine] = id;
       }
       final selections = <String, HttpTtsVoiceSelection>{};
@@ -283,8 +286,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
               .where((v) => v.engineType == 'http')
               .map((v) => v.engineId)
               .toSet()) {
-        final selection = HttpTtsVoiceSelection.decode(
-          await api.getConfig(HttpTtsVoiceSelection.key(int.parse(engine))),
+        final selection = await selectionsRepository.getHttpVoice(
+          int.parse(engine),
         );
         if (selection != null) selections[engine] = selection;
       }
@@ -419,11 +422,9 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     } else {
       final emotions = (jsonDecode(voice.emotionCatalogJson) as List)
           .cast<Map>();
-      final selection = HttpTtsVoiceSelection.decode(
-        await ref
-            .read(bookApiProvider)
-            .getConfig(HttpTtsVoiceSelection.key(int.parse(voice.engineId))),
-      );
+      final selection = await ref
+          .read(readAloudSelectionRepositoryProvider)
+          .getHttpVoice(int.parse(voice.engineId));
       String? emotion = selection?.voiceId == voice.id
           ? selection?.emotionTag
           : null;

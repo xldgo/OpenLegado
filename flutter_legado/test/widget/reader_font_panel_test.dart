@@ -117,7 +117,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('字体管理'), findsWidgets);
 
-      // 简繁转换移到内容分组，仍沿用原 BookApi 持久化调用。
+      // 简繁转换移到内容分组，通过正文处理服务持久化。
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -133,10 +133,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(await mockApi.getChineseConvertType(), 0);
+      expect(await mockApi.readingContentService.getChineseConvertType(), 0);
       await tester.tap(find.text('简→繁').last);
       await tester.pumpAndSettle();
-      expect(await mockApi.getChineseConvertType(), 2);
+      expect(await mockApi.readingContentService.getChineseConvertType(), 2);
     });
   });
 }

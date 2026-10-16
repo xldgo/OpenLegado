@@ -416,7 +416,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       return;
     }
     try {
-      await ref.read(bookApiProvider).clearCookie(url);
+      await ref.read(networkServiceProvider).clearCookie(url);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.cookiesCleared)));

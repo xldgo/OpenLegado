@@ -45,7 +45,8 @@ void main() {
         .thenAnswer((_) async => [source]);
     when(() => api.readingRepository.getChapters(any()))
         .thenAnswer((_) async => []);
-    when(() => api.getConfig(any())).thenAnswer((_) async => '');
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     when(() => api.bookmarkRepository.getBookmarksByBook(any(), any()))
         .thenAnswer((_) async => []);
     when(

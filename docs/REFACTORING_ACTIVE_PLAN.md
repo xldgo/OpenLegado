@@ -1,5 +1,51 @@
 # Legado 后续重构执行计划（Active）
 
+### CONFIG-RUNTIME-BOUNDARY-20261016：配置访问与运行时入口收尾（P1）
+
+- 授权与基线：用户确认开始配置与启动收尾两批；feature/ui-reader-selection / b8971c34b，保护前两批78条未提交路径，快照位于忽略目录build/config-runtime-boundary-qa/。Codex直接执行，不使用子代理，不新建分支，不提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：两批实现与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；真实SQLite、native启动和设备播放复验后置。
+- 第一批：ConfigRepository承接底层配置CRUD，共享现有Rust配置通道和Mock内存；普通漫画、换源、播放、服务设置使用AppSettingsService及类型化仓储，已有搜索分组复用SearchSettingsRepository。朗读引擎/音色选择、TXT规则、RSS变量和视频进度使用领域入口，不混入普通设置；凭据和令牌保留独立访问边界。迁移全部根配置调用，根6→2，不调整存储位置或增加数据迁移。
+- 第二批：应用初始化与版本查询移入运行时边界，复用现有RustBootstrap/RustRuntime及启动顺序；保留Mock资产预热及失败传播。删除空reader_data/decode part和根六项旧方法，根仅保留装配引用，不在本批整体替换服务集合或所有Provider。
+- 验收：FRB配置参数/空值/坏JSON/异常，Mock共享与独立注入；普通设置快照/订阅/写入失败恢复、领域配置往返、目录规则与变量、进度TTL、启动顺序/错误及版本查询；相关Dart/Widget回归、完整静态分析和格式/差异检查。真实SQLite、native启动、购买、设备播放和后台行为后置，不以Mock成功宣称设备验收。
+- 配置实现：ConfigRepository正式/Mock实现共享原通道，ConfigSettingsStorage延迟获取同一仓储；新增漫画、换源、音频播放、服务四组类型化设置，复用AppSettingsService的快照、订阅及写入队列，搜索分组继续使用已有SearchSettingsRepository。引擎/音色、TXT规则、源变量、服务令牌各有领域仓储；直链视频进度移至数据层并经独立Provider注入，保留20天TTL及错误降级。页面、Notifier和功能控件不再直接调用四项配置CRUD；手动凭据的既有回退仍由装配层提供。备份恢复后刷新新增设置投影。
+- 启动实现：AppRuntime及正式/Mock适配器承接初始化和版本查询；正式启动委托原RustBootstrap，Mock预热同一资产，不改变顺序与失败边界。BookApi六项旧方法移除，语法树复核剩余业务方法0项；服务getter作为应用装配集合保留，整体替换集合与Provider不在本批。两份reader_data配置part和空decode part删除；四份漫画行为/参数模型从页面目录移入共享models，文字排版与翻页算法未改。三份integration_test仅同步新初始化调用，已通过静态检查，未执行设备集成测试。
+- 明确行为：configSet返回false现在抛出保存失败，设置服务据此回退未落盘值，不再误报成功；多键保存失败保留已写成功键。Mock继续共享配置Map，不伪造SQLite或原生操作。源变量原有RSS键回退和尽力清理移到数据层，没有新增迁移；HTTP音色选择JSON编解码移入数据仓储，领域值只保存音色与情感身份。
+- 验证结果：flutter test --no-pub相关108份测试1172项通过（58秒）；新增三份11项覆盖正式FRB参数/空值/拒绝/异常、运行时委托与版本、共享Mock、引擎及音色/情感、规则/变量/令牌、窄Provider、设置订阅/失败回退/重新装配读取与外部刷新。既有启动顺序、TXT规则、搜索/换源、漫画书级与全局配置、播放/朗读、服务开关、登录与前两批回归通过。视频最后改为窄Provider后，相关三份20项复验通过（2秒），不重复累计。完整flutter analyze --no-pub无问题（12.7秒），最终格式与git diff --check通过。
+- 失败与修正：迁移初轮发现旧根方法测试替身、漫画参数工具所在层次及一处括号错误，已迁移或修正；首轮组合中9项换源页面失败，原因是只读搜索分组却等待无关Preferences，改用既有loadRuntime后13项定向复验及最终1172项组合通过。未使用导入和夹具字段覆盖lint已修正，无遗留测试或分析失败。
+- 范围与证据：前两批78条路径中66条字节未变，12条仅叠加本批装配、契约、替身及配置入口移除（包括两份配置part删除），未覆盖其他原有修改。最终日志与清单位于flutter_legado/build/config-runtime-{test-manifest.txt,regression-final-1.log,regression-final.json,video-final.log,analysis-final.log}；忽略目录build/config-runtime-boundary-qa/保存开始快照、增量差异与最终摘要。Codex直接实现与自查，不使用子代理或声称独立审查；未提交/推送/触发CI/构建安装，不改Rust、FRB生成物、数据库、依赖、原生平台或版本。
+
+编写者：Codex｜2026-10-16
+
+### READING-ACTION-BOUNDARY-20261016：阅读处理与书源动作收口（P1）
+
+- 授权与基线：用户要求继续下一批七项迁移；feature/ui-reader-selection / b8971c34b，保留书源交互批次53条未提交路径，字节快照位于忽略目录build/reading-action-boundary-qa/。同一分支、Codex直接执行，不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批拆分与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；真实繁简处理、购买书源及平台动作设备验证后置。
+- 范围：ReadingContentService接管繁简读写及章级重复标题三项，SourceActionService接管购买与回调两项；迁移阅读配置、阅读菜单与书籍详情全部调用。根七项移除，13→6，不保留转发；两个空discovery_cache part删除，reader_data保留配置CRUD。
+- 边界：保留Rust当前存储/生效和缓存失效路径，不添加Preferences镜像，不改阅读进度、排版和翻页。购买与回调类型化，JSON在适配器处理；回调平台动作统一在适配器返回前回放一次，依原契约仅未接管才走默认行为。修正旧分享/复制/清缓存遗漏回放、复制/清缓存忽略接管结果，保留其他错误提示与回退。Mock与根配置共享Map，重复标题按书籍/章节隔离，不模拟真实付费/脚本/转换。
+- 验收：FRB参数/异常、繁简与章级状态、三类购买结果/坏响应、回调回放顺序/接管与错误；窄Provider替换、阅读配置重读和失败、菜单去重标题与购买、分享/复制/清缓存/搜索默认行为。仅运行相关测试、完整静态分析、格式与差异检查，不跑native或设备构建。
+- 实现：两份契约及各自正式/Mock服务、类型化购买/回调结果、两个窄Provider接入应用装配；所有七项消费者迁移，根旧方法与两份空discovery_cache part删除，语法树核对BookApi仅余初始化、版本及配置CRUD六项。繁简设置写入成功才更新选中状态并重读，失败保留原选项与正文；购买网页继续使用原书源身份、请求头与Cookie接线，购买成功复用缓存失效后的正文重读。
+- 回调语义：平台动作在服务返回前回放一次，页面不再重复回放；接管后不执行默认分享、复制或清缓存，未接管时继续。保留既有平台回放器逐动作捕获错误并继续队列的行为，注入回放器整体异常仍上抛；不把类型化结果或Mock通过当成真实平台动作成功证明。
+- 验证结果：flutter test --no-pub相关42份测试560项通过（19秒），覆盖正式FRB参数/错误/坏响应、三类购买结果、回放顺序与接管、共享Mock/窄Provider独立注入、繁简成功重读及失败保持原值、章级去重、购买成功/无结果/异常，以及分享/复制/清缓存默认与接管行为；前批书源编辑、登录、验证码、WebView和网络回归通过。完整flutter analyze --no-pub无问题（19.8秒），72份Dart格式检查无差异，git diff --check通过；先行与重试不重复累计。
+- 失败与复核：首轮分析一项花括号lint已修正；新页面测试未等待复制提示消失，导致清缓存提示仍在队列，修正测试等待后8项复验及最终组合通过。前批53条路径中46条字节不变，另7条仅叠加本批装配、接口、替身和文档改动，原删除文件保持删除。Codex直接实现与自查，不使用子代理或声称独立审查。
+- 证据与边界：测试清单及最终日志位于flutter_legado/build/reading-action-{test-manifest.txt,regression-final.log,analysis-final.log}；忽略目录build/reading-action-boundary-qa/保存前批快照、增量差异和最终摘要。未提交/推送/触发CI/构建安装，Rust、FRB生成物、数据库、依赖、原生平台和版本未变。实际WebView购买导航、真实引擎转换、数据库持久化与平台动作未复验，不以适配器或Widget测试关闭这些边界。
+
+编写者：Codex｜2026-10-16
+
+### SOURCE-INTERACTION-BOUNDARY-20261016：书源编辑与交互通道整域收口（P1）
+
+- 授权与基线：用户要求先提交上批再开始已提议任务；feature/ui-reader-selection / b8971c34b，提交后工作区干净。同一分支、Codex直接执行，不使用子代理，不自动追加提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批整域收口与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；真实JS引擎、验证码与WebView/Cookie设备复验后置。
+- 范围：书源编辑五项、清除Cookie一项、V2登录三项、验证码三项与WebView四项迁移到窄服务；无生产消费者的时间戳Dart壳移除，Rust/FRB能力保留。根17项移除，30→13，两个空sources part删除。
+- 边界：JSON/字段转换集中数据或平台适配器，登录表单和通道使用类型化结果；HTTP TTS保留既有SourceLoginSession协议，经适配器复用V2控件。保留平台脚本拦截、登录命令优先级、验证码去重/FIFO、WebView并行5/FIFO和Cookie回流。订阅/取消/回传固定同一服务，卸载后不再启动排队执行。不改登录UI、Rust、数据库、依赖、生成物或版本。
+- 验收：正式FRB Mock参数与错误、JS提取/语法坏响应、登录命令与TTS适配、Cookie编码、请求字段与流错误；窄Provider替换、验证码提交/取消/去重、WebView并行/FIFO/错误与卸载，以及既有书源编辑和登录回归。只运行相关测试、完整静态分析、格式与差异检查，设备验证后置。
+- 实现：BookSourceEditService、SourceLoginV2Service、VerificationService和WebViewBridgeService共四份契约及正式/Mock实现、类型化语法/登录/通道模型、四个窄Provider接入应用装配；清除Cookie并入NetworkService。原SourceLoginService继续负责手动凭据。LoginV2Session的书源/TTS适配在数据层，控件不再处理传输JSON；平台WebView执行器负责载荷映射和Cookie解码。删除根十六活动入口和无调用的时间戳壳、两个空sources part；语法树复核根BookApi为13项，不改Rust/FRB能力。
+- 行为与修正：保留cURL转换、JS保存时语法警告不阻断、完整mainJs、登录close/login→error→state优先级、表单输入与倒计时。验证码监听原处于MaterialApp.builder外层，改为显式Navigator及首帧后弹窗；提交失败可重试，false不作为成功。验证码订阅/提交/取消与WebView订阅/结果回传固定同一服务；卸载取消活动/排队请求，WebView不再推进后续排队任务。五路并发/FIFO、Cookie域信息及错误唤醒协议保持；未新增重连或原生取消句柄。
+- 验证结果：flutter test --no-pub相关32份测试401项全部通过（16秒），四份新增测试覆盖正式FRB参数/异常、完整源与脚本/语法错误、V2平台拦截及请求编码、类型化字段/Cookie回流、坏请求/坏响应、共享Mock与独立注入、实际JS/cURL/V2入口、验证码应用builder挂载/去重/FIFO/提交失败/卸载，以及WebView五路并发/FIFO/错误/卸载不续执行。既有登录控件增加state重载/保留输入/倒计时和login/error优先级两项；HTTP TTS、经典登录、书源CRUD/导入、发现和前批网络回归通过。完整flutter analyze --no-pub无问题（21.2秒），格式与差异检查通过；先行轮次不重复累计。
+- 失败与修正：首轮分析两项旧未使用导入和一项可空集合lint已修正；Mock清Cookie错误类型最初改为ArgumentError，与原Exception语义不一致，恢复后通过。新增WebView测试将含Map的record直接相等比较，改为字段及Map内容断言；无未解决失败。没有独立审查或设备验收结论，Codex直接实现与自查。
+- 证据与范围：最终清单和日志位于flutter_legado/build/source-interaction-{test-manifest.txt,regression-final.log,analysis-final.log}；忽略目录build/source-interaction-boundary-qa/保存范围与结果清单。上批已提交b8971c34b，本批不自动追加提交；未推送/触发CI/构建安装，未改Rust、生成物、数据库、依赖、原生平台代码或版本。真实JS/WebView/Cookie/验证码与网络验证未执行。
+
+编写者：Codex｜2026-10-16
+
 ### NETWORK-SERVER-BOUNDARY-20261016：网络、规则执行与本地服务整域拆分（P1）
 
 - 授权与基线：用户要求继续BookApi拆分；feature/ui-reader-selection / a490ba24d，工作区干净。同一分支、Codex直接执行，不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。

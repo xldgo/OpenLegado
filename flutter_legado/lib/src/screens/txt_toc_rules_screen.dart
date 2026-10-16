@@ -22,7 +22,7 @@ import '../utils/error_message.dart';
 /// 管理用于识别 TXT 小说章节标题的正则规则，
 /// 支持添加 / 编辑 / 删除、启用开关以及在线测试匹配效果。
 ///
-/// 规则经 [TxtTocRulesNotifier] 持久化到 Rust 配置库（BookApi.getConfig/setConfig），
+/// 规则经 [TxtTocRulesNotifier] 持久化到 Rust 配置库（ConfigRepository），
 /// 不再使用内存态；「在线测试」仅为本地正则预览，不参与实际数据流。
 class TxtTocRulesScreen extends ConsumerStatefulWidget {
   const TxtTocRulesScreen({super.key});

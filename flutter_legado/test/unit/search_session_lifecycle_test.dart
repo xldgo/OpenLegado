@@ -17,7 +17,8 @@ Future<void> pump() async {
 }
 
 void prepare(MockRustApi api) {
-  when(() => api.getConfig(any())).thenAnswer((_) async => null);
+  when(() => api.configRepository.getConfig(any()))
+      .thenAnswer((_) async => null);
   when(
     () => api.searchHistoryRepository.getSearchHistory(
       limit: any(named: 'limit'),

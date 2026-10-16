@@ -1,3 +1,7 @@
+import '../../providers/config_settings_provider.dart';
+import '../../providers/domain_config_provider.dart';
+import '../../domain/contracts/audio_playback_settings_repository.dart';
+import '../../domain/contracts/read_aloud_selection_repository.dart';
 import '../../domain/contracts/audio_book_service.dart';
 import '../media_provider.dart';
 import '../../domain/contracts/reading_repository.dart';
@@ -108,7 +112,7 @@ const int kMaxChapterStopCount = 99;
 /// 对齐原版 `PreferKey.ttsEngine = "appTtsEngine"`（app/.../constant/PreferKey.kt:46
 /// → `AppConfig.ttsEngine`，app/.../help/config/AppConfig.kt:506-509）：原版
 /// 「全局」按钮把所选引擎写入该键，「书」按钮只写书级 `readConfig.ttsEngine`。
-/// 本项目全局值经既有 config 存储（[BookApi.setConfig]）持久化，书级值经
+/// 本项目全局值经既有 config 存储（ConfigRepository）持久化，书级值经
 /// `Book.copyWith(readConfig:)` + [BookApi.updateBook] 落 `books.readConfig` 列。
 /// [引擎双持久化 | 2026-10-04]
 const String kTtsEngineConfigKey = 'appTtsEngine';
@@ -201,6 +205,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   }
 
   BookApi? _apiCache;
+  late AudioPlaybackSettingsRepository _playbackSettings;
+  late ReadAloudSelectionRepository _selections;
+
   late ReadingRepository _reading;
   late AudioBookService _audioBook;
 
@@ -416,6 +423,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   @override
   AudioState build() {
     _apiCache = ref.read(bookApiProvider);
+    _playbackSettings = ref.read(audioPlaybackSettingsRepositoryProvider);
+    _selections = ref.read(readAloudSelectionRepositoryProvider);
     _audioBook = ref.read(audioBookServiceProvider);
     _reading = ref.read(readingRepositoryProvider);
     final initialState = AudioState(config: TtsConfig());
@@ -940,14 +949,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     await clearBookTtsEngine();
     updateConfig(engineUrl: url, engineId: engineId, restartPlayback: false);
     try {
-      if (url.isNotEmpty) {
-        await _api.setConfig(kTtsEngineConfigKey, url);
-      }
-      if (engineId != null && engineId != 0) {
-        await _api.setConfig(kTtsEngineIdConfigKey, engineId.toString());
-      } else if (url == systemTtsEngineUrl || isCloudTts(url)) {
-        await _api.setConfig(kTtsEngineIdConfigKey, '');
-      }
+      await _selections.setEngine(url, httpEngineId: engineId);
     } catch (e) {
       debugPrint('持久化全局朗读引擎失败: $e');
     }
@@ -996,8 +998,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<String> _restorePersistedGlobalEngine() async {
     final token = _playToken;
     try {
-      final rawId = await _api.getConfig(kTtsEngineIdConfigKey);
-      final parsedId = rawId != null ? int.tryParse(rawId) : null;
+      final parsedId = await _selections.getHttpEngineId();
       if (parsedId != null && parsedId != 0) {
         try {
           final repo = ref.read(httpTtsRepositoryProvider);
@@ -1025,7 +1026,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         );
         return parsedId.toString();
       }
-      final raw = await _api.getConfig(kTtsEngineConfigKey);
+      final raw = await _selections.getEngineUrl();
       if (_disposed || token != _playToken) return '';
       final url = normalizeTtsEngineUrl(raw ?? '');
       if (url.isEmpty) return '';
@@ -1392,7 +1393,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           : await _httpVoice(engineId);
       if (_isSpeakStale(token, gen)) return;
       final cloudVoice = isCloudTts(engineUrl)
-          ? await _api.getConfig('cloudTtsVoice:${cloudTtsId(engineUrl)}')
+          ? await _selections.getCloudVoice(cloudTtsId(engineUrl))
           : null;
       if (_isSpeakStale(token, gen)) return;
       final request = ReadAloudRequest(
@@ -1830,9 +1831,8 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (!_api.readAloudVoiceRepository.supportsCatalog) {
       return const HttpTtsVoiceResolution();
     }
-    final raw = await _api.getConfig(HttpTtsVoiceSelection.key(id));
-    if (raw == null || raw.isEmpty) return const HttpTtsVoiceResolution();
-    final selection = HttpTtsVoiceSelection.decode(raw);
+    final selection = await _selections.getHttpVoice(id);
+    if (selection == null) return const HttpTtsVoiceResolution();
     return resolveHttpTtsVoice(
       id,
       await _api.readAloudVoiceRepository.list(),
@@ -1847,7 +1847,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
             !voice.selectable)) {
       throw StateError('该音色不能用于此引擎');
     }
-    await _api.setConfig('cloudTtsVoice:$engineId', voice?.id ?? '');
+    await _selections.setCloudVoice(engineId, voice?.id);
     if (!_disposed && resolveTtsEngineUrl() == 'cloud://$engineId') {
       await restartCurrentTts();
     }
@@ -1870,11 +1870,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       ], HttpTtsVoiceSelection(voice.id, emotionTag: emotionTag));
       if (resolution.warning != null) throw StateError(resolution.warning!);
     }
-    await _api.setConfig(
-      HttpTtsVoiceSelection.key(id),
+    await _selections.setHttpVoice(
+      id,
       voice == null
-          ? ''
-          : HttpTtsVoiceSelection(voice.id, emotionTag: emotionTag).encode(),
+          ? null
+          : HttpTtsVoiceSelection(voice.id, emotionTag: emotionTag),
     );
     if (_disposed ||
         state.isStreamMode ||
@@ -2465,13 +2465,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<void> setWakeLockEnabled(bool enabled) async {
     await _audioService.setWakeLock(enabled);
     try {
-      await _api.setConfig(kAudioPlayWakeLockKey, enabled ? 'true' : 'false');
+      await _playbackSettings.update((s) => s.copyWith(wakeLock: enabled));
     } catch (_) {}
   }
 
   Future<bool> isWakeLockEnabled() async {
     try {
-      return await _api.getConfig(kAudioPlayWakeLockKey) == 'true';
+      return (await _playbackSettings.load()).wakeLock;
     } catch (_) {
       return false;
     }
@@ -2508,14 +2508,9 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     var globalOpen = 0;
     var globalClose = 0;
     try {
-      globalOpen =
-          int.tryParse(await _api.getConfig(kAudioSkipOpenCreditsKey) ?? '0') ??
-          0;
-      globalClose =
-          int.tryParse(
-            await _api.getConfig(kAudioSkipCloseCreditsKey) ?? '0',
-          ) ??
-          0;
+      final settings = await _playbackSettings.load();
+      globalOpen = settings.openCredits;
+      globalClose = settings.closeCredits;
     } catch (_) {}
     final cfg = _book?.readConfig;
     final cfgMap = cfg == null

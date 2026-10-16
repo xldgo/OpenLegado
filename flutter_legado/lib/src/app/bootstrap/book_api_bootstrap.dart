@@ -1,3 +1,11 @@
+import '../../data/repositories/rust_config_repository.dart';
+import '../../data/bridge/rust_app_runtime.dart';
+import '../../data/services/rust_reading_content_service.dart';
+import '../../data/services/rust_source_action_service.dart';
+import '../../data/services/rust_book_source_edit_service.dart';
+import '../../data/services/rust_source_login_v2_service.dart';
+import '../../data/services/rust_verification_service.dart';
+import '../../data/services/rust_webview_bridge_service.dart';
 import '../../data/services/rust_network_service.dart';
 import '../../data/services/rust_local_server_service.dart';
 import '../../data/services/rust_rule_execution_service.dart';
@@ -77,6 +85,16 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    readingContentService: const RustReadingContentService(),
+    sourceActionService: RustSourceActionService(
+      dispatchActions: PlatformBridgeService.instance.dispatchActions,
+    ),
+    bookSourceEditService: const RustBookSourceEditService(),
+    sourceLoginV2Service: RustSourceLoginV2Service(
+      interceptResult: PlatformBridgeService.instance.interceptResult,
+    ),
+    verificationService: const RustVerificationService(),
+    webViewBridgeService: const RustWebViewBridgeService(),
     networkService: const RustNetworkService(),
     localServerService: const RustLocalServerService(),
     ruleExecutionService: RustRuleExecutionService(
@@ -126,7 +144,8 @@ BookApi createBookApi({
     ),
     backupRepository: const RustBackupRepository(),
     webDavService: const RustWebDavService(),
-    initialize: startup.initialize,
+    runtime: RustAppRuntime(startup: startup.initialize),
+    configRepository: const RustConfigRepository(),
     readingConfigSync: startup.configurationSync,
     bookmarkRepository: const RustBookmarkRepository(),
     readRecordRepository: RustReadRecordRepository(),
@@ -147,7 +166,7 @@ BookApi createBookApi({
 /// 初始化成功后返回原实例，供根 ProviderScope 注入；失败原样上抛。
 Future<BookApi> initializeBookApi({BookApi? api}) async {
   final instance = api ?? createBookApi();
-  await instance.initialize();
+  await instance.runtime.initialize();
   return instance;
 }
 

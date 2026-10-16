@@ -1,23 +1,9 @@
 import 'dart:convert';
 
+import '../../domain/models/http_tts_voice_selection.dart';
+export '../../domain/models/http_tts_voice_selection.dart';
+
 import '../../domain/contracts/read_aloud_voice_repository.dart';
-
-final class HttpTtsVoiceSelection {
-  const HttpTtsVoiceSelection(this.voiceId, {this.emotionTag});
-  final String voiceId;
-  final String? emotionTag;
-  static String key(int id) => 'ttsVoice:$id';
-  static HttpTtsVoiceSelection? decode(String? value) {
-    if (value == null || value.isEmpty) return null;
-    final j = jsonDecode(value) as Map<String, dynamic>;
-    return HttpTtsVoiceSelection(
-      j['voiceId'] as String,
-      emotionTag: j['emotionTag'] as String?,
-    );
-  }
-
-  String encode() => jsonEncode({'voiceId': voiceId, 'emotionTag': emotionTag});
-}
 
 final class HttpTtsVoiceResolution {
   const HttpTtsVoiceResolution({this.voice, this.emotionTag, this.warning});

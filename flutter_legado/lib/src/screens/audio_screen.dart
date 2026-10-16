@@ -1,3 +1,4 @@
+import '../providers/config_settings_provider.dart';
 import '../providers/media_provider.dart';
 import '../widgets/reader/read_aloud_timer_sheet.dart';
 import '../widgets/app_menu.dart';
@@ -17,7 +18,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../models/models.dart';
 import '../providers/audio/audio_notifier.dart';
 import '../providers/providers.dart';
-import '../utils/audio_skip_policy.dart';
 import '../routes.dart';
 import '../l10n/app_localization.dart';
 import '../services/audio_cache_events.dart';
@@ -1109,11 +1109,10 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   Future<void> _showSkipCreditsSheet() async {
     final api = ref.read(bookApiProvider);
     final book = widget.book;
-    var globalOpen =
-        int.tryParse(await api.getConfig(kAudioSkipOpenCreditsKey) ?? '0') ?? 0;
-    var globalClose =
-        int.tryParse(await api.getConfig(kAudioSkipCloseCreditsKey) ?? '0') ??
-        0;
+    final settings = ref.read(audioPlaybackSettingsRepositoryProvider);
+    final initial = await settings.load();
+    var globalOpen = initial.openCredits;
+    var globalClose = initial.closeCredits;
     var useGlobal =
         (book?.readConfig?.openCredits ?? 0) == 0 &&
         (book?.readConfig?.closeCredits ?? 0) == 0;
@@ -1180,10 +1179,11 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
                   FilledButton(
                     onPressed: () async {
                       if (useGlobal) {
-                        await api.setConfig(kAudioSkipOpenCreditsKey, '$open');
-                        await api.setConfig(
-                          kAudioSkipCloseCreditsKey,
-                          '$close',
+                        await settings.update(
+                          (s) => s.copyWith(
+                            openCredits: open,
+                            closeCredits: close,
+                          ),
                         );
                         if (book != null) {
                           final cfg = book.readConfig ?? const ReadConfig();

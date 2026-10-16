@@ -67,7 +67,8 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     mockAudio = MockAudioService();
     fakePlayer = FakeStreamAudioPlayer();
     focusController = StreamController<AudioFocusEvent>.broadcast();

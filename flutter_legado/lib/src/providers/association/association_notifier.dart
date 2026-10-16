@@ -1,3 +1,4 @@
+import '../domain_config_provider.dart';
 import '../dictionary_provider.dart';
 import '../replace_rule_repository_provider.dart';
 import '../rss_repository_provider.dart';
@@ -233,7 +234,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
               .map((rule) => rule.toJson())
               .toList();
         case ImportType.txtTocRule:
-          return await _readConfigList('txt_toc_rules');
+          return (await ref.read(txtTocRuleRepositoryProvider).getRules())
+              .map((r) => r.toJson())
+              .toList();
         case ImportType.theme:
           // Flutter 端无具名主题仓库，状态按 none 处理（默认全选）
           return null;
@@ -241,23 +244,6 @@ class AssociationNotifier extends Notifier<AssociationState> {
     } catch (_) {
       return null;
     }
-  }
-
-  /// 读取配置键中的 JSON 列表（失败返回空列表）
-  Future<List<Map<String, dynamic>>> _readConfigList(String key) async {
-    final list = <Map<String, dynamic>>[];
-    try {
-      final raw = await _api.getConfig(key);
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          for (final e in decoded) {
-            if (e is Map<String, dynamic>) list.add(e);
-          }
-        }
-      }
-    } catch (_) {}
-    return list;
   }
 
   /// 逐条计算状态（对应原版各对话框 tvSourceState 规则）
@@ -565,7 +551,10 @@ class AssociationNotifier extends Notifier<AssociationState> {
     ImportType type,
     List<Map<String, dynamic>> items,
   ) async {
-    final existing = await _readConfigList('txt_toc_rules');
+    final repository = ref.read(txtTocRuleRepositoryProvider);
+    final existing = (await repository.getRules())
+        .map((r) => r.toJson())
+        .toList();
     var nextId = existing.fold<int>(
       0,
       (m, e) =>
@@ -596,7 +585,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
         errors.add('导入 TXT 规则「${item['name']}」失败：$e');
       }
     }
-    await _api.setConfig('txt_toc_rules', jsonEncode(existing));
+    await repository.saveRules(existing.map(TxtTocRule.fromJson).toList());
     return ImportResult(
       total: items.length,
       success: success,

@@ -1,5 +1,6 @@
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/domain/models/reader_status_strip_settings.dart';
+import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -308,12 +309,158 @@ void main() {
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
       verifyNever(
-        () => mockApi.chapterPayAction(
+        () => mockApi.sourceActionService.chapterPayAction(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
         ),
       );
     });
+
+    testWidgets('购买成功重读当前章，结果仍属于原书籍与章节', (tester) async {
+      await openSourceMenu(
+        tester,
+        const BookSource(
+          bookSourceUrl: 'https://source.com',
+          bookSourceName: '测试源',
+          ruleContent: ContentRule(payAction: 'true'),
+        ),
+      );
+      when(
+        () => mockApi.sourceActionService.chapterPayAction(
+          bookUrl: testBook.bookUrl,
+          chapterIndex: 0,
+        ),
+      ).thenAnswer(
+        (_) async => const ChapterPurchaseResult(
+          kind: ChapterPurchaseKind.success,
+          value: 'true',
+        ),
+      );
+      when(
+        () => mockApi.readingRepository.getChapterContentFull(
+          testBook.bookUrl,
+          0,
+        ),
+      ).thenAnswer((_) async => '已购买正文');
+      await tester.tap(find.text('章节购买'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(container.read(readerNotifierProvider).chapterContent, '已购买正文');
+      expect(find.text('购买成功'), findsOneWidget);
+      verify(
+        () => mockApi.sourceActionService.chapterPayAction(
+          bookUrl: testBook.bookUrl,
+          chapterIndex: 0,
+        ),
+      ).called(1);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+    for (final fail in [false, true]) {
+      testWidgets(fail ? '购买异常保留正文并提示失败' : '无明确购买结果保留正文且不显示成功', (tester) async {
+        await openSourceMenu(
+          tester,
+          const BookSource(
+            bookSourceUrl: 'https://source.com',
+            bookSourceName: '测试源',
+            ruleContent: ContentRule(payAction: 'true'),
+          ),
+        );
+        final call = when(
+          () => mockApi.sourceActionService.chapterPayAction(
+            bookUrl: testBook.bookUrl,
+            chapterIndex: 0,
+          ),
+        );
+        if (fail) {
+          call.thenThrow(StateError('购买被拒绝'));
+        } else {
+          call.thenAnswer(
+            (_) async => const ChapterPurchaseResult(
+              kind: ChapterPurchaseKind.none,
+              value: '',
+            ),
+          );
+        }
+        await tester.tap(find.text('章节购买'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('确定'));
+        await tester.pumpAndSettle();
+        expect(container.read(readerNotifierProvider).chapterContent, '章节内容');
+        verify(
+          () => mockApi.readingRepository.getChapterContentFull(
+            testBook.bookUrl,
+            0,
+          ),
+        ).called(1);
+        expect(find.text('购买成功'), findsNothing);
+        if (fail) expect(find.textContaining('章节购买失败'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
+  group('章级重复标题处理', () {
+    for (final fail in [false, true]) {
+      testWidgets(fail ? '章级开关失败不重读正文或显示成功' : '章级去重写入成功后重读，使用当前章稳定身份', (
+        tester,
+      ) async {
+        stubOpenBook();
+        when(
+          () => mockApi.readingContentService.getSameTitleRemoved(
+            testBook.bookUrl,
+            0,
+          ),
+        ).thenAnswer((_) async => true);
+        final write = when(
+          () => mockApi.readingContentService.toggleSameTitleRemoved(
+            testBook.bookUrl,
+            0,
+            false,
+          ),
+        );
+        if (fail) {
+          write.thenThrow(StateError('无法写入'));
+        } else {
+          write.thenAnswer((_) async {});
+        }
+        await container
+            .read(readerNotifierProvider.notifier)
+            .openBook(testBook);
+        await tester.pumpWidget(wrapStack(buildReaderMenu()));
+        await tester.pumpAndSettle();
+        tester
+            .widget<AppMenuButton<String>>(find.byType(AppMenuButton<String>))
+            .onSelected!('sameTitleRemoved');
+        await tester.pumpAndSettle();
+        verify(
+          () => mockApi.readingContentService.toggleSameTitleRemoved(
+            testBook.bookUrl,
+            0,
+            false,
+          ),
+        ).called(1);
+        verify(
+          () => mockApi.readingRepository.getChapterContentFull(
+            testBook.bookUrl,
+            0,
+          ),
+        ).called(fail ? 1 : 2);
+        if (fail) {
+          expect(find.textContaining('设置失败'), findsOneWidget);
+          expect(find.text('该章已保留原标题'), findsNothing);
+        } else {
+          expect(find.text('该章已保留原标题'), findsOneWidget);
+        }
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   group('ReaderStatusStrip（Phase 2.4/2.6 状态栏）', () {

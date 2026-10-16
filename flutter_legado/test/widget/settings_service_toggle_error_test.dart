@@ -48,14 +48,15 @@ void main() {
 
   /// 按配置键返回（未列出的键返回 null，等价未配置）
   void stubConfigs({String? mcpPort, String? token}) {
-    when(() => mockApi.getConfig(any())).thenAnswer((inv) async {
-      final key = inv.positionalArguments.first as String;
-      return switch (key) {
-        'mcpPort' => mcpPort,
-        'jsSourceApiToken' => token,
-        _ => null,
-      };
-    });
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((inv) async {
+          final key = inv.positionalArguments.first as String;
+          return switch (key) {
+            'mcpPort' => mcpPort,
+            'jsSourceApiToken' => token,
+            _ => null,
+          };
+        });
   }
 
   Future<void> dragTo(WidgetTester tester, String text) {

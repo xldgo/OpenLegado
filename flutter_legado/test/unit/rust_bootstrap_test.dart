@@ -48,8 +48,7 @@ void main() {
   test('正式装配共享启动与 UI 偏好，主题切换不访问配置表或重开数据库', () async {
     SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
     final settings = createAppSettingsService(
-      readConfig: (_) async => throw StateError('不应读取 Rust 配置表'),
-      writeConfig: (_, _) async => throw StateError('不应写入 Rust 配置表'),
+      configRepository: () => throw StateError('不应访问 Rust 配置表'),
     );
     addTearDown(settings.dispose);
     final fixture = _Fixture();

@@ -13,7 +13,7 @@
 // paged 版 delay(distance*1000L) → scrollPage，条漫 scrollBy。
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/reader_comic/manga_auto_read.dart';
+import 'package:flutter_legado/src/models/manga_auto_read.dart';
 
 void main() {
   group('[P4-3 E3] MangaAutoRead 纯逻辑', () {

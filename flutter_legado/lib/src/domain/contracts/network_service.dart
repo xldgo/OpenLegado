@@ -21,4 +21,7 @@ abstract interface class NetworkService {
 
   /// 使用现有hosts编辑格式；空文本恢复系统DNS，失败不持久化。
   Future<void> setCustomHosts(String configuration);
+
+  /// 清除指定URL所属域名的共享Cookie，不操作平台WebView全部Cookie。
+  Future<void> clearCookie(String url);
 }

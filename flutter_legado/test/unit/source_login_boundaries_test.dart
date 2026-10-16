@@ -84,8 +84,8 @@ void main() {
         container.read(sourceLoginRepositoryProvider),
         same(second.sourceLoginRepository),
       );
-      verifyNever(first.initialize);
-      verifyNever(second.initialize);
+      verifyNever(first.runtime.initialize);
+      verifyNever(second.runtime.initialize);
       expect(
         createBookApi(useMock: true).sourceLoginRepository,
         isA<MockSourceLoginRepository>(),

@@ -1,12 +1,10 @@
-import '../domain/contracts/source_login_session.dart';
+import '../domain/contracts/login_v2_session.dart';
+import '../domain/models/login_v2.dart';
 import '../l10n/app_localization.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-
-import '../services/book_api.dart';
 
 /// 登录 V2 动态状态协议对话框（对标 Kotlin SourceLoginDialogV2，上游 #402/#488）
 ///
@@ -17,30 +15,17 @@ import '../services/book_api.dart';
 /// 公共组件：书籍详情页与发现页共用登录入口（2026-08-14 发现页修复 R2，
 /// 自 book_info_screen 提取）。— DeepSeek Harness + UI
 class LoginV2Dialog extends StatefulWidget {
-  final BookApi? api;
-  final SourceLoginSession? session;
-  final String sourceJson;
-  final String sourceName;
+  final LoginV2Session session;
 
-  const LoginV2Dialog({
-    super.key,
-    required this.api,
-    required this.sourceJson,
-    required this.sourceName,
-  }) : session = null;
-
-  LoginV2Dialog.session({super.key, required SourceLoginSession this.session})
-    : api = null,
-      sourceJson = '',
-      sourceName = session.name;
+  const LoginV2Dialog({super.key, required this.session});
 
   @override
   State<LoginV2Dialog> createState() => LoginV2DialogState();
 }
 
 class LoginV2DialogState extends State<LoginV2Dialog> {
-  String _stateJson = '{}';
-  List<Map<String, dynamic>> _rows = [];
+  Map<String, dynamic> _state = {};
+  List<LoginUiRow> _rows = [];
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String> _selects = {};
   String? _error;
@@ -96,27 +81,17 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   Future<void> _loadUi() async {
     setState(() => _busy = true);
     try {
-      final json =
-          await (widget.session?.loadUi(_stateJson) ??
-              widget.api!.loginUiV2(widget.sourceJson, _stateJson));
-      final data = jsonDecode(json);
-      final rows = (data is Map && data['rows'] is List)
-          ? (data['rows'] as List)
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
-          : <Map<String, dynamic>>[];
+      final data = await widget.session.loadUi(_state);
+      final rows = data.rows;
       if (!mounted) return;
       // 预填默认值（text/password → 控制器；select → 选中项）
       for (final row in rows) {
-        final key = row['key']?.toString() ?? '';
-        final value = row['value']?.toString() ?? '';
-        final type = row['type']?.toString() ?? '';
+        final key = row.key;
+        final value = row.value;
+        final type = row.type;
         if (key.isEmpty) continue;
         if (type == 'select') {
-          final options = (row['options'] is List)
-              ? (row['options'] as List).map((e) => e.toString()).toList()
-              : <String>[];
+          final options = row.options;
           _selects.putIfAbsent(
             key,
             () => value.isNotEmpty
@@ -159,26 +134,18 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
       _error = null;
     });
     try {
-      final input = jsonEncode({
-        'action': action,
-        'stateJson': _stateJson,
-        'formJson': _formJson(),
-      });
-      final resJson =
-          await (widget.session?.executeV2(input) ??
-              widget.api!.loginActionV2(widget.sourceJson, input));
-      final res = jsonDecode(resJson);
+      final res = await widget.session.execute(
+        action: action,
+        state: _state,
+        form: _formJson(),
+      );
       if (!mounted) return;
-      if (res is! Map) {
-        setState(() => _busy = false);
-        return;
-      }
-      if (res['close'] == true || res['login'] is Map) {
+      if (res.close || res.login != null) {
         Navigator.pop(context, true);
         return;
       }
-      if (res['error'] is Map) {
-        final msgs = (res['error'] as Map).values
+      if (res.errors != null) {
+        final msgs = res.errors!.values
             .map((v) => v.toString())
             .where((v) => v.isNotEmpty);
         setState(() {
@@ -191,8 +158,8 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
       if (countdownSeconds != null && countdownSeconds > 0) {
         _startCountdown(action, countdownSeconds);
       }
-      if (res['state'] is Map) {
-        _stateJson = jsonEncode(res['state']);
+      if (res.state != null) {
+        _state = res.state!;
         setState(() => _busy = false);
         await _loadUi();
         return;
@@ -210,7 +177,7 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(context.l10n.loginFormTitle(widget.sourceName)),
+      title: Text(context.l10n.loginFormTitle(widget.session.name)),
       content: SizedBox(
         width: 360,
         child: _busy && _rows.isEmpty
@@ -249,23 +216,19 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
   }
 
   /// 按 rows 类型渲染单行（对齐 login_ui_v2.rs 协议）
-  Widget _buildRow(Map<String, dynamic> row) {
-    final type = row['type']?.toString() ?? '';
-    final key = row['key']?.toString() ?? '';
-    final name = row['name']?.toString() ?? '';
-    final hint = row['hint']?.toString() ?? name;
+  Widget _buildRow(LoginUiRow row) {
+    final type = row.type;
+    final key = row.key;
+    final name = row.name;
+    final hint = row.hint;
     switch (type) {
       case 'label':
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text(
-            name.isNotEmpty ? name : (row['value']?.toString() ?? ''),
-          ),
+          child: Text(name.isNotEmpty ? name : (row.value)),
         );
       case 'select':
-        final options = (row['options'] is List)
-            ? (row['options'] as List).map((e) => e.toString()).toList()
-            : <String>[];
+        final options = row.options;
         final current = _selects[key] ?? '';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -287,11 +250,8 @@ class LoginV2DialogState extends State<LoginV2Dialog> {
           ),
         );
       case 'button':
-        final action = row['action']?.toString() ?? '';
-        final countdownRaw = row['countdown'];
-        final countdown = countdownRaw is int
-            ? countdownRaw
-            : int.tryParse(countdownRaw?.toString() ?? '');
+        final action = row.action;
+        final countdown = row.countdown;
         if (action.isNotEmpty && name.isNotEmpty) {
           _buttonLabels.putIfAbsent(action, () => name);
         }

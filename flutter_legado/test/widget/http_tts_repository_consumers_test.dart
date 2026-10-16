@@ -35,8 +35,10 @@ void main() {
     api = MockRustApi();
     engines = _Engines();
     final audio = MockAudioService();
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => audio.dispose()).thenAnswer((_) async {});
     when(() => engines.getHttpTts()).thenAnswer((_) async => [engine]);
     when(() => api.httpTtsRepository.getHttpTts())

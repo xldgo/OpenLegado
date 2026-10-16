@@ -30,7 +30,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     try {
       // 权威态：caches KV（getSameTitleRemoved）；失败保持默认开启
       final removed = await ref
-          .read(bookApiProvider)
+          .read(readingContentServiceProvider)
           .getSameTitleRemoved(bookUrl, chapterIndex);
       if (mounted && _flagsLoadedKey == '$bookUrl#$chapterIndex') {
         setState(() => _sameTitleRemoved = removed);
@@ -625,15 +625,14 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         return;
       }
       final api = ref.read(bookApiProvider);
-      final result = await api.chapterPayAction(
-        bookUrl: book.bookUrl,
-        chapterIndex: chapterIndex,
-      );
+      final result = await ref
+          .read(sourceActionServiceProvider)
+          .chapterPayAction(bookUrl: book.bookUrl, chapterIndex: chapterIndex);
       if (!context.mounted || !_isCurrentChapter(book.bookUrl, chapterIndex)) {
         return;
       }
       switch (result.kind) {
-        case 'url':
+        case ChapterPurchaseKind.url:
           // 购买网页保留书源身份、请求头与 Cookie 接线，不使用无来源的浏览器。
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -648,7 +647,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
               ),
             ),
           );
-        case 'success':
+        case ChapterPurchaseKind.success:
           // Bridge 已失效本章缓存；重新读取后显示已购买的正文。
           await ref
               .read(readerNotifierProvider.notifier)
@@ -705,7 +704,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
             .read(chapterCacheRepositoryProvider)
             .getCachedChapter(book.bookUrl, chapterIndex);
         final canRemove = await ref
-            .read(bookApiProvider)
+            .read(readingContentServiceProvider)
             .canRemoveSameTitle(chapterTitle, raw);
         if (!canRemove && context.mounted) {
           _snack(context, '未找到可移除的重复标题');
@@ -717,7 +716,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
 
     try {
       await ref
-          .read(bookApiProvider)
+          .read(readingContentServiceProvider)
           .toggleSameTitleRemoved(book.bookUrl, chapterIndex, next);
       if (!mounted || !_isCurrentChapter(book.bookUrl, chapterIndex)) return;
       setState(() => _sameTitleRemoved = next);

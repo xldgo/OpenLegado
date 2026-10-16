@@ -1,0 +1,312 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:flutter_legado/src/bridge/frb_generated.dart';
+import 'package:flutter_legado/src/data/services/rust_book_source_edit_service.dart';
+import 'package:flutter_legado/src/data/services/rust_source_login_v2_service.dart';
+import 'package:flutter_legado/src/data/services/rust_verification_service.dart';
+import 'package:flutter_legado/src/data/services/rust_webview_bridge_service.dart';
+import 'package:flutter_legado/src/data/services/rust_network_service.dart';
+import 'package:flutter_legado/src/domain/models/webview_request.dart';
+import 'package:flutter_legado/src/models/book_source.dart';
+import 'package:flutter_legado/src/platform/native_webview_request_executor.dart';
+import 'package:flutter_legado/src/services/platform_bridge_service.dart';
+
+class _Bridge extends Mock implements RustLibApi {}
+
+void main() {
+  late _Bridge bridge;
+  const editor = RustBookSourceEditService();
+  const verification = RustVerificationService();
+  const web = RustWebViewBridgeService();
+  const source = BookSource(
+    bookSourceUrl: 'https://source.test',
+    bookSourceName: '源',
+    loginUi: '{"version":2}',
+    loginUrl: 'script',
+  );
+  setUp(() {
+    bridge = _Bridge();
+    RustLib.initMock(api: bridge);
+  });
+  tearDown(RustLib.dispose);
+
+  test('编辑能力保持原生cURL参数，提取结果保留完整当前脚本', () async {
+    when(() => bridge.crateFfiFfiLooksLikeCurl(text: 'curl -L url'))
+        .thenAnswer((_) async => true);
+    when(() => bridge.crateFfiFfiCurlToAnalyzeUrl(text: 'curl -L url'))
+        .thenAnswer((_) async => 'url');
+    when(() => bridge.crateFfiFfiAnalyzeUrlToCurl(text: 'url'))
+        .thenAnswer((_) async => 'curl -g -L url');
+    when(() => bridge.crateFfiFfiJsSourceExtract(content: '完整脚本')).thenAnswer(
+      (_) async => jsonEncode({...source.toJson(), 'mainJs': '旧内容'}),
+    );
+    expect(await editor.looksLikeCurl('curl -L url'), isTrue);
+    expect(await editor.curlToAnalyzeUrl('curl -L url'), 'url');
+    expect(await editor.analyzeUrlToCurl('url'), 'curl -g -L url');
+    final extracted = await editor.extractJsSource('完整脚本');
+    expect(extracted.bookSourceUrl, source.bookSourceUrl);
+    expect(extracted.loginUrl, 'script');
+    expect(extracted.mainJs, '完整脚本');
+  });
+  test('语法结果类型化并保留错误行号', () async {
+    when(() => bridge.crateFfiFfiJsSourceSyntaxCheck(content: 'bad'))
+        .thenAnswer((_) async => '{"valid":false,"message":"缺少括号","line":12}');
+    final result = await editor.checkJsSourceSyntax('bad');
+    expect(result.valid, isFalse);
+    expect(result.message, '缺少括号');
+    expect(result.line, 12);
+  });
+  for (final payload in [
+    '[]',
+    '{}',
+    '{"bookSourceUrl":1,"bookSourceName":"源"}',
+  ]) {
+    test('提取坏响应不伪造可保存的书源：$payload', () async {
+      when(() => bridge.crateFfiFfiJsSourceExtract(content: 'bad'))
+          .thenAnswer((_) async => payload);
+      await expectLater(editor.extractJsSource('bad'), throwsFormatException);
+    });
+  }
+  test('语法坏响应和原生转换异常向上传递', () async {
+    when(() => bridge.crateFfiFfiJsSourceSyntaxCheck(content: 'bad'))
+        .thenAnswer((_) async => '{}');
+    final error = StateError('CURL_INVALID');
+    when(() => bridge.crateFfiFfiCurlToAnalyzeUrl(text: 'bad'))
+        .thenThrow(error);
+    await expectLater(editor.checkJsSourceSyntax('bad'), throwsFormatException);
+    await expectLater(
+      () => editor.curlToAnalyzeUrl('bad'),
+      throwsA(same(error)),
+    );
+  });
+  test('V2传入完整书源和状态，平台拦截发生在表单和动作解码之前', () async {
+    final intercepted = <String>[];
+    final service = RustSourceLoginV2Service(
+      interceptResult: (raw) async {
+        intercepted.add(raw);
+        return raw == 'ui'
+            ? '{"rows":[{"type":"text","key":"account","name":"账号","value":"已保存"}]}'
+            : '{"state":{"step":2},"error":{"account":"错误"},"login":{"token":"value"},"close":true}';
+      },
+    );
+    final sourceJson = jsonEncode(source.toJson());
+    when(() => bridge.crateFfiFfiSourceIsLoginUiV2(sourceJson: sourceJson))
+        .thenAnswer((_) async => true);
+    when(
+      () => bridge.crateFfiFfiSourceLoginUiV2(
+        sourceJson: sourceJson,
+        stateJson: '{"step":1}',
+      ),
+    ).thenAnswer((_) async => 'ui');
+    when(
+      () => bridge.crateFfiFfiSourceLoginActionV2(
+        sourceJson: sourceJson,
+        userInputJson: any(named: 'userInputJson'),
+      ),
+    ).thenAnswer((call) async {
+      final input =
+          jsonDecode(call.namedArguments[#userInputJson] as String) as Map;
+      expect(input['action'], 'login');
+      expect(jsonDecode(input['stateJson'] as String), {'step': 1});
+      expect(input['formJson'], {'account': '账号甲'});
+      return 'action';
+    });
+    expect(await service.isLoginUiV2(source), isTrue);
+    final ui = await service.loadUi(source, {'step': 1});
+    expect(ui.rows.single.key, 'account');
+    expect(ui.rows.single.value, '已保存');
+    final action = await service.execute(
+      source,
+      action: 'login',
+      state: {'step': 1},
+      form: {'account': '账号甲'},
+    );
+    expect(action.close, isTrue);
+    expect(action.login, {'token': 'value'});
+    expect(action.errors, {'account': '错误'});
+    expect(action.state, {'step': 2});
+    expect(intercepted, ['ui', 'action']);
+  });
+  test('V2坏响应不当空表单，平台拦截错误不吞掉', () async {
+    when(
+      () => bridge.crateFfiFfiSourceLoginUiV2(
+        sourceJson: any(named: 'sourceJson'),
+        stateJson: '{}',
+      ),
+    ).thenAnswer((_) async => 'raw');
+    final bad = RustSourceLoginV2Service(interceptResult: (_) async => '{}');
+    await expectLater(bad.loadUi(source, {}), throwsFormatException);
+    final error = StateError('平台执行失败');
+    final failed = RustSourceLoginV2Service(
+      interceptResult: (_) async => throw error,
+    );
+    await expectLater(failed.loadUi(source, {}), throwsA(same(error)));
+  });
+  test('验证码流保留身份、展示与时间字段，提交/取消保持未命中含义', () async {
+    when(() => bridge.crateFfiFfiVerificationRequestStream()).thenAnswer(
+      (_) => Stream.value(
+        '{"key":"v1","source_url":"s","source_name":"源","image_url":"img","title":"验证","use_browser":true,"created_at_ms":123}',
+      ),
+    );
+    final request = await verification.verificationRequestStream().single;
+    expect(request.key, 'v1');
+    expect(request.sourceUrl, 's');
+    expect(request.sourceName, '源');
+    expect(request.imageUrl, 'img');
+    expect(request.title, '验证');
+    expect(request.useBrowser, isTrue);
+    expect(request.createdAtMs, 123);
+    when(() => bridge.crateFfiFfiVerificationSubmit(key: 'v1', code: '1234'))
+        .thenAnswer((_) async => true);
+    when(() => bridge.crateFfiFfiVerificationCancel(key: 'v1'))
+        .thenAnswer((_) async => false);
+    expect(await verification.submitVerificationResult('v1', '1234'), isTrue);
+    expect(await verification.cancelVerificationRequest('v1'), isFalse);
+  });
+  test('WebView流保留全部执行字段，Cookie只在提交适配器编码', () async {
+    when(() => bridge.crateFfiFfiWebviewRequestStream()).thenAnswer(
+      (_) => Stream.value(
+        jsonEncode({
+          'key': 'w',
+          'action': 'webViewGetSource',
+          'html': 'html',
+          'url': 'url',
+          'js': 'js',
+          'source_regex': 'source',
+          'override_url_regex': 'override',
+          'cache_first': true,
+          'delay_time': 50,
+          'is_rule': true,
+          'result': 'input',
+          'source_key': 'origin',
+          'cookie': 'sid=x',
+          'created_at_ms': 456,
+        }),
+      ),
+    );
+    final request = await web.webviewRequestStream().single;
+    expect(
+      [request.key, request.action, request.html, request.url, request.js],
+      ['w', 'webViewGetSource', 'html', 'url', 'js'],
+    );
+    expect(
+      [
+        request.sourceRegex,
+        request.overrideUrlRegex,
+        request.sourceKey,
+        request.cookie,
+        request.result,
+      ],
+      ['source', 'override', 'origin', 'sid=x', 'input'],
+    );
+    expect(request.cacheFirst, isTrue);
+    expect(request.isRule, isTrue);
+    expect(request.delayTime, 50);
+    expect(request.createdAtMs, 456);
+    when(
+      () => bridge.crateFfiFfiWebviewSubmitResultWithCookies(
+        key: 'w',
+        result: 'out',
+        cookiesJson: '{"https://source.test":"sid=y"}',
+      ),
+    ).thenAnswer((_) async => true);
+    when(
+      () => bridge.crateFfiFfiWebviewSubmitResultWithCookies(
+        key: 'w',
+        result: 'out',
+        cookiesJson: '',
+      ),
+    ).thenAnswer((_) async => false);
+    when(
+      () => bridge.crateFfiFfiWebviewSubmit(key: 'w', result: '[ERROR] failed'),
+    ).thenAnswer((_) async => true);
+    when(() => bridge.crateFfiFfiWebviewCancel(key: 'w'))
+        .thenAnswer((_) async => false);
+    expect(
+      await web.submitWebviewResultWithCookies('w', 'out', {
+        'https://source.test': 'sid=y',
+      }),
+      isTrue,
+    );
+    expect(await web.submitWebviewResultWithCookies('w', 'out', {}), isFalse);
+    expect(await web.submitWebviewResult('w', '[ERROR] failed'), isTrue);
+    expect(await web.cancelWebviewRequest('w'), isFalse);
+  });
+  for (final payload in ['[]', '{}', '{"key":""}']) {
+    test('两类通道坏身份作为流错误，不创建无主请求：$payload', () async {
+      when(() => bridge.crateFfiFfiVerificationRequestStream())
+          .thenAnswer((_) => Stream.value(payload));
+      when(() => bridge.crateFfiFfiWebviewRequestStream())
+          .thenAnswer((_) => Stream.value(payload));
+      await expectLater(
+        verification.verificationRequestStream().toList(),
+        throwsFormatException,
+      );
+      await expectLater(
+        web.webviewRequestStream().toList(),
+        throwsFormatException,
+      );
+    });
+  }
+  test('Cookie清除走原共享网络入口，原生异常保持', () async {
+    const network = RustNetworkService();
+    when(() => bridge.crateFfiFfiClearCookie(url: 'https://source.test/path'))
+        .thenAnswer((_) async {});
+    await network.clearCookie('https://source.test/path');
+    verify(() => bridge.crateFfiFfiClearCookie(url: 'https://source.test/path'))
+        .called(1);
+  });
+  test('平台执行器映射全部载荷，并把Cookie回流转为类型化数据', () async {
+    final payloads = <Map<String, dynamic>>[];
+    final executor = NativeWebViewRequestExecutor(
+      dispatch: (payload) async {
+        payloads.add(payload);
+        return const WebViewEvalOutcome('output', '{"source.test":"sid=new"}');
+      },
+    );
+    final result = await executor.execute(
+      const WebViewRequest(
+        key: 'w',
+        action: 'webViewGetOverrideUrl',
+        html: 'html',
+        url: 'url',
+        js: 'js',
+        sourceRegex: 's',
+        overrideUrlRegex: 'o',
+        cacheFirst: true,
+        delayTime: 10,
+        isRule: true,
+        result: 'raw',
+        sourceKey: 'source',
+        cookie: 'sid=old',
+      ),
+    );
+    expect(payloads.single, {
+      'action': 'webViewGetOverrideUrl',
+      'html': 'html',
+      'url': 'url',
+      'js': 'js',
+      'sourceRegex': 's',
+      'overrideUrlRegex': 'o',
+      'cacheFirst': true,
+      'delayTime': 10,
+      'isRule': true,
+      'result': 'raw',
+      'sourceKey': 'source',
+      'cookie': 'sid=old',
+    });
+    expect(result.result, 'output');
+    expect(result.cookies, {'source.test': 'sid=new'});
+  });
+  test('平台坏Cookie不能当作成功回流', () async {
+    final executor = NativeWebViewRequestExecutor(
+      dispatch: (_) async => const WebViewEvalOutcome('out', '[]'),
+    );
+    await expectLater(
+      executor.execute(const WebViewRequest(key: 'w')),
+      throwsFormatException,
+    );
+  });
+}

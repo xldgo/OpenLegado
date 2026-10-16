@@ -336,7 +336,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
           .thenAnswer((invocation) async {
             final index = invocation.positionalArguments[1] as int;

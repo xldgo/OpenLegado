@@ -6,7 +6,7 @@ part 'txt_toc_rules_state.freezed.dart';
 
 /// TXT 目录规则页状态
 ///
-/// 由 [TxtTocRulesNotifier] 经 BookApi.getConfig/setConfig 持久化到 Rust 配置库。
+/// 由 [TxtTocRulesNotifier] 经 ConfigRepository 持久化到 Rust 配置库。
 @freezed
 abstract class TxtTocRulesState with _$TxtTocRulesState {
   const factory TxtTocRulesState({

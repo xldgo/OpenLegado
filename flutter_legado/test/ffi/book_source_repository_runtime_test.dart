@@ -77,8 +77,11 @@ void main() {
       isTrue,
     );
     await repository.sortBookSources(2, false);
-    expect(await api.getConfig('source_sort_key'), '2');
-    expect(await api.getConfig('source_sort_ascending'), 'false');
+    expect(await api.configRepository.getConfig('source_sort_key'), '2');
+    expect(
+      await api.configRepository.getConfig('source_sort_ascending'),
+      'false',
+    );
     expect(notifications, 5);
     expect(
       await repository.importBookSources(
@@ -116,7 +119,7 @@ void main() {
       ),
       isFalse,
     );
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.bookSourceRepository, same(shared));
   });
 }

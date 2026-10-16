@@ -1,3 +1,4 @@
+import '../fixtures/config_repository.dart';
 import '../mocks/reading_fixture.dart';
 
 // [V-B3 审查收口 W1/W2/W4] 视频页悬浮窗移交行为回归：
@@ -19,7 +20,7 @@ import 'package:flutter_legado/src/screens/video_screen.dart';
 import 'package:flutter_legado/src/services/book_api.dart';
 import 'package:flutter_legado/src/data/services/mock_video_danmaku_service.dart';
 import 'package:flutter_legado/src/services/video_float_window.dart';
-import 'package:flutter_legado/src/utils/video_progress.dart';
+import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
 import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
 import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';
 
@@ -137,15 +138,20 @@ class _FakeBookApi implements BookApi {
   final List<int> progressWrites = [];
 
   @override
-  Future<String?> getConfig(String key) async => configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+    remove: _fixturedeleteConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     configs[key] = value;
   }
 
-  @override
-  Future<void> deleteConfig(String key) async {
+  Future<void> _fixturedeleteConfig(String key) async {
     configs.remove(key);
   }
 

@@ -8,7 +8,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
-import 'package:flutter_legado/src/features/read_aloud/http_tts_voice_selection.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_player_info.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -63,7 +62,7 @@ void main() {
     voices = _Voices();
     audio = _Audio('1');
     configs.clear();
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((call) async => configs[call.positionalArguments[0]]);
     when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => const [
@@ -99,12 +98,14 @@ void main() {
         displayName: '中文声音',
       ),
     );
-    configs[HttpTtsVoiceSelection.key(1)] = const HttpTtsVoiceSelection('saved')
-        .encode();
+    configs['ttsVoice:${1}'] = jsonEncode({
+      'voiceId': 'saved',
+      'emotionTag': null,
+    });
     final value = await info();
     expect(value.engineName, '我的 HTTP');
     expect(value.voiceName, '中文声音');
-    verifyNever(() => api.setConfig(any(), any()));
+    verifyNever(() => api.configRepository.setConfig(any(), any()));
   });
 
   test('缺失或被排除的 HTTP 音色展示默认状态，不误认其他音色', () async {
@@ -118,8 +119,10 @@ void main() {
         excluded: true,
       ),
     );
-    configs[HttpTtsVoiceSelection.key(1)] = const HttpTtsVoiceSelection('saved')
-        .encode();
+    configs['ttsVoice:${1}'] = jsonEncode({
+      'voiceId': 'saved',
+      'emotionTag': null,
+    });
     expect((await info()).voiceName, isNull);
   });
 
@@ -138,7 +141,7 @@ void main() {
     final value = await info();
     expect(value.engineName, '我的 MiMo');
     expect(value.voiceName, '我的云端音色');
-    verifyNever(() => api.setConfig(any(), any()));
+    verifyNever(() => api.configRepository.setConfig(any(), any()));
     verifyNever(() => api.httpTtsRepository.getHttpTts());
   });
 
@@ -159,7 +162,7 @@ void main() {
     expect(value.engineName, 'installed.tts');
     expect(value.voiceName, '设备中文');
     // Fake 未实现初始化和枚举，意外调用将直接使测试失败。
-    verifyNever(() => api.setConfig(any(), any()));
+    verifyNever(() => api.configRepository.setConfig(any(), any()));
   });
 
   test('慢目录返回期间切换引擎，忽略旧结果且不访问失效 Ref', () async {

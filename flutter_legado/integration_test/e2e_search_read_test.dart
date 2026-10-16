@@ -31,7 +31,7 @@ void main() {
   testWidgets('E2E: 导入书源→搜索→加书架→打开书籍', (tester) async {
     // 1. 初始化 Rust 引擎（全局一次性：FFI 初始化 + 打开 legado.db）
     final api = createBookApi(useMock: false) as RustApi;
-    await tester.runAsync(() => api.initialize());
+    await tester.runAsync(() => api.runtime.initialize());
 
     // 2. 自包含前置：在线下载并导入 yckceo 7631 书源
     //    （集成测试会卸载重装应用，设备数据不持久，必须自行导入）

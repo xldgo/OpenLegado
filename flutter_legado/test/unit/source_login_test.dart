@@ -70,7 +70,8 @@ void main() {
           .thenAnswer((_) async => '');
       when(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com'))
           .thenAnswer((_) async => '');
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
 
       await readNotifier().load();
 
@@ -86,7 +87,9 @@ void main() {
           .thenAnswer((_) async => '');
       when(() => mockApi.sourceLoginRepository.getLoginHeader('https://a.com'))
           .thenAnswer((_) async => '');
-      when(() => mockApi.getConfig('source_login_https://a.com')).thenAnswer(
+      when(
+        () => mockApi.configRepository.getConfig('source_login_https://a.com'),
+      ).thenAnswer(
         (_) async => jsonEncode({
           'token': 'old-tok',
           'cookies': [
@@ -144,7 +147,8 @@ void main() {
           .thenAnswer((_) async {});
       when(() => mockApi.sourceLoginRepository.putLoginHeader(any(), any()))
           .thenAnswer((_) async {});
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       final n = readNotifier();
       n.setToken('tok');
       n.addCookie('sid', 'xyz');

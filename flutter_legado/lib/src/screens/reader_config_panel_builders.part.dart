@@ -753,9 +753,11 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               selected: {_convertType},
               onSelectionChanged: (sel) async {
                 final type = sel.first;
-                setState(() => _convertType = type);
                 try {
-                  await ref.read(bookApiProvider).setChineseConvertType(type);
+                  await ref
+                      .read(readingContentServiceProvider)
+                      .setChineseConvertType(type);
+                  if (mounted) setState(() => _convertType = type);
                   // 转换类型变更后重新加载当前章正文
                   if (mounted) {
                     unawaited(

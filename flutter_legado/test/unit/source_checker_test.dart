@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -21,7 +23,10 @@ import '../mocks/mocks.dart';
 class _Api extends MockBookApi {
   int initializationCount = 0;
   @override
-  Future<void> initialize() async => initializationCount++;
+  MockAppRuntime get runtime => _fixtureRuntime;
+  late final _fixtureRuntime = MockAppRuntime(startup: _fixtureInitialize);
+
+  Future<void> _fixtureInitialize() async => initializationCount++;
 }
 
 class _PreparingNotifier extends CheckSourceNotifier {
@@ -521,8 +526,8 @@ void main() {
           configJson: any(named: 'configJson'),
         ),
       ).called(1);
-      verifyNever(first.initialize);
-      verifyNever(second.initialize);
+      verifyNever(first.runtime.initialize);
+      verifyNever(second.runtime.initialize);
     });
   });
 }

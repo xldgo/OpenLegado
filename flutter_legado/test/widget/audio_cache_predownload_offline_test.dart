@@ -83,7 +83,8 @@ void main() {
           .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
           .thenAnswer(
             (_) async =>
@@ -114,7 +115,8 @@ void main() {
           .thenAnswer((_) async => chapters);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       // P2-4：已缓存跳过改为逐章按 key 查询（audioCacheList 下标会错位）
       when(
         () => mockApi.audioCacheRepository.audioCacheQuery(
@@ -202,7 +204,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(
         () => mockApi.audioCacheRepository.audioCacheQuery(
           bookUrl: any(named: 'bookUrl'),
@@ -259,7 +262,8 @@ void main() {
           .thenAnswer((_) async => chapters);
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       // 旧实现按下标跳过：audioCacheList 报告下标 0 已缓存 → 会漏下本章
       when(
         () => mockApi.audioCacheRepository.audioCacheList(
@@ -340,7 +344,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(
         () => mockApi.audioCacheRepository.audioCacheQuery(
           bookUrl: any(named: 'bookUrl'),
@@ -423,7 +428,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(
         () => mockApi.audioCacheRepository.audioCacheQuery(
           bookUrl: any(named: 'bookUrl'),
@@ -509,7 +515,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
           .thenAnswer(
             (_) async =>
@@ -549,7 +556,8 @@ void main() {
       );
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
           .thenAnswer(
             (_) async =>

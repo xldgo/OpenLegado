@@ -136,7 +136,8 @@ void main() {
 
   testWidgets('端口保存失败不调用 Rust 服务，成功后才应用新端口', (tester) async {
     final api = MockRustApi();
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
     when(() => api.localServerService.setServerPort(any()))
         .thenAnswer((_) async {});
     await open(tester, const OtherSettingsScreen(), api: api, tall: true);

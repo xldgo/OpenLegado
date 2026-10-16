@@ -362,7 +362,7 @@ void main() {
           'https://source.test',
         ),
       ).called(2);
-      verifyNever(() => api.initialize());
+      verifyNever(() => api.runtime.initialize());
     }
   });
 }

@@ -1,3 +1,5 @@
+import 'src/providers/config_settings_provider.dart';
+
 import 'dart:async';
 import 'dart:io' show File;
 
@@ -264,11 +266,11 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     //（Task #146，对齐原版 App.kt 启动时 AutoTaskScheduler.refresh；
     // 引擎已在 main.dart 先行初始化，此处可直接注入 BookApi） — QoderCN
     final taskApi = ref.read(bookApiProvider);
+    final taskSettings = ref.read(serviceSettingsRepositoryProvider);
     AutoTaskScheduler.instance.attach(
       repository: taskApi.autoTaskRepository,
       service: taskApi.autoTaskService,
-      readEnabled: () async =>
-          await taskApi.getConfig('autoTaskService') == 'true',
+      readEnabled: () async => (await taskSettings.load()).autoTaskEnabled,
     );
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -408,7 +410,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             final scale = themeState.fontScale;
             // 全局验证码请求监听（对标原版 SourceVerificationHelp 全局监听，
             // 书源 JS 挂起等待验证码时跨页面弹窗）
-            Widget wrapped = VerificationCodeListener(child: child!);
+            Widget wrapped = VerificationCodeListener(
+              navigatorKey: PlatformBridgeService.navigatorKey,
+              child: child!,
+            );
             // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
             wrapped = WebViewBridgeListener(child: wrapped);
             // 沉浸式状态栏 / 导航栏：对齐原版 transparentStatusBar / immNavigationBar

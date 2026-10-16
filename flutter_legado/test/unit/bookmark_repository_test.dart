@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/mock_bookmark_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
@@ -159,7 +160,10 @@ class _Api extends MockBookApi {
   int initializeCalls = 0;
 
   @override
-  Future<void> initialize() async => initializeCalls++;
+  MockAppRuntime get runtime => _fixtureRuntime;
+  late final _fixtureRuntime = MockAppRuntime(startup: _fixtureInitialize);
+
+  Future<void> _fixtureInitialize() async => initializeCalls++;
 }
 
 class _FailingRepository extends MockBookmarkRepository {

@@ -52,7 +52,8 @@ void main() {
         .thenAnswer((_) async => '正文内容');
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
   }
 
   /// 启动真实 ReaderScreen 并打开书籍（书架打开链路）

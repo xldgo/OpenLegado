@@ -24,7 +24,8 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => []);
     when(() => mockApi.sourceSwitchService.updateSearchBookScore(any(), any()))

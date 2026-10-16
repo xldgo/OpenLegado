@@ -1,3 +1,5 @@
+import '../providers/config_settings_provider.dart';
+import '../providers/domain_config_provider.dart';
 import '../providers/local_server_provider.dart';
 import '../providers/network_provider.dart';
 
@@ -11,7 +13,7 @@ import '../providers/network_provider.dart';
 // Web 端口经 LocalServerService.setServerPort 接通；尚未接线的开关只读展示并标记待实现；
 // Android 专属项持久化并以灰字"仅 Android 生效"标注；
 // customHosts/mcpPort 已于 Task #74 接线（契约 §2.20.3/§2.22.5，
-// 回读经 BookApi.getConfig 读 Rust 持久化 config:customHosts/config:mcpPort）；
+// 回读经 ConfigRepository 读 Rust 持久化 config:customHosts/config:mcpPort）；
 // videoSetting / jsSourceApiToken / clearWebViewData：2026-08-12 已接线；
 // uploadRule（直链上传规则）/ Cronet：缺引擎支撑，诚实不展示空壳；
 // [Task #40 | 2026-08-09] checkSource 配置入口已接线（§5.13-2，
@@ -201,12 +203,15 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         .loadCheckConfig();
     // [Task #74 | 2026-08-10] §5.13-1/§5.13-6：customHosts/mcpPort 回读——
     // Rust 侧持久化于 caches 表 config:customHosts / config:mcpPort，
-    // 经既有 BookApi.getConfig 回读（最小改动，无需 SP 镜像） — Qoder
+    // 经既有 ConfigRepository 回读（最小改动，无需 SP 镜像） — Qoder
     try {
-      final api = ref.read(bookApiProvider);
-      _customHostsJson = await api.getConfig('customHosts') ?? '';
-      _mcpPort = int.tryParse(await api.getConfig('mcpPort') ?? '') ?? 0;
-      _jsSourceApiToken = await api.getConfig('jsSourceApiToken') ?? '';
+      final repository = ref.read(serviceSettingsRepositoryProvider);
+      await repository.reload();
+      final settings = repository.current;
+      _customHostsJson = settings.customHosts;
+      _mcpPort = settings.mcpPort;
+      _jsSourceApiToken =
+          await ref.read(serverAccessRepositoryProvider).getToken() ?? '';
     } catch (e) {
       debugPrint('OtherSettingsScreen 回读 customHosts/mcpPort 异常: $e');
     }
@@ -702,6 +707,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     if (value == null || !mounted) return;
     try {
       await ref.read(localServerServiceProvider).setMcpPort(value);
+      await ref.read(serviceSettingsRepositoryProvider).reload();
       if (!mounted) return;
       setState(() => _mcpPort = value);
       _toast(value > 0 ? 'MCP 端口已保存：$value（独立服务已重启）' : '独立 MCP 服务已停止');
@@ -726,6 +732,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       // 空内容=清除映射恢复系统 DNS（契约 §2.20.3）
       try {
         await ref.read(networkServiceProvider).setCustomHosts('');
+        await ref.read(serviceSettingsRepositoryProvider).reload();
         if (!mounted) return;
         setState(() => _customHostsJson = '');
         _toast('自定义 hosts 已清除');
@@ -749,6 +756,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     }
     try {
       await ref.read(networkServiceProvider).setCustomHosts(trimmed);
+      await ref.read(serviceSettingsRepositoryProvider).reload();
       if (!mounted) return;
       setState(() => _customHostsJson = trimmed);
       _toast('自定义 hosts 已保存（${decoded.length} 条）');
@@ -782,12 +790,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     );
     if (result == null || !mounted) return;
     try {
-      final api = ref.read(bookApiProvider);
-      if (result.isEmpty) {
-        await api.deleteConfig('jsSourceApiToken');
-      } else {
-        await api.setConfig('jsSourceApiToken', result);
-      }
+      await ref.read(serverAccessRepositoryProvider).setToken(result);
       setState(() => _jsSourceApiToken = result);
       _toast(result.isEmpty ? '已清除 Token' : 'Token 已保存');
     } catch (e) {

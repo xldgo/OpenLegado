@@ -169,8 +169,10 @@ void main() {
     testWidgets('Web 服务开关：启动使用配置端口 webPort=8080', (tester) async {
       SharedPreferences.setMockInitialValues({'webPort': 8080});
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
@@ -205,8 +207,10 @@ void main() {
 
     testWidgets('Web 服务开关：未配置端口回落默认 1122', (tester) async {
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
@@ -240,8 +244,10 @@ void main() {
     testWidgets('Web 服务开关：越界 webPort 回落默认 1122（防手改 prefs）', (tester) async {
       SharedPreferences.setMockInitialValues({'webPort': 500});
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
@@ -296,8 +302,10 @@ void main() {
         ),
       );
 
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((_) async {});
@@ -357,8 +365,10 @@ void main() {
         ),
       );
 
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((_) async {});
@@ -423,7 +433,8 @@ void main() {
 
   group('OtherSettingsScreen 其他设置', () {
     testWidgets('渲染语言/主界面/清理缓存（无创意阅读网络分组）', (tester) async {
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
 
       await tester.pumpWidget(wrap(const OtherSettingsScreen()));
       await tester.pumpAndSettle();

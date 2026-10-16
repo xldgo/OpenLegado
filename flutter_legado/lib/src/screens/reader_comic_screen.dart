@@ -1,3 +1,6 @@
+import '../providers/config_settings_provider.dart';
+import '../domain/models/manga_settings.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
@@ -30,15 +33,15 @@ import '../widgets/app_progress_indicator.dart';
 import '../widgets/loading_indicator.dart';
 import '../widgets/error_view.dart';
 import '../widgets/manga/manga_config_sheet.dart';
-import 'reader_comic/manga_auto_read.dart';
+import '../models/manga_auto_read.dart';
 import 'reader_comic/manga_catalog_sheet.dart';
-import 'reader_comic/manga_click_actions.dart';
+import '../models/manga_click_actions.dart';
 import 'reader_comic/manga_menu.dart';
 import 'reader_comic/manga_paged_view.dart';
 import 'reader_comic/manga_page_actions_sheet.dart';
 import 'reader_comic/manga_page_image_resolver.dart';
-import 'reader_comic/manga_page_scale_type.dart';
-import 'reader_comic/manga_scroll_mode.dart';
+import '../models/manga_page_scale_type.dart';
+import '../models/manga_scroll_mode.dart';
 
 /// 漫画阅读页面
 ///
@@ -355,72 +358,28 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 加载漫画配置（config 键对齐原版 PreferKey）
   Future<void> _loadMangaConfig() async {
     try {
-      final api = ref.read(bookApiProvider);
-      final filterRaw = await api.getConfig(MangaConfigKeys.colorFilter);
-      final footerRaw = await api.getConfig(MangaConfigKeys.footerConfig);
-      final eInk = await api.getConfig(MangaConfigKeys.enableEInk);
-      final gray = await api.getConfig(MangaConfigKeys.enableGray);
-      final thr = await api.getConfig(MangaConfigKeys.eInkThreshold);
-      // [P4-3 E1] 翻页模式（缺省/非法 → 条漫 4）
-      final modeRaw = await api.getConfig(MangaConfigKeys.scrollMode);
-      // [P4-3 E3] 自动翻页速度档（缺省/非法 → 默认 3）
-      final speedRaw = await api.getConfig(MangaConfigKeys.autoReadSpeed);
-      // [P4-3 E2] 分页适配类型（缺省/非法 → 默认 0 = 全屏适配）
-      final scaleRaw = await api.getConfig(MangaConfigKeys.pageScaleType);
-      // [P4-3 M3 修4] 条漫侧边留白百分比（缺省/非法 → 默认 0，越限收敛 0..45）
-      final padRaw = await api.getConfig(MangaConfigKeys.sidePadding);
-      // [P4-3 M4 批2] 行为开关组 9 键（缺省语义：disableMangaScale /
-      // volumeKeyPage / mangaLongClickSaveImage 三键缺省 → true（对齐
-      // AppConfig.kt 默认值），其余缺省 → false；背景色缺省 → 黑）
-      final clickScrollRaw = await api.getConfig(
-        MangaConfigKeys.disableClickScroll,
-      );
-      final scaleRaw2 = await api.getConfig(MangaConfigKeys.disableMangaScale);
-      final pageAnimRaw = await api.getConfig(
-        MangaConfigKeys.disableMangaPageAnim,
-      );
-      final hideTitleRaw = await api.getConfig(MangaConfigKeys.hideMangaTitle);
-      final volKeyRaw = await api.getConfig(MangaConfigKeys.volumeKeyPage);
-      final revVolKeyRaw = await api.getConfig(
-        MangaConfigKeys.reverseVolumeKeyPage,
-      );
-      final clickActionsRaw = await api.getConfig(
-        MangaConfigKeys.mangaClickActions,
-      );
-      final longClickSaveRaw = await api.getConfig(
-        MangaConfigKeys.mangaLongClickSaveImage,
-      );
-      final crossFadeRaw = await api.getConfig(
-        MangaConfigKeys.disableMangaCrossFade,
-      );
-      final bgRaw = await api.getConfig(MangaConfigKeys.mangaBgColor);
+      final settings = await ref.read(mangaSettingsRepositoryProvider).load();
       if (!mounted) return;
       setState(() {
-        _colorFilter = MangaColorFilterConfig.fromStorage(filterRaw);
-        _footerConfig = MangaFooterConfig.fromStorage(footerRaw);
-        _enableEInk = eInk == 'true';
-        _enableGray = gray == 'true';
-        _eInkThreshold = int.tryParse(thr ?? '') ?? 150;
-        // [漫画设置作用域] 全局值先行装载；有效值由
-        // [_applyEffectiveMangaScope] 按「书级覆盖 ?? 全局」统一计算
-        _globalScrollMode = MangaScrollModes.parse(modeRaw);
-        _autoReadSpeed = MangaAutoRead.parse(speedRaw);
-        _pageScaleType = MangaPageScaleType.parse(scaleRaw);
-        _globalSidePadding = int.tryParse(padRaw ?? '')?.clamp(0, 45) ?? 0;
-        // 三键缺省 → true（null 时回退默认 true；非 null 按 'true' 判定）
-        _disableClickScroll = clickScrollRaw == 'true';
-        _disableMangaScale = scaleRaw2 == null ? true : scaleRaw2 == 'true';
-        _disableMangaPageAnim = pageAnimRaw == 'true';
-        _hideMangaTitle = hideTitleRaw == 'true';
-        _volumeKeyPage = volKeyRaw == null ? true : volKeyRaw == 'true';
-        _reverseVolumeKeyPage = revVolKeyRaw == 'true';
-        _mangaLongClickSaveImage = longClickSaveRaw == null
-            ? true
-            : longClickSaveRaw == 'true';
-        _disableMangaCrossFade = crossFadeRaw == 'true';
-        _mangaBgColor = MangaBgColors.parse(bgRaw);
-        // [P4-3 M5] 九区点击动作（缺省/非法回参考版默认配置）
-        _clickActions = MangaClickActions.parse(clickActionsRaw);
+        _colorFilter = settings.colorFilter;
+        _footerConfig = settings.footer;
+        _enableEInk = settings.enableEInk;
+        _enableGray = settings.enableGray;
+        _eInkThreshold = settings.eInkThreshold;
+        _globalScrollMode = settings.scrollMode;
+        _autoReadSpeed = settings.autoReadSpeed;
+        _pageScaleType = settings.pageScaleType;
+        _globalSidePadding = settings.sidePadding;
+        _disableClickScroll = settings.disableClickScroll;
+        _disableMangaScale = settings.disableMangaScale;
+        _disableMangaPageAnim = settings.disableMangaPageAnim;
+        _hideMangaTitle = settings.hideMangaTitle;
+        _volumeKeyPage = settings.volumeKeyPage;
+        _reverseVolumeKeyPage = settings.reverseVolumeKeyPage;
+        _mangaLongClickSaveImage = settings.longClickSaveImage;
+        _disableMangaCrossFade = settings.disableCrossFade;
+        _mangaBgColor = settings.backgroundColor;
+        _clickActions = settings.clickActions;
       });
       // [漫画设置作用域] 配置可能在图片加载后才生效：按书级 ?? 全局重算
       // 有效翻页模式/侧边留白（内部同步单页式控制器与自动翻页定时器）
@@ -469,8 +428,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _applyEffectiveMangaScope();
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.scrollMode, '$v');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(scrollMode: v));
     } catch (_) {}
   }
 
@@ -519,11 +478,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (mounted) setState(() => _clickActions = updated);
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(
-            MangaConfigKeys.mangaClickActions,
-            MangaClickActions.serialize(updated),
-          );
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(clickActions: updated));
     } catch (_) {}
   }
 
@@ -535,8 +491,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _restartAutoReadTimer();
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.autoReadSpeed, '$v');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(autoReadSpeed: v));
     } catch (_) {}
   }
 
@@ -548,8 +504,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (mounted) setState(() => _pageScaleType = v);
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.pageScaleType, '$v');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(pageScaleType: v));
     } catch (_) {}
   }
 
@@ -563,8 +519,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _applyEffectiveMangaScope();
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.sidePadding, '$v');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(sidePadding: v));
     } catch (_) {}
   }
 
@@ -628,14 +584,16 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// [P4-3 M4 批2] 持久化行为开关（8 键通用：setState 即时生效 +
   /// setConfig 落库，键名对齐原版 PreferKey）
   Future<void> _persistMangaBool(
-    String key,
+    MangaToggle option,
     bool value,
     void Function(bool) apply,
   ) async {
     apply(value);
     if (mounted) setState(() {});
     try {
-      await ref.read(bookApiProvider).setConfig(key, value ? 'true' : 'false');
+      await ref
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.withToggle(option, value));
     } catch (_) {}
   }
 
@@ -647,8 +605,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     if (mounted) setState(() => _mangaBgColor = argb);
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.mangaBgColor, '$argb');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(backgroundColor: argb));
     } catch (_) {}
   }
 
@@ -868,8 +826,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     setState(() {});
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.colorFilter, _colorFilter.toStorage());
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(colorFilter: _colorFilter));
     } catch (_) {}
     await _applyBrightness(_colorFilter.l);
   }
@@ -879,8 +837,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     setState(() {});
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.footerConfig, _footerConfig.toStorage());
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(footer: _footerConfig));
     } catch (_) {}
   }
 
@@ -890,14 +848,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       if (enabled) _enableGray = false;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      await api.setConfig(
-        MangaConfigKeys.enableEInk,
-        enabled ? 'true' : 'false',
-      );
-      if (enabled) {
-        await api.setConfig(MangaConfigKeys.enableGray, 'false');
-      }
+      await ref
+          .read(mangaSettingsRepositoryProvider)
+          .update(
+            (s) => s.copyWith(
+              enableEInk: enabled,
+              enableGray: enabled ? false : s.enableGray,
+            ),
+          );
     } catch (_) {}
   }
 
@@ -907,14 +865,14 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       if (enabled) _enableEInk = false;
     });
     try {
-      final api = ref.read(bookApiProvider);
-      await api.setConfig(
-        MangaConfigKeys.enableGray,
-        enabled ? 'true' : 'false',
-      );
-      if (enabled) {
-        await api.setConfig(MangaConfigKeys.enableEInk, 'false');
-      }
+      await ref
+          .read(mangaSettingsRepositoryProvider)
+          .update(
+            (s) => s.copyWith(
+              enableGray: enabled,
+              enableEInk: enabled ? false : s.enableEInk,
+            ),
+          );
     } catch (_) {}
   }
 
@@ -922,8 +880,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     setState(() => _eInkThreshold = value.clamp(0, 255));
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig(MangaConfigKeys.eInkThreshold, '$_eInkThreshold');
+          .read(mangaSettingsRepositoryProvider)
+          .update((s) => s.copyWith(eInkThreshold: _eInkThreshold));
     } catch (_) {}
   }
 
@@ -987,34 +945,34 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       mangaBgColor: _mangaBgColor,
       onDisableClickScrollChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.disableClickScroll,
+          MangaToggle.disableClickScroll,
           v,
           (x) => _disableClickScroll = x,
         ),
       ),
       onDisableMangaScaleChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.disableMangaScale,
+          MangaToggle.disableMangaScale,
           v,
           (x) => _disableMangaScale = x,
         ),
       ),
       onDisableMangaPageAnimChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.disableMangaPageAnim,
+          MangaToggle.disableMangaPageAnim,
           v,
           (x) => _disableMangaPageAnim = x,
         ),
       ),
       onHideMangaTitleChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.hideMangaTitle,
+          MangaToggle.hideMangaTitle,
           v,
           (x) => _hideMangaTitle = x,
         ),
       ),
       onVolumeKeyPageChanged: (v) => unawaited(
-        _persistMangaBool(MangaConfigKeys.volumeKeyPage, v, (x) {
+        _persistMangaBool(MangaToggle.volumeKeyPage, v, (x) {
           _volumeKeyPage = x;
           // [P4-3 M5] 开关即时启停捕获（关闭立即恢复系统音量键）
           _syncVolumeKeyCapture();
@@ -1022,21 +980,21 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       ),
       onReverseVolumeKeyPageChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.reverseVolumeKeyPage,
+          MangaToggle.reverseVolumeKeyPage,
           v,
           (x) => _reverseVolumeKeyPage = x,
         ),
       ),
       onMangaLongClickSaveImageChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.mangaLongClickSaveImage,
+          MangaToggle.longClickSaveImage,
           v,
           (x) => _mangaLongClickSaveImage = x,
         ),
       ),
       onDisableMangaCrossFadeChanged: (v) => unawaited(
         _persistMangaBool(
-          MangaConfigKeys.disableMangaCrossFade,
+          MangaToggle.disableCrossFade,
           v,
           (x) => _disableMangaCrossFade = x,
         ),

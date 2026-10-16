@@ -85,15 +85,17 @@ void main() {
         .thenAnswer((_) async => '第一段正文内容。');
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getConfig(any())).thenAnswer((invocation) async {
-      final key = invocation.positionalArguments[0] as String;
-      return configStore[key];
-    });
-    when(() => api.setConfig(any(), any())).thenAnswer((invocation) async {
-      final key = invocation.positionalArguments[0] as String;
-      final value = invocation.positionalArguments[1] as String;
-      configStore[key] = value;
-    });
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((invocation) async {
+          final key = invocation.positionalArguments[0] as String;
+          return configStore[key];
+        });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((invocation) async {
+          final key = invocation.positionalArguments[0] as String;
+          final value = invocation.positionalArguments[1] as String;
+          configStore[key] = value;
+        });
     when(() => api.bookshelfRepository.updateBook(any()))
         .thenAnswer((invocation) async {
           savedBooks.add(invocation.positionalArguments[0] as Book);

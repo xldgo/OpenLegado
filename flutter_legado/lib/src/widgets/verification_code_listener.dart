@@ -6,21 +6,28 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
+import '../providers/source_interaction_provider.dart';
+import '../domain/contracts/verification_service.dart';
+import '../domain/models/verification_request.dart';
 import '../features/book_sources/book_sources.dart';
 
 /// 全局验证码请求监听器（对标 Kotlin SourceVerificationHelp 全局监听）
 ///
-/// 挂载于 MaterialApp.builder：订阅 BookApi.verificationRequestStream，
+/// 挂载于 MaterialApp.builder：订阅 VerificationService.verificationRequestStream，
 /// 书源 JS 经 getVerificationCode 钩子挂起等待时弹出验证码对话框；
 /// 多个请求按到达顺序队列化，逐个弹出（原版同一时刻仅一个对话框）。
 ///
 /// 职责边界（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
-/// 本组件仅消费 BookApi 事件流与 SourceNotifier，不触 bridge。
+/// 本组件仅消费类型化验证码事件流与 SourceNotifier，不触 bridge。
 class VerificationCodeListener extends ConsumerStatefulWidget {
   final Widget child;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
-  const VerificationCodeListener({super.key, required this.child});
+  const VerificationCodeListener({
+    super.key,
+    required this.child,
+    this.navigatorKey,
+  });
 
   @override
   ConsumerState<VerificationCodeListener> createState() =>
@@ -29,10 +36,11 @@ class VerificationCodeListener extends ConsumerStatefulWidget {
 
 class _VerificationCodeListenerState
     extends ConsumerState<VerificationCodeListener> {
-  StreamSubscription<Map<String, dynamic>>? _subscription;
+  StreamSubscription<VerificationRequest>? _subscription;
+  late final VerificationService _service;
 
   /// 待处理请求队列（订阅时会回放进行中请求，需按 key 去重）
-  final List<Map<String, dynamic>> _queue = [];
+  final List<VerificationRequest> _queue = [];
 
   /// 正在展示对话框的 key（null 表示空闲）
   String? _showingKey;
@@ -40,61 +48,76 @@ class _VerificationCodeListenerState
   @override
   void initState() {
     super.initState();
-    _subscription = ref
-        .read(bookApiProvider)
-        .verificationRequestStream()
-        .listen(
-          _onRequest,
-          onError: (Object _) {
-            /* 通道异常静默，等待重连 */
-          },
-        );
+    _service = ref.read(verificationServiceProvider);
+    _subscription = _service.verificationRequestStream().listen(
+      _onRequest,
+      onError: (Object _) {
+        // 单条流错误不终止对后续请求的监听。
+      },
+    );
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
+    final keys = {..._queue.map((e) => e.key), ?_showingKey};
+    _queue.clear();
+    for (final key in keys) {
+      unawaited(_cancel(key));
+    }
     super.dispose();
   }
 
-  void _onRequest(Map<String, dynamic> event) {
+  void _onRequest(VerificationRequest event) {
     if (!mounted) return;
-    final key = (event['key'] ?? '').toString();
+    final key = event.key;
     if (key.isEmpty) return;
     // 去重：正在展示或队列中已有同 key 请求（回放场景）
     if (key == _showingKey) return;
-    if (_queue.any((e) => (e['key'] ?? '').toString() == key)) return;
+    if (_queue.any((e) => e.key == key)) return;
     _queue.add(event);
-    _showNext();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_showNext());
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   Future<void> _showNext() async {
     if (_showingKey != null || _queue.isEmpty || !mounted) return;
     final event = _queue.removeAt(0);
-    final key = (event['key'] ?? '').toString();
+    final key = event.key;
     _showingKey = key;
 
-    // builder 上下文持有全局 Navigator，跨页面弹窗安全
+    // 应用builder位于Navigator上方，使用宿主显式提供的Navigator挂载点。
     final submitted = await showDialog<bool>(
-      context: context,
+      context: widget.navigatorKey?.currentContext ?? context,
       barrierDismissible: false,
       builder: (_) => _VerificationCodeDialog(
+        service: _service,
         requestKey: key,
-        sourceName: (event['source_name'] ?? '').toString(),
-        title: (event['title'] ?? '').toString(),
-        imageUrl: (event['image_url'] ?? '').toString(),
-        sourceUrl: (event['source_url'] ?? '').toString(),
+        sourceName: event.sourceName,
+        title: event.title,
+        imageUrl: event.imageUrl,
+        sourceUrl: event.sourceUrl,
       ),
     );
 
-    final api = ref.read(bookApiProvider);
+    if (!mounted) return;
     if (submitted != true) {
       // 关闭未提交：以空结果唤醒等待方（对齐 Kotlin checkResult 语义）
-      await api.cancelVerificationRequest(key);
+      await _cancel(key);
     }
 
     _showingKey = null;
     if (mounted) _showNext();
+  }
+
+  Future<void> _cancel(String key) async {
+    try {
+      await _service.cancelVerificationRequest(key);
+    } catch (error) {
+      debugPrint('验证码取消失败：$error');
+    }
   }
 
   @override
@@ -107,6 +130,7 @@ class _VerificationCodeListenerState
 /// controller 由对话框内容 StatefulWidget 自持（随子树卸载释放，
 /// 避免退场动画期间 dispose 引发框架断言）。
 class _VerificationCodeDialog extends ConsumerStatefulWidget {
+  final VerificationService service;
   final String requestKey;
   final String sourceName;
   final String title;
@@ -114,6 +138,7 @@ class _VerificationCodeDialog extends ConsumerStatefulWidget {
   final String sourceUrl;
 
   const _VerificationCodeDialog({
+    required this.service,
     required this.requestKey,
     required this.sourceName,
     required this.title,
@@ -141,10 +166,19 @@ class _VerificationCodeDialogState
     final code = _controller.text.trim();
     if (code.isEmpty || _submitting) return;
     setState(() => _submitting = true);
-    await ref
-        .read(bookApiProvider)
-        .submitVerificationResult(widget.requestKey, code);
-    if (mounted) Navigator.pop(context, true);
+    try {
+      final accepted = await widget.service.submitVerificationResult(
+        widget.requestKey,
+        code,
+      );
+      if (mounted) Navigator.pop(context, accepted);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('验证码提交失败：$error')));
+      }
+    }
   }
 
   /// 溢出菜单：禁用书源/删除书源（对标原版 VerificationCodeDialog 菜单）

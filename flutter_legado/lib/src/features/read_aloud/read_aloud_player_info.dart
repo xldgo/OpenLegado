@@ -1,3 +1,5 @@
+import '../../providers/domain_config_provider.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../platform/tts/system_tts.dart';
 import '../../providers/audio/audio_notifier.dart';
-import '../../providers/providers.dart';
 import 'cloud_tts_providers.dart';
 import 'http_tts_repository_provider.dart';
 import 'http_tts_voice_selection.dart';
@@ -34,7 +35,7 @@ final readAloudPlayerInfoProvider = FutureProvider.autoDispose((ref) async {
   final notifier = ref.read(audioNotifierProvider.notifier);
   final selection = notifier.resolveTtsEngineUrl();
   if (selection.isEmpty) return const ReadAloudPlayerInfo();
-  final api = ref.read(bookApiProvider);
+  final selectionsRepository = ref.read(readAloudSelectionRepositoryProvider);
   final catalog = ref.watch(readAloudVoicesProvider.future);
   if (selection == systemTtsEngineUrl) {
     final system = ref.read(systemTtsServiceProvider);
@@ -65,7 +66,7 @@ final readAloudPlayerInfoProvider = FutureProvider.autoDispose((ref) async {
         .where((e) => e.id == id)
         .firstOrNull;
     if (engine == null) throw StateError('当前云端引擎已不存在');
-    final selectedVoice = await api.getConfig('cloudTtsVoice:$id');
+    final selectedVoice = await selectionsRepository.getCloudVoice(id);
     final voice = voices
         .where(
           (v) =>
@@ -87,9 +88,7 @@ final readAloudPlayerInfoProvider = FutureProvider.autoDispose((ref) async {
       .where((e) => e.id == id)
       .firstOrNull;
   if (engine == null) throw StateError('当前 HTTP 引擎已不存在');
-  final choice = HttpTtsVoiceSelection.decode(
-    await api.getConfig(HttpTtsVoiceSelection.key(engine.id)),
-  );
+  final choice = await selectionsRepository.getHttpVoice(engine.id);
   final voice = resolveHttpTtsVoice(engine.id, voices, choice).voice;
   return ReadAloudPlayerInfo(
     engineName: engine.name,

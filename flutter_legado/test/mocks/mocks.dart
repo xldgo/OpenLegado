@@ -1,5 +1,16 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/config_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/app_runtime.dart';
+
+import 'package:flutter_legado/src/domain/contracts/reading_content_service.dart';
+import 'package:flutter_legado/src/domain/contracts/source_action_service.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_source_edit_service.dart';
+import 'package:flutter_legado/src/domain/contracts/source_login_v2_service.dart';
+import 'package:flutter_legado/src/domain/contracts/verification_service.dart';
+import 'package:flutter_legado/src/domain/contracts/webview_bridge_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/network_service.dart';
 import 'package:flutter_legado/src/domain/contracts/local_server_service.dart';
 import 'package:flutter_legado/src/domain/contracts/rule_execution_service.dart';
@@ -207,7 +218,41 @@ class LocalServerServiceMock extends Mock implements LocalServerService {}
 
 class RuleExecutionServiceMock extends Mock implements RuleExecutionService {}
 
+class BookSourceEditServiceMock extends Mock implements BookSourceEditService {}
+
+class SourceLoginV2ServiceMock extends Mock implements SourceLoginV2Service {}
+
+class VerificationServiceMock extends Mock implements VerificationService {}
+
+class WebViewBridgeServiceMock extends Mock implements WebViewBridgeService {}
+
+class ReadingContentServiceMock extends Mock implements ReadingContentService {}
+
+class SourceActionServiceMock extends Mock implements SourceActionService {}
+
+class ConfigRepositoryMock extends Mock implements ConfigRepository {}
+
+class AppRuntimeMock extends Mock implements AppRuntime {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final ConfigRepository configRepository = ConfigRepositoryMock();
+  @override
+  final AppRuntime runtime = AppRuntimeMock();
+  @override
+  final ReadingContentService readingContentService =
+      ReadingContentServiceMock();
+  @override
+  final SourceActionService sourceActionService = SourceActionServiceMock();
+  @override
+  final BookSourceEditService bookSourceEditService =
+      BookSourceEditServiceMock();
+  @override
+  final SourceLoginV2Service sourceLoginV2Service = SourceLoginV2ServiceMock();
+  @override
+  final VerificationService verificationService = VerificationServiceMock();
+  @override
+  final WebViewBridgeService webViewBridgeService = WebViewBridgeServiceMock();
   @override
   final NetworkService networkService = NetworkServiceMock();
   @override
@@ -305,7 +350,7 @@ class MockRustApi extends Mock implements RustApi {
   MockRustApi() {
     // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。
     // 设置/迁移用例按需覆盖为实际数据、空值或读取失败。
-    when(() => getConfig(any())).thenAnswer(
+    when(() => configRepository.getConfig(any())).thenAnswer(
       (call) async =>
           call.positionalArguments.first == 'ttsFollowSys' ? 'true' : null,
     );

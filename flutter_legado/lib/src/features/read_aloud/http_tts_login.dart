@@ -1,3 +1,5 @@
+import '../../app/bootstrap/login_v2_session_factory.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -21,7 +23,8 @@ Future<void> showHttpTtsLogin(
   if (session.isV2) {
     await showDialog<bool>(
       context: context,
-      builder: (_) => LoginV2Dialog.session(session: session),
+      builder: (_) =>
+          LoginV2Dialog(session: createHttpTtsLoginV2Session(session)),
     );
   } else if ((engine.loginUi ?? '').trim().isNotEmpty &&
       engine.loginUi!.trim() != '[]') {

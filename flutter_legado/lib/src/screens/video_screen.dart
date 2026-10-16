@@ -18,7 +18,7 @@ import '../providers/providers.dart';
 import '../services/book_api.dart';
 import '../services/video_float_window.dart';
 import '../utils/video_play_utils.dart';
-import '../utils/video_progress.dart';
+import '../domain/contracts/video_progress_repository.dart';
 import '../widgets/app_progress_indicator.dart';
 import '../widgets/video_danmaku_layer.dart';
 import '../widgets/video_float_window_button.dart';
@@ -201,7 +201,7 @@ class _VideoScreenState extends State<VideoScreen> {
   // ===== [V-B4] 直链进度（video_pos_）与自然播完连播 =====
 
   /// 直链进度存取（仅直链模式；经既有 config/caches 通道，20 天 TTL）
-  VideoPosStore? _directPosStore;
+  VideoProgressRepository? _directPosStore;
 
   /// 本次起播要恢复的位置（毫秒）：直链 = video_pos_ 读值；
   /// 书籍 = 初始章的 durChapterPos（换集 saveRead(0) 后归零，对齐原版）
@@ -384,8 +384,8 @@ class _VideoScreenState extends State<VideoScreen> {
 
   /// 直链起播：读 20 天内进度 → 解析播放（对齐 VideoPlay.kt:143 seekOnStart）
   Future<void> _startDirectPlayback() async {
-    final api = ProviderScope.containerOf(context).read(bookApiProvider);
-    final store = VideoPosStore(api);
+    final store = ProviderScope.containerOf(context)
+        .read(videoProgressRepositoryProvider);
     _directPosStore = store;
     // [V-B3] 悬浮窗回全屏：位置/URL 已随状态交回，不再读 video_pos_
     if (_presetTarget == null) {

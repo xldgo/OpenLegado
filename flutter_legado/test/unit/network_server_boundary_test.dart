@@ -21,29 +21,35 @@ void main() {
   test('Mock服务与根配置共享同一存储；Web停止不影响MCP配置', () async {
     final api = MockBookApi();
     await api.localServerService.setServerPort(4321);
-    expect(await api.getConfig('server_port'), '4321');
+    expect(await api.configRepository.getConfig('server_port'), '4321');
     await api.localServerService.startServer(port: 8080);
-    expect(await api.getConfig('server_running'), 'true');
+    expect(await api.configRepository.getConfig('server_running'), 'true');
     expect((await api.localServerService.getServerStatus()).port, 8080);
     await api.localServerService.setMcpPort(1236);
     await api.localServerService.stopServer();
     expect((await api.localServerService.getServerStatus()).running, isFalse);
-    expect(await api.getConfig('mcpPort'), '1236');
+    expect(await api.configRepository.getConfig('mcpPort'), '1236');
     await api.localServerService.setMcpPort(0);
-    expect(await api.getConfig('mcpPort'), '0');
+    expect(await api.configRepository.getConfig('mcpPort'), '0');
   });
 
   test('hosts写入、清空及校验失败与根配置保持一致', () async {
     final api = MockBookApi();
     await api.networkService.setCustomHosts('{"example.test":"127.0.0.1"}');
-    expect(await api.getConfig('customHosts'), '{"example.test":"127.0.0.1"}');
+    expect(
+      await api.configRepository.getConfig('customHosts'),
+      '{"example.test":"127.0.0.1"}',
+    );
     await expectLater(
       api.networkService.setCustomHosts('[]'),
       throwsFormatException,
     );
-    expect(await api.getConfig('customHosts'), '{"example.test":"127.0.0.1"}');
+    expect(
+      await api.configRepository.getConfig('customHosts'),
+      '{"example.test":"127.0.0.1"}',
+    );
     await api.networkService.setCustomHosts('');
-    expect(await api.getConfig('customHosts'), '');
+    expect(await api.configRepository.getConfig('customHosts'), '');
   });
   test('MockMCP越界不覆盖原配置', () async {
     final api = MockBookApi();
@@ -52,7 +58,7 @@ void main() {
       api.localServerService.setMcpPort(80),
       throwsArgumentError,
     );
-    expect(await api.getConfig('mcpPort'), '1236');
+    expect(await api.configRepository.getConfig('mcpPort'), '1236');
   });
   test('Mock响应类型化，明确保留无真实网络和规则执行的占位', () async {
     final api = MockBookApi();

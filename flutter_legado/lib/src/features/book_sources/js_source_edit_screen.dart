@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -9,8 +8,8 @@ import '../../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../models/models.dart';
-import '../../providers/providers.dart';
+import '../../providers/source_interaction_provider.dart';
+import 'book_source_repository_provider.dart';
 import 'source_notifier.dart';
 import 'widgets/source_rule_help_sheet.dart';
 import '../../screens/code_edit_screen.dart';
@@ -66,8 +65,7 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
       final url = _openedSourceUrl;
       if (url != null && url.isNotEmpty) {
         final sources = await ref
-            .read(bookApiProvider)
-            .bookSourceRepository
+            .read(bookSourceRepositoryProvider)
             .getBookSources();
         final hit = sources.where((s) => s.bookSourceUrl == url).firstOrNull;
         final js = hit?.mainJs?.trim();
@@ -93,17 +91,14 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
     }
     setState(() => _saving = true);
     try {
-      final api = ref.read(bookApiProvider);
+      final editor = ref.read(bookSourceEditServiceProvider);
+      final repository = ref.read(bookSourceRepositoryProvider);
       // 语法检查（失败不阻断保存，仅提示；并写入横幅便于定位）
       try {
-        final checkRaw = await api.checkJsSourceSyntax(content);
-        final check = jsonDecode(checkRaw) as Map<String, dynamic>;
-        if (check['valid'] == false) {
-          final msg = check['message']?.toString() ?? '语法错误';
-          final line = check['line'];
-          final lineNum = line is int
-              ? line
-              : int.tryParse(line?.toString() ?? '');
+        final check = await editor.checkJsSourceSyntax(content);
+        if (!check.valid) {
+          final msg = check.message;
+          final lineNum = check.line;
           if (mounted) {
             setState(() {
               _syntaxBanner = lineNum != null
@@ -121,25 +116,21 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
         }
       } catch (_) {}
 
-      final extracted = await api.extractJsSource(content);
-      final map = jsonDecode(extracted) as Map<String, dynamic>;
-      // 确保 mainJs 为完整脚本
-      map['mainJs'] = content;
-      final source = BookSource.fromJson(map);
+      final source = await editor.extractJsSource(content);
       if (source.bookSourceUrl.trim().isEmpty ||
           source.bookSourceName.trim().isEmpty) {
         _toast('配置缺少 bookSourceUrl 或 bookSourceName');
         return;
       }
 
-      final existing = await api.bookSourceRepository.getBookSources();
+      final existing = await repository.getBookSources();
       final exists = existing.any(
         (s) => s.bookSourceUrl == source.bookSourceUrl,
       );
       if (exists) {
-        await api.bookSourceRepository.updateBookSource(source);
+        await repository.updateBookSource(source);
       } else {
-        await api.bookSourceRepository.addBookSource(source);
+        await repository.addBookSource(source);
       }
       _openedSourceUrl = source.bookSourceUrl;
       // 刷新书源列表
@@ -223,16 +214,12 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
       return;
     }
     try {
-      final checkRaw = await ref
-          .read(bookApiProvider)
+      final check = await ref
+          .read(bookSourceEditServiceProvider)
           .checkJsSourceSyntax(content);
-      final check = jsonDecode(checkRaw) as Map<String, dynamic>;
-      if (check['valid'] == false) {
-        final msg = check['message']?.toString() ?? '语法错误';
-        final line = check['line'];
-        final lineNum = line is int
-            ? line
-            : int.tryParse(line?.toString() ?? '');
+      if (!check.valid) {
+        final msg = check.message;
+        final lineNum = check.line;
         setState(() {
           _syntaxBanner = lineNum != null ? '语法警告 L$lineNum：$msg' : '语法警告：$msg';
           _syntaxLine = lineNum;

@@ -20,7 +20,7 @@ void main() {
   test('等待初始化完成后注入同一实例，多个消费者共享它', () async {
     final api = MockRustApi();
     final gate = Completer<void>();
-    when(() => api.initialize()).thenAnswer((_) => gate.future);
+    when(() => api.runtime.initialize()).thenAnswer((_) => gate.future);
     var ready = false;
     final initialization = initializeBookApi(api: api).then((value) {
       ready = true;
@@ -39,14 +39,14 @@ void main() {
     expect(initialized, same(api));
     expect(container.read(bookApiProvider), same(api));
     expect(container.read(consumer), same(api));
-    verify(() => api.initialize()).called(1);
+    verify(() => api.runtime.initialize()).called(1);
   });
 
   test('初始化失败原样传播，不返回未就绪实例', () async {
     final api = MockRustApi();
     final failure = StateError('数据库初始化失败');
-    when(() => api.initialize()).thenAnswer((_) async => throw failure);
+    when(() => api.runtime.initialize()).thenAnswer((_) async => throw failure);
     await expectLater(initializeBookApi(api: api), throwsA(same(failure)));
-    verify(() => api.initialize()).called(1);
+    verify(() => api.runtime.initialize()).called(1);
   });
 }

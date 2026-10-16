@@ -43,8 +43,10 @@ void main() {
     when(() => mockApi.searchHistoryRepository.clearSearchHistory())
         .thenAnswer((_) async {});
     when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
@@ -141,7 +143,7 @@ void main() {
 
     testWidgets('过滤开启态：命中屏蔽词被隐藏，按钮为已开启态', (tester) async {
       // 搜索结果过滤屏蔽词（对齐原版 PreferKey.searchResultFilter）
-      when(() => mockApi.getConfig('searchResultFilter'))
+      when(() => mockApi.configRepository.getConfig('searchResultFilter'))
           .thenAnswer((_) async => '遮光');
       final events = StreamController<SearchBatch>();
       when(

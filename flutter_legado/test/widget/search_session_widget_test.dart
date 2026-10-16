@@ -27,8 +27,10 @@ void main() {
     ).thenAnswer((_) async => []);
     when(() => api.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => api.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     when(

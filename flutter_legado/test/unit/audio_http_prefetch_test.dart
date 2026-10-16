@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_legado/src/data/repositories/mock_read_aloud_voice_repository.dart';
-import 'package:flutter_legado/src/features/read_aloud/http_tts_voice_selection.dart';
 
 import 'dart:async';
 
@@ -122,7 +121,7 @@ void main() {
     api = _Api();
     synthesis = _Synth();
     player = FakeStreamAudioPlayer();
-    when(() => api.getConfig(any())).thenAnswer(
+    when(() => api.configRepository.getConfig(any())).thenAnswer(
       (call) async =>
           call.positionalArguments[0] == 'audioPreDownloadNum' ? '1' : null,
     );
@@ -199,7 +198,7 @@ void main() {
     expect(api.ttsCacheRepository.clears.last.before, isNotNull);
   });
   test('保留时间零启动和停止清扫缓存，停止后不保护旧章节', () async {
-    when(() => api.getConfig('audioCacheCleanTime'))
+    when(() => api.configRepository.getConfig('audioCacheCleanTime'))
         .thenAnswer((_) async => '0');
     await start();
     await flush();
@@ -227,9 +226,8 @@ void main() {
       'emotionsJson': '[{"name":"高兴","tag":"happy"}]',
     });
     final voice = (await api.voices.list()).single;
-    when(() => api.getConfig(HttpTtsVoiceSelection.key(1))).thenAnswer(
-      (_) async =>
-          HttpTtsVoiceSelection(voice.id, emotionTag: 'happy').encode(),
+    when(() => api.configRepository.getConfig('ttsVoice:${1}')).thenAnswer(
+      (_) async => jsonEncode({'voiceId': voice.id, 'emotionTag': 'happy'}),
     );
     await start();
     await flush();
@@ -256,10 +254,11 @@ void main() {
     });
     final voice = (await api.voices.list()).single;
     final writes = <String, String>{};
-    when(() => api.setConfig(any(), any())).thenAnswer((call) async {
-      writes[call.positionalArguments[0] as String] =
-          call.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((call) async {
+          writes[call.positionalArguments[0] as String] =
+              call.positionalArguments[1] as String;
+        });
     await notifier().setHttpTtsVoice(2, voice, emotionTag: 'happy');
     expect(jsonDecode(writes['ttsVoice:2']!)['voiceId'], voice.id);
     expect(writes.containsKey('ttsVoice:1'), false);

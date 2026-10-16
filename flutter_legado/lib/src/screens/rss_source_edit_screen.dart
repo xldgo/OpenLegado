@@ -1,3 +1,4 @@
+import '../providers/network_provider.dart';
 import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
@@ -15,7 +16,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../routes.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/help/help_assets.dart';
@@ -579,7 +579,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       return;
     }
     try {
-      await ref.read(bookApiProvider).clearCookie(url);
+      await ref.read(networkServiceProvider).clearCookie(url);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.cookiesCleared)));

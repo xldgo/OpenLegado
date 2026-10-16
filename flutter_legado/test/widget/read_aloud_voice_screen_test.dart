@@ -43,12 +43,13 @@ void main() {
       'speakersJson': '[{"name":"中文女声","toneID":"a"}]',
       'emotionsJson': '[{"name":"高兴","tag":"happy"}]',
     });
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((call) async => settings[call.positionalArguments[0]]);
-    when(() => api.setConfig(any(), any())).thenAnswer((call) async {
-      settings[call.positionalArguments[0] as String] =
-          call.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((call) async {
+          settings[call.positionalArguments[0] as String] =
+              call.positionalArguments[1] as String;
+        });
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

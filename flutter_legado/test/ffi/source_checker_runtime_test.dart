@@ -71,7 +71,7 @@ void main() {
     expect(events.last['result']['search_ok'], isFalse);
     expect(events.last['result']['search_error'], '书源不存在');
     await checker.cancelCheckSources();
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.sourceChecker, same(checker));
     await api.bookSourceRepository.deleteBookSource(source.bookSourceUrl);
     expect(await checker.checkSourcesStream([]).toList(), isEmpty);

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
@@ -16,7 +18,10 @@ class _Repository extends Mock implements BookSourceRepository {}
 class _Api extends MockBookApi {
   int initializationCount = 0;
   @override
-  Future<void> initialize() async => initializationCount++;
+  MockAppRuntime get runtime => _fixtureRuntime;
+  late final _fixtureRuntime = MockAppRuntime(startup: _fixtureInitialize);
+
+  Future<void> _fixtureInitialize() async => initializationCount++;
 }
 
 const _source = BookSource(
@@ -112,8 +117,11 @@ void main() {
     expect(events.single['source_name'], '校验可见');
     expect(events.single['result']['source_url'], _source.bookSourceUrl);
     await repository.sortBookSources(2, false);
-    expect(await api.getConfig('source_sort_key'), '2');
-    expect(await api.getConfig('source_sort_ascending'), 'false');
+    expect(await api.configRepository.getConfig('source_sort_key'), '2');
+    expect(
+      await api.configRepository.getConfig('source_sort_ascending'),
+      'false',
+    );
     expect(
       createBookApi(useMock: true).bookSourceRepository,
       isA<MockBookSourceRepository>(),

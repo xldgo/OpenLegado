@@ -24,7 +24,8 @@ void main() {
         .thenAnswer((_) async => '');
     when(() => mockApi.sourceLoginRepository.getLoginHeader(any()))
         .thenAnswer((_) async => '');
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
   });
 
   testWidgets('登录页 TabBar 渲染无断言红屏（tabAlignment.fill）', (tester) async {

@@ -57,13 +57,14 @@ void main() {
     ).thenAnswer((_) => const Stream<SearchBatch>.empty());
     // [v2.0.31] 搜索范围持久化：默认无持久化 scope
     final configs = <String, String>{};
-    when(() => mockApi.getConfig(any())).thenAnswer(
+    when(() => mockApi.configRepository.getConfig(any())).thenAnswer(
       (call) async => configs[call.positionalArguments[0] as String],
     );
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((call) async {
-      configs[call.positionalArguments[0] as String] =
-          call.positionalArguments[1] as String;
-    });
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((call) async {
+          configs[call.positionalArguments[0] as String] =
+              call.positionalArguments[1] as String;
+        });
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );

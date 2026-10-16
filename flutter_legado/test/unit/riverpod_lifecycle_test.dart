@@ -53,10 +53,11 @@ void main() {
                 await gate.future;
                 return [];
               });
-          when(() => api.getConfig('searchScope')).thenAnswer((_) async {
-            await gate.future;
-            return null;
-          });
+          when(() => api.configRepository.getConfig('searchScope'))
+              .thenAnswer((_) async {
+                await gate.future;
+                return null;
+              });
           final container = ProviderContainer(
             overrides: [bookApiProvider.overrideWithValue(api)],
           );

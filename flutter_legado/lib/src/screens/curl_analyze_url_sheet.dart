@@ -3,7 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
+import '../providers/source_interaction_provider.dart';
 
 /// cURL ↔ AnalyzeUrl 双向转换（对标原版 `CurlAnalyzeUrlDialog`）
 ///
@@ -62,7 +62,9 @@ class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
     final text = widget.initialText.trim();
     if (text.isEmpty) return;
     try {
-      final like = await ref.read(bookApiProvider).looksLikeCurl(text);
+      final like = await ref
+          .read(bookSourceEditServiceProvider)
+          .looksLikeCurl(text);
       if (!mounted) return;
       if (!like) setState(() => _curlToAnalyze = false);
     } catch (_) {}
@@ -78,7 +80,7 @@ class _CurlAnalyzeUrlSheetState extends ConsumerState<CurlAnalyzeUrlSheet> {
   Future<void> _convert() async {
     setState(() => _converting = true);
     try {
-      final api = ref.read(bookApiProvider);
+      final api = ref.read(bookSourceEditServiceProvider);
       final out = _curlToAnalyze
           ? await api.curlToAnalyzeUrl(_input.text)
           : await api.analyzeUrlToCurl(_input.text);

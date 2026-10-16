@@ -34,18 +34,18 @@ void main() {
     });
 
     testWidgets('initialize() does not throw', (tester) async {
-      await api.initialize();
+      await api.runtime.initialize();
     });
 
     testWidgets('getVersion() returns a dotted version', (tester) async {
-      await api.initialize();
-      final version = await api.getVersion();
+      await api.runtime.initialize();
+      final version = await api.runtime.getVersion();
       expect(version, isNotEmpty);
       expect(version, contains('.'));
     });
 
     testWidgets('getBookSources() FFI round-trip', (tester) async {
-      await api.initialize();
+      await api.runtime.initialize();
       // Empty DB returning [] is valid.
       final sources = await api.bookSourceRepository.getBookSources();
       expect(sources, isA<List>());

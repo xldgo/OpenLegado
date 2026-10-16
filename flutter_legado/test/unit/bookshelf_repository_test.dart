@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
+
 import 'dart:async';
 
 import 'package:flutter_legado/src/data/repositories/mock_book_group_repository.dart';
@@ -29,7 +31,10 @@ class _Groups extends Mock implements BookGroupRepository {}
 class _Api extends MockBookApi {
   int initializeCalls = 0;
   @override
-  Future<void> initialize() async => initializeCalls++;
+  MockAppRuntime get runtime => _fixtureRuntime;
+  late final _fixtureRuntime = MockAppRuntime(startup: _fixtureInitialize);
+
+  Future<void> _fixtureInitialize() async => initializeCalls++;
 }
 
 const _book = Book(

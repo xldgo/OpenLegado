@@ -6,6 +6,9 @@ import '../domain/contracts/audio_cache_repository.dart';
 import '../domain/contracts/audio_cache_download_service.dart';
 import '../domain/contracts/audio_book_service.dart';
 import '../domain/contracts/video_danmaku_service.dart';
+import '../domain/contracts/video_progress_repository.dart';
+import '../data/repositories/config_video_progress_repository.dart';
+import 'config_provider.dart';
 
 /// 媒体各域复用应用装配，可独立覆盖。— Codex + UI
 final bookImageRepositoryProvider = Provider<BookImageRepository>(
@@ -22,4 +25,8 @@ final audioBookServiceProvider = Provider<AudioBookService>(
 );
 final videoDanmakuServiceProvider = Provider<VideoDanmakuService>(
   (ref) => ref.watch(bookApiProvider).videoDanmakuService,
+);
+
+final videoProgressRepositoryProvider = Provider<VideoProgressRepository>(
+  (ref) => ConfigVideoProgressRepository(ref.watch(configRepositoryProvider)),
 );

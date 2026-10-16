@@ -21,11 +21,11 @@ void main() {
 
   group('初始化/版本', () {
     test('initialize 不抛异常', () async {
-      await api.initialize();
+      await api.runtime.initialize();
     });
 
     test('getVersion 返回 mock 版本号', () async {
-      final v = await api.getVersion();
+      final v = await api.runtime.getVersion();
       expect(v, contains('mock'));
     });
   });
@@ -184,18 +184,28 @@ void main() {
 
     // 契约 §2.3 clearCookie（2026-08-12 P1-2）
     test('clearCookie 空 url 抛错，合法 url 成功', () async {
-      await expectLater(api.clearCookie('  '), throwsException);
-      await api.clearCookie('https://www.example.com/path');
+      await expectLater(api.networkService.clearCookie('  '), throwsException);
+      await api.networkService.clearCookie('https://www.example.com/path');
     });
   });
 
   group('cURL AnalyzeUrl', () {
     test('looksLikeCurl / roundtrip 最简路径', () async {
-      expect(await api.looksLikeCurl('curl -L https://example.com'), isTrue);
-      expect(await api.looksLikeCurl('https://example.com'), isFalse);
-      final a = await api.curlToAnalyzeUrl('curl -L https://example.com/book');
+      expect(
+        await api.bookSourceEditService.looksLikeCurl(
+          'curl -L https://example.com',
+        ),
+        isTrue,
+      );
+      expect(
+        await api.bookSourceEditService.looksLikeCurl('https://example.com'),
+        isFalse,
+      );
+      final a = await api.bookSourceEditService.curlToAnalyzeUrl(
+        'curl -L https://example.com/book',
+      );
       expect(a, 'https://example.com/book');
-      final c = await api.analyzeUrlToCurl(a);
+      final c = await api.bookSourceEditService.analyzeUrlToCurl(a);
       expect(c, contains('curl'));
       expect(c, contains('https://example.com/book'));
     });
@@ -304,22 +314,22 @@ void main() {
 
   group('配置操作', () {
     test('setConfig/getConfig 读写一致', () async {
-      await api.setConfig('key1', 'value1');
-      final v = await api.getConfig('key1');
+      await api.configRepository.setConfig('key1', 'value1');
+      final v = await api.configRepository.getConfig('key1');
       expect(v, 'value1');
     });
 
     test('deleteConfig 删除后返回 null', () async {
-      await api.setConfig('key2', 'value2');
-      await api.deleteConfig('key2');
-      final v = await api.getConfig('key2');
+      await api.configRepository.setConfig('key2', 'value2');
+      await api.configRepository.deleteConfig('key2');
+      final v = await api.configRepository.getConfig('key2');
       expect(v, isNull);
     });
 
     test('getAllConfigs 返回所有配置', () async {
-      await api.setConfig('a', '1');
-      await api.setConfig('b', '2');
-      final all = await api.getAllConfigs();
+      await api.configRepository.setConfig('a', '1');
+      await api.configRepository.setConfig('b', '2');
+      final all = await api.configRepository.getAllConfigs();
       expect(all['a'], '1');
       expect(all['b'], '2');
     });

@@ -112,7 +112,7 @@ void main() {
     await service.pauseSearch();
     await service.resumeSearch();
     await service.cancelSearch();
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.searchService, same(service));
     expect(api.searchHistoryRepository, same(history));
   });

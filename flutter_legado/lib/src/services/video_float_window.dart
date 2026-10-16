@@ -32,7 +32,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/models.dart';
 import '../utils/video_play_utils.dart';
-import '../utils/video_progress.dart';
+import '../data/repositories/config_video_progress_repository.dart';
 import 'book_api.dart';
 
 /// 悬浮窗播放状态（Dart → 原生；原生 → Dart 回全屏/接管共用）
@@ -426,7 +426,8 @@ class VideoFloatWindowCoordinator {
           chapterPos: state.positionMs,
         );
       } else if (state.directUrl != null && state.directUrl!.isNotEmpty) {
-        await VideoPosStore(api).write(state.directUrl!, state.positionMs);
+        await ConfigVideoProgressRepository(api.configRepository)
+            .write(state.directUrl!, state.positionMs);
       }
     } catch (_) {}
   }

@@ -1,3 +1,5 @@
+import '../providers/config_settings_provider.dart';
+import '../providers/domain_config_provider.dart';
 import '../providers/local_server_provider.dart';
 import '../domain/models/local_server_status.dart';
 
@@ -15,7 +17,6 @@ import '../providers/general_settings_provider.dart';
 import '../utils/error_message.dart';
 import '../services/auto_task_scheduler.dart';
 import '../services/web_keep_alive_service.dart';
-import '../providers/providers.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
@@ -100,17 +101,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 进程内 Rust server 并不存在，此处也**不**自动 `startServer`、**不**启动
   /// 后台保活（没有服务可保；保活生命周期严格绑定 startServer 成功）。
   Future<void> _initServiceStates() async {
-    final api = ref.read(bookApiProvider);
     try {
-      final web = await api.getConfig('webService');
-      final autoTask = await api.getConfig('autoTaskService');
-      final mcpPortRaw = await api.getConfig('mcpPort');
-      final mcpToken = await api.getConfig('jsSourceApiToken');
-      final mcpPort = int.tryParse(mcpPortRaw ?? '') ?? 0;
+      final settings = ref.read(serviceSettingsRepositoryProvider);
+      await settings.reload();
+      final config = settings.current;
+      final mcpToken = await ref
+          .read(serverAccessRepositoryProvider)
+          .getToken();
+      final mcpPort = config.mcpPort;
       if (!mounted) return;
       setState(() {
-        _webService = web == 'true';
-        _autoTaskService = autoTask == 'true';
+        _webService = config.webEnabled;
+        _autoTaskService = config.autoTaskEnabled;
         _mcpPort = mcpPort;
         _mcpService = mcpPort > 0;
         _mcpTokenConfigured = (mcpToken ?? '').trim().isNotEmpty;
@@ -171,7 +173,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _toggleWebService(bool v) async {
     if (_webServiceBusy) return;
     setState(() => _webServiceBusy = true);
-    final api = ref.read(bookApiProvider);
     final server = ref.read(localServerServiceProvider);
     try {
       if (v) {
@@ -181,7 +182,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final status = await server.getServerStatus();
         // 服务成功即接保活（iOS 专用；其它平台 no-op）
         final keepAlive = await WebKeepAliveService.instance.start();
-        await api.setConfig('webService', 'true');
+        await ref
+            .read(serviceSettingsRepositoryProvider)
+            .update((s) => s.copyWith(webEnabled: true));
         if (!mounted) return;
         setState(() {
           _webService = true;
@@ -192,7 +195,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await server.stopServer();
         // 服务停止必须同步停保活（否则静音音轨会让进程继续存活）
         await WebKeepAliveService.instance.stop();
-        await api.setConfig('webService', 'false');
+        await ref
+            .read(serviceSettingsRepositoryProvider)
+            .update((s) => s.copyWith(webEnabled: false));
         if (!mounted) return;
         setState(() {
           _webService = false;
@@ -236,6 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (v) {
         final port = _mcpPort > 0 ? _mcpPort : 1236;
         await server.setMcpPort(port);
+        await ref.read(serviceSettingsRepositoryProvider).reload();
         if (!mounted) return;
         setState(() {
           _mcpService = true;
@@ -243,6 +249,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       } else {
         await server.setMcpPort(0);
+        await ref.read(serviceSettingsRepositoryProvider).reload();
         if (!mounted) return;
         setState(() {
           _mcpService = false;
@@ -267,8 +274,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _autoTaskService = v);
     try {
       await ref
-          .read(bookApiProvider)
-          .setConfig('autoTaskService', v ? 'true' : 'false');
+          .read(serviceSettingsRepositoryProvider)
+          .update((s) => s.copyWith(autoTaskEnabled: v));
     } catch (_) {
       // 持久化失败不阻断 UI 切换
     }

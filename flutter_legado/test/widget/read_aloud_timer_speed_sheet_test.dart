@@ -28,15 +28,16 @@ void main() {
     failSave = false;
     failKey = null;
     api = MockRustApi();
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((call) async => saved[call.positionalArguments[0]]);
-    when(() => api.setConfig(any(), any())).thenAnswer((call) async {
-      if (failSave || call.positionalArguments[0] == failKey) {
-        throw StateError('测试保存失败');
-      }
-      saved[call.positionalArguments[0] as String] =
-          call.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((call) async {
+          if (failSave || call.positionalArguments[0] == failKey) {
+            throw StateError('测试保存失败');
+          }
+          saved[call.positionalArguments[0] as String] =
+              call.positionalArguments[1] as String;
+        });
     container = ProviderContainer(
       overrides: [
         bookApiProvider.overrideWithValue(api),

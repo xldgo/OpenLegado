@@ -42,4 +42,9 @@ class MockNetworkService implements NetworkService {
     }
     _configs['customHosts'] = configuration;
   }
+
+  @override
+  Future<void> clearCookie(String url) async {
+    if (url.trim().isEmpty) throw Exception('url不能为空');
+  }
 }

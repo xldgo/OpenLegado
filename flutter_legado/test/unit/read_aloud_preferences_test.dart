@@ -25,12 +25,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     saved = {};
     api = MockRustApi();
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((call) async => saved[call.positionalArguments.first]);
-    when(() => api.setConfig(any(), any())).thenAnswer((call) async {
-      saved[call.positionalArguments[0] as String] =
-          call.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((call) async {
+          saved[call.positionalArguments[0] as String] =
+              call.positionalArguments[1] as String;
+        });
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(api)],
     );
@@ -83,7 +84,7 @@ void main() {
       restored.read(readAloudPreferencesProvider).mediaButtonPerNext,
       isFalse,
     );
-    when(() => api.setConfig('mediaButtonPerNext', 'true'))
+    when(() => api.configRepository.setConfig('mediaButtonPerNext', 'true'))
         .thenThrow(StateError('保存失败'));
     await expectLater(notifier().setMediaButtonPerNext(true), throwsStateError);
     expect(state().mediaButtonPerNext, isFalse);
@@ -154,11 +155,11 @@ void main() {
 
   test('保存失败保留旧值，重试成功后才更新状态', () async {
     await notifier().load();
-    when(() => api.setConfig('ttsParagraphInterval', '500'))
+    when(() => api.configRepository.setConfig('ttsParagraphInterval', '500'))
         .thenThrow(StateError('保存失败'));
     await expectLater(notifier().setParagraphInterval(500), throwsStateError);
     expect(state().paragraphIntervalMs, 0);
-    when(() => api.setConfig('ttsParagraphInterval', '500'))
+    when(() => api.configRepository.setConfig('ttsParagraphInterval', '500'))
         .thenAnswer((_) async {});
     await notifier().setParagraphInterval(500);
     expect(state().paragraphIntervalMs, 500);
@@ -167,16 +168,17 @@ void main() {
   test('连续设置串行保存，慢写入不会覆盖后一个选择', () async {
     await notifier().load();
     final pending = Completer<void>();
-    when(() => api.setConfig('ttsSpeechRate', '10'))
+    when(() => api.configRepository.setConfig('ttsSpeechRate', '10'))
         .thenAnswer((_) => pending.future);
     final first = notifier().setManualSpeed(1.5);
     final second = notifier().setManualSpeed(2);
     await Future<void>.delayed(Duration.zero);
-    verifyNever(() => api.setConfig('ttsSpeechRate', '15'));
+    verifyNever(() => api.configRepository.setConfig('ttsSpeechRate', '15'));
     pending.complete();
     await Future.wait([first, second]);
     expect(state().manualSpeed, 2);
-    verify(() => api.setConfig('ttsSpeechRate', '15')).called(1);
+    verify(() => api.configRepository.setConfig('ttsSpeechRate', '15'))
+        .called(1);
   });
 
   test('旧跟随偏好迁移，重复打开不重复写配置', () async {
@@ -193,7 +195,8 @@ void main() {
       false,
     );
     await notifier().load();
-    verify(() => api.setConfig('ttsFollowSys', 'false')).called(1);
+    verify(() => api.configRepository.setConfig('ttsFollowSys', 'false'))
+        .called(1);
   });
 
   test('旧跟随偏好迁移失败后可重试，不能提前删除旧键', () async {
@@ -201,13 +204,14 @@ void main() {
       'read_aloud_follow_system_speed': false,
     });
     var failed = true;
-    when(() => api.setConfig('ttsFollowSys', 'false')).thenAnswer((_) async {
-      if (failed) {
-        failed = false;
-        throw StateError('迁移写入失败');
-      }
-      saved['ttsFollowSys'] = 'false';
-    });
+    when(() => api.configRepository.setConfig('ttsFollowSys', 'false'))
+        .thenAnswer((_) async {
+          if (failed) {
+            failed = false;
+            throw StateError('迁移写入失败');
+          }
+          saved['ttsFollowSys'] = 'false';
+        });
 
     await expectLater(notifier().load(), throwsStateError);
     expect(
@@ -231,16 +235,17 @@ void main() {
     expect(saved['contentSplitMode'], 'symbols');
     expect(state().splitMode, ReadAloudSplitMode.symbols);
     expect(state().splitSymbols.split(''), unorderedEquals('。？！'.split('')));
-    when(() => api.setConfig('contentSplitMode', 'page'))
+    when(() => api.configRepository.setConfig('contentSplitMode', 'page'))
         .thenThrow(StateError('划分保存失败'));
     await expectLater(
       notifier().setContentSplit(ReadAloudSplitMode.page, '。？！'),
       throwsStateError,
     );
     expect(state().splitMode, ReadAloudSplitMode.symbols);
-    when(() => api.setConfig('contentSplitMode', 'page')).thenAnswer((_) async {
-      saved['contentSplitMode'] = 'page';
-    });
+    when(() => api.configRepository.setConfig('contentSplitMode', 'page'))
+        .thenAnswer((_) async {
+          saved['contentSplitMode'] = 'page';
+        });
     await notifier().setContentSplit(ReadAloudSplitMode.page, '。？！');
     container.dispose();
     container = ProviderContainer(

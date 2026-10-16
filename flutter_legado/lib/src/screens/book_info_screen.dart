@@ -1,3 +1,4 @@
+import '../providers/source_action_provider.dart';
 import '../providers/explore/explore_dependencies.dart';
 import '../providers/chapter_cache_provider.dart';
 import '../features/privacy/privacy_controller.dart';
@@ -231,16 +232,15 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
             // 对齐原版 menu_share_it：bookUrl#bookJson + SourceCallBack
             // — Cursor UI
             final shareStr = '${book.bookUrl}#${jsonEncode(book.toJson())}';
-            final api = ref.read(bookApiProvider);
-            final r = await api.sourceCallBackBtn(
-              event: 'clickShareBook',
-              bookUrl: book.bookUrl,
-              bookType: book.bookType,
-              result: shareStr,
-            );
-            final invoked = r['invoked'] == true;
-            final jsTrue = r['jsTrue'] == true;
-            if (!invoked || !jsTrue) {
+            final r = await ref
+                .read(sourceActionServiceProvider)
+                .sourceCallBackBtn(
+                  event: 'clickShareBook',
+                  bookUrl: book.bookUrl,
+                  bookType: book.bookType,
+                  result: shareStr,
+                );
+            if (!r.handled) {
               await SharePlus.instance.share(ShareParams(text: shareStr));
             }
           } catch (e) {

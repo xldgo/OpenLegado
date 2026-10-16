@@ -92,12 +92,13 @@ void main() {
     system = _System();
     config = {};
     books.clear();
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((c) async => config[c.positionalArguments[0]]);
-    when(() => api.setConfig(any(), any())).thenAnswer((c) async {
-      config[c.positionalArguments[0] as String] =
-          c.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((c) async {
+          config[c.positionalArguments[0] as String] =
+              c.positionalArguments[1] as String;
+        });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
     when(() => api.bookshelfRepository.updateBook(any())).thenAnswer((c) async {

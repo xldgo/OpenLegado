@@ -1,3 +1,4 @@
+import '../providers/domain_config_provider.dart';
 import '../providers/rss_repository_provider.dart';
 import '../l10n/app_localization.dart';
 import '../widgets/app_menu.dart';
@@ -12,7 +13,6 @@ import '../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/rss/rss_notifier.dart';
 import '../providers/rss_history/rss_history_notifier.dart';
 import '../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
@@ -463,16 +463,10 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
   ///
   /// 持久化键对齐 Kotlin CacheManager：`sourceVariable_${getKey()}`，经 config FFI。
   Future<void> _showSetVariableDialog() async {
-    final api = ref.read(bookApiProvider);
-    final key = 'sourceVariable_${widget.source.sourceUrl}';
+    final variables = ref.read(sourceVariableRepositoryProvider);
     String? initial;
     try {
-      initial = await api.getConfig(key);
-      if (initial == null || initial.isEmpty) {
-        initial = await api.getConfig(
-          'rssSourceVariable_${widget.source.sourceUrl}',
-        );
-      }
+      initial = await variables.read(widget.source.sourceUrl);
     } catch (_) {}
     if (!mounted) return;
     final ctrl = TextEditingController(text: initial ?? '');
@@ -503,14 +497,7 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     );
     if (result == null || !mounted) return;
     try {
-      if (result.isEmpty) {
-        await api.deleteConfig(key);
-      } else {
-        await api.setConfig(key, result);
-      }
-      try {
-        await api.deleteConfig('rssSourceVariable_${widget.source.sourceUrl}');
-      } catch (_) {}
+      await variables.write(widget.source.sourceUrl, result);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.sourceVariableSaved)),

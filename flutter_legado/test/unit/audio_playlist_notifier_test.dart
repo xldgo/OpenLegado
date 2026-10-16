@@ -85,12 +85,13 @@ void main() {
     player = FakePlaylistAudioPlayer();
     config = {'audioPreDownloadNum': '0'};
     content = '第一段。\n第二段。\n第三段。';
-    when(() => api.getConfig(any()))
+    when(() => api.configRepository.getConfig(any()))
         .thenAnswer((c) async => config[c.positionalArguments[0]]);
-    when(() => api.setConfig(any(), any())).thenAnswer((c) async {
-      config[c.positionalArguments[0] as String] =
-          c.positionalArguments[1] as String;
-    });
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((c) async {
+          config[c.positionalArguments[0] as String] =
+              c.positionalArguments[1] as String;
+        });
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
     when(() => api.readingRepository.getChapters(any())).thenAnswer(

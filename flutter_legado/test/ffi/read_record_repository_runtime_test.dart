@@ -134,7 +134,7 @@ void main() {
     expect(await repository.readRecordDailyList(2026), isEmpty);
     await repository.clearReadRecords();
     expect(await repository.getReadRecords(), isEmpty);
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.readRecordRepository, same(repository));
   });
 }

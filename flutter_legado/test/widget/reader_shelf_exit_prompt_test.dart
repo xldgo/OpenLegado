@@ -79,7 +79,8 @@ void main() {
         .thenAnswer((_) async => '');
     when(() => api.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
-    when(() => api.getConfig(any())).thenAnswer((_) async => '');
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     when(
       () => api.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),

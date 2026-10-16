@@ -56,7 +56,7 @@ void main() {
     expect(await repository.getLoginInfo('fixture://A'), info);
     await repository.putLoginInfo('fixture://A', '{"token":"new"}');
     expect(await repository.getLoginInfo('fixture://A'), '{"token":"new"}');
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.sourceLoginRepository, same(repository));
   });
 }

@@ -30,8 +30,7 @@ void main() {
       // 只装配共享设置服务；目录读取仍由日志服务需要备份时触发。
       late final BookApi bookApi;
       final appSettings = createAppSettingsService(
-        readConfig: (key) => bookApi.getConfig(key),
-        writeConfig: (key, value) => bookApi.setConfig(key, value),
+        configRepository: () => bookApi.configRepository,
       );
 
       // 1. 崩溃日志服务（最先初始化，确保后续异常可被捕获）

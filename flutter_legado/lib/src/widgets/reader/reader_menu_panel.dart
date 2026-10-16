@@ -1,3 +1,6 @@
+import '../../providers/reading_content_provider.dart';
+import '../../providers/source_action_provider.dart';
+import '../../domain/models/source_action_result.dart';
 import '../../providers/replace_rule_repository_provider.dart';
 import '../../providers/chapter_cache_provider.dart';
 import '../../providers/reader/reader_settings_provider.dart';

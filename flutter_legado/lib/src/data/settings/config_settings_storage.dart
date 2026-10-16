@@ -1,20 +1,20 @@
 import '../../domain/contracts/settings_storage.dart';
+import '../../domain/contracts/config_repository.dart';
 
-/// 绑定同一根配置访问，迁移期与旧消费者及 Mock 共享存储。— Codex + UI
+/// 延迟绑定配置仓储，启动预热不提前访问尚未打开的数据库。— Codex + UI
 final class ConfigSettingsStorage implements SettingsStorage {
-  const ConfigSettingsStorage({required this._read, required this._write});
+  const ConfigSettingsStorage({required this.repository});
 
-  final Future<String?> Function(String) _read;
-  final Future<void> Function(String, String) _write;
+  final ConfigRepository Function() repository;
 
   @override
-  Future<Object?> read(String key) => _read(key);
+  Future<Object?> read(String key) => repository().getConfig(key);
 
   @override
   Future<void> write(String key, Object? value) {
     if (value != null && value is! String) {
       throw ArgumentError('Rust 配置要求字符串值：$key');
     }
-    return _write(key, value as String? ?? '');
+    return repository().setConfig(key, value as String? ?? '');
   }
 }

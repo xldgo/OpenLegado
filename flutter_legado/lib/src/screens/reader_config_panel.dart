@@ -14,7 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../l10n/app_localization.dart';
-import '../providers/providers.dart';
+import '../providers/reading_content_provider.dart';
 import '../providers/reader/reader_notifier.dart';
 import '../routes.dart';
 import '../widgets/reader/reader_brightness_control.dart';
@@ -150,7 +150,9 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
 
   Future<void> _loadConvertType() async {
     try {
-      final type = await ref.read(bookApiProvider).getChineseConvertType();
+      final type = await ref
+          .read(readingContentServiceProvider)
+          .getChineseConvertType();
       if (!mounted) return;
       setState(() => _convertType = type.clamp(0, 2));
     } catch (_) {

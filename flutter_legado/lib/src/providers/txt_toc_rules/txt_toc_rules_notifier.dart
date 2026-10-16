@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/book_api.dart';
-import '../providers.dart';
+import '../../domain/contracts/txt_toc_rule_repository.dart';
+import '../domain_config_provider.dart';
 import 'txt_toc_rules_state.dart';
 
 export 'txt_toc_rules_state.dart';
@@ -23,7 +23,7 @@ const kDefaultTxtTocRulesAsset = 'assets/default_data/txtTocRule.json';
 ///
 /// [replaceAll] 为 true 时整表覆盖（首启从错误内置默认迁移时用）。
 Future<int> syncDefaultTxtTocRules(
-  BookApi api, {
+  TxtTocRuleRepository repository, {
   String? jsonOverride,
   bool replaceAll = false,
 }) async {
@@ -39,32 +39,20 @@ Future<int> syncDefaultTxtTocRules(
   if (replaceAll) {
     merged = defaults;
   } else {
-    final raw = await api.getConfig('txt_toc_rules');
-    final existing = <TxtTocRule>[];
-    if (raw != null && raw.isNotEmpty) {
-      final decoded = jsonDecode(raw) as List<dynamic>;
-      for (final item in decoded.whereType<Map<String, dynamic>>()) {
-        final rule = TxtTocRule.fromJson(item);
-        // 对标 deleteDefault：仅移除 id < 0 的默认规则，保留用户自定义
-        if (rule.id >= 0) existing.add(rule);
-      }
-    }
+    final existing = (await repository.getRules())
+        .where((rule) => rule.id >= 0)
+        .toList();
     merged = [...defaults, ...existing];
   }
-  await api.setConfig(
-    'txt_toc_rules',
-    jsonEncode(merged.map((r) => r.toJson()).toList()),
-  );
+  await repository.saveRules(merged);
   return defaults.length;
 }
 
 /// TXT 目录规则 Riverpod Notifier
 ///
-/// 规则列表经 BookApi.getConfig/setConfig 持久化，键 `txt_toc_rules`。
+/// 规则列表由领域仓储持久化，不在状态层解释配置键。
 /// 首启/「导入默认」对齐 Android DefaultData.txtTocRules。
 class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
-  static const _configKey = 'txt_toc_rules';
-
   @override
   TxtTocRulesState build() => const TxtTocRulesState();
 
@@ -72,33 +60,31 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
   Future<void> load() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
-      await _ensureDefaultTxtTocRules(api);
-      final raw = await api.getConfig(_configKey);
-      final rules = (raw == null || raw.isEmpty)
-          ? <TxtTocRule>[]
-          : _decode(raw);
+      final repository = ref.read(txtTocRuleRepositoryProvider);
+      await _ensureDefaultTxtTocRules(repository);
+      final rules = await repository.getRules();
       state = state.copyWith(rules: rules, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isLoading: false);
     }
   }
 
-  Future<void> _ensureDefaultTxtTocRules(BookApi api) async {
+  Future<void> _ensureDefaultTxtTocRules(
+    TxtTocRuleRepository repository,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final version = prefs.getInt(kTxtTocRuleVersionKey) ?? 0;
     if (version >= kTxtTocRuleVersion) return;
     // 版本 0→1：覆盖错误内置默认（id 1/2/3），对齐原版 assets
-    await syncDefaultTxtTocRules(api, replaceAll: true);
+    await syncDefaultTxtTocRules(repository, replaceAll: true);
     await prefs.setInt(kTxtTocRuleVersionKey, kTxtTocRuleVersion);
   }
 
   /// 菜单「导入默认」：覆盖默认规则（保留用户自定义 id>=0）
   Future<int> importDefaultRules() async {
-    final api = ref.read(bookApiProvider);
-    final n = await syncDefaultTxtTocRules(api);
-    final raw = await api.getConfig(_configKey);
-    final rules = (raw == null || raw.isEmpty) ? <TxtTocRule>[] : _decode(raw);
+    final repository = ref.read(txtTocRuleRepositoryProvider);
+    final n = await syncDefaultTxtTocRules(repository);
+    final rules = await repository.getRules();
     state = state.copyWith(rules: rules, error: null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(kTxtTocRuleVersionKey, kTxtTocRuleVersion);
@@ -139,21 +125,10 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
 
   Future<void> _persist(List<TxtTocRule> rules) async {
     try {
-      await ref.read(bookApiProvider).setConfig(_configKey, _encode(rules));
+      await ref.read(txtTocRuleRepositoryProvider).saveRules(rules);
     } catch (e) {
       state = state.copyWith(error: _mapError(e));
     }
-  }
-
-  String _encode(List<TxtTocRule> rules) =>
-      jsonEncode(rules.map((r) => r.toJson()).toList());
-
-  List<TxtTocRule> _decode(String raw) {
-    final list = jsonDecode(raw) as List<dynamic>;
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(TxtTocRule.fromJson)
-        .toList();
   }
 
   String _mapError(Object e) {

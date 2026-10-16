@@ -31,7 +31,8 @@ void main() {
       storages: {SettingsStorageKind.preferences: storage},
     );
     final api = MockRustApi();
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
     container = ProviderContainer(
       overrides: [
         bookApiProvider.overrideWithValue(api),

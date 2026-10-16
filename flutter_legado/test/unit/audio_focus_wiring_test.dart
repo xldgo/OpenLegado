@@ -123,7 +123,8 @@ void main() {
         });
     when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
         .thenAnswer((_) async => 0);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
     when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
 

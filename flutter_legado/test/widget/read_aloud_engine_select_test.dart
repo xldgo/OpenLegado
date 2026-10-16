@@ -52,8 +52,10 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => [const HttpTts(id: 1, name: engineName, url: engineUrl)],
     );
@@ -118,7 +120,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpBar(tester);
     expect(container.read(audioNotifierProvider).config.speed, 1.8);
-    verifyNever(() => api.setConfig(any(), any()));
+    verifyNever(() => api.configRepository.setConfig(any(), any()));
   });
 
   testWidgets('没有 HTTP 引擎时可选择系统 TTS，并保存固定标识', (tester) async {
@@ -132,8 +134,12 @@ void main() {
       container.read(audioNotifierProvider).config.engineUrl,
       systemTtsEngineUrl,
     );
-    verify(() => api.setConfig(kTtsEngineConfigKey, systemTtsEngineUrl))
-        .called(1);
+    verify(
+      () => api.configRepository.setConfig(
+        kTtsEngineConfigKey,
+        systemTtsEngineUrl,
+      ),
+    ).called(1);
     verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
     await settleSnackBar(tester);
   });

@@ -16,8 +16,10 @@ import '../mocks/mocks.dart';
 
 MockRustApi _api() {
   final api = MockRustApi();
-  when(() => api.getConfig(any())).thenAnswer((_) async => null);
-  when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
+  when(() => api.configRepository.getConfig(any()))
+      .thenAnswer((_) async => null);
+  when(() => api.configRepository.setConfig(any(), any()))
+      .thenAnswer((_) async {});
   return api;
 }
 

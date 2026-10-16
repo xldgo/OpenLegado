@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/bootstrap/login_v2_session_factory.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -91,7 +93,9 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => showDialog<bool>(
                 context: context,
-                builder: (_) => LoginV2Dialog.session(session: session),
+                builder: (_) => LoginV2Dialog(
+                  session: createHttpTtsLoginV2Session(session),
+                ),
               ),
               child: const Text('打开'),
             ),

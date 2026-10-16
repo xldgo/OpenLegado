@@ -1,3 +1,4 @@
+import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
@@ -67,7 +68,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_click_actions.dart';
+import 'package:flutter_legado/src/models/manga_click_actions.dart';
 import 'package:flutter_legado/src/screens/reader_comic/manga_page_image_resolver.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
 import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
@@ -219,10 +220,15 @@ class _ClickActionsMockApi extends MockBookApi {
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     _configs[key] = value;
     // [P4-3 M4 批2] 记录持久化调用（面板行为开关/背景色接线断言）
     setConfigCalls.add((key: key, value: value));

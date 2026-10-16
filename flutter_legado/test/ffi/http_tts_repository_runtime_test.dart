@@ -69,7 +69,7 @@ void main() {
     final remaining = (await repository.getHttpTts()).single;
     await repository.deleteHttpTts(remaining.id);
     expect(await repository.getHttpTts(), isEmpty);
-    await api.initialize();
+    await api.runtime.initialize();
     expect(api.httpTtsRepository, same(repository));
   });
 }

@@ -15,7 +15,7 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/reader_comic/manga_page_scale_type.dart';
+import 'package:flutter_legado/src/models/manga_page_scale_type.dart';
 
 void main() {
   group('[P4-3 E2] 解析（Contract L121 默认 0 = 全屏适配）', () {

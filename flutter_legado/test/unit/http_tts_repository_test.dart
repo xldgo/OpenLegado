@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/app/bootstrap/book_api_bootstrap.dart';
@@ -190,5 +192,8 @@ void main() {
 class _Api extends MockBookApi {
   int initializations = 0;
   @override
-  Future<void> initialize() async => initializations++;
+  MockAppRuntime get runtime => _fixtureRuntime;
+  late final _fixtureRuntime = MockAppRuntime(startup: _fixtureInitialize);
+
+  Future<void> _fixtureInitialize() async => initializations++;
 }

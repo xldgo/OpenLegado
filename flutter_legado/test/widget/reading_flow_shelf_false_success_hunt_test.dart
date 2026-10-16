@@ -60,7 +60,8 @@ void main() {
         .thenAnswer((_) async => const []);
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     // 写库失败（DB 异常 / 磁盘满 / 桥接错误）
     when(() => mockApi.bookshelfRepository.addBook(any()))
         .thenThrow(StateError('DB 写入失败（复现用）'));

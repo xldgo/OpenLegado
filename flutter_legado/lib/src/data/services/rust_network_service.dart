@@ -59,6 +59,9 @@ class RustNetworkService implements NetworkService {
   @override
   Future<void> setCustomHosts(String configuration) =>
       bridge.setCustomHosts(hostsJson: configuration);
+
+  @override
+  Future<void> clearCookie(String url) => bridge.clearCookie(url: url);
 }
 
 HttpTextResponse _textResponse(String raw, String url, String method) {

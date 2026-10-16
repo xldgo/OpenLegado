@@ -39,8 +39,10 @@ void main() {
     when(() => mockApi.searchHistoryRepository.clearSearchHistory())
         .thenAnswer((_) async {});
     when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     // 错误批次路径先 appLogPush 再记账——不打桩回调会在记账前抛异常

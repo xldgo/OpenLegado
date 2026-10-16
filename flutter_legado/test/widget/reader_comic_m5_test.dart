@@ -1,3 +1,4 @@
+import '../fixtures/config_repository.dart';
 import '../mocks/book_image_fixture.dart';
 
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
@@ -34,7 +35,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_click_actions.dart';
+import 'package:flutter_legado/src/models/manga_click_actions.dart';
 import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
@@ -139,10 +140,15 @@ class _M5MockApi extends MockBookApi {
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     configWrites.add([key, value]);
   }
 

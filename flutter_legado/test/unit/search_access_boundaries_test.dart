@@ -175,8 +175,8 @@ void main() {
         container.read(searchHistoryRepositoryProvider),
         same(second.searchHistoryRepository),
       );
-      verifyNever(() => first.initialize());
-      verifyNever(() => second.initialize());
+      verifyNever(() => first.runtime.initialize());
+      verifyNever(() => second.runtime.initialize());
     });
     test('只注入窄能力即可搜索，跨页参数与未知 hasMore 保持', () async {
       final service = SearchServiceMock();
@@ -205,7 +205,8 @@ void main() {
         );
       });
       final api = MockRustApi();
-      when(() => api.getConfig(any())).thenAnswer((_) async => null);
+      when(() => api.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
       final container = ProviderContainer(
         overrides: [
           bookApiProvider.overrideWithValue(api),
@@ -225,7 +226,7 @@ void main() {
       expect(pages, [1, 2]);
       expect(container.read(searchNotifierProvider).results, hasLength(1));
       expect((await repository.getSearchHistory()).single.word, '词');
-      verifyNever(() => api.initialize());
+      verifyNever(() => api.runtime.initialize());
       verifyNever(
         () => api.searchService.searchMultiStream(
           any(),

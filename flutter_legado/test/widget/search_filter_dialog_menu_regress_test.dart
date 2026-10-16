@@ -44,8 +44,10 @@ void main() {
     when(() => mockApi.searchHistoryRepository.clearSearchHistory())
         .thenAnswer((_) async {});
     when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
@@ -127,7 +129,9 @@ void main() {
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       expect(find.text('搜索结果屏蔽词'), findsNothing);
-      verify(() => mockApi.setConfig('searchResultFilter', '广告')).called(1);
+      verify(
+        () => mockApi.configRepository.setConfig('searchResultFilter', '广告'),
+      ).called(1);
 
       // 按钮进入「已开启」态，且随后开 ⚙ 设置弹层仍无红屏
       expect(find.byTooltip('搜索结果过滤（已开启）'), findsOneWidget);

@@ -126,8 +126,10 @@ void main() {
           (call) async =>
               call.positionalArguments[1] == 0 ? '第一段。\n\n第二段。' : '下一章。',
         );
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.setConfig(any(), any())).thenAnswer((_) async {});
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
     when(
       () => api.httpTtsSynthesizer.synthesize(
         cancellation: any(named: 'cancellation'),
@@ -545,7 +547,8 @@ void main() {
   });
 
   test('旧书级手动语速迁移到独立偏好，跟随开关不会丢失原值', () async {
-    when(() => api.getConfig('ttsFollowSys')).thenAnswer((_) async => 'false');
+    when(() => api.configRepository.getConfig('ttsFollowSys'))
+        .thenAnswer((_) async => 'false');
     when(() => api.bookshelfRepository.getBook('book')).thenAnswer(
       (_) async => const Book(
         bookUrl: 'book',
@@ -560,7 +563,8 @@ void main() {
     await notifier().startReadAloud(bookUrl: 'book', bookName: '小说');
     await flush();
     expect(system.speeds.last, 1.7);
-    verify(() => api.setConfig('ttsSpeechRate', '12')).called(1);
+    verify(() => api.configRepository.setConfig('ttsSpeechRate', '12'))
+        .called(1);
     await notifier().setReadAloudFollowSystem(true);
     await flush();
     expect(system.speeds.last, 1);
@@ -739,8 +743,12 @@ void main() {
     expect(notifier().resolveTtsEngineUrl(), systemTtsEngineUrl);
     await notifier().setGlobalTtsEngine(systemTtsEngineUrl);
     expect(saved.readConfig?.ttsEngine, isNull);
-    verify(() => api.setConfig(kTtsEngineConfigKey, systemTtsEngineUrl))
-        .called(1);
+    verify(
+      () => api.configRepository.setConfig(
+        kTtsEngineConfigKey,
+        systemTtsEngineUrl,
+      ),
+    ).called(1);
     expect(notifier().resolveTtsEngineUrl(), systemTtsEngineUrl);
     verifyNever(() => api.httpTtsRepository.getHttpTts());
   });

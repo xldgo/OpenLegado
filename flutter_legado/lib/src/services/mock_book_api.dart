@@ -1,3 +1,19 @@
+import '../domain/contracts/config_repository.dart';
+import '../domain/contracts/app_runtime.dart';
+import '../data/repositories/mock_config_repository.dart';
+import '../data/bridge/mock_app_runtime.dart';
+import '../domain/contracts/reading_content_service.dart';
+import '../domain/contracts/source_action_service.dart';
+import '../data/services/mock_reading_content_service.dart';
+import '../data/services/mock_source_action_service.dart';
+import '../domain/contracts/book_source_edit_service.dart';
+import '../domain/contracts/source_login_v2_service.dart';
+import '../domain/contracts/verification_service.dart';
+import '../domain/contracts/webview_bridge_service.dart';
+import '../data/services/mock_book_source_edit_service.dart';
+import '../data/services/mock_source_login_v2_service.dart';
+import '../data/services/mock_verification_service.dart';
+import '../data/services/mock_webview_bridge_service.dart';
 import '../domain/contracts/network_service.dart';
 import '../domain/contracts/local_server_service.dart';
 import '../domain/contracts/rule_execution_service.dart';
@@ -116,12 +132,8 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 import 'book_api.dart';
 
 part 'mock_book_api_store.part.dart';
-part 'mock_book_api_sources.part.dart';
-part 'mock_book_api_reader_data.part.dart';
-part 'mock_book_api_discovery_cache.part.dart';
 
-// ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：MockBookApi 按域拆为 mixin 组合，
-// 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
+// 保留内存配置与运行时入口；独立Mock能力由同一装配点共享。
 
 /// Mock 书籍 API 实现
 ///
@@ -150,13 +162,21 @@ part 'mock_book_api_discovery_cache.part.dart';
 ///   内容已全部替换为虚构数据（书名/作者/URL 均为示例值，http(s) 主机名
 ///   仅 example.com，不指向任何真实站点）；
 ///   来源与脱敏口径见 assets/mock_data/README.md。
-class MockBookApi
-    with
-        MockBookApiStore,
-        MockBookApiSources,
-        MockBookApiReaderData,
-        MockBookApiDiscoveryCache
-    implements BookApi {
+class MockBookApi with MockBookApiStore implements BookApi {
+  @override
+  late final ReadingContentService readingContentService;
+  @override
+  late final SourceActionService sourceActionService;
+
+  @override
+  late final BookSourceEditService bookSourceEditService;
+  @override
+  late final SourceLoginV2Service sourceLoginV2Service;
+  @override
+  late final VerificationService verificationService;
+  @override
+  late final WebViewBridgeService webViewBridgeService;
+
   @override
   late final NetworkService networkService;
   @override
@@ -254,7 +274,19 @@ class MockBookApi
   @override
   late final CacheDownloadService cacheDownloadService;
 
+  @override
+  late final ConfigRepository configRepository;
+  @override
+  late final AppRuntime runtime;
+
   MockBookApi({
+    AppRuntime? runtime,
+    ReadingContentService? readingContentService,
+    SourceActionService? sourceActionService,
+    BookSourceEditService? bookSourceEditService,
+    SourceLoginV2Service? sourceLoginV2Service,
+    VerificationService? verificationService,
+    WebViewBridgeService? webViewBridgeService,
     NetworkService? networkService,
     LocalServerService? localServerService,
     RuleExecutionService? ruleExecutionService,
@@ -305,6 +337,20 @@ class MockBookApi
     SearchService? searchService,
     SearchHistoryRepository? searchHistoryRepository,
   }) {
+    configRepository = MockConfigRepository(values: _configs);
+    this.runtime = runtime ?? MockAppRuntime(startup: _ensureBooksLoaded);
+    this.readingContentService =
+        readingContentService ?? MockReadingContentService(configs: _configs);
+    this.sourceActionService =
+        sourceActionService ?? const MockSourceActionService();
+    this.bookSourceEditService =
+        bookSourceEditService ?? const MockBookSourceEditService();
+    this.sourceLoginV2Service =
+        sourceLoginV2Service ?? const MockSourceLoginV2Service();
+    this.verificationService =
+        verificationService ?? const MockVerificationService();
+    this.webViewBridgeService =
+        webViewBridgeService ?? const MockWebViewBridgeService();
     this.networkService =
         networkService ?? MockNetworkService(configs: _configs);
     this.localServerService =
@@ -469,16 +515,4 @@ class MockBookApi
   late final SearchService searchService;
   @override
   late final SearchHistoryRepository searchHistoryRepository;
-
-  // ========== 初始化/版本 ==========
-
-  @override
-  Future<void> initialize() async {
-    // Mock 模式无需初始化；确保书架样例资产已加载
-    // （MockBookApi 构造器保持同步，资产读取为异步，经守卫惰性完成）
-    await _ensureBooksLoaded();
-  }
-
-  @override
-  Future<String> getVersion() async => 'mock-1.0.0';
 }

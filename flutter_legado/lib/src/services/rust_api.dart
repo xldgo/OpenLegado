@@ -1,3 +1,11 @@
+import '../domain/contracts/config_repository.dart';
+import '../domain/contracts/app_runtime.dart';
+import '../domain/contracts/reading_content_service.dart';
+import '../domain/contracts/source_action_service.dart';
+import '../domain/contracts/book_source_edit_service.dart';
+import '../domain/contracts/source_login_v2_service.dart';
+import '../domain/contracts/verification_service.dart';
+import '../domain/contracts/webview_bridge_service.dart';
 import '../domain/contracts/network_service.dart';
 import '../domain/contracts/local_server_service.dart';
 import '../domain/contracts/rule_execution_service.dart';
@@ -54,35 +62,27 @@ import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
 
 import '../data/bridge/runtime_configuration.dart';
-import '../data/bridge/rust_json_decode.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
 import '../domain/contracts/http_tts_repository.dart';
 import '../domain/contracts/http_tts_synthesizer.dart';
 
-import '../bridge/rust_lib.dart' as bridge;
 import 'book_api.dart';
 export '../data/bridge/rust_api_exception.dart';
-import 'platform_bridge_service.dart';
 
-part 'rust_api_decode.part.dart';
-part 'rust_api_sources.part.dart';
-part 'rust_api_reader_data.part.dart';
-part 'rust_api_discovery_cache.part.dart';
+// 领域能力、配置仓储及运行时分别注入，根集合不再实现业务方法。
 
-// ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：RustApi 按域拆为 mixin 组合，
-// 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
-
-/// Rust FFI 统一访问层
-///
-/// 所有数据库操作通过 flutter_rust_bridge 生成的桥接函数调用 Rust 侧。
-/// 尚未在 Rust FFI 中暴露的方法使用 Dart 侧 fallback 实现。
-class RustApi
-    with RustApiDecode, RustApiSources, RustApiReaderData, RustApiDiscoveryCache
-    implements BookApi, ReadingConfigSync, ThemeConfigSync {
+/// 应用装配共享的服务集合，保留运行时与配置入口。— Codex + Bridge
+class RustApi implements BookApi, ReadingConfigSync, ThemeConfigSync {
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required ReadingContentService readingContentService,
+    required SourceActionService sourceActionService,
+    required BookSourceEditService bookSourceEditService,
+    required SourceLoginV2Service sourceLoginV2Service,
+    required VerificationService verificationService,
+    required WebViewBridgeService webViewBridgeService,
     required NetworkService networkService,
     required LocalServerService localServerService,
     required RuleExecutionService ruleExecutionService,
@@ -124,7 +124,8 @@ class RustApi
     required ChapterCacheRepository chapterCacheRepository,
     required CacheDownloadService cacheDownloadService,
     required ReadingRepository readingRepository,
-    required Future<void> Function() initialize,
+    required AppRuntime runtime,
+    required ConfigRepository configRepository,
     required ReadingConfigSync readingConfigSync,
     required BookmarkRepository bookmarkRepository,
     required ReadRecordRepository readRecordRepository,
@@ -140,6 +141,12 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    readingContentService,
+    sourceActionService,
+    bookSourceEditService,
+    sourceLoginV2Service,
+    verificationService,
+    webViewBridgeService,
     networkService,
     localServerService,
     ruleExecutionService,
@@ -179,7 +186,8 @@ class RustApi
     chapterCacheRepository,
     cacheDownloadService,
     readingRepository,
-    initialize,
+    runtime,
+    configRepository,
     readingConfigSync,
     bookmarkRepository,
     readRecordRepository,
@@ -197,6 +205,12 @@ class RustApi
   );
 
   RustApi._(
+    this.readingContentService,
+    this.sourceActionService,
+    this.bookSourceEditService,
+    this.sourceLoginV2Service,
+    this.verificationService,
+    this.webViewBridgeService,
     this.networkService,
     this.localServerService,
     this.ruleExecutionService,
@@ -236,7 +250,8 @@ class RustApi
     this.chapterCacheRepository,
     this.cacheDownloadService,
     this.readingRepository,
-    this._initialize,
+    this.runtime,
+    this.configRepository,
     this._readingConfigSync,
     this.bookmarkRepository,
     this.readRecordRepository,
@@ -252,6 +267,20 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final ReadingContentService readingContentService;
+  @override
+  final SourceActionService sourceActionService;
+
+  @override
+  final BookSourceEditService bookSourceEditService;
+  @override
+  final SourceLoginV2Service sourceLoginV2Service;
+  @override
+  final VerificationService verificationService;
+  @override
+  final WebViewBridgeService webViewBridgeService;
 
   @override
   final NetworkService networkService;
@@ -349,7 +378,10 @@ class RustApi
   @override
   final CacheDownloadService cacheDownloadService;
 
-  final Future<void> Function() _initialize;
+  @override
+  final AppRuntime runtime;
+  @override
+  final ConfigRepository configRepository;
   final ReadingConfigSync _readingConfigSync;
 
   @override
@@ -390,10 +422,6 @@ class RustApi
   @override
   final SearchHistoryRepository searchHistoryRepository;
 
-  /// 应用装配点提供完整生命周期，不在业务适配器中读取平台或设置。
-  @override
-  Future<void> initialize() => _initialize();
-
   /// 保留既有能力入口，调用方通过 ReadingConfigSync 注入访问。
   @override
   Future<void> refreshReadBookConfig() =>
@@ -403,8 +431,4 @@ class RustApi
   Future<void> synchronizeThemeConfig() => _readingConfigSync is ThemeConfigSync
       ? (_readingConfigSync as ThemeConfigSync).synchronizeThemeConfig()
       : Future.value();
-
-  /// 获取 Rust 引擎版本号
-  @override
-  Future<String> getVersion() => bridge.version();
 }

@@ -9,6 +9,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,7 @@ import 'package:share_plus_platform_interface/share_plus_platform_interface.dart
 import 'package:share_plus_platform_interface/method_channel/method_channel_share.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/routes.dart';
@@ -83,14 +85,14 @@ void main() {
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => const []);
     when(
-      () => mockApi.sourceCallBackBtn(
+      () => mockApi.sourceActionService.sourceCallBackBtn(
         event: any(named: 'event'),
         bookUrl: any(named: 'bookUrl'),
         result: any(named: 'result'),
         bookType: any(named: 'bookType'),
       ),
     ).thenAnswer(
-      (_) async => {'invoked': false, 'jsTrue': false, 'actions': <dynamic>[]},
+      (_) async => SourceCallbackResult(invoked: false, jsTrue: false),
     );
   }
 
@@ -129,6 +131,101 @@ void main() {
         '${book.bookUrl}#${jsonEncode(book.toJson())}',
       );
     });
+
+    for (final handled in [false, true]) {
+      testWidgets(handled ? '回调接管后不重复默认分享、复制和清缓存' : '回调未接管时继续默认分享、复制和清缓存', (
+        tester,
+      ) async {
+        const book = Book(
+          bookUrl: 'https://source.test/book',
+          name: '书',
+          tocUrl: 'https://source.test/toc',
+        );
+        stubBook(book);
+        await loadGroups(const []);
+        final events = <String>[];
+        final shares = <MethodCall>[];
+        final copies = <String>[];
+        when(
+          () => mockApi.sourceActionService.sourceCallBackBtn(
+            event: any(named: 'event'),
+            bookUrl: book.bookUrl,
+            result: any(named: 'result'),
+            bookType: 0,
+          ),
+        ).thenAnswer((call) async {
+          events.add(call.namedArguments[#event] as String);
+          return SourceCallbackResult(invoked: handled, jsTrue: handled);
+        });
+        when(() => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl))
+            .thenAnswer((_) async => 5);
+        const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          shareChannel,
+          (call) async {
+            shares.add(call);
+            return 'dev.fluttercommunity.plus/share/unavailable';
+          },
+        );
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copies.add((call.arguments as Map)['text'] as String);
+            }
+            return null;
+          },
+        );
+        addTearDown(() {
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            shareChannel,
+            null,
+          );
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          );
+        });
+        await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('分享'));
+        await tester.pumpAndSettle();
+        final menu = tester.widget<AppMenuButton<String>>(
+          find.byType(AppMenuButton<String>).first,
+        );
+        for (final action in ['copyBookUrl', 'copyTocUrl', 'clearCache']) {
+          menu.onSelected!(action);
+          await tester.pumpAndSettle();
+          if (action != 'clearCache') {
+            // 等前一个复制提示消失，避免遮住后续清缓存结果。
+            await tester.pump(const Duration(seconds: 5));
+            await tester.pumpAndSettle();
+          }
+        }
+        expect(events, [
+          'clickShareBook',
+          'clickCopyBookUrl',
+          'clickCopyTocUrl',
+          'clickClearCache',
+        ]);
+        expect(shares, hasLength(handled ? 0 : 1));
+        expect(copies, handled ? isEmpty : equals([book.bookUrl, book.tocUrl]));
+        if (handled) {
+          verifyNever(
+            () => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl),
+          );
+          expect(find.textContaining('已清除'), findsNothing);
+        } else {
+          verify(
+            () => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl),
+          ).called(1);
+          expect(find.text('已清除 5 条章节缓存'), findsOneWidget);
+        }
+        await tester.pump(const Duration(seconds: 12));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('无独立「目录：」/「分组：」行、无「🏷️ 标签行」，'
         'kind 信息以 chips 行呈现，章数由「共 N 章」行承载', (tester) async {
@@ -290,7 +387,7 @@ void main() {
       await tester.longPress(find.text('武侠'));
       await tester.pumpAndSettle();
       verify(
-        () => mockApi.sourceCallBackBtn(
+        () => mockApi.sourceActionService.sourceCallBackBtn(
           event: 'longClickBookLabel',
           bookUrl: book.bookUrl,
           result: '武侠',
