@@ -24,6 +24,12 @@ class _Audio extends AudioNotifier {
   String url;
   @override
   AudioState build() => AudioState(config: TtsConfig(engineUrl: url));
+  // 展示测试只提供选中值，不依赖真实播放服务的构造细节。
+  @override
+  String resolveTtsEngineUrl() => state.config.engineUrl;
+  @override
+  Future<int?> resolveTtsEngineId() async =>
+      int.tryParse(state.config.engineUrl);
   void select(String value) {
     url = value;
     state = state.copyWith(config: TtsConfig(engineUrl: value));

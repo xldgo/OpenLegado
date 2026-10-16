@@ -1,12 +1,26 @@
 # API 契约文档
 
+## 引擎选择与书级偏好Dart边界（2026-10-17，实施前冻结）
+
+ReadAloudSelectionService负责默认引擎、书级优先/全局回退、HTTP稳定ID与音色选择保存；
+AudioBookPreferencesService负责书级配置读取、模式合并与倍速防抖，提供同一readConfig
+串行修改入口供引擎/模式/倍速使用，不覆盖未修改字段。服务不持有Ref或AudioNotifier，
+不保存第二份书籍/播放配置；经明确宿主端口读取唯一Book/AudioState、发布配置或调用
+现有重启入口。播放参数生效和重新起播规则仍由AudioNotifier的现有公开方法执行。
+保存使用发起书籍身份；切书后旧结果不替换当前书籍，销毁取消尚未执行的防抖任务。
+现有ReadAloudSelectionRepository仅负责选择存取，BookshelfRepository及AudioBookService
+保留数据访问/模式合并。默认种子、存储键、Rust/FRB、数据库、原生平台与版本不变。
+
+编写者：Codex + UI｜2026-10-17
+
 ## 音频书播放Dart边界（2026-10-16，实施前冻结）
 
 AudioBookController拥有音频书取址/可播章查找、进度恢复、片头片尾、流媒体回调、
 自然完成/循环衔接及进度保存；依赖现有AudioBookService、播放设置仓储与共享播放器。
 通过明确宿主端口读取唯一AudioState及全局播放标识，发布状态并请求章导航/定时边界、
 系统朗读停止和媒体激活；不持有Riverpod Ref或AudioNotifier，不增加独立播放状态。
-AudioNotifier保留模式分流、章导航、书级偏好、定时停止和现有公开API，
+AudioNotifier保留模式分流、章导航、定时停止和现有公开API，书级偏好委托
+AudioBookPreferencesService，引擎选择委托ReadAloudSelectionService，
 MediaSessionCoordinator继续管理系统媒体展示，ReadAloudController继续管理朗读。
 暂停/切章/停止写入调用时所属书章；销毁仅使用宿主提供的最终快照尽力保存一次，
 不在销毁后读取Ref或状态。共享播放器由既有宿主/引擎清理路径停止及释放，不重复销毁。

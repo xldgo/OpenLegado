@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### AUDIO-SELECTION-PREFERENCES-20261017：引擎选择与书级播放偏好拆分（P1）
+
+- 授权与基线：用户确认开始上一轮整批方案；feature/ui-reader-selection / f6a48e5e7，开始工作区干净，保留已合入Rust上下文重构。Codex直接执行，不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批实现与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；真实数据库、引擎服务、native及设备验证后置。
+- 范围：ReadAloudSelectionService接管默认选择、书级优先/全局回退、稳定HTTP ID解析与音色选择保存；AudioBookPreferencesService接管书级补读、模式/倍速读取应用、readConfig合并保存与600ms倍速防抖。AudioNotifier保留唯一书籍、AudioState、播放标识与公开API，通过明确端口应用配置和执行既有重新起播规则。
+- 边界：不注入Ref或整个Notifier，不复制书籍/播放快照；书级引擎、模式和倍速共用偏好服务的串行修改入口，保留未修改字段。延迟保存绑定发起书籍，旧书结果不替换当前书；销毁取消未执行计时器，不在销毁后访问Ref或宿主状态。沿用原引擎种子、失败策略、存储键与类型化仓储。
+- 验收：独立服务行为测试覆盖优先级/稳定ID/默认选择/音色校验、全局清书级、配置字段保留、读取不回写、防抖/切书/失败/销毁；既有引擎、朗读、音频书和媒体/定时回归，完整静态分析、格式和差异检查。
+- 实现：新增ReadAloudSelectionService、AudioBookPreferencesService及AudioPreferencesHost明确端口，迁走默认引擎、层级/ID解析、全局/书级选择、HTTP/云端音色保存和书级模式/倍速读取写入。AudioNotifier保留原公开方法、唯一书籍/播放配置和参数生效/重新起播实现；引擎与偏好存储沿用原仓储，系统音色插件和配置入口保持原路径。原常量及URL归一只有一份实现，经旧入口导出供既有消费者使用。
+- 保存与行为：引擎、模式和倍速在同一服务串行修改readConfig，执行时读取同书的当前快照或存储值，不覆盖其他字段；书级写库成功才发布新Book，失败保留原快照且后续可重试。读取倍速显式禁止回写，拖回原倍速取消待写中间值；切书后延迟保存仍写原书且不替换新书或重启其朗读。销毁取消未执行计时器与待执行写入；全局选择保存失败沿用原内存选择及提示策略，不宣称跨书籍与全局键具备事务性。
+- 验证结果：相关51份单元与Widget测试共565项通过（测试输出29秒），新增19项独立服务测试包含在组合中，不重复累计；覆盖默认选择、优先级、稳定负数ID、失效身份、音色/情感、只读应用、串行字段合并、失败重试、防抖/回原值、切书归属、销毁与实例隔离。原引擎种子、朗读、音频书、媒体/定时、播放器及阅读入口回归通过。完整flutter analyze --no-pub无问题（34.5秒），7份Dart格式及git diff --check通过。
+- 失败与修正：首轮遗漏isCloudTts导入及两处生产花括号lint已修正，定向既有52项与独立服务16项通过；补齐后服务用例共19项。首轮组合的5项播放器信息展示测试因替身跳过真实build但调用新增服务失败，已显式覆盖替身选中值与ID，不增加生产回退、不删除原断言；另修正夹具导入/花括号lint。定向24项及最终565项均通过，初始失败日志仍保留。
+- 证据与边界：忽略目录flutter_legado/build/audio-selection-preferences-qa/保存regression-final.log、analysis-final.log、regression-files.txt及final-manifest.json，失败记录为existing-initial.log、regression-initial.log及analysis-recheck.log。Codex直接实现与自查，不使用子代理或声称独立审查；本批按用户授权本地提交，未推送、触发CI或构建安装，Rust/FRB、数据库、依赖、原生平台、UI布局及版本未变。测试不作为真实数据库、远程引擎、native或设备验收。
+- 非目标：不拆定时器，不改Rust/FRB、数据库结构、存储格式、依赖、原生平台、UI及版本，不扩展引擎功能。
+
+编写者：Codex｜2026-10-17
+
 ### ENGINE-CONTEXT-20261016：Rust 引擎上下文收敛（P1）
 
 - 授权与基线：用户要求由 Codex 负责 Rust 部分，使用独立 worktree、先形成完整计划、不使用子代理。基于主目录已提交的 feature/ui-reader-selection / d897d8c64；新工作树 build/worktrees/rust-engine-context，分支 feature/rust-engine-context，不带入主目录未提交的 Flutter/RSS/契约修改。
